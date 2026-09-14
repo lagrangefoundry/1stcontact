@@ -45,6 +45,7 @@ import { openAccountSurface } from '../apps/control-app/src/builder/business.js'
  */
 
 const ACCOUNT_ENDPOINT = '/api/businesses'
+const ACCEPTANCES_ENDPOINT = '/api/acceptances'
 
 /** The shipped default, assembled exactly as the store's own loader assembles it. */
 function loadPortal() {
@@ -52,7 +53,7 @@ function loadPortal() {
     slug: PORTAL_SLUG,
     sourceDir: '',
     base: portalSiteJson(),
-    pages: [portalHomePage(ACCOUNT_ENDPOINT)],
+    pages: [portalHomePage(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT)],
     assetFiles: [],
   })
   if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors))
@@ -80,7 +81,7 @@ describe('REQ-183 — the portal is site content, not a template', () => {
     // as one, and `renderSiteFiles` — the ONE render, of which `1c render` is a
     // writer and the request path is a reader — produces the page. A portal built
     // as an `apps/control-app` template would pass no part of this.
-    const site = { ...portalSiteJson(), pages: [portalHomePage(ACCOUNT_ENDPOINT)] }
+    const site = { ...portalSiteJson(), pages: [portalHomePage(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT)] }
     expect(validateSite(site).ok).toBe(true)
 
     const { html, files } = await renderPortal()
@@ -123,7 +124,7 @@ describe('REQ-183 — the portal is site content, not a template', () => {
     // erasure means cannot validate — which is the only way to stop the next
     // author shipping the control on its own.
     const meta = accountPortalMeta
-    const complete = portalHomePage(ACCOUNT_ENDPOINT).modules as Array<Record<string, unknown>>
+    const complete = portalHomePage(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT).modules as Array<Record<string, unknown>>
     const slots = complete[0].slots as Record<string, unknown>
     expect(validateBehaviorSlots(meta, slots as never)).toEqual([])
 
@@ -202,24 +203,31 @@ describe('REQ-183 — the portal is site content, not a template', () => {
 
 describe('REQ-183 — no deletion mechanism is built', () => {
   it('test_UAT_FC_REQ-183_the_module_has_no_verb_that_could_destroy_anything', () => {
-    // The acceptance's flat prohibition, made mechanical. The portal reads and
-    // grants nothing (§6) and deletes nothing (§4.1), so the vetted client makes
-    // exactly one kind of request. A later hand adding a destructive call has to
-    // delete this assertion to do it, which is the point — the button must not be
-    // readable as evidence that the machinery behind it exists.
+    // The acceptance's flat prohibition, made mechanical. The portal grants
+    // nothing (§6) and deletes nothing (§4.1), so the vetted client makes no
+    // destructive request at all. A later hand adding one has to delete this
+    // assertion to do it, which is the point — the button must not be readable as
+    // evidence that the machinery behind it exists.
+    //
+    // [[REQ-245]] OPENED THE CONTRACT BY EXACTLY ONE THING, and the assertion
+    // changed shape rather than weakening: the `POST` that sets a preference is
+    // named here, and every other verb is still absent. `DELETE` in particular is
+    // the one this file exists to keep out.
     const client = fs.readFileSync(
       path.join(__dirname, '..', 'packages/framework/src/modules/account-portal/client.js'),
       'utf8',
     )
-    expect(client).not.toMatch(/method:\s*'(POST|PUT|PATCH|DELETE)'/i)
-    expect(client.match(/method:\s*'[A-Z]+'/g) ?? []).toEqual(["method: 'GET'"])
+    expect(client).not.toMatch(/method:\s*'(PUT|PATCH|DELETE)'/i)
+    expect(new Set(client.match(/method:\s*'[A-Z]+'/g) ?? [])).toEqual(
+      new Set(["method: 'GET'", "method: 'POST'"]),
+    )
 
-    // And the contract has nowhere to put one: one endpoint field, and it is the
-    // one that answers who is asking.
+    // And the contract still has nowhere to put a destructive one: two endpoint
+    // fields, one that answers who is asking and one that carries preferences.
     const urls = Object.entries(accountPortalMeta.config)
       .filter(([, spec]) => spec.type === 'url')
       .map(([name]) => name)
-    expect(urls).toEqual(['account'])
+    expect(urls).toEqual(['account', 'acceptances'])
   })
 })
 
@@ -414,7 +422,7 @@ describe('REQ-183 — the shipped default is a real store, not a branch', () => 
     // what makes the surface reachable everywhere on the day it lands. It is a
     // real `SiteStore` rather than a special case in the renderer, so the
     // fallback and an authored portal arrive at the renderer identically.
-    const store = portalFallbackStore(ACCOUNT_ENDPOINT)
+    const store = portalFallbackStore(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT)
     expect(await store.hasDraft(PORTAL_SLUG)).toBe(true)
     expect(store.slugs()).toEqual([PORTAL_SLUG])
 
