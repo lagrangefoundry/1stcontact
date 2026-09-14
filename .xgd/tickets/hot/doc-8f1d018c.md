@@ -5,13 +5,14 @@ type: doc
 title: 'Site addressing: what URL reaches a site, and what a name is allowed to mean'
 created_by: CHAT-40
 created_at: '2026-09-06T18:54:28.856907+00:00'
-updated_at: '2026-09-13T20:40:40.179855+00:00'
+updated_at: '2026-09-14T03:49:01.989853+00:00'
 completed_at: null
 last_field_updated: body
 status: open
 fields:
   doc_kind: architecture
 ---
+
 
 
 
@@ -140,10 +141,26 @@ deleting it.** Not the exposure argument, which §8 declines.
 
 ### Sequencing
 
-Because it is the only public address today, it cannot simply go. *"The
-`/site/<key>/` grammar is deleted"* is an **acceptance criterion of the custom-host
-work**, not a separate cleanup, and that work must follow §6 rather than precede
-it.
+Because it is the only public address today, it cannot simply go. This section
+used to say the deletion was *"an acceptance criterion of the custom-host work,
+not a separate cleanup"*, and that the work must follow §6. **The §6 condition is
+now met** — [[REQ-236]] has landed — and the sequencing has been **corrected**:
+the deletion is a separate piece of work, gated on something outside this
+repository.
+
+**The gate is operator work, not code.** Host→site resolution needs the wildcard
+`A`/`AAAA` record and the `*.1stc.site` wildcard certificate ([[TODO-6]] §5,
+marked `[op]` and not done), and the isolation property needs the PSL submission
+([[TODO-6]] §1, weeks of lead time that cannot be shortened). Until those exist,
+a host-based resolver is code that cannot work, and deleting the path grammar
+would remove the only address that resolves and replace it with one that does
+not.
+
+So the mapping table, the label and the publish gate land first and alone
+([[REQ-238]]); resolution and this deletion are the ticket after, blocked on
+[[TODO-6]] §§1 and 5. **In the interval a claimed hostname does not yet resolve
+and `/site/<key>/` still serves.** That is the intended state and not a defect;
+the falsifier below applies from the moment resolution ships, not before.
 
 **Falsifier:** a second way to reach published bytes that is not a host mapping.
 
@@ -176,9 +193,14 @@ Sketch, not a schema:
 site_domains(id PK opaque, site_id → sites.id, host UNIQUE, kind, status, …)
 ```
 
+`status` is not decoration. It carries revocation (§7) and, later, the fee-gated
+change path, and **every read of this table filters to the active status** — a
+row that is still present is not the same as an address that still works.
+
 **Falsifier:** a host as a primary key; a site referenced from this table by
-anything but its key; or a uniqueness scope in this system whose reason nobody
-can state ([[DOC-43]] §4's original falsifier, unchanged).
+anything but its key; a read path that resolves a host without filtering on
+`status`; or a uniqueness scope in this system whose reason nobody can state
+([[DOC-43]] §4's original falsifier, unchanged).
 
 ## 6. The site slug has no job left
 
@@ -277,6 +299,24 @@ for friction rather than for revenue. §5's table already carries `status`, so i
 arrives as a new row and a status flip rather than as a schema change. It is not
 in scope and nothing should be built in anticipation of it.
 
+**Finality is what makes revocation necessary, and revocation exists from day
+one.** These are the same decision seen from both ends. An owner cannot change
+their own label, so a label that has to go — impersonation, abuse, a brand
+complaint — can only go by our hand; and whatever the reserved list says,
+something will get through it ([[TODO-6]] §2). The only alternative to revocation
+is leaving it up.
+
+- It is an **operator action, never self-service.** A customer-facing path to
+  giving up a label would be the freely-swappable label this section rejects,
+  wearing a different word.
+- It is a **status flip, never an update to `host`** — §5's row carries `status`
+  for exactly this, and the falsifier below is unchanged by it.
+- **Every read filters to the active status.** That filter is where a revoked
+  label actually stops resolving; the column without it is decoration.
+- **A revoked label is never re-issued**, for the same reason a claimed one is
+  never recycled: a stranger would inherit whatever traffic and reputation the
+  previous holder built.
+
 **Finality decides how the choice is asked, not just what is stored.** A
 permanent name, entered as free text, by the low-tech customer this product is
 for, is a permanent typo waiting to happen. Whatever asks for it must show the
@@ -372,7 +412,12 @@ one.
 ## 11. Open decisions
 
 1. **Does `sites.name` carry any uniqueness?** Recommendation: none. A list the
-   operator reads is not a namespace.
+   operator reads is not a namespace. **This item is about `sites.name` and has
+   been read as covering `tenants.name`, which it does not.** The business name
+   was settled separately and the other way — unique within its owning account,
+   compared case-folded and whitespace-collapsed, shipped in [[REQ-237]] — because
+   two indistinguishable rows in one switcher is a different failure from a long
+   list. Neither answer constrains the other.
 2. **Which apex** (§9), and whether the product sells domains.
 3. **Whether form B is a frozen snapshot or a live draft render** (§2).
    Recommendation: frozen, for the three reasons given there.
@@ -411,12 +456,19 @@ one.
 
 ## Order of work
 
-1. **§6, the slug** — first, because the host work would otherwise be built on a
-   token scheduled to disappear, and because the window in §6 is open now.
-2. **§5 and §7, the mapping table and the platform label** — the first real
-   address.
-3. **§4, deleting the path grammar** — an acceptance criterion of (2), not a
-   separate ticket.
-4. **§2 form B, the share link.**
-5. **Custom hostnames**, which are (2) plus certificate provisioning, and which
+1. ~~**§6, the slug**~~ — **done** ([[REQ-236]]). It went first because the host
+   work would otherwise have been built on a token scheduled to disappear.
+2. **§5 and §7, the mapping table and the platform label** — the record, the
+   availability check, the claim, revocation and the publish gate. [[REQ-238]].
+   *The address is chosen here; it does not yet resolve.*
+3. **[[TODO-6]] §§1 and 5, the operator items** — PSL submission, wildcard
+   `A`/`AAAA`, `*.1stc.site` certificate, CAA. **Not code, and on the critical
+   path**: (4) cannot ship without them, and §1's lead time is weeks, so it wants
+   starting before (2) rather than after.
+4. **§4, deleting the path grammar** — host→site resolution, then the deletion.
+   Originally listed as *"an acceptance criterion of (2), not a separate ticket"*;
+   **corrected** — see §4's Sequencing. It is separate work, gated on (3) and not
+   on (2).
+5. **§2 form B, the share link.**
+6. **Custom hostnames**, which are (2) plus certificate provisioning, and which
    §10 says are not only a public-bytes feature.
