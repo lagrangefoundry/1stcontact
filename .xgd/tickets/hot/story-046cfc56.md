@@ -6,9 +6,9 @@ title: 'The image layer belongs to the toolchain: PNG decoded and encoded in-rep
   with the fidelity arithmetic running in the cloud runtime'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:04:28.160135+00:00'
-updated_at: '2026-09-14T05:04:28.160135+00:00'
+updated_at: '2026-09-14T05:07:07.132409+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-8e1807f6
@@ -16,6 +16,7 @@ fields:
   story_kind: feature
   story_points: 3
 ---
+
 
 ## Story
 **As an** operator running the `1c` fidelity toolchain, **I want** the image layer to
@@ -139,18 +140,18 @@ session, rather than left open:
   the case worth catching — names the common photographic and vector formats
   including the one an iPhone produces, suggests conversion, and reports
   "unrecognised" distinctly when the leading bytes match nothing. Formalized as
-  part of AC-1784, because a refusal that named the wrong thing would send the
+  part of AC-1779, because a refusal that named the wrong thing would send the
   operator looking for a corrupt file.
 - **Encoding refuses a raster it cannot honestly write** (decided at
   reconciliation, 2026-09-13): the intent covers the decode side's refusals and
   says nothing about the encode side. A raster whose channel count no PNG colour
   type holds, or whose buffer is short for its declared dimensions, is refused by
   name rather than written out as a corrupt file that would fail much later, in
-  someone else's verb. Formalized as part of AC-1784.
+  someone else's verb. Formalized as part of AC-1779.
 - **The measurement has a ceiling, not only a record** (decided at reconciliation,
   2026-09-13): the intent asks that decode time be "measured and recorded, not
   assumed". The landed code also fails the run if the projected full-page cost
-  crosses a deliberately loose bound. Formalized as AC-1790, because a number
+  crosses a deliberately loose bound. Formalized as AC-1788, because a number
   nobody checks is a number that can silently double, and the bound is the thing
   the intent says would reopen the dependency question.
 
