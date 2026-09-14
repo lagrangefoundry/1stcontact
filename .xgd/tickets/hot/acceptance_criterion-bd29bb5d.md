@@ -6,7 +6,7 @@ title: The platform records client material as one of three named kinds, and the
   vocabulary carries conversations and attached files
 created_by: xgd
 created_at: '2026-09-02T00:30:09.776619+00:00'
-updated_at: '2026-09-14T08:57:59.596727+00:00'
+updated_at: '2026-09-14T08:59:46.827194+00:00'
 completed_at: null
 last_field_updated: body
 status: active
