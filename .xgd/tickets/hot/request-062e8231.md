@@ -5,7 +5,7 @@ type: request
 title: A file keeps a usable name, and is served as what it is
 created_by: EPIC-10
 created_at: '2026-09-14T20:28:41.237519+00:00'
-updated_at: '2026-09-14T20:58:41.284670+00:00'
+updated_at: '2026-09-14T21:08:01.851957+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -50,12 +50,36 @@ holds `otf`, `txt`, `xml`, `mjs` and `webmanifest`; the store table holds none o
 drift the header predicted has happened. Neither table holds `pdf`, so both whitepapers are
 stored and served as `application/octet-stream`.
 
-**And there are four, not two.** `apps/control-app/src/capture-material.ts`'s
+**And there are five, not two.** `apps/control-app/src/capture-material.ts`'s
 `memberContentType` and `tools/generate/src/cli/capture/reextract.ts` each carry a literal of
 their own, and they disagree with the store's about the charset a textual member carries.
 Both are folded in here — the only thing either needed that a table cannot hold is
 `reextract`'s sniff for an *extensionless* member (Google Fonts' `css2`), which stays as the
 fallback behind the shared answer rather than as a reason to keep a table.
+
+The fifth is `tools/generate/bin/smoke.mjs`'s `EXPECTED_CONTENT_TYPES`, and it is the one
+whose justification was *true*: that script runs under bare `node` straight after a deploy,
+outside every bundler in this repo, and cannot load TypeScript. Its header says the
+duplication is "pinned by a UAT rather than by hope" — which is word for word what the
+`public-site` table said, and that one drifted anyway. A pinning test only ever compares the
+rows both sides happen to have, so the five formats present in one and absent from the other
+were never compared and `pdf` was absent from both. The arrangement does not work and is not
+kept.
+
+**So the module becomes plain JavaScript with a declaration file beside it.** That is the
+only change that makes the smoke script a *consumer* rather than a copy: every other runtime
+here reaches it through a bundler, and JavaScript is the one language all five can read.
+TypeScript resolves the import to `content-type.d.ts` and never reads the implementation, so
+no `allowJs` is needed anywhere and both Workers keep typechecking clean. It is the seam
+`apps/control-app/src/builder/*.js` already uses for rules both sides of the browser/server
+boundary need. The declaration restates the *shape* and never the table — a signature out of
+step is caught by the compiler at every call site, which is not true of a row out of step in
+a duplicated map.
+
+The smoke script's asset crawl gets stricter as a consequence, and this is the second half of
+the same bug: it used to skip any extension its own list did not hold, which is precisely the
+case a drifted copy produces — the check fell silent exactly where it was needed. It compares
+every served asset now, against the origin's own table.
 
 ## 2. The change: one table, covering the inert formats
 
@@ -151,8 +175,10 @@ outside this ticket.
 ## 5. Acceptance criteria
 
 1. A PDF placed on a site is stored and served as `application/pdf`.
-2. There is one extension-to-type table with one reader. Asserted by a test that fails if a
-   second table is introduced, rather than by a test that compares two.
+2. There is one extension-to-type table with one reader — including for the post-deploy
+   smoke script, which runs under bare `node` and previously could not reach one. Asserted by
+   a test that scans the production source, `bin/` included, and fails if a second table is
+   introduced — rather than by a test that compares two.
 3. The formats the public-site table held and the store table did not — `otf`, `txt`, `xml`,
    `mjs`, `webmanifest` — are present after the merge, and no route that served one of them
    starts serving `application/octet-stream`.
@@ -181,3 +207,7 @@ outside this ticket.
   `promoteToSiteAsset`, over real D1 and R2, so the property is proved about an actual key.
 - `tests/test_UAT_FC_REQ-246_safe_names.test.ts` — the rule at close range: every shape a
   filename can take, idempotence, and the floor in each node-side adapter.
+- `test_UAT_FC_REQ-246_the_smoke_script_holds_no_table_of_its_own`, in
+  `tests/test_UAT_FC_REQ-144_deploy_scripts.test.ts` — replaces the pair-pinning case that
+  the drift walked straight past. The two suites that used to compare the smoke table with
+  the Worker's no longer have two things to compare.
