@@ -5,7 +5,7 @@ type: epic
 title: 'Forms: capture, acceptances, and onboarding'
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T23:46:56.989430+00:00'
-updated_at: '2026-09-14T03:43:51.176408+00:00'
+updated_at: '2026-09-14T03:46:41.756804+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -272,3 +272,51 @@ invisible, so it is written down.
   into; nothing else is needed first.
 - **Enquiry forms**, as distinct from capture forms.
 - **Onboarding surveys** — the generalisation past T/F the ask anticipates.
+
+
+## Verification
+
+**Automated.** All 13 UAT files for this epic pass:
+`test_UAT_FC_REQ-240_{acceptance_registry,acceptances.workers,agreements_pane}`,
+`REQ-241_{asset_migration,asset_set.workers}`,
+`REQ-242_{form_acceptance_contract,form_acceptances.workers}`,
+`REQ-243_{form_template.workers,publish_template_gate.workers,template_migration}`,
+`REQ-244_gated_page.workers`,
+`REQ-245_{portal_preferences,portal_preferences.workers}`.
+The workers suites run through the real `captureLead`, the real `/api/publish`
+and the real gate routes against D1/R2 in workerd — not against a mock.
+
+Full-suite run at 0.2.196: 4043 passed, 12 failed, none in this epic's files.
+The 12 are environment, not code — a `node_modules`/lockfile mismatch fails the
+`1c` preflight in five of them, and the other four trip over untracked local
+detritus (a stray `.claude/` directory inside `account-portal/`, an untracked
+`.md` at the repo root).
+
+**Manual, for an existing site.** In order, because each step is what makes the
+next one visible:
+
+1. `POST /api/modules/upgrade {site, write: true}` (or `1c module upgrade <slug>
+   --write` for a file-backed site) — carries `contact-form` to v7.
+2. Set `config.template` on the form, and `config.assets` / `config.accepts` if
+   it gates artifacts or asserts acceptances. A form with no template still
+   captures and still mails nobody, which is the intended reading.
+3. Author the template in the business's ticket store if the key is not one of
+   the seeded system keys. `publishSite` refuses a form naming a key the store
+   does not hold, and refuses `invite` and `signin` outright.
+4. **Publish.** Until this, the live site serves the old frozen revision and the
+   receiver reads the form definition from it.
+5. Submit. Expect, in the contact's timeline: `form.submitted`, then
+   `acceptance.granted` / `acceptance.requested` per key, then `asset.sent` per
+   item. Following the mail's link writes `page.accessed`; each download writes
+   `asset.downloaded`.
+
+**Schema.** `bin/deploy` runs `bin/deploy.d/migrate/10-d1-site-store` before
+uploading, so a production deploy applies `0004` and `0006` itself. A local
+store needs `wrangler d1 migrations apply DB --local` once.
+
+**The repo's own fixture sites are not configured for any of this.** `xgd`
+(home, whitepapers) and `gigabytealchemy` (form-0, form-1) are all at v7 with
+`assets: []`, no `template` and no `accepts` — they capture and do nothing else.
+The whitepapers page in particular still says "Send me both papers" and promises
+none, which is the configuration this epic makes expressible and does not itself
+perform.
