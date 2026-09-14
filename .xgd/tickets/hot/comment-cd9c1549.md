@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T20:57:10.701536+00:00'
+updated_at: '2026-09-14T21:22:34.733347+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1123,5 +1123,15 @@ Worth stating explicitly in the ticket, because it reads like a contradiction un
 2. Agree with credential templates staying business-scoped tickets, or do you want *all* templates as pages?
 
 Then it's two tickets: the page shortcut with the not-in-navigation marker (small, self-contained), and templates-as-pages (sized by your answer to 1).
+
+<!-- xgd-turn id="c3f96482-0d7c-4738-b920-0dfe12984145-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T21:22:34.505439+00:00" -->
+#### You
+On styling - can we use a reduced version of L1 (perhaps expandable later)? I would hate to have to invent another HMTL/CSS editing mode for the AI
+
+So: materialise from an **explicit act** — choosing "send an email with this form" from a picker offering existing templates plus "create new" — not from arbitrary config text. Free-typed unknown key stays a refusal. Same outcome you want, protection intact. <-- this is all done by the AI - how will we show it a picker? 
+
+I suggest that the L1 must contain validation - so when the AI creates or updates a form L1 validates the settings. If it refeers to a template that does not exist it fails with a helpful error telling the AI how to create a template. (Note: the current production AI does not know how to create a template :-( It should have full access to the ticket store so it can do it but it has not been given the documentation to do it)
 
 <!-- xgd-chat-end -->
