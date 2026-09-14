@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:25:44.274074+00:00'
+updated_at: '2026-09-14T21:29:14.355630+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1213,5 +1213,13 @@ I'd go with the second. The cost is one real asymmetry: `add_page` on an email k
 ---
 
 Confirm that last one and I'll write up the two tickets — the page shortcut with the not-in-navigation marker, and templates-as-pages with the email render target, the declared axis subset, and configure-time validation.
+
+<!-- xgd-turn id="bf606410-8b29-4ca8-a5b3-415bd6b5f3b5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T21:29:14.299618+00:00" -->
+#### You
+Ok lets drop the idea of email templates as tickets - the ones that we are discussing are genuinely part of the site, so lets make them pages.
+
+Please create the REQ?
 
 <!-- xgd-chat-end -->
