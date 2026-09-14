@@ -86,8 +86,27 @@ export const LIBRARY_TAB = { id: 'library', label: 'Library', fill: true }
  */
 export const PEOPLE_TAB = { id: 'people', label: 'Contacts', fill: true }
 
+/**
+ * The Settings tab — the business's own record, and the assistant that keeps it
+ * ([[REQ-239]], [[EPIC-4]]).
+ *
+ * RIGHTMOST, AND THAT IS WHERE SETTINGS BELONG. The three tabs before it are the
+ * work; this is the record of who the work is for, opened rarely and mostly once.
+ *
+ * BUSINESS-SCOPED LIKE THE OTHER THREE, WHICH IS WHY IT MAY BE A TAB AT ALL. The
+ * strip is uniformly business-scoped ([[REQ-179]]) and the account surface is kept
+ * out of it precisely because the switcher above does not apply to an account —
+ * *"a control that is present and ignored reads as a bug"*. A business's name and
+ * its public address are properties OF a business, so this needs no exception to
+ * that rule and makes none.
+ *
+ * `fill` for the reason the other three have it: it hosts a split, and a split
+ * resolves its height against the panel.
+ */
+export const SETTINGS_TAB = { id: 'settings', label: 'Settings', fill: true }
+
 /** Every tab the shell mounts, in order. */
-export const TABS = [SITE_TAB, LIBRARY_TAB, PEOPLE_TAB]
+export const TABS = [SITE_TAB, LIBRARY_TAB, PEOPLE_TAB, SETTINGS_TAB]
 
 /**
  * Per-instance persistence keys, namespaced by the shell under `APP_ID`.
@@ -105,6 +124,18 @@ export const STORAGE_KEYS = {
   chat: `${SITE_TAB.id}:chat`,
   library: `${LIBRARY_TAB.id}:list`,
   people: `${PEOPLE_TAB.id}:list`,
+  /**
+   * The Settings tab's own two ([[REQ-239]]).
+   *
+   * A SECOND `:split` AND A SECOND `:chat`, NOT A SHARED ONE. The site tab's
+   * split position is where the operator wants the PREVIEW divided; this one is
+   * where they want a short form divided from a conversation, and the two have no
+   * reason to be the same number. The chat key is the composer's draft storage
+   * and is per conversation by the same argument `chat.js` makes: a half-typed
+   * message belongs to the conversation it was typed in.
+   */
+  settingsSplit: `${SETTINGS_TAB.id}:split`,
+  settingsChat: `${SETTINGS_TAB.id}:chat`,
 }
 
 /**

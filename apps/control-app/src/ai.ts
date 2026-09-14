@@ -488,6 +488,21 @@ export function workerHost(
    * site to read them against.
    */
   library: HostDeps['library'] = null,
+  /**
+   * The business's own record, and which business this is ([[REQ-239]]).
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above is
+   * one — and here the reason is at its sharpest: the business is the REQUEST'S
+   * scope, resolved before this host is reached, and it is the only thing that
+   * makes the settings conversation addressable at all. Assembling it here would
+   * mean this file deciding which business a session is about, which is the one
+   * decision `scope.ts` exists to have already made.
+   *
+   * NULL IS ORDINARY, like every wire above it: a host without it opens site
+   * conversations exactly as it did and simply has no settings conversation to
+   * open. That is the `1c` CLI's permanent state.
+   */
+  settings: HostDeps['settings'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -578,6 +593,11 @@ export function workerHost(
       // `host-core.ts` composes the surface when this is present and composes
       // nothing when it is not, which is the one place that decision belongs.
       library,
+      // THE BUSINESS'S OWN RECORD ([[REQ-239]]), passed straight through:
+      // `host-core.ts` composes the settings surface and the settings session
+      // when this is present and composes neither when it is not, which is the
+      // one place that decision belongs.
+      settings,
       // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
       // knowledge wires above: the record does not depend on there being a
       // corpus, and a session with no knowledge base still decides things worth

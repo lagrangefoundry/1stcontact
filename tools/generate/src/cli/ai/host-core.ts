@@ -30,6 +30,15 @@
  *   - the SESSION id is derived from the slug, so a reload resumes the site's
  *     conversation with no index to keep in step and nothing to lose.
  *
+ * A SESSION IS NOT ALWAYS ABOUT A SITE ([[REQ-239]]). The settings conversation
+ * is about a BUSINESS — which is what a business's name and its public address
+ * are properties of, and, after [[REQ-236]], the only scope under which either
+ * means anything. So the three bindings above have a second form: the surface is
+ * the `settings` one and takes no site, the backend is registered under
+ * `claude+business:<id>`, and the id is `business-<id>`. The two never collide,
+ * the manager map holds both, and every function below that resolves an id asks
+ * which kind it is exactly once.
+ *
  * THIS FILE IS WHERE A SITE BECOMES A SESSION, AND THE ONLY SUCH PLACE (REQ-127).
  * Above it — the origin's routes, the browser transport, the chat pane — nothing
  * names a site. {@link openSession} is the one call that takes a slug; every turn
@@ -55,9 +64,17 @@ import {
   CONSULTANT_ROLE,
   consultantRole,
   LEGACY_ROLE_NAMES,
+  registerSettingsProviders,
   registerSiteProviders,
+  SETTINGS_ROLE,
+  settingsRole,
   type TurnSignal,
 } from './roles'
+import {
+  settingsInstanceConfig,
+  settingsSurfaceFor,
+  type SettingsDeps,
+} from './settings-core'
 import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
@@ -408,12 +425,48 @@ export interface HostDeps {
    * code that composes it.
    */
   assetUrl?: ((slug: string, handle: string) => string) | null
+
+  /**
+   * The business's own record, and which business it is ([[REQ-239]]).
+   *
+   * THE ONE WIRE ON THIS HOST THAT IS NOT A FACTORY OVER A SLUG, and that is the
+   * whole novelty of the settings session. Every other surface here is bound to a
+   * site because a session was a thing about a site; this one is bound to a
+   * BUSINESS, which is what the business's name and its public address are
+   * properties of — and which, after [[REQ-236]], is the only scope under which
+   * either means anything.
+   *
+   * THE ID TRAVELS WITH THE DEPS RATHER THAN BEING DERIVED FROM THEM. It is what
+   * {@link businessSessionIdFor} names the conversation after, and what
+   * {@link businessForSession} checks an incoming id against — the same job
+   * `hasDraft` does for a site session, made against a scope this host is already
+   * holding rather than against a store read.
+   *
+   * NULL IS ORDINARY AND IS THE DEFAULT. The `1c` CLI has no businesses: it edits
+   * a directory on the operator's machine, and there is no record to read, nothing
+   * that could be renamed and no second conversation to open. A host without this
+   * behaves in every respect as it did before this existed.
+   */
+  settings?: { businessId: string; deps: SettingsDeps } | null
 }
 
 
 /** Backends carry their tool set, and the registry is global — so names are per-site. */
 export function siteBackendName(site: string): string {
   return `claude+site:${site}`
+}
+
+/**
+ * …and per-business, for the same reason ([[REQ-239]]).
+ *
+ * A DIFFERENT PREFIX AND NOT A DIFFERENT SUFFIX. The two namespaces must not be
+ * able to collide, and `claude+site:` already carries a value chosen elsewhere —
+ * a site key on the Worker, a directory name under `1c` — so `claude+site:acme`
+ * and a business called `acme` would have been the same registry entry with two
+ * different tool sets, resolved by whichever built last.
+ */
+export function businessBackendName(businessId: string): string {
+  return `claude+business:${businessId}`
 }
 
 /**
@@ -437,6 +490,25 @@ export function siteBackendName(site: string): string {
  */
 export function sessionIdFor(site: string): string {
   return `site-${site}`
+}
+
+/**
+ * A business's session id ([[REQ-239]]).
+ *
+ * DERIVED, LIKE A SITE'S, AND FOR THE IDENTICAL REASON: any isolate, on any
+ * request, computes the same id for the same business, so a reload resumes the
+ * settings conversation and there is no index anywhere to keep in step.
+ *
+ * FROM THE BUSINESS'S KEY AND NEVER FROM ITS NAME. This is the conversation about
+ * renaming the business, so a name-derived id would be moved by the very operation
+ * the session exists to perform — and the ticket holding the whole transcript is
+ * found by `fields.session_id`, so the first rename would silently replace the
+ * conversation with an empty one rather than destroying it visibly. That is the
+ * failure [[REQ-236]] removed for sites; it would have been reintroduced here, on
+ * the one surface where renaming is the point.
+ */
+export function businessSessionIdFor(businessId: string): string {
+  return `business-${businessId}`
 }
 
 /**
@@ -526,6 +598,25 @@ function managerKey(site: string, deps: HostDeps): string {
 }
 
 /**
+ * …and one per business, in the same map ([[REQ-239]]).
+ *
+ * ONE MAP AND NOT TWO, because what the map is actually keyed by is a STORE and a
+ * SCOPE, and a business is a second kind of scope rather than a second kind of
+ * host. Two maps would mean two places to clear in {@link resetAiHost} and
+ * {@link setModelClient}, and a stale settings manager holding a backend built
+ * against a replaced model client is exactly the state those two exist to prevent.
+ *
+ * THE PREFIX IS WHAT KEEPS THEM APART. A site key and a business id are both
+ * opaque strings from this file's point of view, so without it a business and a
+ * site that happened to share one would share a manager — and share a ROLE, which
+ * is the part that would not merely be wrong but would grant the settings surface
+ * to a site conversation.
+ */
+function businessManagerKey(businessId: string, deps: HostDeps): string {
+  return `${hostKey(deps)}\0business:${businessId}`
+}
+
+/**
  * Resolve a session id back to the site it names, or null (BUG-38).
  *
  * THE RESOLUTION IS A STORE READ, and it has to be. This used to be a
@@ -556,6 +647,33 @@ async function siteForSession(sessionId: string, deps: HostDeps): Promise<string
   const site = sessionId.slice(SESSION_PREFIX.length)
   if (site === '') return null
   return (await deps.store.hasDraft(site)) ? site : null
+}
+
+/** The business half of the same grammar ([[REQ-239]]). */
+const BUSINESS_SESSION_PREFIX = 'business-'
+
+/**
+ * Resolve a session id back to the business it names, or null ([[REQ-239]]).
+ *
+ * THE SAME CHECK {@link siteForSession} MAKES, AGAINST A DIFFERENT FACT. There
+ * the question is *does this tenant hold that site*, answered by a store read
+ * because a store is what a site is in. Here the question is *is this the
+ * business this request already resolved to*, and the answer is already in hand:
+ * the scope was settled before the host was built, and `deps.settings` is the
+ * wire it arrived on. So the check is an equality rather than a read, and it is
+ * strictly stronger — a client cannot name ANOTHER business's conversation even
+ * if it knows the id, because the comparison is against the scope rather than
+ * against existence.
+ *
+ * SYNCHRONOUS, unlike its site counterpart, and the asymmetry is that difference
+ * made visible rather than smoothed over.
+ */
+function businessForSession(sessionId: string, deps: HostDeps): string | null {
+  if (!deps.settings) return null
+  if (!sessionId.startsWith(BUSINESS_SESSION_PREFIX)) return null
+  const businessId = sessionId.slice(BUSINESS_SESSION_PREFIX.length)
+  if (businessId === '') return null
+  return businessId === deps.settings.businessId ? businessId : null
 }
 
 /**
@@ -593,6 +711,17 @@ function managerFor(slug: string, opts: GlobalOptions, deps: HostDeps): Promise<
   let existing = managers.get(key)
   if (!existing) {
     existing = build(slug, opts, deps)
+    managers.set(key, existing)
+  }
+  return existing
+}
+
+/** The manager for one business's settings conversation ([[REQ-239]]). */
+function managerForBusiness(businessId: string, deps: HostDeps): Promise<Untyped> {
+  const key = businessManagerKey(businessId, deps)
+  let existing = managers.get(key)
+  if (!existing) {
+    existing = buildBusiness(businessId, deps)
     managers.set(key, existing)
   }
   return existing
@@ -870,6 +999,91 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
 }
 
 /**
+ * The settings session's manager — its one surface, its role, its backend
+ * ([[REQ-239]]).
+ *
+ * IT IS NOT {@link build} WITH A FLAG, and the difference is not stylistic. Every
+ * line of that function is about a site: the L1 surface constructed with a slug,
+ * the browser the fidelity surface navigates with, the change counter the turn
+ * signal is arithmetic over, the ledger and the catalogue bound per site. A
+ * settings session has a business and no site at all, so a shared function would
+ * be a sequence of `if (site)` guards around code that never runs — and the one
+ * thing the two genuinely share, the way a manager is assembled, is upstream's
+ * `SessionManager` rather than anything this file would be factoring out.
+ *
+ * THE TOOLBOX IS COMPOSED HERE RATHER THAN BY `createL1Toolbox`, for the same
+ * reason: that function's first act is to construct the L1 surface over a slug.
+ * What it does that IS general — append the manual, merge each travelling grant,
+ * narrow the grant to the surfaces actually composed — is three lines, and they
+ * are written out below where a reader can see that the settings surface and the
+ * manual are the whole of what this session has.
+ *
+ * WHAT THE GRANT IS, AND WHERE IT LIVES. [[REQ-239]] asked for an entry in
+ * `instances.json` granting the settings surface and nothing else; [[REQ-237]]
+ * settled it the other way and this follows [[REQ-237]], because that file is
+ * validated in CI against the declarations THIS repository hands the validator
+ * and a key there for a surface composed per deployment is a grant nothing can
+ * check. The property the ticket was actually asking for is unchanged and is
+ * visible in one expression here: `settingsInstanceConfig()` plus the manual's
+ * own, and nothing else — no L1 groups, no knowledge, no ledger, no catalogue.
+ */
+async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untyped> {
+  const settings = deps.settings
+  if (!settings) throw new UnknownSessionError(businessSessionIdFor(businessId))
+  const lib = await ai(deps)
+
+  // AHEAD OF THE BACKEND, exactly as in {@link build}: the backend reads this
+  // project's model and reply-ceiling configuration when it is CONSTRUCTED, and a
+  // manager keeps its instance for its lifetime.
+  configureProjectBackends(lib)
+
+  const surfaces: Untyped[] = [await settingsSurfaceFor(lib, settings.deps), new lib.ManualToolbox()]
+  const granted = { ...settingsInstanceConfig(), ...lib.manualInstanceConfig() }
+  const box = new lib.Toolbox(surfaces, granted, {
+    audit: deps.audit ?? null,
+    session: businessSessionIdFor(businessId),
+    role: SETTINGS_ROLE,
+  })
+
+  const schemas = box.schemas() as Record<
+    string,
+    { description: string; properties: Record<string, unknown>; required: string[] }
+  >
+  lib.registerBackend(
+    businessBackendName(businessId),
+    () =>
+      new lib.ClaudeAPIBackend({
+        ...(modelClient ? { client: modelClient } : {}),
+        ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+        tools: Object.entries(schemas).map(
+          ([name, spec]) =>
+            new lib.Tool(
+              name,
+              spec.description,
+              { properties: spec.properties, required: spec.required },
+              (input: Record<string, unknown>) => runTool(box, name, input),
+            ),
+        ),
+      }),
+  )
+
+  const providers = new lib.PrimingProviders()
+  // THE NAME IS READ PER TURN AND NOT CAPTURED. It is the thing this session
+  // exists to change, so a framing line rendered once would spend the rest of the
+  // conversation naming the business by the name the customer has just corrected.
+  registerSettingsProviders(providers, {
+    box,
+    name: async () => (await settings.deps.read())?.name ?? null,
+  })
+
+  return new lib.SessionManager({ [SETTINGS_ROLE]: settingsRole(lib, providers) }, deps.archive, {
+    ...(deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir }),
+    providers,
+    maxPrimingChars: MAX_PRIMING_CHARS,
+  })
+}
+
+/**
  * What the panel should paint right now, and the cursor to tail from (BUG-46).
  *
  * READS THE JUNCTION, NOT THE ARCHIVE, and that swap is the whole bug. This used
@@ -943,7 +1157,18 @@ async function storedTranscript(
  * archive when no junction exists, and `createSession` records its home ref. The
  * shape of the decision is unchanged.
  */
-async function attach(manager: Untyped, sessionId: string, slug: string): Promise<void> {
+async function attach(
+  manager: Untyped,
+  sessionId: string,
+  // THE ROLE AND THE BACKEND ARE PARAMETERS NOW ([[REQ-239]]). They were a slug,
+  // from which both were derived here — which was honest while every session was
+  // a site's. A settings session has neither a slug nor the consultant's role, and
+  // deriving a second pair from a second kind of key inside this function would
+  // put the "what kind of session is this" question in a place that has already
+  // been answered twice by the time it is reached.
+  role: string,
+  backend: string,
+): Promise<void> {
   try {
     // `getSession` and NOT `resume`: it resumes only when the session is not
     // already live in this manager. Attach runs on every turn, and `resume` is no
@@ -958,7 +1183,7 @@ async function attach(manager: Untyped, sessionId: string, slug: string): Promis
     // would fail the same way for the second — so the distinction is made by
     // whether the archive holds it, not by inspecting the error.
     if ((await manager.archive.list()).includes(sessionId)) throw err
-    await manager.createSession(CONSULTANT_ROLE, siteBackendName(slug), { sessionId })
+    await manager.createSession(role, backend, { sessionId })
   }
 }
 
@@ -1017,7 +1242,59 @@ export async function openSession(
   const cursor = read?.cursor ?? 0
   const live = read?.live ?? false
   try {
-    await attach(manager, sessionId, slug)
+    await attach(manager, sessionId, CONSULTANT_ROLE, siteBackendName(slug))
+  } catch (err) {
+    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err) }
+  }
+  return { sessionId, turns, cursor, live, ready: true }
+}
+
+/**
+ * Open the BUSINESS's conversation — the settings assistant ([[REQ-239]]).
+ *
+ * IT TAKES NO SUBJECT AT ALL, and that is the shape of the thing rather than an
+ * omission. {@link openSession} takes a slug because a tenant holds several sites
+ * and the caller is choosing one; a request has already resolved to exactly one
+ * business by the time it reaches this host, so a business parameter would be a
+ * value the caller could get wrong about a choice it does not have. The scope
+ * arrives on `deps.settings` and the id is read from there.
+ *
+ * THE FAILURE SHAPE IS {@link openSession}'s, DELIBERATELY. The transcript is read
+ * before the backend is touched, so a deployment with no API key costs the
+ * customer an explanation rather than their history — the settings conversation
+ * is the one a customer is most likely to return to weeks later, because the
+ * decisions in it are the ones made once.
+ *
+ * A HOST WITH NO RECORD REFUSES RATHER THAN OPENING AN EMPTY ONE. The `1c` CLI
+ * has no businesses at all; answering with a session that could never take a turn
+ * would give a caller something to paint and nothing to say.
+ */
+export async function openBusinessSession(
+  opts: GlobalOptions = {},
+  deps: HostDeps,
+): Promise<ChatSession> {
+  if (!deps.settings) throw new UnknownSessionError(BUSINESS_SESSION_PREFIX)
+  const businessId = deps.settings.businessId
+  const sessionId = businessSessionIdFor(businessId)
+  let manager: Untyped
+  try {
+    manager = await managerForBusiness(businessId, deps)
+  } catch (err) {
+    return {
+      sessionId,
+      turns: [],
+      cursor: 0,
+      live: false,
+      ready: false,
+      error: operatorMessage(err),
+    }
+  }
+  const read = await storedTranscript(manager, sessionId)
+  const turns = read?.turns ?? []
+  const cursor = read?.cursor ?? 0
+  const live = read?.live ?? false
+  try {
+    await attach(manager, sessionId, SETTINGS_ROLE, businessBackendName(businessId))
   } catch (err) {
     return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err) }
   }
@@ -1048,10 +1325,29 @@ export async function* streamPrompt(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
+  /**
+   * A SETTINGS TURN IS A SHORTER FUNCTION, NOT A BRANCHED ONE ([[REQ-239]]).
+   *
+   * Everything below this block is about a site: the change counter the signal is
+   * arithmetic over, the corpus delta, the per-write {@link SITE_CHANGED} the
+   * preview pane reloads on. A settings session has no site, so none of it has an
+   * answer — not `0`, not `null`, but no question. Handing the stream straight
+   * through is what that means, and taking the early return is what stops a
+   * reader having to work out which half of a long function applies.
+   */
+  const business = businessForSession(sessionId, deps)
+  if (business) {
+    const settingsManager = await managerForBusiness(business, deps)
+    await attach(settingsManager, sessionId, SETTINGS_ROLE, businessBackendName(business))
+    for await (const event of settingsManager.promptStream(sessionId, text)) {
+      yield withoutImageData(event)
+    }
+    return
+  }
   const slug = await siteForSession(sessionId, deps)
   if (!slug) throw new UnknownSessionError(sessionId)
   const manager = await managerFor(slug, opts, deps)
-  await attach(manager, sessionId, slug)
+  await attach(manager, sessionId, CONSULTANT_ROLE, siteBackendName(slug))
 
   // REQ-131 — the push half of the change journal. The comparison happens here
   // because this is the only place that knows where a turn begins, and the
@@ -1152,14 +1448,20 @@ export async function* tailSession(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
-  const slug = await siteForSession(sessionId, deps)
-  if (!slug) throw new UnknownSessionError(sessionId)
+  // THE SETTINGS CONVERSATION IS TAILED THE SAME WAY ([[REQ-239]]). A reload
+  // during a turn is a reload during a turn whatever the turn was about, and the
+  // projection below is over junction records, which carry no site.
+  const business = businessForSession(sessionId, deps)
+  const slug = business ? null : await siteForSession(sessionId, deps)
+  if (!business && !slug) throw new UnknownSessionError(sessionId)
   // NO `attach`, deliberately — unlike {@link streamPrompt}. Attaching builds
   // the backend, and a backend is what a turn needs, not what a reader needs.
   // Keeping it out is what lets a deployment with no API key still rejoin a turn
   // another isolate is driving, and it is the same reason the transcript read
   // runs ahead of `attach` in {@link openSession}.
-  const manager = await managerFor(slug, opts, deps)
+  const manager = business
+    ? await managerForBusiness(business, deps)
+    : await managerFor(slug as string, opts, deps)
   for await (const record of manager.watch(sessionId, { cursor })) {
     const kind = String(record.kind)
     if (kind === 'delta') {
@@ -1253,7 +1555,13 @@ export async function aiStatus(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): Promise<{ roles: string[]; backends: string[]; ready: boolean; error?: string }> {
-  const base = { roles: [CONSULTANT_ROLE], backends: [] as string[] }
+  // BOTH ROLES WHERE BOTH EXIST ([[REQ-239]]). The settings role is only stood up
+  // on a host that holds a business record, so reporting it unconditionally would
+  // claim a conversation the `1c` CLI cannot open.
+  const base = {
+    roles: deps.settings ? [CONSULTANT_ROLE, SETTINGS_ROLE] : [CONSULTANT_ROLE],
+    backends: [] as string[],
+  }
   try {
     const lib = await ai(deps)
     // Construction is where a missing prerequisite surfaces, by design — the

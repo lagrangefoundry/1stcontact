@@ -375,6 +375,40 @@ export async function openChatSession(site, fetchImpl = fetch) {
 }
 
 /**
+ * The wire value that asks for the BUSINESS's conversation ([[REQ-239]]).
+ *
+ * THE LITERAL IS DUPLICATED AND A UAT PINS IT. `router.ts` owns
+ * `BUSINESS_SESSION_SCOPE`; this file is browser JavaScript and cannot import the
+ * Worker's TypeScript, so the two are held equal by a test rather than by an
+ * import — the same arrangement `SIGN_OUT_HREF` already has.
+ */
+export const BUSINESS_SESSION_SCOPE = 'business'
+
+/**
+ * Open the settings conversation ([[REQ-239]]).
+ *
+ * IT NAMES NOTHING, and that is the whole difference from {@link openChatSession}
+ * above. A site has to be chosen because a business holds several; the business
+ * has already been chosen — it is in the path prefix `scoped()` puts on this very
+ * request — so naming it in the body would be this client asserting a scope the
+ * origin has already resolved, and would be the one value it could get wrong.
+ *
+ * THE SAME ROUTE, AND THEREFORE THE SAME ANSWER SHAPE: a transcript, a cursor,
+ * and whether a turn can be taken. Everything downstream of it — the pane, the
+ * prompt call, the rejoin — is the site conversation's code unchanged, because a
+ * conversation is a conversation once it has been opened.
+ */
+export async function openSettingsSession(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/ai/session'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ scope: BUSINESS_SESSION_SCOPE }),
+  })
+  if (!res.ok) throw new Error(`POST /api/ai/session → ${res.status}`)
+  return res.json()
+}
+
+/**
  * Run one turn, as the stream of events the chat panel consumes.
  *
  * NAMED BY SESSION, not by site (REQ-127). The session already knows which site
@@ -1061,5 +1095,37 @@ export async function revokeGrant(id, fetchImpl = fetch) {
     body: JSON.stringify({ id }),
   })
   if (!res.ok) throw new Error(`POST /api/grants/revoke → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Change what the business is called ([[REQ-239]], [[REQ-237]]).
+ *
+ * THE SAME OPERATION THE ASSISTANT CALLS, reached the only way a browser can.
+ * `/api/business/name` and the `settings` surface's `rename_business` both bottom
+ * out in `business.ts`'s one rule, over the account that owns the business — so
+ * the field and the conversation cannot come to permit different names, which is
+ * the failure that would leave a customer told two different things with no way
+ * to know which is right.
+ *
+ * `scoped()` LIKE EVERY OTHER WRITE, and here it is what makes the call safe to
+ * have no id in it: the business in the path is the business being renamed, so
+ * there is no name-a-business parameter for anything to get wrong.
+ *
+ * THE MESSAGE IS READ BACK ON A REFUSAL. A 409 is a name another of this
+ * account's businesses already holds and names it; a 400 is an empty one; a 403
+ * is a membership that may operate this business but not re-label it. Those are
+ * three different things to do next and a status code is not one of them.
+ */
+export async function saveBusinessName(name, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/business/name'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/business/name → ${res.status}`)
+  }
   return res.json()
 }

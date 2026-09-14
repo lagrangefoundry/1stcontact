@@ -52,6 +52,7 @@ import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-sto
 import type { SiteStore } from '../../../tools/generate/src/store/site-store'
 import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-site'
 import {
+  openBusinessSession,
   openSession,
   streamPrompt,
   tailSession,
@@ -71,6 +72,7 @@ import { chatLibrary } from './library'
 import {
   BusinessNameTakenError,
   InvalidBusinessNameError,
+  businessSettings,
   renameBusiness,
 } from './business'
 import { fidelityDeps } from './shot'
@@ -610,6 +612,25 @@ function chatHost(
         // this host is composed from — the catalogue and the client's Library
         // must not put different bytes on the site for the same material.
         (site: string) => chatLibrary(tickets, store, site, renderer ?? undefined),
+        // THE BUSINESS'S OWN RECORD, AND WHICH BUSINESS THIS IS ([[REQ-239]]).
+        //
+        // ASSEMBLED HERE BECAUSE THE SCOPE IS HERE. `scope.businessId` is
+        // resolved per request, before this host is built, and it is what the
+        // settings conversation is ABOUT — so binding the record to it here is
+        // the same act as keying this cache by it, made once. A host that bound
+        // its own would be deciding which business a session is for, which is
+        // `scope.ts`'s decision and has already been taken.
+        //
+        // `businessSettings` IS THE WIRE AND DECIDES NOTHING. What a refusal is
+        // called and what shape the model reads are the surface's; whether a name
+        // is free is `business.ts`'s, over the account that owns the business —
+        // the same rule `/api/business/name` goes through, which is what makes
+        // the pane and the assistant two callers of one operation rather than two
+        // write paths.
+        {
+          businessId: scope.businessId,
+          deps: businessSettings(env as unknown as IdentityEnv, scope.businessId),
+        },
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -1190,6 +1211,17 @@ export const PERSON_CHANGES_PATH = '/api/people/changes'
  * fallback for the other. This is the half a browser can reach.
  */
 export const BUSINESS_NAME_PATH = '/api/business/name'
+
+/**
+ * What `/api/ai/session` is asked for when the conversation is the business's own
+ * ([[REQ-239]]).
+ *
+ * A VALUE ON THE WIRE, DECLARED, because both ends have to agree on it and one of
+ * them is browser JavaScript that cannot import this module's TypeScript — the
+ * same shape `SIGN_OUT_PATH` already has, held equal by a UAT rather than by an
+ * import.
+ */
+export const BUSINESS_SESSION_SCOPE = 'business'
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
 
@@ -3347,6 +3379,27 @@ async function routeUncached(
      */
     if (p === '/api/ai/session' && method === 'POST') {
       const body = await readJsonBody(request)
+      /**
+       * WHICH CONVERSATION IS BEING OPENED ([[REQ-239]]).
+       *
+       * ONE ROUTE AND NOT TWO, because opening a conversation is one act and the
+       * three routes below it — prompt, reattach — already take nothing but an
+       * id. A second path here would have to be mirrored in neither of them,
+       * which is how a surface acquires an asymmetry nobody can justify later.
+       *
+       * THE BUSINESS IS NOT NAMED IN THE BODY, and that is the point of the
+       * flag. The request has already resolved to exactly one business
+       * (`requireScope`), so a body that carried an id would be offering a
+       * caller a choice it does not have and this route a value to check. `site`
+       * still travels because a business holds several sites and the caller IS
+       * choosing one.
+       */
+      if (body.scope === BUSINESS_SESSION_SCOPE) {
+        const businessHost = await chatHost(env, requireScope(), deps, url.origin)
+        const opened = await openBusinessSession({}, businessHost.deps)
+        await businessHost.flush(opened.sessionId)
+        return json(200, opened)
+      }
       const site = body.site
       if (typeof site !== 'string' || site === '') {
         return json(400, { error: 'site is required' })

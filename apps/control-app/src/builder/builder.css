@@ -2851,3 +2851,77 @@ body {
 .builder-library__name {
   margin: 0;
 }
+
+/*
+ * THE SETTINGS PANE ([[REQ-239]]).
+ *
+ * A READING WIDTH, not a full-bleed form. This is a short list of consequential
+ * facts with a sentence under each, and a hint stretched across a wide screen is
+ * a hint nobody finishes — so the content is bounded and the pane scrolls, which
+ * is the same shape the Library's detail pane already has for the same reason.
+ *
+ * The pane owns the scroll because it is the split's primary: `fill` on the tab
+ * gives the panel a viewport height, and without `min-height: 0` here the fields
+ * would resolve against content and push the split's divider off the bottom.
+ */
+.builder-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--shell-gap, 0.5rem);
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 12px 14px;
+}
+
+.builder-settings__title {
+  font-size: 1.05em;
+  margin: 0;
+}
+
+/* One per setting, so [[REQ-238]]'s hostname is an append rather than a rewrite
+   — and so each setting's hint and notes stay with the field they are about. */
+.builder-settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 42rem;
+}
+
+.builder-settings__hint {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+}
+
+/*
+ * What a rename left out of date.
+ *
+ * MUTED AND NOT DANGEROUS. Nothing here went wrong: the customer changed their
+ * business's name and these are the places that still say the old one, offered so
+ * they can decide. Colouring it as a warning would read as the rename having
+ * failed, which is the one thing it did not do.
+ */
+.builder-settings__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.builder-settings__notes:empty {
+  display: none;
+}
+
+.builder-settings__note {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+  border-inline-start: 2px solid var(--shell-accent);
+  padding-inline-start: 8px;
+}
+
+.builder-settings__empty {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--shell-fg-muted);
+}

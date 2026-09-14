@@ -48,8 +48,27 @@ import primingDocument from './priming.json'
 /** The AI library and the bridge are untyped JavaScript; the boundary is here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
-/** The one role this project defines. Named, so nothing addresses it as a literal. */
+/** The site assistant's role. Named, so nothing addresses it as a literal. */
 export const CONSULTANT_ROLE = 'consultant'
+
+/**
+ * The settings assistant's role — this project's SECOND ([[REQ-239]]).
+ *
+ * THE HEADER ABOVE ANTICIPATED IT AND THE SPLIT IT DESCRIBES IS WHAT MADE IT
+ * CHEAP: the product facts were pulled out of the consultant's own text
+ * precisely so that standing a second role up would not mean copying them. In
+ * the event this role takes NEITHER of the consultant's two static entries, and
+ * that is the stronger version of the same rule rather than a departure from it.
+ * `product-system` is about how a SITE is built, how a page is changed and what
+ * publishing means; this session is granted none of that, and a session told
+ * about a capability it was not granted will offer it, apologise for it, or probe
+ * for it.
+ *
+ * WHAT IT SHARES IS THE SHAPE AND NOT THE WORDS. Same ordered list, same cache
+ * boundary at the end, same manual projected from the grant — so the two roles
+ * cannot drift in HOW they are assembled, only in what they say.
+ */
+export const SETTINGS_ROLE = 'settings'
 
 /**
  * Role names this project used to write, and still reads (REQ-174).
@@ -130,6 +149,24 @@ export const ROLE_ENTRY = 'consultant-role'
 export const PRODUCT_ENTRY = 'product-system'
 
 /**
+ * What the SETTINGS assistant is ([[REQ-239]]).
+ *
+ * ONE STATIC ENTRY AND NOT TWO, and the asymmetry with the pair above is the
+ * decision rather than an omission. The consultant's second entry states product
+ * facts about building a site; this role has no site and no tool that touches
+ * one, so there is nothing of it that is true here and everything of it that
+ * would be an invitation.
+ *
+ * THE REGISTER IS NOT THE CONSULTANT'S. A consultant forms a view and argues for
+ * it — that is what taste is engaged for. What a business is called is not a
+ * matter of taste, and a role that argued about it would be arguing with the only
+ * person who knows the answer. This role's job is to make a consequence legible
+ * BEFORE it is committed to, because some of these decisions are one-time and the
+ * form cannot show which.
+ */
+export const SETTINGS_ROLE_ENTRY = 'settings-role'
+
+/**
  * One entry as the configuration file writes it, before normalisation.
  *
  * `text` may be a list of lines, which is the only liberty this host takes with
@@ -176,6 +213,27 @@ export function primingConfig(withCorpus: boolean): Record<string, unknown> {
 }
 
 /**
+ * The settings role's configuration ([[REQ-239]]).
+ *
+ * NO CORPUS ARGUMENT, because there is no shape of this role that has one. The
+ * consultant's two declared orders exist because its METHOD is written down in a
+ * knowledge base and a session that cannot search has to be told something else
+ * instead. This role's whole subject is two operations and their consequences,
+ * both of which the projected manual already carries; a landscape here would be a
+ * map of documents about building sites, handed to a session that cannot build
+ * one.
+ *
+ * The same shape otherwise: an ordered list, the manual last before the marker,
+ * and the cache boundary at the end so nothing is volatile.
+ */
+export function settingsPrimingConfig(): Record<string, unknown> {
+  return {
+    priming: (primingDocument.settings_priming as RawEntry[]).map(normalise),
+    reminders: (primingDocument.settings_reminders as RawEntry[]).map(normalise),
+  }
+}
+
+/**
  * The text of one static entry, by name (REQ-182).
  *
  * The read path for anything that needs to know what a session is actually told
@@ -193,6 +251,11 @@ export function primingText(name: string): string {
     primingDocument.priming,
     primingDocument.priming_without_corpus,
     primingDocument.reminders,
+    // THE SECOND ROLE'S TIERS ARE SEARCHED HERE TOO ([[REQ-239]]). A name is
+    // unique across the file, and a reader asking what a session is actually told
+    // should not have to know which role's list holds the answer.
+    primingDocument.settings_priming,
+    primingDocument.settings_reminders,
   ] as RawEntry[][]
   for (const entry of lists.flat()) {
     if (entry.name !== name) continue
@@ -239,6 +302,24 @@ function template(name: string): string {
  */
 export function siteLine(slug: string): string {
   return fill(template('site-line'), { slug })
+}
+
+/**
+ * Which business this session is about ([[REQ-239]]).
+ *
+ * THE COUNTERPART OF {@link siteLine} AND NOT A COPY OF IT. Everything in the
+ * host assumed a session was about a site; a settings session is about a
+ * business, and telling it which site it was in would be telling it about a thing
+ * it cannot touch.
+ *
+ * IT RENDERS THE NAME AND NOT THE ID. The id is opaque and is never shown to the
+ * customer, so a session framed by one could not say which business it was in
+ * without first calling a tool to find out. The name is also the thing most
+ * likely to CHANGE during the conversation, which is why the provider that fills
+ * this reads the record per turn rather than capturing it at build.
+ */
+export function businessLine(name: string): string {
+  return fill(template('business-line'), { name })
 }
 
 /**
@@ -298,6 +379,19 @@ export const SITE_CHANGES_PROVIDER = 'site.changes'
 export const CORPUS_DELTA_PROVIDER = 'corpus.delta'
 
 /**
+ * The settings session's two provider names ([[REQ-239]]).
+ *
+ * DISTINCT NAMES FOR THE MANUAL, even though both roles project one and both
+ * project it the same way. A `PrimingProviders` is built per manager, so the two
+ * could have shared the string with no collision — and then `priming.json` would
+ * read `provider: "site.manual"` in the tier of a role that has no site, which is
+ * the one place a reader of the configuration would have to already know the
+ * implementation to know that was harmless.
+ */
+export const BUSINESS_MANUAL_PROVIDER = 'business.manual'
+export const BUSINESS_LINE_PROVIDER = 'business.line'
+
+/**
  * Bind every provider name this project's configuration may use (REQ-182).
  *
  * ONE PLACE FOR BOTH HALVES. The file that names a provider and the function that
@@ -336,6 +430,36 @@ export function registerSiteProviders(
 }
 
 /**
+ * Bind the names the settings configuration uses ([[REQ-239]]).
+ *
+ * THE SAME BARGAIN {@link registerSiteProviders} KEEPS: the file that names a
+ * provider and the function that says what the name reaches are two halves of one
+ * decision, so they sit in one module and a name can only be added to the
+ * configuration by adding it here too.
+ *
+ * `name` IS A CALLBACK AND IS READ PER TURN, not a value captured at build. The
+ * business's name is the thing this session most often CHANGES, so a reminder
+ * rendered once would go on framing the conversation with the name the customer
+ * has just corrected — which is the one stale string a session about names must
+ * not carry.
+ *
+ * AND THE FRAMING SURVIVES A RECORD THAT CANNOT BE READ. A business that has gone
+ * — deleted, or a grant withdrawn mid-conversation — renders no line rather than a
+ * line naming nothing, and the operations answer the declaration's own `NO_BUSINESS`
+ * refusal when they are called. A `null` drops the entry and its separator.
+ */
+export function registerSettingsProviders(
+  providers: Untyped,
+  binding: { box: Untyped; name: () => Promise<string | null> },
+): void {
+  providers.register(BUSINESS_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+  providers.register(BUSINESS_LINE_PROVIDER, async () => {
+    const name = await binding.name()
+    return name ? businessLine(name) : null
+  })
+}
+
+/**
  * The consultant's role, built by the framework's own loader (REQ-182).
  *
  * LOADED, NOT CONSTRUCTED, and that is the point of the change. Building `Entry`
@@ -356,6 +480,23 @@ export function consultantRole(lib: Untyped, providers: Untyped, withCorpus: boo
     { providers },
   )
   return roles[CONSULTANT_ROLE]
+}
+
+/**
+ * The settings role, built by the same loader ([[REQ-239]]).
+ *
+ * THROUGH `rolesFromMapping` FOR THE REASON THE CONSULTANT IS: hand-building a
+ * `Role` skips every check the format has, and the one this role is most exposed
+ * to is the last of them — a `provider:` naming something nobody registered. It
+ * names two providers that did not exist until this ticket, so the loader's
+ * complaint at start-up, naming the entry, is exactly the failure worth buying.
+ */
+export function settingsRole(lib: Untyped, providers: Untyped): Untyped {
+  const roles = lib.rolesFromMapping(
+    { roles: { [SETTINGS_ROLE]: settingsPrimingConfig() } },
+    { providers },
+  )
+  return roles[SETTINGS_ROLE]
 }
 
 /** What {@link registerCorpusProviders} needs out of the `ai-knowledge` bridge. */

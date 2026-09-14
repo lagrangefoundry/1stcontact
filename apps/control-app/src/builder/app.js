@@ -10,6 +10,7 @@ import {
   BUSINESS_NONE_SELECTABLE_MESSAGE,
   LIBRARY_TAB,
   PEOPLE_TAB,
+  SETTINGS_TAB,
   SITE_TAB,
   STORAGE_KEYS,
   TABS,
@@ -25,6 +26,7 @@ import { mountImageEditor } from './image-editor.js'
 import { isEditablePicture } from './picture-kind.js'
 import { createLibraryPanel } from './library.js'
 import { createPeoplePanel } from './people.js'
+import { createSettingsPanel } from './settings.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
 import { createDisplayPanel } from './panel.js'
@@ -46,6 +48,7 @@ import {
   materialFileUrl,
   materialUidFromUrl,
   openChatSession,
+  openSettingsSession,
   previewUrl,
   saveMaterialName,
   saveMaterialRecipe,
@@ -150,6 +153,11 @@ export function mountBuilder(root, options = {}) {
      */
     libraryTransport = null,
     peopleTransport = null,
+    /**
+     * The Settings pane's one call ([[REQ-239]]). `null` keeps the origin's;
+     * a test injects `{saveName}` to drive the field without a Worker.
+     */
+    settingsTransport = null,
     /**
      * When the markdown engines have settled (BUG-42). Awaited before a
      * conversation is handed to the pane, because the pane paints each turn once.
@@ -557,6 +565,19 @@ export function mountBuilder(root, options = {}) {
    * something. A test still injects one object and overrides either half.
    */
   const openSession = chatTransport?.openSession ?? openChatSession
+  /**
+   * How the SETTINGS conversation is opened ([[REQ-239]]).
+   *
+   * A SEAM BESIDE THE SITE ONE AND NOT A PARAMETER ON IT. They take different
+   * arguments — one names a site, the other names nothing at all — and collapsing
+   * them into a single injected function with an optional argument would put the
+   * *"which kind of conversation is this"* question into every test double.
+   *
+   * DEFAULTED SO A HOST WITH NO SEAM STILL WORKS, and absent in the hosts that
+   * have no origin, where it never gets called because `blocked` short-circuits
+   * first or there is no business in scope at all.
+   */
+  const openSettings = chatTransport?.openSettingsSession ?? openSettingsSession
 
   /**
    * Open a picture the assistant put in the conversation ([[REQ-220]]).
@@ -829,6 +850,48 @@ export function mountBuilder(root, options = {}) {
   shell.getPanel(PEOPLE_TAB.id).append(people.element)
 
   /**
+   * THE SETTINGS TAB ([[REQ-239]]) — the record on the left, its own assistant on
+   * the right.
+   *
+   * THE SAME COMPOSITION THE SITE TAB HAS, deliberately: a split, a pane, a
+   * conversation beside it. What differs is what the two halves are about — a
+   * business rather than a site — and that difference is carried entirely by
+   * which session the chat is handed, which is `selectBusiness`'s job below.
+   *
+   * A SECOND CHAT PANE AND NOT A SECOND MODE OF THE FIRST. `chat.js` shows ONE
+   * conversation and knows nothing about what a conversation is about; two
+   * conversations on screen at once is two instances of it, each with its own
+   * composer draft. Sharing one would mean the settings conversation replacing
+   * the site's every time the operator changed tab, and losing whatever was
+   * half-typed in the other.
+   *
+   * IT IS HANDED NO `onSiteChanged` AND NO `expandPrompt`. This assistant cannot
+   * write to a site, so there is no preview to reload, and Marked Points is about
+   * a rendered page, which this tab does not have. Both are seams with defaults;
+   * omitting them is what "the settings session is granted the settings surface
+   * and nothing else" looks like on this side of the wire.
+   */
+  const settings = createSettingsPanel({
+    ...(settingsTransport ? { transport: settingsTransport } : {}),
+    /**
+     * THE CHROME FOLLOWS THE RECORD ([[REQ-239]]).
+     *
+     * The switcher above shows the business's name, and a rename made in the
+     * field below it that left the switcher saying the old name would be the
+     * product disagreeing with itself on one screen — in the one place the
+     * customer has just proved they are looking.
+     */
+    onRenamed: (record) => switcher.rename(record.id, record.name),
+  })
+  const settingsChat = createChatPanel({
+    storage: shell.storage(STORAGE_KEYS.settingsChat),
+    ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
+  })
+  const settingsSplitHost = document.createElement('div')
+  settingsSplitHost.className = 'builder-split'
+  shell.getPanel(SETTINGS_TAB.id).append(settingsSplitHost)
+
+  /**
    * The upload overlay, watching BOTH entry points (REQ-161, DOC-8 open item #4).
    *
    * ONE INSTANCE, TWO WATCHERS, and that is the ticket's answer to "drag into
@@ -916,6 +979,28 @@ export function mountBuilder(root, options = {}) {
     initialSplit: 65,
     collapse: { side: 'secondary', style: 'rail' },
     storage: shell.storage(STORAGE_KEYS.split),
+  })
+
+  /**
+   * The Settings tab's split ([[REQ-239]]).
+   *
+   * THE RECORD IS THE PRIMARY AND THE ASSISTANT IS THE SECONDARY, which is the
+   * same arrangement the site tab has and the same claim about which one is the
+   * work. The initial division is narrower than 65/35 because the record is a
+   * short form rather than a page, and a form given two thirds of a wide screen
+   * is a field with a great deal of nothing beside it.
+   *
+   * COLLAPSIBLE ON THE SAME SIDE, so a customer who wants only the fields gets
+   * only the fields — and gets them by the gesture they already know from the
+   * site tab.
+   */
+  const settingsSplit = mountSplit(settingsSplitHost, {
+    id: STORAGE_KEYS.settingsSplit,
+    primary: settings.element,
+    secondary: settingsChat.element,
+    initialSplit: 50,
+    collapse: { side: 'secondary', style: 'rail' },
+    storage: shell.storage(STORAGE_KEYS.settingsSplit),
   })
 
   /**
@@ -1012,6 +1097,73 @@ export function mountBuilder(root, options = {}) {
         error: `The assistant could not be reached: ${err.message}`,
       }
       chat.setSession(unopened, conversationKey(scope, unopened.sessionId))
+    }
+  }
+
+  /**
+   * WHICH BUSINESS'S RECORD THE SETTINGS PANE IS SHOWING ([[REQ-239]]).
+   *
+   * READ OFF THE LIST THE SHELL ALREADY HAS, rather than fetched. `/api/businesses`
+   * answered the switcher's list with a name per entry before anything was
+   * mounted; a second call for the same string would be a second answer free to
+   * disagree with the one on screen — and the switcher and this pane showing
+   * different names for one business is the exact failure `onRenamed` exists to
+   * prevent, arrived at from the other side.
+   */
+  function businessRecord(id) {
+    const entry = businesses.find((b) => b.id === id)
+    return entry ? { id: entry.id, name: entry.name } : null
+  }
+
+  /**
+   * The settings conversation, opened per business ([[REQ-239]]).
+   *
+   * ITS OWN GENERATION TOKEN, for the reason `showSite`'s exists: opening is
+   * async, so a second switch can start before the first answers, and without it
+   * a slow answer for an abandoned business would be swapped into a pane the
+   * customer has already moved on from. A separate counter because the two
+   * conversations move on different events — a site change re-opens one and not
+   * the other — and a shared counter would have each invalidating the other's
+   * in-flight open for no reason.
+   *
+   * THE CONVERSATION KEY IS THE SESSION ID UNPREFIXED, unlike the site's. The
+   * origin's id is `business-<businessId>` and a business id is already the widest
+   * scope this builder has, so there is nothing to prefix it WITH — `conversationKey`
+   * exists because a site's id was once ambiguous across businesses, and that
+   * ambiguity cannot arise for an id that names the business itself.
+   */
+  let settingsGeneration = 0
+  async function showSettings(businessId) {
+    const mine = ++settingsGeneration
+    if (!businessId) {
+      settingsChat.setSession(null)
+      return
+    }
+    // NOT OPENED AT ALL WITHOUT A KEY (REQ-173), for `showSite`'s reason: the
+    // banner has already said the deployment-wide thing, and the origin's own
+    // wording would describe the chat route instead.
+    if (blocked) {
+      settingsChat.setSession({
+        sessionId: `unconfigured:${businessId}`,
+        turns: [],
+        ready: false,
+        error: aiStatus.message ?? 'The assistant is not available.',
+      })
+      return
+    }
+    try {
+      const [session] = await Promise.all([openSettings(), markdownReady])
+      if (mine !== settingsGeneration) return
+      settingsChat.setSession(session)
+    } catch (err) {
+      await markdownReady
+      if (mine !== settingsGeneration) return
+      settingsChat.setSession({
+        sessionId: `unopened:${businessId}`,
+        turns: [],
+        ready: false,
+        error: `The assistant could not be reached: ${err.message}`,
+      })
     }
   }
 
@@ -1135,6 +1287,24 @@ export function mountBuilder(root, options = {}) {
     await library.refresh().catch(() => {})
     people.clear()
     await people.refresh().catch(() => {})
+
+    /**
+     * THE SETTINGS TAB MOVES WITH EVERYTHING ELSE ([[REQ-239]]).
+     *
+     * Both halves, and for the same reason the Library's list is cleared and
+     * re-read rather than re-filtered: this is a DIFFERENT business's record and a
+     * DIFFERENT conversation, not the same ones under a new heading. A field still
+     * holding the previous business's name, over a conversation about renaming it,
+     * is the worst version of the crossing [[REQ-181]] refuses — because the next
+     * thing the customer does is press return on it.
+     *
+     * THE RECORD IS SYNCHRONOUS AND THE CONVERSATION IS NOT, which is why only one
+     * of them is awaited here: the name is already in hand from the list the shell
+     * mounted with, and the session is a round trip whose own generation token
+     * governs whether its answer is still wanted.
+     */
+    settings.setBusiness(businessRecord(currentBusiness))
+    void showSettings(currentBusiness)
   }
 
   /**
@@ -1182,6 +1352,14 @@ export function mountBuilder(root, options = {}) {
      */
     openPalette,
     library,
+    /**
+     * The Settings tab's two halves ([[REQ-239]]) — exposed for the reason the
+     * Library and the chat pane are: a suite drives the record and reads the
+     * conversation the way an operator does, rather than reaching into the DOM
+     * for a field and guessing which conversation is beside it.
+     */
+    settings,
+    settingsChat,
     upload,
     /** The REQ-173 banner, or `null` on a deployment that can reach a model. */
     banner,
@@ -1218,6 +1396,9 @@ export function mountBuilder(root, options = {}) {
       // component, and the origin polls D1 for as long as it is held open.
       people.destroy()
       chat.destroy()
+      settings.destroy()
+      settingsChat.destroy()
+      settingsSplit.destroy()
       points.destroy()
       editor?.destroy()
       toolbar.destroy()
