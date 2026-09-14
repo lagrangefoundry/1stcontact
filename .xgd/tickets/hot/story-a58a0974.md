@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-09-10T22:03:32.960905+00:00'
+updated_at: '2026-09-14T05:52:29.919418+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -70,16 +70,25 @@ In scope:
 - **Continuity** — one conversation per site, stored **through the store the site
   belongs to** rather than beside a directory on one machine, replayed after the
   host that served it is gone, and never sacrificed to report an unrelated
-  failure. The tier in front of the archive holds only the turn in flight, so
-  losing the host mid-turn costs that turn and not the conversation.
+  failure. On the deployed runtime that store is the account's own ticket store
+  and **the conversation is itself a ticket** there: found again by the
+  identifier it carries, with the whole session file held as a transcript comment
+  on it and its body left for a summary something else writes. On the operator's
+  machine it is a file held with the workspace. What a conversation has already
+  been told about the corpus it can search is recorded on that same conversation,
+  because that fact is born with it and dies with it. The tier in front of the
+  archive holds only the turn in flight, so losing the host mid-turn costs that
+  turn and not the conversation, and two writers folding onto one conversation
+  conflict loudly rather than one silently discarding the other.
 - **Where the conversation runs** — the same host serves the conversation from
   the operator's machine and from the deployed edge runtime, over one session
   model, one tool loop and one write path. Which one is answering is not
   something the conversation contract knows: what a turn is, what it may reach
-  and where the transcript lives are the same either way, and the stored
-  transcript is the same bytes, so a conversation begun in one can be read by
-  the other. A failure is reported honestly on both — never dressed as the
-  assistant having tried — in the shape that origin's own answer takes; the
+  and the fact that the transcript lives in the store the site belongs to are the
+  same either way, and the stored transcript is the same bytes — the carrier
+  differs by host and the form does not — so a conversation begun in one can be
+  read by the other. A failure is reported honestly on both — never dressed as
+  the assistant having tried — in the shape that origin's own answer takes; the
   shapes themselves differ, and are stated per origin under *Reconciliation
   Decisions* below. Nor does it know *which instance* of a host is
   answering: a conversation identifier is resolved against durable, account-scoped storage
@@ -115,11 +124,29 @@ Out of scope:
 - **The browser pane.** The surface that renders the conversation for the
   operator is its own story, for the same reason the display panel and the origin
   behind it are separate.
-- **The store the transcript is written through.** Tenancy, atomicity and the
-  byte path of the cloud store belong to the site-store capability
-  (capability-c4c7a854); this story claims only that the conversation is written
-  through the site's own store rather than beside it, and that no request address
-  can name it.
+- **The stores the transcript and the record are written through.** Tenancy,
+  atomicity and the byte path of the cloud object store belong to the site-store
+  capability (capability-c4c7a854); the account binding, schema validation and
+  compare-and-set of the ticket store the deployed transcript is homed in belong
+  to the ticket-store capability. This story claims only that the conversation is
+  written through the site's own store rather than beside it, that no request
+  address can name it, and that a losing concurrent fold is refused rather than
+  swallowed.
+- **The summary the conversation's body is reserved for.** Making the conversation
+  a ticket does not make the conversation *knowledge*: the transcript is a comment
+  and the body is deliberately left alone, so a conversation enters the corpus
+  carrying its identifier and nothing else until something writes that summary.
+  REQ-171 owns it, together with the session prompts and turn reminders it has to
+  be written into.
+- **What the conversation is told about a corpus that changed while it was open.**
+  The per-turn report derived from the conversation's recorded boundary, how that
+  boundary advances, and a search that reaches more than one knowledge base, are
+  the change-delta capability's. This story claims only that the boundary lives on
+  the conversation.
+- **The record of what the assistant did.** Its shape — one object per record in
+  shared storage, so distinct keys make the trail append-only by construction — is
+  not a trade this story revisits. What is claimed here is only that no request
+  address can name it.
 - **Building the knowledge base, and packing it.** The corpus export, the document
   and chunk indexes, the generated awareness map, the operator commands that
   produce them, the rule by which a document is a member of the corpus, and the
@@ -175,10 +202,9 @@ Out of scope:
   fails to open (most often because the embedding credentials are absent) is
   reported to the operator on the origin's error output while the conversation
   still opens, because the two situations have very different fixes and must not
-  look the same. The deployed edge runtime is a third instance of the *ordinary*
-  state: the corpus bridge is bound to the operator's filesystem, so a
-  conversation there runs on its site operations alone, silently, exactly as one
-  on a workspace that never built a corpus does.
+  look the same. The deployed edge runtime is *not* an instance of that ordinary
+  state — the corpus travels with the application build and is reachable there —
+  and the distinction the sentence draws is unchanged.
 - **Intent supersession within the bundle that created this story.** REQ-122
   specified a turn carrying `{slug, text}` and a site identity held by the
   browser. REQ-127 withdrew that, and also withdrew its own earlier clause making
@@ -195,16 +221,36 @@ Out of scope:
   asserts the property the intent is about (a named refusal the assistant can act
   on within the turn, site untouched) and does not claim the per-call address is
   delivered.
-- Transcripts are operator-local in the filesystem host and frequently contain
-  verbatim business detail; there they are stored with the workspace and excluded
-  from version control.
+- Transcripts frequently contain verbatim business detail. On the host that runs
+  on the operator's machine they are operator-local, stored with the workspace and
+  excluded from version control; on the deployed runtime they are rows in the
+  account's own store, confined by the same binding as every other row it holds.
+- **The transcript is a ticket on the deployed host, and the costs of that are
+  named rather than discovered.** The whole session file is re-serialised and
+  rewritten on every turn, and a single stored row is bounded where an object in
+  shared storage was not, so a long enough conversation meets a ceiling the
+  previous arrangement did not have. Both are accepted, and the escape hatch for
+  the day either hurts is a message-granular archive behind the same port rather
+  than a bespoke shape here. Steady state is one read and one compare-and-set
+  write per turn; a conversation's first turn on a fresh host additionally pays a
+  scan for its own ticket, which is why the store is held for the life of the host
+  rather than rebuilt per request.
+- **Node's host is deliberately not brought along.** The command-line host keeps a
+  file archive because there is no writable ticket store under the CLI to home a
+  conversation in. That is why the criteria are written to the property — through
+  the store the site belongs to, one language-neutral form — rather than to either
+  carrier.
 - **One conversation host per isolate in the edge runtime, deliberately.** Every
   other route on that origin builds its store per request so the tenant check is
   never stale; the conversation routes cannot, because the session cache is keyed
   by the store's own identity and a fresh store per request would be a fresh
-  conversation per request. The tenant is still checked once, when the host is
-  built; what is given up is re-checking a mid-isolate deactivation, on the
-  conversation routes alone. Recorded as the intent's own stated deviation.
+  conversation per request. The same now holds for the ticket store the transcript
+  is homed in, for a second and independent reason: the archive caches the
+  conversation's ticket, so a store per request would be an archive per request
+  and every turn would pay the lookup only a first turn should. The tenant is
+  still checked once, when the host is built; what is given up is re-checking a
+  mid-isolate deactivation, on the conversation routes alone. Recorded as the
+  intent's own stated deviation.
 - **That cache is a cache of hosts, not of conversations.** The binding from a
   conversation identifier to its site is not held there, and is not held
   anywhere in a process: the identifier names its site by construction, and is
@@ -220,9 +266,9 @@ Out of scope:
   because it is why per-tenant knowledge bases can be added later without
   revisiting this wiring. The claim is about the *corpus* alone: the conversation
   around it is account-scoped, and its transcript and audit are tenant-partitioned
-  through the site's own store (REQ-143 / REQ-146), with the identifier resolved
-  against that account's storage rather than anything a process remembers
-  (BUG-38).
+  through the account's own stores (REQ-143 / REQ-146 / REQ-160), with the
+  identifier resolved against that account's storage rather than anything a
+  process remembers (BUG-38).
 - **The assistant library is not pinned by this repository.** It is resolved out
   of the shared component store another project's deliberate install writes, so
   nothing in this checkout's lockfile holds it still and an upstream change
@@ -232,7 +278,11 @@ Out of scope:
   providers — all without a change here. The criteria below are therefore written
   to the properties (the grant *is* the declared read group; a result comes back
   marked) rather than to a census of what the library happened to declare, so the
-  next such change is checked rather than merely noticed.
+  next such change is checked rather than merely noticed. The session archive is
+  now resolved the same way: the deployed host constructs the component's own
+  ticket-backed archive rather than implementing one, so the compare-and-set and
+  the comment layout are upstream's contract, asserted here as behaviour rather
+  than transcribed as a shape.
 - **Recorded caveat on evidence.** The session-side behaviour is proven over a
   real corpus, a real index and the real granted surface, with a stand-in
   embedding model at the single model boundary. A knowledge base built against
@@ -249,6 +299,15 @@ Out of scope:
   model to a live account, so the embedder is stood in for too, and the corpus is
   one the test planted rather than whichever documents happened to be exported
   that week.
+- **Evidence that went stale with the carrier, recorded so it is retargeted rather
+  than rediscovered.** The deployed-host verifications for continuity and for the
+  stored form were written against an object key in shared storage — they list,
+  read and delete `chat/<account>/<conversation>.md`, and one of them constructs
+  the object-backed archive class by name. That class no longer exists and that
+  key is never written, so those two verifications assert against an arrangement
+  the product no longer has and must be retargeted at the conversation's ticket
+  and its transcript comment. The criteria they belong to are unchanged in
+  substance; only where they look is wrong.
 
 ## Reconciliation Decisions
 
@@ -397,14 +456,78 @@ should stop asserting.
 - **Both scope axes become every declared axis.** The grant was checked by substring against a serialised blob. It is now checked axis by axis, over the axes the declaration itself defines, so an axis added upstream cannot arrive unconstrained.
 - **AC-1318's node twin is left alone, deliberately.** It fails on the identical assertion, but it is not in this bundle's active set and it sits in a suite whose other criteria (AC-1317, AC-1319) need this story rewritten against a knowledge model upstream retired. The three travel together, against the framework-migration intent, not here.
 
+Decisions taken on **2026-09-13** while reconciling BUNDLE-27 (REQ-160's storage
+half). The intent's position is stated flatly by the operator — *"I am expecting
+the system to use the ticket store to back it … everything is a ticket"* — and the
+ticket answers it with DOC-10 §8: the conversation homed in a `chat` ticket found
+or created by its session id, the whole session file in one `chat_transcript`
+comment, the body left for the summary REQ-171 owns, writes compare-and-set. The
+decisions below are about what the matrix should therefore say.
+
+- **The carrier changes and the property does not, so the criteria are restated
+  rather than replaced.** AC-1057 and AC-1405 were written to properties — through
+  the store the site belongs to; one language-neutral form, byte for byte — and
+  both survive the object store being swapped for the ticket store intact. What
+  had to change is that each named the object key as though it were the property.
+  Both now state the carrier per host (a transcript comment on the conversation's
+  own ticket in the deployed runtime; a file with the workspace under the CLI) and
+  keep the property host-neutral. The alternative — a second pair of criteria for
+  the ticket-backed host — was rejected: it would make the two runtimes stop being
+  the same product in the matrix, which is exactly the outcome the original intent
+  gave as its reason for the neutral form.
+- **The chat ticket's shape is formalised as a criterion, because it is a
+  persistent-artifact contract and not an implementation detail.** The intent names
+  each part (the `session_id` field, the `chat_transcript` comment, the untouched
+  body, one ticket per conversation rather than one per turn) and the last of them
+  is the one a defect would actually break: an archive that minted a second ticket
+  per turn would still replay a conversation, so AC-1057 would pass while the
+  conversation had quietly become several. Stated as one criterion because the four
+  parts are one arrangement and no consumer can see three of them without the
+  fourth.
+- **The compare-and-set refusal is claimed as a criterion, not recorded as a
+  property of the store.** The intent chose it deliberately and gave the reason —
+  "a concurrent write now fails loudly on the compare-and-set instead of silently
+  losing the later fold, which is the better failure" — and a loud failure that
+  someone later traded back for an unconditional overwrite would look like an
+  improvement. It is verified as a refusal plus an intact stored transcript,
+  because a refusal that left the transcript truncated would be the worse failure
+  wearing the better one's clothes.
+- **The cursor's home is claimed here; what it is for is not.** The intent puts the
+  boundary on the conversation's ticket for a reason about lifetime — it lives and
+  dies with the conversation, unlike an index's own bookmarks, which are a property
+  of an indexing pass. That is a continuity claim and belongs to this story. The
+  per-turn report derived from it, its advance, and the co-ranked search that gives
+  it something to report are the change-delta capability's, and are deliberately
+  not asserted here. Splitting them this way is this reconciliation's decision: the
+  two fail independently, and a boundary stored on the wrong object is a continuity
+  defect even if every delta it produces is correct.
+- **Tenancy moves from a stated convention to a structural barrier, and AC-1409 is
+  strengthened rather than weakened.** The object-backed transcript's isolation was
+  that its key sat outside the site region and nothing derived a storage root from
+  a request — true, and held by a comment. The conversation is now in a store whose
+  handle is bound to one account when it is built, so there is no argument on that
+  path that could name another account's conversation. The criterion keeps its
+  original claim (no request address names a transcript or the record) and gains
+  the confinement claim, and its verification gains the observation that the
+  conversation is not in the addressable object storage at all.
+- **What is deliberately not claimed.** Node's host keeps its file archive, because
+  there is no writable ticket store under the CLI — so no criterion says the
+  conversation is a ticket *wherever* it is served. The record of what the
+  assistant did keeps its one-object-per-record shape, and the intent says so
+  explicitly; the matrix does not restate that trade. Nothing is claimed about
+  conversations written under the previous arrangement: the intent's stated
+  decision is that they orphan, and a migration criterion would assert a behaviour
+  nobody built.
+
 ## Dependencies
 
 The declared control surface the assistant acts through, and the browser pane
 that renders the conversation, are related work that must not be re-derived here.
-The store the transcript and audit are written through is the site-store
-capability (capability-c4c7a854), and the origin that hosts the routes is CAP-85
-(story-e674c60a). The knowledge half additionally depends on the system knowledge
-base having been built *and packed into the application build* (STORY-117 /
+The stores the conversation and the record are written through are the site-store
+capability (capability-c4c7a854) for the object half and the ticket-store
+capability for the conversation's own home, and the origin that hosts the routes
+is CAP-85 (story-e674c60a). The knowledge half additionally depends on the system
+knowledge base having been built *and packed into the application build* (STORY-117 /
 story-c4f329d3) — but only for its knowledge criteria; every other criterion
 holds with no knowledge base present at all.
 
