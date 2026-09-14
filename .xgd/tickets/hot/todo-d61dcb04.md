@@ -5,14 +5,15 @@ type: todo
 title: '1stc.site housekeeping: PSL, reserved labels, allocation, registration hygiene'
 created_by: CHAT-48
 created_at: '2026-09-12T20:37:19.939899+00:00'
-updated_at: '2026-09-12T20:37:19.939899+00:00'
+updated_at: '2026-09-14T03:49:02.999644+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: open
 fields:
   kind: user_task
   auto_merge_back: true
 ---
+
 
 **Mixed operator task and product decisions.** [[DOC-45]] §9 left *"which apex,
 and whether the product sells domains"* as open decision #2. Buying `1stc.site`
@@ -77,26 +78,58 @@ reasons:
 **Revocation must exist from day one.** Whatever the list says, something will
 get through it, and the only alternative to revocation is leaving it up.
 
+**This is now built rather than merely required**, and it is stronger than it was
+when this was written, because [[DOC-45]] §7 has made the label **final**: an
+owner cannot change their own label, so a label that has to go can only go by our
+hand. [[REQ-238]] carries the four reserved groups above as a list in code, plus
+the `status` flip gated on `platformAdminSeed`, the active-status filter on every
+read, and the rule that a revoked label is never re-issued. The screening step for
+the impersonation-and-abuse group is **not** built — [[DOC-45]] §11 item 6 defers
+what is refused beyond the technical family, so the after-the-fact revocation is
+carrying that group alone for now.
+
 ## 3. Label allocation and uniqueness — [code]
 
-[[DOC-45]] §7 settles the shape: assigned at provision from the slugified
-business name, short discriminator on collision, freely changeable afterwards.
-What is not settled and needs to be:
+**Rewritten 2026-09-13. Most of this section described a model that has been
+withdrawn, and the superseded text is kept at the end so nobody re-derives it.**
 
-- **Uniqueness is global across the apex** ([[DOC-45]] §2 form C) — so
-  allocation needs a real uniqueness constraint in the database, not an
-  application-level check. Two concurrent provisions of "Alice's Plumbing" must
-  not both win.
-- **Changing a label leaves the old one behind.** A customer who has put
-  `alice.1stc.site` on a van and then renames wants the old label to keep
-  working. Recommendation: old labels are retained as redirects to the current
-  one and are **never re-issued to anyone else**, because re-issuing means
-  inheriting whatever reputation and inbound links the previous holder built.
-- **Squatting.** Labels are free and unlimited signup makes them free at scale.
-  Some rate limit or verification gate on allocation, even a weak one.
-- **[[DOC-45]] §11 item 4** — per site or per business — is still open and this
-  work needs the answer. §3 of that document says a host names a site, which
-  implies per site.
+[[DOC-45]] §7 now settles the shape the other way: **the customer chooses the
+label, it is never assigned, and it is final.** The build is [[REQ-238]], which
+carries the answers — this section is the operator's view of what that implies
+and the one question it leaves open.
+
+- **Uniqueness is global across the apex** ([[DOC-45]] §2 form C) — a real unique
+  index on `host`, not an application-level check. Two concurrent claims of
+  `alicesplumbing` must not both win, and under a chosen-not-assigned model this
+  is load-bearing rather than theoretical: availability is checked as fast as
+  somebody can type, a check promises nothing, and **the index is the authority
+  that decides the race.** Unchanged from the original and the only bullet here
+  that survives it intact.
+- **Revocation is the counterpart of finality**, not a separate nicety — see §2,
+  and [[DOC-45]] §7, which now spells out the operator-only status flip, the
+  active-status filter on every read, and never re-issuing. Built in [[REQ-238]].
+- **Squatting is still open, and finality sharpens it.** Labels are free and
+  unlimited signup makes them free at scale. A rate limit or verification gate on
+  allocation, even a weak one, is still wanted — and now matters more, because a
+  squatted label is never released. **Nothing in [[REQ-238]] addresses this.**
+- ~~**[[DOC-45]] §11 item 4** — per site or per business~~ — **settled: per
+  business, one at a time.** With one site per business ([[BUG-90]]) the
+  distinction is not observable; it reopens the day a site selector lands. The
+  row still names the site ([[DOC-45]] §5), and the "one at a time" rule is
+  enforced across the business.
+
+### Superseded text
+
+This section used to say: *"assigned at provision from the slugified business
+name, short discriminator on collision, freely changeable afterwards"*, and that
+*"changing a label leaves the old one behind... old labels are retained as
+redirects to the current one and are never re-issued to anyone else."*
+
+Both halves are gone. Nothing is assigned, so there is no slugified default and
+no discriminator; nothing changes, so nothing is left behind and there are no
+redirect rows to keep. The re-issue prohibition survives, but as a consequence of
+finality rather than as a rule about renames. The arguments are in [[DOC-45]] §7's
+own "What this replaces".
 
 ## 4. What happens to the label once a custom domain lands — [decide]
 
@@ -116,6 +149,16 @@ Recommend adopting exactly that, for three reasons:
 The falsifier is a site reachable on both C and D with 200s on each.
 
 ## 5. Registration hygiene — [op]
+
+**Two items here are on the critical path, which they were not when this was
+written.** The wildcard `A`/`AAAA` record and the `*.1stc.site` wildcard
+certificate are what make host→site resolution possible at all, so
+[[DOC-45]] §4 — deleting the `/site/<key>/` grammar — is blocked on them, and
+[[DOC-45]]'s order of work now lists this section as its own step between the
+label work and the resolution work. Until they land, a customer can claim
+`alice.1stc.site` and it will not resolve; sites stay reachable at
+`/site/<key>/`. That interval is intended, and it ends here rather than in code.
+§1's PSL submission has the same character and a longer lead time.
 
 - Registrar lock on, auto-renew on, and **not** on a card that expires soon.
   This domain is the address of every customer site until they buy their own;
