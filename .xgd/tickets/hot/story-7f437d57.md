@@ -6,9 +6,9 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-09-14T07:47:16.716395+00:00'
+updated_at: '2026-09-14T07:55:13.837533+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -59,6 +59,13 @@ In scope:
 - **Turns addressed to what is on screen.** Sending goes to the conversation currently
   displayed, and the reply arrives progressively in the message list rather than in one
   lump at the end.
+- **Following the assistant's writes.** When a turn reports that the site moved, the page
+  shown beside the conversation is fetched again, so a request answered by several edits
+  arrives edit by edit while the assistant is still working, rather than leaving the
+  operator to reload by hand once it stops talking. A turn that moved nothing leaves the
+  page where it was, so asking a question does not cost the operator their place on it.
+  The report itself is not part of the conversation: it is acted on and leaves no message,
+  no activity entry and nothing to replay.
 - **Visible failure.** An assistant that cannot run right now, and an origin that
   cannot be reached at all, are each explained in the pane. Neither costs the operator
   the history they already have, and neither leaves an empty pane or an endless wait.
@@ -78,7 +85,10 @@ Out of scope:
 
 - **The conversation itself** — the routes, the session lifecycle, where the transcript
   is stored, how the assistant is primed, and what the stream carries belong to the
-  assistant host story. This story owns only what the browser shows of them.
+  assistant host story. This story owns only what the browser shows of them, and what it
+  does on receiving them. That the change report is made at all, that it is made once per
+  write, and that it is derived from the site's own change count rather than asked of the
+  assistant, are all claimed there and not here.
 - **What the assistant is able to do** — the declared and granted operations, their
   validation and their audit belong to the site control surface.
 - **The split's frame** — the divider, the rail collapse and drag-to-resize, and where
@@ -124,6 +134,15 @@ Out of scope:
   wait is injectable where the workspace is mounted, so the cold-load ordering can be
   held open and observed rather than raced; that seam is a means of verification and is
   deliberately not itself a criterion.
+- **The reload is the update mechanism, and the conversation was the one producer that
+  never triggered it.** The draft and edit views render when they are requested, so no
+  saved artifact exists for a write to keep in step: re-fetching the displayed page *is*
+  how it catches up. Every other producer of structured edits in the workspace — the
+  palette popup, the segment editor — already re-fetches after its writes, by the same
+  means and for the same reason, so this work gives the conversation that same idiom
+  rather than a second one. The re-fetch is the workspace's business and its failure is
+  isolated from the turn: one that throws is swallowed and the assistant's answer still
+  arrives in full.
 
 ## Reconciliation Decisions
 
@@ -172,6 +191,28 @@ Out of scope:
   something an operator can see.
   *Rationale:* acceptance criteria must be observable at a product boundary; the
   ordering that seam verifies already is one, and is stated on AC-1063.
+
+*Recorded 2026-09-14, reconciling BUNDLE-27 (bundle-8e1807f6), item 10 (BUG-43).*
+
+- **Acting on the change report is claimed here; producing it is not.** The report is made
+  by the side that serves the turn, and that it is made — per write, from the site's own
+  count, unskippable by the assistant — is asserted on the host's story. What this story
+  adds is the half an operator can see: the page beside the conversation follows the
+  writes.
+  *Rationale:* the two fail independently. A report nothing acts on and an action with
+  nothing to act on are different defects with different fixes.
+- **The report's invisibility is stated on the existing activity criterion rather than as
+  a criterion of its own.** AC-1066 is the criterion about what a turn puts in front of
+  the operator, and "this frame is consumed and not displayed" is a claim of exactly that
+  kind. Left separate, AC-1066 would go on reading as though every frame a turn carries is
+  shown somewhere.
+  *Rationale:* one criterion per question the operator can ask of the pane.
+- **The reload is asserted as the displayed page being fetched again, not as the
+  mechanism that does it.** What the operator sees is that the page caught up; whether
+  that is a frame reload, a re-render or a navigation is not something they can tell
+  apart, and pinning the mechanism would fail the criterion on a change that kept its
+  promise.
+  *Rationale:* acceptance criteria are observable at a product boundary.
 
 ## Dependencies
 
