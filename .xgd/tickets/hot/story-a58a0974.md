@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-09-14T06:23:08.453488+00:00'
+updated_at: '2026-09-14T07:54:43.851560+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -47,7 +47,11 @@ In scope:
   the same site again is the same conversation, not a new one.
 - **Running a turn** — addressed to a conversation, never to a site. What the
   assistant said and what it did are streamed as they happen, ending in exactly
-  one completion.
+  one completion. A turn that moves the site also announces each move as it
+  lands, derived from the site's own change count rather than asked of the
+  assistant — so a write cannot go unannounced, cannot be announced twice, and
+  cannot be announced for a change that never happened. What the surface
+  displaying the site does with that announcement is that surface's business.
 - **Binding** — a conversation belongs to exactly one site, fixed when it is
   opened. Nothing above the host names a site; the assistant is offered no
   operation that takes one, so acting on the wrong site is not a mistake
@@ -123,7 +127,9 @@ Out of scope:
   assistant is a second producer of the same kind of change, not a second path.
 - **The browser pane.** The surface that renders the conversation for the
   operator is its own story, for the same reason the display panel and the origin
-  behind it are separate.
+  behind it are separate. That includes what it does with the change
+  announcement: this story claims only that a turn makes one, never that anything
+  acts on it.
 - **The stores the transcript and the record are written through.** Tenancy,
   atomicity and the byte path of the cloud object store belong to the site-store
   capability (capability-c4c7a854); the account binding, schema validation and
@@ -308,6 +314,32 @@ Out of scope:
   the product no longer has and must be retargeted at the conversation's ticket
   and its transcript comment. The criteria they belong to are unchanged in
   substance; only where they look is wrong.
+- **The change announcement is derived, and its cost is stated rather than
+  discovered.** The count is re-read only after the assistant has run an
+  operation — the only thing in a turn that can write — so a turn that writes
+  pays one primary-key read per operation it ran, and a turn that only speaks
+  pays none. That is why the criteria are about announcements and not about
+  polling: there is no clock here and nothing is being watched.
+- **A declared operation was the available alternative and was rejected.** The
+  intent says why: a tool is a capability the model may skip, and the turns it
+  would skip it on are the long ones, which are exactly the turns where watching
+  the page unfold matters most. Deriving the announcement from the count is the
+  same argument the per-turn change reminder already makes for pushing rather
+  than leaving the model to ask.
+- **CODE ISSUE — the turn stream does not currently compile, so the announcement
+  cannot run.** `streamPrompt` reads `let seen = at` where nothing named `at` is
+  in scope (`tools/generate/src/cli/ai/host-core.ts:774`); `tsc --noEmit` over
+  `tools/generate` reports `TS2304: Cannot find name 'at'`. The free-coded BUG-43
+  commit was correct — it read the counter into `at` at the top of the turn — and
+  that binding was removed when REQ-160 moved the reminder comparison out into a
+  provider, leaving its one surviving use behind. The intent is unambiguous, so
+  the criteria are written to it and the code is what is wrong. The same module
+  fails to compile for two further REQ-160-owned reasons (`CARETAKER_PURPOSE` is
+  both imported and declared locally; `session-knowledge.ts` imports
+  `SHIPPED_SOURCE` from `system-knowledge.ts`, which does not export it), so all
+  three have to be repaired together before any turn-stream verification in this
+  bundle can run. Raised for `fix_uat_coverage`; not fixed here, because
+  reconciliation does not change runtime code.
 
 ## Reconciliation Decisions
 
@@ -518,6 +550,41 @@ decisions below are about what the matrix should therefore say.
   conversations written under the previous arrangement: the intent's stated
   decision is that they orphan, and a migration criterion would assert a behaviour
   nobody built.
+
+Decisions taken on **2026-09-14** while reconciling BUNDLE-27 (BUG-43). The
+operator's statement of the defect is that the assistant's writes land correctly
+and invisibly, and the stated fix is "a change signal on the turn stream that the
+panel can act on, emitted per write rather than once at the end of the turn".
+
+- **The announcement is claimed as part of what a turn streams, not as a second
+  channel.** AC-1054 already enumerated what a turn carries and where the change
+  really is, so the announcement joins that enumeration rather than becoming a
+  criterion about a new surface. A criterion of its own would have invited a
+  second transport, which is the one thing the intent rules out.
+- **Per-write placement is a criterion and not a note, because it is the whole
+  request.** The intent gives the reason in full: a single signal at the end of a
+  turn would satisfy "the page updates" and still lose what was asked for, which
+  is a request answered by several edits arriving edit by edit. A property about
+  *where* in a stream something appears is observable as an order, so it is
+  asserted as one.
+- **"Not an operation the model may skip" is formalised as a criterion of its
+  own.** The intent states it as a deliberate choice and gives the argument; left
+  in prose it is exactly the kind of thing traded away by the next person who
+  finds a declared refresh operation tidier. Its two observable halves — a silent
+  assistant's write is still announced, a talkative assistant's non-write is not —
+  are what a criterion can carry where "the host produces it" cannot.
+- **The workspace that performs the reload is left to the pane's story, and
+  STORY-99 is deliberately not touched.** The reload is performed by the
+  workspace, but AC-1033 already states that a definition changed outside the
+  workspace is shown on the next request, so the workspace's obligation is
+  unchanged — what is new is that the conversation now tells it when to ask. The
+  criterion for acting on an announcement therefore sits with the pane that
+  observes it.
+- **The system preamble was left alone, and that is a decision rather than an
+  omission.** The intent notes that the assistant is told "the page the user is
+  looking at re-renders after every change", and names that as part of the
+  defect. The fix makes the sentence true instead of rewriting it, so no
+  criterion claims anything about the preamble's wording.
 
 ## Dependencies
 
