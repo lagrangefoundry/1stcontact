@@ -5,9 +5,9 @@ type: request
 title: 'The 1stc.site hostname: chosen once, and required before publishing'
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:45.731357+00:00'
-updated_at: '2026-09-14T04:39:17.215618+00:00'
+updated_at: '2026-09-14T04:39:21.366022+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.198
+  story_points: 13
 ---
 
 ## What this is
