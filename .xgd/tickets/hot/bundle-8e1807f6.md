@@ -5,9 +5,9 @@ type: bundle
 title: REQ-155 + BUG-40 + REQ-160 + BUG-41 + BUG-42 + 3 more
 created_by: xgd
 created_at: '2026-09-11T18:53:53.741845+00:00'
-updated_at: '2026-09-11T21:07:37.928435+00:00'
+updated_at: '2026-09-14T08:05:54.663713+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: regression_anchor_uid
 status: reconciling
 fields:
   commits:
@@ -270,6 +270,7 @@ fields:
     new_sha: e48de6a32dc30b71ce92e417f6c54887176c30fc
   - old_sha: 5c7cc72acc4de8678e746ed7dda56c49b8872e25
     new_sha: 719f1fdf34269feb782c210e2003dafb9f1eb726
+  regression_anchor_uid: report-f83b3a75
 ---
 
 # Bundle
