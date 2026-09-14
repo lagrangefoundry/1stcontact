@@ -6,10 +6,10 @@ title: A ladder screenshot is retrievable by width, and a width the ladder never
   reads as absent
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T04:49:56.951826+00:00'
-updated_at: '2026-09-14T04:49:56.951826+00:00'
+updated_at: '2026-09-14T05:00:54.917214+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cb7f25b
   kind: behavior
