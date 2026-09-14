@@ -5,10 +5,10 @@ type: request
 title: The portal shows and changes a contact's preferences
 created_by: EPIC-10
 created_at: '2026-09-13T22:03:11.191085+00:00'
-updated_at: '2026-09-14T02:56:24.012867+00:00'
+updated_at: '2026-09-14T03:16:47.964667+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   depends_on:
@@ -17,6 +17,17 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-ab815b3d
+  commits:
+  - working_sha: 37c4036bc7a7601348477bffd2a45e6de7022321
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0382acab5e52f5102904d331c767d16f66dd0e90
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b735ee465a2008d52d781078411f9d3c809ec157
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.195
 ---
 
 # The portal shows and changes a contact's preferences
