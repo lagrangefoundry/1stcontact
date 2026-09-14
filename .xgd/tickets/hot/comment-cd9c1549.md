@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T18:38:37.419188+00:00'
+updated_at: '2026-09-14T19:03:37.451132+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -794,5 +794,11 @@ Three changes, in dependency order:
 (1) is small and fixes the reported symptom. (2) is a real scope call — it's a new surface, and it's the difference between the agent configuring the form and the agent *finishing* the job.
 
 This is all outside EPIC-10 as scoped. Want me to write it up as a ticket, and if so, all three or just (1)?
+
+<!-- xgd-turn id="098d9467-bad9-471b-8a3d-f87dced5d576-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T19:03:37.023613+00:00" -->
+#### You
+Can you take a look at the configuration - I do not seem to be getting the emails
 
 <!-- xgd-chat-end -->
