@@ -6,10 +6,10 @@ title: Decode cost for a full-page screenshot is measured and reported on every 
   and held under a stated ceiling
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:06:38.264744+00:00'
-updated_at: '2026-09-14T05:06:38.264744+00:00'
+updated_at: '2026-09-14T05:16:31.774392+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-046cfc56
   kind: behavior
