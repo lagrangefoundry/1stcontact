@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T03:38:39.513302+00:00'
+updated_at: '2026-09-14T03:47:03.723652+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -616,5 +616,55 @@ Still outstanding from earlier, whenever you want them: EPIC-10's body is still 
 ok all the tickets are implemented - you should create an EPIC ticket body capturing the work.
 
 Then how do I test it - should all the forms in the existing sites now work?
+
+<!-- xgd-turn id="6882405f-f4b6-4d1e-9e94-7445db4dd608-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T03:47:01.434488+00:00" -->
+#### Claude
+All six children are `ready_to_reconcile` with commits landed. Let me look at what actually shipped before writing the epic body.
+
+Now writing the epic body.
+
+Epic body written — design rationale, the six children, what shipped, and a verification section. Title `Forms: capture, acceptances, and onboarding` stuck this time.
+
+## Test state
+
+I ran the full suite at `0.2.196`: **4043 passed, 12 failed** — and **all 13 of this epic's UAT files pass**, including the workerd ones that go through the real `captureLead`, the real `/api/publish` and the real gate routes against D1/R2.
+
+The 12 failures are environment, not code:
+- five fail the `1c` preflight — `node_modules` is behind `pnpm-lock.yaml` (there's an untracked `.pnpm-store/` at the root; `pnpm install` wants to purge `node_modules` and refuses without a TTY)
+- `REQ-183_portal_pages` dies on `EISDIR` reading a stray `.claude/` directory inside `account-portal/` — harness detritus from Sep 6
+- `REQ-174_consultant_role` and `bug32` are grep-over-source guards tripping on the untracked `What_1st_Contact_is,_and_how_to_say_it.md` at the repo root and on pre-existing REQ-228 files
+
+None of them touch this epic's code.
+
+## Should the existing sites' forms now work?
+
+**No — and that's by design, not a gap.** Two separate reasons, and both need an action from you.
+
+**1. A published revision is frozen, and nothing upgrades it in place.** `upgradePageModules` is called from exactly one place — the explicit upgrade verb — and it rewrites the *draft*. The lead receiver reads the *published* snapshot for a live submission, deliberately: reading consent wording from a draft would evidence a sentence that was never on the page. So a site published before this work keeps capturing leads exactly as before and sends nothing, until you upgrade and republish.
+
+**2. No existing form is configured to use any of it.** I checked all four in the repo — `xgd` home + whitepapers, `gigabytealchemy` form-0 + form-1. All migrated to v7, all with `assets: []`, no `template`, no `accepts`. The whitepapers page still says *"Send me both papers"* and promises none. The epic made that expressible; it didn't author it.
+
+### To actually see it work
+
+```
+# 1. carry the stored instances to v7
+POST /api/modules/upgrade {"site": "<slug>", "write": true}     # D1 sites
+1c module upgrade <slug> --write                                 # file-backed
+
+# 2. configure the form: config.template, and config.assets / config.accepts
+# 3. author the template in the business's ticket store if it isn't a seeded key
+# 4. PUBLISH  ← nothing above reaches a visitor until this
+# 5. submit the form
+```
+
+Expect in the contact's timeline: `form.submitted` → `acceptance.granted`/`acceptance.requested` per key → `asset.sent` per item. Following the mail's link writes `page.accessed`; each download writes `asset.downloaded`.
+
+Two things that will bite if you skip them:
+- **Schema.** `bin/deploy` applies `0004` and `0006` via the migrate hook, so production is covered by deploying. A local store needs `wrangler d1 migrations apply DB --local` once.
+- **`publishSite` refuses** a form naming a template the business's store doesn't hold, and refuses `invite`/`signin` outright. That refusal is the feature — a typo is caught at publish rather than becoming a silent non-send.
+
+Worth deciding: do you want me to configure the `xgd` whitepapers form for real (two assets, a template, `whitepapers` as an implied acceptance) as the first live exercise of the whole chain? That would be a new ticket, and the papers themselves are currently ticket bodies rather than PDFs, so there's a sourcing question in it.
 
 <!-- xgd-chat-end -->
