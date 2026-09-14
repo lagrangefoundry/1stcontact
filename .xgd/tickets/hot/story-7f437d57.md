@@ -6,9 +6,9 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-09-10T22:44:57.607779+00:00'
+updated_at: '2026-09-14T07:30:14.903485+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -48,7 +48,12 @@ In scope:
   the site changes both halves together.
 - **Replay.** On first open and on every switch, the pane shows what that site's
   conversation already contains, so the assistant never answers from context the
-  operator cannot see. One site's conversation never appears under another's.
+  operator cannot see. One site's conversation never appears under another's. Replay
+  waits for the markdown engines to settle before it paints, because each turn is
+  painted once and cannot be redrawn: a transcript handed over while the renderer is
+  still arriving would read as its own markdown source for the life of the page. The
+  wait runs alongside the opening of the conversation, so it costs no more than the
+  slower of the two.
 - **Composing state per conversation.** An unsent, half-typed message belongs to the
   conversation it was typed into: leave for another site and come back and it is still
   there, and the other site's composer is not holding it.
@@ -58,9 +63,17 @@ In scope:
 - **Visible failure.** An assistant that cannot run right now, and an origin that
   cannot be reached at all, are each explained in the pane. Neither costs the operator
   the history they already have, and neither leaves an empty pane or an endless wait.
+  The pane's own note about a conversation that could not be opened is markdown too, so
+  it is held for the same readiness the transcript is.
 - **Switching faster than the answers arrive.** However quickly the operator moves
   between sites, the pane ends up showing the site they last chose — an answer for a
   site they have left never lands in front of them.
+- **One renderer for the workspace.** The engines that turn markdown into prose — and
+  the sanitizer that scrubs what they produce — are started once for the whole
+  workspace, and the readiness every markdown surface waits on settles whether they
+  load or cannot be fetched at all. It never fails, so waiting on it cannot strand a
+  surface, and an unreachable renderer yields a plainer panel of escaped text rather
+  than a blank or hanging one.
 
 Out of scope:
 
@@ -71,6 +84,9 @@ Out of scope:
   validation and their audit belong to the site control surface.
 - **The split's frame** — the divider, the rail collapse and drag-to-resize, and where
   workspace layout state is persisted, are unchanged and belong to the workspace story.
+- **The other markdown surfaces.** The Library's document reader and its "What this is"
+  description wait on the same readiness and render through the same seam, but what
+  they show and how they behave belong to the Library's own story.
 
 ## Technical Context
 
@@ -100,9 +116,15 @@ Out of scope:
   stream rather than in the pane; the pane is mounted with its tool area enabled and
   the intent states the activity is shown there. The criterion is written from the
   intent, so its verification is expected to be observed in the pane.
-- **Known upstream gaps, not claimed here.** Markdown and sanitiser engines load behind
-  the component's own seams and are designed to degrade: without them the pane renders
-  escaped text rather than failing. No criterion asserts rendered markdown.
+- **The markdown engines are a waited-for dependency, not a disclaimed gap.** They are
+  still third-party and still lazily imported, and the render seam's degradation to
+  escaped source when the sanitizer is absent is still the right answer and is still
+  not claimed as rendering. What changed is that the pane no longer paints while the
+  engines are merely *late*: the workspace waits on their readiness before handing a
+  conversation over, and the same readiness is what the Library's surfaces wait on. The
+  wait is injectable where the workspace is mounted, so the cold-load ordering can be
+  held open and observed rather than raced; that seam is a means of verification and is
+  deliberately not itself a criterion.
 
 ## Reconciliation Decisions
 
@@ -125,6 +147,32 @@ Out of scope:
   the capability that declared that tab.
   *Rationale:* stating the Library's controls here would put one capability in two
   places, and the reuse-first rule points them at their own story.
+
+*Recorded 2026-09-14, reconciling BUNDLE-27 (bundle-8e1807f6), item 9 (BUG-42, transcript half).*
+
+- **Rendered markdown in the pane is now claimed, and the previous "no criterion
+  asserts rendered markdown" note is withdrawn.** BUG-42 states the ordering rule
+  directly — do not paint markdown before the engine has settled — and the workspace
+  implements it by waiting on readiness alongside opening the conversation. The
+  disclaimer described a gap the intent has since closed, so keeping it would leave the
+  matrix asserting less than the operator asked for.
+  *Rationale:* the degradation itself was never the defect. What was undocumented is the
+  distinction between an engine that is *absent* (escaped source, correct) and one that
+  is merely *late* (escaped source, permanent, wrong), and that distinction is exactly
+  what a criterion has to carry.
+- **The shared-engine criterion is written here even though other surfaces wait on it.**
+  The readiness signal is one workspace-wide thing — started once, settling on load or
+  failure, never failing — and this pane is the surface whose defect forced it into
+  existence. It is stated once, here, as a property of the workspace rather than of the
+  pane.
+  *Rationale:* restating it on every story that waits on it would put one guarantee in
+  several places; the Library's story says what the Library shows, not how many times
+  the engines load.
+- **The injectable readiness seam is not a criterion.** BUG-42 names it, but it exists
+  so a suite can hold the ordering open and observe it. It is a test affordance, not
+  something an operator can see.
+  *Rationale:* acceptance criteria must be observable at a product boundary; the
+  ordering that seam verifies already is one, and is stated on AC-1063.
 
 ## Dependencies
 
