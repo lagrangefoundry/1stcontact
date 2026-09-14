@@ -5,9 +5,9 @@ type: story
 title: 'Platform Build, Deploy & Smoke: One Path To Ship A Worker, And Proof It Serves'
 created_by: xgd
 created_at: '2026-08-20T05:29:12.423310+00:00'
-updated_at: '2026-09-10T05:44:42.892564+00:00'
+updated_at: '2026-09-14T05:31:37.579576+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-77b28def
@@ -48,13 +48,27 @@ builder composes a browser import map from those components, so a missing one yi
 that loads, renders chrome, and then dies at the first import, in the operator's browser, with
 their site on screen. The preflight reports every shared component and every declared package with
 its status and refuses an incomplete tree with an environment-specific exit code, naming what is
-absent and the command that installs it. The asset stage runs **before** the typecheck, not after:
-the Worker's own source imports generated artifacts that are deliberately not committed — a
-checked-in copy of a generator's output is a second definition site — so on a fresh checkout the
-typecheck has nothing to read until the generator has run. The bundle stage builds each Worker
+absent and the command that installs it. The check may be skipped for an environment that cannot
+satisfy it, and the skip buys exactly the check: on a tree whose components are genuinely absent the
+run gets past the check and then stops in the asset stage, which needs the same components, having
+bundled nothing — the absence is a fact about the tree, not an opinion of the check's. The asset
+stage runs **before** the typecheck, not after: the Worker's own source imports generated artifacts
+that are deliberately not committed — a checked-in copy of a generator's output is a second
+definition site — so on a fresh checkout the typecheck has nothing to read until the generator has
+run. The bundle stage builds each Worker
 **against the production environment**, deliberately: a configuration error that exists only under
 the production environment is the whole subject of this story, and building the default
 environment would miss every one.
+
+**Build — and the asset tree is never partly there.** The asset stage *replaces* the generated tree
+rather than merging into it, because a component left behind by a rename would go on being served
+for as long as nobody looked. But emptying the path that is being served and refilling it over the
+next several seconds is not a way to replace it: everything reading that path meanwhile — a local
+development server on the same checkout, another test in the same run — is answered not-found for
+every component, and a build that fails part-way leaves that hole permanently rather than for a
+moment. The new tree is therefore assembled somewhere else and takes the served path only once every
+artifact in it exists, in a single move. A reader sees the previous build or the new one, each
+whole, and never a half of either; a build that fails leaves the previous tree standing and serving.
 
 **Build — and one refusal a bundle graph cannot see.** A Worker's *type* program is a second,
 wider graph than its bundle: a bundler erases a type-only import before it resolves it, and the
@@ -154,8 +168,10 @@ echoes a value back.
 ### In scope
 
 - The environment preflight: what it reports, what it refuses, its distinct exit code and its
-  named remedy.
+  named remedy, and what skipping it does and does not buy on an incomplete tree.
 - Generating the control application's build artifacts before the typecheck that consumes them.
+- Replacing the generated asset tree in one move, so a concurrent reader sees a whole tree and a
+  failed build leaves the previous one serving.
 - Building every discovered Worker against the production environment, and the artifacts reported.
 - Refusing a Worker whose type program reaches a filesystem-bound module, naming the module the
   typecheck cannot type; the chain from the entry point to it is the verifying walk's report.
@@ -323,6 +339,29 @@ configuration, which is what this story can observe and what a regression can ho
    inheritable declarations pinned by the criteria that own them. Claiming the check covered them
    would have been false; leaving the rule implicit is how the repeat gets dropped as redundant by
    the next reader who is technically correct.
+
+*Decided 2026-09-13, reconciling BUNDLE-27 (BUG-40) against this story.*
+
+8. **The asset stage's atomicity is a criterion, not an implementation note, even though the intent
+   proposed none.** BUG-40 states the behaviour in its own words — the tree is assembled aside and
+   swapped in whole, a reader sees the previous build or the new one and never half of either, and a
+   failed build leaves the working one standing — but its test plan says "no new behaviour is
+   introduced, so no new UAT" and files the change under AC-1331's incomplete-store leg plus the
+   asset-serving criteria passing in the same run. Decided here: those are evidence that the race is
+   *gone*, not a statement of the guarantee that removed it, and no criterion in this story or
+   anywhere else says what a concurrent reader of the served asset tree observes. That guarantee is
+   the durable property — it is what makes the serving criteria reliable rather than lucky — so it is
+   stated as an acceptance criterion of its own (AC-1791), written about what a reader observes
+   rather than about staging directories or renames.
+
+9. **AC-1331's skip clause is split rather than softened.** The criterion said the skip left "the
+   remaining stages run normally", which was true when the preflight was the last thing that needed
+   the component store and stopped being true when REQ-145 put the asset stage after it. Decided:
+   rather than weaken the clause to something vague enough to be true in both cases, state both legs
+   — an incomplete store gets past the *check* and stops in the asset stage having bundled nothing, a
+   complete store completes — because the useful claim is precisely that the flag gates the check and
+   nothing else. The incomplete leg is the one that also evidences the atomicity above: a build that
+   stops there must leave the previous tree serving.
 
 ## Dependencies
 
