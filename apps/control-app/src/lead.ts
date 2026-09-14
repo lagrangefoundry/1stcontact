@@ -56,6 +56,9 @@ import {
   type MessageRecord,
 } from './messages'
 import { addContact } from './people'
+import { grantFor } from './grants'
+import { DOWNLOAD_PATH } from '../../../packages/framework/src/modules/contact-form/fields'
+import { publicSiteUrl } from './public-url'
 import type { Scope } from './scope'
 import {
   CREDENTIAL_TEMPLATE_KEYS,
@@ -766,6 +769,16 @@ async function deliverForm(
   contactId: string,
   templateKey: string,
   assets: readonly { key: string; name: string; url: string }[],
+  /**
+   * The per-contact page every artifact in this set is linked at ([[REQ-244]]).
+   *
+   * A THUNK, AND CALLED AT MOST ONCE, BECAUSE MINTING IS A WRITE. A form whose
+   * whole set is `already_sent` or whose address is suppressed sends nothing, and
+   * a link nobody holds is a row in `asset_grants` that can only ever be noise.
+   * So the grant is minted at the first artifact that will ACTUALLY be sent, and
+   * not before.
+   */
+  gateUrl: () => Promise<string>,
   send: SendEmail,
 ): Promise<{ assets: AssetOutcome[]; message?: MessageOutcome }> {
   /** The same answer in whichever shape this form's outcome takes. */
@@ -856,7 +869,15 @@ async function deliverForm(
       outcomes.push({ key: asset.key, sent: false, skipped: state })
       continue
     }
-    const rendered = renderCopy(template, { cta_url: asset.url, asset_name: asset.name })
+    // `{{cta_url}}` IS THE GATED PAGE AND NO LONGER THE ARTIFACT ([[REQ-244]]
+    // §2, superseding [[REQ-241]]'s "its own link"). A link straight at the paper
+    // is the same link for everybody who was sent it, so it cannot say WHO
+    // followed it — which is the fact the whole download-tracking change exists
+    // to make expressible. Both mails in a two-paper set therefore carry the SAME
+    // link, because §7 AC1 says it opens a page listing the SET; what keeps them
+    // separately legible is `{{asset_name}}`, and what keeps the LEDGER separate
+    // is the message's own asset key, both untouched.
+    const rendered = renderCopy(template, { cta_url: await gateUrl(), asset_name: asset.name })
     const message = await post({ rendered, asset: asset.key })
     delivered.add(asset.key)
     // THE TIMELINE ENTRY IS WRITTEN WHATEVER THE PROVIDER SAID, for the reason the
@@ -1113,6 +1134,23 @@ export async function captureLead(
   if (templateKey === '') return outcome
 
   const store = await ticketStoreFor(env, scope)
+  /**
+   * The link the mail carries, minted once and only if something is sent.
+   *
+   * MEMOISED HERE AND NOT INSIDE THE GRANT TABLE. `grantFor` is find-or-mint and
+   * is safe to call twice, but calling it per artifact would be a round trip per
+   * artifact for an answer that cannot differ between them.
+   */
+  let gate: Promise<string> | null = null
+  const gateUrl = (): Promise<string> => {
+    gate ??= grantFor(env, scope, {
+      contactId,
+      siteId: spec.siteKey,
+      instanceId: spec.instanceId,
+    }).then((grant) => publicSiteUrl(spec.siteKey, `/${DOWNLOAD_PATH}/${grant.id}`))
+    return gate
+  }
+
   const sent = await deliverForm(
     env,
     store,
@@ -1120,6 +1158,7 @@ export async function captureLead(
     contactId,
     templateKey,
     promised,
+    gateUrl,
     // THE SENDER IS CHOSEN BY WHETHER THE DEPLOYMENT HOLDS A CREDENTIAL and by
     // nothing else ([[REQ-196]]): a development machine and a test runner have
     // none, so they get the adapter that records and cannot send.

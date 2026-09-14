@@ -45,6 +45,22 @@
 export const LEAD_PATH = 'api/lead'
 
 /**
+ * Where a gated download's per-contact link points ([[REQ-244]]).
+ *
+ * HERE FOR THE REASON {@link LEAD_PATH} IS. Two parties have to agree on this
+ * string and neither can see the other: `public-site` routes on it, and
+ * `control-app` builds the URL it puts in the mail. A literal written at either
+ * end is a second answer free to drift by one character, and the failure is
+ * silent in the worst possible place — a whitepaper mail whose button 404s.
+ *
+ * THE GRAMMAR IS `<this>/<token>` FOR THE PAGE AND `<this>/<token>/<assetKey>`
+ * FOR ONE ARTIFACT, under whichever channel root the site is served at — exactly
+ * as {@link LEAD_PATH} is. It is this module's vocabulary and not the server's
+ * because what the link opens is a `contact-form`'s own promised set.
+ */
+export const DOWNLOAD_PATH = 'api/download'
+
+/**
  * The same address as a form's `action`: DOCUMENT-RELATIVE, and explicitly so.
  *
  * THE LEADING `./` IS LOAD-BEARING, for the two RFC-3986 readings `relativizeUrl`

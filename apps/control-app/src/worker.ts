@@ -1,6 +1,7 @@
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import handler, { type Env } from './index'
 import { captureLead, type LeadOutcome, type LeadSubmission } from './lead'
+import { openGate, takeAsset, type GatedArtifact, type GatePage } from './gate'
 
 /**
  * THE MODULE WRANGLER LOADS — every entrypoint this Worker exposes, in one place.
@@ -66,5 +67,39 @@ export class LeadIntake extends WorkerEntrypoint<Env> {
    */
   async captureLead(spec: LeadSubmission): Promise<LeadOutcome> {
     return captureLead(this.env, spec)
+  }
+}
+
+/**
+ * The other internal surface, and it is not a route either ([[REQ-244]]).
+ *
+ * ITS OWN CLASS RATHER THAN TWO MORE METHODS ON {@link LeadIntake}. A gate is not
+ * lead intake — one takes a submission in, the other records what the person did
+ * with what it sent them — and a binding whose name does not describe what it
+ * reaches is a binding somebody eventually uses for a third thing. The cost is a
+ * repeated block in two `wrangler.toml` environments; the benefit is that a
+ * deployment can be read and its two seams named.
+ *
+ * IT REPORTS AND NEVER SERVES. Both methods hand back DATA — what to list, and
+ * where one artifact is — and `public-site` serves the bytes, because it is
+ * already the Worker that serves bytes out of a published revision and an R2 body
+ * does not want to cross a service binding.
+ *
+ * A THIN WRAPPER ON PURPOSE, exactly as {@link LeadIntake} is. Everything it does
+ * is `gate.ts`'s.
+ */
+export class AssetGate extends WorkerEntrypoint<Env> {
+  /** Somebody arrived at their downloads page. Records it, and says what to list. */
+  async openGate(siteKey: string, token: string): Promise<GatePage | null> {
+    return openGate(this.env, siteKey, token)
+  }
+
+  /** Somebody took one artifact. Records it, and says where the bytes are. */
+  async takeAsset(
+    siteKey: string,
+    token: string,
+    assetKey: string,
+  ): Promise<GatedArtifact | null> {
+    return takeAsset(this.env, siteKey, token, assetKey)
   }
 }

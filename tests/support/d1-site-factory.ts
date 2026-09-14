@@ -75,6 +75,10 @@ const MIGRATIONS = [
   // two files sharing a number is an ordering nobody declared. Renumbering is
   // free here because neither had been applied to a database anyone shares.
   () => import('../../db/migrations/0005_retire_site_slug.sql?raw'),
+  // [[REQ-244]] — `asset_grants`, the per-contact download link. Applied here for
+  // the same reason the four above are: the baseline declares it for a fresh
+  // database and this file is the half that reaches the one already deployed.
+  () => import('../../db/migrations/0006_asset_grants.sql?raw'),
 ]
 
 /**
