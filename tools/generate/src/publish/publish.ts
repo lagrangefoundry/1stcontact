@@ -1,7 +1,7 @@
 import { contactFormTemplateRefs } from '@1stcontact/framework/worker'
 import { renderSiteFiles } from '../render/render'
 import { EMPTY_LADDER, type ImageLadder, type LadderProgressReporter } from './ladder'
-import { InvalidDefinitionError } from '../cli/errors'
+import { InvalidDefinitionError, NoPublicAddressError } from '../cli/errors'
 import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 import type { ValidationError } from '@1stcontact/site-schema'
 import type { ChangeSet, RevisionEntry, StoredSnapshot } from '../store/revision-model'
@@ -127,6 +127,32 @@ export interface PublishOptions {
    * free to read once and memoise, which the route does.
    */
   templateRefusal?: (key: string) => Promise<string | null> | string | null
+  /**
+   * Every public address this site can be reached at ([[REQ-238]]).
+   *
+   * PUBLICATION IS THE GATE, NOT PROVISION. To go live a business needs a
+   * `1stc.site` hostname, a custom domain, or both — at least one address, or
+   * there is nothing for a publish to make reachable. The requirement belongs
+   * HERE rather than at the moment a business is created because a business may
+   * take as long as it likes to choose: until a site is published it has no
+   * public address and needs none. It is also what makes deleting the
+   * `/site/<key>/` path grammar safe ([[DOC-45]] §4) — after that, a published
+   * site with no host mapping is simply unreachable.
+   *
+   * IT ANSWERS A LIST AND NOT A HOSTNAME, and the shape is the requirement. The
+   * question is *does this site have at least one address*, over a list that has
+   * two kinds and one implementation today; `if (!hostname) refuse` is the same
+   * check today and a wrong refusal the day [[EPIC-6]]'s custom domains land.
+   * Nothing in this file knows what an address IS beyond that there can be more
+   * than one of them.
+   *
+   * ABSENT MEANS UNCHECKED, on {@link templateRefusal}'s reasoning. The answer
+   * comes out of the deployment's own database, which is a thing the Worker
+   * holds and `1c publish` against a directory on somebody's disk does not — so
+   * the Worker supplies one and the CLI does not, and neither tests for the
+   * other.
+   */
+  addresses?: () => Promise<readonly unknown[]> | readonly unknown[]
 }
 
 /**
@@ -215,7 +241,11 @@ async function refusedTemplates(
  *
  *   1. VALIDATE FIRST, write nothing. An invalid draft publishes nothing at all
  *      (AC-5) — not a revision, not a history entry, not a byte of output. The
- *      author's mistake must not become a published site's problem.
+ *      author's mistake must not become a published site's problem. [[REQ-238]]
+ *      added a third refusal under this rule and not a fourth step: a site with
+ *      no public address is refused here, beside the invalid draft and the form
+ *      naming a template it may not send, because all three leave the store
+ *      exactly as they found it.
  *   2. DIFF BEFORE RENDERING. The no-op case is the common one (a second press
  *      of the button) and the render is the expensive step; deciding after it
  *      would pay the whole cost to discard the result.
@@ -258,6 +288,29 @@ export async function publishSite(
     opts.templateRefusal,
   )
   if (templateErrors.length > 0) throw new InvalidDefinitionError(slug, templateErrors)
+
+  /*
+   * [[REQ-238]] — DOES THIS SITE HAVE AN ADDRESS AT ALL. Inside rule 1's promise
+   * like the two refusals above it: no revision, no history entry, no ladder and
+   * no byte of output is written by a publish that gets this far and stops.
+   *
+   * AFTER THE DRAFT'S OWN REFUSALS AND NOT BEFORE THEM, even though this is one
+   * indexed query and `loadDraft` reads the whole site. The order is about what
+   * the customer is told rather than about what is cheapest: a draft with a
+   * validation error is a thing they are in the middle of editing, and being
+   * sent to the settings tab to choose a hostname while their page is broken
+   * would answer a question they did not ask.
+   *
+   * THE CHECK IS OVER THE LIST'S LENGTH AND NOTHING ELSE. It does not look at a
+   * kind, a host or a status — those are the deployment's business, and this
+   * file asking about any of them is the falsifier [[REQ-238]] names: *"a
+   * publish check that names the `1stc.site` hostname rather than asking whether
+   * any address exists."*
+   */
+  if (opts.addresses) {
+    const addresses = await opts.addresses()
+    if (addresses.length === 0) throw new NoPublicAddressError(slug)
+  }
 
   const history = await store.revisions(slug)
   const live = liveRevisionOf(history)

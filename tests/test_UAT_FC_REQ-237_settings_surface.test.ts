@@ -119,9 +119,14 @@ describe('REQ-237 AC1 — the operations are declared where they live', () => {
     const instances = (await import('../tools/generate/src/cli/ai/instances.json'))
       .default as Record<string, Record<string, unknown>>
     expect(instances.consultant).not.toHaveProperty(SETTINGS_SURFACE)
-    expect(settingsInstanceConfig()).toEqual({
-      settings: { groups: ['ReadBusiness', 'RenameBusiness'] },
-    })
+    // THE TWO THIS TICKET GRANTS, and `arrayContaining` rather than equality
+    // because [[REQ-238]] added the address groups to the same travelling grant.
+    // What REQ-237 claims is that ITS groups travel with the surface and appear
+    // nowhere in `instances.json`; it claims nothing about being the only ticket
+    // ever to put a group here.
+    expect(
+      (settingsInstanceConfig()[SETTINGS_SURFACE] as { groups: string[] }).groups,
+    ).toEqual(expect.arrayContaining(['ReadBusiness', 'RenameBusiness']))
   })
 })
 
@@ -224,7 +229,13 @@ describe('REQ-237 AC4 — a surface of its own, saying which name is which', () 
       expect(named(L1_DECLARATION)).not.toContain(op)
       expect(named(LIBRARY_DECLARATION)).not.toContain(op)
     }
-    expect(named(SETTINGS_DECLARATION).sort()).toEqual(['read_business', 'rename_business'])
+    // ON THIS SURFACE AND ON NO OTHER. `arrayContaining` since [[REQ-238]] put
+    // the public address on the same declaration — which is the same claim, not
+    // a weakening of it: the business's record is here, and the site surfaces do
+    // not have it.
+    expect(named(SETTINGS_DECLARATION)).toEqual(
+      expect.arrayContaining(['read_business', 'rename_business']),
+    )
   })
 
   it('test_UAT_FC_REQ-237_the_overview_separates_the_record_from_what_the_site_says', () => {
@@ -245,8 +256,12 @@ describe('REQ-237 AC4 — a surface of its own, saying which name is which', () 
     // somebody change the wrong one.
     const overview = SETTINGS_DECLARATION.overview as string
     expect(overview).toMatch(/final/i)
+    // THE ADDRESS IS ON THIS SURFACE NOW ([[REQ-238]]) AND THE DISTINCTION IS
+    // SHARPER FOR IT, not softer: what used to be declared as an absence is
+    // declared as an absence of CHANGE. The name may be changed whenever they
+    // like; the hostname may not be changed at all, by anybody.
     const absences = SETTINGS_DECLARATION.absences as { name: string; note: string }[]
-    expect(absences.map((a) => a.name)).toContain('The public address')
+    expect(absences.map((a) => a.name)).toContain('Changing or releasing a hostname')
   })
 
   it('test_UAT_FC_REQ-237_the_surface_declares_that_it_edits_no_site_and_publishes_nothing', () => {

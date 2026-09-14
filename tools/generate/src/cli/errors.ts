@@ -33,6 +33,31 @@ export class InvalidDefinitionError extends Error {
   }
 }
 
+/**
+ * Thrown when a site is published with no public address ([[REQ-238]]).
+ *
+ * IT LIVES HERE BESIDE {@link InvalidDefinitionError} for the reason that one
+ * does: `publishSite` runs in workerd and in Node, and an error type is not a
+ * reason to drag a runtime into either. It is also the same KIND of refusal —
+ * a publish that writes nothing at all, decided before a revision is minted.
+ *
+ * THE MESSAGE NAMES BOTH THINGS THAT WOULD FIX IT, and that is the requirement
+ * rather than a courtesy. *"To go live a business needs a `1stc.site` hostname,
+ * a custom domain, or both."* A refusal that named only the hostname would be
+ * wrong the day [[EPIC-6]] lands, and a refusal that named neither would leave
+ * the customer with a button that says no.
+ */
+export class NoPublicAddressError extends Error {
+  constructor(public slug: string) {
+    super(
+      `Site '${slug}' has no public address, so publishing it would put it ` +
+        'somewhere nobody can reach. Choose a 1stc.site hostname, or connect a ' +
+        'domain you own — either one is enough.',
+    )
+    this.name = 'NoPublicAddressError'
+  }
+}
+
 export type ErrorCode =
   | 'SCHEMA_INVALID'
   | 'NOT_FOUND'

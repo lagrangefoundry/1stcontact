@@ -25,15 +25,33 @@
  * and every existing caller keeps the envelope it always got.
  */
 
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import controlApp from '../apps/control-app/src/index'
 import type { Env as ControlEnv } from '../apps/control-app/src/index'
 import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
+import { giveBusinessAnAddress } from './support/site-address'
 
-const TENANT = 'req222stream'
+/**
+ * ONE BUSINESS PER CASE ([[REQ-238]]).
+ *
+ * It was a single constant, and a shared business was harmless while a publish
+ * asked nothing about one. It is not harmless now: a business holds ONE public
+ * address, bound to the site it was claimed for, and a site with no address
+ * cannot be published — so a second draft in the same business is a draft that
+ * cannot go live. That is the product's rule and not a fixture problem, because
+ * a business has one site; what the fixture was doing is giving one business
+ * several.
+ *
+ * REASSIGNED IN `beforeEach` RATHER THAN THREADED THROUGH EVERY HELPER, exactly
+ * as [[REQ-149]]'s suite does and for the same reason: `TENANT` is read by
+ * `controlEnv()` and by `draft()`, and a fresh value per case restores the
+ * isolation without changing a single call site.
+ */
+let TENANT = 'req222stream'
+let businessSeq = 0
 
 function controlEnv(): ControlEnv {
   return {
@@ -60,6 +78,11 @@ async function draft(): Promise<string> {
   const seed = siteSeed({ slug: nextSlug('req222stream') })
   // The key the store minted, which since [[REQ-236]] is the only name it has.
   const site = await store.createDraft()
+  // [[REQ-238]] — A SITE WITH NO PUBLIC ADDRESS CANNOT BE PUBLISHED, and this
+  // suite is about the frames a publish emits rather than the door it gets
+  // through. Idempotent, so every draft in this business shares the one address
+  // the business is allowed to hold.
+  await giveBusinessAnAddress(TENANT)
   await store.write(site, {
     siteJson: seed.siteJson,
     pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
@@ -88,6 +111,10 @@ const publish = (site: string, accept?: string): Promise<Response> =>
 describe('REQ-222 — the publish route streams when it is asked to', () => {
   beforeAll(async () => {
     await applySchema()
+  })
+
+  beforeEach(() => {
+    TENANT = `req222stream-${(businessSeq += 1)}`
   })
 
   it('answers an event stream, ending in a terminal frame that says it worked', async () => {

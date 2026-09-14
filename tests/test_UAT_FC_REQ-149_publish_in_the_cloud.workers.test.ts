@@ -9,6 +9,7 @@ import { publishSite } from '../tools/generate/src/publish/publish'
 import { liveRevisionOf } from '../tools/generate/src/store/revision-model'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
+import { giveBusinessAnAddress } from './support/site-address'
 
 /**
  * REQ-149 — publishing in the cloud, end to end, inside workerd.
@@ -119,6 +120,11 @@ async function importSite(payload: ReturnType<typeof pureL1Site>): Promise<strin
 }
 
 async function publish(site: string, message?: string): Promise<Response> {
+  // [[REQ-238]] — A SITE WITH NO PUBLIC ADDRESS CANNOT BE PUBLISHED. This suite
+  // is about what a publish DOES, not about the door it has to get through
+  // first, so the business is given the address a customer's own claim would
+  // have given it. Idempotent: the business holds one, once, for good.
+  await giveBusinessAnAddress(TENANT)
   return call('/api/publish', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
