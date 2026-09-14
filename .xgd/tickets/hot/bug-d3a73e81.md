@@ -6,16 +6,21 @@ title: 'Site builder: a stored module pinned to an older contract version dark-s
   the preview'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T03:58:02.986258+00:00'
-updated_at: '2026-09-14T04:03:37.842820+00:00'
+updated_at: '2026-09-14T04:14:45.275471+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-463798e9
   severity: high
+  commits:
+  - working_sha: c1d5734585b7cb28c85f19854e48774fc412a88b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.197
 ---
 
 ## Symptom
