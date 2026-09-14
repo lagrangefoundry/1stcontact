@@ -6,10 +6,10 @@ title: The workspace starts its markdown engines once, and their readiness settl
   whether they load or fail
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T07:28:06.445707+00:00'
-updated_at: '2026-09-14T07:28:06.445707+00:00'
+updated_at: '2026-09-14T07:47:17.144409+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7f437d57
   kind: behavior
