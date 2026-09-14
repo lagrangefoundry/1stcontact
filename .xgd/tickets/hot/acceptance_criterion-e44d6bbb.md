@@ -6,10 +6,10 @@ title: A turn on the deployed host leaves the conversation as one chat ticket ca
   its session id, with the session file in a transcript comment and the body untouched
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:52:51.563953+00:00'
-updated_at: '2026-09-14T05:52:51.563953+00:00'
+updated_at: '2026-09-14T06:23:09.121920+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
