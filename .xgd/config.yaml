@@ -69,22 +69,22 @@ merge_back:
 notifications:
   backends:
   - ntfy
-  enabled: false
+  enabled: true
   events:
     choice_point: true
-    workflow_failed: true
-    workflow_success: false
-    process_dispatched: false
-    process_completed: false
-    process_failed: true
+    process_completed: true
+    process_dispatched: true
     process_error: true
+    process_failed: true
+    workflow_failed: true
+    workflow_success: true
   macos:
     sound: true
   ntfy:
     tags:
     - xgd
     - workflow
-    topic: xgd-notifications
+    topic: xgd-xgendev-martin
     url: https://ntfy.sh
 project:
   architecture: null
