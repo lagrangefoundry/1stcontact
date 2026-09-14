@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-0728e1c5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d842395c
 ---
 
 ## What this is
