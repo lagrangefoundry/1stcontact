@@ -5,7 +5,7 @@ type: todo
 title: '1stc.site housekeeping: PSL, reserved labels, allocation, registration hygiene'
 created_by: CHAT-48
 created_at: '2026-09-12T20:37:19.939899+00:00'
-updated_at: '2026-09-14T03:49:02.999644+00:00'
+updated_at: '2026-09-14T03:49:26.468975+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -13,6 +13,7 @@ fields:
   kind: user_task
   auto_merge_back: true
 ---
+
 
 
 **Mixed operator task and product decisions.** [[DOC-45]] §9 left *"which apex,
@@ -81,12 +82,22 @@ get through it, and the only alternative to revocation is leaving it up.
 **This is now built rather than merely required**, and it is stronger than it was
 when this was written, because [[DOC-45]] §7 has made the label **final**: an
 owner cannot change their own label, so a label that has to go can only go by our
-hand. [[REQ-238]] carries the four reserved groups above as a list in code, plus
-the `status` flip gated on `platformAdminSeed`, the active-status filter on every
-read, and the rule that a revoked label is never re-issued. The screening step for
-the impersonation-and-abuse group is **not** built — [[DOC-45]] §11 item 6 defers
-what is refused beyond the technical family, so the after-the-fact revocation is
-carrying that group alone for now.
+hand. [[REQ-238]] builds the `status` flip gated on `platformAdminSeed`, the
+active-status filter on every read, and the rule that a revoked label is never
+re-issued.
+
+**The reserved list is this section's, not [[REQ-238]]'s.** That ticket's
+Behaviour section names a shorter sample — `www`, `app`, `api`, `mail`, `admin`,
+`ns1`, `mx`, `_acme-challenge`, `portal`, `support`, `1stcontact` — and cites this
+section for the rest. **The four groups above are what goes in code**, and a
+sample read as the specification would grant `smtp`, `_dmarc`, `billing` and
+`login` to whoever asked first. The three groups that are a static list are
+buildable now; the fourth is not.
+
+**The impersonation-and-abuse group has no screening step and will not get one
+here** — [[DOC-45]] §11 item 6 defers what is refused beyond the technical family,
+so after-the-fact revocation carries that group alone for now. That is a real gap,
+not a phased plan: it means the first bad label is found by someone reporting it.
 
 ## 3. Label allocation and uniqueness — [code]
 
