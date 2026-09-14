@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: 1c crop accepts PNG only, naming the format it was actually handed
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:05:55.869823+00:00'
-updated_at: '2026-09-14T05:05:55.869823+00:00'
+updated_at: '2026-09-14T05:16:32.657184+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-046cfc56
   kind: behavior
