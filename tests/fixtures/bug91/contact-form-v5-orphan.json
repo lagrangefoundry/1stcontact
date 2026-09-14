@@ -1,0 +1,228 @@
+{
+  "id": "enquiry",
+  "type": "contact-form",
+  "version": 5,
+  "config": {
+    "submitLabel": "Send",
+    "successMessage": "Thank you \u2014 I'll be in touch.",
+    "fields": [
+      {
+        "name": "name",
+        "label": "Name",
+        "type": "text",
+        "required": true,
+        "labelMode": "placeholder"
+      },
+      {
+        "name": "email",
+        "label": "Email",
+        "type": "email",
+        "required": true,
+        "labelMode": "placeholder"
+      },
+      {
+        "name": "message",
+        "label": "How can we help?",
+        "type": "textarea",
+        "required": true,
+        "labelMode": "placeholder"
+      }
+    ]
+  },
+  "slots": {
+    "form": {
+      "kind": "container",
+      "layout": "stack",
+      "gapPx": 16,
+      "children": [
+        {
+          "kind": "control",
+          "control": "name",
+          "axes": {
+            "color": "#0f172b",
+            "fontSizePx": 16,
+            "surfaceFill": "#ffffff",
+            "borderRadiusPx": 8,
+            "border": {
+              "widthPx": 1,
+              "color": "#e5e7eb"
+            }
+          },
+          "interaction": {
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            },
+            "hover": {
+              "border": {
+                "widthPx": 1,
+                "color": "#0f172b"
+              }
+            },
+            "focus": {
+              "ring": {
+                "widthPx": 2,
+                "color": "#0f172b",
+                "offsetPx": 2
+              }
+            }
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 12,
+            "bottomPx": 12,
+            "leftPx": 12
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            },
+            "height": {
+              "mode": "fixed",
+              "px": 44
+            }
+          }
+        },
+        {
+          "kind": "control",
+          "control": "email",
+          "axes": {
+            "color": "#0f172b",
+            "fontSizePx": 16,
+            "surfaceFill": "#ffffff",
+            "borderRadiusPx": 8,
+            "border": {
+              "widthPx": 1,
+              "color": "#e5e7eb"
+            }
+          },
+          "interaction": {
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            },
+            "hover": {
+              "border": {
+                "widthPx": 1,
+                "color": "#0f172b"
+              }
+            },
+            "focus": {
+              "ring": {
+                "widthPx": 2,
+                "color": "#0f172b",
+                "offsetPx": 2
+              }
+            }
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 12,
+            "bottomPx": 12,
+            "leftPx": 12
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            },
+            "height": {
+              "mode": "fixed",
+              "px": 44
+            }
+          }
+        },
+        {
+          "kind": "control",
+          "control": "message",
+          "axes": {
+            "color": "#0f172b",
+            "fontSizePx": 16,
+            "surfaceFill": "#ffffff",
+            "borderRadiusPx": 8,
+            "border": {
+              "widthPx": 1,
+              "color": "#e5e7eb"
+            }
+          },
+          "interaction": {
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            },
+            "hover": {
+              "border": {
+                "widthPx": 1,
+                "color": "#0f172b"
+              }
+            },
+            "focus": {
+              "ring": {
+                "widthPx": 2,
+                "color": "#0f172b",
+                "offsetPx": 2
+              }
+            }
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 12,
+            "bottomPx": 12,
+            "leftPx": 12
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            },
+            "height": {
+              "mode": "fixed",
+              "px": 132
+            }
+          }
+        },
+        {
+          "kind": "control",
+          "control": "submit",
+          "axes": {
+            "color": "#ffffff",
+            "fontSizePx": 16,
+            "fontWeight": 600,
+            "textAlign": "center",
+            "surfaceFill": "#0f172b",
+            "borderRadiusPx": 8
+          },
+          "interaction": {
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            },
+            "hover": {
+              "opacity": 0.9,
+              "motion": {
+                "offsetYPx": -1
+              }
+            },
+            "focus": {
+              "ring": {
+                "widthPx": 2,
+                "color": "#0f172b",
+                "offsetPx": 2
+              }
+            }
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 24,
+            "bottomPx": 12,
+            "leftPx": 24
+          },
+          "sizing": {
+            "width": {
+              "mode": "hug"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "slot": "enquiry"
+}

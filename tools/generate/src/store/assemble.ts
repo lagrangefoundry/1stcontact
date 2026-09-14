@@ -1,5 +1,7 @@
 import type { Site, ValidationError } from '@1stcontact/site-schema'
 import { resolveL1Palette, validateSite } from '@1stcontact/site-schema'
+import { upgradePageModules } from '@1stcontact/framework/worker'
+import type { StoredInstance } from '@1stcontact/framework/worker'
 
 /**
  * Assembling a site definition out of its parts, with no idea where the parts
@@ -56,6 +58,35 @@ export interface SiteParts {
   assetFiles: string[]
 }
 
+/** True when this value is a plain object rather than an array or a primitive. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * One page with every stale module instance carried to its current contract,
+ * or the page unchanged when there is nothing here to carry ([[BUG-91]]).
+ *
+ * THE SHAPE CHECK IS NOT PARANOIA. This runs BEFORE `validateSite`, so the page
+ * is whatever the store held — including, on a bad day, something that is not a
+ * page at all. An upgrade path is a poor diagnostician of malformed JSON: it
+ * would throw where the schema would have named the offending pointer. So
+ * anything that is not recognisably a list of instances is passed through
+ * untouched and left for validation to report properly.
+ */
+function upgradePageOnLoad(page: unknown): unknown {
+  if (!isRecord(page)) return page
+  const modules = page.modules
+  if (!Array.isArray(modules) || modules.length === 0) return page
+  const instances = modules.every(
+    (m) => isRecord(m) && typeof m.type === 'string' && Number.isInteger(m.version),
+  )
+  if (!instances) return page
+
+  const { modules: upgraded, upgrades } = upgradePageModules(modules as StoredInstance[])
+  return upgrades.length === 0 ? page : { ...page, modules: upgraded }
+}
+
 /**
  * Merge `{ ...base, pages }` and validate it as a whole site definition.
  *
@@ -63,7 +94,33 @@ export interface SiteParts {
  * JSON-pointer-style paths and the caller writes nothing.
  */
 export function assembleSite(parts: SiteParts): LoadResult {
-  const result = validateSite({ ...parts.base, pages: parts.pages })
+  // BUG-91 — a *loaded* site has current-contract module instances, for the
+  // same reason it has literal colours below: the stored `version` is the
+  // store's business, and nothing downstream of here should be able to tell
+  // which contract version a page was authored against.
+  //
+  // WHY THE RENDER PATH GETS TO DO THIS AT ALL. A bump cannot land without a
+  // declared migration reaching it — [[BUG-85]] made that a precondition and
+  // `missingMigrations` enforces it in CI — so a stored instance can ALWAYS be
+  // carried to the current contract. Refusing to render one is therefore
+  // refusing over a difference the framework already knows how to erase.
+  // `contact-form` 5 → 7 proved the point the expensive way: every site in the
+  // store went dark on a pin that two declared, tested migrations could cross.
+  //
+  // BEFORE `validateSite`, which is the load-bearing half of it. A migration
+  // may AUTHOR L1 (`account-chrome` v1 → v2 synthesises `sent` and `error`
+  // cards, borrowing the dialog's text colour — which may be a palette
+  // reference), so the upgraded definition is the one that must be validated
+  // and the one whose references must resolve. Validating the stored shape and
+  // rendering a different one is the drift this ordering exists to make
+  // impossible.
+  //
+  // NOTHING IS WRITTEN. The store keeps its pin until an ordinary edit rewrites
+  // the page or an operator runs `1c module upgrade --write`, which goes on
+  // reporting these instances as stale because they are. What this removes is
+  // only the site going dark while they wait.
+  const pages = parts.pages.map(upgradePageOnLoad)
+  const result = validateSite({ ...parts.base, pages })
   if (!result.ok) return { ok: false, errors: result.errors }
 
   // REQ-114 — a *loaded* site has literal colours. The palette (DOC-23 §5) is an
