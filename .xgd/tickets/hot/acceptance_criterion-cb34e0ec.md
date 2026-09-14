@@ -7,10 +7,10 @@ title: A Library surface painted before the markdown engines settle repaints onc
   are gone says so
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T07:08:02.437470+00:00'
-updated_at: '2026-09-14T07:08:02.437470+00:00'
+updated_at: '2026-09-14T07:25:32.133180+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
