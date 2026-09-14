@@ -6,9 +6,9 @@ title: A command that loads a declared runtime dependency refuses before doing a
   work when that dependency does not resolve
 created_by: xgd
 created_at: '2026-08-07T03:12:41.704325+00:00'
-updated_at: '2026-08-16T09:18:19.990500+00:00'
+updated_at: '2026-09-14T05:19:03.817632+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e15a19ef
@@ -18,8 +18,13 @@ fields:
 ---
 
 A `1c` command that loads a declared runtime dependency checks the installed tree
-before doing anything else, and refuses when a package named in the generate
-package's `dependencies` cannot be resolved from disk.
+before doing anything else, and refuses when a package the tool declares as a
+runtime dependency cannot be resolved from disk.
+
+The set that check ranges over is the browser automation package alone. The
+native imaging package is no longer declared by the tool and can no longer appear
+in any refusal — the image layer is ordinary source in this repository — so no
+`1c` verb can fail because an imaging package is absent.
 
 The refusal happens ahead of the command's own work: no render runs, no browser
 launches, no file is written.
@@ -33,4 +38,7 @@ command to run at the repo root, not a description of one.
 Point a gated command (e.g. `shot`) at a tree whose lockfile matches its install
 but from which a required package (`playwright`) does not resolve. Confirm the
 command refuses, that the refusal names both the command and the unresolvable
-package, and that its remedy carries the literal `pnpm install` command.
+package, and that its remedy carries the literal `pnpm install` command. Confirm
+that the tool's declared runtime dependency set contains no imaging package, and
+that a refusal from a pixel-comparing verb (`diff`, `gate`, `aligned-crops`)
+names the browser dependency and no imaging one.
