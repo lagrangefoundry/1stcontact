@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-244
 created_by: xgd
 created_at: '2026-09-14T01:47:49.661320+00:00'
-updated_at: '2026-09-14T02:20:28.488533+00:00'
+updated_at: '2026-09-14T02:22:03.463711+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,14 @@ The revoked check bites; the site check doesn't — my cross-business case is ca
 Three remaining failures name files outside my diff (`tools/generate/src/cli/assets.ts`, backend-settings install, and the unbuilt KB). Confirming the final state with a full run:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="dded9efe-945b-49c0-baa7-1cbb365af12d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T02:22:01.166419+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
