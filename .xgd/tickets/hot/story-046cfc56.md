@@ -6,17 +6,16 @@ title: 'The image layer belongs to the toolchain: PNG decoded and encoded in-rep
   with the fidelity arithmetic running in the cloud runtime'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:04:28.160135+00:00'
-updated_at: '2026-09-14T05:07:07.132409+00:00'
+updated_at: '2026-09-14T05:16:31.189809+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-8e1807f6
   capability_uid: capability-aa030c83
   story_kind: feature
   story_points: 3
 ---
-
 
 ## Story
 **As an** operator running the `1c` fidelity toolchain, **I want** the image layer to
