@@ -6,10 +6,10 @@ title: The page beside the conversation follows the assistant's writes as they l
   and a failed reload never costs the reply
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T07:52:59.169670+00:00'
-updated_at: '2026-09-14T07:52:59.169670+00:00'
+updated_at: '2026-09-14T08:23:52.139397+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7f437d57
   kind: behavior
