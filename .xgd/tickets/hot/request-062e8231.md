@@ -5,10 +5,10 @@ type: request
 title: A file keeps a usable name, and is served as what it is
 created_by: EPIC-10
 created_at: '2026-09-14T20:28:41.237519+00:00'
-updated_at: '2026-09-14T21:10:55.753161+00:00'
+updated_at: '2026-09-14T21:23:26.328115+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
