@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:22:34.733347+00:00'
+updated_at: '2026-09-14T21:23:54.790156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1133,5 +1133,25 @@ On styling - can we use a reduced version of L1 (perhaps expandable later)? I wo
 So: materialise from an **explicit act** — choosing "send an email with this form" from a picker offering existing templates plus "create new" — not from arbitrary config text. Free-typed unknown key stays a refusal. Same outcome you want, protection intact. <-- this is all done by the AI - how will we show it a picker? 
 
 I suggest that the L1 must contain validation - so when the AI creates or updates a form L1 validates the settings. If it refeers to a template that does not exist it fails with a helpful error telling the AI how to create a template. (Note: the current production AI does not know how to create a template :-( It should have full access to the ticket store so it can do it but it has not been given the documentation to do it)
+
+<!-- xgd-turn id="c3f96482-0d7c-4738-b920-0dfe12984145-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T21:23:54.181449+00:00" -->
+#### Claude
+Your picker objection is right — there's no human in that loop. Let me check the claim about ticket-store access before I answer, because it changes which kind of problem this is.
+
+Checked the ticket-store claim, and it needs one correction — it changes the recommendation.
+
+## Ticket access: it's a grant gap, not just a docs gap
+
+The bridge exports **both** `READ_GROUP` and `WRITE_GROUP` (`generated/ai-ticketing.d.ts`). `ai.ts:342` grants only the read half:
+
+```ts
+granted: bridge.instanceConfig({ groups: [bridge.READ_GROUP] })
+```
+
+So the consultant can read tickets and cannot write them. Documentation alone wouldn't have let it create a template.
+
+**But under your design it doesn't need either.** If form
 
 <!-- xgd-chat-end -->
