@@ -6,10 +6,10 @@ title: An arrival notice above its budget truncates titles and never the count, 
   the oldest arrivals and how many more there are
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:28:28.728215+00:00'
-updated_at: '2026-09-14T06:28:28.728215+00:00'
+updated_at: '2026-09-14T06:52:07.606531+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
