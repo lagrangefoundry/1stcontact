@@ -5,10 +5,10 @@ type: request
 title: Every page is reachable from the control bar, and an unlinked one says so
 created_by: EPIC-10
 created_at: '2026-09-14T21:35:41.787381+00:00'
-updated_at: '2026-09-14T22:13:41.784017+00:00'
+updated_at: '2026-09-14T22:20:10.286969+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
