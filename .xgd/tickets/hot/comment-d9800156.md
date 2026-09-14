@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-237
 created_by: xgd
 created_at: '2026-09-14T01:50:06.776735+00:00'
-updated_at: '2026-09-14T02:41:55.095321+00:00'
+updated_at: '2026-09-14T03:02:42.907964+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -147,5 +147,14 @@ Three commits, all merged into `xgd-working` (`105070e305` is the tip):
 The first three are cheap to clear but they're your call, not mine — the stray file and directory are yours, and I didn't want to delete either.
 
 The ticket is parked at `free_coded` with `story_points: 8`. Promotion to `ready_to_reconcile` is yours whenever you're happy with it.
+
+<!-- xgd-turn id="3d4555db-a91d-43f4-abed-9aee21b2fcd0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T03:02:42.071510+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
