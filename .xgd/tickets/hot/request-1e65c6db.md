@@ -5,7 +5,7 @@ type: request
 title: The business name is stored once, and may change at any time
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:12.597808+00:00'
-updated_at: '2026-09-14T02:09:57.753118+00:00'
+updated_at: '2026-09-14T02:40:48.632536+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -336,3 +336,5 @@ doubled port.
   with the declared code; the surface does not pre-judge a collision it cannot see.
 - It is its own surface, and its prose separates the record from what the site
   says, and both from the public address.
+
+-
