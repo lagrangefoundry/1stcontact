@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:34:52.650518+00:00'
+updated_at: '2026-09-14T21:36:07.624068+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1263,5 +1263,42 @@ The **page shortcut** ticket — the `Page` select beside `Panel`, with the not-
 <!-- xgd-chat role="user" ts="2026-09-14T21:34:52.563566+00:00" -->
 #### You
 please add a req for that too - I can't test any of this without that
+
+<!-- xgd-turn id="82cf071e-0da1-4294-93db-ca3573616e86-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T21:36:06.601597+00:00" -->
+#### Claude
+Now recording the dependency, since you can't test 247 without 248.
+
+**REQ-248 — "Every page is reachable from the control bar, and an unlinked one says so"** (`request-10200dc8`, draft, EPIC-10).
+
+REQ-247 now records `depends_on: [request-10200dc8]`, and the other fields are intact.
+
+## What's in it
+
+**§1** establishes that this needs no new state. A page is unreachable precisely because no `navigation` entry names its path, and `list_pages` already returns every page regardless — so the data exists and simply isn't shown. It also points at `panelsAction` as the existing shape, including the sync discipline, which is the genuinely fiddly part and is already solved in that file.
+
+**§2** is the `Page` select beside `Panel`, with the not-in-navigation mark framed as *the point* rather than a nicety — an unreferenced page is either deliberate or a mistake nobody's noticed, and nothing distinguishes those today.
+
+**§3** states your reason for wanting it now: REQ-247's email pages aren't merely unlinked, they can *never* be linked, so without this they'd be created, listed by the assistant, and openable by nobody. That's the paragraph that makes the dependency legible to whoever picks these up.
+
+**§4** keeps navigation editing, the View/Edit/Colors buttons, and builder deep-linking out of scope.
+
+10 acceptance criteria. Two worth calling out because they encode decisions rather than restating the obvious:
+
+- **AC-5** — the control and the render never disagree, *including after the page it names is deleted or renamed*. That's the failure mode `panelsAction`'s comment was written about, and it's the one most likely to be missed.
+- **AC-7** — a single-page site still shows the control. Unlike `Panel`, which hides when there's nothing to choose, this one also answers *where am I*, and a control that vanished at one page would answer neither question.
+
+## Where the three tickets stand
+
+| | | |
+|---|---|---|
+| **REQ-246** | filenames + MIME | draft, independent |
+| **REQ-248** | page control | draft, blocks 247 |
+| **REQ-247** | emails as pages | draft, depends on 248 |
+
+All three are draft and unimplemented — no code has been written for any of them, and nothing in this session touched the repo outside the ticket files.
+
+Your dev box is unchanged apart from the two PDF renames. **The whitepaper form still has no `template`**, so it still captures contacts and mails nobody. Under REQ-247 that becomes a refusal at configure time rather than silence, but until then it's a one-field fix if you want mail flowing before these land.
 
 <!-- xgd-chat-end -->
