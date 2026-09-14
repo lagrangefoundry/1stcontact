@@ -90,6 +90,10 @@ function workerEnv(): Env {
   return {
     DB: env.DB,
     SITES: env.SITES,
+    // The ticket store's own bucket. Required since REQ-160 homed the transcript
+    // in the ticket store: the chat routes build one per isolate, and
+    // `ticketStoreFor` refuses to build without a blob store.
+    BLOBS: env.BLOBS,
     TENANT_ID: TENANT,
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',
