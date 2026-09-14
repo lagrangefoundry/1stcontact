@@ -17,6 +17,7 @@ fields:
   epic_parent: epic-d6d7ea63
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-e410b03e
 ---
 
 # The gated page: a per-contact link, and what they did with it
