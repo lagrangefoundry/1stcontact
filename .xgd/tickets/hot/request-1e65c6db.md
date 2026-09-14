@@ -5,10 +5,10 @@ type: request
 title: The business name is stored once, and may change at any time
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:12.597808+00:00'
-updated_at: '2026-09-14T02:40:48.632536+00:00'
+updated_at: '2026-09-14T02:41:27.894261+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   depends_on:
@@ -17,6 +17,17 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d9800156
+  commits:
+  - working_sha: dc192d05e3d011e19d5c160cd7e141f5c2279098
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b7e9c4db0899e32b41e7790ab2e5a62bbaf8bb89
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 105070e305694c008d8bf97747add404b0adf4e7
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.193
 ---
 
 ## What this is
