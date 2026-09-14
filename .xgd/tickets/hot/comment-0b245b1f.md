@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-14T03:41:34.446651+00:00'
+updated_at: '2026-09-14T03:46:47.557152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -677,5 +677,13 @@ All three children reviewed — body, fields, and full chat transcript. All loca
 **The hostname field is now orphaned.** REQ-239 built the Settings pane and deliberately left the field out — *"REQ-238 is still draft; there is no operation to call and nothing true to render"* — with the pane written as a list of sections so the field would be a cheap append. REQ-239 is now `free_coded` and parked, so when REQ-238 lands **nothing owns building it**. Either append it to REQ-239 as a further commit, or a new ticket. That's your call, and I told REQ-238's session not to create one.
 
 **TODO-6 §3 is stale and will mislead whoever builds this.** It still describes allocation under the superseded DOC-45 §7 — assigned at provision from the slugified business name, discriminator on collision, freely changeable, old labels retained as redirects. All withdrawn by the epic's Correction. I noted on REQ-238 to build against the ticket rather than §3, but TODO-6 itself is an operator ticket and I haven't touched it. The squatting concern in that section survives the rewrite and is addressed nowhere.
+
+<!-- xgd-turn id="08849523-1750-401b-ae01-fff82fabd596-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T03:46:46.680499+00:00" -->
+#### You
+ok - can you update TODO-6 and DOC-45
+
+I don't really know what you mean by an orphaned field - sounds like its not getting built - that's fine lets put a pin in it. We need to discuss the UX its not trivial.
 
 <!-- xgd-chat-end -->
