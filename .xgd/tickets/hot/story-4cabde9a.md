@@ -5,14 +5,14 @@ type: story
 title: 'Material Description: What The System Understands A File To Be'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:21:12.885489+00:00'
-updated_at: '2026-09-11T04:35:57.022043+00:00'
+updated_at: '2026-09-14T06:56:24.055252+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-20802191
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
 ---
 
@@ -32,6 +32,12 @@ is retrieved by *"the kitchen at dusk"* through exactly the path that retrieves 
 paper, and there is no second retrieval route for pictures, fonts or PDFs. A weak description
 is therefore not cosmetic — it is material that cannot be found.
 
+Which of the branches below a file reaches is decided by its **resolved** content type — the
+one the ingestion settled from the sender's declaration, or from the filename where the sender
+declared nothing (STORY-140). That matters most at the unreadable branch: a textual file for
+which the browser registers no type is read as text and never lands there, where before it
+would have been stored with an account of why nothing could read it.
+
 Four kinds of file are understood in four different ways:
 
 - **Documents that carry text** yield their own words, and a PDF's own declared title where it
@@ -48,6 +54,12 @@ Four kinds of file are understood in four different ways:
 - **Anything else** is still stored and still listed, with an account of why it could not be
   read.
 
+Titles are derived rather than asked for, and a title the *author* wrote beats one inferred
+from the text: a portable document's own declared title is preferred over its first line, and
+a text document that opens with a front-matter block is titled by a title declared inside that
+block where there is one. Where there is not, the block is skipped rather than read — its fence
+is never the title, and neither is any other line that is only a rule.
+
 Every pass records exactly one of **six outcomes** and the identity of whatever produced the
 description: described; no describer configured; nothing extractable; a type nothing here can
 read; an image past the ceiling for looking at one; and reached-but-failed. One mechanism
@@ -63,12 +75,12 @@ is missing.
 **In scope**: what each kind of file yields, the six outcomes and the recorded describer, the
 title each description carries, the bounded body, and the never-throws contract.
 
-**Out of scope**, each covered by its own story: the ingestion pipeline that stores the bytes
-and creates the record (STORY-140); the guard in front of material fetched on the client's
-behalf; the gate in front of promoting material into a site's public asset library; the declared
-field vocabulary the outcome and describer are written into; the Library surfaces that show a
-description and let a client correct it; and the description of a capture bundle, which belongs
-with capture ingestion.
+**Out of scope**, each covered by its own story: the ingestion pipeline that stores the bytes,
+settles the content type and creates the record (STORY-140); the guard in front of material
+fetched on the client's behalf; the gate in front of promoting material into a site's public
+asset library; the declared field vocabulary the outcome and describer are written into; the
+Library surfaces that show a description and let a client correct it; and the description of a
+capture bundle, which belongs with capture ingestion.
 
 ## Technical Context
 
@@ -91,6 +103,10 @@ with capture ingestion.
   this is an outcome rather than a refusal.
 - Description quality itself is not asserted anywhere: the claims are about what the platform
   does with a description and with its absence.
+- This step reads the type it is handed and does not repair it. BUG-41's defect was visible
+  here — a Markdown upload reached the unreadable branch — but its cause was upstream, and the
+  repair is asserted at the ingestion boundary (STORY-140) rather than restated here. What
+  changes here is only which branch a file now reaches.
 
 ## Reconciliation Decisions
 
@@ -119,11 +135,21 @@ with capture ingestion.
   honest "nothing here can read this" outcome. No separate criterion is raised: it falls under
   the unreadable-content criterion, and the real capture description belongs with capture
   ingestion.
+- **A line that is only a rule is never a title, and an unclosed fence is not front matter**
+  (decided at reconciliation, 2026-09-13): BUG-41 asks for a leading `---` … `---` block to be
+  skipped and for a `title:` inside it to be preferred, and is silent on the two neighbouring
+  cases the landed code also handles. A run of dashes, equals signs, asterisks or underscores
+  clears the "substantial line" bar and says nothing, so it is skipped wherever it appears; and
+  an opening fence that never closes is a horizontal rule in an ordinary document, so it is not
+  treated as a block — treating it as one would swallow the document's real title. Formalized
+  into the text-file criterion because both are the same failure the intent named (a file
+  titled `---`) reached by a route the intent did not enumerate, and leaving them unstated
+  would let a reimplementation reintroduce exactly the reported symptom.
 
 ## Dependencies
 
 - Plan item 7 — the ingestion pipeline (STORY-140), which is where a description is produced
-  and recorded.
+  and recorded, and where the content type this step branches on is settled.
 
 ## Story Points
 
