@@ -6,10 +6,10 @@ title: One tenant's captured material is unaddressable from another tenant's sto
   and lives under that tenant's key prefix
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T04:49:49.238935+00:00'
-updated_at: '2026-09-14T04:49:49.238935+00:00'
+updated_at: '2026-09-14T05:00:55.098633+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cb7f25b
   kind: behavior
