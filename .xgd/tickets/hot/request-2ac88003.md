@@ -5,7 +5,7 @@ type: request
 title: 'The 1stc.site hostname: chosen once, and required before publishing'
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:45.731357+00:00'
-updated_at: '2026-09-14T03:50:03.532997+00:00'
+updated_at: '2026-09-14T04:37:57.051642+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -307,3 +307,154 @@ This ticket is unaffected and is not blocked by it. Ship the record, `check`,
 pane field and open no ticket for one. The declaration's prose still carries the
 *"this is the whole host and it cannot be changed"* language, because the
 assistant is a real caller today and needs it.
+
+---
+
+## As built (2026-09-13)
+
+Everything above is implemented. This section records the decisions taken while
+building that the sections above do not already state, so that nothing in the
+tree is unaccounted for.
+
+### The record — `db/migrations/0008_site_domains.sql`
+
+[[DOC-45]] §5 literally: opaque `id` (prefix `dom`), `site_id` naming the site by
+key, `host`, `kind`, `status`, `created_at`. `host` carries a **unique index**,
+and that index is **the authority** rather than a backstop — the opposite
+arrangement from `0007_business_name_unique.sql`, where the code refuses first.
+Here the index decides a race and the code reports what it decided.
+
+Two further indexes, both earning their place:
+
+- **A partial unique index on `(site_id) WHERE kind = 'platform' AND status =
+  'active'`** — one live platform address per site. It is the *weaker* statement
+  of the rule on purpose: the code enforces *one per business*, which refuses
+  strictly more, and this makes [[DOC-45]] §4's *"a site has exactly one
+  address"* unbreakable rather than merely intended. It is partial on `active`
+  precisely so a revocation leaves the business able to claim a replacement.
+- **An index on `site_id`**, because the publish gate reads it on the hot path of
+  the one operation a customer waits on.
+
+### `apps/control-app/src/hostname.ts` — the rules, in one place
+
+`checkHostname`, `claimHostname`, `addressesOf`, `businessAddresses`,
+`revokeHostname`, and the syntactic rule as `labelRefusal`. The refusals are four
+distinguishable classes (`InvalidHostnameError`, `ReservedHostnameError`,
+`HostnameTakenError`, `HostnameAlreadyHeldError`, plus `NoSiteError`) because the
+model and the pane do something different with each.
+
+**`normaliseLabel` tidies at the door, and accepts the whole host.** Case and
+surrounding whitespace are removed, because a hostname has neither. A trailing
+dot is accepted. And `alice.1stc.site` is read as the label `alice` — a
+consequence of this ticket's own requirement that every surface shows the whole
+host: that is the string a careful person pastes back, and refusing them the one
+we just printed would be perverse.
+
+**`check` deliberately sees revoked rows.** It is the one read not filtered to
+`active`, because a revoked host is never re-issued — a check that ignored those
+rows would report a hostname free and the claim would then be refused by the
+index, which is exactly the disagreement between the two operations the shared
+rule exists to prevent.
+
+**The reserved list is [[TODO-6]] §2's three built groups, kept separate** as
+`RESERVED_INFRASTRUCTURE`, `RESERVED_PROTOCOL` and `RESERVED_PLATFORM_IDENTITY`.
+The protocol group is entirely redundant against the character rule today — a
+leading underscore is not in `a-z0-9-` — and is listed anyway so that widening
+the character set later cannot silently hand somebody `_acme-challenge`.
+
+### Revocation is gated on `ownsPlatformBusiness`
+
+The answer above named `platformAdminSeed` as the existing notion of a platform
+operator. The gate used is **`ownsPlatformBusiness`** — the same predicate
+`/api/businesses/provision` already carries — and the substitution is deliberate:
+`isPlatformAdminSeed` answers *does this deployment NAME this address*, which is
+break-glass configuration and a diagnostic ([[BUG-62]]), never an authorisation.
+`ownsPlatformBusiness` asks [[DOC-42]] §7's two questions — *you are an owner of
+this business*, and *this business's product is businesses* — which is what
+revoking a customer's hostname actually is. It is still one route and still not a
+new auth surface, which is what the answer asked for. A customer's own owner is
+refused 403 by it, which is the point.
+
+### The routes — one API, two callers
+
+- **`GET /api/hostname`** — `{ apex, addresses }`. Any member of the business;
+  a published site's address is public by construction.
+- **`GET /api/hostname/check?label=`** — always 200, including for a name it
+  refuses: *"taken"* is the answer to the question rather than a failure to
+  answer it, and a 409 would make the pane treat an ordinary outcome as an error.
+- **`POST /api/hostname/claim`** — owners only, the gate `/api/business/name`
+  carries. 409 for taken (carrying `taken: true` and the host) and for
+  already-held (carrying the held address); 400 for reserved and malformed.
+- **`POST /api/hostname/revoke`** — platform owners only, and sited beside
+  `/api/grants/revoke` rather than under `/api/hostname`, because it is 1st
+  Contact acting *on* a customer rather than a customer's own operation.
+  Revoking something already revoked answers 200 with `revoked: null`.
+
+### The publish gate
+
+`PublishOptions.addresses` on `publishSite` — an injected seam in exactly
+`templateRefusal`'s shape, where **absent means unchecked**. It is checked inside
+rule 1's promise, after the draft's own refusals: a validation error is something
+the customer is in the middle of editing, and sending them to choose a hostname
+while their page is broken would answer a question they did not ask. It passes
+**the list** and never a boolean, so this ticket's falsifier cannot be
+reintroduced one layer down.
+
+`NoPublicAddressError` carries the message naming both fixes and is mapped to
+**409** in the router's single catch — the request is well formed and the draft is
+valid; what is missing is a decision nobody has made.
+
+**It is threaded to the assistant's `publish` tool as well**, through
+`createL1Toolbox` → `l1Operations` (mirroring `assetUrl`) and `HostDeps.addresses`.
+That operation is not currently reachable — `Publish` is outside the consultant's
+grant in `instances.json` — and the wire exists precisely because a grant is one
+line of configuration, so a gate living only in the route would be bypassed by
+the change that added it.
+
+**The Node builder transport opts out**, supplying `RouterDeps.addresses`
+returning null. It has no database, no business and no apex anybody could buy a
+label under: a publish through it is `1c publish`, and gating it would refuse to
+publish a workspace because a hostname nobody can buy there has not been bought.
+
+### The settings surface
+
+Three operations — `read_addresses`, `check_hostname`, `claim_hostname` — in two
+new groups, `ReadAddresses` (read) and `ClaimHostname` (write). The split is the
+same one `ReadBusiness`/`RenameBusiness` makes and lets a deployment grant an
+assistant that advises on hostnames without letting it commit its client to one.
+Five new declared refusals. The *"this is the whole host, and it cannot be
+changed"* language lives in `claim_hostname`'s own description, so it reaches the
+model at the moment it is about to call the operation rather than in a priming
+document nothing checks.
+
+`SettingsDeps` gains `addresses`, `check` and `claim`; `businessSettings` wires
+them to `hostname.ts`. The port carries both names and owns only one — the rules
+stay where they are and neither borrows from the other.
+
+### Collateral, and why each was touched
+
+- **`tests/support/site-address.ts`** — a new fixture, `giveBusinessAnAddress`,
+  which claims through the shipped operation rather than inserting a row, so a
+  fixture cannot create an address the product could not have issued.
+- **[[REQ-149]], [[REQ-222]] and [[REQ-243]]'s publish suites** now give the
+  business an address before publishing. [[REQ-222]]'s also moves to one business
+  per case, as [[REQ-149]]'s already was: a business holds one address bound to
+  one site, so a shared business made its second draft unpublishable for a reason
+  that suite is not about.
+- **[[REQ-194]]'s role-literal scan** now requires a file to name *both* the role
+  vocabulary and the word `role`. `hostname.ts` reserves `support` and `admin` as
+  **DNS labels** — `admin.1stc.site` is phishing surface — which has nothing to do
+  with `memberships.role`. This narrows the scan to what its name says without
+  widening it to every file that says `role`.
+- **[[REQ-237]]'s surface suite** asserts `arrayContaining` where it asserted
+  equality, and points its public-address assertion at the *"Changing or
+  releasing a hostname"* absence. The claim is unchanged and is sharper: what was
+  declared as an absence of the address is now declared as an absence of
+  **change**.
+
+### Not built, deliberately
+
+No pane field (parked, per the update above). No host→site resolution and no
+deletion of the `/site/<key>/` grammar (blocked on [[TODO-6]] §§1 and 5). No
+change path and nothing in anticipation of one. Nothing from [[TODO-6]] §2's
+fourth group.
