@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T22:10:22.695634+00:00'
+updated_at: '2026-09-14T03:37:24.407180+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -637,5 +637,11 @@ REQ-236 carries no `depends_on` deliberately — it's the root of the chain, and
 One thing worth re-flagging, since it's the part most likely to bite: **I got the format wrong initially and fixed it last message.** I'd written human IDs (`REQ-236`), but the dispatcher resolves each entry with `ticketing.get(entry)` and falls back to treating unrecognised entries as commit SHAs. Human IDs would most likely have failed to gate — the tickets would have appeared unblocked and could have been picked up in the wrong order, which for REQ-236 specifically is the failure that costs the most, since its whole argument is "do this before anything else is built on it."
 
 `epic_children` on EPIC-4 holds the three children (`request-1e65c6db`, `request-2ac88003`, `request-e89cbbff`). REQ-236 is intentionally outside it — it's a shared prerequisite for the publish path and EPIC-5/6/7 as well, and burying it under this epic would hide it from them. The `depends_on` edges still carry the ordering, so nothing is lost by it not being a child.
+
+<!-- xgd-turn id="97827d53-e292-4904-8b56-1d9a16c40c42-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T03:37:23.291024+00:00" -->
+#### You
+Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
 
 <!-- xgd-chat-end -->
