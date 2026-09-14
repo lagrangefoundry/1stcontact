@@ -5,10 +5,10 @@ type: request
 title: The business name is stored once, and may change at any time
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:12.597808+00:00'
-updated_at: '2026-09-14T02:41:32.475666+00:00'
+updated_at: '2026-09-14T03:04:59.940390+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   depends_on:
