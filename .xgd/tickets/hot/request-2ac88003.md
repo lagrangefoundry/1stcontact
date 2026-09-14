@@ -5,9 +5,9 @@ type: request
 title: 'The 1stc.site hostname: chosen once, and required before publishing'
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:45.731357+00:00'
-updated_at: '2026-09-13T22:06:33.425566+00:00'
+updated_at: '2026-09-14T03:41:02.605099+00:00'
 completed_at: null
-last_field_updated: depends_on
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -181,3 +181,95 @@ proposing names that are actually free rather than sympathising.
 - An availability check that reserves anything, or a claim that trusts an earlier
   check instead of the unique index.
 - A route to claiming a hostname that exists only inside a conversation.
+
+
+---
+
+## Answers to the implementation questions (EPIC-4, 2026-09-13)
+
+Answered from this epic's design conversation and [[TODO-6]]. Questions 1–3 are
+settled; question 4 is confirmed but leaves a gap that is named below and is the
+operator's to close.
+
+### 1. Serving-by-host is out of scope. The record, `check`/`claim` and the publish gate are this ticket.
+
+Confirmed — but **one premise in the question is wrong and the conclusion does
+not rest on it.** `apps/public-site` *does* have a D1 binding
+(`wrangler.toml:53`, `index.ts:63`, and `D1SiteStore(env.DB)` at `index.ts:158`),
+so "no D1 binding" is not a reason for anything.
+
+What actually blocks host resolution is outside this repository. [[TODO-6]] §5
+lists the wildcard `A`/`AAAA` record and the `*.1stc.site` wildcard certificate
+as **[op]** items, and neither is done; §1's PSL submission has a multi-week lead
+time that cannot be shortened. Until those exist, host→site resolution is code
+that cannot work, and [[DOC-45]] §4 is explicit that the path grammar *"cannot
+simply go"* while it is the only address that resolves. So the deletion of
+`/site/<key>/` remains an acceptance criterion of the host work, and the host
+work is a later ticket blocked on [[TODO-6]] §§1 and 5 — not on this one.
+
+### The publish gate lands here, and the friction is intended
+
+Keep it. *"Publication is the gate"* is this ticket's own language and the reason
+[[DOC-45]] §4 is safe to do at all. From that commit a business must claim a
+hostname before it can publish, and the claimed hostname will not resolve until
+the operator items land — during which the published site is still reachable at
+`/site/<key>/`, because that grammar is still there. So this is one added step
+before publishing, not a broken publish path. Nothing is published today.
+
+### 2. Revocation: the column, the filter and the operator flip all land here.
+
+[[TODO-6]] §2 is unambiguous — *"Revocation must exist from day one. Whatever the
+list says, something will get through it, and the only alternative to revocation
+is leaving it up."* Finality is what creates the need: an owner cannot change
+their own hostname, so a hostname that has to go can only go by our hand.
+
+- `status` on `site_domains` per [[DOC-45]] §5, and **every read filtered to
+  `active`.** The filter is where a revoked host actually stops resolving; the
+  column without it is decoration.
+- **A revoked host is never re-issued**, for the same reason a claimed one is
+  never recycled.
+- **The flip is not a new auth surface.** `platformAdminSeed`
+  (`apps/control-app/src/identity.ts:967`) is the existing notion of a platform
+  operator; the flip is one route gated on it, not an operator console.
+
+This is a deliberate extension of the Behaviour section above, which named
+revocation only as a consequence. It is cheap now and it is the safety valve the
+finality rule makes necessary.
+
+### 3. The row names the site; "one at a time" is enforced per business. Confirmed.
+
+This is exactly right and matches [[EPIC-4]]'s Correction of 2026-09-13, which
+settled [[DOC-45]] §11 item 4: **per business, one at a time** — with one site
+per business the distinction is not observable, and it reopens the day a site
+selector lands. So:
+
+- implement [[DOC-45]] §5 literally, `site_domains.site_id` naming the site;
+- refuse a second `platform`-kind claim anywhere in the business;
+- and write the publish gate over `kind` — *does this site have at least one
+  active address* — so custom domains need no edit to it. That is this ticket's
+  own falsifier and it is worth restating: a publish check that names the
+  `1stc.site` hostname specifically is the wrong check.
+
+### 4. No UI in this ticket. Confirmed — but the field now has no home.
+
+The routes and the surface declaration belong here, including the *"this is the
+whole host `alice.1stc.site`, and it cannot be changed"* prose, which is the
+declaration's own words for the reason [[REQ-237]] gives.
+
+**The gap:** [[REQ-239]] built the Settings pane and deliberately left the
+hostname field out — *"REQ-238 is still draft; there is no operation to call and
+nothing true to render"* — with the pane written as a list of sections precisely
+so the field is an append rather than a rewrite. [[REQ-239]] is now `free_coded`
+and parked. So when this ticket lands, nothing owns building the field. Where it
+goes — appended to [[REQ-239]] as a further commit, or its own ticket — is the
+operator's call and has been raised with them. **Do not create a ticket for it
+from this session.**
+
+## Not answered here, and still open
+
+[[TODO-6]] §3 describes label allocation under the **superseded** [[DOC-45]] §7 —
+*"assigned at provision from the slugified business name, short discriminator on
+collision, freely changeable"*, with old labels retained as redirects. All of
+that was withdrawn by [[EPIC-4]]'s Correction of 2026-09-13 and by the rewrite of
+[[DOC-45]] §7. Build against this ticket, not against [[TODO-6]] §3. The squatting
+concern in that section survives the rewrite and is not addressed here.
