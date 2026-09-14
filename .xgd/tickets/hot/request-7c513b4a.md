@@ -5,10 +5,10 @@ type: request
 title: 'The gated page: a per-contact link, and what they did with it'
 created_by: EPIC-10
 created_at: '2026-09-13T22:02:50.801812+00:00'
-updated_at: '2026-09-14T02:29:39.769509+00:00'
+updated_at: '2026-09-14T02:32:43.772058+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   depends_on:

@@ -6,6 +6,7 @@ import {
   type UserRow,
 } from './identity'
 import { currentNameOf } from './names'
+import { availableBusinessName } from './business'
 
 /**
  * What signing up gets you (REQ-203) — [[DOC-42]] §10.1, [[CHAT-39]].
@@ -63,10 +64,24 @@ export const UNNAMED_BUSINESS_NAME = 'Unnamed business'
  * placeholder than a generic one — it is at least about her. A contact with no
  * name, or whose name has been redacted to empty ([[DOC-37]]), gets
  * {@link UNNAMED_BUSINESS_NAME}.
+ *
+ * AND THE ACCOUNT'S FIRST FREE VARIANT OF IT ([[REQ-237]]). A business name is
+ * unique within its owning account, and every word this function can produce is
+ * a word the PRODUCT chose rather than one the customer typed — so an account
+ * provisioning a second business must not be refused a name it never asked for.
+ * `availableBusinessName` walks `Sarah Jones`, `Sarah Jones-1`, `Sarah Jones-2`
+ * until one is free, against the same comparison the constraint uses. The
+ * suffix is not a count and nothing may read it as one: it is whatever number
+ * was free at the time.
  */
-async function signupBusinessName(env: IdentityEnv, userId: string): Promise<string> {
+async function signupBusinessName(
+  env: IdentityEnv,
+  userId: string,
+  accountId: string,
+): Promise<string> {
   const name = await currentNameOf(env, userId)
-  return (name?.displayName ?? '').trim() || UNNAMED_BUSINESS_NAME
+  const base = (name?.displayName ?? '').trim() || UNNAMED_BUSINESS_NAME
+  return availableBusinessName(env, accountId, base)
 }
 
 /**
@@ -117,7 +132,7 @@ export async function ensureOwnBusiness(
 
   return provisionBusiness(env, {
     accountId,
-    name: await signupBusinessName(env, user.id),
+    name: await signupBusinessName(env, user.id, accountId),
     // Open-ended — see above.
     endsAt: null,
     note: 'Provisioned on sign-up.',

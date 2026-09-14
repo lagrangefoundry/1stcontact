@@ -1,0 +1,134 @@
+{
+  "surface": "settings",
+  "version": 1,
+  "surface_version": 1,
+  "title": "The business's own record — what it is called",
+  "call_type": "inproc",
+  "overview": "This is the business's own record: the name the product knows it by. It is what your client's business switcher shows, what the Contacts tab shows, and what an invoice would eventually say. It is theirs, it is internal, and it may change whenever they like.\n\n**There are two names and they are allowed to differ. Do not confuse them.** This one is what the business IS CALLED. `config.businessName` on the site is what the SITE SAYS — authored content, sitting beside the tagline and the contact details, changed only by an explicit site edit. A business mid-rebrand trades under both; a business correcting an internal label was never trading under the old one at all.\n\n**So renaming the business changes the business's record and NOTHING ELSE.** It does not edit the site. It does not publish. It does not move any address. What it does instead is tell you what is now out of date — the site still saying the old name, the pages whose copy still names it — so that you can ASK. *\"Your site still calls you Foo — shall I change that too?\"* is the point of the report. Every line of it is an offer and none of it is an action.\n\n**And it is not the public address.** The address that reaches the site is a hostname: global, first-come, chosen once and final. This name is internal, unique only within your client's own account, and free to change as often as they want. If your client asks to \"change their name\" you have to find out which of the two they mean, because one is a text field and the other is a decision they live with."
+  ,
+  "param_types": {
+    "business_name": {
+      "base": "string",
+      "description": "What the business is called. Whatever your client typed, exactly — the capitals they use are the capitals that are stored. Surrounding and doubled whitespace is tidied away and nothing else is changed."
+    }
+  },
+  "shapes": {
+    "business": {
+      "business": "the business's permanent id — opaque, and never shown to your client",
+      "name": "what the business is called today"
+    },
+    "rename": {
+      "business": "the business's permanent id, unchanged — a rename moves no key",
+      "name": "what the business is called now",
+      "previous_name": "what it was called before this call",
+      "effects": "what this rename left out of date. Nothing here was changed"
+    },
+    "effects": {
+      "site": "the site this business holds, or null when it holds none",
+      "site_says": "what that site's title calls the business — UNCHANGED by the rename, and it will go on saying this until somebody edits the site. Not until the next publish: publishing re-renders what the site says, and what it says has not changed",
+      "site_is_out_of_date": "true when site_says is not the business's new name. Offer to change it; do not change it",
+      "pages_naming_the_old_name": "pages whose copy still contains the previous name, somewhere in the prose you wrote. There is no field to update here — read the page and rewrite the sentence, or leave it"
+    }
+  },
+  "errors": {
+    "NAME_TAKEN": {
+      "message": "your client's account already holds a business by that name, and two entries nobody can tell apart in one switcher is the thing this refuses. The refusal names the other business — say which one it is, and ask for a different name."
+    },
+    "NAME_EMPTY": {
+      "message": "a business needs a name. Nothing was changed."
+    },
+    "NO_BUSINESS": {
+      "message": "there is no business behind this conversation, so there is no record to read or change."
+    },
+    "SCHEMA_INVALID": {
+      "message": "the call was not well-formed. Nothing was changed and the record is exactly as it was."
+    }
+  },
+  "operations": [
+    {
+      "op": "read_business",
+      "tool": "read_business",
+      "effect": "read",
+      "summary": "What the business is called, as the product records it.",
+      "description": "The business's own record. Read it before you offer to change it, and read it when you are about to write the business's name into page copy — what the record says and what the site says are two different strings and you should know both.",
+      "params": {},
+      "returns": {
+        "shape": "business",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NO_BUSINESS"
+      ]
+    },
+    {
+      "op": "rename_business",
+      "tool": "rename_business",
+      "effect": "write",
+      "summary": "Change what the business is called, and find out what that left out of date.",
+      "description": "Writes the business's own record and nothing else, then reports what is now inconsistent.\n\n**Do this when your client tells you the name is wrong**, which includes the placeholder they were given before anybody asked them — a business still called `Unnamed business` has never been asked, and asking is the whole of the work.\n\n**Read the effects out loud and offer them one at a time.** The site's title still says the old name; some pages still name it in prose. Neither was touched. Your client may want both changed, or one, or neither — a business mid-rebrand may be trading under both names on purpose, and a business fixing an internal label may never have traded under the old one. Do not assume, and do not change the site as a courtesy.\n\n**Changing what the site says is a separate, explicit act.** The site's title is `config.businessName` and you write it with the site's own settings operation; page copy is prose and you rewrite the sentence. Both are ordinary site edits, and both stay in the draft until your client publishes.\n\n**A name already held by another of your client's businesses is refused, and the refusal names it.** Tell them which one it is rather than trying a variation on their behalf.",
+      "params": {
+        "name": {
+          "type": "business_name",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "rename"
+      },
+      "errors": [
+        "NAME_TAKEN",
+        "NAME_EMPTY",
+        "NO_BUSINESS",
+        "SCHEMA_INVALID"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "group": "ReadBusiness",
+      "effect": "read",
+      "title": "Reading the business's record",
+      "description": "What the business is called. Nothing here changes anything.",
+      "operations": [
+        "read_business"
+      ]
+    },
+    {
+      "group": "RenameBusiness",
+      "effect": "write",
+      "title": "Changing what the business is called",
+      "description": "Its own capability, and deliberately separate from reading: the record is the business's own identity to the product, and changing it is a decision rather than a lookup. It is also cheap and reversible — nothing is addressed by this name — which is why it is a text field and not a ceremony.",
+      "operations": [
+        "rename_business"
+      ]
+    }
+  ],
+  "sequences": [
+    {
+      "name": "Your client tells you the business name is wrong",
+      "steps": [
+        "read_business",
+        "rename_business"
+      ],
+      "note": "Read it first so you can say what it is changing FROM, then rename, then read the effects back to them as offers. The site is not touched by any of this — if they want the site to follow, that is a site edit you make afterwards and they publish when they are ready."
+    }
+  ],
+  "absences": [
+    {
+      "name": "Changing what the site says",
+      "note": "There is nothing here that edits a site. The site's title is `config.businessName` and page copy is prose; both are site edits, made with the site's own operations, and both stay in the draft until your client publishes. That separation is the point of this surface, not a gap in it."
+    },
+    {
+      "name": "Publishing",
+      "note": "A rename publishes nothing. Publication has its own meaning and its own moment, and a name change that pushed a draft live would release work your client never asked to release."
+    },
+    {
+      "name": "The public address",
+      "note": "There is nothing here that sets or changes the hostname the site is reached at. That name is global, first-come and final, and it is emphatically not this one."
+    },
+    {
+      "name": "Another business",
+      "note": "Every operation here is about the business this conversation is with. There is no way to name another one, and no way to find out what another account has called theirs."
+    }
+  ]
+}

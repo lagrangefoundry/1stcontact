@@ -54,6 +54,13 @@ import {
 import { imageSurface } from './imagegen'
 import { canEmbed, type EmbedderEnv } from './embedder'
 import { chatLibrary } from './library'
+// THE BUSINESS'S OWN RECORD ([[REQ-237]]) — one module owns the name rule, and
+// this route is one of its two ordinary callers.
+import {
+  BusinessNameTakenError,
+  InvalidBusinessNameError,
+  renameBusiness,
+} from './business'
 import { fidelityDeps } from './shot'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
@@ -1141,6 +1148,18 @@ export const PERSON_MESSAGES_PATH = '/api/people/messages'
  * re-presenting the last `id:` it saw as `Last-Event-ID`.
  */
 export const PERSON_CHANGES_PATH = '/api/people/changes'
+/**
+ * Where the business's own record is changed ([[REQ-237]], [[EPIC-4]]).
+ *
+ * BUSINESS-SCOPED LIKE EVERY ROUTE BELOW IT, and that is the whole of how it
+ * knows which business it is about: the name never travels in the body, so no
+ * caller can address a business the request did not already resolve to.
+ *
+ * IT IS THE API, NOT THE FORM. The settings pane and the settings assistant are
+ * both ordinary callers of the rename — neither wraps the other, and neither is a
+ * fallback for the other. This is the half a browser can reach.
+ */
+export const BUSINESS_NAME_PATH = '/api/business/name'
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
 
@@ -2525,6 +2544,67 @@ async function routeUncached(
       const body = await readJsonBody(request)
       await revokeGrant(identityEnv, typeof body.id === 'string' ? body.id : '')
       return json(200, { ok: true })
+    }
+
+    /**
+     * POST /api/business/name — the customer corrects what their business is
+     * called ([[REQ-237]]).
+     *
+     * A TEXT FIELD AND NOT A DIALOGUE. Correcting a typo in your own business
+     * name is the kind of thing that is simply easier done directly, and a
+     * product that insists on a conversation for it has added the friction it
+     * exists to remove. The assistant reaches the same operation through the
+     * `settings` surface; both are callers of one rule.
+     *
+     * OWNERS ONLY, the same gate `/api/people/record` carries and for the same
+     * reason: this is the business's own identity to the product, and a `support`
+     * membership exists to help operate a business rather than to re-label it.
+     *
+     * IT REPORTS EFFECTS AND CHANGES NOTHING ELSE. The site still says what it
+     * said; the response is what lets the pane show that as something to look at
+     * rather than silently diverge.
+     *
+     * THE TWO REFUSALS ARE DISTINGUISHED. A name already held by another of this
+     * account's businesses is a 409 naming it — the only moment that sentence is
+     * useful — and an empty name is a 400. Collapsing them into one status would
+     * leave the pane unable to say which happened.
+     */
+    if (p === BUSINESS_NAME_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        console.warn(
+          JSON.stringify({
+            event: 'business_name_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: 'Only an owner of this business may change its name.' })
+      }
+      const body = await readJsonBody(request)
+      try {
+        return json(
+          200,
+          await renameBusiness(
+            identityEnv,
+            scope.businessId,
+            typeof body.name === 'string' ? body.name : '',
+          ),
+        )
+      } catch (error) {
+        // SCRUBBED LIKE EVERY OTHER MESSAGE THAT LEAVES THIS WORKER
+        // ([[REQ-146]] AC4). Nothing in either of these is built from an
+        // upstream diagnostic, so there is nothing here to redact today — and a
+        // path that scrubs beside a path that does not is an invitation to add a
+        // third that does not. The cost when there is nothing to scrub is nil.
+        if (error instanceof BusinessNameTakenError) {
+          return json(409, { error: scrub(error.message), takenBy: error.takenBy })
+        }
+        if (error instanceof InvalidBusinessNameError) {
+          return json(400, { error: scrub(error.message) })
+        }
+        throw error
+      }
     }
 
     if (p === '/api/sites' && method === 'GET') {

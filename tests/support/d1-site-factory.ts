@@ -79,6 +79,12 @@ const MIGRATIONS = [
   // the same reason the four above are: the baseline declares it for a fresh
   // database and this file is the half that reaches the one already deployed.
   () => import('../../db/migrations/0006_asset_grants.sql?raw'),
+  // [[REQ-237]] — a business name is unique within the account that owns it.
+  // Applied here for the same reason as every file above: `wrangler d1
+  // migrations apply` runs it against every database this product has, and a
+  // fixture that skipped it would let a suite write two rows the real database
+  // would refuse. LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0007_business_name_unique.sql?raw'),
 ]
 
 /**
@@ -168,17 +174,25 @@ export async function applySchema(): Promise<void> {
 }
 
 /**
- * Whether `sites` already has the shape the last migration leaves it in.
+ * Whether the database already holds what the LAST migration leaves behind.
  *
- * `kind` IS THE MARKER BECAUSE `0005` — THE LAST FILE IN THE LIST — IS WHAT ADDS IT, so its presence means
- * every statement in the list has run. `PRAGMA table_info` answers on a database
- * with no such table at all — an empty result, not an error — which is what lets
- * one query serve both "already migrated" and "nothing here yet".
+ * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today `0007`'s
+ * index. It used to ask for `sites.kind`, which `0005` adds; once anything came
+ * after `0005`, a database at `0005` would have answered "at head" and skipped
+ * the rest silently. So this marker MOVES WITH THE LIST: a migration appended
+ * below without moving it re-opens exactly that hole. `sqlite_master` answers
+ * on a database with no such table at all — an empty result, not an error —
+ * which is what lets one query serve both "already migrated" and "nothing here
+ * yet", exactly as `PRAGMA table_info` did.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const columns = await DB.prepare('PRAGMA table_info(sites)').all<{ name: string }>()
-  return (columns.results ?? []).some((column) => column.name === 'kind')
+  const row = await DB.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+  )
+    .bind('idx_tenants_owner_name')
+    .first<{ name: string }>()
+  return row !== null
 }
 
 /** The tenant every fixture belongs to unless a test names another. */
