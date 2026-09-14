@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T20:43:57.683866+00:00'
+updated_at: '2026-09-14T20:55:30.893257+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1044,5 +1044,22 @@ An Outgoing tab implies a **templates AI surface** — which is exactly the gap 
 5. Does the AI surface for templates ship with this tab, or follow it?
 
 My instinct is these are two tickets, not one — the page shortcut is small and self-contained; Outgoing is a tab, a role, a surface and a type decision.
+
+<!-- xgd-turn id="f35fb1ad-72f3-4a0f-b92c-7a7f10955ac3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T20:55:30.027377+00:00" -->
+#### You
+1. Yes I like that model
+   2.**One correction to "standard 1+2 pane", though.** Library is split + list-detail with *no* chat. Settings is a split *with* chat and no list. Nothing today does list + detail + chat. It composes from the same primitives, but you'd be establishing that pattern, not following it — worth knowing before it gets scoped as "same as Library." <-- this is a standard pattern for xgd p[rojects - take a look at the Intent tab and Document tab 
+   
+   A - that's fine - we also need to distinguish between email templates and (say) newsletters - but that can be a fields.kind that we add later when we need it
+   
+   B - your solution sounds a little complicated. Lets see: (1) I think Outgoing should be empty if there are no emails being sent/configured (2) The email templates need to be populated when the site configures their use - at that point they need to be available for editing.
+   
+   Actually I want to simplify this for now and instead of creating this Outgoing tab, lets just add the email templates to the list of "pages".
+   
+   So (1) at the point we configure an email for use we need to materialize a template (2) those templates can be pulled up in the site view and styled and edited there.
+   
+   ok?
 
 <!-- xgd-chat-end -->
