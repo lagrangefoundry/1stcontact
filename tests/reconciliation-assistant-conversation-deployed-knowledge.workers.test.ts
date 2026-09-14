@@ -39,7 +39,9 @@ import {
  * runtime that has none.
  *
  * WHAT MAKES THIS EVIDENCE. Every assertion runs inside workerd, through the
- * Worker's own `route()`, over the real `@lagrangefoundry/knowledge` component:
+ * Worker's own `route()`, over the real knowledge component itself (named by its
+ * bare package name rather than its scope, which is written in exactly one place
+ * — see AC-960):
  * the corpus is resolved by its own resolver, both indexes are built by its
  * `buildIndex` and `buildChunkIndex`, the ranking is its own search, the tool
  * surface is the bridge's `KnowledgeToolbox` and the priming is the bridge's

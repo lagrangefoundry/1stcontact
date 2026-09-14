@@ -196,7 +196,7 @@ export class CoRankedKnowledge extends KnowledgeToolbox {
       const perKb = await Promise.all(
         this.inScope(kb).map(([name, runtime]) =>
           kmSearch(query, {
-            source: runtime.source,
+            indexes: runtime.indexes,
             store: runtime.store,
             kbs: runtime.kbs,
             kb: name,
@@ -225,7 +225,10 @@ export class CoRankedKnowledge extends KnowledgeToolbox {
       const perKb = await Promise.all(
         this.inScope(kb).map(([name, runtime]) =>
           kmSearchChunks(query, {
-            source: runtime.chunkSource,
+            // The CHUNK artifacts, under the same option name: `searchChunks`
+            // takes the indexes it should read, and for it those are the chunk
+            // ones. Two artifacts, not two modes of one.
+            indexes: runtime.chunkIndexes,
             store: runtime.store,
             kbs: runtime.kbs,
             kb: name,
@@ -307,13 +310,19 @@ export async function sessionKnowledgeFor(
       ...(opts.tickets ? { store: opts.tickets } : {}),
       ...(opts.embedder !== undefined ? { embedder: opts.embedder } : {}),
     })
+    const kb = projectKb()
     perKb.set(
       PROJECT_KB,
       await KnowledgeRuntime.open({
         store: project.store,
-        kbs: new Map([[PROJECT_KB, projectKb()]]),
-        source: project.index,
-        chunkSource: project.chunks,
+        kbs: new Map([[PROJECT_KB, kb]]),
+        // KEYED BY SOURCE NAME, exactly as `knowledge.ts` keys its own and as
+        // `system-knowledge.ts` keys the shipped pair. The component resolves
+        // which index to read through `kb.source` and has no default entry, so a
+        // runtime handed a bare artifact has no index for this source and refuses
+        // the search by name rather than returning nothing.
+        indexes: { [kb.source ?? PROJECT_KB]: project.index },
+        chunkIndexes: { [kb.source ?? PROJECT_KB]: project.chunks },
         embedder: project.embedder,
       }),
     )
@@ -386,7 +395,12 @@ export function sessionPriming(knowledge: SessionKnowledge): Untyped {
     register: (providers: Untyped, box: Untyped) =>
       registerKmProviders(providers, () => knowledge.composite, {
         mechanismFor: () => box.manual(),
-        kb: [...SESSION_KBS],
+        // EXACTLY THE KBs THAT OPENED, and in their insertion order — the same
+        // confinement {@link sessionKnowledgeSurface} makes on the search axis,
+        // for the same reason. Naming the static pair here instead would declare
+        // `project` to a session that never opened one, and the map axis rejects
+        // a base it cannot resolve rather than quietly describing nothing.
+        kb: [...knowledge.perKb.keys()],
       }),
   }
 }

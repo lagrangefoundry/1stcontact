@@ -419,7 +419,7 @@ describe('story-16f2793c — values-diff --size renders the reproduction at that
     // size the page to the selected preset before reading its values. A ladder
     // reference exists at both mobile and desktop so the width the command picks
     // is observable on the reference side too.
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { viewport: VIEWPORTS.mobile, wordmarkWidth: 75 },
       { viewport: VIEWPORTS.desktop, wordmarkWidth: 256 },
     ])
@@ -522,9 +522,12 @@ function cellAt(
 }
 
 /** A bundle carrying exactly the given projections. */
-function bundleOf(projections: StateProjection[]): string {
+async function bundleOf(projections: StateProjection[]): Promise<string> {
   const dir = tmp('ac1617-')
-  writeMultiState(dir, { url: 'ref', projections, notes: [] })
+  // REQ-155 — through the storage port, and AWAITED: the write went async with
+  // the port, so a fire-and-forget call here leaves the bundle empty at the
+  // moment the assertion below reads it.
+  await writeMultiState(fsReferenceBundle(dir), { url: 'ref', projections, notes: [] })
   return dir
 }
 
@@ -592,7 +595,7 @@ describe('story-16f2793c — AC-1617 the reference cell for a width is determini
     // choice would show up here as two different `expectedSource` values — and as
     // a wordmark delta that appears and disappears between identical runs.
     const vp = VIEWPORTS.tablet
-    const dir = bundleOf([
+    const dir = await bundleOf([
       cellAt(vp, 'webkit', 'rest', 111),
       cellAt(vp, 'chromium', 'hover', 222),
       cellAt(vp, 'chromium', 'rest', 333),

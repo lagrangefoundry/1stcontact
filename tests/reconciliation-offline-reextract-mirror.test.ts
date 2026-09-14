@@ -11,6 +11,7 @@ import {
   type RawSignals,
   type Viewport,
 } from '../tools/generate/src/cli'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * Reconciliation UATs for story-d5de22a5 — AC-1607: an **offline re-extract**
@@ -153,7 +154,9 @@ class FetchingDriver implements BrowserDriver {
 
 async function reextract(dir: string): Promise<FetchingDriver> {
   let driver!: FetchingDriver
-  await reextractFromBundle(dir, {
+  // REQ-155 — re-extract takes the storage PORT, not a directory path. The fs
+  // backing is what a CLI re-extract uses, so that is what this drives.
+  await reextractFromBundle(fsReferenceBundle(dir), {
     driverFactory: async () => {
       driver = new FetchingDriver()
       return driver

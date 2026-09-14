@@ -56,7 +56,7 @@ import KB_CONFIG from '../../../kb/knowledge_bases.json'
 /** The library is untyped JavaScript; the boundary is narrow and named here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export { SYSTEM_KB }
+export { SYSTEM_KB, SHIPPED_SOURCE }
 
 /** The bindings the system KB needs: the embedding model, and nothing else. */
 export interface SystemKnowledgeEnv {

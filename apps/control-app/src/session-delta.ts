@@ -263,11 +263,21 @@ export async function turnDelta(
   if (projectKb === undefined) return null
 
   const chat = await findChat(store, sessionId)
-  const cursor = storedCursor(chat) ?? (await coverageCursor(store, now))
+  const stored = storedCursor(chat)
+  const cursor = stored ?? (await coverageCursor(store, now))
   const entries = await changedSince(store, projectKb, cursor)
   const next = advance(cursor, entries)
 
-  if (next.at !== cursor.at || next.seen.length !== cursor.seen.length || chat === null) {
+  // PERSIST WHEN THERE IS NOTHING STORED YET, and not merely when the cursor
+  // moved. A conversation's chat ticket is created by the ARCHIVE, on the turn
+  // before this one — so `chat === null` stops being true almost immediately, and
+  // keying the write on it alone means a first turn that reports nothing writes
+  // no bookmark at all. The next turn then finds no stored cursor, falls back to
+  // coverage-from-now, and everything uploaded in between sits before a boundary
+  // that has silently walked forward: never reported, on that turn or any later
+  // one. Writing the boundary the first time it is derived is what makes the feed
+  // continuous across turns rather than only across a moving cursor.
+  if (stored === null || next.at !== cursor.at || next.seen.length !== cursor.seen.length) {
     await writeCursor(store, sessionId, next, chat)
   }
   return deltaLine(entries)

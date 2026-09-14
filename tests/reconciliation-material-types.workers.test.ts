@@ -220,10 +220,26 @@ describe('story-e07c589b — the kinds a site is made from', () => {
     ).toEqual(expect.arrayContaining(['chat', 'comment']))
     for (const kind of conversationKinds) {
       expect(types, `the vocabulary names the conversation kind '${kind}'`).toContain(kind)
-      expect(pack.schema(kind), `'${kind}' is the component's own schema`).toEqual(
-        chatSchemas()[kind],
-      )
+      // EVERY FIELD THE COMPONENT DECLARES, CARRIED THROUGH UNCHANGED — which is
+      // the anti-drift property the criterion is actually about. The store merges
+      // onto the component's shape rather than transcribing it, so a dropped or
+      // altered field fails here; a field the platform adds on top does not.
+      expect(
+        pack.schema(kind),
+        `'${kind}' carries the component's own schema unaltered`,
+      ).toMatchObject(chatSchemas()[kind])
     }
+
+    // AND THE ADDITIONS ARE PINNED, so "merged onto" cannot quietly become "and
+    // whatever else". `chat` carries exactly one field of the platform's own: the
+    // session's change-feed boundary, which is a property of a CONVERSATION and so
+    // lives on the conversation's ticket ([[REQ-160]]).
+    expect(
+      Object.keys(pack.schema('chat').fields).filter(
+        (field) => !(field in chatSchemas().chat.fields),
+      ),
+      "the platform's only addition to the conversation shape",
+    ).toEqual(['kb_cursor'])
 
     // ── the attachment record, under the name its own component gives it ────
     // Identity, not equivalence: `toBe` is what distinguishes the component's

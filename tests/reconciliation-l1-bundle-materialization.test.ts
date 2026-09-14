@@ -16,6 +16,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { validateL1, type L1Document, type L1Node } from '../packages/site-schema/src/index'
 import type { Capture, CaptureAsset } from '../tools/generate/src/cli/capture'
@@ -72,14 +73,16 @@ afterEach(() => {
 
 /** Write a capture bundle: the folded `l1.json`, the asset map, the mirrored
  *  bytes, and (optionally) the behaviour bindings. `doc: null` omits the fold. */
-function bundle(
+async function bundle(
   doc: L1Document | null,
   assets: CaptureAsset[],
   forms?: Array<Record<string, unknown>>,
-): string {
+): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(path.join(dir, 'assets'), { recursive: true })
-  if (doc) writeL1(dir, doc)
+  // REQ-155 — the fold is written through the storage port, and AWAITED: left
+  // un-awaited the bundle has no `l1.json` at the moment the import reads it.
+  if (doc) await writeL1(fsReferenceBundle(dir), doc)
   const capture = { url: `${ORIGIN}/`, host: 'reference.example.com', assets } as unknown as Capture
   writeFileSync(path.join(dir, 'capture.json'), JSON.stringify(capture, null, 2))
   for (const a of assets) writeFileSync(path.join(dir, a.localPath), `bytes:${a.id}`)
@@ -119,13 +122,13 @@ function homePage(draftDir: string): { l1: L1Document; modules: unknown[] } {
 }
 
 describe('AC-1628 a capture bundle materializes as a servable site with localized assets', () => {
-  it('test_UAT_AC1628_bundle_materializes_as_a_servable_site_with_localized_assets', () => {
+  it('test_UAT_AC1628_bundle_materializes_as_a_servable_site_with_localized_assets', async () => {
     const doc = docWithRemoteHandles()
     expect(validateL1(doc).ok).toBe(true)
-    const ref = bundle(doc, assetMap())
+    const ref = await bundle(doc, assetMap())
 
     // ── The draft exists and its home page IS the bundle's folded document ────
-    const result = cmdRepro('reproduction', { cwd, ref })
+    const result = await cmdRepro('reproduction', { cwd, ref })
     expect(existsSync(result.draftDir)).toBe(true)
     expect(existsSync(path.join(result.draftDir, 'site.json'))).toBe(true)
     expect(existsSync(path.join(result.draftDir, 'pages', 'home.json'))).toBe(true)
@@ -171,7 +174,7 @@ describe('AC-1628 a capture bundle materializes as a servable site with localize
 
     // ── Idempotent: re-running rebuilds rather than accumulating ──────────────
     const first = snapshot(result.draftDir)
-    const again = cmdRepro('reproduction', { cwd, ref })
+    const again = await cmdRepro('reproduction', { cwd, ref })
     expect(again.draftDir).toBe(result.draftDir)
     expect(snapshot(again.draftDir)).toEqual(first)
     // The reported figures are stable too — a second pass over already-local
@@ -184,20 +187,20 @@ describe('AC-1628 a capture bundle materializes as a servable site with localize
     // only while that host is up and would blind the perceptual gate to image
     // regressions. So the import throws, and names the handle it cannot resolve.
     rmSync(path.join(cwd, 'bundle'), { recursive: true, force: true })
-    const noHero = bundle(docWithRemoteHandles(), assetMap().filter((a) => a.src !== HERO))
-    expect(() => cmdRepro('reproduction', { cwd, ref: noHero })).toThrow(/hotlink the captured origin/)
-    expect(() => cmdRepro('reproduction', { cwd, ref: noHero })).toThrow(/hero\.png/)
+    const noHero = await bundle(docWithRemoteHandles(), assetMap().filter((a) => a.src !== HERO))
+    await expect(cmdRepro('reproduction', { cwd, ref: noHero })).rejects.toThrow(/hotlink the captured origin/)
+    await expect(cmdRepro('reproduction', { cwd, ref: noHero })).rejects.toThrow(/hero\.png/)
     // …with the instruction that fixes it.
-    expect(() => cmdRepro('reproduction', { cwd, ref: noHero })).toThrow(/1c capture page/)
+    await expect(cmdRepro('reproduction', { cwd, ref: noHero })).rejects.toThrow(/1c capture page/)
     // The failure is BEFORE the draft, not half-way through one: the good draft
     // written above is still exactly what it was, not emptied or half-rebuilt.
     expect(snapshot(result.draftDir)).toEqual(first)
 
     // ── A bundle with NO folded document is rejected ──────────────────────────
     rmSync(path.join(cwd, 'bundle'), { recursive: true, force: true })
-    const noFold = bundle(null, assetMap())
-    expect(() => cmdRepro('reproduction', { cwd, ref: noFold })).toThrow(/No l1\.json/)
-    expect(() => cmdRepro('reproduction', { cwd, ref: noFold })).toThrow(/1c capture page/)
+    const noFold = await bundle(null, assetMap())
+    await expect(cmdRepro('reproduction', { cwd, ref: noFold })).rejects.toThrow(/No l1\.json/)
+    await expect(cmdRepro('reproduction', { cwd, ref: noFold })).rejects.toThrow(/1c capture page/)
 
     // ── A bundle whose L1 seams and behaviour bindings DISAGREE is rejected ────
     // The two artifacts are written by one fold, so a mismatch means the bundle is
@@ -211,17 +214,17 @@ describe('AC-1628 a capture bundle materializes as a servable site with localize
       name: 'contact',
       geometry: { keyframes: WIDTHS.map((at) => ({ at, x: 0, y: 0, width: at, height: 200 })) },
     }
-    const unbound = bundle(docWithRemoteHandles([seam]), assetMap())
-    expect(() => cmdRepro('reproduction', { cwd, ref: unbound })).toThrow(/internally inconsistent/)
-    expect(() => cmdRepro('reproduction', { cwd, ref: unbound })).toThrow(/'contact' has no binding/)
-    expect(() => cmdRepro('reproduction', { cwd, ref: unbound })).toThrow(/1c capture page/)
+    const unbound = await bundle(docWithRemoteHandles([seam]), assetMap())
+    await expect(cmdRepro('reproduction', { cwd, ref: unbound })).rejects.toThrow(/internally inconsistent/)
+    await expect(cmdRepro('reproduction', { cwd, ref: unbound })).rejects.toThrow(/'contact' has no binding/)
+    await expect(cmdRepro('reproduction', { cwd, ref: unbound })).rejects.toThrow(/1c capture page/)
 
     // (b) the mirror image — a binding for a seam the document does not carry.
     rmSync(path.join(cwd, 'bundle'), { recursive: true, force: true })
-    const dangling = bundle(docWithRemoteHandles(), assetMap(), [
+    const dangling = await bundle(docWithRemoteHandles(), assetMap(), [
       { slot: 'newsletter', behavior: 'contact-form', action: '', fields: [], form: { kind: 'box', children: [] } },
     ])
-    expect(() => cmdRepro('reproduction', { cwd, ref: dangling })).toThrow(/internally inconsistent/)
-    expect(() => cmdRepro('reproduction', { cwd, ref: dangling })).toThrow(/'newsletter', absent from l1\.json/)
+    await expect(cmdRepro('reproduction', { cwd, ref: dangling })).rejects.toThrow(/internally inconsistent/)
+    await expect(cmdRepro('reproduction', { cwd, ref: dangling })).rejects.toThrow(/'newsletter', absent from l1\.json/)
   })
 })
