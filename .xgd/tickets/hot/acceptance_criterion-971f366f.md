@@ -6,10 +6,10 @@ title: A conversation's coverage starts where the map's ends, so a document arri
   in the gap is announced on the first turn
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:28:44.375820+00:00'
-updated_at: '2026-09-14T06:28:44.375820+00:00'
+updated_at: '2026-09-14T06:52:07.028008+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
