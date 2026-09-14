@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-244
 created_by: xgd
 created_at: '2026-09-14T01:47:49.661320+00:00'
-updated_at: '2026-09-14T02:22:03.463711+00:00'
+updated_at: '2026-09-14T02:29:59.719383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,25 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="dded9efe-945b-49c0-baa7-1cbb365af12d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T02:29:58.920857+00:00" -->
+#### Claude
+Now lock and merge back into `xgd-working`.
+
+Done. REQ-244 is at `free_coded`, commit `0b0eb76` merged into `xgd-working`, branch cleaned up.
+
+**What landed**
+
+- **`asset_grants`** (`db/migrations/0006_asset_grants.sql` + baseline) — an opaque `gate_…` token per (contact, site, form), one live grant enforced by a partial unique index over `revoked_at IS NULL`. `business_id` is derived by `INSERT … SELECT … FROM users`, so a grant can't be filed under a business its contact isn't in. Deliberately not `login_tokens`: these neither expire nor are single-use.
+- **`control-app/src/grants.ts`** — find-or-mint (`grantFor`), `resolveGrant`, `revokeGrant`. Revocation has no operator surface; the column and the refusal are built and proved, the button belongs with contact erasure.
+- **`control-app/src/gate.ts` + `AssetGate` entrypoint** — resolves a token, checks the URL's site key *against* the grant rather than trusting it, reads the live form definition, writes `page.accessed` / `asset.downloaded` before answering. Returns data, never bytes.
+- **`public-site/src/gate.ts`** — `GET /api/download/<token>` and `…/<assetKey>`, matched through `parseRoute` before the edge-cache lookup so a per-contact page can't be shared-cached. Site-relative asset URLs stream from R2 through the same grammar every published byte uses; absolute ones `302`. `notFound()` moved here and `index.ts` imports it, so a gate refusal is byte-identical to any unknown path.
+- **`{{cta_url}}` is now the page, not the paper** — minted lazily at the first artifact that will actually be sent. Both mails in a two-paper set carry the same link; `{{asset_name}}` and REQ-241's per-asset ledger keep them separately legible.
+
+**Tests** — 10 UATs in `tests/test_UAT_FC_REQ-244_gated_page.workers.test.ts`, workerd against real D1/R2 and real published revisions, covering all eight ACs. All pass.
+
+Full suite: **3956 passed, 2 failed**. Both failures are pre-existing and outside this diff — `bug32-webui-scope-rebrand` flags `tools/generate/src/cli/assets.ts` and a REQ-228 test file, and `BUG-67 backend settings` fails on `configureProjectBackends` validation. Neither test imports anything this change touches.
 
 <!-- xgd-chat-end -->
