@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 /**
- * story-7f437d57 — **nothing is painted before the renderer exists**
- * (CAP-90 bundle, plan item 9; AC-1063's ordering half and AC-1816).
+ * story-7f437d57 — **what the workspace owes the pane** (CAP-90 bundle,
+ * plan items 9 and 10; AC-1063's ordering half, AC-1816 and AC-1819).
  *
  * WHY A SECOND FILE BESIDE `reconciliation-builder-assistant-pane`. That suite
  * owns the pane's nine original criteria and is unchanged by this
  * reconciliation. What BUNDLE-27 added is a rule about WHEN a surface may paint
  * — AC-1816's shared, never-failing readiness and the ordering AC-1063 now
- * states — and both are properties of the WORKSPACE rather than of the pane.
- * They are asserted here so the pane's suite stays about the pane.
+ * states — and a rule about what the workspace does when a turn reports that
+ * the site moved (AC-1819). All three are properties of the WORKSPACE rather
+ * than of the pane; they are asserted here so the pane's suite stays about the
+ * pane.
  *
  * THE DISTINCTION THE CRITERIA CARRY. The render seam degrades to ESCAPED SOURCE
  * when there is no sanitizer. That is the right answer for an engine that is
@@ -46,9 +48,16 @@ interface Turn {
   markdown: string
 }
 
+interface Chat {
+  getMessages: () => Turn[]
+  send: (text: string) => Promise<unknown>
+}
+
 interface BuilderApp {
   split: { element: HTMLElement }
-  chat: { element: HTMLElement; getChat: () => { getMessages: () => Turn[] } | null }
+  /** The displayed page. AC-1819 is about what the workspace does to it. */
+  panel: { frame: HTMLIFrameElement }
+  chat: { element: HTMLElement; getChat: () => Chat | null }
   destroy: () => void
 }
 
@@ -71,6 +80,8 @@ interface MarkdownModule {
 let mountBuilder: MountBuilder
 let setSanitizer: MarkdownModule['setSanitizer']
 let setParser: MarkdownModule['setParser']
+/** The workspace's own readiness — AC-1819's mounts wait on it before sending. */
+let markdownReady: MarkdownModule['markdownReady']
 
 if (!WEBUI_INSTALLED) console.warn(`story-7f437d57 readiness suite skipped: ${WEBUI_SKIP_REASON}`)
 
@@ -160,7 +171,7 @@ beforeAll(async () => {
     ;({ mountBuilder } = (await import('../apps/control-app/src/builder/app.js')) as {
       mountBuilder: MountBuilder
     })
-    ;({ setParser, setSanitizer } = (await import(
+    ;({ markdownReady, setParser, setSanitizer } = (await import(
       '../apps/control-app/src/builder/markdown.js'
     )) as MarkdownModule)
   }
@@ -419,5 +430,174 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — the engines belong to the 
 
     library.destroy()
     app.destroy()
+  })
+})
+
+// ── the displayed page follows the writes ────────────────────────────────────
+
+/**
+ * The turn the origin produces for a request answered by two edits, frame for
+ * frame — written as the SHAPE `host-core.ts` emits rather than as a convenient
+ * simplification. Each report arrives AMONG the tool activity, before the prose,
+ * which is the property the workspace has to act on: an implementation that
+ * waited for the reply would still end the turn with the right page on screen
+ * and would still be the defect BUG-43 reported.
+ */
+const TWO_WRITES = [
+  { kind: 'tool_activity', content: 'tool_call add_page', meta: { name: 'add_page' } },
+  { kind: 'site_changed', content: '', meta: { at: 1, changes: 1 } },
+  { kind: 'tool_activity', content: 'tool_call add_page', meta: { name: 'add_page' } },
+  { kind: 'site_changed', content: '', meta: { at: 2, changes: 1 } },
+  { kind: 'text', content: 'I added both pages.' },
+  { kind: 'done' },
+]
+
+/** A question: the assistant reads and answers, and nothing moves. */
+const NO_WRITES = [
+  { kind: 'tool_activity', content: 'tool_call list_pages', meta: { name: 'list_pages' } },
+  { kind: 'text', content: 'You have one page: home.' },
+  { kind: 'done' },
+]
+
+/**
+ * A transport that plays one turn, sampling `count()` immediately before each
+ * event leaves the host.
+ *
+ * The sampling is what separates "edit by edit, while the assistant is still
+ * working" from "once, when it stops talking" — a total alone cannot tell them
+ * apart. The stream is pulled one event at a time all the way through
+ * `watchForWrites`, so a sample taken before an event is taken after everything
+ * the workspace did in response to the previous one.
+ */
+function turnTransport(events: unknown[], count: () => number, samples: number[]) {
+  return {
+    openSession: async () => ({ sessionId: 'site-alpha', turns: [], ready: true }),
+    streamPrompt: async function* () {
+      for (const event of events) {
+        samples.push(count())
+        yield event
+      }
+    },
+  }
+}
+
+/** What was said, as role and text — the component stamps a time as well. */
+const said = (app: BuilderApp) =>
+  app.chat
+    .getChat()!
+    .getMessages()
+    .map(({ role, markdown }) => ({ role, markdown }))
+
+/**
+ * Count re-fetches of the displayed page instead of performing them.
+ *
+ * The frame's own `contentWindow` is jsdom's and cannot navigate. What is under
+ * test is that the workspace reaches for THE PREVIEW FRAME on the report — the
+ * same object and the same call the palette popup and the segment editor already
+ * make — so the seam is counted at exactly that object.
+ */
+function countReloads(app: BuilderApp, onReload: () => void = () => {}) {
+  let reloads = 0
+  Object.defineProperty(app.panel.frame, 'contentWindow', {
+    configurable: true,
+    value: {
+      location: {
+        reload: () => {
+          reloads += 1
+          onReload()
+        },
+      },
+    },
+  })
+  return () => reloads
+}
+
+describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — the page follows the writes', () => {
+  it('test_UAT_AC1819_the_displayed_page_is_refetched_per_write_and_a_failed_refetch_keeps_the_reply', async () => {
+    // ── A REQUEST ANSWERED BY TWO EDITS ─────────────────────────────────────
+    const samples: number[] = []
+    let count!: () => number
+    const app = mountBuilder(root, {
+      sites: SITES,
+      storage: memoryStorage(),
+      chatTransport: turnTransport(TWO_WRITES, () => count(), samples),
+    })
+    // Nothing is painted before the engines settle (AC-1063), so the pane has no
+    // conversation to send into until the workspace's own readiness is over.
+    await markdownReady
+    await settle()
+    count = countReloads(app)
+
+    await app.chat.getChat()!.send('Add a services page and a contact page.')
+
+    // Twice — once per write, and NOT once at the end. Sampled before each of
+    // the six events, the count climbs while the assistant is still working:
+    // nothing yet as it starts the first edit, one by the time it starts the
+    // second, and both already done before the reply is spoken. The page
+    // therefore unfolds edit by edit, with no reload asked of the operator.
+    expect(samples).toEqual([0, 0, 1, 1, 2, 2])
+    expect(count()).toBe(2)
+
+    // The reports are machinery, not conversation: the transcript is the
+    // operator's line and the assistant's answer, with nothing between them.
+    expect(said(app)).toEqual([
+      { role: 'user', markdown: 'Add a services page and a contact page.' },
+      { role: 'assistant', markdown: 'I added both pages.' },
+    ])
+    app.destroy()
+
+    // ── A QUESTION ──────────────────────────────────────────────────────────
+    // Nothing moved, so nothing is thrown away: the operator keeps their scroll
+    // position and is shown the same bytes they were already looking at.
+    freshRoot()
+    const quiet: number[] = []
+    let quietCount!: () => number
+    const asked = mountBuilder(root, {
+      sites: SITES,
+      storage: memoryStorage(),
+      chatTransport: turnTransport(NO_WRITES, () => quietCount(), quiet),
+    })
+    await markdownReady
+    await settle()
+    quietCount = countReloads(asked)
+
+    await asked.chat.getChat()!.send('What pages do I have?')
+
+    expect(quiet).toEqual([0, 0, 0])
+    expect(quietCount()).toBe(0)
+    expect(said(asked).at(-1)).toEqual({
+      role: 'assistant',
+      markdown: 'You have one page: home.',
+    })
+    asked.destroy()
+
+    // ── A RE-FETCH THAT FAILS ───────────────────────────────────────────────
+    // Fetching the page again is the workspace's business and its failure is not
+    // the conversation's. The frame is gone — the reload throws every time — and
+    // the turn still runs to completion with the assistant's reply in full.
+    freshRoot()
+    const broken: number[] = []
+    let brokenCount!: () => number
+    const failing = mountBuilder(root, {
+      sites: SITES,
+      storage: memoryStorage(),
+      chatTransport: turnTransport(TWO_WRITES, () => brokenCount(), broken),
+    })
+    await markdownReady
+    await settle()
+    brokenCount = countReloads(failing, () => {
+      throw new Error('the frame went away')
+    })
+
+    await failing.chat.getChat()!.send('Add a services page and a contact page.')
+
+    // Both writes were still acted on — the second was not abandoned because the
+    // first threw — and the reply arrived complete regardless.
+    expect(brokenCount()).toBe(2)
+    expect(said(failing)).toEqual([
+      { role: 'user', markdown: 'Add a services page and a contact page.' },
+      { role: 'assistant', markdown: 'I added both pages.' },
+    ])
+    failing.destroy()
   })
 })

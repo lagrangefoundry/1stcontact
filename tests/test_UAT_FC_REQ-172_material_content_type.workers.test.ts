@@ -202,7 +202,7 @@ describe('REQ-172 — the list carries what the bytes are, because `kind` cannot
     // reads `application/octet-stream` as "no reader", offers the download alone,
     // and that is the honest answer rather than a window full of mojibake.
     const tenant = 'req172-unknown'
-    await upload(tenant, { bytes: bytesOf(' binary'), name: 'model.xyz', type: '' })
+    await upload(tenant, { bytes: bytesOf('\u0000\u0001binary'), name: 'model.xyz', type: '' })
 
     const [row] = await listed(tenant)
     expect(row.content_type).toBe('application/octet-stream')
