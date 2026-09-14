@@ -6,10 +6,10 @@ title: A re-encoded raster decodes back to identical pixels for every channel co
   the toolchain produces
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:05:30.338009+00:00'
-updated_at: '2026-09-14T05:05:30.338009+00:00'
+updated_at: '2026-09-14T05:16:33.230974+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-046cfc56
   kind: behavior
