@@ -6,10 +6,10 @@ title: One search reaches both knowledge bases and returns one list on their own
   cut to k after merging, ties client-first
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:28:16.885568+00:00'
-updated_at: '2026-09-14T06:28:16.885568+00:00'
+updated_at: '2026-09-14T06:52:08.034451+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
