@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T23:16:48.391436+00:00'
+updated_at: '2026-09-15T23:21:38.243839+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1932,5 +1932,11 @@ For the first time in this whole thread, the pieces are actually lined up:
 The one thing still broken is **BUG-94** — you won't be able to *open* the email page in the builder to look at it, because the draft preview filters email pages out along with publish. But that shouldn't stop the mail going out.
 
 If it still doesn't arrive, the next thing I'd read is `contact_events` for the new contact — a `form.submitted` event naming `whitepapers.json` instead of `home.json` will confirm BUG-93's fix is live, and any delivery skip will have a reason recorded.
+
+<!-- xgd-turn id="261d49ab-8d6b-45a0-bec4-d0bb25c46660-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T23:21:36.700598+00:00" -->
+#### You
+See bug 96 transcript
 
 <!-- xgd-chat-end -->
