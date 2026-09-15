@@ -356,6 +356,31 @@ export function createDisplayPanel(options = {}) {
      * ticket is about wearing another costume. Re-assigning is the fallback for
      * a frame with no reachable window at all.
      */
+    /**
+     * Point the displayed frame at `url` — the chrome doing what a link inside
+     * the render does ([[REQ-248]]).
+     *
+     * IT NAVIGATES RATHER THAN RE-DERIVING. `refresh()` recomposes every mode's
+     * `src` from the state around the pane, and that state is read from the
+     * OUTGOING document — so asking it to move to another page would compose the
+     * page being left. This says where to go and lets everything downstream
+     * follow the arrival, which is what a link already does.
+     *
+     * THE OTHER CHANNELS ARE MARKED OUT OF DATE, not re-pointed. They are now
+     * holding a different page, and re-rendering one for nobody is exactly the
+     * cost `reloadDocument` declines; `prime` re-points them behind the visible
+     * page once it has arrived, on the path it has always used.
+     *
+     * `currentSrc` MOVES WITH IT, so "open in new tab" lands on the page the
+     * operator is actually looking at rather than the one the mode resolved to.
+     */
+    navigateDocument(url) {
+      if (!current) return
+      invalidate(current)
+      navigate(current, url)
+      currentSrc = url
+      emit('src', currentSrc)
+    },
     reloadDocument() {
       invalidate(current)
       if (!current) return

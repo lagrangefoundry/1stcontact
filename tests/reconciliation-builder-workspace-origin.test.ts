@@ -364,6 +364,11 @@ describe('story-e674c60a builder origin', () => {
 
       { route: '/api/assets', url: '/api/assets?site=alpha', ok: true },
       { route: '/api/assets', url: '/api/assets', ok: false },
+
+      // The page control's listing ([[REQ-248]]). A read, like the two above, so
+      // the success probe is safe to run against the fixture site.
+      { route: '/api/pages', url: '/api/pages?site=alpha', ok: true },
+      { route: '/api/pages', url: '/api/pages', ok: false },
       { route: '/api/copy', url: '/api/copy', ok: false },
       {
         route: '/api/copy',
