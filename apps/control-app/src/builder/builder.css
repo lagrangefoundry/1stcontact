@@ -206,9 +206,36 @@ body {
 .builder-toolbar__publish,
 .builder-toolbar__points,
 .builder-toolbar__panels,
-.builder-toolbar__panels select {
+.builder-toolbar__panels select,
+.builder-toolbar__pages,
+.builder-toolbar__pages select {
   font: inherit;
   font-size: var(--builder-control-font-size);
+}
+
+/*
+ * The page selector ([[REQ-248]]) — which page of the site the pane is showing.
+ * Same shape as the panel selector beside it, and deliberately without its
+ * `[hidden]` rule: that one has nothing to say on a page with no modals, while
+ * this one answers *where am I* on a site with one page.
+ *
+ * The select is allowed to grow with its longest title and then stops, because
+ * an unreachable row carries a trailing mark and a control that resized itself
+ * to fit it would move the rest of the strip every time the operator changed
+ * page.
+ */
+.builder-toolbar__pages {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.builder-toolbar__pages[hidden] {
+  display: none;
+}
+
+.builder-toolbar__pages select {
+  max-width: 18ch;
 }
 
 /*

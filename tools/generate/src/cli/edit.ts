@@ -418,6 +418,119 @@ function navEntriesTargeting(base: Record<string, unknown>, pageId: string): str
   return labels
 }
 
+/**
+ * Every in-site href reachable from `value`, wherever it sits ([[REQ-248]]).
+ *
+ * A STRUCTURAL WALK, for the reason {@link danglingAssetReferences} is one: a
+ * link is a *role* any L1 subtree may take ({@link l1LinkSchema}), a behavior
+ * module's slots are L1 subtrees no L1 type describes, and a nav entry carries
+ * an href of its own. Keying on the field name rather than on a node shape
+ * visits all three with one traversal.
+ *
+ * IT OVER-COLLECTS ON PURPOSE. Anything at an `href` key counts, including keys
+ * this substrate does not define. The answer this feeds is "is this page
+ * reachable", and the two errors are not symmetric: a link we failed to see
+ * marks a reachable page unreachable, which is a control telling the operator
+ * something false about their own site. A string we counted that was never a
+ * link merely withholds a mark. Erring toward "reachable" is erring toward
+ * silence.
+ */
+function collectHrefs(value: unknown, out: string[] = []): string[] {
+  if (Array.isArray(value)) {
+    for (const item of value) collectHrefs(item, out)
+    return out
+  }
+  if (value === null || typeof value !== 'object') return out
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (key === 'href' && typeof item === 'string') out.push(item)
+    else collectHrefs(item, out)
+  }
+  return out
+}
+
+/**
+ * The page an in-site href names, or `null` for one that names no page of this
+ * site ([[REQ-248]]).
+ *
+ * It resolves the way {@link PreviewRenderer.file} and the published server do,
+ * because a link is reachable exactly when those serve a page for it: a bare
+ * fragment addresses the document it sits in, a scheme or a protocol-relative
+ * authority is somebody else's to serve, and `''` / `index` is the home page's
+ * own alias. Query and fragment are stripped before comparison, on
+ * `assetKey`'s reasoning — `/about?v=2#team` is the About page.
+ */
+function hrefTargetPage(href: string, files: PageFile[], homeId: string | null): string | null {
+  const trimmed = href.trim()
+  if (trimmed === '' || trimmed.startsWith('#')) return null
+  if (/^([a-zA-Z][a-zA-Z0-9+.-]*:|\/\/)/.test(trimmed)) return null
+  const bare = trimmed.split(/[?#]/)[0].replace(/^\.?\/+/, '').replace(/\.html$/i, '')
+  if (bare === '' || bare === 'index') return homeId
+  const hit = files.find((f) => String(f.page.slug) === bare)
+  return hit ? String(hit.page.id) : null
+}
+
+/**
+ * The page `index.html` is an alias for — the `home`-slugged page, else the
+ * first. The same rule `renderSiteFiles` uses, because a second opinion about
+ * which page is the front door is a second opinion about which page is
+ * reachable for free.
+ */
+function homePageId(files: PageFile[]): string | null {
+  const home = files.find((f) => String(f.page.slug) === 'home') ?? files[0]
+  return home ? String(home.page.id) : null
+}
+
+/**
+ * Which pages a reader can actually get to ([[REQ-248]]).
+ *
+ * REACHABILITY, NOT INCOMING-LINK COUNT. Two pages that link only to each other
+ * are linked and still unreachable, and a control that called them linked would
+ * be answering a question nobody asked. So this is a walk from the front door:
+ * the home page is reachable because the channel root serves it, and a page is
+ * reachable when a page already known reachable links to it.
+ *
+ * NAV ENTRIES COUNT AS LINKS FROM THE FRONT DOOR. `site.nav` is site-wide
+ * chrome rather than one page's content, so an entry naming a page makes it
+ * reachable from everywhere — which is what the ticket means by "outside the
+ * navigation", generalised to the way these sites are actually authored: the
+ * three real sites in this repo have empty `nav.entries` and author their whole
+ * navigation as L1 links, so a derivation that read only `nav` would mark every
+ * page of every one of them unreachable and say nothing at all.
+ */
+function reachablePages(files: PageFile[], base: Record<string, unknown>): Set<string> {
+  const homeId = homePageId(files)
+  const reached = new Set<string>()
+  const queue: string[] = []
+  const admit = (id: string | null): void => {
+    if (id === null || reached.has(id)) return
+    reached.add(id)
+    queue.push(id)
+  }
+  admit(homeId)
+  const nav = base.nav
+  const entries =
+    nav !== null && typeof nav === 'object' ? (nav as Record<string, unknown>).entries : null
+  if (Array.isArray(entries)) {
+    for (const entry of entries) {
+      const target = (entry as Record<string, unknown> | null)?.target as
+        | Record<string, unknown>
+        | undefined
+      if (!target) continue
+      if (target.kind === 'page' || target.kind === 'anchor') admit(String(target.pageId))
+      else if (target.kind === 'url' && typeof target.href === 'string') {
+        admit(hrefTargetPage(target.href, files, homeId))
+      }
+    }
+  }
+  while (queue.length > 0) {
+    const from = queue.shift() as string
+    const file = files.find((f) => String(f.page.id) === from)
+    if (!file) continue
+    for (const href of collectHrefs(file.page)) admit(hrefTargetPage(href, files, homeId))
+  }
+  return reached
+}
+
 /** Drop nav entries that target `pageId` from a base clone. */
 function stripNavTargeting(base: Record<string, unknown>, pageId: string): Record<string, unknown> {
   const clone = structuredClone(base)
@@ -1155,17 +1268,41 @@ export async function editDocumentSet(
 
 // ── page commands ────────────────────────────────────────────────────────────
 
+/**
+ * Every page of the site, and whether a reader could get to it ([[REQ-248]]).
+ *
+ * `reachable` TRAVELS WITH THE LISTING rather than being asked for separately,
+ * on the reasoning `/api/palette` returns its census with its entries: the one
+ * surface that shows this list — the builder's page control — states the mark on
+ * every row it draws, so a listing without it is never the listing anyone wants.
+ * The assistant reads the same field from the same call, which is what stops the
+ * chrome and the conversation forming two opinions about which pages are
+ * strandable.
+ *
+ * THE ORDER IS THE STORE'S, and it is stable: both adapters list pages by their
+ * own key (`ORDER BY name`), so two openings of the control see the same order
+ * without this imposing one.
+ */
 export async function editPageList(slug: string, opts: EditOptions): Promise<EditOutput> {
-  await requireDraft(slug, opts)
-  const pages = (await readPageFiles(slug, opts)).map((f) => ({
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const reached = reachablePages(files, base)
+  const pages = files.map((f) => ({
     id: f.page.id,
     slug: f.page.slug,
     title: f.page.title,
+    reachable: reached.has(String(f.page.id)),
   }))
   const human =
     pages.length === 0
       ? '(no pages)'
-      : pages.map((p) => `${String(p.id)}\t${String(p.slug)}\t${String(p.title)}`).join('\n')
+      : pages
+          .map(
+            (p) =>
+              `${String(p.id)}\t${String(p.slug)}\t${String(p.title)}` +
+              (p.reachable ? '' : '\t(unreachable: nothing links to it)'),
+          )
+          .join('\n')
   return { data: { pages }, human }
 }
 

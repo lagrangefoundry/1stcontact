@@ -306,7 +306,7 @@ describe('REQ-145 — the builder runs in workerd', () => {
     const listed = (await (await call(tenant, '/api/sites')).json()) as { site: string }[]
     expect(listed.map((entry) => entry.site)).toEqual([site])
 
-    for (const path of ['/api/assets', '/api/revisions', '/api/palette']) {
+    for (const path of ['/api/assets', '/api/pages', '/api/revisions', '/api/palette']) {
       expect((await call(tenant, `${path}?site=${site}`)).status, `${path} with site`).toBe(200)
       const refused = await call(tenant, `${path}?slug=${site}`)
       expect(refused.status, `${path} with slug`).toBe(400)

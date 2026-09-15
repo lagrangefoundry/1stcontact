@@ -29,6 +29,7 @@ import { createPeoplePanel } from './people.js'
 import { createSettingsPanel } from './settings.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
+import { createPageIndex } from './pages.js'
 import { createDisplayPanel } from './panel.js'
 import { openPalettePopup } from './palette-popup.js'
 import { createUploadOverlay } from './upload.js'
@@ -38,11 +39,13 @@ import {
   markPointsAction,
   modeToggleAction,
   openInNewTabAction,
+  pagesAction,
   panelsAction,
   publishAction,
 } from './toolbar.js'
 import {
   fetchMaterialItem,
+  fetchPages,
   fetchPalette,
   fetchSites,
   materialFileUrl,
@@ -137,6 +140,11 @@ export function mountBuilder(root, options = {}) {
     pageState = null,
     chatTransport = null,
     paletteTransport = null,
+    /**
+     * The page control's one call ([[REQ-248]]). `null` keeps the origin's;
+     * a test injects `{list}` to drive the control without a Worker.
+     */
+    pagesTransport = null,
     /**
      * The renderer's own shade arithmetic (REQ-133). Supplied by `main.js` from
      * `/framework/site-schema-shade.js` — the SAME module the render path
@@ -402,7 +410,12 @@ export function mountBuilder(root, options = {}) {
       // [[REQ-215]] — the SAME page, not the channel's front door: the reader
       // who switched channel on `/about` is still on `/about`.
       src: ({ site }) => previewUrl(site, 'draft', carry.pathFor(site)),
-      actions: ['mode-toggle', 'colors', 'open-new-tab', 'publish'],
+      // `pages` in BOTH channels, in the SAME position ([[REQ-248]]). Which page
+      // is shown and which channel shows it are independent questions, so the
+      // control belongs wherever a page is shown — and it sits directly after
+      // the toggle in each, so that flipping channel does not move it out from
+      // under the pointer that just used it.
+      actions: ['mode-toggle', 'pages', 'colors', 'open-new-tab', 'publish'],
     })
     .registerMode({
       id: 'edit',
@@ -423,7 +436,7 @@ export function mountBuilder(root, options = {}) {
       // modals the render is showing, and in View that choice belongs to the
       // reader's own hand — a control that made it from the chrome would be
       // driving a channel whose whole job is to behave exactly as published.
-      actions: ['mode-toggle', 'mark-points', 'panels', 'colors', 'open-new-tab', 'publish'],
+      actions: ['mode-toggle', 'pages', 'mark-points', 'panels', 'colors', 'open-new-tab', 'publish'],
     })
     .restore()
 
@@ -534,6 +547,23 @@ export function mountBuilder(root, options = {}) {
     }
   }
 
+  /**
+   * The pages of the site, and which one the pane is showing ([[REQ-248]]).
+   *
+   * IT IS CREATED HERE, ABOVE THE TOOLBAR, for the reason Marked Points is: the
+   * strip rebuilds its controls on every mode and site change, so a listing held
+   * inside the control would be re-fetched on every flip of the View/Edit toggle
+   * and the control would redraw empty while it waited.
+   *
+   * IT FOLLOWS THE SHELL'S SCOPE like every other surface here — `currentSite`
+   * by closure, never `panel.getSite()` ([[REQ-179]]).
+   */
+  const pages = createPageIndex({
+    panel,
+    getSite: () => currentSite,
+    list: pagesTransport?.list ?? fetchPages,
+  })
+
   const toolbar = createToolbar({
     panel,
     // THE SCOPE, HANDED DOWN ([[REQ-179]]). A toolbar action acts on the site
@@ -542,6 +572,7 @@ export function mountBuilder(root, options = {}) {
     context: { getSite: () => currentSite },
     actions: [
       modeToggleAction(),
+      pagesAction(pages),
       markPointsAction(points),
       panelsAction(carry),
       colorsAction(openPalette),

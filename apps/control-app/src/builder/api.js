@@ -133,6 +133,25 @@ export function previewRelPath(pathname) {
 }
 
 /**
+ * The same channel, pointed at a different page within it ([[REQ-248]]).
+ *
+ * THE THIRD READER OF THE SAME URL SHAPE, and it is here for the reason
+ * {@link previewRelPath} is: the shape is one fact, and readers of it that each
+ * know it separately are one rename away from disagreeing. It keeps everything
+ * up to and including the channel root — scope prefix, site key, channel — and
+ * replaces only what comes after, so a caller can move the pane between pages
+ * without knowing which business, which site or which channel it is in.
+ *
+ * A URL THAT NAMES NO CHANNEL IS RETURNED UNTOUCHED. The one caller passes the
+ * document's own location, and a frame that has not loaded a preview yet is a
+ * frame there is nothing to move.
+ */
+export function previewPageUrl(url, rel) {
+  const m = /^(.*\/preview\/[^/]+\/[^/]+\/)/.exec(url ?? '')
+  return m ? `${m[1]}${String(rel ?? '').replace(/^\/+/, '')}` : String(url ?? '')
+}
+
+/**
  * A reference that already names its own origin: an absolute URL, or a
  * protocol-relative one. The same shape `edit.ts` and `l1/assets.ts` treat as
  * "not site-local", written here because the builder cannot import either.
@@ -261,6 +280,24 @@ export async function fetchSites(fetchImpl = fetch) {
 export async function fetchAssets(site, fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped(`/api/assets?site=${encodeURIComponent(site)}`))
   if (!res.ok) throw new Error(`GET /api/assets → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Every page of the site, and whether a reader could get to it ([[REQ-248]]).
+ *
+ * The page control's one call. `reachable` arrives WITH the row rather than
+ * from a second request, because the control states the mark on every row it
+ * draws — a list without it is never the list this surface wants.
+ *
+ * A FAILURE IS NOT FATAL TO THE CONTROL. The caller keeps whatever it last
+ * held, so a blip leaves a control naming a slightly old set of pages rather
+ * than an empty one — and the pane the operator is looking at is unaffected
+ * either way, because nothing about which page is SHOWN is decided here.
+ */
+export async function fetchPages(site, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped(`/api/pages?site=${encodeURIComponent(site)}`))
+  if (!res.ok) throw new Error(`GET /api/pages → ${res.status}`)
   return res.json()
 }
 

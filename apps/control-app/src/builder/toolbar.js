@@ -314,6 +314,103 @@ export function panelsAction(carry) {
 }
 
 /**
+ * The page selector — which page of the site the pane is showing ([[REQ-248]]).
+ *
+ * IT IS THE ONLY WAY TO REACH AN UNLINKED PAGE. Moving between pages means
+ * clicking a link inside the render, so a page nothing links to could not be
+ * opened at all — it appeared in no list and could be clicked from nowhere, and
+ * the assistant could not point anyone at it either. That is why this control
+ * exists, and why it lists every page rather than the navigable ones.
+ *
+ * AND IT SAYS WHICH THOSE ARE. An unreachable page is either deliberate — a
+ * gated landing page — or a mistake nobody has noticed, and the two are
+ * indistinguishable until something says so. The mark is the point of the
+ * control rather than a decoration on it, so it is stated in the row's own text
+ * rather than in a colour or a title attribute nobody hovers.
+ *
+ * IT NEVER HIDES ITSELF, which is where it parts company with the panel
+ * selector beside it. That one is about what THIS PAGE offers and has nothing to
+ * say about a page with no modals. This one answers *where am I* as well as
+ * *where else could I be*, and a site with one page still has the first
+ * question — a control that vanished there would answer neither.
+ *
+ * A PAGE THE LISTING DOES NOT HOLD IS STILL NAMED. The render is the truth about
+ * what the operator is looking at; a page deleted or renamed since the listing
+ * was taken is still on screen, and a control that quietly named some other page
+ * would be the one thing this must never do. So the shown page is admitted to
+ * the list as its own row rather than silently dropped — the same end
+ * `panelsAction`'s assign-then-read-back reaches, by making the assignment
+ * impossible to lose instead of by detecting that it was.
+ */
+export function pagesAction(pages) {
+  return {
+    id: 'pages',
+    create({ panel, subscribe }) {
+      const wrap = document.createElement('label')
+      wrap.className = 'builder-toolbar__pages'
+      const caption = document.createElement('span')
+      caption.textContent = 'Page'
+      const select = document.createElement('select')
+      wrap.append(caption, select)
+
+      /**
+       * What an operator recognises the page by: its title, and failing that
+       * something that is at least an address. An untitled page listed as an
+       * empty row is a row nobody can choose on purpose.
+       */
+      const labelOf = (row) => {
+        const named =
+          String(row.title ?? '').trim() ||
+          String(row.slug ?? '').trim() ||
+          String(row.id ?? '')
+        return row.reachable === false ? `${named} — unreachable` : named
+      }
+
+      const sync = () => {
+        const rows = pages.list()
+        const here = pages.current()
+        const options = rows.map((row) => new Option(labelOf(row), row.slug))
+        if (here !== '' && !rows.some((row) => row.slug === here)) {
+          options.unshift(new Option(here, here))
+        }
+        // A site with no pages at all has nothing to offer and nothing to
+        // report; every other site, including a one-page one, keeps the control.
+        wrap.hidden = options.length === 0
+        select.replaceChildren(...options)
+        select.value = here
+      }
+
+      sync()
+      // Re-taken on every document the pane shows, which is what makes a page
+      // added while the tab is open choosable without a reload: the assistant's
+      // write reloads the render, and the listing is re-read with it.
+      const reload = () => {
+        // The document in front of the operator is now the answer to "which
+        // page", superseding whatever this control last asked for.
+        pages.arrived()
+        void pages.refresh().then(() => {
+          // The strip is rebuilt on every mode and site change, so a listing
+          // that arrives after this control was thrown away belongs to a select
+          // nobody can see. `disposeActions` empties the strip, which is what
+          // takes this element's parent away — the same lifetime
+          // `actionCleanups` gives every subscription, applied to the one thing
+          // here that is not one.
+          if (wrap.parentNode !== null) sync()
+        })
+      }
+      reload()
+      // Through the toolbar, so both subscriptions die with this element.
+      subscribe('document', reload)
+      // The pane moved — a channel switch, or this control's own navigation.
+      subscribe('src', sync)
+
+      select.addEventListener('change', () => pages.open(select.value))
+      return wrap
+    },
+  }
+}
+
+/**
  * Mark Points — the toggle that reassigns edit mode's primary gesture
  * ([[REQ-210]], DOC-52 §4.3).
  *

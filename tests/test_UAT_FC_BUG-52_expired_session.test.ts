@@ -249,6 +249,13 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-52 — a session that lapses under a work
     fileUrl: () => '',
     upload: async () => ({}),
   }
+  /**
+   * The page control's listing ([[REQ-248]]). Quiet for the reason the three
+   * beside it are: every call the builder makes on mount goes through the one
+   * `send` that announces an unreachable origin, so a transport left to the real
+   * `fetch` raises the very notice these cases are asserting the absence of.
+   */
+  const quietPages = { list: async () => ({ pages: [] }) }
   const quietPeople = {
     list: async () => ({ people: [] }),
     item: async () => ({}),
@@ -291,6 +298,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-52 — a session that lapses under a work
       sites: SITES,
       storage: memoryStorage(),
       chatTransport: quietChat,
+      pagesTransport: quietPages,
       libraryTransport: quietLibrary,
       peopleTransport: quietPeople,
     })
@@ -338,6 +346,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-52 — a session that lapses under a work
       sites: SITES,
       storage: memoryStorage(),
       chatTransport: quietChat,
+      pagesTransport: quietPages,
       libraryTransport: quietLibrary,
       peopleTransport: quietPeople,
     })
@@ -362,6 +371,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-52 — a session that lapses under a work
       storage: memoryStorage(),
       businesses: [{ id: 'acct_1', name: "Alice's Plumbing" }],
       chatTransport: quietChat,
+      pagesTransport: quietPages,
       loadSites: () => fetchSites(refuses() as never),
       libraryTransport: {
         list: async () => {

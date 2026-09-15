@@ -2,6 +2,7 @@ import {
   editAssetList,
   editCopyGet,
   editCopySet,
+  editPageList,
   editPaletteAdd,
   editPaletteGet,
   editPaletteRename,
@@ -3209,6 +3210,26 @@ async function routeUncached(
       const site = url.searchParams.get('site')
       if (!site) return json(400, { error: 'site is required' })
       return json(200, (await editAssetList(site, await edit())).data)
+    }
+
+    /**
+     * GET /api/pages?site= — every page, and whether a reader could get to it
+     * ([[REQ-248]]).
+     *
+     * A THIN TRANSPORT OVER `editPageList`, exactly as `/api/assets` is over
+     * `editAssetList` and `/api/palette` is over `editPalette*`. The reachability
+     * walk stays in `edit.ts` beside the definition it reads, so the page control
+     * and the assistant's own `list_pages` answer from one derivation rather than
+     * from two that could disagree about the same site.
+     *
+     * READ-ONLY, AND THERE IS NO WRITE BESIDE IT. The control reports what the
+     * navigation does and does not reach; adding an entry, removing one, or
+     * offering to is deliberately not its job.
+     */
+    if (p === '/api/pages' && method === 'GET') {
+      const site = url.searchParams.get('site')
+      if (!site) return json(400, { error: 'site is required' })
+      return json(200, (await editPageList(site, await edit())).data)
     }
 
     /**
