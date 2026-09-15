@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T22:27:30.900317+00:00'
+updated_at: '2026-09-15T22:52:34.711122+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -247,5 +247,19 @@ Folded into EPIC-5 as a dated design-session section appended to the body — or
 One new open question added: whether we want to send as the customer's domain at all. The toggle assumes yes; that assumption is now visible rather than buried.
 
 Ready to go at the 1stc.site UX whenever you are. Worth knowing before we start: REQ-238 left that field explicitly homeless — its closing note says whether it appends to REQ-239 as a further commit or gets its own ticket is your call, so that's the first thing to decide.
+
+<!-- xgd-turn id="953b1390-7520-47ad-9115-0982ad5ef3a4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T22:52:34.584769+00:00" -->
+#### You
+Lets talk about the 1stc.site UX and AX
+
+1. Hitting "publish" should fail if the user has neither a domain of their own or a 1stc.site configured. The failure should be in a popup modal.
+2. Lets keep the ux simple - something like "Your free domain: {text box}.1stc.site [CHECK AVAILABILITY] 
+3. Hitting the check availability CTA triggers one of two lines to appear underneath A - "{RED X} Sorry xxxx.1stc.site is taken - try something else or ask the AI for help" B - "{GREEN CHECKMARK} xxxxx.1stc.site is available [LOCK IT IN]"
+4. Hitting the [LOCK IT IN] CTA opens a modal "You have chosen xxxxx.1stc.site as your free 1st Contact domain. Are you sure this is correct? Once you hit OK this is locked in for this site and cannot be undone. [Cancel] [OK]
+5. The AI should have a tool that gives them access to the availability check API they can help the user by suggesting lists of names that are available. 
+
+I think (1) is a ticket, 2,3,4 is another ticket and 5 is a third - agree?
 
 <!-- xgd-chat-end -->
