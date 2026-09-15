@@ -1,4 +1,4 @@
-import { contactFormTemplateRefs } from '@1stcontact/framework/worker'
+import { contactFormTemplateRefs, emailPageRefusal, emailPagesOf } from '@1stcontact/framework/worker'
 import { renderSiteFiles } from '../render/render'
 import { EMPTY_LADDER, type ImageLadder, type LadderProgressReporter } from './ladder'
 import { InvalidDefinitionError, NoPublicAddressError } from '../cli/errors'
@@ -99,35 +99,6 @@ export interface PublishOptions {
    */
   onLadderProgress?: LadderProgressReporter
   /**
-   * Whether a capture form on this site may send under a template key —
-   * a sentence when it may not, null when it may ([[REQ-243]] §2).
-   *
-   * THE CHECK THAT REPLACED A CLOSED SET. `contact-form.config.template` names
-   * whichever message the business authored, so nothing in this repository can
-   * enumerate the legal values; what it CAN do is refuse a name the business
-   * does not hold, at the moment somebody publishes rather than at the moment
-   * somebody is waiting for mail. That is the property the enum was protecting,
-   * sourced from the store's actual contents instead of from a literal.
-   *
-   * A PREDICATE AND NOT A SET, so this file holds no opinion about WHY a key is
-   * refused. `templates.ts` in `control-app` knows two different reasons — a key
-   * nobody authored, and a sign-in credential a public form may never send — and
-   * they want different words. What belongs here is only that every named
-   * template is asked about, and that the refusal names the form.
-   *
-   * ABSENT MEANS UNCHECKED, on {@link PublishOptions.ladder}'s reasoning. The
-   * check needs the business's TICKET store, which is a thing the Worker holds
-   * and `1c publish` against a directory on somebody's disk does not. So the
-   * route supplies one and the CLI does not, and neither tests for the other.
-   *
-   * ASYNC, AND ONLY CALLED WHEN A FORM ACTUALLY NAMES SOMETHING. The answer
-   * comes out of a store, and a site with no capture form has no question to
-   * ask — so opening that store eagerly would make every publish on the
-   * deployment depend on a binding this one needs nothing from. The caller is
-   * free to read once and memoise, which the route does.
-   */
-  templateRefusal?: (key: string) => Promise<string | null> | string | null
-  /**
    * Every public address this site can be reached at ([[REQ-238]]).
    *
    * PUBLICATION IS THE GATE, NOT PROVISION. To go live a business needs a
@@ -200,33 +171,48 @@ export async function revisionHistory(
 }
 
 /**
- * Every capture form on this site naming a template it may not send
- * ([[REQ-243]] §2), as the author's own validation errors.
+ * Every capture form on this site naming a message that is not a page of it
+ * ([[REQ-243]] §2, re-sourced by [[REQ-247]] §4), as the author's own validation
+ * errors.
  *
- * THE REFUSAL NAMES THE FORM AND THE KEY, both, for the reason
+ * THE ANSWER NOW COMES OUT OF THE SITE ITSELF AND NOT OUT OF A STORE. It used to
+ * be an injected predicate, because the legal values were the BUSINESS's own
+ * template tickets — knowable only where that store's bindings are, which is why
+ * `1c publish` against a directory on somebody's disk could not perform the check
+ * at all. Since a message is a page of the site that sends it, the legal values
+ * are the site's own email pages: the same question, asked of the definition
+ * being published, answered identically by the CLI and the Worker, and no longer
+ * skippable by whoever forgot to pass the option.
+ *
+ * THE REFUSAL NAMES THE FORM AND THE MESSAGE, both, for the reason
  * `TemplateRefusedError` names the template and the token: neither alone is
- * actionable. "No such template" sends an author looking through every page, and
+ * actionable. "No such message" sends an author looking through every page, and
  * "the beta form is wrong" does not say what to change it to. The `path` carries
  * the machine-followable location and the message carries the words.
  *
  * ONE ERROR PER FORM AND NOT THE FIRST ONE. A site whose two forms both name
- * missing templates should say so once, not across two publishes.
+ * missing messages should say so once, not across two publishes.
+ *
+ * IT STAYS EVEN THOUGH `configure_component` NOW REFUSES THE SAME THING
+ * ([[REQ-247]] §4). A draft reaches invalid states by routes that never pass
+ * through that operation — a page removed with `--force`, a whole site imported,
+ * a definition written by an older build — and this is the gate that stops any
+ * of them becoming a message nobody receives.
  */
-async function refusedTemplates(
+function refusedTemplates(
   pages: readonly { slug: string; modules?: unknown }[],
-  refusal: PublishOptions['templateRefusal'],
-): Promise<ValidationError[]> {
-  if (!refusal) return []
+): ValidationError[] {
+  const available = emailPagesOf(pages)
   const errors: ValidationError[] = []
   for (const [pageIndex, page] of pages.entries()) {
     for (const ref of contactFormTemplateRefs(page)) {
-      const why = await refusal(ref.templateKey)
+      const why = emailPageRefusal(ref.templateKey, available)
       if (why === null) continue
       errors.push({
         path: `/pages/${pageIndex}/modules/${ref.index}/config/template`,
         message:
           `the form '${ref.instanceId}' on page '${page.slug}' sends the ` +
-          `'${ref.templateKey}' template, but ${why}`,
+          `'${ref.templateKey}' message, but ${why}`,
       })
     }
   }
@@ -283,10 +269,7 @@ export async function publishSite(
   // that does not exist is an invalid draft in every sense the author cares
   // about, and it is reported the same way so the toolbar that already shows
   // path-pointed validation errors shows this one with no new surface.
-  const templateErrors = await refusedTemplates(
-    snapshot.result.value.site.pages,
-    opts.templateRefusal,
-  )
+  const templateErrors = refusedTemplates(snapshot.result.value.site.pages)
   if (templateErrors.length > 0) throw new InvalidDefinitionError(slug, templateErrors)
 
   /*

@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:test'
 import { d1r2SiteStore } from '../../tools/generate/src/store/d1r2-store'
 import type { SiteStoreEnv } from '../../tools/generate/src/store/d1r2-store'
+import { defaultEmailDocument } from '../../packages/framework/src/l2/email-page'
+import type { L1Document } from '@1stcontact/site-schema'
 import { nextSlug } from './site-seed'
 
 /**
@@ -73,9 +75,50 @@ export interface SeedForm {
   legacyAsset?: { key: string; name: string; url: string }
 }
 
+/**
+ * One email page the seeded site holds ([[REQ-247]]).
+ *
+ * A MESSAGE IS A PAGE OF THE SITE THAT SENDS IT, so a fixture that seeds a form
+ * naming one has to seed the page too — exactly as a real site must, and exactly
+ * as `configure_component` and `publish` both now refuse when it does not.
+ */
+export interface SeedEmailPage {
+  /** The page id, which is what a form's `config.template` names. */
+  id: string
+  subject?: string
+  /** The tokens the copy promises. Defaults to what the naming forms need. */
+  placeholders?: string[]
+  /** Extra lines the message says, appended to the default copy. */
+  lines?: string[]
+}
+
 export interface SeedFormOptions extends SeedForm {
   tenantId: string
   instanceId?: string
+  /**
+   * The email pages this site holds, by id.
+   *
+   * MATERIALISED AUTOMATICALLY FOR ANY TEMPLATE A FORM NAMES AND THIS LIST DOES
+   * NOT COVER, with default copy and with the placeholders the naming form
+   * actually needs — `cta_url` and `asset_name` for a form that gates a
+   * download, none for one that merely welcomes. That is not a convenience: a
+   * form naming a page the site does not hold is refused at publish and reports
+   * `no_template` at the send, so a fixture that skipped the page would make
+   * every delivery UAT assert silence.
+   */
+  emails?: SeedEmailPage[]
+  /**
+   * Template keys deliberately left UNMATERIALISED, defeating the auto-seed above.
+   *
+   * WHAT IT IS FOR is the case the auto-seed exists to stop happening by
+   * accident: a form naming a message its site does not hold ([[REQ-247]] §4).
+   * That state is real — a page removed with `--force`, a typo that reached a
+   * draft, or a credential name a form may never send — and it is reachable only
+   * from a draft, because publish refuses it and so does the operation that
+   * configured the form. Saying it out loud here is what keeps it distinguishable
+   * from a fixture that simply forgot.
+   */
+  omitEmails?: string[]
   /**
    * Further forms on the SAME page, each naming its own id ([[REQ-243]]).
    *
@@ -165,6 +208,100 @@ function pageWith(options: SeedFormOptions, instanceId: string): Record<string, 
   }
 }
 
+/**
+ * The tokens the message a form sends must promise ([[REQ-247]] §3, AC-12).
+ *
+ * DERIVED FROM WHAT THE FORM ACTUALLY SENDS, because the two paths substitute
+ * different things and `renderCopy` refuses a declared token it is given no
+ * value for. A form gating artifacts renders with `{{cta_url}}` and
+ * `{{asset_name}}`; a form that merely welcomes renders with nothing at all, so
+ * declaring either token on one of those would refuse every send it makes.
+ */
+function placeholdersFor(forms: readonly SeedForm[]): string[] {
+  const gates = forms.some((form) => (form.assets ?? []).length > 0 || form.legacyAsset)
+  return gates ? ['cta_url', 'asset_name'] : []
+}
+
+/**
+ * One email page, in the shape a stored page carries it ([[REQ-247]] §2).
+ *
+ * BUILT THROUGH `defaultEmailDocument`, AND NOT BY HAND. That is the same copy
+ * `add_page --kind email` writes, so a fixture message is the message a real
+ * author would be starting from — and a test asserting what a recipient reads is
+ * asserting against the product's own default rather than against a shape
+ * invented here.
+ */
+function emailPageFor(
+  spec: SeedEmailPage,
+  placeholders: readonly string[],
+): Record<string, unknown> {
+  const declared = spec.placeholders ?? placeholders
+  const title = `Message ${spec.id}`
+  const document = defaultEmailDocument(title, declared) as L1Document & {
+    root: { children: unknown[] }
+  }
+  // APPENDED RATHER THAN SUBSTITUTED, so the default copy — the button, the
+  // pasteable fallback, the declared tokens — is still exactly what it would be
+  // on a page an author had just made. What a test adds is the one sentence it
+  // then asserts a recipient can read.
+  for (const line of spec.lines ?? []) {
+    document.root.children.push({
+      kind: 'text',
+      text: line,
+      axes: { fontFamily: 'Helvetica, sans-serif', fontSizePx: 16, lineHeightPx: 24, color: '#1a1a1a' },
+    })
+  }
+  return {
+    id: spec.id,
+    slug: spec.id,
+    title,
+    kind: 'email',
+    email: {
+      subject: spec.subject ?? title,
+      ...(declared.length > 0 ? { placeholders: [...declared] } : {}),
+    },
+    modules: [],
+    l1: document,
+  }
+}
+
+/**
+ * Every email page this site holds, as stored page records.
+ *
+ * MATERIALISED FOR ANY TEMPLATE A FORM NAMES, whether the caller listed it or
+ * not. A form naming a page the site does not hold reports `no_template` and
+ * mails nobody, so a fixture that made the caller remember would turn every
+ * forgotten page into a delivery UAT quietly asserting silence — which is the
+ * exact failure [[REQ-247]] §1 exists because of.
+ */
+function emailPagesFor(
+  options: SeedFormOptions,
+): Array<{ name: string; page: Record<string, unknown> }> {
+  const forms: SeedForm[] = [options, ...(options.alsoForms ?? [])]
+  const declared = new Map<string, SeedEmailPage>()
+  for (const spec of options.emails ?? []) declared.set(spec.id, spec)
+
+  // The caller's own list first, in the order given, so a page nothing names is
+  // still seeded — that is how a test proving a refusal gets a site that holds
+  // email pages for the refusal to be able to list.
+  const ids: string[] = [...declared.keys()]
+  for (const form of forms) {
+    const key = templateOf(form)
+    if (key !== '' && !ids.includes(key)) ids.push(key)
+  }
+  const omitted = new Set(options.omitEmails ?? [])
+
+  return ids
+    .filter((id) => !omitted.has(id))
+    .map((id) => ({
+      name: `${id}.json`,
+      page: emailPageFor(
+        declared.get(id) ?? { id },
+        placeholdersFor(forms.filter((form) => templateOf(form) === id)),
+      ),
+    }))
+}
+
 /** Seed one site, publish it, and hand back the key a URL would carry. */
 export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite> {
   const root = d1r2SiteStore(env as unknown as SiteStoreEnv)
@@ -175,13 +312,15 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
   const instanceId = options.instanceId ?? `form-${label}`
   const page = pageWith(options, instanceId)
   const siteJson = { name: label, config: { businessName: 'Fixture' } }
+  // [[REQ-247]] — the messages this site's forms send are pages of it, so they
+  // are written into the very same draft and frozen into the very same revision
+  // as the page carrying the form. That is not tidiness: it is what makes the
+  // copy a visitor is sent the copy that was PUBLISHED (AC-6).
+  const emails = emailPagesFor(options)
+  const pages = [{ name: 'home.json', page }, ...emails]
 
   const siteKey = await store.createDraft()
-  await store.write(siteKey, {
-    siteJson,
-    pages: [{ name: 'home.json', page }],
-    assets: [],
-  })
+  await store.write(siteKey, { siteJson, pages, assets: [] })
 
   if (options.publish !== false) {
     await store.writeRevision(
@@ -192,11 +331,11 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
         message: 'fixture',
         by: null,
         basedOn: null,
-        changes: { added: ['home.json'], modified: [], removed: [] },
+        changes: { added: pages.map((entry) => entry.name), modified: [], removed: [] },
         sha: 'fixture',
       },
       {
-        source: { siteJson, pages: [{ name: 'home.json', page }], assets: [] },
+        source: { siteJson, pages, assets: [] },
         out: new Map([
           ['index.html', options.outHtml ?? '<!doctype html><title>Home</title>'],
           ...Object.entries(options.outFiles ?? {}),

@@ -169,7 +169,7 @@ import {
   type SessionEnv,
 } from './sessions'
 import { type ConvertHeic, imagesHeicConverter, type ImagesLike } from './heic'
-import { TemplateRefusedError, captureTemplateRefusal, templateKeysOf } from './templates'
+import { TemplateRefusedError } from './templates'
 import {
   AlreadyOnSiteError,
   ingestFetch,
@@ -3076,27 +3076,6 @@ async function routeUncached(
       const message = typeof body.message === 'string' ? body.message : undefined
 
       /*
-       * [[REQ-243]] — WHAT A CAPTURE FORM ON THIS SITE MAY SEND, read here in the
-       * Worker for the reason the ladder is built here: `publishSite` sequences
-       * the check, and what this line decides is only whether this CALLER can
-       * answer the question. It can, because a publish is authenticated and
-       * scoped, and the business's templates are tickets in its own store; `1c
-       * publish` against a directory on somebody's disk has no such store and
-       * supplies nothing, so the check does not run there.
-       *
-       * READ ONCE PER PUBLISH AND ONLY IF ASKED. A site with six forms asks six
-       * times and the answer cannot change between them; a site with no capture
-       * form asks nothing and never opens the store — so a publish of a site
-       * that sends no mail does not acquire a dependency on the blob binding
-       * the ticket store needs.
-       */
-      let known: Set<string> | null = null
-      const templateRefusal = async (key: string): Promise<string | null> => {
-        known ??= await templateKeysOf(await (deps.tickets ?? ticketStoreFor)(env, scope))
-        return captureTemplateRefusal(key, known)
-      }
-
-      /*
        * [[REQ-238]] — WHERE THIS SITE CAN BE REACHED, read here in the Worker
        * for the reason the ladder and the template check are: `publishSite`
        * sequences the refusal, and what this line decides is only whether this
@@ -3146,7 +3125,6 @@ async function routeUncached(
             publishSite(store, site, {
               message,
               ladder,
-              templateRefusal,
               addresses,
               onLadderProgress,
             }),
@@ -3158,7 +3136,7 @@ async function routeUncached(
       return json(
         200,
         await answer(
-          await publishSite(store, site, { message, ladder, templateRefusal, addresses }),
+          await publishSite(store, site, { message, ladder, addresses }),
         ),
       )
     }

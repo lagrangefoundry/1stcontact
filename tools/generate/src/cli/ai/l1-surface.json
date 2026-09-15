@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 9,
+  "surface_version": 10,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -58,13 +58,14 @@
       "pending": "what has changed in the draft since the last published revision"
     },
     "page_list": {
-      "pages": "every page: `id`, `slug` (its address in the site), and `title`"
+      "pages": "every page: `id`, `slug` (its address in the site), `title`, and `kind` — `web` for a page the public reads, `email` for a message a form sends. An email page has no address anybody can visit; it is listed here because it is edited exactly like any other page."
     },
     "page_map": {
-      "page": "the page's id, its address in the site, its title, and its search-and-share wording",
+      "page": "the page's id, its address in the site, its title, its kind, and its search-and-share wording (or, for an email page, its subject line and the placeholders its copy promises to carry)",
       "components": "the components already on this page: what each is called, what kind it is, which seam it sits in, and how it is currently set up",
       "segments": "every element on the page, in the order it appears — each with the address a read or a write takes, the kind of thing it is, a short label to recognise it by, and the component instance and slot it sits in when it is inside one",
-      "style": "how the page itself is painted — the same parts `get_page_style` returns, so the map already tells you what colour the page is before you put anything on it"
+      "style": "how the page itself is painted — the same parts `get_page_style` returns, so the map already tells you what colour the page is before you put anything on it",
+      "emailTarget": "on an email page only: exactly which elements, layouts and styling a message may use. A mail client is a far poorer renderer than a browser, so an email page can use only part of what a web page can — this is that part, and anything outside it is refused when you write it."
     },
     "behavior_list": {
       "behaviors": "every kind of component this site can use: what it is called, what it must be set up with (and what each setting accepts), the seams inside it you can decorate, and whether it comes with a look of its own"
@@ -192,7 +193,7 @@
       "op": "list_pages",
       "tool": "list_pages",
       "effect": "read",
-      "summary": "List every page: its id, its address in the site, and its title.",
+      "summary": "List every page: its id, its address in the site, its title, and whether it is a page the public reads or a message a form sends.",
       "returns": {
         "shape": "page_list",
         "provenance": "untrusted"
@@ -453,8 +454,8 @@
       "op": "add_page",
       "tool": "add_page",
       "effect": "write",
-      "summary": "Add a new, empty page to the site.",
-      "description": "The page arrives with nothing on it. Say so — the user will expect to see something.",
+      "summary": "Add a new, empty page to the site — or a new message a form can send.",
+      "description": "The page arrives with nothing on it. Say so — the user will expect to see something.\n\nPass `kind: \"email\"` to make a **message** instead: the copy a contact form mails when somebody fills it in. A message is an ordinary page in every way that matters to you — it is in the page list, you read it with `get_l1` and write it with `set_l1`, and it is styled the same way. Two things are different. It has **no public address**: nobody can visit it, nothing links to it, and it is not part of the published site's pages. And it can use **only part of what a web page can** — no absolute positioning, no gradients, no shadows, no web fonts, because a mail client supports none of them. `describe_page` tells you exactly what is allowed; anything else is refused when you write it.\n\nA message arrives with readable default copy, so it can be read and rewritten **before anybody receives it**. Show it to your user before a form starts sending it.\n\nIf the message carries a link the recipient has to follow — a download, a confirmation — declare `cta_url` in `placeholders`. The copy is then built around it, and you will be stopped from later deleting the one thing the message depends on.",
       "params": {
         "page": {
           "type": "page_id",
@@ -472,6 +473,22 @@
         "seo": {
           "type": "object",
           "description": "How the page describes itself to a search engine or a shared link: `title` and `description`, and optionally `ogImage`. Not the same as the page's own title, and worth offering — nothing else writes it."
+        },
+        "kind": {
+          "type": "string",
+          "description": "`web` (the default) for a page the public reads, or `email` for a message a form sends."
+        },
+        "subject": {
+          "type": "string",
+          "description": "A message's subject line — what a recipient sees in their inbox before they open it. Email pages only; defaults to the title."
+        },
+        "placeholders": {
+          "type": "array",
+          "description": "The blanks this message promises to fill in when it is sent, e.g. `cta_url` for the link the recipient follows. Email pages only. Whatever you declare here must stay in the copy — an edit that removed it would leave a message with a hole in it, so it is refused."
+        },
+        "from": {
+          "type": "string",
+          "description": "The address this message goes out from. Email pages only; leave it out to use the site's own."
         }
       },
       "returns": {
@@ -503,6 +520,22 @@
         "seo": {
           "type": "object",
           "description": "`title`, `description`, and optionally `ogImage`. Only what you name changes — leaving out the title does not clear it."
+        },
+        "kind": {
+          "type": "string",
+          "description": "`web` (the default) for a page the public reads, or `email` for a message a form sends."
+        },
+        "subject": {
+          "type": "string",
+          "description": "A message's subject line — what a recipient sees in their inbox before they open it. Email pages only; defaults to the title."
+        },
+        "placeholders": {
+          "type": "array",
+          "description": "The blanks this message promises to fill in when it is sent, e.g. `cta_url` for the link the recipient follows. Email pages only. Whatever you declare here must stay in the copy — an edit that removed it would leave a message with a hole in it, so it is refused."
+        },
+        "from": {
+          "type": "string",
+          "description": "The address this message goes out from. Email pages only; leave it out to use the site's own."
         }
       },
       "returns": {
@@ -519,7 +552,7 @@
       "tool": "add_component",
       "effect": "write",
       "summary": "Put a component — a form, a carousel — on a page.",
-      "description": "Read `list_behaviors` first: it says what the component must be set up with. Then give it a name of your own choosing, the kind, and its settings.\n\nA component mounts at a **seam** in the page — an element the page map shows as a `slot`. Name that seam in `slot`. If the page has no seam for it, put one there first with `set_l1` and re-read the map.\n\nYou do not have to design it. Where a component comes with a look of its own (`list_behaviors` says which do) that look is used, laid out from the settings you gave — so a form you asked for with three fields arrives with three fields. It is then ordinary page content: read it with `get_l1` and change it with `set_l1` like anything else.",
+      "description": "Read `list_behaviors` first: it says what the component must be set up with. Then give it a name of your own choosing, the kind, and its settings.\n\nA component mounts at a **seam** in the page — an element the page map shows as a `slot`. Name that seam in `slot`. If the page has no seam for it, put one there first with `set_l1` and re-read the map.\n\nYou do not have to design it. Where a component comes with a look of its own (`list_behaviors` says which do) that look is used, laid out from the settings you gave — so a form you asked for with three fields arrives with three fields. It is then ordinary page content: read it with `get_l1` and change it with `set_l1` like anything else.\n\nIf you are adding a contact form that should mail the person who fills it in, make the message first with `add_page` (`kind: \"email\"`) and name that page's id in the form's `template`.",
       "params": {
         "page": {
           "type": "page_id",
@@ -561,7 +594,7 @@
       "tool": "configure_component",
       "effect": "write",
       "summary": "Change how a component on a page is set up.",
-      "description": "Only the settings you name change; the rest are left alone. This is the working half of a component — where a form sends its enquiries, what its fields are, what its button says. How it *looks* is page content, so that is `set_l1`.",
+      "description": "Only the settings you name change; the rest are left alone. This is the working half of a component — where a form sends its enquiries, what its fields are, what its button says. How it *looks* is page content, so that is `set_l1`.\n\nA form's `template` names **which message it sends** — the id of an email page of this same site. Naming one that does not exist is refused on the spot, and the refusal tells you which messages the site does hold and how to make another. A form that names nothing captures the contact and mails no one, which is an ordinary thing for a form to do.",
       "params": {
         "page": {
           "type": "page_id",

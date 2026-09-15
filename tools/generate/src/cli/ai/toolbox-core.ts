@@ -27,7 +27,7 @@
  * construction-scoped bindings are the finding to raise upstream).
  */
 
-import { L1_DOCUMENT_KEYS } from '@1stcontact/site-schema'
+import { L1_DOCUMENT_KEYS, L1_EMAIL_TARGET } from '@1stcontact/site-schema'
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import l1Surface from './l1-surface.json'
@@ -150,6 +150,29 @@ export const opt = (p: Params, name: string): string | undefined =>
 /** A declared `object` parameter, which the Toolbox has already shape-checked. */
 const obj = (p: Params, name: string): Record<string, unknown> | undefined =>
   p[name] as Record<string, unknown> | undefined
+
+/**
+ * The email half of a page write, read off the arguments ([[REQ-247]]).
+ *
+ * ONE READER FOR `add_page` AND `update_page`, so the two cannot disagree about
+ * what a kind or a placeholder list is — and so a caller can create a message
+ * and then refine its subject with the same vocabulary it created it with.
+ */
+function pageKindOf(p: Params): {
+  kind?: 'web' | 'email'
+  subject?: string
+  placeholders?: string[]
+  from?: string
+} {
+  const kind = opt(p, 'kind')
+  const declared = p.placeholders
+  return {
+    ...(kind === 'email' || kind === 'web' ? { kind } : {}),
+    ...(opt(p, 'subject') === undefined ? {} : { subject: opt(p, 'subject') }),
+    ...(Array.isArray(declared) ? { placeholders: declared.map((entry) => String(entry)) } : {}),
+    ...(opt(p, 'from') === undefined ? {} : { from: opt(p, 'from') }),
+  }
+}
 
 /** The component/slot scope an address is resolved in, read off the arguments. */
 function scopeOf(p: Params, opts: EditOptions): CopyTargetOptions {
@@ -386,8 +409,25 @@ export function l1Operations(
       // assistant could not see that a page's background was white, could not
       // discover that it had one, and shipped off-white text onto it.
       const l1 = (page.l1 ?? {}) as Record<string, unknown>
+      const mailed = page.kind === 'email'
       return {
-        page: { id: page.id, slug: page.slug, title: page.title, seoMeta: page.seoMeta ?? null },
+        page: {
+          id: page.id,
+          slug: page.slug,
+          title: page.title,
+          kind: mailed ? 'email' : 'web',
+          seoMeta: page.seoMeta ?? null,
+          ...(mailed ? { email: page.email ?? {} } : {}),
+        },
+        /*
+         * [[REQ-247]] §3 — WHAT AN EMAIL PAGE MAY SAY, PROJECTED FROM THE
+         * DECLARATION. It is the same constant the site validator computes its
+         * refusals from, handed over verbatim rather than described — so what
+         * the assistant is told it may use and what it will actually be allowed
+         * to write are the same value, and cannot drift. Absent on a served
+         * page, because a served page has the whole of L1.
+         */
+        ...(mailed ? { emailTarget: L1_EMAIL_TARGET } : {}),
         style: Object.fromEntries(
           L1_DOCUMENT_KEYS.filter((key) => l1[key] !== undefined).map((key) => [key, l1[key]]),
         ),
@@ -452,6 +492,7 @@ export function l1Operations(
         title: opt(p, 'title'),
         path: opt(p, 'path'),
         seoMeta: obj(p, 'seo'),
+        ...pageKindOf(p),
       })
       return { changed: out.data, message: out.human, now: out.at }
     },
@@ -462,6 +503,7 @@ export function l1Operations(
         title: opt(p, 'title'),
         path: opt(p, 'path'),
         seoMeta: obj(p, 'seo'),
+        ...pageKindOf(p),
       })
       return { changed: out.data, message: out.human, now: out.at }
     },

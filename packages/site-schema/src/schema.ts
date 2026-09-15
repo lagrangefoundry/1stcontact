@@ -543,6 +543,47 @@ export const moduleInstanceSchema = z
  * principle as REQ-88's `anchor`-without-`column` check. `modules` defaults to
  * `[]`; both empty is legal (the empty starter).
  */
+/**
+ * The message a capture form mails, as a page carries it ([[REQ-247]] §2).
+ *
+ * THE SUBJECT AND THE PLACEHOLDERS ARE NOT L1 AND CANNOT BE. The L1 document is
+ * the BODY — the words a recipient reads — and a subject line is not in it: it
+ * is not painted, it has no box, and nothing in the element tree is the place
+ * for it. `seoMeta` is the same shape of thing for a served page and lives here
+ * for the same reason.
+ *
+ * `placeholders` IS THE TEMPLATE'S PROMISE ABOUT ITS OWN COPY, carried over
+ * verbatim from the template ticket it replaces ([[REQ-197]]). A message whose
+ * delivery depends on `{{cta_url}}` and whose copy no longer contains it is a
+ * mail with a dead button that looks entirely ordinary to whoever receives it —
+ * so the declaration travels with the page and an edit that would drop the
+ * token is refused when it is written, rather than at the moment somebody is
+ * waiting for the mail.
+ *
+ * `from` IS OPTIONAL AND ABSENT MEANS THE DEPLOYMENT'S SENDING ADDRESS, exactly
+ * as it does on a template ticket ([[REQ-205]]). Who a message is from is a
+ * property of which message it is.
+ */
+export const emailPageSchema = z
+  .object({
+    subject: z.string().min(1, 'an email page needs a subject line'),
+    /** The tokens this message promises its copy carries. Absent reads as none. */
+    placeholders: z.array(z.string()).optional(),
+    /** The address it goes out from. Absent is the deployment's own. */
+    from: z.string().optional(),
+  })
+  .strict()
+
+/**
+ * Which target a page is rendered for ([[REQ-247]]).
+ *
+ * ABSENT IS `web`, AND THAT IS WHY IT IS OPTIONAL RATHER THAN DEFAULTED INTO
+ * EVERY STORED PAGE. Every page written before this existed is a served page,
+ * and adding a key to all of them to say so would be a rewrite of every site in
+ * every store to record a fact that was already true.
+ */
+export const pageKindSchema = z.enum(['web', 'email'])
+
 export const pageSchema = z
   .object({
     id: z.string(),
@@ -562,11 +603,59 @@ export const pageSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: localeShapedSlugMessage(value) })
     }),
     title: z.string(),
+    /**
+     * [[REQ-247]] — whether this page is SERVED or MAILED. Absent is `web`.
+     *
+     * An email page is an ordinary page in every respect this schema governs:
+     * it has an id, a title, and an L1 document edited by the same operations.
+     * What it does not have is a public address — `renderSiteFiles` writes no
+     * file for it, so nothing in a published revision routes to it — which is
+     * why the discriminator is a page field rather than a separate collection.
+     * A form names a page id; the addressing vocabulary is already page ids.
+     */
+    kind: pageKindSchema.optional(),
+    /** [[REQ-247]] — the subject, placeholders and sender. Email pages only. */
+    email: emailPageSchema.optional(),
     seoMeta: seoMetaSchema.optional(),
     modules: z.array(moduleInstanceSchema).default([]),
     l1: l1DocumentSchema.optional(),
   })
   .superRefine((page, ctx) => {
+    // [[REQ-247]] — the four things that make an email page an email page. Each
+    // is a refusal rather than a silent ignore: a subject nothing sends, a
+    // behaviour nothing runs and a search description nobody can search are all
+    // states an author would reasonably believe were doing something.
+    const isEmail = page.kind === 'email'
+    if (isEmail && !page.email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['email'],
+        message: `email page '${page.id}' must declare its subject`,
+      })
+    }
+    if (!isEmail && page.email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['email'],
+        message: `page '${page.id}' is not an email page, so it has no subject to send`,
+      })
+    }
+    if (isEmail && page.seoMeta) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['seoMeta'],
+        message: `email page '${page.id}' is never served, so it has no search or share metadata`,
+      })
+    }
+    if (isEmail && page.modules.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['modules'],
+        message:
+          `email page '${page.id}' cannot carry a component — there is no script, ` +
+          'no form post and no behaviour of any kind in a mail client',
+      })
+    }
     if (!page.l1) {
       // No page body to mount into — a `slot` here names nothing.
       page.modules.forEach((m, i) => {
@@ -1069,5 +1158,26 @@ export const siteSchema = z
         })
       }
       seen.add(p.slug)
+    })
+    /*
+     * [[REQ-247]] — NOTHING NAVIGATES TO A MESSAGE. An email page is never
+     * served, so a nav entry pointing at one is a link that can only ever 404.
+     *
+     * REFUSED RATHER THAN DROPPED AT RENDER, because the two failures are not
+     * the same: a silently-omitted entry is a menu item an author put there and
+     * cannot find, which reads as the builder losing their work. Naming it here
+     * says which entry and which page, at the moment the entry is written.
+     */
+    const mailed = new Set(site.pages.filter((p) => p.kind === 'email').map((p) => p.id))
+    site.nav.entries.forEach((entry, i) => {
+      const target = entry.target
+      if (target.kind === 'url' || !mailed.has(target.pageId)) return
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['nav', 'entries', i, 'target', 'pageId'],
+        message:
+          `'${entry.label}' points at the email page '${target.pageId}', which is never served — ` +
+          'a message has no public address, so nothing can link to it',
+      })
     })
   })

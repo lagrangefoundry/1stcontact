@@ -238,8 +238,23 @@ ${body}
 }
 
 /** The page used for `index.html`: the `home`-slugged page, else the first. */
+/**
+ * The pages this render actually writes a file for.
+ *
+ * [[REQ-247]] — AN EMAIL PAGE IS NEVER SERVED. It is part of the site's content
+ * and not of its surface: it has no public address, it is in no sitemap, and it
+ * cannot be fetched by guessing a path. That property is enforced HERE, at the
+ * one place a published revision's bytes are decided, rather than in the router
+ * — a route that refused a path would be a rule somebody could relax, while a
+ * file that was never written is a page there is no way to ask for.
+ */
+function servedPages(site: Site): Page[] {
+  return site.pages.filter((page) => page.kind !== 'email')
+}
+
 function homePage(site: Site): Page | undefined {
-  return site.pages.find((p) => p.slug === 'home') ?? site.pages[0]
+  const served = servedPages(site)
+  return served.find((p) => p.slug === 'home') ?? served[0]
 }
 
 /**
@@ -309,7 +324,7 @@ export async function renderSiteFiles(
   const resolveModule = opts.resolveModule ?? getModule
   const pages: string[] = []
 
-  for (const page of site.pages) {
+  for (const page of servedPages(site)) {
     // REQ-109 — the flatness invariant. Emitted asset URLs are document-relative
     // (`assets/x.svg`, not `/assets/x.svg`) so a snapshot is relocatable under any
     // path prefix. That rewrite is only correct while every page sits FLAT at the
