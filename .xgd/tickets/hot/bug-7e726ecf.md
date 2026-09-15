@@ -6,10 +6,10 @@ title: The capture path reads a stored form under current rules whatever version
   was written at
 created_by: EPIC-10
 created_at: '2026-09-15T19:45:15.667229+00:00'
-updated_at: '2026-09-15T22:13:16.867430+00:00'
+updated_at: '2026-09-15T22:13:47.421609+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   severity: high
@@ -17,6 +17,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-def246ab
+  commits:
+  - working_sha: 0cf4779053cf1ee796ca93d738c7b371c84471fe
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.205
 ---
 
 ## Symptom
