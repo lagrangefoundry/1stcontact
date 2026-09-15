@@ -74,6 +74,22 @@ export interface SeedForm {
    * receiver still resolves one is to write one.
    */
   legacyAsset?: { key: string; name: string; url: string }
+  /**
+   * The contract version the instance is PINNED AT in the store ([[BUG-95]]).
+   *
+   * WHY A FIXTURE NEEDS TO CHOOSE. `site_revisions` rows are immutable and the
+   * receiver reads module instances straight out of them, so a revision frozen
+   * before a bump keeps its old pin forever — and the only way to prove the
+   * receiver still reads one correctly is to write one. Defaults to 5 when
+   * {@link legacyAsset} is set and 7 otherwise, which is what every fixture
+   * before this asked for implicitly.
+   *
+   * THE CONFIG IS WRITTEN IN THAT VERSION'S SHAPE AND NOT TODAY'S. Below v7
+   * there is no `template` key to carry — v7 invented it — so a fixture that
+   * wrote one would be seeding a revision no store has ever held, and would
+   * prove the migration is unnecessary by doing its job for it.
+   */
+  storedVersion?: 5 | 6 | 7
 }
 
 /**
@@ -152,6 +168,15 @@ export interface SeedFormOptions extends SeedForm {
    * untested.
    */
   alsoForms?: Array<SeedForm & { instanceId: string }>
+  /**
+   * Further stored modules on the home page, verbatim ([[BUG-95]]).
+   *
+   * NOT A FORM, WHICH IS THE POINT. `alsoForms` seeds another `contact-form`;
+   * this seeds whatever a page may actually be carrying beside one — including a
+   * module type the catalogue has never heard of, which is the case the upgrade
+   * path has to leave alone rather than throw on.
+   */
+  alsoModules?: Array<Record<string, unknown>>
   /** Publish the definition. Off proves the unpublished-site fallback. */
   publish?: boolean
   /**
@@ -200,21 +225,68 @@ export function handleFor(pageId: string, instanceId: string): string {
   return formHandle(pageId, instanceId)
 }
 
-/** Which message a seeded form sends — see {@link SeedForm.template}. */
+/** The contract version a seeded instance is pinned at — see {@link SeedForm.storedVersion}. */
+function versionOf(options: SeedForm): number {
+  if (options.storedVersion !== undefined) return options.storedVersion
+  return options.legacyAsset ? 5 : 7
+}
+
+/**
+ * Which message a seeded form sends, AS THE STORED CONFIG SPELLS IT.
+ *
+ * EMPTY BELOW v7 WHATEVER ELSE IS ASKED FOR. `template` is v7's key; v5 and v6
+ * had none, so no frozen revision at those pins can carry one. What such a form
+ * ends up sending is {@link sendsTemplateOf}'s answer, which is the migration's
+ * and not the fixture's.
+ */
 function templateOf(options: SeedForm): string {
+  if (versionOf(options) < 7) return ''
   if (options.template !== undefined) return options.template
-  // NOT FOR `legacyAsset`, which seeds a PRE-[[REQ-241]] v5 instance. v5 had no
-  // `template` key, so a frozen revision in that shape cannot carry one — and
-  // writing one would make the fixture prove something no stored revision does.
   return (options.assets ?? []).length > 0 ? 'asset' : ''
+}
+
+/** True when this form declares an artifact, in whichever shape its pin uses. */
+function gates(options: SeedForm): boolean {
+  return (options.assets ?? []).length > 0 || options.legacyAsset !== undefined
+}
+
+/**
+ * The message a seeded form ACTUALLY SENDS once it is read ([[BUG-95]]).
+ *
+ * WHY THIS IS NOT {@link templateOf}. A pre-v7 instance names no message in the
+ * store and sends one anyway, because `contactFormV6ToV7` names `asset` for any
+ * form declaring an artifact — which is the whole of what that migration is for.
+ * The email pages a fixture materialises have to follow the SEND and not the
+ * stored key, or a legacy form would resolve a message its site does not hold,
+ * report `no_template`, and mail nobody: the fixture quietly asserting the very
+ * silence this ticket exists to end.
+ */
+function sendsTemplateOf(options: SeedForm): string {
+  if (versionOf(options) >= 7) return templateOf(options)
+  return gates(options) ? 'asset' : ''
+}
+
+/**
+ * The `form` slot every seeded instance carries.
+ *
+ * REQUIRED BY THE CONTRACT, AND THE FIXTURE USED TO OMIT IT. Nothing read it —
+ * the receiver reads config and never slots — so `slots: {}` cost nothing until
+ * [[BUG-95]] made the receiver carry a stale instance across its migrations, and
+ * `upgradeInstance` validates what it produces. A stored shape the contract
+ * refuses is not what any real store holds (every `contact-form` in both stores
+ * carries this slot), so the fixture writes what they write.
+ */
+function formSlot(): Record<string, unknown> {
+  return { kind: 'container', layout: 'stack', children: [] }
 }
 
 /** One `contact-form` instance, in the shape a stored page carries it. */
 function moduleFor(options: SeedForm, instanceId: string): Record<string, unknown> {
+  const version = versionOf(options)
   return {
     id: instanceId,
     type: 'contact-form',
-    version: options.legacyAsset ? 5 : 7,
+    version,
     config: {
       submitLabel: options.submitLabel ?? 'Send',
       fields: options.fields ?? [
@@ -231,7 +303,7 @@ function moduleFor(options: SeedForm, instanceId: string): Record<string, unknow
           }
         : {}),
     },
-    slots: {},
+    slots: { form: formSlot() },
   }
 }
 
@@ -252,6 +324,7 @@ function pageWith(options: SeedFormOptions, instanceId: string): Record<string, 
     modules: [
       moduleFor(options, instanceId),
       ...(options.alsoForms ?? []).map((form) => moduleFor(form, form.instanceId)),
+      ...(options.alsoModules ?? []),
     ],
   }
 }
@@ -279,8 +352,7 @@ function extraPage(spec: SeedPage): Record<string, unknown> {
  * declaring either token on one of those would refuse every send it makes.
  */
 function placeholdersFor(forms: readonly SeedForm[]): string[] {
-  const gates = forms.some((form) => (form.assets ?? []).length > 0 || form.legacyAsset)
-  return gates ? ['cta_url', 'asset_name'] : []
+  return forms.some(gates) ? ['cta_url', 'asset_name'] : []
 }
 
 /**
@@ -356,7 +428,9 @@ function emailPagesFor(
   // email pages for the refusal to be able to list.
   const ids: string[] = [...declared.keys()]
   for (const form of forms) {
-    const key = templateOf(form)
+    // THE MESSAGE THE FORM SENDS, NOT THE KEY ITS CONFIG SPELLS ([[BUG-95]]) —
+    // a pre-v7 instance names none and sends `asset` all the same.
+    const key = sendsTemplateOf(form)
     if (key !== '' && !ids.includes(key)) ids.push(key)
   }
   const omitted = new Set(options.omitEmails ?? [])
@@ -367,7 +441,7 @@ function emailPagesFor(
       name: `${id}.json`,
       page: emailPageFor(
         declared.get(id) ?? { id },
-        placeholdersFor(forms.filter((form) => templateOf(form) === id)),
+        placeholdersFor(forms.filter((form) => sendsTemplateOf(form) === id)),
       ),
     }))
 }

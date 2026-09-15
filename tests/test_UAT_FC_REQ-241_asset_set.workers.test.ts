@@ -261,11 +261,16 @@ describe('REQ-241 — a form promises a set of assets', () => {
     // form still captures — the contact lands, the provenance names the page —
     // which is the property a published site depends on.
     //
-    // WHAT IT NO LONGER DOES IS DELIVER, and that is the intended reading rather
-    // than an oversight: the triple is not the v6 contract, and teaching the
-    // receiver to read both would be the legacy-alias mode this codebase refuses
-    // outright. The remedy is the one the migration exists for — upgrade the
-    // draft and publish it again.
+    // AND IT DELIVERS ([[BUG-95]]). This assertion was the other way round, on
+    // the reasoning that the triple is not the v6 contract and that reading both
+    // shapes would be the legacy-alias mode this codebase refuses. The first half
+    // is right and the conclusion did not follow: nothing here reads two shapes.
+    // The receiver carries the instance across its own declared, tested
+    // migrations and then reads exactly one — v7's — so the alias never exists.
+    // What the old reading actually shipped was a form that captured the
+    // contact, told the visitor it had worked, and silently never sent the
+    // whitepaper, which is the failure `contactFormV6ToV7` was written to
+    // prevent. See [[BUG-95]] for the whole argument and the direct evidence.
     const site = await seedFormSite({ tenantId: TENANT, legacyAsset: PAPER_A })
     const mailer = capturingMailer()
     const outcome = await captureLead(
@@ -281,7 +286,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
     // The definition resolved: the page it names could only come from the
     // snapshot, and nothing in the submission carries it.
     expect((submitted?.detail as { page: string }).page).toBe('home.json')
-    expect(outcome.assets).toEqual([])
-    expect(mailer.sent).toHaveLength(0)
+    expect(outcome.assets).toEqual([{ key: PAPER_A.key, sent: true }])
+    expect(mailer.sent).toHaveLength(1)
   })
 })

@@ -61,6 +61,11 @@ import {
   DOWNLOAD_PATH,
   parseFormHandle,
 } from '../../../packages/framework/src/modules/contact-form/fields'
+// [[BUG-95]] — the capture path reads a stored instance under the contract it
+// was WRITTEN at, not the one the catalogue happens to be at today. See
+// `currentShapeOf`.
+import { upgradePageModules } from '../../../packages/framework/src/modules/upgrade'
+import type { StoredInstance } from '../../../packages/framework/src/modules/upgrade'
 import { publicSiteUrl } from './public-url'
 import type { Scope } from './scope'
 import { renderCopy, type MessageCopy, type RenderedMessage } from './templates'
@@ -330,6 +335,56 @@ function instancesOf(page: Record<string, unknown>): Array<Record<string, unknow
   return modules.filter((m): m is Record<string, unknown> => !!m && typeof m === 'object')
 }
 
+/**
+ * One stored instance as the CURRENT contract would have written it ([[BUG-95]]).
+ *
+ * THE DEFECT THIS CLOSES. Migration is an explicit act — `upgradeSiteModules`
+ * runs from a CLI command and an API route and from nowhere else, deliberately,
+ * because an upgrade can drop config keys and should not happen behind an
+ * operator's back. Reading is not an explicit act, and this path did not ask
+ * what version it was reading: `instance.config` went straight into `assetsIn`
+ * and `text(config, 'template')`, which are v7's rules. So between the day a
+ * module gains a version and the day somebody runs the upgrade, stored data in
+ * an old shape was interpreted by new code.
+ *
+ * THAT WINDOW HAD A SILENT FAILURE IN IT, WHICH IS WHY THIS IS NOT HOUSEKEEPING.
+ * A v5 `contact-form` declares its download as three sibling strings — `asset`,
+ * `assetName`, `assetUrl`. v7's `assetsIn` reads `config.assets`, a list, finds
+ * nothing, and v7 reads an absent `template` as *send nothing*. A v5 form that
+ * had been gating a whitepaper therefore captured the contact, told the visitor
+ * it had worked, and mailed nobody — the exact failure `contactFormV6ToV7` was
+ * written to prevent, arriving because the migration that prevents it was never
+ * run against the revision being read.
+ *
+ * IN MEMORY, AND NOTHING IS WRITTEN. The store keeps its pin until an ordinary
+ * edit rewrites the page or an operator runs `1c module upgrade --write`, which
+ * goes on reporting these instances as stale because they are. This is the same
+ * answer [[BUG-91]] gave the RENDER path in `assembleSite`, for the same reason
+ * and on the same guarantee: [[BUG-85]] made a declared migration the
+ * PRECONDITION for a version bump and `missingMigrations` enforces it in CI, so
+ * a stored instance can ALWAYS be carried to the current contract. Interpreting
+ * one under rules it was not written for is therefore a choice, not a necessity.
+ *
+ * ONLY THE INSTANCE BEING READ, AND NOT THE WHOLE PAGE. A migration that cannot
+ * produce a valid instance throws, and a page-wide pass would let one broken
+ * SIBLING take down a submission to a form that is perfectly well formed. The
+ * caller has already picked the one instance whose config it is about to
+ * interpret, so that is the one carried.
+ *
+ * ANYTHING NOT RECOGNISABLY A PINNED INSTANCE IS PASSED THROUGH UNTOUCHED, on
+ * `instancesOf`'s own reasoning: this reads whatever a frozen revision holds,
+ * including — on a bad day — something that is not a module at all. A type the
+ * catalogue has never heard of is left alone by `upgradePageModules` itself,
+ * which is the rule this reuses rather than restates.
+ */
+function currentShapeOf(instance: Record<string, unknown>): Record<string, unknown> {
+  if (typeof instance.id !== 'string') return instance
+  if (typeof instance.type !== 'string') return instance
+  if (!Number.isInteger(instance.version)) return instance
+  const { modules } = upgradePageModules([instance as unknown as StoredInstance])
+  return modules[0] as unknown as Record<string, unknown>
+}
+
 /** A config value as a trimmed string, or `''` when it is not one. */
 function text(config: Record<string, unknown>, key: string): string {
   const value = config[key]
@@ -423,6 +478,12 @@ function acceptsIn(config: Record<string, unknown>): FormDefinition['accepts'] {
  * nothing and the send path returned before it began. The handle names the page,
  * so this reads the page it names.
  *
+ * AND THE INSTANCE IT FINDS IS CARRIED TO THE CURRENT CONTRACT BEFORE ANY OF IT
+ * IS READ ([[BUG-95]]). Every reading below — the field list, the asset set, the
+ * template key — is the catalogue's current version's, and a frozen revision may
+ * hold an older one. See {@link currentShapeOf} for why the in-memory upgrade is
+ * the right shape and why the PERSISTED one stays an explicit operator act.
+ *
  * NO FALLBACK TO A SCAN, AND NO FALLBACK TO A BARE ID. A handle that does not
  * parse, or that names a page this site does not hold, or an instance that page
  * does not carry, resolves to `null` — the same answer an unknown instance has
@@ -478,8 +539,11 @@ export async function formDefinitionOf(
   // already share — and the one this compares.
   for (const stored of pages) {
     if (String(stored.page.id ?? '') !== named.pageId) continue
-    for (const instance of instancesOf(stored.page)) {
-      if (instance.id !== named.instanceId) continue
+    for (const pinned of instancesOf(stored.page)) {
+      if (pinned.id !== named.instanceId) continue
+      // CARRIED TO THE CURRENT CONTRACT BEFORE A LINE OF IT IS READ ([[BUG-95]])
+      // — every reading below is v7's, and the stored pin may not be.
+      const instance = currentShapeOf(pinned)
       const config = (instance.config ?? {}) as Record<string, unknown>
       const fields: FormDefinition['fields'] = {}
       const declared = Array.isArray(config.fields) ? config.fields : []
