@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T19:40:24.899094+00:00'
+updated_at: '2026-09-15T19:43:15.351284+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1600,5 +1600,11 @@ No back-compat, and I gave the reason beyond "it's only test rows": a compatibil
 3. **home's form is still v5** while everything else migrated to v7.
 
 (1) is the one that matters — until it's fixed you still can't *look at* the email, even once BUG-93 lands and the form starts sending it. Want that filed too?
+
+<!-- xgd-turn id="28bc7a80-1cdd-4bc5-93e0-7107f8556f13-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T19:43:15.071634+00:00" -->
+#### You
+please file ticktes for those too
 
 <!-- xgd-chat-end -->
