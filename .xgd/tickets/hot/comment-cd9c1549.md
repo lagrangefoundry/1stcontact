@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T18:59:47.143138+00:00'
+updated_at: '2026-09-15T19:01:07.714516+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1496,5 +1496,65 @@ Try the whitepapers form via the page control and tell me what happens — then 
 <!-- xgd-chat role="user" ts="2026-09-15T18:59:47.088430+00:00" -->
 #### You
 Use the **Page** control in the toolbar to switch to *Whitepapers*, then submit that form. <-- that is exactly what I have been doing all the emails starting with xgd-whitepapers were submitted on the form on the whitepapers page
+
+<!-- xgd-turn id="59bf4dd3-9f4f-4ddb-a64d-3fd9e5a8aba7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T19:01:07.660802+00:00" -->
+#### Claude
+That changes everything — and if you're right, the event record is lying about which form it was. Let me look at how a submission is matched to its form.
+
+You're right and I was wrong — you weren't submitting the wrong form. **The system recorded the wrong form.** The event detail is a symptom of the bug, not evidence about your behaviour, and I read it as ground truth.
+
+## Root cause
+
+`formDefinitionOf` (`apps/control-app/src/lead.ts:443`) resolves a submission by scanning **every page in the site** and matching on the instance handle alone:
+
+```js
+for (const stored of pages) {
+  for (const instance of instancesOf(stored.page)) {
+    if (instance.id !== instanceId) continue
+```
+
+But uniqueness is only ever enforced **per page** (`tools/generate/src/cli/edit.ts:1867`):
+
+```
+Page '<pageId>' already has a component called '<moduleId>'
+```
+
+Both of your pages legitimately hold a component called `signup`:
+
+| page | id | version | template | assets | label |
+|---|---|---|---|---|---|
+| **home.json** | `signup` | v5 | — | 0 | Join the waitlist |
+| whitepapers.json | `signup` | v7 | `whitepapers-email` | 2 | Send me both papers |
+
+`home.json` comes first in storage order. So when you press **"Send me both papers"**, the form posts `instanceId: "signup"`, the loop hits `home.json` first, and returns *home's* definition — v5, no template, no assets.
+
+Every observation follows from that one line:
+
+- the event says `page: "home.json"`, `submitLabel: "Join the waitlist"` — because it's reporting the definition it resolved, not the form you pressed
+- `assets` absent in the detail — home has none
+- `templateKey === ''` → `lead.ts:1134` returns before mail → **no email, ever**
+- the whitepapers form's template and both assets are never read
+
+## What this means
+
+The whitepapers form has been **correctly configured since Monday**. It will never send, because its configuration is never the one loaded. None of REQ-246/247/248 touches this — 247 shipped a working email-page pipeline that this bug routes around entirely.
+
+It also mis-attributes your CRM data: those contacts are recorded against the wrong page and the wrong form, so the damage isn't only the missing mail.
+
+And it explains the builder AI's flailing in that transcript. It configured the form correctly, tested, saw nothing happen, and concluded the platform couldn't send — reasonable, given it had no way to see that its config was being ignored.
+
+## Fix direction
+
+The handle needs to identify what it addresses. Three candidates:
+
+1. **Composite handle** — the renderer emits `<pageId>:<instanceId>`. Cleanest; the handle becomes what it should always have been. Needs back-compat for already-published revisions emitting a bare id.
+2. **Carry the page** alongside the instance in the submission. Same trust properties as today — an edited value can still only name something in the same site.
+3. **Enforce site-wide uniqueness** at `add_component`. Rejected, I think: it breaks every existing site, including this one, and "two pages may each have a `signup`" is reasonable authoring.
+
+I'd go with (1).
+
+This is a bug, not a REQ, and it's the actual cause of the thing you've been chasing since Monday. Want me to file it? I'd also note the three still-unfiled items from before — email-page preview, the orphan `papers.json`, and home's form still being v5 — but this one is the blocker and should go in on its own.
 
 <!-- xgd-chat-end -->
