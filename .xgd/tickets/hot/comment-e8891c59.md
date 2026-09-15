@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T23:19:20.409878+00:00'
+updated_at: '2026-09-15T23:22:26.077614+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -409,5 +409,29 @@ Shall I write all three now? A and B as we settled them, C as above.
 <!-- xgd-chat role="user" ts="2026-09-15T23:19:19.932232+00:00" -->
 #### You
 Sure
+
+<!-- xgd-turn id="e3efff10-ee79-4a35-902e-e7c429ff5a9f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T23:22:25.357096+00:00" -->
+#### Claude
+EPIC-4 (which owns REQ-238) is `done`, so I'm parenting these to EPIC-5 as the open epic and this session's scope.
+
+Three tickets created under EPIC-5, and EPIC-5's Children section now records them.
+
+**REQ-249 — Choosing the 1stc.site hostname: the field, the check, and the lock-in** (high)
+Your 2/3/4. Carries every settled decision as behaviour so UATs can trace to it: `Your free web address` with the argument for dropping "domain"; the whole host shown, never a bare label; Enter fires the check as well as the button; four states not two, with the reasoning that telling someone `mail` is *taken* sends them hunting for `mail2`; the confirm dialog saying *your business* with `[Lock in alice.1stc.site]` and Cancel focused; the post-dialog race landing back at the field with REQ-238's own sentence; and the already-claimed state with no text box. Nine falsifiers. Non-owners are explicitly out of scope with the reason — `identity.ts:833` writes `owner` for every membership and nothing creates a `support` one.
+
+**REQ-250 — Publish refuses a site with no address, and the refusal offers the way out** (high)
+Your 1, framed as presentation over REQ-238's existing 409 rather than new gate behaviour. The load-bearing part is the `[Choose my web address]` button, and the explicit prohibition on any client-side pre-check or greyed-out Publish button — a second implementation of the gate that can disagree with the real one, invisibly. Names both fixes in the copy so the sentence is already right when custom domains land. Flags that the status has to survive `api.js:611`'s throw for the modal to know it's the one to open.
+
+**REQ-251 — The hostname assistant** (medium, depends on REQ-249)
+Opens with the full trace of what's already wired, so nobody rebuilds it. The substantive build is the pane/chat sync: `app.js:679` gives the site chat `onSiteChanged`, `settingsChat` at `:917` gets no equivalent, and because the Settings tab is a split both statements are on screen simultaneously — the pane's empty box is an invitation to choose a name that's already been claimed, permanently. Plus reconciling the declaration's vocabulary against REQ-249's, and driving it once, which is in scope rather than a follow-up.
+
+Two things worth knowing:
+
+- **Subject-matter home.** These belong to EPIC-4 by title — it names `1stc.site` management directly and parents REQ-238. It's `done`, so I parented them here and recorded why in the Children note rather than reopening it. Say if you'd rather they moved.
+- **Order.** REQ-249 → REQ-250 → REQ-251. 250 is technically independent but its one button has nowhere to point until 249's section exists.
+
+No code touched, no branch cut — ticket scoping only.
 
 <!-- xgd-chat-end -->
