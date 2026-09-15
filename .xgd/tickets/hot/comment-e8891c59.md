@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T23:12:21.374421+00:00'
+updated_at: '2026-09-15T23:13:10.511466+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -358,5 +358,11 @@ On 3 — agreed to defer, and checking the layout makes it a smaller point than 
 **Ticket B:** publish's existing 409 rendered as a modal with a button through to the field.
 
 Shall I write A and B up under EPIC-5 now?
+
+<!-- xgd-turn id="b141d9f8-bdc0-4440-966d-37b40bd22ee2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T23:13:10.453281+00:00" -->
+#### You
+Can I also have a ticket for the AI experience? I need to expose the availability API as a tool
 
 <!-- xgd-chat-end -->
