@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T19:46:23.047012+00:00'
+updated_at: '2026-09-15T22:35:44.362679+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1645,5 +1645,13 @@ I didn't file the "removal didn't take" claim as a defect. `editPageRm` refuses 
 BUG-93 is the blocker. Until it lands, the whitepapers form will keep resolving to home's config and mailing nobody, no matter how correctly it's configured. BUG-94 is what you'll need immediately after, to see the email that finally sends.
 
 One thing I'd flag: three of these four were found by reading your dev database rather than the code. The config looked right, the tests pass, and the product was silently doing something else — worth remembering when the next one of these goes quiet.
+
+<!-- xgd-turn id="2b0cea8a-e67c-496d-9e55-006d4d06086e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T22:35:44.275991+00:00" -->
+#### You
+ok I tried the whitepaper form again and this time I get an error: 
+
+✘ [ERROR] {"event":"lead_capture_failed","site":"site_bca807fc7cdd0bf418b15e255f8c45c6","error":"D1_ERROR: table asset_grants has no column named form_handle: SQLITE_ERROR"}
 
 <!-- xgd-chat-end -->
