@@ -228,6 +228,22 @@ export class PreviewRenderer {
     if (!snapshot.result.ok) throw new InvalidDefinitionError(slug, snapshot.result.errors)
     const rendered = await renderSiteFiles(snapshot.result.value, {
       edit: channel === 'edit',
+      // [[BUG-94]] — THE BUILDER RENDERS THE SITE'S MESSAGES; PUBLISH DOES NOT.
+      // An email page has no public address, and [[REQ-247]] enforced that by
+      // writing no file for one — in `renderSiteFiles`, which this module reads
+      // rather than reimplements, so the refusal arrived here too and the one
+      // place a message is supposed to be looked at was the one place it could
+      // not be. This is where the two readings part: a published revision still
+      // carries no bytes for a message and no path reaches them, while an
+      // authenticated operator inside their own builder gets the message
+      // rendered on demand from the definition in front of them.
+      //
+      // EVERY CHANNEL THIS CLASS SERVES, including `rev-<id>`. All three are the
+      // builder looking at its own site — a frozen revision is not the public
+      // surface, it is what the public surface was, and an operator asking what
+      // a message said in revision 3 is asking the same question as an operator
+      // asking what it says now.
+      emailPages: true,
     })
     this.cache.set(key, { stamp: snapshot.stamp, rendered })
     return rendered
