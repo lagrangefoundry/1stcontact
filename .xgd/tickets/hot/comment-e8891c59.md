@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T22:25:24.794119+00:00'
+updated_at: '2026-09-15T22:27:30.900317+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -222,5 +222,30 @@ Want me to fold this into the EPIC-5 body now — the provenance model, the clai
 <!-- xgd-chat role="user" ts="2026-09-15T22:25:24.450502+00:00" -->
 #### You
 yes
+
+<!-- xgd-turn id="2db4b397-08eb-4229-81a3-06596cdadac9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T22:27:30.453956+00:00" -->
+#### Claude
+Folded into EPIC-5 as a dated design-session section appended to the body — original 7,956 chars all preserved, now 24,651. Document change only, so no branch or UAT.
+
+**What went in:**
+
+- **The operator's domains are in the platform Cloudflare account** — recorded as settled, with the consequence that the trap case doesn't apply to them and on-ramp 2 is buildable first.
+- **The axis correction** — live-vs-greenfield cuts across the three on-ramps rather than along them; the preservation apparatus exists for one case only.
+- **Provenance** — Cloudflare can't tell us, so we record it at arrival; four origins, and the note that provenance is what offboarding reads rather than bookkeeping.
+- **`zones`** — the schema, account-scoped with the `entitlements` precedent as the argument, and `status` mirroring Cloudflare's rather than computing a second one that can disagree.
+- **Claim and proof** — separated in time, nameserver change is the proof, and the observation that this is REQ-238's `check`/`claim` shape appearing a second time. Includes the explicit *don't build a TXT verification step* as a written refusal.
+- **Squatting** — Cloudflare's own refusal plus a 14-day expiry, with operator release rather than self-service (self-service would hand the squatter a second lever).
+- **Pre-cutover ordering** — the four-step sequence, and why it makes "their mail survives" a property of the order rather than an intention. Also gives the mechanism behind the existing "must not be reachable on its own" rule.
+- **Two guards** — `platform` origin unattributable in code, NULL `account_id` selectable by nobody, drift check falls out.
+- **The config surface** — three controls, the selector query, and "if a customer is being shown a record type, we have failed" as the standard. Plus the authorisation point the selector hides.
+- **Three gaps in REQ-238's table** — canonical/redirect, finality-is-platform-only, exclusivity-is-per-host.
+- **Resend** — the collision table, `send.` isolation as the reason sending can ride along with the web records, and `_dmarc` as the one dangerous record in a direction the epic hadn't named.
+- **Three waits**, **offboarding**, eight new falsifiers, and Open question 3 narrowed rather than answered.
+
+One new open question added: whether we want to send as the customer's domain at all. The toggle assumes yes; that assumption is now visible rather than buried.
+
+Ready to go at the 1stc.site UX whenever you are. Worth knowing before we start: REQ-238 left that field explicitly homeless — its closing note says whether it appends to REQ-239 as a further commit or gets its own ticket is your call, so that's the first thing to decide.
 
 <!-- xgd-chat-end -->
