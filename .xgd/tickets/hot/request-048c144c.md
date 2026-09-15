@@ -5,9 +5,9 @@ type: request
 title: An email a form sends is a page of the site
 created_by: EPIC-10
 created_at: '2026-09-14T21:31:04.642575+00:00'
-updated_at: '2026-09-15T00:24:29.438868+00:00'
+updated_at: '2026-09-15T00:24:34.572714+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -28,6 +28,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.202
+  story_points: 13
 ---
 
 # An email a form sends is a page of the site
