@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T22:52:34.711122+00:00'
+updated_at: '2026-09-15T22:54:42.734157+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -261,5 +261,69 @@ Lets talk about the 1stc.site UX and AX
 5. The AI should have a tool that gives them access to the availability check API they can help the user by suggesting lists of names that are available. 
 
 I think (1) is a ticket, 2,3,4 is another ticket and 5 is a third - agree?
+
+<!-- xgd-turn id="953b1390-7520-47ad-9115-0982ad5ef3a4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T22:54:42.400231+00:00" -->
+#### Claude
+Dug through the existing code before answering, and it changes the split.
+
+## (5) is already built and wired
+
+`check_hostname`, `claim_hostname` and `read_addresses` are live on the settings assistant surface today — `tools/generate/src/cli/ai/settings-surface.json`, implemented at `settings-core.ts:322-356`, bound to the real functions at `business.ts:425`. It's not a stub. It has:
+
+- a `ReadAddresses` group whose description is *"a check is a question, asked as many times as you like"*
+- a sequence, *"Your client wants their site to have a public address"* → `read_addresses` → `check_hostname` → `claim_hostname`, with the note that you may check several candidates before saying anything *"so that what you offer is a short list of names that are actually free"* — exactly the behaviour you're asking for
+- an `absences` entry, *"Choosing a hostname for them"*, so it proposes and checks but never claims on the customer's behalf
+- per-refusal guidance for taken / reserved / invalid / already-held
+
+So no ticket. Worth a manual run against a real conversation to confirm it behaves, but there's nothing to build.
+
+## (1) is smaller than it sounds — the refusal exists, the modal doesn't
+
+`POST /api/publish` already refuses with 409 and a sentence naming both fixes (`router.ts:3093`, gate at `publishSite`). What happens to it today: `app.js:541` calls `block.fail(message)`, which puts the text in the publish progress block. So the behaviour is right and the presentation is wrong.
+
+That reshapes the ticket from *"make publish fail"* to **"render the existing refusal as a modal that offers the way out"** — and the design content is in that second half. A modal that only says no is a dead end. It should carry a button that takes you to the hostname field, because the customer who hits this is by definition someone who doesn't know what an address is.
+
+## So: two tickets, not three
+
+| | |
+|---|---|
+| **A** — Choosing the hostname: the field, the check, the lock-in | your 2, 3, 4 — one interaction, splitting it would ship a Check button leading nowhere |
+| **B** — Publish refuses without an address, and the refusal offers the way out | your 1, but as presentation over an existing refusal |
+
+A first, so B's "take me there" button has somewhere real to point.
+
+## Eight things the spec doesn't cover yet
+
+Most are small; three I'd argue about.
+
+**1. "Your free domain" is the wrong noun, and it will cost us later.** It isn't a domain, and when EPIC-6 lands and the customer goes to connect `alicesplumbing.com`, they'll say *"but I already have a free domain."* We'd be teaching the word we then have to unteach. `Your free web address` keeps the commercially useful word and drops the wrong one. This is the one I'd push hardest on — it propagates into the assistant's vocabulary, the docs, and support.
+
+**2. There are three refusals, not one.** The server already distinguishes them and the spec collapses them into one red line:
+
+- **taken** (409) — "somebody has it" → try something else
+- **reserved** (400) — `mail`, `admin`, `api`... kept for the product → *not* taken, and a variant will also be refused
+- **invalid** (400) — broke a syntax rule → the refusal names which rule
+
+Telling someone `mail` is *taken* sends them hunting for `mail2`, which is also refused. The distinction is free — it's already on the wire.
+
+**3. "ask the AI for help" as plain text is a dead end.** It names help you then have to go find. Either make it a link that opens the chat primed with the candidate they just tried, or cut the clause. Given (5) is already built, the link is the cheap half.
+
+**4. The already-held state is the common one and isn't in the spec.** A business that has claimed shows no text box — it shows `alice.1stc.site` and says it's permanent. Most businesses are in this state most of the time.
+
+**5. Non-owners hit a 403 at lock-in.** `claim` is owners-only (`router.ts:2928`). As specified, a `support` member types, checks, gets a green tick, hits Lock It In and is refused. The section should be read-only for them with a sentence saying who can do it.
+
+**6. "locked in for this site" should say business.** REQ-238's rule is one platform address per *business*. Minor wording, but it's a promise we'd be making in the one modal that can't be undone.
+
+**7. `[OK]` is the weakest possible label for the most irreversible action in the product.** Name the act: `Lock in alice.1stc.site`. And default focus on Cancel.
+
+**8. The check→claim race needs a defined landing.** Two people can be told `alice` is free in the same second; the loser is refused at claim, *after* passing the confirm modal. REQ-238 supplies the sentence — *"that one went while you were deciding"* — so: close the modal, return to the field, show that line.
+
+**On the Check trigger:** REQ-238 says the field calls check *"on every return press"*, so Enter should fire it as well as the button. Not a change to your spec, just the part of it already written down.
+
+---
+
+Want me to write A and B up as tickets under EPIC-5 now? I'd fold the eight points into A's body as behaviour rather than leaving them as review comments, since every UAT has to trace to ticket language. Tell me where you land on "free domain" vs "free web address" first — that wording goes in the body and then into the assistant surface, so it's cheaper to settle before I write than after.
 
 <!-- xgd-chat-end -->
