@@ -3,6 +3,7 @@ import { d1r2SiteStore } from '../../tools/generate/src/store/d1r2-store'
 import type { SiteStoreEnv } from '../../tools/generate/src/store/d1r2-store'
 import { defaultEmailDocument } from '../../packages/framework/src/l2/email-page'
 import type { L1Document } from '@1stcontact/site-schema'
+import { formHandle } from '../../packages/framework/src/modules/contact-form/fields'
 import { nextSlug } from './site-seed'
 
 /**
@@ -92,9 +93,30 @@ export interface SeedEmailPage {
   lines?: string[]
 }
 
+/**
+ * A FURTHER PAGE of the seeded site, carrying its own forms ([[BUG-93]]).
+ *
+ * WHY A SECOND PAGE IS A DIFFERENT FIXTURE FROM A SECOND FORM. {@link
+ * SeedFormOptions.alsoForms} puts two forms on ONE page, which is what
+ * [[REQ-243]] needed: two forms the receiver must tell apart by id. This puts
+ * two forms on TWO pages, which is the shape [[BUG-93]] exists for — and the two
+ * are not interchangeable, because a component name is unique per page, so the
+ * case that broke is precisely two pages each holding a form called `signup`.
+ * Seeding two SITES would not reach it either: the site lookup would do the
+ * telling apart, and the page lookup — the half that actually has to pick — would
+ * stay untested.
+ */
+export interface SeedPage {
+  /** The page's id. A handle's first half names this. */
+  id: string
+  forms: Array<SeedForm & { instanceId: string }>
+}
+
 export interface SeedFormOptions extends SeedForm {
   tenantId: string
   instanceId?: string
+  /** Further pages of this same site, each with its own forms ([[BUG-93]]). */
+  alsoPages?: SeedPage[]
   /**
    * The email pages this site holds, by id.
    *
@@ -159,6 +181,23 @@ export interface SeededSite {
    */
   siteKey: string
   instanceId: string
+  /** The id of the page the primary form sits on ([[BUG-93]]). */
+  pageId: string
+  /**
+   * What the primary form puts in its hidden handle — `<pageId>:<instanceId>`
+   * ([[BUG-93]]).
+   *
+   * BUILT BY THE SAME FUNCTION THE COMPONENT USES, and not spelled here. Three
+   * parties have to agree on this grammar; a fixture that wrote its own `${a}:${b}`
+   * would be a fourth, free to drift from the other three in silence — which is
+   * the whole reason the vocabulary lives in one module.
+   */
+  formHandle: string
+}
+
+/** The handle a form called `instanceId` on `pageId` submits under ([[BUG-93]]). */
+export function handleFor(pageId: string, instanceId: string): string {
+  return formHandle(pageId, instanceId)
 }
 
 /** Which message a seeded form sends — see {@link SeedForm.template}. */
@@ -196,15 +235,37 @@ function moduleFor(options: SeedForm, instanceId: string): Record<string, unknow
   }
 }
 
-/** The page definition a seeded site publishes — every form on it, in order. */
+/**
+ * The page a seeded site's primary form sits on — every form on it, in order.
+ *
+ * IT CARRIES AN `id` ([[BUG-93]]). It did not, and nothing read one, because
+ * nothing addressed a page: the receiver scanned every page for an instance id.
+ * The handle a form puts on the wire now names the page, and the id is what it
+ * names — so a fixture without one seeds a site whose forms cannot be submitted,
+ * exactly as a real site without one would be.
+ */
 function pageWith(options: SeedFormOptions, instanceId: string): Record<string, unknown> {
   return {
+    id: HOME_PAGE_ID,
     slug: 'home',
     title: 'Home',
     modules: [
       moduleFor(options, instanceId),
       ...(options.alsoForms ?? []).map((form) => moduleFor(form, form.instanceId)),
     ],
+  }
+}
+
+/** The id — and so the store key `home.json` — of the page {@link pageWith} builds. */
+const HOME_PAGE_ID = 'home'
+
+/** One further page and its forms, in the shape a stored page carries them. */
+function extraPage(spec: SeedPage): Record<string, unknown> {
+  return {
+    id: spec.id,
+    slug: spec.id,
+    title: spec.id,
+    modules: spec.forms.map((form) => moduleFor(form, form.instanceId)),
   }
 }
 
@@ -277,7 +338,16 @@ function emailPageFor(
 function emailPagesFor(
   options: SeedFormOptions,
 ): Array<{ name: string; page: Record<string, unknown> }> {
-  const forms: SeedForm[] = [options, ...(options.alsoForms ?? [])]
+  // EVERY FORM ON THE SITE AND NOT ONLY THE ONES ON THE HOME PAGE ([[BUG-93]]).
+  // A form on a further page names a message exactly as one on the first page
+  // does, and a fixture that materialised only the first page's would leave the
+  // second page's form reporting `no_template` — which is silence, which is the
+  // symptom this whole ticket is about, arriving from the fixture instead.
+  const forms: SeedForm[] = [
+    options,
+    ...(options.alsoForms ?? []),
+    ...(options.alsoPages ?? []).flatMap((spec) => spec.forms),
+  ]
   const declared = new Map<string, SeedEmailPage>()
   for (const spec of options.emails ?? []) declared.set(spec.id, spec)
 
@@ -317,7 +387,14 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
   // as the page carrying the form. That is not tidiness: it is what makes the
   // copy a visitor is sent the copy that was PUBLISHED (AC-6).
   const emails = emailPagesFor(options)
-  const pages = [{ name: 'home.json', page }, ...emails]
+  const pages = [
+    { name: `${HOME_PAGE_ID}.json`, page },
+    ...(options.alsoPages ?? []).map((spec) => ({
+      name: `${spec.id}.json`,
+      page: extraPage(spec),
+    })),
+    ...emails,
+  ]
 
   const siteKey = await store.createDraft()
   await store.write(siteKey, { siteJson, pages, assets: [] })
@@ -344,5 +421,10 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
     )
   }
 
-  return { siteKey, instanceId }
+  return {
+    siteKey,
+    instanceId,
+    pageId: HOME_PAGE_ID,
+    formHandle: formHandle(HOME_PAGE_ID, instanceId),
+  }
 }

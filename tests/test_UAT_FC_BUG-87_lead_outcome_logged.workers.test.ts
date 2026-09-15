@@ -124,8 +124,8 @@ function post(path: string, fields: Record<string, string>): Request {
   })
 }
 
-function submission(instanceId: string, extra: Record<string, string> = {}) {
-  return { [FORM_INSTANCE_FIELD]: instanceId, [TURNSTILE_FIELD]: TOKEN, ...extra }
+function submission(formHandle: string, extra: Record<string, string> = {}) {
+  return { [FORM_INSTANCE_FIELD]: formHandle, [TURNSTILE_FIELD]: TOKEN, ...extra }
 }
 
 async function send(path: string, fields: Record<string, string>): Promise<Response> {
@@ -191,7 +191,7 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
 
     const response = await send(
       `/site/${site.siteKey}/api/lead`,
-      submission(site.instanceId, {
+      submission(site.formHandle, {
         your_email: 'not-an-address',
         building: 'a small catering site',
       }),
@@ -206,7 +206,7 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
     expect(lines[0]).toMatchObject({
       reason: 'no_email',
       site: site.siteKey,
-      form: site.instanceId,
+      form: site.formHandle,
       // WHICH FIELDS THE FORM ACTUALLY SENT — the question an operator staring
       // at a form that captures nothing needs answered.
       submittedFields: ['building', 'your_email'],
@@ -228,7 +228,7 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
       assets: [{ key: 'paper', name: 'The paper', url: 'https://bug87.test/paper.pdf' }],
     })
     const path = `/site/${site.siteKey}/api/lead`
-    const fields = submission(site.instanceId, { email: 'asset@example.com' })
+    const fields = submission(site.formHandle, { email: 'asset@example.com' })
 
     const first = await send(path, fields)
     expect(first.status).toBe(200)
@@ -247,7 +247,7 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
       event: 'lead_asset_not_sent',
       reason: 'already_sent',
       site: site.siteKey,
-      form: site.instanceId,
+      form: site.formHandle,
       business: TENANT,
       // Named, because a form promising a set can skip one asset and deliver
       // another on the same submission ([[REQ-241]]).
@@ -268,7 +268,7 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
 
     const response = await send(
       `/site/${site.siteKey}/api/lead`,
-      submission(site.instanceId, { email: 'quiet@example.com' }),
+      submission(site.formHandle, { email: 'quiet@example.com' }),
     )
 
     expect(response.status).toBe(200)

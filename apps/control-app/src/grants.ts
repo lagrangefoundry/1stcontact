@@ -48,7 +48,17 @@ export interface AssetGrant {
   /** Always the contact's own — derived by the insert, never supplied. */
   businessId: string
   siteId: string
-  instanceId: string
+  /**
+   * WHICH FORM, BY THE PAGE IT SITS ON AND THE INSTANCE ON THAT PAGE
+   * ([[BUG-93]]) — the same handle the form put on the wire.
+   *
+   * IT WAS THE INSTANCE ID ALONE, and that could not name a form: a component
+   * name is unique on one page and the same name is legal on the next, so a
+   * grant minted for the whitepapers `signup` and one minted for the home
+   * page's `signup` were the same row, opening whichever definition the
+   * receiver happened to resolve first.
+   */
+  formHandle: string
   createdAt: string
   revokedAt: string | null
 }
@@ -65,12 +75,12 @@ interface GrantRow {
   contact_id: string
   business_id: string
   site_id: string
-  instance_id: string
+  form_handle: string
   created_at: string
   revoked_at: string | null
 }
 
-const GRANT_COLUMNS = 'id, contact_id, business_id, site_id, instance_id, created_at, revoked_at'
+const GRANT_COLUMNS = 'id, contact_id, business_id, site_id, form_handle, created_at, revoked_at'
 
 function toGrant(row: GrantRow): AssetGrant {
   return {
@@ -78,7 +88,7 @@ function toGrant(row: GrantRow): AssetGrant {
     contactId: row.contact_id,
     businessId: row.business_id,
     siteId: row.site_id,
-    instanceId: row.instance_id,
+    formHandle: row.form_handle,
     createdAt: row.created_at,
     revokedAt: row.revoked_at,
   }
@@ -109,23 +119,23 @@ function toGrant(row: GrantRow): AssetGrant {
 export async function grantFor(
   env: GrantEnv,
   scope: Scope,
-  spec: { contactId: string; siteId: string; instanceId: string; now?: string },
+  spec: { contactId: string; siteId: string; formHandle: string; now?: string },
 ): Promise<AssetGrant> {
   const now = spec.now ?? new Date().toISOString()
   await env.DB.prepare(
-    'INSERT INTO asset_grants (id, contact_id, business_id, site_id, instance_id, created_at) ' +
+    'INSERT INTO asset_grants (id, contact_id, business_id, site_id, form_handle, created_at) ' +
       'SELECT ?, u.id, u.tenant_id, ?, ?, ? FROM users u WHERE u.id = ? AND u.tenant_id = ? ' +
       'ON CONFLICT DO NOTHING',
   )
-    .bind(newId('gate'), spec.siteId, spec.instanceId, now, spec.contactId, scope.businessId)
+    .bind(newId('gate'), spec.siteId, spec.formHandle, now, spec.contactId, scope.businessId)
     .run()
 
   const row = await env.DB.prepare(
     `SELECT ${GRANT_COLUMNS} FROM asset_grants ` +
-      'WHERE contact_id = ? AND business_id = ? AND site_id = ? AND instance_id = ? ' +
+      'WHERE contact_id = ? AND business_id = ? AND site_id = ? AND form_handle = ? ' +
       'AND revoked_at IS NULL',
   )
-    .bind(spec.contactId, scope.businessId, spec.siteId, spec.instanceId)
+    .bind(spec.contactId, scope.businessId, spec.siteId, spec.formHandle)
     .first<GrantRow>()
   // UNREACHABLE FROM THE CAPTURE PATH, which has just written or found this
   // contact in this business. It is raised rather than returned because a caller

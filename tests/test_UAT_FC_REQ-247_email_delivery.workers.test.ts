@@ -11,7 +11,7 @@ import type { Scope } from '../apps/control-app/src/scope'
 import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
 import type { SiteStoreEnv } from '../tools/generate/src/store/d1r2-store'
 import { applySchema } from './support/d1-site-factory'
-import { seedFormSite } from './support/lead-site'
+import { handleFor, seedFormSite } from './support/lead-site'
 
 /**
  * [[REQ-247]] — **the send path, now that the message is a page.**
@@ -75,15 +75,16 @@ async function messagesOf(tenantId: string, contactId: string) {
   return messagesFor(await ticketStoreFor(leadEnv(), scopeOf(tenantId)), contactId)
 }
 
+/** One submission, by the page a form sits on and the component on it ([[BUG-93]]). */
 const submit = (
-  site: { siteKey: string },
+  site: { siteKey: string; pageId: string },
   instanceId: string,
   email: string,
   send: unknown,
 ): ReturnType<typeof captureLead> =>
   captureLead(
     leadEnv(),
-    { siteKey: site.siteKey, instanceId, fields: { email } },
+    { siteKey: site.siteKey, formHandle: handleFor(site.pageId, instanceId), fields: { email } },
     { send: send as never },
   )
 
@@ -264,7 +265,7 @@ describe('REQ-247 — changed copy reaches a recipient once it is published', ()
       leadEnv(),
       {
         siteKey: site.siteKey,
-        instanceId: site.instanceId,
+        formHandle: site.formHandle,
         fields: { email: 'preview@example.com' },
         channel: 'draft',
       },

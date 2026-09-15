@@ -99,7 +99,7 @@ describe('REQ-242 — a capture form sets acceptances', () => {
 
     const outcome = await captureLead(leadEnv(), {
       siteKey: site.siteKey,
-      instanceId: site.instanceId,
+      formHandle: site.formHandle,
       fields: { email: 'onthelist@example.com', list: 'yes' },
     })
     expect(outcome.accepted).toBe(true)
@@ -134,7 +134,7 @@ describe('REQ-242 — a capture form sets acceptances', () => {
 
     const outcome = await captureLead(leadEnv(), {
       siteKey: site.siteKey,
-      instanceId: site.instanceId,
+      formHandle: site.formHandle,
       // `list` is absent, which is what an unticked box actually submits.
       fields: { email: 'notthelist@example.com' },
     })
@@ -170,7 +170,7 @@ describe('REQ-242 — a capture form sets acceptances', () => {
 
     const outcome = await captureLead(leadEnv(), {
       siteKey: site.siteKey,
-      instanceId: site.instanceId,
+      formHandle: site.formHandle,
       fields: { email: 'implied@example.com' },
     })
     const contactId = outcome.contactId as string
@@ -206,7 +206,7 @@ describe('REQ-242 — a capture form sets acceptances', () => {
       fields: [EMAIL_FIELD, LIST_BOX, beta],
     })
     const submit = (fields: Record<string, string>) =>
-      captureLead(leadEnv(), { siteKey: site.siteKey, instanceId: site.instanceId, fields })
+      captureLead(leadEnv(), { siteKey: site.siteKey, formHandle: site.formHandle, fields })
 
     const first = await submit({ email: address, list: 'yes' })
     const contactId = first.contactId as string
@@ -255,7 +255,7 @@ describe('REQ-242 — a capture form sets acceptances', () => {
 
     const outcome = await captureLead(leadEnv(), {
       siteKey: site.siteKey,
-      instanceId: site.instanceId,
+      formHandle: site.formHandle,
       fields: { email: 'provenance@example.com', list: 'yes' },
     })
     const submitted = (await eventsFor(outcome.contactId as string)).find(
@@ -266,7 +266,7 @@ describe('REQ-242 — a capture form sets acceptances', () => {
     expect(detail.consent).toBeUndefined()
     expect(detail.site).toBe(site.siteKey)
     expect(detail.page).toBe('home.json')
-    expect(detail.form).toBe(site.instanceId)
+    expect(detail.form).toBe(site.formHandle)
     expect(detail.submitLabel).toBe('Send me both papers')
     // The unnamed box is an answer — and its `''` is the "asked and said no" the
     // blob used to carry for it. The NAMED box is not here at all; it is state.

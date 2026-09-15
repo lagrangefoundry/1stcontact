@@ -39,9 +39,16 @@ export function contactFormProps(edit = false) {
     config: CONTACT_FORM_CONFIG,
     slots: CONTACT_FORM_SLOTS,
     instanceId: 'contact',
+    // [[BUG-93]] — the page the seed mounts this into. A direct call that
+    // omitted it would produce a handle the renderer's own output cannot match,
+    // which is exactly what the parity assertions above compare.
+    pageId: CONTACT_FORM_PAGE_ID,
     edit,
   }
 }
+
+/** The id of the page {@link contactFormSeed} mounts the form into. */
+export const CONTACT_FORM_PAGE_ID = 'home'
 
 /** The scaffolder's starter site, with a `contact-form` mounted into an L1 seam. */
 export function contactFormSeed(slug = nextSlug('behavior')): SiteSeed {

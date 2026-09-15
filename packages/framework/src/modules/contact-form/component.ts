@@ -3,7 +3,13 @@ import { renderL1Fragment } from '../../l1/render'
 import type { BehaviorProps } from '../behavior'
 import { attr, escapeHtml } from '../html'
 import { contactFormControls, controlId, type ContactFormField } from './controls'
-import { FIELD_TYPES, FORM_INSTANCE_FIELD, HONEYPOT_FIELD, LEAD_ACTION } from './fields'
+import {
+  FIELD_TYPES,
+  FORM_INSTANCE_FIELD,
+  HONEYPOT_FIELD,
+  LEAD_ACTION,
+  formHandle,
+} from './fields'
 
 /**
  * `contact-form` behavior (REQ-85; made layout-agnostic by construction in
@@ -35,6 +41,7 @@ export function contactForm({
   config = {},
   slots = {},
   instanceId = 'contact-form',
+  pageId = '',
   edit = false,
 }: BehaviorProps = {}): string {
   // Isolation (REQ-85): coerce the field schema defensively — a malformed entry is
@@ -137,9 +144,14 @@ export function contactForm({
    *     it chooses `account-chrome`'s state ([[REQ-223]] §6). A mount with no
    *     sitekey and no script is inert, which is what an unconfigured deployment
    *     serves — and its submissions are refused rather than accepted;
-   *   • the form-instance handle — a hidden input naming THIS instance, so the
-   *     receiver can look the asset, the consent wording and the submit label up
-   *     in the site's own published definition instead of believing a payload;
+   *   • the form handle — a hidden input naming THIS form, by the page it sits
+   *     on AND the instance on that page ([[BUG-93]]), so the receiver can look
+   *     the asset, the consent wording and the submit label up in the site's own
+   *     published definition instead of believing a payload. BOTH HALVES,
+   *     because an instance id is unique on one page only: naming the instance
+   *     alone left the receiver picking the first form in the site that happened
+   *     to share the name, which is how the whitepapers form was served the home
+   *     page's waitlist definition and mailed nobody for four days;
    *   • the inline error surface — shown only by the client enhancement.
    * The success copy sits in a `<template>` the client swaps the form for.
    */
@@ -152,7 +164,7 @@ export function contactForm({
         <label for="cf-${honeypotName}">Leave this field empty</label>
         <input id="cf-${honeypotName}" name="${honeypotName}" type="text" tabindex="-1" autocomplete="off">
       </div>
-      <input type="hidden" name="${FORM_INSTANCE_FIELD}" value="${escapeHtml(instanceId)}">
+      <input type="hidden" name="${FORM_INSTANCE_FIELD}" value="${escapeHtml(formHandle(pageId, instanceId))}">
       <div class="contact-form__turnstile cf-turnstile" data-fc-invariant data-turnstile-target></div>
       <p class="contact-form__error" data-fc-invariant data-contact-error hidden></p>
     </form>

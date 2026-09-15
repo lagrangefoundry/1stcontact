@@ -91,7 +91,7 @@ async function resolve(env: GateEnv, siteKey: string, token: string): Promise<Re
   const site = await businessOfSite(env, siteKey)
   if (!site || site.businessId !== grant.businessId) return null
 
-  const definition = await formDefinitionOf(env, grant.businessId, siteKey, grant.instanceId)
+  const definition = await formDefinitionOf(env, grant.businessId, siteKey, grant.formHandle)
   if (!definition) return null
   return { grant, definition }
 }
@@ -121,7 +121,7 @@ export async function openGate(
       kind: PAGE_ACCESSED,
       // WHAT THEY WERE OFFERED, which is what makes an arrival that took nothing
       // legible: no download event can say which papers were on the page.
-      detail: { site: siteKey, form: grant.instanceId, assets: assets.map((a) => a.key) },
+      detail: { site: siteKey, form: grant.formHandle, assets: assets.map((a) => a.key) },
     },
   )
   return { contactId: grant.contactId, assets }

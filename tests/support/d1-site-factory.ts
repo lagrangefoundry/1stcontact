@@ -89,9 +89,17 @@ const MIGRATIONS = [
   // same reason as every file above, and this one is the sharpest case for it:
   // the unique index on `host` is the AUTHORITY that decides a race between two
   // claims, so a fixture that skipped it would let a suite claim one host twice
-  // and prove the opposite of what the code does. LAST IN THE LIST, which is
-  // what `atHead` below asks about.
+  // and prove the opposite of what the code does.
   () => import('../../db/migrations/0008_site_domains.sql?raw'),
+  // [[BUG-93]] — `asset_grants.instance_id` renamed to `form_handle`, because a
+  // grant names a form and a form is a page AND an instance on it. Applied here
+  // for the same reason as every file above, and this one is load-bearing for
+  // the fixture specifically: the baseline creates the column under its OLD
+  // name, so a suite that skipped this file would build a schema whose column
+  // the code no longer writes — every `grantFor` failing on a column nobody can
+  // see from the code. LAST IN THE LIST, which is what `atHead` below asks
+  // about.
+  () => import('../../db/migrations/0009_asset_grant_form_handle.sql?raw'),
 ]
 
 /**
@@ -183,21 +191,25 @@ export async function applySchema(): Promise<void> {
 /**
  * Whether the database already holds what the LAST migration leaves behind.
  *
- * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today `0008`'s
- * unique index on `host`. It used to ask for `sites.kind`, which `0005` adds;
- * once anything came after `0005`, a database at `0005` would have answered
- * "at head" and skipped the rest silently. So this marker MOVES WITH THE LIST:
- * a migration appended below without moving it re-opens exactly that hole.
- * `sqlite_master` answers on a database with no such table at all — an empty
- * result, not an error — which is what lets one query serve both "already
+ * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today `0009`'s
+ * rename of `asset_grants.instance_id`. It used to ask for `sites.kind`, which
+ * `0005` adds; once anything came after `0005`, a database at `0005` would have
+ * answered "at head" and skipped the rest silently. So this marker MOVES WITH
+ * THE LIST: a migration appended below without moving it re-opens exactly that
+ * hole. `sqlite_master` answers on a database with no such table at all — an
+ * empty result, not an error — which is what lets one query serve both "already
  * migrated" and "nothing here yet", exactly as `PRAGMA table_info` did.
+ *
+ * A COLUMN RATHER THAN AN INDEX THIS TIME, and `sqlite_master` still answers it:
+ * SQLite rewrites the stored `CREATE TABLE` text when a column is renamed, so
+ * the table's own definition is the record of whether `0009` has run.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
   const row = await DB.prepare(
-    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? AND sql LIKE ?",
   )
-    .bind('idx_site_domains_host')
+    .bind('asset_grants', '%form_handle%')
     .first<{ name: string }>()
   return row !== null
 }

@@ -12,7 +12,7 @@ import { eventsOf } from '../apps/control-app/src/events'
 import { EMAIL_SENT, FORM_SUBMITTED } from '../apps/control-app/src/builder/contact-events.js'
 import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
-import { seedFormSite } from './support/lead-site'
+import { handleFor, seedFormSite } from './support/lead-site'
 import type { SeedEmailPage } from './support/lead-site'
 
 /**
@@ -135,10 +135,23 @@ async function messagesOf(tenantId: string, contactId: string) {
   return messagesFor(store, contactId)
 }
 
-const submit = (site: { siteKey: string }, instanceId: string, email: string, send?: unknown) =>
+/**
+ * One submission, named the way an author names a form: the page and the
+ * component on it ([[BUG-93]]).
+ *
+ * THE HANDLE IS BUILT HERE AND NOT SPELLED AT EACH CALL. Every form this file
+ * seeds sits on the site's one page, so the page half is the same every time and
+ * repeating it would be noise that hides the half that varies.
+ */
+const submit = (
+  site: { siteKey: string; pageId: string },
+  instanceId: string,
+  email: string,
+  send?: unknown,
+) =>
   captureLead(
     leadEnv(),
-    { siteKey: site.siteKey, instanceId, fields: { email } },
+    { siteKey: site.siteKey, formHandle: handleFor(site.pageId, instanceId), fields: { email } },
     send ? { send: send as never } : undefined,
   )
 
@@ -278,7 +291,7 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
       leadEnv(),
       {
         siteKey: site.siteKey,
-        instanceId: site.instanceId,
+        formHandle: site.formHandle,
         fields: { email: 'quiet@example.com', list: 'yes' },
       },
       { send: mailer.send },

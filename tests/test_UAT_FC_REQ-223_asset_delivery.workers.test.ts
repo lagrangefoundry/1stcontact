@@ -84,7 +84,7 @@ describe('REQ-223 — asset delivery', () => {
         leadEnv(),
         {
           siteKey: site.siteKey,
-          instanceId: site.instanceId,
+          formHandle: site.formHandle,
           fields: { email: 'once@example.com' },
         },
         { send: mailer.send },
@@ -148,7 +148,7 @@ describe('REQ-223 — asset delivery', () => {
         leadEnv(),
         {
           siteKey: site.siteKey,
-          instanceId: site.instanceId,
+          formHandle: site.formHandle,
           fields: { email: address },
         },
         { send: mailer.send },
@@ -169,7 +169,7 @@ describe('REQ-223 — asset delivery', () => {
         leadEnv(),
         {
           siteKey: other.siteKey,
-          instanceId: other.instanceId,
+          formHandle: other.formHandle,
           fields: { email: address },
         },
         { send: mailer.send },
@@ -207,7 +207,7 @@ describe('REQ-223 — asset delivery', () => {
       leadEnv(),
       {
         siteKey: site.siteKey,
-        instanceId: site.instanceId,
+        formHandle: site.formHandle,
         fields: { email: 'spamreporter@example.com' },
       },
       { send: mailer.send },
@@ -254,7 +254,7 @@ describe('REQ-223 — asset delivery', () => {
       leadEnv(),
       {
         siteKey: other.siteKey,
-        instanceId: other.instanceId,
+        formHandle: other.formHandle,
         fields: { email: 'spamreporter@example.com' },
       },
       { send: mailer.send },
@@ -270,7 +270,7 @@ describe('REQ-223 — asset delivery', () => {
       leadEnv(),
       {
         siteKey: site.siteKey,
-        instanceId: site.instanceId,
+        formHandle: site.formHandle,
         fields: { email: 'quiet@example.com' },
       },
       { send: mailer.send },
@@ -283,7 +283,7 @@ describe('REQ-223 — asset delivery', () => {
   it('test_UAT_FC_REQ-223_a_submission_naming_no_published_site_writes_nothing', async () => {
     const outcome = await captureLead(leadEnv(), {
       siteKey: 'site_no_such_key',
-      instanceId: 'anything',
+      formHandle: 'home:anything',
       fields: { email: 'ghost@example.com' },
     })
     expect(outcome.accepted).toBe(false)
