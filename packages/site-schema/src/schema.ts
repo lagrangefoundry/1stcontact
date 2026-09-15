@@ -11,6 +11,12 @@ import {
   isWellFormedLocale,
   localeShapedSlugMessage,
 } from './locale'
+import {
+  isReservedPageSlug,
+  isValidPageName,
+  pageIdShapeMessage,
+  pageSlugShapeMessage,
+} from './page-name'
 
 /**
  * Zod schemas for 1st Contact site definitions.
@@ -586,19 +592,47 @@ export const pageKindSchema = z.enum(['web', 'email'])
 
 export const pageSchema = z
   .object({
-    id: z.string(),
     /**
-     * The page's path segment — and, REQ-153, one that may not be mistaken for a
-     * locale. A slug is refused when it is *exactly* a locale segment (`de`,
-     * `pt-BR`, `es-419`); a slug that merely starts with a language code
-     * (`design`, `deals`, `de-luxe`) is untouched. See {@link isLocaleShapedSlug}.
+     * The page's identity — and, [[BUG-92]], one segment, because it is the key
+     * the page is stored under (`<id>.json`). See {@link isValidPageName}.
+     */
+    id: z.string().superRefine((value, ctx) => {
+      if (isValidPageName(value)) return
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: pageIdShapeMessage(value) })
+    }),
+    /**
+     * The page's path segment — one segment, not a locale, and not a name the
+     * snapshot already spends on something else.
      *
-     * The reservation is cheap now and impossible later: a published revision is
-     * an immutable snapshot (DOC-12 §7) and its URLs are what inbound links and
-     * search rankings point at, so a page already live at `/de` cannot be moved
-     * out of the way of a `/de/about` language prefix — it can only be broken.
+     * [[BUG-92]] — SHAPE FIRST. A slug carrying a `/` used to validate cleanly
+     * and take the whole site down at the next render, because the flatness
+     * invariant (REQ-109) was enforced only in the renderer, long after the value
+     * was durable. It is refused here, where the author can still do something
+     * about it. `index` and a `.html` tail are refused for the neighbouring
+     * reason: both name a file the snapshot writes for a different page, so the
+     * page would be silently unreachable at its own address rather than loud.
+     *
+     * REQ-153 — NOT A LOCALE. A slug is refused when it is *exactly* a locale
+     * segment (`de`, `pt-BR`, `es-419`); a slug that merely starts with a
+     * language code (`design`, `deals`, `de-luxe`) is untouched. See
+     * {@link isLocaleShapedSlug}.
+     *
+     * Both reservations are cheap now and impossible later: a published revision
+     * is an immutable snapshot (DOC-12 §7) and its URLs are what inbound links
+     * and search rankings point at, so a page already live at `/de` cannot be
+     * moved out of the way of a `/de/about` language prefix — it can only be
+     * broken.
+     *
+     * ONE ISSUE PER SLUG, not three. The rules are ordered by how fundamental
+     * they are, and the first that fires is the only one reported: telling an
+     * author that `papers/download` is both malformed and not-a-locale invites
+     * them to fix the wrong half.
      */
     slug: z.string().superRefine((value, ctx) => {
+      if (!isValidPageName(value) || isReservedPageSlug(value)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: pageSlugShapeMessage(value) })
+        return
+      }
       if (!isLocaleShapedSlug(value)) return
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: localeShapedSlugMessage(value) })
     }),

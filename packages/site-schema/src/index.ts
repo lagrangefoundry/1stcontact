@@ -19,6 +19,10 @@ export * from './l1'
 // text direction, and the one `resolveSiteLocale` both renderers call.
 export * from './locale'
 
+// What a page may be called ([[BUG-92]]) — the one-segment rule the slug and the
+// id are both held to, and the refusal messages an AI author self-corrects from.
+export * from './page-name'
+
 // Font provenance registry (REQ-101) — the licence index over every font file.
 export * from './fonts'
 

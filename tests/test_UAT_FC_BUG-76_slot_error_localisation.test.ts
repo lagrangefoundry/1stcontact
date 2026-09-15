@@ -28,7 +28,7 @@ const WIDTHS = [320, 1280]
 function pageWith(children: L1Node[], modules: Record<string, unknown>[] = []) {
   return {
     id: 'home',
-    slug: '',
+    slug: 'home',
     title: 'home',
     modules,
     l1: {

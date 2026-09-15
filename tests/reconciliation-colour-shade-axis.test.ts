@@ -45,7 +45,7 @@ function siteWith(doc: unknown, palette?: L1Palette): Record<string, unknown> {
   return {
     ...base,
     ...(palette ? { palette } : {}),
-    pages: [{ id: 'home', slug: '', title: 'Home', modules: [], l1: doc }],
+    pages: [{ id: 'home', slug: 'home', title: 'Home', modules: [], l1: doc }],
   }
 }
 
