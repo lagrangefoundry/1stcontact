@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T22:14:11.095166+00:00'
+updated_at: '2026-09-15T01:13:22.621406+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1343,5 +1343,11 @@ The reference to 247 that remains in 248 is in **§3, "Why this is needed before
 | **REQ-247** emails as pages | REQ-248 | 15 | draft |
 
 So the build order is 248 → 247, with 246 independent of both and landable whenever. All three still unimplemented — nothing in this session has touched code.
+
+<!-- xgd-turn id="b24d91b1-2c50-4c48-bf97-1e0e4a319862-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T01:13:22.433278+00:00" -->
+#### You
+ok we are struggling a little here - please read the last couple of turns in the xgd business site builder transcript. It is creating an email, but the builder cannot navigate to it
 
 <!-- xgd-chat-end -->
