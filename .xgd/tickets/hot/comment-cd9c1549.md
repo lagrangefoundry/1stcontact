@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T22:37:15.699224+00:00'
+updated_at: '2026-09-15T22:53:09.887716+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1697,5 +1697,11 @@ That explains something I found on Monday and misread at the time: production ha
 I haven't run `--remote`. Applying eight migrations to a production database is outward-facing and not something I'll do off the back of a local bug report — say the word and I will, but you may want to look at what `0005_retire_site_slug` and `0007_business_name_unique` do to existing rows first, since those two are the ones that rewrite rather than add.
 
 Tell me how the form behaves now.
+
+<!-- xgd-turn id="33c1e329-4ae9-404e-9e72-d7a4e750788e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T22:53:09.832826+00:00" -->
+#### You
+How do I apply migrations?
 
 <!-- xgd-chat-end -->
