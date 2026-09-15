@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-92
 created_by: xgd
 created_at: '2026-09-15T00:54:22.505458+00:00'
-updated_at: '2026-09-15T00:57:58.522942+00:00'
+updated_at: '2026-09-15T01:04:28.979615+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,15 @@ That refuses the hazards (`/`, `\`, `\0`, `.`, `..`, empty, whitespace) without 
 Also worth noting: a site already in this state stays repairable — the edit path reads pages raw from the store, so `update_page --path` fixes it rather than the new rule locking it out.
 
 Confirm the scope (and the pattern choice) and I'll cut the branch and code it.
+
+<!-- xgd-turn id="fef77968-11b6-4e33-a841-3cea4ef78de8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T01:04:28.874275+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
