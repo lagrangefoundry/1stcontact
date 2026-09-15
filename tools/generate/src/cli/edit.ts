@@ -20,6 +20,7 @@ import {
   type L1FontFace,
   type L1Node,
   type L1SegmentFieldOptions,
+  L1_EMAIL_TARGET,
 } from '@1stcontact/site-schema'
 import { pendingChanges } from '../publish/publish'
 // The Astro-free framework entry, deliberately not the barrel (REQ-143). The
@@ -29,6 +30,10 @@ import { pendingChanges } from '../publish/publish'
 // components: it asks what exists and validates instances; it renders nothing.
 import {
   catalog,
+  contactFormTemplateRefs,
+  defaultEmailDocument,
+  emailPageRefusal,
+  emailPagesOf,
   l1PaintsSurface,
   latestModuleVersion,
   presetSlots,
@@ -521,6 +526,25 @@ function reachablePages(files: PageFile[], base: Record<string, unknown>): Set<s
         admit(hrefTargetPage(target.href, files, homeId))
       }
     }
+  }
+  /*
+   * [[REQ-247]] — A MESSAGE IS REACHED BY THE FORM THAT SENDS IT, never by a
+   * link. An email page has no public address by design, so the link walk below
+   * can never admit one and every message a site holds would be reported
+   * stranded. A warning that fires on correct work is one an author learns to
+   * ignore, which costs the genuinely stranded page the only signal it has.
+   *
+   * WHAT STRANDS A MESSAGE IS NO FORM NAMING IT, and that is what this admits
+   * against — so a message nothing sends still reads as unreachable, which is
+   * the true and useful answer.
+   *
+   * ADMITTED BEFORE THE WALK rather than after, so a page a message links to is
+   * reached by whoever opens the mail. That page has no link from the site, but
+   * a recipient following the button really does arrive at it, and calling it
+   * stranded would be the same false alarm one step further out.
+   */
+  for (const file of files) {
+    for (const ref of contactFormTemplateRefs(file.page)) admit(ref.templateKey)
   }
   while (queue.length > 0) {
     const from = queue.shift() as string
@@ -1292,6 +1316,16 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
     slug: f.page.slug,
     title: f.page.title,
     reachable: reached.has(String(f.page.id)),
+    /*
+     * [[REQ-247]] — WHICH TARGET THIS PAGE IS FOR, on every entry and not only
+     * on the mailed ones. A listing that named the kind of some pages and not
+     * others would read as a property some pages have, which is exactly the
+     * misreading that makes an author wonder whether an unmarked page is served
+     * or merely old. Every page has a kind; absent in the store means `web`, and
+     * this is where that default is spelled.
+     */
+    kind: f.page.kind === 'email' ? 'email' : 'web',
+    ...(f.page.kind === 'email' ? { email: f.page.email ?? {} } : {}),
   }))
   const human =
     pages.length === 0
@@ -1299,8 +1333,18 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
       : pages
           .map(
             (p) =>
-              `${String(p.id)}\t${String(p.slug)}\t${String(p.title)}` +
-              (p.reachable ? '' : '\t(unreachable: nothing links to it)'),
+              `${String(p.id)}\t${String(p.slug)}\t${String(p.title)}\t${p.kind}` +
+              /*
+               * [[REQ-247]] — THE NOTE SAYS WHAT WOULD REACH THIS PAGE, and for a
+               * message that is a form rather than a link. Telling an author that
+               * nothing links to a page nobody can visit would send them looking
+               * for a link they must never add.
+               */
+              (p.reachable
+                ? ''
+                : p.kind === 'email'
+                  ? '\t(unreachable: no form sends it)'
+                  : '\t(unreachable: nothing links to it)'),
           )
           .join('\n')
   return { data: { pages }, human }
@@ -1338,6 +1382,57 @@ export interface PageWriteOptions extends EditOptions {
    * Validated by `seoMetaSchema` through `validateOrThrow`, like everything else.
    */
   seoMeta?: Record<string, unknown>
+  /**
+   * [[REQ-247]] — whether this page is SERVED or MAILED. Absent is `web`.
+   *
+   * An email page is created with readable default copy (`defaultEmailDocument`)
+   * so that it exists, in full, before any visitor submits anything — which is
+   * the whole of §2's *"materialised when a form is configured to send it, not
+   * when it first sends"*. A message nobody has reviewed is not a thing this
+   * product should be able to send, and a page with no body would be exactly
+   * that.
+   */
+  kind?: 'web' | 'email'
+  /** The message's subject line. Email pages only; defaults to the title. */
+  subject?: string
+  /** The tokens the message promises its copy carries. Email pages only. */
+  placeholders?: string[]
+  /** The address it goes out from. Email pages only; absent is the deployment's. */
+  from?: string
+}
+
+/**
+ * The `email` block a write is asking for, or null when it is asking for none.
+ *
+ * ONE PLACE THAT ASSEMBLES IT, so `add` and `update` cannot disagree about what
+ * a subject defaults to or how a placeholder list is carried.
+ */
+function emailBlockOf(
+  opts: PageWriteOptions,
+  fallbackSubject: string,
+  previous?: Record<string, unknown>,
+): Record<string, unknown> {
+  const declared = opts.placeholders ?? (previous?.placeholders as string[] | undefined)
+  const from = opts.from ?? (previous?.from as string | undefined)
+  return {
+    subject: opts.subject ?? (previous?.subject as string | undefined) ?? fallbackSubject,
+    ...(declared && declared.length > 0 ? { placeholders: declared } : {}),
+    ...(from ? { from } : {}),
+  }
+}
+
+/** A page-write field that only means something on an email page, refused elsewhere. */
+function refuseEmailOnlyFields(opts: PageWriteOptions, pageId: string): void {
+  const named = (['subject', 'placeholders', 'from'] as const).filter(
+    (key) => opts[key] !== undefined,
+  )
+  if (named.length === 0) return
+  throw new CommandError({
+    code: 'SCHEMA_INVALID',
+    message: `Page '${pageId}' is not an email page, so it has no ${named.join(', ')}.`,
+    path: pageId,
+    hint: "Create an email page with kind: 'email', or drop these fields.",
+  })
 }
 
 export async function editPageAdd(
@@ -1377,20 +1472,43 @@ export async function editPageAdd(
     })
   }
 
-  const newPage: Record<string, unknown> = {
-    id: pageId,
-    slug: pageSlug,
-    title: opts.title ?? pageId,
-    ...(opts.seoMeta ? { seoMeta: opts.seoMeta } : {}),
-    modules: [],
-  }
+  const title = opts.title ?? pageId
+  const mailed = opts.kind === 'email'
+  if (!mailed) refuseEmailOnlyFields(opts, pageId)
+  const newPage: Record<string, unknown> = mailed
+    ? {
+        id: pageId,
+        slug: pageSlug,
+        title,
+        kind: 'email',
+        email: emailBlockOf(opts, title),
+        modules: [],
+        // THE COPY IS BUILT FROM THE DECLARATION AND NOT BESIDE IT. An email
+        // page whose `placeholders` name a token its copy does not contain is
+        // refused by the site validator, so a default that ignored them would be
+        // refused the instant it was written — for exactly the form (a gated
+        // download) that most often needs one.
+        l1: defaultEmailDocument(title, opts.placeholders ?? []),
+      }
+    : {
+        id: pageId,
+        slug: pageSlug,
+        title,
+        ...(opts.seoMeta ? { seoMeta: opts.seoMeta } : {}),
+        modules: [],
+      }
   await validateOrThrow(slug, opts, base, [...files.map((f) => f.page), newPage])
 
   await opts.store.write(slug, { pages: [{ name, page: newPage }] })
   return note(
     slug,
     opts,
-    { data: { page: newPage }, human: `Added page '${pageId}' (path: ${pageSlug}).` },
+    {
+      data: { page: newPage },
+      human: mailed
+        ? `Added email page '${pageId}' — nobody receives it until a form names it.`
+        : `Added page '${pageId}' (path: ${pageSlug}).`,
+    },
     { op: 'page.add', page: pageId, label: String(newPage.title) },
   )
 }
@@ -1411,10 +1529,21 @@ export async function editPageUpdate(
       hint: `List pages with '1c page list ${slug}'.`,
     })
   }
-  if (opts.title === undefined && opts.path === undefined && opts.seoMeta === undefined) {
+  const mailed = file.page.kind === 'email'
+  if (!mailed) refuseEmailOnlyFields(opts, pageId)
+  const nothingNamed =
+    opts.title === undefined &&
+    opts.path === undefined &&
+    opts.seoMeta === undefined &&
+    opts.subject === undefined &&
+    opts.placeholders === undefined &&
+    opts.from === undefined
+  if (nothingNamed) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',
-      message: 'Nothing to update; pass --title, --path and/or --seo.',
+      message: mailed
+        ? 'Nothing to update; pass --title, --subject, --placeholders and/or --from.'
+        : 'Nothing to update; pass --title, --path and/or --seo.',
       hint: 'Provide at least one field to change.',
     })
   }
@@ -1431,6 +1560,16 @@ export async function editPageUpdate(
   if (opts.title !== undefined) updated.title = opts.title
   if (opts.path !== undefined) updated.slug = opts.path
   if (opts.seoMeta !== undefined) updated.seoMeta = mergeConfigValue(file.page.seoMeta, opts.seoMeta)
+  // [[REQ-247]] — the subject, the declaration and the sender are merged over
+  // what is there rather than replacing it, on the same reasoning `seoMeta`
+  // takes: an author changing the subject must not lose their placeholders.
+  if (mailed) {
+    updated.email = emailBlockOf(
+      opts,
+      String(updated.title ?? pageId),
+      (file.page.email ?? {}) as Record<string, unknown>,
+    )
+  }
 
   const pages = files.map((f) => (f === file ? updated : f.page))
   await validateOrThrow(slug, opts, base, pages)
@@ -1479,6 +1618,33 @@ export async function editPageRm(
         .join(', ')}.`,
       path: pageId,
       hint: 'Remove the nav entry first, or pass --force to remove it automatically.',
+    })
+  }
+
+  /*
+   * [[REQ-247]] — A MESSAGE A FORM SENDS IS NOT REMOVED OUT FROM UNDER IT. The
+   * nav check above is the same rule for the served half of the site, and this
+   * is its counterpart: a page nothing links to still has something pointing at
+   * it when a form names it, and deleting it would leave the form silently
+   * mailing nobody.
+   *
+   * IT DOES NOT REWRITE THE FORM THE WAY `--force` REWRITES THE NAV. Dropping a
+   * nav entry loses a link; clearing a form's `template` changes what pressing
+   * that button does, which is not this command's decision to make. So `--force`
+   * removes the page and leaves the form naming it — and publish refuses until
+   * somebody says what it should send instead.
+   */
+  const sendingForms = files.flatMap((f) =>
+    contactFormTemplateRefs(f.page)
+      .filter((ref) => ref.templateKey === pageId)
+      .map((ref) => `'${ref.instanceId}' on page '${String(f.page.id ?? '')}'`),
+  )
+  if (sendingForms.length > 0 && !opts.force) {
+    throw new CommandError({
+      code: 'REFERENTIAL_INTEGRITY',
+      message: `Page '${pageId}' is the message sent by ${sendingForms.join(', ')}.`,
+      path: pageId,
+      hint: 'Point those forms at another message first, or pass --force.',
     })
   }
 
@@ -1649,6 +1815,43 @@ export interface ModuleAddOptions extends EditOptions {
  * afterwards exactly as it refines anything else. A behavior with no preset says
  * so, naming the slots it needs.
  */
+/**
+ * Refuse a form that names a message this site does not hold ([[REQ-247]] §4).
+ *
+ * AT THE MOMENT OF THE ACT, which is the change. [[REQ-243]] made a typo a
+ * refusal at PUBLISH — still authoring time, and still far too late: the author
+ * has moved on, the connection between the name they typed and the refusal they
+ * eventually read has to be reconstructed, and in the meantime the builder's own
+ * preview submits against a draft nothing validated. Naming a message is a
+ * decision, and this is the moment it is made.
+ *
+ * IT READS THE PAGES THE WRITE WOULD PRODUCE, not the ones on disk. A single
+ * call that both adds the email page and names it would otherwise be refused by
+ * its own first half — and more importantly, removing an email page and
+ * repointing the form at another one must be judged against the result rather
+ * than against the starting state.
+ *
+ * THE PUBLISH CHECK STAYS, and this does not replace it ([[REQ-247]] §4). A
+ * draft can reach an invalid state by routes that do not pass through here — a
+ * page removed with `--force`, a site imported wholesale — and publish is the
+ * gate that stops that becoming a message nobody receives.
+ */
+function assertNamedMessagesExist(pages: readonly Record<string, unknown>[], pageId: string): void {
+  const available = emailPagesOf(pages)
+  for (const page of pages) {
+    for (const ref of contactFormTemplateRefs(page)) {
+      const why = emailPageRefusal(ref.templateKey, available)
+      if (why === null) continue
+      throw new CommandError({
+        code: 'NOT_FOUND',
+        message: `The form '${ref.instanceId}' sends '${ref.templateKey}', but ${why}`,
+        path: `${String(page.id ?? pageId)}/${ref.instanceId}/template`,
+        hint: "Make one with add_page, passing kind: 'email'.",
+      })
+    }
+  }
+}
+
 export async function editModuleAdd(
   slug: string,
   pageId: string,
@@ -1691,7 +1894,9 @@ export async function editModuleAdd(
     slots,
   }
   const page = { ...file.page, modules: [...moduleList(file.page), instance] }
-  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
+  const resulting = files.map((f) => (f === file ? page : f.page))
+  assertNamedMessagesExist(resulting, pageId)
+  await validateOrThrow(slug, opts, base, resulting)
 
   await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
@@ -1744,7 +1949,9 @@ export async function editModuleConfigure(
     pageId,
   )
 
-  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
+  const resulting = files.map((f) => (f === file ? page : f.page))
+  assertNamedMessagesExist(resulting, pageId)
+  await validateOrThrow(slug, opts, base, resulting)
 
   await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(

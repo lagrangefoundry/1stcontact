@@ -38,28 +38,25 @@ export const TEMPLATE_TYPE = 'template'
  * The messages this PLATFORM sends, and therefore the templates every business
  * starts with.
  *
- * IT WAS THE WHOLE VOCABULARY AND IS NOW THE SEED SET ([[REQ-243]]). The
- * argument for closing it was that the key is what a sender looks up by, so *"an
- * open vocabulary would let a template be authored under `sign-in` while the
- * sender asks for `signin`, and the two would never meet. The failure of a
- * closed set is a refusal at authoring time; the failure of an open one is a
- * send that finds nothing at the moment somebody is waiting for mail."*
+ * IT IS CLOSED AGAIN, AND IT IS SMALLER ([[REQ-247]] §5). [[REQ-243]] opened the
+ * key to a free string because two capture forms on one site plainly want
+ * different mail and no literal in this repository can enumerate the copy a
+ * business wrote for itself. That was right about the problem and reached for
+ * the wrong store: the copy a FORM sends is now a page of the site that sends
+ * it, edited with `set_l1` like every other page, so nothing a form names is
+ * looked up here at all.
  *
- * THE ARGUMENT WAS RIGHT ABOUT THE FAILURE AND WRONG ABOUT THE SCOPE. Two
- * capture forms on one site plainly want different mail — a delivery on the
- * whitepapers page, a welcome on the beta page — and no literal in this
- * repository can enumerate the copy a business wrote for itself. So the key
- * became a free string and the property the closed set was protecting moved to
- * {@link templateKeysOf}, which answers *what does this business actually hold*
- * from the store's own contents; a form naming something else is refused at
- * publish, which is still authoring time.
+ * WHAT IS LEFT IS WHAT THE BUSINESS SENDS RATHER THAN WHAT A SITE SENDS.
+ * `invite` mints a sign-up link, `signin` mints a session, and `lapsed` says
+ * access has ended — three messages a BUSINESS sends to its own people, which is
+ * why they stay business-scoped tickets: a business with two sites has one
+ * sign-in email, not two.
  *
- * WHAT SURVIVES UNCHANGED is what these four keys MEAN. `invite` and `signin`
- * are what the identity flows send, `asset` is what a gated download renders,
- * and each is seeded into a business that has never had one. They are no longer
- * the only keys; they are still their own.
+ * `asset` IS GONE FROM THIS LIST AND THE OMISSION IS THE CHANGE. It was the copy
+ * a gated download rendered, and a gated download is exactly a form's message —
+ * so it moved, with the rest of them, to the site.
  */
-export const TEMPLATE_KEYS = ['invite', 'signin', 'lapsed', 'asset'] as const
+export const TEMPLATE_KEYS = ['invite', 'signin', 'lapsed'] as const
 
 /**
  * One of the seeded system keys.
@@ -398,87 +395,6 @@ export async function templateFor(store: TicketStore, key: string): Promise<Tick
 }
 
 /**
- * The keys the IDENTITY FLOWS own, and which a public capture form may never
- * name ([[REQ-243]] §4).
- *
- * DERIVED FROM WHAT THEY DO, NOT FROM A LIST SOMEBODY MAINTAINS. `invite` mints
- * a sign-up link that creates a member; `signin` mints a session. Both are
- * redeemable credentials with their own expiry and their own single use, and
- * both are sent from an authenticated act by somebody who already belongs to the
- * business. A form on a page anybody can reach is the opposite of that in every
- * respect, so it is refused the keys rather than trusted with them — [[BUG-86]]'s
- * rule again, one surface further along: remove the ability to misconfigure
- * rather than document the correct setting.
- *
- * `lapsed` IS NOT HERE, AND THE OMISSION IS THE POINT. Its call to action opens
- * an account the reader already has; there is nothing to redeem. What this list
- * names is credentials, not system templates in general — a form naming `lapsed`
- * is merely strange, and strange is the author's business.
- *
- * IT LIVES HERE BECAUSE THIS IS WHERE THOSE KEYS ARE DEFINED. `invites.ts` and
- * `sessions.ts` are the flows, and their keys are seeded in this file; the
- * `contact-form` contract cannot hold the rule because the ALLOWED set is a
- * business's own store, which `packages/framework` is upstream of and cannot see.
- */
-export const CREDENTIAL_TEMPLATE_KEYS: readonly string[] = ['invite', 'signin']
-
-/**
- * Every template key this business can actually send under, right now.
- *
- * THIS IS WHAT REPLACES THE CLOSED SET ([[REQ-243]] §2). `TEMPLATE_KEYS` used to
- * be both the vocabulary and the check; opening the vocabulary would have left
- * nothing checking, and *"a send that finds nothing at the moment somebody is
- * waiting for mail"* is the failure the closed set existed to prevent. So the
- * check reads the store instead of a literal, and a form is validated against it
- * at publish — still a refusal at authoring time, now sourced from the truth.
- *
- * THE SEEDED KEYS ARE IN IT EVEN WHEN NOBODY HAS WRITTEN THEM. {@link templateFor}
- * is seed-if-absent, so a business that has never been asked for its `asset`
- * template will be given one the first time a download is delivered. Reporting
- * those as missing would refuse a publish that is about to work perfectly.
- *
- * IT IS A SNAPSHOT AND IS READ ONCE PER PUBLISH. A site with six forms asks the
- * same question six times, and the answer cannot change between them.
- */
-export async function templateKeysOf(store: TicketStore): Promise<Set<string>> {
-  const { tickets } = await store.query({
-    predicate: `type=${TEMPLATE_TYPE}`,
-    sort: '-created_at',
-    limit: 'all',
-  })
-  const keys = new Set<string>(TEMPLATE_KEYS)
-  for (const ticket of tickets) {
-    const key = String(ticket.fields.template_key ?? '').trim()
-    if (key !== '') keys.add(key)
-  }
-  return keys
-}
-
-/**
- * Why this business's capture forms may not send under `key`, or null if they may.
- *
- * A SENTENCE AND NOT A CODE, because both callers put it in front of a person.
- * At publish it is the refusal the toolbar shows an author mid-edit; at the send
- * it is a log line an operator reads while wondering where a mail went. A code
- * would need a second table mapping it back to words, in two places.
- *
- * TWO REASONS AND THEY ARE DIFFERENT MISTAKES. A key nobody authored is a typo
- * or a template not written yet, and the fix is in the business's own copy; a
- * credential key is a thing this product will not do, and no amount of authoring
- * changes that. Saying which one it is saves an author from writing an `invite`
- * template and finding it still refused.
- */
-export function captureTemplateRefusal(key: string, available: ReadonlySet<string>): string | null {
-  if (CREDENTIAL_TEMPLATE_KEYS.includes(key)) {
-    return `'${key}' is a sign-in or sign-up message and a public form cannot send one.`
-  }
-  if (!available.has(key)) {
-    return `this business has no '${key}' template. Write one, or name a template it holds.`
-  }
-  return null
-}
-
-/**
  * Every template this business sends, seeding whichever are absent.
  *
  * The plural of {@link templateFor} rather than a second mechanism, so there is
@@ -591,40 +507,6 @@ export const SEED_TEMPLATES: Record<TemplateKey, SeedTemplate> = {
    * no ticket triggers it), and it is seeded anyway so that whoever does write
    * that trigger finds copy rather than an empty store.
    */
-  /**
-   * The asset a public form promised ([[REQ-223]] §5).
-   *
-   * IT IS THE ONE MESSAGE THIS PLATFORM SENDS TO AN ADDRESS IT HAS NEVER SEEN,
-   * and that is inherent to an email-gated asset rather than a hole. What keeps
-   * it from being a relay is that the CONTENT is entirely ours — this template,
-   * our links, our sending domain — and that the endpoint sends AT MOST ONE
-   * message per address per asset, ever.
-   *
-   * `{{cta_url}}` IS THE ASSET AND `{{asset_name}}` IS WHAT THE FORM CALLED IT,
-   * and BOTH are declared. A form may promise an unnamed download — the sender
-   * supplies a neutral fallback for that — so the name is never absent by the
-   * time it is rendered; declaring it is what refuses an EDIT that deletes the
-   * sentence naming what the recipient asked for, which is the one thing that
-   * makes an unsolicited-looking message legible.
-   */
-  asset: {
-    title: 'Requested download email',
-    subject: 'The download you asked for',
-    placeholders: ['cta_url', 'asset_name'],
-    body: [
-      '<p>Hello,</p>',
-      '<p>Here is {{asset_name}}, as you asked.</p>',
-      '<p><a href="{{cta_url}}" style="display:inline-block;padding:12px 20px;',
-      'background:#111111;color:#ffffff;text-decoration:none;border-radius:6px;',
-      'font-weight:600">Open your download</a></p>',
-      '<p>If that button does not work, copy the address below and paste it into',
-      'your browser:</p>',
-      '<p>{{cta_url}}</p>',
-      '<p>If you did not ask for this, you can ignore it — we will not send it',
-      'again.</p>',
-    ].join('\n'),
-  },
-
   lapsed: {
     title: 'Lapsed access email',
     subject: 'Your access has ended',

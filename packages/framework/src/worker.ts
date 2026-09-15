@@ -149,3 +149,16 @@ export type {
   ImageDeliverySource,
   ImageRendition,
 } from './l1/delivery'
+
+// [[REQ-247]] — an email a form sends is a page of the site.
+//
+// IN THE WORKER ENTRY BECAUSE EVERY CALLER IS ONE. The publish check refuses a
+// form naming a message that does not exist; the lead receiver renders the page
+// a submission mails; the control surface lists what a site holds. All three run
+// where the store's bindings are, and all three must ask the same question and
+// get the same answer.
+export { emailPagesOf, emailPageOf, emailPageRefusal } from './l1/email-pages'
+export type { EmailPageRef } from './l1/email-pages'
+export { renderL1Email, emailFontFamily, EMAIL_FONT_STACKS, EMAIL_FONT_CATEGORY } from './l1/email-render'
+export type { L1EmailRenderOptions } from './l1/email-render'
+export { defaultEmailDocument, EMAIL_CANVAS_PX } from './l2/email-page'

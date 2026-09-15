@@ -193,3 +193,12 @@ export type { ContactFormPresetField, ContactFormPresetOptions } from './l2/cont
 // instance never has to know which module happens to have a preset.
 export { presetSlots, hasSlotPreset } from './l2/presets'
 export type { SlotPresetBuilder } from './l2/presets'
+
+// [[REQ-247]] — an email a form sends is a page of the site. Re-exported from
+// the barrel as well as from the worker entry so a Node caller (the `1c` edit
+// surface, the test suite) reaches it the way it reaches everything else.
+export { emailPagesOf, emailPageOf, emailPageRefusal } from './l1/email-pages'
+export type { EmailPageRef } from './l1/email-pages'
+export { renderL1Email, emailFontFamily, EMAIL_FONT_STACKS, EMAIL_FONT_CATEGORY } from './l1/email-render'
+export type { L1EmailRenderOptions } from './l1/email-render'
+export { defaultEmailDocument, EMAIL_CANVAS_PX } from './l2/email-page'

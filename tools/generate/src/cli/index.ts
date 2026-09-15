@@ -1671,7 +1671,22 @@ async function dispatchEdit(
   }
 
   if (command === 'page') {
-    const writeOpts = { ...opts, title: str('title'), path: str('path'), seoMeta: jsonFlag('seo') }
+    // [[REQ-247]] — the same four email fields the control surface takes, so
+    // `1c` and the assistant author a message with one vocabulary.
+    const kind = str('kind')
+    const declared = str('placeholders')
+    const writeOpts = {
+      ...opts,
+      title: str('title'),
+      path: str('path'),
+      seoMeta: jsonFlag('seo'),
+      ...(kind === 'email' || kind === 'web' ? { kind: kind as 'web' | 'email' } : {}),
+      ...(str('subject') === undefined ? {} : { subject: str('subject') }),
+      ...(declared === undefined
+        ? {}
+        : { placeholders: declared.split(',').map((t) => t.trim()).filter((t) => t !== '') }),
+      ...(str('from') === undefined ? {} : { from: str('from') }),
+    }
     switch (sub) {
       case 'list':
         return editPageList(slug, opts)

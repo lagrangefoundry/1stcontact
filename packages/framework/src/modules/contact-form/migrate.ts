@@ -133,3 +133,26 @@ export function contactFormV6ToV7(instance: BehaviorInstance): BehaviorInstance 
   if (!gated) return instance
   return { ...instance, config: { ...instance.config, template: 'asset' } }
 }
+
+/*
+ * WHAT `'asset'` MEANS AFTER [[REQ-247]], stated here because this is the one
+ * place this repository writes that string into a stored form.
+ *
+ * IT STILL NAMES THE MESSAGE AND NO LONGER NAMES A TICKET. `config.template` is
+ * a page id now, so a migrated form names an email page called `asset` — which a
+ * site that has never had one does not hold, and publish refuses by name until
+ * somebody makes it.
+ *
+ * THAT REFUSAL IS THE CORRECT OUTCOME AND NOT A GAP. Nothing here can invent the
+ * words a business mails its own customers, and the alternative — materialising
+ * a page from the old seed copy — would put generic platform prose into a
+ * business's outgoing mail without anyone having read it, which is precisely
+ * what [[REQ-247]] §2 exists to make impossible. The refusal names the form, the
+ * message, and `add_page` with the email kind, so the fix is one call.
+ *
+ * AND IT IS WHY THE STRING DID NOT CHANGE. A delivery is remembered in the
+ * message ledger by the key the form named ([[REQ-243]]); keeping the value
+ * identical across the move is what makes a form that has already sent its
+ * welcome recognise its own history and not send a second one ([[REQ-247]]
+ * AC-13).
+ */

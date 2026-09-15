@@ -13,6 +13,7 @@ import { EMAIL_SENT, FORM_SUBMITTED } from '../apps/control-app/src/builder/cont
 import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 import { seedFormSite } from './support/lead-site'
+import type { SeedEmailPage } from './support/lead-site'
 
 /**
  * [[REQ-243]] — **a capture form chooses the email it sends.**
@@ -87,26 +88,44 @@ function leadEnv(): LeadEnv {
 const scopeOf = (businessId: string): Scope => ({ businessId })
 
 /**
- * Author one of this business's own templates.
+ * One message this site sends, as [[REQ-247]] made it: an email PAGE.
  *
- * WRITTEN AS AN ORDINARY TICKET, through the same store the operator's own
- * authoring goes through. A fixture that reached past the store would prove the
- * sender can read a value somebody planted, not that it can read a template a
- * business wrote — and the second is the claim.
+ * WHAT MOVED, AND WHY THE CLAIM IS UNCHANGED. This file's subject is that the
+ * form chooses the message, and it still is; what [[REQ-247]] changed is where
+ * the chosen message LIVES. It was a business-scoped ticket the sender fetched
+ * at send time, seeded on first use, so the first recipient of a new message was
+ * the first person to read it. It is now a page of the site the form is on —
+ * written into the same draft, frozen into the same revision, and edited with
+ * the same `set_l1` as every other page.
+ *
+ * SO THE COPY IS SEEDED THROUGH THE SITE STORE AND NOT THE TICKET STORE, which
+ * is the same fixture discipline as before rather than a relaxation of it: the
+ * sender reads a real published revision, so a message it can read is one a
+ * publish really put there.
  */
-async function writeTemplate(
-  tenantId: string,
-  key: string,
-  subject: string,
-  body: string,
-  placeholders: string[] = [],
-): Promise<void> {
+function message(id: string, subject: string, ...lines: string[]): SeedEmailPage {
+  return { id, subject, lines }
+}
+
+/**
+ * A business's own CREDENTIAL template, which is still a ticket ([[REQ-247]] §5).
+ *
+ * THE ONE THING THAT DID NOT MOVE, and it did not move for a reason worth
+ * stating where it is used: `invite`, `signin` and `lapsed` are sent by the
+ * BUSINESS and not by a site, so a business with two sites has one sign-in
+ * email rather than two. Only the templates a FORM names became pages.
+ *
+ * WRITTEN THROUGH THE TICKET STORE, so the credential copy under test is the
+ * real thing in the real place — which is the whole of what makes the refusal
+ * above worth asserting.
+ */
+async function writeCredentialTemplate(tenantId: string, key: string): Promise<void> {
   const store = await ticketStoreFor(leadEnv(), scopeOf(tenantId))
   await store.create({
     type: TEMPLATE_TYPE,
     title: `${key} for ${tenantId}`,
-    fields: { template_key: key, subject, placeholders },
-    body,
+    fields: { template_key: key, subject: `Your ${key} link`, placeholders: ['cta_url'] },
+    body: '<p><a href="{{cta_url}}">Open it</a></p>',
   })
 }
 
@@ -123,20 +142,21 @@ const submit = (site: { siteKey: string }, instanceId: string, email: string, se
     send ? { send: send as never } : undefined,
   )
 
+/**
+ * The two welcomes this file's sites hold, declared once.
+ *
+ * PER-SITE AND NO LONGER PER-BUSINESS, which is [[REQ-247]] §2's whole shape and
+ * worth seeing in the fixture. These used to be written once in `beforeAll`,
+ * because a template ticket belonged to the business and every site of it read
+ * the same one. A message is a page now, so it is seeded into each site that
+ * sends it — and two sites of one business holding different copy under one name
+ * stops being a thing to arrange and becomes the default.
+ */
+const BETA_COPY = message(BETA_WELCOME, 'Welcome to the beta', 'You are on the list. We will be in touch.')
+const LIST_COPY = message(LIST_WELCOME, 'Thanks for subscribing', 'You will hear from us when there is news.')
+
 beforeAll(async () => {
   await applySchema()
-  await writeTemplate(
-    TENANT,
-    BETA_WELCOME,
-    'Welcome to the beta',
-    '<p>You are on the list. We will be in touch.</p>',
-  )
-  await writeTemplate(
-    TENANT,
-    LIST_WELCOME,
-    'Thanks for subscribing',
-    '<p>You will hear from us when there is news.</p>',
-  )
 })
 
 describe('REQ-243 — a capture form chooses the email it sends', () => {
@@ -149,7 +169,11 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
    * having sent nothing.
    */
   it('test_UAT_FC_REQ-243_a_form_promising_no_assets_sends_the_message_it_names', async () => {
-    const site = await seedFormSite({ tenantId: TENANT, template: BETA_WELCOME })
+    const site = await seedFormSite({
+      tenantId: TENANT,
+      template: BETA_WELCOME,
+      emails: [BETA_COPY],
+    })
     const mailer = capturingMailer()
     const outcome = await submit(site, site.instanceId, 'beta@example.com', mailer.send)
 
@@ -197,6 +221,7 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
       instanceId: 'beta-form',
       template: BETA_WELCOME,
       alsoForms: [{ instanceId: 'list-form', template: LIST_WELCOME }],
+      emails: [BETA_COPY, LIST_COPY],
     })
     const mailer = capturingMailer()
     const address = 'both-forms@example.com'
@@ -298,6 +323,7 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
       instanceId: 'once-a',
       template: BETA_WELCOME,
       alsoForms: [{ instanceId: 'once-b', template: BETA_WELCOME }],
+      emails: [BETA_COPY],
     })
     const mailer = capturingMailer()
     const address = 'once@example.com'
@@ -318,28 +344,48 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
   })
 
   /**
-   * AC-6 — a capture form cannot name a template in a way that sends a
-   * redeemable sign-up or sign-in link. Asserted by attempting it.
+   * AC-6, and [[REQ-247]] AC-9 — a capture form cannot send a redeemable
+   * sign-up or sign-in link. Asserted by attempting it, with the real
+   * credential template sitting in the business's store the whole time.
    *
-   * REFUSED BEFORE ANYTHING IS READ, because it is a refusal about the FORM and
-   * not about the contact. `invite` mints a link that creates a member and
-   * `signin` mints a session; both are credentials with their own expiry and
-   * their own single use, and a public form a stranger can post to has no
-   * business sending either.
+   * THE REFUSAL BECAME STRUCTURAL AND THAT IS WHAT THIS NOW PROVES. [[REQ-243]]
+   * had to CHECK for `invite` and `signin` by name, because the template
+   * vocabulary was the business's entire ticket store and a form could name
+   * anything in it — a check in one branch of one function, which is a thing
+   * somebody can forget to write and which nothing but this test would notice
+   * the absence of. A form names an email PAGE now, and a credential template is
+   * not a page of any site, so there is no longer a check here to forget: naming
+   * `invite` is the same act as naming anything else the site does not hold.
    *
-   * REACHABLE ONLY FROM A DRAFT, because publish refuses it outright — which is
-   * why the answer here is a reported refusal rather than an exception. The
-   * builder's own preview submits against a draft and nothing validates one.
+   * SO THE CREDENTIAL TEMPLATE IS DELIBERATELY WRITTEN FIRST, and the test is
+   * worth little without it. A business that held no `invite` would prove only
+   * that a missing thing cannot be sent. Writing the real one — into the real
+   * store, under the real key, through the same `templateFor` reads from —
+   * makes the claim the sharp one: the copy IS there, a stranger's form names
+   * exactly it, and the send still reaches nothing, because a form and a
+   * credential template no longer share a namespace to collide in.
+   *
+   * REACHABLE ONLY FROM A DRAFT, because publish refuses it outright and so does
+   * the operation that configures the form — which is why the answer here is a
+   * reported outcome rather than an exception. The builder's own preview submits
+   * against a draft and nothing validates one.
    */
   it('test_UAT_FC_REQ-243_a_capture_form_cannot_send_a_signin_or_an_invite', async () => {
     for (const key of ['invite', 'signin']) {
-      const site = await seedFormSite({ tenantId: TENANT, template: key })
+      await writeCredentialTemplate(TENANT, key)
+      // NOT MATERIALISED AS A PAGE, which is the state under test: the form
+      // names `invite`, and this site — like every site — holds no email page
+      // called that.
+      const site = await seedFormSite({ tenantId: TENANT, template: key, omitEmails: [key] })
       const mailer = capturingMailer()
       const outcome = await submit(site, site.instanceId, `cred-${key}@example.com`, mailer.send)
 
       // The lead is still captured — the refusal is about the message.
       expect(outcome.accepted).toBe(true)
-      expect(outcome.message).toEqual({ sent: false, skipped: 'reserved_template' })
+      // THE ORDINARY "NO SUCH MESSAGE", and no longer a `reserved_template` of
+      // its own. One fewer state for a reader to learn, and one fewer branch for
+      // a credential to be let through by.
+      expect(outcome.message).toEqual({ sent: false, skipped: 'no_template' })
       expect(mailer.sent).toHaveLength(0)
       // AND NO CREDENTIAL WAS MINTED OR RECORDED. The capture path mints no
       // token of any kind, so the refusal is what stops the message going at
@@ -359,7 +405,11 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
    * moment a stranger is receiving them.
    */
   it('test_UAT_FC_REQ-243_a_template_the_business_does_not_hold_is_reported_not_invented', async () => {
-    const site = await seedFormSite({ tenantId: TENANT, template: 'never-written' })
+    const site = await seedFormSite({
+      tenantId: TENANT,
+      template: 'never-written',
+      omitEmails: ['never-written'],
+    })
     const mailer = capturingMailer()
     const outcome = await submit(site, site.instanceId, 'missing@example.com', mailer.send)
 
@@ -390,14 +440,14 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
    */
   it('test_UAT_FC_REQ-243_a_token_the_capture_path_cannot_fill_is_refused_at_render', async () => {
     const key = 'welcome-with-a-link'
-    await writeTemplate(
-      TENANT,
-      key,
-      'Your link',
-      '<p><a href="{{cta_url}}">Open it</a></p>',
-      ['cta_url'],
-    )
-    const site = await seedFormSite({ tenantId: TENANT, template: key })
+    // DECLARED ON A PAGE NOW, and the declaration is the same promise it was on
+    // a ticket: *this copy carries `{{cta_url}}`*. What the form sending it does
+    // not have is anything to put there.
+    const site = await seedFormSite({
+      tenantId: TENANT,
+      template: key,
+      emails: [{ id: key, subject: 'Your link', placeholders: ['cta_url'] }],
+    })
     const mailer = capturingMailer()
 
     await expect(
@@ -409,27 +459,34 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
   })
 
   /**
-   * AC-7 — the business's own templates are read from its own store; two
-   * businesses may hold different copy under the same key with no platform-only
-   * branch.
+   * AC-7 — two businesses may hold different copy under the same name, with no
+   * platform-only branch.
    *
    * THE TENANCY CASE IS WHAT THE DESIGN RESTS ON, exactly as [[REQ-197]]'s own
-   * file says: opening the vocabulary is only safe because the vocabulary is a
-   * business's own, and a claim of that shape is worth what the test that two
+   * file says: opening the vocabulary is only safe because the vocabulary is
+   * somebody's own, and a claim of that shape is worth what the test that two
    * businesses cannot see each other's is worth.
+   *
+   * AND [[REQ-247]] MADE THE ISOLATION STRUCTURAL RATHER THAN SCOPED. The copy
+   * used to be a business-scoped ticket, so two businesses were kept apart by
+   * the sender asking the right store — correct, and a thing a bug could get
+   * wrong. Copy is a page of a site now, and a site belongs to exactly one
+   * business, so the two messages here are not two rows the sender must pick
+   * between: they are pages of two different sites, in two different revisions,
+   * reachable only through the site key the submission itself named.
    */
   it('test_UAT_FC_REQ-243_two_businesses_hold_different_copy_under_one_key', async () => {
     const key = 'house-welcome'
-    await writeTemplate(TENANT, key, 'Welcome from the studio', '<p>The studio writes this.</p>')
-    await writeTemplate(
-      OTHER_TENANT,
-      key,
-      'Welcome from the plumber',
-      '<p>The plumber writes this.</p>',
-    )
-
-    const mine = await seedFormSite({ tenantId: TENANT, template: key })
-    const theirs = await seedFormSite({ tenantId: OTHER_TENANT, template: key })
+    const mine = await seedFormSite({
+      tenantId: TENANT,
+      template: key,
+      emails: [message(key, 'Welcome from the studio', 'The studio writes this.')],
+    })
+    const theirs = await seedFormSite({
+      tenantId: OTHER_TENANT,
+      template: key,
+      emails: [message(key, 'Welcome from the plumber', 'The plumber writes this.')],
+    })
 
     const a = await submit(mine, mine.instanceId, 'mine@example.com', capturingMailer().send)
     const b = await submit(theirs, theirs.instanceId, 'theirs@example.com', capturingMailer().send)

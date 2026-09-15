@@ -5,7 +5,7 @@ type: request
 title: An email a form sends is a page of the site
 created_by: EPIC-10
 created_at: '2026-09-14T21:31:04.642575+00:00'
-updated_at: '2026-09-15T00:13:03.428978+00:00'
+updated_at: '2026-09-15T00:16:45.157742+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -167,6 +167,17 @@ message a form sends is refused and the refusal names the form that sends it. Th
 same protection as §4 read from the other end: there, a form is stopped from naming a
 message that does not exist; here, a message a form names is stopped from ceasing to.
 
+**A message is reached by the form that sends it, never by a link.** [[REQ-248]] marks a page
+nothing links to, because such a page cannot be opened at all and the mark is the only signal
+that it is either deliberate or forgotten. A message is a page nothing may *ever* link to, so
+read in that vocabulary every message a site holds is stranded — and a mark that fires on
+correct work is one an author learns to scroll past, which costs the genuinely stranded page
+the only signal it had. The question is therefore asked in the right vocabulary: what reaches
+a message is the form whose `template` names it, and what strands one is no form naming it,
+which is a true and useful thing to be told because a message nothing sends is copy nobody
+will ever receive. The wording follows the vocabulary — telling an author that nothing
+*links* to a page nobody can visit would send them looking for a link they must never add.
+
 ## 8. Further acceptance criteria
 
 13. A form that has already sent a message does not send it again after this change. The
@@ -181,3 +192,5 @@ message that does not exist; here, a message a form names is stopped from ceasin
     other page. Changing one of them leaves the others intact.
 17. Removing an email page while a form still names it is refused, and the refusal names the
     form that sends it.
+18. A message a form names is not reported as unreachable, and a message no form names is —
+    with wording that names the form that is missing rather than a link.
