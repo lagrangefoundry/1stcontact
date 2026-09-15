@@ -6,10 +6,10 @@ title: The capture path reads a stored form under current rules whatever version
   was written at
 created_by: EPIC-10
 created_at: '2026-09-15T19:45:15.667229+00:00'
-updated_at: '2026-09-15T19:46:03.689781+00:00'
+updated_at: '2026-09-15T21:55:03.503969+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   severity: high
