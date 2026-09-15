@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T19:43:15.351284+00:00'
+updated_at: '2026-09-15T19:46:23.047012+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1606,5 +1606,44 @@ No back-compat, and I gave the reason beyond "it's only test rows": a compatibil
 <!-- xgd-chat role="user" ts="2026-09-15T19:43:15.071634+00:00" -->
 #### You
 please file ticktes for those too
+
+<!-- xgd-turn id="28bc7a80-1cdd-4bc5-93e0-7107f8556f13-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T19:46:20.977965+00:00" -->
+#### Claude
+Let me ground (2) and (3) before filing, so the tickets aren't speculative.
+
+`editPageRm` throws on every refusal — no silent-success path — so I won't overclaim on that one. Filing all three now.
+
+`task` isn't a valid type here. Retrying as `todo`.
+
+All four filed, with UAT filenames carrying their real ids.
+
+| | | severity / priority |
+|---|---|---|
+| **BUG-93** | Form submission resolves to the wrong component | high / high |
+| **BUG-94** | Email page can't be opened — draft preview withholds what only publish should | high / high |
+| **BUG-95** | Capture path reads a stored form under current rules whatever version it was written at | high / medium |
+| **TODO-8** | Remove the orphan `papers` page, confirm the removal lands | — / low |
+
+## The two new ones worth reading
+
+**BUG-95** turned out bigger than "home is still v5." Migration is an explicit act — `upgradeSiteModules` runs only from an API route and a CLI command, deliberately, because an upgrade can drop config keys. But the capture path never asks what version it's reading: `instancesOf` returns raw stored modules and `instance.version` is consulted nowhere in `lead.ts`.
+
+So between a module gaining a version and someone running the upgrade, **old data is interpreted by new code**. For `contact-form` that has a concrete silent failure: a v5 instance declares its download as `asset`/`assetName`/`assetUrl`, v7's `assetsIn` looks for a list called `assets`, finds nothing, reads the absent `template` as *send nothing* — and a form that was gating a download stops delivering while reporting success.
+
+That's the exact failure `contactFormV6ToV7` was written to prevent. Its header calls it *"an artifact somebody asked for silently never arriving… arriving through the door nobody was watching."* The migration is correct and doesn't run. Your home form is the benign instance of it — and the ticket says plainly that the benign outcome is a coincidence, not a design.
+
+**BUG-94** records that the cause is my REQ-247 wording, not the implementation: §2 says "never served" unqualified, AC-1 requires the page be openable and stylable, and the implementation reasonably took the broad reading. The fix is the distinction the ticket failed to draw — publish withholds the bytes, draft preview renders them through the email target that already exists and is tested.
+
+## On TODO-8
+
+I didn't file the "removal didn't take" claim as a defect. `editPageRm` refuses loudly on every path — `NOT_FOUND`, `REFERENTIAL_INTEGRITY`, and REQ-247's form check — with no branch that reports success and leaves the page, and nothing names `papers`, so none would have fired. The likelier explanation is the call was never made. The ticket records the sighting so a second one is recognised as a second one, and says: if the removal reports success and the page is still listed, re-file it as a defect with a reproduction.
+
+## Where this leaves the original problem
+
+BUG-93 is the blocker. Until it lands, the whitepapers form will keep resolving to home's config and mailing nobody, no matter how correctly it's configured. BUG-94 is what you'll need immediately after, to see the email that finally sends.
+
+One thing I'd flag: three of these four were found by reading your dev database rather than the code. The config looked right, the tests pass, and the product was silently doing something else — worth remembering when the next one of these goes quiet.
 
 <!-- xgd-chat-end -->
