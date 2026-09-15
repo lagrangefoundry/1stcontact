@@ -5,9 +5,9 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-15T23:21:45.643779+00:00'
+updated_at: '2026-09-15T23:22:07.801154+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -151,7 +151,21 @@ remove — with the dangerous ones constrained rather than merely documented:
 
 ## Children
 
-None yet.
+| | | |
+| --- | --- | --- |
+| [[REQ-249]] | the `1stc.site` hostname field | the box, the check, the lock-in dialog |
+| [[REQ-250]] | the publish refusal | [[REQ-238]]'s 409, as a modal with a way out |
+| [[REQ-251]] | the hostname assistant | reconcile the declaration, sync the pane |
+
+Scoped on 2026-09-15. [[REQ-251]] depends on [[REQ-249]]: it reconciles the
+assistant's wording against that ticket's copy and refreshes that ticket's
+section, so building it first would mean reconciling against wording that does
+not exist. [[REQ-250]] is independent but wants [[REQ-249]] first, because its
+one button has nowhere to go until the field exists.
+
+**Their subject is [[EPIC-4]]'s**, whose title names `1stc.site` management
+directly and which parents [[REQ-238]]. That epic is `done`, so they are parented
+here rather than reopening it.
 
 
 ## Siblings
