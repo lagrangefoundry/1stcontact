@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T23:21:38.243839+00:00'
+updated_at: '2026-09-15T23:23:31.175869+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1938,5 +1938,55 @@ If it still doesn't arrive, the next thing I'd read is `contact_events` for the 
 <!-- xgd-chat role="user" ts="2026-09-15T23:21:36.700598+00:00" -->
 #### You
 See bug 96 transcript
+
+<!-- xgd-turn id="261d49ab-8d6b-45a0-bec4-d0bb25c46660-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T23:23:30.777289+00:00" -->
+#### Claude
+BUG-96 is an empty stub — the content is in its chat transcript. Let me read that.
+
+That's the same `form_handle` error — but timestamped **23:21:00Z**, which is 45 minutes *after* I applied the migration at 22:36:32Z. So it recurred. Let me find out why.
+
+Schema is correct *now* — `form_handle` present, `0009` applied. So the file is right and the running worker isn't seeing it.
+
+That `pgrep` matched my own process text — there's exactly **one** dev server, pid 34688, and it's been running since before the migration. Let me check one oddity in the ticket link.
+
+BUG-96 is the same error I fixed at 22:36:32Z — its report is timestamped **23:21:00Z**, 45 minutes later. The transcript is correctly linked (`bug-400041c0` = BUG-96); the ticket body itself is an empty stub, "Untitled" / "(new ticket)".
+
+## Why it came back
+
+**Your dev server never restarted.** Pid 34688 has been running since before the migration.
+
+`wrangler d1 migrations apply --local` writes the SQLite file directly — it told us so: *"Executing on local database … from .wrangler/state/v3/d1"*. But miniflare's D1 is a Durable Object (`miniflare-D1DatabaseObject`) holding an open handle on that file. I renamed the column underneath a running process that had its own view of the schema, so the worker kept serving the old one.
+
+The disk is correct right now:
+
+```
+asset_grants: id, contact_id, business_id, site_id, form_handle, created_at, revoked_at
+d1_migrations: … 0009_asset_grant_form_handle.sql
+```
+
+I did flag the restart twice, but I applied the migration under a live server rather than telling you to stop it first — that's what made this land as a fresh confusing failure instead of a clean one.
+
+## Do this
+
+```
+Ctrl-C the wrangler dev process
+pnpm dev          # or pnpm dev:control for just the builder
+```
+
+Then submit the whitepapers form. Nothing else needs changing — schema, code, form config and the email page are all in place.
+
+## On BUG-96
+
+It's not a product defect. The operator-facing message *"This site cannot take messages at the moment"* is the frozen acknowledgement working as designed — `lead.ts` reports and never renders, so the real cause goes to the logs and never to the visitor. That part behaved correctly.
+
+I'd close it as an environment issue. But there's a real ticket hiding underneath it, and it's the reason this thread has three separate instances of the same confusion:
+
+**Nothing tells you your local database is behind your code.** Production has `bin/deploy.d/migrate/10-d1-site-store`, which applies migrations before upload and aborts the deploy if they fail — explicitly so that *"a Worker whose code assumes a column that does not exist yet"* can't reach traffic. Local has no equivalent. A `git pull` brings new code and new migrations, and you find out from a SQLITE_ERROR in a log.
+
+A check at dev startup — compare `d1_migrations` against `db/migrations/`, and refuse to start or warn loudly if behind — would have turned this into one clear message on day one. Small, and it pays for itself immediately given how much of this week it cost.
+
+Want me to file that, and close BUG-96 pointing at it?
 
 <!-- xgd-chat-end -->
