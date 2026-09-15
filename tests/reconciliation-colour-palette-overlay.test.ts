@@ -84,7 +84,7 @@ function siteWith(
     ...base,
     ...(extra.palette ? { palette: extra.palette } : {}),
     pages: [
-      { id: 'home', slug: '', title: 'Home', modules: extra.modules ?? [], l1: doc },
+      { id: 'home', slug: 'home', title: 'Home', modules: extra.modules ?? [], l1: doc },
     ],
   }
 }

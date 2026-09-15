@@ -63,7 +63,7 @@ function siteWith(root: L1Node): Record<string, unknown> {
     pages: [
       {
         id: 'home',
-        slug: '',
+        slug: 'home',
         title: 'Home',
         modules: [],
         l1: { widths: WIDTHS, root } satisfies L1Document,

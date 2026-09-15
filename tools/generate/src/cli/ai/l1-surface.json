@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 10,
+  "surface_version": 11,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -12,7 +12,7 @@
     },
     "page_id": {
       "base": "string",
-      "description": "A page's id — short, lowercase, no spaces. Not its title and not its address in the site."
+      "description": "A page's id — short, lowercase, one word: no spaces and no slashes. Not its title and not its address in the site."
     },
     "config_key": {
       "base": "string",
@@ -460,7 +460,7 @@
         "page": {
           "type": "page_id",
           "required": true,
-          "description": "The new page's id — short, lowercase, no spaces."
+          "description": "The new page's id — short, lowercase, one word: no spaces and no slashes."
         },
         "title": {
           "type": "string",
@@ -468,7 +468,7 @@
         },
         "path": {
           "type": "string",
-          "description": "Its address in the site. Defaults to the page id."
+          "description": "Its address in the site \u2014 **one segment**, no slashes. Every page sits flat at the top level, so a download page under a papers section is `papers-download`, not `papers/download`. Letters, digits, `-`, `_` and `.`, starting with a letter or digit. Defaults to the page id."
         },
         "seo": {
           "type": "object",
@@ -515,7 +515,7 @@
         },
         "path": {
           "type": "string",
-          "description": "The new address in the site."
+          "description": "The new address in the site \u2014 **one segment**, no slashes. Every page sits flat at the top level: `papers-download`, not `papers/download`."
         },
         "seo": {
           "type": "object",

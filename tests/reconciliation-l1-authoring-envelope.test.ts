@@ -59,7 +59,7 @@ function rootOf(children: L1Node[]): L1Node {
 function pageWith(root: L1Node, id = 'home'): Record<string, unknown> {
   return {
     id,
-    slug: id === 'home' ? '' : id,
+    slug: id,
     title: id,
     modules: [],
     l1: { widths: WIDTHS, root } satisfies L1Document,
