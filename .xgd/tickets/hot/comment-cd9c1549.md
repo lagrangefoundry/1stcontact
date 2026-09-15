@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T23:07:08.820849+00:00'
+updated_at: '2026-09-15T23:09:54.782838+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1816,5 +1816,66 @@ Your database may not be available to serve requests during the migration, conti
 🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-09-15_23-05-58_116.log"
 
 ```
+
+<!-- xgd-turn id="86fed963-3532-4601-bb8f-688419079855-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T23:09:54.721481+00:00" -->
+#### Claude
+The hook aborted before uploading — working exactly as designed. But the cause is upstream of `0002`. Let me look at what production actually has.
+
+Production records `0001_baseline.sql` as applied — but its tables are a *subset* of what that file now creates. Let me confirm what I suspect.
+
+`0001_baseline.sql` has been edited by ten separate feature commits since production applied it. Let me confirm the immediate failure in `0002`.
+
+Found the whole chain. Let me check how much is actually in production before recommending anything.
+
+One more check — this decides whether "wipe and reapply" actually works.
+
+Let me verify the wipe-and-reapply path actually works, on a throwaway database, before recommending it.
+
+**Verified: all nine migrations apply cleanly to a fresh database** — 23 tables, `asset_grants.form_handle` correct at the end. So the recovery path works. I haven't touched production.
+
+## What's actually wrong
+
+`0001_baseline.sql` is being treated as a living file. It's been edited by **ten feature commits** since production applied it:
+
+```
+0b0eb76367 feat(gate): a per-contact link…
+2272ca739e feat(contacts): user acceptances…
+fc5c78dbe5 feat(sessions): consume auth-passwordless…   ← added `sessions`
+d1b3fa897b feat(identity): accounts table…
+13d686aaf0 feat(identity): contact_events…
+…and five more
+```
+
+But `d1_migrations` records `0001_baseline.sql` as applied-once. **An edit to it reaches no database that already ran it.**
+
+Production applied its baseline on **6 Sep ~17:39**. `sessions` was added to the baseline later the same day. So production has no `sessions` table — and `0002_session_rotation.sql:40` is:
+
+```sql
+ALTER TABLE sessions RENAME TO sessions_pre_rotation;
+```
+
+Hence `no such table: sessions`. Every later migration would have failed against production too, for the same underlying reason.
+
+Production is missing eight tables the current baseline creates: `accounts`, `user_emails`, `user_names`, `contact_events`, `user_acceptances`, `asset_grants`, `ticket_changes`, `ticket_change_floor`.
+
+**The project knows this rule** — `0009`'s own header states it, *"the baseline has been applied to the local and the remote database… so an edit reaches neither. Same reasoning as `0005`, `0007` and `0008`."* The discipline is in place from `0005` onward. The damage was done by the ten commits before it, and production has been stranded ever since.
+
+One correction to what I told you earlier: I said local proves the path works. It doesn't — local applied its baseline on 6 Sep at 21:50 and `0002` six days later, so local's schema is a hybrid too. That's why I built the scratch database above rather than relying on it.
+
+## What I'd do
+
+**Wipe and reapply.** Production holds exactly one row — the `1st Contact` tenant, created 6 Sep. No users, sites, tickets, memberships or entitlements. Drop every table, clear `d1_migrations`, then `bin/deploy` reapplies `0001`–`0009` from scratch. The `database_id` is unchanged, so no config edit.
+
+There's precedent in your own tooling — `bin/seed`'s header records that **REQ-190 "replaced nine migrations with one baseline and wiped the database rather than migrating it."** This is the same move for the same reason.
+
+The alternative — a `0010` repair migration creating the missing tables `IF NOT EXISTS` and guarding `0002`'s rename — has to be idempotent across two schema shapes and leaves production on a permanently different lineage from local. More work, more risk, no upside when the data cost is one tenant row.
+
+**I'm not running this without you saying so.** Dropping a production database is irreversible, and the one thing worth checking first is whether anything recreates that tenant row on bootstrap, or whether you'd re-onboard by hand.
+
+## Separately
+
+The structural defect will recur the moment someone edits the baseline again — and it's silent until a deploy hits a database that's behind. Worth a ticket: *the baseline must be immutable once applied; a schema addition is a new numbered migration.* Possibly with a CI check that fails if `0001_baseline.sql` changes. Want me to file it?
 
 <!-- xgd-chat-end -->
