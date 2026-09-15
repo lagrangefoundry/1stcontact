@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T23:13:10.511466+00:00'
+updated_at: '2026-09-15T23:14:05.744327+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -364,5 +364,44 @@ Shall I write A and B up under EPIC-5 now?
 <!-- xgd-chat role="user" ts="2026-09-15T23:13:10.453281+00:00" -->
 #### You
 Can I also have a ticket for the AI experience? I need to expose the availability API as a tool
+
+<!-- xgd-turn id="b141d9f8-bdc0-4440-966d-37b40bd22ee2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T23:14:05.569431+00:00" -->
+#### Claude
+Yes — but let me show you what's already there first, because the ticket is a different one than "expose the API as a tool."
+
+## The tool is exposed, end to end
+
+I traced the whole chain:
+
+| | |
+|---|---|
+| `settings-surface.json` | declares `check_hostname`, `claim_hostname`, `read_addresses` |
+| `settings-core.ts:339` | implements `check_hostname` |
+| `settings-core.ts:384` | installs it as an own method on `SettingsToolbox` |
+| `settings-core.ts:205` | grants the `ReadAddresses` group that contains it |
+| `host-core.ts:1060-1071` | composes the toolbox and feeds `box.schemas()` to the Claude backend |
+| `business.ts:425` | binds it to the real `checkHostname` |
+
+It also already carries the behaviour you asked for in your (5) — the declared sequence says to check *"as many candidates as it takes, and you may check several before saying anything, so that what you offer is a short list of names that are actually free"*, and an `absences` entry forbids claiming on the customer's behalf.
+
+**What I have not done is run it.** The wiring is complete; whether the model actually behaves that way in a real conversation is unverified. That's the honest boundary on what I'm claiming.
+
+## The real ticket, and it's worth having
+
+Three things genuinely aren't done, and two of them are created by the UX we just designed:
+
+**1. The pane and the chat sit side by side and don't know about each other.** The Settings tab is a split — pane left, `settingsChat` right (`app.js:917-923`). The site chat gets `onSiteChanged: () => panel.reloadDocument()`. The settings chat gets **no equivalent callback at all**. So if the assistant claims a hostname, the field beside it goes on showing an empty text box, and the customer is looking at two contradictory statements of the same fact. Both are on screen at once, which is what makes it a bug rather than a staleness question.
+
+**2. The surface's copy predates ticket A.** We just settled a vocabulary — "free web address", three distinct refusal words, "for your business", *"that one went while you were deciding"*. The declaration has its own wording for the same rules. Two statements of one set of rules drift, and when they drift the customer gets one story from the field and another from the assistant sitting next to it, with no way to tell which is right. The surface should be reconciled against A's copy as part of this.
+
+**3. Nobody has driven it.** Does it check several before speaking? Does it hold the line on never claiming for them? Does it say the whole host back rather than the bare label? All declared, none observed.
+
+So I'd write it as **C — "The hostname assistant: reconcile the surface with the built experience, and keep the pane and the chat in step"**, with the pane/chat sync as the substantive build and the rest as verification against A.
+
+One ordering consequence: **C depends on A**, since it reconciles against A's copy and syncs A's field. So A → B and C after.
+
+Shall I write all three now? A and B as we settled them, C as above.
 
 <!-- xgd-chat-end -->
