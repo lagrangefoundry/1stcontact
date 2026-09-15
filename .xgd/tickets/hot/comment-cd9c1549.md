@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T22:53:09.887716+00:00'
+updated_at: '2026-09-15T22:53:46.277821+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1703,5 +1703,58 @@ Tell me how the form behaves now.
 <!-- xgd-chat role="user" ts="2026-09-15T22:53:09.832826+00:00" -->
 #### You
 How do I apply migrations?
+
+<!-- xgd-turn id="33c1e329-4ae9-404e-9e72-d7a4e750788e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T22:53:45.811844+00:00" -->
+#### Claude
+Let me check whether the project has its own convention rather than hand you raw wrangler commands.
+
+Found it — production migrations aren't a manual step at all.
+
+## Local (what you just hit)
+
+From `apps/control-app`:
+
+```bash
+npx wrangler d1 migrations list  1stcontact --local   # what's pending
+npx wrangler d1 migrations apply 1stcontact --local   # apply it
+```
+
+`migrations_dir` is declared in `wrangler.toml`, so you never pass a path. This is what I ran for you — you're at `0009` now. Restart `wrangler dev` after applying, since it's been holding that file across a schema change.
+
+## Production — you don't
+
+That's the real answer to your question. `bin/deploy` does it, as a hook that runs **before** the Worker is uploaded:
+
+```
+bin/deploy.d/migrate/10-d1-site-store
+```
+
+which runs `wrangler d1 migrations apply 1stcontact --env "$DEPLOY_ENV" --remote`, and aborts the deploy if it fails. The hook's own reasoning:
+
+> *A Worker whose code assumes a column that does not exist yet fails at request time, on production traffic, with an error that names SQLite rather than the deploy that caused it. Failing here instead costs a deploy and nothing else.*
+
+So:
+
+```bash
+bin/deploy --dry-run            # rehearse: hook LISTS instead of applying,
+                                # still reaches Cloudflare so a bad token or
+                                # binding surfaces here rather than mid-deploy
+bin/deploy                      # every app, --env production
+bin/deploy control-app          # just the one with the DB binding
+```
+
+The hook gates on `control-app` — it's the only Worker with a `DB` binding; public-site only serves bytes from R2.
+
+## Which means production's eight pending migrations tell you something
+
+If migrations are applied by deploying, and production is stuck at `0001`, then **`bin/deploy` has never successfully completed against production.** That fits everything else I found there: one tenant, zero sites, zero revisions, zero tickets, and baseline-only schema.
+
+Same mechanism explains the `RESEND_API_KEY` oddity from Monday — the key *is* in the secret store, which means `bin/deploy.d/secrets/20-resend-api-key` ran at some point. So a deploy has been attempted. Worth knowing whether it aborted in the migrate hook, which is exactly the failure that hook is designed to produce.
+
+`bin/deploy --dry-run` will tell you, safely — it makes no change, and it exercises the same hook sequence and the same credentials as the real thing.
+
+I'd start there before running the real one. The two migrations I'd read first are `0005_retire_site_slug` and `0007_business_name_unique`, since those rewrite existing rows rather than just adding to them — though with production holding zero sites there may be nothing there to rewrite.
 
 <!-- xgd-chat-end -->
