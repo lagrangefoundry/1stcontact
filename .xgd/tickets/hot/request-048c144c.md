@@ -5,10 +5,10 @@ type: request
 title: An email a form sends is a page of the site
 created_by: EPIC-10
 created_at: '2026-09-14T21:31:04.642575+00:00'
-updated_at: '2026-09-15T00:23:06.356637+00:00'
+updated_at: '2026-09-15T00:24:29.438868+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
@@ -17,6 +17,17 @@ fields:
   chat_comment: comment-5b9685d2
   depends_on:
   - request-10200dc8
+  commits:
+  - working_sha: 4c87210002cc0013854876c73b392ae210cf87f1
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8cef26848147e7043a8bc99541e30bec3677e243
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3d7f305963309a55f673cf958a7cac2f5240f187
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.202
 ---
 
 # An email a form sends is a page of the site
