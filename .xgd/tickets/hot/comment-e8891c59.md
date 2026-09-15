@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T21:53:14.076823+00:00'
+updated_at: '2026-09-15T21:54:30.683056+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -139,5 +139,82 @@ I haven't touched the ticket yet — say the word once you're happy with the fra
 They are in the same account that everything is running from.
 
 Question: how do we know to associate certain domains with a particular account?
+
+<!-- xgd-turn id="b2943e3a-d43b-4386-b3cd-f03f579fbdd4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T21:54:30.308549+00:00" -->
+#### Claude
+Good — that removes the trap case for your own domains entirely. They're already in the right Cloudflare account and already active; nothing has to move.
+
+## The short answer: Cloudflare can't tell us, so we record it at the moment of intent
+
+There's no field on a Cloudflare zone that means "this belongs to customer 47." Everything in the account looks equally like ours, because it *is* ours — that's the whole point of the model. So the association is a fact we write down, and the only reliable source for it is **how the zone got there.** There are exactly three ways, and each one has an account identity present at the moment it happens:
+
+| How the zone arrives | Where `account_id` comes from | Ambiguity |
+|---|---|---|
+| **We registered it** (EPIC-6) | the account that paid | none — it's a property of the purchase |
+| **They pointed nameservers at us** | the logged-in account that started the flow | the interesting case, below |
+| **Operator attaches an existing zone** | an operator names the account | none — human decision, recorded |
+
+The third is your case: your domains are already there, so attribution is a **backfill**, not a flow. One operator route, run once. Not worth designing a customer experience around.
+
+## The second case is where the design actually lives
+
+The sequence has a chicken-and-egg in it: we can't tell them which nameservers to use until the zone exists in our Cloudflare account, because Cloudflare assigns the pair when the zone is added. So the zone must be created *before* any proof of ownership exists.
+
+Which means the association is created by a **claim**, and confirmed by a **proof**, and they're separated in time:
+
+- **Claim** — customer types `alicesplumbing.com` while logged in. We create the Cloudflare zone, write `zones(apex, account_id, status='pending')`, and hand back the assigned nameserver pair. Nothing is proven.
+- **Proof** — the nameservers actually change. **This is the proof, and it's a good one**: you cannot repoint nameservers without registrar access. Cloudflare flips its own zone from `pending` to `active` when it observes the change, so we don't implement the check — we mirror it.
+
+This is structurally identical to REQ-238's `check`/`claim` split, which is a good sign. There, a check reserves nothing and the unique index is the authority. Here, a claim proves nothing and the nameserver change is the authority. Same shape, same reasoning.
+
+## The squatting problem, and why it's smaller than it looks
+
+If claiming creates a zone, what stops someone typing `google.com`? Two things, and they cover most of it:
+
+**Cloudflare refuses outright** if the zone is active in another Cloudflare account — which is precisely the mechanism the ticket already describes as making case (3) painful. So every domain already on Cloudflare anywhere is simply unclaimable. That's a large fraction of the domains worth squatting.
+
+**For the rest, the claim is weak and expires.** A `pending` zone that never sees a nameserver change is deleted after some window (14 days feels right) and the apex returns to the pool. The real cost of a squat is that it locks the apex inside *our* Cloudflare account, since CF allows one zone per apex per account — so a second, legitimate claimant hits "that domain is already being set up." That's rare enough to be a support path rather than a self-service one, and an operator release covers it.
+
+What I'd avoid is adding a separate ownership-verification step (a TXT record, an email to `admin@`). It's a second proof of the same fact, it adds a step to the one flow that already has the most steps in it, and the nameserver change subsumes it completely.
+
+## A property this ordering gives you for free
+
+Because the zone exists in `pending` before cutover, we get a window where **the zone is ours and populated, but nothing resolves from it yet.** That's exactly the window the preservation work needs:
+
+1. Create the zone (pending) — we now have somewhere to write.
+2. Sweep their live DNS from outside, against their *current* authoritative nameservers, plus Cloudflare's own scan, plus the DKIM selector probing the ticket describes.
+3. Write everything into the pending zone, including our records.
+4. *Then* show them the nameservers.
+
+By the time they paste, the zone is already a complete copy of what's live plus what we're adding. The cutover becomes a no-op in terms of what resolves — which is what makes "their mail survives" a structural property rather than something we're hoping for. The current ticket describes snapshot-and-copy but not this ordering, and the ordering is the thing that makes it true.
+
+## Two hard guards
+
+**`1stc.site` and `1stcontact.io` must be permanently unattributable.** They're in the same Cloudflare account and they'll show up in any naive zone listing. `1stc.site` in particular holds *every* customer's platform hostname — attributing it to one account would hand that account the whole namespace. I'd want this as an explicit deny list in code, not just "an operator wouldn't do that."
+
+**A zone with no `account_id` is selectable by nobody.** Default closed. This also gives you the drift check for free: list Cloudflare's zones, diff against the table, and anything in Cloudflare with no row is either a platform zone or a mistake — and someone adding a zone by hand in the dashboard is a thing that will happen.
+
+## Schema, concretely
+
+```
+zones(
+  id,               -- our surrogate, `zon` prefix
+  account_id,       -- NULL = unattributed, selectable by nobody
+  apex,             -- UNIQUE
+  cf_zone_id,       -- Cloudflare's, for API calls
+  assigned_ns,      -- the pair we showed them
+  origin,           -- 'registered' | 'nameserver' | 'operator' | 'platform'
+  status,           -- 'pending' | 'active' | 'released' | 'revoked'
+  claimed_at, activated_at
+)
+```
+
+`origin` earns its place: it's the provenance that answers the question you asked, and it's also what the offboarding path needs (a domain we registered leaves differently from one they pointed at us). `status` mirrors Cloudflare's rather than inventing a parallel one.
+
+---
+
+Want me to fold this into the EPIC-5 body now — the provenance model, the claim/proof split, the pre-cutover ordering, and the two guards — before we move on to the 1stc.site UX?
 
 <!-- xgd-chat-end -->
