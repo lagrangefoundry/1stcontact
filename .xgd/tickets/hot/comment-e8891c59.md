@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T22:54:42.734157+00:00'
+updated_at: '2026-09-15T23:11:31.563112+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -325,5 +325,15 @@ Telling someone `mail` is *taken* sends them hunting for `mail2`, which is also 
 ---
 
 Want me to write A and B up as tickets under EPIC-5 now? I'd fold the eight points into A's body as behaviour rather than leaving them as review comments, since every UAT has to trace to ticket language. Tell me where you land on "free domain" vs "free web address" first — that wording goes in the body and then into the assistant surface, so it's cheaper to settle before I write than after.
+
+<!-- xgd-turn id="95c97dc5-8ed4-419b-b756-361d9e63da86-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T23:11:31.486159+00:00" -->
+#### You
+**3. "ask the AI for help" as plain text is a dead end.** It names help you then have to go find. Either make it a link that opens the chat primed with the candidate they just tried, or cut the clause. Given (5) is already built, the link is the cheap half. <-- Lets refine later please one step at a time get the basics working
+
+**5. Non-owners hit a 403 at lock-in.** `claim` is owners-only (`router.ts:2928`). As specified, a `support` member types, checks, gets a green tick, hits Lock It In and is refused. The section should be read-only for them with a sentence saying who can do it. <-- you have totally lost me - only owners see the app - what are you talking about?
+
+Agree on the other points
 
 <!-- xgd-chat-end -->
