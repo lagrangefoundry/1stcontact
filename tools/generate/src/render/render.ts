@@ -21,6 +21,7 @@ import {
   getModuleClientJs,
   getModule,
   renderL1Document,
+  renderL1Email,
 } from '@1stcontact/framework/worker'
 import type { BehaviorDefinition, ImageDeliveryManifest } from '@1stcontact/framework/worker'
 import { resolveSiteLocale } from '@1stcontact/site-schema'
@@ -71,6 +72,26 @@ export interface RenderSiteOptions {
    * single place an `<img>` is written.
    */
   delivery?: ImageDeliveryManifest
+  /**
+   * [[BUG-94]] — render the site's EMAIL pages too, each through the email
+   * target, in addition to the pages a published revision serves.
+   *
+   * THE BUILDER'S PREVIEW IS THE ONLY CALLER THAT SETS IT, and that is the whole
+   * distinction this flag exists to draw. [[REQ-247]] said an email page "is
+   * never served" and enforced it here, at the one place a published revision's
+   * bytes are decided — which is right for a published revision and was wrong
+   * for the builder, because `preview.ts` is deliberately not a second renderer
+   * and therefore inherited the refusal. The result was a message the page
+   * control listed and nothing could open: no way to look at it, and so no way
+   * to check it before it went to a stranger.
+   *
+   * NOT PUBLICLY ADDRESSABLE IS NOT THE SAME AS NOT RENDERABLE IN THE BUILDER.
+   * The property [[REQ-247]] is protecting is that no published revision carries
+   * these bytes and no path reaches them — and that is untouched here, because
+   * publish and `1c render` pass nothing, so the file is still one that was
+   * never written rather than one a rule declines to serve.
+   */
+  emailPages?: boolean
 }
 
 /**
@@ -245,9 +266,8 @@ ${body}
 `
 }
 
-/** The page used for `index.html`: the `home`-slugged page, else the first. */
 /**
- * The pages this render actually writes a file for.
+ * The pages a PUBLISHED REVISION serves.
  *
  * [[REQ-247]] — AN EMAIL PAGE IS NEVER SERVED. It is part of the site's content
  * and not of its surface: it has no public address, it is in no sitemap, and it
@@ -255,11 +275,72 @@ ${body}
  * one place a published revision's bytes are decided, rather than in the router
  * — a route that refused a path would be a rule somebody could relax, while a
  * file that was never written is a page there is no way to ask for.
+ *
+ * [[BUG-94]] — AND THAT IS ALL IT SAYS. This used to be the only answer to
+ * "which pages does this render emit", so the property "no published revision
+ * carries these bytes" also, silently, meant "the builder cannot show you your
+ * own message". See {@link renderedPages}.
  */
 function servedPages(site: Site): Page[] {
   return site.pages.filter((page) => page.kind !== 'email')
 }
 
+/**
+ * The pages this render writes a file for, which is the served ones plus —
+ * when the caller is the builder's preview — the site's messages ([[BUG-94]]).
+ *
+ * TWO READINGS OF ONE SENTENCE, SEPARATED. `servedPages` above answers *what a
+ * published revision serves*; this answers *what this render emits*. They were
+ * the same function, which is what made "a message has no public address" also
+ * mean "a message cannot be looked at", and the second was never intended.
+ *
+ * THE ORDER IS THE SITE'S OWN, with the messages after the served pages. It is
+ * the order the `pages` report is built from before it is sorted, so nothing
+ * downstream depends on it — but a message is reached by the form that sends it
+ * rather than by position, so there is no better place for it to sit.
+ */
+function renderedPages(site: Site, emailPages: boolean): Page[] {
+  if (!emailPages) return servedPages(site)
+  return [...servedPages(site), ...site.pages.filter((page) => page.kind === 'email')]
+}
+
+/**
+ * One message, as the email target emits it ([[BUG-94]], [[REQ-247]] §3).
+ *
+ * THIS IS NOT A THIRD RENDER PATH. `renderL1Email` is the email target the
+ * ticket already built and tested and the SENDER already uses (`lead.ts`), so
+ * what the operator looks at in the builder is produced by the same emitter,
+ * from the same document, with the same palette, as what lands in the inbox.
+ * Anything else would be a preview of a message nobody ever receives — which
+ * for a surface whose entire job is "check it before it goes to a stranger" is
+ * the one failure that matters.
+ *
+ * NONE OF `renderPage`'s HEAD REACHES IT. A message carries no theme
+ * stylesheet, no client bundle, no viewport meta of ours and no edit stylesheet:
+ * a mail client loads none of them, and emitting them would make the preview
+ * differ from the send in exactly the direction that flatters it.
+ *
+ * `null` FOR A MESSAGE WITH NO DOCUMENT, which is not a message and is left
+ * without a file rather than emitted as an empty one — the same answer the
+ * sender already gives it (`messageCopyOf` returns null on the same condition).
+ * `add_page` always seeds copy, so this is reachable only for a definition
+ * written by hand or pushed from elsewhere.
+ */
+function renderEmailPage(site: Site, page: Page): string | null {
+  if (!page.l1) return null
+  return renderL1Email(page.l1, {
+    palette: site.palette,
+    subject: page.email?.subject,
+  })
+}
+
+/**
+ * The page used for `index.html`: the `home`-slugged page, else the first.
+ *
+ * OFF THE SERVED PAGES AND NEVER THE RENDERED ONES ([[BUG-94]]): a message
+ * cannot become the front door by being the only page a site holds, which is
+ * exactly what a first-page rule reading the wider set would do.
+ */
 function homePage(site: Site): Page | undefined {
   const served = servedPages(site)
   return served.find((p) => p.slug === 'home') ?? served[0]
@@ -332,7 +413,7 @@ export async function renderSiteFiles(
   const resolveModule = opts.resolveModule ?? getModule
   const pages: string[] = []
 
-  for (const page of servedPages(site)) {
+  for (const page of renderedPages(site, opts.emailPages === true)) {
     // REQ-109 — the flatness invariant. Emitted asset URLs are document-relative
     // (`assets/x.svg`, not `/assets/x.svg`) so a snapshot is relocatable under any
     // path prefix. That rewrite is only correct while every page sits FLAT at the
@@ -345,7 +426,18 @@ export async function renderSiteFiles(
           'snapshot root, because emitted asset URLs are relative to it (REQ-109)',
       )
     }
-    const html = renderPage(site, page, resolveModule, edit, opts.delivery)
+    // [[BUG-94]] — WHICH TARGET, decided by the page and not by the channel. An
+    // email page renders as a message in the draft channel and in the edit
+    // channel alike, because there is no second way for a message to look: the
+    // View/Edit toggle chooses between a page as a reader meets it and the same
+    // page with its behaviour off and its regions addressable, and neither half
+    // of that distinction exists for something a mail client will paint.
+    const html =
+      page.kind === 'email'
+        ? renderEmailPage(site, page)
+        : renderPage(site, page, resolveModule, edit, opts.delivery)
+    // A message with no document has no file — see {@link renderEmailPage}.
+    if (html === null) continue
     const file = `${page.slug}.html`
     files.set(file, html)
     pages.push(file)
