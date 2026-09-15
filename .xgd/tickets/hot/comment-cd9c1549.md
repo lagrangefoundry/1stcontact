@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T22:35:44.362679+00:00'
+updated_at: '2026-09-15T22:37:15.699224+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1653,5 +1653,49 @@ One thing I'd flag: three of these four were found by reading your dev database 
 ok I tried the whitepaper form again and this time I get an error: 
 
 ✘ [ERROR] {"event":"lead_capture_failed","site":"site_bca807fc7cdd0bf418b15e255f8c45c6","error":"D1_ERROR: table asset_grants has no column named form_handle: SQLITE_ERROR"}
+
+<!-- xgd-turn id="2b0cea8a-e67c-496d-9e55-006d4d06086e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T22:37:15.368849+00:00" -->
+#### Claude
+New failure mode — that's BUG-93's fix landing without the schema. Let me check.
+
+Clear cause: **BUG-93 was fixed** (`3ebad1bd58`), and migration `0009` renames `instance_id` → `form_handle`. Your local D1 is still at `0008`, so the code writes a column the schema doesn't have. Let me back up and apply it.
+
+Applied cleanly. The rename carried into the uniqueness index automatically, exactly as the migration's comment predicted:
+
+```sql
+CREATE UNIQUE INDEX idx_asset_grants_live
+  ON asset_grants (contact_id, site_id, form_handle) WHERE revoked_at IS NULL
+```
+
+Let me check whether production is going to hit the same wall.
+
+Fixed locally. **Retry the whitepapers form now** — and restart `wrangler dev` first if it misbehaves, since it's been holding that database since before the schema changed.
+
+## What happened
+
+BUG-93 got fixed while we were talking — `3ebad1bd58 fix(lead): a form handle names its page, not just the instance [FREE-CODED]`. That fix ships migration `0009`, which renames `asset_grants.instance_id` → `form_handle`. Your local D1 was at `0008`, so the new code wrote a column the schema didn't have.
+
+I backed the database up to `$TMPDIR/xgd-mig-backup/d1-before-0009.sqlite` and applied `0009`. Verified: column renamed, `idx_asset_grants_live` carried the rename and kept its `(contact_id, site_id, form_handle)` uniqueness without a rebuild, `d1_migrations` now at 0009.
+
+Worth noting the migration is well-reasoned — it deliberately does *not* backfill existing grant rows, because they hold bare instance ids and "the page each one meant is exactly the question that cannot be answered — answering it is the defect this fixes, performed once more in SQL." Those stale rows open nothing; submitting again mints a live grant under the real handle.
+
+## Something bigger, which I have not touched
+
+Production D1 has **eight unapplied migrations** — everything from `0002` onward:
+
+```
+0002_session_rotation      0006_asset_grants
+0003_contact_change_cursor 0007_business_name_unique
+0004_user_acceptances      0008_site_domains
+0005_retire_site_slug      0009_asset_grant_form_handle
+```
+
+That explains something I found on Monday and misread at the time: production had no `contact_events`, `asset_grants`, `user_acceptances` or `user_emails` tables at all. I put it down to the deployment being unused. It isn't that — **the schema was never migrated past the baseline.** Production has one tenant, zero sites, zero revisions, zero tickets, and a schema that would fail on contact capture, acceptances, grants and domains the moment anything reached it.
+
+I haven't run `--remote`. Applying eight migrations to a production database is outward-facing and not something I'll do off the back of a local bug report — say the word and I will, but you may want to look at what `0005_retire_site_slug` and `0007_business_name_unique` do to existing rows first, since those two are the ones that rewrite rather than add.
+
+Tell me how the form behaves now.
 
 <!-- xgd-chat-end -->
