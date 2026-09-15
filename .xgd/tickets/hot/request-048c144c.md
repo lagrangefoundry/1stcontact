@@ -5,7 +5,7 @@ type: request
 title: An email a form sends is a page of the site
 created_by: EPIC-10
 created_at: '2026-09-14T21:31:04.642575+00:00'
-updated_at: '2026-09-14T22:13:52.005590+00:00'
+updated_at: '2026-09-15T00:13:03.428978+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -114,9 +114,8 @@ about what was sent.
 
 ## 6. Acceptance criteria
 
-1. An email page appears in the site's page list, is opened through the page control
-   ([[REQ-248]]) and edited like a page, and is styled with L1. It is marked as outside the
-   navigation, as any page nothing links to is.
+1. An email page appears in the site's page list, is opened and edited like a page, and is
+   styled with L1.
 2. The assistant creates, reads and edits an email page using only the operations it already
    holds. No new surface, no new role, and no ticket-write grant is required.
 3. An email page has no public address: it is not routable in a published revision, is absent
@@ -136,7 +135,11 @@ about what was sent.
 11. An email rendered from a page arrives legibly in a mail client that supports no flexbox,
     no custom properties and no web fonts.
 12. A placeholder a template declares survives editing: copy that would drop `{{cta_url}}`
-    from a message whose delivery depends on it is refused rather than sent broken.
+    from a message whose delivery depends on it is refused rather than sent broken. A token
+    that appears only in a link's target is copy for this purpose — the ordinary way to write
+    a call to action is a button whose words say one thing and whose destination is the token,
+    and a check that read only the visible words would pass the message whose button is the
+    broken part.
 
 ## 7. What follows technically
 
@@ -149,6 +152,21 @@ message.templateKey === templateKey`. If the identity a message is remembered by
 a template key to a page id, a form that has already sent a welcome would not recognise its
 own history and could send a second one to somebody who already received it.
 
+**A message carries what an email needs beyond its copy.** A page renders a body; an email
+also needs a subject line, the placeholders its delivery depends on, and the address it goes
+out from. Those sit on the email page beside its L1, are set when the page is made or
+changed, and are projected by the same read that maps any other page. Changing one does not
+clear the others — the same merge-not-replace rule the search-and-share wording already
+takes, because an author editing a subject line cannot see a placeholder declaration from
+where they are standing.
+
+**A form naming a page makes that page undeletable while the form names it.** The site is
+validated whole on every write and a change that would leave it not holding together is
+refused; an email page enters that check as a consequence of being a page, so removing a
+message a form sends is refused and the refusal names the form that sends it. This is the
+same protection as §4 read from the other end: there, a form is stopped from naming a
+message that does not exist; here, a message a form names is stopped from ceasing to.
+
 ## 8. Further acceptance criteria
 
 13. A form that has already sent a message does not send it again after this change. The
@@ -158,3 +176,8 @@ own history and could send a second one to somebody who already received it.
     of form emails.
 15. An email page is carried by a site export and restored by an import, with its copy and
     its association to the form that sends it intact.
+16. An email page carries its subject line, its declared placeholders and the address it
+    sends from beside its copy, and they are read back by the same operation that maps any
+    other page. Changing one of them leaves the others intact.
+17. Removing an email page while a form still names it is refused, and the refusal names the
+    form that sends it.
