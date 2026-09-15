@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T00:43:50.977953+00:00'
+updated_at: '2026-09-15T21:53:14.076823+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,13 @@ The product question underneath — and I don't think it's settled anywhere — 
 **Which Cloudflare account are your domains in right now?** If they're in the same account the platform's Workers are in, case (2) is real today and needs only zone-listing plus the selector. If they're in a personal account that isn't the platform's, then by the epic's own reckoning they are case (3) — the trap case — and the zones have to be deleted and re-added, which reassigns nameservers. That's worth doing once by hand as operator work rather than building a flow for, but it changes what "the first real custom domain" costs and it's better known now than discovered mid-build.
 
 I haven't touched the ticket yet — say the word once you're happy with the framing and I'll fold the agreed parts into the body (the live-vs-greenfield axis, the canonical/redirect gap, the custom-vs-platform asymmetry, the Resend finding, and the three waits), and we can then go deep on the 1stc.site UX as the first piece.
+
+<!-- xgd-turn id="b2943e3a-d43b-4386-b3cd-f03f579fbdd4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T21:53:13.541921+00:00" -->
+#### You
+They are in the same account that everything is running from.
+
+Question: how do we know to associate certain domains with a particular account?
 
 <!-- xgd-chat-end -->
