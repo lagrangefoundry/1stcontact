@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T23:15:55.559211+00:00'
+updated_at: '2026-09-15T23:16:48.391436+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1883,5 +1883,54 @@ The structural defect will recur the moment someone edits the baseline again —
 <!-- xgd-chat role="user" ts="2026-09-15T23:15:55.486933+00:00" -->
 #### You
 Forget about production for now, can we just get the dev environment working? Is there a "deploy to dev" instruction?
+
+<!-- xgd-turn id="b3cf09ca-ed43-4f61-a8bf-ee00f615a618-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T23:16:47.955836+00:00" -->
+#### Claude
+Dev isn't a deploy — it's `wrangler dev` against local miniflare, and I already applied `0009` there. But local is a *hybrid* schema for the same reason production was, so let me check it isn't missing tables too.
+
+Local has every table. Let me check columns too, since that's where a hybrid schema actually bites.
+
+Local schema is now **identical to a clean replay** — every table, every column. So dev is correct. Now, your actual question:
+
+**No — there's no "deploy to dev". Dev is local**, and it's already fixed.
+
+## What dev is
+
+```bash
+pnpm dev          # both Workers: public-site + control-app (via concurrently)
+pnpm dev:control  # just the builder — ./bin/1c builder
+pnpm dev:public   # just the public site
+```
+
+`wrangler dev` runs a local miniflare — its D1 and R2 live in `apps/control-app/.wrangler/state/`. Nothing is uploaded, so there's nothing to deploy. The only "deploy" scripts in the repo target production (`deploy:control`, `deploy:public`, and `bin/deploy`).
+
+Migrations are the one thing that doesn't happen automatically locally. Production gets them from `bin/deploy`'s migrate hook; local you run yourself:
+
+```bash
+cd apps/control-app
+npx wrangler d1 migrations apply 1stcontact --local
+```
+
+That's the gap that bit you — a `git pull` that brings new code also brings new migrations, and nothing applies them to your local database until you ask.
+
+## Dev is already working
+
+I applied `0009` earlier, and just verified local goes further than that: I replayed all nine migrations onto a throwaway database and diffed it against yours — **every table and every column matches a clean replay.** So despite local being a hybrid (baseline from 6 Sep 21:50, plus `0002`–`0009` layered on over the following week), it happens to have landed in exactly the right shape. Production's hybrid didn't; yours did.
+
+So: **restart `wrangler dev` and try the whitepapers form.** It's been holding that database across a column rename, so give it a clean start.
+
+For the first time in this whole thread, the pieces are actually lined up:
+
+- BUG-93 fixed — the form handle names its page, so the whitepapers form resolves to *its own* config instead of home's
+- `form_handle` column present, matching the code
+- the form carries `template: "whitepapers-email"` and both assets
+- `whitepapers-email` exists as a proper email page with `{{cta_url}}` and a real subject
+- `RESEND_API_KEY` is in your dev env, and Resend has genuinely delivered from this box before
+
+The one thing still broken is **BUG-94** — you won't be able to *open* the email page in the builder to look at it, because the draft preview filters email pages out along with publish. But that shouldn't stop the mail going out.
+
+If it still doesn't arrive, the next thing I'd read is `contact_events` for the new contact — a `form.submitted` event naming `whitepapers.json` instead of `home.json` will confirm BUG-93's fix is live, and any delivery skip will have a reason recorded.
 
 <!-- xgd-chat-end -->
