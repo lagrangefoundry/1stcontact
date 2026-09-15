@@ -6,9 +6,9 @@ title: The capture path reads a stored form under current rules whatever version
   was written at
 created_by: EPIC-10
 created_at: '2026-09-15T19:45:15.667229+00:00'
-updated_at: '2026-09-15T19:45:15.667229+00:00'
+updated_at: '2026-09-15T19:46:03.689781+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -72,7 +72,7 @@ Either way, `instance.version` stops being a field nothing reads.
 
 ## Test plan
 
-`tests/test_UAT_FC_BUG-<id>_stored_version.test.ts`:
+`tests/test_UAT_FC_BUG-95_stored_version.test.ts`:
 
 - **The silent failure, asserted directly**: a `contact-form` stored at v5 carrying
   `asset`/`assetName`/`assetUrl` delivers its download on submission. Today it delivers
