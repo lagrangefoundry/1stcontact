@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T18:44:40.574264+00:00'
+updated_at: '2026-09-15T18:59:47.143138+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1490,5 +1490,11 @@ Use the **Page** control in the toolbar to switch to *Whitepapers*, then submit 
 3. **The home form is still v5** while everything else migrated to v7. Worth understanding why the migration skipped it.
 
 Try the whitepapers form via the page control and tell me what happens — then I'll file (1) with whatever you find, plus (2) and (3) if you want them.
+
+<!-- xgd-turn id="59bf4dd3-9f4f-4ddb-a64d-3fd9e5a8aba7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T18:59:47.088430+00:00" -->
+#### You
+Use the **Page** control in the toolbar to switch to *Whitepapers*, then submit that form. <-- that is exactly what I have been doing all the emails starting with xgd-whitepapers were submitted on the form on the whitepapers page
 
 <!-- xgd-chat-end -->
