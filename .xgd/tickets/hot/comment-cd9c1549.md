@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T01:13:22.621406+00:00'
+updated_at: '2026-09-15T01:18:53.489372+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1349,5 +1349,78 @@ So the build order is 248 → 247, with 246 independent of both and landable whe
 <!-- xgd-chat role="user" ts="2026-09-15T01:13:22.433278+00:00" -->
 #### You
 ok we are struggling a little here - please read the last couple of turns in the xgd business site builder transcript. It is creating an email, but the builder cannot navigate to it
+
+<!-- xgd-turn id="b24d91b1-2c50-4c48-bf97-1e0e4a319862-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T01:18:53.424827+00:00" -->
+#### Claude
+That transcript is full of concrete findings. Let me re-read the live state first — it's changed since I last looked.
+
+The AI has already built the email **as a page** — exactly what REQ-247 proposes. Let me check whether the send path can actually resolve it.
+
+Confirmed the failure moved rather than cleared. Now the 404 — let me find where a draft submission is meant to land.
+
+Now I can see what happened. Let me confirm two things that decide how bad it is.
+
+Line numbers shifted since my earlier read of this file. Let me check whether the working tree changed under me.
+
+REQ-247 has already been implemented — commit `4c87210002`, while we were talking. That invalidates the diagnosis I was building. Let me re-read the current code.
+
+All three REQs are implemented and `ready_to_reconcile` — including 248, the page control. So the code exists. Let me check what the *running* builder is actually serving.
+
+The control does list email pages. So the gap is likely at render, not at listing. Let me check whether the preview can actually *show* one.
+
+Found it. Let me confirm the preview goes through the same render path.
+
+Read it. Here's what's actually going on — and the root cause is in my ticket wording, not in the implementation.
+
+## First: all three REQs shipped while we were talking
+
+`4c87210002 feat(l1): an email a form sends is a page of the site [FREE-CODED]` — REQ-246, 247 and 248 are all `ready_to_reconcile`. That's why the code I quoted at you earlier no longer matches the files.
+
+## The AI got it right, and the data is correct
+
+The `whitepapers-email` page exists and is well-formed:
+
+```json
+{ "slug": "whitepapers-email", "title": "Your XGD papers", "kind": "email",
+  "email": { "subject": "Your two XGD papers", "placeholders": ["cta_url"] } }
+```
+
+Real copy in it — "Thanks for asking for the papers", an "Open both papers" button, `{{cta_url}}`, and the plain-text fallback line for clients that strip buttons. The whitepapers form now carries `template: "whitepapers-email"` and both assets. That is REQ-247's design working as intended.
+
+## Why the builder can't open it — confirmed end to end
+
+REQ-247 added this to `render.ts`:
+
+```js
+function servedPages(site) {
+  return site.pages.filter((page) => page.kind !== 'email')
+}
+```
+
+…enforced there deliberately, *"rather than in the router — a route that refused a path would be a rule somebody could relax, while a file that was never written is a page there is no way to ask for."*
+
+And `preview.ts` opens with *"NOT A SECOND RENDERER. Everything here reads `renderSiteFiles`"* — zero occurrences of `email` in the file.
+
+So the draft preview calls the same renderer, which writes no file for an email page. The page control **does** list it — `editPageList` includes email pages with `kind` and a tailored `(unreachable: no form sends it)` note — but selecting it has nothing to display. Listed, not openable.
+
+## That contradiction is mine
+
+REQ-247 §2 says flatly **"It is never served"**, then qualifies it as "not routable in a published revision." AC-1 says the page "is opened through the page control and edited like a page, and is styled with L1." Those can't both hold under the broad reading, and the implementation reasonably took the strong one — and enforced it at the strongest available place.
+
+The distinction the ticket failed to draw: **publish** writes no file for an email page (keep exactly as built — that property is right and well-argued); the **draft preview** must render one through the email render target so it can be seen and styled. *Not publicly addressable* is not the same as *not renderable in the builder*.
+
+## Two other things from the transcript
+
+**The 404 on submit may be real and current.** The AI's last turn is timestamped after REQ-247 landed and still reports `"Something went wrong (404)"` on the working copy. I haven't diagnosed it — the preview route exists (`POST /preview/<siteKey>/draft/api/lead`, requiring `channel === 'draft'` and `hasDraft`). Worth its own look. Caveat: that AI self-corrected three times in the transcript, including twice claiming it had deleted a page it hadn't, so I'd verify the 404 rather than take it as given.
+
+**There's leftover junk.** `papers.json` is still on the site — slug `papers`, title "Your papers — XGD", carrying a `placeholder` contact-form module with no template and no assets. The AI said "Nothing's left behind"; that wasn't true.
+
+## What I'd do
+
+File a bug against REQ-247: *the draft preview must render an email page; only the published revision withholds it.* That's the one change that makes the email visible and stylable, and it's small — the render already has an email target, it's the `servedPages` filter that needs to be publish-only rather than render-wide.
+
+Want me to file it, and separately chase the 404?
 
 <!-- xgd-chat-end -->
