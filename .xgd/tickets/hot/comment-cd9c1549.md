@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T19:39:00.422577+00:00'
+updated_at: '2026-09-15T19:40:24.899094+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1564,5 +1564,41 @@ This is a bug, not a REQ, and it's the actual cause of the thing you've been cha
 1 please. 
 
 Needs back-compat for already-published revisions emitting a bare id. <-- lets not build back-compatability junk for our dozen test rows please.
+
+<!-- xgd-turn id="5730b5d7-4868-4d40-919e-7fd9a4ad299d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T19:40:24.039396+00:00" -->
+#### Claude
+Created. Let me fix the test-file placeholder now that it has an id.
+
+**BUG-93** — *"A form submission resolves to the wrong component: names are unique per page, resolved per site"* (`bug-679cb887`, priority high, severity high, EPIC-10).
+
+## What's in it
+
+**Symptom** — the whitepapers form correctly configured since Monday and silent every time, plus the mis-attribution: seven submissions made on the whitepapers page, all recorded as `home.json` / "Join the waitlist". The CRM data is wrong, not just the mail.
+
+**Root cause** — the two-line mismatch, quoted from both files: `editModuleAdd` refuses a collision *within one page*, `formDefinitionOf` scans *every page* and takes the first id match. Plus the table showing why `home.json` wins on your site, and the trace through to `lead.ts:1134` returning before mail.
+
+Two consequences I made explicit because they're the expensive part:
+
+- **It defeats REQ-247 from outside.** The email-page pipeline works fine; the submission never reaches it.
+- **It misled the assistant.** The AI configured the form correctly, tested, saw nothing, and told you the platform couldn't send. That was a reasonable conclusion given nothing could show it its own config was being ignored — and it's why that transcript reads like flailing.
+
+**Fix** — composite `<pageId>:<instanceId>` handle, resolved on both halves.
+
+No back-compat, and I gave the reason beyond "it's only test rows": a compatibility branch would have to **guess which form a bare id meant**, which is the defect itself. So a bare id is refused outright. I also recorded that trust properties are unchanged — both halves are untrusted input naming something that must already exist in the site the *route* resolved — and that site-wide uniqueness was considered and rejected.
+
+**Test plan** — `tests/test_UAT_FC_BUG-93_form_handle.test.ts`, with the symptom asserted directly (two pages both holding `signup`, second one resolves correctly and sends). Two worth flagging:
+
+- **Order independence** — the same two forms must resolve correctly whichever order the store returns pages in, so the test can't pass by accident of sorting. Without this, a fix that merely reorders would look green.
+- **The at-most-once ledger is untouched** — it keys on asset and address, not on the form handle, so nobody who already received an asset gets it twice across the fix.
+
+## Still unfiled
+
+1. **Email pages can't be previewed** — `servedPages()` filters `kind === 'email'` and `preview.ts` shares the renderer, so `whitepapers-email` is listed but has no bytes. Publish should withhold it; draft preview shouldn't. Traces to my REQ-247 wording.
+2. **`papers.json`** — orphan page with a `placeholder` contact-form, no template, no assets.
+3. **home's form is still v5** while everything else migrated to v7.
+
+(1) is the one that matters — until it's fixed you still can't *look at* the email, even once BUG-93 lands and the form starts sending it. Want that filed too?
 
 <!-- xgd-chat-end -->
