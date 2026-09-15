@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-15T23:11:31.563112+00:00'
+updated_at: '2026-09-15T23:12:21.374421+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -335,5 +335,28 @@ Want me to write A and B up as tickets under EPIC-5 now? I'd fold the eight poin
 **5. Non-owners hit a 403 at lock-in.** `claim` is owners-only (`router.ts:2928`). As specified, a `support` member types, checks, gets a green tick, hits Lock It In and is refused. The section should be read-only for them with a sentence saying who can do it. <-- you have totally lost me - only owners see the app - what are you talking about?
 
 Agree on the other points
+
+<!-- xgd-turn id="95c97dc5-8ed4-419b-b756-361d9e63da86-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T23:12:20.632651+00:00" -->
+#### Claude
+You're right on 5 — I was wrong. `provisionBusiness` always writes `role = 'owner'` (`identity.ts:833`), and nothing anywhere creates a `support` membership; `identity.ts:331` describes it as what a time-boxed grant *"will carry when there is a second operator"*. So today everyone who can reach a business owns it, and the owner-only gate on `/api/hostname/claim` is defence for a user who doesn't exist yet. Building a read-only state for them would be building a fake. Dropped.
+
+On 3 — agreed to defer, and checking the layout makes it a smaller point than I put it. The Settings tab is a split (`app.js:917-923`): the pane on one side, its own `settingsChat` panel on the other. The assistant is already on screen beside the field, so "ask the AI for help" points at something visible rather than something to go find. Plain text now; priming it with the candidate they just tried is a real refinement for later.
+
+**Settled for ticket A:**
+
+- `Your free web address: [____].1stc.site` — keeps "free", drops "domain"
+- three refusal lines, not one: taken / reserved / invalid, each with its own words
+- the taken line keeps "try something else or ask the AI for help" as plain text
+- the already-held state: no text box, just the host and that it's permanent
+- confirm modal says *for your business*, not *for this site*
+- `[Cancel] [Lock in alice.1stc.site]`, Cancel focused
+- claim losing the race after a passed modal → back to the field with *"that one went while you were deciding"*
+- Enter fires the check as well as the button (REQ-238's existing language)
+
+**Ticket B:** publish's existing 409 rendered as a modal with a button through to the field.
+
+Shall I write A and B up under EPIC-5 now?
 
 <!-- xgd-chat-end -->
