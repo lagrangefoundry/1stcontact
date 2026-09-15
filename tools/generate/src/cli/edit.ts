@@ -527,6 +527,25 @@ function reachablePages(files: PageFile[], base: Record<string, unknown>): Set<s
       }
     }
   }
+  /*
+   * [[REQ-247]] — A MESSAGE IS REACHED BY THE FORM THAT SENDS IT, never by a
+   * link. An email page has no public address by design, so the link walk below
+   * can never admit one and every message a site holds would be reported
+   * stranded. A warning that fires on correct work is one an author learns to
+   * ignore, which costs the genuinely stranded page the only signal it has.
+   *
+   * WHAT STRANDS A MESSAGE IS NO FORM NAMING IT, and that is what this admits
+   * against — so a message nothing sends still reads as unreachable, which is
+   * the true and useful answer.
+   *
+   * ADMITTED BEFORE THE WALK rather than after, so a page a message links to is
+   * reached by whoever opens the mail. That page has no link from the site, but
+   * a recipient following the button really does arrive at it, and calling it
+   * stranded would be the same false alarm one step further out.
+   */
+  for (const file of files) {
+    for (const ref of contactFormTemplateRefs(file.page)) admit(ref.templateKey)
+  }
   while (queue.length > 0) {
     const from = queue.shift() as string
     const file = files.find((f) => String(f.page.id) === from)
@@ -1315,7 +1334,17 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
           .map(
             (p) =>
               `${String(p.id)}\t${String(p.slug)}\t${String(p.title)}\t${p.kind}` +
-              (p.reachable ? '' : '\t(unreachable: nothing links to it)'),
+              /*
+               * [[REQ-247]] — THE NOTE SAYS WHAT WOULD REACH THIS PAGE, and for a
+               * message that is a form rather than a link. Telling an author that
+               * nothing links to a page nobody can visit would send them looking
+               * for a link they must never add.
+               */
+              (p.reachable
+                ? ''
+                : p.kind === 'email'
+                  ? '\t(unreachable: no form sends it)'
+                  : '\t(unreachable: nothing links to it)'),
           )
           .join('\n')
   return { data: { pages }, human }

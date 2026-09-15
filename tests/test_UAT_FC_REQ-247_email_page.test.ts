@@ -51,6 +51,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli'
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
+import { editPageList } from '../tools/generate/src/cli/edit'
 import {
   L1_EMAIL_TARGET,
   validateSite,
@@ -715,6 +716,86 @@ describe('REQ-247 — a form names a message, and naming a missing one is refuse
     // …and the message is still there, so the refusal really refused.
     const listed = await json<{ pages: Array<{ id: string }> }>(box, 'list_pages')
     expect(listed.pages.map((p) => p.id)).toContain('welcome')
+  })
+})
+
+// ── AC-18 — a message is reached by the form that sends it ─────────────────
+
+describe('REQ-247 — what reaches a message is a form, not a link', () => {
+  /**
+   * AC-18 — the listing says a message nothing sends is stranded, and does NOT
+   * say it of one a form sends.
+   *
+   * THIS IS WHERE TWO RULES MEET. [[REQ-248]] marks a page nothing links to,
+   * because such a page cannot be opened at all and the mark is the only signal
+   * it is either deliberate or forgotten. [[REQ-247]] gives the site pages that
+   * NOTHING MAY EVER LINK TO — a message has no public address by design. Read
+   * naively, every message a site holds is stranded, and a mark that fires on
+   * correct work is one an author learns to scroll past, which costs the real
+   * stranded page the only thing it had.
+   *
+   * SO THE QUESTION IS ASKED IN THE RIGHT VOCABULARY. What reaches a message is
+   * the form whose `template` names it, and what strands one is no form naming
+   * it — which is a genuine and useful thing to be told, because a message
+   * nothing sends is copy nobody will ever receive.
+   *
+   * AND THE WORDING FOLLOWS THE VOCABULARY. Telling an author that nothing
+   * *links* to a page nobody can visit would send them looking for a link they
+   * must never add.
+   */
+  it('test_UAT_FC_REQ-247_a_message_a_form_sends_is_not_reported_stranded', async () => {
+    const box = await consultant()
+    await box.run('add_page', {
+      page: 'welcome',
+      title: 'Welcome',
+      kind: 'email',
+      subject: 'Welcome',
+    })
+    // A second message that no form will ever name — the control.
+    await box.run('add_page', {
+      page: 'orphan',
+      title: 'Nobody sends this',
+      kind: 'email',
+      subject: 'Unsent',
+    })
+    await box.run('set_l1', {
+      page: 'home',
+      path: '0',
+      node: { kind: 'container', layout: 'stack', children: [{ kind: 'slot', name: 'capture' }] },
+    })
+    await box.run('add_component', {
+      page: 'home',
+      name: 'beta-form',
+      behavior: 'contact-form',
+      slot: 'capture',
+      config: {
+        submitLabel: 'Join',
+        fields: [{ name: 'email', label: 'Your email', type: 'email', required: true }],
+        template: 'welcome',
+      },
+    })
+
+    const listed = await json<{
+      pages: Array<{ id: string; kind: string; reachable: boolean }>
+    }>(box, 'list_pages')
+    const reach = Object.fromEntries(listed.pages.map((p) => [p.id, p.reachable]))
+
+    // THE MESSAGE A FORM SENDS IS REACHED, though nothing links to it and
+    // nothing ever may.
+    expect(reach.welcome).toBe(true)
+    // …and the one nothing sends is not, which is the true and useful answer.
+    expect(reach.orphan).toBe(false)
+    // The ordinary page is unaffected by any of this.
+    expect(reach.home).toBe(true)
+
+    // THE WORDING NAMES WHAT WOULD ACTUALLY REACH IT — asserted where the
+    // wording is produced. The assistant reads the structured rows above; the
+    // sentence is what a person reads, and it has to send them looking for the
+    // right missing thing rather than for a link they must never add.
+    const store = fsSiteStore({ cwd, root: 'sites' })
+    const human = (await editPageList(SLUG, { cwd, store })).human
+    expect(human).toContain('(unreachable: no form sends it)')
+    expect(human).not.toContain('(unreachable: nothing links to it)')
   })
 })
 
