@@ -5,9 +5,9 @@ type: request
 title: Every page is reachable from the control bar, and an unlinked one says so
 created_by: EPIC-10
 created_at: '2026-09-14T21:35:41.787381+00:00'
-updated_at: '2026-09-15T00:12:20.325959+00:00'
+updated_at: '2026-09-15T00:12:25.298791+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.200
+  story_points: 3
 ---
 
 # Every page is reachable from the control bar, and an unlinked one says so
