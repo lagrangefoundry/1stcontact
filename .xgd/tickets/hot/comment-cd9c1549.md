@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T18:42:39.315531+00:00'
+updated_at: '2026-09-15T18:44:40.574264+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1430,5 +1430,65 @@ Want me to file it, and separately chase the 404?
 Where did we leave this?
 
 I just tried the whitepapers form again - it did not send me any emails
+
+<!-- xgd-turn id="d3a251a7-87c5-40a7-8aa9-8ae52f552f26-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-15T18:44:39.592328+00:00" -->
+#### Claude
+Where we left it: I'd diagnosed the preview gap and offered to file the bug and chase the 404 — you didn't reply, so **nothing was filed and the 404 was never chased**. Let me find out what actually happened on your submit rather than re-state.
+
+Decisive: a contact was captured at **18:38:09Z** (`lead`) — so your submit landed, no 404. And **no new message record** — the most recent is still Monday's invites. So the send was attempted and skipped. Let me find the reason.
+
+**Found it — and it's not what you think.** The event record for your submit:
+
+```json
+{ "kind": "form.submitted",
+  "page": "home.json",
+  "submitLabel": "Join the waitlist",
+  "form": "signup",
+  "channel": "draft" }
+```
+
+Let me confirm there wasn't also a whitepapers submit I'm missing.
+
+**Every submission in your entire history — all seven — is `home.json`, the waitlist form.** The whitepapers form has never once been submitted. Let me confirm why.
+
+## You've never submitted the whitepapers form
+
+All seven submissions in the site's entire history — including the one just now at 18:38Z — are `home.json`:
+
+| time | page | button |
+|---|---|---|
+| **2026-09-15 18:38Z** | home.json | Join the waitlist |
+| 2026-09-14 19:01Z | home.json | Join the waitlist |
+| 2026-09-14 17:53Z | home.json | Join the waitlist |
+| 2026-09-14 17:52Z | home.json | Apply to join the early beta |
+| …3 more | home.json | — |
+
+That form is `contact-form` **v5**, no `template`, no `assets`, label "Join the waitlist". It captures and sends nothing — which is *correct* for a waitlist form. Your contact landed fine (`usr_11c74628…`, stage `lead`, 18:38:09Z), and no email was ever going to follow.
+
+The whitepapers form is on `whitepapers.json`, is v7, and carries `template: "whitepapers-email"` plus both assets. **It has never been exercised.**
+
+## Why you keep landing on the wrong form
+
+The site's `navigation` is **`null`** — there is no navigation at all. So the preview renders the default page (`home`), and the only button you can reach by clicking is home's waitlist form. The whitepapers page is reachable *only* through the page control — which is precisely the thing you told me you can't navigate with.
+
+So this is REQ-248's gap biting, and every test so far has been aimed at the wrong target. The 404 the AI reported also looks stale: capture worked cleanly today on the same draft channel.
+
+## The actual next test
+
+Use the **Page** control in the toolbar to switch to *Whitepapers*, then submit that form. That's the first real test of any of this work. The builder bundle is current (`dist-assets` built 17:46, after the 17:13 commit), so the control should be there — if it isn't, or selecting Whitepapers doesn't move the preview, *that's* the bug and it's a much smaller one than what we've been chasing.
+
+## Where everything stands
+
+**Shipped:** REQ-246, 247, 248 — all `ready_to_reconcile`.
+
+**Still open, nothing filed:**
+
+1. **Email pages can't be previewed.** `render.ts`'s `servedPages()` filters `kind === 'email'`, and `preview.ts` uses the same renderer, so `whitepapers-email` is listed but has no bytes to show. Publish should withhold it; the draft preview shouldn't. This traces to REQ-247 §2 saying "never served" unqualified while AC-1 requires it be openable — my wording, and it needs a bug.
+2. **`papers.json` is still there** — orphan page with a `placeholder` contact-form carrying no template and no assets.
+3. **The home form is still v5** while everything else migrated to v7. Worth understanding why the migration skipped it.
+
+Try the whitepapers form via the page control and tell me what happens — then I'll file (1) with whatever you find, plus (2) and (3) if you want them.
 
 <!-- xgd-chat-end -->
