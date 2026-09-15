@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T01:18:53.489372+00:00'
+updated_at: '2026-09-15T18:42:39.315531+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1422,5 +1422,13 @@ The distinction the ticket failed to draw: **publish** writes no file for an ema
 File a bug against REQ-247: *the draft preview must render an email page; only the published revision withholds it.* That's the one change that makes the email visible and stylable, and it's small — the render already has an email target, it's the `servedPages` filter that needs to be publish-only rather than render-wide.
 
 Want me to file it, and separately chase the 404?
+
+<!-- xgd-turn id="d3a251a7-87c5-40a7-8aa9-8ae52f552f26-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T18:42:38.914950+00:00" -->
+#### You
+Where did we leave this?
+
+I just tried the whitepapers form again - it did not send me any emails
 
 <!-- xgd-chat-end -->
