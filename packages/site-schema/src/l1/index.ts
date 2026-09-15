@@ -70,3 +70,18 @@ export type {
   L1SegmentFieldOptions,
   L1CopyEditResult,
 } from './edit'
+// [[REQ-247]] — the email render target: what L1 may say on a page that is
+// mailed rather than served, as DATA, plus the token grammar two parties now
+// agree on and the checks both are stated in.
+export {
+  L1_EMAIL_TARGET,
+  L1_EMAIL_RULES,
+  EMAIL_TOKEN,
+  emailTargetErrors,
+  emailCopyErrors,
+  emailBodyText,
+  emailTokensIn,
+  emailTokenName,
+  declaredEmailTokens,
+} from './email'
+export type { L1EmailTarget } from './email'

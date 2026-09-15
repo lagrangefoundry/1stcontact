@@ -184,7 +184,7 @@ export const contactFormMeta = {
       },
     },
     /*
-     * WHICH MESSAGE THIS FORM SENDS ([[REQ-243]]).
+     * WHICH MESSAGE THIS FORM SENDS ([[REQ-243]], re-homed by [[REQ-247]]).
      *
      * IT USED TO BE ONE HARDCODED TEMPLATE, AND IT FIRED ONLY ON AN ASSET. The
      * receiver rendered `asset` and did so only when the form declared both a
@@ -192,37 +192,34 @@ export const contactFormMeta = {
      * this product's own beta form — mailed nobody at all, and two forms on one
      * site could not say different things.
      *
-     * AN OPEN STRING AND NOT AN ENUM, WHICH IS THE REVERSAL. `templates.ts`
-     * closed the key set on the argument that *"an open vocabulary would let a
-     * template be authored under `sign-in` while the sender asks for `signin`,
-     * and the two would never meet"* — right about the failure and wrong about
-     * this case, because the copy a form sends is the BUSINESS's and no literal
-     * in this repository can enumerate what a business wrote. So the vocabulary
-     * is whatever that business's own store holds, and the property the closed
-     * set was protecting is kept by checking the name against those contents at
-     * PUBLISH: a typo is still a refusal at authoring time rather than a send
-     * that finds nothing while somebody waits for mail.
+     * IT NAMES AN EMAIL PAGE OF THIS SITE, which is the change [[REQ-247]]
+     * makes. The value is a page id, exactly as a navigation target is; the copy
+     * it names is an ordinary page with an L1 document, listed where every other
+     * page is listed and edited with the operations an author already holds.
+     * That closes the capability gap [[REQ-243]] left open — nothing could show
+     * an operator what a form was about to mail, or author the words, because
+     * the copy lived in a ticket store the assistant had no write grant to.
+     *
+     * A STRING AND NOT AN ENUM, STILL, and for a better reason than before. The
+     * legal values are the site's own email pages, which no literal in this
+     * repository can enumerate — but unlike a business's ticket store they are
+     * in the very definition being written, so the check happens at the moment
+     * of the act: configuring a form to name a page that does not exist is
+     * refused on the spot, and the refusal names what the site does hold and the
+     * operation that makes another. Publish refuses it too, for the drafts that
+     * reach an invalid state by some other route.
      *
      * ABSENT MEANS NO MAIL, AND IS AN ORDINARY CONFIGURATION. A form that only
      * joins a mailing list captures the contact, records what the press
      * asserted, and sends nothing — so absence is the honest way to say it,
      * rather than a second key saying whether the first one counts.
      *
-     * IT IS BEHAVIOURAL AND THE COPY IS NOT. What this names is WHICH message,
-     * which is a fact about the form; what the message SAYS is a ticket in the
-     * business's store, editable without a deploy ([[REQ-197]]).
-     *
-     * NOTHING HERE MAY NAME A SIGN-UP OR A SIGN-IN. `invite` mints a link that
-     * creates a member and `signin` mints a session; both are redeemable
-     * credentials with their own expiry and their own single use, and a public
-     * form a stranger can post to has no business sending either. The refusal
-     * cannot be a `values` list the way `acceptance`'s is — the ALLOWED set is
-     * a business's own store and is unknowable here — so it is a check at
-     * publish, and again at the send because a draft is never publish-validated
-     * and the builder's own preview submits against one. The capture path also
-     * mints no token of any kind, so a form that somehow reached the send under
-     * one of those keys would carry a link to an artifact and never a
-     * redeemable one; the refusal is what stops the message going at all.
+     * NOTHING HERE CAN NAME A SIGN-UP OR A SIGN-IN, and that is now structural
+     * rather than checked. `invite` and `signin` mint redeemable credentials and
+     * are sent by the BUSINESS, not by a site; they are business-scoped template
+     * tickets and not pages of anything, so a form naming one meets the ordinary
+     * "this site has no such message" refusal. The rule stopped being something
+     * somebody could forget to enforce.
      */
     template: { type: 'string', required: false },
     // Markdown shown in place of the form after a successful JSON submit.

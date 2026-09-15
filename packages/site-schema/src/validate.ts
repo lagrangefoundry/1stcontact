@@ -2,6 +2,7 @@ import { siteSchema } from './schema'
 import { projectIssues } from './issues'
 import type { Site } from './types'
 import { checkPaletteRefs, validateL1 } from './l1/validate'
+import { emailCopyErrors, emailTargetErrors } from './l1/email'
 
 /** A single structural validation failure. */
 export interface ValidationError {
@@ -50,6 +51,23 @@ export function validateSite(input: unknown): Result<Site, ValidationError[]> {
       if (!envelope.ok) {
         for (const error of envelope.errors) {
           errors.push({ path: `/pages/${i}/l1${error.path}`, message: error.message })
+        }
+      }
+      // [[REQ-247]] — an email page says only what the email target can emit,
+      // and still says what it promised to say. Both run HERE rather than inside
+      // `validateL1`, because both are properties of the PAGE (which target it
+      // renders for, what its `email.placeholders` declares) and `validateL1`
+      // is handed a document with no idea which page it came off.
+      //
+      // AFTER the envelope and not instead of it: an email page is an ordinary
+      // L1 page first, so a colour reference that resolves to nothing or a font
+      // size out of range is refused on it exactly as it is anywhere else.
+      if (page.kind === 'email' && envelope.ok) {
+        for (const error of emailTargetErrors(envelope.value)) {
+          errors.push({ path: `/pages/${i}/l1${error.path}`, message: error.message })
+        }
+        for (const error of emailCopyErrors(page.email?.placeholders, envelope.value)) {
+          errors.push({ path: `/pages/${i}${error.path}`, message: error.message })
         }
       }
     }

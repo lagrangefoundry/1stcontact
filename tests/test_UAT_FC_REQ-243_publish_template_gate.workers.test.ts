@@ -7,6 +7,7 @@ import { TEMPLATE_TYPE } from '../apps/control-app/src/templates'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 import { giveBusinessAnAddress } from './support/site-address'
+import { defaultEmailDocument } from '../packages/framework/src/l2/email-page'
 
 /**
  * [[REQ-243]] §2 — **the check that replaced the closed set**, at the surface an
@@ -119,6 +120,29 @@ function form(id: string, template?: string): Record<string, unknown> {
 /** The seam a given form mounts into. One per form, so two never collide. */
 const slotFor = (id: string): string => `${id}-slot`
 
+/**
+ * One email page, in the shape a stored page carries it ([[REQ-247]] §2).
+ *
+ * THE BODY COMES FROM `defaultEmailDocument`, which is what `add_page --kind
+ * email` writes — so a page that publishes here is a page an author would really
+ * have, rather than a minimal shape invented to clear the gate.
+ *
+ * NO PLACEHOLDERS, deliberately. What is under test is whether the form's name
+ * RESOLVES, and a declared token is a promise about copy that belongs to the
+ * send path's tests rather than to this one.
+ */
+function emailPage(id: string): Record<string, unknown> {
+  return {
+    id,
+    slug: id,
+    title: `Message ${id}`,
+    kind: 'email',
+    email: { subject: `Message ${id}` },
+    modules: [],
+    l1: defaultEmailDocument(`Message ${id}`),
+  }
+}
+
 interface PublishRefusal {
   error: string
   code?: string
@@ -136,6 +160,18 @@ interface PublishRefusal {
 async function publishWith(
   tenant: string,
   forms: Array<Record<string, unknown>>,
+  /**
+   * The email pages this site holds ([[REQ-247]]) — the legal values for
+   * `config.template`, by id.
+   *
+   * THE ANSWER MOVED INTO THE DEFINITION, which is the whole of what changed
+   * here. The legal set used to be the BUSINESS's template tickets, so a case
+   * arranging a publishable form had to write one into a ticket store before
+   * importing anything. A message is a page of the site now, so the legal set
+   * travels in the very payload being published — which is why this is a
+   * parameter of the import rather than a separate act before it.
+   */
+  emails: string[] = [],
 ): Promise<{ status: number; body: PublishRefusal }> {
   await ensureTenant(tenant)
   const seed = siteSeed({ slug: nextSlug('req243pub') })
@@ -167,7 +203,10 @@ async function publishWith(
       // target: the receiving business's single site, minted on the way in.
       slug: seed.slug,
       siteJson: seed.siteJson,
-      pages: [{ name: 'home.json', page: home }],
+      pages: [
+        { name: 'home.json', page: home },
+        ...emails.map((id) => ({ name: `${id}.json`, page: emailPage(id) })),
+      ],
       assets: [],
     }),
   })
@@ -222,51 +261,83 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
   })
 
   /**
-   * AC-4, the other side — a template the business HOLDS publishes.
+   * AC-4, the other side — a message the SITE holds publishes.
    *
    * THE CASE THAT MAKES THE REFUSAL MEAN SOMETHING. A gate that refused
-   * everything would pass the case above; what says the check reads the store is
-   * that writing the template is what changes the answer.
+   * everything would pass the case above; what says the check really resolves
+   * the name is that adding the page is the only thing that changes the answer.
+   *
+   * THE PAGE TRAVELS IN THE SAME PAYLOAD AS THE FORM ([[REQ-247]] §2), which is
+   * the shape of the change: the site being published either contains the
+   * message or it does not, and nothing outside the definition is consulted.
+   * This case used to write a template TICKET into the business's store first,
+   * and the store it went into was reachable only from the Worker — which is why
+   * `1c publish` against a directory could not perform this check at all.
    */
   it('test_UAT_FC_REQ-243_a_template_the_business_wrote_publishes', async () => {
-    const tenant = nextBusiness()
-    await ensureTenant(tenant)
-    const store = await ticketStoreFor(
-      { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
-      { businessId: tenant },
+    const { status, body } = await publishWith(
+      nextBusiness(),
+      [form('beta-form', 'beta-welcome')],
+      ['beta-welcome'],
     )
-    await store.create({
-      type: TEMPLATE_TYPE,
-      title: 'The beta welcome',
-      fields: { template_key: 'beta-welcome', subject: 'Welcome', placeholders: [] },
-      body: '<p>You are on the list.</p>',
-    })
-
-    const { status, body } = await publishWith(tenant, [form('beta-form', 'beta-welcome')])
     expect(status, JSON.stringify(body)).toBe(200)
   })
 
   /**
-   * AC-4, and the reason the seeded keys are in the available set.
+   * [[REQ-247]] AC-8, and what became of the seeded system keys.
    *
-   * `templateFor` IS SEED-IF-ABSENT, so a business that has never been asked for
-   * its `asset` template will be given one the first time a download is
-   * delivered. Reporting it missing would refuse a publish that is about to work
-   * perfectly — a refusal with no failure behind it, which is the worst kind.
+   * THIS CASE USED TO ASSERT THE OPPOSITE, and the inversion is the change
+   * rather than a regression. `templateFor` was seed-if-absent: a business that
+   * had never been asked for its `asset` template was given one, silently, the
+   * first time a download went out — so refusing a publish over a key that was
+   * about to be invented would have been a refusal with no failure behind it,
+   * and `asset` had to be treated as always available.
+   *
+   * NOTHING IS SEEDED ANY MORE, so the availability it stood on is gone. A form
+   * migrated to v7 names `asset` ([[REQ-243]]'s `contactFormV6ToV7`), and a site
+   * that has never had an `asset` page does not hold one — which is now an
+   * ordinary missing message and is refused by name.
+   *
+   * AND THE REFUSAL IS THE CORRECT OUTCOME. The alternative is materialising a
+   * page from the old seed copy, which would put generic platform prose into a
+   * business's outgoing mail with nobody having read it — exactly what
+   * [[REQ-247]] §2 exists to make impossible. So the assertion is that the
+   * refusal ARRIVES and that it is ACTIONABLE: it names the operation that fixes
+   * it, and making the page is the only thing that changes the answer.
    */
   it('test_UAT_FC_REQ-243_a_seeded_system_key_is_not_reported_missing', async () => {
-    const { status } = await publishWith(nextBusiness(), [form('gate', 'asset')])
-    expect(status).toBe(200)
+    const { status, body } = await publishWith(nextBusiness(), [form('gate', 'asset')])
+    expect(status).toBe(400)
+    const [error] = body.errors!
+    expect(error.message).toContain('gate')
+    expect(error.message).toContain('asset')
+    // NOT A DEAD END. The words say what makes one, so the fix is one call and
+    // not a hunt through the manual.
+    expect(error.message).toMatch(/add_page/)
+
+    // …and the page is the whole of the difference.
+    const made = await publishWith(nextBusiness(), [form('gate', 'asset')], ['asset'])
+    expect(made.status, JSON.stringify(made.body)).toBe(200)
   })
 
   /**
-   * AC-4 ∩ AC-6 — a public form cannot be PUBLISHED naming a credential message,
-   * and the refusal says it is a thing this product will not do rather than a
-   * template somebody forgot to write.
+   * AC-4 ∩ AC-6, and [[REQ-247]] AC-9 — a public form cannot be PUBLISHED naming
+   * a credential message.
    *
-   * THE TWO REASONS ARE DIFFERENT MISTAKES and the words have to say which.
-   * Otherwise an author writes an `invite` template, finds it still refused, and
-   * has learned nothing.
+   * THE REFUSAL SURVIVED AND ITS SPECIAL CASE DID NOT, which is the point of
+   * [[REQ-247]] §4. This case used to require the words to distinguish *forbidden*
+   * from *missing*, because the two were genuinely different mistakes: the legal
+   * set was the business's whole ticket store, `invite` really was in it, and an
+   * author told "no such template" would have written one and found it still
+   * refused.
+   *
+   * THERE IS NOTHING TO DISTINGUISH ANY MORE. A form names an email PAGE, and
+   * `invite` is a business-scoped credential template rather than a page of any
+   * site — so it is not in the legal set and cannot be put there by authoring.
+   * The refusal an author gets is the ordinary one, and it is not misleading,
+   * because the thing it tells them to do (make an email page called `invite`)
+   * would produce a page that mints no credential and carries no redeemable
+   * link. The rule stopped being a check somebody could forget to write.
    */
   it('test_UAT_FC_REQ-243_a_credential_template_is_refused_as_forbidden_not_as_missing', async () => {
     for (const key of ['invite', 'signin']) {
@@ -275,9 +346,7 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
       const [error] = body.errors!
       expect(error.message).toContain('signup-form')
       expect(error.message).toContain(key)
-      // NOT "write one" — no amount of authoring makes this legal.
-      expect(error.message).toMatch(/public form cannot send one/)
-      expect(error.message).not.toMatch(/Write one/)
+      expect(error.path).toBe('/pages/0/modules/0/config/template')
     }
   })
 

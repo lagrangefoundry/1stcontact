@@ -60,28 +60,15 @@ import { grantFor } from './grants'
 import { DOWNLOAD_PATH } from '../../../packages/framework/src/modules/contact-form/fields'
 import { publicSiteUrl } from './public-url'
 import type { Scope } from './scope'
-import {
-  CREDENTIAL_TEMPLATE_KEYS,
-  TemplateNotFoundError,
-  copyOf,
-  renderCopy,
-  templateFor,
-  type RenderedMessage,
-} from './templates'
+import { renderCopy, type MessageCopy, type RenderedMessage } from './templates'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { d1r2SiteStore, UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
-
-/**
- * The template a gated download rendered from BEFORE [[REQ-243]], and the one a
- * `contact-form` migrated to v7 still names.
- *
- * IT IS NO LONGER WHAT THE RECEIVER READS. A form names its own message now, so
- * this is a default in the module's migration and a seed in the business's store
- * — not a decision this file makes. It is exported because the fixtures and the
- * migration both spell it and one spelling is better than three.
- */
-export const ASSET_TEMPLATE = 'asset'
+import type { StoredPage } from '../../../tools/generate/src/store/site-store'
+// [[REQ-247]] — a message is a page of the site that sends it, so the receiver
+// reads and renders one through exactly the code the site's own tooling uses.
+import { emailPageOf } from '../../../packages/framework/src/l1/email-pages'
+import { renderL1Email } from '../../../packages/framework/src/l1/email-render'
 
 /** What a mail names an asset the form did not name. */
 const UNNAMED_ASSET = 'your download'
@@ -178,10 +165,17 @@ export type DeliverySkip =
   | 'already_sent'
   | 'suppressed'
   | 'no_address'
-  /** The form names a template this business does not hold ([[REQ-243]] §2). */
+  /**
+   * The form names a message this site does not hold ([[REQ-243]] §2, re-sourced
+   * by [[REQ-247]] §4).
+   *
+   * IT ABSORBED `reserved_template`, which is gone. That outcome existed because
+   * a form could name a credential template out of the business's ticket store;
+   * a form names an email PAGE now, and no credential is one — so naming
+   * `invite` is the same outcome as naming anything else that is not there, and
+   * there is one fewer state for a reader to learn.
+   */
   | 'no_template'
-  /** The form names a sign-up or sign-in message ([[REQ-243]] §4). */
-  | 'reserved_template'
 
 /** What became of one promised asset on one submission. */
 export interface AssetOutcome {
@@ -264,6 +258,23 @@ export interface FormDefinition {
    * address they typed.
    */
   template: string
+  /**
+   * The copy that message actually carries ([[REQ-247]] §2).
+   *
+   * RESOLVED IN THE SAME PASS AS THE FORM, AND OUT OF THE SAME SNAPSHOT. That
+   * is the whole of what makes AC-6 true: the message a visitor is sent is the
+   * one that was published, because it is a page of the very revision the form
+   * they pressed came out of. An unpublished edit to the copy is sitting in the
+   * draft, exactly where an unpublished edit to the page is, and reaches nobody
+   * until somebody publishes.
+   *
+   * `null` WHEN THE FORM NAMES A PAGE THIS SNAPSHOT DOES NOT HOLD, which is
+   * reachable only from a draft — publish refuses it, and so does the operation
+   * that configured the form. It is reported as `no_template` rather than
+   * thrown, because a preview that 500s tells the operator far less than a
+   * submission that captures the lead and says what was missing.
+   */
+  message: MessageCopy | null
 }
 
 /**
@@ -403,14 +414,30 @@ export async function formDefinitionOf(
     throw err
   }
   let pages
+  let siteJson: Record<string, unknown> | null
+  /**
+   * WHICH RENDERING OF THE COPY THIS IS, for [[REQ-198]]'s record.
+   *
+   * A TEMPLATE TICKET HAD A UID AND A PAGE DOES NOT, so the record needs some
+   * other stable name for *the exact words that went out*. A revision is
+   * precisely that: it is immutable, it is what the visitor was served, and it
+   * is the one thing that distinguishes this month's copy from last month's. A
+   * draft has no such guarantee and says so in the name rather than pretending
+   * to one.
+   */
+  let origin: string
   if (channel === 'draft') {
     pages = await store.readPages(site)
+    siteJson = await store.readSiteJson(site)
+    origin = `${site}@draft`
   } else {
     const live = liveRevisionOf(await store.revisions(site))
     if (live === null) return null
     const snapshot = await store.readRevision(site, live)
     if (!snapshot) return null
     pages = snapshot.pages
+    siteJson = snapshot.siteJson
+    origin = `${site}@${live}`
   }
 
   for (const stored of pages) {
@@ -431,17 +458,77 @@ export async function formDefinitionOf(
           ...(acceptance === '' ? {} : { acceptance }),
         }
       }
+      const template = text(config, 'template')
       return {
         page: stored.name,
         submitLabel: text(config, 'submitLabel') || 'Send',
         fields,
         assets: assetsIn(config),
         accepts: acceptsIn(config),
-        template: text(config, 'template'),
+        template,
+        message: template === '' ? null : messageCopyOf(pages, siteJson, template, origin),
       }
     }
   }
   return null
+}
+
+/**
+ * The copy an email page carries, as the thing that renders it takes
+ * ([[REQ-247]] §2).
+ *
+ * THE BODY IS RENDERED HERE AND NOT AT THE SEND, and the order matters: the
+ * document becomes HTML first and the tokens are substituted into that HTML
+ * afterwards. A token is text either way — `{{cta_url}}` sits in a text run or in
+ * a link's `href` — and rendering first means the substitution is the same string
+ * replacement it has always been, over the same escaped, table-wrapped output
+ * every recipient gets. Substituting into the DOCUMENT first would mean every
+ * message is a different document, and the one thing that could then differ
+ * between "what we showed the operator" and "what the recipient received" is the
+ * rendering itself.
+ *
+ * A TOKEN IN AN `href` CLEARS THE URL ALLOWLIST AS A RELATIVE URL, which is what
+ * makes the button expressible at all: `{{cta_url}}` carries no scheme and none
+ * of the characters that could break out of the attribute, so `isSafeUrl` reads
+ * it as relative and the anchor is emitted. What eventually lands there is
+ * whatever the SENDER substitutes — the gated-download link this Worker minted,
+ * and nothing a visitor could influence — so the substituted value is ours by
+ * construction rather than by a check.
+ *
+ * THE PALETTE COMES FROM THE SAME SNAPSHOT AS THE PAGE. A message painted from a
+ * palette entry that has since been edited must show the colour that was
+ * published beside it, not today's — which is automatic here, because both come
+ * out of the one frozen revision.
+ */
+function messageCopyOf(
+  pages: readonly StoredPage[],
+  siteJson: Record<string, unknown> | null,
+  templateKey: string,
+  origin: string,
+): MessageCopy | null {
+  const page = emailPageOf(pages, templateKey)
+  if (!page) return null
+  const email = (page.email ?? {}) as Record<string, unknown>
+  const document = page.l1
+  if (!document || typeof document !== 'object') return null
+  const from = String(email.from ?? '').trim()
+  const declared = Array.isArray(email.placeholders) ? email.placeholders.map(String) : []
+  return {
+    subject: String(email.subject ?? ''),
+    body: renderL1Email(document as never, {
+      palette: (siteJson?.palette ?? undefined) as never,
+      subject: String(email.subject ?? ''),
+    }),
+    // ABSENT RATHER THAN EMPTY, on `copyOf`'s reasoning: `MAIL_FROM` is the
+    // fallback the caller applies, and a blank string here would be a third
+    // state meaning the second that reaches a `check()` refusing a blank sender.
+    ...(from === '' ? {} : { from }),
+    declared,
+    templateKey,
+    // WHICH COPY, NOT WHICH TICKET. A page has no uid; the revision it was
+    // frozen in is the stable name for the exact words that went out.
+    templateUid: `${origin}/${templateKey}`,
+  }
 }
 
 /**
@@ -768,6 +855,11 @@ async function deliverForm(
   scope: Scope,
   contactId: string,
   templateKey: string,
+  /**
+   * The copy this form's message carries, resolved from the site's own email
+   * page, or null when the form names one the served snapshot does not hold.
+   */
+  template: MessageCopy | null,
   assets: readonly { key: string; name: string; url: string }[],
   /**
    * The per-contact page every artifact in this set is linked at ([[REQ-244]]).
@@ -787,28 +879,28 @@ async function deliverForm(
       ? { assets: assets.map((asset) => ({ key: asset.key, sent: false, skipped })) }
       : { assets: [], message: { sent: false, skipped } }
 
-  // BEFORE ANYTHING IS READ, because it is a refusal about the FORM and not
-  // about the contact ([[REQ-243]] §4). Publish refuses a capture form naming a
-  // credential template, so reaching this line means a DRAFT — the builder's own
-  // preview, which nothing validates — and the answer is the same either way.
-  if (CREDENTIAL_TEMPLATE_KEYS.includes(templateKey)) return nothing('reserved_template')
+  /*
+   * A MESSAGE THIS SITE DOES NOT HOLD, reported and not thrown ([[REQ-247]] §4).
+   *
+   * THERE IS NO CREDENTIAL CHECK HERE ANY MORE, and its absence is the point.
+   * [[REQ-243]] had to refuse `invite` and `signin` explicitly, because the
+   * template vocabulary was the business's whole ticket store and a form could
+   * name anything in it. A form now names an email PAGE of its own site, and a
+   * credential template is not a page of any site — so naming one lands here,
+   * as the ordinary "no such message", and the rule that a public form cannot
+   * send a redeemable credential has stopped being a check somebody could
+   * forget to write.
+   *
+   * REACHABLE ONLY FROM A DRAFT, still. Publish refuses it and so does the
+   * operation that configured the form; the builder's own preview submits
+   * against a draft nothing validated, which is why this reports rather than
+   * throws — a preview that 500s tells the operator far less than a submission
+   * that captures the lead and says what was missing.
+   */
+  if (!template) return nothing('no_template')
 
   const primary = (await emailsOf(env, contactId)).find((row) => row.is_primary === 1)
   if (!primary) return nothing('no_address')
-
-  // AFTER THE ADDRESS CHECK, because `templateFor` is seed-if-absent and would
-  // otherwise write a template ticket for a contact nothing can be sent to.
-  let template
-  try {
-    template = copyOf(await templateFor(store, templateKey))
-  } catch (err) {
-    // A KEY THE BUSINESS DOES NOT HOLD, reported and not thrown. Publish refuses
-    // it, so this is a draft again — and a preview that 500s tells the operator
-    // far less than a submission that captures the lead and says what was
-    // missing.
-    if (err instanceof TemplateNotFoundError) return nothing('no_template')
-    throw err
-  }
 
   const history = await messagesFor(store, contactId)
   // EVERY KEY ALREADY SENT TO, AND THE ONES SENT WITHIN THIS LOOP. The second
@@ -1004,10 +1096,11 @@ function reportAssetSkipped(
  * *why is the beta list not getting its welcome* — and a query that has to filter
  * one out of the other is a query nobody writes.
  *
- * IT NAMES THE TEMPLATE, which for the two [[REQ-243]] reasons is the whole
- * diagnosis: `no_template` means this key is not in the business's store, and
- * `reserved_template` means it never will be. Both are only reachable from a
- * draft, because publish refuses them.
+ * IT NAMES THE MESSAGE, which is most of the diagnosis: `no_template` means this
+ * site holds no email page under that name — a typo, a page removed with
+ * `--force`, or a credential message a public form may never send. It is only
+ * reachable from a draft, because publish refuses it and so does the operation
+ * that configured the form ([[REQ-247]] §4).
  */
 function reportMessageSkipped(
   spec: LeadSubmission,
@@ -1157,6 +1250,7 @@ export async function captureLead(
     scope,
     contactId,
     templateKey,
+    definition?.message ?? null,
     promised,
     gateUrl,
     // THE SENDER IS CHOSEN BY WHETHER THE DEPLOYMENT HOLDS A CREDENTIAL and by
