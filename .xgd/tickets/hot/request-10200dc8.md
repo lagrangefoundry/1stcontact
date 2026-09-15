@@ -5,18 +5,22 @@ type: request
 title: Every page is reachable from the control bar, and an unlinked one says so
 created_by: EPIC-10
 created_at: '2026-09-14T21:35:41.787381+00:00'
-updated_at: '2026-09-14T22:35:46.211922+00:00'
+updated_at: '2026-09-15T00:12:20.325959+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-209f66e9
+  commits:
+  - working_sha: 2bb86eb94d055757bf76356fea1c8be9a3919e88
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.200
 ---
-
 
 # Every page is reachable from the control bar, and an unlinked one says so
 
