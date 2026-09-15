@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T23:09:54.782838+00:00'
+updated_at: '2026-09-15T23:15:55.559211+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1877,5 +1877,11 @@ The alternative — a `0010` repair migration creating the missing tables `IF NO
 ## Separately
 
 The structural defect will recur the moment someone edits the baseline again — and it's silent until a deploy hits a database that's behind. Worth a ticket: *the baseline must be immutable once applied; a schema addition is a new numbered migration.* Possibly with a CI check that fails if `0001_baseline.sql` changes. Want me to file it?
+
+<!-- xgd-turn id="b3cf09ca-ed43-4f61-a8bf-ee00f615a618-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T23:15:55.486933+00:00" -->
+#### You
+Forget about production for now, can we just get the dev environment working? Is there a "deploy to dev" instruction?
 
 <!-- xgd-chat-end -->
