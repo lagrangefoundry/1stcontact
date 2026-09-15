@@ -82,7 +82,8 @@ export const MAX_FIELD_BYTES = 4000
 export interface LeadIntakeBinding {
   captureLead(spec: {
     siteKey: string
-    instanceId: string
+    /** The form's own hidden handle, `<pageId>:<instanceId>` ([[BUG-93]]). */
+    formHandle: string
     fields: Record<string, string>
     submittedAt?: string
   }): Promise<unknown>
@@ -462,7 +463,7 @@ export async function handleLead(
   try {
     await LEAD_INTAKE.captureLead({
       siteKey: context.siteKey,
-      instanceId: (fields[FORM_INSTANCE_FIELD] ?? '').trim(),
+      formHandle: (fields[FORM_INSTANCE_FIELD] ?? '').trim(),
       fields: submitted,
     })
   } catch (err) {

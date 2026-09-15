@@ -57,7 +57,10 @@ import {
 } from './messages'
 import { addContact } from './people'
 import { grantFor } from './grants'
-import { DOWNLOAD_PATH } from '../../../packages/framework/src/modules/contact-form/fields'
+import {
+  DOWNLOAD_PATH,
+  parseFormHandle,
+} from '../../../packages/framework/src/modules/contact-form/fields'
 import { publicSiteUrl } from './public-url'
 import type { Scope } from './scope'
 import { renderCopy, type MessageCopy, type RenderedMessage } from './templates'
@@ -97,8 +100,24 @@ export type LeadChannel = 'published' | 'draft'
 
 export interface LeadSubmission {
   siteKey: string
-  /** Which form instance, from the module's own hidden handle. May be empty. */
-  instanceId: string
+  /**
+   * Which form, from the module's own hidden handle: `<pageId>:<instanceId>`
+   * ([[BUG-93]]). May be empty, and may be anything at all — it is untrusted.
+   *
+   * IT NAMES THE PAGE AS WELL AS THE INSTANCE, because a component name is
+   * unique on one page and the same name is legal on the next. It was the
+   * instance alone, and the receiver resolved it by taking the first instance in
+   * the SITE whose id matched — so a submission from a whitepapers form called
+   * `signup` was served the home page's waitlist definition, recorded under its
+   * label, and mailed nobody.
+   *
+   * A HANDLE THAT DOES NOT PARSE RESOLVES TO NO DEFINITION, which is what a bare
+   * instance id now is. The trust properties are unchanged by the extra half:
+   * both halves name something that must already exist in the site the ROUTE
+   * resolved, so a caller who edits the handle can still only name another form
+   * in the same site, and can assert no template, no asset and no tenant.
+   */
+  formHandle: string
   /** Every field the visitor submitted, reserved names already stripped. */
   fields: Record<string, string>
   /** When the visitor pressed the button. Defaults to now. */
@@ -393,19 +412,32 @@ function acceptsIn(config: Record<string, unknown>): FormDefinition['accepts'] {
  * silently. So this is not a relaxation for previews. It is the same rule, and
  * hardcoding `published` was the special case.
  *
- * FIRST MATCH ACROSS PAGES. An instance id is unique within a page and nothing
- * enforces it across a site; two pages carrying one id is an authoring collision
- * rather than a submission the visitor can steer, and the cost of the collision
- * is provenance naming the wrong page — not a write anywhere it should not be.
+ * IT RESOLVES A PAGE AND THEN AN INSTANCE ON IT, AND NEVER SCANS ([[BUG-93]]).
+ * This used to take the FIRST instance in the site whose id matched, on the
+ * reasoning that two pages carrying one id was an authoring collision whose only
+ * cost was provenance naming the wrong page. Both halves of that were wrong. It
+ * is not a collision — the edit path deliberately scopes a component name to its
+ * page, because two pages may each reasonably hold a form called `signup` — and
+ * the cost was not cosmetic: the wrong definition carries the wrong template and
+ * the wrong asset set, so the form that promised two papers silently promised
+ * nothing and the send path returned before it began. The handle names the page,
+ * so this reads the page it names.
+ *
+ * NO FALLBACK TO A SCAN, AND NO FALLBACK TO A BARE ID. A handle that does not
+ * parse, or that names a page this site does not hold, or an instance that page
+ * does not carry, resolves to `null` — the same answer an unknown instance has
+ * always had. Guessing would be the defect itself, restored as a compatibility
+ * branch.
  */
 export async function formDefinitionOf(
   env: LeadEnv,
   businessId: string,
   site: string,
-  instanceId: string,
+  handle: string,
   channel: LeadChannel = 'published',
 ): Promise<FormDefinition | null> {
-  if (instanceId === '') return null
+  const named = parseFormHandle(handle)
+  if (!named) return null
   let store
   try {
     store = await d1r2SiteStore({ DB: env.DB, SITES: env.SITES }).forTenant(businessId)
@@ -440,9 +472,14 @@ export async function formDefinitionOf(
     origin = `${site}@${live}`
   }
 
+  // THE PAGE FIRST, BY THE ID THE RENDERER STAMPED INTO THE HANDLE ([[BUG-93]]).
+  // A store key is `<id>.json` and `findPageFile` addresses a page by its
+  // definition's own `id`, so that is the one name the renderer and the receiver
+  // already share — and the one this compares.
   for (const stored of pages) {
+    if (String(stored.page.id ?? '') !== named.pageId) continue
     for (const instance of instancesOf(stored.page)) {
-      if (instance.id !== instanceId) continue
+      if (instance.id !== named.instanceId) continue
       const config = (instance.config ?? {}) as Record<string, unknown>
       const fields: FormDefinition['fields'] = {}
       const declared = Array.isArray(config.fields) ? config.fields : []
@@ -626,7 +663,7 @@ export function provenanceOfSubmission(
      */
     channel: spec.channel ?? 'published',
     ...(definition ? { page: definition.page, submitLabel: definition.submitLabel } : {}),
-    form: spec.instanceId,
+    form: spec.formHandle,
     fields: answers,
     // WHICH ARTIFACTS THIS FORM WAS GATED ON, by key and in declaration order
     // ([[REQ-241]]). Recorded on the submission because it is a fact about the
@@ -1044,7 +1081,7 @@ function reportRefusal(spec: LeadSubmission, reason: LeadRefusal): void {
       event: 'lead_not_captured',
       reason,
       site: spec.siteKey,
-      form: spec.instanceId,
+      form: spec.formHandle,
       ...(reason === 'no_email' ? { submittedFields: Object.keys(spec.fields).sort() } : {}),
     }),
   )
@@ -1079,7 +1116,7 @@ function reportAssetSkipped(
       event: 'lead_asset_not_sent',
       reason,
       site: spec.siteKey,
-      form: spec.instanceId,
+      form: spec.formHandle,
       business: businessId,
       contact: contactId,
       asset,
@@ -1114,7 +1151,7 @@ function reportMessageSkipped(
       event: 'lead_message_not_sent',
       reason,
       site: spec.siteKey,
-      form: spec.instanceId,
+      form: spec.formHandle,
       business: businessId,
       contact: contactId,
       template,
@@ -1144,7 +1181,7 @@ function reportAcceptanceSkipped(
       event: 'lead_acceptance_not_recorded',
       reason,
       site: spec.siteKey,
-      form: spec.instanceId,
+      form: spec.formHandle,
       business: businessId,
       contact: contactId,
       acceptance: key,
@@ -1176,7 +1213,7 @@ export async function captureLead(
     env,
     site.businessId,
     spec.siteKey,
-    spec.instanceId,
+    spec.formHandle,
     spec.channel ?? 'published',
   )
   const email = addressIn(spec.fields, definition)
@@ -1239,7 +1276,7 @@ export async function captureLead(
     gate ??= grantFor(env, scope, {
       contactId,
       siteId: spec.siteKey,
-      instanceId: spec.instanceId,
+      formHandle: spec.formHandle,
     }).then((grant) => publicSiteUrl(spec.siteKey, `/${DOWNLOAD_PATH}/${grant.id}`))
     return gate
   }

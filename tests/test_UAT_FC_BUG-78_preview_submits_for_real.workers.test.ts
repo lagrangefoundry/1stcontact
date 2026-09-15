@@ -133,7 +133,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     const response = await route(
       previewPost(site.siteKey, 'draft', {
-        [FORM_INSTANCE_FIELD]: site.instanceId,
+        [FORM_INSTANCE_FIELD]: site.formHandle,
         email: 'Preview@Example.com',
       }),
       routerEnv(),
@@ -160,7 +160,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     await route(
       previewPost(site.siteKey, 'draft', {
-        [FORM_INSTANCE_FIELD]: site.instanceId,
+        [FORM_INSTANCE_FIELD]: site.formHandle,
         email: 'marked@example.com',
       }),
       routerEnv(),
@@ -181,7 +181,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     await captureLead(controlEnv(), {
       siteKey: site.siteKey,
-      instanceId: site.instanceId,
+      formHandle: site.formHandle,
       fields: { email: 'live@example.com' },
     })
 
@@ -214,6 +214,8 @@ describe('BUG-78 — the preview submits for real', () => {
         {
           name: 'home.json',
           page: {
+            // [[BUG-93]] — a page carries an id, and a form's handle names it.
+            id: site.pageId,
             slug: 'home',
             title: 'Home',
             modules: [
@@ -247,7 +249,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     await route(
       previewPost(site.siteKey, 'draft', {
-        [FORM_INSTANCE_FIELD]: site.instanceId,
+        [FORM_INSTANCE_FIELD]: site.formHandle,
         email: 'draftwording@example.com',
         list: 'yes',
       }),
@@ -286,7 +288,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     await route(
       previewPost(site.siteKey, 'draft', {
-        [FORM_INSTANCE_FIELD]: site.instanceId,
+        [FORM_INSTANCE_FIELD]: site.formHandle,
         email: 'unpublished@example.com',
       }),
       routerEnv(),
@@ -311,7 +313,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     await route(
       previewPost(mine.siteKey, 'draft', {
-        [FORM_INSTANCE_FIELD]: mine.instanceId,
+        [FORM_INSTANCE_FIELD]: mine.formHandle,
         email: 'steered@example.com',
         siteKey: theirs.siteKey,
         site: theirs.siteKey,
@@ -338,7 +340,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     const response = await route(
       previewPost(site.siteKey, 'edit', {
-        [FORM_INSTANCE_FIELD]: site.instanceId,
+        [FORM_INSTANCE_FIELD]: site.formHandle,
         email: 'editmode@example.com',
       }),
       routerEnv(),
@@ -360,7 +362,7 @@ describe('BUG-78 — the preview submits for real', () => {
 
     const response = await route(
       previewPost(site.siteKey, 'draft', {
-        [FORM_INSTANCE_FIELD]: site.instanceId,
+        [FORM_INSTANCE_FIELD]: site.formHandle,
         email: 'notoken@example.com',
       }),
       routerEnv(),
@@ -397,7 +399,7 @@ describe('BUG-78 — the preview submits for real', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          [FORM_INSTANCE_FIELD]: site.instanceId,
+          [FORM_INSTANCE_FIELD]: site.formHandle,
           [TURNSTILE_FIELD]: '',
           email: 'anon@example.com',
           identified: 'true',

@@ -80,7 +80,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
     const mailer = capturingMailer()
     const outcome = await captureLead(
       leadEnv(),
-      { siteKey: site.siteKey, instanceId: site.instanceId, fields: { email: 'both@example.com' } },
+      { siteKey: site.siteKey, formHandle: site.formHandle, fields: { email: 'both@example.com' } },
       { send: mailer.send },
     )
 
@@ -143,14 +143,14 @@ describe('REQ-241 — a form promises a set of assets', () => {
 
     const one = await captureLead(
       leadEnv(),
-      { siteKey: first.siteKey, instanceId: first.instanceId, fields: { email: address } },
+      { siteKey: first.siteKey, formHandle: first.formHandle, fields: { email: address } },
       { send: mailer.send },
     )
     expect(one.assets).toEqual([{ key: PAPER_A.key, sent: true }])
 
     const again = await captureLead(
       leadEnv(),
-      { siteKey: both.siteKey, instanceId: both.instanceId, fields: { email: address } },
+      { siteKey: both.siteKey, formHandle: both.formHandle, fields: { email: address } },
       { send: mailer.send },
     )
     // AC-2 — the question is asked once per ITEM. They had A, so A is refused;
@@ -182,7 +182,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
     const mailer = capturingMailer()
     const outcome = await captureLead(
       leadEnv(),
-      { siteKey: site.siteKey, instanceId: site.instanceId, fields: { email: 'partial@example.com' } },
+      { siteKey: site.siteKey, formHandle: site.formHandle, fields: { email: 'partial@example.com' } },
       { send: mailer.send },
     )
 
@@ -200,7 +200,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
     const mailer = capturingMailer()
     const outcome = await captureLead(
       leadEnv(),
-      { siteKey: site.siteKey, instanceId: site.instanceId, fields: { email: 'quiet241@example.com' } },
+      { siteKey: site.siteKey, formHandle: site.formHandle, fields: { email: 'quiet241@example.com' } },
       { send: mailer.send },
     )
 
@@ -227,7 +227,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
 
     const first = await captureLead(
       leadEnv(),
-      { siteKey: site.siteKey, instanceId: site.instanceId, fields: { email: address } },
+      { siteKey: site.siteKey, formHandle: site.formHandle, fields: { email: address } },
       { send: mailer.send },
     )
     const contactId = first.contactId as string
@@ -239,7 +239,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
 
     const again = await captureLead(
       leadEnv(),
-      { siteKey: both.siteKey, instanceId: both.instanceId, fields: { email: address } },
+      { siteKey: both.siteKey, formHandle: both.formHandle, fields: { email: address } },
       { send: mailer.send },
     )
 
@@ -270,7 +270,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
     const mailer = capturingMailer()
     const outcome = await captureLead(
       leadEnv(),
-      { siteKey: site.siteKey, instanceId: site.instanceId, fields: { email: 'frozen@example.com' } },
+      { siteKey: site.siteKey, formHandle: site.formHandle, fields: { email: 'frozen@example.com' } },
       { send: mailer.send },
     )
 

@@ -105,15 +105,63 @@ export const HONEYPOT_FIELD = 'hp_company_url'
 export const TURNSTILE_FIELD = 'cf-turnstile-response'
 
 /**
- * Which form instance this submission came from.
+ * Which form this submission came from: the PAGE it sits on and the instance on
+ * that page, together ([[BUG-93]]).
  *
  * IT IS A HANDLE AND NOT A PAYLOAD. What the receiver does with it is look the
- * instance up in the site's own published definition — the asset the form
- * promised, the consent wording it showed, what its submit button said — so a
- * caller who edits this value can only name another instance that already
- * exists in the same site, and can never assert anything about one.
+ * form up in the site's own published definition — the asset the form promised,
+ * the consent wording it showed, what its submit button said — so a caller who
+ * edits this value can only name another form that already exists in the same
+ * site, and can never assert anything about one.
+ *
+ * IT NAMES THE PAGE BECAUSE A COMPONENT NAME IS ONLY UNIQUE ON ONE. The edit
+ * path refuses a second component called `signup` on the same page and permits
+ * one on the next page over, which is the right rule — two pages may each
+ * reasonably hold a form called `signup`. What was wrong was the other end: the
+ * receiver scanned every page in the site and took the FIRST instance whose id
+ * matched, so a submission from the whitepapers form resolved the home page's
+ * waitlist definition — the wrong submit label in the CRM, no assets, no
+ * template, and therefore no mail. The handle now addresses what it names.
  */
 export const FORM_INSTANCE_FIELD = 'fc_form'
+
+/**
+ * What separates the two halves of a handle ([[BUG-93]]).
+ *
+ * A COLON IS UNAVAILABLE TO A PAGE ID BY CONSTRUCTION. `isValidPageName`
+ * (`packages/site-schema/src/page-name.ts`) admits RFC 3986's unreserved set
+ * less `~` — letters, digits, `.`, `-`, `_` — so no page id can contain one and
+ * the FIRST colon is always the boundary. A component id carries no such rule,
+ * so everything after that first colon is the instance, however many more it
+ * holds: {@link parseFormHandle} splits once and never on the last.
+ */
+const FORM_HANDLE_SEPARATOR = ':'
+
+/** The handle a form on `pageId` called `instanceId` puts on the wire. */
+export function formHandle(pageId: string, instanceId: string): string {
+  return `${pageId}${FORM_HANDLE_SEPARATOR}${instanceId}`
+}
+
+/**
+ * The page and the instance a handle names, or `null` if it names neither.
+ *
+ * A BARE INSTANCE ID IS REFUSED RATHER THAN GUESSED AT ([[BUG-93]]). The whole
+ * defect was a lookup that decided, on its own, which of two identically-named
+ * forms a caller meant; a compatibility branch reading a bare id would be that
+ * same decision wearing a different name, and it would be permanent weight
+ * carried for a handful of rows in a development store. A submission carrying
+ * one writes nothing.
+ */
+export function parseFormHandle(
+  value: string,
+): { pageId: string; instanceId: string } | null {
+  const at = value.indexOf(FORM_HANDLE_SEPARATOR)
+  if (at <= 0) return null
+  const pageId = value.slice(0, at)
+  const instanceId = value.slice(at + FORM_HANDLE_SEPARATOR.length)
+  if (instanceId === '') return null
+  return { pageId, instanceId }
+}
 
 /**
  * What a ticked `checkbox` field submits ([[REQ-223]] §7).

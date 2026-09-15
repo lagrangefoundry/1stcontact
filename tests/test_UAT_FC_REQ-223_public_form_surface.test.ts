@@ -53,9 +53,16 @@ import { validateL1 } from '../packages/site-schema/src/index'
  */
 
 /** One form's markup, with a minimal L1 subtree in its required `form` slot. */
-function render(fields: Array<Record<string, unknown>>, instanceId = 'signup'): string {
+function render(
+  fields: Array<Record<string, unknown>>,
+  instanceId = 'signup',
+  // [[BUG-93]] — which page the form sits on. The handle names both halves,
+  // because a component name is unique on one page only.
+  pageId = 'home',
+): string {
   return contactForm({
     instanceId,
+    pageId,
     config: { fields, submitLabel: 'Send' },
     slots: {
       form: {
@@ -119,10 +126,16 @@ describe('REQ-223 — the public form surface', () => {
   })
 
   it('test_UAT_FC_REQ-223_the_form_says_which_instance_it_is', () => {
-    const html = render([{ name: 'email', label: 'Your email', type: 'email' }], 'beta-form')
+    const html = render([{ name: 'email', label: 'Your email', type: 'email' }], 'beta-form', 'beta')
     // The receiver's only non-forgeable route to the asset, the consent wording
     // and the submit label is this handle plus the site's published definition.
-    expect(html).toContain(`<input type="hidden" name="${FORM_INSTANCE_FIELD}" value="beta-form">`)
+    //
+    // IT NAMES THE PAGE TOO ([[BUG-93]]). An instance id alone is unique on one
+    // page and legal again on the next, so a handle carrying only the instance
+    // left the receiver resolving whichever same-named form came first.
+    expect(html).toContain(
+      `<input type="hidden" name="${FORM_INSTANCE_FIELD}" value="beta:beta-form">`,
+    )
     // …and the trap and the token are named once, in one module, for everybody.
     expect(html).toContain(`name="${HONEYPOT_FIELD}"`)
     expect(RESERVED_FIELDS).toEqual([HONEYPOT_FIELD, TURNSTILE_FIELD, FORM_INSTANCE_FIELD])

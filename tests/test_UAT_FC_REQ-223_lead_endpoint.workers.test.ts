@@ -147,9 +147,9 @@ function post(
 }
 
 /** The fields a well-formed submission carries, for a given form instance. */
-function submission(instanceId: string, extra: Record<string, string> = {}) {
+function submission(formHandle: string, extra: Record<string, string> = {}) {
   return {
-    [FORM_INSTANCE_FIELD]: instanceId,
+    [FORM_INSTANCE_FIELD]: formHandle,
     [TURNSTILE_FIELD]: TOKEN,
     ...extra,
   }
@@ -180,7 +180,7 @@ describe('REQ-223 — POST /api/lead', () => {
     })
 
     const response = await worker.fetch(
-      post(`/site/${site.siteKey}/api/lead`, submission(site.instanceId, {
+      post(`/site/${site.siteKey}/api/lead`, submission(site.formHandle, {
         email: 'Alice@Example.com',
         building: 'a small catering site',
         list: 'yes',
@@ -217,7 +217,7 @@ describe('REQ-223 — POST /api/lead', () => {
     expect(submitted).toBeTruthy()
     expect(submitted?.detail.site).toBe(site.siteKey)
     expect(submitted?.detail.page).toBe('home.json')
-    expect(submitted?.detail.form).toBe(site.instanceId)
+    expect(submitted?.detail.form).toBe(site.formHandle)
     expect(submitted?.detail.submitLabel).toBe('Send me both papers')
     expect(submitted?.detail.fields).toMatchObject({
       building: 'a small catering site',
@@ -230,7 +230,7 @@ describe('REQ-223 — POST /api/lead', () => {
     const site = await seedFormSite({ tenantId: TENANT })
     const send = () =>
       worker.fetch(
-        post(`/site/${site.siteKey}/api/lead`, submission(site.instanceId, {
+        post(`/site/${site.siteKey}/api/lead`, submission(site.formHandle, {
           email: 'twice@example.com',
         })),
         workerEnv(),
@@ -264,19 +264,19 @@ describe('REQ-223 — POST /api/lead', () => {
     }
 
     // A new address.
-    await record(submission(site.instanceId, { email: 'frozen-a@example.com' }))
+    await record(submission(site.formHandle, { email: 'frozen-a@example.com' }))
     // An address already a contact.
-    await record(submission(site.instanceId, { email: 'frozen-a@example.com' }))
+    await record(submission(site.formHandle, { email: 'frozen-a@example.com' }))
     // A filled honeypot — AC-7.
     await record(
-      submission(site.instanceId, {
+      submission(site.formHandle, {
         email: 'frozen-b@example.com',
         [HONEYPOT_FIELD]: 'https://spam.example',
       }),
     )
     // A rate-limited submission — AC-9.
     allowRate = false
-    await record(submission(site.instanceId, { email: 'frozen-c@example.com' }))
+    await record(submission(site.formHandle, { email: 'frozen-c@example.com' }))
     allowRate = true
 
     // AC-2 — one acknowledgement, byte for byte, for every one of them.
@@ -294,7 +294,7 @@ describe('REQ-223 — POST /api/lead', () => {
     await seedFormSite({ tenantId: OTHER_TENANT })
 
     await worker.fetch(
-      post(`/site/${mine.siteKey}/api/lead`, submission(mine.instanceId, {
+      post(`/site/${mine.siteKey}/api/lead`, submission(mine.formHandle, {
         email: 'steered@example.com',
         // Every shape a caller might hope names somebody else's list.
         siteKey: 'anything',
@@ -318,7 +318,7 @@ describe('REQ-223 — POST /api/lead', () => {
 
     // AC-8 — no token at all.
     const missing = await worker.fetch(
-      post(path, { [FORM_INSTANCE_FIELD]: site.instanceId, email: 'no-token@example.com' }),
+      post(path, { [FORM_INSTANCE_FIELD]: site.formHandle, email: 'no-token@example.com' }),
       workerEnv(),
       {} as ExecutionContext,
     )
@@ -328,7 +328,7 @@ describe('REQ-223 — POST /api/lead', () => {
     // AC-8 — a token Cloudflare refuses.
     verifyOutcome = false
     const invalid = await worker.fetch(
-      post(path, submission(site.instanceId, { email: 'bad-token@example.com' })),
+      post(path, submission(site.formHandle, { email: 'bad-token@example.com' })),
       workerEnv(),
       {} as ExecutionContext,
     )
@@ -341,7 +341,7 @@ describe('REQ-223 — POST /api/lead', () => {
     verifyOutcome = true
     const unconfigured = { ...workerEnv(), TURNSTILE_SECRET: '' } as Env
     const refused = await worker.fetch(
-      post(path, submission(site.instanceId, { email: 'unconfigured@example.com' })),
+      post(path, submission(site.formHandle, { email: 'unconfigured@example.com' })),
       unconfigured,
       {} as ExecutionContext,
     )
@@ -354,7 +354,7 @@ describe('REQ-223 — POST /api/lead', () => {
     await worker.fetch(
       post(
         `/site/${site.siteKey}/api/lead`,
-        submission(site.instanceId, { email: 'keyed@example.com' }),
+        submission(site.formHandle, { email: 'keyed@example.com' }),
         { ip: '203.0.113.7' },
       ),
       workerEnv(),
@@ -370,7 +370,7 @@ describe('REQ-223 — POST /api/lead', () => {
 
     // AC-10 — a body past the cap, refused before it is parsed.
     const huge = await worker.fetch(
-      post(path, submission(site.instanceId, {
+      post(path, submission(site.formHandle, {
         email: 'huge@example.com',
         building: 'x'.repeat(MAX_BODY_BYTES + 100),
       })),
@@ -380,14 +380,14 @@ describe('REQ-223 — POST /api/lead', () => {
     expect(huge.status).toBe(413)
 
     // AC-10 — too many fields.
-    const many: Record<string, string> = submission(site.instanceId, { email: 'many@example.com' })
+    const many: Record<string, string> = submission(site.formHandle, { email: 'many@example.com' })
     for (let i = 0; i < MAX_FIELDS + 5; i += 1) many[`f${i}`] = 'x'
     const crowded = await worker.fetch(post(path, many), workerEnv(), {} as ExecutionContext)
     expect(crowded.status).toBe(400)
 
     // AC-10 — one answer past the per-field cap, inside an acceptable body.
     const long = await worker.fetch(
-      post(path, submission(site.instanceId, {
+      post(path, submission(site.formHandle, {
         email: 'long@example.com',
         building: 'y'.repeat(MAX_FIELD_BYTES + 10),
       })),
@@ -407,7 +407,7 @@ describe('REQ-223 — POST /api/lead', () => {
     const response = await worker.fetch(
       post(
         `/site/${site.siteKey}/api/lead`,
-        submission(site.instanceId, { email: 'nojs@example.com' }),
+        submission(site.formHandle, { email: 'nojs@example.com' }),
         { shape: 'form' },
       ),
       workerEnv(),
@@ -427,7 +427,7 @@ describe('REQ-223 — POST /api/lead', () => {
   it('test_UAT_FC_REQ-223_the_apex_endpoint_writes_into_the_apex_site', async () => {
     const site = await seedFormSite({ tenantId: TENANT })
     const response = await worker.fetch(
-      post('/api/lead', submission(site.instanceId, { email: 'apex@example.com' })),
+      post('/api/lead', submission(site.formHandle, { email: 'apex@example.com' })),
       workerEnv(site.siteKey),
       {} as ExecutionContext,
     )
@@ -472,6 +472,10 @@ describe('REQ-223 — POST /api/lead', () => {
     // every site that has ever carried a form.
     const form = contactForm({
       instanceId: 'served',
+      // [[BUG-93]] — the handle names the page as well as the instance, so a
+      // fixture rendering a form has to say which page it is on, exactly as the
+      // renderer does.
+      pageId: 'home',
       config: { fields: [{ name: 'email', label: 'E', type: 'email' }] },
       slots: { form: { kind: 'container', layout: 'stack', children: [] } },
     })
@@ -489,9 +493,10 @@ describe('REQ-223 — POST /api/lead', () => {
     const html = await page.text()
     expect(html).toContain(`data-sitekey="${SITEKEY}"`)
     expect(html).toContain(TURNSTILE_SCRIPT_URL)
-    // The hidden instance handle travelled with the published bytes, which is
-    // what gives the receiver a non-forgeable route to the form's own definition.
-    expect(html).toContain(`name="${FORM_INSTANCE_FIELD}" value="served"`)
+    // The hidden handle travelled with the published bytes — the PAGE and the
+    // instance on it ([[BUG-93]]) — which is what gives the receiver a
+    // non-forgeable route to this form's own definition and not another form's.
+    expect(html).toContain(`name="${FORM_INSTANCE_FIELD}" value="home:served"`)
 
     // A deployment with no sitekey serves exactly what it published — the mount
     // is inert, and the refusal happens at the endpoint where it is loud.
@@ -518,7 +523,7 @@ describe('REQ-223 — POST /api/lead', () => {
     const site = await seedFormSite({ tenantId: TENANT })
     const noBinding = { ...workerEnv(), LEAD_INTAKE: undefined } as Env
     const response = await worker.fetch(
-      post(`/site/${site.siteKey}/api/lead`, submission(site.instanceId, {
+      post(`/site/${site.siteKey}/api/lead`, submission(site.formHandle, {
         email: 'nowhere@example.com',
       })),
       noBinding,

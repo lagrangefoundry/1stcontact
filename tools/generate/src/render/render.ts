@@ -136,10 +136,18 @@ function renderModuleInstances(
     // declares, and the gate belongs to the module: only it knows what it should
     // do when its capability is absent, and the renderer must not grow a branch
     // naming one.
+    // [[BUG-93]] — WHICH PAGE THIS INSTANCE SITS ON, handed down beside its id.
+    // A component name is unique on one page and the same name is legal on the
+    // next, so an id alone does not name a form in a SITE. A module that puts a
+    // handle on the wire has to say both halves or the receiver resolves the
+    // first match anywhere — which is precisely what silenced the whitepapers
+    // form. The renderer is the only thing that knows the page, so it is the
+    // only thing that can supply it.
     const rendered = Component({
       config: m.config,
       slots: m.slots,
       instanceId: m.id,
+      pageId: page.id,
       edit,
       locale,
       capabilities,

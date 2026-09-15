@@ -266,6 +266,22 @@ export interface BehaviorProps {
   slots?: Record<string, BehaviorSlotValue | undefined>
   /** Namespaces this instance's slot classes so two on a page never collide. */
   instanceId?: string
+  /**
+   * WHICH PAGE THIS INSTANCE SITS ON ([[BUG-93]]).
+   *
+   * An instance id is unique on ONE page — the edit path refuses a collision
+   * within a page and permits the same name on the next one, which is the right
+   * rule. So an id alone does not name a module instance in a SITE, and a
+   * module that puts a handle on the wire for a server to resolve needs both
+   * halves or the server has to guess. `contact-form` is the one that does; the
+   * prop is here rather than in its config because the renderer is the only
+   * thing that knows the answer, and it knows it for every module alike.
+   *
+   * Optional, so a module that never addresses itself can ignore it and a test
+   * may omit it. A module that DOES emit a handle must treat its absence as a
+   * handle that will not resolve rather than inventing a page.
+   */
+  pageId?: string
   /** REQ-116 — render the edit channel: the module's own behaviour switched off. */
   edit?: boolean
   /**

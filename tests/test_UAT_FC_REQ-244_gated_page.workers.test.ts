@@ -108,14 +108,14 @@ async function get(path: string): Promise<Response> {
 
 /** One submission, and the link the mail it produced actually carries. */
 async function submitAndRead(
-  site: { siteKey: string; instanceId: string },
+  site: { siteKey: string; formHandle: string },
   email: string,
   tenantId: string = TENANT,
 ): Promise<{ contactId: string; link: string; path: string }> {
   const mailer = capturingMailer()
   const outcome = await captureLead(
     controlEnv(),
-    { siteKey: site.siteKey, instanceId: site.instanceId, fields: { email } },
+    { siteKey: site.siteKey, formHandle: site.formHandle, fields: { email } },
     { send: mailer.send },
   )
   expect(outcome.accepted).toBe(true)
@@ -193,7 +193,7 @@ describe('REQ-244 — the gated page', () => {
     for (const arrival of arrivals) {
       expect(arrival.detail).toMatchObject({
         site: site.siteKey,
-        form: site.instanceId,
+        form: site.formHandle,
         assets: [PAPER_A.key],
       })
     }
