@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T19:01:07.714516+00:00'
+updated_at: '2026-09-15T19:39:00.422577+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1556,5 +1556,13 @@ The handle needs to identify what it addresses. Three candidates:
 I'd go with (1).
 
 This is a bug, not a REQ, and it's the actual cause of the thing you've been chasing since Monday. Want me to file it? I'd also note the three still-unfiled items from before — email-page preview, the orphan `papers.json`, and home's form still being v5 — but this one is the blocker and should go in on its own.
+
+<!-- xgd-turn id="5730b5d7-4868-4d40-919e-7fd9a4ad299d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T19:39:00.117137+00:00" -->
+#### You
+1 please. 
+
+Needs back-compat for already-published revisions emitting a bare id. <-- lets not build back-compatability junk for our dozen test rows please.
 
 <!-- xgd-chat-end -->
