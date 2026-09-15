@@ -5,9 +5,9 @@ type: request
 title: Every page is reachable from the control bar, and an unlinked one says so
 created_by: EPIC-10
 created_at: '2026-09-14T21:35:41.787381+00:00'
-updated_at: '2026-09-15T00:12:25.298791+00:00'
+updated_at: '2026-09-15T00:12:51.080148+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -175,3 +175,5 @@ A failed listing keeps the last answer rather than emptying the control.
 14. Choosing a page names it immediately and keeps naming it until the page arrives.
 15. The control sits in the same position in View and in Edit, so flipping channel does not
     move it out from under the pointer that just used it.
+
+-
