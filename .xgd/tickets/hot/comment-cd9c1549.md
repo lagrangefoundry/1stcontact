@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T22:53:46.277821+00:00'
+updated_at: '2026-09-15T23:07:08.820849+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1756,5 +1756,65 @@ Same mechanism explains the `RESEND_API_KEY` oddity from Monday — the key *is*
 `bin/deploy --dry-run` will tell you, safely — it makes no change, and it exercises the same hook sequence and the same credentials as the real thing.
 
 I'd start there before running the real one. The two migrations I'd read first are `0005_retire_site_slug` and `0007_business_name_unique`, since those rewrite existing rows rather than just adding to them — though with production holding zero sites there may be nothing there to rewrite.
+
+<!-- xgd-turn id="86fed963-3532-4601-bb8f-688419079855-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-15T23:07:08.457131+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/deploy       
+
+==> control-app → 1stcontact-control-app (--env production)
+  hook migrate/10-d1-site-store
+
+ ⛅️ wrangler 4.106.0 (update available 4.132.0)
+───────────────────────────────────────────────
+Resource location: remote 
+
+▲ [WARNING] Processing wrangler.toml configuration:
+
+  
+    - "env.production" environment configuration
+      - The following vars exist at the top level, but not on "env.production.vars".
+        This is probably not what you want, since "vars" configuration is not inherited by
+  environments.
+        Please add these vars to "env.production.vars":
+        - ACCESS_DEV_OPEN
+
+Migrations to be applied:
+┌──────────────────────────────────┐
+│ name                             │
+├──────────────────────────────────┤
+│ 0002_session_rotation.sql        │
+├──────────────────────────────────┤
+│ 0003_contact_change_cursor.sql   │
+├──────────────────────────────────┤
+│ 0004_user_acceptances.sql        │
+├──────────────────────────────────┤
+│ 0005_retire_site_slug.sql        │
+├──────────────────────────────────┤
+│ 0006_asset_grants.sql            │
+├──────────────────────────────────┤
+│ 0007_business_name_unique.sql    │
+├──────────────────────────────────┤
+│ 0008_site_domains.sql            │
+├──────────────────────────────────┤
+│ 0009_asset_grant_form_handle.sql │
+└──────────────────────────────────┘
+✔ About to apply 8 migration(s)
+Your database may not be available to serve requests during the migration, continue? … yes
+🌀 Executing on remote database 1stcontact (0434cd88-07e0-4eb2-a7d8-7370c333534c):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+
+✘ [ERROR] A request to the Cloudflare API (/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/d1/database/0434cd88-07e0-4eb2-a7d8-7370c333534c/query) failed.
+
+  no such table: sessions: SQLITE_ERROR [code: 7500]
+  
+  If you think this is a bug, please open an issue at:
+  https://github.com/cloudflare/workers-sdk/issues/new/choose
+
+🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-09-15_23-05-58_116.log"
+
+```
 
 <!-- xgd-chat-end -->
