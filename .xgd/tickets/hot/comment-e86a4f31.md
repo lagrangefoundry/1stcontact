@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:42:41.373889+00:00'
+updated_at: '2026-09-16T21:43:53.113399+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -597,5 +597,37 @@ The parser fix is still untouched and still the thing blocking every round. Want
 Is that different from 261 work? That is underway now
 
 Can you ensure that any permission changes are appended to 262 which is also underway but I will tell it to reread its ticket
+
+<!-- xgd-turn id="8af11a0d-87b7-42f3-b49a-0daa16fe1c02-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:43:52.366212+00:00" -->
+#### Claude
+Different ticket, yes — and there's a collision risk worth removing while I'm in there.
+
+Now giving REQ-262 exclusive ownership, including the staleness item I moved out of 261.
+
+**Yes, different ticket** — and I found a collision you'd want caught, since both are underway.
+
+## The split
+
+**REQ-261 needs no permission change at all.** Its behaviour 2 has the round filing bugs separately — but the round never files anything itself, it hands back content and *the console* runs `xgd`. That works entirely inside the existing permissions. Same for resume, transcript, recoverability, cost telemetry.
+
+**REQ-262 owns the permission question**, because it's the only one that actually raises it: a round searching prior tickets can't be brokered in advance, since the console can't know the query.
+
+## The collision
+
+REQ-261 had a behaviour 8 — *"the tool policy is asserted, not enumerated"* — which I'd put there. That was my error. Both tickets touch `tools/repro-console/src/ai.ts`, and two concurrent sessions editing the same policy constants is how you get a merge that silently loses a deny entry.
+
+So I moved it. **REQ-262 now owns the tool-policy surface exclusively** — `AI_ALLOWED_TOOLS`, `AI_DISALLOWED_TOOLS`, `AI_PERMISSION_MODE`, `AI_SETTING_SOURCES` — carrying both the broker-vs-scoped-access decision and the deny-list staleness check.
+
+**REQ-261's behaviour 8 is now the opposite**: an explicit statement that it changes no permissions, with requirement 6 naming all four constants as off-limits, and a line telling that session what to do if it hits a wall — *if work here appears to require a permission change, that's a signal it belongs in REQ-262; raise it there rather than making it here.*
+
+I also added a rule to REQ-262 that follows from your own codebase: `ai.ts` records a **measured** finding that a tool merely absent from the allow list still ran. So any permission asserted there must be justified by a recorded measurement in that same form — what was tried, what happened, what it proves. A permission asserted without one is exactly the mistake that finding exists to prevent.
+
+## Both sessions should reread
+
+You said you'd tell 262. **REQ-261's session needs it too** — I removed a behaviour and renumbered its requirements (now 11, was 10). If it already started on the old behaviour 8, that work should stop and move.
+
+One thing to watch: I edited both bodies while sessions are live on them. If either has already written UATs tracing to the old numbering, those traces need refreshing.
 
 <!-- xgd-chat-end -->
