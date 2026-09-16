@@ -5,16 +5,21 @@ type: request
 title: 'Choosing the 1stc.site hostname: the field, the check, and the lock-in'
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:28.341246+00:00'
-updated_at: '2026-09-16T00:25:11.995302+00:00'
+updated_at: '2026-09-16T00:25:53.222049+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-c5175c8f
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-21a54d2d
+  commits:
+  - working_sha: 76c493c16ef3238bfc87d1b332d0b600c182ad88
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.207
 ---
 
 ## What this is
