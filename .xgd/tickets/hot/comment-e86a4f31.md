@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:57:37.030787+00:00'
+updated_at: '2026-09-16T21:58:30.095070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -635,5 +635,29 @@ One thing to watch: I edited both bodies while sessions are live on them. If eit
 <!-- xgd-chat role="user" ts="2026-09-16T21:57:36.517642+00:00" -->
 #### You
 ok so all the work is in the other tickets I can move this ticket to ready to reconcile?
+
+<!-- xgd-turn id="65177fb0-55ff-4917-9fb0-cbcbc34c64fc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:58:29.539183+00:00" -->
+#### Claude
+REQ-256 has moved since we started — it's back at `free_coded`, updated 21:27 today. So yes, you can promote it. One thing to check first.
+
+Yes — it's at `free_coded` now (someone moved it back at 21:27), so promoting is available. All remaining work is in REQ-261 and REQ-262.
+
+One thing you should know before you do, because it affects how you read the reconcile:
+
+**REQ-256's UATs are green and its headline behaviour doesn't work.** Every `parseOutcome` test in `tests/test_UAT_FC_REQ-256_ai_iteration.test.ts` uses a trivial body — `"body":"b"`. Not one uses a body containing a fenced code block, which is the case REQ-256's *own brief §6.3* requires of every real gap ticket. So the suite proves the parser works on inputs the brief forbids, and the round you ran proved it fails on the inputs the brief demands.
+
+Behaviour 4 — "the deliverable is a gap ticket, and the console files it" — cannot currently happen for any ticket that honours the brief.
+
+## My recommendation: promote anyway
+
+The fix belongs in REQ-261, not here. Its requirement 1 *is* the parser fix and requirement 2 makes your real transcript the fixture — and that session is already underway on it. Pulling the fix back into REQ-256 now would collide with live work for no gain, since the code is identical either way.
+
+Reconciling propagates a state the working branch already has; it doesn't create new breakage. And REQ-261 closes it with a UAT that would have caught it.
+
+What I'd avoid is promoting *silently*. Whoever reads this reconcile sees green UATs on a behaviour that doesn't work, and there's nothing in the ticket to tell them otherwise.
+
+Want me to append a short note to REQ-256 recording the defect, that its UATs don't cover the case, and that REQ-261 owns the fix? It's a two-minute edit and it makes the reconcile honest. I'd rather you promote than have me race you on the body — say the word and I'll add it first.
 
 <!-- xgd-chat-end -->
