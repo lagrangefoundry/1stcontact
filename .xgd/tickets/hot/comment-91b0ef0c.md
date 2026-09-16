@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T22:31:48.995278+00:00'
+updated_at: '2026-09-16T23:01:01.925822+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -419,5 +419,11 @@ I also added one clarification to §8.2 that the transcript showed causing real 
 **DOC-53 is parented** — `epic_parent: epic-bf282b3d`, and added to `epic_children`, which is now six.
 
 One thing still open from that chat, unrelated to the above: REQ-256 is at `free_coded` with green UATs on a parser that can't read a brief-conforming ticket. REQ-261 has since fixed it, so promoting is now safe — but nothing in REQ-256's body records that its own suite never covered the case. Say if you want that note appended before you promote.
+
+<!-- xgd-turn id="000b7e8c-9aaf-4caf-96e2-84f2c3aee3cf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T23:01:01.713944+00:00" -->
+#### You
+ok good - can you review the state of the tickets and implementations and tell me where we are? Can I try an end to end test?
 
 <!-- xgd-chat-end -->
