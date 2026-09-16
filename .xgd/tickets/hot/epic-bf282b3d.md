@@ -5,7 +5,7 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T01:13:04.475779+00:00'
+updated_at: '2026-09-16T01:20:46.940097+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -152,11 +152,17 @@ relationships, not pixels)? This is what the read-back (§2.2) is made of, and
 **B. Bringing across** — cover the top 5–10 site tools, so carrying a site over
 is a *transform* rather than an inference problem for most of the market.
 
-**C. Autonomous convergence** — the AI runs its own 2–3 rounds and only brings a
-human in when it believes it has converged, or can say precisely why it cannot.
+**C. The two feedback loops** — the AI runs its own 2–3 rounds instead of putting
+a human in every one. This splits into **loop 1**, which improves the
+reproduction *engine* (output: code), and **loop 2**, which smooths *a particular
+customer's site* with L1 and the existing tools (output: a site they recognise).
+Different corpora, different outputs, and opposite rules about per-site edits —
+so they are designed separately and share only a harness. **Neither is
+reinforcement learning** (§7).
 
 A gates the customer conversation. B and C are independent of A and of each
-other; C makes B cheaper to develop, B makes C converge faster.
+other; loop 1 makes B cheaper to develop, B makes both loops converge faster, and
+loop 2 is what makes §2.2's preview showable before either has finished.
 
 ## 5. Workstream A — understanding (content) and aesthetic (layout)
 
@@ -297,68 +303,131 @@ keyframes · `promoteToFlow` → demand-driven structure recovery · `threeProbe
   per-builder mapping can run ahead of or instead of it.
 - **No coverage metric** — nothing counts handled widget types.
 
-## 7. Workstream C — autonomous convergence
+## 7. Workstream C — the two feedback loops
 
-### The problem
+Reproduction improves along **two separate loops**. They are easy to conflate
+and expensive to conflate, because they differ in corpus, output, cadence, who
+is watching, and — decisively — in whether a per-site edit counts as drift or as
+the deliverable.
 
-Today: attempt → **human looks and finds errors** → fix → loop. The human is in
-every round, including the rounds that find mechanically detectable faults. That
-does not scale to a per-customer import, and it is not what the human is good at.
+| | **Loop 1 — improve the engine** | **Loop 2 — smooth a site** |
+|---|---|---|
+| Purpose | build the reproduction engine | make *this* reproduction good enough to show |
+| Corpus | our own reference set | one customer's site |
+| Cadence | development time, batched, unattended | in-session, in front of the client |
+| Durable output | **code** | **a site the customer recognises** |
+| A per-site edit is… | **drift** — fix the engine or file it | **the deliverable** |
+| Who adjudicates | us | the customer |
 
-### The proposal
+**Neither loop is reinforcement learning.** There is no reward model, no scoring
+function being optimised, no training, no policy. Both are the ordinary shape: a
+deterministic check produces a specific, named residual; an agent reads it and
+acts. Loop 1's act is a code change; loop 2's act is a site edit. If a proposal
+under this epic starts talking about rewards, learned objectives or training
+signal, it has drifted — reject it.
 
-The AI runs **2–3 rounds on its own** and arrives with a *verdict*, not an
-artifact.
+### 7.1 Loop 1 — improve the reproduction engine
 
-The building blocks exist. `check_fidelity` already runs the structural gate,
-the value gates and the pixel comparison **together** and reports what it means
-when they disagree — `pass`, `reproduction-wrong`, `capture-incomplete`,
-`unexplained-disagreement`, `structural-failure` — plus a `nextStep`. `compare`
-returns regions ranked by difference, which is what makes a round actionable
-rather than a vibe. What is missing is the **harness**.
+This is the loop that replaces today's process —
 
-### The primary metric is content completeness, not pixel difference
+> attempt → **human looks and finds errors** → fix → loop
 
-This follows from §2.4 and it matters more than it looks. The capture holds the
-full verbatim copy inventory and (post-[[BUG-27]]) every painted image attached
-to a box. So *"did anything get silently dropped"* is **computable**, and it is
-the failure that actually loses the customer. Pixel difference is the secondary
-signal — it tells us where to look, not whether we succeeded.
+— in which the human is in *every* round, including the rounds that find
+mechanically detectable faults. That does not scale, and it is not what the
+human is good at. The proposal: the AI runs **2–3 rounds on its own** and arrives
+with a *verdict* rather than an artifact, so the human adjudicates instead of
+discovering.
 
-Ordering for each round: **content completeness → semantic structure (does the
-outline still say what the read-back said) → value deltas → pixel regions.**
+**Here a per-site patch is drift.** A residual is a serializer bug, a missing L1
+axis, a missing capture hint, or a region needing promotion — fixed in the
+engine, for every site, or filed. [[DOC-19]]'s discipline applies unchanged: the
+site config is disposable; the durable output is the framework growth each
+residual forces.
 
-### Required properties
+### 7.2 Loop 2 — smooth a particular customer's site
 
-- **Bounded.** Round budget (2–3) plus a token/wall-clock budget. Browser
+The engine will never cover everything, and §2.1 says a visibly-80% result is
+worse than none. So when a site comes across with rough edges, the AI closes them
+itself, using the L1 control surface ([[DOC-30]]) and the fidelity tools it
+already has: `compare` to find the worst regions, `values-diff` to read what is
+actually wrong, the L1 write operations to fix it.
+
+**Here a per-site edit is the deliverable, not drift.** That inversion is the
+whole reason the loops must stay separate — the same action is correct in one and
+forbidden in the other, so a single undifferentiated "self-correcting
+reproduction loop" would be wrong half the time.
+
+Loop 2 is also what makes §2.2's sequence possible: the preview we show the
+client is a *smoothed* reproduction, not a raw one.
+
+### 7.3 The bridge — loop 2 is loop 1's best evidence
+
+The loops connect in exactly one direction, and the connection is not a training
+signal. **Loop 2's hand-fixes are a histogram.** If the AI patches the same thing
+on site after site, that is an engine gap with a frequency attached — precisely
+the prioritisation input loop 1 needs and does not otherwise have.
+
+So loop 2 must **log what it fixed**, in a form loop 1 can count: a named
+residual class, the site, the fix applied. Nothing cleverer is required. Ranked
+by frequency × cost, that list *is* the engine backlog — and it is sourced from
+the sites our customers actually have rather than from sites we chose, which is
+the §3 distinction made operational.
+
+The reverse direction is just software: engine improvements land, and next
+month's reproductions need less smoothing.
+
+### 7.4 What both loops need — the harness
+
+Shared, and unbuilt. The building blocks exist: `check_fidelity` already runs the
+structural gate, the value gates and the pixel comparison **together** and
+reports what it means when they disagree — `pass`, `reproduction-wrong`,
+`capture-incomplete`, `unexplained-disagreement`, `structural-failure` — plus a
+`nextStep`. `compare` returns regions ranked by difference, which is what makes a
+round actionable rather than a vibe. What is missing is the thing that drives the
+rounds, bounds them, decides when to stop, and produces the handoff.
+
+**The primary metric is content completeness, not pixel difference.** This
+follows from §2.4 and matters more than it looks. The capture holds the full
+verbatim copy inventory and (post-[[BUG-27]]) every painted image attached to a
+box, so *"did anything get silently dropped"* is **computable** — and it is the
+failure that actually loses the customer. Pixel difference is the secondary
+signal: it says where to look, not whether we succeeded.
+
+Ordering within a round, both loops: **content completeness → semantic structure
+(does the outline still say what the read-back said) → value deltas → pixel
+regions.**
+
+**Required properties, both loops:**
+
+- **Bounded.** A round budget (2–3) plus a token/wall-clock budget. Browser
   sessions are metered and rate-limited; an unbounded self-correcting loop is a
-  cost incident.
-- **Monotonic or it stops.** If a round does not reduce the residual, stop. Do
+  cost incident. In loop 2 the budget is also the client's patience.
+- **Monotonic or it stops.** If a round does not reduce the residual, stop — do
   not spend the remaining budget thrashing. Non-convergence is a *result*.
 - **Three honest outcomes**, not one:
   1. **Converged** — "I believe this is right; here is what I checked, and the
      two places I am least sure about."
-  2. **Stalled** — "I cannot close this; here is the residual and my hypothesis
-     (missing L1 axis / missing capture hint / region needing promotion)." This
-     is a framework-gap report and it is valuable output.
+  2. **Stalled** — "I cannot close this; here is the residual and my hypothesis."
+     In loop 1 this is a framework-gap report and is valuable output. In loop 2
+     it becomes a design conversation with the client ("shall we do this
+     differently here?") rather than a silent compromise.
   3. **Capture-incomplete** — "the reference itself is wrong; working the deltas
      would waste your time." `check_fidelity` already distinguishes this; the
      loop must honour it and **not** iterate against an invalid oracle.
 - **Directs the human's attention rather than consuming it.** The handoff names
-  the regions it is least confident about and what it already ruled out. The
-  human adjudicates; they no longer discover.
-- **Residuals feed the framework, not the site** — filed, not patched per-site
-  ([[DOC-19]], [[DOC-21]]).
+  what it is least confident about and what it already ruled out.
+- **Residual routing differs by loop** — loop 1 files it as an engine gap and
+  changes no site; loop 2 fixes it in place *and* logs it per §7.3.
 
-### The one rule that must survive automation
+### 7.5 The one rule that must survive automation
 
 > **Transcribe from the captured DOM. Do NOT reconstruct from memory + screenshot.**
 
 [[DOC-19]]'s single most-violated rule and the failure mode of every reproduction
 pass to date ([[DOC-17]] §D). A self-correcting loop driven by *screenshot
-comparison* is exactly the shape that tempts reconstruction. The loop must
-re-read values, not re-guess them: `compare` says *where*, `values-diff` says
-*what*, and the fix is authored from the second.
+comparison* is exactly the shape that tempts reconstruction, and it applies to
+both loops. The loop must re-read values, not re-guess them: `compare` says
+*where*, `values-diff` says *what*, and the fix is authored from the second.
 
 ## 8. Open questions
 
@@ -380,7 +449,12 @@ re-read values, not re-guess them: `compare` says *where*, `values-diff` says
 5. **What happens to the original?** Redirects, DNS cutover, and the "what do I
    do with my Squarespace subscription" conversation are part of migration and
    are currently nowhere.
-6. **Does duplication ever become the pitch?** [[CHAT-5]] framed "bring any
+6. **Which loop first?** Loop 1 compounds — every engine fix helps every future
+   site — but is slower to show value. Loop 2 makes the next demo work and does
+   not accumulate. My read: build the shared harness (C1/C2) once, because it is
+   most of both, point it at loop 1 first, and let loop 2 follow once the fix-log
+   shape (C6) is known. Worth disagreeing with if a demo date says otherwise.
+7. **Does duplication ever become the pitch?** [[CHAT-5]] framed "bring any
    design, get it editable, for less than Wix" as the wedge. [[CHAT-29]] said
    *don't offer reproduction at all* and [[CHAT-21]] said migration must never be
    the ask. Reconcilable — the diagnostic is the pitch, duplication is the
@@ -410,13 +484,17 @@ Not yet filed — for confirmation.
 - **B5.** Coverage metric — handled widget types per builder.
 - **B6.** Second builder (Wix or Divi, per B2) — proves B3's seam.
 
-**Workstream C — convergence**
-- **C1.** The harness — round budget, monotonicity check, stop conditions, the
-  three outcomes.
-- **C2.** Content-completeness check as the loop's primary gate (§7).
-- **C3.** The handoff report — ranked by the AI's own uncertainty, with what was
-  ruled out.
-- **C4.** Residual → framework-gap filing.
+**Workstream C — the two feedback loops**
+- **C1.** The shared harness — round budget, monotonicity check, stop
+  conditions, the three outcomes (§7.4). Used by both loops.
+- **C2.** Content-completeness check as the harness's primary gate (§7.4).
+- **C3.** *Loop 1* — the engine handoff report: residuals ranked by the AI's own
+  uncertainty, with what it already ruled out, and no site changed.
+- **C4.** *Loop 1* — residual → framework-gap filing.
+- **C5.** *Loop 2* — in-session smoothing: the AI closes rough edges on one
+  customer's reproduction via the L1 control surface ([[DOC-30]]).
+- **C6.** *The bridge* — the fix log: loop 2 records each hand-fix as a named
+  residual class so loop 1 can histogram it by frequency × cost (§7.3).
 
 ## 10. Related
 
