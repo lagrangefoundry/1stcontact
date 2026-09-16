@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-259
 created_by: xgd
 created_at: '2026-09-16T20:05:41.308228+00:00'
-updated_at: '2026-09-16T22:00:14.038957+00:00'
+updated_at: '2026-09-16T22:07:17.848877+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -205,5 +205,61 @@ Worth a check first, though: the two aren't interchangeable in practice here. Wo
 **The warning is about to become a failure.** The comment says it stays a `warn` because no customer surface reaches DNS yet — *"change *`warn`* to *`fail`* and the message is already written."* REQ-259 is that surface. A deployment without the token now means the `Your domain` section can't attach anything, so that hook is due a `warn`→`fail` flip. That's a separate ticket; this session is scoped to REQ-259, which is already `free_coded`. <-- please just make the change you are still only at three coded it is safe
 
 Always parallel agents editing don't be alarmed
+
+<!-- xgd-turn id="874c85ee-f5d4-4e42-9e00-d9afb0a4efdd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T22:07:16.887049+00:00" -->
+#### Claude
+Understood — reopening REQ-259 to land it. Let me look at how the other hooks fail and what tests cover them.
+
+There's a wrinkle worth knowing before I start: REQ-257's own UAT asserts `warn`, so the flip will falsify it. REQ-257's hook comment anticipated exactly this, so updating it is the intended path — I'll do that too and call it out. Cutting the branch now.
+
+Now the edit — the prose first, then the decision table.
+
+The README's "one does: `20-resend-api-key`" claim becomes true again with this flip. Let me record the change there, then write the UAT.
+
+Now the REQ-259 UAT file.
+
+Now update REQ-257's UAT, whose `warn` assertion this change falsifies.
+
+Known worktree artifact — `src/generated/*` isn't built here. Let me copy it from the main checkout.
+
+Green. Now the ticket body language for the new UATs, before committing.
+
+Now commit, then bump and claim in one shot.
+
+Before the merge, let me verify the full workers project and the affected node suites on this branch.
+
+Green. Now the lock, bump, merge, and claim in one shot.
+
+Two things went wrong — let me check the actual state.
+
+The ff-merge aborted on the dirty file — your uncommitted ten→eleven edit, which my commit now supersedes. Let me verify that before discarding it, and fix the bump message (another agent took 0.2.225 mid-merge).
+
+Confirmed identical and already committed. Discarding it and completing the merge.
+
+Done. REQ-259 is back at `free_coded` with six commits, version 0.2.226.
+
+## What changed
+
+**`40-cloudflare-dns-token`** — both absent-everywhere rows go `warn` → `fail`, exit 1. The message now names the surface rather than the capability: *"the Settings pane's `Your domain` section would offer a selector it cannot spend and an attach button that cannot work."* The prose records why the condition REQ-257 set has been met.
+
+**`20-resend-api-key` deliberately did not move.** REQ-259 calls that key too, and the ticket already ruled that case ordinary — the domain still attaches, the website still serves, the toggle reports `off`. A missing sending credential costs a feature; a missing zone credential costs the section. Flipping both together was the easy mistake, so both are pinned by UAT.
+
+**Six new UATs** in `test_UAT_FC_REQ-259_the_deploy_refuses_without_the_zone_credential.test.ts`, run against the shipped hook through REQ-149's stub-`npx` harness. They cover the refusal, the unreadable-store row, the asymmetry against Resend, and — importantly — that the flip costs nothing from the rotation contract: a token already on the Worker still deploys, supplying one is still a rotation, a rehearsal still only reports, and the value is still never echoed on the row that now aborts.
+
+**`README.md`** — the directory's "one hook warns, and it's `20-resend-api-key`" claim was already stale with two warning hooks; this makes it true again and records the flip under *Who lands what*.
+
+**Ticket body** — added *"And a deployment with no zone credential cannot ship at all"* plus a matching falsifier, so every new UAT traces to body language.
+
+## Two things you should know
+
+**I edited REQ-257's UAT.** It asserted `expect(missing.code).toBe(0)` with a comment explaining why it warns — the flip falsifies it, so I changed it to assert the refusal and rewrote the comment to point at REQ-259. REQ-257's hook comment anticipated this exactly, so it's the intended path, but it is another ticket's test and reconciliation will see it.
+
+**Your uncommitted ten→eleven edit is gone, absorbed not lost.** It blocked the ff-merge. I diffed it first: it was only that one word, and my commit already contains it. `git checkout --` then merged clean.
+
+Test results, all foreground: workers project **117 files / 1062 tests green**; the seven affected node suites **84 tests green**. The full node project's six failures are the pre-existing ones from earlier — untouched by this.
+
+One note on the bump: another agent took 0.2.225 while my merge was in flight, so the bump landed at 0.2.226 and I amended the commit message to match before merging.
 
 <!-- xgd-chat-end -->
