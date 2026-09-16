@@ -5,9 +5,9 @@ type: request
 title: An email page shows its subject, and the page list says it is a message
 created_by: EPIC-10
 created_at: '2026-09-16T00:47:03.770642+00:00'
-updated_at: '2026-09-16T01:06:40.760630+00:00'
+updated_at: '2026-09-16T01:20:27.866921+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -86,3 +86,69 @@ assumes that is fixed — there is little point labelling a page in a list that 
    third kind needs no second opinion about what a page is.
 8. Changing the subject does not touch the copy, and editing the copy does not touch the
    subject.
+
+## 5. How it was built
+
+**Where the field lives, and why not somewhere else.** The builder has no page-properties
+surface at all — page `title`, `path` and `seoMeta` are reachable only through the assistant —
+so a subject field had nowhere to be put. Building a properties panel to hold one field would
+have put the one thing an operator wants while looking at the message two clicks away from the
+message, which is the "separate surface" §2 rules out. It is a **toolbar control in Edit mode**,
+sitting directly after the page selector: the strip is where "which page" is already answered,
+so "and what does it arrive as" is the next question without crossing anything else.
+
+**Edit only, and message only.** The control is named from the `edit` mode's action list, which
+is the same enforcement `mark-points` and `panels` get: View must behave exactly as published
+(DOC-28 §7.1) and a box that writes to the draft is not that, so there is no channel in which
+the field is present and inert. On a page that is not a message it hides itself rather than
+showing a disabled box, for the reason the panel selector hides on a page with no modals — a
+permanently empty control teaches an operator to stop reading that part of the strip.
+
+**It draws from the listing the page control already holds.** `editPageList` puts the whole
+`email` block on every message's row, so the field needs no request of its own and cannot show
+a subject the control beside it disagrees about. It re-reads on the same two panel events, so
+moving between pages moves the field with it.
+
+**A new narrow write route: `POST /api/pages/subject`.** `/api/pages` says in as many words
+that it is read-only and that adding a page or offering to is not its job, and that stance is
+worth more than the path it is written at — so the write is a route of its own, named for its
+reach, in the shape every other narrow write here already has (`/api/material/name`,
+`/api/business/name`). It is a thin transport over `editPageUpdate`, the same command
+`update_page` calls, so the placeholder rule, the refusal on a page that is not a message, and
+the fallback below are applied once rather than restated for the chrome. A refusal comes back
+as the `CommandError` envelope the router already renders at 400, and the control puts the
+sentence on the box and restores the stored value rather than leaving the operator looking at
+text that was not saved.
+
+**AC-3 is enforced in the write, not in the readers.** Blank is not a subject somebody chose,
+it is one they cleared, and nothing downstream turns it into anything — the envelope takes
+`String(email.subject ?? '')` and the mail arrives with no subject line. So `emailBlockOf`, the
+one place the block is assembled, falls back to the page title (and the page id when the title
+is blank too), and whitespace counts as blank. That is what lets the interface show what will
+be sent by showing what is stored: the field is refilled from the write's own answer rather
+than from what was typed, so an operator who clears the box watches the title appear.
+
+**AC-7 is a table, not a branch.** `labelOf` looks the row's `kind` up in a small map of
+`{prefix, stranded}` — `web` is `{'', 'unreachable'}`, `email` is `{'Email: ', 'no form sends
+it'}` — so a third kind is a row in that object rather than a second opinion about what a page
+is, held in a control with no business having one. A kind this build has never heard of falls
+back to the unmarked web shape: a page named without a claim, rather than a row labelled with a
+word the client cannot read.
+
+## 6. Test plan
+
+- `tests/test_UAT_FC_REQ-252_email_subject.test.ts` (node) — the store side. A changed subject
+  is what `emailPagesOf` reports, which is the reader the send walks the published pages with;
+  a cleared one becomes the title, in the answer and in what goes out; the listing says a
+  message is a message and why it has no link. Copy is read before and after a subject edit and
+  is byte-identical (AC-8).
+- `tests/test_UAT_FC_REQ-252_page_control.test.ts` (jsdom) — the real chrome, via
+  `mountBuilder` with only the transport injected. Label prefixes and notes for all four cases
+  including a web page and a message of the same title; an unknown kind; the field appearing
+  for a message and for nothing else; the write carrying site, page id and subject; the answer
+  redrawing the box; a refusal reported and not kept; Edit-only.
+- `tests/test_UAT_FC_REQ-252_subject_route.workers.test.ts` (workerd) — the wire. The route
+  writes what the field sent, read back through the store; answers a cleared subject with the
+  title; refuses a subject on a served page at 400.
+- `tests/reconciliation-builder-workspace-origin.test.ts` gains a cacheability probe for the new
+  route, which its own AC requires of every route the origin declares.
