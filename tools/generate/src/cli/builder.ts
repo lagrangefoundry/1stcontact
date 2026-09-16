@@ -9,7 +9,7 @@ import { fsSiteStore } from '../store'
 import type { TenantSiteStore } from '../store/d1r2-store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
 import { cmdList, ctxOf, type GlobalOptions } from './commands'
-import { resolveStaticFile } from './serve'
+import { resolveStaticFile } from './static-file'
 import { contentTypeOf } from '../store/content-type'
 
 /**

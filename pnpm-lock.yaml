@@ -116,6 +116,19 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  tools/repro-console:
+    dependencies:
+      vite:
+        specifier: ^8.1.0
+        version: 8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(yaml@2.9.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^26.0.1
+        version: 26.0.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
 packages:
 
   '@asamuzakjp/css-color@3.2.0':

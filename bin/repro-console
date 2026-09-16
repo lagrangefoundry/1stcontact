@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#
+# `repro-console` launcher — the reproduction console (REQ-254, [[EPIC-12]] §8).
+#
+# A localhost-only dev console that runs one reproduction round end to end:
+# capture a site, reproduce its home page, diff the two, and put the three
+# artifacts one click apart. Each iteration is a fresh `1c` process, so an
+# engine change landed between two runs is picked up by the next one.
+#
+# It is deliberately NOT a `1c` subcommand: `apps/control-app` imports the
+# engine directly out of `tools/generate/src`, so making the CLI reach into the
+# console would point the dependency arrow the one way [[EPIC-12]] §8.6 forbids.
+#
+# Usage:
+#   ./bin/repro-console              # http://127.0.0.1:8710
+#   ./bin/repro-console --port 9000
+#
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+exec node "$repo_root/tools/repro-console/bin/repro-console.mjs" "$@"
