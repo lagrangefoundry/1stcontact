@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:33:48.399753+00:00'
+updated_at: '2026-09-16T17:40:04.398606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -481,5 +481,11 @@ These **are** kept per-iteration — that's what makes iteration 1's links still
 The two L1s you'd want to compare are the reference (`references/…/l1.json`) and the reproduction (`sandbox/…/home.json` → `.l1`).
 
 If keeping the reproduction's L1 per-iteration would be useful — so you can diff iteration 1's fold against iteration 3's — that's a small change: copy `home.json` into the iteration directory alongside `site/` and `diff/`. Say the word and I'll free-code it on REQ-254.
+
+<!-- xgd-turn id="edf83270-e5aa-405e-83a5-e08d8219592d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:40:02.731158+00:00" -->
+#### You
+(1) it might be useful to go back and revisit a site is it possible to point the console at an existing reproduction? (2) The full run of multiple iterations on a site will take a  little while, I need to be able to run multiple in different brower tabs - can I just fir them up on different ports? (3) I think we should keep iterations as we go the links should just keep appearing down the page as we do more iterations so I can always check to see how much we are changing
 
 <!-- xgd-chat-end -->
