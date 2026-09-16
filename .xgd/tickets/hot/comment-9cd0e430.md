@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T03:42:48.385691+00:00'
+updated_at: '2026-09-16T03:45:13.681945+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -59,5 +59,14 @@ Now fix the three test assertions:
 Meanwhile, let me review the final diff of the engine-side changes.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="52d16ec3-ac77-47f3-8304-055d655d2682-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T03:45:12.264647+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
