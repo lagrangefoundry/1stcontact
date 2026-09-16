@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:13:54.349192+00:00'
+updated_at: '2026-09-16T01:18:23.279184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,20 @@ Two workstreams became three: **A. Understanding** (semantic outline, captioning
 Open question 6 is now three-way rather than two: CHAT-5 wants duplication as the wedge, CHAT-29 says *don't offer reproduction at all*, CHAT-21 says migration must never be the ask. I think they reconcile — the diagnostic is the pitch, duplication is the mechanism, and the read-back is what's actually shown first — but that should be stated before any marketing copy exists.
 
 I've also saved a note to memory so I stop treating a `.xgd/tickets` grep as authoritative: cold tickets live in the `xgd-stable` git snapshot and aren't files at all.
+
+<!-- xgd-turn id="b86d231a-c44a-4756-a439-0e0c8c72c114-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T01:18:22.463229+00:00" -->
+#### You
+Please don't access ticket with file access that breaks so many things...
+
+There are two feedback loops worth considering:
+1 - feedback that improves the reproduction code itself
+2 - use that AI to improve a reproduction using L1 and existing tools
+
+1 - is for us to build the reproduction engine
+2 - can be used to smooth the rough edges on a site that didn't reproduce as we would have liked
+
+Note that neither involves reinforcement learning or rewards etc
 
 <!-- xgd-chat-end -->
