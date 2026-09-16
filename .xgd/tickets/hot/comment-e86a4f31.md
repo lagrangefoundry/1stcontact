@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T19:43:04.265369+00:00'
+updated_at: '2026-09-16T19:48:02.483409+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -210,5 +210,11 @@ Four visible things changed specifically today:
 - **A round that claims `filed` but hands back no ticket** now says so plainly and shows no fifth link. It previously rendered a nonsense append message, and — because the console was mutating the object the runner returned — could show a *previous* round's ticket link and violations on the current iteration.
 
 I have not seen any of this in a browser. Capture needs Chromium, which this sandbox blocks at the Mach bootstrap, so a live round can't get past its first step here. If you want to look at it, `./bin/repro-console` on your machine against an already-stored reference is the path — and `repro-rail record` first, or the rail line will honestly report no baseline. I can also render a page to static HTML from the test fixtures if you'd rather eyeball the markup without spending a token.
+
+<!-- xgd-turn id="4c8899c9-d2ba-42be-be3f-d700be03de61-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:48:02.086199+00:00" -->
+#### You
+Anything UI visible from this session?
 
 <!-- xgd-chat-end -->
