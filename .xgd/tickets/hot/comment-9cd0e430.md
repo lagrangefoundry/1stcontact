@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:56:49.407487+00:00'
+updated_at: '2026-09-16T18:08:59.596156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -632,5 +632,11 @@ Each iteration now keeps **the reproduction's own L1 document** as a fourth link
 Ticket: 4 commits, `story_points: 13`, `version: 0.2.219`, requirements 29–36 in the body. Locks released, branch cleaned.
 
 **Note:** your running console is the old code. Restart it to pick this up — and it'll now show your three captured sites on the blank page.
+
+<!-- xgd-turn id="7a9a5b13-33a2-4cb3-abe6-c131fb5a9a17-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:08:59.544186+00:00" -->
+#### You
+How do I bring up a previous sites reproduction attempts?
 
 <!-- xgd-chat-end -->
