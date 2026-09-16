@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-255
 created_by: xgd
 created_at: '2026-09-16T17:22:25.872736+00:00'
-updated_at: '2026-09-16T17:53:15.237404+00:00'
+updated_at: '2026-09-16T18:07:52.042278+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -45,5 +45,14 @@ Now the baseline module — the comparison core:
 Now the launchers:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="24003ff1-73a8-40dd-a7f7-1f764b3ca013-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:07:51.601299+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
