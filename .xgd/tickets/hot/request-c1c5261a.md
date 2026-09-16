@@ -6,10 +6,10 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T19:39:28.932500+00:00'
+updated_at: '2026-09-16T19:55:22.165150+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-bf282b3d
