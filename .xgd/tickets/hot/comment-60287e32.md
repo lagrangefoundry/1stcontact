@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:04:45.255221+00:00'
+updated_at: '2026-09-16T04:05:40.351866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -158,5 +158,11 @@ Watch the unit economics: these price per connected account per month. On a smal
 ## The honest case against ever doing it
 
 Layers 1 + 3 may make it unnecessary. If we publish the address *and* we send the outbound, what's left uncaptured is "the business types a cold email, from their own phone, to someone who has never contacted them and never will reply." For a plumber or a caterer that's a thin slice. Layer 4 earns its cost when businesses start telling us the record has holes that hurt — or when we move upmarket to people with actual sales pipelines. Until then it's a solution sized for a problem we haven't confirmed we have.
+
+<!-- xgd-turn id="930d3a1b-64e4-4d19-b4f4-8864e9559a61-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T04:05:40.302154+00:00" -->
+#### You
+ok lets talk about outbound and mailing lists. I was expecting to use a 3rd party for that...
 
 <!-- xgd-chat-end -->
