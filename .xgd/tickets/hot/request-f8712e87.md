@@ -6,9 +6,9 @@ title: 'Regression rail: a recorded baseline per reference, and one command that
   ''no worse'''
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:35.544080+00:00'
-updated_at: '2026-09-16T01:47:35.544080+00:00'
+updated_at: '2026-09-16T02:56:45.439237+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -17,19 +17,25 @@ fields:
   needs_review: false
 ---
 
-Parent: [[EPIC-12]] §8.4. Second of three. **Must land before [[REQ-254]]'s
-console is allowed to edit code (T3).**
+Parent: [[EPIC-12]] §8.4. Second of three. **Must land before [[REQ-256]]'s loop
+starts proposing engine changes.**
 
 ## Goal
 
-The safety rail that an automated iteration has to pass before it is allowed to
-finish. It answers one question — **"is everything still as good as it was?"** —
-and it must be able to answer "no" convincingly, naming what broke.
+The safety rail for any change to the reproduction engine. It answers one
+question — **"is everything still as good as it was?"** — and it must be able to
+answer "no" convincingly, naming what broke.
 
-The characteristic failure of a code-editing loop is that **the AI fixes the site
-in front of it and breaks the two it cannot see.** Nothing in the repo currently
-records what a good result looks like per reference site, so "no worse than
-before" is not computable today.
+The characteristic failure of iterative reproduction work is that **a fix aimed
+at the site in front of you breaks the two you cannot see.** Nothing in the repo
+currently records what a good result looks like per reference site, so "no worse
+than before" is not computable today.
+
+**Who runs it** ([[EPIC-12]] §8.2, §8.4). Its gating caller is the **free-coding
+session** that implements a gap ticket: the session's UAT proves the one gap
+closed, and only this rail proves the other references did not regress — a
+distinction a single-site UAT structurally cannot make. [[REQ-256]]'s console
+also runs it read-only, to display cross-site state per iteration.
 
 ## Behavior
 
@@ -57,7 +63,7 @@ before" is not computable today.
 
 ## Out of scope
 
-- Any AI, and any code-editing (T3).
+- Any AI, and any automated change proposal ([[REQ-256]]).
 - Adding new reference sites. Three is thin and it is enough to catch the failure
   mode that matters; growing the corpus is separate.
 
