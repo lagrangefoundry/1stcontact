@@ -5,9 +5,9 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T17:44:02.178502+00:00'
+updated_at: '2026-09-16T17:44:26.837827+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -58,6 +58,55 @@ of today's manual reproduction loop, which is why it lands first.
 10. **If the capture or the reproduction fails, the page says what failed** and
     the console stays usable. A failed run does not leave a half-built iteration
     on the page.
+
+## Revisiting a site, and watching the fold move
+
+A reproduction is not a single sitting. An operator captures a site, runs a few
+iterations, leaves, changes the engine, and comes back — and the question they
+come back with is *how much has this moved*, which needs yesterday's iterations
+still on the page next to today's.
+
+29. **A capture already on disk is reused, not re-taken.** Pressing
+    **[reproduce]** on a site that has a stored bundle **skips the capture step
+    and refolds the stored bundle instead**. This is requirement 15's reasoning
+    applied to the first press rather than the second: re-capturing re-rolls the
+    oracle, moving the reference at the same moment the fold moves, and the
+    comparison an iteration exists to make is exactly the one that destroys.
+    Reusing is therefore the default and the safe direction.
+30. **[recapture] is the explicit way to re-hit the site.** A separate button,
+    because deliberately moving the reference is a real thing to want — the site
+    changed — and it must be a thing the operator *chose*, never something that
+    happened because they pressed the ordinary button twice.
+31. **The blank page lists the sites already captured.** Each is a link that
+    loads that site without re-capturing it, so revisiting is one click and does
+    not require remembering how the address was typed the first time. This is
+    what makes requirement 2's blank page blank *on a fresh checkout* and useful
+    on a worked-in one.
+32. **`1c capture list --json` reports the stored bundles**, for the same reason
+    requirement 19 gave `capture page` a `--json`: the console cannot derive
+    them. A bundle is named after the host that answered, so which captures
+    exist — and where each one sits — is a question only the engine can answer.
+33. **The iteration list is rebuilt from disk, not held in memory.** Each
+    iteration directory carries a small manifest recording what the iteration
+    was, so loading a site recovers the iterations it already has, with their
+    links live. Restarting the console, or opening a second one, therefore shows
+    the history that is on disk rather than an empty page beside a full
+    `storage/tmp/`. A console's memory of a site is the disk's, not the
+    process's.
+34. **Each iteration keeps the reproduction's own L1 document.** The rendered
+    pixels and the diff images are kept per iteration (requirement 17) but the
+    reproduction *itself* — the page document `1c repro` wrote, carrying the
+    folded L1 — was being rebuilt in place and overwritten by the next
+    iteration. That document is where a fold change actually lives; keeping only
+    its rendering keeps the symptom and discards the cause. So it is copied into
+    the iteration's own directory and **is the iteration's fourth link**.
+    ([[REQ-256]]'s gap-ticket link is a *fifth*, not this one.)
+35. **Two consoles must be pointed at different sites.** A site is one sandbox
+    slug and one scratch directory (requirement 25), both derived from its host
+    and both rebuilt in place, so two consoles running the same site at once
+    overwrite each other. Different sites share nothing and run concurrently
+    without interfering — which is the supported way to work several
+    reproductions at once, each on its own `--port`.
 
 ## Isolation — it must not be deployable ([[EPIC-12]] §8.6)
 
