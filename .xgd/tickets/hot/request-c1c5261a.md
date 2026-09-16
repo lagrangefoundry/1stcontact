@@ -6,15 +6,16 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T02:56:25.305084+00:00'
+updated_at: '2026-09-16T18:16:25.948348+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-e86a4f31
 ---
 
 Parent: [[EPIC-12]] §8. Third of three. **Depends on [[REQ-254]] (the console) and
@@ -109,6 +110,88 @@ We watch it work a few times before we consider letting it do more.
     and reconciliation path as every other change in the project. **No part of
     the console invokes a deploy**; deploying stays a separate, explicit, human
     act.
+
+## Behaviour the above implies
+
+Recorded here because it is asserted by test and would otherwise look
+unmotivated.
+
+15. **The evidence is produced by `1c gate`, which replaces `1c diff` as the
+    iteration's last reproduction step.** `1c gate` runs the structural gate,
+    the value gates and the perceptual eye together and reconciles them — it
+    reaches the same `gate-core` reconciliation `check_fidelity` does, so it is
+    that verdict by construction — and it writes `gate.json`, `values-diff.json`
+    and the same `regions.json`, heatmaps and region crops `1c diff` wrote, into
+    the iteration's own evidence directory. Behaviours 4 and 7 both need the
+    verdict; keeping `1c diff` and adding `1c gate` beside it would render and
+    photograph the page twice to produce one report.
+16. **The verdict is read by the console, not by the AI.** Behavior 7's stop is
+    structural: the console reads `gate.json` and, on `capture-incomplete`,
+    never starts an AI process at all. A rule the AI is merely *told* is a rule
+    it can get wrong on exactly the round where getting it wrong is most
+    expensive — a false report against the engine. The brief still carries the
+    rule (behavior 11), because the AI has to understand what it is looking at
+    on the rounds it does run.
+17. **The AI is a `claude -p` process whose tool allowlist contains no way to
+    author code.** Reading tools to read the evidence, and `Bash` narrowed to
+    `xgd ticket …` to file the deliverable. Edit, Write, NotebookEdit and
+    general `Bash` are denied by name. Behavior 3 is therefore a property of the
+    process rather than a hope about the prompt.
+18. **Two falsifiers are checked after every round and named on the iteration.**
+    The working tree is compared before and after the AI ran — a round that
+    changed a tracked file is reported as a violation (behavior 3) — and the
+    filed ticket's status is read back, so a ticket that is not at `draft` is
+    reported as a violation (behavior 4). Shown on the page, not merely logged:
+    a check whose failure is invisible is not a check.
+19. **What the AI was asked, and what it did, are artifacts of the round.** The
+    prompt is written to the iteration's own directory as `ai/prompt.md` before
+    the process starts and the transcript to `ai/transcript.txt` as it arrives,
+    so both survive a restart of the console like every other artifact
+    ([[REQ-254]] requirement 33) and both are reviewable after the fact.
+20. **The AI's outcome is a JSON block in its final message**, carrying the
+    status, the residual class, the ticket id and uid, and a summary. The
+    console does not mine the transcript for a ticket number — a claim it is
+    told is checkable (behavior 18), a claim it guessed is not.
+21. **The classes that already have tickets are kept in the console's own
+    workspace**, at `storage/tmp/repro-console/gap-tickets.json`, one entry per
+    class carrying its ticket, the references that exhibited it and the
+    iterations that found it. Behavior 6 needs the AI to know what is already
+    filed, and the console cannot ask xgd that question without inventing a
+    label convention; this is the console's memory of what this loop has filed,
+    and it is what the next round's prompt carries.
+22. **The rail is resolved, not assumed.** Behavior 8's command belongs to
+    [[REQ-255]], which has not landed. The console runs `$REPRO_CONSOLE_RAIL` if
+    it is set, otherwise `bin/rail` if it exists, and otherwise reports
+    `regression rail: not available` — which is honest, where a green line
+    nothing produced would not be. The rail's result is read-only here and its
+    failure never fails the iteration: it is cross-site information for the
+    round, not this round's gate.
+23. **A run stays "running" until the AI round ends**, so [run again] cannot
+    start a second round on top of a diagnosis still in flight (behavior 10).
+24. **The gap-ticket link renders the ticket through `xgd ticket get`** rather
+    than reading `.xgd/tickets/`. A link that reached into the ticket store
+    would be a second reader of a layout xgd owns, and would go stale the first
+    time xgd moved a ticket between tiers.
+
+## Implementation decisions
+
+- **The AI process is the `claude` CLI already installed on the operator's
+  machine**, spawned exactly as `1c` is — no npm dependency is added, and the
+  console keeps its single declared dependency (`vite`). It is reached through
+  an injected `AiRunner`, the same seam `StepRunner` gives the reproduction
+  steps, so the console's whole surface is exercisable without spending a
+  token. `$REPRO_CONSOLE_AI` names a different executable and
+  `$REPRO_CONSOLE_AI_MODEL` a different model, for the operator who wants
+  either.
+- **The brief is `tools/repro-console/brief/DIAGNOSE-THE-GAP.md`** — a file in
+  the repository, reviewed in the diff that changes it, distilled from
+  [[DOC-19]] and [[EPIC-12]] §7.4, §7.5, §8.2 and §8.5. The console reads it at
+  the top of every round and pastes the round's own evidence beneath it.
+- **The transcript streams through the poller the console already has.** The
+  page carries a `<pre>` per iteration; the running round's tail is served in
+  the poll payload and written into that element, and the finished round's is
+  rendered server-side from disk on the next reload. No second transport, no
+  client build step.
 
 ## Out of scope
 

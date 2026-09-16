@@ -41,7 +41,7 @@
 
 import { newId } from '../../../tools/generate/src/store/ids'
 import type { IdentityEnv } from './identity'
-import { PLATFORM_APEX } from './hostname'
+import { normaliseHost, PLATFORM_APEX } from './hostname'
 import { PUBLIC_SITE_ORIGIN } from './public-url'
 import type { CloudflareClient, CloudflareZone } from './cloudflare'
 
@@ -104,17 +104,23 @@ export const PLATFORM_APEXES: ReadonlySet<string> = new Set([
   new URL(PUBLIC_SITE_ORIGIN).hostname,
 ])
 
-/** An apex without its trailing dot, lower-cased, and without a scheme. */
+/**
+ * An apex without its trailing dot, lower-cased, and without a scheme.
+ *
+ * `normaliseHost` IS THE DEFINITION NOW ([[REQ-258]]) AND THIS IS ITS NAME HERE.
+ * The two were written separately and were the same rule — tidy what somebody
+ * pasted into the string a `Host:` header would actually carry — and the moment
+ * a hostname had to be matched against an apex to find its zone, two spellings
+ * of that rule became two answers to *"is this host inside that zone"*. What is
+ * kept is the NAME, because an apex and a host are different things to a reader
+ * even when the tidying is identical.
+ *
+ * A PASTED ADDRESS IS A LIKELY INPUT AND IS NOT A REFUSAL WORTH MAKING. An
+ * operator typing the backfill has almost certainly just been looking at the
+ * site, and `https://alicesplumbing.com/` means the domain they mean.
+ */
 export function normaliseApex(raw: string): string {
-  let apex = String(raw ?? '')
-    .trim()
-    .toLowerCase()
-  // A PASTED ADDRESS IS A LIKELY INPUT AND IS NOT A REFUSAL WORTH MAKING. An
-  // operator typing the backfill has almost certainly just been looking at the
-  // site, and `https://alicesplumbing.com/` means the domain they mean.
-  apex = apex.replace(/^[a-z][a-z0-9+.-]*:\/\//, '').split('/')[0]
-  while (apex.endsWith('.')) apex = apex.slice(0, -1)
-  return apex
+  return normaliseHost(raw)
 }
 
 /** Is this one of ours? */
@@ -306,6 +312,38 @@ export async function zoneByApex(env: IdentityEnv, rawApex: string): Promise<Zon
     .bind(normaliseApex(rawApex))
     .first<ZoneRow>()
   return row ? toZone(row) : null
+}
+
+/**
+ * The zone a HOST belongs to, or `null` when this deployment holds none
+ * ([[REQ-258]]).
+ *
+ * BY WALKING THE SUFFIXES AGAINST THIS TABLE, NOT BY GUESSING THE APEX.
+ * Stripping one label off `shop.alicesplumbing.com` gives the right answer and
+ * stripping one off `alice.co.uk` gives `co.uk`, which is not a domain anybody
+ * can own — the boundary is the Public Suffix List, which is a downloaded file
+ * that goes stale and is a dependency this product does not have. The zones we
+ * hold are recorded in this table, so asking it *"is this a zone, is its parent
+ * a zone, is its grandparent"* is exact for exactly the domains the question is
+ * ever asked about, and it needs no list at all.
+ *
+ * LONGEST MATCH FIRST, because the walk starts at the whole host and shortens.
+ * A deployment holding both `alicesplumbing.com` and `shop.alicesplumbing.com`
+ * as separate zones — which Cloudflare permits — resolves a host under the
+ * second to the second, which is the zone whose records actually serve it.
+ *
+ * IT STOPS ONE LABEL SHORT OF NOTHING. A single remaining label is a TLD and can
+ * never be a zone in this account, so the walk does not ask.
+ */
+export async function zoneForHost(env: IdentityEnv, rawHost: string): Promise<Zone | null> {
+  const host = normaliseApex(rawHost)
+  if (host === '') return null
+  const labels = host.split('.')
+  for (let i = 0; i + 1 < labels.length; i += 1) {
+    const zone = await zoneByApex(env, labels.slice(i).join('.'))
+    if (zone) return zone
+  }
+  return null
 }
 
 /** Every zone recorded, for the operator's report. Never a customer's read. */

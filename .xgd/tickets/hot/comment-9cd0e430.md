@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:33:48.399753+00:00'
+updated_at: '2026-09-16T18:10:54.057657+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -481,5 +481,244 @@ These **are** kept per-iteration — that's what makes iteration 1's links still
 The two L1s you'd want to compare are the reference (`references/…/l1.json`) and the reproduction (`sandbox/…/home.json` → `.l1`).
 
 If keeping the reproduction's L1 per-iteration would be useful — so you can diff iteration 1's fold against iteration 3's — that's a small change: copy `home.json` into the iteration directory alongside `site/` and `diff/`. Say the word and I'll free-code it on REQ-254.
+
+<!-- xgd-turn id="edf83270-e5aa-405e-83a5-e08d8219592d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:40:02.731158+00:00" -->
+#### You
+(1) it might be useful to go back and revisit a site is it possible to point the console at an existing reproduction? (2) The full run of multiple iterations on a site will take a  little while, I need to be able to run multiple in different brower tabs - can I just fir them up on different ports? (3) I think we should keep iterations as we go the links should just keep appearing down the page as we do more iterations so I can always check to see how much we are changing
+
+<!-- xgd-turn id="edf83270-e5aa-405e-83a5-e08d8219592d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:40:58.484217+00:00" -->
+#### Claude
+Let me check a couple of things before answering — whether spawned `1c` steps bind ports (which decides (2)), and where the iteration list actually lives.
+
+Checked: `1c` runs Vite in `middlewareMode` with `hmr: false, ws: false`, so a spawned step **binds no port**. That settles (2).
+
+## (2) Multiple consoles on different ports — yes, works today
+
+```bash
+bin/repro-console --port 8710    # tab 1
+bin/repro-console --port 8711    # tab 2
+bin/repro-console --port 8712    # tab 3
+```
+
+Each is an independent process with its own state. Nothing in a step binds a port, so concurrent iterations don't fight over one.
+
+⚠️ **One real constraint: give each console a different site.** Two consoles on the *same* site collide on shared, slug-derived paths:
+
+- `storage/sandbox/repro-<host>/` — `1c repro` rebuilds this in place
+- `storage/tmp/repro-console/repro-<host>/iteration-N/` — wiped at the start of each run
+
+Same site in two tabs means they overwrite each other's work, silently. Different sites are fully isolated — different host → different bundle, different slug, different everything.
+
+## (3) Iterations already accumulate
+
+This is requirement 6 and it works — Iteration 1, 2, 3 stack down the page, each keeping its own links and its own artifacts. The UAT asserts exactly that. So if you're not seeing it, it's one of these two:
+
+**Pressing [reproduce] instead of [run again].** They're different verbs (requirement 16). [reproduce] takes the address and *starts a new list at Iteration 1* — it captures fresh. [run again] takes no address, re-runs the loaded site, and appends. If the address is still sitting in the box, [reproduce] is the tempting button and it's the one that resets you.
+
+**Restarting the console.** The iteration list is in-memory only. Kill the process and it's gone — even though every artifact is still sitting in `storage/tmp/repro-console/<slug>/`. The links die; the files don't.
+
+## (1) Pointing at an existing reproduction — not possible today
+
+[reproduce] always captures. There's no way to say "use the bundle already in `storage/references/faelan.com/index/`". You have three captures on disk (18M, 14M, 23M) that the console can't currently reach without re-hitting the site.
+
+---
+
+## What I'd build
+
+(1) and the restart half of (3) are the **same** feature: *the console's memory of a site should come from disk, not from process lifetime.*
+
+Concretely:
+
+1. **On [reproduce], if a bundle already exists for that host, reuse it** — skip capture, go straight to refold. Re-capturing is the thing that re-rolls the oracle and makes a fold change and a reference change inseparable; you almost never want it on a revisit. A separate **[recapture]** button for when you do.
+2. **Rebuild the iteration list from `storage/tmp/repro-console/<slug>/` on startup**, so restarting the console — or opening a second one on a site you ran yesterday — shows the history that's already on disk.
+3. **Keep the reproduction's `home.json` per iteration**, so you can diff iteration 1's fold against iteration 5's. Right now it's overwritten (from my last message) — and "how much are we changing" is exactly the question that needs it.
+
+Point 3 is the one that most directly serves *"so I can always check to see how much we are changing"* — the rendered pixels and diff images are kept, but the L1 itself isn't, and that's where the change actually lives.
+
+Want me to free-code that onto REQ-254? It's a branch, UATs, and the ticket-body language to motivate them. I'd guess 3 is the highest value of the three, and 1 is the one that unblocks you fastest.
+
+<!-- xgd-turn id="61e15441-65c4-4317-88d9-dc31482a8d64-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:43:20.237966+00:00" -->
+#### You
+PLease go ahead
+
+<!-- xgd-turn id="61e15441-65c4-4317-88d9-dc31482a8d64-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:56:49.252009+00:00" -->
+#### Claude
+Starting with the ticket, per protocol. First moving it back to `free_coding`:
+
+Now scoping the new behaviour into the ticket body:
+
+Now implementing. First `1c capture list --json`:
+
+Now adding `cmdCaptureList` next to `cmdCapturePage`:
+
+That would have broken the REQ-155 seam — `capture/capture.ts` must not import `node:fs`. Let me correct the design: the store comes in, the CLI adds the path.
+
+Good, both already imported. Now the USAGE text and a typecheck:
+
+Known worktree gap — `src/generated/*` isn't built here. Copying from the main checkout:
+
+No `--cwd` flag exists — `1c` always uses `process.cwd()`. Let me verify with a minimal bundle in the worktree:
+
+Now the console side. Checking whether a CLI verb already exposes a page document:
+
+Now the console. Starting with `iteration.ts`:
+
+Now `RunIterationOptions.n`, the manifest type, and disk recovery:
+
+Now `capture list` as a lookup, and the console's load/recapture logic:
+
+Now `console.ts` — reuse-not-recapture, disk recovery, the captured-sites list, and the fourth link:
+
+Now the core change — `startRun` reusing a stored capture:
+
+Now `page.ts` — the fourth link, the captured-sites list, and `[recapture]`:
+
+Typechecks clean. Now the UATs for the new behaviour:
+
+All existing UATs still pass. Now the new ones:
+
+Now the engine-side UAT for `capture list` (requirement 32) and the concurrency constraint (35):
+
+The step runner resolves `1c` relative to the step's `cwd`, so a scratch root can't find it. That's a real fragility — the console's own location is fixed regardless of where a step runs:
+
+CLI runs now — the remaining diff is just macOS's `/tmp` → `/private/tmp` symlink:
+
+All 26 pass. Adding the CLI-path decision to the ticket, then verifying the real console end to end:
+
+The launcher resolves `repoRoot` from its own location — so it's reading the worktree's (empty) storage. Let me give it a real bundle:
+
+The captured-sites list renders from real bundles. Verifying the one-click revisit:
+
+Exactly right, verified against the real CLI: `/open` loaded the site without running anything, and **[reproduce] went straight to `refold` — no capture step**. The refold failure is my scratch bundle (I copied only `capture.json`, no `multistate.json`), and it names the step and the reason.
+
+Clean. Committing:
+
+Version race — a ticket auto-commit landed after my merge. Re-bumping so the version-carrying commit is reachable:
+
+Done — all three landed on `xgd-working`, ticket back at `free_coded`.
+
+## What you asked for
+
+**(1) Revisit an existing reproduction.** [reproduce] on a site that already has a bundle now **skips the capture entirely** and goes straight to refold. That's requirement 15's logic applied to the first press instead of the second — re-capturing re-rolls the oracle, so the reference moves at the same instant the fold does and the two become inseparable. A separate **[recapture]** button is how you say you *meant* to move the reference. Host matching treats `example.com` and `www.example.com` as one site.
+
+The blank page now lists what's on disk under **"captured already"** — one click to load a site without touching the network.
+
+**(2) Multiple consoles on different ports.** Already worked; now asserted by test (requirement 35) rather than left as advice, because the failure mode is silent: same site in two consoles clobbers, neither errors. Different sites share nothing.
+
+**(3) Iterations accumulate.** They already did within one process — the gap was that the list was in-memory, so restarting showed an empty page beside a full `storage/tmp/`. Each iteration now writes a manifest, **written last** so a failed run leaves nothing to recover, and loading a site rebuilds the list from disk with the links live.
+
+## One thing I added beyond the ask
+
+Each iteration now keeps **the reproduction's own L1 document** as a fourth link. From your earlier question: `1c repro` rebuilds the sandbox site in place, so `home.json` — where the folded L1 actually lives — was being overwritten every iteration. Keeping only the rendered pixels kept the symptom and discarded the cause, which is precisely what *"check how much we are changing"* needs. It's copied in via `1c page get --json`, so the console knows a command that yields a page rather than a path where one is kept.
+
+## Verification
+
+- **26 passed, 1 skipped** across both REQ-254 suites on `xgd-working`; capture regression suites (`capture`, `BUG-67 host candidates`, `req83 fold`, `capture-list-marker`) all green.
+- **Live, against the real CLI**: loaded `faelan.com` from the stored list, pressed [reproduce], and the step log went `refold → …` with **no capture step**. It then failed at refold because my scratch bundle had only `capture.json` and no `multistate.json` — which is the failure path naming its step correctly.
+
+## Two corrections I made while building
+
+- `cmdCaptureList` initially constructed its own filesystem store. That would have pulled `node:fs` into the capture pipeline's import graph and undone the REQ-155 seam — it takes a store now, like `cmdCapturePage`, and the CLI composes the path.
+- The step runner resolved `1c` relative to the step's `cwd`. Those are different things: `cwd` picks which `storage/` tree a step reads; the CLI's location is fixed by where the console is installed. It only worked while the two coincided. Now resolved from the console's own module.
+
+Ticket: 4 commits, `story_points: 13`, `version: 0.2.219`, requirements 29–36 in the body. Locks released, branch cleaned.
+
+**Note:** your running console is the old code. Restart it to pick this up — and it'll now show your three captured sites on the blank page.
+
+<!-- xgd-turn id="7a9a5b13-33a2-4cb3-abe6-c131fb5a9a17-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:08:59.544186+00:00" -->
+#### You
+How do I bring up a previous sites reproduction attempts?
+
+<!-- xgd-turn id="7a9a5b13-33a2-4cb3-abe6-c131fb5a9a17-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:09:36.265657+00:00" -->
+#### Claude
+## How to do it
+
+**1. Restart the console** — your running process is still the old code:
+
+```bash
+lsof -ti tcp:8710 | xargs kill
+bin/repro-console
+```
+
+**2. The blank page now has a "captured already" list** — your three captures (`faelan.com/index`, `gigabytealchemy.ai/index`, `joyfulculinarycreations.com/index`).
+
+**3. Click one.** It loads that site without re-hitting it, and its iterations come back from disk with their links live.
+
+**4. [run again]** appends the next iteration below.
+
+You can also just type the address and press **[reproduce]** — it finds the stored bundle and skips the capture. The list is there so you don't have to remember how you typed it.
+
+---
+
+## ⚠️ Your two existing iterations won't come back
+
+I checked: `storage/tmp/repro-console/repro-faelan-com/iteration-1/` and `…/repro-gigabytealchemy-ai/iteration-1/` have **no `iteration.json`**. Recovery keys off that manifest, and those runs predate it — they were made by the old code.
+
+Worse: loading `faelan.com` and pressing **[run again]** will number the next run "Iteration 1" and **wipe that directory** before writing into it. The existing artifacts go.
+
+Two options:
+
+**Backfill the manifests** so the old runs are adopted. Paste this:
+
+```bash
+python3 - <<'EOF'
+import json, os
+root = os.path.abspath('storage/tmp/repro-console')
+sites = {
+  'repro-faelan-com': ('https://faelan.com', 'faelan.com/index'),
+  'repro-gigabytealchemy-ai': ('https://gigabytealchemy.ai', 'gigabytealchemy.ai/index'),
+}
+for slug, (url, bundle) in sites.items():
+    d = os.path.join(root, slug, 'iteration-1')
+    if not os.path.isdir(d):
+        continue
+    with open(os.path.join(d, 'iteration.json'), 'w') as f:
+        json.dump({'n': 1, 'originalUrl': url, 'bundleDir': os.path.abspath(f'storage/references/{bundle}'), 'slug': slug}, f, indent=2)
+    print('wrote', d)
+EOF
+```
+
+Then loading the site shows Iteration 1, and [run again] appends **Iteration 2** instead of clobbering. The "L1 document" link on those recovered iterations will 404 — they predate that too — but the other three work.
+
+**Or just let them go** and start fresh. Nothing downstream depends on them.
+
+---
+
+One caveat worth repeating, since it bites exactly here: if you're running several consoles at once, **give each one a different site**. Two consoles on `faelan.com` share the same scratch directory and the same sandbox slug, and each run wipes the iteration directory before writing it. Neither errors — they just overwrite each other.
+
+<!-- xgd-turn id="d5ec0863-e36c-4464-9c20-8abd5d01ead9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:10:42.789272+00:00" -->
+#### You
+That's fine if it works going forward I'm good
+
+<!-- xgd-turn id="d5ec0863-e36c-4464-9c20-8abd5d01ead9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:10:53.465705+00:00" -->
+#### Claude
+Understood — skipping the backfill.
+
+To pick up the new code:
+
+```bash
+lsof -ti tcp:8710 | xargs kill
+bin/repro-console
+```
+
+From there: click a site under **"captured already"** (or type the address and press **[reproduce]** — it'll skip the capture), then **[run again]** to stack iterations. Everything from this point survives a restart.
+
+Where REQ-254 stands: `free_coded` on `xgd-working`, 4 commits, version 0.2.219, requirements 29–36 in the ticket body, 26 UATs green. Promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->

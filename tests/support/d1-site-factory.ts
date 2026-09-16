@@ -104,8 +104,16 @@ const MIGRATIONS = [
   // `0008` is: the UNIQUE index on `apex` is the AUTHORITY that decides a race
   // between two claims on one domain, so a fixture that skipped it would let a
   // suite record one apex twice and prove the opposite of what the code does.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0010_zones.sql?raw'),
+  // [[REQ-258]] — `site_domains.canonical`, which of a site's hosts is *the*
+  // address. Applied here for the same reason as every file above, and this one
+  // is load-bearing for the fixture specifically: it ADDS A COLUMN to a table
+  // `0008` already created, so a suite that skipped it would build a schema
+  // whose column the serving code reads and the fixture's database does not
+  // have — every host resolution failing on a column nobody can see from the
+  // code, which is exactly `0009`'s case one migration later.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0011_site_domains_canonical.sql?raw'),
 ]
 
 /**
@@ -198,23 +206,25 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-257]]'s `zones` table. It used to ask for `sites.kind`, which `0005`
- * adds; once anything came after `0005`, a database at `0005` would have
- * answered "at head" and skipped the rest silently. So this marker MOVES WITH
- * THE LIST: a migration appended below without moving it re-opens exactly that
- * hole. `sqlite_master` answers on a database with no such table at all — an
- * empty result, not an error — which is what lets one query serve both "already
- * migrated" and "nothing here yet", exactly as `PRAGMA table_info` did.
+ * [[REQ-258]]'s partial unique index on `site_domains`. It used to ask for
+ * `sites.kind`, which `0005` adds; once anything came after `0005`, a database
+ * at `0005` would have answered "at head" and skipped the rest silently. So
+ * this marker MOVES WITH THE LIST: a migration appended below without moving it
+ * re-opens exactly that hole. `sqlite_master` answers on a database with no
+ * such object at all — an empty result, not an error — which is what lets one
+ * query serve both "already migrated" and "nothing here yet", exactly as
+ * `PRAGMA table_info` did.
  *
- * A WHOLE TABLE THIS TIME rather than `0009`'s renamed column, which needed the
- * `sql LIKE` clause to be visible at all. A table either exists or does not, so
- * the name alone is the question — and the marker being simpler than the one it
- * replaced is a property of `0010`, not a relaxation of the rule above.
+ * AN INDEX AND NOT THE COLUMN IT GUARDS, because `0011`'s two statements land
+ * in order and the index is the second: an index that exists implies the column
+ * it is declared over does. Asking for the column instead would need a
+ * `sql LIKE` clause, which is what `0009`'s marker needed and is more fragile
+ * for no more answer.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .bind('zones')
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+    .bind('idx_site_domains_site_canonical')
     .first<{ name: string }>()
   return row !== null
 }

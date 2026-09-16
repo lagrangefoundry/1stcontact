@@ -103,7 +103,17 @@ import {
   checkHostname,
   claimHostname,
   revokeHostname,
+  siteOf,
 } from './hostname'
+// [[REQ-258]] — serving a custom domain. The records, the runtime Worker route
+// and the row, composed in one module so no call site can perform two of the
+// three and report success.
+import {
+  NoZoneForHostError,
+  ZoneNotReadyError,
+  serveHostOnSite,
+  stopServingHost,
+} from './serving'
 // [[REQ-257]] — the DNS layer. The zone table, the enumerated Cloudflare client
 // and the external resolver, each reached through its own module and never a
 // second time: this router is one of the three consumers the ticket names.
@@ -1314,6 +1324,30 @@ export const ADMIN_ZONES_PATH = '/api/admin/zones'
  * to whoever asks.
  */
 export const ADMIN_DNS_PATH = '/api/admin/dns'
+
+/**
+ * Where the OPERATOR points a domain at a site, and takes it back down again
+ * ([[REQ-258]]).
+ *
+ * `/api/admin/` AND NOT A CUSTOMER SURFACE, on {@link ADMIN_ZONES_PATH}'s
+ * reasoning exactly: the selector a customer presses is a different ticket, and
+ * what this ticket builds is the mechanism beneath it. The gate is
+ * `ownsPlatformBusiness` and the refusal is a 404, because a caller asking
+ * whether an administrative surface exists is owed nothing.
+ *
+ * IT EXISTS AT ALL BECAUSE A MECHANISM WITH NO ENTRY POINT IS UNPROVABLE. Every
+ * claim this ticket makes — the ordering, the guards, the rollback, the
+ * cross-tenant refusal — is a claim about a request arriving somewhere, and a
+ * suite that called the module directly would be evidence about a function
+ * rather than about the product.
+ *
+ * `DELETE` IS HERE BECAUSE A CUSTOM DOMAIN IS NOT FINAL, which is the rule this
+ * ticket introduces and the one most likely to be got wrong by whoever reads
+ * `hostname.ts`'s header and applies the `1stc.site` rule uniformly. An
+ * attachment that cannot be undone is one nobody can safely make: a mistyped
+ * domain would otherwise be repairable only by editing the database by hand.
+ */
+export const ADMIN_DOMAINS_PATH = '/api/admin/domains'
 
 /**
  * The User tab's four routes ([[REQ-170]]).
@@ -2553,6 +2587,94 @@ async function routeUncached(
         // path that actually needs it: the message is composed from a refusal
         // built BELOW us by a client that was handed a bearer token, which is
         // exactly the shape of leak [[REQ-146]] AC4 defends against.
+        if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
+        throw err
+      }
+    }
+
+    /**
+     * `/api/admin/domains` — point a domain at a site, or stop ([[REQ-258]]).
+     *
+     * ONE GATE FOR BOTH METHODS AND IT IS {@link ADMIN_ZONES_PATH}'S EXACTLY,
+     * including the `null` client seam and the no-token refusal. A deployment
+     * that cannot reach Cloudflare cannot write a record or a route, and
+     * attaching the row anyway would produce this ticket's first falsifier — a
+     * row whose host resolves nowhere — rather than a refusal.
+     *
+     * THE REFUSALS KEEP THEIR OWN STATUS CODES, on the zones route's reasoning:
+     * they are different things an operator does different things about. A
+     * domain that is not a domain is theirs to retype (400); a zone this
+     * deployment does not hold, or a business with no site, is a step not yet
+     * taken (404); a zone that is not ready to serve is a wait or an
+     * attribution (409); a host already pointed at a site is a decision somebody
+     * already made (409); an API refusal is somebody else's problem (502).
+     */
+    if (p === ADMIN_DOMAINS_PATH && (method === 'POST' || method === 'DELETE')) {
+      const admission = deps.admission
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+
+      const client: CloudflareClient | null = deps.cloudflare
+        ? deps.cloudflare(env)
+        : cloudflareFor(env)
+      if (client === null) {
+        return json(503, { error: scrub(new CloudflareNotConfiguredError().message) })
+      }
+
+      try {
+        if (method === 'DELETE') {
+          // THE HOST IS IN THE QUERY AND NOT IN A BODY. A `DELETE` carrying one
+          // is accepted by some clients and silently dropped by others, and a
+          // delete whose subject went missing in transit is the worst shape of
+          // request there is.
+          const host = url.searchParams.get('host') ?? ''
+          if (host.trim() === '') return json(400, { error: 'host is required' })
+          const stopped = await stopServingHost(identityEnv, client, host)
+          // IDEMPOTENT, on `revokeHostname`'s reasoning: an operator repeating a
+          // command should get the same answer twice, and *"that was not
+          // serving"* is not a failure.
+          return json(200, { released: stopped?.hosts ?? [], siteKey: stopped?.siteKey ?? null })
+        }
+
+        const body = await readJsonBody(request)
+        const host = typeof body.host === 'string' ? body.host : ''
+        const businessId = typeof body.businessId === 'string' ? body.businessId : ''
+        if (host.trim() === '' || businessId.trim() === '') {
+          return json(400, { error: 'host and businessId are required' })
+        }
+        // THE BUSINESS NAMES THE SITE, AND `hostname.ts` OWNS THAT STEP. A route
+        // that took a site key would be asking an operator to hold an opaque
+        // value they have no way to look up, and one that resolved the site here
+        // would be a second answer to *"which site is a business's"* beside the
+        // one `businessAddresses` already uses.
+        const siteKey = await siteOf(identityEnv, businessId)
+        if (siteKey === null) {
+          return json(404, { error: 'That business has no site yet, so there is nothing to address.' })
+        }
+        const result = await serveHostOnSite(identityEnv, client, { siteKey, host })
+        return json(200, {
+          siteKey: result.siteKey,
+          zone: result.zone,
+          addresses: result.addresses,
+          routes: result.routes,
+          // REPORTED AND NEVER SWALLOWED. Pointing a domain at us IS replacing
+          // whatever its apex pointed at, and an operator who has just taken a
+          // live site off the air is owed the list rather than a surprise.
+          replaced: result.replaced,
+        })
+      } catch (err) {
+        if (err instanceof InvalidHostnameError) return json(400, { error: scrub(err.message) })
+        if (err instanceof NoZoneForHostError) return json(404, { error: scrub(err.message) })
+        if (err instanceof ZoneNotReadyError) return json(409, { error: scrub(err.message) })
+        if (err instanceof HostnameTakenError) return json(409, { error: scrub(err.message) })
         if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
         throw err
       }

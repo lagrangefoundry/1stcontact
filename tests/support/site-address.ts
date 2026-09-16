@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:test'
 import {
+  attachCustomHosts,
   claimHostname,
   businessAddresses,
   addressesOf,
@@ -53,11 +54,15 @@ export async function giveBusinessAnAddress(businessId: string): Promise<string>
  * one claims through the shipped operation, which is the right discipline and
  * cannot answer either of the two questions this file now has to:
  *
- *   - **A `custom` address has no shipped operation at all.** [[EPIC-6]] builds
- *     custom domains; `kind: 'custom'` is declared and not implemented, and
- *     [[BUG-97]] requires a link on a custom host to be provable *now* so that
- *     epic lands without silently moving every gated mail back onto the platform
- *     host. An insert is the only way to seed one.
+ *   - **A `custom` address is claimed through its own shipped operation now**
+ *     ([[REQ-258]]). It had none when this helper was written — `kind: 'custom'`
+ *     was declared and not implemented — so an insert was the only way to seed
+ *     one. `attachCustomHosts` exists, so the custom branch below uses it, past
+ *     the same syntactic rule, the same platform-apex refusal and the same
+ *     unique index a real attachment goes through. What still cannot go through
+ *     a shipped operation is the SERVING mechanism around it, and deliberately:
+ *     a fixture that called `serveHostOnSite` would need a Cloudflare client,
+ *     and a suite whose subject is a mailed link has no business holding one.
  *   - **`claimHostname` is scoped to the BUSINESS and refuses a second platform
  *     label**, by design — *"one hostname per business, at a time"*. A fixture
  *     seeding several sites in one tenant is asking a question about SITES, and
@@ -88,12 +93,25 @@ export async function giveSiteAnAddress(
   // first-come namespace and nothing is ever re-issued, so two fixtures sharing a
   // label would make the second fail depending on which ran first.
   const label = `uat${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`
-  const host = kind === 'custom' ? `${label}.example.test` : `${label}.${PLATFORM_APEX}`
-  const address: SiteAddress = { id: newId('dom'), siteKey, host, kind }
+  if (kind === 'custom') {
+    const [attached] = await attachCustomHosts(identity, siteKey, {
+      canonicalHost: `${label}.example.test`,
+    })
+    return attached
+  }
+
+  const host = `${label}.${PLATFORM_APEX}`
+  // CANONICAL ONLY IF NOTHING ELSE ALREADY IS ([[REQ-258]]), which is the rule
+  // `claimHostname` applies and is the one `idx_site_domains_site_canonical`
+  // enforces. A fixture seeding a platform address onto a site that already
+  // holds a custom one would otherwise be refused by the index — and the failure
+  // would read as a broken helper rather than as the rule it is.
+  const canonical = (await addressesOf(identity, siteKey)).every((a) => !a.canonical)
+  const address: SiteAddress = { id: newId('dom'), siteKey, host, kind, canonical }
   await env.DB.prepare(
-    "INSERT INTO site_domains (id, site_id, host, kind, status, created_at) VALUES (?, ?, ?, ?, 'active', ?)",
+    "INSERT INTO site_domains (id, site_id, host, kind, status, canonical, created_at) VALUES (?, ?, ?, ?, 'active', ?, ?)",
   )
-    .bind(address.id, siteKey, host, kind, new Date().toISOString())
+    .bind(address.id, siteKey, host, kind, canonical ? 1 : 0, new Date().toISOString())
     .run()
   return address
 }

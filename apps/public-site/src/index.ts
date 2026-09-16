@@ -22,16 +22,22 @@ import {
  * object.
  */
 import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
-import { gateTarget, handleGate, notFound, type GateEnv } from './gate'
+import { DOWNLOAD_PATH, gateTarget, handleGate, notFound, type GateEnv } from './gate'
 import { handleLead, LEAD_PATH, type LeadEnv } from './lead'
-import { parseRoute, type Route } from './routes'
+import {
+  parseRoute,
+  siteOfRoute,
+  withoutSitePrefix,
+  type RootSite,
+  type Route,
+} from './routes'
 import {
   D1SessionReader,
   readSessionId,
   type SessionCookieConfig,
   type SessionReader,
 } from './session'
-import { D1SiteStore, type SiteStore } from './site-store'
+import { D1SiteStore, type HostBinding, type SiteStore } from './site-store'
 
 /**
  * `public-site` — the generic multi-tenant site server (REQ-111).
@@ -142,8 +148,11 @@ export default {
      * no second parser here that could disagree with `routes.ts` about which site
      * a URL names.
      */
+    const url = new URL(request.url)
+    const store = new D1SiteStore(env.DB)
+
     if (request.method === 'POST') {
-      const target = leadTarget(new URL(request.url).pathname, env.APEX_SITE_KEY)
+      const target = leadTarget(url.pathname, await rootSite(url, store, env.APEX_SITE_KEY))
       if (target) return await handleLead(request, { siteKey: target, env })
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -166,14 +175,22 @@ export default {
      * the ordinary 404, because arriving is a recorded fact and a prefetcher's
      * probe is not an arrival.
      */
-    if (request.method === 'GET') {
-      const gate = gateTarget(new URL(request.url).pathname, env.APEX_SITE_KEY)
-      if (gate) {
-        return await handleGate(request, gate, {
-          env,
-          store: new D1SiteStore(env.DB),
-          bucket: env.SITES,
-        })
+    if (isGatePath(url.pathname) && (request.method === 'GET' || request.method === 'HEAD')) {
+      const root = await rootSite(url, store, env.APEX_SITE_KEY)
+      // THE ADDRESS RULES APPLY TO A MAILED LINK TOO, AND FIRST ([[REQ-258]]).
+      // The link this endpoint answers is the one most likely to be carrying the
+      // old `/site/<key>/` shape, because `recipientSiteUrl` has been minting it
+      // into gated-download emails — so it is the path where *"redundant prefix
+      // 301s to the root-relative form"* has to hold rather than the one where it
+      // is skipped for tidiness. Asked BEFORE the gate, so an arrival is recorded
+      // once, against the request that actually displayed the page.
+      const location = relocation(url, root)
+      if (location) return redirect(location)
+      if (request.method === 'GET') {
+        const gate = gateTarget(url.pathname, root)
+        if (gate) {
+          return await handleGate(request, gate, { env, store, bucket: env.SITES })
+        }
       }
     }
 
@@ -195,9 +212,9 @@ export default {
     }
 
     const response = await route(request, {
-      store: new D1SiteStore(env.DB),
+      store,
       bucket: env.SITES,
-      apexSiteKey: env.APEX_SITE_KEY,
+      root: await rootSite(url, store, env.APEX_SITE_KEY),
       sessionId,
       sessions: new D1SessionReader(env.DB),
       turnstileSitekey: env.TURNSTILE_SITEKEY,
@@ -245,11 +262,62 @@ function edgeCache(): Cache | undefined {
  * page, so it has no form either; the answer is `null` and the request meets the
  * ordinary `405`, which is the same thing an unpublished site says.
  */
-function leadTarget(pathname: string, apexSiteKey: string | undefined): string | null {
+function leadTarget(pathname: string, root: RootSite): string | null {
   const parsed = parseRoute(pathname)
-  if (parsed.kind === 'apex' && parsed.path === LEAD_PATH) return apexSiteKey || null
-  if (parsed.kind === 'asset' && parsed.path === LEAD_PATH) return parsed.siteKey
-  return null
+  const path = parsed.kind === 'apex' || parsed.kind === 'asset' ? parsed.path : ''
+  if (path !== LEAD_PATH) return null
+  // THE CROSS-TENANT GUARD APPLIES TO THE WRITE PATH TOO ([[REQ-258]]), and it
+  // is the same rule spelled once: `siteOfRoute` refuses a `/site/<key>/` path
+  // whose key is not the site the host is bound to. Without it, a form posted to
+  // `alicesplumbing.com/site/<bob's key>/api/lead` would file an enquiry into
+  // Bob's contact list from Alice's domain.
+  return siteOfRoute(parsed, root)
+}
+
+/**
+ * Whether this path could be the gated page or one of its artifacts.
+ *
+ * A CHEAP PRE-TEST, AND ITS ONLY JOB IS TO KEEP A DATABASE READ OFF THE WARM
+ * PATH. {@link gateTarget} needs the host resolved, and resolving the host is a
+ * D1 query; asking it for every GET would put that query in front of the edge
+ * cache, which answers most requests without touching a store at all. The
+ * grammar's own segment is what is matched, so this cannot come to disagree with
+ * the parser about which paths are gate paths — it is deliberately LOOSER than
+ * `gateTarget` and never tighter, so a path it admits is still decided over
+ * there.
+ */
+function isGatePath(pathname: string): boolean {
+  return pathname.includes(`/${DOWNLOAD_PATH}`) || pathname.startsWith(`/${DOWNLOAD_PATH}`)
+}
+
+/**
+ * The site served at the root of the host this request arrived on
+ * ([[REQ-258]]).
+ *
+ * THE HOST DECIDES, AND `APEX_SITE_KEY` IS THE FALLBACK RATHER THAN THE ANSWER.
+ * A host with a `site_domains` row is BOUND: it serves exactly that site and
+ * nothing else, which is what a customer's own domain has to mean. A host with
+ * no row is this product's own front door, where the root site is deployment
+ * configuration and every other site is addressable under `/site/<key>/` — the
+ * behaviour that existed before this ticket, unchanged, because deleting the
+ * prefix grammar is a later cleanup and the platform apex is what it is
+ * load-bearing for.
+ *
+ * MEMOISED BY THE STORE, so the three callers in one request share one read.
+ */
+async function rootSite(
+  url: URL,
+  store: SiteStore,
+  apexSiteKey: string | undefined,
+): Promise<RootSite> {
+  const binding = await store.siteForHost(url.hostname)
+  if (!binding) return { siteKey: apexSiteKey, bound: false }
+  const elsewhere = binding.canonicalHost !== url.hostname.toLowerCase()
+  return {
+    siteKey: binding.siteKey,
+    bound: true,
+    redirectTo: elsewhere ? binding.canonicalHost : undefined,
+  }
 }
 
 /** Everything a request needs resolved for it, gathered once per request. */
@@ -267,8 +335,8 @@ interface Serving {
    * belongs.
    */
   turnstileSitekey?: string
-  /** The site served at the root of this host, when this deployment has one. */
-  apexSiteKey?: string
+  /** The site served at the root of this host, and whether the host is bound to it. */
+  root: RootSite
   /** The session this request carries for THIS host, or null. */
   sessionId: string | null
   sessions: SessionReader
@@ -297,30 +365,111 @@ async function route(request: Request, serving: Serving): Promise<Response> {
   const url = new URL(request.url)
   const parsed = parseRoute(url.pathname)
 
+  /*
+   * A SITE SITS AT THE ROOT OF ITS HOST ([[REQ-258]], [[DOC-45]] §4), and the
+   * `/site/<key>/` prefix survives on a bound host as a GUARDED REDIRECT.
+   *
+   * A customer who buys `alicesplumbing.com` and is given
+   * `alicesplumbing.com/site/dom_9f3a…/` has not been given an address. But the
+   * prefix cannot simply stop working either, because it is already in the post:
+   * `recipientSiteUrl` has been minting `https://<host>/site/<key>/…` into gated
+   * download emails, and a mailed link is permanent and unrecallable. So on a
+   * bound host the prefix 301s to the root-relative form — every already-posted
+   * link keeps working, and deleting the grammar becomes a later cleanup rather
+   * than a flag day.
+   *
+   * AND A KEY THAT IS NOT THIS HOST'S SITE 404s, which is the rule that matters
+   * and is a CROSS-TENANT GUARD rather than tidiness. It is applied by
+   * `siteOfRoute` for the paths that serve; what is here is the redirect for the
+   * key that DOES match, which is a statement about addresses rather than about
+   * access.
+   */
+  const location = relocation(url, serving.root)
+  if (location) return redirect(location)
+
   switch (parsed.kind) {
     case 'apex':
-      // The apex is an ordinary site served at the root of this host ([[REQ-200]]).
-      // Which site is configuration; a deployment with none serves the same 404
-      // an unpublished site does, because that is the same fact.
-      if (!serving.apexSiteKey) return notFound()
+    case 'asset': {
+      // ONE BRANCH FOR BOTH NOW. The apex is an ordinary site served at the root
+      // of this host ([[REQ-200]]) and a bound host serves exactly one site at
+      // its root, so *which site* is the same question in both cases and
+      // `siteOfRoute` is the one place it is answered — including the refusal
+      // for a key this host may not serve.
+      const siteKey = siteOfRoute(parsed, serving.root)
+      // A deployment with no root site serves the same 404 an unpublished site
+      // does, because that is the same fact; so does a host asking for a site it
+      // is not bound to, because a 404 that said which would answer questions
+      // about sites the asker has no business knowing exist.
+      if (siteKey === null) return notFound()
       return serve(
         request,
-        { kind: 'asset', siteKey: serving.apexSiteKey, path: parsed.path, htmlFallback: parsed.htmlFallback },
+        { kind: 'asset', siteKey, path: parsed.path, htmlFallback: parsed.htmlFallback },
         serving,
       )
+    }
 
     case 'redirect':
-      return new Response(null, {
-        status: 301,
-        headers: new Headers({ location: `${parsed.location}${url.search}` }),
-      })
-
-    case 'asset':
-      return serve(request, parsed, serving)
+      return redirect(`${parsed.location}${url.search}`)
 
     default:
       return notFound()
   }
+}
+
+/**
+ * Where this request belongs instead, or `null` when it is already there
+ * ([[REQ-258]]).
+ *
+ * TWO RULES, ONE PLACE, AND ONE HOP.
+ *
+ *   - **A site sits at the root of its host** ([[DOC-45]] §4). On a bound host
+ *     the `/site/<key>/` prefix is redundant — the host already names the site —
+ *     so it 301s to the root-relative form. It cannot simply stop working,
+ *     because it is already in the post: `recipientSiteUrl` has been minting
+ *     `https://<host>/site/<key>/…` into gated-download emails, and a mailed
+ *     link is permanent and unrecallable.
+ *   - **A host that is not the address 301s to the one that is.** `www` is what
+ *     forces this: both records are written, both resolve, and
+ *     `site_domains.canonical` is what says which one a link is composed from
+ *     and which one redirects — including so a search engine is not handed the
+ *     same site twice under two names.
+ *
+ * BOTH CAN APPLY TO ONE REQUEST — `www.alicesplumbing.com/site/<key>/about` —
+ * and redirecting twice would put an extra round trip in front of exactly the
+ * visitor who followed an old link from a stale address. So the path is decided
+ * first and the host second, and the reader lands on `/about` on the address in
+ * one move.
+ *
+ * A KEY THIS HOST MAY NOT SERVE IS NOT REDIRECTED ANYWHERE. It is refused, by
+ * `siteOfRoute`, wherever the request ends up — a 301 would confirm that the
+ * site exists, which is the half of the cross-tenant guard that is about
+ * information rather than about bytes.
+ *
+ * NEVER FOR A `POST`, which is why the lead endpoint is matched before this is
+ * ever asked: a 301 drops the body, and the endpoint resolves to the same site
+ * from either host anyway.
+ */
+function relocation(url: URL, root: RootSite): string | null {
+  if (!root.bound) return null
+  const parsed = parseRoute(url.pathname)
+  const prefixed = parsed.kind === 'asset' && parsed.siteKey === root.siteKey
+  const path = prefixed ? withoutSitePrefix(url.pathname) : url.pathname
+  if (root.redirectTo) return `https://${root.redirectTo}${path}${url.search}`
+  return prefixed ? `${path}${url.search}` : null
+}
+
+/**
+ * A permanent redirect, and every one this Worker gives is one.
+ *
+ * `301` AND NOT `302`, DELIBERATELY, on [[TODO-6]] §4's reasoning one level
+ * down: a permanent redirect is the only form that is both honest about which
+ * address is canonical and safe to have printed on something physical. A
+ * temporary one tells a search engine to keep indexing the address that
+ * redirects, which is precisely the duplicate-content outcome the canonical
+ * record exists to prevent.
+ */
+function redirect(location: string): Response {
+  return new Response(null, { status: 301, headers: new Headers({ location }) })
 }
 
 /** Fetch one object out of the snapshot the route names. */

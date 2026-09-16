@@ -18,11 +18,16 @@ import { resolveStaticFile } from '../../generate/src/cli/static-file'
 import { contentTypeOf } from '../../generate/src/store/content-type'
 import { renderConsolePage, renderDiffPage, type IterationView, type PageState } from './page'
 import {
+  captureListStep,
+  findStoredCapture,
+  parseCaptureList,
+  readIterations,
   runIteration,
   spawnStepRunner,
   StepFailure,
   type IterationStep,
   type StepRunner,
+  type StoredCapture,
 } from './iteration'
 
 /** Scratch space for every artifact the console produces. Gitignored (DOC-12). */
@@ -46,6 +51,7 @@ export interface ConsoleResponse {
 interface Iteration extends IterationView {
   siteOut: string
   diffOut: string
+  pageOut: string
 }
 
 export interface ReproConsoleOptions {
@@ -93,6 +99,8 @@ export class ReproConsole {
   private slug = ''
   private bundleDir: string | undefined
   private readonly iterations: Iteration[] = []
+  /** The captures on disk, as of the last time the page was built. */
+  private stored: StoredCapture[] = []
   private readonly cwd: string
   private readonly runStep: StepRunner
   /** The run in flight, so `close()` and the suite can wait for it. */
@@ -115,28 +123,102 @@ export class ReproConsole {
       message: this.message,
       failed: this.failed,
       url: this.url,
-      iterations: this.iterations.map(({ n, originalUrl, reproHref, diffHref }) => ({
+      iterations: this.iterations.map(({ n, originalUrl, reproHref, diffHref, pageHref }) => ({
         n,
         originalUrl,
         reproHref,
         diffHref,
+        pageHref,
       })),
+      stored: this.stored.map(({ name, url }) => ({ name, url })),
     }
+  }
+
+  /**
+   * Adopt a site whose capture is already on disk (requirements 29, 31, 33).
+   *
+   * No capture runs and no iteration runs — this is the console REMEMBERING a
+   * site, which is a different act from reproducing one. The iterations come
+   * back from disk with their links live, so the page it lands on is the page
+   * the operator left rather than an empty one beside a full `storage/tmp/`.
+   */
+  private adopt(url: string, bundleDir: string): void {
+    this.url = url
+    this.slug = slugForUrl(url)
+    this.bundleDir = bundleDir
+    this.iterations.length = 0
+    for (const manifest of readIterations(path.join(this.cwd, CONSOLE_WORKSPACE, this.slug))) {
+      const dir = path.join(this.cwd, CONSOLE_WORKSPACE, this.slug, `iteration-${manifest.n}`)
+      this.iterations.push({
+        n: manifest.n,
+        originalUrl: manifest.originalUrl || url,
+        reproHref: `/iteration/${manifest.n}/site/`,
+        diffHref: `/iteration/${manifest.n}/diff/`,
+        pageHref: `/iteration/${manifest.n}/page`,
+        siteOut: path.join(dir, 'site'),
+        diffOut: path.join(dir, 'diff'),
+        pageOut: path.join(dir, 'page.json'),
+      })
+    }
+    this.version += 1
+  }
+
+  /** Ask `1c` which captures exist, and remember the answer for the page. */
+  private async refreshStored(): Promise<StoredCapture[]> {
+    const step = captureListStep()
+    const result = await this.runStep(step, this.cwd).catch(() => null)
+    this.stored = result ? parseCaptureList(result.stdout) : []
+    return this.stored
   }
 
   async handle(req: ConsoleRequest): Promise<ConsoleResponse> {
     const { method } = req
     const pathname = req.path
 
-    if (method === 'GET' && pathname === '/') return html(200, renderConsolePage(this.state()))
+    if (method === 'GET' && pathname === '/') {
+      // The captured sites are listed from disk on every view of the blank page
+      // (requirement 31), so a capture taken in another console — or in a plain
+      // `1c capture page` at a terminal — shows up here without a restart.
+      if (!this.running) await this.refreshStored()
+      return html(200, renderConsolePage(this.state()))
+    }
     if (method === 'GET' && pathname === '/state') {
       return json(200, this.state())
     }
-    if (method === 'POST' && (pathname === '/run' || pathname === '/run-again')) {
-      return this.startRun(pathname === '/run' ? formField(req.body ?? '', 'url') : undefined)
+    if (method === 'POST' && pathname === '/open') {
+      return this.open(formField(req.body ?? '', 'url') ?? '')
+    }
+    if (method === 'POST' && (pathname === '/run' || pathname === '/recapture' || pathname === '/run-again')) {
+      return this.startRun(
+        pathname === '/run-again' ? undefined : formField(req.body ?? '', 'url'),
+        pathname === '/recapture',
+      )
     }
     if (pathname.startsWith('/iteration/')) return this.serveArtifact(pathname)
     return text(404, 'Not found')
+  }
+
+  /**
+   * Load a stored site without running anything (requirement 31).
+   *
+   * The link on the blank page. It is a POST rather than a GET because it
+   * changes what the console is looking at, and a GET that mutated would be a
+   * back-button away from doing it again.
+   */
+  private open(typedUrl: string): ConsoleResponse {
+    if (this.running) return html(409, 'A run is already in progress. <a href="/">back</a>')
+    const found = findStoredCapture(this.stored, typedUrl)
+    if (!found) {
+      this.message = `No stored capture for ${typedUrl}.`
+      this.failed = true
+      return seeOther('/')
+    }
+    this.adopt(found.url || normalizeUrl(typedUrl), found.dir)
+    this.message = this.iterations.length
+      ? `Loaded ${this.url} — ${this.iterations.length} iteration(s) already on disk.`
+      : `Loaded ${this.url}. Press [run again] to reproduce it.`
+    this.failed = false
+    return seeOther('/')
   }
 
   /**
@@ -151,7 +233,7 @@ export class ReproConsole {
    * page disables its buttons from the poller, so this is the backstop for the
    * press that lands in the gap rather than the thing a human normally meets.
    */
-  private startRun(typedUrl: string | undefined): ConsoleResponse {
+  private startRun(typedUrl: string | undefined, forceCapture: boolean): ConsoleResponse {
     if (this.running) return html(409, 'A run is already in progress. <a href="/">back</a>')
 
     if (typedUrl !== undefined) {
@@ -161,11 +243,28 @@ export class ReproConsole {
         this.failed = true
         return seeOther('/')
       }
-      this.url = normalizeUrl(trimmed)
-      this.slug = slugForUrl(this.url)
-      this.bundleDir = undefined
-      this.iterations.length = 0
-      this.version += 1
+      /**
+       * A CAPTURE ALREADY ON DISK IS REUSED, NOT RE-TAKEN (requirement 29).
+       *
+       * This is requirement 15's reasoning applied to the first press rather
+       * than the second. Re-capturing re-rolls the acceptance oracle, so the
+       * reference moves at the same instant the fold does and the two become
+       * inseparable — which is the single comparison an iteration exists to
+       * make. Reusing is therefore the default; [recapture] (requirement 30) is
+       * how someone says they meant to move the reference, and it has to be a
+       * thing they CHOSE rather than something that happened because they
+       * pressed the ordinary button a second time.
+       */
+      const reuse = forceCapture ? undefined : findStoredCapture(this.stored, trimmed)
+      if (reuse) {
+        this.adopt(reuse.url || normalizeUrl(trimmed), reuse.dir)
+      } else {
+        this.url = normalizeUrl(trimmed)
+        this.slug = slugForUrl(this.url)
+        this.bundleDir = undefined
+        this.iterations.length = 0
+        this.version += 1
+      }
     } else if (this.url === null) {
       this.message = 'Enter a site address first.'
       this.failed = true
@@ -191,6 +290,7 @@ export class ReproConsole {
         captureUrl,
         bundleDir: this.bundleDir,
         slug: this.slug,
+        n,
         dir,
         runStep: this.runStep,
         onStep: (step: IterationStep['name']) => {
@@ -203,8 +303,10 @@ export class ReproConsole {
         originalUrl: outcome.originalUrl || (this.url as string),
         reproHref: `/iteration/${n}/site/`,
         diffHref: `/iteration/${n}/diff/`,
+        pageHref: `/iteration/${n}/page`,
         siteOut: outcome.siteOut,
         diffOut: outcome.diffOut,
+        pageOut: outcome.pageOut,
       })
       this.message = `Iteration ${n} finished.`
       this.failed = false
@@ -226,11 +328,26 @@ export class ReproConsole {
 
   /** `/iteration/<n>/site/…` and `/iteration/<n>/diff/…`, confined to that iteration. */
   private async serveArtifact(pathname: string): Promise<ConsoleResponse> {
-    const match = /^\/iteration\/(\d+)\/(site|diff)(\/.*)?$/.exec(pathname)
+    const match = /^\/iteration\/(\d+)\/(site|diff|page)(\/.*)?$/.exec(pathname)
     if (!match) return text(404, 'Not found')
     const iteration = this.iterations.find((it) => it.n === Number(match[1]))
     if (!iteration) return text(404, 'No such iteration')
     const rest = match[3]
+    /**
+     * The reproduction's own L1 document (requirement 34).
+     *
+     * One file, not a tree, so it is served here rather than through the static
+     * resolver, and WITHOUT a trailing-slash redirect — there is no directory
+     * below it for relative references to resolve against.
+     */
+    if (match[2] === 'page') {
+      if (!existsSync(iteration.pageOut)) return text(404, 'No page document for this iteration')
+      return {
+        status: 200,
+        headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, must-revalidate' },
+        body: readFileSync(iteration.pageOut, 'utf8'),
+      }
+    }
     // Without the trailing slash a page's relative asset references resolve one
     // level too high, so the reproduction would load with no CSS and no images.
     if (rest === undefined) return seeOther(`${pathname}/`)

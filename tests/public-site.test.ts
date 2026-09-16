@@ -33,15 +33,28 @@ describe('public-site routing config', () => {
 
   it('test_UAT_FC_REQ-1_public_site_serves_apex_and_wildcard_routes', () => {
     // public-site is the generic multi-tenant site server: the apex serves every
-    // deployed site under /site/<slug>/ (and later the marketing site at /), and
-    // *.1stcontact.io is reserved for customer sites by slug subdomain
-    // (DOC-7 §9.1). Both production routes must be present.
+    // deployed site under /site/<slug>/ (and later the marketing site at /).
     //
     // REQ-111 made the apex a custom domain rather than a zone route: the zone
     // has no proxied record for it, so a route alone resolves to nothing —
     // `custom_domain` has wrangler provision the record and certificate itself.
     expect(toml).toContain('{ pattern = "1stcontact.io", custom_domain = true }')
-    expect(toml).toContain('"*.1stcontact.io/*"')
+
+    // `*.1stcontact.io/*` WAS ASSERTED HERE AND IS GONE ([[REQ-258]]).
+    //
+    // It was a ZONE route, declared and — by its own comment — never served:
+    // subdomain routing was described as additive and `app.1stcontact.io` is
+    // control-app's own, more specific route. What it cost was the whole
+    // custom-domain mechanism, because one zone route in this array makes
+    // `wrangler deploy` `PUT` the entire route list for this script and delete
+    // every route it did not declare — which is every customer's domain, since
+    // attaching one is an API call and not a commit.
+    //
+    // THE CLAIM IS NOT DROPPED, IT IS STRENGTHENED AND MOVED. The rule now is
+    // that NO entry here may be a zone route, which is a statement this
+    // assertion could not make, and it is held by
+    // `tests/test_UAT_FC_REQ-258_runtime_routes_survive_a_deploy.test.ts`.
+    expect(toml).not.toContain('"*.1stcontact.io/*"')
   })
 
   it('test_UAT_FC_REQ-111_public_site_binds_the_snapshot_bucket', () => {

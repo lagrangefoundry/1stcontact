@@ -182,3 +182,86 @@ export function parseRoute(pathname: string): Route {
   const path = rest.join('/')
   return { kind: 'asset', siteKey, path, htmlFallback: htmlFallbackFor(path, trailingSlash) }
 }
+
+/**
+ * Which site this host serves at its root, and whether the host is BOUND to it
+ * ([[REQ-258]]).
+ *
+ * TWO FIELDS AND NOT ONE, because *\"which site\"* and *\"may this host serve any
+ * other\"* are different questions with different answers on the product's own
+ * front door. `1stcontact.io` serves the apex site at `/` and every other site
+ * under `/site/<key>/`, which is correct: it is this product's address, not a
+ * customer's. `alicesplumbing.com` serves exactly one site and nothing else, and
+ * the difference between those two sentences is this boolean.
+ */
+export interface RootSite {
+  /** The site served at the root of this host, or `undefined` for a host with none. */
+  siteKey?: string
+  /**
+   * Whether a `site_domains` row binds this host to that site.
+   *
+   * `false` FOR THE PLATFORM'S OWN HOSTS, where the root site is deployment
+   * configuration (`APEX_SITE_KEY`) rather than a mapping — and where serving
+   * every site under `/site/<key>/` is the whole job.
+   */
+  bound: boolean
+  /**
+   * The host this one is not — set only when the site's address is elsewhere.
+   *
+   * A SITE HAS EXACTLY ONE ADDRESS ([[DOC-45]] §4) AND SEVERAL HOSTS MAY REACH
+   * IT. Attaching a domain writes the apex and its `www`, because a visitor who
+   * types `www.` must not meet a certificate error; one of the two is the
+   * address and the other 301s to it. Absent means this host IS the address,
+   * which is the ordinary case and the one that must cost nothing.
+   */
+  redirectTo?: string
+}
+
+/**
+ * The site a parsed route names, or `null` when it names none.
+ *
+ * THE CROSS-TENANT GUARD IS HERE AND IS THE REASON THIS FUNCTION EXISTS.
+ * `public-site` serves `/site/<any-key>/` on whatever host it is routed to,
+ * which is correct on this product's front door and is a leak the moment the
+ * host belongs to a customer: `alicesplumbing.com/site/<bob's key>/` would serve
+ * Bob's site to anyone holding his key, from Alice's domain, under Alice's
+ * certificate. Routing a customer domain to this Worker is what creates that
+ * exposure, so the refusal lives in the grammar every path goes through rather
+ * than in the one handler somebody remembered.
+ *
+ * ONE SPELLING, AND THAT IS WHAT MAKES IT A GUARD. The page server, the lead
+ * endpoint and the download gate all resolve a request to a site, and all three
+ * ask this — so there is no path by which one of them can come to disagree with
+ * the other two about which sites a host may serve.
+ */
+export function siteOfRoute(parsed: Route, root: RootSite): string | null {
+  // EMPTY IS ABSENT, NOT A SITE KEY. `APEX_SITE_KEY` is declared as `""` in
+  // every `wrangler.toml` this product ships, because a named environment
+  // inherits no vars and a missing declaration is worse than an empty one — so
+  // *"this deployment has no apex site"* arrives as an empty string far more
+  // often than as `undefined`, and `??` would let it through as a key and send
+  // the store looking for a site called nothing.
+  if (parsed.kind === 'apex') return root.siteKey || null
+  if (parsed.kind !== 'asset') return null
+  if (root.bound && parsed.siteKey !== root.siteKey) return null
+  return parsed.siteKey
+}
+
+/**
+ * `/site/<key>/rest…` as `/rest…` — the root-relative form of a prefixed path.
+ *
+ * WHY THE PREFIX CANNOT SIMPLY STOP WORKING. `recipientSiteUrl` has been minting
+ * `https://<host>/site/<key>/api/download/<token>` into gated-download emails,
+ * and a mailed link is permanent and unrecallable. On a bound host the prefix is
+ * redundant — the host already names the site — so it 301s here instead of
+ * 404ing, which keeps every already-posted link working and makes deleting the
+ * grammar a later cleanup rather than a flag day.
+ *
+ * IT WORKS ON THE RAW PATHNAME rather than on the parsed route, so percent
+ * encoding and the trailing slash survive the trip: the redirect has to land on
+ * the SAME byte, and a re-encoded path is a different one.
+ */
+export function withoutSitePrefix(pathname: string): string {
+  const rest = pathname.split('/').slice(3).join('/')
+  return rest === '' ? '/' : `/${rest}`
+}

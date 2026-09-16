@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:23:52.429534+00:00'
+updated_at: '2026-09-16T18:29:11.162998+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -334,5 +334,139 @@ The absolutism was wrong because I collapsed two things that aren't alike. It's 
 There's a second reason the softer line is affordable, and it comes straight out of the per-business-domain decision from earlier: if Alice sends from `alicesplumbing.com` under her own DKIM, **she bears most of her own reputational cost.** That's not true of a pooled `1stcontact.io` sending domain, where her choice taxes everyone. The shared IP pool is still shared, so there's a floor we protect regardless — but per-domain sending is what makes it defensible to let her make an informed call about her own customer rather than having us make it for her.
 
 So: unsubscribe never blocks the invoice. A complaint stops the *robot* from chasing, not Alice.
+
+<!-- xgd-turn id="9e692f84-26f2-41ef-b7da-6fee32a3306d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:14:51.526125+00:00" -->
+#### You
+ok good discussion. If we pay attention to these constraints - do you think we can expect reasonable (90%+) delivery to Inbox from 1c sites?
+
+<!-- xgd-turn id="9e692f84-26f2-41ef-b7da-6fee32a3306d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:16:03.303801+00:00" -->
+#### Claude
+Yes for two of the three cases, no for the third — and the split matters more than the headline number.
+
+| Message class | Realistic sustained inbox placement |
+|---|---|
+| Transactional (invoice, receipt, booking, form notification) | **97–99%** |
+| Marketing to an organically grown list (form submissions, recent customers) | **90–95%** |
+| First send to an imported 20-year list | **60–75%** |
+
+For scale: the industry-wide average across all senders sits in the low-to-mid 80s, and has for years. Treat these as the right order of magnitude rather than precise current figures — the benchmarks move.
+
+Transactional is close to a solved problem when authentication is right: low volume, high engagement, the recipient is expecting it and often replies. Organic marketing at 90%+ is genuinely achievable and sustainable, because a list of people who filled in a form last month is a fundamentally better asset than what most senders are working with.
+
+## The one that won't hit 90%, and why that's fine
+
+Alice's legacy list won't clear 90% on the first send, and no amount of good engineering changes that — the addresses are genuinely stale, some are recycled spam traps, and a fraction of recipients honestly won't remember her.
+
+But the important reframe: **90% placement on a cleaned list is achievable; 90% of the original CSV reaching an inbox is not.** After validation, the ramp, and pruning non-engagers, the *survivors* get to 90%+ and stay there. You'll have pruned 30–50% of the file to get there.
+
+Alice will measure it the second way unless we frame it the first way from the start. That's the support-load risk in quoting any number to customers, and I'd be careful about ever putting 90% in marketing copy without the qualifier attached.
+
+## What the number is actually conditional on
+
+**Per-business sending domains.** This is load-bearing, and it's still an open decision. If marketing goes out from `noreply@1stcontact.io` on behalf of everyone, then once we have a few hundred customers our floor is set by our worst one, and 90% stops being achievable platform-wide no matter how good Alice is. If each business sends from `alicesplumbing.com` under its own DKIM, the figures above hold. The number follows from that decision more than from anything else on the list.
+
+**Which surfaces a product finding:** proper outbound email effectively *requires the business to have their own domain.* We can't DKIM-sign as `gmail.com`, and sending `From: alice@gmail.com` through our infrastructure fails DMARC alignment outright — Yahoo went `p=reject` in 2024 and the direction of travel is one-way. So a plumber on a Gmail address either gets a domain or sends from a subdomain of ours with pooled reputation. Given layer 1 wanted a domain too, I'd make domain registration a more central part of onboarding than it currently is. It's also an upsell rather than a tax.
+
+**New-domain warm-up, and Microsoft specifically.** A brand-new sending domain has no reputation. At low volume with high engagement it warms in weeks, but Outlook/Hotmail is consistently harder than Gmail and more opaque about it — new domains get junked there for a while even when everything is configured correctly. Enrol in Microsoft SNDS/JMRP and expect the first month to underperform. This is the single most common "why is my mail in spam" complaint and it mostly resolves with time.
+
+**Shared IP pool.** At our volumes a shared pool beats anything we could warm ourselves, but it means our floor is partly set by the ESP's other customers. That's a real argument for staying with a curated vendor while volumes are low, even at higher per-message cost, rather than jumping to SES's cheaper shared pool early.
+
+## The measurement trap
+
+Worth knowing before we promise anything: **our own metrics cannot see inbox placement.** Resend will report 98% delivered, and that is entirely compatible with all of it sitting in spam — "delivered" means the receiving server accepted it, not that a human will see it. Open rates aren't a rescue either; Apple's Mail Privacy Protection has pre-fetched images since 2021, so opens are inflated and unreliable.
+
+Three things give actual visibility:
+
+- **Google Postmaster Tools** — free, gives real domain reputation and spam rate for Gmail. Needs DNS verification per domain, which we could automate if we hold the zone. Per-customer deliverability health, essentially for free.
+- **Microsoft SNDS** — the equivalent for the harder half.
+- **Seed-list testing** (GlockApps, Inbox Monster, Validity) — the only direct measurement of folder placement, by sending to a panel across providers.
+
+And as health signals, **click rate and reply rate beat open rate** now. Replies especially — they're the strongest positive engagement signal to Gmail there is, and a plumber's customers actually do reply.
+
+So: 90%+ is a reasonable expectation for everything except the first pass at a legacy list, conditional on per-domain sending, and we should instrument it rather than assume it.
+
+<!-- xgd-turn id="5961d172-018f-4150-b596-ef2ed520988f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:27:20.255440+00:00" -->
+#### You
+I know that small business have delivery problems even for handwritten transactional emails so improving on that and giving them visibility is high value.
+Are there APIs to Google and Postmaster? - we need to be able to show this to our customers (in language they can understand) and make it available to the AI to give them advise.
+
+**Seed-list testing** - hmm I have not seen this - how much does this cost? How many accounts do you need? We could set up some bots by hand - harder to do these days but we could probably create half a dozen or so on each major provider and access them via SMPT?
+
+What is DKIM?
+
+I am thinking that the customer gets to configure N (where N can be large) email addresses to be forwarded places on their domain and intercepted by us for metrics. We disallow no-reply and maybe even info@ and encourage the use of names. Can we support 1 email being forwarded to many addresses (e.g. support@ might want multiple recipients). The email dashboard will have an AI panel next to it and a custom playbook/set of advice/instructions for the AI to help the customers navigate all this
+
+<!-- xgd-turn id="5961d172-018f-4150-b596-ef2ed520988f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:29:10.322406+00:00" -->
+#### Claude
+Four questions, taking them in order. The first one has a catch that matters a lot.
+
+## Google Postmaster Tools API
+
+Yes — `gmailpostmastertools.googleapis.com`, v1. You verify the domain (DNS TXT, which is automatic if we hold the zone), OAuth with `postmaster.readonly`, then `domains.trafficStats.list` gives you daily records: domain reputation (BAD/LOW/MEDIUM/HIGH), user-reported spam ratio, SPF/DKIM/DMARC pass ratios, delivery errors, encryption. Data lags two to three days.
+
+**The catch: there's a minimum volume threshold.** Gmail suppresses the data unless you're sending meaningful daily volume to Gmail — the figure I remember is in the low hundreds per day, and it's worth verifying current behaviour. A plumber sending 200 emails a *month* will never cross it. The API will return empty for most of our customers, indefinitely.
+
+That's an awkward interaction with the per-domain decision: isolating reputation per business is right, but it guarantees no single customer generates enough volume to be visible in Postmaster. Pooling would give us data we could actually see, at the cost of the isolation that makes the numbers good. I'd still isolate — but it means Postmaster isn't the visibility answer for this market.
+
+**The thing that does work at any volume is DMARC aggregate reports.** Publish `rua=mailto:...` in their DMARC record and every major receiver — Google, Microsoft, Yahoo — sends us daily XML describing authentication results for that domain: how much mail claimed to be from them, from which IPs, and whether SPF and DKIM passed. Works for a sender doing ten messages a week. It doesn't measure inbox placement, but it measures the authentication health that placement depends on, and it catches anyone spoofing them.
+
+Since we'd hold their DNS, we can set that up at domain-provision time with no customer action at all. Postmark runs a free DMARC digest service; Dmarcian and URIports are the paid tier. Parsing the XML ourselves is not hard, and it keeps the data in the record.
+
+For the Microsoft side, SNDS is keyed to IP ownership, so on a shared pool that's the ESP's data rather than ours. Less useful.
+
+So the visibility stack for a low-volume sender is: DMARC RUA (auth health) + ESP bounce/complaint webhooks (which we already land in `email-webhook.ts`) + reply and click rates. Postmaster only once someone gets big.
+
+## Seed-list testing
+
+GlockApps is the accessible tier — roughly $60–100/month for a small plan, worth checking current pricing. Inbox Monster and Validity Everest are enterprise, thousands a year. Panels typically use 50–100+ addresses to get a statistically meaningful read across providers.
+
+**On DIY: I'd advise against it, and the reason isn't account creation.** It's that a freshly created, never-used Gmail account is not a representative recipient. Gmail's filtering is heavily personalised and engagement-driven — it learns from what that specific user opens, replies to and rescues from spam. A dormant account with no history doesn't behave like a real mailbox, so you'd be measuring something, but not the thing you care about. Commercial panels maintain *aged* accounts with activity histories, and that's most of what you're paying for.
+
+The mechanics are also worse than they used to be: Gmail wants phone verification and flags accounts created in a batch from one IP; Microsoft has deprecated basic auth for personal accounts, so reading them means OAuth per account, not IMAP with a password. And bulk account creation is a ToS violation they enforce.
+
+**But here's the reframe that makes it cheap:** you don't need per-customer seed testing. Most of what you're measuring is the health of *our sending path* — the IP pool, the ESP, the template HTML, the auth setup. That's a handful of tests per week for the whole platform, not per customer. One subscription covers it. Then spend targeted tests on the genuinely risky moments: the first send from each newly provisioned domain, and any account where complaint rate alarms.
+
+## What DKIM is
+
+**DKIM (DomainKeys Identified Mail) is a cryptographic signature on an email.** You generate a keypair; the private key lives with the sending service, the public key goes in DNS as a TXT record at `<selector>._domainkey.alicesplumbing.com`. On send, the server hashes certain headers plus the body, signs that with the private key, and attaches a `DKIM-Signature:` header. The receiver reads the header, fetches the public key from DNS, and verifies. If it checks out, the message genuinely came from someone holding that domain's key *and* hasn't been altered in transit.
+
+It's one of three, and they do different jobs:
+
+- **SPF** — a DNS record listing which IP addresses may send for your domain. Cheap, but it breaks on forwarding, because the forwarder's IP isn't on the list. (That's what SRS works around, and why Cloudflare does SRS for you.)
+- **DKIM** — the signature above. Survives forwarding, *provided nothing modifies the message*. This is the real reason "forward verbatim" was a hard rule earlier.
+- **DMARC** — a policy record saying what to do when the other two fail, plus where to send reports.
+
+**The concept that ties it together is alignment**, and it's the bit that's non-obvious: DMARC requires that the domain which passed SPF or DKIM *matches the domain in the visible `From:` header*. You can pass SPF perfectly for some unrelated domain and still fail DMARC.
+
+Which is exactly why per-business sending needs per-business DKIM keys. Mail from `alice@alicesplumbing.com` signed by `1stcontact.io` fails alignment, and Yahoo and Gmail will act on that. So we need a key published on *her* domain — one more DNS record we write automatically if we hold her zone. It's the same reason a plumber on a bare `@gmail.com` address can't be a proper sender at all.
+
+## The N-addresses design
+
+This lands, and it's a better shape than a single collection address. Cloudflare Email Routing does multiple rules per zone, plus catch-all, and Email Workers let you inspect before forwarding. Check the current per-zone rule and destination limits — they're generous but finite.
+
+**Banning `noreply@` is right for more reasons than aesthetics.** It correlates with spam complaints (a recipient who can't reply and wants to escalate has exactly one button), it forfeits replies — the strongest positive engagement signal Gmail has — and it destroys the record, since replies are the whole thing we're trying to capture. Three of our concerns point the same way.
+
+`info@` I'd *discourage* rather than ban. Role addresses are mainly a spam-trap signal when you're sending *to* them, which isn't this case. The real arguments are that nobody owns an unnamed inbox so it gets ignored, you can't attribute who replied, and a named sender gets better human response. That's advice with a strong default, not a prohibition — some businesses have a genuine reason, and a hard block on a reasonable request is where people start working around you.
+
+**One address to many recipients: yes.** Plain routing rules are one-to-one, but an Email Worker can `message.forward()` to several destinations in a single handler, so the capability is there. Two caveats worth designing for:
+
+- **Every destination must be verified** by clicking a confirmation link. That's friction, but it's also the thing that stops us being an open relay, so keep it.
+- **Fan-out to three people is three copies, not a shared inbox.** No shared state, three separate reply threads, and the classic failure where everyone assumes someone else replied. That's a genuine product gap — and one we're unusually placed to fix, because we see all three copies and every reply. "Dave replied to this 20 minutes ago" is a feature that falls out of the record almost for free.
+
+**On the AI panel** — this domain suits it unusually well, because the inputs are numeric, the diagnostic ladder is well-established (authentication → list quality → engagement → content → cadence), and the customer has no vocabulary for any of it. The value is translation: "domain reputation: LOW" means nothing to a plumber, while "Gmail has started distrusting mail from your domain, here's the likely cause and the fix" means everything.
+
+Two things to build in: ground every piece of advice in *their* actual figures rather than generic best practice, and give it the diagnostic ladder as an ordering so it doesn't suggest rewriting subject lines when DKIM is failing.
+
+---
+
+Want me to capture any of this? There's a DOC's worth of design here, and the DMARC-RUA-instead-of-Postmaster finding in particular is the kind of thing that'll get rediscovered painfully in six months if it isn't written down.
 
 <!-- xgd-chat-end -->

@@ -11,6 +11,7 @@
  */
 import { spawn } from 'node:child_process'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /** What a finished child process left behind. */
 export interface CommandResult {
@@ -35,16 +36,33 @@ export const spawnCommand: CommandRunner = (cmd, args, cwd) =>
   })
 
 /**
+ * Where `1c`'s launcher sits, resolved from THIS MODULE rather than from a cwd.
+ *
+ * THE TWO ARE NOT THE SAME THING. A caller's `cwd` is the tree the command
+ * operates on — which `storage/` it reads and writes. The CLI's own location is
+ * fixed by where these tools are installed. Deriving the second from the first
+ * worked only because they coincide in normal use, and broke the moment
+ * anything ran a command against a directory that was not this checkout.
+ */
+export const CLI_ENTRY = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..', // tools/repro-console/src → tools/repro-console
+  '..', // → tools
+  'generate',
+  'bin',
+  '1c.mjs',
+)
+
+/**
  * `1c <argv…>` as a command and its arguments.
  *
  * Node is invoked directly rather than through `bin/1c`, which is a bash script
  * whose entire body is this same `exec`. Going straight to the launcher module
  * costs a shell and an executable bit we would otherwise depend on, and buys
- * nothing — the repo-root resolution `bin/1c` performs is the `cwd` every
- * caller here already hands the process.
+ * nothing.
  */
-export function oneC(argv: string[]): { cmd: string; args: string[] } {
-  return { cmd: process.execPath, args: [path.join('tools', 'generate', 'bin', '1c.mjs'), ...argv] }
+export function oneC(argv: string[], cliEntry: string = CLI_ENTRY): { cmd: string; args: string[] } {
+  return { cmd: process.execPath, args: [cliEntry, ...argv] }
 }
 
 /**

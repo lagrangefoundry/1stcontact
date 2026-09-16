@@ -11,6 +11,10 @@
  * would suggest this barrel is Worker-reachable, and it is not.
  */
 export type { CapturePageOptions, CapturePageResult } from './capture'
+// No Node default to add: listing is store reads only, so it needs no browser
+// and is re-exported straight through rather than wrapped like `cmdCapturePage`.
+export { cmdCaptureList } from './capture'
+export type { StoredCapture } from './capture'
 export { runCapturePipeline, runMultiStateCapture, captureLadderScreenshots, captureStructuralHints } from './pipeline'
 export type {
   CapturePipelineOptions,
