@@ -49,7 +49,7 @@ import {
   type EditOptions,
   type EditOutput,
 } from './edit'
-import { cmdCapturePage } from './capture'
+import { cmdCapturePage, cmdCaptureList } from './capture'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import {
   cmdColors,
@@ -336,6 +336,12 @@ Control-app assets (REQ-145) — the build step behind /builder, /webui and /fra
     Nothing is type-stripped, transpiled or resolved at request time afterwards.
 
 Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
+  1c capture list [--json]
+    The captures already on disk, freshest first ({name, dir, url, capturedAt}).
+    Bundles are named after the host that ANSWERED, so which captures exist is a
+    question only the engine can answer — the reproduction console reads this to
+    offer a stored site back without re-hitting it (REQ-254).
+
   1c capture page <url> [--json]
     --json reports the bundle machine-readably ({url, name, dir, sections, assets, l1Nodes, widths}).
     The bundle is named after the host that ANSWERED, which may not be the one typed, so a
@@ -1006,6 +1012,40 @@ export async function run(argv: string[]): Promise<void> {
 
     case 'capture': {
       const sub = rest[0]
+      /**
+       * REQ-254 — `capture list` reports the bundles already on disk.
+       *
+       * WHY THE ENGINE ANSWERS THIS AND NOT THE CALLER. A bundle is named after
+       * the host that ANSWERED and the path slug that was derived, so which
+       * captures exist, and where each one sits, is knowledge of a layout the
+       * engine owns. A caller that reconstructed `storage/references/<host>/<slug>`
+       * for itself would be a second definition of that layout, wrong the day it
+       * moves — the same argument requirement 19 made for `capture page --json`,
+       * one level up: not *where did this one land* but *which ones are there*.
+       *
+       * The reproduction console reads this to offer a captured site back
+       * without re-hitting it (requirements 29 and 31), which matters because
+       * re-capturing re-rolls the acceptance oracle and moves the reference
+       * under the very comparison an iteration exists to make.
+       */
+      if (sub === 'list') {
+        const cwd = global.cwd ?? process.cwd()
+        // The store is built HERE, not inside `cmdCaptureList` — the CLI is the
+        // thing that knows it is on a laptop (REQ-155), and `dir` is composed
+        // here for the same reason: a path is the filesystem adapter's to give.
+        const bundles = (await cmdCaptureList(fsReferenceStore(cwd))).map((b) => ({
+          ...b,
+          dir: bundleDir(cwd, b.name),
+        }))
+        console.log(
+          flags.json === true
+            ? JSON.stringify(bundles, null, 2)
+            : bundles.length
+              ? bundles.map((b) => `${b.name}\n  ${b.dir}${b.url ? `\n  ${b.url}` : ''}`).join('\n')
+              : 'No captures yet.',
+        )
+        return
+      }
       if (sub !== 'page') {
         console.error(`Unknown capture subcommand: ${sub ?? '(none)'}\n\n${USAGE}`)
         process.exitCode = 1

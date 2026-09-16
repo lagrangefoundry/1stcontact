@@ -18,7 +18,7 @@
  * `test_UAT_FC_REQ_254_a_step_is_a_fresh_1c_process`.
  */
 import { createServer, type Server } from 'node:http'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -26,7 +26,10 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { chromiumAvailable } from '../tools/generate/src/cli/capture'
 import {
+  findStoredCapture,
+  parseCaptureList,
   parseCaptureReport,
+  readIterations,
   reproductionSteps,
   spawnStepRunner,
   type IterationStep,
@@ -59,6 +62,8 @@ interface FakeOptions {
   diffExitCode?: number
   /** Awaited before each step returns, so a test can hold a run open. */
   gate?: () => Promise<void>
+  /** What `1c capture list --json` reports back. */
+  stored?: Array<{ name: string; dir: string; url: string; capturedAt: string }>
 }
 
 /**
@@ -70,8 +75,13 @@ interface FakeOptions {
  */
 function fakeRunner(log: IterationStep['name'][], opts: FakeOptions = {}): StepRunner {
   let failed = false
+  let label = 0
   return async (step, cwd): Promise<StepResult> => {
-    log.push(step.name)
+    // `capture list` is a question, not a step of an iteration — it is asked on
+    // every view of the blank page, so logging it would drown the step log the
+    // sequencing assertions read.
+    if (!(step.name === 'capture' && step.argv[1] === 'list')) log.push(step.name)
+    if (step.name === 'refold') label += 1
     if (opts.gate) await opts.gate()
     if (opts.failAt?.step === step.name && !(opts.failAt.once && failed)) {
       failed = true
@@ -79,12 +89,26 @@ function fakeRunner(log: IterationStep['name'][], opts: FakeOptions = {}): StepR
     }
     switch (step.name) {
       case 'capture': {
+        // `capture list` and `capture page` share a step name — the name labels
+        // the failure line, the argv selects the command.
+        if (step.argv[1] === 'list') {
+          return { code: 0, stdout: JSON.stringify(opts.stored ?? []), stderr: '' }
+        }
         const url = step.argv[2]
         const host = new URL(url).hostname
         const dir = path.join(cwd, 'storage', 'references', host, 'index')
         mkdirSync(dir, { recursive: true })
         writeFileSync(path.join(dir, 'capture.json'), JSON.stringify({ url }))
         return { code: 0, stdout: JSON.stringify({ url, name: `${host}/index`, dir }), stderr: '' }
+      }
+      case 'page': {
+        // The real `1c page get … --json` PRINTS the document; the console is
+        // what puts it on disk.
+        return {
+          code: 0,
+          stdout: JSON.stringify({ ok: true, data: { page: { id: 'home', l1: { from: step.argv[2], at: label } } } }),
+          stderr: '',
+        }
       }
       case 'render': {
         const out = outOf(step)
@@ -183,7 +207,7 @@ describe('REQ-254 the reproduction console', () => {
     // Requirement 3 — entering an address and pressing [reproduce] captures the
     // site and reproduces it. Requirement 14 — as a sequence of `1c` steps.
     await reproduce(f, 'joyfulculinarycreations.com')
-    expect(log).toEqual(['capture', 'refold', 'repro', 'render', 'diff'])
+    expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'diff'])
 
     // Requirement 4 — the heading and its three links, and requirement 5 —
     // every one of them opens in a new tab, so following one never loses the
@@ -192,13 +216,19 @@ describe('REQ-254 the reproduction console', () => {
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 1</h2>')
     const links = [...html.matchAll(/<a href="([^"]+)" target="_blank"[^>]*>([^<]+)<\/a>/g)]
-    expect(links.map((m) => m[2])).toEqual(['the original site', 'the reproduction', 'the diff images'])
+    expect(links.map((m) => m[2])).toEqual([
+      'the original site',
+      'the reproduction',
+      'the diff images',
+      'the L1 document',
+    ])
     expect(links.map((m) => m[1])).toEqual([
       'https://joyfulculinarycreations.com',
       '/iteration/1/site/',
       '/iteration/1/diff/',
+      '/iteration/1/page',
     ])
-    expect([...html.matchAll(/<a /g)]).toHaveLength(3)
+    expect([...html.matchAll(/<a /g)]).toHaveLength(4)
   })
 
   it('test_UAT_FC_REQ_254_every_link_reaches_the_real_artifact', async () => {
@@ -323,7 +353,7 @@ describe('REQ-254 the reproduction console', () => {
     gated = false
     release()
     await f.handle.console.settled()
-    expect(log).toEqual(['capture', 'refold', 'repro', 'render', 'diff'])
+    expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'diff'])
     expect(((await (await get(f, '/state')).json()) as { running: boolean }).running).toBe(false)
   })
 
@@ -385,8 +415,9 @@ describe('REQ-254 the reproduction console', () => {
       slug: 'repro-example-com',
       siteOut: '/scratch/iteration-2/site',
       diffOut: '/scratch/iteration-2/diff',
+      pageOut: '/scratch/iteration-2/page.json',
     })
-    expect(steps.map((s) => s.name)).toEqual(['refold', 'repro', 'render', 'diff'])
+    expect(steps.map((s) => s.name)).toEqual(['refold', 'repro', 'page', 'render', 'diff'])
     for (const step of steps) expect(step.argv[0]).toBe(step.name)
     // Every step that reads the reference points at the SAME bundle — the one
     // the capture reported, not one re-derived from the address that was typed.
@@ -413,6 +444,173 @@ describe('REQ-254 the reproduction console', () => {
     expect(() => parseCaptureReport('{"url":"https://a.test/"}')).toThrow(/no bundle directory/)
   })
 })
+
+  it('test_UAT_FC_REQ_254_a_stored_capture_is_reused_not_retaken', async () => {
+    // Requirement 29 — pressing [reproduce] on a site that already has a bundle
+    // SKIPS the capture. Re-capturing re-rolls the acceptance oracle, moving the
+    // reference at the same instant the fold moves, which destroys the one
+    // comparison an iteration exists to make.
+    const log: IterationStep['name'][] = []
+    const f = await startConsole(
+      fakeRunner(log, {
+        stored: [
+          {
+            name: 'example.com/index',
+            dir: '/stored/example.com/index',
+            url: 'https://example.com/',
+            capturedAt: '2026-09-16T10:00:00.000Z',
+          },
+        ],
+      }),
+    )
+    await page(f) // the blank page is what lists what is on disk
+    await reproduce(f, 'example.com')
+
+    expect(log).toEqual(['refold', 'repro', 'page', 'render', 'diff'])
+    expect(log).not.toContain('capture')
+    expect(await page(f)).toContain('<h2>Iteration 1</h2>')
+  })
+
+  it('test_UAT_FC_REQ_254_the_www_pair_is_the_same_site', async () => {
+    // Requirement 29 — a capture is named after the host that ANSWERED, so
+    // someone who typed it bare yesterday and with `www.` today means the same
+    // site. Failing to match would silently re-capture and re-roll the oracle
+    // they were trying to hold still.
+    const stored = [
+      { name: 'www.example.com/index', dir: '/stored/www.example.com/index', url: 'https://www.example.com/', capturedAt: '2026-09-16T10:00:00.000Z' },
+    ]
+    expect(findStoredCapture(stored, 'example.com')?.dir).toBe('/stored/www.example.com/index')
+    expect(findStoredCapture(stored, 'https://www.example.com')?.dir).toBe('/stored/www.example.com/index')
+    expect(findStoredCapture(stored, 'other.example')).toBeUndefined()
+    // An unreadable answer is "nothing stored", not a refusal to start.
+    expect(parseCaptureList('not json')).toEqual([])
+    expect(parseCaptureList('{"not":"an array"}')).toEqual([])
+  })
+
+  it('test_UAT_FC_REQ_254_recapture_is_the_explicit_way_to_rehit_the_site', async () => {
+    // Requirement 30 — deliberately moving the reference is a real thing to
+    // want, and it must be a thing the operator CHOSE rather than something
+    // that happened because they pressed the ordinary button twice.
+    const log: IterationStep['name'][] = []
+    const f = await startConsole(
+      fakeRunner(log, {
+        stored: [
+          { name: 'example.com/index', dir: '/stored/example.com/index', url: 'https://example.com/', capturedAt: '2026-09-16T10:00:00.000Z' },
+        ],
+      }),
+    )
+    await page(f)
+    await post(f, '/recapture', new URLSearchParams({ url: 'example.com' }).toString())
+    await f.handle.console.settled()
+    expect(log[0]).toBe('capture')
+    // …and the button is on the page to be pressed.
+    expect(await page(f)).toContain('formaction="/recapture"')
+  })
+
+  it('test_UAT_FC_REQ_254_the_blank_page_lists_the_captures_on_disk', async () => {
+    // Requirement 31 — revisiting is one click and does not require remembering
+    // how the address was typed the first time.
+    const f = await startConsole(
+      fakeRunner([], {
+        stored: [
+          { name: 'faelan.com/index', dir: '/stored/faelan.com/index', url: 'https://faelan.com/', capturedAt: '2026-09-16T10:00:00.000Z' },
+        ],
+      }),
+    )
+    const blank = await page(f)
+    expect(blank).toContain('captured already')
+    expect(blank).toContain('faelan.com/index')
+    expect(blank).toContain('action="/open"')
+
+    // Clicking one loads it without running anything…
+    await post(f, '/open', new URLSearchParams({ url: 'https://faelan.com/' }).toString())
+    const loaded = await page(f)
+    expect(loaded).toContain('Loaded https://faelan.com/')
+    // …and the list is gone, because requirement 2's page is blank until there
+    // is a site, and the site is now the thing on it.
+    expect(loaded).not.toContain('captured already')
+  })
+
+  it('test_UAT_FC_REQ_254_iterations_come_back_from_disk_after_a_restart', async () => {
+    // Requirement 33 — the console's memory of a site is the disk's, not the
+    // process's. Restarting it must show the history that is on disk rather
+    // than an empty page beside a full `storage/tmp/`.
+    const stored = [
+      { name: 'example.com/index', dir: '/stored/example.com/index', url: 'https://example.com/', capturedAt: '2026-09-16T10:00:00.000Z' },
+    ]
+    const first = await startConsole(fakeRunner([], { stored }))
+    await page(first)
+    await reproduce(first, 'example.com')
+    await runAgain(first)
+    expect(await page(first)).toContain('<h2>Iteration 2</h2>')
+    const wasIteration1 = await (await get(first, '/iteration/1/site/')).text()
+    await first.handle.close()
+    openHandles.length = 0
+
+    // A NEW console process over the SAME scratch root — the restart.
+    const second = await startReproConsole({ cwd: first.cwd, runStep: fakeRunner([], { stored }), port: 0 })
+    openHandles.push(second)
+    const revived: Fixture = { handle: second, cwd: first.cwd }
+    await page(revived)
+    await post(revived, '/open', new URLSearchParams({ url: 'https://example.com/' }).toString())
+
+    const recovered = await page(revived)
+    expect(recovered).toContain('<h2>Iteration 1</h2>')
+    expect(recovered).toContain('<h2>Iteration 2</h2>')
+    // The links are live, serving the same bytes the first console served.
+    expect(await (await get(revived, '/iteration/1/site/')).text()).toBe(wasIteration1)
+    // And the next run appends rather than starting over.
+    await runAgain(revived)
+    expect(await page(revived)).toContain('<h2>Iteration 3</h2>')
+  })
+
+  it('test_UAT_FC_REQ_254_a_failed_run_leaves_nothing_for_disk_to_recover', async () => {
+    // Requirement 33 with requirement 10 — the manifest is written LAST, so a
+    // run that fell over is not a half-built iteration that comes back on the
+    // next load.
+    const stored = [
+      { name: 'example.com/index', dir: '/stored/example.com/index', url: 'https://example.com/', capturedAt: '2026-09-16T10:00:00.000Z' },
+    ]
+    const f = await startConsole(
+      fakeRunner([], { stored, failAt: { step: 'render', code: 1, stderr: 'render: boom' } }),
+    )
+    await page(f)
+    await reproduce(f, 'example.com')
+    expect(await page(f)).toContain('failed at render')
+
+    const dir = path.join(f.cwd, CONSOLE_WORKSPACE, slugForUrl('example.com'), 'iteration-1')
+    expect(existsSync(dir)).toBe(true) // the directory is there…
+    expect(readIterations(path.dirname(dir))).toEqual([]) // …and disk reports no iteration
+  })
+
+  it('test_UAT_FC_REQ_254_each_iteration_keeps_the_reproductions_own_l1', async () => {
+    // Requirement 34 — `1c repro` rebuilds the sandbox site IN PLACE, so the
+    // document carrying the folded L1 is overwritten by the next iteration.
+    // That document is where a fold change lives; the pixels downstream of it
+    // are the symptom. Keeping only those kept the evidence and discarded the
+    // cause.
+    const stored = [
+      { name: 'example.com/index', dir: '/stored/example.com/index', url: 'https://example.com/', capturedAt: '2026-09-16T10:00:00.000Z' },
+    ]
+    const f = await startConsole(fakeRunner([], { stored }))
+    await page(f)
+    await reproduce(f, 'example.com')
+    await runAgain(f)
+
+    const one = await get(f, '/iteration/1/page')
+    expect(one.status).toBe(200)
+    expect(one.headers.get('content-type')).toContain('application/json')
+    const first = (await one.json()) as { data: { page: { l1: { at: number } } } }
+    const second = (await (await get(f, '/iteration/2/page')).json()) as typeof first
+
+    // Each iteration kept its OWN document — iteration 1's did not move when
+    // iteration 2 rebuilt the sandbox site underneath it.
+    expect(first.data.page.l1.at).toBe(1)
+    expect(second.data.page.l1.at).toBe(2)
+    // …and it really is on disk in the iteration's own directory.
+    const dir = path.join(f.cwd, CONSOLE_WORKSPACE, slugForUrl('example.com'), 'iteration-1')
+    expect(existsSync(path.join(dir, 'page.json'))).toBe(true)
+  })
 
 // ── the real runner, against the real CLI ────────────────────────────────────
 
@@ -441,6 +639,19 @@ describe('REQ-254 the runner spawns the real `1c`', () => {
     180_000,
   )
 })
+
+  it('test_UAT_FC_REQ_254_two_consoles_must_be_pointed_at_different_sites', () => {
+    // Requirement 35 — a site is ONE sandbox slug and ONE scratch directory,
+    // both derived from its host and both rebuilt in place. Two consoles on the
+    // same site therefore overwrite each other, and two on different sites
+    // share nothing. This is asserted rather than left as advice because the
+    // collision is silent: neither console errors, they just clobber.
+    expect(slugForUrl('example.com')).toBe(slugForUrl('https://example.com/'))
+    expect(slugForUrl('example.com')).not.toBe(slugForUrl('other.example'))
+    const scratch = (url: string): string => path.join(CONSOLE_WORKSPACE, slugForUrl(url), 'iteration-1')
+    expect(scratch('example.com')).toBe(scratch('https://example.com/'))
+    expect(scratch('example.com')).not.toBe(scratch('other.example'))
+  })
 
 // ── `1c capture page --json`, against a real browser ─────────────────────────
 
@@ -473,5 +684,57 @@ describe('REQ-254 `1c capture page --json` reports where the bundle landed', () 
       }
     },
     300_000,
+  )
+})
+
+// ── `1c capture list --json`, against the real CLI ───────────────────────────
+
+describe('REQ-254 `1c capture list --json` reports the stored bundles', () => {
+  it(
+    'test_UAT_FC_REQ_254_capture_list_reports_what_is_on_disk',
+    async () => {
+      // Requirement 32 — the console cannot derive which captures exist: a
+      // bundle is named after the host that ANSWERED. The engine owns that
+      // layout, so the engine is what answers. Run against the real CLI, from a
+      // scratch repo root, so the shape the console parses is the shape the
+      // command really prints. No browser is needed — this reads a tree.
+      // `realpathSync` because the child resolves its own cwd, and on macOS
+      // `/tmp` is a symlink to `/private/tmp` — the paths it reports back are
+      // the resolved ones.
+      const cwd = realpathSync(mkdtempSync(path.join(tmpdir(), 'req254-list-')))
+      scratchDirs.push(cwd)
+      const bundle = path.join(cwd, 'storage', 'references', 'example.test', 'index')
+      mkdirSync(bundle, { recursive: true })
+      writeFileSync(
+        path.join(bundle, 'capture.json'),
+        JSON.stringify({
+          url: 'https://example.test/',
+          host: 'example.test',
+          path: '/',
+          title: 't',
+          capturedAt: '2026-09-16T10:00:00.000Z',
+          viewport: { width: 1280, height: 800 },
+          theme: {},
+          sections: [],
+          assets: [],
+        }),
+      )
+      // A half-written bundle really does sit in this tree — a capture is a
+      // SEQUENCE of writes and is not atomic. It must be skipped, not reported
+      // with empty fields, and not a reason to hide its neighbour.
+      const torn = path.join(cwd, 'storage', 'references', 'torn.test', 'index')
+      mkdirSync(torn, { recursive: true })
+      writeFileSync(path.join(torn, 'capture.json'), 'not json at all')
+
+      const result = await spawnStepRunner()({ name: 'capture', argv: ['capture', 'list', '--json'] }, cwd)
+      expect(result.code).toBe(0)
+      const listed = parseCaptureList(result.stdout)
+      expect(listed.map((entry) => entry.name)).toEqual(['example.test/index'])
+      expect(listed[0].dir).toBe(bundle)
+      expect(listed[0].url).toBe('https://example.test/')
+      // And the console finds it from the address someone would type.
+      expect(findStoredCapture(listed, 'example.test')?.dir).toBe(bundle)
+    },
+    180_000,
   )
 })

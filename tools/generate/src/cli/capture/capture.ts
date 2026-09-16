@@ -13,7 +13,7 @@
  */
 import type { L1Document, L1FontFace } from '@1stcontact/site-schema'
 import { captureLadderScreenshots, captureStructuralHints, runCapturePipeline, runMultiStateCapture } from './pipeline'
-import { writeBundle, writeForms, writeHints, writeL1, writeLadderScreenshots, writeMultiState } from './bundle'
+import { readCapture, writeBundle, writeForms, writeHints, writeL1, writeLadderScreenshots, writeMultiState } from './bundle'
 import { bundleNameFor, type ReferenceStore } from '../../store/reference-store'
 import { foldToL1 } from '../../l1/fold'
 import type { FoldedForm } from '../../l1/forms'
@@ -74,6 +74,59 @@ export interface CapturePageResult {
   l1: L1Document
   /** REQ-83 — the advisory structural-hint sidecar (`hints.json`). */
   hints: StructuralHints
+}
+
+/**
+ * One stored capture, as {@link cmdCaptureList} reports it.
+ *
+ * NO DIRECTORY FIELD. A path is the filesystem adapter's to hand out, not this
+ * module's — see the note on {@link cmdCaptureList}. The CLI composes `dir`
+ * from `bundleDir(cwd, name)` on the way out, which is the same thing it
+ * already does for `capture page --json`.
+ */
+export interface StoredCapture {
+  /** `<host>/<pathSlug>` — the bundle's name, and its `--ref` path's tail. */
+  name: string
+  /** The URL that was captured, as the capture itself recorded it. */
+  url: string
+  /** ISO timestamp from `capture.json`, so a caller can show the freshest first. */
+  capturedAt: string
+}
+
+/**
+ * The captures a store already holds (REQ-254, requirement 32).
+ *
+ * TAKES A STORE, CONSTRUCTS NOTHING — the shape {@link cmdCapturePage} follows
+ * and for the identical reason. `fs-reference-store.ts` is the only module in
+ * this port's world that imports `node:fs`, and it is the CLI that reaches for
+ * it, because the CLI is the thing that knows it is on a laptop. Building a
+ * filesystem adapter here would put `node:fs` into the capture pipeline's
+ * import graph and undo the REQ-155 seam — this function would be a very small
+ * reason to lose a boundary the whole module is arranged around.
+ *
+ * WHY THE ENGINE ANSWERS THIS AT ALL. The naming rule — a bundle is named after
+ * the host that ANSWERED, not the one that was typed — is this module's. A
+ * caller that reconstructed it would be a second definition, and would still be
+ * unable to answer the question that matters: whether the address someone typed
+ * has a bundle behind it under a *different* host than they typed.
+ *
+ * A bundle whose `capture.json` is missing or unreadable is SKIPPED rather than
+ * reported with empty fields or thrown over. A capture is a sequence of writes
+ * and is not atomic (see `fs-reference-store.ts`), so a half-written bundle from
+ * an interrupted run really does sit in this tree; it is not something to offer
+ * a caller as reusable, and it is not a reason to refuse to list its neighbours.
+ */
+export async function cmdCaptureList(store: ReferenceStore): Promise<StoredCapture[]> {
+  const names = await store.list()
+  const found: StoredCapture[] = []
+  for (const name of names) {
+    const capture = await readCapture(store.bundle(name)).catch(() => null)
+    if (!capture) continue
+    found.push({ name, url: capture.url, capturedAt: capture.capturedAt })
+  }
+  // Freshest first: the capture someone wants back is overwhelmingly the one
+  // they were last working on.
+  return found.sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))
 }
 
 export async function cmdCapturePage(

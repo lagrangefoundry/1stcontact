@@ -18,6 +18,20 @@ export interface IterationView {
   reproHref: string
   /** This iteration's diff images, served by the console. */
   diffHref: string
+  /**
+   * This iteration's copy of the reproduction's own L1 document.
+   *
+   * The fourth link (requirement 34). The three above it are renderings; this
+   * is the thing that was rendered, and it is where a fold change actually
+   * shows up. ([[REQ-256]]'s gap-ticket link is a fifth, not this one.)
+   */
+  pageHref: string
+}
+
+/** A capture already on disk, offered back on the blank page (requirement 31). */
+export interface StoredCaptureView {
+  name: string
+  url: string
 }
 
 export interface PageState {
@@ -31,6 +45,8 @@ export interface PageState {
   /** The address currently loaded, if any — what [run again] would re-run. */
   url: string | null
   iterations: IterationView[]
+  /** The captures on disk, so a site can be revisited without re-hitting it. */
+  stored: StoredCaptureView[]
 }
 
 function escapeHtml(value: string): string {
@@ -75,6 +91,8 @@ button[disabled] { cursor: progress; opacity: .5 }
 #status.progress { opacity: .7 }
 h2 { margin: 2rem 0 .25rem; font-size: 1rem }
 ul { margin: 0; padding-left: 1.2rem }
+form.inline { display: inline }
+button.link { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer }
 figure { margin: 1.5rem 0 }
 figure img { max-width: 100%; border: 1px solid #8884 }
 .triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem }
@@ -98,6 +116,7 @@ export function renderConsolePage(state: PageState): string {
     <li><a href="${escapeHtml(it.originalUrl)}" target="_blank" rel="noopener noreferrer">the original site</a></li>
     <li><a href="${escapeHtml(it.reproHref)}" target="_blank" rel="noopener noreferrer">the reproduction</a></li>
     <li><a href="${escapeHtml(it.diffHref)}" target="_blank" rel="noopener noreferrer">the diff images</a></li>
+    <li><a href="${escapeHtml(it.pageHref)}" target="_blank" rel="noopener noreferrer">the L1 document</a></li>
   </ul>
 </section>`,
     )
@@ -110,6 +129,31 @@ export function renderConsolePage(state: PageState): string {
     ? `<form method="post" action="/run-again"><button${state.running ? ' disabled' : ''}>run again</button></form>`
     : ''
 
+  /**
+   * The captures already on disk (requirement 31).
+   *
+   * Shown only before a site is loaded, so requirement 2's blank page is still
+   * blank on a fresh checkout and useful on a worked-in one — the list IS the
+   * nothing-else, once there is something. Each is a one-click revisit that
+   * does not re-hit the site.
+   */
+  const stored =
+    state.url === null && state.stored.length
+      ? `<h2>captured already</h2>
+<ul>${state.stored
+          .map(
+            (site) => `
+  <li><form method="post" action="/open" class="inline"><input type="hidden" name="url" value="${escapeHtml(site.url)}"><button${
+      state.running ? ' disabled' : ''
+    } class="link">${escapeHtml(site.name)}</button></form></li>`,
+          )
+          .join('')}
+</ul>`
+      : ''
+
+  // [recapture] re-hits the site and re-rolls the oracle, which is occasionally
+  // exactly right and never what [reproduce] should quietly do — so it is its
+  // own button, offered beside the box rather than in place of anything.
   return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>reproduction console</title><style>${STYLE}</style></head>
@@ -117,8 +161,10 @@ export function renderConsolePage(state: PageState): string {
 <form method="post" action="/run">
   <input name="url" value="${escapeHtml(state.url ?? '')}" placeholder="site address" autocomplete="off" autofocus>
   <button${state.running ? ' disabled' : ''}>reproduce</button>
+  <button${state.running ? ' disabled' : ''} formaction="/recapture" title="re-hit the site and re-roll the reference">recapture</button>
 </form>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
+${stored}
 ${rows}
 ${again}
 <script>${POLL_SCRIPT}</script>
