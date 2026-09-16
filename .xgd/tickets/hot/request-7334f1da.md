@@ -5,7 +5,7 @@ type: request
 title: 'The domain configuration surface: the selector, the sending toggle, and release'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:54.284753+00:00'
-updated_at: '2026-09-16T22:03:47.516437+00:00'
+updated_at: '2026-09-16T22:03:56.039270+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -334,3 +334,5 @@ ticket B (serving, so that attaching produces an address rather than a row).
 - A per-domain exclusivity rule.
 - The word *domain* used for a `1stc.site` hostname, or avoided for a real one.
 - Resend verification presented with no state of its own.
+- A deploy that succeeds with no `CLOUDFLARE_DNS_TOKEN` in the environment and
+  none on the Worker, or that starts failing without `RESEND_API_KEY`.
