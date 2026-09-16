@@ -5,10 +5,10 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T17:56:21.845980+00:00'
+updated_at: '2026-09-16T18:11:22.155722+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-bf282b3d
