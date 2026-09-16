@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T20:07:30.798186+00:00'
+updated_at: '2026-09-16T20:32:47.383755+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -340,5 +340,54 @@ Separately: the rail line is honest, not broken — run `repro-rail record` and 
 2. **Leave it promoted** and tell me to open a separate bug for the parser.
 
 Say which and I'll have it fixed in one pass. The brief's engine-context section and the session-reuse question I'd keep as separate work either way.
+
+<!-- xgd-turn id="5efaceb6-98a8-4d97-8335-dda27a9345a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:29:24.113008+00:00" -->
+#### You
+I'd like you tp create a new ticket to pick up the modifications. These are:
+1) the session should be empowered to file bugs in 1c if it finds them (like the one we just saw)
+2) Need to add session resume
+3) Is the session getting properly primed with relevant knowledge bases? It should have content specific to this problem - we should create guidelines for how to spot issues and improve the reproducibility engine. The documentation should obviously include the L1 docs that already exist for production, but also documentation describing the engine.
+
+Anything else we need to capture?
+
+<!-- xgd-turn id="5efaceb6-98a8-4d97-8335-dda27a9345a3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T20:32:46.603321+00:00" -->
+#### Claude
+Now let me write the ticket body.
+
+**REQ-261** (`request-37608664`) — filed at `status: draft`, under EPIC-12, parented to REQ-256.
+
+## Your three, as captured
+
+**1) Filing what it finds.** Widened past what I think you meant, because the transcript showed two separate losses. The round found a `1c` defect that isn't a reproduction-engine gap — the gate mis-routing its own verdict — and had nowhere to put it except folded into the gap ticket. It *also* deferred findings it couldn't file: "Regions 1–5 and 9 … are candidate classes for a later round; I am filing the one that is provable end-to-end." Those died with the prose. I captured the first as a requirement and left the second as an open question in the ticket, since one-gap-per-round may be a throttle you want rather than a limitation.
+
+**2) Resume.** Captured, with the design question stated rather than pre-decided: resume is valuable because the round already knows the site, and dangerous because it anchors the round on last round's hypothesis when the evidence has changed underneath it, and because context grows unbounded across a long chain. The ticket asks the implementation to state its scope and reset rule rather than leave them implicit.
+
+**3) Priming.** There's more existing material than the brief uses — **DOC-23** (typed element tree), **DOC-27** (L1 reproduction vocabulary), **DOC-30** (control surface API). The brief references none of them; it cites only DOC-19 and DOC-17. The engine documentation you want genuinely doesn't exist — I checked all 50 docs; DOC-7 and DOC-9 are closest and neither describes the pipeline. I flagged that it's a writing job that may want its own `doc` ticket rather than riding inside this one — your call.
+
+## What I added
+
+**The parser fix is behaviour 1.** You didn't name it, but nothing else in the ticket can be demonstrated until it lands, so I put it first and left REQ-256 promoted and untouched. I also made the real transcript a required fixture — parsing it must yield the filed ticket with its evidence intact.
+
+**Cost telemetry**, because of your "MANY times" concern. Nothing in `tools/repro-console/src/` records cost, tokens, or the model — I verified by search. `REPRO_CONSOLE_AI_MODEL` is optional, so with it unset a round runs on whatever the CLI defaults to and the console doesn't record which. The `result` stream event carries usage and cost; both are discarded. Right now "is this affordable to run often" isn't answerable from the artifacts.
+
+**Recoverability.** Today's round wasn't lost — it's in `transcript.txt` — but the only way to get a ticket out of it is to re-run and pay again. A round the console couldn't parse should be recoverable from what's already on disk.
+
+**Transcript duplication.** `formatStreamEvent` prints the `result` event's text, which is the same text already printed as the assistant's final message. Every diagnosis appears twice, in the file and in the pane. 22KB, half duplicate. The session line also fired four times and printed no model.
+
+**Evidence pre-digest**, framed narrowly so it doesn't reopen the no-`Bash` decision — the console computes derived facts while it's already writing the evidence directory, as an addition to the files, never a replacement.
+
+**Tool-policy assertion.** `AI_DISALLOWED_TOOLS` is an enumerated list whose own comment admits it goes stale. Resume plus a wider filing surface makes that matter more.
+
+## Two things I'd flag
+
+The engine documentation is the largest item by effort and the least like the others — it's prose, not code. Splitting it into a `doc` ticket would let the console work proceed without waiting on it.
+
+And item 2 has a genuine tension I didn't resolve for you: resume makes rounds cheaper and better-informed, but a round that inherits last round's hypothesis is exactly the failure mode the brief's one rule exists to prevent — reconstructing from memory instead of transcribing from the capture. Worth deciding deliberately rather than discovering.
+
+Want me to split the engine doc out, or start on behaviour 1?
 
 <!-- xgd-chat-end -->

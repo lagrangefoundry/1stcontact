@@ -5,9 +5,9 @@ type: request
 title: 'The domain configuration surface: the selector, the sending toggle, and release'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:54.284753+00:00'
-updated_at: '2026-09-16T20:10:45.269952+00:00'
+updated_at: '2026-09-16T20:35:16.730919+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -158,6 +158,81 @@ safer and slightly worse.
 **The toggle above assumes the answer is yes, defaulting on.** If the answer is
 no, the toggle and its record set come out of this ticket and the rest stands
 unchanged.
+
+## What landed
+
+The three controls, on the Settings pane, beside `Your free web address`. What
+follows is what the implementation added beyond the shape above, and why each
+piece is a consequence of it rather than a new decision.
+
+### The pieces
+
+- **`domains.ts`** — the capability. It composes and implements almost nothing:
+  the pool is [[REQ-257]]'s `zonesForAccount`, exclusivity is read back off
+  `site_domains`' unique index rather than re-decided, attaching is
+  [[REQ-258]]'s `serveHostOnSite` entire, and the pre-attach reading is
+  [[REQ-257]]'s resolver. What is genuinely new is the authorisation rule, the
+  sentence a live domain is described with, and the ordering of a release.
+- **`builder/domain.js` + `/api/domain`, `/api/domain/email`** — the surface and
+  its two routes. `GET` draws the whole section in one answer, because a surface
+  assembling four calls would show a pool before it knew whether the caller may
+  spend it. `GET` is also the verification poll: Resend's wait has no webhook
+  here, and a state that only moved when somebody pressed something would read
+  as broken.
+- **`sending.ts` and `resend.ts`** — the toggle's half. A Resend client exists
+  because **the DKIM public key is minted by Resend per domain and cannot be
+  known any other way**; `MAIL.md`'s "paste the records it gives back" is a
+  dashboard step, and asking a furniture restorer to paste a 400-character key
+  would put the machinery on the screen this ticket exists to keep off it.
+- **`0012_sending_domains.sql`** — the toggle's state, including `dmarc_ours`:
+  the flag that decides whether release may take a `_dmarc` down. Deleting a
+  policy the customer's other provider depends on is the same silent, delayed
+  harm as publishing one.
+- **`records.ts`** — *read the zone once, create what is missing, replace what
+  is wrong, leave what is already right, undo in reverse*, extracted from
+  [[REQ-258]] now that the sending toggle is its second caller. Behaviour and
+  call order unchanged; [[REQ-260]] is the third caller and should reuse it.
+
+### Authorisation: the account, not the role
+
+The gate is *are you the holder of this business's account* —
+`tenants.owner_account_id` against the caller's own — and not *do you own this
+business*. A `support` member may own the business they are helping without
+being the person whose account paid for its domains, and what is being spent is
+an account asset.
+
+It is enforced in **two** places, because there are two ways to reach a domain.
+The selector filters the pool to the account, and the attach **re-checks the
+named domain against the account** — without that, a holder could type a domain
+belonging to somebody else's account entirely and have it attached, which is the
+same failure as the first, arrived at by typing rather than by choosing.
+
+### Sending changes what recipients see, and only once it is verified
+
+The toggle's stated reason for existing is that *it changes what recipients
+see*, so it does: once Resend reports the domain verified, mail this product
+sends on that business's behalf goes out as
+`<Business name> <no-reply@theirdomain>` instead of from ours. It loses to a
+message template's own `from`, which keeps the precedence that was already
+there.
+
+**Until `verified` it changes nothing.** Mail from a domain whose DKIM key is
+not yet published is unsigned, which is binned, which is indistinguishable from
+mail that was never sent — so the fallback stays the address this product has
+always sent from.
+
+### A deployment with no sending credential
+
+`RESEND_API_KEY` absent is an ordinary state and not a refusal: the domain still
+attaches, the website still serves, and the toggle reports `off`. What does not
+happen is a record set written for a registration that does not exist.
+
+### Subdomains
+
+The selector offers apexes, and the attach accepts any host inside a zone the
+account holds — `shop.alicesplumbing.com` while the apex runs the old site,
+which is the natural way to trial one and is what *"exclusivity is per host, not
+per domain"* means in practice.
 
 ## Not in scope
 
