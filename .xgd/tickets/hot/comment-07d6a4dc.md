@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-16T23:10:25.996667+00:00'
+updated_at: '2026-09-16T23:57:50.688937+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -237,5 +237,13 @@ To summarise where the two answers leave the design:
 **Your #2 — no babysitting, full access.** The MCP route gives more access than the broker would have, with less machinery, and drops the round-trip I was about to ask you to scope. It replaces D5's conclusion, which I'll amend in the ticket once measured.
 
 What I'm checking is the one thing that would sink it: that `--strict-mcp-config` plus the deny list actually produces a round that **can** search tickets and **can't** run a shell. Given D5 showed allow lists don't gate, I'm not assuming this one does either — same test, both halves in one call.
+
+<!-- xgd-turn id="fcdd9a4b-09a4-4fb4-977e-26348ca8a7f0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T23:57:49.383317+00:00" -->
+#### You
+DO NOT touch the xgd mcp code it is about a year old and to my knowledge completely unmaintained.
+
+The API xgd exposes to claude code is the command xgd - just use it. What is the problem that you are trying to solve?
 
 <!-- xgd-chat-end -->
