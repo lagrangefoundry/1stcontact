@@ -5,9 +5,9 @@ type: request
 title: 'email tickets: freeze the record of a sent message'
 created_by: EPIC-3
 created_at: '2026-09-16T21:58:48.359181+00:00'
-updated_at: '2026-09-16T22:00:00.360446+00:00'
+updated_at: '2026-09-16T23:07:01.599907+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -90,3 +90,11 @@ UATs (`test_UAT_FC_<TICKET-ID>_*`) against the real store:
 - archiving a sent message succeeds
 - a read of a message reports it as locked, so the UI can say so without
   attempting a write
+
+
+## The specification
+
+`ticket://lagrangefoundry/lagrange-framework/DOC-8` **§15 (Amendment —
+2026-09-16)** is the authority for the mechanism this declaration sits on —
+notably §15.1 on the explicitly-prefixed predicate namespace, which is what
+keeps `email`'s `fields.status` distinct from the ticket's own `status` column.
