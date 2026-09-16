@@ -125,7 +125,8 @@ export type {
 } from './fonts'
 export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
-export { startServe, resolveStaticFile, sendFile } from './serve'
+export { startServe } from './serve'
+export { resolveStaticFile, sendFile } from './static-file'
 export type { ServeOptions, ServeHandle } from './serve'
 export { startBuilder, handleBuilderRequest } from './builder'
 export type { BuilderOptions, BuilderHandle } from './builder'
@@ -335,7 +336,10 @@ Control-app assets (REQ-145) — the build step behind /builder, /webui and /fra
     Nothing is type-stripped, transpiled or resolved at request time afterwards.
 
 Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
-  1c capture page <url>
+  1c capture page <url> [--json]
+    --json reports the bundle machine-readably ({url, name, dir, sections, assets, l1Nodes, widths}).
+    The bundle is named after the host that ANSWERED, which may not be the one typed, so a
+    program that captures and then points --ref at the result cannot derive the directory.
     Writes the bundle (capture.json, screenshots, raw/rendered html, assets) plus the multi-viewport
     ladder (multistate.json — the acceptance oracle), the ladder folded into ONE L1 document
     (l1.json: geometry keyframes + interpolate/snap + visibility), and advisory structural hints
@@ -1013,10 +1017,43 @@ export async function run(argv: string[]): Promise<void> {
       // store and has no default, which is what keeps `node:fs` out of the
       // capture pipeline's import graph.
       const cwd = global.cwd ?? process.cwd()
-      const { name, capture, l1, hints } = await cmdCapturePage(url, fsReferenceStore(cwd))
+      // REQ-254 — `--json` reports WHERE THE BUNDLE LANDED, machine-readably.
+      //
+      // A capture is named after the host that ANSWERED, not the one that was
+      // typed (`bundleNameFor`, BUG-67 B5): `www.` may be added or dropped on
+      // the way. So a program that runs `capture` and then has to point
+      // `--ref` at the result — the reproduction console is the first, an
+      // unattended loop will be the next — cannot derive the directory from
+      // its own input, and scraping it out of the prose line below is a
+      // parser waiting to break on a wording change. Under `--json` the whole
+      // command goes through `withCleanStdout` so a browser launch, a font
+      // fetch or a Vite notice cannot land in the middle of the document.
+      const json = flags.json === true
+      const { name, capture, l1, hints } = json
+        ? await withCleanStdout(() => cmdCapturePage(url, fsReferenceStore(cwd)))
+        : await cmdCapturePage(url, fsReferenceStore(cwd))
       const l1Nodes = (l1.root.kind === 'box' || l1.root.kind === 'container' ? l1.root.children?.length : 0) ?? 0
+      const dir = bundleDir(cwd, name)
+      if (json) {
+        console.log(
+          JSON.stringify(
+            {
+              url: capture.url,
+              name,
+              dir,
+              sections: capture.sections.length,
+              assets: capture.assets.length,
+              l1Nodes,
+              widths: l1.widths.length,
+            },
+            null,
+            2,
+          ),
+        )
+        return
+      }
       console.log(
-        `Captured ${url} → ${bundleDir(cwd, name)}\n` +
+        `Captured ${url} → ${dir}\n` +
           `  ${capture.sections.length} section(s), ${capture.assets.length} asset(s)\n` +
           `  l1.json: ${l1Nodes} node(s) across ${l1.widths.length} width(s); ` +
           `hints.json: ${hints.nodes.length} node(s), ${hints.mediaBreakpoints.length} @media breakpoint(s)`,
