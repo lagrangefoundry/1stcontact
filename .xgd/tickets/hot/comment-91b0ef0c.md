@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T22:20:36.182123+00:00'
+updated_at: '2026-09-16T22:29:59.361505+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -384,5 +384,12 @@ Both done.
 **The last question in that chat was never answered.** REQ-256 is still at `free_coded`. The offer was to append a note recording that its UATs don't cover the fenced-body case and REQ-261 owns the fix — so whoever reads the reconcile doesn't see green tests on a broken behaviour. Still worth doing before you promote.
 
 **DOC-53 has no `epic_parent`** — its only field is `doc_kind: architecture`. It's the session KB document REQ-262 depends on, but it isn't attached to EPIC-12 or to anything else. Say the word and I'll parent it.
+
+<!-- xgd-turn id="cb58eaa3-d5b9-43b0-99fe-8468a12c0762-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:29:58.994199+00:00" -->
+#### You
+Want me to correct §8.2 and REQ-256's body to match? <-- you can change the ticket to match what was built but any code changes need new tickets at this point I think - what is the change here?
+ay the word and I'll parent it. <-- sure
 
 <!-- xgd-chat-end -->
