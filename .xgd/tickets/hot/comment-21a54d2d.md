@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-249
 created_by: xgd
 created_at: '2026-09-16T00:11:43.203561+00:00'
-updated_at: '2026-09-16T00:30:55.445958+00:00'
+updated_at: '2026-09-16T00:31:53.020341+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,27 @@ All adjacent builder suites pass (36 files, 284 tests). Two suites initially fai
 <!-- xgd-chat role="user" ts="2026-09-16T00:30:55.099367+00:00" -->
 #### You
 I restarted the server and refreshed the page - I do not see any of this work on the Settings tab?
+
+<!-- xgd-turn id="14f19409-062c-4f97-8850-73c1fe4ea0ce-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T00:31:52.036097+00:00" -->
+#### Claude
+Found it — the builder is served from `apps/control-app/dist-assets/`, which is a build artifact. Yours is from Sep 14, so it has no `hostname.js` at all. The source is correct; the assets just need rebuilding.
+
+Nothing was wrong with the code — the build step was missing.
+
+The builder's browser source isn't served from `src/`. `tools/generate/src/cli/builder.ts:184` is explicit that the dev server reads `apps/control-app/dist-assets/` off disk and *"nothing is rebuilt"* there; it's `1c assets` that copies `src/builder/**` into it verbatim. Your `dist-assets/builder/` was dated Sep 14 and had no `hostname.js` in it at all, so restarting the server and refreshing was serving you the pre-REQ-249 builder.
+
+I've run `./bin/1c assets`. Now on disk:
+
+- `dist-assets/builder/hostname.js` — present, 13KB
+- `dist-assets/builder/settings.js` — references `createHostnameSection`
+- `dist-assets/builder/builder.css` — 12 `builder-hostname` rules
+
+**Refresh the page** (hard-refresh — `Cmd-Shift-R` — since the browser will have the old `settings.js` cached). No server restart needed: the assets fetcher reads the directory per request.
+
+I couldn't confirm it over HTTP myself — your server on :8788 answers 401 to an unauthenticated request, which is the Access gate rather than a missing file.
+
+Worth knowing for next time: `bin/build` runs `1c assets` as part of its sequence, so a full build would have caught this. A source-only change plus a server restart won't.
 
 <!-- xgd-chat-end -->
