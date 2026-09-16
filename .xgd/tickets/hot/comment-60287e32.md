@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T18:14:52.272619+00:00'
+updated_at: '2026-09-16T18:16:03.810246+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -340,5 +340,53 @@ So: unsubscribe never blocks the invoice. A complaint stops the *robot* from cha
 <!-- xgd-chat role="user" ts="2026-09-16T18:14:51.526125+00:00" -->
 #### You
 ok good discussion. If we pay attention to these constraints - do you think we can expect reasonable (90%+) delivery to Inbox from 1c sites?
+
+<!-- xgd-turn id="9e692f84-26f2-41ef-b7da-6fee32a3306d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:16:03.303801+00:00" -->
+#### Claude
+Yes for two of the three cases, no for the third — and the split matters more than the headline number.
+
+| Message class | Realistic sustained inbox placement |
+|---|---|
+| Transactional (invoice, receipt, booking, form notification) | **97–99%** |
+| Marketing to an organically grown list (form submissions, recent customers) | **90–95%** |
+| First send to an imported 20-year list | **60–75%** |
+
+For scale: the industry-wide average across all senders sits in the low-to-mid 80s, and has for years. Treat these as the right order of magnitude rather than precise current figures — the benchmarks move.
+
+Transactional is close to a solved problem when authentication is right: low volume, high engagement, the recipient is expecting it and often replies. Organic marketing at 90%+ is genuinely achievable and sustainable, because a list of people who filled in a form last month is a fundamentally better asset than what most senders are working with.
+
+## The one that won't hit 90%, and why that's fine
+
+Alice's legacy list won't clear 90% on the first send, and no amount of good engineering changes that — the addresses are genuinely stale, some are recycled spam traps, and a fraction of recipients honestly won't remember her.
+
+But the important reframe: **90% placement on a cleaned list is achievable; 90% of the original CSV reaching an inbox is not.** After validation, the ramp, and pruning non-engagers, the *survivors* get to 90%+ and stay there. You'll have pruned 30–50% of the file to get there.
+
+Alice will measure it the second way unless we frame it the first way from the start. That's the support-load risk in quoting any number to customers, and I'd be careful about ever putting 90% in marketing copy without the qualifier attached.
+
+## What the number is actually conditional on
+
+**Per-business sending domains.** This is load-bearing, and it's still an open decision. If marketing goes out from `noreply@1stcontact.io` on behalf of everyone, then once we have a few hundred customers our floor is set by our worst one, and 90% stops being achievable platform-wide no matter how good Alice is. If each business sends from `alicesplumbing.com` under its own DKIM, the figures above hold. The number follows from that decision more than from anything else on the list.
+
+**Which surfaces a product finding:** proper outbound email effectively *requires the business to have their own domain.* We can't DKIM-sign as `gmail.com`, and sending `From: alice@gmail.com` through our infrastructure fails DMARC alignment outright — Yahoo went `p=reject` in 2024 and the direction of travel is one-way. So a plumber on a Gmail address either gets a domain or sends from a subdomain of ours with pooled reputation. Given layer 1 wanted a domain too, I'd make domain registration a more central part of onboarding than it currently is. It's also an upsell rather than a tax.
+
+**New-domain warm-up, and Microsoft specifically.** A brand-new sending domain has no reputation. At low volume with high engagement it warms in weeks, but Outlook/Hotmail is consistently harder than Gmail and more opaque about it — new domains get junked there for a while even when everything is configured correctly. Enrol in Microsoft SNDS/JMRP and expect the first month to underperform. This is the single most common "why is my mail in spam" complaint and it mostly resolves with time.
+
+**Shared IP pool.** At our volumes a shared pool beats anything we could warm ourselves, but it means our floor is partly set by the ESP's other customers. That's a real argument for staying with a curated vendor while volumes are low, even at higher per-message cost, rather than jumping to SES's cheaper shared pool early.
+
+## The measurement trap
+
+Worth knowing before we promise anything: **our own metrics cannot see inbox placement.** Resend will report 98% delivered, and that is entirely compatible with all of it sitting in spam — "delivered" means the receiving server accepted it, not that a human will see it. Open rates aren't a rescue either; Apple's Mail Privacy Protection has pre-fetched images since 2021, so opens are inflated and unreliable.
+
+Three things give actual visibility:
+
+- **Google Postmaster Tools** — free, gives real domain reputation and spam rate for Gmail. Needs DNS verification per domain, which we could automate if we hold the zone. Per-customer deliverability health, essentially for free.
+- **Microsoft SNDS** — the equivalent for the harder half.
+- **Seed-list testing** (GlockApps, Inbox Monster, Validity) — the only direct measurement of folder placement, by sending to a panel across providers.
+
+And as health signals, **click rate and reply rate beat open rate** now. Replies especially — they're the strongest positive engagement signal to Gmail there is, and a plumber's customers actually do reply.
+
+So: 90%+ is a reasonable expectation for everything except the first pass at a legacy list, conditional on per-domain sending, and we should instrument it rather than assume it.
 
 <!-- xgd-chat-end -->
