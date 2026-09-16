@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T20:03:31.701358+00:00'
+updated_at: '2026-09-16T20:07:30.798186+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -289,5 +289,56 @@ ok I'm running it a few questions:
 regression rail: the regression rail — REGRESSED REGRESSED · references: no baseline at storage/rail/baseline.json. The rail cannot say "no worse" against nothing — record one with `repro-rail record`.
 
 AI — failed: the round produced no outcome block.
+
+<!-- xgd-turn id="480d8724-f8bc-440d-97f3-af27b276b878-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T20:07:30.452989+00:00" -->
+#### Claude
+The round didn't fail — it succeeded and the console threw the answer away. Let me confirm the exact cause and read the brief.
+
+Confirmed. Now the brief, to answer the context/cost question.
+
+I have the diagnosis. Let me set up to fix it.
+
+Good news first: **the round did not fail.** It produced a first-rate diagnosis and a complete, valid gap ticket. The console's parser threw it away.
+
+## What actually happened
+
+The round's final message ends with exactly the JSON block the brief asks for — `status: filed`, class `coverage-check-misses-section-background-images`, a 6,346-character ticket body. It found a real defect: `referenceCoverage()` in `gate-core.ts:234` builds its referenced-image set from `manifest.elements[].src` alone, and section background imagery is deliberately stored as `backgroundImageUrl` — so every background-image page reports its hero as unreferenced. It then showed that `reconcileGates` checks coverage *before* value deltas, so on any perceptually-breached run that false finding hijacks the verdict to `capture-incomplete`, which this console's own brief treats as "stop, file nothing". It cited the engine comments that document the split, and found a closed ticket where the same false positive was noted in prose and never fixed.
+
+The parser is this, in `ai.ts`:
+
+```js
+finalText.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/g)
+```
+
+A good evidence-carrying ticket body quotes `gate.json` and `capture.json` — in fenced code blocks. Those fences are literal characters inside the JSON `body` string, and the lazy `[\s\S]*?` stops at the first one. The outcome block gets truncated at 1,130 of its 7,500 characters, fails to parse, and falls through to `the round produced no outcome block.` **The better the ticket, the more certain this is to fire.**
+
+I verified a string-aware balanced-brace scan against your actual transcript — it recovers the whole thing, ticket body intact. That's the fix: stop parsing fences, scan for the last balanced JSON object carrying a `status`. Roughly fifteen lines, plus a UAT whose ticket body contains fenced code.
+
+`storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-1/ai/transcript.txt` has the full round — the work isn't lost, just unfiled.
+
+## Your questions
+
+**Ticket against the reproduction engine — yes.** `tools/generate/src/`, and this round hit it exactly: `gate-core.ts`, with `values-diff.ts` and `extract.ts` as corroboration.
+
+**Permissions — yes, and it's measured now rather than assumed.** 20 tool calls (10 Read, 9 Grep, 1 Glob), **zero refusals**, no permission text anywhere in the transcript. `Read`/`Glob`/`Grep` are allowed; everything that can write, spawn, or reach the network is denied *by name* — the prior session measured that merely omitting `Bash` from the allowlist doesn't deny it. It reached the reference bundle, the engine source, and the ticket store. The one real constraint is that with no `Bash` it can't `jq` a 4,000-line `multistate.json` — it reads and greps instead, which works but costs tokens.
+
+**Context — this is your sharpest question, and the honest answer is the brief teaches method, not vocabulary.** It covers the one rule (transcribe, don't reconstruct), the reading order, the verdicts, how to name a class, the ticket shape. It says nothing about what L1 *is*, and gives no map of `tools/generate/src/`. This round found its way by grepping — competently, but it spent calls rediscovering that `backgroundImageUrl` is distinct from `src`, which is stated in the source comments and will be rediscovered by every future round. There's no generated L1 reference to point at; the schema source is the reference. I'd add a short §"the engine, in one page" to the brief — what each module owns, the L1 axis vocabulary, the manifest's field split — precisely because it's a file in the repo that costs nothing per round and saves exploration on every one. Worth doing, and worth doing as its own pass rather than folded into this fix.
+
+**Claude Code — yes.** `claude -p --output-format stream-json --verbose`, prompt on stdin, NDJSON back, one process per round. No SDK, no bundled client, no credential handling — it uses the CLI you're already signed in to.
+
+**Session reuse — no.** Every round is a fresh process with no `--resume` or `--session-id`. Each one re-reads the brief and re-derives its bearings. Resuming would carry the prior diagnosis forward, which is genuinely valuable across iterations on the same site — but it also grows context unboundedly and risks anchoring a round on last round's hypothesis when the evidence has changed underneath it. I have a view (resume within a site's iterations, fresh per site, with the brief as the cached prefix) but it's a design decision with real trade-offs and I'd rather put it to you than build it silently.
+
+Separately: the rail line is honest, not broken — run `repro-rail record` and it becomes `no worse` with per-reference numbers instead of `REGRESSED · no baseline`.
+
+## One thing I need from you before I code
+
+**REQ-256 is at `ready_to_reconcile`.** The dispatcher hasn't picked it up yet — no reconcile worktree exists — but it polls, and adding a commit to a ticket mid-reconcile is exactly the race the protocol says to ask about rather than guess at. Two options:
+
+1. **Drop it back to `free_coded`**, I land the parser fix as a second commit on REQ-256, and you re-promote. One intent, one ticket — my preference, since a parser that can't read its own round's output is the same intent as the round.
+2. **Leave it promoted** and tell me to open a separate bug for the parser.
+
+Say which and I'll have it fixed in one pass. The brief's engine-context section and the session-reuse question I'd keep as separate work either way.
 
 <!-- xgd-chat-end -->
