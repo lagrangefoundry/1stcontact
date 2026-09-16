@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T00:29:20.868502+00:00'
+updated_at: '2026-09-16T00:31:17.299821+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2085,5 +2085,69 @@ ok the 401 gives this message:
 Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-key-1'.
 
 when I call localhost. If I try on 127.0.0.1 I get 404 (same path)
+
+<!-- xgd-turn id="2c550f7e-1c7f-43e9-acda-156a0eeaf544-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T00:31:16.901045+00:00" -->
+#### Claude
+Two separate things. Let me check the 401 first, then the hostname point — which is a bigger deal than I credited.
+
+**Port 8787 isn't listening — public-site isn't running.** Only control-app (8788). So both requests hit the builder, not the public site. Let me confirm the 401/404 split.
+
+This exact 401 was diagnosed before — it's in `comment-d5a633c6`. Let me confirm the hostname picture, which is the real issue.
+
+Both answers below; the second one you're right about, and more strongly than I put it.
+
+## The 401 then 404
+
+**Port 8787 isn't listening — public-site isn't running.** Only control-app, on 8788. So both requests hit the builder, and neither reached the download route at all.
+
+- **401 on `localhost`** — a stale Access cookie. `bin/access-sim` now mints `local-dev-${process.pid}` so a restart reads as a key rotation; your cookie says `local-dev-key-1`, the old *stable* kid from before that change. Cookies are scoped by host and ignore port, and the sim sets its cookie on `127.0.0.1` — so the stale `localhost` cookie shadows it. The gate behaved correctly: fetched the JWKS, found no matching kid, refused.
+- **404 on `127.0.0.1`** — no cookie, so auth passes, and then control-app simply has no `/site/<key>/api/download/<id>` route. That's public-site's.
+
+This was diagnosed once already in `comment-d5a633c6`. Clear the cookie on `localhost` or just stay on `127.0.0.1`.
+
+**To actually test the download:**
+1. `pnpm dev` (both workers) or `pnpm dev:public` to get 8787 up
+2. `1c publish` — the gate serves published bytes only; `resolve()` returns `null` with no live revision, and xgd has zero
+3. `http://127.0.0.1:8787/site/<key>/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6`
+
+## The origin — you're right, and it's wrong in production too
+
+I framed this as "dev needs an override." That undersold it. The product **already stores each site's real address**:
+
+- `site_domains` (id, site_id, host, kind, status) — shipped in migration `0008`
+- `PLATFORM_APEX = '1stc.site'`, so a site's address is `<name>.1stc.site`
+- REQ-238 makes an address **required before publishing**
+- `kind: 'custom'` is declared-but-unimplemented, explicitly waiting on EPIC-6 — which is exactly where `xgd.dev` lands
+
+So for any published site there is *always* a hostname, and `publicSiteUrl` ignores it and emits `https://1stcontact.io/site/<siteKey>/…`. That's not merely a dev annoyance:
+
+- it leaks the internal site key to a recipient
+- it sends someone to a **different domain** from the one they just signed up on — the precise signal the `invite` seed's own comment frets about, that *"an anonymous From is most of what makes an invitation from a domain with no reputation look like phishing"*
+- the moment `xgd.dev` is live, every whitepaper email points somewhere else entirely
+
+The three callers split cleanly by audience:
+
+| caller | audience | constant's rationale |
+|---|---|---|
+| `router.ts:3114` view-published | operator, in the builder | holds |
+| `router.ts:3961` preview redirect | operator, in the builder | holds |
+| **`lead.ts:1344` gated download** | **a stranger, by email** | doesn't hold |
+
+The comment's warning — *"a var would invite a per-environment override whose only reachable effect would be to send an operator's 'view published' click somewhere else"* — was written about the first two and is still correct for them.
+
+**The fix isn't a var.** It's to read the address the product already stores. That respects the original reasoning completely, fixes the production wrongness, and makes local testing work as a consequence rather than as a special case.
+
+The draft-channel problem I raised earlier still stands on top of this: a preview submission mints a link into the *published* site, which on a never-published site cannot resolve.
+
+## Outstanding, none filed
+
+1. **Gated-download link uses the wrong address** — should come from `site_domains`, not `PUBLIC_SITE_ORIGIN`; plus the draft-channel half
+2. **Local migration drift** — nothing tells you your dev D1 is behind the code
+3. **BUG-96** — close as environment; the stale-cookie 401 is arguably worth folding in, since it's now bitten twice and was already diagnosed once
+4. **BUG-94** — filed, still the reason you can't view the email page in the builder
+
+Want me to file 1–3?
 
 <!-- xgd-chat-end -->
