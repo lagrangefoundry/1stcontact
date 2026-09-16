@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T18:10:43.417864+00:00'
+updated_at: '2026-09-16T18:10:54.057657+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -703,5 +703,22 @@ One caveat worth repeating, since it bites exactly here: if you're running sever
 <!-- xgd-chat role="user" ts="2026-09-16T18:10:42.789272+00:00" -->
 #### You
 That's fine if it works going forward I'm good
+
+<!-- xgd-turn id="d5ec0863-e36c-4464-9c20-8abd5d01ead9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:10:53.465705+00:00" -->
+#### Claude
+Understood — skipping the backfill.
+
+To pick up the new code:
+
+```bash
+lsof -ti tcp:8710 | xargs kill
+bin/repro-console
+```
+
+From there: click a site under **"captured already"** (or type the address and press **[reproduce]** — it'll skip the capture), then **[run again]** to stack iterations. Everything from this point survives a restart.
+
+Where REQ-254 stands: `free_coded` on `xgd-working`, 4 commits, version 0.2.219, requirements 29–36 in the ticket body, 26 UATs green. Promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
