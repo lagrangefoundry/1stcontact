@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T18:55:53.492528+00:00'
+updated_at: '2026-09-16T18:59:48.537174+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -618,5 +618,11 @@ The debug send is the best part of it as product: Alice says "my emails are goin
 ---
 
 Still happy to write this up as a DOC under CHAT-54 whenever you want it — the separation of functional-vs-placement, the canary/config split, and the don't-allowlist warning are the bits most likely to get lost otherwise.
+
+<!-- xgd-turn id="c20bf148-2d20-4bef-8caf-e290ff648623-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:59:48.258676+00:00" -->
+#### You
+Yes - sorry I assumed we were on the same page - inherently we engineer the platform for BFM tests and as such these are hidden from the user and the stats this is an upfront requirement of the system - not an afterthought.
 
 <!-- xgd-chat-end -->
