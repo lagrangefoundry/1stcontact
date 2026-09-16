@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T20:04:53.818025+00:00'
+updated_at: '2026-09-16T20:06:56.384552+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -321,5 +321,11 @@ The three things that come closest to "visible", none of which is UI:
 So the wildcard was serving nothing, exactly as its own comment claimed — *"declared, not yet served"*. Removing it is invisible.
 
 Net: there is nothing to look at until a domain is actually attached, and that still needs `CLOUDFLARE_DNS_TOKEN` plus a zone recorded in the table. The offer from last turn stands — I can run the zone backfill against the API with the token I have, which is additive and touches no DNS.
+
+<!-- xgd-turn id="07ee3a66-dbca-4d71-9f7b-c2d598e92c58-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:06:56.068856+00:00" -->
+#### You
+Sure, run the zone backfill please
 
 <!-- xgd-chat-end -->
