@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:38:01.037928+00:00'
+updated_at: '2026-09-16T01:40:46.008833+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -199,5 +199,51 @@ Imagine we create this UX for me
 After going through this loop a few times, if its working we can let it rip
 
 Lets start with just home pages.
+
+<!-- xgd-turn id="ba9eee72-08e0-466b-8f5c-caf92a1fd39c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T01:40:45.288141+00:00" -->
+#### Claude
+Good — this is loop 1, human-gated at every round. Let me check a few mechanics before I write it up, since "the AI changes the code and reinstalls it" depends on how `1c` is built and what baseline we can regress against.
+
+Three useful findings before the write-up:
+
+Console design captured as §8, ticket list cut to three. Three things I found that change the plan:
+
+## "Reinstall" is already free — with one trap
+
+There's no build or install step to engineer. `1c` is TypeScript compiled **on the fly**: `bin/1c.mjs` boots a Vite SSR server and loads the CLI through `ssrLoadModule` (REQ-150). The AI edits a `.ts` file and the next `1c` invocation already uses it. That's a chunk of step 4 you don't have to pay for.
+
+The trap is the mirror image: a **long-lived** dev server caches the module graph and silently keeps running the old code. Iteration N+1 would reproduce iteration N's result exactly, and the loop would look stuck for a reason nothing on the page could explain. So: fresh `1c` process per iteration, as a correctness requirement.
+
+## The regression rail is the only genuinely new infrastructure — and the half that matters is missing
+
+Half one exists: 517 UATs in `tests/`, ~73 reproduction-relevant by name.
+
+Half two doesn't. The characteristic failure of a code-editing loop is that **the AI fixes the site in front of it and breaks the two it can't see** — and nothing currently records what a good gate result looks like per reference, so "no worse than before" isn't computable. I checked: no baseline, no recorded gate output anywhere in `storage/`.
+
+The good news is it's checkable today, because three references are already stored — `faelan.com`, `gigabytealchemy.ai`, `joyfulculinarycreations.com`. Record a gate result per reference, re-gate all three every iteration, fail naming which regressed. Three sites is thin and it catches the failure mode that matters.
+
+This is also why the AI's own verdict can't be the gate: an agent that both makes the change and judges it has no independent check.
+
+## One addition to the UX: a fourth link
+
+Step 4 implies the AI edits code, but the page as described shows only its prose. I'd add **"what the AI changed"** — the code diff — next to the other three links, with each iteration as one commit on a scratch branch. Being able to *see and revert* per iteration is what makes sneaking up on it real rather than nominal.
+
+## The three tickets
+
+| | | Testable at the end |
+|---|---|---|
+| **T1** | Console, no AI. Textbox → capture → reproduce → diff → link block. [run again] runs manually. | Enter joyfulculinarycreations.com, click each of the four links, see the real thing |
+| **T2** | The regression rail: baseline per reference + one command | Green on main; break a serializer → red, **naming which reference regressed** |
+| **T3** | The AI iteration: brief, reads diff, edits code, runs rail, commits, streams | One full round — transcript, non-empty code diff, rail green, Iteration 2 appears, numbers moved. Plus: **rail fails → AI doesn't get to finish** |
+
+**Why three and not two:** T2 could fold into T3, but then the safety rail and the thing it restrains arrive in the same commit — the one ordering that can't be reviewed. And T1 earns its place by being useful with no AI at all; it collapses the setup cost of your current manual loop on day one.
+
+I've also written the prompt up as a **deliverable rather than a detail** — distilled from DOC-19 plus the reproduction transcripts, carrying at minimum: transcribe from the DOM never the screenshot; read `regions` before `meanDifference`; `capture-incomplete` means stop, not iterate; fix the engine never the site; content completeness before pixels. That's a doc, not a string buried in the console.
+
+One open question I couldn't settle without measuring: **is the per-iteration gate the ~73-test subset or all 517?** The rail runs every iteration so runtime is a real constraint, but a subset is exactly how a regression sneaks through. Worth timing before T2 is written.
+
+Tickets not filed — the session is scoped to EPIC-12 and I'll leave creation to you.
 
 <!-- xgd-chat-end -->
