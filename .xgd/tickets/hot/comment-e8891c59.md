@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:26:27.682472+00:00'
+updated_at: '2026-09-16T03:31:07.820316+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -569,5 +569,11 @@ A → B → C stand. Two changes:
 D (the nameserver experience) stays parked, as you said.
 
 Want me to write A, B, C and E up under EPIC-5, and record the two epic-body revisions — the shared resolver, and the card-is-notification-not-confirmation call? I still need your answer on **root vs `/site/<key>/` on a customer host**, which B can't be written without.
+
+<!-- xgd-turn id="ab22b2c5-12b4-4dbb-a8af-39ab6dc07423-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T03:31:07.537994+00:00" -->
+#### You
+yes - I think we are ready to cut some tickets...
 
 <!-- xgd-chat-end -->
