@@ -57,7 +57,16 @@ import './markdown.js'
 const SITE_CHANGED = 'site_changed'
 
 /**
- * Pass a turn through, telling the host each time it reports a write (BUG-43).
+ * The host's event kind for "the business's record moved" ([[REQ-251]]). Its
+ * meaning is `host-core.ts`'s `BUSINESS_CHANGED`; this is the same string on the
+ * client's side of the wire, held equal by the same arrangement `SITE_CHANGED`
+ * has.
+ */
+const BUSINESS_CHANGED = 'business_changed'
+
+/**
+ * Pass a turn through, telling the host each time it reports a write (BUG-43,
+ * [[REQ-251]]).
  *
  * A WRAPPER AROUND THE STREAM RATHER THAN A SECOND SUBSCRIPTION, because there
  * is only one stream and `mountChat` consumes it. The chat component ignores
@@ -66,22 +75,34 @@ const SITE_CHANGED = 'site_changed'
  * is already served is how a panel ends up rendering a blank bubble the day the
  * component learns another kind. It is observed here and stops here.
  *
+ * TWO KINDS, ONE READER ([[REQ-251]]). A site conversation produces one of them
+ * and a settings conversation the other; this pane is the same component in both
+ * places and knows which it is in only by which callback its host handed it. A
+ * second wrapper for the second kind would be the same eight lines twice, with
+ * the next kind landing in whichever of them its author happened to open.
+ *
  * The callback fires DURING the turn, not after it: the write it reports has
  * already landed in the store, so the render it triggers is current, and firing
  * as they arrive is what lets a multi-edit answer show the page unfolding rather
  * than jumping to a finished state when the assistant stops talking.
  *
- * A throwing callback must not take the turn with it. Reloading a frame is the
- * caller's business and its failure is not the conversation's.
+ * A throwing callback must not take the turn with it. Reloading a frame — or
+ * re-reading a record — is the caller's business and its failure is not the
+ * conversation's.
  */
-async function* watchForWrites(events, onSiteChanged) {
+async function* watchForWrites(events, told) {
   for await (const event of events) {
-    if (event?.kind !== SITE_CHANGED) {
+    // `Map#get` AND NOT AN OBJECT LOOKUP. The key is a string off the wire, and
+    // an object index would resolve `constructor` or `toString` to something on
+    // `Object.prototype` and then call it — a frame this pane does not recognise
+    // must fall through to the component, never into a builtin.
+    const tell = told.get(event?.kind)
+    if (!tell) {
       yield event
       continue
     }
     try {
-      onSiteChanged(event.meta ?? {})
+      tell(event.meta ?? {})
     } catch {
       // Deliberately swallowed; see above.
     }
@@ -103,7 +124,18 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  *   by tests. A transport with no `streamReattach` simply never rejoins, which
  *   is what keeps every existing caller working unchanged.
  * @param {(meta: {at?: number, changes?: number}) => void} [options.onSiteChanged]
- *   Called each time the turn reports a write — see {@link watchForWrites}.
+ *   Called each time the turn reports a write to the SITE — see
+ *   {@link watchForWrites}.
+ * @param {(meta: {at?: number, changes?: number}) => void} [options.onBusinessChanged]
+ *   Called each time the turn reports a write to the BUSINESS'S RECORD
+ *   ([[REQ-251]]) — its name, or its public address.
+ *
+ *   ITS HOST RE-READS; THIS PANE DOES NOT REPORT WHAT CHANGED. The signal
+ *   carries a count and nothing else, deliberately: the pane beside this
+ *   conversation is an ordinary caller of the same routes the assistant is, and
+ *   a payload it could render instead would make the assistant the pane's writer
+ *   — which is the one arrangement [[REQ-239]]'s "one API, two callers" rules
+ *   out.
  * @param {(markdown: string) => string} [options.expandPrompt]
  *   REQ-210 — the last thing that happens to a draft before it becomes a turn.
  *
@@ -139,9 +171,23 @@ export function createChatPanel(options = {}) {
     storage,
     transport = { streamPrompt: streamChatPrompt, streamReattach: streamChatReattach },
     onSiteChanged = () => {},
+    onBusinessChanged = () => {},
     expandPrompt = (markdown) => markdown,
     onImageClick = null,
   } = options
+
+  /**
+   * Which signals this pane acts on, and what it does with each ([[REQ-251]]).
+   *
+   * BUILT ONCE RATHER THAN PER TURN, and read by both `sendPrompt` and `resume`
+   * — so a rejoined turn reports a settings write exactly as a live one does,
+   * which is the property BUG-43 had to state separately for the site and would
+   * otherwise have to be stated again here.
+   */
+  const told = new Map([
+    [SITE_CHANGED, onSiteChanged],
+    [BUSINESS_CHANGED, onBusinessChanged],
+  ])
 
   const element = document.createElement('div')
   element.className = 'builder-chat'
@@ -234,7 +280,7 @@ export function createChatPanel(options = {}) {
       toolPane: true,
       ...(storage ? { storage } : {}),
       sendPrompt: (text) =>
-        watchForWrites(transport.streamPrompt(id, expandPrompt(text)), onSiteChanged),
+        watchForWrites(transport.streamPrompt(id, expandPrompt(text)), told),
     })
 
     // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`
@@ -269,7 +315,7 @@ export function createChatPanel(options = {}) {
     // reloaded page the one place edits happen invisibly, which is the failure
     // that had them reloading in the first place.
     Promise.resolve(
-      chat.resume(watchForWrites(transport.streamReattach(id, session.cursor), onSiteChanged), {
+      chat.resume(watchForWrites(transport.streamReattach(id, session.cursor), told), {
         markdown: seed?.markdown ?? '',
       }),
     ).catch(() => {

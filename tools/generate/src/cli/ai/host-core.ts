@@ -142,6 +142,37 @@ const DONE = 'done'
  */
 export const SITE_CHANGED = 'site_changed'
 
+/**
+ * The settings host's event kind for "the business's record moved" ([[REQ-251]]).
+ *
+ * THE SAME SIGNAL AS {@link SITE_CHANGED}, FOR THE OTHER HALF OF THE BUILDER, and
+ * for the identical reason: the Settings tab puts the pane and its assistant on
+ * screen side by side, both able to write the same record, and until this existed
+ * only one of them knew when it had. A pane that goes on offering an empty box
+ * for an address the conversation beside it has just taken is not stale in a way
+ * anybody has to go looking for — both statements are visible at once, they
+ * contradict each other, and the claim behind one of them is permanent.
+ *
+ * A SECOND KIND AND NOT A SECOND MEANING FOR THE FIRST. A settings session has no
+ * site, and the host that consumes {@link SITE_CHANGED} answers it by reloading a
+ * preview frame — which a business rename is not a reason to do. Two kinds is
+ * what lets one pane act on one of them and the other pane on the other, with
+ * neither having to ask what kind of session it is in.
+ *
+ * DERIVED FROM THE OPERATIONS THAT RETURNED, not from a tool the model may call.
+ * The site's counterpart is arithmetic over the store's change counter; a
+ * business is not a store and has none, so the equivalent is a count of writes
+ * that actually completed — see `settings-core.ts`'s `settingsOperations`, which
+ * reads which operations are writes out of the declaration rather than from a
+ * list beside it.
+ *
+ * `meta.at` is the count of writes this business's conversation has made since
+ * the host was built; `meta.changes` is how many landed since the previous
+ * signal. The shape is {@link SITE_CHANGED}'s exactly, so a client that already
+ * observes one needs no second reader for the other.
+ */
+export const BUSINESS_CHANGED = 'business_changed'
+
 /** One turn of a conversation, as the panel renders it. */
 export interface ChatTurn {
   role: 'user' | 'assistant'
@@ -583,6 +614,19 @@ const signals = new Map<string, TurnSignal>()
  * else's work.
  */
 const baselines = new Map<string, number>()
+
+/**
+ * How many writes each business's settings conversation has made ([[REQ-251]]).
+ *
+ * KEYED THE WAY ITS MANAGER IS — `businessManagerKey` — so the count and the
+ * conversation it counts for are created and discarded together, and
+ * {@link resetAiHost} clears both in one place.
+ *
+ * IT IS A TOTAL AND NOT A FLAG, so a turn that writes twice is distinguishable
+ * from a turn that writes once. The absolute value means nothing outside this
+ * host; the differences are the whole of what is reported.
+ */
+const businessWrites = new Map<string, number>()
 
 /**
  * A stable id per injected store, so a key can name one without a path.
@@ -1057,7 +1101,20 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
   // manager keeps its instance for its lifetime.
   configureProjectBackends(lib)
 
-  const surfaces: Untyped[] = [await settingsSurfaceFor(lib, settings.deps), new lib.ManualToolbox()]
+  /**
+   * THE WRITE SIGNAL IS INSTALLED HERE ([[REQ-251]]), where the surface is
+   * composed and where the business it is composed for is in hand. The surface
+   * itself counts nothing and knows nothing about panes — it reports that a write
+   * returned, and this is the one place that can say which conversation's write
+   * it was.
+   */
+  const key = businessManagerKey(businessId, deps)
+  const surfaces: Untyped[] = [
+    await settingsSurfaceFor(lib, settings.deps, () => {
+      businessWrites.set(key, (businessWrites.get(key) ?? 0) + 1)
+    }),
+    new lib.ManualToolbox(),
+  ]
   const granted = { ...settingsInstanceConfig(), ...lib.manualInstanceConfig() }
   const box = new lib.Toolbox(surfaces, granted, {
     audit: deps.audit ?? null,
@@ -1359,8 +1416,32 @@ export async function* streamPrompt(
   if (business) {
     const settingsManager = await managerForBusiness(business, deps)
     await attach(settingsManager, sessionId, SETTINGS_ROLE, businessBackendName(business))
+    /**
+     * [[REQ-251]] — the same loop the site half runs below, over the count this
+     * business's own surface keeps rather than over a store's change counter.
+     *
+     * READ AFTER THE MANAGER IS BUILT, because building it is what installs the
+     * hook that maintains the count: read before, the first turn of a session
+     * would compare against an entry that does not exist yet and report its own
+     * write twice.
+     *
+     * PER WRITE AND NOT PER TURN, for {@link SITE_CHANGED}'s reason: a request
+     * answered by a rename and then a claim moves the pane twice, as the
+     * assistant works, rather than once when it stops talking.
+     */
+    const key = businessManagerKey(business, deps)
+    let seen = businessWrites.get(key) ?? 0
     for await (const event of settingsManager.promptStream(sessionId, text)) {
       yield withoutImageData(event)
+      // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
+      // write — and a Map read rather than the site half's store round trip, so
+      // a turn that only answers a question costs nothing at all.
+      if (event.kind !== TOOL_ACTIVITY) continue
+      const now = businessWrites.get(key) ?? 0
+      if (now <= seen) continue
+      const changes = now - seen
+      seen = now
+      yield { kind: BUSINESS_CHANGED, content: '', meta: { at: now, changes } }
     }
     return
   }
@@ -1607,4 +1688,9 @@ export function resetAiHost(): void {
   managers.clear()
   signals.clear()
   baselines.clear()
+  // CLEARED WITH THE MANAGERS IT COUNTS FOR ([[REQ-251]]). A count that outlived
+  // the conversation would be compared against a fresh toolbox's zero on the next
+  // turn and report a write that has already been seen — or, negative, none at
+  // all.
+  businessWrites.clear()
 }

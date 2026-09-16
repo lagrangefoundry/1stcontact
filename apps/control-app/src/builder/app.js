@@ -944,6 +944,14 @@ export function mountBuilder(root, options = {}) {
    * a rendered page, which this tab does not have. Both are seams with defaults;
    * omitting them is what "the settings session is granted the settings surface
    * and nothing else" looks like on this side of the wire.
+   *
+   * IT IS HANDED `onBusinessChanged`, AND THAT IS [[REQ-251]]'s WHOLE BUILD. The
+   * omission above was read as covering this too, and it does not: what this
+   * assistant CAN write is the record the pane six inches to its left is
+   * rendering, and until this line existed nothing told that pane. The split puts
+   * both on screen at once, so the two could say different things about a name
+   * and — far worse — about an address, which is permanent and which the stale
+   * half was inviting the customer to choose again.
    */
   const settings = createSettingsPanel({
     ...(settingsTransport ? { transport: settingsTransport } : {}),
@@ -960,6 +968,17 @@ export function mountBuilder(root, options = {}) {
   const settingsChat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.settingsChat),
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
+    // [[REQ-251]] — THE SAME LINE, AND THE SAME SHAPE, AS THE SITE CHAT'S
+    // `onSiteChanged` above. Fired per write rather than at the end of the turn,
+    // so an answer that renames the business and then takes its address moves
+    // the pane twice, as the assistant works.
+    //
+    // THE PANE RE-READS RATHER THAN BEING TOLD WHAT CHANGED. The signal carries
+    // a count; `reload` goes back to the routes it already reads on open. That is
+    // what keeps this a refresh from the record and not the assistant writing to
+    // the pane — the distinction [[REQ-239]] draws and the one thing a payload
+    // here would quietly undo.
+    onBusinessChanged: () => void settings.reload(),
   })
   const settingsSplitHost = document.createElement('div')
   settingsSplitHost.className = 'builder-split'

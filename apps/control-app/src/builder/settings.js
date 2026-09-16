@@ -42,7 +42,7 @@
  */
 
 import { mountFields } from '@lagrangefoundry/webui-fields'
-import { fetchAddresses, saveBusinessName } from './api.js'
+import { fetchAddresses, fetchBusinessRecord, saveBusinessName } from './api.js'
 import { createHostnameSection } from './hostname.js'
 
 /**
@@ -109,9 +109,10 @@ export function outOfDateNotes(effects) {
  * Mount the pane.
  *
  * @param {object} [options]
- * @param {{saveName?: Function, loadAddresses?: Function, checkHostname?: Function,
- *   claimHostname?: Function}} [options.transport] injected by tests; each
- *   defaults to the origin call.
+ * @param {{saveName?: Function, loadAddresses?: Function, loadBusiness?: Function,
+ *   checkHostname?: Function, claimHostname?: Function}} [options.transport]
+ *   injected by tests; each defaults to the origin call. `loadBusiness` is
+ *   [[REQ-251]]'s — what the record says NOW, for a re-read.
  * @param {(business: {id: string, name: string}) => void} [options.onRenamed]
  *   told the record the origin returned, so the chrome that also shows this name
  *   can follow. The switcher is the reason this exists: a rename that relabelled
@@ -172,6 +173,7 @@ export function createSettingsPanel(options = {}) {
   })
 
   const loadAddresses = transport?.loadAddresses ?? fetchAddresses
+  const loadBusiness = transport?.loadBusiness ?? fetchBusinessRecord
 
   let fields = null
   let business = null
@@ -255,9 +257,67 @@ export function createSettingsPanel(options = {}) {
     })
   }
 
+  /**
+   * Read the record again, and follow it ([[REQ-251]]).
+   *
+   * WHY THIS EXISTS. The Settings tab puts this pane and its assistant on screen
+   * side by side, and both are ordinary callers of the same two operations. Until
+   * this existed only one of them knew when it had written: a hostname claimed in
+   * the conversation left an empty box six inches to its left, inviting the
+   * customer to choose a name that had just been chosen — behind a claim that
+   * cannot be undone.
+   *
+   * IT RE-READS; IT IS NOT WRITTEN TO. The signal that brings it here carries a
+   * count and nothing else, so what appears on this pane came out of the record
+   * by the same route it came out of the record when the tab opened. That is
+   * [[REQ-239]]'s "one API, two callers" holding in the one direction it had not
+   * yet been asked to: the assistant is not the pane's writer, and a refresh is
+   * not the assistant driving the pane.
+   *
+   * BOTH FACTS, BECAUSE THE ASSISTANT CAN CHANGE BOTH. The address is the one
+   * that matters — it is permanent, and a wrong box there costs the customer a
+   * name. The name is the same crossing `onRenamed` already prevents when the
+   * rename is made in the field, arrived at from the conversation's side.
+   *
+   * IT CHANGES NOTHING WHEN NOTHING CHANGED. A turn that answered a question
+   * still signals nothing, but a turn that renamed the business also refreshes
+   * the address, and a customer half-way through typing a candidate must not lose
+   * it to a read that found no news. Each half compares before it draws.
+   *
+   * A FAILED READ IS SILENT AND LEAVES THE PANE ALONE. It is a request the
+   * customer did not make, about a change they have already been told about in
+   * the conversation beside them; a dialog of apology for it would be the pane
+   * reporting its own plumbing.
+   */
+  async function reload() {
+    if (!business) return
+    const mine = addressGeneration
+    const [record, answer] = await Promise.all([
+      loadBusiness().catch(() => null),
+      loadAddresses().catch(() => null),
+    ])
+    // THE SAME GUARD THE OPEN READ CARRIES. A business switch can begin while
+    // this is in flight, and the one thing that may not happen on this pane is
+    // another business's address drawn under this one's heading.
+    if (mine !== addressGeneration) return
+    if (answer) hostname.refresh(answer)
+    if (!record || record.id !== business.id) return
+    const name = record.name ?? ''
+    if (name === business.name) return
+    business = { id: business.id, name }
+    fields?.setValues({ name })
+    // THE NOTES GO WITH THE NAME THEY WERE ABOUT. They describe what the LAST
+    // rename left out of date, and this is a different rename — made elsewhere,
+    // and reported in the conversation that made it.
+    notes.replaceChildren()
+    onRenamed(business)
+  }
+
   return {
     element,
     setBusiness,
+    /** Re-read the record and follow it — see {@link reload} ([[REQ-251]]). */
+    reload,
     /** What the pane believes the record says — for the host and for a suite. */
     getBusiness: () => business,
     /** The free web address section — for the host and for a suite. */
