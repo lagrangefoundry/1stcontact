@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-259
 created_by: xgd
 created_at: '2026-09-16T20:05:41.308228+00:00'
-updated_at: '2026-09-16T21:55:13.559917+00:00'
+updated_at: '2026-09-16T21:56:13.738069+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -158,5 +158,44 @@ One caveat on seeing it yourself: `dist-assets/builder/domain.js` is a build out
 <!-- xgd-chat role="user" ts="2026-09-16T21:55:12.768085+00:00" -->
 #### You
 ✗ This deployment has no CLOUDFLARE_DNS_TOKEN, so it manages no DNS. See bin/deploy.d/secrets/40-cloudflare-dns-token. <-- the deployment has a CLOUDFLARE_API_TOKEN with DNS access, why do I need to create multiple tokens?
+
+<!-- xgd-turn id="bad7eacb-6bcc-4acf-a575-66e42e5c941b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:56:12.887164+00:00" -->
+#### Claude
+The script argues its own case, but let me verify the claims hold in the current code before I answer.
+
+You don't need two tokens — you need two **names**, and you can point both at the same value.
+
+## Why the name is taken
+
+`CLOUDFLARE_API_TOKEN` already means something else in this deployment: `embedder.ts` reads it with `CLOUDFLARE_ACCOUNT_ID` as the REST transport for Workers AI (BUG-73). And that pair is enforced **both-or-neither** — `embedder.ts:248-249`:
+
+```ts
+if (accountId) throw new PartialAiCredentialError('CLOUDFLARE_API_TOKEN')
+if (apiToken) throw new PartialAiCredentialError('CLOUDFLARE_ACCOUNT_ID')
+```
+
+So if `cloudflare.ts` read `CLOUDFLARE_API_TOKEN` instead, making it reachable in production would push that name into the Worker's env with no `CLOUDFLARE_ACCOUNT_ID` beside it — and the embedder would throw at boot, taking the knowledge base down. Reusing the name breaks one capability to configure the other. That's the actual constraint, and it's REQ-257's decision, not REQ-259's.
+
+The second half of the argument is scope: `cloudflare.ts` maps one-to-one onto `Zone:DNS:Edit` + `Workers Routes:Edit` and reads the account id off the zones themselves, so it needs no account id at all — which is why it's one key rather than a pair.
+
+## What to actually do
+
+If your existing token genuinely carries `Zone:DNS:Edit` and `Workers Routes:Edit`, just give it the second name:
+
+```bash
+export CLOUDFLARE_DNS_TOKEN="$CLOUDFLARE_API_TOKEN"
+```
+
+The hook pushes it, `cloudflare.ts` reads it, and the 503s go away. Nothing requires the values to differ — only the names.
+
+Worth a check first, though: the two aren't interchangeable in practice here. Workers AI is an account-level API and zone editing is a zone-level one, and a token scoped for one commonly 401s on the other. If the DNS calls start failing after you set it, that's the reason, and a narrowly-scoped second token is the fix.
+
+## Two things I'd flag
+
+**The warning is about to become a failure.** The comment says it stays a `warn` because no customer surface reaches DNS yet — *"change `warn` to `fail` and the message is already written."* REQ-259 is that surface. A deployment without the token now means the `Your domain` section can't attach anything, so that hook is due a `warn`→`fail` flip. That's a separate ticket; this session is scoped to REQ-259, which is already `free_coded`.
+
+**You have an uncommitted edit to that file** — `ten` → `eleven` enumerated operations, matching REQ-258's `listRoutes`. It's comment-only and correct, but it's sitting unstaged in your working tree and wasn't part of REQ-259's four commits.
 
 <!-- xgd-chat-end -->
