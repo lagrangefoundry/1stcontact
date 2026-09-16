@@ -6,10 +6,10 @@ title: 'Serving a custom domain: the records, the runtime Worker route, and host
   resolution'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:49.963776+00:00'
-updated_at: '2026-09-16T18:18:19.531619+00:00'
+updated_at: '2026-09-16T18:18:53.769100+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -19,6 +19,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c3e2405b
+  commits:
+  - working_sha: 3d35f86d5a69823dd736d5000cfe4c9d998cc538
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.220
 ---
 
 ## What this is
