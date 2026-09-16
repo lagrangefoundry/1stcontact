@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T20:04:00.185275+00:00'
+updated_at: '2026-09-16T20:04:53.818025+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -299,5 +299,27 @@ Want me to run the zone backfill now? I can do it against the Cloudflare API wit
 <!-- xgd-chat role="user" ts="2026-09-16T20:03:58.219482+00:00" -->
 #### You
 Any UI visible changes in this one?
+
+<!-- xgd-turn id="ddd014bd-03e0-4149-8a2e-66bd5a079edf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T20:04:52.494955+00:00" -->
+#### Claude
+Let me verify properly rather than repeat myself — including one thing I should have checked earlier.
+
+**None. Zero UI changes** — and I can now be specific about the one deploy-time change I'd glossed over before.
+
+The commit is 20 files: 5 control-app `src/*.ts`, 4 public-site `src/*.ts`, one `wrangler.toml`, one migration, `package.json`, and 8 test/fixture files. No webui, no templates, no HTML, no CSS, no components.
+
+The three things that come closest to "visible", none of which is UI:
+
+**1. A new API endpoint.** `/api/admin/domains` (POST/DELETE), curl-only, exactly like `/api/admin/zones` before it. No button anywhere — ticket C is what puts one on this.
+
+**2. Visitor-facing behaviour in public-site — but only on a bound host, and there are none.** On an unbound host `relocation()` returns `null` on the first line and `siteOfRoute` skips the bound check entirely, so `1stcontact.io` and localhost are byte-identical to before. There's a UAT pinning that specifically: `test_UAT_FC_REQ-258_the_products_own_front_door_is_unchanged`.
+
+**3. The `*.1stcontact.io/*` route removal — the one real deploy-time change.** I checked whether it takes anything away, which I should have done earlier. The `1stcontact.io` zone has exactly one proxied subdomain record, `app.1stcontact.io`, and that's **control-app's own zone route**, declared in `apps/control-app/wrangler.toml:395` — a different script, so public-site's deploy doesn't touch it. `send.1stcontact.io` is mail-only (MX + TXT, no A/AAAA), so nothing routes there.
+
+So the wildcard was serving nothing, exactly as its own comment claimed — *"declared, not yet served"*. Removing it is invisible.
+
+Net: there is nothing to look at until a domain is actually attached, and that still needs `CLOUDFLARE_DNS_TOKEN` plus a zone recorded in the table. The offer from last turn stands — I can run the zone backfill against the API with the token I have, which is additive and touches no DNS.
 
 <!-- xgd-chat-end -->
