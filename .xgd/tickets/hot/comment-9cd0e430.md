@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:19:34.495944+00:00'
+updated_at: '2026-09-16T17:21:47.067759+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -236,5 +236,24 @@ lsof -ti tcp:8710 | xargs -r kill; bin/repro-console
 Also confirming: the `pnpm install` landed — `tools/repro-console/node_modules/vite` is present, which is why you got as far as binding a socket. That command exited 137 (killed) in my sandbox, but it had already done the work.
 
 Want me to make the port-in-use failure say something useful — name the port, name the `lsof` command, and point at `--port`? That's a code change on REQ-254, so it'd be a branch, a UAT, and matching ticket language.
+
+<!-- xgd-turn id="9cacceb2-929a-4118-9f2c-43993722c0ca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:21:45.537271+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/repro-console              
+listen EADDRINUSE: address already in use 127.0.0.1:8710
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+I have tried 
+
+npx playwright install chromium and 
+
+npx playwright install 
+
+I keepo getting this error
 
 <!-- xgd-chat-end -->
