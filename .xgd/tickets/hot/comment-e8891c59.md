@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:12:54.227160+00:00'
+updated_at: '2026-09-16T03:15:23.030450+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -451,5 +451,50 @@ No code touched, no branch cut — ticket scoping only.
 ok so all of that seems to be working splendidly.
 
 Lets talk about the DNS config next. I think, we had a proposal, is it ready to go?
+
+<!-- xgd-turn id="98850fe3-575f-4331-b772-44521271ae95-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T03:15:20.918199+00:00" -->
+#### Claude
+I read the epic body and then checked the proposal against the code. Short answer: **the config surface is ready — what sits underneath it isn't, and the gap is bigger than the design currently admits.**
+
+## What is genuinely settled
+
+The three controls (selector / send-email toggle / release), the account-scoped `zones` table, the claim/proof split, the pre-cutover ordering, the two guards. Nothing there needs more discussion, and one part is better than the design assumed: `addressForLinks` (`hostname.ts:429`) already prefers `kind='custom'` over `platform`, and the publish gate is already written over kinds rather than over the platform host. **The read side is kind-agnostic and ready today.**
+
+## Five things between "row in the table" and "bytes on their domain"
+
+**1. Nothing resolves a host to a site.** `public-site` resolves from `/site/<key>/` and from `APEX_SITE_KEY`, and from nothing else — `public-url.ts` says so in as many words. The selector as designed writes a `site_domains` row that no serving path reads. There is no ticket for the resolver and it is the load-bearing piece.
+
+**2. A customer's host doesn't reach the Worker at all.** `apps/public-site/wrangler.toml` declares routes statically: `1stcontact.io` and `*.1stcontact.io/*`. For `alicesplumbing.com` to arrive, a Cloudflare route or custom-domain binding has to be created **per zone, at runtime, via the API**. That step isn't named anywhere in the epic, and it's a fourth wait and a fourth failure mode alongside the three the body lists. One thing to verify before building: whether `wrangler deploy` reconciles that static `routes` array in a way that removes runtime-created routes — if it does, every deploy silently un-publishes every customer domain.
+
+**3. There is no Cloudflare API client.** Grep finds `api.cloudflare.com` only in `kb.ts`, which is Workers AI. Zone list, DNS write, route create, plus a token with `Zone:DNS:Edit` and `Workers Routes:Edit` and a secret binding — that's a real build, and it's a prerequisite even for your own already-active zones.
+
+**4. Which path, on the customer's host?** DOC-45 §4 says a site sits at the **root** of its host. `recipientSiteUrl` composes `https://<host>/site/<key>/…`. Once a custom host resolves, one of those is wrong. This has to be decided in this epic, not deferred to the path-grammar deletion, because it decides the resolver's shape and it decides whether every already-mailed download link still works.
+
+**5. Sessions don't cross to a customer host.** `SESSION_COOKIE_DOMAIN = "1stcontact.io"`, so on `alicesplumbing.com` every visitor is permanently signed out. Fine for published bytes, but it's DOC-45 §10 arriving earlier than that document expects, and it should be written down as an accepted v1 limit rather than discovered.
+
+## The sequencing finding, and it's good news
+
+**The custom-domain path is not blocked by TODO-6.** §§1 and 5 there — the PSL entry, the wildcard `A`/`AAAA`, the `*.1stc.site` wildcard cert — gate the *platform* apex. A zone in our own Cloudflare account gets the records we write it and its own Universal SSL automatically, with no wildcard and no PSL involved.
+
+So your own domains can be served **before `1stc.site` resolves at all**. That inverts DOC-45's order of work, which puts custom hostnames last. Given your domains are already in the account and already active, on-ramp 2 is the shortest route to a real published site on a real address, and it needs none of the snapshot/DKIM/SPF apparatus — they're green field by the body's own axis.
+
+## What I'd propose
+
+Four tickets, and the first three are the whole of "publish on a domain we already hold":
+
+| | |
+|---|---|
+| **A** | `zones` + the Cloudflare client + operator backfill of your existing zones |
+| **B** | host→site resolution in `public-site`, plus runtime route creation — settles gap 4 |
+| **C** | the config surface: selector, release, the email toggle |
+| **D** | the nameserver-change experience + snapshot/preservation — the live-business case |
+
+A→B→C is buildable now. D is where the epic's acceptance bar actually lives and it needs none of C to start.
+
+Two things I'd want your call on before writing any of it: **root or `/site/<key>/` on a customer host**, and **whether the email toggle ships with C or waits** — the "do we want to send as their domain at all" question in Open questions is still open, and C's toggle assumes yes.
+
+Want me to write A–D up under EPIC-5, or talk through the root-vs-prefix decision first?
 
 <!-- xgd-chat-end -->
