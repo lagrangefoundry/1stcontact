@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T18:16:03.810246+00:00'
+updated_at: '2026-09-16T18:27:21.115709+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -388,5 +388,18 @@ Three things give actual visibility:
 And as health signals, **click rate and reply rate beat open rate** now. Replies especially — they're the strongest positive engagement signal to Gmail there is, and a plumber's customers actually do reply.
 
 So: 90%+ is a reasonable expectation for everything except the first pass at a legacy list, conditional on per-domain sending, and we should instrument it rather than assume it.
+
+<!-- xgd-turn id="5961d172-018f-4150-b596-ef2ed520988f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:27:20.255440+00:00" -->
+#### You
+I know that small business have delivery problems even for handwritten transactional emails so improving on that and giving them visibility is high value.
+Are there APIs to Google and Postmaster? - we need to be able to show this to our customers (in language they can understand) and make it available to the AI to give them advise.
+
+**Seed-list testing** - hmm I have not seen this - how much does this cost? How many accounts do you need? We could set up some bots by hand - harder to do these days but we could probably create half a dozen or so on each major provider and access them via SMPT?
+
+What is DKIM?
+
+I am thinking that the customer gets to configure N (where N can be large) email addresses to be forwarded places on their domain and intercepted by us for metrics. We disallow no-reply and maybe even info@ and encourage the use of names. Can we support 1 email being forwarded to many addresses (e.g. support@ might want multiple recipients). The email dashboard will have an AI panel next to it and a custom playbook/set of advice/instructions for the AI to help the customers navigate all this
 
 <!-- xgd-chat-end -->
