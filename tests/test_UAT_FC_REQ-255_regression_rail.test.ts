@@ -37,6 +37,8 @@ import {
 import {
   PHASES,
   TYPECHECK_COMMANDS,
+  RECHECK_LIMIT,
+  VITEST_RECHECK_FILE,
   VITEST_REPORT_FILE,
   discoverReferences,
   formatRailReport,
@@ -125,6 +127,14 @@ interface FakeOptions {
   failingTests?: string[]
   /** Test files vitest should report at all. */
   ranTests?: string[]
+  /**
+   * Files that fail in the whole-suite run and pass when rerun on their own.
+   *
+   * The shape of a real flake here: fixture directories shared across vitest
+   * projects, so a file passes alone and fails under the parallel load of a
+   * whole-suite run.
+   */
+  flakyTests?: string[]
   /** A reference whose `1c gate` prints something that is not a document. */
   garbageGate?: string
 }
@@ -141,8 +151,13 @@ function fakeRunner(log: CommandLog, opts: FakeOptions = {}): CommandRunner {
 
     if (line.includes('vitest')) {
       const outFile = args[args.indexOf('--outputFile') + 1]
-      const ran = opts.ranTests ?? ['tests/a.test.ts', 'tests/b.test.ts', 'tests/c.test.ts']
-      const failing = new Set(opts.failingTests ?? [])
+      const rerun = outFile === VITEST_RECHECK_FILE
+      const patterns = args.slice(args.indexOf('run') + 1).filter((a) => !a.startsWith('--') && a !== outFile)
+      const all = opts.ranTests ?? ['tests/a.test.ts', 'tests/b.test.ts', 'tests/c.test.ts']
+      const ran = rerun ? all.filter((f) => patterns.includes(f)) : all
+      const flaky = new Set(opts.flakyTests ?? [])
+      const failing = new Set([...(opts.failingTests ?? []), ...(rerun ? [] : flaky)])
+      if (rerun) for (const f of flaky) failing.delete(f)
       mkdirSync(path.dirname(path.join(cwd, outFile)), { recursive: true })
       writeFileSync(
         path.join(cwd, outFile),
@@ -569,6 +584,61 @@ describe('REQ-255 the suite is judged against a recorded bar too', () => {
     const { report } = await recordThenCheck(cwd, { failing: ['vitest'] })
     expect(report.pass).toBe(false)
     expect(failuresOf(report).join('\n')).toContain('produced no report')
+  })
+
+  it('test_UAT_FC_REQ_255_a_newly_failing_file_is_rerun_before_it_is_called_a_regression', async () => {
+    // Requirement 4 — the thing being restrained has to be able to act on what
+    // the rail says. A file that fails under whole-suite parallel load and
+    // passes on its own sends a session hunting a break in code it never
+    // touched, so the rail reruns before it accuses.
+    const cwd = fakeRepo()
+    const { report, log } = await recordThenCheck(cwd, { flakyTests: ['tests/b.test.ts'] })
+    expect(log.some((line) => line.includes(`vitest run tests/b.test.ts`) && line.includes(VITEST_RECHECK_FILE))).toBe(true)
+    expect(failuresOf(report).join('\n')).not.toContain('tests/b.test.ts fails')
+  })
+
+  it('test_UAT_FC_REQ_255_a_file_that_passes_on_the_rerun_is_ungated_not_green', async () => {
+    // It failed once and passed once, so the rail has no verdict to give. It
+    // says so, and the run is PARTIAL — a caller checking `exit == 0` never
+    // gets a green the rail has not earned.
+    const cwd = fakeRepo()
+    const { report } = await recordThenCheck(cwd, { flakyTests: ['tests/b.test.ts'] })
+    const tests = report.phases.find((p) => p.name === 'tests')!
+    expect(tests.skipped.join('\n')).toContain('tests/b.test.ts failed in the suite and passed on its own')
+    expect(tests.summary).toContain('1 unreliable')
+    expect(report.pass).toBe(true)
+    expect(report.partial).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ_255_a_file_that_fails_the_rerun_too_is_a_regression', async () => {
+    const cwd = fakeRepo()
+    const { report } = await recordThenCheck(cwd, { failingTests: ['tests/b.test.ts'] })
+    expect(report.pass).toBe(false)
+    expect(failuresOf(report).join('\n')).toContain('(confirmed on a rerun)')
+  })
+
+  it('test_UAT_FC_REQ_255_an_unreliable_file_is_never_written_onto_the_bar', async () => {
+    // Recording a flake as already-failing would lower the bar on the strength
+    // of one bad roll, and the rail would never report that file again.
+    const cwd = fakeRepo()
+    await recordRail({ cwd, runCommand: fakeRunner([], { flakyTests: ['tests/b.test.ts'] }) })
+    const bar = JSON.parse(readFileSync(path.join(cwd, BASELINE_FILE), 'utf8')) as RailBaseline
+    expect(bar.failingTests).not.toContain('tests/b.test.ts')
+  })
+
+  it('test_UAT_FC_REQ_255_a_break_too_broad_to_be_a_flake_is_not_rerun', async () => {
+    // Requirement 8 makes runtime a design constraint. One file that flakes is
+    // worth a rerun; a whole suite that has gone red is a broken engine, and
+    // rerunning it to be told so again doubles the rail's runtime.
+    const cwd = fakeRepo()
+    const many = Array.from({ length: RECHECK_LIMIT + 1 }, (_, i) => `tests/x${i}.test.ts`)
+    const { report, log } = await recordThenCheck(
+      cwd,
+      { ranTests: many, failingTests: many },
+      { ranTests: many },
+    )
+    expect(log.some((line) => line.includes(VITEST_RECHECK_FILE))).toBe(false)
+    expect(report.pass).toBe(false)
   })
 
   it('test_UAT_FC_REQ_255_narrowing_the_suite_is_visible_in_the_report', async () => {

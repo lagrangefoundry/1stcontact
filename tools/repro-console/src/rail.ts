@@ -314,8 +314,29 @@ export const TYPECHECK_COMMANDS: string[][] = [
 /** Where the vitest JSON report lands. Scratch, beside the baseline. */
 export const VITEST_REPORT_FILE = path.join(RAIL_DIR, 'vitest.json')
 
-export function vitestArgv(patterns: string[]): string[] {
-  return ['pnpm', 'exec', 'vitest', 'run', ...patterns, '--reporter=json', '--outputFile', VITEST_REPORT_FILE]
+/**
+ * Where the re-check's report lands. A second file, not the first one again.
+ *
+ * The first report is what {@link readVitestOutcome} read `ran` out of, and
+ * `ran` is what decides which bar entries are eligible to be called improved.
+ * Overwriting it with a report covering three files would shrink that set to
+ * three and silently stop reporting every improvement outside them.
+ */
+export const VITEST_RECHECK_FILE = path.join(RAIL_DIR, 'vitest-recheck.json')
+
+/**
+ * How many newly-failing files are still worth re-running to check for flakes.
+ *
+ * A re-check costs a second suite run, so it is bounded by the thing it is
+ * looking for. One file that fails under parallel load and passes alone is a
+ * flake; forty are a broken engine, and re-running forty files to be told so
+ * again doubles the runtime of a rail whose runtime is a stated design
+ * constraint (requirement 8).
+ */
+export const RECHECK_LIMIT = 10
+
+export function vitestArgv(patterns: string[], outputFile: string = VITEST_REPORT_FILE): string[] {
+  return ['pnpm', 'exec', 'vitest', 'run', ...patterns, '--reporter=json', '--outputFile', outputFile]
 }
 
 interface VitestReport {
@@ -324,9 +345,9 @@ interface VitestReport {
 }
 
 /** Test files that did not pass, repo-relative and sorted, plus everything that ran. */
-export function readVitestOutcome(cwd: string): { ran: string[]; failing: string[] } {
-  const file = path.join(cwd, VITEST_REPORT_FILE)
-  if (!existsSync(file)) throw new Error(`vitest wrote no report at ${VITEST_REPORT_FILE}`)
+export function readVitestOutcome(cwd: string, reportFile: string = VITEST_REPORT_FILE): { ran: string[]; failing: string[] } {
+  const file = path.join(cwd, reportFile)
+  if (!existsSync(file)) throw new Error(`vitest wrote no report at ${reportFile}`)
   const report = JSON.parse(readFileSync(file, 'utf8')) as VitestReport
   const results = report.testResults ?? []
   const rel = (name: string): string => path.relative(cwd, name) || name
@@ -370,9 +391,21 @@ async function testsPhase(
   }
 
   const known = new Set(baseline.failingTests)
-  const newlyFailing = outcome.failing.filter((file) => !known.has(file))
+  const candidates = outcome.failing.filter((file) => !known.has(file))
   const ran = new Set(outcome.ran)
   const nowPassing = baseline.failingTests.filter((file) => ran.has(file) && !outcome.failing.includes(file))
+
+  const { confirmed: newlyFailing, unreliable } = await recheckFailures(candidates, opts, run)
+
+  const skipped = patterns.length
+    ? [`the suite ran only the files matching ${patterns.join(' ')} — the rest of it was not run`]
+    : []
+  // An unreliable file is reported as NOT GATED, not as passing and not as
+  // failing. It failed once and passed once, so the rail has no verdict on it
+  // to give — and `skipped` is the slot that already means exactly that, which
+  // carries it into `partial` and out through exit code 2. A caller checking
+  // `exit == 0` still never gets a green it has not earned.
+  skipped.push(...unreliable.map((file) => `${file} failed in the suite and passed on its own — not gated, rerun it`))
 
   return {
     result: {
@@ -381,14 +414,64 @@ async function testsPhase(
       ms: elapsed(started),
       summary:
         `${outcome.ran.length} test file(s)${patterns.length ? ` matching ${patterns.join(' ')}` : ' (whole suite)'}` +
-        `, ${outcome.failing.length} failing, ${known.size} of them already on the recorded bar`,
-      failures: newlyFailing.map((file) => `${file} fails and was not failing when the baseline was recorded`),
+        `, ${outcome.failing.length} failing, ${known.size} of them already on the recorded bar` +
+        (unreliable.length ? `, ${unreliable.length} unreliable` : ''),
+      failures: newlyFailing.map(
+        (file) => `${file} fails and was not failing when the baseline was recorded (confirmed on a rerun)`,
+      ),
       improvements: nowPassing.map((file) => `${file} was on the recorded bar as failing and now passes`),
-      skipped: patterns.length
-        ? [`the suite ran only the files matching ${patterns.join(' ')} — the rest of it was not run`]
-        : [],
+      skipped,
     },
-    failing: outcome.failing,
+    // The bar must not learn a flake. A file that passes when rerun is not
+    // reliably failing, so recording it would lower the bar on the strength of
+    // one bad roll and stop the rail ever reporting it again.
+    failing: outcome.failing.filter((file) => !unreliable.includes(file)),
+  }
+}
+
+/**
+ * Rerun the files that look newly broken, so a FAIL means something.
+ *
+ * WHY THIS EXISTS. Requirement 4 is that the thing being restrained can act on
+ * what the rail tells it, and a rail that cries wolf is one the caller learns
+ * to ignore — which costs more than no rail at all. This suite has files that
+ * pass alone and fail under the parallel load of a whole-suite run (fixture
+ * directories shared between projects, chiefly). Reported as regressions they
+ * send a session hunting a break in code it never touched.
+ *
+ * WHY RERUNNING IS THE HONEST TEST AND NOT A RETRY-UNTIL-GREEN. A file that
+ * passes the second time is not thereby declared fine: it is declared
+ * UNGATED — see the caller. The rerun distinguishes "reliably broken" from "no
+ * verdict available"; it never manufactures a pass.
+ */
+async function recheckFailures(
+  candidates: string[],
+  opts: RailOptions,
+  run: CommandRunner,
+): Promise<{ confirmed: string[]; unreliable: string[] }> {
+  if (candidates.length === 0) return { confirmed: [], unreliable: [] }
+  if (candidates.length > RECHECK_LIMIT) return { confirmed: candidates, unreliable: [] }
+
+  const argv = vitestArgv(candidates, VITEST_RECHECK_FILE)
+  opts.onProgress?.(`tests: rerunning ${candidates.length} newly-failing file(s) to tell a break from a flake`)
+  rmSync(path.join(opts.cwd, VITEST_RECHECK_FILE), { force: true })
+  await run(argv[0], argv.slice(1), opts.cwd)
+
+  let recheck: { ran: string[]; failing: string[] }
+  try {
+    recheck = readVitestOutcome(opts.cwd, VITEST_RECHECK_FILE)
+  } catch {
+    // No report means the rerun itself did not run. Trust the first result
+    // rather than downgrading a real regression on the strength of a command
+    // that failed to start.
+    return { confirmed: candidates, unreliable: [] }
+  }
+
+  const failedAgain = new Set(recheck.failing)
+  const reran = new Set(recheck.ran)
+  return {
+    confirmed: candidates.filter((file) => failedAgain.has(file) || !reran.has(file)),
+    unreliable: candidates.filter((file) => reran.has(file) && !failedAgain.has(file)),
   }
 }
 
