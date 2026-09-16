@@ -6,7 +6,7 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-16T22:04:28.756138+00:00'
+updated_at: '2026-09-16T22:05:42.764280+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -308,3 +308,35 @@ the way it is. The result is recorded beside the policy whichever way it falls.
 
 If the scoped rule does not gate, the route is the broker and `Bash` stays
 denied by name.
+
+
+### D5 — MEASURED, 2026-09-16: a scoped `Bash` allow rule does NOT gate
+
+Three `claude -p` runs, argv identical to `claudeCommand()` except for the tool
+flags under test. `--permission-mode manual`, `--setting-sources ''` throughout.
+The verdict is read from the result event's `permission_denials`, not from the
+round's prose.
+
+| | tool flags | asked to run | `permission_denials` | outcome |
+|---|---|---|---|---|
+| **A** control | `--allowedTools Read Glob Grep`, no deny list | `echo MEASURED-A` | `[]` | **ran** |
+| **B** scoped, non-matching | `--allowedTools Read Glob Grep 'Bash(xgd ticket get:*)'`, deny list without `Bash` | `echo MEASURED-B` | `[]` | **ran**, exit 0 |
+| **C** scoped, matching | as B | `xgd ticket get request-ba7e2bb9` | `[]` | ran |
+
+**A reproduces [[REQ-256]]'s original finding on today's CLI.** That measurement
+is not stale: a tool merely absent from the allow list is still in the session
+and still runs.
+
+**B is the answer, and it is a no.** Naming a prefix rule does not narrow
+`Bash` — it admits `Bash`, and the prefix is not enforced. `echo MEASURED-B`
+ran with no denial recorded. A scoped allow rule is a description of intent in
+exactly the way a bare omission was, and behaviour 3 needs a property.
+
+C confirms the matching command also runs, which is moot: a mechanism that
+permits the command we wanted AND every command we did not is not a gate.
+
+**Therefore the route is console-as-broker**, and `Bash` stays denied by name
+in `AI_DISALLOWED_TOOLS`. Requirement 9 holds unchanged, and [[DOC-53]] §2's
+"there is no `xgd`" remains true as written. This measurement is reproduced by
+`.xgd/tmp/d5/run.sh` and belongs beside the policy in `ai.ts`, alongside the
+original finding it re-confirms.
