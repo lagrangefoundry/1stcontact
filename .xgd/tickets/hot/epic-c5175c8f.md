@@ -5,9 +5,9 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-16T03:46:41.297581+00:00'
+updated_at: '2026-09-16T23:57:42.435275+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: epic_children
 status: done
 fields:
   priority: medium
@@ -20,6 +20,7 @@ fields:
   - request-a6540f61
   - request-7334f1da
   - request-59caea02
+  - request-8f459c68
 ---
 
 ## What the client asked for
