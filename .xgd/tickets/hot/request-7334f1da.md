@@ -5,10 +5,10 @@ type: request
 title: 'The domain configuration surface: the selector, the sending toggle, and release'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:54.284753+00:00'
-updated_at: '2026-09-16T21:37:06.659488+00:00'
+updated_at: '2026-09-16T21:38:01.828653+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -19,6 +19,20 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-69b4ba23
+  commits:
+  - working_sha: be55a1ab1458d114a580d18f6303f1b974179acf
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7e182033b035d146f5c6fdc6e28f63c2e67a6681
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2e2448765ad6eb5fd3d8c0e10c8157a186df45a0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5ec02790532eb1b6514ed9ffd0161a1878a3ed11
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.224
 ---
 
 ## What this is
