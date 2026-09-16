@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T22:59:56.876532+00:00'
+updated_at: '2026-09-16T23:02:13.597983+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -737,5 +737,63 @@ Then restart the dashboard. I've left the file alone — it's your credential st
 <!-- xgd-chat role="user" ts="2026-09-16T22:59:56.576572+00:00" -->
 #### You
 This is all super frustrating - the API key I have supports account ID lookup! It should be in your environment - can you look it up and I will try to appease the code byu adding it explicitly
+
+<!-- xgd-turn id="536a18dd-ec1c-4105-95bc-300281a45293-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T23:02:12.559800+00:00" -->
+#### Claude
+Yes — the token can do it, and `cloudflare.ts` does exactly this itself (reads `account.id` off the zones rather than taking it as config). Here it is, plus a check on whether adding it actually helps.
+
+Account ID: **`8feaadfce95919ab2d2b93aa8df6f6ce`** (`Martin-cloudflaire@westhead.me's Account`, all 13 zones).
+
+Before you paste it in — let me check whether this token can actually reach Workers AI, because that's what decides whether adding it helps or hurts.
+
+It works — 384 dims, the right model. So my earlier caution was wrong: this token has Workers AI scope as well as zone scope. Let me check which transport is actually correct for your local dashboard before telling you what to do.
+
+That changes the answer — **my earlier advice was backwards for local dev.** Add the account id; don't delete the token.
+
+`embedder.ts:23-31` says why the REST transport exists at all:
+
+> *`wrangler dev` cannot serve an `AI` binding locally — there is no model in miniflare — so it proxies every call to a remote preview session it established at the last worker reload. That session expires after a few minutes and wrangler has no refresh timer… **The REST transport has no session to expire.***
+
+So REST is the transport *intended* for your local dashboard. The `[ai]` binding I pointed at is the production path, and locally it "works" only until the preview session expires a few minutes later, then fails every embed with `internal error; reference = …` until you touch a file. You'd have traded a loud error for an intermittent one.
+
+And the probe above settles the open question: this token **does** carry Workers AI scope, so the pair will actually function.
+
+## What to do
+
+```bash
+echo 'CLOUDFLARE_ACCOUNT_ID=8feaadfce95919ab2d2b93aa8df6f6ce' >> ~/Documents/secrets/1c.dev.env
+```
+
+Keep `CLOUDFLARE_API_TOKEN`. Keep `CLOUDFLARE_DNS_TOKEN`. You now have the both-or-neither pair complete, and `embedder.ts:50-56` notes these are deliberately the same names `1c kb build` reads — same credential, same account, same purpose, so this also fixes KB builds.
+
+**One guard:** these two names must never go into `wrangler.toml`. `embedder.ts:33` (B3) — *"Neither variable is set on a deployed Worker — `wrangler.toml` is forbidden from naming them"* — and there's a UAT pinning it. Dev env file only.
+
+The throw wasn't being obstructive, incidentally: it was reporting a half-complete pair, and completing it is the intended resolution. Removing half was my suggestion and it was the wrong half.
+
+## Still outstanding
+
+The Resend key is unaffected by any of this — it's a Sending-access key and `GET /domains` needs Full access. New key from the Resend dashboard, replace `RESEND_API_KEY`.
+
+Let me fix the memory that led me to the wrong advice — it's correct about production but reads as a blanket rule.
+
+Bash can't write there — using the memory tooling instead.
+
+Done. Recap of what you actually need, in order:
+
+**1. Complete the Cloudflare pair** (fixes the KB):
+```bash
+echo 'CLOUDFLARE_ACCOUNT_ID=8feaadfce95919ab2d2b93aa8df6f6ce' >> ~/Documents/secrets/1c.dev.env
+```
+Keep both existing Cloudflare lines. This isn't appeasing the code — REST is the transport that's actually correct for a local dev server, and I verified your token reaches Workers AI (384-dim vector came back from the real model).
+
+**2. Replace `RESEND_API_KEY`** with a **Full access** key from the Resend dashboard. That's the 401 you reported, and it's independent of everything Cloudflare.
+
+Then restart the dashboard.
+
+I've corrected the note that made me steer you wrong — it recorded the `wrangler.toml` half of the rule and read as a blanket "never add the account id," when in the dev secrets file the pair should be complete.
+
+Two things still on the table from earlier, neither urgent: the `resend.ts` gap (a sending-only key throws raw API English where an absent key degrades cleanly — the docstring names that case as worse-than-not-offering but nothing detects it), and EPIC-5 still sitting at `done` with four open children.
 
 <!-- xgd-chat-end -->
