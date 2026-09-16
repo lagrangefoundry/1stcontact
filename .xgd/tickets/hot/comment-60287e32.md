@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:17:29.247854+00:00'
+updated_at: '2026-09-16T04:22:47.304671+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -288,5 +288,11 @@ The two paths also diverge on headers, which is a nice consistency check: one-cl
 So give it its own home: a separate subscription preference for service reminders, so a customer can drop the newsletter and keep the thing that stops their boiler dying in January. It honours unsubscribe as marketing, but it's a distinct preference, so opting out of one doesn't kill the other.
 
 The general principle: the defence against reclassification isn't enforcement, it's making sure the legitimate need has a proper channel. Alice isn't trying to spam anyone. She's trying to reach people who'd want to hear it, and if that route exists she'll take it.
+
+<!-- xgd-turn id="c523ffc2-9f5a-4e9f-992e-a669f2ae00a0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T04:22:46.801698+00:00" -->
+#### You
+**Everything** suppressed — they've told Gmail we're abusive; continuing is reputational suicide regardless of who's technically right. <-- are you saying I can't attempt to collect my outstanding $3000 bill because the customer hit "unsubscribe" on the invoice email?
 
 <!-- xgd-chat-end -->
