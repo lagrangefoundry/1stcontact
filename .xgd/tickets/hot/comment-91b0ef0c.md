@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:48:29.916589+00:00'
+updated_at: '2026-09-16T02:52:42.266007+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,6 +13,16 @@ fields:
   subject_uid: epic-bf282b3d
   kind: chat_transcript
 ---
+
+<!-- xgd-session
+{
+  "id": "bcaef6cd-c3da-4c91-9d86-683675a23b15",
+  "role": "chat",
+  "backend": "claude_code",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
 
 <!-- xgd-turn id="76043dc9-07c6-4aaa-817d-9d36240e5d1e-user" -->
 
@@ -293,5 +303,13 @@ What actually covers it: every iteration commits to a **scratch branch** with no
 I also kept the "what the AI changed" link in REQ-256 rather than REQ-254, since there are no code edits until the AI exists — keeps REQ-254 to your three links.
 
 Worth noting one measurement that's still open and cheap to settle: REQ-255 asks you to **time the rail**, because whether the per-iteration gate is the ~73 reproduction-relevant UATs or all 517 should be decided on a number rather than a guess.
+
+<!-- xgd-turn id="91e461e3-a622-4bda-94ed-cd8fce197e43-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T02:52:40.890122+00:00" -->
+#### You
+**Risk 2 — the AI's edits reach production.** I'm ok with that we are preproduction and the reproduction engine is terrible. Also production is deployed.
+
+Lets stick with the xgd model: changes to the code must have a ticket and be free coded. Perhaps in v1 the AI should just create the ticket and I will trigger the free coding of it. Ok?
 
 <!-- xgd-chat-end -->
