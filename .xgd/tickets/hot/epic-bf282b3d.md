@@ -5,7 +5,7 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T01:20:46.940097+00:00'
+updated_at: '2026-09-16T01:40:16.656958+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -271,7 +271,7 @@ Three properties the generic approach does not have:
   similarly bounded. We are not reproducing the web — we are reproducing about
   six page builders.
 
-### Candidate list — to be evidence-ranked before committing (§8 Q1)
+### Candidate list — to be evidence-ranked before committing (§9 Q1)
 
 Rank from what the beta cohort's sites actually run, not global share. Starting
 list: WordPress + **Elementor** (first, on the evidence above) · **Divi** ·
@@ -429,7 +429,91 @@ comparison* is exactly the shape that tempts reconstruction, and it applies to
 both loops. The loop must re-read values, not re-guess them: `compare` says
 *where*, `values-diff` says *what*, and the fix is authored from the second.
 
-## 8. Open questions
+## 8. The reproduction console — how we sneak up on loop 1
+
+Agreed shape for loop 1 (§7.1). The point is that **every round is
+human-gated**: the AI does one iteration and stops, and a person presses the
+button for the next one. We watch it work a few times before we let it run.
+
+**Scope: home pages only.** One page per reference — which is exactly what the
+stored reference bundles already hold (`storage/references/<host>/index`).
+
+### 8.1 The UX
+
+1. Blank page: a text box and a **[reproduce]** button. Enter a site, it
+   captures and runs a reproduction.
+2. Under a heading **"Iteration 1"**, a set of links, all opening in new tabs:
+   **the original site** (for comparison) · **the iteration-1 reproduction** ·
+   **the diff images**.
+3. As soon as the links appear, an **AI process starts** with a prompt to review
+   the diff and close the gaps. Its transcript streams onto the page.
+4. When the AI finishes, a **[run again]** button appears. Pressing it re-runs
+   the reproduction *with the AI's code changes in place*, and appends
+   "Iteration 2".
+
+### 8.2 Two additions to that shape
+
+**A fourth link per iteration: "what the AI changed."** Step 4 implies the AI
+edits engine code, but the page as described shows only its prose. Seeing — and
+being able to revert — the actual code diff per iteration is what makes
+"sneaking up on it" real rather than nominal. Each iteration is one commit on a
+scratch branch, and the commit is linked next to the other three.
+
+**Each iteration is a fresh `1c` invocation.** See §8.3 — this is a correctness
+requirement, not a preference.
+
+### 8.3 "Reinstall" is free — but only if each run is a fresh process
+
+There is no build or install step to engineer. `1c` is TypeScript compiled **on
+the fly**: `bin/1c.mjs` boots a Vite SSR server and loads the CLI through
+`ssrLoadModule` ([[REQ-150]]). So the AI edits a `.ts` file and the *next* `1c`
+invocation already uses it.
+
+The corollary is a real trap: a **long-lived** dev server would cache the module
+graph and silently keep running the old code, so iteration N+1 would reproduce
+iteration N's result and the loop would look stuck for reasons nothing on the
+page could explain. The console must spawn a fresh `1c` per iteration.
+
+### 8.4 The regression rail — the one genuinely new piece
+
+Step 4's "smoke/regression suite the AI has to run before it finishes" is the
+safety rail, and it has two halves. The first exists; the second does not.
+
+**Half one — the test suite.** `pnpm test` (`vitest run`) over `tests/` — 517
+UATs today, of which ~73 are reproduction-relevant by name (l1 / fold / repro /
+gate / capture / values). Open question: is the per-iteration gate the fast
+subset or the lot (§9 Q8)?
+
+**Half two — the cross-site baseline. This does not exist and must.** The
+characteristic failure of a code-editing loop is that **the AI fixes the site in
+front of it and breaks the two it cannot see.** Nothing currently records what a
+good gate result looks like per reference, so "no worse than before" is not
+computable — verified: there is no baseline or recorded gate output anywhere in
+`storage/`.
+
+We can check this today, because three references are already stored:
+`faelan.com`, `gigabytealchemy.ai`, `joyfulculinarycreations.com`. Record a gate
+result per reference; the rail re-gates all of them and fails if any regressed,
+naming which. Three sites is thin, and it is enough to catch the failure mode
+that matters.
+
+**The rail is why the AI's own verdict is not the gate.** An agent that both
+makes the change and judges it has no independent check. The rail is that check,
+and it must land *before* the automation it restrains (§9).
+
+### 8.5 The prompt is a deliverable, not a detail
+
+"Point the AI at the right things" is real work. The brief should be distilled
+from [[DOC-19]] plus our accumulated reproduction transcripts, and at minimum it
+must carry: the one rule (§7.5 — transcribe from the DOM, never reconstruct from
+the screenshot); read `regions` before `meanDifference`; the `check_fidelity`
+verdicts and what each implies, especially that `capture-incomplete` means stop
+rather than iterate; fix the engine, never the site (§7.1); and content
+completeness before pixels (§7.4).
+
+It is a durable artifact — a doc — not a string buried in the console.
+
+## 9. Open questions
 
 1. **Which builders, on what evidence?** Rank §6's list from the beta cohort's
    actual sites. Capture everyone's current site and histogram the generators.
@@ -454,49 +538,70 @@ both loops. The loop must re-read values, not re-guess them: `compare` says
    not accumulate. My read: build the shared harness (C1/C2) once, because it is
    most of both, point it at loop 1 first, and let loop 2 follow once the fix-log
    shape (C6) is known. Worth disagreeing with if a demo date says otherwise.
-7. **Does duplication ever become the pitch?** [[CHAT-5]] framed "bring any
+7. **Is the per-iteration gate the fast subset or the whole suite?** 517 UATs
+   today, ~73 reproduction-relevant by name. The rail runs every iteration, so
+   runtime is a design constraint; but a subset is exactly how a regression
+   sneaks past. Measure before choosing (§8.4).
+8. **Does duplication ever become the pitch?** [[CHAT-5]] framed "bring any
    design, get it editable, for less than Wix" as the wedge. [[CHAT-29]] said
    *don't offer reproduction at all* and [[CHAT-21]] said migration must never be
    the ask. Reconcilable — the diagnostic is the pitch, duplication is the
    mechanism — but state it explicitly before any marketing copy is written.
 
-## 9. Proposed child tickets
+## 10. Proposed child tickets
 
-Not yet filed — for confirmation.
+Two principles, from the operator: **keep the count to a minimum**, and **every
+ticket ends with testable content** — something a person can run and judge, not
+just a green CI line.
 
-**Workstream A — understanding**
-- **A1.** Vision captioning pass over a capture bundle's `assets/`, attached to
-  owning elements. Closes [[CHAT-29]] gap 3 (`alt` text is worthless).
-- **A2.** The **semantic outline** artifact — advisory relationship tree from
-  `hints.json` ancestry + `repeatCount` + geometry. The read-back is built from
-  this. Cheapest high-leverage item in the epic.
-- **A3.** The read-back itself — prompt layer + presentation, per §2.2/§2.3.
-- **A4.** Re-verify `theme-site-logo` capture post-[[BUG-27]].
+### Near-term: build the console (§8). Three tickets, in this order.
 
-**Workstream B — bringing across**
-- **B1.** Generator detection in capture (`<meta name="generator">` + fingerprint
-  table); record in bundle; surface on `describe_reference`. Gates B2–B5.
-- **B2.** Beta-cohort generator survey → histogram. Answers Q1.
-- **B3.** The builder-transform seam — where a per-builder mapping runs relative
-  to the generic fold, and how it falls back on no detection.
-- **B4.** Elementor transform — widget vocabulary, `data-id` ↔ per-page-CSS join,
-  section/column geometry rule.
-- **B5.** Coverage metric — handled widget types per builder.
-- **B6.** Second builder (Wix or Divi, per B2) — proves B3's seam.
+**T1 — The console, no AI in it yet.**
+Text box + [reproduce] → capture → reproduce → diff. Renders the "Iteration N"
+link block (original · reproduction · diff images · code diff), all new tabs.
+[run again] re-runs manually. Home pages only.
+*Testable:* enter `joyfulculinarycreations.com`, get the link block, click each
+link and see the real site, the real reproduction, the real diff images. **This
+is useful on its own** — with no AI attached it already collapses the setup cost
+of today's manual loop, which is why it goes first.
 
-**Workstream C — the two feedback loops**
-- **C1.** The shared harness — round budget, monotonicity check, stop
-  conditions, the three outcomes (§7.4). Used by both loops.
-- **C2.** Content-completeness check as the harness's primary gate (§7.4).
-- **C3.** *Loop 1* — the engine handoff report: residuals ranked by the AI's own
-  uncertainty, with what it already ruled out, and no site changed.
-- **C4.** *Loop 1* — residual → framework-gap filing.
-- **C5.** *Loop 2* — in-session smoothing: the AI closes rough edges on one
-  customer's reproduction via the L1 control surface ([[DOC-30]]).
-- **C6.** *The bridge* — the fix log: loop 2 records each hand-fix as a named
-  residual class so loop 1 can histogram it by frequency × cost (§7.3).
+**T2 — The regression rail (§8.4).**
+Record a gate baseline per stored reference; one command that runs the UAT gate +
+typecheck + re-gates all references and reports "no worse than baseline".
+*Testable:* green on `main`; deliberately break a serializer and it goes red
+**naming which reference regressed**. Both directions must be demonstrated.
 
-## 10. Related
+**T3 — The AI iteration (§8.1 step 3–4, §8.5).**
+Wire the AI in: the distilled brief, it reads the diff, edits engine code, runs
+T2's rail, commits to the scratch branch, transcript streams to the page,
+[run again] appears. Fresh `1c` per iteration (§8.3).
+*Testable:* one full round on a known reference — transcript appears on the page,
+the code diff is non-empty and linked, the rail is green, "Iteration 2" appears,
+and the diff numbers moved. Plus the negative case: **when the rail fails, the
+AI does not get to finish.**
+
+**Why three and not two.** T2 could fold into T3, but then the safety rail and
+the thing it restrains arrive in the same commit — the one ordering that cannot
+be reviewed. The rail must exist, and be shown to fail correctly, before anything
+is allowed to edit code unattended.
+
+### Later — not part of the console build, not yet scoped
+
+**Workstream A (understanding).** Vision captioning pass over a bundle's
+`assets/` · the **semantic outline** artifact (§5.1 — the cheapest high-leverage
+item in the epic) · the read-back itself · re-verify `theme-site-logo`
+post-[[BUG-27]].
+
+**Workstream B (bringing across).** Generator detection (gates the rest) ·
+beta-cohort generator survey (answers Q1) · the builder-transform seam · the
+Elementor transform · the coverage metric · a second builder.
+
+**Workstream C loop 2 (§7.2–7.3).** In-session smoothing via the L1 control
+surface, and the fix log that turns loop 2's hand-fixes into loop 1's backlog.
+Deliberately after the console: the fix-log shape is easier to get right once we
+have watched loop 1 run.
+
+## 11. Related
 
 - [[CHAT-29]] — *the future of reproduction*. **The origin of this epic**: the
   cohort question, the content/layout split, the read-back, the "80% is worse
