@@ -5,9 +5,9 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T01:48:00.122156+00:00'
+updated_at: '2026-09-16T01:48:13.731472+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -538,7 +538,7 @@ and conflating them would leave one of them uncovered.
   may import the console**, directly or transitively.
 - **Binds to localhost only.**
 
-**This is asserted, not merely intended.** T1 ships a UAT that fails if the
+**This is asserted, not merely intended.** [[REQ-254]] ships a UAT that fails if the
 console acquires a build script or a wrangler config, or if any package under
 `apps/` gains a dependency on it. A convention nobody checks is precisely how a
 dev tool ends up in production.
@@ -557,7 +557,7 @@ the console's isolation buys nothing against this risk. What does:
 - **Every iteration commits to a scratch branch**, never to `main`, and nothing
   auto-merges (§8.2).
 - **The rail runs the deployable path, not just the reproduction path.** Because
-  of the coupling above, T2's rail must include a Worker build check — the
+  of the coupling above, [[REQ-255]]'s rail must include a Worker build check — the
   existing `dryrun:control` (`wrangler deploy --dry-run`) is the cheap form —
   so "the AI broke the control app" surfaces in the same round that caused it
   rather than at the next real deploy.
@@ -606,9 +606,9 @@ Two principles, from the operator: **keep the count to a minimum**, and **every
 ticket ends with testable content** — something a person can run and judge, not
 just a green CI line.
 
-### Near-term: build the console (§8). Three tickets, in this order.
+### Near-term: build the console (§8). Three tickets, filed, in this order.
 
-**T1 — The console, no AI in it yet.**
+**[[REQ-254]] — The console, no AI in it yet.**
 Text box + [reproduce] → capture → reproduce → diff. Renders the "Iteration N"
 link block (original · reproduction · diff images · code diff), all new tabs.
 [run again] re-runs manually. Home pages only.
@@ -617,14 +617,14 @@ link and see the real site, the real reproduction, the real diff images. **This
 is useful on its own** — with no AI attached it already collapses the setup cost
 of today's manual loop, which is why it goes first.
 
-**T2 — The regression rail (§8.4).**
+**[[REQ-255]] — The regression rail (§8.4).**
 Record a gate baseline per stored reference; one command that runs the UAT gate +
 typecheck + **the Worker build check (§8.6 risk 2)** + re-gates all references
 and reports "no worse than baseline".
 *Testable:* green on `main`; deliberately break a serializer and it goes red
 **naming which reference regressed**. Both directions must be demonstrated.
 
-**T3 — The AI iteration (§8.1 step 3–4, §8.5).**
+**[[REQ-256]] — The AI iteration (§8.1 step 3–4, §8.5).**
 Wire the AI in: the distilled brief, it reads the diff, edits engine code, runs
 T2's rail, commits to the scratch branch, transcript streams to the page,
 [run again] appears. Fresh `1c` per iteration (§8.3).
@@ -633,7 +633,7 @@ the code diff is non-empty and linked, the rail is green, "Iteration 2" appears,
 and the diff numbers moved. Plus the negative case: **when the rail fails, the
 AI does not get to finish.**
 
-**Why three and not two.** T2 could fold into T3, but then the safety rail and
+**Why three and not two.** [[REQ-255]] could fold into [[REQ-256]], but then the safety rail and
 the thing it restrains arrive in the same commit — the one ordering that cannot
 be reviewed. The rail must exist, and be shown to fail correctly, before anything
 is allowed to edit code unattended.
