@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-5b470956
 ---
 
 Parent: [[EPIC-12]] §8.4. Second of three. **Must land before [[REQ-256]]'s loop
