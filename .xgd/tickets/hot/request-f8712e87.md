@@ -6,7 +6,7 @@ title: 'Regression rail: a recorded baseline per reference, and one command that
   ''no worse'''
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:35.544080+00:00'
-updated_at: '2026-09-16T18:31:43.256897+00:00'
+updated_at: '2026-09-16T19:30:44.237827+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -118,6 +118,23 @@ and the two changes would be inseparable.
   tail of the commonest failure (a browser that will not launch) yields
   "temporary directories cleanup" and nothing actionable. ANSI colour is
   stripped, because these lines are re-quoted inside the rail's own report.
+- **A newly-failing test file is rerun on its own before it is called a
+  regression.** Found by running the rail as its own final gate: it reported a
+  file that passes alone and fails under the parallel load of a whole-suite run
+  (shared fixture directories), which sends a session hunting a break in code it
+  never touched. Requirement 4 is that the caller can act on what it is told, and
+  a rail that cries wolf is one the caller learns to ignore — which costs more
+  than no rail. Fails again → a regression, and the line says so. Passes → **not
+  gated**: it failed once and passed once, so the rail has no verdict, and the
+  file lands in the same not-gated list as a skipped probe, making the run
+  PARTIAL and exiting 2. This is not retry-until-green — the rerun separates
+  "reliably broken" from "no verdict available" and never manufactures a pass.
+  An unreliable file is also kept **off the recorded bar**, because recording it
+  as already-failing would lower the bar on one bad roll and stop the rail ever
+  reporting that file again. Bounded at 10 files: one flake is worth a rerun,
+  forty are a broken engine, and rerunning them to be told so again doubles the
+  runtime of a rail whose runtime is a stated design constraint (requirement 8).
+
 - **A run that gated less than everything is PARTIAL, never plain green.**
   `--no-browser`, `--reference` and `--only` all shrink coverage. `pass` answers
   "is anything worse"; `partial` answers "did this run look everywhere". The
@@ -174,8 +191,11 @@ see below). **Whole rail: 271s.**
 | tests (527 files, whole suite) | 247.9s |
 | references (3, `l1-gate` only) | 15.7s |
 
-This settles [[EPIC-12]] §9 Q7 with a number rather than an argument: **the test
-suite is 91% of the runtime**, and everything else together is ~23s. An inner
+Two later whole-rail runs on the same machine took **229s** and **376s**, the
+whole spread in the suite phase (208s / 355s) — so the number is machine load,
+not a stable constant. The ratio is what settles [[EPIC-12]] §9 Q7: **the test
+suite is 91% of the runtime**, and everything else together is ~23s, on every
+run measured. An inner
 loop that wants to run every iteration should narrow the suite (`--tests`) and
 take the whole rail at the end of a round; `--tests` is reported in the summary,
 so a narrowed run can never be mistaken for a full one.
@@ -232,7 +252,7 @@ than to the rail that measures it.
 
 ## Test plan
 
-`tests/test_UAT_FC_REQ-255_regression_rail.test.ts` — 39 UATs. The rail, its
+`tests/test_UAT_FC_REQ-255_regression_rail.test.ts` — 44 UATs. The rail, its
 phase sequencing, its baseline document and every judgement it makes are driven
 for real, through a real temporary repo with reference bundles on disk and a
 baseline written and read back. The one substitution is a headless browser
