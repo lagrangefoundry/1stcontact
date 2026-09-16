@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T00:23:22.160470+00:00'
+updated_at: '2026-09-16T00:28:10.564924+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2044,5 +2044,23 @@ That's not a dev-environment annoyance; it's wrong in production too. An operato
 So I'd file one bug with two parts: the origin needs to be resolvable per-deployment (without reintroducing the misrouted "view published" click the comment warns about), and a draft-channel grant should point at the draft preview rather than the published site.
 
 Want me to file it? And shall I also file the local-migration-drift check and close BUG-96, both of which are still outstanding from before?
+
+<!-- xgd-turn id="718307de-9962-4fb4-879c-cdaf5a7f9aed-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T00:28:10.183775+00:00" -->
+#### You
+1stcontact.io is WRONG tho - this will ultimately be served by xgd.dev so hardcoding is not helpful here.
+
+Also on the local test:
+
+```
+[wrangler:info] GET /site/site_bca807fc7cdd0bf418b15e255f8c45c6/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6 401 Unauthorized (6ms)
+[wrangler:info] GET /favicon.ico 401 Unauthorized (2ms)
+[wrangler:info] GET /site/site_bca807fc7cdd0bf418b15e255f8c45c6/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6 404 Not Found (8ms)
+[wrangler:info] GET /site/site_bca807fc7cdd0bf418b15e255f8c45c6/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6 404 Not Found (13ms)
+
+```
+
+first call is 401 then 404s?
 
 <!-- xgd-chat-end -->
