@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:32:51.358092+00:00'
+updated_at: '2026-09-16T17:33:48.399753+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -408,5 +408,78 @@ One thing I'd still like to do, when you're unblocked: make the capture failure 
 <!-- xgd-chat role="user" ts="2026-09-16T17:32:51.010782+00:00" -->
 #### You
 where is the captured content and the reproductions in L1 going?
+
+<!-- xgd-turn id="35fb73ba-f05b-41c5-b626-8044e3e22d9c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:33:48.216879+00:00" -->
+#### Claude
+Let me trace it from the code rather than guess.
+
+It's been running — you've got captures for three sites. Here's the full map:
+
+Everything's working — the diff produced region crops, so the full pipeline ran. Three separate trees, each with a different lifetime:
+
+## 1. Captured content + the reference L1 — `storage/references/<host>/<path>/`
+
+```
+storage/references/faelan.com/index/
+  capture.json          what was fetched
+  raw.html              server HTML
+  rendered.html         post-JS DOM
+  screenshot-320/375/768/1024/1280/1440.png   the ladder
+  screenshot.full.png
+  multistate.json       ← the acceptance oracle (all 6 widths)
+  l1.json               ← the ladder folded into ONE document, 40K
+  hints.json            advisory structural hints
+  forms.json
+```
+
+`l1.json` is the **reference** L1: `widths: [320, 375, 768, 1024, 1280, 1440]`, root `box` with 14 children.
+
+This tree **persists across iterations** and is *not* under `storage/tmp/`. That's deliberate — it's what `refold` re-reads. A re-run re-derives `l1.json` from `multistate.json` in place, so the oracle stays fixed while the fold moves. That's the whole point of refolding rather than re-capturing.
+
+18M / 14M / 23M for your three sites.
+
+## 2. The reproduction's L1 — `storage/sandbox/repro-<host>/draft/pages/home.json`
+
+```
+storage/sandbox/repro-faelan-com/
+  draft/site.json
+  draft/pages/home.json     ← 44K, keys: id, slug, title, l1, modules
+  draft/assets/             images + CSS pulled from the capture
+  history.json
+  .draft-base.json
+```
+
+**The reproduced L1 lives inside `home.json` under the `l1` key.** It isn't a separate file — `1c repro` writes the L1 document into the page as the platform's own site format, which is what makes it renderable.
+
+⚠️ **This one is rebuilt in place on every iteration.** Iteration 2 overwrites iteration 1's `home.json`. So if you want to compare the L1→site conversion *between* iterations, it's already gone — only the rendered pixels are kept per-iteration. Worth knowing before you go looking for it.
+
+## 3. Per-iteration artifacts — `storage/tmp/repro-console/<slug>/iteration-N/`
+
+```
+storage/tmp/repro-console/repro-faelan-com/iteration-1/
+  site/    index.html, home.html, theme.css, capabilities.js, assets/
+  diff/    diff.png, diff-blocks.png,
+           region-N-ref.png / -ours.png / -diff.png, regions.json
+```
+
+These **are** kept per-iteration — that's what makes iteration 1's links still work after iteration 3. Gitignored (`/storage/tmp/` in `.gitignore`), so safe to delete wholesale at any time.
+
+---
+
+## Summary
+
+| What | Where | Survives a re-run? |
+|---|---|---|
+| Capture + oracle | `storage/references/<host>/index/` | Yes — never re-captured |
+| **Reference L1** | `…/index/l1.json` | Rewritten in place by `refold` |
+| **Reproduction L1** | `storage/sandbox/repro-<host>/draft/pages/home.json` → `l1` key | **No — overwritten** |
+| Rendered HTML | `storage/tmp/repro-console/<slug>/iteration-N/site/` | Yes, per N |
+| Diff images | `…/iteration-N/diff/` | Yes, per N |
+
+The two L1s you'd want to compare are the reference (`references/…/l1.json`) and the reproduction (`sandbox/…/home.json` → `.l1`).
+
+If keeping the reproduction's L1 per-iteration would be useful — so you can diff iteration 1's fold against iteration 3's — that's a small change: copy `home.json` into the iteration directory alongside `site/` and `diff/`. Say the word and I'll free-code it on REQ-254.
 
 <!-- xgd-chat-end -->
