@@ -5,9 +5,9 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T03:51:52.919501+00:00'
+updated_at: '2026-09-16T03:51:57.263636+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.215
+  story_points: 8
 ---
 
 Parent: [[EPIC-12]] §8. First of three. **No AI in this ticket.**
