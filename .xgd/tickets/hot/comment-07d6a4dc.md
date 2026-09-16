@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-16T23:08:08.633502+00:00'
+updated_at: '2026-09-16T23:10:25.996667+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -198,5 +198,44 @@ Say go and I'll write DOC-53 §1.
 #### You
 1. This is probably better just queried real-time with the ticket API than added to the kb it is a rapidly moving picture.
    2. Ok this was an idea of REQ-258s I saw it in passing but I don't understand what it means is this about permissions? I want to give the system all the permissions it needs. I do not want to baby sit the process answering low level questions that I probably won't understand. What is this about?
+
+<!-- xgd-turn id="288c0e6f-1ef2-43f1-9bd6-aa4c690b7372-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T23:10:25.107298+00:00" -->
+#### Claude
+Let me check one thing before answering, because it may change the answer entirely.
+
+That changes the answer. Let me confirm the two pieces.
+
+**This isn't about babysitting, and it turns out the broker was a workaround for a problem `xgd` already solved.**
+
+Answering your question first, plainly:
+
+"Permission" here doesn't mean anyone gets asked anything. The round is a headless `claude -p` subprocess with no human attached — nothing can prompt you, ever. What the word means is: **what is this unattended process physically able to do while nobody is watching?** Today the answer is "read files, and nothing else," because it's diagnosing the very engine it would otherwise be able to edit, and because a ticket set to a `ready_*` status spawns an autonomous pipeline within ~30 seconds. That's the thing being protected — not your attention.
+
+(Also: the broker idea isn't REQ-258's, it's REQ-262's own §4. REQ-258 is custom domains.)
+
+**And it's now moot.** `xgd mcp-server start` exposes exactly two tools:
+
+- `ticket_search` — semantic search over every ticket type, *"the index is refreshed incrementally before each search"*
+- `system_search` — xgd's own methodology docs
+
+**There is no write tool in that server.** Not denied, not filtered — it doesn't exist. And `claude --mcp-config <file> --strict-mcp-config` loads only that server, ignoring every other MCP config on the machine.
+
+So you get exactly what you asked for in both points: real-time ticket query against a moving picture (your #1), full access with no babysitting (your #2), and no ability to mutate — because the mutating verb isn't in the interface. That's the same kind of gate as the deny list, which is the only kind we've measured to work.
+
+Measuring it now, same shape as D5:
+
+Working directory had persisted in the xgd repo — the config landed there. Re-running with absolute paths.
+
+The measurement is running — `ticket_search` builds a semantic index over the whole ticket store on first use, so the first call is slow. I'll report when it lands.
+
+To summarise where the two answers leave the design:
+
+**Your #1 — tickets queried live, not baked into the KB.** Agreed, and `ticket_search` is exactly that ("the index is refreshed incrementally before each search"). So the split is clean: the **KB is documents you read whole** (52 doc tickets exported as `<DOC-ID>.md` + an index), and **everything else is live search**. No ticket digest, nothing to go stale.
+
+**Your #2 — no babysitting, full access.** The MCP route gives more access than the broker would have, with less machinery, and drops the round-trip I was about to ask you to scope. It replaces D5's conclusion, which I'll amend in the ticket once measured.
+
+What I'm checking is the one thing that would sink it: that `--strict-mcp-config` plus the deny list actually produces a round that **can** search tickets and **can't** run a shell. Given D5 showed allow lists don't gate, I'm not assuming this one does either — same test, both halves in one call.
 
 <!-- xgd-chat-end -->
