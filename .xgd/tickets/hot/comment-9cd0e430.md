@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:15:56.383573+00:00'
+updated_at: '2026-09-16T17:18:03.591444+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -173,5 +173,11 @@ Node.js v24.2.0
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="0b5cd924-6547-4045-8e3e-aad992814d69-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:18:03.156928+00:00" -->
+#### Claude
+That's my miss — I ran `pnpm install` inside the free-coding worktree, and `xgd branch clean` deleted that worktree along with the `node_modules` it created. The main checkout never got it. The lockfile entry is committed, so a plain install fixes it:
 
 <!-- xgd-chat-end -->
