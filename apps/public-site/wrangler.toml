@@ -123,20 +123,44 @@ simple = { limit = 20, period = 60 }
 
 [env.production]
 name = "1stcontact-public-site"
+
+# THIS WORKER'S ZONE ROUTES ARE DATA AND NOT CONFIGURATION ([[REQ-258]]).
+#
+# EVERY ENTRY BELOW MUST CARRY `custom_domain = true`, AND THAT IS A RULE RATHER
+# THAN AN OBSERVATION. `wrangler deploy` splits this array in two and treats the
+# halves completely differently:
+#
+#   - entries WITHOUT `custom_domain` are ZONE ROUTES, and wrangler publishes
+#     them with `PUT /accounts/<id>/workers/scripts/<name>/routes` carrying the
+#     WHOLE LIST. Its own source comments the line: *"Note: PUT will delete
+#     previous routes on this script."* So one zone route here makes every deploy
+#     a reconciliation, and every customer domain attached at runtime — which is
+#     every customer domain, because attaching one is not a commit — is deleted
+#     by it. The symptom is every customer's site going dark at once with nothing
+#     in the diff to explain it.
+#
+#   - entries WITH `custom_domain = true` go to a DIFFERENT resource
+#     (`PUT …/domains/records`) which knows nothing about zone routes and cannot
+#     touch them.
+#
+# So the array holds custom domains only, `publishRoutes` is never called for
+# this script, and the route list Cloudflare holds is only ever added to by
+# `apps/control-app/src/serving.ts`. A static UAT enforces this —
+# `tests/test_UAT_FC_REQ-258_runtime_routes_survive_a_deploy.test.ts` — because
+# the failure of getting it wrong is silent, total, and indistinguishable from an
+# outage.
+#
+# THE APEX IS A CUSTOM DOMAIN AND WAS ALREADY, for its own reason: the zone has
+# no proxied record for it and a route alone would resolve to nothing, so
+# wrangler provisions the DNS record and the certificate itself.
+#
+# `*.1stcontact.io/*` USED TO BE HERE AND IS THE ROUTE THAT FORCED THIS. It was
+# declared and never served — its own comment said so — so it bought nothing and
+# cost the whole mechanism. `app.1stcontact.io` is control-app's own, more
+# specific route and never depended on it. A wildcard for the platform's own
+# label namespace, if one is ever wanted, is created the same way a customer's is.
 routes = [
-  # public-site is the generic multi-tenant site server:
-  #   apex (1stcontact.io)  = /site/<slug>/… for every deployed site, and later
-  #                           the 1st Contact marketing site at /
-  #   *.1stcontact.io       = customer sites by slug subdomain (declared, not
-  #                           yet served — subdomain routing is additive)
-  # `app` is a reserved slug, so control-app's more-specific app.1stcontact.io/*
-  # route takes precedence over this wildcard.
-  #
-  # The apex is a custom domain rather than a zone route so wrangler provisions
-  # the DNS record and certificate itself: the zone has no proxied record for the
-  # apex, and a route alone would resolve to nothing.
-  { pattern = "1stcontact.io", custom_domain = true },
-  { pattern = "*.1stcontact.io/*", zone_name = "1stcontact.io" }
+  { pattern = "1stcontact.io", custom_domain = true }
 ]
 
 # A named environment inherits no vars, so the apex and session configuration is

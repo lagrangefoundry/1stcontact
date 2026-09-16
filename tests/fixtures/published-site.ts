@@ -74,15 +74,43 @@ export class FakeDatabase implements SiteDatabase {
   /** Counts queries, so a test can prove the store was memoised or cached past. */
   queries = 0
 
-  constructor(readonly live: Map<string, number> = new Map()) {}
+  constructor(
+    readonly live: Map<string, number> = new Map(),
+    /**
+     * The host→site mapping, as `site_domains` holds it ([[REQ-258]]).
+     *
+     * EMPTY BY DEFAULT, WHICH IS THE PLATFORM'S OWN FRONT DOOR — a host with no
+     * row is one where the root site is deployment configuration and every other
+     * site is addressable under `/site/<key>/`. That is the behaviour every
+     * suite written before this ticket asserts, so the default keeps them
+     * asserting it rather than quietly putting them on a bound host.
+     */
+    readonly hosts: Map<string, { siteKey: string; canonicalHost?: string }> = new Map(),
+  ) {}
 
-  prepare(_query: string) {
+  /**
+   * TWO QUERIES NOW, AND THEY ARE TOLD APART BY THE TABLE THEY NAME.
+   *
+   * This used to ignore the SQL entirely and answer every call with a live
+   * revision id, which was honest while there was one query. There are two, and
+   * a fake that answered the host lookup with `{ live: … }` would hand the
+   * resolver a row with no `site_id` — a host that resolves to a site whose key
+   * is `undefined`, which is a shape the real database cannot produce and a
+   * whole suite of confusing failures.
+   */
+  prepare(query: string) {
+    const host = query.includes('site_domains')
     return {
       bind: (...values: unknown[]) => ({
         first: async <T,>(): Promise<T | null> => {
           this.queries++
-          const siteKey = String(values[0])
-          const found = this.live.get(siteKey)
+          const arg = String(values[0])
+          if (host) {
+            const found = this.hosts.get(arg)
+            if (!found) return null
+            return { site_id: found.siteKey, canonical_host: found.canonicalHost ?? arg } as T
+          }
+          const found = this.live.get(arg)
           return { live: found ?? null } as T
         },
       }),

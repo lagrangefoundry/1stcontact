@@ -6,7 +6,7 @@ import {
   parseDownloadPath,
 } from '../../../packages/framework/src/modules/contact-form/gate'
 import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
-import { parseRoute, SITE_SEGMENT, isValidSiteKey } from './routes'
+import { parseRoute, siteOfRoute, SITE_SEGMENT, isValidSiteKey, type RootSite } from './routes'
 import type { SiteStore } from './site-store'
 
 /**
@@ -100,11 +100,19 @@ export interface GateTarget {
  *
  * AN APEX DOWNLOAD NEEDS AN APEX SITE, on `leadTarget`'s reasoning: a deployment
  * with no front page has no forms on it either.
+ *
+ * THE ROOT SITE IS A FACT ABOUT THE HOST NOW AND NOT A CONSTANT ([[REQ-258]]).
+ * It used to be `APEX_SITE_KEY`, which is deployment configuration and is the
+ * right answer on this product's own front door; on a customer's domain the root
+ * site is whatever `site_domains` says that host reaches. Resolving it through
+ * {@link siteOfRoute} is also what applies the cross-tenant guard here — a
+ * download link on Alice's domain naming Bob's key is refused by the same rule
+ * that refuses one of his pages, rather than by a second check somebody would
+ * have had to remember to write.
  */
-export function gateTarget(pathname: string, apexSiteKey: string | undefined): GateTarget | null {
+export function gateTarget(pathname: string, root: RootSite): GateTarget | null {
   const parsed = parseRoute(pathname)
-  const siteKey =
-    parsed.kind === 'apex' ? apexSiteKey || null : parsed.kind === 'asset' ? parsed.siteKey : null
+  const siteKey = siteOfRoute(parsed, root)
   if (siteKey === null) return null
   const path = parsed.kind === 'apex' || parsed.kind === 'asset' ? parsed.path : ''
 
