@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T19:20:53.567203+00:00'
+updated_at: '2026-09-16T19:37:03.001046+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -677,5 +677,13 @@ Also named: attachments, erasure reaching message bodies ([[DOC-37]]), fan-out �
 The others: MX-takeover policy, sending subdomain for domainless businesses, what capture does with spam, and whether OAuth sync is ever in scope (recorded as a decision rather than an oversight).
 
 No children attached yet — `epic_children` is empty, so the first nibble is choosing what becomes REQ-1 under it. My suggestion would be the inbound pipeline for a domain with no existing MX, since that's the zero-risk case that also fixes the "nothing notifies the business when an enquiry arrives" gap in [[DOC-47]].
+
+<!-- xgd-turn id="d22559c0-ae37-4931-b26e-3ec952c1c266-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:37:02.452643+00:00" -->
+#### You
+**The tab seam.** I've recorded your two-tabs instinct, but argued the natural seam is *configure-once vs work-daily*, not in vs out — which would push addresses/forwarding/DNS-health into Settings where [[EPIC-4]]'s record-and-status precedent already lives, leaving one new tab for reading conversations and running campaigns. Worth deciding before any surface gets built. <-- agreed lets go with yours on this
+
+**Where a message body lives.** [[EPIC-11]] commits `contact_events` to "milestones, not noise" and the table is immutable. A 40KB body on the spine breaks that promise; an event pointing at R2 keeps it. It also decides retention and erasure mechanics. <-- I think message bodies should be tickets - the event records the heard fields
 
 <!-- xgd-chat-end -->
