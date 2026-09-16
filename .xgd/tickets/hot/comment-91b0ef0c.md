@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T22:18:34.442195+00:00'
+updated_at: '2026-09-16T22:20:36.182123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -358,5 +358,31 @@ Ticket-only changes, so nothing to commit or free-code here.
 <!-- xgd-chat role="user" ts="2026-09-16T22:18:33.903284+00:00" -->
 #### You
 Can you add REQ-261 and REQ-262 to your children and read the transcript from my conversation with REQ-256 please?
+
+<!-- xgd-turn id="811ce182-44d7-42cb-bba1-4baa7fcf3abc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T22:20:35.666279+00:00" -->
+#### Claude
+Both done.
+
+**`epic_children`** is now `[REQ-254, REQ-255, REQ-256, REQ-261, REQ-262]` — both already carried `epic_parent`, so only the epic's side was stale.
+
+**Transcript read** — all 26 turns of COMMENT-3020 on REQ-256.
+
+## What I took from it
+
+**The loop is built and its headline behaviour doesn't work.** REQ-256 landed as `a215dda82a` (0.2.222) with 18 green UATs, but `parseOutcome` in `ai.ts` scans for fenced code blocks with a lazy `[\s\S]*?`. Every gap ticket the brief demands quotes `gate.json` in a fence, so the match stops at the first inner fence and the outcome truncates — 1,130 of 7,500 characters. The better the ticket, the more certain it fires. The UATs pass because every fixture uses `"body":"b"`, which the brief forbids.
+
+**Your first live round succeeded and the console threw it away.** It found a real defect: `referenceCoverage()` builds its referenced-image set from `manifest.elements[].src` alone, so section imagery stored as `backgroundImageUrl` reads as unreferenced; `reconcileGates` checks coverage before value deltas, so the false finding hijacks the verdict to `capture-incomplete` — which this console's own brief treats as *stop, file nothing*. That silently disables loop 1 on every background-image site. The diagnosis is still sitting unfiled in `storage/tmp/.../iteration-1/ai/transcript.txt`.
+
+**Two places the implementation improved on what §8.2 said.** The round hands back ticket *content* and the console runs `xgd ticket create --fields '{"status":"draft"}'` — so "never at `ready_*`" is structural, not a rule a round is asked to keep. And "the AI wrote no code" became a measured property rather than an instruction, after the prior session found that a tool merely *absent* from the allowlist still ran.
+
+## Three loose ends I can see, none of which I've touched
+
+**EPIC-12 §8.2 and REQ-256 behaviour 6 now contradict your correction.** I wrote *"one ticket per gap class, not per iteration"*; you settled on **one unbounded gap ticket per round**, plus separate bugs for anything it trips over in L1, `1c`, or its own brief. The first round's *"regions 1–5 and 9 are candidate classes for a later round"* is a defect under your reading, not a throttle working. The epic still says my version. Want me to correct §8.2 and REQ-256's body to match? Nothing else is editing the epic, so there's no collision risk there.
+
+**The last question in that chat was never answered.** REQ-256 is still at `free_coded`. The offer was to append a note recording that its UATs don't cover the fenced-body case and REQ-261 owns the fix — so whoever reads the reconcile doesn't see green tests on a broken behaviour. Still worth doing before you promote.
+
+**DOC-53 has no `epic_parent`** — its only field is `doc_kind: architecture`. It's the session KB document REQ-262 depends on, but it isn't attached to EPIC-12 or to anything else. Say the word and I'll parent it.
 
 <!-- xgd-chat-end -->
