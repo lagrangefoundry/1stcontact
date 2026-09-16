@@ -6,9 +6,9 @@ title: A gated download link names a hardcoded host and the wrong channel, not t
   site's own address
 created_by: EPIC-10
 created_at: '2026-09-16T00:46:18.723054+00:00'
-updated_at: '2026-09-16T00:47:39.141387+00:00'
+updated_at: '2026-09-16T01:39:55.987642+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: draft
 fields:
   priority: high
@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-cf953dae
+  story_points: 5
 ---
 
 ## Symptom
@@ -78,6 +79,71 @@ known at the call site.
 A site with no address is a state publishing forbids; if one is somehow reached, the delivery
 is refused and says so rather than composing a link into a domain nobody owns.
 
+### What moves is the authority, and the path grammar is untouched
+
+`public-site` resolves a site from `/site/<key>/…` and from `APEX_SITE_KEY`; **there is no
+host→site resolution at all**, and the production routes name `1stcontact.io` and
+`*.1stcontact.io` and nothing else. So a link at `https://alice.1stc.site/api/download/<token>`
+— the key gone entirely — would be correct by construction and **resolve nowhere**, which is a
+worse link than the wrong one it replaces. [[DOC-45]] §4 already owns that work and gates it on
+[[TODO-6]] §§1 and 5.
+
+So the mail names the site's own host and keeps the path every other published byte goes
+through: `https://<the site's host>/site/<key>/api/download/<token>`. The recipient is no longer
+sent to a domain other than the one they signed up on — which is the fault the phishing argument
+above is about — and the link resolves the moment that host points at `public-site`, with no
+resolution work and no ordering dependency on an operator task. Deleting `/site/<key>/` from the
+grammar, and with it the key from the path, stays [[DOC-45]] §4's.
+
+### A site holding more than one address
+
+The custom one wins, and `platform` is the fallback. A business that has gone to the trouble of
+pointing its own domain at us has told us which address it wants to be seen at, and a mail is
+the surface where being seen at the other one is most expensive. Asked over `kind`, so
+[[EPIC-6]] lands unchanged.
+
+### The draft link, and what has to exist for it to open
+
+`/preview/<siteKey>/draft/…` is served by `control-app`, and **nothing there answers
+`api/download`** — `servePreview` would 404 it, so a draft link with no route is a link the
+operator still cannot open. The preview channel therefore answers the gate: the page that lists
+the artifacts, and the artifacts themselves, served out of the draft through the same
+`servePreview` that serves every other draft byte.
+
+`openGate` and `takeAsset` take the channel for `formDefinitionOf`'s reason, and it is the same
+reason [[BUG-78]] gave: the operator pressed the button on the draft, so the draft is the served
+snapshot. A site that has never been published has no live revision for a published read to
+resolve against, and that is the case this whole half exists for.
+
+**The draft path asks for no address, and must not.** [[REQ-238]] requires an address before
+*publishing*, so a site being built in preview has none — the origin for a draft link is the
+builder that served the preview and took the submission, which is a fact about the request
+rather than configuration. The `no_site_address` refusal is reachable from the published channel
+only.
+
+The page is one page and both surfaces render it, so `public-site` stops declaring its own copy.
+
+### Seeing the message, which is what makes testing before publishing real
+
+A preview submission now writes the contact, records the press, mints the grant, renders the
+message and **records** it — a development deployment holds no mail credential, so by
+[[REQ-196]]'s design nothing leaves the building. The rendered body is stored and
+`/api/people/messages` already returns it. Three surfaces could show it and none does: the
+capturing mailer's console line carries `to=` and `subject=`, the Messages list in the contact
+pane drops the `body` it is handed, and [[BUG-94]]'s email-page preview shows the template with
+`{{cta_url}}` still a placeholder. So the link this ticket fixes would be correct, followable,
+and **invisible** — and the operator's only way to read the mail they are about to send a
+stranger would be to publish and send it to themselves.
+
+A message in that list opens to show **what was sent**: the stored body, rendered, with the link
+live in it. No new data and no new endpoint — the pane is handed the body already. That is what
+turns a preview submission into a whole rehearsal: press the button, open the contact, read the
+mail, follow the link, take the paper, with nothing published and no mail provider.
+
+**And it says when nothing was sent.** The record is written `sent` with a `local_` provider id
+by the adapter that cannot send, so the pane reports a delivery that never happened — at the one
+surface an operator consults to find out whether it did.
+
 ## Test plan
 
 `tests/test_UAT_FC_BUG-97_download_host.test.ts`:
@@ -86,12 +152,35 @@ is refused and says so rather than composing a link into a domain nobody owns.
   does not appear in the URL's authority.
 - A site with a `custom` address mails a link on the custom host — asserted through the `kind`
   rather than by matching `1stc.site`, so [[EPIC-6]] lands unchanged.
+- A site holding both kinds mails the custom one.
 - A **draft**-channel submission mails a link that resolves against the draft, and a published
   one against the published revision. The two are different URLs from the same form.
 - A site with no address at all refuses the delivery and reports why; no mail goes out carrying
-  a composed-from-nothing link.
+  a composed-from-nothing link, and no grant is minted for a link nobody can be given.
+- A site with no address still delivers a message its form promises no artifact for, because
+  that message carries no link to compose.
 - The two operator-facing callers still produce what they produce today. Asserted directly, so
   the fix cannot quietly move the view-published click — the failure the constant's comment
   exists to prevent.
 - The link a recipient receives is followable end to end in a development deployment, which is
   the symptom.
+
+`tests/test_UAT_FC_BUG-97_draft_gate.test.ts`:
+
+- A site that has **never been published** takes a preview submission and the link it mails
+  opens: the page lists exactly what the draft's form promises, and the artifact it links
+  arrives as its bytes.
+- The draft gate reads the **draft's** definition, so an artifact added to the form since the
+  last publish is on the page — and on a site with no revision at all there is a page rather
+  than a refusal.
+- A token minted against one site reaches nothing under another site's key, on the draft channel
+  as on the published one.
+- The published gate is unchanged, asserted through `public-site`'s own entry point.
+
+`tests/test_UAT_FC_BUG-97_message_body.test.ts`:
+
+- The message the pane lists carries the body that was sent, and the gate link in it is the one
+  the recipient was given — compared against the link the capture path actually minted.
+- A message the deployment could not send is reported as not sent, and names the missing mail
+  provider as the reason rather than showing a status that says it went.
+- A message that really was sent still reads as sent.
