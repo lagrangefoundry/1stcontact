@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:24:52.889488+00:00'
+updated_at: '2026-09-16T03:26:27.682472+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -512,5 +512,62 @@ There are still risks since the user is (in general) a tech novice and honestly 
 A rollback feature would be good too.
 
 That said - do we need any of that?
+
+<!-- xgd-turn id="25a50cba-1339-4e4a-b278-7a341dfd0a37-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T03:26:25.999346+00:00" -->
+#### Claude
+Direct answer: **you need the read tooling and the rollback. The confirmation card you need in a different shape than you described — and the general "AI edits DNS" capability you probably don't need at all in v1.**
+
+## The confirmation card has the flaw you already named
+
+You spotted it yourself — *"I would just accept what the AI said too."* That's the decisive fact, and the epic body already reasoned it through, in bold, about a different screen:
+
+> *a confirmation step they cannot meaningfully perform is worse than none — it launders our error into their approval.*
+
+That was the argument that killed the pre-cutover confirmation gate. A change card that asks a furniture restorer to approve an MX edit is the same pattern reappearing one layer down. If we ship it as a *confirmation*, the first time we break someone's mail the record will show they clicked yes, and that will be true and worthless.
+
+But your actual reason for wanting it was better than consent: *"at least it's clear to the user what is going on."* That's visibility, and it's worth having. So keep the card and change what it is:
+
+- **Not** "Approve: add TXT `v=spf1 include:...` to `send.alicesplumbing.com`?" → yes/no
+- **But** "I'm setting up email sending on your domain. Your existing email with Microsoft isn't affected. — *Undo*"
+
+Present tense, their language, and a brake rather than a gate. That delivers visibility, an audit record, and a commit point for rollback, without pretending the click was informed. It's *"notify in their language, do not ask in ours"* applied to mutation instead of to preservation.
+
+## Where the safety actually comes from
+
+Not the click. The constraints the epic already names: SPF merges and never appends; `_dmarc` only when absent and only at `p=none`; never tighten a policy on a domain we didn't start from zero. **Those hold whether or not anyone clicks**, and they're the only thing that stops a confidently-worded wrong proposal. A card is not a safety mechanism — the code is. Build the code first; the card is presentation.
+
+## The one you need less of than you think
+
+A general "the AI can propose arbitrary record changes" capability is a large surface with an unbounded failure mode. But the changes actually needed are small and enumerable: attach a domain, enable sending, add a third-party verification TXT, point a subdomain at something they already run, repair a preservation miss. **Enumerate them as typed operations**, each with its own safety rule, and the assistant picks from a list rather than composing record edits. Smaller build, and the dangerous cases get individual attention instead of one generic guardrail.
+
+## The read tooling — agree, and it's cheaper and more urgent than you framed it
+
+Two findings:
+
+**It's nearly free, given what exists.** `tools/generate/src/cli/ai/toolbox.ts` already has surfaces plus grants — the surface declares the whole API, the grant narrows it (DOC-30). *"Read freely, cannot write"* is exactly a grant. So read-only DNS tools need no new mechanism. The write side is where nothing exists: there's no notion of a propose-don't-execute or confirmation-gated operation anywhere in the toolbox today. That asymmetry is worth exploiting — ship reads early, they cost almost nothing.
+
+**It's needed by ticket C, not after it.** I'd assumed your own domains were green field. They aren't all — `1stcontact.io` already carries the Resend record set per `MAIL.md`. So *"is anything live on this zone"* has to be answerable before the selector attaches anything, even for zones you've owned for years. The cheapest form — does this zone already have MX, SPF, DMARC, a DKIM selector — is a prerequisite of C rather than a follow-on.
+
+**One amendment it forces on the epic.** The body says the propagation suppression window is *"the one cross-epic interface... Nothing else crosses."* A resolver that reads live DNS from outside is needed by EPIC-5's pre-cutover sweep *and* by EPIC-7's checks. That's a second shared thing. I'd build it here (EPIC-5 needs it first) and have EPIC-7 consume it — but it contradicts a sentence in the body, so it should be an explicit revision rather than a quiet one.
+
+## Rollback — yes, and don't conflate two different ones
+
+- **Per-change undo**, within an active zone: snapshot the affected records before each mutation, restore on undo. Cheap, because the snapshot apparatus has to exist anyway for preservation. This is what your card's *Undo* points at.
+- **Mid-cutover rollback** — the epic's Open question 3. Different problem, and the body already narrowed it: with the pending zone populated before the nameservers are shown, a *failed* cutover loses nothing. Only a completed-then-wrong cutover needs it.
+
+Only the first is in scope for the work we're discussing.
+
+## What this does to the plan
+
+A → B → C stand. Two changes:
+
+- **C absorbs the read tools** and the "is anything live here" check, because it can't safely attach a domain without them.
+- **New ticket E** — the typed mutation operations, the constraints in code, the change card, per-change undo. After C, before D.
+
+D (the nameserver experience) stays parked, as you said.
+
+Want me to write A, B, C and E up under EPIC-5, and record the two epic-body revisions — the shared resolver, and the card-is-notification-not-confirmation call? I still need your answer on **root vs `/site/<key>/` on a customer host**, which B can't be written without.
 
 <!-- xgd-chat-end -->
