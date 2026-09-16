@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-255
 created_by: xgd
 created_at: '2026-09-16T17:22:25.872736+00:00'
-updated_at: '2026-09-16T19:41:57.967860+00:00'
+updated_at: '2026-09-16T19:42:50.409938+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -216,5 +216,55 @@ One note: the merge-lock claim took a few attempts — REQ-256 held it mid-sessi
 <!-- xgd-chat role="user" ts="2026-09-16T19:41:57.733245+00:00" -->
 #### You
 Anything UI visible from this session?
+
+<!-- xgd-turn id="0be012f6-9d17-41dd-b167-95aca70827ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:42:50.005883+00:00" -->
+#### Claude
+Checking what this session actually touched, versus what it shipped overall:
+
+**No graphical UI.** Nothing in `apps/` was touched — not the control app, not the public site, not the builder. The rail is a dev CLI; its only surface is terminal output.
+
+The whole of this session's code change was two files:
+
+| File | |
+|---|---|
+| `tools/repro-console/src/rail.ts` | the rerun logic |
+| `tests/test_UAT_FC_REQ-255_regression_rail.test.ts` | 5 new UATs |
+
+## What is visible, and where
+
+**1. The terminal report.** This is the real output from the final gate run:
+
+```
+regression rail: PASS (partial — see what was not gated)  (376.4s)
+
+  ✓ typecheck        5.5s  every workspace package's own typecheck, under both script names
+  ✓ worker-build     1.6s  the control Worker still bundles (`wrangler deploy --dry-run`)
+  ✓ tests          355.4s  530 test file(s) (whole suite), 3 failing, 3 of them already on the recorded bar
+  ✓ references      13.9s  3 reference(s) gated, 3 on the recorded bar
+
+  not gated by this run:
+    – faelan.com: gate not run (--no-browser) — the rendered reproduction …
+```
+
+My change adds four new things a reader can see, none of which appeared in that particular run because the flake didn't recur:
+
+- a progress line — `tests: rerunning N newly-failing file(s) to tell a break from a flake`
+- `, N unreliable` appended to the tests summary
+- a new *not gated* entry — `<file> failed in the suite and passed on its own — not gated, rerun it`
+- `(confirmed on a rerun)` on regression lines that survived the rerun
+
+For contrast, the earlier run this session — before the fix — is what the change exists to stop:
+
+```
+  ✗ [tests] tests/reconciliation-builder-workspace-origin.test.ts fails and was not failing when the baseline was recorded
+```
+
+That file passes 10/10 on its own. It was a false accusation.
+
+**2. Second-hand, in REQ-256's web console.** `tools/repro-console/src/page.ts` renders the rail's report string into a `<pre class="rail">` per iteration, so my new lines will appear there too. Worth flagging since you asked about UI — but that file came in via merge from REQ-256 and REQ-255 never touched it. The plumbing is a plain string, so the new lines need no change on that side.
+
+The exit codes are unchanged in meaning: **0** nothing worse and everything gated · **1** something regressed · **2** nothing regressed but coverage was reduced. An unreliable file now lands in that third bucket, which is the one behavioural shift a caller could notice — a run that previously would have exited 1 on a flake now exits 2.
 
 <!-- xgd-chat-end -->
