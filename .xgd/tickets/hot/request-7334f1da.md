@@ -5,9 +5,9 @@ type: request
 title: 'The domain configuration surface: the selector, the sending toggle, and release'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:54.284753+00:00'
-updated_at: '2026-09-16T21:38:01.828653+00:00'
+updated_at: '2026-09-16T22:03:47.516437+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -240,6 +240,37 @@ always sent from.
 `RESEND_API_KEY` absent is an ordinary state and not a refusal: the domain still
 attaches, the website still serves, and the toggle reports `off`. What does not
 happen is a record set written for a registration that does not exist.
+
+### And a deployment with no zone credential cannot ship at all
+
+**The opposite ruling to the one above, and the contrast is the point.**
+[[REQ-257]] minted `CLOUDFLARE_DNS_TOKEN` and made its deploy hook *warn* rather
+than fail, on a condition it stated plainly: it was the DNS layer and nothing
+that used it, so a deployment without the token answered 503 to an operator and
+customers noticed nothing. It wrote down what would end that — ***"the moment
+serving a custom domain depends on it"*** — and this ticket is that moment.
+
+`Your domain` is a customer surface and every control in it goes through that
+credential: the selector reads the account's zones, the attach writes the
+records and the route, the toggle writes three more, and release takes them all
+down. Without the token the section draws a pool it cannot spend and an attach
+button that cannot work — **worse than the 503 it replaces, because the 503 was
+only ever read by an operator who could act on it.** So the hook's
+absent-everywhere row now **fails the deploy**, and its message names the
+section rather than the capability.
+
+**`RESEND_API_KEY` deliberately does not move with it.** This ticket is a caller
+of that key too and the subsection above rules that case ordinary. A missing
+sending credential costs a feature; a missing zone credential costs the whole
+section — and `bin/deploy.d/secrets/README.md` already states the test the two
+now differ under: *the outcome must match what a deployment without the value
+actually does.*
+
+**What the flip must not cost** is the directory's standing rotation contract: a
+token that has been on the Worker for weeks still deploys without being
+re-supplied, supplying one is still how a rotation is expressed, a rehearsal
+still only reports, and the value is still never echoed — on the row that now
+aborts as much as on the rows that do not.
 
 ### Subdomains
 
