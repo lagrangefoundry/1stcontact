@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:37:11.857560+00:00'
+updated_at: '2026-09-16T03:45:07.489155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -618,5 +618,11 @@ Four tickets cut under EPIC-5, epic body appended (original preserved — I used
 **EPIC-5's status is `done`** and now has four fresh children. That's almost certainly wrong, but status is yours to move — say the word and I'll reopen it.
 
 I haven't cut a branch or written code — this was scoping. REQ-257 is the one to start on when you're ready.
+
+<!-- xgd-turn id="99f660fd-ced6-4e99-973f-440b20a960ea-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T03:45:07.436129+00:00" -->
+#### You
+**The card ships as a notification with an undo.** <-- need to be careful the undo you are talking about what if the user comes back to that chat a year later we have made multiple changes to DNS between now and then but they don't know or understand and push the undo button...I think undo needs to preserve the new and the old state, and check that the new state is what it is expecting before reverting to the old, yes?
 
 <!-- xgd-chat-end -->
