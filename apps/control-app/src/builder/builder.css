@@ -1971,12 +1971,65 @@ body {
 }
 
 .builder-people__message {
+  font-size: 13px;
+  min-width: 0;
+}
+
+/*
+ * THE ROW IS THE SUMMARY AND THE MESSAGE IS WHAT OPENS UNDER IT ([[BUG-97]]).
+ * The flex metrics moved off `__message` onto `__msghead` rather than being
+ * duplicated: the row an operator scans is unchanged, and what is new is
+ * everything below it. `list-style: none` on the summary is what removes the
+ * disclosure triangle's default marker in the browsers that still draw one as a
+ * list marker; the `::marker` rule is the same removal for the rest.
+ */
+.builder-people__msgopen {
+  min-width: 0;
+}
+
+.builder-people__msghead {
   display: flex;
   align-items: baseline;
   gap: 6px;
   padding: 3px 8px;
-  font-size: 13px;
   min-width: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.builder-people__msghead::marker,
+.builder-people__msghead::-webkit-details-marker {
+  display: none;
+}
+
+.builder-people__msghead:hover {
+  background: var(--shell-hover, rgb(0 0 0 / 4%));
+}
+
+/*
+ * The message as it was sent. A FIXED HEIGHT AND NOT `auto`: an iframe cannot be
+ * measured from outside without reaching into it, which a sandboxed document
+ * rightly forbids — so it gets a window tall enough to read the top of a message
+ * in and scrolls for the rest, which is what a mail client's preview pane does.
+ */
+.builder-people__msgbody {
+  display: block;
+  width: 100%;
+  height: 320px;
+  margin: 4px 0 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: 4px;
+  background: #fff;
+}
+
+/* Said in the same place and the same size as a failure, because it is the same
+   kind of fact: something an operator would otherwise read as a delivery. */
+.builder-people__msgunsent,
+.builder-people__msgnobody {
+  display: block;
+  padding: 0 8px 3px;
+  font-size: 12px;
+  color: var(--shell-muted);
 }
 
 .builder-people__msgsubject {
@@ -2019,9 +2072,13 @@ body {
 }
 
 /* The provider's own words about a failure. It wraps rather than truncates —
-   the reason is the whole content of the row, and half of it is no use. */
+   the reason is the whole content of the row, and half of it is no use.
+   A BLOCK UNDER THE SUMMARY SINCE [[BUG-97]], not a wrapped flex child: the row
+   is a `<summary>` now and the reason sits below it, beside the other sentences
+   that qualify what the status pill says. */
 .builder-people__msgfailure {
-  flex: 1 1 100%;
+  display: block;
+  padding: 0 8px 3px;
   font-size: 12px;
   color: var(--shell-danger, #b91c1c);
 }

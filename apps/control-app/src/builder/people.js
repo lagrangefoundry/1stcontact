@@ -397,7 +397,60 @@ export function shortWhen(iso) {
 }
 
 /**
- * One message, as the detail pane lists it ([[REQ-198]]).
+ * The prefix `capturingMailer` mints a provider id under ([[REQ-196]]).
+ *
+ * WHY A PREFIX AND NOT A FLAG ON THE RECORD. The switch between the adapter that
+ * sends and the one that cannot is *does this deployment hold a credential* and
+ * nothing else — there is no mode var to read, deliberately — so the only thing
+ * in the record that distinguishes a recorded message from a delivered one is the
+ * id the adapter put there. Reading it here is not a guess: it is the one place
+ * that fact survives to.
+ */
+const LOCAL_PROVIDER = 'local_'
+
+/** Was this message only RECORDED — no provider, so nothing left the building? */
+function wasRecordedOnly(message) {
+  return typeof message.providerId === 'string' && message.providerId.startsWith(LOCAL_PROVIDER)
+}
+
+/**
+ * The message as the recipient will see it, in a frame of its own ([[BUG-97]]).
+ *
+ * AN IFRAME BECAUSE A MESSAGE IS A DOCUMENT. It carries its own inlined styles —
+ * `renderL1Email` puts them on every element, because that is what a mail client
+ * needs — and appending that into the builder's own document would let it restyle
+ * the pane around it. A frame is the only containment that is not a promise
+ * somebody has to keep.
+ *
+ * `srcdoc` AND NOT A URL, because there is no URL: the body is a value the pane
+ * already holds, and minting an endpoint to serve it back would be a second,
+ * unauthenticated way to read a contact's mail.
+ *
+ * SANDBOXED, WITH EXACTLY ONE CAPABILITY. `allow-popups` is what lets the
+ * operator PRESS THE LINK, which is the whole reason this exists — a preview
+ * submission's mail is the only place the gated link can be read, and a link you
+ * cannot click is a link you cannot test. Top-level navigation is deliberately
+ * NOT allowed: the message must not be able to take the builder's own tab, and a
+ * mail's button opening in a new tab is what a mail client does anyway.
+ * `allow-popups-to-escape-sandbox` keeps the tab it opens an ordinary one rather
+ * than a sandboxed document that would then fail to load the gate.
+ *
+ * `<base target="_blank">` IS WHAT MAKES `allow-popups` REACH THE LINK, and it is
+ * prepended rather than substituted into the markup: the copy is the author's and
+ * an editing pass over it here would be this pane deciding what the message says.
+ */
+function messageBodyFrame(message) {
+  const frame = document.createElement('iframe')
+  frame.className = 'builder-people__msgbody'
+  frame.setAttribute('sandbox', 'allow-popups allow-popups-to-escape-sandbox')
+  frame.setAttribute('title', `The message “${message.subject || '(no subject)'}” as it was sent`)
+  frame.setAttribute('loading', 'lazy')
+  frame.srcdoc = `<base target="_blank">${message.body ?? ''}`
+  return frame
+}
+
+/**
+ * One message, as the detail pane lists it ([[REQ-198]], opened by [[BUG-97]]).
  *
  * THE STATUS IS AN ATTRIBUTE AND NOT A CLASS PER VALUE, the idiom the facets
  * above already use: one rule describes a status pill, and the sheet says which
@@ -408,17 +461,65 @@ export function shortWhen(iso) {
  * whether pressing Invite again will help; "domain not verified" and "mailbox
  * full" call for opposite actions, and the reason is on the record precisely so
  * it can be read here.
+ *
+ * IT OPENS TO SHOW WHAT WAS SENT ([[BUG-97]]). The rendered body has been on this
+ * wire since the route was written and this pane dropped it, so the only way to
+ * read the mail a form actually sends was to publish the site and send it to
+ * yourself. That is the wrong order: a message goes to a stranger, and the
+ * surface for checking it before it does is this one. It matters twice over for a
+ * GATED download, whose per-contact link exists nowhere else — not in the
+ * template (which holds `{{cta_url}}`, not a link) and not in a development
+ * deployment's mail, which is never sent.
+ *
+ * `<details>` AND NOT A CLICK HANDLER. Disclosure is what the element is for, it
+ * is keyboard-reachable and announced without a single attribute from us, and the
+ * frame is built on first open rather than up front — twenty messages is twenty
+ * documents, and the operator wants one of them.
+ *
+ * A MESSAGE THAT WAS ONLY RECORDED SAYS SO, and that is not cosmetic. A
+ * deployment with no mail credential writes the record `sent` with a `local_`
+ * provider id, so this pane — the one surface an operator consults to find out
+ * whether something went — reported a delivery that never happened. The word the
+ * record carries is still shown, because that is what the record says; what is
+ * added is the sentence that makes it true.
  */
 function messageLine(message) {
   const line = el('li', 'builder-people__message')
-  line.append(el('span', 'builder-people__msgsubject', message.subject || '(no subject)'))
-  line.append(el('span', 'builder-people__msgwhen', shortWhen(message.queuedAt)))
+  const open = el('details', 'builder-people__msgopen')
+  const head = el('summary', 'builder-people__msghead')
+  head.append(el('span', 'builder-people__msgsubject', message.subject || '(no subject)'))
+  head.append(el('span', 'builder-people__msgwhen', shortWhen(message.queuedAt)))
   const status = el('span', 'builder-people__msgstatus', message.status)
   status.dataset.status = message.status
-  line.append(status)
+  head.append(status)
+  open.append(head)
+
   if (message.failure) {
-    line.append(el('span', 'builder-people__msgfailure', message.failure))
+    open.append(el('span', 'builder-people__msgfailure', message.failure))
   }
+  if (wasRecordedOnly(message)) {
+    open.append(
+      el(
+        'span',
+        'builder-people__msgunsent',
+        'Recorded only — this deployment has no mail provider, so nothing was delivered.',
+      ),
+    )
+  }
+
+  // BUILT ON FIRST OPEN, and only once. `toggle` fires on both directions, so the
+  // guard is the presence of the frame rather than a boolean somebody has to keep
+  // in step with the DOM.
+  open.addEventListener('toggle', () => {
+    if (!open.open || open.querySelector('.builder-people__msgbody')) return
+    open.append(
+      (message.body ?? '') === ''
+        ? el('p', 'builder-people__msgnobody', 'This message was recorded without a body.')
+        : messageBodyFrame(message),
+    )
+  })
+
+  line.append(open)
   return line
 }
 

@@ -115,8 +115,11 @@ describe('REQ-241 — a form promises a set of assets', () => {
       // The authored artifact URL is NOT in the mail: it is behind the gate.
       expect(message.body).not.toContain(paper.url)
       const link = gateLinkIn(message.body)
+      // ON THE SITE'S OWN HOST SINCE [[BUG-97]], not on a constant — see that
+      // ticket, and `recipientSiteUrl`. The host comes from the fixture because
+      // the label is random.
       expect(link).toMatch(
-        new RegExp(`^https://1stcontact\\.io/site/${site.siteKey}/api/download/gate_[0-9a-f]{32}$`),
+        new RegExp(`^https://${site.host}/site/${site.siteKey}/api/download/gate_[0-9a-f]{32}$`),
       )
       links.add(link)
     }

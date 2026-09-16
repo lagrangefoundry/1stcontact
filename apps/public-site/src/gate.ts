@@ -1,4 +1,10 @@
 import { DOWNLOAD_PATH } from '../../../packages/framework/src/modules/contact-form/fields'
+import {
+  downloadsPage,
+  GATE_CACHE,
+  GATE_HEADERS,
+  parseDownloadPath,
+} from '../../../packages/framework/src/modules/contact-form/gate'
 import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
 import { parseRoute, SITE_SEGMENT, isValidSiteKey } from './routes'
 import type { SiteStore } from './site-store'
@@ -102,18 +108,14 @@ export function gateTarget(pathname: string, apexSiteKey: string | undefined): G
   if (siteKey === null) return null
   const path = parsed.kind === 'apex' || parsed.kind === 'asset' ? parsed.path : ''
 
-  const prefix = `${DOWNLOAD_PATH}/`
-  if (!path.startsWith(prefix)) return null
-  const rest = path.slice(prefix.length)
-  // EXACTLY TWO SHAPES, `<token>` AND `<token>/<assetKey>`. A third segment is
-  // not a deeper gate, it is a caller guessing — so it is not the endpoint, and
-  // meets whatever the ordinary serving path says about it.
-  const parts = rest.split('/')
-  if (parts.length > 2) return null
-  const [token, assetKey] = parts
-  if (!token) return null
-  if (parts.length === 2 && !assetKey) return null
-  return { siteKey, token, assetKey: parts.length === 2 ? assetKey : null }
+  // THE TAIL'S GRAMMAR IS THE `contact-form` MODULE'S ([[BUG-97]]). It was
+  // spelled here, which was correct while this was the only server answering the
+  // endpoint; `control-app`'s preview answers it too now, and a second spelling
+  // of *what a download path means* is the failure `fields.ts`'s whole header is
+  // about. What stays here is the half that is this server's: which SITE the
+  // request resolved to.
+  const target = parseDownloadPath(path)
+  return target === null ? null : { siteKey, ...target }
 }
 
 /** Everything the gate needs resolved for it, gathered once per request. */
@@ -123,17 +125,14 @@ export interface GateServing {
   bucket: R2Bucket
 }
 
-/**
- * A gated response is nobody else's, ever.
- *
- * `private` NAMES THE SHARED EDGE CACHE AS THE ONE PLACE THESE BYTES MUST NOT
- * GO, which for a page minted per contact is the difference between tracking one
- * person and serving the first arrival's page to everybody. `index.ts` stores
- * only 200s and only for requests carrying no session, so this is belt as well as
- * braces — and the braces are that the gate is matched BEFORE the cache is
- * consulted at all.
+/*
+ * `GATE_CACHE` AND `GATE_HEADERS` ARE THE MODULE'S AND NO LONGER THIS FILE'S
+ * ([[BUG-97]]). Two servers answer a gated response now, and a cache directive
+ * one of them had to remember to set is one of them eventually not setting it.
+ * `index.ts` stores only 200s and only for requests carrying no session, so
+ * `private` here is belt as well as braces — and the braces are that the gate is
+ * matched BEFORE the cache is consulted at all.
  */
-const GATE_CACHE = 'private, no-store'
 
 /** Answer one gate request — the page, or one artifact. */
 export async function handleGate(
@@ -147,7 +146,8 @@ export async function handleGate(
   if (target.assetKey === null) {
     const page = await gate.openGate(target.siteKey, target.token)
     if (!page) return notFound()
-    return downloadsPage(new URL(request.url).pathname, page.assets)
+    const listing = downloadsPage(new URL(request.url).pathname, page.assets)
+    return new Response(listing.body, { status: 200, headers: listing.headers })
   }
 
   const artifact = await gate.takeAsset(target.siteKey, target.token, target.assetKey)
@@ -205,67 +205,7 @@ async function deliver(url: string, siteKey: string, serving: GateServing): Prom
     status: 200,
     headers: {
       'content-type': contentTypeOf(parsed.path),
-      'cache-control': GATE_CACHE,
-      'x-robots-tag': 'noindex',
-    },
-  })
-}
-
-/** `&`, `<`, `>`, `"` — everything that could change what a name means in markup. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-/**
- * The page itself — a heading and the links, and deliberately nothing else.
- *
- * THIN IS THE DESIGN AND NOT A PLACEHOLDER ([[REQ-244]] §3). There is no beacon
- * and no client-side timer, so the interval between arriving and taking a paper
- * is the engagement signal — and that reading only holds while the page's whole
- * content IS the links. Anything else to read here would make the interval
- * measure the reading rather than the deciding.
- *
- * LINKS ARE BUILT FROM THE REQUEST'S OWN PATH rather than written relative. A
- * document-relative `<token>/<key>` resolves against the URL's DIRECTORY, which
- * is one segment above where the token sits — correct by accident today and
- * wrong the moment the path gains or loses a segment.
- *
- * AN EMPTY SET IS A PAGE AND NOT A 404. The form promised something when the mail
- * went out; a later publish can take it away, and telling the person who was sent
- * the link that their link is broken is worse than telling them there is nothing
- * here at the moment.
- */
-function downloadsPage(pathname: string, assets: Array<{ key: string; name: string }>): Response {
-  const base = pathname.replace(/\/+$/, '')
-  const items = assets
-    .map(
-      (asset) =>
-        `<li><a href="${escapeHtml(`${base}/${encodeURIComponent(asset.key)}`)}">` +
-        `${escapeHtml(asset.name)}</a></li>`,
-    )
-    .join('')
-  const body = [
-    '<!doctype html>',
-    '<html lang="en"><head><meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    '<meta name="robots" content="noindex">',
-    '<title>Your downloads</title></head>',
-    '<body><h1>Your downloads</h1>',
-    items === ''
-      ? '<p>There is nothing here at the moment.</p>'
-      : `<p>Here is what you asked for.</p><ul>${items}</ul>`,
-    '</body></html>',
-  ].join('')
-  return new Response(body, {
-    status: 200,
-    headers: {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': GATE_CACHE,
-      'x-robots-tag': 'noindex',
+      ...GATE_HEADERS,
     },
   })
 }

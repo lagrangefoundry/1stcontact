@@ -404,6 +404,36 @@ export async function addressesOf(env: IdentityEnv, siteKey: string): Promise<Si
   return (results ?? []).map(toAddress)
 }
 
+/**
+ * Which of a site's addresses a LINK should wear, or `null` for a site with none
+ * ([[BUG-97]]).
+ *
+ * THE CUSTOM ONE WINS AND `platform` IS THE FALLBACK. A business that has gone
+ * to the trouble of pointing its own domain at us has said which address it wants
+ * to be seen at, and a mail to a stranger is the surface where being seen at the
+ * other one costs the most — it is the whole of why [[BUG-97]] is a bug rather
+ * than an inelegance. Nothing holds both today, because `custom` is declared and
+ * not implemented; the preference is written now so that [[EPIC-6]] landing does
+ * not silently leave every gated mail on the platform host.
+ *
+ * ASKED OVER `kind` AND NEVER BY MATCHING THE APEX, which is the rule this
+ * module already holds itself to: a reader that tested for `.1stc.site` would be
+ * `if (!hostname) refuse` in a different costume, wrong the day a second kind
+ * appears.
+ *
+ * PURE, OVER A LIST THE CALLER ALREADY HAS. {@link addressesOf} is the read; this
+ * is the choice. Keeping them apart is what lets the publish gate ask *does this
+ * site have at least one address* over the same list without going near which
+ * one of them a link would use.
+ */
+export function addressForLinks(addresses: readonly SiteAddress[]): SiteAddress | null {
+  return (
+    addresses.find((address) => address.kind === 'custom') ??
+    addresses.find((address) => address.kind === 'platform') ??
+    null
+  )
+}
+
 function toAddress(row: { id: string; site_id: string; host: string; kind: string }): SiteAddress {
   return {
     id: row.id,
