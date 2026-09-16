@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T22:28:06.865128+00:00'
+updated_at: '2026-09-16T22:31:05.978439+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -670,5 +670,66 @@ ok I need your help to sort out permissions. I added my CF api key to 1c.dev.env
 ✗ Resend refused GET /domains (401). This API key is restricted to only send emails
 
 Please see the transcript with REQ-259 where I started this conversation
+
+<!-- xgd-turn id="6bc22a46-567f-49de-ab6b-efffa0a3b0e4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T22:31:04.996243+00:00" -->
+#### Claude
+Let me find that transcript and the code that's calling Resend.
+
+Found it. That transcript is a different session's, and the error you're seeing is **not** a Cloudflare problem — it's Resend. Let me confirm against the code before I tell you what to change.
+
+Confirmed — that message is Resend's own text, passed through verbatim by `resend.ts:220`. And the module already documents the exact cause at `resend.ts:43`. Let me check whether the Cloudflare half of what you did caused a second, quieter problem.
+
+Found the real picture. **You've got two separate problems, and only one of them is the error you're looking at.**
+
+All confirmed. Let me verify your Cloudflare token actually has zone scope while I'm here — read-only call, nothing echoed.
+
+Sorted. Three things, and the one you're looking at is the least interesting.
+
+## 1. The error is Resend, not Cloudflare
+
+`RESEND_API_KEY` is a **Sending access** key. Resend scopes keys to *sending* or *full access*, and `GET /domains` needs the second. The message you saw is Resend's own text passed through verbatim by `resend.ts:220` — and `resend.ts:43` already documents the exact cause:
+
+> *Resend scopes an API key to sending or to full access, and domain management needs the second.*
+
+Nothing to do with what you changed. This key would have failed the same way before you touched Cloudflare.
+
+**Fix:** Resend dashboard → API Keys → Create API Key → **Full access**. Permissions can't be edited after creation, so it has to be a new key; replace the value of `RESEND_API_KEY` and delete the old one.
+
+## 2. Your Cloudflare DNS token is good — verified
+
+`/user/tokens/verify` returns active, and `GET /zones` returns your 13 zones, all `active`: `1stcontact.io`, `1stc.site`, `faelan.com`, `gendevlabs.ai`, `gigabytealchemy.ai`, `gigabytefoundry.ai`, `lagrangefoundry.ai`, `lagrangepoint.io`, `merklebonsai.com`, `positronica.ai`, `westhead.me`, `xgd.dev`, `xgendev.ai`.
+
+So the other session's caveat — that a Workers-AI-scoped token often 401s on zone endpoints — didn't bite. Read scope is confirmed. I did **not** test write scope, since that means creating a record; `Zone:DNS:Edit` and `Workers Routes:Edit` are still unverified and will announce themselves on first attach.
+
+## 3. But `CLOUDFLARE_API_TOKEN` has broken your knowledge base
+
+This is the one to act on. You added **two** names; only `CLOUDFLARE_DNS_TOKEN` was needed. `cloudflare.ts:73` reads that one and nothing else.
+
+The second name is actively harmful. `transportFor` (`embedder.ts:244-252`):
+
+```
+if (accountId && apiToken) return 'REST'
+if (accountId) throw …
+if (apiToken) throw PartialAiCredentialError('CLOUDFLARE_ACCOUNT_ID')   ← you are here
+return env.AI ? 'binding' : null                                         ← never reached
+```
+
+You have `CLOUDFLARE_API_TOKEN` set and no `CLOUDFLARE_ACCOUNT_ID`, so it throws on the third line. Control-app has an `[ai]` binding (`wrangler.toml:388`), so before your change this returned `'binding'` and the KB worked. It now throws on every gate that asks — `router.ts:1223` and `session-knowledge.ts:326`. `cloudflare.ts:16-23` predicted this precisely:
+
+> *that pair is BOTH-OR-NEITHER, so declaring the account id … would hand `transportFor` half a credential and break the project knowledge base on a deployment that never asked for REST.*
+
+**Fix** — delete the line, don't add an account id (you don't want REST; the binding is better):
+
+```bash
+sed -i '' '/^CLOUDFLARE_API_TOKEN=/d' ~/Documents/secrets/1c.dev.env
+```
+
+Then restart the dashboard. I've left the file alone — it's your credential store, and I'd rather hand you the command than edit it behind you. Say the word if you want me to run it.
+
+---
+
+**One gap worth a bug, which your session just found by walking into it.** `resend.ts:43` argues that *"a deployment that could send but not manage domains would offer the toggle and refuse it, which is worse than not offering it"* — and then nothing detects that state. An **absent** key degrades gracefully (toggle reports off, domain still attaches). A **sending-only** key throws a raw `ResendApiError` with Resend's English in it, which is exactly the worse-than-not-offering case the docstring names. The hazard is documented and unhandled. Want me to file it?
 
 <!-- xgd-chat-end -->
