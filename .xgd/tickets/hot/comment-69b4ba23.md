@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-259
 created_by: xgd
 created_at: '2026-09-16T20:05:41.308228+00:00'
-updated_at: '2026-09-16T21:38:29.104825+00:00'
+updated_at: '2026-09-16T21:43:38.169519+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,11 @@ The prior session had already written and committed the implementation and merge
 **Ticket body:** I audited all 42 UAT names against the body and found five describing behaviour it didn't name — the empty-pool sentence, the toggle and address being separately reversible, the release dialog and its focused Cancel, release being idempotent, and `_dmarc` counting as present when only the world can see it. I added a *"Five smaller consequences"* subsection inside `What landed`, preserving everything already there, so reconciliation doesn't have to discover them.
 
 The ticket is parked at `free_coded`. Promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="f3e309d2-edd8-464a-8b42-eda182918d7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:43:36.243482+00:00" -->
+#### You
+Does this ticket contain UI visible changes?
 
 <!-- xgd-chat-end -->
