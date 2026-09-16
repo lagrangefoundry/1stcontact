@@ -31,15 +31,19 @@
  * deliberately propagates to nothing is that the customer is TOLD what is now
  * inconsistent and gets to choose.
  *
- * WHAT IS NOT HERE YET. The `1stc.site` hostname is [[REQ-238]]'s, and it is not
- * built — there is no operation to call and nothing true to render, so there is
- * no field for it. A box that looked like a registrar's and refused every entry
- * would be worse than its absence ([[DOC-47]]: never build a fake). The pane is a
- * list of settings sections so that one is an addition rather than a rewrite.
+ * TWO SECTIONS, WITH OPPOSITE LIFECYCLES ([[REQ-249]]). The business's NAME is
+ * changed freely and costs nothing to get approximately right; the free web
+ * address beneath it is chosen once and lived with. They sit on one pane because
+ * that is where a customer looks for either, and they are two sections rather
+ * than two fields in one form because the sentences that have to travel with the
+ * second one — what it is, that it is permanent — would read as pedantry if they
+ * were stretched across both. The pane was written as a list of sections so that
+ * the hostname would be an addition rather than a rewrite, and it is.
  */
 
 import { mountFields } from '@lagrangefoundry/webui-fields'
-import { saveBusinessName } from './api.js'
+import { fetchAddresses, saveBusinessName } from './api.js'
+import { createHostnameSection } from './hostname.js'
 
 /**
  * The field, and the two sentences around it.
@@ -105,8 +109,9 @@ export function outOfDateNotes(effects) {
  * Mount the pane.
  *
  * @param {object} [options]
- * @param {{saveName: (name: string) => Promise<object>}} [options.transport]
- *   injected by tests; defaults to the origin call.
+ * @param {{saveName?: Function, loadAddresses?: Function, checkHostname?: Function,
+ *   claimHostname?: Function}} [options.transport] injected by tests; each
+ *   defaults to the origin call.
  * @param {(business: {id: string, name: string}) => void} [options.onRenamed]
  *   told the record the origin returned, so the chrome that also shows this name
  *   can follow. The switcher is the reason this exists: a rename that relabelled
@@ -144,8 +149,40 @@ export function createSettingsPanel(options = {}) {
   empty.className = 'builder-settings__empty'
   empty.textContent = NO_BUSINESS
 
+  /**
+   * The free web address, as its own section ([[REQ-249]]).
+   *
+   * ITS OWN MODULE AND NOT MORE OF THIS ONE. What it draws depends on an answer
+   * from the origin, it owns a dialog, and the four sentences it says are the
+   * whole substance of the ticket that asked for it — none of which is true of a
+   * text field over a rename. Keeping it here would make this file a pane and a
+   * registrar at once.
+   *
+   * THE CONFIRM DIALOG IS HOSTED ON THE PANE, because `modal.js` resolves the
+   * shell's tokens and the app font from an ancestor: appended to `document.body`
+   * — a sibling of the shell — a dialog renders in the browser's default serif
+   * and does not follow a theme switch.
+   */
+  const hostname = createHostnameSection({
+    modalHost: element,
+    transport: {
+      ...(transport?.checkHostname ? { check: transport.checkHostname } : {}),
+      ...(transport?.claimHostname ? { claim: transport.claimHostname } : {}),
+    },
+  })
+
+  const loadAddresses = transport?.loadAddresses ?? fetchAddresses
+
   let fields = null
   let business = null
+  /**
+   * WHOSE ADDRESSES ARE STILL WANTED. The read is a round trip and the customer
+   * may switch business while it is in flight; without this the previous
+   * business's answer arrives last and draws its hostname under this one's name
+   * — the crossing [[REQ-181]] refuses for the Library, on the one fact on this
+   * pane that cannot be corrected.
+   */
+  let addressGeneration = 0
 
   function showNotes(effects) {
     notes.replaceChildren()
@@ -174,13 +211,25 @@ export function createSettingsPanel(options = {}) {
     fields?.destroy()
     fields = null
     notes.replaceChildren()
+    // CLEARED BEFORE THE READ, NOT AFTER IT. The previous business's address is
+    // the one thing on this pane that must never be shown under another
+    // business's heading, and the re-read is allowed to fail.
+    hostname.clear()
+    const mine = ++addressGeneration
     if (!business) {
       section.remove()
+      hostname.element.remove()
       element.append(empty)
       return
     }
     empty.remove()
-    element.append(section)
+    element.append(section, hostname.element)
+    void loadAddresses()
+      .then((answer) => {
+        if (mine !== addressGeneration) return
+        hostname.setAddresses(answer)
+      })
+      .catch(() => {})
     fields = mountFields(fieldHost, {
       schema: [BUSINESS_NAME_FIELD],
       values: { name: business.name ?? '' },
@@ -211,10 +260,13 @@ export function createSettingsPanel(options = {}) {
     setBusiness,
     /** What the pane believes the record says — for the host and for a suite. */
     getBusiness: () => business,
+    /** The free web address section — for the host and for a suite. */
+    hostname,
     clear: () => setBusiness(null),
     destroy() {
       fields?.destroy()
       fields = null
+      hostname.destroy()
       element.remove()
     },
   }

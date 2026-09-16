@@ -2952,3 +2952,100 @@ body {
   font-size: 0.9em;
   color: var(--shell-fg-muted);
 }
+
+/*
+ * THE FREE WEB ADDRESS ([[REQ-249]]).
+ *
+ * THE BOX AND THE APEX ARE ONE THING ON SCREEN, because they are one host: the
+ * label sits in a field, `.1stc.site` sits immediately after it in the same
+ * baseline, and the two read as the address the customer is about to own rather
+ * than as a word and a caption. A gap between them is the rendering the ticket
+ * refuses — a bare label field with the apex somewhere else.
+ *
+ * Everything paints from `--shell-*`, like every other builder surface, so the
+ * section follows a theme switch.
+ */
+.builder-settings__subtitle {
+  margin: 0;
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.builder-hostname__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.builder-hostname__label {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  padding: 6px 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: var(--shell-fg);
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+}
+
+.builder-hostname__label:focus-visible {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 1px;
+}
+
+/* NOT MUTED. It is half of the address, not an annotation on it. */
+.builder-hostname__apex {
+  font-size: var(--builder-control-font-size);
+  white-space: nowrap;
+}
+
+.builder-hostname__check {
+  appearance: none;
+  padding: 6px 12px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: var(--shell-fg);
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  cursor: pointer;
+}
+
+.builder-hostname__check:hover {
+  border-color: var(--shell-accent);
+}
+
+.builder-hostname__check[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.builder-hostname__line {
+  margin: 0;
+  font-size: 0.9em;
+}
+
+.builder-hostname__line:empty {
+  display: none;
+}
+
+/* The lock-in button sits alone under its own answer, not in a row of controls:
+   it is a different kind of act from the check above it and reads as one. */
+.builder-hostname__lock {
+  align-self: flex-start;
+}
+
+.builder-hostname__held-line {
+  margin: 0;
+  font-size: 0.9em;
+}
+
+/* The dialog's own two sentences. Ordinary prose in the shared shell — the panel,
+   the backdrop, the footer and the buttons are all `modal.js`'s. */
+.builder-hostname__confirm {
+  margin: 0 0 10px;
+  font-size: 0.95em;
+  line-height: 1.45;
+}

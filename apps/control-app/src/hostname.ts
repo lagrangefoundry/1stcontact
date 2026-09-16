@@ -332,6 +332,23 @@ export function labelRefusal(raw: string): string | null {
   return null
 }
 
+/**
+ * Which KIND of refusal a check ran into ([[REQ-249]]).
+ *
+ * THE CLASS IS DECIDED HERE BECAUSE THE RULES ARE HERE. The settings pane says
+ * something different for each of the three — *try another word* for a name
+ * somebody else has, *that one is ours* for a reserved label, and the broken
+ * rule itself for a name that is not a hostname — and the only other way for it
+ * to tell them apart would be to read {@link labelRefusal}'s prose, or to carry
+ * its own copy of the reserved list. Both are re-deciding, in the client, what
+ * this module already decided.
+ *
+ * `taken` AND `reserved` ARE NOT THE SAME ANSWER, and collapsing them sends the
+ * customer the wrong way: somebody told `mail` is *taken* goes looking for
+ * `mail2`, which is also reserved, and so is every other decoration of the word.
+ */
+export type HostnameRefusal = 'taken' | 'reserved' | 'invalid'
+
 /** What {@link checkHostname} answers. */
 export interface HostnameCheck {
   /** The whole host, as it would be. Present even when it is refused. */
@@ -339,6 +356,8 @@ export interface HostnameCheck {
   available: boolean
   /** Why not, in a sentence. Null when it is available. */
   refusal: string | null
+  /** Which kind of refusal it was. Null when it is available. */
+  reason: HostnameRefusal | null
 }
 
 /**
@@ -359,13 +378,20 @@ export interface HostnameCheck {
 export async function checkHostname(env: IdentityEnv, raw: string): Promise<HostnameCheck> {
   const host = hostFor(raw)
   const refusal = labelRefusal(raw)
-  if (refusal !== null) return { host, available: false, refusal }
+  if (refusal !== null) {
+    // THE SAME SPLIT `claimHostname` MAKES, and made once here so the two
+    // operations cannot come to disagree about which refusal a label earns.
+    const reason: HostnameRefusal = RESERVED_LABELS.has(normaliseLabel(raw))
+      ? 'reserved'
+      : 'invalid'
+    return { host, available: false, refusal, reason }
+  }
   const row = await env.DB.prepare('SELECT id FROM site_domains WHERE host = ?')
     .bind(host)
     .first<{ id: string }>()
   return row
-    ? { host, available: false, refusal: `\`${host}\` is already taken.` }
-    : { host, available: true, refusal: null }
+    ? { host, available: false, refusal: `\`${host}\` is already taken.`, reason: 'taken' }
+    : { host, available: true, refusal: null, reason: null }
 }
 
 /** Every live address for one site, whatever kind it is. */
