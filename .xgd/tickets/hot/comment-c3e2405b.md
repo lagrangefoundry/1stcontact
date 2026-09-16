@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T19:17:59.400115+00:00'
+updated_at: '2026-09-16T19:21:17.492388+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,39 @@ Want me to seed public-site's local D1 so the resolver is demoable on `localhost
 <!-- xgd-chat role="user" ts="2026-09-16T19:17:58.723854+00:00" -->
 #### You
 So I (this account) own gigabyealchemy.ai, xgd.dev and 1stcontact.io is can we test with those?
+
+<!-- xgd-turn id="8ea36c28-d754-4dd5-bea3-005351296f4f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:21:17.027275+00:00" -->
+#### Claude
+Good — that's exactly the route the ticket points at: *"the operator's own already-active zones are the shortest route to a real site on a real address."* Let me check what state those zones are actually in before recommending one.
+
+Yes — two of the three. Here's what I found.
+
+### 1stcontact.io is refused by the code, deliberately
+
+`PLATFORM_APEXES` is `{1stc.site, 1stcontact.io}` (derived from `PUBLIC_SITE_ORIGIN`), and it's refused twice over: `hostRefusal` rejects it as *"ours"*, and `serveHostOnSite` rejects it again via `isPlatformApex(zone.apex)`. That's REQ-257's first guard restated — pointing one customer's site at the platform apex would hand them the namespace. It's also the live production apex. Not a test candidate, and the refusal itself is worth seeing.
+
+### xgd.dev or gigabyealchemy.ai — either works
+
+One caveat on `xgd.dev`: `.dev` is HSTS-preloaded, so browsers force HTTPS with no click-through. Universal SSL covers the apex and one label, so `xgd.dev` and `www.xgd.dev` are both fine *once issued* — but during the certificate wait the ticket names as invisible, `.dev` fails harder than `.ai` does. `gigabyealchemy.ai` is the gentler test. (I couldn't resolve either name to check the spelling — DNS is blocked from this sandbox, `dig` times out against every server.)
+
+### Three things are missing before any of it runs
+
+1. **`CLOUDFLARE_DNS_TOKEN` is not set.** `apps/control-app/.dev.vars` has only `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `PLATFORM_ADMINS`. Without it `cloudflareFor` returns `null` and the route answers 503. It needs `Zone:DNS:Edit` + `Workers Routes:Edit` — and `listRoutes` is inside the scope it already had.
+2. **The `zones` table is empty.** `zoneForHost` walks that table; with nothing in it `serveHostOnSite` throws `NoZoneForHostError` before touching Cloudflare. REQ-257's `recordZone` has to run first, and the zone needs an `account_id` attributed and `status = 'active'` or you'll get `ZoneNotReadyError`.
+3. **Migration 0011 isn't applied** — as before.
+
+### The part to decide deliberately
+
+**Attaching replaces the apex `A`/`AAAA` and creates `www`.** If either domain currently serves a website at its apex, that site goes away the moment you attach. `MX` is untouched, so mail survives — only `A`/`AAAA` at the served names are written. The operation reports what it overwrote in `replaced`, but that's a report after the fact, not a check before it: deciding whether a domain is *safe* to take over is the pre-cutover sweep, and the ticket parks that as separate work.
+
+I can't see what's at those apexes from here — no DNS, no token. You'd want to check before picking.
+
+### If you want to go ahead
+
+Rough order: apply the migration, set the token, `recordZone` for the chosen apex, attribute it to your account, then `POST /api/admin/domains` with `{host, businessId}`. Then `DELETE ?host=…` puts it back — deleting the routes, the records and the rows, and promoting the site's `1stc.site` hostname back to canonical.
+
+Want me to walk that through? I'd stop before the actual attach and hand you the exact call, since it rewrites live DNS on a domain you own — that's your key to turn, not mine.
 
 <!-- xgd-chat-end -->
