@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T19:15:10.107893+00:00'
+updated_at: '2026-09-16T19:20:53.567203+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -639,5 +639,43 @@ Ok we are ratholing  a little. Lets wind out and talk about the big picture I wa
 5) functional (BFM) monitoring - I will actually have an entire separate EPIC for BFM, but we should plan for it here - we need "test-specific code paths" that have to be engineered into the product from the outset.
 
 We will NOT buidl all this is in one pass, we will nibble away at it but I'm trying to capture the vision - feel free to help me with gaps
+
+<!-- xgd-turn id="88199a2d-a279-4c60-98fe-89ea4e6ef1df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:20:53.038823+00:00" -->
+#### Claude
+Understood — BFM hooks as a first-class platform requirement, not retrofitted. That changes what goes in the epic: the synthetic-path contract becomes a constraint on every email surface rather than a section at the end.
+
+Let me look at how epics are shaped in this repo before drafting.
+
+Enough recon. One notable find: `resolver.ts` ([[REQ-257]]/EPIC-5) already reads live DNS from outside and probes MX, DKIM selectors and SPF includes specifically to answer *"is there a live business on this domain today?"* — so the dangerous-domain detection this epic needs already exists.
+
+Let me draft the epic body.
+
+**[[EPIC-13]] — "Email: capture, send, and never break the business's mail"** (`epic-d76e554a`, draft, priority high, created by CHAT-54).
+
+Your five areas are all in Scope, with §5 written as a **constraint on the other four rather than a section**, since the synthetic contract touches the data model and can't be retrofitted. The rest of the epic records what we settled in this conversation so it doesn't get re-litigated.
+
+**Recon worth knowing about** — two things already exist that the epic consumes rather than rebuilds:
+
+- `resolver.ts` ([[REQ-257]]/[[EPIC-5]]) already reads DNS *from outside* and probes MX, DKIM selectors by name and SPF includes, explicitly to answer *"is there a live business on this domain today?"* That's precisely the safe-to-take-MX question, already solved.
+- `mail.ts` + `email-webhook.ts` give you the sender port and delivery/bounce/complaint events on the contact spine.
+
+**Gaps I added** (§"Gaps worth naming") — the two I'd flag hardest:
+
+**Threading.** Replies must join via `Message-Id`/`In-Reply-To`/`References`. Without it the activity log is a heap of disconnected messages rather than a conversation, and the epic's central claim quietly fails. Easy to miss because each individual message looks fine.
+
+**Per-business DKIM makes a domain a precondition for outbound.** A business on a bare `@gmail.com` cannot be a properly authenticated sender at all — DMARC alignment forbids it. That's an *onboarding* requirement, not an email feature, and it lands on someone else's epic.
+
+Also named: attachments, erasure reaching message bodies ([[DOC-37]]), fan-out ≠ shared inbox, open-relay safety, sender identity within a multi-staff business, cost model, and the don't-allowlist-the-monitor warning.
+
+**Six open questions**, of which two block work:
+
+1. **The tab seam.** I've recorded your two-tabs instinct, but argued the natural seam is *configure-once vs work-daily*, not in vs out — which would push addresses/forwarding/DNS-health into Settings where [[EPIC-4]]'s record-and-status precedent already lives, leaving one new tab for reading conversations and running campaigns. Worth deciding before any surface gets built.
+2. **Where a message body lives.** [[EPIC-11]] commits `contact_events` to "milestones, not noise" and the table is immutable. A 40KB body on the spine breaks that promise; an event pointing at R2 keeps it. It also decides retention and erasure mechanics.
+
+The others: MX-takeover policy, sending subdomain for domainless businesses, what capture does with spam, and whether OAuth sync is ever in scope (recorded as a decision rather than an oversight).
+
+No children attached yet — `epic_children` is empty, so the first nibble is choosing what becomes REQ-1 under it. My suggestion would be the inbound pipeline for a domain with no existing MX, since that's the zero-risk case that also fixes the "nothing notifies the business when an enquiry arrives" gap in [[DOC-47]].
 
 <!-- xgd-chat-end -->
