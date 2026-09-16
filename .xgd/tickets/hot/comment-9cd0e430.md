@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:18:51.136121+00:00'
+updated_at: '2026-09-16T17:19:34.495944+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -192,5 +192,49 @@ listen EADDRINUSE: address already in use 127.0.0.1:8710
 ```
 
 can you please (1) give me a --port arg and (2) can you give me a command to kill the process holding a port?
+
+<!-- xgd-turn id="369e6495-8d3b-4177-9ccf-8bd8b47d8609-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:19:34.201213+00:00" -->
+#### Claude
+Both are already covered — `--port` shipped with the console, and the thing on 8710 is a stale console of your own.
+
+## (1) `--port` already exists
+
+```bash
+bin/repro-console --port 9000
+```
+
+`--port 0` also works — it takes an ephemeral port and prints whichever one it got. The default is 8710, picked clear of `1c builder`/wrangler (8788) and Vite HMR (24678) so the console can sit alongside them.
+
+The real gap is that the EADDRINUSE message doesn't *tell* you `--port` exists — it's Node's raw message passed straight through. Worth fixing; see below.
+
+## (2) Killing the holder
+
+```bash
+lsof -ti tcp:8710 | xargs kill
+```
+
+`-t` gives bare PIDs, so it pipes straight into `kill`. Add `-9` if it doesn't go. To look before you leap:
+
+```bash
+lsof -nP -iTCP:8710 -sTCP:LISTEN
+```
+
+I ran that just now — it's `node`, PID **14767**, owned by you, listening on 127.0.0.1:8710. Nothing else in this repo binds 8710, so that's an earlier `bin/repro-console` still running. Safe to kill.
+
+One-liner that restarts cleanly:
+
+```bash
+lsof -ti tcp:8710 | xargs -r kill; bin/repro-console
+```
+
+(macOS `xargs` has no `-r`; drop it there, or just accept the harmless "usage" line when nothing is listening.)
+
+---
+
+Also confirming: the `pnpm install` landed — `tools/repro-console/node_modules/vite` is present, which is why you got as far as binding a socket. That command exited 137 (killed) in my sandbox, but it had already done the work.
+
+Want me to make the port-in-use failure say something useful — name the port, name the `lsof` command, and point at `--port`? That's a code change on REQ-254, so it'd be a branch, a UAT, and matching ticket language.
 
 <!-- xgd-chat-end -->
