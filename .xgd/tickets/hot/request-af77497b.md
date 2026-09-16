@@ -5,10 +5,10 @@ type: request
 title: An email page shows its subject, and the page list says it is a message
 created_by: EPIC-10
 created_at: '2026-09-16T00:47:03.770642+00:00'
-updated_at: '2026-09-16T00:47:03.770642+00:00'
+updated_at: '2026-09-16T01:06:40.760630+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
