@@ -6,10 +6,10 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-09-08T04:20:41.884877+00:00'
+updated_at: '2026-09-16T02:48:46.489773+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 5
