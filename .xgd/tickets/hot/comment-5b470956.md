@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-255
 created_by: xgd
 created_at: '2026-09-16T17:22:25.872736+00:00'
-updated_at: '2026-09-16T19:15:37.252045+00:00'
+updated_at: '2026-09-16T19:40:01.539198+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,44 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="ba06c082-b8c2-440c-bdb7-a15b6d877423-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:40:00.916324+00:00" -->
+#### Claude
+Now I'll implement the flake re-check in the tests phase.
+
+Now merge back under the lock and claim.
+
+The claim landed. Now story points and branch cleanup.
+
+Free-coding complete. REQ-255 is at `free_coded`, landed on `xgd-working`, branch cleaned.
+
+## What I found and did this session
+
+The prior session had the rail built and committed but left three things open: an uncommitted test fix, an uncommitted version bump, and the final full-rail gate run it never got to finish.
+
+**The final gate run found a real defect in the rail.** Running `./bin/repro-rail --no-browser` as its own gate, it reported `tests/reconciliation-builder-workspace-origin.test.ts` as a regression. That file passes on its own (verified — 10/10) and fails only under the parallel load of a whole-suite run. Nothing on this branch touches it.
+
+A rail that cries wolf is one the caller learns to ignore, which costs more than no rail — and requirement 4 is specifically that the thing being restrained can act on what it is told. So a newly-failing file is now rerun on its own before it is called a regression:
+
+- **fails again** → a regression, line reads `(confirmed on a rerun)`
+- **passes** → **not gated**. Not green, not red: it failed once and passed once, so the rail has no verdict. It lands in the not-gated list, which makes the run PARTIAL and exits 2 — a caller checking `exit == 0` still never gets a green it has not earned.
+
+This is not retry-until-green: the rerun separates "reliably broken" from "no verdict available" and never manufactures a pass. An unreliable file is also kept off the recorded bar, since recording it as already-failing would lower the bar on one bad roll and stop the rail ever reporting it again. Bounded at 10 files — one flake is worth a rerun, forty are a broken engine.
+
+## Verification
+
+| Check | Result |
+|---|---|
+| REQ-255 UATs | **44 pass** (was 39; 5 added for the rerun behaviour) |
+| `pnpm -r typecheck` | clean |
+| Full rail, final gate | **PASS** (partial, exit 2 — no browser on this machine), 376s |
+
+The suite phase measured 208s / 248s / 355s across three whole-rail runs, so I corrected the ticket's measurement section: the absolute number is machine load, but the ratio is stable and is what settles EPIC-12 §9 Q7 — the suite is 91% of runtime, everything else ~23s.
+
+**Commits** (all `[FREE-CODED]`, version `0.2.221`): `20ffb158e9` the rail · `e7b2e92baa` test assertion fix for xgd-working's `CLI_ENTRY` change · `9cff763a25` version bump · `3d9fa8a4bb` the rerun fix. Story points 8.
+
+One note: the merge-lock claim took a few attempts — REQ-256 held it mid-session — and my `/tmp` scratch path was denied by the sandbox, so the loop's own logging failed even though the claim itself succeeded. Confirmed by reading the ticket back rather than trusting the loop.
 
 <!-- xgd-chat-end -->
