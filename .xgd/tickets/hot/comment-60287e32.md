@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T19:37:36.086802+00:00'
+updated_at: '2026-09-16T19:39:36.856058+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -693,5 +693,30 @@ No children attached yet — `epic_children` is empty, so the first nibble is ch
 **The tab seam.** I've recorded your two-tabs instinct, but argued the natural seam is *configure-once vs work-daily*, not in vs out — which would push addresses/forwarding/DNS-health into Settings where [[EPIC-4]]'s record-and-status precedent already lives, leaving one new tab for reading conversations and running campaigns. Worth deciding before any surface gets built. <-- agreed lets go with yours on this
 
 **Where a message body lives.** [[EPIC-11]] commits `contact_events` to "milestones, not noise" and the table is immutable. A 40KB body on the spine breaks that promise; an event pointing at R2 keeps it. It also decides retention and erasure mechanics. <-- I think message bodies should be tickets - the event records the header fields, body size, presense of attachements etc
+
+<!-- xgd-turn id="4baa9ed3-f50c-48fb-8d01-9226d51de600-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:39:36.139254+00:00" -->
+#### Claude
+Let me check what "ticket" means inside the product before recording that.
+
+`tickets.ts` makes your instinct land better than I think you realised. Let me check the append path and then record both decisions.
+
+Confirmed — and the fit is better than "workable". `productTypePack()` registers `material`/`reference`/`brief` alongside chat schemas, so a message type is an ordinary extension; and `reference`'s bundle docstring describes *"N attachment records on one ticket, one per member, each with `meta.member` naming its role"* — which is precisely MIME multipart.
+
+Both recorded in [[EPIC-13]] as resolved, with the original questions left standing above so the reasoning stays legible.
+
+**Your body-as-ticket call is more idiomatic than I expected.** Four things in `tickets.ts` were built for properties email needs:
+
+- **Tenancy is structural** — `forTenant` stamps `WHERE tenant_id = ?` on every read/write and the handle is *terminal*. Correspondence is the most confidential thing the product will hold, and this is the one store where no call site is given the chance to forget the tenant.
+- **Attachment blobs are already in a bucket deliberately separate from `1stcontact-sites`**, because that one is bound by the Worker serving the public internet. Email attachments need exactly that property; anywhere else you'd have to invent it.
+- **The `reference` bundle docstring is a description of MIME multipart** — N attachment records on one ticket, `meta.member` per part. And addressing is content-derived, so the same document forwarded around a thread dedups to one blob for free.
+- **Retrieval falls out.** `knowledge.ts` embeds tickets, so *"what did we agree with this customer about the boiler"* becomes answerable as a consequence of the storage decision rather than a feature.
+
+**The one thing it does not inherit** — and I've written it in as an obligation: `contact_events` is immutable by database trigger, but the ticket store is *not*. Tickets carry `version` and `updated_at` and are designed to change. A record of what was actually said must not, so write-once has to be enforced rather than assumed.
+
+Also flagged as obligations: KB corpus membership must default *out* (per-message embedding cost would swamp a corpus currently made of briefs and material), threading maps to ticket-plus-comments following the `chat_transcript` precedent, erasure has to reach the R2 blobs or it's erasure that reads correct and isn't, and volume is an open engineering question — this store was sized for uploads and chats, not every message every business sends.
+
+**On the tab seam**, one consequence worth watching: with config in Settings and per-contact history on the contact, what's actually left in the new tab is substantially *campaigns*. A unified cross-contact inbox is a hypothesis about how a one-van business works, not a known requirement. Your "simplify later" may land before the first tab is built rather than after — so I've written in: don't build the unified inbox until someone asks for one.
 
 <!-- xgd-chat-end -->
