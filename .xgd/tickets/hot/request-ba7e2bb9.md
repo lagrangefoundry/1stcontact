@@ -6,9 +6,9 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-16T21:28:26.800840+00:00'
+updated_at: '2026-09-16T21:37:42.048770+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -91,26 +91,40 @@ exclusion is asserted rather than assumed.
 The reverse direction needs deciding too: a production-KB document may well be
 worth showing a round, and nothing says whether the session KB may include one.
 
-### 4. The round reads the KB; it does not reach into the ticket store
+### 4. How a round reaches ticket knowledge — an open design question
 
-**Tickets are read and written through the xgd ticket API, never by file path.**
-That rule is absolute and it creates a real problem this ticket has to solve: a
-round has `Read`, `Glob` and `Grep` and no `Bash`, so it cannot run `xgd` — by
-design ([[REQ-256]] behaviour 3, which stands). It therefore cannot use the
-ticket API at all.
+**Tickets are created and updated only through the xgd ticket API.** That is
+already true and must stay true. The console runs `xgd ticket create` and
+`xgd ticket update --append-body-file` (`tools/repro-console/src/ticket.ts`),
+and nothing in the console reads or writes the ticket store by path —
+`page.ts:352` and `console.ts:749` both record that deliberately.
 
-So the round must never be pointed at the ticket store. **The console assembles
-the KB using the API and writes it as ordinary files the round reads** — the
-same shape as the evidence directory, where the console produces and the round
-consumes. Whatever the mechanism, a round must never need a ticket path and
-must never need to run a command.
+The open question is narrower: **a round subprocess has no `Bash`, so it cannot
+invoke `xgd` itself.** Everything it needs from the ticket store today arrives
+because the console fetched it through the API first. That works for material
+we can anticipate — the KB, the known-gap registry. It does not work for a
+SEARCH, because the console cannot know the query in advance.
 
-This also covers something the first round did that we should support properly
-rather than by accident: it searched prior tickets and found that the same
-defect had been observed once before and shipped without a fix, which was worth
-saying in its ticket. That is a good instinct served by a bad route. If a round
-should be able to see relevant prior tickets, the console supplies them through
-the API.
+This matters because the first round did exactly that: it searched prior
+tickets and found the same defect had been observed once before and shipped
+without a fix, which was worth saying in its ticket. Good instinct, and there
+is currently no sanctioned route for it.
+
+Decide between:
+
+- **Console-as-broker** — the round asks, the console runs the API call and
+  supplies the result. Keeps [[REQ-256]] behaviour 3 exactly as measured, at
+  the cost of a round trip and a narrower query surface.
+- **Scoped `xgd` access for the round** — permit only read verbs
+  (`ticket get`, `ticket list`) and nothing that mutates. This reopens
+  behaviour 3, whose comment records a MEASURED finding that a tool merely
+  absent from the allow list still ran. Scoped allow rules are a different
+  mechanism from omission and may well gate correctly — but that must be
+  MEASURED before it is relied on, exactly as the original finding was.
+
+Whichever is chosen: tickets are still only ever WRITTEN by the console,
+through the API, at `status: draft`. That is [[REQ-256]] behaviour 4 and it is
+not in question here.
 
 ### 5. Priming is measured
 
@@ -135,11 +149,14 @@ regression, and we should be able to see that rather than argue about it.
 5. No session-KB document reaches the production corpus. [[DOC-53]] does not
    appear in `1c kb build`'s output, and this is asserted by a test.
 6. The round reaches every KB document with `Read`, `Glob` and `Grep` alone.
-7. Nothing the round is given points at a ticket path. The console reads
-   tickets through the xgd ticket API and writes the KB as files.
-8. [[REQ-256]] behaviour 3 holds unchanged: the round still has no tool that
+7. Nothing the round is given points at a ticket path, and no ticket is ever
+   created or updated except through the xgd ticket API.
+8. The route by which a round reaches ticket knowledge is decided and stated.
+   If it is scoped `xgd` access, the gating is measured and the measurement
+   recorded beside the policy, as [[REQ-256]]'s original finding was.
+9. [[REQ-256]] behaviour 3 holds unchanged: the round still has no tool that
    can write a file, run a command, reach the network or spawn an agent.
-9. Tool-call count and cost for a primed round are recorded against a
+10. Tool-call count and cost for a primed round are recorded against a
    comparable unprimed one.
 
 ## Acceptance
