@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T19:21:17.492388+00:00'
+updated_at: '2026-09-16T19:39:59.345315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -184,5 +184,13 @@ I can't see what's at those apexes from here — no DNS, no token. You'd want to
 Rough order: apply the migration, set the token, `recordZone` for the chosen apex, attribute it to your account, then `POST /api/admin/domains` with `{host, businessId}`. Then `DELETE ?host=…` puts it back — deleting the routes, the records and the rows, and promoting the site's `1stc.site` hostname back to canonical.
 
 Want me to walk that through? I'd stop before the actual attach and hand you the exact call, since it rewrites live DNS on a domain you own — that's your key to turn, not mine.
+
+<!-- xgd-turn id="4bf2c247-0caf-4c12-a42f-f6464e0d9851-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:39:58.135101+00:00" -->
+#### You
+Can you actually make ALL the domains I have on this CF account associated with my account please?
+
+Can I edit the API token permissions to give it DNS access - how?
 
 <!-- xgd-chat-end -->
