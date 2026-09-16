@@ -6,9 +6,9 @@ title: A gated download link names a hardcoded host and the wrong channel, not t
   site's own address
 created_by: EPIC-10
 created_at: '2026-09-16T00:46:18.723054+00:00'
-updated_at: '2026-09-16T00:46:18.723054+00:00'
+updated_at: '2026-09-16T00:47:39.141387+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -79,7 +79,7 @@ is refused and says so rather than composing a link into a domain nobody owns.
 
 ## Test plan
 
-`tests/test_UAT_FC_BUG-<id>_download_host.test.ts`:
+`tests/test_UAT_FC_BUG-97_download_host.test.ts`:
 
 - A published site with a platform hostname mails a link on **that** host, and the site key
   does not appear in the URL's authority.
