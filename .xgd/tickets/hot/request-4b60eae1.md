@@ -5,9 +5,9 @@ type: request
 title: Publish refuses a site with no address, and the refusal offers the way out
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:40.996562+00:00'
-updated_at: '2026-09-16T00:29:00.988501+00:00'
+updated_at: '2026-09-16T00:34:35.390841+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -75,6 +75,42 @@ modal to know it is the one to open. Everything that is not the address refusal
 goes on reaching `block.fail` exactly as it does now — this ticket adds one
 branch and changes no existing path.
 
+## How it tells this refusal from the others
+
+**On the code the Worker already names, not on the prose and not on the bare
+status.** `router.ts` answers this 409 with `code: 'NO_PUBLIC_ADDRESS'` beside the
+sentence. `streamPublish` now attaches both the `code` and the HTTP `status` to
+the `Error` it throws, and `app.js` branches on the code. Reading the class of a
+refusal out of its sentence would be a second copy of a rule the Worker already
+applied, and it would break the day somebody improved the sentence; branching on
+`409` alone would be wrong the first time this route grows a second refusal with
+that shape.
+
+The code is declared twice — `NO_PUBLIC_ADDRESS_CODE` beside the error that
+raises it, and `NO_PUBLIC_ADDRESS` in the builder — because the browser client
+cannot import the Worker's module. A static UAT pins the two to the same string
+and pins the route to sending the constant rather than a third literal. That is
+the closest thing to one declaration the runtime boundary allows.
+
+## What the two buttons do
+
+**`Choose my web address`** selects the Settings tab and then reveals
+[[REQ-249]]'s hostname section: the section is scrolled into view and its box
+takes focus. Either half alone is half a route — the tab without the section
+leaves the customer on a pane to search, and the section without the tab is a
+scroll inside a panel nobody is looking at. The dialog closes after the move, so
+it is not sitting over the thing it just asked them to look at. The `reveal()`
+this needs is a small addition to the hostname section, safe on a business that
+has already chosen (there is no box to focus, so it only scrolls).
+
+**`Not now`** closes the dialog and leaves the builder exactly as it was: the
+lock is already off, no failure banner is drawn, and Publish is pressable again —
+one press, the same answer, one dialog rather than two.
+
+**`Not now` takes focus**, for the reason the hostname confirm dialog's Cancel
+does: a Return press aimed at the Publish button behind the dialog must not land
+on a navigation nobody asked for.
+
 ## Not in scope
 
 - **Any change to the gate itself**, its wording on the wire, or when it fires.
@@ -91,3 +127,6 @@ branch and changes no existing path.
 - Copy that names the `1stc.site` hostname as the only fix.
 - Any other publish failure diverted into this modal.
 - A dialog built from anything other than `createModalShell`.
+- The code branched on as a bare `409`, or read out of the refusal's prose.
+- A third copy of `NO_PUBLIC_ADDRESS` anywhere, unpinned by a test.
+- The Settings tab opened without the hostname section put in view.
