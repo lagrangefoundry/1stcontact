@@ -532,6 +532,11 @@ describe('REQ-238 — the pane calls them directly, and no conversation is requi
     expect(await free.json()).toEqual({
       host: `${label}.${PLATFORM_APEX}`,
       available: true,
+      // `reason` NAMES WHICH REFUSAL IT WAS, and is null when there was none
+      // ([[REQ-249]]): the settings pane says a different sentence for `taken`,
+      // `reserved` and `invalid`, and the alternative to the route saying which
+      // is the client re-deciding it from prose.
+      reason: null,
       refusal: null,
     })
 

@@ -1166,3 +1166,82 @@ export async function saveBusinessName(name, fetchImpl = fetch) {
   }
   return res.json()
 }
+
+/**
+ * The three calls the free web address is chosen with ([[REQ-249]], [[REQ-238]]).
+ *
+ * THREE ORDINARY CALLERS OF ROUTES THAT ALREADY EXIST, and nothing below decides
+ * anything. What a hostname may be, which labels are kept, and whether one is
+ * free are [[REQ-238]]'s and are answered by the Worker — this module carries the
+ * question there and the answer back. A client that re-derived any of it would be
+ * a second rule that can disagree with the first, and the customer would have no
+ * way to tell which is right.
+ */
+
+/**
+ * What addresses this business holds, and the apex they sit under.
+ *
+ * THE APEX COMES WITH THEM AND IS NOT WRITTEN HERE. A surface about to ask
+ * somebody to choose a permanent name has to show the WHOLE host as it will be,
+ * and `1stc.site` composed in the browser would be a second place that string
+ * lives — one that can fall out of step with the one the Worker actually issues.
+ */
+export async function fetchAddresses(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/hostname'), { method: 'GET' })
+  if (!res.ok) throw new Error(`GET /api/hostname → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Is this one free?
+ *
+ * IT ANSWERS 200 FOR A NAME IT REFUSES, so a refusal is read out of the body and
+ * never out of the status. "Taken" is the answer to the question rather than a
+ * failure to answer it, and treating it as an error is what would turn the most
+ * ordinary outcome of a first-come namespace into something that looks broken.
+ */
+export async function checkHostname(label, fetchImpl = fetch) {
+  const res = await send(
+    fetchImpl,
+    scoped(`/api/hostname/check?label=${encodeURIComponent(label)}`),
+    { method: 'GET' },
+  )
+  if (!res.ok) throw new Error(`GET /api/hostname/check → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * The refusal a claim came back with.
+ *
+ * IT CARRIES THE ROUTE'S OWN DISTINCTION rather than a status code. `taken` is
+ * the race — somebody took it between the check and the press — and is the one
+ * the pane has a sentence of its own for; `held` is this business already having
+ * one, and names it. Everything else is the Worker's sentence, shown as it came.
+ */
+export class HostnameClaimError extends Error {
+  constructor(envelope, status) {
+    super(envelope?.error || `claim refused (${status})`)
+    this.name = 'HostnameClaimError'
+    this.status = status
+    this.taken = envelope?.taken === true
+    this.host = envelope?.host ?? null
+    this.held = envelope?.held ?? null
+  }
+}
+
+/**
+ * Take it. Final.
+ *
+ * IT DOES NOT CHECK FIRST. The Worker's unique index is the authority and a
+ * check immediately beforehand would be the same race with an extra round trip
+ * and a more confident-looking answer.
+ */
+export async function claimHostname(label, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/hostname/claim'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ label }),
+  })
+  if (!res.ok) throw new HostnameClaimError(await res.json().catch(() => null), res.status)
+  return res.json()
+}

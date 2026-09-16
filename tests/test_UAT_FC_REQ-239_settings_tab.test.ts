@@ -143,6 +143,11 @@ function mount(over: Record<string, unknown> = {}) {
         asked.renames.push(name)
         return { ...RENAMED, name }
       },
+      // THE PANE ASKS WHAT ADDRESSES THIS BUSINESS HOLDS ([[REQ-249]]), because
+      // the free-web-address section beneath the name draws a field or a
+      // permanent host depending on the answer. Stubbed here for the reason every
+      // other seam in this fixture is: an unstubbed call reaches the real origin.
+      loadAddresses: async () => ({ apex: '1stc.site', addresses: [] }),
     },
     libraryTransport: {
       list: async () => ({ material: [] }),
