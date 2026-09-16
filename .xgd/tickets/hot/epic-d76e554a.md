@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-16T19:39:24.247182+00:00'
+updated_at: '2026-09-16T22:18:25.465264+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -400,3 +400,101 @@ and keeps the immutable table small.
    survive in R2 would be erasure that reads correct and is not.
 6. **The synthetic marker applies here too.** Message tickets carry it and every
    ticket query filters it by default, exactly as for the spine.
+
+
+## The Campaigns surface, and its objects ([[CHAT-54]])
+
+### Correction: one entity, several representations
+
+An earlier draft of the list decision confused the data structure with where it is
+drawn. Corrected by the client: *"we have one set of email lists and we decide where
+they are represented, contacts or Campaigns or both."* There is **one list entity**.
+Placement is a separate and later decision, and the answer may legitimately be both.
+
+### Three ticket types, and one that must not be
+
+**A campaign is a ticket. A list is a ticket. A content email is a ticket.**
+
+This is not a new pattern here — `apps/control-app/src/templates.ts` ([[REQ-197]])
+already establishes it in terms this epic simply inherits: *"A MESSAGE BODY IS
+CONTENT, AND CONTENT IS A TICKET… this repository already has exactly one place
+where that is true of anything: the tenant's own ticket store."* It also records why
+it lives in the tenant store rather than the platform's — nothing in that file knows
+which business it serves, so *"the same code gives a customer their own templates for
+their own contacts with no second path and no platform-only branch."* [[DOC-40]]
+§2.1 rule 1 names the alternative — a capability built only for the platform — as
+the failure mode.
+
+The decomposition is campaign = **content × list × schedule**, plus the record of
+what happened. Each part is separable because each is reused independently: one list
+receives many campaigns, one content may be sent to more than one list or tested
+against another.
+
+**`template` and campaign content are different types, deliberately.** The existing
+`template` type is *keyed* — `TemplateKey`, newest-ticket-wins — because a platform
+message like the invite or the lapse notice is a role that gets re-filled. A
+marketing email is not a role; it is a specific thing said once, referenced by uid
+from the campaign that sent it. Same principle, different lifecycle, so a new type.
+
+**But `template`'s key convention is the precedent for immutability**, and it is a
+better one than a lock: *"replacing a template is writing a new ticket rather than
+editing a live one in place… the record of what was sent last month still points at
+the ticket that said it."* Campaign content follows the same rule — edit produces a
+new ticket, and a sent campaign keeps pointing at the bytes that actually went out.
+
+**Per-recipient sends are NOT tickets.** A campaign to 800 people is one campaign
+ticket, one content ticket, and 800 events on the `contact_events` spine. Making
+each send a ticket would multiply the store by the size of every list for no gain —
+the per-recipient facts are milestones, which is what the spine is for.
+
+**Which yields the rule for where a body lives:** a **broadcast** send references
+shared content, so the contact's event points at the campaign's content ticket. A
+**one-to-one** message — transactional, or a human writing to one person — owns its
+body, so it gets its own message ticket. Both end up on the timeline; only the second
+duplicates bytes, and only because those bytes are genuinely unique.
+
+### The surface: the 1+2 pane pattern
+
+The tab uses the established `[item list][detail][chat associated with detail]`
+pattern (the Intent tab in xgd), for which a reusable framework implementation is
+being built. The item list switches between **Lists / Content / Campaigns**.
+
+**The chat pane is the AI panel** this epic asked for in scope item 4 — not a
+separate surface. Scoped to the selected ticket, it is the copywriter on a content
+ticket, the audience advisor on a list, and the deliverability diagnostician on a
+campaign. Standing authentication and DNS health remain in Settings; per-send
+diagnosis belongs to the campaign it is about.
+
+### Where lists are represented
+
+One entity, three possible representations, and only the first is needed now:
+
+1. **Campaigns** — the list as an object: membership, rules, consent state, and the
+   size *after suppression*, which is the only count that predicts what will happen.
+   Build this.
+2. **Contacts — "save this selection as a list."** The client's observation is that
+   *"the contacts page has the right UI for creating a list"*, and it does: you are
+   already looking at contacts, filtering them, choosing. But that is an **action**
+   that mints a list ticket, not a second representation of the entity. Later.
+3. **The contact detail — "which lists is this person on."** A field, the cheapest of
+   the three. Later.
+
+Note that the first lists will mostly not be hand-built: an import creates one, and
+contact state supplies the obvious others. Rich selection UI can wait for (2).
+
+### Inbound from an unknown sender
+
+Owned by this epic, landing on the Contacts tab: a pending/unidentified state in the
+contact list rather than a mail surface, where triage is promote-to-contact or
+discard. **Discard must be sticky** — a decision that does not persist re-surfaces
+the same sender every day and trains the client to ignore the queue.
+
+### Open
+
+- **Personalisation and the record.** If content carries merge fields, each recipient
+  received slightly different text. Does the record show what was actually received,
+  or the content plus the merge values, rendered on read? The second is far cheaper
+  and is probably right, but it is a decision about what the record *means*.
+- **Is visual styling its own ticket?** The client wants AI styling as a template,
+  reusable across content. That is plausibly a per-business ticket in the `template`
+  key-resolved style rather than a field on each content.
