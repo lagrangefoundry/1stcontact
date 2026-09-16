@@ -5,9 +5,9 @@ type: request
 title: 'Choosing the 1stc.site hostname: the field, the check, and the lock-in'
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:28.341246+00:00'
-updated_at: '2026-09-16T00:25:53.222049+00:00'
+updated_at: '2026-09-16T00:25:57.371837+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.207
+  story_points: 3
 ---
 
 ## What this is
