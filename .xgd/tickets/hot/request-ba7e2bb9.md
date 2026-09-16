@@ -6,7 +6,7 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-16T21:43:37.078447+00:00'
+updated_at: '2026-09-16T22:04:28.756138+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -221,3 +221,90 @@ regression, and we should be able to see that rather than argue about it.
 [[REQ-254]] (the console) · [[DOC-53]] (the session's knowledge base) ·
 [[EPIC-12]] §7.1, §8.5 · [[DOC-19]] · [[DOC-21]] · [[DOC-23]] · [[DOC-27]] ·
 [[DOC-30]] · [[DOC-39]]
+
+
+## Decisions (operator, 2026-09-16)
+
+These settle the open questions posed above. Where a decision overrides
+something stated earlier in this body, the decision wins.
+
+### D1. The outcome-block fence defect belongs to [[REQ-261]], not here
+
+The first live round did not fail for want of tool access. It produced a
+complete, well-formed `"status": "filed"` block carrying the
+`coverage-check-misses-section-background-images` diagnosis, and the console
+recorded `status: failed`, `reason: "the round produced no outcome block."`
+The cause was `parseOutcome`'s lazy fenced-block regex terminating at the first
+` ``` ` *inside* the ticket body — fences the brief's own §6.3 requires, because
+quoting `gate.json` is how evidence is carried. The better the round's evidence,
+the more certain it was to be discarded.
+
+This is [[REQ-261]] behaviour 1 and requirement 1, it is `free_coded`, and its
+three commits are in `xgd-working`: `jsonObjectsFromEnd` has replaced the fence
+regex. **Nothing about it is in scope here.** It is recorded because it is the
+reason the first round looks like a failure in the artifacts, and any later
+reading of those artifacts needs to know that the round itself was sound.
+
+### D2. The selection rule is every `doc` ticket — no opt-in
+
+§2 above worried that a sweep "puts material in front of the round that has
+nothing to do with reproduction". The operator has weighed that and chosen the
+sweep anyway: this is a dev tool, and an opt-in field is a mechanism somebody
+has to maintain for a benefit that an index already delivers.
+
+So: **every `doc` ticket is in the session KB.** The rule is one line, it cannot
+drift from what exists, and no document has to be remembered into it.
+
+What makes it affordable is that the round does not read the KB, it *searches*
+it. The corpus is 52 documents and ~888 KB — around 222k tokens if read whole,
+which no round may do. A generated `INDEX.md` carries one line per document
+saying what question that document answers, and the round reads the index and
+then the two or three documents it points at. **The index is load-bearing, not
+a convenience**: without it the sweep is unusable, and a KB built without one is
+not built.
+
+### D3. A production-KB document may enter the session KB
+
+The reverse-direction question in §3 is answered yes. A `doc_kind: system_kb`
+document is a document like any other as far as a diagnosing round is
+concerned, and D2's rule admits it without a special case.
+
+The forward direction is unchanged and remains the thing that is asserted:
+**no session-KB document reaches the production corpus.** `exportCorpus` admits
+only `doc_kind: system_kb` (`tools/generate/src/cli/kb.ts:256`), [[DOC-53]]
+carries `doc_kind: architecture`, and requirement 5 stands as written. The two
+rules are deliberately asymmetric because the two readers are: a round reading
+an extra document wastes tokens, and a client-facing agent reading an extra
+document misinforms a customer.
+
+### D4. The round must not reach the KB through the ticket store
+
+Requirement 7 is currently NOT held, and the first round is the evidence: it
+read `.xgd/tickets/hot/request-7ff1bacd.md` directly by path (transcript line
+89) after grepping for `^title:|^status:`. Nobody gave it that path — it found
+the store. The instinct was good and the finding it produced was worth having;
+the route was not sanctioned.
+
+So the KB is an EXPORT, not a pointer: the console writes each document to
+`<DOC-ID>.md` in its own workspace, frontmatter stripped, rebuilt every round so
+it cannot go stale. The round reaches it with `Read`, `Glob` and `Grep` over
+that directory, which is requirement 6 held structurally. This mirrors
+`exportCorpus`, which already solves exactly this problem for the production
+corpus.
+
+### D5. Ticket SEARCH is still open, and is measured before it is chosen
+
+D4 settles how a round reaches DOCUMENTS. It does not settle §4's question,
+which is how a round reaches TICKETS — the thing the first round wanted when it
+went looking for prior art on its defect.
+
+Before choosing between console-as-broker and scoped `xgd` access, the scoped
+allow rule is MEASURED, exactly as [[REQ-256]]'s original finding was: whether
+`--allowedTools 'Bash(xgd ticket get:*)'` actually refuses a `Bash` call that
+does not match the prefix. Prefix rules are a different mechanism from omission
+and may well gate correctly, but the project has one measurement on record
+saying an allow list did not, and that measurement is why behaviour 3 is shaped
+the way it is. The result is recorded beside the policy whichever way it falls.
+
+If the scoped rule does not gate, the route is the broker and `Bash` stays
+denied by name.
