@@ -5,9 +5,9 @@ type: bug
 title: A form promising several assets sends one identical message per asset
 created_by: EPIC-10
 created_at: '2026-09-16T00:46:39.704901+00:00'
-updated_at: '2026-09-16T01:06:26.696439+00:00'
+updated_at: '2026-09-16T01:12:56.304382+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -84,3 +84,5 @@ promising one of them does not send again.
 - A form promising none still sends its welcome once, keyed as it is today.
 - The delivery events name every asset that went out, so `asset.sent` accounts for both
   artifacts even when one message carried them.
+
+-
