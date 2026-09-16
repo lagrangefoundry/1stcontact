@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-259
 created_by: xgd
 created_at: '2026-09-16T20:05:41.308228+00:00'
-updated_at: '2026-09-16T20:36:20.405816+00:00'
+updated_at: '2026-09-16T21:27:40.135164+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,14 @@ Now the CSS:
 Now the jsdom section test:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="1de9e40d-a4f2-47f9-a9af-04abffa3e03c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:27:39.747731+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
