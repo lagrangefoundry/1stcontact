@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:15:23.030450+00:00'
+updated_at: '2026-09-16T03:24:52.889488+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -496,5 +496,21 @@ A→B→C is buildable now. D is where the epic's acceptance bar actually lives 
 Two things I'd want your call on before writing any of it: **root or `/site/<key>/` on a customer host**, and **whether the email toggle ships with C or waits** — the "do we want to send as their domain at all" question in Open questions is still open, and C's toggle assumes yes.
 
 Want me to write A–D up under EPIC-5, or talk through the root-vs-prefix decision first?
+
+<!-- xgd-turn id="25a50cba-1339-4e4a-b278-7a341dfd0a37-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T03:24:52.208911+00:00" -->
+#### You
+Lets not try to bite off the nameserver change experience yet. Lets focus on the others first and come back to that one. I think it needs some thought.
+
+One thing that is important is tooling to check the current state of the DNS so that we can provide the user with warnings - the AI needs access to these so it can help resolve issues too.
+
+I think the pattern for a DNS change via AI should be that the AI proposes the change as a special question that pops up in the chat asking for explicit user confirmation. Change is applied when the user clicks accepts it - so the AI cannot make changes directly.
+
+There are still risks since the user is (in general) a tech novice and honestly DNS is something I use so infrequently and which is so arcane - I would just accept what the AI said too. However at least this way its clear to the user what is going on. 
+
+A rollback feature would be good too.
+
+That said - do we need any of that?
 
 <!-- xgd-chat-end -->
