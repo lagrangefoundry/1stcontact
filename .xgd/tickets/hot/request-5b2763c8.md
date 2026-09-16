@@ -5,9 +5,9 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T01:47:16.558352+00:00'
+updated_at: '2026-09-16T02:56:59.270132+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -69,7 +69,8 @@ of today's manual reproduction loop, which is why it lands first.
 
 ## Out of scope
 
-- Any AI (that is T3), and the "what the AI changed" link (also T3).
+- Any AI (that is [[REQ-256]]), and the fourth per-iteration link to the gap
+  ticket the AI filed (also [[REQ-256]]).
 - The regression rail (T2).
 - Pages other than the home page.
 
