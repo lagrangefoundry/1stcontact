@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-16T21:43:30.927655+00:00'
+updated_at: '2026-09-16T22:05:56.656430+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,76 @@ Baseline from the failed round: **18 tool calls**, 7 of them `Read`, 8 `Grep`. C
 4. Confirm you meant **DOC-53**, not DOC-63.
 
 Nothing committed yet, and no code until the ticket body carries whatever we settle.
+
+<!-- xgd-turn id="7672f117-da6f-4293-acdb-c0ab5764ff40-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:02:55.367328+00:00" -->
+#### You
+- **The **`parseOutcome`** fence bug** — fix here, or under REQ-261? REQ-258 made changes to 261 perhaps it added this fix there
+- **Selection rule** — opt-in field, as recommended? No need for opt in just do it this is a dev tool don't over complicate
+- **May a production-KB doc enter the session KB? Yes very much so**
+- Confirm you meant **DOC-53**, not DOC-63. I did my bad
+
+<!-- xgd-turn id="7672f117-da6f-4293-acdb-c0ab5764ff40-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T22:05:55.992916+00:00" -->
+#### Claude
+REQ-258 is custom domains — unrelated. But you were right that it's already handled: **REQ-261 covers the fence bug** (its behaviour 1, requirement 1) and it's `free_coded` with three commits — and all three are now in `xgd-working`. `jsonObjectsFromEnd` has replaced the fence regex in `ai.ts`. That landed during this session; my read was from before the merge. Nothing for me to do there.
+
+Let me re-read the current `ai.ts`, since REQ-261 also reshaped `buildPrompt` and the round context I'm about to extend.
+
+Sizing the sweep-all rule: **52 doc tickets, 888 KB (~222k tokens if all read)**, median 14 KB. So the index isn't a nicety — it's what makes sweep-all viable. Recording the decisions in the ticket now.
+
+Decisions are in the ticket body (appended, nothing overwritten). Here's the settled plan, and the one thing still unmeasured.
+
+## What your answers changed
+
+**Sweep-all makes the index load-bearing.** 52 docs, 888 KB, ~222k tokens. The round can never read the KB — it searches it. So `INDEX.md` (one line per doc: *what question does this answer*) isn't a nicety, it's the mechanism. A KB built without one is not built.
+
+**D4 fell out of your "don't overcomplicate".** Since there's no opt-in to check, the KB is a straight export: console writes `<DOC-ID>.md` per doc into its workspace, frontmatter stripped, rebuilt every round. Requirement 6 becomes structural. This also closes a hole I found — requirement 7 is *not* currently held: the first round read `.xgd/tickets/hot/request-7ff1bacd.md` by path after grepping `^title:|^status:`. Nobody gave it that path. Exporting is what makes the sanctioned route cheaper than the unsanctioned one.
+
+## Sequence
+
+1. **Measure the scoped `Bash` rule** (D5) — running now, below. Gates the Part 3 decision.
+2. **Write DOC-53 §1**, the pipeline map, plus the learnings section. Doc change, no branch.
+3. **Cut the branch. Build the KB export** — `kb.ts` in the console, mirroring `exportCorpus`; `INDEX.md` generator; `RoundContext.kbDir`, which follows the `digestFile` precedent REQ-261 just set.
+4. **Review the prompt with you** — keeps/moves/drops as a table before I change a line. Note REQ-261's resume path complicates this: a resumed round doesn't get the brief again, so the KB pointer has to survive resume.
+5. **Ticket search** — broker or scoped, per step 1's result.
+6. **Measure**: baseline is the first round at **18 tool calls** (7 `Read`, 8 `Grep`); cost comes from REQ-261's telemetry.
+
+Running the D5 measurement now — three `claude -p` calls, one-line prompts:
+
+While that runs, reading DOC-53 so I know exactly what §1 owes.
+
+**Test A reproduces the original finding exactly** — `"permission_denials":[]`, `result: "It ran. Output: MEASURED-A."`. `Bash` merely absent from the allow list still runs, on today's CLI. That measurement is not stale.
+
+**Test B settles it.** With `Bash(xgd ticket get:*)` in the allow list and `Bash` not in the deny list, a *non-matching* `echo MEASURED-B` **ran, exit 0, no denial**. The scoped allow rule does not gate — it's the same failure as a bare omission.
+
+All three complete. Recording the measurement in the ticket, since requirement 8 demands it be recorded beside the policy.
+
+## D5 is measured, and the answer is no
+
+| | tool flags | asked to run | `permission_denials` | outcome |
+|---|---|---|---|---|
+| **A** control | `Read Glob Grep`, no deny list | `echo MEASURED-A` | `[]` | **ran** |
+| **B** scoped, non-matching | `… 'Bash(xgd ticket get:*)'`, deny list without `Bash` | `echo MEASURED-B` | `[]` | **ran**, exit 0 |
+| **C** scoped, matching | as B | `xgd ticket get request-ba7e2bb9` | `[]` | ran |
+
+**A** re-confirms REQ-256's original finding on today's CLI — that measurement isn't stale. **B** is the result that matters: naming a prefix rule doesn't *narrow* `Bash`, it *admits* `Bash`, and the prefix isn't enforced. **C** is moot — a mechanism that permits the command you wanted and every command you didn't is not a gate.
+
+So: **console-as-broker**, `Bash` stays denied by name, requirement 9 holds, and DOC-53 §2's "there is no `xgd`" stays true. Measurement is in the ticket and reproducible from `.xgd/tmp/d5/run.sh`; it'll go beside the policy in `ai.ts` next to the finding it re-confirms.
+
+That means your point 3 lands differently than expected. The round never lacked ticket-*making* — that was the fence bug, fixed under REQ-261. What it lacks is ticket-*searching*, and it can't be given `xgd` without giving it everything. The broker is what it gets: the console pre-fetches a ticket digest into the KB each round, and full-body reads go through a request back to the console.
+
+## Where that leaves the plan
+
+Steps 1 and the decisions are done. Next is **DOC-53 §1** — the pipeline map, a doc change needing no branch — then the branch and the KB export.
+
+Two things worth your eye before I write §1:
+
+1. **What the digest carries.** A digest of id/type/title/status across all open bugs and requests is ~cheap and greppable; full bodies are 888 KB on docs alone and much more across all tickets. I'd start with the one-line digest and let the round ask the console for a body it wants. Reasonable?
+2. **The broker needs a request channel** — a round asking the console for something is a new interaction shape, and the round's only output today is the final outcome block. That's plausibly REQ-261 territory again ("what the round hands back"). I'd rather scope it here and say so than let it fall between the two.
+
+Say go and I'll write DOC-53 §1.
 
 <!-- xgd-chat-end -->
