@@ -12,6 +12,7 @@ import {
 } from './commands'
 import { spawn } from 'node:child_process'
 import { devEnvLayering } from './dev-env'
+import { localD1Check } from './d1-migrations'
 import { repoRoot } from './webui'
 import { cmdAssets, formatAssetReport } from './assets'
 import { pushSite } from './push'
@@ -289,6 +290,9 @@ Usage:
     routes, store and runtime as production. Serves what \`1c assets\` built, so run
     that first. The store is the LOCAL simulated D1/R2; seed it with \`bin/publish\`.
     --remote points at the deployed D1 and R2, which means editing production data.
+    Refuses to start when the local database is behind db/migrations/, naming the
+    pending files and the command that applies them; --remote skips that check,
+    because the deployed database is \`bin/deploy\`'s to migrate.
 
 System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
   1c kb build
@@ -839,12 +843,44 @@ export async function run(argv: string[]): Promise<void> {
       // repo root — and `dev:control` now calls it, which would have made that
       // requirement a silent dependency of a package script rather than an
       // operator's own mistake to notice.
-      const appDir = path.join(repoRoot(), 'apps', 'control-app')
+      const root = repoRoot()
+      const appDir = path.join(root, 'apps', 'control-app')
       // THE SAME LAYERING `pnpm dev:control` ONCE COMPOSED ITSELF (BUG-50).
       // That script is now a caller rather than a second author of it; see
       // `dev-env.ts` for why half of this layering is not a smaller version of
       // it but a different and broken thing.
       const devEnv = devEnvLayering({ appDir })
+
+      // THE STORE IS CHECKED BEFORE ANYTHING IS STARTED ([[REQ-253]]).
+      //
+      // Production has had this guarantee since REQ-143: the migrate hook applies
+      // the migrations before the Worker is uploaded and aborts the deploy if they
+      // fail, so code that assumes a column cannot reach traffic ahead of the
+      // column. This is the same guarantee for the other environment, and it is a
+      // REFUSAL rather than a warning for the reason that hook aborts rather than
+      // warning — a dev server that started anyway would be choosing the slower
+      // failure, which arrives minutes later as a SQLITE_ERROR in a log and reaches
+      // the operator as a frozen acknowledgement carrying no diagnosis.
+      //
+      // BEFORE THE BANNER, so a refused start never prints a URL nobody can use.
+      //
+      // NOT UNDER `--remote`, which points wrangler at the DEPLOYED database. That
+      // one is `bin/deploy`'s to migrate, and the local file this reads says
+      // nothing about it.
+      if (flags.remote !== true) {
+        const check = await localD1Check({ repoRoot: root })
+        if (check.kind === 'refuse') {
+          // The whole explanation is the message, never a `hint`: an uncaught
+          // throw reaches `bin/1c.mjs`, which prints `err.message` and nothing
+          // else — and the hint would be the half that says what to type.
+          throw new CommandError({ code: 'ENVIRONMENT', message: check.message })
+        }
+        // A check that could not read the database is a different fact from a
+        // database that is behind one, and must not be the thing that stops an
+        // operator working.
+        if (check.kind === 'unreadable') console.warn(check.message)
+      }
+
       const args = ['wrangler', 'dev', '--port', port, ...devEnv.args]
       // `--remote` edits the DEPLOYED database from a laptop. Local is the
       // default because a dev loop that writes to production by default is one
