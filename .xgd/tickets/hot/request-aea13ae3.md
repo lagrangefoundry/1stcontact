@@ -5,16 +5,24 @@ type: request
 title: A development server refuses to run against a database that is behind its code
 created_by: EPIC-10
 created_at: '2026-09-16T00:47:28.663604+00:00'
-updated_at: '2026-09-16T01:15:39.265142+00:00'
+updated_at: '2026-09-16T01:23:53.096925+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-4a999b4a
+  commits:
+  - working_sha: fa7bd5a8c8c7c3f2bd7031dfbd7a910eeef8ea70
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c45919fcfcb7dc8b40dcb41f4a6c235b0cd0f030
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.212
 ---
 
 # A development server refuses to run against a database that is behind its code
