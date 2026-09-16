@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:27:18.159164+00:00'
+updated_at: '2026-09-16T21:29:23.039365+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -490,5 +490,41 @@ OK,
 AND- I would like another ticket to pick up the aspects of session priming for the session. In that ticket we will review the prompt and construct a KB for this with all the necessary docs,ok 
 
 `.xgd/tickets/hot/doc-bdbc46b0.md` <-- it makes me extremely nervous to see you referred to tickets as files. Please only access the tickets using the ticket API breaks if you do not use the API seriously.
+
+<!-- xgd-turn id="40618c65-f5b5-478a-add0-d2b2fc600296-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:29:22.547695+00:00" -->
+#### Claude
+Understood on the ticket API — and that's not just a habit correction: I baked the file path into DOC-53 and REQ-261 as instructions to future rounds. Fixing that is part of this.
+
+Now the priming ticket.
+
+Done. Three tickets, no ticket paths in any of them.
+
+## On the ticket API
+
+Taking that seriously. I read REQ-256 by file path earlier to check body style — that was wrong, and worse, I'd written the same habit *into* the tickets as instructions for future rounds. Both are now removed: everything above was pulled and written through `xgd ticket get/update/create`.
+
+It surfaced a real design problem rather than just a style issue. A round has `Read`/`Glob`/`Grep` and **no `Bash` by design**, so it cannot run `xgd` — it cannot use the ticket API at all. The first round found that prior ticket by grepping the store, which is a good instinct served by a forbidden route. REQ-262 requirement 7 now states the fix: **the console reads tickets through the API and writes what the round needs as ordinary files**, the same producer/consumer shape as the evidence directory. A round is never pointed at the ticket store.
+
+## The three tickets
+
+**REQ-261** — what the round hands back, and the console around it.
+Parser fix · one unbounded gap ticket + separate bugs · **resume** · transcript shown once · answer recoverable without re-running · model and cost recorded · evidence pre-digest · tool policy asserted. Ten requirements.
+
+**REQ-262** (new) — session priming.
+Review the prompt and brief against the first live round · build the session KB carrying DOC-53, DOC-23, DOC-27, DOC-30, DOC-19, DOC-21 · state the membership selection rule · keep session KB and production KB from mixing in either direction · the API-not-paths constraint above · **measure it**, since the whole reason is cost: tool-call count and round cost, primed versus unprimed. Nine requirements.
+
+I added the measurement clause deliberately — priming that makes rounds more expensive without making them better is a regression, and REQ-261's cost telemetry is what makes that visible rather than arguable.
+
+**DOC-53** — the session's KB document. Now owned by REQ-262. Pipeline map still TO BE WRITTEN; session role and three learnings from your round are in place.
+
+I also moved resume's risk into plainer language in REQ-261: a round reasoning from what it remembers rather than what this iteration captured is *reconstructing* — the exact failure mode loop 1 exists to prevent. That makes the trade-off legible to whoever implements it.
+
+## Still true
+
+**No code has changed.** The parser bug is live; the next round you run loses its ticket the same way. That's REQ-261 behaviour 1 — about fifteen lines plus a UAT using your real transcript as the fixture, and I've verified the fix recovers your round's ticket whole.
+
+Say the word and I'll cut a branch and do just that.
 
 <!-- xgd-chat-end -->
