@@ -59,8 +59,14 @@ export interface ReproConsoleOptions {
  * Turn a typed address into something `1c` will accept as a site slug and a
  * directory name. The console owns one sandbox site per address; re-running
  * rebuilds it in place, which is what `1c repro` already does.
+ *
+ * `prefix` exists because the regression rail (REQ-255) reproduces the same
+ * references the console does, and two tools sharing one sandbox slug would
+ * have each rebuild the other's site underneath it — a rail run would silently
+ * replace the iteration the operator was looking at, and vice versa. One
+ * function, two namespaces, rather than a second slugifier that drifts.
  */
-export function slugForUrl(url: string): string {
+export function slugForUrl(url: string, prefix = 'repro'): string {
   const host = (() => {
     try {
       return new URL(url.includes('://') ? url : `https://${url}`).hostname
@@ -69,7 +75,7 @@ export function slugForUrl(url: string): string {
     }
   })()
   const cleaned = host.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  return `repro-${cleaned || 'site'}`
+  return `${prefix}-${cleaned || 'site'}`
 }
 
 /** `https://` in front of a bare address, so the link and the capture agree. */

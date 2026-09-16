@@ -1,0 +1,108 @@
+/**
+ * Running a child process, and reading what it said (REQ-254, REQ-255).
+ *
+ * WHY THIS IS ITS OWN MODULE. Both dev tools in this package drive the repo by
+ * spawning: the console runs one `1c` per reproduction step, and the regression
+ * rail runs `1c`, `pnpm` and `vitest`. They need the same three things — spawn
+ * and collect, quote the last informative lines of a failure, and read a JSON
+ * document out of a command's stdout — and a second copy of any of them would
+ * drift. The console's `iteration.ts` owned the first two before the rail
+ * existed; they moved here rather than being restated.
+ */
+import { spawn } from 'node:child_process'
+import path from 'node:path'
+
+/** What a finished child process left behind. */
+export interface CommandResult {
+  code: number | null
+  stdout: string
+  stderr: string
+}
+
+/** Runs one command and resolves with what it said. Injectable for tests. */
+export type CommandRunner = (cmd: string, args: string[], cwd: string) => Promise<CommandResult>
+
+/** The real runner: spawn, collect both streams, resolve on close. */
+export const spawnCommand: CommandRunner = (cmd, args, cwd) =>
+  new Promise<CommandResult>((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
+    child.on('error', reject)
+    child.on('close', (code) => resolve({ code, stdout, stderr }))
+  })
+
+/**
+ * `1c <argv…>` as a command and its arguments.
+ *
+ * Node is invoked directly rather than through `bin/1c`, which is a bash script
+ * whose entire body is this same `exec`. Going straight to the launcher module
+ * costs a shell and an executable bit we would otherwise depend on, and buys
+ * nothing — the repo-root resolution `bin/1c` performs is the `cwd` every
+ * caller here already hands the process.
+ */
+export function oneC(argv: string[]): { cmd: string; args: string[] } {
+  return { cmd: process.execPath, args: [path.join('tools', 'generate', 'bin', '1c.mjs'), ...argv] }
+}
+
+/**
+ * The informative lines a process left behind, trimmed and de-decorated.
+ *
+ * Lines with no word character in them are dropped. That is not cosmetic:
+ * Playwright prints its "browser is not installed" refusal inside a drawn box,
+ * so the literal last line of the most common capture failure is `╚═══…╝` —
+ * which told the operator that the run failed and nothing whatsoever about why.
+ * ANSI colour is stripped for the same reason: these lines are re-quoted inside
+ * the rail's own report, where a stray dim-on sequence bleeds into everything
+ * printed after it.
+ */
+function informativeLines(result: CommandResult): string[] {
+  return (result.stderr.trim() || result.stdout.trim())
+    .split('\n')
+    // eslint-disable-next-line no-control-regex
+    .map((line) => line.replace(/\[[0-9;]*m/g, '').trim())
+    .filter((line) => /\w/.test(line))
+}
+
+/** The last few informative lines a failed process left behind. */
+export function tailOf(result: CommandResult, lines = 5): string {
+  const informative = informativeLines(result)
+  return informative.length ? informative.slice(-lines).join('\n').slice(-600) : 'no output'
+}
+
+/**
+ * The first few informative lines a failed process left behind.
+ *
+ * The counterpart to {@link tailOf}, and it exists because the two halves of a
+ * failure are not interchangeable. A test runner or a compiler builds toward its
+ * verdict, so the tail is the summary; a thrown error puts its message first and
+ * then unwinds, so the tail is teardown chatter and the head is the reason. The
+ * rail quotes the head when a probe produced no report at all — the commonest
+ * cause is a browser that would not launch, whose tail is three lines of
+ * temporary-directory cleanup and whose first line is the actual refusal.
+ */
+export function headOf(result: CommandResult, lines = 3): string {
+  const informative = informativeLines(result)
+  return informative.length ? informative.slice(0, lines).join('\n').slice(0, 600) : 'no output'
+}
+
+/**
+ * The JSON document a `--json` command printed, read out of its stdout.
+ *
+ * Tolerant of a prefix on purpose. Every `--json` verb this package drives is
+ * meant to print nothing but its document, but they are reached through a Vite
+ * SSR bootstrap that may say something first, and a rail that fell over because
+ * a dependency logged a deprecation would be a rail nobody trusts. The document
+ * starts at the first `{`; anything before it is not ours.
+ */
+export function parseJsonOutput<T>(stdout: string, what: string): T {
+  const start = stdout.indexOf('{')
+  if (start === -1) throw new Error(`${what} printed no JSON document:\n${stdout.trim().slice(-400)}`)
+  try {
+    return JSON.parse(stdout.slice(start)) as T
+  } catch {
+    throw new Error(`${what} printed a JSON document that would not parse:\n${stdout.slice(start).slice(0, 400)}`)
+  }
+}

@@ -13,8 +13,8 @@
  * console cannot drag the engine anywhere, because it never links against it.
  */
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
-import { spawn } from 'node:child_process'
 import path from 'node:path'
+import { oneC, spawnCommand, tailOf, type CommandResult } from './run'
 
 /** One `1c` invocation. */
 export interface IterationStep {
@@ -34,11 +34,11 @@ export interface IterationStep {
   artifact?: string
 }
 
-export interface StepResult {
-  code: number | null
-  stdout: string
-  stderr: string
-}
+/**
+ * What a step's process said. An alias, not a second shape: the rail spawns the
+ * same way and the two tools share one runner (`run.ts`).
+ */
+export type StepResult = CommandResult
 
 /** Runs one step and resolves with what the process said. Injectable for tests. */
 export type StepRunner = (step: IterationStep, cwd: string) => Promise<StepResult>
@@ -120,26 +120,9 @@ export class StepFailure extends Error {
     readonly step: IterationStep['name'],
     readonly result: StepResult,
   ) {
-    super(`${step} failed${result.code === null ? '' : ` (exit ${result.code})`}:\n${tail(result)}`)
+    super(`${step} failed${result.code === null ? '' : ` (exit ${result.code})`}:\n${tailOf(result)}`)
     this.name = 'StepFailure'
   }
-}
-
-/**
- * The last few informative lines a failed process left behind.
- *
- * Lines with no word character in them are dropped before the tail is taken.
- * That is not cosmetic: Playwright prints its "browser is not installed"
- * refusal inside a drawn box, so the literal last line of the most common
- * capture failure is `╚═══…╝` — which told the operator that the run failed
- * and nothing whatsoever about why.
- */
-function tail(result: StepResult, lines = 5): string {
-  const informative = (result.stderr.trim() || result.stdout.trim())
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => /\w/.test(line))
-  return informative.length ? informative.slice(-lines).join('\n').slice(-600) : 'no output'
 }
 
 /** Did this step do its job? See {@link IterationStep.artifact}. */
@@ -210,24 +193,12 @@ export async function runIteration(opts: RunIterationOptions): Promise<Iteration
 /**
  * The real runner: `node tools/generate/bin/1c.mjs …`, one process per step.
  *
- * Node is invoked directly rather than through `bin/1c`, which is a bash script
- * whose entire body is this same `exec`. Going straight to the launcher module
- * costs a shell and an executable bit we would otherwise depend on, and buys
- * nothing — the repo-root resolution `bin/1c` performs is the `cwd` we already
- * hand every step.
+ * The spawn itself is `run.ts`'s, shared with the regression rail — this is the
+ * step-shaped adapter onto it and nothing more.
  */
 export function spawnStepRunner(): StepRunner {
-  return (step, cwd) =>
-    new Promise<StepResult>((resolve, reject) => {
-      const child = spawn(process.execPath, [path.join('tools', 'generate', 'bin', '1c.mjs'), ...step.argv], {
-        cwd,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
-      child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
-      child.on('error', reject)
-      child.on('close', (code) => resolve({ code, stdout, stderr }))
-    })
+  return (step, cwd) => {
+    const { cmd, args } = oneC(step.argv)
+    return spawnCommand(cmd, args, cwd)
+  }
 }

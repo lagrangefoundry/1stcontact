@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# `repro-rail` launcher — the regression rail (REQ-255, [[EPIC-12]] §8.4).
+#
+# One command, one pass/fail. It re-gates every stored reference against a
+# recorded baseline and fails if any of them regressed, naming which and on
+# what; it also runs the test suite, the typecheck and a control-Worker build
+# check. Its gating caller is the free-coding session that implements a gap
+# ticket: a single-site UAT proves the one gap closed, and only this proves the
+# other references did not regress.
+#
+# It is deliberately NOT a `1c` subcommand, for the same reason the console is
+# not: `apps/control-app` imports the engine straight out of
+# `tools/generate/src`, so making the CLI reach into these dev tools would point
+# the dependency arrow the one way [[EPIC-12]] §8.6 forbids.
+#
+# Usage:
+#   ./bin/repro-rail                       # check — exit 0 means no worse
+#   ./bin/repro-rail record                # move the bar. An explicit human act.
+#   ./bin/repro-rail --tests tests/req88   # narrow the suite for an inner loop
+#   ./bin/repro-rail --reference faelan.com
+#   ./bin/repro-rail --only references
+#   ./bin/repro-rail --no-browser          # skip the rendered probe; reported, never silent
+#   ./bin/repro-rail --json                # the same report, for a machine
+#
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+exec node "$repo_root/tools/repro-console/bin/repro-rail.mjs" "$@"

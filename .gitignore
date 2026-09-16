@@ -150,6 +150,12 @@ Cargo.lock  # Remove this line if project is a binary/application
 /storage/references/
 # Scratch space: repro working files (values-diff JSON, aligned crops). Never committed.
 /storage/tmp/
+# Regression rail (REQ-255): the recorded per-reference baseline and the rail's
+# own scratch. Ignored for the same reason the reference bundles above are — the
+# numbers are taken from those uncommitted bundles, and the perceptual ones come
+# from rasterising a page in whatever browser this machine has, so a committed
+# baseline would be a claim about one laptop that every other machine fails.
+/storage/rail/
 # Draft change journals (REQ-131) — one per site, beside the site it describes.
 # Every copy edit appends a record, so tracking these would churn the tree on
 # every keystroke-settle; and nothing depends on them surviving a clone, because

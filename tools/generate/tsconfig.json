@@ -14,7 +14,17 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     // REQ-146 — `ai/toolbox.ts` imports its surface declaration as data rather
     // than reading it off disk, so the Worker can carry it in the bundle.
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    // `allowJs` for the same reason `apps/control-app` sets it, and it has to be
+    // set here too because this program REACHES that one: modules here import
+    // `apps/control-app/src/*.ts`, which import the single definition of a rule
+    // both sides of the browser/server seam need (`src/builder/email-shape.js`
+    // and friends, [[BUG-54]]). Without this, following those imports fails with
+    // TS7016 on every one of them — which is why `pnpm -r typecheck` was red and
+    // the reproduction engine went un-typechecked by anything (REQ-255).
+    // `checkJs` stays off (its default): this admits those modules to the
+    // program, it does not start type-checking the builder's browser source.
+    "allowJs": true
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.json"]
 }
