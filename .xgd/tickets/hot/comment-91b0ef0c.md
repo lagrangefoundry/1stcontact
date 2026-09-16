@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:21:08.105684+00:00'
+updated_at: '2026-09-16T01:38:01.037928+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -180,5 +180,24 @@ Loop 2 is what makes §2.2's sequence work *before either loop has finished*. Th
 Which is now open question 6: **which loop first?** Loop 1 compounds but is slow to show value; loop 2 makes the next demo work but doesn't accumulate. My read — build the shared harness once (it's most of both), point it at loop 1 first, let loop 2 follow once the fix-log shape is settled. Worth overriding if there's a demo date.
 
 Child tickets are now C1–C6 (harness, completeness gate, loop-1 handoff, loop-1 gap filing, loop-2 smoothing, the fix log), still unfiled — say the word.
+
+<!-- xgd-turn id="ba9eee72-08e0-466b-8f5c-caf92a1fd39c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T01:38:00.779871+00:00" -->
+#### You
+Lets keep the number of tickets to a minimum and try to have testable content at the end of every ticket.
+
+I'd like to sneak up on the automation rather than let it loose and "see what happens"
+
+Imagine we create this UX for me
+
+1) Blank page with a text box and a button [reproduce] - I enter the site name and it captures and runs a reproduction step
+2) a series of links are added to the blank page under a title "Iteration 1", the urls are all set to open in new tabs if clicked on they are - the original site (for comparision) - the iteration 1 reproduction - the diff images
+3) As soon as the links are added to the page an AI process is started up with a prompt to review the diff and close the gaps (we should learn from our transcripts on site reproduction how to get some of the nuances right and point the AI at the right things) - transcript of the AI output appears on the page.
+4) When the AI finishes a button appears [run again] <-- note that this implies that the AI changes the code and reinstalls it so the next run uses its changes - we need a smoke/regression suite that the AI has to run to ensure that everything is in good shape before it finishes.
+
+After going through this loop a few times, if its working we can let it rip
+
+Lets start with just home pages.
 
 <!-- xgd-chat-end -->
