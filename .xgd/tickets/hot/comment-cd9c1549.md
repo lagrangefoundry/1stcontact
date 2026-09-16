@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T00:42:08.063068+00:00'
+updated_at: '2026-09-16T00:48:21.446937+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2155,5 +2155,56 @@ Want me to file 1–3?
 <!-- xgd-chat role="user" ts="2026-09-16T00:42:07.652164+00:00" -->
 #### You
 Yes please.
+
+<!-- xgd-turn id="a170ce60-aeaf-4bb9-a874-a0fe31067c16-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T00:48:20.870789+00:00" -->
+#### Claude
+Let me check the duplicate first — I think I know what it is, but the data will say.
+
+Confirmed, and there's good news in it. The `form.submitted` event now reads:
+
+```json
+"page": "whitepapers.json", "submitLabel": "Send me both papers",
+"form": "whitepapers:signup", "assets": ["trust-the-code", "xgd-experiment"]
+```
+
+**BUG-93's fix is working end to end** — the form finally resolves to itself.
+
+The duplicate is `deliverForm` looping **per asset**: two messages 386ms apart, `asset: trust-the-code` and `asset: xgd-experiment`, same subject, same recipient. And since your email page declares only `cta_url` as a placeholder (no `asset_name`), and `gateUrl` is memoised to one grant, **both emails are byte-identical**. Let me check what's settable on an email page before I write that ticket.
+
+Both are settable by the AI already (`add_page`/`update_page` take `subject`; `describe_page` returns it) — it's the **builder UI** that doesn't show them, and the page control has `kind` and ignores it. Filing now.
+
+Now fixing the UAT placeholders and closing BUG-96.
+
+All filed.
+
+| | | |
+|---|---|---|
+| **BUG-97** | Download link names a hardcoded host and the wrong channel | draft, high/high |
+| **BUG-98** | A form promising several assets sends one identical message per asset | draft, high/medium |
+| **REQ-252** | Email page shows its subject; page list says it's a message | draft, depends on BUG-94 |
+| **REQ-253** | Dev server refuses to run against a database behind its code | draft |
+| **BUG-96** | — | **abandoned**, superseded by REQ-253 |
+
+## On the two emails
+
+You couldn't have pressed twice. `deliverForm` loops **per asset**, and that's a seam that opened up underneath it: REQ-241 made assets a *set* and moved the link from the artifact to a page listing them, REQ-247 made the message a page with its own placeholders — and the loop still assumes one asset means one message.
+
+Your message declares only `cta_url`, and `gateUrl` memoises a single grant, so the two emails are **byte-identical** — same subject, same body, same link. Nothing distinguishes them to you.
+
+BUG-98's fix uses data the page already holds: a message declaring `asset_name` is about one artifact and keeps a message each; one that doesn't is about the set and goes once, carrying the grant that opens all of it. The at-most-once ledger isn't what's broken — it keys per asset and was satisfied. What's unguarded is the thing you actually experienced, which is a message.
+
+## On BUG-97
+
+Your point sharpened it. The product already stores each site's real address — `site_domains`, `PLATFORM_APEX = '1stc.site'`, REQ-238 making an address *required before publishing*, and `kind: 'custom'` sitting declared-but-unimplemented waiting for EPIC-6, which is where `xgd.dev` lands. So the fix isn't the per-environment var the original comment rightly warns against: it's reading the address the product already keeps. The two operator-facing callers keep the constant's behaviour, and a UAT pins that so the fix can't quietly move your view-published click.
+
+## On REQ-252
+
+Both facts already exist and only the builder ignores them — `add_page`/`update_page` take `subject`, and `editPageList` returns `kind` on every row while the toolbar's `labelOf` discards it. One criterion worth flagging: an email page shouldn't say "unreachable" the way a web page does. `editPageList` already computes the right sentence (*no form sends it* vs *nothing links to it*), and calling a working message "unreachable" invites exactly the fix an operator must never apply — adding a link to it.
+
+## Still open
+
+**BUG-94** — you still can't view the email page in the builder, which is why REQ-252 depends on it. That's the one I'd do next; it's small, and it unblocks looking at the thing that's now actually sending.
 
 <!-- xgd-chat-end -->
