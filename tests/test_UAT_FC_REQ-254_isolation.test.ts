@@ -7,7 +7,7 @@
  * Each assertion below names the deploy path it closes, so a future change that
  * reopens one fails here with the reason attached rather than at a deploy.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -42,14 +42,23 @@ function walk(dir: string, rel = ''): string[] {
   return out
 }
 
-/** The workspace packages a deploy can reach: everything under apps/ and packages/. */
+/**
+ * The workspace packages a deploy can reach: everything under apps/ and packages/.
+ *
+ * A package is a directory with a manifest in it, which is what `pnpm-workspace.yaml`
+ * means by the glob too — a checkout may carry unrelated directories under those
+ * roots (an editor's or an agent's own dotfile directory, say), and those are not
+ * packages and cannot be deployed.
+ */
 function deployablePackages(): Array<{ dir: string; manifest: Manifest }> {
   const found: Array<{ dir: string; manifest: Manifest }> = []
   for (const group of ['apps', 'packages']) {
     const root = path.join(REPO_ROOT, group)
     for (const entry of readdirSync(root)) {
       const dir = path.join(root, entry)
-      if (statSync(dir).isDirectory()) found.push({ dir, manifest: manifest(dir) })
+      if (!statSync(dir).isDirectory()) continue
+      if (!existsSync(path.join(dir, 'package.json'))) continue
+      found.push({ dir, manifest: manifest(dir) })
     }
   }
   return found
