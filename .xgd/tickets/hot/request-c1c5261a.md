@@ -6,10 +6,10 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T18:16:24.958614+00:00'
+updated_at: '2026-09-16T18:16:25.948348+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-bf282b3d
@@ -17,7 +17,6 @@ fields:
   needs_review: false
   chat_comment: comment-e86a4f31
 ---
-
 
 Parent: [[EPIC-12]] §8. Third of three. **Depends on [[REQ-254]] (the console) and
 [[REQ-255]] (the rail).** The rail must already exist, and must already have been
