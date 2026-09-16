@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:31:07.820316+00:00'
+updated_at: '2026-09-16T03:37:11.857560+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -575,5 +575,48 @@ Want me to write A, B, C and E up under EPIC-5, and record the two epic-body rev
 <!-- xgd-chat role="user" ts="2026-09-16T03:31:07.537994+00:00" -->
 #### You
 yes - I think we are ready to cut some tickets...
+
+<!-- xgd-turn id="ab22b2c5-12b4-4dbb-a8af-39ab6dc07423-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T03:37:10.800300+00:00" -->
+#### Claude
+Before I cut them — I'm making the call on root vs prefix rather than blocking on it, since it's forced once you look at the failure mode. Flag it if you disagree.
+
+Let me check the CLI surface first.
+
+Good — `--append-body-file` exists, so the epic body is preserved by construction. Writing the bodies now.
+
+Bodies written. Creating them now — one at a time, checking each result before the next.
+
+All four created. Now the epic body — appending, so nothing existing is touched.
+
+Four tickets cut under EPIC-5, epic body appended (original preserved — I used `--append-body-file` rather than a rewrite).
+
+| | | pts | depends on |
+|---|---|---|---|
+| **REQ-257** | The DNS layer — `zones`, Cloudflare client, external resolver, operator backfill | 8 | — |
+| **REQ-258** | Serving — records, runtime Worker route, host→site resolution | 5 | 257 |
+| **REQ-259** | The config surface — selector, sending toggle, release | 5 | 257, 258 |
+| **REQ-260** | Assistant tools — reads, guarded mutations, the card, undo | 8 | 257, 259 |
+
+## The decisions I made, so you can overturn them
+
+**Root, not `/site/<key>/`, on a custom host** — and the prefix survives as a *guarded* redirect. The guard is the part worth your attention: `public-site` currently serves `/site/<any-key>/` on whatever host it's routed to. That's fine on your own front door and a cross-tenant leak the moment the host is Alice's — `alicesplumbing.com/site/<bobs-key>/` would serve Bob's site under Alice's certificate. So: key matches the host's site → 301 to root (which keeps every already-mailed download link alive); any other key → 404. No flag day, no leak.
+
+**The card ships as a notification with an undo.** Written up in REQ-260 with your own sentence as the evidence, and with the corollary made explicit: the safety is the constraint set, and *"a safety rule enforced by the card rather than by code"* is a falsifier there.
+
+## Two things that changed the design while I was checking
+
+**Your own domains aren't all green field.** `MAIL.md:96-101` — `1stcontact.io` carries a live Resend set today. So *"is anything live on this domain"* fires on the already-in-our-account path too, and the read check became a prerequisite of REQ-259 rather than a follow-on. I recorded this as a correction in the epic body rather than quietly editing the section it contradicts.
+
+**The resolver is a second cross-epic interface**, which contradicts the epic's *"nothing else crosses."* Built once in REQ-257, consumed by the sweep, REQ-259, REQ-260 and EPIC-7. Flagged as an explicit amendment since that sentence was load-bearing when the six epics were split.
+
+## Two things for you
+
+**The wrangler route question is first in REQ-258.** If `wrangler deploy` prunes routes it didn't declare, every deploy dark-starts every customer domain at once. It's a short experiment against a throwaway zone and it decides whether runtime routes work at all or the mechanism has to be custom-domain bindings. Worth doing before anyone writes code.
+
+**EPIC-5's status is `done`** and now has four fresh children. That's almost certainly wrong, but status is yours to move — say the word and I'll reopen it.
+
+I haven't cut a branch or written code — this was scoping. REQ-257 is the one to start on when you're ready.
 
 <!-- xgd-chat-end -->
