@@ -6,9 +6,9 @@ title: 'The DNS layer: zones, the Cloudflare client, the external resolver, and 
   operator backfill'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:39.898551+00:00'
-updated_at: '2026-09-16T04:18:30.471231+00:00'
+updated_at: '2026-09-16T04:18:35.369678+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
