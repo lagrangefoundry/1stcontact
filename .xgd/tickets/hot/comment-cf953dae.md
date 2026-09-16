@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-97
 created_by: xgd
 created_at: '2026-09-16T01:00:51.456961+00:00'
-updated_at: '2026-09-16T01:21:36.647424+00:00'
+updated_at: '2026-09-16T01:24:50.258708+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,61 @@ that sounds good - questions:
 2. what happens when the user tries it in preview mode before publishing?
 
 2 is particularly important - we should think it through - it is not desirable for the user to be forced into a situation where the first time they can test the email is when the site is live (I mean if that's the best we can do etc we could accept it - but its not great)
+
+<!-- xgd-turn id="47f7d474-c9b4-4188-93f7-f61a7083228b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T01:24:49.092227+00:00" -->
+#### Claude
+Let me trace both cases properly rather than guess.
+
+Let me check BUG-94, which is adjacent to question 2.
+
+Traced both. Answers are concrete, and question 2 has a real gap that the link fix alone doesn't close.
+
+## 1. Dev with nothing published
+
+**It collapses into question 2, because with nothing published there is no published channel to test on.** `public-site` resolves a site through its live revision — `store.resolve(siteKey)` returns `null` when there's no published revision, so `127.0.0.1:8787/site/<key>/whitepapers` 404s the *form*, before any submission. The only place the form exists is the draft preview.
+
+And that path works, with no dependence on `site_domains` at all:
+
+- `formDefinitionOf(…, 'draft')` reads the draft pages directly — no revision needed (BUG-78 already built this).
+- Contact, `form.submitted`, acceptances, grant: all written as normal.
+- Link → `http://127.0.0.1:8788/preview/<key>/draft/api/download/<grant>`, served by the new draft gate route.
+
+That last point matters more than it looks: REQ-238 only requires an address **before publishing**, so a site being built in preview has no `site_domains` row yet. The draft branch must not consult one — and it doesn't. The `no_site_address` refusal is reachable only on the published channel, which is a state publish already forbids.
+
+The residual: in dev *with* something published, a published-channel submission mints a link at the site's real host (`xgd.dev`, `alice.1stc.site`) that won't resolve from your machine. That's correct rather than broken — a published link should name the published address — and it's why dev testing belongs on the draft channel.
+
+## 2. Preview before publishing — the gap is that you never see the email
+
+With the fix the whole loop runs, and then stops one step short:
+
+| where the message could show | what it shows today |
+|---|---|
+| `capturingMailer` console line | `to=` and `subject=`. No body, no link. |
+| Builder → Contacts → Messages | subject / when / status / failure. `MessageRecord` **already carries `body`** over the wire and the pane drops it. |
+| BUG-94's email-page preview | the template — `{{cta_url}}` unresolved. The look, not the link. |
+
+Dev has no `RESEND_API_KEY` (`.dev.vars` holds only the three Access/admin vars), so `mailerFor` hands back the capturing adapter: nothing leaves the building. The rendered body **is** persisted — `sendRecordedEmail` writes it as the ticket body and `/api/people/messages` returns it — so the mail you'd have received exists, in full, with a working link in it, and there is no surface that shows it to you.
+
+So BUG-97 on its own gets a preview submission to "a message was queued", with a link that is correct, followable, and invisible.
+
+**What closes it, cheaply:** make a Messages row expandable to show the message **as sent** — the stored body in a sandboxed iframe, so it paints like the mail and the link is clickable. No new data, no new endpoint; a pane change in `builder/people.js` and some CSS. That makes a preview submission a complete rehearsal: press the button, open the contact, read the real mail, click the real link, get the real paper — nothing published, no mail provider, no live site.
+
+It isn't dev-only value either. In production it's the answer to *"what exactly did we send this person, and does their link work?"*, which is the support question.
+
+One thing I noticed while tracing: in dev the record is written `status: 'sent'` with `provider_id: local_…`, so the pane says **sent** for a message that never left. The `local_` prefix already distinguishes it — three lines in `messageLine` to say *not sent — no mail provider configured* instead. Cheap, and it removes the worst misreading available in that pane.
+
+## Proposed scope
+
+1. Published link from `site_domains`, option (B) shape (`https://<host>/site/<key>/api/download/<token>`) — your call still stands from my last message; say the word if you'd rather have (A).
+2. Draft-channel link + the draft gate route in `control-app`.
+3. `no_site_address` refusal on the published channel, no grant minted, no mail.
+4. Operator callers pinned unchanged by UAT.
+5. **Messages row shows the message as sent, and says so when it wasn't.**
+
+Items 1–4 are the ticket as written. **5 is the one I need your yes on** — it's what makes the ticket's own promise ("delivers something the operator can actually open") actually true, but it's a builder pane rather than the link, so it's fair to call it a separate ticket and let BUG-97 land a correct-but-unviewable link in dev.
+
+Fold 5 in, or file it separately?
 
 <!-- xgd-chat-end -->
