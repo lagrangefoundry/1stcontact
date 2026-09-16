@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-255
 created_by: xgd
 created_at: '2026-09-16T17:22:25.872736+00:00'
-updated_at: '2026-09-16T18:38:32.756709+00:00'
+updated_at: '2026-09-16T19:15:37.252045+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -162,5 +162,14 @@ The assertion pins the launcher's *relative* path, which is now correctly resolv
 All green. Now the full rail as the final gate — it also validates what the merge brought in.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="ba06c082-b8c2-440c-bdb7-a15b6d877423-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:15:36.738311+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
