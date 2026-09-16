@@ -5,10 +5,10 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T02:56:59.270132+00:00'
+updated_at: '2026-09-16T03:17:35.464268+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-bf282b3d
@@ -68,6 +68,41 @@ of today's manual reproduction loop, which is why it lands first.
     suite fails if the console acquires a build script or a wrangler config, or
     if a deployable package gains a dependency on it.
 
+## What an iteration actually runs
+
+14. An iteration is a **sequence of separate `1c` invocations**, each its own OS
+    process (requirement 7), run from the repo root:
+    **capture** (first run on a site only) → **refold** → **repro** →
+    **render** → **diff**. A step that fails ends the iteration (requirement 10);
+    the steps after it do not run.
+15. **A re-run does not re-capture.** It **refolds the stored bundle from its own
+    retained oracle** before reproducing, so an engine change is picked up
+    without re-hitting the site. Re-capturing would re-roll the oracle and move
+    the reference under the comparison, making a fold change and a reference
+    change inseparable — which is exactly what the iteration is trying to tell
+    apart.
+16. **[reproduce] and [run again] are different verbs.** [reproduce] takes an
+    address, captures it, and **starts the iteration list over at "Iteration 1"**
+    for that site. [run again] takes no address, re-runs the site already loaded,
+    and **appends** the next iteration.
+17. **Each iteration's artifacts are kept separately**, so following iteration 1's
+    links after iteration 3 has run still shows iteration 1's reproduction and
+    iteration 1's diff images rather than the newest ones. They land under
+    `storage/tmp/`, which is scratch space and is not committed.
+18. **A non-empty diff is a result, not a failure.** `1c diff` exits non-zero
+    whenever it finds a region of interest, which is the normal case for every
+    reproduction worth looking at. The console judges that step by **whether it
+    produced its report**, not by its exit code — otherwise every real iteration
+    would be reported as a failed run.
+
+## Where the bundle landed
+
+19. The capture step **reports the bundle it wrote in a machine-readable form**,
+    because the console cannot derive it: a capture is named after **the host
+    that answered**, which may not be the host that was typed (`www.` added or
+    dropped), and every later step in the iteration has to point `--ref` at that
+    exact directory.
+
 ## Out of scope
 
 - Any AI (that is [[REQ-256]]), and the fourth per-iteration link to the gap
@@ -82,6 +117,24 @@ Start the console, enter `joyfulculinarycreations.com`, press [reproduce]. The
 shows the real artifact — the live site, the reproduction, the diff images.
 Press [run again] and "Iteration 2" appears below it. Kill the network and the
 page reports the failure instead of hanging.
+
+## Implementation decisions
+
+- **Started by its own launcher, `bin/repro-console`**, which mirrors `bin/1c`:
+  a bash wrapper into `tools/repro-console/bin/repro-console.mjs`, which boots a
+  Vite SSR server and loads the TypeScript console. It is deliberately **not** a
+  `1c` subcommand — that would make `tools/generate` (whose source the control
+  app imports directly) depend on the console, pointing the dependency arrow the
+  wrong way through the package the deployable Worker reads from.
+- **The console spawns `1c`; it does not import the engine.** Requirement 7 needs
+  a fresh process per step anyway, and a process boundary is a stronger version
+  of requirement 12 than an import rule.
+- **The page is rendered by the server on every request**, and carries a version
+  number. The browser polls a small status endpoint for the running/failed line
+  and reloads when the version moves. There is no client build step and no
+  duplicated markup.
+- **Zero dependencies.** The console package declares none; it is node builtins
+  and the `1c` binary.
 
 Related: [[EPIC-12]] §8.1, §8.3, §8.6 · [[REQ-150]] (why the CLI compiles on the
 fly) · [[DOC-19]]
