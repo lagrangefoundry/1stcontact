@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:22:47.304671+00:00'
+updated_at: '2026-09-16T04:23:52.429534+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -294,5 +294,45 @@ The general principle: the defence against reclassification isn't enforcement, i
 <!-- xgd-chat role="user" ts="2026-09-16T04:22:46.801698+00:00" -->
 #### You
 **Everything** suppressed — they've told Gmail we're abusive; continuing is reputational suicide regardless of who's technically right. <-- are you saying I can't attempt to collect my outstanding $3000 bill because the customer hit "unsubscribe" on the invoice email?
+
+<!-- xgd-turn id="c523ffc2-9f5a-4e9f-992e-a669f2ae00a0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T04:23:52.378457+00:00" -->
+#### Claude
+No — and my own table says so. An unsubscribe suppresses marketing and leaves transactional running, so the invoice reminders keep going. Belt and braces: there shouldn't be a `List-Unsubscribe` header on an invoice in the first place, so that click shouldn't exist to make.
+
+But you're pointing at the real case, which is the **spam complaint** on an invoice — the customer who doesn't want to pay hits "Report spam" precisely to make the reminders stop. And there I was too absolute.
+
+## Why the rule still mostly holds
+
+The thing worth internalising is that **we aren't the ones deciding.** A spam complaint isn't a preference we're honouring out of manners — it's a signal that already went to Google. Gmail has recorded it against Alice's sending domain and it's now filtering accordingly.
+
+Which means the fourth reminder probably **isn't reaching the inbox anyway.** Alice isn't chasing her debt; she's feeling like she's chasing it while the messages land in a spam folder nobody opens, and paying for that feeling with the deliverability of every other email she sends. The reminders that *do* still matter — to the customers who'd pay — get worse.
+
+So suppression isn't confiscating a working tool. It's declining to keep charging for one that already broke. That's the honest version of the rule and it's the one I should have led with.
+
+## What the product should actually do
+
+Not "sorry, this contact is suppressed." A spam complaint on a payment reminder is a **signal to escalate the channel**, and the product knows things that help:
+
+> *This customer marked your reminder as spam, so email is no longer reaching them. For £3,000 the next step is a written demand — here's their postal address, and here's a letter-before-action template.*
+
+That's better advice than silently continuing. A £3,000 debt was always going to end up at letter, phone, or small claims; email reminders are just the cheap first rung of that ladder, and the complaint told you the rung broke.
+
+And there's a bonus that falls out of the record-keeping thesis: **the complaint is evidence.** It proves receipt and engagement. "We notified you on these four dates and you marked the notifications as spam" is a considerably stronger position in a dispute than "we sent some emails." We captured it, so Alice gets to use it. Also worth knowing — chasing a debt you're owed yourself is far less regulated than collecting one on someone else's behalf, so Alice has more room here than the framing implies. Worth a proper check for the jurisdictions we operate in.
+
+## Where I'd soften it
+
+The absolutism was wrong because I collapsed two things that aren't alike. It's three paths, not two:
+
+**Automated sequences** — dunning reminders firing on a schedule. These stop on complaint, no override. They're what generates *repeated* complaints, and repetition is what does the reputational damage.
+
+**Alice writing to one person about one debt** — that's correspondence, not bulk mail. It isn't subject to the bulk-sender rules, it doesn't move complaint-rate metrics meaningfully, and it's a human making a deliberate decision about a specific person rather than a system emitting a sequence. Allow it, with a plain warning that the recipient marked her as spam and it likely won't land. Honestly, that's what a £3,000 debt warranted anyway — the automated sequence is for the £80 ones.
+
+**Marketing** — never, no override, no attestation. Any override Alice controls gets used, and the customer most likely to use it is the one whose list is worst.
+
+There's a second reason the softer line is affordable, and it comes straight out of the per-business-domain decision from earlier: if Alice sends from `alicesplumbing.com` under her own DKIM, **she bears most of her own reputational cost.** That's not true of a pooled `1stcontact.io` sending domain, where her choice taxes everyone. The shared IP pool is still shared, so there's a floor we protect regardless — but per-domain sending is what makes it defensible to let her make an informed call about her own customer rather than having us make it for her.
+
+So: unsubscribe never blocks the invoice. A complaint stops the *robot* from chasing, not Alice.
 
 <!-- xgd-chat-end -->
