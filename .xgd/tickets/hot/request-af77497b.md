@@ -5,7 +5,7 @@ type: request
 title: An email page shows its subject, and the page list says it is a message
 created_by: EPIC-10
 created_at: '2026-09-16T00:47:03.770642+00:00'
-updated_at: '2026-09-16T01:20:27.866921+00:00'
+updated_at: '2026-09-16T01:23:36.163846+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -18,6 +18,7 @@ fields:
   needs_review: false
   chat_comment: comment-4884ca0d
 ---
+
 
 # An email page shows what it is, and what it will arrive as
 
@@ -128,6 +129,16 @@ is blank too), and whitespace counts as blank. That is what lets the interface s
 be sent by showing what is stored: the field is refilled from the write's own answer rather
 than from what was typed, so an operator who clears the box watches the title appear.
 
+**The field follows a subject the operator did not change.** A subject rewritten in the
+conversation reaches the box without a reload, which AC-1 requires of a surface that claims to
+say what contacts are receiving — a confident wrong answer is worse there than no answer. The
+listing is re-taken asynchronously, well after the panel event that provoked it, so the page
+index grew an `onRefreshed` subscription and the field redraws from it. That is also what makes
+the index a shared thing rather than the page selector's private one: two controls now read the
+same rows, and "re-take the listing" and "redraw" can no longer be the same line in the one
+control that did both. The toolbar's action context gained a `cleanup(off)` beside `subscribe`,
+so a release that is not a panel subscription still gets the element's lifetime.
+
 **AC-7 is a table, not a branch.** `labelOf` looks the row's `kind` up in a small map of
 `{prefix, stranded}` — `web` is `{'', 'unreachable'}`, `email` is `{'Email: ', 'no form sends
 it'}` — so a third kind is a row in that object rather than a second opinion about what a page
@@ -146,7 +157,8 @@ word the client cannot read.
   `mountBuilder` with only the transport injected. Label prefixes and notes for all four cases
   including a web page and a message of the same title; an unknown kind; the field appearing
   for a message and for nothing else; the write carrying site, page id and subject; the answer
-  redrawing the box; a refusal reported and not kept; Edit-only.
+  redrawing the box; a refusal reported and not kept; a subject changed elsewhere reaching the
+  box with nothing written; Edit-only.
 - `tests/test_UAT_FC_REQ-252_subject_route.workers.test.ts` (workerd) — the wire. The route
   writes what the field sent, read back through the store; answers a cleared subject with the
   title; refuses a subject on a served page at 400.
