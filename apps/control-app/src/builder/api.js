@@ -257,6 +257,34 @@ export async function fetchBusinesses(fetchImpl = fetch) {
   }
 }
 
+/**
+ * What this business is called, right now ([[REQ-251]]).
+ *
+ * OVER `/api/businesses` AND NOT A ROUTE OF ITS OWN. There is no `GET
+ * /api/business`, and adding one for this would be a second read path to a fact
+ * the shell already fetches — the switcher is drawn from exactly this list, so
+ * re-reading it is what a rename made in the conversation has to move anyway.
+ * The cost of reading the account's list to answer about one of its businesses
+ * is one row nobody notices; the cost of a second route is a second place the
+ * record's shape is stated.
+ *
+ * IT ANSWERS ABOUT THE BUSINESS IN SCOPE and takes no id, for the reason every
+ * write here takes none: the scope is already resolved, so an id parameter would
+ * be the one value a caller could get wrong.
+ *
+ * `null` WHEN THERE IS NO SCOPE, OR WHEN THE LIST NO LONGER HOLDS IT. Both are
+ * ordinary — no business open, or a grant that lapsed between the tab opening
+ * and this read — and both mean the same thing to a caller: there is nothing to
+ * show, so show nothing rather than the last thing you knew.
+ */
+export async function fetchBusinessRecord(fetchImpl = fetch) {
+  const id = getBusinessScope()
+  if (!id) return null
+  const { businesses } = await fetchBusinesses(fetchImpl)
+  const mine = businesses.find((b) => b?.id === id)
+  return mine ? { id: mine.id, name: mine.name ?? '' } : null
+}
+
 /** Every site in the store, newest revision included. */
 export async function fetchSites(fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/sites'))

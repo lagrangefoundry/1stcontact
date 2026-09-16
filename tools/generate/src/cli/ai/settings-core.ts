@@ -279,11 +279,60 @@ async function theBusiness(deps: SettingsDeps): Promise<BusinessView> {
   return business
 }
 
-/** The operations, bound to one deployment's business record. */
+/**
+ * Which operations on this surface CHANGE something ([[REQ-251]]).
+ *
+ * READ OUT OF THE DECLARATION, NOT LISTED HERE. The declaration already says
+ * which operations are writes — it has to, because the framework's own validator
+ * refuses a `write` group holding a `read` operation — so a second list beside it
+ * would be a second statement of the same fact, and the failure mode of a second
+ * statement is that the day a settings operation is added, exactly one of them is
+ * updated. Derived, the set is right on the day the operation is declared and
+ * cannot name one that does not exist.
+ */
+export function settingsWriteOperations(): ReadonlySet<string> {
+  const ops = (SETTINGS_DECLARATION.operations ?? []) as { op?: string; effect?: string }[]
+  return new Set(ops.filter((o) => o.effect === 'write').map((o) => String(o.op)))
+}
+
+/**
+ * The operations, bound to one deployment's business record.
+ *
+ * @param onWrite told AFTER a write operation has returned, and never otherwise
+ *   ([[REQ-251]]). This is the settings surface's answer to the question BUG-43
+ *   answered for a site: the pane beside the conversation has to re-read when the
+ *   assistant changes the record, and the site's answer — arithmetic over the
+ *   store's change counter — has no equivalent here, because a business is not a
+ *   store and has no counter to compare.
+ *
+ *   IT IS A HOOK ON THE RETURN AND NOT A DECLARED OPERATION, for BUG-43's reason
+ *   exactly: a tool the model may call is a tool the model may forget to call,
+ *   and the turns it would forget on are the long ones, which are the turns where
+ *   a stale pane does the most damage. Placed after the `await`, it cannot report
+ *   a write that was refused, and placed once per call it cannot report one
+ *   twice.
+ */
 export function settingsOperations(
   deps: SettingsDeps,
+  onWrite: (op: string) => void = () => {},
 ): Record<string, (p: Params) => Promise<Untyped>> {
-  return {
+  const writes = settingsWriteOperations()
+  const announced = (
+    ops: Record<string, (p: Params) => Promise<Untyped>>,
+  ): Record<string, (p: Params) => Promise<Untyped>> =>
+    Object.fromEntries(
+      Object.entries(ops).map(([op, run]) => [
+        op,
+        writes.has(op)
+          ? async (p: Params) => {
+              const answer = await run(p)
+              onWrite(op)
+              return answer
+            }
+          : run,
+      ]),
+    )
+  return announced({
     read_business: async () => businessView(await theBusiness(deps)),
 
     rename_business: async (p: Params) => {
@@ -366,7 +415,7 @@ export function settingsOperations(
         )
       }
     },
-  }
+  })
 }
 
 const bound = new WeakMap<object, Promise<Untyped>>()
@@ -377,11 +426,11 @@ function settingsToolboxClass(lib: Untyped): Promise<Untyped> {
     if (existing) return existing
     const built = Promise.resolve(
       class SettingsToolbox extends mod.ToolboxSurface {
-        constructor(deps: SettingsDeps) {
+        constructor(deps: SettingsDeps, onWrite: (op: string) => void = () => {}) {
           super(SETTINGS_DECLARATION)
           // Installed as OWN methods, not prototype ones, so the Toolbox's
           // startup binding check sees exactly the declared set and no more.
-          for (const [op, run] of Object.entries(settingsOperations(deps))) {
+          for (const [op, run] of Object.entries(settingsOperations(deps, onWrite))) {
             ;(this as unknown as Params)[op] = run
           }
         }
@@ -392,8 +441,19 @@ function settingsToolboxClass(lib: Untyped): Promise<Untyped> {
   })
 }
 
-/** The surface, bound to this deployment's business record. */
-export async function settingsSurfaceFor(lib: Untyped, deps: SettingsDeps): Promise<Untyped> {
+/**
+ * The surface, bound to this deployment's business record.
+ *
+ * @param onWrite [[REQ-251]] — see {@link settingsOperations}. Optional, and a
+ *   caller that omits it composes exactly the surface that existed before: the
+ *   signal is the HOST's business, and a `1c` process with no pane beside it has
+ *   nothing to tell.
+ */
+export async function settingsSurfaceFor(
+  lib: Untyped,
+  deps: SettingsDeps,
+  onWrite: (op: string) => void = () => {},
+): Promise<Untyped> {
   const SettingsToolbox = await settingsToolboxClass(lib)
-  return new SettingsToolbox(deps)
+  return new SettingsToolbox(deps, onWrite)
 }

@@ -4,7 +4,7 @@
   "surface_version": 1,
   "title": "The business's own record — what it is called",
   "call_type": "inproc",
-  "overview": "This is the business's own record: the name the product knows it by. It is what your client's business switcher shows, what the Contacts tab shows, and what an invoice would eventually say. It is theirs, it is internal, and it may change whenever they like.\n\n**There are two names and they are allowed to differ. Do not confuse them.** This one is what the business IS CALLED. `config.businessName` on the site is what the SITE SAYS — authored content, sitting beside the tagline and the contact details, changed only by an explicit site edit. A business mid-rebrand trades under both; a business correcting an internal label was never trading under the old one at all.\n\n**So renaming the business changes the business's record and NOTHING ELSE.** It does not edit the site. It does not publish. It does not move any address. What it does instead is tell you what is now out of date — the site still saying the old name, the pages whose copy still names it — so that you can ASK. *\"Your site still calls you Foo — shall I change that too?\"* is the point of the report. Every line of it is an offer and none of it is an action.\n\n**And it is not the public address.** The address that reaches the site is a hostname, and it is also yours to work on here — see the hostname operations below. That one is global, first-come, chosen once and **final**. This name is internal, unique only within your client's own account, and free to change as often as they want.\n\n**So when your client asks to \"change their name\", find out which of the two they mean before you touch anything.** One is a text field. The other is a decision they live with, and you cannot undo it for them."
+  "overview": "This is the business's own record: the name the product knows it by. It is what your client's business switcher shows, what the Contacts tab shows, and what an invoice would eventually say. It is theirs, it is internal, and it may change whenever they like.\n\n**There are two names and they are allowed to differ. Do not confuse them.** This one is what the business IS CALLED. `config.businessName` on the site is what the SITE SAYS — authored content, sitting beside the tagline and the contact details, changed only by an explicit site edit. A business mid-rebrand trades under both; a business correcting an internal label was never trading under the old one at all.\n\n**So renaming the business changes the business's record and NOTHING ELSE.** It does not edit the site. It does not publish. It does not move any address. What it does instead is tell you what is now out of date — the site still saying the old name, the pages whose copy still names it — so that you can ASK. *\"Your site still calls you Foo — shall I change that too?\"* is the point of the report. Every line of it is an offer and none of it is an action.\n\n**And it is not the public address.** The address that reaches the site is a hostname, and it is also yours to work on here — see the hostname operations below. That one is global, first-come, chosen once and **final**. This name is internal, unique only within your client's own account, and free to change as often as they want.\n\n**So when your client asks to \"change their name\", find out which of the two they mean before you touch anything.** One is a text field. The other is a decision they live with, and you cannot undo it for them.\n\n## The words to use for the address\n\n**To your client it is their FREE WEB ADDRESS.** Those are the words on the settings pane beside this conversation, and the customer is reading both at once — so a second noun here is the field and the conversation disagreeing in front of them, with nothing to break the tie. `hostname` is the word in this declaration because it is what the operations are called; it is not a word to say out loud.\n\n**Never call it a domain.** A `1stc.site` address is not a domain, and 1st Contact is going to sell your client a real one — teaching them the word here means unteaching it there, and *\"but I already have a free domain\"* is the conversation that mistake buys. Keep `domain` for a domain they own or will buy, and nothing else. `free` is worth saying, because it is true."
   ,
   "param_types": {
     "business_name": {
@@ -13,7 +13,7 @@
     },
     "hostname_label": {
       "base": "string",
-      "description": "The first part of the address — the `alice` in `alice.1stc.site`. Letters, numbers and hyphens only; 1 to 63 characters; it cannot start or end with a hyphen. Capitals and spaces are tidied away, and you may pass the whole host (`alice.1stc.site`) if that is what your client said — it is read as the label either way."
+      "description": "The first part of your client's free web address — the `alice` in `alice.1stc.site`. Letters, numbers and hyphens only; 1 to 63 characters; it cannot start or end with a hyphen. Capitals and spaces are tidied away, and you may pass the whole host (`alice.1stc.site`) if that is what your client said — it is read as the label either way."
     }
   },
   "shapes": {
@@ -28,18 +28,18 @@
       "effects": "what this rename left out of date. Nothing here was changed"
     },
     "addresses": {
-      "apex": "the domain your client's hostname sits under — `1stc.site`. Shown so you never have to assemble the whole host yourself",
+      "apex": "what a free web address sits under — `1stc.site`. Given so you never have to assemble the whole host yourself, and so this string is never written out from memory",
       "addresses": "every public address this business's site can be reached at. EMPTY IS THE ORDINARY STARTING STATE: a business that has not chosen one has no public address and needs none until it publishes"
     },
     "address": {
-      "host": "the whole host, as the public types it — `alice.1stc.site`. Always say it in full; a bare label is not an address and your client cannot check it",
-      "kind": "`platform` for a 1stc.site hostname, `custom` for a domain your client owns. Only `platform` can be chosen here today",
+      "host": "the whole address, as the public types it — `alice.1stc.site`. Always say it in full; a bare label is not an address and your client cannot check it",
+      "kind": "`platform` for a free 1stc.site web address, `custom` for a domain your client owns. Only `platform` can be chosen here today",
       "site": "the site this address reaches"
     },
     "check": {
-      "host": "the whole host that was checked, as it would be. Present even when it is refused, so you can say which candidate you are talking about",
+      "host": "the whole address that was checked, as it would be — `alice.1stc.site`, never `alice`. Present even when it is refused, so you can say which candidate you are talking about. SAY IT IN FULL every time: a bare label is not an address, and a permanent name your client never actually read is a permanent typo",
       "available": "true when nobody has it and nothing refuses it. IT IS NOT A RESERVATION — see the operation",
-      "refusal": "why not, in a sentence you can say out loud. Null when it is available"
+      "refusal": "why not, in a sentence you can say out loud. Null when it is available. WHICH of the three it is — somebody has it, we keep it, or it is not a valid address — is what decides what your client does next, so read it and say the right one"
     },
     "effects": {
       "site": "the site this business holds, or null when it holds none",
@@ -59,16 +59,16 @@
       "message": "there is no business behind this conversation, so there is no record to read or change."
     },
     "HOSTNAME_TAKEN": {
-      "message": "somebody else has that hostname. It may have gone between your checking it and your client taking it — two people can be told the same name is free in the same second, and the one who takes it first keeps it. Say so plainly, and offer the ones you have already checked."
+      "message": "somebody else has that address. It may have gone while your client was deciding — two people can be told the same name is free in the same second, and the one who takes it first keeps it. That is the ordinary shape of a first-come namespace and not a fault, so say it without ceremony — *that one went while you were deciding* — and offer the next name you have already checked. WHAT THIS LEADS TO IS ANOTHER NAME, which is what separates it from the two refusals below."
     },
     "HOSTNAME_RESERVED": {
-      "message": "that one is kept for the product itself — the infrastructure names, the protocol names, and anything that would wear 1st Contact's own name in front of the public. It is not a judgement about your client and it is not negotiable. Offer a different word; do not argue it."
+      "message": "that one is kept for 1st Contact itself — the infrastructure names, the protocol names, and anything that would wear 1st Contact's own name in front of the public. It is not a judgement about your client and it is not negotiable. WHAT THIS LEADS TO IS A DIFFERENT WORD, and that is why it is not the same answer as taken: every decoration of a kept word is kept too, so a variation on it will be refused as well. Say it is kept for 1st Contact itself, offer a different word, and do not argue it."
     },
     "HOSTNAME_INVALID": {
-      "message": "that is not a hostname. Letters, numbers and hyphens, 1 to 63 characters, and it cannot start or end with a hyphen. Say which rule it broke — the refusal tells you — and offer the nearest thing that would work."
+      "message": "that is not an address. Letters, numbers and hyphens, 1 to 63 characters, and it cannot start or end with a hyphen. WHAT THIS LEADS TO IS A FIX TO THE SAME NAME rather than a different one — so say which rule it broke, in the refusal's own words, and offer the nearest thing that would work."
     },
     "HOSTNAME_ALREADY_HELD": {
-      "message": "this business already has a hostname, and a hostname cannot be changed. The refusal names the one they hold. Say what it is, and say that changing it is not something anyone can do — not you, not the form, not us on request."
+      "message": "this business already has a free web address, and it cannot be changed. The refusal names the one they hold. Say what it is — in full — and say that this was chosen once and cannot be changed: not by you, not by the form, not by us on request."
     },
     "NO_SITE": {
       "message": "this business has no site yet, so there is nothing for an address to reach."
@@ -119,8 +119,8 @@
       "op": "read_addresses",
       "tool": "read_addresses",
       "effect": "read",
-      "summary": "Where your client's site can be reached from the public internet.",
-      "description": "Every public address this business's site has, and the domain a 1stc.site hostname sits under.\n\n**An empty list is the ordinary state of a new business, not a fault.** Until a site is published it has no public address and needs none, and your client may take as long as they like over the choice. What an empty list DOES mean is that the site cannot be published yet — read it before you offer to publish anything, and read it before you offer to choose a hostname, because a business that already has one cannot have another.",
+      "summary": "Where your client's site can be reached from the public internet — their free web address, and any domain they own.",
+      "description": "Every public address this business has, and the apex a free web address sits under.\n\n**IT IS THE BUSINESS'S ADDRESS AND NOT THE SITE'S.** One business, one free web address, chosen once — so \"do they have one yet\" is a question about the business, and a business with two sites does not get two.\n\n**An empty list is the ordinary state of a new business, not a fault.** Until a site is published it has no public address and needs none, and your client may take as long as they like over the choice. What an empty list DOES mean is that the site cannot be published yet — read it before you offer to publish anything, and read it before you offer to choose a hostname, because a business that already has one cannot have another.",
       "params": {},
       "returns": {
         "shape": "addresses",
@@ -134,8 +134,8 @@
       "op": "check_hostname",
       "tool": "check_hostname",
       "effect": "read",
-      "summary": "Is this hostname available? Nothing is taken and nothing is held.",
-      "description": "Ask whether a hostname is free. **This is the operation that makes you useful rather than decorative.** A client whose first six choices are gone is exactly who needs help, and you can only help if you can check: propose `colesbakery`, find it taken, check `colesbakerydublin` and `bakerybycole`, and come back with three that are actually free. A suggestion you have not checked is worse than no suggestion.\n\n**Call it as often as you like.** It changes nothing, it holds nothing, and it costs nothing.\n\n**But it is not a promise.** Two people can check the same name in the same second and both be told yes; whoever takes it first keeps it. So never tell your client a name IS theirs because you checked it — tell them it is free, and that taking it is what makes it theirs. If it goes while they are deciding, say so without ceremony and offer the next one you checked.\n\n**A refusal here is not always about availability.** A name can also be refused for its shape (the rule is in the parameter) or for being one we keep. The sentence tells you which; say it, and offer something that would work.",
+      "summary": "Is this free web address available? Nothing is taken and nothing is held.",
+      "description": "Ask whether a free web address is available. **This is the operation that makes you useful rather than decorative.** A client whose first six choices are gone is exactly who needs help, and you can only help if you can check: propose `colesbakery`, find it taken, check `colesbakerydublin` and `bakerybycole`, and come back with three that are actually free. A suggestion you have not checked is worse than no suggestion.\n\n**Call it as often as you like.** It changes nothing, it holds nothing, and it costs nothing.\n\n**But it is not a promise.** Two people can check the same name in the same second and both be told yes; whoever takes it first keeps it. So never tell your client a name IS theirs because you checked it — tell them it is free, and that taking it is what makes it theirs. If it goes while they are deciding, say so without ceremony — *that one went while you were deciding* — and offer the next one you checked.\n\n**SAY THE WHOLE ADDRESS, ALWAYS.** `alice.1stc.site`, never `alice`. The answer carries it in full for exactly this reason, and a client who only ever heard the first word has not read the thing they are about to own for good.\n\n**A refusal here is not always about availability, and the three lead three different places.** Somebody has it — try another name. It is one we keep — change the WORD, because every decoration of a kept word is kept too. It is not a valid address — fix the shape, and the rule is in the parameter. The sentence tells you which; say the right one, because it is what tells your client what to do next.",
       "params": {
         "label": {
           "type": "hostname_label",
@@ -155,8 +155,8 @@
       "op": "claim_hostname",
       "tool": "claim_hostname",
       "effect": "write",
-      "summary": "Take the hostname. This cannot be undone, changed, or swapped later.",
-      "description": "Give your client's site its public address, permanently.\n\n**Say what this is before you do it, not after.** In their words: this is the address on the van, on the card, in the search result. It is `alice.1stc.site` — the WHOLE thing, said in full, spelled out if there is any doubt — and it **cannot be changed afterwards**. Not by you, not by the form, not by us on request. A permanent name typed in a hurry is a permanent typo, so read it back to them exactly as it will be and get a clear yes to that string.\n\n**Check first, then claim.** Not because the claim needs it — the claim decides on its own — but because being told \"taken\" is a better conversation than being refused after committing.\n\n**One per business.** If they already have one, this refuses and names it; there is no second address and no way to trade one in.\n\n**Say what it does NOT do.** It does not publish, it does not change the business's name, and the address does not go live until the site is published. What it DOES do is remove the thing that was stopping a publish: a site with no address cannot go live, because there would be nothing for anyone to type.\n\n**If your client is not sure, let them not be sure.** There is no deadline and nothing is broken in the meantime. Reserving-by-claiming is exactly the mistake this operation makes unrecoverable.",
+      "summary": "Take the free web address. This cannot be undone, changed, or swapped later.",
+      "description": "Give your client's BUSINESS its free web address, permanently.\n\n**IT IS THE BUSINESS'S ADDRESS, NOT THIS SITE'S**, and say it that way. One business holds one, for good, whatever it does with its sites afterwards — *\"this site's address\"* promises something narrower than what is actually being taken, and the pane beside this conversation says *your business's address* in the moment it asks them to confirm.\n\n**Say what this is before you do it, not after.** In their words: this is the address on the van, on the card, in the search result. It is `alice.1stc.site` — the WHOLE thing, said in full, spelled out if there is any doubt — and it **cannot be changed afterwards**. Not by you, not by the form, not by us on request. A permanent name typed in a hurry is a permanent typo, so read it back to them exactly as it will be and get a clear yes to that string.\n\n**Check first, then claim.** Not because the claim needs it — the claim decides on its own — but because being told \"taken\" is a better conversation than being refused after committing. And a claim that comes back taken anyway is the ordinary race, not a failure: *that one went while you were deciding*, and the next name you checked is one sentence away.\n\n**One per business.** If they already have one, this refuses and names it; there is no second address and no way to trade one in.\n\n**Say what it does NOT do.** It does not publish, it does not change the business's name, and the address does not go live until the site is published. What it DOES do is remove the thing that was stopping a publish: a site with no address cannot go live, because there would be nothing for anyone to type.\n\n**If your client is not sure, let them not be sure.** There is no deadline and nothing is broken in the meantime. Reserving-by-claiming is exactly the mistake this operation makes unrecoverable.",
       "params": {
         "label": {
           "type": "hostname_label",
@@ -200,7 +200,7 @@
       "group": "ReadAddresses",
       "effect": "read",
       "title": "Reading and checking public addresses",
-      "description": "Where your client's site can be reached, and whether a hostname they are considering is free. Nothing here takes anything, holds anything or changes anything — a check is a question, asked as many times as you like.",
+      "description": "Where your client's site can be reached, and whether a free web address they are considering is available. Nothing here takes anything, holds anything or changes anything — a check is a question, asked as many times as you like.",
       "operations": [
         "read_addresses",
         "check_hostname"
@@ -210,7 +210,7 @@
       "group": "ClaimHostname",
       "effect": "write",
       "title": "Taking a public address",
-      "description": "Its own capability, and the most consequential thing on this surface. A 1stc.site hostname is global, first-come and **final**: one per business, chosen once, never changed and never re-issued to anybody else. It is deliberately separate from checking, because checking is free and this is not — and separate from renaming the business, because that is a text field and this is a decision your client lives with.",
+      "description": "Its own capability, and the most consequential thing on this surface. A free web address is global, first-come and **final**: one per BUSINESS, chosen once, never changed and never re-issued to anybody else. It is deliberately separate from checking, because checking is free and this is not — and separate from renaming the business, because that is a text field and this is a decision your client lives with.",
       "operations": [
         "claim_hostname"
       ]
@@ -226,20 +226,20 @@
       "note": "Read it first so you can say what it is changing FROM, then rename, then read the effects back to them as offers. The site is not touched by any of this — if they want the site to follow, that is a site edit you make afterwards and they publish when they are ready."
     },
     {
-      "name": "Your client wants their site to have a public address",
+      "name": "Your client wants a free web address",
       "steps": [
         "read_addresses",
         "check_hostname",
         "claim_hostname"
       ],
-      "note": "Read first, because a business that already has one cannot have another and the whole conversation would be wasted. Then check — as many candidates as it takes, and you may check several before saying anything, so that what you offer is a short list of names that are actually free. Then, only once they have heard the whole host said back to them and understood that it is permanent, claim it. If the claim comes back taken, that is the ordinary race and not a failure: say so and offer the next one you checked."
+      "note": "Read first, because a business that already has one cannot have another and the whole conversation would be wasted. Then check — as many candidates as it takes, and you may check several before saying anything, so that what you offer is a short list of names that are actually free. Then, only once they have heard the whole address said back to them in full and understood that it is permanent — their business's address for good — claim it. If the claim comes back taken, that is the ordinary race and not a failure: say *that one went while you were deciding* and offer the next one you checked."
     },
     {
       "name": "Your client asks why they cannot publish",
       "steps": [
         "read_addresses"
       ],
-      "note": "An empty list is the answer. A site with no public address cannot be published, because there would be nothing for anyone to type — so the fix is a hostname here, or a domain they own, and either one is enough. Publishing itself is not something you do on this surface; the assistant beside their site does that."
+      "note": "An empty list is the answer. A site with no public address cannot be published, because there would be nothing for anyone to type — so the fix is a free web address here, or a domain they own, and either one is enough. Publishing itself is not something you do on this surface; the assistant beside their site does that."
     }
   ],
   "absences": [
@@ -261,7 +261,7 @@
     },
     {
       "name": "Choosing a hostname for them",
-      "note": "Nothing here mints, assigns or suggests-and-takes a hostname. You may propose as many names as you like and check every one of them, but the taking is your client's decision and the operation only ever does exactly what it was told. A permanent public name chosen on somebody's behalf is the one mistake on this surface that cannot be corrected."
+      "note": "Nothing here mints, assigns or suggests-and-takes an address. You may propose as many names as you like and check every one of them, but the taking is your client's decision and the operation only ever does exactly what it was told. THIS HOLDS WHEN THEY ASK YOU TO DECIDE — *\"just pick one\"* is not consent to a particular name, and the answer to it is to say your favourite of the ones you checked and get a yes to that address, in full. A permanent public name chosen on somebody's behalf is the one mistake on this surface that cannot be corrected."
     },
     {
       "name": "Another business",

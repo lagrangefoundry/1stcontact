@@ -175,6 +175,16 @@ export function createHostnameSection(options = {}) {
   /** The check that produced the line now on screen, or null. */
   let candidate = null
   let dialog = null
+  /**
+   * The host this section is currently SHOWING AS HELD, or null while it is
+   * still a field ([[REQ-251]]).
+   *
+   * WHAT `refresh` COMPARES AGAINST. A re-read has to be able to answer "has this
+   * changed since I drew it" without asking the section to re-render in order to
+   * find out — and re-rendering to find out is exactly what would empty a box the
+   * customer is typing in.
+   */
+  let holding = null
 
   function say(text) {
     line.textContent = text
@@ -303,6 +313,7 @@ export function createHostnameSection(options = {}) {
 
   /** The state most businesses are in most of the time: no box at all. */
   function showHeld(address) {
+    holding = address.host
     hint.remove()
     row.remove()
     line.remove()
@@ -315,6 +326,7 @@ export function createHostnameSection(options = {}) {
 
   /** The field, for a business that has not chosen yet. */
   function showField(apexHost) {
+    holding = null
     held.remove()
     apex.textContent = `.${apexHost}`
     input.value = ''
@@ -337,8 +349,38 @@ export function createHostnameSection(options = {}) {
       if (mine) showHeld(mine)
       else showField(apexHost ?? '')
     },
+    /**
+     * The same answer, read again, for a section already on screen ([[REQ-251]]).
+     *
+     * NOT `setAddresses`, AND THE DIFFERENCE IS THE WHOLE POINT. `setAddresses`
+     * is what a business SWITCH calls: it draws the section from nothing, and
+     * emptying the box is correct there because the box belonged to another
+     * business. This is what a RE-READ calls, and the re-read happens while the
+     * customer is sitting in front of the section — most often because the
+     * assistant beside it answered a question and changed nothing at all.
+     *
+     * SO IT ACTS ONLY ON A DIFFERENCE. An answer that still shows no address, or
+     * still shows the one already on screen, leaves everything exactly as it is —
+     * a half-typed candidate, the line under it, and the Lock button if one is
+     * up. Redrawing unconditionally would make every re-read throw away whatever
+     * the customer had begun, which is this section's own bug arriving from the
+     * other direction.
+     *
+     * A HOST THAT ARRIVED IS ALWAYS ACTED ON, and it closes the dialog with it:
+     * the customer may be looking at the confirm for a name the conversation has
+     * just taken on their behalf, and leaving that dialog up would offer to make
+     * permanent a second address this business cannot have.
+     */
+    refresh({ addresses } = {}) {
+      const mine = platformAddress(addresses)
+      if (!mine || mine.host === holding) return false
+      dialog?.close()
+      showHeld(mine)
+      return true
+    },
     clear() {
       dialog?.close()
+      holding = null
       element.replaceChildren(title)
       held.remove()
       input.value = ''
@@ -348,6 +390,8 @@ export function createHostnameSection(options = {}) {
     },
     /** What the section believes it holds — for a suite, and for the host. */
     getCandidate: () => candidate,
+    /** The host on screen as this business's address, or null ([[REQ-251]]). */
+    getHost: () => holding,
     destroy() {
       dialog?.close()
       element.remove()
