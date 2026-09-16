@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T18:40:02.225126+00:00'
+updated_at: '2026-09-16T18:54:30.697632+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -555,5 +555,15 @@ What is available, and is arguably better:
 ---
 
 This has turned into a substantial design with several findings that'll be expensive to rediscover — the Postmaster volume threshold, the `BODY.PEEK` engagement trap, test-volume-versus-small-sender-volume, and the Stripe test-mode correction in particular. Want me to write it up as a DOC under CHAT-54?
+
+<!-- xgd-turn id="08b22919-94a6-4f31-891f-9ef12f6e9d1e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:54:30.622135+00:00" -->
+#### You
+I think we need to be careful about mixing jobs here. Inbox vs Spam is one problem - getting the email to arrive at all is another. BFM is mostly about the latter. Spam treatment is something that will change slowly and is perhaps better measured by a third party.
+
+So lets say we have a single bot account (on paid gmail) and every day we trigger every email sending form on every customer to send and email to that account. We open the email, we click on (test) the links in the email and we despam it if it went to spam. That should not harm our interaction score for those accounts and it tells us that the forms are working. There is also signal there if emails end up in spam despite all that love so that would be something worth tracking too - it would give us a lower bound on spam classification problems.
+
+For measuring spam lets get a third party and work through questions of cost and frequency - I think once a week for a new account, once a month for an established one plus a debug send option if mail seems to be getting spammed.
 
 <!-- xgd-chat-end -->
