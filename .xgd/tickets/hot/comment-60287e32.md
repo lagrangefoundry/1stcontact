@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:16:05.379961+00:00'
+updated_at: '2026-09-16T04:17:29.247854+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -231,5 +231,62 @@ Short version: third party yes, but as infrastructure under our product, not as 
 **The single biggest control, though, is where addresses come from.** Our lists are small and warm — people who filled in a form or bought something. That's a far better starting position than the median Mailchimp account. The thing that destroys it is arbitrary CSV import, which is how purchased lists get in. I'd either not ship import at first, or gate it behind attestation plus a throttled first send with complaint-rate watching. <-- that's funny, I was just thinking about list import. We need it, there is no around it. If I have been working as a plumber for the last 20 years I have a mailing list of customers not being able to leverage that mailing list would be seriously damaging our product.
 
 ## Once someone unsubscribes, no code path emails them again — including anything reclassified as "transactional" to slip past. That's the rule most homegrown senders get wrong. <-- transactional has to get through - "Your payment method failed" is a message they want - unless they are no longer a customer altogether. But we do not want Alice trying to reclassify mail..
+
+<!-- xgd-turn id="558653a9-92ee-4e28-b90d-04c7ac26fe5f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T04:17:29.198358+00:00" -->
+#### Claude
+Both corrections are right, and the second one I overstated. Taking them in turn.
+
+## Import: the problem is provenance, not import
+
+You're right that blocking it is product suicide — that 20-year list *is* the plumber's business, and it's the warmest list in the world. People who paid him money.
+
+The real difficulty is that **Alice's list and a purchased list arrive as the same file.** The distinction lives entirely in provenance, which the artifact doesn't carry. So the question isn't whether to allow import, it's how to read provenance from evidence and how to cap the damage when you read it wrong.
+
+**There's more signal than you'd think, and none of it is attestation:**
+
+- **Role-address density.** Alice's list is `gmail.com`, `hotmail.co.uk`, `btinternet`, `sky`. A scraped B2B list is full of `info@`, `sales@`, `enquiries@`. Cheap to compute, very discriminating.
+- **Bounce-to-complaint *ratio*, not bounce rate.** A genuine 20-year list bounces heavily — people change ISPs, move, die. So does a purchased one. But the old genuine list bounces high and complains *low*, because people remember Alice. Purchased lists do both. The ratio separates them; the bounce rate alone doesn't, which is why naive "high bounce = bad list" gating would punish exactly the customer we want.
+- **Accompanying columns.** A real customer list has names, addresses, job dates, amounts. A purchased one is often bare addresses. An import straight out of QuickBooks, Xero or Google Contacts is near-conclusive provenance.
+- **Plausibility against the business.** A one-van plumber with 40,000 addresses is lying.
+- **Account behaviour.** This is the strongest one. A business that's had a site up for three months, sent invoices and taken form submissions, then imports 800 addresses, is a completely different risk from a fresh signup whose *first action* is a 50k import. The abuser you're actually defending against looks nothing like Alice, and behaviour separates them before content does.
+
+**Then the ramp, which is the control that matters.** Never blast a freshly imported list. Send in growing tranches — 50, then 150, then the rest — watching complaint and bounce rates between each, halting automatically on a threshold. Alice's 800 becomes 50 sends of exposure if it goes wrong instead of 800. This is standard IP-warming machinery doing double duty as list defence.
+
+**And the nice part: the control and the customer benefit are the same action.** Run the list through validation (ZeroBounce, Kickbox, Emailable — cents per address) before the first send. For a 20-year-old list that's genuinely valuable to *Alice*: "412 of your 800 addresses are dead, and we cleaned them out before you sent" is a feature she'd pay for, not a compliance tax. It also catches recycled spam traps, which are the specific thing that will hurt you on an old list and which she has no way to see.
+
+One thing worth surfacing to her at import time, since it's cheap and it's the actual UK rule: the soft opt-in under PECR covers marketing to existing customers about **similar** goods and services, provided an opt-out was offered when you took the address and appears every time since. So Alice mailing plumbing customers about plumbing is lawful. Alice mailing them about the cafe she just opened is not. We can't police that, but telling her the rule at the moment she imports is worth doing — and get it checked by someone qualified rather than taking my word.
+
+## Transactional: you're right, and the fix is structural
+
+I overstated. "Your payment failed" must arrive, and an unsubscribe from the newsletter isn't consent to lose your invoices.
+
+The correct rule is that **unsubscribe scopes to a category, not to an address** — and the important design move is your instinct: the category must not be something Alice can set.
+
+**So don't have a flag at all.** No `isTransactional` boolean anywhere, because any boolean is a thing someone eventually flips. Instead, two genuinely different functions:
+
+- `sendTransactional(kind, subject)` — `kind` is an enum of system-authored templates; the recipient is computed from system state; **it takes no body.** Alice cannot route a composed message through it because it won't accept one.
+- `sendBroadcast(segment, body)` — Alice writes it, Alice picks who; cannot bypass suppression.
+
+Reclassification stops being policed and becomes impossible, which is the only kind of enforcement that survives contact with a motivated user.
+
+Your qualifier does real work here too: *unless they're no longer a customer at all.* Transactional legitimacy comes from a live obligation, not a permission. Make `sendTransactional` require a reference to a live object — an open invoice, a booking, an active subscription — and it self-limits. No live object, nothing to notify about, no send. No extra rule needed.
+
+**The three suppression events are not the same, and this is where I was wrong to collapse them:**
+
+| Event | Effect |
+|---|---|
+| Unsubscribe | Marketing suppressed. Transactional continues. |
+| Spam complaint | **Everything** suppressed — they've told Gmail we're abusive; continuing is reputational suicide regardless of who's technically right. |
+| Hard bounce | Everything suppressed — the address is dead. |
+
+The two paths also diverge on headers, which is a nice consistency check: one-click unsubscribe belongs on broadcast and is meaningless — arguably harmful — on a failed-payment notice.
+
+**The last piece is the one that actually prevents Alice going hunting for loopholes.** There's a third category between the two, and it's where the pressure lives: "we've changed our opening hours", "your annual boiler service is due." That feels transactional to Alice, is genuinely useful to the customer, and is legally marketing. If the only two boxes are newsletter and invoice, she will try to force the boiler reminder into the invoice box — and she'll be *sort of* right, which is what makes it dangerous.
+
+So give it its own home: a separate subscription preference for service reminders, so a customer can drop the newsletter and keep the thing that stops their boiler dying in January. It honours unsubscribe as marketing, but it's a distinct preference, so opting out of one doesn't kill the other.
+
+The general principle: the defence against reclassification isn't enforcement, it's making sure the legitimate need has a proper channel. Alice isn't trying to spam anyone. She's trying to reach people who'd want to hear it, and if that route exists she'll take it.
 
 <!-- xgd-chat-end -->
