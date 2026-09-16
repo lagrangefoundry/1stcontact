@@ -6,16 +6,30 @@ title: 'Regression rail: a recorded baseline per reference, and one command that
   ''no worse'''
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:35.544080+00:00'
-updated_at: '2026-09-16T19:30:44.237827+00:00'
+updated_at: '2026-09-16T19:39:25.924456+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5b470956
+  commits:
+  - working_sha: 20ffb158e9120f54dd3c7a0a5abd571281aaa742
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e7b2e92baa63527dccacb62c8a96a106ca463e57
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9cff763a25e10aec8f012db51a2c76134b5b628a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3d9fa8a4bba657cf77a9f897051eaf7a7caa5e81
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.221
 ---
 
 Parent: [[EPIC-12]] §8.4. Second of three. **Must land before [[REQ-256]]'s loop
