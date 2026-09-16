@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T03:45:13.681945+00:00'
+updated_at: '2026-09-16T03:53:39.798608+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -68,5 +68,40 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="52d16ec3-ac77-47f3-8304-055d655d2682-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T03:53:38.905830+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me assess the current state first.
+
+Now acquiring the merge lock and landing it on `xgd-working`.
+
+Now recording the second commit and closing out the ticket.
+
+Free-coding of REQ-254 is complete. The ticket is at `free_coded` on `xgd-working`.
+
+## What landed
+
+**`tools/repro-console/`** — a localhost-only dev console, started by `./bin/repro-console`. Enter an address, press **[reproduce]**, and it runs `capture → refold → repro → render → diff` as a sequence of separate `1c` processes, then shows "Iteration 1" with three new-tab links: the original site, the reproduction, the diff images. **[run again]** appends Iteration 2, 3… without re-capturing, and earlier iterations keep their own artifacts under `storage/tmp/`.
+
+Two engine-side changes it needed:
+- **`1c capture page --json`** — reports `{url, name, dir, …}` through `withCleanStdout`. A bundle is named after the host that *answered*, so a program that captures and then points `--ref` at the result can't derive the directory.
+- **`resolveStaticFile` moved to `cli/static-file.ts`**, unchanged. It lived in `serve.ts`, which drags the node-only store barrel along; the alternative was a second copy of a traversal guard. Its two callers name the new module directly — I removed the re-export shim the prior session had left on `serve.ts`, so there's one import path rather than two.
+
+## Verification
+
+- **21 passed, 1 skipped** across the two REQ-254 UATs plus `req113-serve-extensionless` (the direct regression on the moved resolver). The skip is the chromium-gated real-capture leg — Playwright's browser isn't downloaded in this environment.
+- `test_UAT_FC_REQ_254_a_step_is_a_fresh_1c_process` runs the **real** `spawnStepRunner` against the **real** CLI, unmocked (3.5s, two Vite boots).
+- **Live smoke test**: booted `./bin/repro-console --port 8719`, served the blank page, POSTed a real run. Capture failed (no browser), and the page reported `Iteration 1 failed at capture` with the Playwright message extracted from inside its box-drawing frame, `iterations: []`, `running: false` — requirement 10 confirmed against the real process, not a stub.
+- `tools/repro-console` and `tools/generate` both typecheck clean. (The `apps/control-app/src/builder/*.js` errors under `tools/generate`'s typecheck are pre-existing — those are generated assets that `./bin/1c assets` produces; they're absent in a fresh worktree and present in the main checkout.)
+
+## One thing I changed from the prior session's plan
+
+The ticket said **"Zero dependencies"**, but the package declares `vite` — the console is TypeScript and the launcher needs the SSR bootstrap. I corrected the body to say so rather than leave a false claim for reconciliation to trip on, and ran `pnpm install` so the declared devDeps actually exist (additive 13-line lockfile change).
+
+I also caught a real bug after merging: the isolation suite read `package.json` out of *every* directory under `apps/`, which threw on `apps/.claude/` in the main checkout — it only passed in the fresh worktree because that directory isn't there. Fixed in commit 2, and the body records the rule as consequence 28.
+
+Ticket: `story_points: 8`, `version: 0.2.216`, commits `0d467ee0` and `657a4024`. Both are ancestors of `xgd-working`; branch cleaned up and locks released. Promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
