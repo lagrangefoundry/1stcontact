@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T02:52:42.266007+00:00'
+updated_at: '2026-09-16T02:57:19.176200+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -311,5 +311,46 @@ Worth noting one measurement that's still open and cheap to settle: REQ-255 asks
 **Risk 2 — the AI's edits reach production.** I'm ok with that we are preproduction and the reproduction engine is terrible. Also production is deployed.
 
 Lets stick with the xgd model: changes to the code must have a ticket and be free coded. Perhaps in v1 the AI should just create the ticket and I will trigger the free coding of it. Ok?
+
+<!-- xgd-turn id="91e461e3-a622-4bda-94ed-cd8fce197e43-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T02:57:18.060040+00:00" -->
+#### Claude
+Confirmed — that's the right call, and it's cleaner than what I had. Let me work through what it changes before writing it.
+
+Now REQ-256, which changes most, and a smaller touch to REQ-255.
+
+Yes — and it's a better design than what I had, not just a compliance move. Updated EPIC-12 §8.1/§8.2/§8.4/§8.6/§9/§10, rewrote REQ-256, and trimmed the stale "AI edits code" framing out of REQ-254 and REQ-255.
+
+## What the AI now produces
+
+Its deliverable is a **gap ticket**, at `draft`, carrying: named residual class · which reference(s) exhibit it · the evidence (`check_fidelity` verdict, the `regions` entry, the `values-diff` lines) · hypothesis about the engine · proposed change. You free-code it; [run again] re-runs with whatever landed.
+
+## Four things this buys that the edit-and-commit version didn't
+
+- **Every engine fix acquires a UAT and matrix coverage.** A scratch-branch commit leaves nothing behind — which is exactly the drift §7.5 is anxious about. Free coding forces a named test per closed gap, so the engine accumulates regression evidence as a side effect of the loop.
+- **Diagnosis and fix are judged by different agents.** The rail was doing that job awkwardly (an agent both making and grading its own change). The free-coding session is a genuinely independent reader of the claim.
+- **The ticket *is* the fix log.** §7.3 wanted loop 2's hand-fixes recorded as a frequency-ranked engine backlog. That artifact now arrives for free, in the system that already ranks work.
+- **No new machinery.** No scratch-branch convention, no bespoke revert path, no commit-message rules. The console stops at a boundary the project already enforces.
+
+## Risk 2 dissolves, and I've recorded why rather than deleting it
+
+The `apps/control-app` → `tools/generate/src/` coupling is real and permanent, and it's not a mistake to design away — the engine is legitimately shared. But with the AI authoring no code there's nothing of its authorship to reach anywhere. I kept the Worker build check in REQ-255's rail, now as ordinary hygiene: an engine change *can* break the control app, and the free-coding session should learn that in the round that caused it. Your "we're pre-production and production deploys separately" position is recorded in §8.6 as the reason this was never the acute risk.
+
+## Three disciplines I wrote into REQ-256 that will bite if they're missing
+
+**`capture-incomplete` files nothing.** That verdict means the reference is wrong, not the engine. Filing it as an engine gap would be a false report against a real ticket — worse than a wasted round.
+
+**One ticket per gap class, not per iteration.** Otherwise five rounds on one site produce five tickets for the same defect and the reconciler inherits the mess.
+
+**Never a `ready_*` status.** An AI process filing at `ready_to_implement` spawns `xgd develop` against its own half-formed diagnosis within ~30 seconds.
+
+## The residual risk, named rather than hidden
+
+A diagnose-only AI can write plausible tickets it never has to prove — in the edit model the rail was the immediate falsifier. The falsifier here is retrospective but real: if a ticket is free-coded and the next iteration's numbers don't move, the diagnosis was wrong, and the console shows that in the same place it showed the claim.
+
+That's also now §9 Q8 — **when, if ever, does the AI get to edit code directly?** Framed not as "should it" but "what evidence would justify it": N consecutive rounds where the free-coded fix matched the proposal and the numbers moved as predicted. Until that's measured, the answer is no.
+
+Ticket-only changes, so nothing to commit or free-code here.
 
 <!-- xgd-chat-end -->
