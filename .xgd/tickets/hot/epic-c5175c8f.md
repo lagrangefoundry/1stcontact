@@ -5,7 +5,7 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-16T03:36:47.622090+00:00'
+updated_at: '2026-09-16T03:46:41.297581+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -657,3 +657,33 @@ but is **not settled** and is called out as unsettled in that ticket.
 The question added by the last session — *do we want to send as the customer's
 domain at all?* — is **assumed yes, defaulting on**, in [[REQ-259]]. If the answer
 is no, the toggle and its record set come out of that ticket and the rest stands.
+
+
+### Correction to the section above: undo is gated on drift, not on elapsed time
+
+[[REQ-260]] as first written said undo has a **horizon** — that a record changed
+three weeks and four operations ago does not restore cleanly, and past that the
+honest answer is a support path. **That is withdrawn.** Time is a proxy for the
+real question and wrong in both directions: a record nothing has touched for a
+year reverts perfectly safely, and a record something else changed ten minutes ago
+does not.
+
+The operator's formulation replaces it: **preserve the before-state and the
+after-state, and check the zone still matches the after-state before reverting.**
+Compare-and-swap, on DNS. The scenario is a customer returning to a year-old
+conversation, pressing a button they do not remember, with intervening changes
+they never saw — and the check turns that from silent data loss into a sentence.
+
+Four properties recorded in that ticket: the comparison is **per-operation and
+all-or-nothing** (a half-reverted SPF merge was correct at no point in time); it is
+**semantic and normalised, never on Cloudflare record ids**, or it reports drift
+where none exists and refuses always; **drift has sources other than us**, notably
+DKIM key rotation by Resend changing `resend._domainkey` with nobody here acting;
+and the refusal is **a sentence with a route to a human**.
+
+Two consequences. **Undo is itself a change** — a new entry, its own suppression
+window — or the history lies and an undo cannot be undone. And **the chat is the
+wrong durable home for the button**: the card carries `Undo` while it is the most
+recent change to those records, and the lasting home is a **DNS change history** on
+the settings surface, which is also what makes the card's visibility claim survive
+the chat scrolling away.
