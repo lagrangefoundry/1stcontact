@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T19:39:59.345315+00:00'
+updated_at: '2026-09-16T19:41:45.150607+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -192,5 +192,56 @@ Want me to walk that through? I'd stop before the actual attach and hand you the
 Can you actually make ALL the domains I have on this CF account associated with my account please?
 
 Can I edit the API token permissions to give it DNS access - how?
+
+<!-- xgd-turn id="4bf2c247-0caf-4c12-a42f-f6464e0d9851-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:41:44.685975+00:00" -->
+#### Claude
+Two separate things. Let me look at what the recording path actually needs before I touch anything.
+
+Let me fix one bit of drift I introduced first — that script says "ten enumerated operations" and REQ-258 made it eleven.
+
+Both answerable — and the second one unblocks the first, so let me take it first.
+
+## Editing the token's permissions
+
+**Yes, in place — the secret value doesn't change**, so there's nothing to re-deploy once it's edited.
+
+dash.cloudflare.com → avatar (top right) → **My Profile** → **API Tokens** → the token's **…** menu → **Edit**. (If it's an *account-owned* token it lives under **Manage Account → API Tokens** instead; same edit screen.)
+
+Set two permission rows:
+
+| Scope | Group | Level |
+|---|---|---|
+| Zone | DNS | Edit |
+| Zone | Workers Routes | Edit |
+
+And under **Zone Resources**: `Include` → `All zones from an account` → your account. Pick that over naming zones one by one, or every new domain you buy needs another token edit before it can serve.
+
+That's not my invention — `bin/deploy.d/secrets/40-cloudflare-dns-token` already prescribes it: *"Mint it with `Zone:DNS:Edit` and `Workers Routes:Edit` on the account, and NOTHING ELSE. The client's eleven enumerated operations are exactly what that scope admits; a token with more is a token whose blast radius nobody can read off the code."*
+
+Then put it where the app reads it — locally `apps/control-app/.dev.vars` as `CLOUDFLARE_DNS_TOKEN=…` (it isn't there today; that file has only `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `PLATFORM_ADMINS`), and in production via `wrangler secret put CLOUDFLARE_DNS_TOKEN`. **Not** `CLOUDFLARE_API_TOKEN` — that name already means the Workers AI credential, is both-or-neither with `CLOUDFLARE_ACCOUNT_ID`, and colliding would break the knowledge base.
+
+One thing to watch: if `drift.unrecorded` comes back empty despite zones existing, add `Zone · Zone · Read`. Zone-scoped DNS permissions normally let a token enumerate the zones they cover, but that's the failure to check rather than assume.
+
+## Associating all your domains
+
+**No code needed — REQ-257 already shipped this**, which is why I haven't cut a branch. `attributeZone` records and attributes in one call: it reads the zone id, nameservers and status from Cloudflare, and takes only *whose it is* from you. Its own note: *"NO DELETION, NO RE-ADD, NO DOWNTIME… these zones are already active, so there is no nameserver change to ask anybody for and no window in which the site is dark."*
+
+Two calls, as a platform admin with an Access session:
+
+```
+GET  /api/admin/zones
+     → drift.unrecorded = every Cloudflare zone not yet in the table
+POST /api/admin/zones  {"apex": "<each one>", "accountEmail": "<you>"}
+```
+
+Your `zones` table is completely empty right now, so *every* zone on the account will show up in `unrecorded` — it's a clean backfill, not a diff.
+
+`1stcontact.io` will come back **403 PlatformZoneError** — *"this product's own domain and cannot belong to an account."* That's correct, not a snag: a platform row is unattributable rather than unattributed, and the drift report deliberately doesn't list it as needing a decision.
+
+I can't run this for you yet — no token here, and it's your live account either way. Once `CLOUDFLARE_DNS_TOKEN` is in `.dev.vars` I can drive the `GET`, show you the zone list, and run the `POST` loop; recording zones is safe and reversible, unlike the attach step, which is the one I'd still want you to green-light per domain.
+
+Incidental: I fixed "ten enumerated operations" → "eleven" in that secret script, since `listRoutes` made it stale. Comment only, no protocol needed.
 
 <!-- xgd-chat-end -->
