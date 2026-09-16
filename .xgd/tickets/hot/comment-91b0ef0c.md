@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:18:23.279184+00:00'
+updated_at: '2026-09-16T01:21:08.105684+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,43 @@ There are two feedback loops worth considering:
 2 - can be used to smooth the rough edges on a site that didn't reproduce as we would have liked
 
 Note that neither involves reinforcement learning or rewards etc
+
+<!-- xgd-turn id="b86d231a-c44a-4756-a439-0e0c8c72c114-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T01:21:07.152643+00:00" -->
+#### Claude
+Understood — CLI only for tickets from here.
+
+And you're right that I conflated those two loops into one section. They're different in corpus, output, cadence, and who's watching. Let me check the current body state, then fix it.
+
+Done — §7 is now the two loops, and the epic guards against the RL reading explicitly.
+
+## The split, and why it matters more than it looked
+
+|  | **Loop 1 — improve the engine** | **Loop 2 — smooth a site** |
+|---|---|---|
+| Corpus | our reference set | one customer's site |
+| Cadence | dev time, batched, unattended | in-session, in front of the client |
+| Durable output | **code** | **a site they recognise** |
+| A per-site edit is… | **drift** — fix the engine or file it | **the deliverable** |
+| Who adjudicates | us | the customer |
+
+That last row is the sharp one. **The same action is correct in one loop and forbidden in the other.** What I'd written was a single undifferentiated "self-correcting reproduction loop" — which would have been wrong half the time, and wrong in the expensive direction: an agent that hand-patches during engine development produces a green result and no engine, which is exactly the DOC-19 failure mode.
+
+## The bridge — and it's a log, not a signal
+
+The loops connect in one direction only: **loop 2's hand-fixes are a histogram.** If the AI patches the same thing on site after site, that's an engine gap with a frequency attached — the prioritisation input loop 1 needs and doesn't otherwise have. Requires nothing clever: a named residual class, the site, the fix applied. Ranked frequency × cost, that list *is* the engine backlog.
+
+And it's better-sourced than anything we could assemble ourselves, because it comes from the sites our customers actually have rather than the sites we chose. That's the §3 corpus distinction (this epic vs the DOC-15 flywheel) finally made operational rather than just asserted.
+
+I've written the no-RL point in as a standing guard, not just a note — *"if a proposal under this epic starts talking about rewards, learned objectives or training signal, it has drifted — reject it."* Both loops are the ordinary shape: a deterministic check names a residual, an agent reads it and acts.
+
+## One thing the split surfaced
+
+Loop 2 is what makes §2.2's sequence work *before either loop has finished*. The preview we put in front of the client is a **smoothed** reproduction, not a raw one — so loop 2 is load-bearing for the read-back → preview → ask sequence, independently of how good the engine is. That argues it's less deferrable than its position in the list suggests.
+
+Which is now open question 6: **which loop first?** Loop 1 compounds but is slow to show value; loop 2 makes the next demo work but doesn't accumulate. My read — build the shared harness once (it's most of both), point it at loop 1 first, let loop 2 follow once the fix-log shape is settled. Worth overriding if there's a demo date.
+
+Child tickets are now C1–C6 (harness, completeness gate, loop-1 handoff, loop-1 gap filing, loop-2 smoothing, the fix log), still unfiled — say the word.
 
 <!-- xgd-chat-end -->
