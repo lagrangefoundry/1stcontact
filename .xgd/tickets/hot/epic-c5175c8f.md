@@ -5,9 +5,9 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-16T03:35:59.198021+00:00'
+updated_at: '2026-09-16T03:36:47.622090+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: done
 fields:
   priority: medium
@@ -507,3 +507,153 @@ directions, and it configures their domain for sending by a party they cannot
 see. The alternative — sending from ours with their name in the display name — is
 safer and slightly worse. Worth deciding deliberately rather than by default,
 and the toggle above assumes the answer is yes.
+
+
+---
+
+## Scoping session, 2026-09-15: four tickets cut, the nameserver experience parked
+
+Worked through with the operator. The design sections above are not withdrawn.
+What follows is the build order, three decisions that were open, and two places
+where checking the code contradicted something this ticket assumed.
+
+### The tickets
+
+| | | |
+| --- | --- | --- |
+| [[REQ-257]] | the DNS layer | `zones`, the Cloudflare client, the external resolver, the operator backfill |
+| [[REQ-258]] | serving | records, runtime Worker route, host→site resolution |
+| [[REQ-259]] | the config surface | the selector, the sending toggle, release |
+| [[REQ-260]] | assistant tools | reads, guarded mutations, the change card, undo |
+
+[[REQ-257]] blocks the other three. [[REQ-258]] and [[REQ-259]] are the whole of
+*"publish on a domain we already hold"*; [[REQ-260]] follows.
+
+**The nameserver-change experience is deliberately not ticketed.** The snapshot,
+the DKIM probing for a live business, the registrar-specific instructions, the
+pre-cutover ordering — the operator's call is that it *"needs some thought"*, and
+it is the part of this epic where the acceptance bar actually lives. Everything
+above about it stands as written and is waiting for a ticket rather than lacking
+a design. [[REQ-257]]'s resolver is built in a form that will serve it.
+
+### Serving is not blocked by [[TODO-6]], which inverts [[DOC-45]]'s order of work
+
+[[TODO-6]] §§1 and 5 — the PSL submission, the wildcard `A`/`AAAA`, the
+`*.1stc.site` wildcard certificate — gate the **platform apex**. A zone in our own
+Cloudflare account gets the records we write it and its own Universal SSL
+automatically, with no wildcard and no PSL entry involved.
+
+**So a custom domain can serve before `1stc.site` resolves at all.** [[DOC-45]]'s
+order of work puts custom hostnames last, after the label work and the operator
+tasks. For serving, the dependency runs the other way, and the operator's own
+already-active zones are the shortest path to a real site on a real address.
+
+### Decided: a site sits at the root of a custom host, and the prefix survives as a guarded redirect
+
+[[DOC-45]] §4 says a site sits at the root of its host, and
+`recipientSiteUrl` composes `https://<host>/site/<key>/…` today. Once a custom
+host resolves, one of those is wrong. Settled in [[REQ-258]]: root is canonical;
+`/site/<key>/…` **where the key is the site that host resolves to** 301s to the
+root-relative form, which keeps every already-mailed download link working; any
+other key 404s.
+
+**That last rule is a cross-tenant guard rather than tidiness.** `public-site`
+serves `/site/<any-key>/` on whatever host it is routed to — correct on the
+product's own front door, and a leak the moment the host belongs to a customer,
+because `alicesplumbing.com` would serve Bob's site under Alice's certificate to
+anyone holding Bob's key. Routing a customer domain to that Worker is what creates
+the exposure, so the guard lands in the ticket that creates it.
+
+### Decided: the assistant's change card is a notification with an undo, not a confirmation
+
+The proposal on the table was that the assistant may not write DNS directly — it
+proposes, a card asks the customer to accept, the change applies on the click.
+
+**Rejected as a consent mechanism, on this epic's own argument**: *"a confirmation
+step they cannot meaningfully perform is worse than none — it launders our error
+into their approval."* The operator's own framing is the decisive evidence —
+*"honestly DNS is something I use so infrequently and which is so arcane — I would
+just accept what the AI said too."* A click from someone who cannot evaluate the
+proposal records consent that was never informed, and after the first broken
+mailbox the audit trail will say they approved it.
+
+**Kept as a notification**, because the operator's actual reason for wanting it was
+visibility — *"at least this way it's clear to the user what is going on"* — and
+that needs no decision from someone unable to make one. *"I'm setting up email
+sending on your domain. Your existing email with Microsoft isn't affected."* →
+`Undo`. Present tense, their nouns, a brake rather than a gate. This is *notify in
+their language, do not ask in ours* applied to mutation.
+
+**The safety is the constraint set, not the click.** SPF merges rather than
+appends; `_dmarc` only when absent and only at `p=none`; a closed set of typed
+operations rather than a record editor. Those hold whether or not anyone clicks,
+and they are the only thing that stops a confidently-worded wrong proposal. A
+safety rule enforced by the card is a falsifier in [[REQ-260]].
+
+### Amendment: the external DNS resolver is a second cross-epic interface
+
+This epic says the propagation suppression window is *"the one cross-epic
+interface… Nothing else crosses."* That is now wrong by one. A resolver that reads
+live DNS **from outside** — including DKIM selector probing, which is not
+enumerable and must be done by name — is needed by this epic's pre-cutover sweep,
+by [[REQ-259]]'s pre-attach check, by [[REQ-260]]'s assistant tools and by
+[[EPIC-7]]'s check engine.
+
+It is built once, in [[REQ-257]], and consumed by all four. A second implementation
+anywhere is a falsifier in three of those tickets. Recorded as an amendment rather
+than absorbed silently, because *"nothing else crosses"* was load-bearing when the
+six epics were split.
+
+### Correction: the operator's own domains are not all green field
+
+The section above concludes that an operator-owned parked domain is green field
+and that the whole snapshot apparatus is dead weight for it. **True for a parked
+domain and false as a rule about operator-owned ones.** `1stcontact.io` carries a
+live Resend record set today — an apex SPF, an SPF and a `feedback-smtp` MX on
+`send.`, a `resend._domainkey` selector, a `_dmarc` at `p=none`
+(`apps/control-app/MAIL.md:96-101`).
+
+So ***is there a live business on this domain today?*** fires on the
+already-in-our-account path too, and the cheapest form of it — read the existing
+`MX`, SPF, `_dmarc` and known selectors before attaching — is a prerequisite of
+[[REQ-259]] rather than a follow-on. The axis is right; *"a domain the operator has
+owned and parked is also green field"* is right; the inference that operator
+ownership implies green field is not.
+
+### Verified while scoping
+
+- **There is no Cloudflare API client anywhere in the repo.**
+  `api.cloudflare.com` appears only in `tools/generate/src/cli/kb.ts`, which is
+  Workers AI for the knowledge base and shares no credential and no concern.
+- **The read side of `site_domains` is already kind-agnostic.**
+  `addressForLinks` (`hostname.ts:429`) already prefers `kind === 'custom'`, and
+  the publish gate is already written over kinds. Nothing there needs changing.
+- **`public-site` has no host→site resolution**, by its own documentation
+  (`public-url.ts`), and its routes are static in `wrangler.toml` — so a customer
+  host neither arrives at the Worker nor resolves once it does. Both are
+  [[REQ-258]]'s.
+- **The toolbox already expresses *read freely, cannot write*** — the surface
+  declares the API and the grant narrows it (DOC-30, `toolbox.ts:110`). So the
+  assistant's read tools are nearly free, while propose-don't-execute has no
+  representation in `toolbox-core.ts` at all and is [[REQ-260]]'s real cost.
+
+### One risk that must be settled before [[REQ-258]] is built
+
+**Does `wrangler deploy` reconcile the static `routes` array in a way that removes
+routes it did not declare?** If it does, every deploy of `public-site` silently
+un-publishes every customer domain at once, with nothing in the diff to explain
+it. A short experiment against a throwaway zone decides whether runtime routes are
+viable or whether the mechanism must be a Worker custom-domain binding. Named in
+[[REQ-258]] as the first thing to do.
+
+### What this moves in Open questions
+
+Question 1 (Email Routing) and question 3 (mid-cutover rollback) are untouched.
+
+Question 2 — *how much can the assistant change unsupervised* — is narrowed by
+[[REQ-260]]'s closed operation set and by the card making every change visible,
+but is **not settled** and is called out as unsettled in that ticket.
+
+The question added by the last session — *do we want to send as the customer's
+domain at all?* — is **assumed yes, defaulting on**, in [[REQ-259]]. If the answer
+is no, the toggle and its record set come out of that ticket and the rest stands.
