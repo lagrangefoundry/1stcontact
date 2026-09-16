@@ -5,9 +5,9 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T19:39:26.147692+00:00'
+updated_at: '2026-09-16T20:32:20.675685+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: epic_children
 status: done
 fields:
   priority: medium
@@ -16,6 +16,7 @@ fields:
   - request-5b2763c8
   - request-f8712e87
   - request-c1c5261a
+  - request-37608664
 ---
 
 # Site duplication
