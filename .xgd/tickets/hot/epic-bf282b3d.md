@@ -5,7 +5,7 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T01:48:13.731472+00:00'
+updated_at: '2026-09-16T02:55:40.783335+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -450,21 +450,68 @@ stored reference bundles already hold (`storage/references/<host>/index`).
    **the original site** (for comparison) · **the iteration-1 reproduction** ·
    **the diff images**.
 3. As soon as the links appear, an **AI process starts** with a prompt to review
-   the diff and close the gaps. Its transcript streams onto the page.
-4. When the AI finishes, a **[run again]** button appears. Pressing it re-runs
-   the reproduction *with the AI's code changes in place*, and appends
-   "Iteration 2".
+   the diff and diagnose the gap. Its transcript streams onto the page.
+4. **The AI does not change code.** It finishes by **filing a ticket** against
+   the reproduction engine — the residual it found, the evidence, and the fix it
+   proposes. The ticket is linked on the page next to the other artifacts.
+5. The operator free-codes that ticket in the normal way. Once the change has
+   landed, a **[run again]** button re-runs the reproduction *with it in place*
+   and appends "Iteration 2".
 
-### 8.2 Two additions to that shape
+### 8.2 Three changes to that shape — and the first one is the big one
 
-**A fourth link per iteration: "what the AI changed."** Step 4 implies the AI
-edits engine code, but the page as described shows only its prose. Seeing — and
-being able to revert — the actual code diff per iteration is what makes
-"sneaking up on it" real rather than nominal. Each iteration is one commit on a
-scratch branch, and the commit is linked next to the other three.
+#### The AI files a ticket. It does not edit code.
 
-**Each iteration is a fresh `1c` invocation.** See §8.3 — this is a correctness
-requirement, not a preference.
+The original sketch had the AI change the engine and reinstall it. **Replaced by
+the xgd model: a change to the code gets a ticket and is free-coded.** In v1 the
+AI's deliverable *is* the ticket; the operator triggers the free coding of it as
+a separate, ordinary session.
+
+This is slower per round, and it is the better trade for four reasons:
+
+- **Every engine fix acquires matrix coverage.** Free coding forces a UAT named
+  for the behaviour, so each closed gap leaves behind a durable regression test.
+  A scratch-branch commit leaves nothing — and §7.5's whole anxiety is drift that
+  nothing catches.
+- **The diagnosis and the fix are adjudicated by different agents.** An agent
+  that both makes a change and judges it has no independent check (§8.4). Here
+  the free-coding session is a genuinely separate reader of the claim.
+- **It is the shape we already have.** No new commit convention, no scratch
+  branch to reason about, no bespoke revert path. The console stops at the
+  boundary the rest of the project already enforces.
+- **The ticket is the fix log.** §7.3 wanted loop 2's hand-fixes recorded as a
+  frequency-ranked engine backlog. A well-formed gap ticket per residual *is*
+  that artifact, arriving for free and in the system that already ranks work.
+
+**What a good gap ticket carries**, so it is checkable without re-deriving it:
+the named residual class · which reference(s) exhibit it · the evidence
+(`check_fidelity` verdict, the `regions` entry, the `values-diff` lines) · the
+hypothesis about the engine · the proposed change. Nothing that could only be
+read off a screenshot (§7.5).
+
+**Two disciplines the AI must hold.** *One ticket per gap class, not per
+iteration* — if a later round hits a class that already has a ticket, it appends
+evidence to that ticket rather than filing a second ([[FREE-CODING.md]]'s
+proliferation rule). And *file only for engine gaps* — a `capture-incomplete`
+verdict means the reference is wrong, which is a different problem and must stop
+the round rather than become a ticket against the engine.
+
+**The residual risk, named.** A diagnose-only AI can write plausible tickets it
+never has to prove; in the edit model the rail was the immediate falsifier. Here
+the falsifier is retrospective and still real: if the ticket is free-coded and
+the next iteration's numbers do not move, the diagnosis was wrong, and the
+console shows that in the same place it showed the claim.
+
+#### A fourth link per iteration: the ticket the AI filed.
+
+The page as sketched shows only the AI's prose. Linking the filed ticket next to
+the original / reproduction / diff-images is what makes each round inspectable —
+and once the ticket is free-coded, its `fields.commits` is the code diff, so
+"what changed" is reachable without the console tracking it separately.
+
+#### Each iteration is a fresh `1c` invocation.
+
+See §8.3 — a correctness requirement, not a preference.
 
 ### 8.3 "Reinstall" is free — but only if each run is a fresh process
 
@@ -502,8 +549,14 @@ naming which. Three sites is thin, and it is enough to catch the failure mode
 that matters.
 
 **The rail is why the AI's own verdict is not the gate.** An agent that both
-makes the change and judges it has no independent check. The rail is that check,
-and it must land *before* the automation it restrains (§9).
+makes the change and judges it has no independent check.
+
+**Its consumer moves with §8.2.** Because the AI no longer edits code, the rail's
+primary caller is the **free-coding session** that implements a gap ticket: a UAT
+proves the one gap closed, and only the rail proves the other references did not
+regress — a distinction a single-site UAT structurally cannot make. The console
+runs it read-only as well, so each iteration displays the current cross-site
+state rather than only this site's.
 
 ### 8.5 The prompt is a deliverable, not a detail
 
@@ -543,24 +596,28 @@ console acquires a build script or a wrangler config, or if any package under
 `apps/` gains a dependency on it. A convention nobody checks is precisely how a
 dev tool ends up in production.
 
-#### Risk 2 — the AI's *edits* reach production. Not fixable by directory layout.
+#### Risk 2 — the AI's *edits* reach production. Dissolved by §8.2.
 
+Worth recording why it was a risk, because the coupling is real and permanent.
 `apps/control-app` imports the engine **directly from `tools/generate/src/` by
 relative path** — `store/d1r2-store`, `store/ids`, `publish/ladder`,
-`cli/capture/cf-driver`. So the reproduction engine's source tree **is deployed
-code**, and the AI editing it in loop 1 is editing something the Worker ships.
+`cli/capture/cf-driver`. The reproduction engine's source tree **is deployed
+code**. Directory layout cannot separate them, and should not: improving the
+shared engine is the entire point of loop 1.
 
-That coupling is not a mistake to be designed away here — improving the engine is
-the entire point of loop 1, and the engine is legitimately shared. But it means
-the console's isolation buys nothing against this risk. What does:
+**§8.2 removes the risk at its source — the AI writes no code**, so there is
+nothing of its authorship to reach anywhere. Engine changes arrive by free
+coding, through the same review, UAT and reconciliation path as every other
+change in the project. Operator position, recorded: we are pre-production, the
+reproduction engine is poor, and production is deployed separately by an explicit
+human act — so this was never the acute risk.
 
-- **Every iteration commits to a scratch branch**, never to `main`, and nothing
-  auto-merges (§8.2).
-- **The rail runs the deployable path, not just the reproduction path.** Because
-  of the coupling above, [[REQ-255]]'s rail must include a Worker build check — the
-  existing `dryrun:control` (`wrangler deploy --dry-run`) is the cheap form —
-  so "the AI broke the control app" surfaces in the same round that caused it
-  rather than at the next real deploy.
+Two things stay, now as ordinary hygiene rather than as mitigations:
+
+- **The rail includes a Worker build check** — the existing `dryrun:control`
+  (`wrangler deploy --dry-run`). Because of the coupling above, an engine change
+  can break the control app, and the free-coding session should learn that in the
+  round that caused it rather than at the next deploy.
 - **Deploy stays a separate, explicit, human act.** No part of the console
   invokes a deploy script.
 
@@ -594,7 +651,12 @@ the console's isolation buys nothing against this risk. What does:
    today, ~73 reproduction-relevant by name. The rail runs every iteration, so
    runtime is a design constraint; but a subset is exactly how a regression
    sneaks past. Measure before choosing (§8.4).
-8. **Does duplication ever become the pitch?** [[CHAT-5]] framed "bring any
+8. **When, if ever, does the AI get to edit code directly?** §8.2 is explicitly a
+   *v1* decision. The v2 question is not "should it" but "what evidence would
+   justify it" — candidate: N consecutive rounds where the free-coded fix matched
+   the AI's proposed change and the next iteration's numbers moved as predicted.
+   Until that is measured, the answer is no.
+9. **Does duplication ever become the pitch?** [[CHAT-5]] framed "bring any
    design, get it editable, for less than Wix" as the wedge. [[CHAT-29]] said
    *don't offer reproduction at all* and [[CHAT-21]] said migration must never be
    the ask. Reconcilable — the diagnostic is the pitch, duplication is the
@@ -624,19 +686,21 @@ and reports "no worse than baseline".
 *Testable:* green on `main`; deliberately break a serializer and it goes red
 **naming which reference regressed**. Both directions must be demonstrated.
 
-**[[REQ-256]] — The AI iteration (§8.1 step 3–4, §8.5).**
-Wire the AI in: the distilled brief, it reads the diff, edits engine code, runs
-T2's rail, commits to the scratch branch, transcript streams to the page,
-[run again] appears. Fresh `1c` per iteration (§8.3).
-*Testable:* one full round on a known reference — transcript appears on the page,
-the code diff is non-empty and linked, the rail is green, "Iteration 2" appears,
-and the diff numbers moved. Plus the negative case: **when the rail fails, the
-AI does not get to finish.**
+**[[REQ-256]] — The AI iteration (§8.1 steps 3–5, §8.2, §8.5).**
+Wire the AI in: the distilled brief, it reads the diff, diagnoses the residual,
+and **files a gap ticket** against the engine — it does not edit code (§8.2).
+Transcript streams to the page; the ticket is linked as the fourth artifact;
+[run again] re-runs with whatever has landed since. Fresh `1c` per iteration
+(§8.3).
+*Testable:* one full round on a known reference — transcript appears, a
+well-formed gap ticket exists and is linked, and after the operator free-codes it
+[run again] produces "Iteration 2" with moved numbers. Plus the negative case:
+**a `capture-incomplete` verdict stops the round and files nothing.**
 
-**Why three and not two.** [[REQ-255]] could fold into [[REQ-256]], but then the safety rail and
-the thing it restrains arrive in the same commit — the one ordering that cannot
-be reviewed. The rail must exist, and be shown to fail correctly, before anything
-is allowed to edit code unattended.
+**Why three and not two.** [[REQ-255]] could fold into [[REQ-256]], but then the
+rail and the loop it protects arrive in the same commit — the one ordering that
+cannot be reviewed. The rail must exist, and be shown to fail correctly, before
+the loop starts producing change proposals at all.
 
 ### Later — not part of the console build, not yet scoped
 
