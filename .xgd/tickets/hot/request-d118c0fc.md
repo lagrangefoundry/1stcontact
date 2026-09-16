@@ -6,10 +6,10 @@ title: 'The hostname assistant: reconcile the surface with the built experience,
   keep the pane and the chat in step'
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:45.479150+00:00'
-updated_at: '2026-09-15T23:21:45.479150+00:00'
+updated_at: '2026-09-16T00:30:39.737702+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   depends_on:
@@ -19,6 +19,7 @@ fields:
   needs_review: false
   chat_comment: comment-02eb714e
 ---
+
 
 ## What this is
 
@@ -135,3 +136,94 @@ would mean reconciling against wording that does not exist yet.
 - The declaration and [[REQ-249]]'s section stating a rule in terms that could send
   the customer two different ways.
 - Shipping with the assistant's behaviour still unobserved.
+---
+
+## What is being built (implementation plan, this session)
+
+### 1. The settings turn announces its own writes, and the pane re-reads
+
+`business_changed` — a second event kind beside `site_changed`, emitted by the
+settings branch of `streamPrompt`, carrying `{at, changes}` and nothing else.
+
+**Derived, not declared**, for exactly BUG-43's argument. The site's signal is
+arithmetic over `store.counter(slug)`; a settings session has no store and no
+counter, so the equivalent is a count of **write operations that actually
+returned**. The set of write operations is read out of the declaration's own
+`effect: "write"` entries rather than listed by hand — so a future settings
+operation is announced the day it is declared, and no operation can be announced
+that did not run, or announced twice.
+
+It is a NEW KIND AND NOT `site_changed`. A settings session has no site, and a
+pane wired to reload a preview frame on the site's signal must not be made to do
+so by a business write.
+
+The client half follows the site chat's shape exactly: `chat.js` gains
+`onBusinessChanged`, observed in the same stream wrapper that already observes
+`site_changed` and stopping there, so the signal leaves no trace in the
+transcript and a throwing host does not take the turn with it. `app.js` hands
+`settingsChat` the one line the site chat has had all along.
+
+### 2. What "re-read" means, precisely
+
+The pane re-reads **the record**, and the assistant does not write to the pane.
+Two facts are re-read because the assistant can change both:
+
+- **the address**, through the same `/api/hostname` read the tab already makes on
+  open. This is the one that matters: a pane still showing an empty box for an
+  address that now exists is an invitation to choose a name that has been chosen,
+  behind a claim that is permanent.
+- **the business name**, so the field and the switcher follow a rename made in
+  the conversation beside them — the same crossing `onRenamed` already prevents
+  when the rename is made in the field. It is read out of `/api/businesses`,
+  which the shell already calls; no new route is added for it.
+
+**A re-read that finds nothing changed changes nothing on screen.** A customer
+half-way through typing a candidate, whose assistant answered a question in the
+meantime, keeps what they typed — a refresh that emptied the box would be this
+ticket's own bug arriving from the other direction.
+
+### 3. The declaration and the pane say the same words
+
+Reconciled against [[REQ-249]]'s shipped copy, and tied to it by test rather than
+by restatement: the pane's exported sentences are imported and their distinctive
+phrases are required to appear in the declaration, so a later rewrite of either
+turns the other red.
+
+- **`free web address`** is what the model calls it to the customer. `domain` is
+  kept for the thing [[EPIC-6]] will sell them, and appears nowhere else.
+- **Three refusals, three sentences.** `taken` leads to trying another; `reserved`
+  says it is kept for 1st Contact itself and to change the word; `invalid` says
+  the rule that was broken, as the route states it.
+- **The whole host, always** — `alice.1stc.site`, never `alice`.
+- **For your business, not for this site** — the claim is a business's one
+  address, and the declaration is corrected to say so.
+- **The race sentence** — *"went while you were deciding"*, said the same way in
+  both places.
+
+### 4. Driving it
+
+An end-to-end suite takes real turns through the Worker's own route table over a
+real D1 with the deployed schema, with the Anthropic client as the only double —
+the arrangement [[REQ-239]]'s suite already uses. This is the first time any of
+the three address operations has been called through the shipped host at all.
+
+It covers: all three operations reaching the wire and no site operation beside
+them; several checks in one turn, writing and holding nothing; each of the three
+refusals coming back as an ANSWER rather than a tool failure; a claim landing in
+the record; a claim that lost the race refused as an ordinary outcome with the
+business left free to try again; and a second claim refused, naming the one held.
+
+**What a scripted model cannot prove**, said plainly: that the model *chooses* to
+check several candidates before speaking, or *declines* to claim when told "just
+pick one". Those are properties of a model's judgement, and the declaration is
+where they are asked for. What this suite proves is that every one of those
+behaviours is *reachable* and behaves correctly when taken — which is the half
+that was unobserved.
+
+## Test plan
+
+| Suite | Proves |
+| --- | --- |
+| `test_UAT_FC_REQ-251_the_assistant_takes_an_address.workers.test.ts` | Section 4 — the three operations driven end to end through the real host |
+| `test_UAT_FC_REQ-251_the_pane_follows_the_assistant.test.ts` | Sections 1 and 2 — the signal, the re-read, and the half-typed candidate left alone |
+| `test_UAT_FC_REQ-251_one_set_of_rules.test.ts` | Section 3 — the declaration and the pane tied to one vocabulary |
