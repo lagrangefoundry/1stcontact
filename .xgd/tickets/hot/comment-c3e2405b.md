@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T18:31:07.197547+00:00'
+updated_at: '2026-09-16T19:17:59.400115+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,11 @@ So the interesting half — a bound host serving one site at its root, `/site/<k
 A custom domain needs a real zone in the account, real proxied records, a real Worker route and a real certificate — none of which exist locally. Deploying also matters for one thing specifically: **the `*.1stcontact.io/*` route removal only takes effect on a `wrangler deploy` of public-site.** Until that deploy, the account still holds a zone route for this script, which is the exact condition that makes the next deploy wipe runtime-created routes. Nothing is attached yet, so nothing is at risk today — but that deploy should land before the first customer domain does.
 
 Want me to seed public-site's local D1 so the resolver is demoable on `localhost:8787`? It's a schema copy plus one row, and it'd let you see the root serving, the 301 and the cross-tenant 404 for real.
+
+<!-- xgd-turn id="8ea36c28-d754-4dd5-bea3-005351296f4f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:17:58.723854+00:00" -->
+#### You
+So I (this account) own gigabyealchemy.ai, xgd.dev and 1stcontact.io is can we test with those?
 
 <!-- xgd-chat-end -->
