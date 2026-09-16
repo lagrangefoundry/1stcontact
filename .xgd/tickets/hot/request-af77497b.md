@@ -5,9 +5,9 @@ type: request
 title: An email page shows its subject, and the page list says it is a message
 created_by: EPIC-10
 created_at: '2026-09-16T00:47:03.770642+00:00'
-updated_at: '2026-09-16T01:47:57.443997+00:00'
+updated_at: '2026-09-16T01:48:02.565111+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -22,6 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.213
+  story_points: 5
 ---
 
 # An email page shows what it is, and what it will arrive as
