@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:36:40.685298+00:00'
+updated_at: '2026-09-16T21:38:02.771766+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -540,5 +540,54 @@ It surfaced a real design problem rather than just a style issue. A round has `R
 It surfaced a real design problem rather than just a style issue. A round has `Read`/`Glob`/`Grep` and **no **`Bash`** by design**, so it cannot run `xgd` — it cannot use the ticket API at all. <-- what is a "round" EVERY development session MUST have access to xgd BY DESIGN. That is essential! I thought you told me the sessions had access to everythign they need - they are CONSTRUCTED to make tickets if they can't run xgd they are missing critical capabilities!!!!!
 
 Tickets written directly will not be indexed or subject to the API rules - that is a disaster - do you not have warnings about this?
+
+<!-- xgd-turn id="81438926-c8a9-4848-9bd9-e19d595dcf26-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:38:01.355699+00:00" -->
+#### Claude
+Let me verify exactly how tickets get created before I answer — this matters too much to answer from memory.
+
+Confirmed in code. Let me correct REQ-262, where I wrote that overstatement into a requirement.
+
+I overstated it and alarmed you. Here's the verified position.
+
+## No ticket has ever been written directly. Not one.
+
+Every ticket the console produces goes through the API. There are exactly four `xgd` call sites in `tools/repro-console/`:
+
+- `ticket.ts:69` — `xgd ticket create --type … --body-file … --json`
+- `ticket.ts:103` — `xgd ticket update <uid> --append-body-file`
+- `console.ts:723`, `console.ts:792` — `xgd ticket get <uid>`
+
+Nothing writes the ticket store. The code asserts it deliberately — `page.ts:352` carries the comment *"THE CONSOLE DOES NOT READ `.xgd/tickets/`. That layout is xgd's"*, and `console.ts:749` says the same. Those two comments are the only matches for `.xgd/tickets` in the entire codebase. Indexing and API rules are intact.
+
+## Where I was wrong
+
+I wrote *"it cannot use the ticket API at all."* That was a careless sentence about a subprocess, phrased as if it were about the system. The accurate version: **the round doesn't call `xgd` — the console calls it on the round's behalf.** The round hands back ticket *content*; the console files it through the API. No capability is missing from the path that creates tickets.
+
+## What a "round" is — I blurred two different things
+
+A **round** is not a development session. It's a read-only diagnostic subprocess the repro console spawns: one `claude -p`, `Read`/`Glob`/`Grep`, that reads a reproduction's evidence and describes what the engine can't do. It was deliberately constructed that way in REQ-256 behaviour 3 — it writes no code, makes no commits, touches no site — and the tool policy is the *mechanism* for that guarantee, not a limitation someone forgot to lift.
+
+The **development session** that then implements the resulting ticket is an ordinary free-coding session with full `xgd` and full tooling. That one has everything. Two different things, and my sentence read as though I'd said the second one was crippled.
+
+Two consequences of the round's shape that are features rather than oversights: `status: draft` is written by the console, so a round *cannot* file at `ready_*` and trigger the dispatcher; and "the AI wrote no code" is a measured property of the process rather than a rule it's asked to keep.
+
+My earlier "it has everything it needs" was accurate for that job — 20 tool calls, zero refusals, a complete ticket handed back.
+
+## The real question underneath your alarm
+
+You're pointing at something live. REQ-261 now asks the round to file *bugs* as well as its gap ticket, and REQ-262 wants it reading prior tickets. The console can broker anything it can *anticipate* — the KB, the known-gap registry. It can't broker a **search**, because it can't know the query in advance. The first round searched prior tickets and found the defect had been seen before and shipped unfixed — genuinely valuable, and there's no sanctioned route for it.
+
+REQ-262 behaviour 4 now states that as an open decision rather than the settled fact I wrongly implied:
+
+- **Console-as-broker** — round asks, console runs the API call. Keeps behaviour 3 exactly as measured; costs a round trip and a narrow query surface.
+- **Scoped `xgd` read access for the round** — `ticket get`, `ticket list`, nothing that mutates.
+
+My recommendation is scoped read access, with one condition. `ai.ts` records a *measured* finding that a tool merely absent from the allow list still ran — so the deny list is the gate. Scoped allow rules are a different mechanism and may gate correctly, but after that finding it must be **measured before it's relied on**. Requirement 8 now says exactly that.
+
+Either way, tickets are only ever *written* by the console, through the API, at `draft`. That isn't in question.
+
+The parser fix is still untouched and still the thing blocking every round. Want me to cut a branch and land it?
 
 <!-- xgd-chat-end -->
