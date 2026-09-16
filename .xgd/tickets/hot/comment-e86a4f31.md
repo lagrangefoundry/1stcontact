@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T19:39:59.947270+00:00'
+updated_at: '2026-09-16T19:42:23.452376+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -168,5 +168,11 @@ When an iteration's links appear, the console starts a `claude -p` round on that
 **Three tests fail on `xgd-working`, none of them mine.** `bug32-webui-scope-rebrand` and `test_UAT_FC_BUG-67_backend_settings` fail on the base before my changes. `req115-builder-shell` fails only under full-suite parallel load and passes in isolation — a flake, not a regression.
 
 **The end-to-end round has not been run against a real model.** Everything is exercised through the injected `AiRunner`, `StepRunner` and `CommandRunner`, so no token was spent. The ticket's "Testable at the end" — one real round on a stored reference, then the two negative cases — is still yours to do, and it needs `repro-rail record` first or the rail will honestly report no baseline.
+
+<!-- xgd-turn id="f6be7f97-8a7b-4994-b48f-936073c19399-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:42:23.399833+00:00" -->
+#### You
+Anything UI visible from this session?
 
 <!-- xgd-chat-end -->
