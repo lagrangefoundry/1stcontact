@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-252
 created_by: xgd
 created_at: '2026-09-16T01:01:50.295431+00:00'
-updated_at: '2026-09-16T01:32:29.308310+00:00'
+updated_at: '2026-09-16T01:38:55.441714+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,14 @@ Meanwhile, let me update the ticket body to cover the behaviours I added.
 All 41 builder suites pass. Updating the ticket with the last behaviour.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="70383b4a-681f-4acd-a9d2-48ac672b1ca1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T01:38:54.559003+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
