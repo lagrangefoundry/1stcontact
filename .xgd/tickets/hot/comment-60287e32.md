@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T18:59:48.537174+00:00'
+updated_at: '2026-09-16T19:15:10.107893+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -624,5 +624,20 @@ Still happy to write this up as a DOC under CHAT-54 whenever you want it — the
 <!-- xgd-chat role="user" ts="2026-09-16T18:59:48.258676+00:00" -->
 #### You
 Yes - sorry I assumed we were on the same page - inherently we engineer the platform for BFM tests and as such these are hidden from the user and the stats this is an upfront requirement of the system - not an afterthought.
+
+<!-- xgd-turn id="88199a2d-a279-4c60-98fe-89ea4e6ef1df-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:15:09.773628+00:00" -->
+#### You
+Yes - sorry I assumed we were on the same page - inherently we engineer the platform for BFM tests and as such these are hidden from the user and the stats this is an upfront requirement of the system - not an afterthought.
+
+Ok we are ratholing  a little. Lets wind out and talk about the big picture I want you to create an Email Epic so, let talk about what it needs to cover:
+1) A new Email tab for all the UI modeled on the settings tab (do we need two? Lets start with two and simplify if we can later)
+2) Incoming mail - configuration of incoming mailing pipeline, config of mail addresses for forwarding to one or many recipients, (possible- config of catchall), instructions with AI guidance on setting up your gmail/hotmail etc to SEND from your forwarding address, capturing of emails and showing them on contact activity log and make them visible on contact page
+3) outgoing - management of multiple email lists, opt in/out management for users, creation of email content (md editor + AI) and styling (by AI - template) - send ramping, timed send (do not send emails before 8am on the launch day)
+4) deliverabilty - GlockApps integration, AI support documentation, UX and AX
+5) functional (BFM) monitoring - I will actually have an entire separate EPIC for BFM, but we should plan for it here - we need "test-specific code paths" that have to be engineered into the product from the outset.
+
+We will NOT buidl all this is in one pass, we will nibble away at it but I'm trying to capture the vision - feel free to help me with gaps
 
 <!-- xgd-chat-end -->
