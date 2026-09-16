@@ -5,9 +5,9 @@ type: request
 title: 'Choosing the 1stc.site hostname: the field, the check, and the lock-in'
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:28.341246+00:00'
-updated_at: '2026-09-16T00:15:10.310692+00:00'
+updated_at: '2026-09-16T00:25:11.995302+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -169,3 +169,59 @@ The section reads its state from the addresses the pane already has, so
 - A text box shown to a business that already holds a hostname.
 - Any re-implementation of the syntax rules, the reserved list, or availability
   in the client.
+## What building it required that the section above does not state
+
+Recorded because it is behaviour, and because reconciliation would otherwise find
+it with no language to attach it to.
+
+**The check route now says WHICH refusal it hit.** `GET /api/hostname/check`
+answered `{host, available, refusal}` — a sentence and not a class — and the four
+lines above cannot be told apart from a sentence without reading its prose or
+carrying a copy of the reserved list, which is this ticket's own falsifier.
+`checkHostname` already makes the distinction internally (`claimHostname` throws
+`ReservedHostnameError` where it would otherwise throw `InvalidHostnameError`), so
+it is now said out loud: the answer carries `reason: 'taken' | 'reserved' |
+'invalid'`, and null when the name is free. The decision stays [[REQ-238]]'s; only
+the wording is this pane's.
+
+**Editing the box withdraws `Lock it in`.** The button commits the host the LAST
+check answered about, so leaving it up beside an edited box would offer to make
+permanent a name nobody has been told is free.
+
+**An empty box asks nothing.** The route would answer it — with the rule about
+needing at least one character — but reporting a rule as broken to somebody who
+has not typed yet is a refusal they did not earn.
+
+**The apex is read from the same answer as the addresses.** `GET /api/hostname`
+returns both, so `.1stc.site` is never composed in the browser: a second place that
+string is written is a second place it can fall out of step with the host the
+Worker actually issues.
+
+**A custom domain is not mistaken for the platform address.** The section picks the
+`platform` address out of the list, so a business holding only an [[EPIC-6]] domain
+still sees the field — it has not chosen its free address yet.
+
+## Where it landed
+
+- `apps/control-app/src/builder/hostname.js` — the section, its four sentences and
+  the confirm dialog. Its own module rather than more of `settings.js`, which is a
+  pane over a text field and would otherwise be a pane and a registrar at once.
+- `apps/control-app/src/builder/settings.js` — the second section, and the one
+  address read per business (generation-guarded, so a switch mid-flight cannot draw
+  the previous business's address under this one's name).
+- `apps/control-app/src/builder/api.js` — `fetchAddresses`, `checkHostname`,
+  `claimHostname` and `HostnameClaimError`, which carries the route's own
+  `taken`/`held` distinction rather than a status code.
+- `apps/control-app/src/hostname.ts` — `HostnameCheck.reason`.
+- `apps/control-app/src/builder/builder.css` — the box, the apex beside it, the
+  line and the dialog's prose. Everything paints from `--shell-*`.
+
+## Test plan
+
+- `tests/test_UAT_FC_REQ-249_free_web_address.test.ts` — the shipped section in a
+  real document over the real dialog shell: the wording, the whole host, Return and
+  the button, the four lines, the dialog's promise and its focus, the lost race, the
+  held state, and a scan proving no rule is re-implemented in the client. Two cases
+  mount the whole builder, so "it is on the Settings pane" is the assembled product.
+- `tests/test_UAT_FC_REQ-249_check_names_its_refusal.workers.test.ts` — the `reason`
+  classification against real D1, over every reserved label the product ships.
