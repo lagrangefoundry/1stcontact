@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-16T21:43:30.927655+00:00'
+updated_at: '2026-09-16T22:02:55.764080+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,14 @@ Baseline from the failed round: **18 tool calls**, 7 of them `Read`, 8 `Grep`. C
 4. Confirm you meant **DOC-53**, not DOC-63.
 
 Nothing committed yet, and no code until the ticket body carries whatever we settle.
+
+<!-- xgd-turn id="7672f117-da6f-4293-acdb-c0ab5764ff40-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:02:55.367328+00:00" -->
+#### You
+- **The **`parseOutcome`** fence bug** — fix here, or under REQ-261? REQ-258 made changes to 261 perhaps it added this fix there
+- **Selection rule** — opt-in field, as recommended? No need for opt in just do it this is a dev tool don't over complicate
+- **May a production-KB doc enter the session KB? Yes very much so**
+- Confirm you meant **DOC-53**, not DOC-63. I did my bad
 
 <!-- xgd-chat-end -->
