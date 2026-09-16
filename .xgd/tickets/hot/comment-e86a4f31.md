@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T19:42:23.452376+00:00'
+updated_at: '2026-09-16T19:43:04.265369+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -174,5 +174,41 @@ When an iteration's links appear, the console starts a `claude -p` round on that
 <!-- xgd-chat role="user" ts="2026-09-16T19:42:23.399833+00:00" -->
 #### You
 Anything UI visible from this session?
+
+<!-- xgd-turn id="f6be7f97-8a7b-4994-b48f-936073c19399-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:43:03.742030+00:00" -->
+#### Claude
+Yes — the console page is the visible surface. Let me confirm what it actually renders now.
+
+Yes — one page, the reproduction console at `http://127.0.0.1:8710`. Everything REQ-256 added renders under each iteration heading:
+
+```
+Iteration 1
+  • the original site  • the reproduction  • the diff images
+  • the L1 document    • the gap ticket (BUG-93)      ← new fifth link
+  gate: reproduction-wrong
+  regression rail: the regression rail — no worse, partially covered
+                   improved · references: faelan.com meanDiff 31.2 → 22.9
+                   not covered · references: gigabytealchemy.ai — no recorded baseline
+  AI — filed `fold-drops-gradient-direction`: the fold writes every gradient vertically
+  • BUG-93 is at 'ready_to_implement', not 'draft' — a ready_* status is a
+    dispatcher trigger…                                ← violations, red
+  ┌────────────────────────────────────────────┐
+  │ — session started (claude-opus-5)          │      ← transcript, streams live
+  │ → Read /it/1/diff/gate.json                │
+  └────────────────────────────────────────────┘
+```
+
+The status line is green for `filed`/`appended`, red for `stopped`/`failed`, and reads `diagnosing…` while the round is in flight. The transcript `<pre>` fills through the poller the console already had — no second transport — and is re-rendered from disk after a restart.
+
+Four visible things changed specifically today:
+
+- **The rail block is a `<pre>`, not a `<p>`.** It now reports one finding per line, and a paragraph was collapsing them into a single run-on sentence.
+- **The rail's content is real.** It's REQ-255's landed rail rather than my stand-in, so the lines are `REGRESSED · …` / `improved · …` / `not covered · …`. With no recorded bar it says so instead of showing a green line nothing produced.
+- **`$REPRO_CONSOLE_RAIL=off`** renders `not run — $REPRO_CONSOLE_RAIL is set to off`.
+- **A round that claims `filed` but hands back no ticket** now says so plainly and shows no fifth link. It previously rendered a nonsense append message, and — because the console was mutating the object the runner returned — could show a *previous* round's ticket link and violations on the current iteration.
+
+I have not seen any of this in a browser. Capture needs Chromium, which this sandbox blocks at the Mach bootstrap, so a live round can't get past its first step here. If you want to look at it, `./bin/repro-console` on your machine against an already-stored reference is the path — and `repro-rail record` first, or the rail line will honestly report no baseline. I can also render a page to static HTML from the test fixtures if you'd rather eyeball the markup without spending a token.
 
 <!-- xgd-chat-end -->
