@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T00:48:21.446937+00:00'
+updated_at: '2026-09-16T02:21:41.597209+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,6 +13,16 @@ fields:
   subject_uid: epic-d6d7ea63
   kind: chat_transcript
 ---
+
+<!-- xgd-session
+{
+  "id": "f15b8e96-3f5e-4bbf-9b8b-81f62ff13cc7",
+  "role": "chat",
+  "backend": "claude_code",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
 
 <!-- xgd-turn id="c5228fc5-11c5-4c8f-9c8b-19e873a2ed2f-user" -->
 
@@ -2206,5 +2216,18 @@ Both facts already exist and only the builder ignores them — `add_page`/`updat
 ## Still open
 
 **BUG-94** — you still can't view the email page in the builder, which is why REQ-252 depends on it. That's the one I'd do next; it's small, and it unblocks looking at the thing that's now actually sending.
+
+<!-- xgd-turn id="a170ce60-aeaf-4bb9-a874-a0fe31067c16-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T00:44:56.294130+00:00" -->
+#### You
+Yes please.
+
+Two other details - I received two emails for the whitepapers - I don't think I could have pushed the button twice because it disappears. 
+
+On the email "page"
+
+1. It would be helpful to see and be able to edit the subject line
+2. It would be helpful in the drop down list of pages if this page identified itself as an email page Email: Your two papers...
 
 <!-- xgd-chat-end -->
