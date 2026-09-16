@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T00:31:17.299821+00:00'
+updated_at: '2026-09-16T00:42:08.063068+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2149,5 +2149,11 @@ The draft-channel problem I raised earlier still stands on top of this: a previe
 4. **BUG-94** — filed, still the reason you can't view the email page in the builder
 
 Want me to file 1–3?
+
+<!-- xgd-turn id="c0be097f-cb85-4b36-b023-968a9b1fd8cb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T00:42:07.652164+00:00" -->
+#### You
+Yes please.
 
 <!-- xgd-chat-end -->
