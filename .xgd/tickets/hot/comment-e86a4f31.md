@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:23:33.050650+00:00'
+updated_at: '2026-09-16T21:24:01.056746+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -443,5 +443,42 @@ Ready to start on behaviour 1 whenever you want it — that's still the one bloc
 <!-- xgd-chat role="user" ts="2026-09-16T21:23:32.867573+00:00" -->
 #### You
 ok Lots of plates in the air here I'm getting a little lost - have you created a ticket? What's in it? Have you updated the prompt? I see you have written a doc, great, are we creating a kb for the session, is this doc part of it?
+
+<!-- xgd-turn id="be563053-041a-4e32-bd01-10c29e30d97a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:24:00.878492+00:00" -->
+#### Claude
+Fair — let me lay it out plainly.
+
+## Status: two tickets written, zero code changed
+
+**Have you created a ticket?** Yes — **REQ-261**, `draft`, under EPIC-12.
+
+It asks for eight things. Your three, plus five I proposed and flagged as additions:
+
+1. **Fix the outcome parser** — the bug that lost your round. Blocks everything else.
+2. **One unbounded gap ticket + separate bugs** — your item 1, as you corrected it.
+3. **Priming and resume** — your items 2 and 3.
+4. Transcript shows the round once (currently prints the whole diagnosis twice).
+5. A round's answer is recoverable without re-running and re-paying for it.
+6. Every round records its model and cost.
+7. Evidence pre-digest where that's cheaper than the round reading raw JSON.
+8. Tool policy asserted rather than enumerated from memory.
+
+Thirteen numbered requirements, four acceptance criteria.
+
+**Have you updated the prompt?** **No.** No code has changed, no branch cut. `tools/repro-console/` is untouched, including the brief. The parser bug is still live — the next round you run will lose its ticket the same way.
+
+**The doc, and the session KB.** DOC-53 is written as a *document*, and it's the one you asked for: pipeline, session's role, accumulating learnings. Two honest caveats:
+
+- **The session KB doesn't exist as a mechanism.** Right now DOC-53 is a ticket body sitting at `.xgd/tickets/hot/doc-bdbc46b0.md`. Nothing wires it to a round — the brief doesn't reference it and the console doesn't pass it. Building that wiring is REQ-261's work, not something already done.
+- **What DOC-53 guarantees today** is the negative: `doc_kind: architecture` means `exportCorpus` won't pick it up, so it can't leak into the production KB the builder AI searches. That part is structural and true now.
+- Its pipeline section is marked **TO BE WRITTEN**. I wrote the session's role and three learnings from your round because I could do that honestly; I didn't invent a map of `tools/generate/src/` I haven't read.
+
+## The one decision in front of you
+
+Everything above is paper. The thing that actually unblocks the loop is **item 1** — roughly fifteen lines in `parseOutcome`, plus a UAT using your real transcript as the fixture. I've already verified the fix recovers your round's ticket whole.
+
+Want me to cut a branch and do that now, and leave the rest of REQ-261 for later? That would get today's gap ticket filed and make the console usable again, without touching resume or priming.
 
 <!-- xgd-chat-end -->
