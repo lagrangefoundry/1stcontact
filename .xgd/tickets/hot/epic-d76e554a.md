@@ -5,9 +5,9 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-16T19:20:31.585909+00:00'
+updated_at: '2026-09-16T19:39:24.247182+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -317,3 +317,86 @@ complaint or bounce alarm.
    and retroactive history, and it costs an annual third-party security assessment for
    Google's restricted scopes plus ingesting the client's personal mail. Out of scope
    for now; recorded so it is a decision rather than an oversight.
+
+
+## Decisions taken since drafting ([[CHAT-54]])
+
+These resolve Open Questions 1 and 2. The questions are left standing above so the
+reasoning that produced the answers stays legible.
+
+### OQ1 — resolved: the seam is configure-once vs work-daily
+
+**Email configuration goes into Settings, not into a tab of its own.** Addresses,
+forwarding rules, catch-all, authentication and DNS health, and send-as setup status
+are all written once and read many times — which is exactly what [[EPIC-4]] built
+Settings to be: *"a record-and-status surface, not a workshop."* A second tab holding
+configuration would duplicate that surface rather than extend it.
+
+**The per-contact conversation stays on the contact.** The client's requirement is
+that captured mail is *"visible on contact page"* and on the activity log, which is
+the People tab and [[EPIC-11]]'s timeline. It is not a new location.
+
+**One new tab, for the cross-contact work**: lists, composition, sending, ramping and
+scheduling, with deliverability as a panel inside it rather than a surface of its own.
+
+**Which may make the second tab unnecessary sooner than expected.** With
+configuration in Settings and per-contact history on the contact, what is left in the
+new tab is substantially *campaigns* — and a unified cross-contact inbox is a
+hypothesis about how a one-van business works, not a known requirement. This is the
+simplification the client anticipated ("simplify if we can later"), and it may arrive
+before the first tab is built rather than after. Do not build a unified inbox until
+someone asks for one.
+
+### OQ2 — resolved: a message body is a ticket; the event records the envelope
+
+**The body lives in the product ticket store** (`apps/control-app/src/tickets.ts`,
+[[REQ-162]], [[DOC-38]] §6) — the same store that already holds the client's uploads,
+captures, briefs and conversations. **`contact_events` records the milestone only**:
+header fields, body size, whether attachments are present, and the ticket it points
+at. That keeps [[EPIC-11]]'s promise that the spine stays *"milestones, not noise"*
+and keeps the immutable table small.
+
+**Why this store is the right one, verified:**
+
+- **Tenancy is structural, not remembered.** `forTenant` returns a handle carrying
+  `WHERE tenant_id = ?` on every read and stamping it on every write, and the handle
+  is terminal — `forTenant` on it throws. Correspondence is the most confidential
+  thing the product will ever hold, and this is the one store where *"no call site is
+  trusted to remember the tenant, because no call site is given the chance to forget
+  it."*
+- **Attachments are already first-class**, as `ATTACHMENT_SCHEMA` records against a
+  ticket with blobs in `R2BlobStore` — and deliberately **not** in the
+  `1stcontact-sites` bucket, because that one is bound by the Worker serving the
+  public internet and attachments are confidential client material. An email
+  attachment needs exactly that property and would otherwise need it invented.
+- **The bundle precedent is MIME multipart.** The `reference` type is documented as
+  *"N attachment records on one ticket, one per member, each with `meta.member`
+  naming its role."* A message with three attachments and two inline images is the
+  same shape, and addressing is content-derived — so the same document forwarded
+  around a thread dedups to one blob without anyone arranging it.
+- **Retrieval comes free.** `knowledge.ts` embeds tickets, so "what did we agree with
+  this customer about the boiler" becomes answerable by the assistant as a
+  consequence of the storage decision rather than a feature built on top.
+
+**What this decision obliges, and none of it is automatic:**
+
+1. **A message ticket must be write-once.** The spine is immutable by database
+   trigger; the ticket store is not — tickets carry `version` and `updated_at` and
+   are meant to change. A record of what was actually said must not. This is a schema
+   and enforcement requirement, not an inherited property.
+2. **KB corpus membership is an explicit decision.** Every ticket being embeddable
+   does not mean every message should be embedded — that is per-message Workers AI
+   cost and it would swamp a corpus currently made of briefs and material. Default
+   out; opt in deliberately.
+3. **Threading maps to ticket-plus-comments.** A thread is the ticket, each message a
+   comment on it, following the existing `chat_transcript` comment precedent. The
+   contact event then points at the thread *and* the specific comment, which is more
+   useful than pointing at a bare message.
+4. **Volume.** This store was sized for uploads, captures, briefs and chats. It is
+   about to take every message every business sends and receives. D1 row counts and
+   index behaviour under that load are an open engineering question, not a blocker.
+5. **Erasure must reach the blobs.** [[DOC-37]]'s identity severance gets easier with
+   a tenant-scoped terminal handle, but deleting ticket rows while attachment blobs
+   survive in R2 would be erasure that reads correct and is not.
+6. **The synthetic marker applies here too.** Message tickets carry it and every
+   ticket query filters it by default, exactly as for the spine.
