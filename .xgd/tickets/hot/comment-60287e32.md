@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T21:48:05.605112+00:00'
+updated_at: '2026-09-16T22:16:45.623875+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -769,5 +769,27 @@ This is the useful part: **phase 1 needs no new tab at all.** Inbound capture to
 The Campaigns tab doesn't need to exist until outgoing work starts — which is a later and much larger nibble. So "do we need two tabs?" resolves to **one, later**, and I'd name it **Campaigns** rather than Email. Calling it Email would promise the inbox we've just decided not to build.
 
 Want me to fold this into EPIC-13? It refines the OQ1 resolution — specifically lists and import moving to Contacts, and the finding that the first phase ships with zero new surfaces.
+
+<!-- xgd-turn id="78ba9475-f2bd-42d3-a653-c194da4bdb2f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:16:45.538984+00:00" -->
+#### You
+ok good - Campaigns I understand.
+
+We have a well established 1 +2 pane pattern (see the Intent tab on xgd). We are creating a framework implementation for this that can be reused here. [Item list][[detail][chat associate with detail]]
+
+So I propose to fit this each campaign is a ticket that specifies all its details
+Each email list is a ticket
+And the content emails for the campaigns are tickets.
+
+The list view can switch between email list - content - campaign.
+
+**Lists and segments → Contacts.** A list is a saved segment of contacts. Membership derives from the contact record, and "which lists is this person on" belongs on the contact page next to everything else true about them. Putting lists in a campaigns tab creates a second contact model that has to be kept in sync with the first — which is exactly the objection I raised against handing the list to Mailchimp, and it applies just as well internally. <-- that is confusing data structures and UI - we have one set of email lists and we decide where they are represented, contacts or Campaigns or both - I actually lean towards both but I suggest we start in Campaigns because it is the only place we need lists - the contacts page lists individual contacts - lists are not (yet) relevant to jobs to be done on that tab - OTOH the contacts page has the right UI for creating a list...so hmm
+
+**Import → Contacts.** Importing a customer list creates contacts - agreed
+
+Inbound mail from an address that matches no contact. It can't render on a contact page because there isn't one, so it needs somewhere to land. But that's a **triage queue, not an inbox** — and by the same logic as import, I'd put it in Contacts as an unidentified/pending state rather than standing up a mail surface for it. It's the moment a contact gets created, which is a Contacts concern. <-- something this epic should handle - today - we add a place on the contacts tab to see this I think.
+
+##
 
 <!-- xgd-chat-end -->
