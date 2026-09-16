@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:45:29.357900+00:00'
+updated_at: '2026-09-16T01:48:29.916589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -259,5 +259,39 @@ Lets keep this cleanly separate from the production code, this is a dev tool it 
 Lets keep this cleanly separate from the production code, this is a dev tool it should not get accidentally deployed
 
 Please create the tickets
+
+<!-- xgd-turn id="af38daf3-55cd-42df-b153-23faff568fd4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T01:48:29.458085+00:00" -->
+#### Claude
+Important finding before I write this: `apps/control-app` imports **directly from `tools/generate/src/`** by relative path — so the engine the AI edits is itself deployed code. That splits your constraint into two different problems with two different answers.
+
+Epic updated. Now creating the three tickets.
+
+Three tickets filed and linked under EPIC-12:
+
+| | | |
+|---|---|---|
+| **REQ-254** | Reproduction console: capture, reproduce home page, show the diff | no AI |
+| **REQ-255** | Regression rail: baseline per reference + one command that says "no worse" | the safety rail |
+| **REQ-256** | AI iteration: review the diff, change the engine, stop for the human | depends on both |
+
+## Your isolation constraint splits in two, and only one half is solvable by layout
+
+**Risk 1 — the console gets deployed.** Fixed by construction, and now asserted rather than intended. It lives in `tools/repro-console/`, never `apps/`; no wrangler config; **no build script** (since `pnpm-workspace.yaml` globs `tools/*`, it *will* be a workspace package and `pnpm -r build` *will* visit it — having no build script is what makes that visit a no-op); localhost only; dependency direction one-way. REQ-254 ships a UAT that fails if it acquires a build script or wrangler config, or if anything under `apps/` gains a dependency on it. A convention nobody checks is how dev tools reach production.
+
+**Risk 2 — the AI's edits reach production.** This one directory layout cannot touch. `apps/control-app` imports the engine **directly from `tools/generate/src/`** by relative path — `store/d1r2-store`, `store/ids`, `publish/ladder`, `cli/capture/cf-driver`. So the engine the AI edits *is* deployed code. That coupling isn't a mistake to design away here: improving the engine is the whole point of loop 1, and the engine is legitimately shared.
+
+What actually covers it: every iteration commits to a **scratch branch** with nothing auto-merging; **the rail includes a Worker build check** (`wrangler deploy --dry-run` is the cheap form) so "the AI broke the control app" surfaces in the round that caused it rather than at the next deploy; and no part of the console invokes a deploy. I've added that build check to REQ-255's behavior list — it's there because of this coupling, not as general hygiene.
+
+## Two things I put in the tickets that weren't in your sketch
+
+**The rail must be seen to fail.** REQ-255's acceptance requires both directions — green on main, *and* break a serializer and watch it go red naming which reference regressed. A rail only ever observed passing hasn't been tested, and this one is load-bearing.
+
+**Baselines update only by deliberate human act.** Otherwise an automated run can move the bar it's being measured against, and the rail quietly becomes decorative.
+
+I also kept the "what the AI changed" link in REQ-256 rather than REQ-254, since there are no code edits until the AI exists — keeps REQ-254 to your three links.
+
+Worth noting one measurement that's still open and cheap to settle: REQ-255 asks you to **time the rail**, because whether the per-iteration gate is the ~73 reproduction-relevant UATs or all 517 should be decided on a number rather than a guess.
 
 <!-- xgd-chat-end -->
