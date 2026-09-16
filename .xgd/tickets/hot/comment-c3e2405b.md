@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T19:57:52.953665+00:00'
+updated_at: '2026-09-16T20:04:00.185275+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -293,5 +293,11 @@ Leave alone: `westhead.me` (21 records, your mail domain), `positronica.ai`, `fa
 Incidentally that confirms the spelling — it's `gigabytealchemy.ai`.
 
 Want me to run the zone backfill now? I can do it against the Cloudflare API with the token I have, recording all 11 attributable zones. That's additive and reversible, and it doesn't touch DNS.
+
+<!-- xgd-turn id="ddd014bd-03e0-4149-8a2e-66bd5a079edf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:03:58.219482+00:00" -->
+#### You
+Any UI visible changes in this one?
 
 <!-- xgd-chat-end -->
