@@ -6,10 +6,10 @@ title: 'The hostname assistant: reconcile the surface with the built experience,
   keep the pane and the chat in step'
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:45.479150+00:00'
-updated_at: '2026-09-16T00:30:39.737702+00:00'
+updated_at: '2026-09-16T00:46:04.652902+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: medium
   depends_on:
@@ -18,8 +18,12 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-02eb714e
+  commits:
+  - working_sha: 5800000879da29a3dccbdd131aa1e804b41f09f6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.210
 ---
-
 
 ## What this is
 
