@@ -5,7 +5,7 @@ type: request
 title: 'The domain configuration surface: the selector, the sending toggle, and release'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:54.284753+00:00'
-updated_at: '2026-09-16T20:35:16.730919+00:00'
+updated_at: '2026-09-16T21:37:06.659488+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -233,6 +233,31 @@ The selector offers apexes, and the attach accepts any host inside a zone the
 account holds — `shop.alicesplumbing.com` while the apex runs the old site,
 which is the natural way to trial one and is what *"exclusivity is per host, not
 per domain"* means in practice.
+
+### Five smaller consequences, each of one of the three controls
+
+- **An empty pool is a sentence, not a disabled control.** An account that holds
+  no domains yet is told so and shown no selector and no attach button. A
+  disabled control is an invitation to work out what would enable it; on a
+  surface whose whole point is that the machinery stays off it, the answer is a
+  sentence.
+- **The toggle and the address are separately reversible.** Turning sending off
+  leaves the website address attached and serving, and releasing the domain is
+  the only thing that takes the address down. They are two controls in the table
+  above because they are two decisions.
+- **Release is behind a dialog, and the dialog answers the fear.** Not a
+  confirmation of records — the falsifier above still holds — but an answer to
+  *"will I lose my website"*: the free `1stc.site` address takes over again, and
+  the domain stays theirs and stays in the pool. **Cancel takes focus**, so a
+  Return press aimed at something else cannot take a customer's address down.
+- **Releasing nothing is not an error.** A customer who pressed it twice, or
+  whose browser never heard the first answer, gets the same answer both times
+  rather than a failure for a state they already wanted.
+- **A `_dmarc` in either reading is enough to stop us.** The rule is *write only
+  when absent*, and absent means absent from the zone **and** from the world — a
+  domain whose delegation is still moving to us has a live policy that our own
+  zone cannot yet see. A record visible in either reading is a record somebody is
+  relying on.
 
 ## Not in scope
 
