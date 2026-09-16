@@ -6,9 +6,9 @@ title: 'Regression rail: a recorded baseline per reference, and one command that
   ''no worse'''
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:35.544080+00:00'
-updated_at: '2026-09-16T19:39:25.924456+00:00'
+updated_at: '2026-09-16T19:39:38.206796+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -30,6 +30,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.221
+  story_points: 8
 ---
 
 Parent: [[EPIC-12]] §8.4. Second of three. **Must land before [[REQ-256]]'s loop
