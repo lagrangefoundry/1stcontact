@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:38:02.771766+00:00'
+updated_at: '2026-09-16T21:42:41.373889+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -589,5 +589,13 @@ My recommendation is scoped read access, with one condition. `ai.ts` records a *
 Either way, tickets are only ever *written* by the console, through the API, at `draft`. That isn't in question.
 
 The parser fix is still untouched and still the thing blocking every round. Want me to cut a branch and land it?
+
+<!-- xgd-turn id="8af11a0d-87b7-42f3-b49a-0daa16fe1c02-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:42:41.297182+00:00" -->
+#### You
+Is that different from 261 work? That is underway now
+
+Can you ensure that any permission changes are appended to 262 which is also underway but I will tell it to reread its ticket
 
 <!-- xgd-chat-end -->
