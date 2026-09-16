@@ -5,7 +5,7 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T17:44:26.837827+00:00'
+updated_at: '2026-09-16T17:53:17.117057+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -107,6 +107,13 @@ still on the page next to today's.
     overwrite each other. Different sites share nothing and run concurrently
     without interfering — which is the supported way to work several
     reproductions at once, each on its own `--port`.
+
+36. **A step's working directory and the CLI's location are different things.**
+    The `cwd` a step runs in selects which `storage/` tree it reads and writes;
+    where `1c` itself lives is fixed by where the console is installed.
+    Deriving the second from the first worked only because the two coincide in
+    normal use, and failed the moment a step was pointed at any other
+    directory — so the launcher is resolved from the console's own module.
 
 ## Isolation — it must not be deployable ([[EPIC-12]] §8.6)
 
