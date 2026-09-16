@@ -5,9 +5,9 @@ type: bug
 title: A form promising several assets sends one identical message per asset
 created_by: EPIC-10
 created_at: '2026-09-16T00:46:39.704901+00:00'
-updated_at: '2026-09-16T00:46:39.704901+00:00'
+updated_at: '2026-09-16T00:47:41.021180+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -70,7 +70,7 @@ promising one of them does not send again.
 
 ## Test plan
 
-`tests/test_UAT_FC_BUG-<id>_one_message.test.ts`:
+`tests/test_UAT_FC_BUG-98_one_message.test.ts`:
 
 - **The symptom**: a form promising two assets, whose message does not declare `asset_name`,
   sends **one** email on one submission. Today it sends two.
