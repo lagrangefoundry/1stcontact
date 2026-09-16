@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T20:56:45.276996+00:00'
+updated_at: '2026-09-16T21:23:33.050650+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -437,5 +437,11 @@ One note on DOC-53's shape: in this repo a DOC ticket's body *is* the document, 
 Also worth flagging: DOC-53 makes the standing brief and the session KB two documents with overlapping content — the brief already states the one rule and the round's role. Whether the brief shrinks to a pointer or they stay parallel is a call for the implementation; I've left it open rather than deciding it in the ticket.
 
 Ready to start on behaviour 1 whenever you want it — that's still the one blocking every other demonstration.
+
+<!-- xgd-turn id="be563053-041a-4e32-bd01-10c29e30d97a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:23:32.867573+00:00" -->
+#### You
+ok Lots of plates in the air here I'm getting a little lost - have you created a ticket? What's in it? Have you updated the prompt? I see you have written a doc, great, are we creating a kb for the session, is this doc part of it?
 
 <!-- xgd-chat-end -->
