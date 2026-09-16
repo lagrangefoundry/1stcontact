@@ -1,0 +1,175 @@
+— session started (claude-opus-5[1m])
+I'll read the evidence in the order the brief prescribes — completeness, structure, values, then pixels.
+→ Read /Users/martin/lagrangefoundry/1stcontact/storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-1/diff/gate.json
+← ok
+→ Read /Users/martin/lagrangefoundry/1stcontact/storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-1/diff/values-diff.json
+← ok
+→ Read /Users/martin/lagrangefoundry/1stcontact/storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-1/diff/regions.json
+← ok
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+Now the reference bundle — the ground truth for the coverage finding.
+→ Glob storage/references/gigabytealchemy.ai/index/**
+← ok
+→ Grep AlchemistLabWithTech
+← ok
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+The image *is* referenced — as a section background. Let me confirm both sides and find the coverage checker.
+→ Read /Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index/capture.json
+← ok
+→ Grep unreferenced-image|unreferencedImages|mirroredImages
+← ok
+— session started
+— session started
+— session started
+→ Grep unreferenced|mirroredImages|referencedImages
+← ok
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+→ Read /Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index/multistate.json
+← ok
+→ Grep "src"
+← ok
+— session started
+— session started
+— session started
+— session started
+`"src"` appears zero times in the entire manifest. Let me check whether the element type even has that field.
+→ Grep interface (Manifest|Multistate|Oracle)?Element|src\?:|backgroundImageUrl
+← ok
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+→ Read /Users/martin/lagrangefoundry/1stcontact/tools/generate/src/cli/capture/extract.ts
+← ok
+→ Read /Users/martin/lagrangefoundry/1stcontact/tools/generate/src/cli/capture/types.ts
+← ok
+→ Read /Users/martin/lagrangefoundry/1stcontact/tools/generate/src/cli/capture/values-diff.ts
+← ok
+— session started
+— session started
+— session started
+→ Grep backgroundImageUrl|AlchemistLab
+← ok
+→ Grep ^title:|^status:|unreferenced
+← ok
+→ Grep ^title:|^status:|unreferenced
+← ok
+— session started
+— session started
+— session started
+— session started
+→ Read /Users/martin/lagrangefoundry/1stcontact/.xgd/tickets/hot/request-7ff1bacd.md
+← ok
+→ Grep backgroundImageUrl":"[^"]*"
+← ok
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+One last check — the exact escalation path, since that is what makes this more than cosmetic.
+→ Read /Users/martin/lagrangefoundry/1stcontact/tools/generate/src/cli/gate-core.ts
+← ok
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+— session started
+## What I read, and what I found
+
+**Content completeness first.** `gate.json` carries one coverage finding: `1 of 1 mirrored image asset(s) are referenced by no element in the reference manifest — the capture kept the bytes but never attributed them to the page`, naming `assets/AlchemistLabWithTech.png`.
+
+That finding is false, and I can show it from the files rather than from the picture:
+
+- `capture.json:295-303` — the hero section's `background` is `{"kind": "image", "image": "assets/AlchemistLabWithTech.png", "overlay": {"color": "#030717", "opacity": 0.3}}`. The capture *did* attribute it.
+- `multistate.json:4141-4158` — section `index: 1` carries `"backgroundImageUrl": "https://gigabytealchemy.ai/images/AlchemistLabWithTech.png"`, matching the asset's `src` at `capture.json:4461` exactly.
+- `page.json` — the reproduction's own L1 carries `backgroundImageUrl":"/assets/AlchemistLabWithTech.png"`. It renders.
+
+The cause is at `gate-core.ts:234-237`: `referenced` is built from `manifest.elements[].src` alone. `"src"` occurs **zero times** in this entire `multistate.json`, so the set is empty and every mirrored image is reported unreferenced. The codebase already documents why — `values-diff.ts:246-250` says band background imagery "never reach[es] the element manifest," and `extract.ts:1339` says a background image "carries the image handle as `backgroundImageUrl` rather than `src`."
+
+It was harmless this round only because `reconcileGates` checks `!perceptualBreach` (mean 0.69 < floor 8) at line 301 and returns `pass` before reaching the coverage branch. On a breached run, line 310 fires **before** the `reproduction-wrong` branch at line 323, so a genuinely wrong reproduction of any background-image page is misrouted to `capture-incomplete` — which this console's own brief treats as "stop. File nothing."
+
+I also checked the two value deltas (`gap` 142px→149px, HIGH; `§0 contentAnchor` bottom 0.66→center 0.50, LOW) and the twelve pixel regions. Regions 1–5 and 9 all sit in y 80–352, the `Gigabyte Alchemy` / `Intentional Software` boxes, where every values-diff parameter matches exactly. Those are candidate classes for a later round; I am filing the one that is provable end-to-end and that silently corrupts the gate's own routing. `request-7ff1bacd` (line 809) noted this false positive in prose and shipped without a code change — it has never been a ticket.
+
+```json
+{
+  "status": "filed",
+  "residualClass": "coverage-check-misses-section-background-images",
+  "summary": "referenceCoverage() builds its referenced-image set from manifest.elements[].src only, so imagery painted as a section background-image is always reported unreferenced — and because reconcileGates consults coverage before value deltas, that false finding hijacks any perceptually-breached run to capture-incomplete.",
+  "ticket": {
+    "type": "bug",
+    "title": "gate: reference coverage counts section background images as unreferenced",
+    "body": "## Residual class\n\n`coverage-check-misses-section-background-images`\n\n## References exhibiting it\n\n`storage/references/gigabytealchemy.ai/index` — the only bundle I have evidence from this round. It is, however, the bundle `gate-core.ts` itself cites as its calibration anchor (`gate-core.ts:60-62`), and the defect is structural rather than site-specific: it will reproduce on any reference whose imagery is painted as CSS `background-image` rather than as `<img>`.\n\n## Evidence\n\n**`gate.json` (iteration 1) — verdict `pass`, with one coverage finding:**\n\n```json\n\"coverage\": {\n  \"mirroredImages\": 1,\n  \"referencedImages\": 0,\n  \"unreferencedImages\": [\"assets/AlchemistLabWithTech.png\"],\n  \"findings\": [{\n    \"kind\": \"unreferenced-image\",\n    \"detail\": \"1 of 1 mirrored image asset(s) are referenced by no element in the reference manifest — the capture kept the bytes but never attributed them to the page.\"\n  }]\n}\n```\n\n**The capture did attribute it.** `capture.json:295-303`, the hero section:\n\n```json\n\"background\": {\n  \"kind\": \"image\",\n  \"color\": \"#ffffff\",\n  \"image\": \"assets/AlchemistLabWithTech.png\",\n  \"overlay\": { \"color\": \"#030717\", \"opacity\": 0.3 }\n}\n```\n\n**The manifest carries it too.** `multistate.json:4141-4158`, section `index: 1`:\n\n```json\n{ \"index\": 1, \"overlay\": { \"color\": \"#030717\", \"opacity\": 0.3 },\n  \"contentAnchorRatio\": 0.62, \"box\": { \"x\": 0, \"y\": 0, \"width\": 320, \"height\": 800 },\n  \"backgroundImageUrl\": \"https://gigabytealchemy.ai/images/AlchemistLabWithTech.png\" }\n```\n\nThat URL is character-identical to the asset entry at `capture.json:4458-4462` (`\"src\": \"https://gigabytealchemy.ai/images/AlchemistLabWithTech.png\"`, `\"localPath\": \"assets/AlchemistLabWithTech.png\"`).\n\n**The reproduction renders it.** `page.json` (this iteration's L1) contains `backgroundImageUrl\":\"/assets/AlchemistLabWithTech.png\"`. Nothing was dropped.\n\n**The search key does not exist in the manifest at all.** The string `\"src\"` occurs **zero times** in `multistate.json` — this page has no `<img>` elements whatsoever, so the `referenced` set is empty and `referencedImages` is `0` by construction.\n\n**Value deltas are irrelevant to this finding** — `values-diff.json` reports `matched: 59`, `unmatched: 0`, and only 2 deltas (`gap` 142px→149px HIGH; `§0 contentAnchor` `bottom (0.66)`→`center (0.50)` LOW). Neither concerns the image.\n\n## Hypothesis\n\n`referenceCoverage()` in `tools/generate/src/cli/gate-core.ts:234-237`:\n\n```ts\nconst referenced = new Set(\n  manifest.elements.map((el) => el.src).filter((src): src is string => typeof src === 'string' && src.length > 0),\n)\nconst unreferencedImages = images.filter((a) => !referenced.has(a.src)).map((a) => a.localPath)\n```\n\nThe set is built from `ValueElement.src` alone. Background imagery is deliberately recorded elsewhere, and two comments in the engine say so explicitly:\n\n- `values-diff.ts:246-250` (BUG-13, on `SectionValues.backgroundImageUrl`): \"The page's hero + section imagery is painted as `background-image` on the band, not as `<img>` elements, **so it never reaches the element manifest**; carrying it here lets the fold emit a section-background `box`.\"\n- `extract.ts:1336-1340` (BUG-27): a painted background box \"carries the image handle as `backgroundImageUrl` rather than `src`, because it paints a SURFACE behind content, not replaced content in flow.\"\n- `types.ts:443-446` types `backgroundImageUrl` as \"Distinct from {@link src}\".\n\nSo the coverage check reads the one field that structurally cannot hold a background image, and `referenceCoverage` is blind to exactly the imagery the fold is most careful about.\n\n**Why this matters beyond a noisy line.** `reconcileGates` (`gate-core.ts:310`) tests `coverage.findings.length` **before** the `deltas > 0` branch at line 323:\n\n```ts\n} else if (coverage.findings.length) {\n  verdict = 'capture-incomplete'\n```\n\nSo on any run that breaches the perceptual floor, a single false `unreferenced-image` finding overrides `reproduction-wrong` and returns `capture-incomplete`, telling the operator \"This is a CAPTURE defect, not a reproduction defect\" and that the values-diff deltas \"are not yet evidence\" — against a reference that is in fact complete. Per the loop-1 console brief, `capture-incomplete` also means the round files nothing and stops. This round escaped only because mean 0.69 / 0.31% is under the 8 / 25 floor, so `!perceptualBreach` returned `pass` at line 301 first.\n\nThis was observed once before and never fixed: `request-7ff1bacd` (REQ-88 close-out, line 809) records \"`unreferenced-image` on `AlchemistLabWithTech.png` is a false positive\" as a reporting artifact. It was prose in a completed ticket, not a tracked defect.\n\n## Proposed change\n\nIn `referenceCoverage()` (`tools/generate/src/cli/gate-core.ts`), widen the `referenced` set to every way the manifest can hold an image handle:\n\n1. `manifest.sections[].backgroundImageUrl` — `SectionValues.backgroundImageUrl`, `values-diff.ts:255`.\n2. `manifest.elements[].backgroundImageUrl` — `ValueElement.backgroundImageUrl`, `values-diff.ts:206`, which is how BUG-27 records nested backdrop boxes below the band root.\n3. keep `manifest.elements[].src` for genuine media elements.\n\nCompare by asset basename rather than by exact URL string, reusing the existing `assetBasename()` helper (`values-diff.ts:2356-2357`, which already normalises this way when diffing background URLs). Exact-string matching happens to work on this bundle, but the reproduction side stores `/assets/AlchemistLabWithTech.png` while the reference side stores the absolute origin URL, so any future comparison across the two forms would resurrect the false positive.\n\nRegression test: gating `storage/references/gigabytealchemy.ai/index` must yield `referencedImages: 1`, `unreferencedImages: []`, `findings: []`. A second case should keep a genuinely orphaned asset reported, so the proxy is widened rather than disabled.\n\nConsider also whether `unreferenced-image` should escalate to `capture-incomplete` on its own at all, given how expensive a false one is: a mirrored-but-unused asset (a preloaded sprite, a `srcset` variant) is common and is not by itself evidence that the capture stopped short. Ranking `section-density` above it, or requiring both proxies, would make the verdict harder to hijack. That is a judgement for the implementer, not part of the defect."
+  }
+}
+```
+## What I read, and what I found
+
+**Content completeness first.** `gate.json` carries one coverage finding: `1 of 1 mirrored image asset(s) are referenced by no element in the reference manifest — the capture kept the bytes but never attributed them to the page`, naming `assets/AlchemistLabWithTech.png`.
+
+That finding is false, and I can show it from the files rather than from the picture:
+
+- `capture.json:295-303` — the hero section's `background` is `{"kind": "image", "image": "assets/AlchemistLabWithTech.png", "overlay": {"color": "#030717", "opacity": 0.3}}`. The capture *did* attribute it.
+- `multistate.json:4141-4158` — section `index: 1` carries `"backgroundImageUrl": "https://gigabytealchemy.ai/images/AlchemistLabWithTech.png"`, matching the asset's `src` at `capture.json:4461` exactly.
+- `page.json` — the reproduction's own L1 carries `backgroundImageUrl":"/assets/AlchemistLabWithTech.png"`. It renders.
+
+The cause is at `gate-core.ts:234-237`: `referenced` is built from `manifest.elements[].src` alone. `"src"` occurs **zero times** in this entire `multistate.json`, so the set is empty and every mirrored image is reported unreferenced. The codebase already documents why — `values-diff.ts:246-250` says band background imagery "never reach[es] the element manifest," and `extract.ts:1339` says a background image "carries the image handle as `backgroundImageUrl` rather than `src`."
+
+It was harmless this round only because `reconcileGates` checks `!perceptualBreach` (mean 0.69 < floor 8) at line 301 and returns `pass` before reaching the coverage branch. On a breached run, line 310 fires **before** the `reproduction-wrong` branch at line 323, so a genuinely wrong reproduction of any background-image page is misrouted to `capture-incomplete` — which this console's own brief treats as "stop. File nothing."
+
+I also checked the two value deltas (`gap` 142px→149px, HIGH; `§0 contentAnchor` bottom 0.66→center 0.50, LOW) and the twelve pixel regions. Regions 1–5 and 9 all sit in y 80–352, the `Gigabyte Alchemy` / `Intentional Software` boxes, where every values-diff parameter matches exactly. Those are candidate classes for a later round; I am filing the one that is provable end-to-end and that silently corrupts the gate's own routing. `request-7ff1bacd` (line 809) noted this false positive in prose and shipped without a code change — it has never been a ticket.
+
+```json
+{
+  "status": "filed",
+  "residualClass": "coverage-check-misses-section-background-images",
+  "summary": "referenceCoverage() builds its referenced-image set from manifest.elements[].src only, so imagery painted as a section background-image is always reported unreferenced — and because reconcileGates consults coverage before value deltas, that false finding hijacks any perceptually-breached run to capture-incomplete.",
+  "ticket": {
+    "type": "bug",
+    "title": "gate: reference coverage counts section background images as unreferenced",
+    "body": "## Residual class\n\n`coverage-check-misses-section-background-images`\n\n## References exhibiting it\n\n`storage/references/gigabytealchemy.ai/index` — the only bundle I have evidence from this round. It is, however, the bundle `gate-core.ts` itself cites as its calibration anchor (`gate-core.ts:60-62`), and the defect is structural rather than site-specific: it will reproduce on any reference whose imagery is painted as CSS `background-image` rather than as `<img>`.\n\n## Evidence\n\n**`gate.json` (iteration 1) — verdict `pass`, with one coverage finding:**\n\n```json\n\"coverage\": {\n  \"mirroredImages\": 1,\n  \"referencedImages\": 0,\n  \"unreferencedImages\": [\"assets/AlchemistLabWithTech.png\"],\n  \"findings\": [{\n    \"kind\": \"unreferenced-image\",\n    \"detail\": \"1 of 1 mirrored image asset(s) are referenced by no element in the reference manifest — the capture kept the bytes but never attributed them to the page.\"\n  }]\n}\n```\n\n**The capture did attribute it.** `capture.json:295-303`, the hero section:\n\n```json\n\"background\": {\n  \"kind\": \"image\",\n  \"color\": \"#ffffff\",\n  \"image\": \"assets/AlchemistLabWithTech.png\",\n  \"overlay\": { \"color\": \"#030717\", \"opacity\": 0.3 }\n}\n```\n\n**The manifest carries it too.** `multistate.json:4141-4158`, section `index: 1`:\n\n```json\n{ \"index\": 1, \"overlay\": { \"color\": \"#030717\", \"opacity\": 0.3 },\n  \"contentAnchorRatio\": 0.62, \"box\": { \"x\": 0, \"y\": 0, \"width\": 320, \"height\": 800 },\n  \"backgroundImageUrl\": \"https://gigabytealchemy.ai/images/AlchemistLabWithTech.png\" }\n```\n\nThat URL is character-identical to the asset entry at `capture.json:4458-4462` (`\"src\": \"https://gigabytealchemy.ai/images/AlchemistLabWithTech.png\"`, `\"localPath\": \"assets/AlchemistLabWithTech.png\"`).\n\n**The reproduction renders it.** `page.json` (this iteration's L1) contains `backgroundImageUrl\":\"/assets/AlchemistLabWithTech.png\"`. Nothing was dropped.\n\n**The search key does not exist in the manifest at all.** The string `\"src\"` occurs **zero times** in `multistate.json` — this page has no `<img>` elements whatsoever, so the `referenced` set is empty and `referencedImages` is `0` by construction.\n\n**Value deltas are irrelevant to this finding** — `values-diff.json` reports `matched: 59`, `unmatched: 0`, and only 2 deltas (`gap` 142px→149px HIGH; `§0 contentAnchor` `bottom (0.66)`→`center (0.50)` LOW). Neither concerns the image.\n\n## Hypothesis\n\n`referenceCoverage()` in `tools/generate/src/cli/gate-core.ts:234-237`:\n\n```ts\nconst referenced = new Set(\n  manifest.elements.map((el) => el.src).filter((src): src is string => typeof src === 'string' && src.length > 0),\n)\nconst unreferencedImages = images.filter((a) => !referenced.has(a.src)).map((a) => a.localPath)\n```\n\nThe set is built from `ValueElement.src` alone. Background imagery is deliberately recorded elsewhere, and two comments in the engine say so explicitly:\n\n- `values-diff.ts:246-250` (BUG-13, on `SectionValues.backgroundImageUrl`): \"The page's hero + section imagery is painted as `background-image` on the band, not as `<img>` elements, **so it never reaches the element manifest**; carrying it here lets the fold emit a section-background `box`.\"\n- `extract.ts:1336-1340` (BUG-27): a painted background box \"carries the image handle as `backgroundImageUrl` rather than `src`, because it paints a SURFACE behind content, not replaced content in flow.\"\n- `types.ts:443-446` types `backgroundImageUrl` as \"Distinct from {@link src}\".\n\nSo the coverage check reads the one field that structurally cannot hold a background image, and `referenceCoverage` is blind to exactly the imagery the fold is most careful about.\n\n**Why this matters beyond a noisy line.** `reconcileGates` (`gate-core.ts:310`) tests `coverage.findings.length` **before** the `deltas > 0` branch at line 323:\n\n```ts\n} else if (coverage.findings.length) {\n  verdict = 'capture-incomplete'\n```\n\nSo on any run that breaches the perceptual floor, a single false `unreferenced-image` finding overrides `reproduction-wrong` and returns `capture-incomplete`, telling the operator \"This is a CAPTURE defect, not a reproduction defect\" and that the values-diff deltas \"are not yet evidence\" — against a reference that is in fact complete. Per the loop-1 console brief, `capture-incomplete` also means the round files nothing and stops. This round escaped only because mean 0.69 / 0.31% is under the 8 / 25 floor, so `!perceptualBreach` returned `pass` at line 301 first.\n\nThis was observed once before and never fixed: `request-7ff1bacd` (REQ-88 close-out, line 809) records \"`unreferenced-image` on `AlchemistLabWithTech.png` is a false positive\" as a reporting artifact. It was prose in a completed ticket, not a tracked defect.\n\n## Proposed change\n\nIn `referenceCoverage()` (`tools/generate/src/cli/gate-core.ts`), widen the `referenced` set to every way the manifest can hold an image handle:\n\n1. `manifest.sections[].backgroundImageUrl` — `SectionValues.backgroundImageUrl`, `values-diff.ts:255`.\n2. `manifest.elements[].backgroundImageUrl` — `ValueElement.backgroundImageUrl`, `values-diff.ts:206`, which is how BUG-27 records nested backdrop boxes below the band root.\n3. keep `manifest.elements[].src` for genuine media elements.\n\nCompare by asset basename rather than by exact URL string, reusing the existing `assetBasename()` helper (`values-diff.ts:2356-2357`, which already normalises this way when diffing background URLs). Exact-string matching happens to work on this bundle, but the reproduction side stores `/assets/AlchemistLabWithTech.png` while the reference side stores the absolute origin URL, so any future comparison across the two forms would resurrect the false positive.\n\nRegression test: gating `storage/references/gigabytealchemy.ai/index` must yield `referencedImages: 1`, `unreferencedImages: []`, `findings: []`. A second case should keep a genuinely orphaned asset reported, so the proxy is widened rather than disabled.\n\nConsider also whether `unreferenced-image` should escalate to `capture-incomplete` on its own at all, given how expensive a false one is: a mirrored-but-unused asset (a preloaded sprite, a `srcset` variant) is common and is not by itself evidence that the capture stopped short. Ranking `section-density` above it, or requiring both proxies, would make the verdict harder to hijack. That is a judgement for the implementer, not part of the defect."
+  }
+}
+```

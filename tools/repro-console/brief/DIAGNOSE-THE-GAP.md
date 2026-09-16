@@ -24,6 +24,21 @@ than filing it.** The console files it for you, at `status: draft`, through
 `xgd ticket create`. Everything else you do in this round is working towards
 that one JSON block at the end (§7).
 
+**One ticket per round does not mean one finding per round.** The ticket has no
+size limit and no limit on the scope of work it asks for. If you found five
+related residuals, the ticket describes five. Do not write "I am filing the one
+that is provable end-to-end and leaving the rest for a later round" — there is
+no later round that inherits your notes. It will start where you started and it
+will never know you saw them. **Deferring is losing.**
+
+**Anything else you trip over goes back separately, as a bug.** Working towards
+the diagnosis you will find defects that are not gaps in the reproduction
+engine: in L1, in this brief, in the console that started you, anywhere in `1c`.
+Those are not folded into the gap ticket and they are not dropped — you hand
+them back in `bugs` (§7) and the console files each one as its own ticket, at
+`draft`, exactly as it files the gap ticket. The list is independent of your
+status: a round that finds no engine gap at all may still have found a bug.
+
 **You diagnose the engine, never the site.** A residual is a serializer bug, a
 missing L1 axis, a missing capture hint, or a region that needs promoting to
 flow. It is *never* "the hero on this site should be moved down 20px". The site
@@ -118,6 +133,11 @@ one — and report `"status": "appended"` with the same class and ticket.
 
 ## 6. The ticket you are handing over
 
+**It is not bounded.** Not in length, not in the number of residuals it
+describes, and not in the size of the change it asks for. A ticket carrying
+five related findings with their evidence is the right output for a round that
+found five. Write the whole thing.
+
 You do not run `xgd`. You hand the console a `type`, a `title` and a `body`, and
 it creates the ticket at `status: draft` — never at any `ready_*` status, which
 is a dispatcher trigger that would spawn an autonomous pipeline against your
@@ -151,6 +171,23 @@ hand back only the NEW evidence — the new reference, the new numbers, under a
 heading naming this round. Do not restate the whole diagnosis, and do not ask
 for a second ticket; the console will refuse it and append instead.
 
+### The bugs you found on the way
+
+Everything above applies to the ONE ticket that is your diagnosis of the
+reproduction engine. A defect anywhere else goes in `bugs` instead, and each
+entry there is a `type`, a `title` and a `body` of the same shape — titled by
+area, evidenced from files rather than impressions, and saying what you would
+have someone do. Two things to keep straight:
+
+- **A bug is not a residual class.** It does not get a class name, it is not
+  checked against the classes already filed, and it does not become the round's
+  diagnosis. It is a separate finding about a separate thing.
+- **If it IS a gap in the reproduction engine, it belongs in the gap ticket**,
+  however incidental it felt when you found it. `bugs` is for what is not.
+
+The gate mis-routing its own verdict is the worked example: a defect in the
+instrument that judges the reproduction, not a gap in the engine being judged.
+
 ## 7. How to finish
 
 End your final message with one fenced JSON block, and nothing after it. The
@@ -169,10 +206,21 @@ To file a new gap class:
     "type": "bug",
     "title": "fold: background gradient direction is dropped",
     "body": "## Residual class\n\n`fold-drops-background-gradient-direction`\n\n## References\n\n…"
-  }
+  },
+  "bugs": [
+    {
+      "type": "bug",
+      "title": "gate: a false unreferenced-image finding overrides the perceptual verdict",
+      "body": "## Symptom\n\n…\n\n## Evidence\n\n…\n\n## Proposed change\n\n…"
+    }
+  ]
 }
 ```
 ````
+
+`bugs` is optional and may be omitted, may be empty, and may carry as many
+entries as you found. **It is read on every status**, so a `no-gap` or `stopped`
+round still hands back what it tripped over.
 
 To add evidence to a class that already has a ticket:
 
@@ -200,6 +248,12 @@ And the two rounds that file nothing:
 { "status": "stopped", "reason": "why you stopped without filing" }
 ```
 ````
+
+**Your body may contain fenced code blocks.** It should — quoting `gate.json`
+and `values-diff.json` is what §6.3 asks for, and the console's parse does not
+depend on your fences: it scans for the last balanced JSON object carrying a
+`status`, string-aware, so a fence inside a JSON string is data. Write the
+evidence.
 
 `body` and `evidence` are JSON strings, so newlines are `\n`. A block that
 claims `"filed"` without a `ticket`, or `"appended"` without `evidence`, is read

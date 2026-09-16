@@ -18,10 +18,17 @@
  */
 import { writeFileSync } from 'node:fs'
 import type { CommandRunner } from './run'
-import type { GapTicketDraft } from './ai'
+import type { TicketDraft } from './ai'
 
-/** The status every gap ticket is created at, and the only one. */
-export const GAP_TICKET_STATUS = 'draft'
+/**
+ * The status every ticket this console creates is created at, and the only one.
+ *
+ * Gap tickets and the bugs a round trips over on the way ([[REQ-261]] behavior
+ * 2) are filed through the same call for exactly this reason: one place writes
+ * the status, so widening WHAT a round may report never widens what it may
+ * trigger. A `ready_*` status is a dispatcher trigger.
+ */
+export const TICKET_STATUS = 'draft'
 
 /** What xgd calls the ticket it just wrote. */
 export interface TicketRef {
@@ -50,20 +57,20 @@ export function parseTicketRef(stdout: string): TicketRef | null {
 export interface FileTicketOptions {
   cwd: string
   run: CommandRunner
-  draft: GapTicketDraft
+  draft: TicketDraft
   /** Where the body is written before `--body-file` is pointed at it. */
   bodyFile: string
 }
 
 /**
- * Create the gap ticket, at `draft`, and report what xgd called it.
+ * Create the ticket, at `draft`, and report what xgd called it.
  *
  * The body goes through a FILE rather than `--body`. A gap ticket's body is
  * multi-line markdown quoting values out of `values-diff.json`, and passing
  * that as one argument makes its correctness a question about argument length
  * and quoting rather than about what the round found.
  */
-export async function fileGapTicket(opts: FileTicketOptions): Promise<TicketRef | string> {
+export async function fileTicket(opts: FileTicketOptions): Promise<TicketRef | string> {
   writeFileSync(opts.bodyFile, opts.draft.body)
   const result = await opts.run(
     'xgd',
@@ -75,7 +82,7 @@ export async function fileGapTicket(opts: FileTicketOptions): Promise<TicketRef 
       '--title',
       opts.draft.title,
       '--fields',
-      JSON.stringify({ status: GAP_TICKET_STATUS }),
+      JSON.stringify({ status: TICKET_STATUS }),
       '--body-file',
       opts.bodyFile,
       '--json',

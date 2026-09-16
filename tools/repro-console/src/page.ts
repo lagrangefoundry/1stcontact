@@ -35,6 +35,14 @@ export interface IterationView {
    */
   ticketHref?: string
   ticketLabel?: string
+  /**
+   * The bugs this round tripped over on the way ([[REQ-261]] behavior 2).
+   *
+   * Peers of the gap link rather than a sub-list: they are peers as tickets —
+   * same console, same `draft` status, same round — and the only thing that
+   * differs is which of the round's two deliverables they came from.
+   */
+  extraTickets?: Array<{ href: string; label: string }>
   /** `1c gate`'s verdict for this round, shown beside the links. */
   verdict?: string
   /** What the regression rail said this round (behavior 8). */
@@ -59,6 +67,15 @@ export interface AiView {
   /** The kind of gap, not the symptom on this site. */
   residualClass?: string
   ticketId?: string
+  /** What ran the round and what it cost ([[REQ-261]] behavior 6), pre-formatted. */
+  cost?: string
+  /**
+   * Where to post to file from this round's transcript ([[REQ-261]] b5).
+   *
+   * Present only on a failed round that left one — which is exactly the round
+   * whose diagnosis is on disk beside a message saying it produced nothing.
+   */
+  recoverHref?: string
   /**
    * Behaviours 3 and 4's falsifiers, when either fired.
    *
@@ -173,6 +190,7 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 .ai-status.filed, .ai-status.appended { color: #1e7a3c }
 .ai-status.stopped, .ai-status.failed { color: #c0392b }
 .violations { color: #c0392b; font-size: .9rem; margin: .25rem 0 }
+.ai-cost { margin: .1rem 0; font-size: .8rem; opacity: .6; font-family: ui-monospace, monospace }
 pre.transcript {
   white-space: pre-wrap; max-height: 22rem; overflow: auto; margin: .5rem 0 0;
   padding: .6rem .7rem; border: 1px solid #8884; border-radius: 4px;
@@ -210,6 +228,8 @@ function renderIteration(it: IterationView): string {
     link(it.pageHref, 'the L1 document'),
     // The fifth (behavior 5). Present only when a round really filed something.
     ...(it.ticketHref ? [link(it.ticketHref, it.ticketLabel ?? 'the gap ticket')] : []),
+    // …and one per bug ([[REQ-261]] behavior 2), on the same terms.
+    ...(it.extraTickets ?? []).map((ticket) => link(ticket.href, ticket.label)),
   ].join('\n')
 
   const verdict = it.verdict ? `  <p class="verdict">gate: <strong>${escapeHtml(it.verdict)}</strong></p>\n` : ''
@@ -221,8 +241,15 @@ function renderIteration(it: IterationView): string {
     ? `  <p class="ai-status ${it.ai.status}">AI — ${escapeHtml(AI_LABEL[it.ai.status])}${
         it.ai.residualClass ? ` <code>${escapeHtml(it.ai.residualClass)}</code>` : ''
       }${it.ai.summary ? `: ${escapeHtml(it.ai.summary)}` : ''}</p>\n` +
+      (it.ai.cost ? `  <p class="ai-cost">${escapeHtml(it.ai.cost)}</p>\n` : '') +
       (it.ai.violations.length
         ? `  <ul class="violations">${it.ai.violations.map((v) => `<li>${escapeHtml(v)}</li>`).join('')}</ul>\n`
+        : '') +
+      // The way back into a round that already ran ([[REQ-261]] behavior 5).
+      // A plain form post, like every other verb here: no client script starts
+      // anything, and the redirect is what stops a reload doing it twice.
+      (it.ai.recoverHref
+        ? `  <form method="post" action="${escapeHtml(it.ai.recoverHref)}"><button class="link" title="parse this round's transcript again and file what it said — spawns nothing">read it again</button></form>\n`
         : '') +
       `  <pre class="transcript" id="ai-transcript-${it.n}">${escapeHtml(it.ai.transcript)}</pre>\n`
     : ''

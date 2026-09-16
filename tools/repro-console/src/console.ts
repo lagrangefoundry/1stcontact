@@ -41,16 +41,24 @@ import {
 import {
   buildPrompt,
   CAPTURE_INCOMPLETE,
+  describeCost,
+  parseOutcome,
   readBrief,
   readGateReport,
+  resumePreamble,
   spawnAiRunner,
+  toolPolicyViolations,
   type AiOutcome,
   type AiRunner,
+  type FiledTicket,
   type GateSummary,
+  type TicketDraft,
 } from './ai'
+import { DIGEST_FILE, digestFromDisk } from './digest'
+import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
 import { spawnCommand, type CommandRunner } from './run'
 import { gapForClass, readGaps, recordGap } from './gaps'
-import { appendGapEvidence, fileGapTicket } from './ticket'
+import { appendGapEvidence, fileTicket } from './ticket'
 import type { RailRoundResult } from './rail-round'
 
 /** Scratch space for every artifact the console produces. Gitignored (DOC-12). */
@@ -76,6 +84,13 @@ export const AI_PROMPT_FILE = 'prompt.md'
 export const AI_TICKET_BODY_FILE = 'ticket-body.md'
 export const AI_TRANSCRIPT_FILE = 'transcript.txt'
 export const AI_OUTCOME_FILE = 'outcome.json'
+/** The derived facts the console computed for the round ([[REQ-261]] b7). */
+export const AI_DIGEST_FILE = DIGEST_FILE
+
+/** One body file per bug, so a filed body is reviewable beside the round. */
+export function bugBodyFile(index: number): string {
+  return `bug-${index + 1}-body.md`
+}
 
 /** A finished iteration and the artifacts it left behind. */
 interface Iteration extends IterationView {
@@ -179,6 +194,11 @@ export class ReproConsole {
     return path.join(this.cwd, CONSOLE_WORKSPACE)
   }
 
+  /** The loaded site's own directory — its iterations and its resume record. */
+  private get siteDir(): string {
+    return path.join(this.workspace, this.slug)
+  }
+
   /** Resolves when nothing is running. The suite's join point. */
   settled(): Promise<void> {
     return this.inFlight
@@ -230,6 +250,17 @@ export class ReproConsole {
       ...(it.outcome?.ticketUid && it.outcome.ticketId
         ? { ticketHref: `/iteration/${it.n}/ticket`, ticketLabel: `the gap ticket (${it.outcome.ticketId})` }
         : {}),
+      // …and one more per bug the round tripped over ([[REQ-261]] behavior 2).
+      // Peers of the gap link because they are peers as tickets: filed by the
+      // same console, at the same status, from the same round.
+      ...(it.outcome?.bugTickets?.length
+        ? {
+            extraTickets: it.outcome.bugTickets.map((bug) => ({
+              href: `/iteration/${it.n}/ticket/${bug.uid}`,
+              label: `a bug it found (${bug.id})`,
+            })),
+          }
+        : {}),
       ...(it.gate ? { verdict: it.gate.verdict } : {}),
       ...(it.railResult ? { rail: it.railResult.summary } : {}),
       ...(ai ? { ai } : {}),
@@ -250,11 +281,27 @@ export class ReproConsole {
       ? (this.live?.text ?? '')
       : readIfPresent(path.join(it.dir, AI_DIR, AI_TRANSCRIPT_FILE))
     const outcome = it.outcome
+    const cost = live ? '' : describeCost(outcome?.cost)
     return {
       status: live ? 'running' : (outcome?.status ?? 'failed'),
       summary: live ? '' : (outcome?.summary ?? outcome?.reason ?? ''),
       ...(outcome?.residualClass ? { residualClass: outcome.residualClass } : {}),
       ...(outcome?.ticketId ? { ticketId: outcome.ticketId } : {}),
+      // What it cost and what ran it ([[REQ-261]] behavior 6) — on the page
+      // rather than only in the artifact, because "can we afford to run this
+      // often" is a question the operator asks while looking at it.
+      ...(cost ? { cost } : {}),
+      /**
+       * THE WAY BACK INTO A ROUND THAT ALREADY RAN ([[REQ-261]] behavior 5).
+       *
+       * Offered only on a round that failed and left a transcript — which is
+       * exactly the round whose whole diagnosis is sitting on disk next to a
+       * message saying it produced nothing. Re-running it would pay for the same
+       * reading twice; re-reading it is free.
+       */
+      ...(!live && outcome?.status === 'failed' && transcript.trim()
+        ? { recoverHref: `/iteration/${it.n}/recover` }
+        : {}),
       violations: live ? [] : (outcome?.violations ?? []),
       transcript,
     }
@@ -330,6 +377,9 @@ export class ReproConsole {
         pathname === '/recapture',
       )
     }
+    // Behavior 5 — file from a finished round's artifacts, spawning nothing.
+    const recover = /^\/iteration\/(\d+)\/recover$/.exec(pathname)
+    if (method === 'POST' && recover) return this.recover(Number(recover[1]))
     if (pathname.startsWith('/iteration/')) return this.serveArtifact(pathname)
     return text(404, 'Not found')
   }
@@ -524,8 +574,39 @@ export class ReproConsole {
       return
     }
 
+    /**
+     * THE DIGEST, WRITTEN BEFORE THE PROMPT NAMES IT ([[REQ-261]] behavior 7).
+     *
+     * The console has every evidence file parsed already, so the counting a
+     * round would otherwise spend reads on is arithmetic it can do once. An
+     * ADDITION to the evidence: every file it derives from is still handed over
+     * below, and the prompt says the digest is not a source.
+     */
+    const digestFile = path.join(aiDir, AI_DIGEST_FILE)
+    try {
+      writeFileSync(
+        digestFile,
+        digestFromDisk({ n: it.n, bundleDir: it.bundleDir, evidenceDir: it.diffOut, pageDocument: it.pageOut }),
+      )
+    } catch {
+      // A digest that could not be computed is a round that reads the files
+      // itself, which is the round we had before. Never a reason not to run.
+    }
+
+    /**
+     * RESUME ([[REQ-261]] behavior 3) — the scope and the reset rules are
+     * `session.ts`'s, stated there beside the reasoning. What is decided here is
+     * only the consequence: a resumed round is NOT re-sent the brief, because
+     * re-sending it would grow the session by the brief's own length every
+     * iteration, and that growth is half of what makes a long chain dangerous.
+     */
+    const brief = readBrief()
+    const resumeCtx = { bundleDir: it.bundleDir, briefHash: briefFingerprint(brief) }
+    const saved = readSession(this.siteDir)
+    const resume = resumableSession(saved, resumeCtx)
+
     const gaps = readGaps(this.workspace)
-    const prompt = buildPrompt(readBrief(), {
+    const prompt = buildPrompt(resume ? resumePreamble(saved?.rounds ?? 1) : brief, {
       n: it.n,
       slug: this.slug,
       originalUrl: it.originalUrl,
@@ -533,9 +614,11 @@ export class ReproConsole {
       evidenceDir: it.diffOut,
       pageDocument: it.pageOut,
       siteDir: it.siteOut,
+      digestFile,
       gate: it.gate,
       rail: it.railResult ?? { available: false, summary: 'not run' },
       knownGaps: gaps,
+      resumed: resume !== null,
     })
     // Written before the process starts (requirement 19): what the round was
     // asked is an artifact of the round, reviewable after the fact and
@@ -560,6 +643,7 @@ export class ReproConsole {
       outcome = await this.runAi({
         cwd: this.cwd,
         prompt,
+        ...(resume ? { resume } : {}),
         onLine: (line) => {
           if (this.live?.n !== it.n) return
           this.live.text = this.live.text ? `${this.live.text}\n${line}` : line
@@ -569,6 +653,11 @@ export class ReproConsole {
     } catch (err) {
       outcome = { status: 'failed', reason: err instanceof Error ? err.message : String(err) }
     }
+    // What the next round on this site may continue. Written from the session
+    // the round REPORTED, never one the console chose — the CLI owns session
+    // identity and a console that minted one would be asserting a fact about a
+    // conversation it is not in.
+    recordSession(this.siteDir, resumeCtx, outcome.sessionId, resume !== null)
     // The round's answer belongs to the round. Everything below fills in what
     // the CONSOLE did with it — the ticket it filed, the status it read back,
     // the violations it found — so it works on a copy: a runner that hands back
@@ -581,9 +670,76 @@ export class ReproConsole {
     const roundViolations = await this.codeViolations(before)
     this.live = null
 
+    await this.settle(it, aiDir, outcome, roundViolations)
+  }
+
+  /**
+   * Everything the console does with a round's answer, wherever it came from.
+   *
+   * Shared by {@link diagnose} and {@link recover} ([[REQ-261]] behavior 5),
+   * because a diagnosis read back off a transcript must be filed by exactly the
+   * same path as one handed over live — otherwise "recovered" would be a second,
+   * weaker kind of filing, with its own rules to go stale.
+   */
+  private async settle(it: Iteration, aiDir: string, outcome: AiOutcome, roundViolations: string[]): Promise<void> {
     const filing = await this.file(it, aiDir, outcome)
-    outcome.violations = [...roundViolations, ...filing, ...(await this.ticketViolations(outcome))]
+    const bugs = await this.fileBugs(aiDir, outcome)
+    outcome.violations = [
+      ...roundViolations,
+      // Behavior 8: the deny list is enumerated and can go stale, so what the
+      // session REPORTED is checked against what the policy intended.
+      ...toolPolicyViolations(outcome.tools),
+      ...filing,
+      ...bugs,
+      ...(await this.ticketViolations(outcome)),
+    ]
+    /**
+     * A FAILED ROUND SAYS WHERE ITS WORDS ARE ([[REQ-261]] behavior 5).
+     *
+     * `the round produced no outcome block.` gave the operator nothing to act
+     * on and did not mention that the round's entire diagnosis was sitting in
+     * the file beside the message. It is named here rather than in the parser
+     * because the parser is handed a string and knows no paths.
+     */
+    if (outcome.status === 'failed' && !outcome.recovered) {
+      const transcript = path.join(aiDir, AI_TRANSCRIPT_FILE)
+      if (readIfPresent(transcript).trim()) {
+        outcome.reason = `${outcome.reason ?? 'the round failed.'} What it said is in ${transcript} — press [read it again] to file from that rather than re-running the round.`
+      }
+    }
     this.finishRound(it, outcome)
+  }
+
+  /**
+   * File the bugs a round tripped over ([[REQ-261]] behavior 2).
+   *
+   * SEPARATE TICKETS, NOT A SECTION OF THE GAP. A defect in L1, in the round's
+   * own brief, or anywhere else in `1c` is not a gap in the reproduction engine,
+   * and folding it into the gap ticket is what the first round had to do for
+   * want of anywhere else to put it. Each is created exactly as the gap ticket
+   * is — `xgd ticket create`, by the console, at `draft` — so widening what a
+   * round may REPORT has not widened what it may trigger.
+   *
+   * Filed on every status: a round that found no engine gap may still have
+   * found a bug, and that is the case this list exists for.
+   */
+  private async fileBugs(aiDir: string, outcome: AiOutcome): Promise<string[]> {
+    const drafts: TicketDraft[] = outcome.bugs ?? []
+    if (!drafts.length) return []
+    const problems: string[] = []
+    const filed: FiledTicket[] = []
+    for (const [index, draft] of drafts.entries()) {
+      const result = await fileTicket({
+        cwd: this.cwd,
+        run: this.runCommand,
+        draft,
+        bodyFile: path.join(aiDir, bugBodyFile(index)),
+      })
+      if (typeof result === 'string') problems.push(`the bug '${draft.title}' was not filed: ${result}`)
+      else filed.push({ id: result.id, uid: result.uid, title: draft.title })
+    }
+    if (filed.length) outcome.bugTickets = filed
+    return problems
   }
 
   /**
@@ -620,7 +776,7 @@ export class ReproConsole {
       outcome.ticketUid = known.ticketUid
       if (failure) return [failure]
     } else if (outcome.ticket) {
-      const filed = await fileGapTicket({
+      const filed = await fileTicket({
         cwd: this.cwd,
         run: this.runCommand,
         draft: outcome.ticket,
@@ -666,6 +822,52 @@ export class ReproConsole {
       iteration: `${this.slug}#${it.n}`,
     })
     return []
+  }
+
+  /**
+   * Read a finished round's answer back off its transcript ([[REQ-261]] b5).
+   *
+   * The first live round's work was never lost — it was in `transcript.txt` the
+   * whole time — but the only way to get a ticket out of it was to run the round
+   * again and pay for it again. It is a POST for the same reason [open] is: it
+   * files tickets, and a GET that filed would be a back-button away from filing
+   * twice.
+   *
+   * NOTHING IS SPAWNED. No prompt, no model, no cost. The transcript already
+   * holds the round's final message, and {@link parseOutcome} is the same parse
+   * a live round's answer goes through — so what this recovers is what the
+   * console would have had, not a weaker reading of it.
+   */
+  private async recover(n: number): Promise<ConsoleResponse> {
+    if (this.running) return html(409, 'A run is already in progress. <a href="/">back</a>')
+    const it = this.iterations.find((entry) => entry.n === n)
+    if (!it) return text(404, 'No such iteration')
+    const aiDir = path.join(it.dir, AI_DIR)
+    const transcript = readIfPresent(path.join(aiDir, AI_TRANSCRIPT_FILE))
+    if (!transcript.trim()) {
+      this.message = `Iteration ${n} left no transcript to read.`
+      this.failed = true
+      this.version += 1
+      return seeOther('/')
+    }
+    const outcome: AiOutcome = { ...parseOutcome(transcript), recovered: true }
+    // The round's own measurements survive the re-read: they were the round's,
+    // not the parse's, and re-deriving them from a transcript would be a guess.
+    if (it.outcome?.cost) outcome.cost = it.outcome.cost
+    if (it.outcome?.sessionId) outcome.sessionId = it.outcome.sessionId
+    if (it.outcome?.tools) outcome.tools = it.outcome.tools
+    this.running = true
+    try {
+      // No tree comparison: the round that wrote this transcript finished long
+      // ago, so anything in the tree now is somebody else's and attributing it
+      // to the round would be the false report behavior 3's check exists to
+      // avoid. The check that still means something — what the SESSION could do
+      // — is read off the recovered outcome inside `settle`.
+      await this.settle(it, aiDir, outcome, [])
+    } finally {
+      this.running = false
+    }
+    return seeOther('/')
   }
 
   /** Write the round's outcome beside its transcript and say so on the page. */
@@ -750,7 +952,7 @@ export class ReproConsole {
      * That layout is xgd's — it tiers tickets and it moves them — and a second
      * reader of it here would go stale the first time it did.
      */
-    if (match[2] === 'ticket') return this.serveTicket(iteration)
+    if (match[2] === 'ticket') return this.serveTicket(iteration, rest?.replace(/^\//, ''))
     /**
      * The reproduction's own L1 document (requirement 34).
      *
@@ -785,16 +987,22 @@ export class ReproConsole {
     }
   }
 
-  /** `xgd ticket get <uid>`, as the operator would see it at their terminal. */
-  private async serveTicket(iteration: Iteration): Promise<ConsoleResponse> {
-    const uid = iteration.outcome?.ticketUid
-    if (!uid) return text(404, 'This round filed no ticket.')
+  /**
+   * `xgd ticket get <uid>`, as the operator would see it at their terminal.
+   *
+   * With no uid in the path this is the gap ticket; with one it is one of the
+   * bugs the round filed ([[REQ-261]] behavior 2). CHECKED AGAINST WHAT THIS
+   * ROUND FILED rather than passed through: the console is not a ticket browser,
+   * and a route that read any uid a visitor typed would be one.
+   */
+  private async serveTicket(iteration: Iteration, wanted?: string): Promise<ConsoleResponse> {
+    const bugs = iteration.outcome?.bugTickets ?? []
+    const uid = wanted ? bugs.find((bug) => bug.uid === wanted)?.uid : iteration.outcome?.ticketUid
+    if (!uid) return text(404, 'This round filed no such ticket.')
     const result = await this.runCommand('xgd', ['ticket', 'get', uid], this.cwd).catch(() => null)
     const body = result?.code === 0 ? result.stdout : (result?.stderr || `could not read ${uid}`)
-    return html(
-      result?.code === 0 ? 200 : 502,
-      renderTicketPage(iteration.n, iteration.outcome?.ticketId ?? uid, body),
-    )
+    const label = wanted ? (bugs.find((bug) => bug.uid === uid)?.id ?? uid) : (iteration.outcome?.ticketId ?? uid)
+    return html(result?.code === 0 ? 200 : 502, renderTicketPage(iteration.n, label, body))
   }
 
   /** The diff images, assembled from what `1c diff` wrote beside them. */

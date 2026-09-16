@@ -1,4 +1,4 @@
-# repro-console — the reproduction console (REQ-254 / REQ-256, [[EPIC-12]] §8)
+# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261, [[EPIC-12]] §8)
 
 A localhost-only dev console that runs one reproduction round end to end —
 capture a site, reproduce its home page, diff the two — and puts the three
@@ -16,7 +16,7 @@ images, the reproduction's own L1 document — each opening in a new tab. **run
 again** re-runs the reproduction and appends *Iteration 2* below it; earlier
 iterations stay on the page with their own artifacts.
 
-## The AI round ([[REQ-256]])
+## The AI round ([[REQ-256]], [[REQ-261]])
 
 As soon as an iteration's links appear an **AI process starts**, reads that
 round's evidence, and finishes by **filing a gap ticket against the reproduction
@@ -25,11 +25,42 @@ ticket it filed becomes a fifth link. Then it stops: the operator free-codes the
 ticket in the ordinary way and presses **run again**, which reproduces with
 whatever has landed since.
 
-**The round writes no code.** It is a `claude -p` process whose tool allowlist
-grants reading and `xgd ticket …` and nothing else — see `AI_ALLOWED_TOOLS` in
-`src/ai.ts`. Two falsifiers run after every round and are shown on the page: the
-working tree is compared before and after, and the filed ticket's status is read
-back (it must be `draft`; a `ready_*` status is a dispatcher trigger).
+**The round writes no code.** It is a `claude -p` process that can read and do
+nothing else: every tool that can write a file, run a command, reach the network
+or spawn an agent is denied BY NAME — `AI_DISALLOWED_TOOLS` in `src/ai.ts`, and
+the note beside it records why naming rather than omitting is what gates. Three
+falsifiers run after every round and are shown on the page: the working tree is
+compared before and after, the filed ticket's status is read back (it must be
+`draft`; a `ready_*` status is a dispatcher trigger), and the tool list the
+session itself reported is checked against the policy — because an enumerated
+deny list goes stale as the CLI grows tools, and that staleness should be visible
+rather than silent.
+
+**One unbounded gap ticket, plus bugs.** The gap ticket is capped neither in size
+nor in the scope of work it asks for: a round that found five related residuals
+describes five, because there is no later round that inherits its notes.
+Anything it tripped over that is *not* a gap in the reproduction engine — a
+defect in L1, in the brief, anywhere in `1c` — comes back in a separate `bugs`
+list and the console files each as its own `draft` ticket, on every status.
+
+**Rounds resume.** A second iteration on the same reproduction continues the
+first round's CLI session rather than re-deriving its bearings, and is not
+re-sent the brief. The chain is cut when the reference moves, when the brief
+changes, or after `RESUME_MAX_ROUNDS` rounds — the scope and the reasoning are in
+`src/session.ts`. A resumed round is told, in as many words, that what it
+remembers is a pointer and never evidence.
+
+**The console counts what it can.** Beside the evidence it writes
+`ai/evidence-digest.md` (`src/digest.ts`): asset attribution, the key census of
+the reference manifest, every value delta and every ranked region. It is
+arithmetic over files the console already has parsed, it is an addition to those
+files and never a replacement, and the prompt says so.
+
+**A round is priced, and recoverable.** The model, cost, duration, turns and
+tokens are read off the stream and recorded beside the outcome. A round whose
+final message the console could not parse says which file holds what it said, and
+**read it again** re-reads that transcript and files from it — spawning nothing
+and paying for nothing.
 
 A **`capture-incomplete`** verdict means the reference itself is wrong, not the
 engine. The console reads that verdict out of `gate.json` and starts no AI
