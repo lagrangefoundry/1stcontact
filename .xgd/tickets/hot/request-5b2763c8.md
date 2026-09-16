@@ -5,9 +5,9 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T03:53:00.664679+00:00'
+updated_at: '2026-09-16T03:53:16.799839+00:00'
 completed_at: null
-last_field_updated: commits
+last_field_updated: version
 status: free_coded
 fields:
   priority: high
@@ -18,7 +18,7 @@ fields:
   commits:
   - 0d467ee00f5f8b20bc4faada7ba707fb818b1d11
   - 657a4024e15e38a9a82b3d2b1f80f85a91dc607c
-  version: 0.2.215
+  version: 0.2.216
   story_points: 8
 ---
 
@@ -159,6 +159,13 @@ here because they are asserted by test and would otherwise look unmotivated.
     inside a drawn box, so the literal last line of the commonest capture
     failure is box-drawing characters — which said that the run failed and
     nothing whatever about why.
+
+28. **A deployable package is a directory with a manifest.** Requirement 12's
+    check enumerates what sits under `apps/` and `packages/`, and a checkout may
+    carry directories there that are not packages at all — an editor's or an
+    agent's own dotfile directory. Those cannot be deployed, so they are not
+    what the check is about; a manifest is what makes a directory a package,
+    which is what `pnpm-workspace.yaml` means by its glob too.
 
 ## Out of scope
 
