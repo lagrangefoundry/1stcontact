@@ -5,7 +5,7 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T01:40:16.656958+00:00'
+updated_at: '2026-09-16T01:46:43.517478+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -513,6 +513,54 @@ completeness before pixels (§7.4).
 
 It is a durable artifact — a doc — not a string buried in the console.
 
+### 8.6 Isolation — this is a dev tool and must never be deployable
+
+The constraint splits into **two different risks with two different answers**,
+and conflating them would leave one of them uncovered.
+
+#### Risk 1 — the console itself gets deployed. Fixed by construction.
+
+- **Lives in `tools/repro-console/`. Never `apps/`.** The only two deployable
+  units are `apps/public-site` and `apps/control-app`; they are the only two
+  `wrangler.toml` files in the repo and both deploy scripts name their package
+  explicitly via `--filter`. Staying out of `apps/` keeps all deploy paths
+  structurally unable to reach the console.
+- **No `wrangler` config of any kind** inside it.
+- **No `build` script.** `pnpm-workspace.yaml` globs `tools/*`, so the console
+  *will* be a workspace package and `pnpm -r build` *will* visit it. Having no
+  build script is what makes that visit a no-op. `private: true` as well.
+- **Dependency direction is one-way.** The console imports the reproduction
+  engine (that is the thing under test). **Nothing under `apps/` or `packages/`
+  may import the console**, directly or transitively.
+- **Binds to localhost only.**
+
+**This is asserted, not merely intended.** T1 ships a UAT that fails if the
+console acquires a build script or a wrangler config, or if any package under
+`apps/` gains a dependency on it. A convention nobody checks is precisely how a
+dev tool ends up in production.
+
+#### Risk 2 — the AI's *edits* reach production. Not fixable by directory layout.
+
+`apps/control-app` imports the engine **directly from `tools/generate/src/` by
+relative path** — `store/d1r2-store`, `store/ids`, `publish/ladder`,
+`cli/capture/cf-driver`. So the reproduction engine's source tree **is deployed
+code**, and the AI editing it in loop 1 is editing something the Worker ships.
+
+That coupling is not a mistake to be designed away here — improving the engine is
+the entire point of loop 1, and the engine is legitimately shared. But it means
+the console's isolation buys nothing against this risk. What does:
+
+- **Every iteration commits to a scratch branch**, never to `main`, and nothing
+  auto-merges (§8.2).
+- **The rail runs the deployable path, not just the reproduction path.** Because
+  of the coupling above, T2's rail must include a Worker build check — the
+  existing `dryrun:control` (`wrangler deploy --dry-run`) is the cheap form —
+  so "the AI broke the control app" surfaces in the same round that caused it
+  rather than at the next real deploy.
+- **Deploy stays a separate, explicit, human act.** No part of the console
+  invokes a deploy script.
+
+
 ## 9. Open questions
 
 1. **Which builders, on what evidence?** Rank §6's list from the beta cohort's
@@ -567,7 +615,8 @@ of today's manual loop, which is why it goes first.
 
 **T2 — The regression rail (§8.4).**
 Record a gate baseline per stored reference; one command that runs the UAT gate +
-typecheck + re-gates all references and reports "no worse than baseline".
+typecheck + **the Worker build check (§8.6 risk 2)** + re-gates all references
+and reports "no worse than baseline".
 *Testable:* green on `main`; deliberately break a serializer and it goes red
 **naming which reference regressed**. Both directions must be demonstrated.
 
