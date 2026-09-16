@@ -31,23 +31,23 @@
  * deliberately propagates to nothing is that the customer is TOLD what is now
  * inconsistent and gets to choose.
  *
- * THREE SECTIONS, AND THE THIRD IS WHERE THE WORD *DOMAIN* IS CORRECT
- * ([[REQ-259]]). The free web address deliberately refuses that word, because
- * [[EPIC-6]] is going to sell the customer a real one and teaching them "domain"
- * for a `1stc.site` hostname means unteaching it later. `Your domain` is that
- * real one. The two sit next to each other and read as one sentence about the
- * same subject — where people find you — or they read as two products, which is
- * why they are adjacent and in that order: the free one first, because every
- * business has it, and the bought one under it.
+ * THE FIRST TWO SECTIONS HAVE OPPOSITE LIFECYCLES ([[REQ-249]]). The business's
+ * NAME is changed freely and costs nothing to get approximately right; the free
+ * web address beneath it is chosen once and lived with. They sit on one pane
+ * because that is where a customer looks for either, and they are two sections
+ * rather than two fields in one form because the sentences that have to travel
+ * with the second one — what it is, that it is permanent — would read as pedantry
+ * if they were stretched across both. The pane was written as a list of sections
+ * so that the hostname would be an addition rather than a rewrite, and it is.
  *
- * TWO SECTIONS, WITH OPPOSITE LIFECYCLES ([[REQ-249]]). The business's NAME is
- * changed freely and costs nothing to get approximately right; the free web
- * address beneath it is chosen once and lived with. They sit on one pane because
- * that is where a customer looks for either, and they are two sections rather
- * than two fields in one form because the sentences that have to travel with the
- * second one — what it is, that it is permanent — would read as pedantry if they
- * were stretched across both. The pane was written as a list of sections so that
- * the hostname would be an addition rather than a rewrite, and it is.
+ * AND THE THIRD IS WHERE THE WORD *DOMAIN* IS CORRECT ([[REQ-259]]). The free
+ * web address deliberately refuses that word, because [[EPIC-6]] is going to
+ * sell the customer a real one and teaching them "domain" for a `1stc.site`
+ * hostname means unteaching it later. `Your domain` is that real one. The two
+ * sit next to each other and read as one sentence about the same subject — where
+ * people find you — or they read as two products, which is why they are adjacent
+ * and in that order: the free one first, because every business has it, and the
+ * bought one under it.
  */
 
 import { mountFields } from '@lagrangefoundry/webui-fields'
