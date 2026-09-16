@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-97
 created_by: xgd
 created_at: '2026-09-16T01:00:51.456961+00:00'
-updated_at: '2026-09-16T01:24:50.258708+00:00'
+updated_at: '2026-09-16T01:38:35.079098+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,11 @@ One thing I noticed while tracing: in dev the record is written `status: 'sent'`
 Items 1–4 are the ticket as written. **5 is the one I need your yes on** — it's what makes the ticket's own promise ("delivers something the operator can actually open") actually true, but it's a builder pane rather than the link, so it's fair to call it a separate ticket and let BUG-97 land a correct-but-unviewable link in dev.
 
 Fold 5 in, or file it separately?
+
+<!-- xgd-turn id="b95b878b-ef86-4419-a9b3-0b6ae30f37ab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T01:38:34.472508+00:00" -->
+#### You
+5 - agree
 
 <!-- xgd-chat-end -->
