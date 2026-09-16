@@ -3,6 +3,7 @@ import {
   editCopyGet,
   editCopySet,
   editPageList,
+  editPageUpdate,
   editPaletteAdd,
   editPaletteGet,
   editPaletteRename,
@@ -3209,6 +3210,41 @@ async function routeUncached(
       const site = url.searchParams.get('site')
       if (!site) return json(400, { error: 'site is required' })
       return json(200, (await editPageList(site, await edit())).data)
+    }
+
+    /**
+     * POST /api/pages/subject — what a message arrives as ([[REQ-252]]).
+     *
+     * A ROUTE OF ITS OWN AND NOT A WRITE ON `/api/pages`. The listing above says
+     * so in as many words — it reports what the navigation reaches and adding a
+     * page, removing one or offering to is deliberately not its job — and that
+     * stance is worth more than the path it is written at. This writes ONE field
+     * of ONE page, which is the shape every other narrow write here already has
+     * (`/api/material/name`, `/api/business/name`), and naming it in the path is
+     * what keeps a reader from having to read the handler to learn its reach.
+     *
+     * A THIN TRANSPORT OVER `editPageUpdate`, which is the same call the
+     * assistant's `update_page` makes. So the placeholder rule, the refusal on a
+     * page that is not a message, and the blank-subject fallback are all applied
+     * once, in the command, rather than being restated for the chrome — and a
+     * subject changed here and a subject changed in the conversation cannot come
+     * out differently.
+     *
+     * A REFUSAL ARRIVES AS ITSELF. `editPageUpdate` throws `CommandError`, which
+     * the handler at the foot of this file renders as a 400 carrying the
+     * validator's own message and hint — the sentence the strip prints beside
+     * the box. Nothing is caught here, because catching it would be the second
+     * opinion this route exists not to have.
+     */
+    if (p === '/api/pages/subject' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const site = typeof body.site === 'string' ? body.site : ''
+      const page = typeof body.page === 'string' ? body.page : ''
+      const subject = body.subject
+      if (site === '' || page === '' || typeof subject !== 'string') {
+        return json(400, { error: 'site, page and subject are required' })
+      }
+      return json(200, (await editPageUpdate(site, page, { ...(await edit()), subject })).data)
     }
 
     /**

@@ -24,6 +24,7 @@
  *   getSite: () => string|null,
  *   api: object,
  *   subscribe: (event: string, cb: Function) => Function,
+ *   cleanup: (off: Function) => Function,
  * }} ActionContext
  */
 
@@ -77,6 +78,22 @@ export function createToolbar(options) {
     return off
   }
 
+  /**
+   * Give an action's element the same lifetime for a release that is NOT a panel
+   * subscription ([[REQ-252]]).
+   *
+   * {@link subscribe} exists because the strip re-renders on exactly the events
+   * its controls listen for, so a subscription outliving its element writes to a
+   * detached node forever. That reasoning has nothing to do with the panel — it
+   * is about the element's lifetime — and a control subscribing to anything else
+   * (the page index's listing, say) needs the same guarantee without having to
+   * keep its own list to be disposed from somewhere the toolbar cannot see.
+   */
+  function cleanup(off) {
+    actionCleanups.push(off)
+    return off
+  }
+
   function disposeActions() {
     for (const off of actionCleanups) off()
     actionCleanups = []
@@ -91,7 +108,7 @@ export function createToolbar(options) {
     for (const id of ids) {
       const spec = registry.get(id)
       if (!spec) throw new Error(`toolbar: mode "${mode?.id}" names unknown action "${id}"`)
-      const el = spec.create({ panel, ...context, getSite, toolbar: api, subscribe })
+      const el = spec.create({ panel, ...context, getSite, toolbar: api, subscribe, cleanup })
       el.dataset.action = id
       mounted.set(id, el)
       element.append(el)
@@ -314,6 +331,42 @@ export function panelsAction(carry) {
 }
 
 /**
+ * How a row of the page listing reads, by the KIND the listing gave it
+ * ([[REQ-252]]).
+ *
+ * A TABLE AND NOT A BRANCH, because the listing already decided what this page
+ * is — `editPageList` puts `kind` on every row deliberately, `'web'` included,
+ * so that no reader has to infer it from the shape of anything else. Naming the
+ * kinds here is what makes a third one a row in this object rather than a second
+ * opinion about what a page is, held in a control that has no business having
+ * one.
+ *
+ * THE PREFIX IS WHAT DISTINGUISHES A MESSAGE FROM A PAGE OF THE SAME NAME. A
+ * site can hold `Your two XGD papers` as both the page a recipient lands on and
+ * the mail that sends them there, and a list naming both identically is a list
+ * where choosing the wrong one is the operator's fault rather than the control's.
+ * A web page carries no prefix, because "this is an ordinary page" is what the
+ * absence of a mark has always meant here and a label on every row would make
+ * the marked ones no longer stand out.
+ *
+ * AND `stranded` IS WHY IT HAS NO ADDRESS, not merely that it has none. A
+ * message is reached by the form that sends it, never by a link, so "unreachable"
+ * about a message describes a page that is working correctly and sends its
+ * author looking for a link they must never add. `editPageList`'s own
+ * human-readable form draws exactly this distinction; this is the control saying
+ * the same thing.
+ *
+ * AN UNKNOWN KIND READS AS A WEB PAGE. A listing from an origin newer than this
+ * client is a real possibility and the honest fallback is the unmarked one: a
+ * page named without a claim about what it is, rather than a row labelled with a
+ * word this build does not understand.
+ */
+const KINDS = {
+  web: { prefix: '', stranded: 'unreachable' },
+  email: { prefix: 'Email: ', stranded: 'no form sends it' },
+}
+
+/**
  * The page selector — which page of the site the pane is showing ([[REQ-248]]).
  *
  * IT IS THE ONLY WAY TO REACH AN UNLINKED PAGE. Moving between pages means
@@ -358,12 +411,15 @@ export function pagesAction(pages) {
        * something that is at least an address. An untitled page listed as an
        * empty row is a row nobody can choose on purpose.
        */
+      const nameOf = (row) =>
+        String(row.title ?? '').trim() ||
+        String(row.slug ?? '').trim() ||
+        String(row.id ?? '')
+
       const labelOf = (row) => {
-        const named =
-          String(row.title ?? '').trim() ||
-          String(row.slug ?? '').trim() ||
-          String(row.id ?? '')
-        return row.reachable === false ? `${named} — unreachable` : named
+        const kind = KINDS[String(row.kind ?? '')] ?? KINDS.web
+        const named = `${kind.prefix}${nameOf(row)}`
+        return row.reachable === false ? `${named} — ${kind.stranded}` : named
       }
 
       const sync = () => {
@@ -405,6 +461,149 @@ export function pagesAction(pages) {
       subscribe('src', sync)
 
       select.addEventListener('change', () => pages.open(select.value))
+      return wrap
+    },
+  }
+}
+
+/**
+ * The subject line — what a message arrives as ([[REQ-252]]).
+ *
+ * IT IS THE ONE PART OF A MESSAGE THAT IS NOT IN THE BODY. Every other word an
+ * email page holds is copy in the render, reachable by clicking it; the subject
+ * is page metadata, so before this there was nowhere in the builder it appeared
+ * at all and an operator could neither read what their contacts were receiving
+ * nor change it. It is also the first thing a recipient reads, which makes "not
+ * shown anywhere" the wrong place for it to be.
+ *
+ * IN THE STRIP AND NOT BEHIND A SURFACE OF ITS OWN. The alternative was a
+ * page-properties panel, and there is none in this builder to put it in — so a
+ * subject field would have arrived with a panel wrapped around it, and the one
+ * field an operator wants while looking at the message would be two clicks away
+ * from the message. Here it sits beside the copy it belongs to, visible without
+ * being asked for, which is the whole of what was missing.
+ *
+ * ONLY IN EDIT, and that is the mode declaring it rather than this control
+ * checking. View must behave exactly as published (DOC-28 §7.1), and a box that
+ * writes to the draft is not that. Naming it from one mode is the same
+ * enforcement `mark-points` and `panels` get, and it means there is no channel
+ * in which the field is present and inert.
+ *
+ * ONLY ON A MESSAGE. A web page has no subject and never will, so the control
+ * hides itself rather than showing a disabled box — the same call `panelsAction`
+ * makes for a page with no modals, and for the same reason: a permanently empty
+ * control teaches an operator to stop reading that part of the strip.
+ *
+ * IT READS THE LISTING THE PAGE CONTROL ALREADY HOLDS. The subject travels on
+ * the row — `editPageList` puts the whole `email` block there — so this needs no
+ * request of its own to draw, and cannot draw a subject the control beside it
+ * disagrees about. It re-reads on the same two events, so moving to another page
+ * moves the field with it.
+ *
+ * AND IT SHOWS WHAT CAME BACK. Clearing the box does not store nothing — the
+ * command puts the page's title there instead, because a message with no subject
+ * line is not a thing this product sends — so the field is filled from the
+ * write's own answer rather than from what was typed into it. An operator who
+ * clears it watches the title appear, which is the honest report of what a
+ * recipient will now read.
+ *
+ * @param pages the page index ([[REQ-248]]), for the listing and which row is shown
+ * @param save  `(site, pageId, subject) => Promise<{page}>` — the write
+ */
+export function subjectAction(pages, save) {
+  return {
+    id: 'subject',
+    create({ getSite, subscribe, cleanup }) {
+      const wrap = document.createElement('label')
+      wrap.className = 'builder-toolbar__subject'
+      const caption = document.createElement('span')
+      caption.textContent = 'Subject'
+      const input = document.createElement('input')
+      input.type = 'text'
+      input.placeholder = 'What it arrives as'
+      wrap.append(caption, input)
+
+      /** The row the pane is showing, or null when that is not a message. */
+      const mailed = () => {
+        const here = pages.current()
+        const row = pages.list().find((r) => r.slug === here) ?? null
+        return row !== null && row.kind === 'email' ? row : null
+      }
+
+      /** The subject the store last told us this page has. */
+      let stored = ''
+
+      const sync = () => {
+        const row = mailed()
+        wrap.hidden = row === null
+        if (row === null) {
+          stored = ''
+          return
+        }
+        stored = String(row.email?.subject ?? '')
+        // NOT WHILE IT IS BEING TYPED IN. The listing is re-taken on every
+        // document the pane shows, including the reload this control's own write
+        // provokes, so redrawing unconditionally would take the cursor out of a
+        // box somebody is still using.
+        if (document.activeElement !== input) input.value = stored
+      }
+
+      sync()
+      // THREE THINGS CAN CHANGE THE ANSWER, and they are genuinely three. The
+      // pane moved to another page (`src`); a new document arrived, which may be
+      // a different page again (`document`); and the LISTING changed, which is
+      // how a subject the assistant rewrote reaches this box — the rows are
+      // re-taken asynchronously, long after the document event that provoked it,
+      // and a control that read only the panel's events would go on showing the
+      // subject that has already been replaced.
+      subscribe('document', () => {
+        // `pagesAction` clears the index's pending page on this same event, and
+        // it is a control like this one rather than something this can depend on
+        // running first. Reading on the microtask queue instead of synchronously
+        // is what makes the order between the two irrelevant.
+        queueMicrotask(sync)
+      })
+      subscribe('src', sync)
+      // Owned by the toolbar's own cleanup, exactly as the two above are — the
+      // strip is rebuilt on every mode and site change, and a listing that
+      // arrives afterwards belongs to a box nobody can see.
+      cleanup(pages.onRefreshed(sync))
+
+      input.addEventListener('change', async () => {
+        const site = getSite()
+        const row = mailed()
+        const asked = input.value
+        if (!site || row === null || asked === stored) return
+        input.disabled = true
+        try {
+          const out = await save(site, String(row.id ?? ''), asked)
+          const written = out?.page?.email?.subject
+          // The store's answer, not the typing — see the header. Absent, the
+          // field keeps what was typed rather than blanking itself, because a
+          // reply this client did not understand is no reason to discard work.
+          if (typeof written === 'string') input.value = written
+          stored = input.value
+          // The listing still carries the old subject, and the control beside
+          // this one is drawn from it. Re-taking is what stops the two
+          // disagreeing until the next document happens to arrive.
+          void pages.refresh()
+        } catch (err) {
+          // A REFUSAL IS THE ANSWER, NOT A FAILURE. The placeholder rule guards a
+          // subject exactly as it guards the copy, and its sentence names the
+          // token that went missing — so it is put in front of the operator and
+          // the box is put back to what is actually stored, rather than left
+          // holding a subject the store refused.
+          input.value = stored
+          input.title = err?.message ? String(err.message) : 'That subject was refused.'
+          input.setAttribute('aria-invalid', 'true')
+          return
+        } finally {
+          input.disabled = false
+        }
+        input.removeAttribute('aria-invalid')
+        input.title = ''
+      })
+
       return wrap
     },
   }

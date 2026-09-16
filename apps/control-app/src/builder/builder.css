@@ -208,7 +208,9 @@ body {
 .builder-toolbar__panels,
 .builder-toolbar__panels select,
 .builder-toolbar__pages,
-.builder-toolbar__pages select {
+.builder-toolbar__pages select,
+.builder-toolbar__subject,
+.builder-toolbar__subject input {
   font: inherit;
   font-size: var(--builder-control-font-size);
 }
@@ -236,6 +238,50 @@ body {
 
 .builder-toolbar__pages select {
   max-width: 18ch;
+}
+
+/*
+ * The subject line ([[REQ-252]]) — what a message arrives as.
+ *
+ * It hides itself on anything that is not a message, like the panel selector and
+ * unlike the page control: a web page has no subject and never will, so a
+ * permanently empty box would teach the operator to stop reading this part of
+ * the strip.
+ *
+ * It is the widest control in the bar, deliberately. A subject is a sentence and
+ * a box that shows six words of it is a box an author cannot check their work
+ * in — so it takes the slack the strip has, down to a floor that still shows
+ * something, and stops short of the width that would push "Open in new tab" off
+ * the end. `min-width: 0` is what lets it shrink at all: a flex item defaults to
+ * its content's intrinsic width and an input's is wider than this bar can spare.
+ */
+.builder-toolbar__subject {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 44ch;
+}
+
+.builder-toolbar__subject[hidden] {
+  display: none;
+}
+
+.builder-toolbar__subject input {
+  flex: 1 1 auto;
+  min-width: 8ch;
+  padding: 2px 6px;
+  border: 1px solid var(--shell-border, #d4d4d8);
+  border-radius: 4px;
+  background: var(--shell-surface, #fff);
+  color: var(--shell-text, #18181b);
+}
+
+/* A subject the store refused — the sentence is on the box's own `title`, and
+   this is what makes an operator look for it. */
+.builder-toolbar__subject input[aria-invalid='true'] {
+  border-color: #dc2626;
 }
 
 /*
