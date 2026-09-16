@@ -39,6 +39,24 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, spawn, default: { ...actual.default, spawn } }
 })
 
+/**
+ * The local-database gate now stands in front of the spawn ([[REQ-253]]), and it
+ * is answered here rather than satisfied.
+ *
+ * It reads `.wrangler/state` in the checkout the suite is running in — untracked,
+ * so present on a working laptop and absent on a fresh clone — which would make
+ * every assertion below depend on whether the developer had applied their
+ * migrations this morning. That gate is pinned at this same entry point by
+ * REQ-253's own UATs, against a fixture checkout with a real database in it; this
+ * file is about the argv handed to wrangler, and stands it aside for the reason
+ * it stands `spawn` aside.
+ */
+vi.mock('../tools/generate/src/cli/d1-migrations', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../tools/generate/src/cli/d1-migrations')>()
+  const drift = { dbFile: '', created: true, files: [], applied: [], pending: [], ahead: [] }
+  return { ...actual, localD1Check: async () => ({ kind: 'ok' as const, drift }) }
+})
+
 const { run } = await import('../tools/generate/src/cli')
 
 const restore: Array<() => void> = []
