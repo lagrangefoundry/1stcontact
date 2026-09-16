@@ -6,7 +6,7 @@ title: 'The DNS layer: zones, the Cloudflare client, the external resolver, and 
   operator backfill'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:39.898551+00:00'
-updated_at: '2026-09-16T03:55:44.071931+00:00'
+updated_at: '2026-09-16T04:17:46.769586+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -311,3 +311,115 @@ epic's sibling table states.
   trap in a module that has no opinion about Workers AI.
 - A DKIM answer reported without the provider whose selector it is.
 - An unrecognised mail or web host reported as an absence rather than as a host.
+
+
+---
+
+## What the build settled, and why each of these is in the evidence
+
+Written after the code and the UATs, because each of these is a behaviour the
+tests pin and the sections above did not yet motivate. Several are technical
+consequences of what this ticket asked for rather than things asked for
+directly; they are recorded here so the matrix has language for them.
+
+### The zone token is scrubbed out of everything the Worker says
+
+`router.ts`'s `secretsOf` is the list [[REQ-146]] AC4 redacts from every message
+this Worker emits, and `CLOUDFLARE_DNS_TOKEN` joins it from the day it exists.
+It is the most damaging of the four to leak — it can rewrite the DNS of every
+domain this deployment manages, including the MX records that carry a customer's
+mail — and it travels exactly the path that class of leak arrives by: the client
+repeats **Cloudflare's own words** in its refusals, and the zone routes return
+them, so a message a person is shown is composed from a reply to a request that
+carried the token.
+
+Every new error path out of the router goes through `scrub`, including the ones
+with nothing in them to scrub, on the reasoning that file already records: a path
+that scrubs beside a path that does not is an invitation to add a third that does
+not.
+
+### A web host that names its provider wins over one that does not
+
+The resolver reads the apex first, because the apex is the address the business
+is known by. But the commonest live shape in this product's market is an apex `A`
+record pointing at a builder's anycast address with the `CNAME` that *names* that
+builder sitting on `www` — so reading the apex and stopping answers
+*"198.185.159.144, provider unknown"* for a site that is unmistakably on
+Squarespace, and the sentence the customer needs to hear is the one that names
+it. **The host reported is always the one the provider was read from**, so the
+pair never disagrees with itself.
+
+### A partial zone listing is a refusal, not a first page
+
+`listZones` does not paginate, and a full page is an error naming what it could
+not see. A silent first page is worse than either answer: the drift check's whole
+value is the diff, and a diff against a truncated upstream list reports every
+zone past the cut as unrecorded. Fifty zones is a deployment well past the point
+where an operator report is the right surface anyway.
+
+### Not-there and not-allowed arrive differently
+
+A 404 on a zone read is an **answer** — `null`. Every other refusal, a 403
+included, propagates. The two lead to opposite actions: the backfill would
+otherwise report *"not in the account"* for a permissions problem, and an
+operator would go and add a zone that is already there.
+
+### Records are replaced, never merged, and carry no TTL this deployment invented
+
+`updateRecord` is a `PUT`. A record is replaced wholesale, so what is written is
+exactly what the caller described — a `PATCH` would leave whatever it did not
+mention in place, and [[REQ-260]]'s job is to write a known record set rather
+than to merge with one it did not read. The default TTL is Cloudflare's
+`automatic`, because a number this deployment picked would be one nobody chose
+deliberately.
+
+### A `_domainkey` name carrying something else is not a DKIM key
+
+The name may hold other `TXT`. Reporting one as a key would tell a customer their
+signing is set up when it is not, which is the same silent, delayed failure the
+selector probing exists to prevent — so a probe only counts as a key when the
+record actually carries one (`p=`, or `v=DKIM1`).
+
+Likewise **only a `v=spf1` record contributes senders.** A domain's `TXT` set is
+a junk drawer of verification tokens and ownership proofs, and an `include:` in
+one of those is not an SPF include.
+
+### `activated_at` is written once and never cleared
+
+It records that this zone **has** served, which stays true after a later status
+change. A zone that goes `active` and is then revoked still has, and that is what
+an offboarding path and a support conversation both want to know.
+
+### The unique index on `apex` is not partial on status
+
+Unlike `0008`'s partial index on `site_domains`. A `released` zone is one
+Cloudflare no longer holds, so the apex genuinely is available again — but the
+row stays, and a re-claim meets this index. That is the correct refusal for now:
+re-claiming an apex this deployment released is a support path with an operator
+behind it, and the alternative would make `zoneByApex` return two rows and have
+to pick one.
+
+### An apex is normalised the way an operator actually types it
+
+A pasted address is a likely input and not a refusal worth making: an operator
+doing a backfill has almost certainly just been looking at the site, so
+`https://alicesplumbing.com/` means the domain they mean. Scheme, path and
+trailing dot are stripped; case is folded. **The platform-apex guard is applied
+to the normalised value**, so it cannot be walked past by pasting a URL.
+
+### The route's refusals keep their own status codes
+
+They are four different things an operator does four different things about: a
+platform apex is a rule they cannot argue with (403), an apex already recorded is
+a decision somebody already made (409), an apex Cloudflare does not hold is a
+step not yet taken (404), an API refusal is somebody else's problem (502), and a
+deployment with no token is a configuration gap (503).
+
+### The fixture's head marker moves with the list
+
+`tests/support/d1-site-factory.ts` skips the whole migration list when the
+database already holds what the **last** file leaves behind. Appending `0010`
+without moving that marker would have left a database at `0009` answering *"at
+head"* and silently skipping the new migration — which is the exact hole the
+marker's own comment records having been opened once before. It now asks for the
+`zones` table.
