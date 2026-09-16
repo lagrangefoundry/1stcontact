@@ -5,10 +5,10 @@ type: bug
 title: A form promising several assets sends one identical message per asset
 created_by: EPIC-10
 created_at: '2026-09-16T00:46:39.704901+00:00'
-updated_at: '2026-09-16T01:12:56.304382+00:00'
+updated_at: '2026-09-16T01:16:29.450490+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   severity: medium
@@ -16,6 +16,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-b3b262ab
+  commits:
+  - working_sha: f211f5f85221d37c2beadaf8749e1481eb0cf17f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.211
 ---
 
 ## Symptom
