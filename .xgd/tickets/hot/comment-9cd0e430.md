@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T18:09:36.905009+00:00'
+updated_at: '2026-09-16T18:10:43.417864+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -697,5 +697,11 @@ Then loading the site shows Iteration 1, and [run again] appends **Iteration 2**
 ---
 
 One caveat worth repeating, since it bites exactly here: if you're running several consoles at once, **give each one a different site**. Two consoles on `faelan.com` share the same scratch directory and the same sandbox slug, and each run wipes the iteration directory before writing it. Neither errors — they just overwrite each other.
+
+<!-- xgd-turn id="d5ec0863-e36c-4464-9c20-8abd5d01ead9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:10:42.789272+00:00" -->
+#### You
+That's fine if it works going forward I'm good
 
 <!-- xgd-chat-end -->
