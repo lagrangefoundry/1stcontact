@@ -6,12 +6,13 @@ title: The reproduction engine and the loop-1 session — the diagnosing session
   base
 created_by: REQ-261
 created_at: '2026-09-16T20:55:42.661492+00:00'
-updated_at: '2026-09-16T21:29:02.144397+00:00'
+updated_at: '2026-09-16T22:30:17.967630+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: epic_parent
 status: draft
 fields:
   doc_kind: architecture
+  epic_parent: epic-bf282b3d
 ---
 
 **Audience: the loop-1 diagnosing session, not the builder AI.** This document
