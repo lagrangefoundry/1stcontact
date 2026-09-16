@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-261
 created_by: xgd
 created_at: '2026-09-16T21:37:38.215477+00:00'
-updated_at: '2026-09-16T22:04:21.628155+00:00'
+updated_at: '2026-09-16T22:08:15.245183+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,29 @@ One deviation worth flagging: requirement 2 names the fixture at `storage/tmp/�
 <!-- xgd-chat role="user" ts="2026-09-16T22:04:21.545337+00:00" -->
 #### You
 **Behaviour 8 changed under me. <-- there were som last mninute changes to the ticket, were you able to accomodate these? If not please do so**
+
+<!-- xgd-turn id="e207a926-89ed-4a26-9fd2-3521c9e02029-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T22:08:14.590163+00:00" -->
+#### Claude
+Let me re-read the current ticket body in full and check it against what actually landed.
+
+Behaviour 8's substance is accommodated — but checking it properly surfaced one thing I did leave coupled. Let me verify and fix it.
+
+Yes — and checking it properly found one thing I'd left half-done.
+
+**The last-minute changes were:** behaviour 8 replaced wholesale ("The tool policy is asserted, not enumerated" → "This ticket changes no tool permissions"), and a new requirement 6 inserted, shifting the old 6–10 to 7–11. Behaviours 1–7, the acceptance list and out-of-scope are unchanged from what I built against.
+
+**What I'd already done:** removed the session-tool-list falsifier (commit `a70c934`) and its two UATs.
+
+**What I'd missed:** requirement 6 says this ticket changes *none* of the policy. I verified that as a fact rather than an intention — the entire `── the tool policy ──` section of `ai.ts`, all four constants and every doc comment on them, is byte-identical across my commits. But my resume UAT still pinned `'manual'` and named `Bash` as literals. That would have made REQ-261's test file **a second place REQ-262 has to edit** to change a constant it owns — reintroducing the exact cross-session coupling behaviour 8 was rewritten to prevent, just via the test rather than the code.
+
+Fixed in `3d620df`: the UAT now asserts the resumed argv **is** the fresh argv plus `--resume <id>` and nothing else, and that both carry whatever `AI_PERMISSION_MODE`, `AI_SETTING_SOURCES`, `AI_ALLOWED_TOOLS` and `AI_DISALLOWED_TOOLS` say — read from the constants, not from literals. Requirements 5 and 6 become one assertion, and neither owns a value.
+
+Proved it: with `AI_PERMISSION_MODE` changed to `'plan'` on a scratch edit, REQ-256's UAT fails (that ticket owns the value) and all 13 of REQ-261's pass. Then reverted.
+
+I deliberately did **not** add a UAT pinning the four constants' exact values, even though requirement 6 is phrased as a testable negative — that test would itself be the coupling the requirement forbids. The ticket now records that reasoning so a reconciler doesn't read the absence as a gap.
+
+REQ-261 is back at `free_coded`, v0.2.227, five commits, merged and cleaned. 102 tests green.
 
 <!-- xgd-chat-end -->
