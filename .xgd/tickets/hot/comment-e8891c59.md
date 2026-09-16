@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:46:58.521914+00:00'
+updated_at: '2026-09-16T22:28:06.865128+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -660,5 +660,15 @@ Seven falsifiers replaced the one weak horizon falsifier, including *"an undo th
 **EPIC-5 has the correction appended**, marked as withdrawing what the earlier section said rather than quietly overwriting it.
 
 **I did put the DNS change history in** — as "Where the button lives." It's one self-contained subsection, so it lifts out cleanly if you'd rather it wait. That's the only thing here I decided for you rather than with you, and it's the only reason REQ-260's 8 points might now be light.
+
+<!-- xgd-turn id="6bc22a46-567f-49de-ab6b-efffa0a3b0e4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:28:04.929910+00:00" -->
+#### You
+ok I need your help to sort out permissions. I added my CF api key to 1c.dev.env as you suggested as both an API token and a DNS token I restarted the dashboard and now see
+
+✗ Resend refused GET /domains (401). This API key is restricted to only send emails
+
+Please see the transcript with REQ-259 where I started this conversation
 
 <!-- xgd-chat-end -->
