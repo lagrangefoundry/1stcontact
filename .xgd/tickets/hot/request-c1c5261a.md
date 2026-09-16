@@ -6,7 +6,7 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T19:24:30.736529+00:00'
+updated_at: '2026-09-16T19:24:44.165650+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -61,8 +61,9 @@ We watch it work a few times before we consider letting it do more.
      `values-diff` lines. Nothing that could only be read off a screenshot;
    - the **hypothesis** about which part of the engine is at fault;
    - the **proposed change**.
-5. **A fourth link appears on each iteration: the ticket the AI filed**,
-   alongside the original / reproduction / diff-images links. Once that ticket is
+5. **A further link appears on each iteration: the ticket the AI filed**,
+   alongside the original / reproduction / diff-images / L1-document links
+   ([[REQ-254]] already added the fourth), so it is the fifth. Once that ticket is
    free-coded its `fields.commits` is the code diff, so "what changed" is
    reachable without the console tracking it separately.
 6. **One ticket per gap class, not per iteration.** If a later round diagnoses a
