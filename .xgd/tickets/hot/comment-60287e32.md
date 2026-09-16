@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T03:44:19.109884+00:00'
+updated_at: '2026-09-16T04:03:53.109107+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -110,5 +110,11 @@ One thing to fold into terms and the deletion path: storing both sides means hol
 ---
 
 Want me to write this up as a DOC, or open a ticket for layer 3 (Reply-To capture)? That one's small and mostly sits on rails `mail.ts` already laid.
+
+<!-- xgd-turn id="5922e08f-e47b-4dd6-b99b-c590352cd82d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T04:03:52.108456+00:00" -->
+#### You
+What is 4?
 
 <!-- xgd-chat-end -->
