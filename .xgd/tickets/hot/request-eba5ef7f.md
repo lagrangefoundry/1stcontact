@@ -5,10 +5,10 @@ type: request
 title: 'Account dialog: sign-out control'
 created_by: martin-github@westhead.me
 created_at: '2026-09-07T21:42:25.156652+00:00'
-updated_at: '2026-09-07T22:54:23.223096+00:00'
+updated_at: '2026-09-16T02:20:18.782685+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
