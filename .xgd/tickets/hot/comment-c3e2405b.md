@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T18:29:32.035538+00:00'
+updated_at: '2026-09-16T18:31:07.197547+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -104,5 +104,45 @@ Ticket is at `free_coded` with `story_points: 8`. Promotion to `ready_to_reconci
 <!-- xgd-chat role="user" ts="2026-09-16T18:29:31.361372+00:00" -->
 #### You
 With this ticket what can I see on the UI? Do I need to deploy, asset, restart the server to see it?
+
+<!-- xgd-turn id="03776d74-875d-4777-9258-98bd04b00c85-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:31:06.881484+00:00" -->
+#### Claude
+Short answer: **nothing in the UI.** This ticket deliberately has no customer-facing surface — the ticket says so outright: *"No customer-facing surface; ticket C is what puts a button on this."* Let me verify what the local story actually is rather than guess.
+
+**No UI. Nothing to see in the browser.** That's by design, not an omission — the ticket says *"No customer-facing surface; ticket C is what puts a button on this."* The diff touches zero webui files. `/api/admin/domains` joins `/api/admin/zones` (REQ-257) as a curl-only operator surface; neither has a front end.
+
+So the question is really "can I exercise it", and here's the honest state, checked rather than assumed:
+
+### The one thing that's genuinely required: the migration
+
+Your local control-app D1 is at `0010_zones.sql`, and `site_domains` has **no `canonical` column**. Nothing in this ticket works until that's applied:
+
+```
+cd apps/control-app && npx wrangler d1 migrations apply DB --local
+```
+
+(`bin/seed` documents this same form.) For remote, `bin/deploy.d/migrate/10-d1-site-store` runs it with `--env "$DEPLOY_ENV" --remote`.
+
+### `./bin/1c assets` — not needed
+
+No builder JS was touched. Assets only matter for `src/builder/*.js`.
+
+### Restart — yes, both
+
+Both Workers' source changed: control-app (`serving.ts`, `router.ts`, `hostname.ts`, `zones.ts`, `cloudflare.ts`) and public-site (`index.ts`, `routes.ts`, `site-store.ts`, `gate.ts`). `./bin/1c builder` and `wrangler dev --port 8787` respectively.
+
+### The catch for local demoing
+
+public-site's local D1 is a **separate database** from control-app's — no `--persist-to` sharing, and it shows: 4 KB and empty versus control-app's 2.8 MB. It has no `site_domains` table at all. That is exactly the case `readHost`'s catch block was written for, so locally the resolver logs `host_resolution_failed` and answers "unbound" — which means public-site behaves precisely as it did before this ticket.
+
+So the interesting half — a bound host serving one site at its root, `/site/<key>/` 301ing, another key 404ing — isn't demoable locally without hand-seeding public-site's own D1 with the `site_domains` schema and a row for `localhost`. Doable, but it's `wrangler d1 execute` by hand, not a one-liner.
+
+### Deploy is what makes it real
+
+A custom domain needs a real zone in the account, real proxied records, a real Worker route and a real certificate — none of which exist locally. Deploying also matters for one thing specifically: **the `*.1stcontact.io/*` route removal only takes effect on a `wrangler deploy` of public-site.** Until that deploy, the account still holds a zone route for this script, which is the exact condition that makes the next deploy wipe runtime-created routes. Nothing is attached yet, so nothing is at risk today — but that deploy should land before the first customer domain does.
+
+Want me to seed public-site's local D1 so the resolver is demoable on `localhost:8787`? It's a schema copy plus one row, and it'd let you see the root serving, the 301 and the cross-tenant 404 for real.
 
 <!-- xgd-chat-end -->
