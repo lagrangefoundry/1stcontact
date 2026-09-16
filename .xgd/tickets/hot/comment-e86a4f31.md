@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T20:07:30.798186+00:00'
+updated_at: '2026-09-16T20:29:25.017618+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -340,5 +340,16 @@ Separately: the rail line is honest, not broken — run `repro-rail record` and 
 2. **Leave it promoted** and tell me to open a separate bug for the parser.
 
 Say which and I'll have it fixed in one pass. The brief's engine-context section and the session-reuse question I'd keep as separate work either way.
+
+<!-- xgd-turn id="5efaceb6-98a8-4d97-8335-dda27a9345a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:29:24.113008+00:00" -->
+#### You
+I'd like you tp create a new ticket to pick up the modifications. These are:
+1) the session should be empowered to file bugs in 1c if it finds them (like the one we just saw)
+2) Need to add session resume
+3) Is the session getting properly primed with relevant knowledge bases? It should have content specific to this problem - we should create guidelines for how to spot issues and improve the reproducibility engine. The documentation should obviously include the L1 docs that already exist for production, but also documentation describing the engine.
+
+Anything else we need to capture?
 
 <!-- xgd-chat-end -->
