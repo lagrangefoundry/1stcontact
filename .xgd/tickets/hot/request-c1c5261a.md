@@ -6,7 +6,7 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T19:24:44.165650+00:00'
+updated_at: '2026-09-16T19:35:27.446280+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -17,6 +17,7 @@ fields:
   needs_review: false
   chat_comment: comment-e86a4f31
 ---
+
 
 
 Parent: [[EPIC-12]] §8. Third of three. **Depends on [[REQ-254]] (the console) and
@@ -194,13 +195,30 @@ unmotivated.
     filed, and the console cannot ask xgd that question without inventing a
     label convention; this is the console's memory of what this loop has filed,
     and it is what the next round's prompt carries.
-22. **The rail is resolved, not assumed.** Behavior 8's command belongs to
-    [[REQ-255]], which has not landed. The console runs `$REPRO_CONSOLE_RAIL` if
-    it is set, otherwise `bin/rail` if it exists, and otherwise reports
-    `regression rail: not available` — which is honest, where a green line
-    nothing produced would not be. The rail's result is read-only here and its
-    failure never fails the iteration: it is cross-site information for the
-    round, not this round's gate.
+22. **The rail is [[REQ-255]]'s, called read-only — not reimplemented, and not
+    probed for.** This was written while [[REQ-255]] had not landed and said
+    the console should look for a rail rather than hardcode one; it has since
+    landed, and its own design names this console as a consumer and exposes its
+    report as data for it. So the console calls it directly. Three things
+    follow:
+    - **The round runs the `references` phase only** — the cross-site
+      comparison, which is the one behavior 8 is about. The rail's other three
+      phases (typecheck, worker build, the test suite) gate the *checkout*, and
+      re-running them between two iterations that changed nothing would spend
+      minutes per round to re-answer a question no reproduction asked. The
+      narrowing is never silent: the rail reports what it did not cover and
+      that carries onto the page.
+    - **Its failure never fails the iteration.** It is cross-site information
+      for the round, not this round's gate.
+    - **Nothing green is shown that nothing produced.** A checkout with no
+      recorded bar cannot say "no worse", and the rail says so rather than
+      passing by default. `$REPRO_CONSOLE_RAIL=off` is the one knob — for the
+      operator who does not want to wait for it — and the page says the rail
+      did not run.
+
+    The rail and the console also now share one definition of "run a command
+    and read what it said" (`run.ts`), rather than this ticket adding a second
+    copy of it beside [[REQ-255]]'s.
 23. **A run stays "running" until the AI round ends**, so [run again] cannot
     start a second round on top of a diagnosis still in flight (behavior 10).
 24. **The gap-ticket link renders the ticket through `xgd ticket get`** rather
