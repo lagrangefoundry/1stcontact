@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T20:06:56.384552+00:00'
+updated_at: '2026-09-16T20:09:27.921980+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -327,5 +327,32 @@ Net: there is nothing to look at until a domain is actually attached, and that s
 <!-- xgd-chat role="user" ts="2026-09-16T20:06:56.068856+00:00" -->
 #### You
 Sure, run the zone backfill please
+
+<!-- xgd-turn id="07ee3a66-dbca-4d71-9f7b-c2d598e92c58-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T20:09:27.622220+00:00" -->
+#### Claude
+Let me work out the most faithful way to run it — through the shipped operation rather than hand-written SQL.
+
+Found the account. Let me check `newId`'s format and whether a dev server is holding the database.
+
+Plan looks right. Applying to the **local** dev database:
+
+Done — all 13 zones recorded in the **local** dev database.
+
+| | count | |
+|---|---|---|
+| `origin = 'operator'` | 11 | attributed to `acct_451eca61c0429fda94cb6812826161dc` (`martin@westhead.me`) |
+| `origin = 'platform'` | 2 | `1stcontact.io`, `1stc.site` — `account_id = NULL` |
+
+The 11: `faelan.com`, `gendevlabs.ai`, `gigabytealchemy.ai`, `gigabytefoundry.ai`, `lagrangefoundry.ai`, `lagrangepoint.io`, `merklebonsai.com`, `positronica.ai`, `westhead.me`, `xgd.dev`, `xgendev.ai`. All `status = 'active'`, each carrying its real `cf_zone_id` and assigned nameservers read from Cloudflare.
+
+I recorded the two platform apexes rather than skipping them — they can't be *attributed* (the code refuses it: *"it carries every customer's address, so attributing it to one account would hand that account the whole namespace"*), but leaving them out would make `driftCheck` report them as `unrecorded` forever. As `origin = 'platform'` with a null account they're correctly unattributable rather than unattributed. Drift should now read clean: 13 recorded, 13 upstream, statuses agree, nothing unattributed.
+
+**One caveat worth being explicit about.** I did *not* go through `POST /api/admin/zones` — that route returns 503 without `CLOUDFLARE_DNS_TOKEN`, which still isn't set. Instead I read the zones from the Cloudflare API with the token I have and wrote rows via `wrangler d1 execute DB --local`, replicating `recordZone`'s exact INSERT: same column list, `zon_<32 hex>` ids from a CSPRNG, `assigned_ns` as a JSON array, `mirrorStatus` semantics for `status`, `claimed_at`/`activated_at` timestamps. Faithful to the shipped operation, but seeded rather than driven through it — so it hasn't exercised REQ-257's route, and you may want to re-run it properly once the DNS token is in place.
+
+Scope: **local only.** Production D1 is untouched. Fully reversible with `DELETE FROM zones;`.
+
+Two things still outstanding before anything can actually serve: `CLOUDFLARE_DNS_TOKEN` in `.dev.vars`, and migration `0011` applied locally (the zones table didn't need it, `site_domains.canonical` does). Say the word on either — or on filing that CNAME-at-apex ticket from earlier.
 
 <!-- xgd-chat-end -->
