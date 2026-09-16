@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-259
 created_by: xgd
 created_at: '2026-09-16T20:05:41.308228+00:00'
-updated_at: '2026-09-16T21:43:38.169519+00:00'
+updated_at: '2026-09-16T21:44:13.106093+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,30 @@ The ticket is parked at `free_coded`. Promotion to `ready_to_reconcile` is yours
 <!-- xgd-chat role="user" ts="2026-09-16T21:43:36.243482+00:00" -->
 #### You
 Does this ticket contain UI visible changes?
+
+<!-- xgd-turn id="f3e309d2-edd8-464a-8b42-eda182918d7d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:44:12.585499+00:00" -->
+#### Claude
+Yes — this ticket is substantially a UI ticket. Let me pull the specifics rather than answer from the file list.
+
+Yes — and it's the larger half of the ticket. Roughly 600 of the 3779 added lines are the surface itself, plus the copy that lives in `domains.ts`.
+
+## What a customer sees
+
+A new **`Your domain`** section on the Settings pane, third in the list, directly beneath REQ-249's free web address. `apps/control-app/src/builder/domain.js` is entirely new (381 lines), with 88 lines of new CSS and 70 lines of new API client in `api.js`.
+
+**The three controls from the ticket's table:**
+- **The selector** — the account's active zones, with taken hosts listed but disabled. Above it: *"Your own web address. Once it is switched over, anyone typing it lands on the site we have built for you."* The button reads **Use this domain**.
+- **The email toggle** — labelled **Send email from this domain**, with a status line beneath that changes with state: *"Email to your customers comes from 1st Contact, not from ‹domain›"* → *"Setting up email from ‹domain›. This usually takes a few minutes — you can carry on, and it will come right on its own."* → *"Email to your customers comes from ‹domain›."*
+- **Release** — **Stop using this domain**, behind a modal that answers the actual fear rather than asking "are you sure": *"‹domain› will stop pointing at your site, and your free 1st Contact address takes over again"* / *"The domain stays yours and stays on your account — you can point it back here whenever you like."* Cancel holds focus.
+
+**Three more visible states:** an account with no domains gets a sentence and no controls at all (*"You do not have a domain with us yet. Ask and we will sort one out for you."*); a business member who isn't the account holder sees no pool and no buttons, only *"Ask the account owner to attach a domain to this site."*; and a domain already carrying mail gets told so **after** the attach, in their language — *"Your email is with Microsoft 365 — I'll keep that working."*
+
+`settings.js` also changed in both commits: the header comment was rewritten to count three sections instead of two, and the pane now appends and clears the domain section under the same business-switch generation guard as the hostname section.
+
+**Not visible:** no record type, record value, or Cloudflare zone id appears anywhere a customer can read — that's the ticket's central constraint, and `test_UAT_FC_REQ-259_no_record_type_or_value_appears_anywhere_a_customer_can_read` plus `..._no_answer_on_this_path_names_a_record_or_a_zone_id` are the two UATs holding it.
+
+One caveat on seeing it yourself: `dist-assets/builder/domain.js` is a build output, so a running builder won't pick up the new section until `./bin/1c assets` has run.
 
 <!-- xgd-chat-end -->
