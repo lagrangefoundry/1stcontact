@@ -12,6 +12,7 @@ import {
 import {
   CommandError,
   InvalidDefinitionError,
+  NO_PUBLIC_ADDRESS_CODE,
   NoPublicAddressError,
 } from '../../../tools/generate/src/cli/errors'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
@@ -4086,7 +4087,7 @@ async function routeUncached(
      * one refusal two ways.
      */
     if (err instanceof NoPublicAddressError) {
-      return json(409, { error: scrub(err.message), code: 'NO_PUBLIC_ADDRESS' })
+      return json(409, { error: scrub(err.message), code: NO_PUBLIC_ADDRESS_CODE })
     }
     // [[REQ-163]] — three refusals a client can act on, and each carries the
     // status that says WHOSE problem it is.
