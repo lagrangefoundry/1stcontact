@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:06:49.506327+00:00'
+updated_at: '2026-09-16T01:10:18.651729+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,11 @@ Three design points I'd hold firm on:
 **Don't pick the 5–10 from market share — survey the beta cohort.** Capture everyone's current site and histogram the generators. It's two small tickets (generator detection, then the survey), it answers the ordering question with evidence rather than WordPress statistics, and it doubles as a qualification signal you can use in the free consultation from day one.
 
 §7 of the epic proposes nine child tickets (A1–A6, B1–B3) but I haven't filed any — say the word and I will. There are also six open questions in §6; the two I'd most want your answer on are the operational acceptance bar (Q2) and whether duplication ever becomes the pitch (Q6), where CHAT-5 and CHAT-21 point in opposite directions.
+
+<!-- xgd-turn id="cd8a5c4c-5222-40a6-bb2e-699d91584e4b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T01:10:16.935211+00:00" -->
+#### You
+an empty chat ticket <-- you know the actual transcripts are stored in comments attached to the tickets
 
 <!-- xgd-chat-end -->
