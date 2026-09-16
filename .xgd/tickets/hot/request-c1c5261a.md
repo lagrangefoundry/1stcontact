@@ -2,13 +2,13 @@
 uid: request-c1c5261a
 id: REQ-256
 type: request
-title: 'AI iteration in the console: review the diff, change the engine, stop for
+title: 'AI iteration in the console: review the diff, file a gap ticket, stop for
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T02:56:19.030658+00:00'
+updated_at: '2026-09-16T02:56:25.305084+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: draft
 fields:
   priority: high
