@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-245
 created_by: xgd
 created_at: '2026-09-14T03:05:10.425888+00:00'
-updated_at: '2026-09-14T03:17:19.950783+00:00'
+updated_at: '2026-09-16T02:21:41.985188+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,6 +13,16 @@ fields:
   subject_uid: request-37ac28bf
   kind: chat_transcript
 ---
+
+<!-- xgd-session
+{
+  "id": "ccf6c9c6-2e83-4bab-9d66-28e155c7c69a",
+  "role": "chat",
+  "backend": "claude_code",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
 
 <!-- xgd-turn id="ac47ca1f-5b38-4e18-b97e-6ba42e8e8df2-assistant" -->
 
@@ -98,5 +108,15 @@ None of that is REQ-245's doing and I left it alone, but the REQ-183 test is gen
 The ticket body was already a full and accurate description of what shipped — §6 covers the definitions-as-registry projection, the `editable`/`historic` payload, the endpoint's refusals, the surface, the REQ-183/REQ-240 consequences, and the test plan — so I left it as written rather than restating it.
 
 It's parked at `free_coded`; promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="ac47ca1f-5b38-4e18-b97e-6ba42e8e8df2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T02:33:10.530081+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
