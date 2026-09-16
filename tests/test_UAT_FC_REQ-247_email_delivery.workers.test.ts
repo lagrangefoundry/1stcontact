@@ -287,7 +287,7 @@ describe('REQ-247 — a form that has already sent does not send again', () => {
    *
    * WHAT COULD HAVE BROKEN. `deliveryState` remembers a gated delivery by its
    * ASSET key, so a form promising assets is untouched by any of this. The
-   * welcome path is the exposed one: it matches `message.asset === null &&
+   * welcome path is the exposed one: it matches `message.assets.length === 0 &&
    * message.templateKey === templateKey`. If the identity a message is
    * remembered by had shifted from a template key to a page id — an entirely
    * reasonable-looking change, since the thing it names is now a page — then a
@@ -322,7 +322,7 @@ describe('REQ-247 — a form that has already sent does not send again', () => {
     const history = await messagesOf(TENANT, contactId)
     expect(history).toHaveLength(1)
     expect(history[0].templateKey).toBe(WELCOME)
-    expect(history[0].asset).toBeNull()
+    expect(history[0].assets).toEqual([])
 
     // …so the same address through the same form is recognised and not re-sent.
     const again = await submit(site, 'ledger-form', address, mailer.send)

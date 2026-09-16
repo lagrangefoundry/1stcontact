@@ -143,7 +143,7 @@ describe('BUG-93 — a form handle names its page', () => {
     // AND THE MAIL LEFT THE BUILDING — two messages, one per paper, each naming
     // its own artifact. Silence here was the symptom the ticket was filed for.
     const records = await messagesOf(TENANT, outcome.contactId as string)
-    expect(records.map((m) => m.asset).sort()).toEqual([PAPER_A.key, PAPER_B.key])
+    expect(records.flatMap((m) => m.assets).sort()).toEqual([PAPER_A.key, PAPER_B.key])
     expect(mailer.sent).toHaveLength(2)
     expect(new Set(mailer.sent.map((m) => m.to))).toEqual(new Set(['papers@example.com']))
 

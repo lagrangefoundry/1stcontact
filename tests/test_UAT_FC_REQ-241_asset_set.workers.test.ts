@@ -93,9 +93,12 @@ describe('REQ-241 — a form promises a set of assets', () => {
 
     // TWO RECORDS AND NOT ONE CARRYING TWO NAMES. A single message covering the
     // set would key the ledger on one asset, which is the shape this change
-    // exists to widen.
+    // exists to widen. [[BUG-98]] made a record able to name a whole set, and
+    // this form's message still declares `{{asset_name}}` — so it is still a
+    // message per paper, each record naming exactly its own.
     const records = await messagesOf(outcome.contactId as string)
-    const byKey = new Map(records.map((message) => [message.asset, message]))
+    for (const message of records) expect(message.assets).toHaveLength(1)
+    const byKey = new Map(records.map((message) => [message.assets[0], message]))
     expect([...byKey.keys()].sort()).toEqual([PAPER_A.key, PAPER_B.key])
     // THE LINK IS THE GATED PAGE SINCE [[REQ-244]], AND IS THE SAME IN BOTH.
     // This assertion used to read `toContain(paper.url)` — its own link, straight
@@ -163,8 +166,8 @@ describe('REQ-241 — a form promises a set of assets', () => {
     ])
 
     const records = await messagesOf(one.contactId as string)
-    expect(records.filter((message) => message.asset === PAPER_A.key)).toHaveLength(1)
-    expect(records.filter((message) => message.asset === PAPER_B.key)).toHaveLength(1)
+    expect(records.filter((message) => message.assets.includes(PAPER_A.key))).toHaveLength(1)
+    expect(records.filter((message) => message.assets.includes(PAPER_B.key))).toHaveLength(1)
     expect(mailer.sent).toHaveLength(2)
   })
 
@@ -190,7 +193,7 @@ describe('REQ-241 — a form promises a set of assets', () => {
     // unaffected by sitting between them.
     expect(outcome.assets).toEqual([{ key: PAPER_B.key, sent: true }])
     const records = await messagesOf(outcome.contactId as string)
-    expect(records.map((message) => message.asset)).toEqual([PAPER_B.key])
+    expect(records.flatMap((message) => message.assets)).toEqual([PAPER_B.key])
     expect(mailer.sent).toHaveLength(1)
     expect(mailer.sent[0].body).not.toContain('https://example.test/orphan')
   })

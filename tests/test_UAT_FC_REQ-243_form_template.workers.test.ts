@@ -203,7 +203,7 @@ describe('REQ-243 — a capture form chooses the email it sends', () => {
     expect(records[0].subject).toBe('Welcome to the beta')
     expect(records[0].to).toBe('beta@example.com')
     // KEYED ON NOTHING IN THE ASSET LEDGER, because no artifact was promised.
-    expect(records[0].asset).toBeNull()
+    expect(records[0].assets).toEqual([])
     expect(mailer.sent).toHaveLength(1)
     expect(mailer.sent[0].subject).toBe('Welcome to the beta')
 

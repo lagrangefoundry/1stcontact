@@ -452,18 +452,27 @@ export function productTypePack(): ProductTypePack {
         /** Why a send failed, in the provider's own words. Absent unless it did. */
         failure: { type: 'string' },
         /**
-         * The asset this message carried ([[REQ-223]] §5).
+         * The assets this message carried ([[REQ-223]] §5, a list since
+         * [[BUG-98]]).
          *
-         * A PLAIN STRING KEY, not a reference. The at-most-once rule asks *has
+         * PLAIN STRING KEYS, not references. The at-most-once rule asks *has
          * this address already had this asset*, and the honest answer is the
          * record of a send that happened — which must stay answerable after the
          * form that named the asset has been edited or deleted. A resolving
          * reference would refuse the record of a message that really did go out.
          *
+         * A LIST BECAUSE ONE MESSAGE MAY DELIVER A SET ([[BUG-98]]). A form
+         * promising two papers through one set-style message delivers both in
+         * one send, and a single key could only remember one of them.
+         *
+         * THE SINGULAR `asset` IS NOT DECLARED HERE AND IS STILL READ. Every
+         * message recorded before this carries one; `toMessageRecord` reads it
+         * back as a set of one, and the rows are left exactly as they were sent.
+         *
          * Absent on every message that carries no asset, which is every invite,
-         * every sign-in link, and every message written before this ticket.
+         * every sign-in link, and every message written before the asset rule.
          */
-        asset: { type: 'string' },
+        assets: { type: 'list' },
       },
       // NOT `non_empty`. An empty body is a template that rendered to nothing,
       // which is a bug worth recording as what was sent rather than one worth

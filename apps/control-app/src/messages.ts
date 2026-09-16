@@ -92,17 +92,24 @@ export interface OutgoingMessage {
   from: string
   to: string
   /**
-   * The asset this message carries, when it carries one ([[REQ-223]] §5).
+   * The assets this message DELIVERED ([[REQ-223]] §5, a set since [[BUG-98]]).
    *
    * IT IS ON THE MESSAGE BECAUSE THE MESSAGE IS THE EVIDENCE. *Has this address
    * already had this asset* is the question the at-most-once rule turns on, and
    * the honest place to answer it is the record of what was actually sent — not
    * a counter somewhere that could say yes for a send that never left.
    *
-   * Optional, because every message written before this ticket carried no asset
+   * A LIST AND NOT ONE KEY, WHICH IS [[BUG-98]]'s CHANGE. It was `asset?: string`
+   * when an artifact WAS the message, and a form promising two therefore had to
+   * send two mails to leave two records — which is the duplicate the bug is. One
+   * message may now carry a whole set, so the record has to be able to say so, or
+   * the ledger would remember one of the artifacts a recipient actually received
+   * and offer them the other again.
+   *
+   * Optional, because every message written before the asset rule carried none
    * and an invite still does not.
    */
-  asset?: string
+  assets?: readonly string[]
   /** The RENDERED body, as sent. */
   body: string
 }
@@ -117,8 +124,15 @@ export interface MessageRecord {
   subject: string
   from: string
   to: string
-  /** The asset this message carried, or null ([[REQ-223]]). */
-  asset: string | null
+  /**
+   * The assets this message carried, in the order it delivered them — empty
+   * when it carried none ([[REQ-223]], a set since [[BUG-98]]).
+   *
+   * EMPTY RATHER THAN NULL. "This message delivered nothing" and "this message
+   * delivered these" are the same question with different answers, and a list of
+   * none says so without a second state every reader has to branch on.
+   */
+  assets: string[]
   status: MessageStatus
   providerId: string | null
   queuedAt: string
@@ -133,6 +147,26 @@ const str = (fields: Record<string, unknown>, name: string): string | null => {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
+/**
+ * The assets a stored message says it delivered ([[BUG-98]]).
+ *
+ * IT READS THE SINGULAR `asset` TOO, and that is not tidiness — it is the only
+ * thing standing between this change and mailing everybody their papers a second
+ * time. Every message already in a store was written before the field became a
+ * list, so a reader that saw only `assets` would find every historical delivery
+ * empty, conclude the artifact had never gone out, and send it again. Rows are
+ * not rewritten to match: the record is evidence of a send that happened, and
+ * editing evidence to suit a later schema is the one thing a ledger may not do.
+ */
+function assetsOf(fields: Record<string, unknown>): string[] {
+  const list = fields.assets
+  if (Array.isArray(list)) {
+    return list.map(String).filter((key) => key !== '')
+  }
+  const one = str(fields, 'asset')
+  return one === null ? [] : [one]
+}
+
 /** A stored ticket as the rest of the product reads it. */
 export function toMessageRecord(ticket: Ticket): MessageRecord {
   const f = (ticket.fields ?? {}) as Record<string, unknown>
@@ -145,7 +179,7 @@ export function toMessageRecord(ticket: Ticket): MessageRecord {
     subject: str(f, 'subject') ?? '',
     from: str(f, 'from') ?? '',
     to: str(f, 'to') ?? '',
-    asset: str(f, 'asset'),
+    assets: assetsOf(f),
     status: (str(f, 'status') ?? QUEUED) as MessageStatus,
     providerId: str(f, 'provider_id'),
     queuedAt: str(f, 'queued_at') ?? ticket.created_at,
@@ -201,7 +235,7 @@ export async function sendRecordedEmail(
       subject: message.subject,
       from: message.from,
       to: message.to,
-      ...(message.asset ? { asset: message.asset } : {}),
+      ...(message.assets && message.assets.length > 0 ? { assets: [...message.assets] } : {}),
       status: QUEUED,
       queued_at: queuedAt,
     },
