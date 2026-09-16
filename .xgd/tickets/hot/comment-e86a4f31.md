@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:24:01.056746+00:00'
+updated_at: '2026-09-16T21:27:18.159164+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -480,5 +480,15 @@ Thirteen numbered requirements, four acceptance criteria.
 Everything above is paper. The thing that actually unblocks the loop is **item 1** — roughly fifteen lines in `parseOutcome`, plus a UAT using your real transcript as the fixture. I've already verified the fix recovers your round's ticket whole.
 
 Want me to cut a branch and do that now, and leave the rest of REQ-261 for later? That would get today's gap ticket filed and make the console usable again, without touching resume or priming.
+
+<!-- xgd-turn id="40618c65-f5b5-478a-add0-d2b2fc600296-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:27:17.681789+00:00" -->
+#### You
+OK, 
+
+AND- I would like another ticket to pick up the aspects of session priming for the session. In that ticket we will review the prompt and construct a KB for this with all the necessary docs,ok 
+
+`.xgd/tickets/hot/doc-bdbc46b0.md` <-- it makes me extremely nervous to see you referred to tickets as files. Please only access the tickets using the ticket API breaks if you do not use the API seriously.
 
 <!-- xgd-chat-end -->
