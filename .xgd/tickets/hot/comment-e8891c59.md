@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T23:55:33.435630+00:00'
+updated_at: '2026-09-16T23:57:57.145979+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -805,5 +805,57 @@ Two things still on the table from earlier, neither urgent: the `resend.ts` gap 
 What I would prefer is a deploy that checks that we have the right keys that are uptodate with the right permissions. Silently degrading functionality on a broken deploy is not good.
 
 **2. Replace **`RESEND_API_KEY` with a **Full access** key from the Resend dashboard. That's the 401 you reported, and it's independent of everything Cloudflare. <-- I am skeptical of this it happened whe I clicked Use this domain - no emails were involved
+
+<!-- xgd-turn id="764bff31-01e5-4bba-a0a8-fe960cd449d2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T23:57:56.137648+00:00" -->
+#### Claude
+Your skepticism is right to test — let me trace the attach path before defending that.
+
+Both of us are right, and the code says exactly why.
+
+Traced it. **You're both right — and the code explains the confusion.**
+
+`domains.ts:337`:
+> ***SENDING IS ON BY DEFAULT** and is turned on AFTER the web records, because the site working is the thing the customer asked for and mail is the thing they assumed.*
+
+So **Use this domain** does two things: writes the web records, then — because the toggle defaults on — calls `enableSending` → `resend.createDomain()`. No email was sent; sending was *configured*. Your observation and my diagnosis are the same event.
+
+**But the error message misled you, and that's a real bug.** `resend.ts:258`:
+
+```ts
+if (!(err instanceof ResendApiError) || err.status < 400 || err.status >= 500) throw err
+const held = await call(key, fetchImpl, 'GET', '/domains')
+```
+
+The actual failure was `POST /domains` returning 401. That's a 4xx, so it fell into the **idempotency path** — which exists for "Resend already holds this domain" — and the `GET /domains` you saw is the *fallback* failing with the same 401. The original error is discarded and the second one reported. An auth failure arrives dressed as a listing failure, which is why the message looked unrelated to what you clicked.
+
+## On the deploy check — you're right, and the framing is sharper than "add a check"
+
+`bin/deploy.d/secrets/README.md`'s outcome table is entirely about **presence**: the value is in the environment, or absent, or the Worker already holds the name. **Nothing anywhere verifies a credential works.** A key with the wrong scope passes every hook, every time, and surfaces at a customer's first click instead.
+
+Filing that now.
+
+**REQ-264** filed.
+
+## On your skepticism — you were right to push, and it cost me nothing to check
+
+No email was sent. Sending was *configured*, because the toggle defaults on and `attachDomain` calls `enableSending` right after the web records. So "Use this domain" does reach Resend, and my diagnosis holds — but the message you saw genuinely pointed at the wrong thing, and that's a bug rather than your misreading.
+
+## What REQ-264 covers
+
+**The spine is your framing**: presence isn't capability, and every credential has a permission dimension the hooks can't see. Resend is one instance of four — the Cloudflare zone token can pass a read and lack `Zone:DNS:Edit`; the embedder pair can be complete and lack Workers AI; the LLM keys can be revoked or out of credit.
+
+**Probes are the calls the product actually makes** — `GET /domains` for Resend is the right probe precisely *because* it's what failed. Read-only, non-mutating, one request each. I put the three I verified by hand into the ticket.
+
+**Expiry — the "up to date" half — is honestly partial.** Cloudflare's `/user/tokens/verify` returns `expires_on`, so that's answerable and worth warning on. Resend keys don't expire; Anthropic and OpenAI expose nothing. The ticket says the report must not leave that column blank in a way that reads as verified.
+
+**On silent degradation** — I kept REQ-259's ruling that a missing Resend key is ordinary, and drew the line where you drew it: degrading is allowed, degrading *silently* is not. A capability report every deploy; fail where the missing capability breaks a surface that ships anyway; warn loudly otherwise. The gap REQ-259 left is that a *wrongly-scoped* credential lands in neither column — it costs a feature and reports nothing.
+
+**Plus the runtime half and the `createDomain` bug**, both folded in rather than filed separately — a 401/403 on the domain path should reach the customer as *sending unavailable*, not as Resend's English, which is `resend.ts:43`'s own stated intent.
+
+One flag in the ticket: its subject is broader than EPIC-5 — it touches the LLM keys and the embedder pair, and deploy hooks aren't DNS management. I parented it here because REQ-259 already moved that hook to `fail` and this continues the same argument. Re-parent if you'd rather.
+
+Nothing coded — this was scoping. And the two env changes from the last turn are still yours to make.
 
 <!-- xgd-chat-end -->
