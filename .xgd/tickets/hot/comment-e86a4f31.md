@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:43:53.113399+00:00'
+updated_at: '2026-09-16T21:57:37.030787+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -629,5 +629,11 @@ I also added a rule to REQ-262 that follows from your own codebase: `ai.ts` reco
 You said you'd tell 262. **REQ-261's session needs it too** — I removed a behaviour and renumbered its requirements (now 11, was 10). If it already started on the old behaviour 8, that work should stop and move.
 
 One thing to watch: I edited both bodies while sessions are live on them. If either has already written UATs tracing to the old numbering, those traces need refreshing.
+
+<!-- xgd-turn id="65177fb0-55ff-4917-9fb0-cbcbc34c64fc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:57:36.517642+00:00" -->
+#### You
+ok so all the work is in the other tickets I can move this ticket to ready to reconcile?
 
 <!-- xgd-chat-end -->
