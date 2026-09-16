@@ -16,6 +16,7 @@ fields:
   - bug-af661441
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-4884ca0d
 ---
 
 # An email page shows what it is, and what it will arrive as
