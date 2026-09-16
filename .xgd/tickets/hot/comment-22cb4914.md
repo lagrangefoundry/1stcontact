@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-261
 created_by: xgd
 created_at: '2026-09-16T21:37:38.215477+00:00'
-updated_at: '2026-09-16T22:02:28.541027+00:00'
+updated_at: '2026-09-16T22:04:21.628155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -68,5 +68,11 @@ Done. REQ-261 is at `free_coded`, merged into `xgd-working`, branch cleaned.
 One deviation worth flagging: requirement 2 names the fixture at `storage/tmp/…`, which is gitignored. I copied it byte-for-byte to `tests/fixtures/repro-console/` so the UAT survives a fresh checkout.
 
 13 new UATs; 102 tests green across REQ-254/255/256/261.
+
+<!-- xgd-turn id="e207a926-89ed-4a26-9fd2-3521c9e02029-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:04:21.545337+00:00" -->
+#### You
+**Behaviour 8 changed under me. <-- there were som last mninute changes to the ticket, were you able to accomodate these? If not please do so**
 
 <!-- xgd-chat-end -->
