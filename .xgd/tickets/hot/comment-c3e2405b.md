@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T18:19:42.145760+00:00'
+updated_at: '2026-09-16T18:29:32.035538+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,11 @@ The three mechanisms:
 The ticket body now carries a "What was built" section covering the consequential behaviour the original scope did not name — the rollback, the release path and its `listRoutes` read, the admin entry point, the `replaced` report, the syntactic refusals, and the one-hop redirect rule — so reconciliation has language to attach every UAT to.
 
 Ticket is at `free_coded` with `story_points: 8`. Promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="03776d74-875d-4777-9258-98bd04b00c85-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:29:31.361372+00:00" -->
+#### You
+With this ticket what can I see on the UI? Do I need to deploy, asset, restart the server to see it?
 
 <!-- xgd-chat-end -->
