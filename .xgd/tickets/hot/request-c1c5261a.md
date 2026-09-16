@@ -6,9 +6,9 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T18:16:25.948348+00:00'
+updated_at: '2026-09-16T19:24:30.736529+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -17,6 +17,7 @@ fields:
   needs_review: false
   chat_comment: comment-e86a4f31
 ---
+
 
 Parent: [[EPIC-12]] §8. Third of three. **Depends on [[REQ-254]] (the console) and
 [[REQ-255]] (the rail).** The rail must already exist, and must already have been
@@ -47,10 +48,12 @@ We watch it work a few times before we consider letting it do more.
 3. **The AI writes no code.** It does not edit `tools/generate/`, it does not
    commit, and it does not touch the reproduced site. A round that ends in an
    edit rather than a ticket is a defect.
-4. **The AI's deliverable is a gap ticket** against the reproduction engine,
-   created through `xgd ticket create` at `status=draft` — never at any
-   `ready_*` status, which would spawn an automated pipeline against it. The
-   ticket must carry, so the claim is checkable without re-deriving it:
+4. **The AI's deliverable is a gap ticket** against the reproduction engine, at
+   `status=draft` — never at any `ready_*` status, which would spawn an
+   automated pipeline against it. What the AI hands back is the ticket's
+   **content**; the console is what runs `xgd ticket create` (see requirement
+   17, which is why). The ticket must carry, so the claim is checkable without
+   re-deriving it:
    - the **named residual class** (what kind of gap this is, not just "the hero
      is wrong");
    - **which stored reference(s)** exhibit it;
@@ -132,11 +135,31 @@ unmotivated.
     expensive — a false report against the engine. The brief still carries the
     rule (behavior 11), because the AI has to understand what it is looking at
     on the rounds it does run.
-17. **The AI is a `claude -p` process whose tool allowlist contains no way to
-    author code.** Reading tools to read the evidence, and `Bash` narrowed to
-    `xgd ticket …` to file the deliverable. Edit, Write, NotebookEdit and
-    general `Bash` are denied by name. Behavior 3 is therefore a property of the
-    process rather than a hope about the prompt.
+17. **The AI is a `claude -p` process with reading tools and nothing else, and
+    the console files the ticket.** The round gets `Read`, `Glob` and `Grep`;
+    every tool that can write a file, run a command, reach the network or spawn
+    an agent whose tool set is not this one is **denied by name**.
+
+    The deny list is the gate, and this was **measured rather than assumed**:
+    with `Bash` merely absent from the allow list and the permission mode at
+    its default, a round asked to run `echo` in a shell ran it and reported no
+    denial. An allow list that does not deny is a statement of intent, and
+    behavior 3 needs a property.
+
+    So the round cannot run `xgd` either, and the deliverable is the ticket's
+    content rather than a command. Two things follow, and they are the point
+    rather than a side effect:
+    - **The console writes `status: draft`**, so behavior 4's "never at a
+      `ready_*` status" is structural — there is no status left for a round to
+      get wrong.
+    - **The body goes through `--body-file`**, not `--body`: a gap ticket's
+      body is multi-line markdown quoting values out of `values-diff.json`, and
+      passing that as one argument would make its correctness a question about
+      quoting rather than about what the round found.
+
+    The deny list is enumerated, so it can go stale as the CLI grows tools.
+    That is an accepted cost, not an oversight: the alternative is trusting an
+    allow list that was measured not to gate.
 18. **Two falsifiers are checked after every round and named on the iteration.**
     The working tree is compared before and after the AI ran — a round that
     changed a tracked file is reported as a violation (behavior 3) — and the
@@ -149,9 +172,20 @@ unmotivated.
     so both survive a restart of the console like every other artifact
     ([[REQ-254]] requirement 33) and both are reviewable after the fact.
 20. **The AI's outcome is a JSON block in its final message**, carrying the
-    status, the residual class, the ticket id and uid, and a summary. The
-    console does not mine the transcript for a ticket number — a claim it is
-    told is checkable (behavior 18), a claim it guessed is not.
+    status, the residual class, a summary, and — per status — either the
+    **ticket to create** (type, title, body) or the **evidence to append** to
+    the class's existing ticket. The **id and uid are the console's to fill in**
+    once it has filed, because the round has no tool that could have created a
+    ticket; a round that names one is not trusted for it. The console does not
+    mine the transcript — a claim it is told is checkable (requirement 18), a
+    claim it guessed is not.
+
+    The **last** fenced block wins, because a round that shows the shape before
+    filling it in must not have its example read as its answer. A claim that
+    does not carry what its status requires is a **failed** round rather than a
+    partly-honoured one: `filed` without a ticket body would file an empty
+    ticket and `appended` without evidence would append nothing, and either is
+    worse than saying the round produced no answer.
 21. **The classes that already have tickets are kept in the console's own
     workspace**, at `storage/tmp/repro-console/gap-tickets.json`, one entry per
     class carrying its ticket, the references that exhibited it and the
@@ -172,6 +206,27 @@ unmotivated.
     than reading `.xgd/tickets/`. A link that reached into the ticket store
     would be a second reader of a layout xgd owns, and would go stale the first
     time xgd moved a ticket between tiers.
+
+25. **A round that cannot be checked is reported as failed, not as filed.** If
+    xgd refuses the create, or the round claims `filed` without handing back a
+    ticket, or it claims `appended` against a class with no ticket on record,
+    the iteration says so and **no fifth link appears**. A link standing for a
+    ticket that does not exist would be worse than the absence it replaces, and
+    a green `filed` that requirement 18 has nothing to read back is a claim
+    nothing can falsify.
+
+26. **One ticket per gap class is decided by the console, not by the round.**
+    The registry (requirement 21) is what knows what has been filed; a round
+    that names a class already on record gets an append even when it asked to
+    file. The append is recorded in the registry too, so the references and
+    iterations a class accumulates are the frequency signal [[EPIC-12]] §7.3
+    wanted, arriving for free.
+
+27. **The round's answer belongs to the round.** The console works on a copy of
+    what the `AiRunner` handed back, and everything it fills in afterwards —
+    the ticket it filed, the status it read back, the violations it found —
+    lands on that copy. A runner that returns a value it also holds must not
+    find it rewritten underneath it.
 
 ## Implementation decisions
 
