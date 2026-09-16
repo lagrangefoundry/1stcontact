@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-16T22:05:56.656430+00:00'
+updated_at: '2026-09-16T23:08:08.633502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -191,5 +191,12 @@ Two things worth your eye before I write §1:
 2. **The broker needs a request channel** — a round asking the console for something is a new interaction shape, and the round's only output today is the final outcome block. That's plausibly REQ-261 territory again ("what the round hands back"). I'd rather scope it here and say so than let it fall between the two.
 
 Say go and I'll write DOC-53 §1.
+
+<!-- xgd-turn id="288c0e6f-1ef2-43f1-9bd6-aa4c690b7372-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T23:08:07.822253+00:00" -->
+#### You
+1. This is probably better just queried real-time with the ticket API than added to the kb it is a rapidly moving picture.
+   2. Ok this was an idea of REQ-258s I saw it in passing but I don't understand what it means is this about permissions? I want to give the system all the permissions it needs. I do not want to baby sit the process answering low level questions that I probably won't understand. What is this about?
 
 <!-- xgd-chat-end -->
