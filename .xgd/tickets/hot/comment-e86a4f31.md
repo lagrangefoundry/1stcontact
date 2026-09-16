@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T20:00:52.607124+00:00'
+updated_at: '2026-09-16T20:03:31.701358+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -269,6 +269,24 @@ ok I'm running it a few questions:
 
 regression rail: the regression rail — REGRESSED
 REGRESSED · references: no baseline at storage/rail/baseline.json. The rail cannot say "no worse" against nothing — record one with `repro-rail record`.
+
+AI — failed: the round produced no outcome block.
+
+<!-- xgd-turn id="480d8724-f8bc-440d-97f3-af27b276b878-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:03:31.646196+00:00" -->
+#### You
+ok I'm running it a few questions:
+
+- This will produce a ticket for changes to the reproduction engine, yes?
+  - Does it have permissions for all the tools it needs (really important)
+  - Does the prompt give it sufficient context on L1 and the tools etc? We will be running this MANY times if every session has to relearn the same things over and over that will be very costly
+  - I assume this is connected via Claude code?
+  - Will subsequent runs on the same site (after changes) reuse the same session?
+  
+  It failed:
+
+regression rail: the regression rail — REGRESSED REGRESSED · references: no baseline at storage/rail/baseline.json. The rail cannot say "no worse" against nothing — record one with `repro-rail record`.
 
 AI — failed: the round produced no outcome block.
 
