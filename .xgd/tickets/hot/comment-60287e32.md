@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T19:37:03.001046+00:00'
+updated_at: '2026-09-16T19:37:36.086802+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -685,5 +685,13 @@ No children attached yet — `epic_children` is empty, so the first nibble is ch
 **The tab seam.** I've recorded your two-tabs instinct, but argued the natural seam is *configure-once vs work-daily*, not in vs out — which would push addresses/forwarding/DNS-health into Settings where [[EPIC-4]]'s record-and-status precedent already lives, leaving one new tab for reading conversations and running campaigns. Worth deciding before any surface gets built. <-- agreed lets go with yours on this
 
 **Where a message body lives.** [[EPIC-11]] commits `contact_events` to "milestones, not noise" and the table is immutable. A 40KB body on the spine breaks that promise; an event pointing at R2 keeps it. It also decides retention and erasure mechanics. <-- I think message bodies should be tickets - the event records the heard fields
+
+<!-- xgd-turn id="4baa9ed3-f50c-48fb-8d01-9226d51de600-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T19:37:35.891359+00:00" -->
+#### You
+**The tab seam.** I've recorded your two-tabs instinct, but argued the natural seam is *configure-once vs work-daily*, not in vs out — which would push addresses/forwarding/DNS-health into Settings where [[EPIC-4]]'s record-and-status precedent already lives, leaving one new tab for reading conversations and running campaigns. Worth deciding before any surface gets built. <-- agreed lets go with yours on this
+
+**Where a message body lives.** [[EPIC-11]] commits `contact_events` to "milestones, not noise" and the table is immutable. A 40KB body on the spine breaks that promise; an event pointing at R2 keeps it. It also decides retention and erasure mechanics. <-- I think message bodies should be tickets - the event records the header fields, body size, presense of attachements etc
 
 <!-- xgd-chat-end -->
