@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-15T23:23:31.175869+00:00'
+updated_at: '2026-09-16T00:22:00.691893+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1988,5 +1988,11 @@ I'd close it as an environment issue. But there's a real ticket hiding underneat
 A check at dev startup — compare `d1_migrations` against `db/migrations/`, and refuse to start or warn loudly if behind — would have turned this into one clear message on day one. Small, and it pays for itself immediately given how much of this week it cost.
 
 Want me to file that, and close BUG-96 pointing at it?
+
+<!-- xgd-turn id="274b20d7-9455-40e8-915e-96dc3c9a35cf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T00:22:00.618041+00:00" -->
+#### You
+ok good real progress - the email link contains the production URL though - how can I test this with the dev server?
 
 <!-- xgd-chat-end -->
