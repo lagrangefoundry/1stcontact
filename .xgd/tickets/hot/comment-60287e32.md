@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T19:39:36.856058+00:00'
+updated_at: '2026-09-16T21:46:57.487391+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -718,5 +718,15 @@ Both recorded in [[EPIC-13]] as resolved, with the original questions left stand
 Also flagged as obligations: KB corpus membership must default *out* (per-message embedding cost would swamp a corpus currently made of briefs and material), threading maps to ticket-plus-comments following the `chat_transcript` precedent, erasure has to reach the R2 blobs or it's erasure that reads correct and isn't, and volume is an open engineering question — this store was sized for uploads and chats, not every message every business sends.
 
 **On the tab seam**, one consequence worth watching: with config in Settings and per-contact history on the contact, what's actually left in the new tab is substantially *campaigns*. A unified cross-contact inbox is a hypothesis about how a one-van business works, not a known requirement. Your "simplify later" may land before the first tab is built rather than after — so I've written in: don't build the unified inbox until someone asks for one.
+
+<!-- xgd-turn id="37477873-f6f9-4b0f-a3f3-7279cbce80cb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:46:57.240084+00:00" -->
+#### You
+A write lock is a very reasonable addition to the ticket store. Let me add that in the framework.
+
+Yes no unified inbox - lets focus on emails under contacts.
+
+What is in the email tab as you see it today?>
 
 <!-- xgd-chat-end -->
