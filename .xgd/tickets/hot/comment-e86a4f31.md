@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T20:32:47.383755+00:00'
+updated_at: '2026-09-16T20:54:02.125536+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -389,5 +389,15 @@ The engine documentation is the largest item by effort and the least like the ot
 And item 2 has a genuine tension I didn't resolve for you: resume makes rounds cheaper and better-informed, but a round that inherits last round's hypothesis is exactly the failure mode the brief's one rule exists to prevent — reconstructing from memory instead of transcribing from the capture. Worth deciding deliberately rather than discovering.
 
 Want me to split the engine doc out, or start on behaviour 1?
+
+<!-- xgd-turn id="32a29904-0a45-48d0-9715-f12887d65711-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:54:01.803795+00:00" -->
+#### You
+**1) Filing what it finds.** Widened past what I think you meant, because the transcript showed two separate losses. The round found a `1c` defect that isn't a reproduction-engine gap — the gate mis-routing its own verdict — and had nowhere to put it except folded into the gap ticket. It *also* deferred findings it couldn't file: "Regions 1–5 and 9 … are candidate classes for a later round; I am filing the one that is provable end-to-end." Those died with the prose. I captured the first as a requirement and left the second as an open question in the ticket, since one-gap-per-round may be a throttle you want rather than a limitation. <-- I'm sorry I don't understand what you're trying to say here, let me clarify: The output of the AI session should be a single detailed ticket asking for changes to the reproduction engine - no bounds on ticket size or work scope. AND if in the process of trying to create the ticket the session discovers bugs in L1 or its instructions of the broader 1c implementation, it should file a bug to have those issues addressed.
+
+Splitting it into a `doc` ticket would let the console work proceed without waiting on it. <-- without waiting on whatt? doc tickets and req tickets are implemented the same - this is a request for work so it should be an REQ - it can be as long as we need
+
+We need a DOC ticket for this work though that would be included as part of the sessions KB (not the production KB though). It should explain the pipeline, the sessions role, and be a place where we can accumulate learnings about how to find and fix issues best using the available tools.
 
 <!-- xgd-chat-end -->
