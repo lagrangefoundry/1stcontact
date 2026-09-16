@@ -5,10 +5,10 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T17:55:35.096781+00:00'
+updated_at: '2026-09-16T17:56:15.015573+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bf282b3d
@@ -16,10 +16,22 @@ fields:
   needs_review: false
   chat_comment: comment-9cd0e430
   commits:
-  - 0d467ee00f5f8b20bc4faada7ba707fb818b1d11
-  - 657a4024e15e38a9a82b3d2b1f80f85a91dc607c
-  - 0ff87bd919508e78a2d5e00972f66ce4e12ac718
-  version: 0.2.218
+  - working_sha: 0d467ee00f5f8b20bc4faada7ba707fb818b1d11
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 657a4024e15e38a9a82b3d2b1f80f85a91dc607c
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 0ff87bd919508e78a2d5e00972f66ce4e12ac718
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 5d5434f3b9132913986049085d17bc6f46c7a0d2
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.219
   story_points: 13
 ---
 
