@@ -6,9 +6,9 @@ title: 'Assistant DNS tools: reads, a closed set of guarded mutations, the chang
   card, and undo'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:59.036137+00:00'
-updated_at: '2026-09-16T03:35:59.036137+00:00'
+updated_at: '2026-09-16T03:46:29.806891+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -133,26 +133,77 @@ assistant *diagnose* a customer's DNS problem — which is the capability with t
 most support value and the least risk — are the cheap ones, and they can ship
 ahead of any mutation at all.
 
-## Undo
+## Undo, and the state check that is the whole of its safety
 
-**Snapshot the affected records before each mutation; restore on undo.** Cheap,
-because the snapshot apparatus has to exist anyway for preservation, and bounded,
-because an operation touches a named set of records rather than a zone.
+**Every operation records the before-set and the after-set. Undo refuses unless
+the zone still matches the after-set.** Compare-and-swap, on DNS.
 
-**Two different rollbacks, and conflating them is how the easy one gets deferred
-behind the hard one:**
+**This replaces the idea of a time horizon rather than supplementing it.** An
+earlier draft of this ticket said undo expires — that a record changed three weeks
+and four operations ago does not restore cleanly. That is a proxy for the real
+question and a bad one in both directions: a record nothing has touched for a year
+reverts perfectly safely, and a record something else changed ten minutes ago does
+not. **The question is not how old the change is, it is whether anything has
+happened to those records since — and that is answerable exactly.** The operator's
+framing is the one that holds: *"undo needs to preserve the new and the old state,
+and check that the new state is what it is expecting before reverting to the old."*
 
-- **Per-change undo, inside an active zone** — this ticket. What the card's
-  `Undo` points at.
-- **Mid-cutover rollback** — [[EPIC-5]]'s open question 3, and already narrowed:
-  with the pending zone populated before the nameserver pair is shown, a *failed*
+The scenario it exists for is a customer returning to a year-old conversation,
+pressing a button they do not remember, with four intervening changes they never
+saw. Without the check that silently reverts DNS to a state that was correct a
+year ago. **The check turns that from data loss into a sentence.**
+
+### Four properties it needs to actually work
+
+**Per-operation, and all-or-nothing.** An operation touches a *set* of records, so
+the entry holds the before-set and the after-set and compares the set. **If any
+one member has drifted, the whole undo refuses.** A partial revert is worse than
+none — half-reverting an SPF merge yields a record that was correct at no point in
+time.
+
+**The comparison is semantic, or the feature fails the other way.** Cloudflare
+normalises TXT quoting, trailing dots on `MX` and `CNAME` targets, and case. A
+byte-exact compare reports drift where nothing changed, undo then refuses always,
+and it is **useless rather than dangerous — which is the failure mode nobody
+notices until the day they need it.** Compare normalised
+`(name, type, value, ttl, proxied)`. **Not Cloudflare record ids**: a record
+deleted and recreated with an identical value takes a new id and has not drifted.
+
+**Drift does not only come from us.** The zone is in our account so the customer
+cannot touch it, but three other sources can: a later operation of our own, an
+operator working by hand in the dashboard — which [[REQ-257]]'s drift check already
+assumes will happen — and **DKIM key rotation by Resend, which changes
+`resend._domainkey` with nobody here doing anything at all.** That last one makes
+the check earn its keep without any mistake having been made.
+
+**The refusal is a sentence, not a dead end.** *"I can't undo this — your email
+settings have changed since then"*, what is different, and a route to a human.
+Same standard as every other customer-facing string here: their nouns, and never a
+record type.
+
+### Undo is itself a change
+
+It writes a new entry, opens its own suppression window, and is visible on the same
+surface. Otherwise the history lies about what the zone has been, and an undo
+cannot be undone.
+
+### Where the button lives
+
+**The chat is the wrong durable home, and the year-later scenario is why.** The
+check prevents corruption; it does not make *scroll back through a year-old
+conversation* a path anybody takes. So the card carries `Undo` **while it is the
+most recent change to those records**, and the durable home is a **DNS change
+history** on the settings surface — which is also what makes the card's visibility
+claim survive the chat scrolling away.
+
+### Two rollbacks, and conflating them defers the easy one behind the hard one
+
+- **Per-operation undo, inside an active zone** — this ticket, as above.
+- **Mid-cutover rollback** — [[EPIC-5]]'s open question 3, already narrowed: with
+  the pending zone populated before the nameserver pair is shown, a *failed*
   cutover leaves the customer resolving from their old nameservers with nothing
   lost. Only a completed-then-wrong cutover needs it. **Not this ticket, and not
   blocking it.**
-
-Undo has a horizon — a record changed three weeks and four changes ago does not
-restore cleanly, and pretending otherwise is worse than refusing. Past the
-horizon the honest answer is a support path.
 
 ## Not in scope
 
@@ -185,6 +236,14 @@ first two conversational verbs reach).
 - `_dmarc` written where one exists, or written at anything other than `p=none`.
 - A mutation that does not write the declared target or open the suppression
   window.
-- A mutation with no snapshot, and therefore no undo.
-- An undo that silently does nothing past its horizon rather than saying so.
+- A mutation that records no before-set and after-set, and therefore has no undo.
+- An undo that applies without first comparing live state to the recorded
+  after-set.
+- An undo that applies to the records that still match while refusing the ones
+  that drifted.
+- Drift decided by comparing Cloudflare record ids, or by an unnormalised string
+  compare.
+- An undo that expires on elapsed time rather than on drift.
+- An undo refusal the customer cannot act on, or one that names a record type.
+- An undo that is not itself recorded as a change.
 - A second external-DNS reader rather than ticket A's.
