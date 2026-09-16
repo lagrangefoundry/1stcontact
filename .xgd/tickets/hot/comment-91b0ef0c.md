@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:40:46.008833+00:00'
+updated_at: '2026-09-16T01:45:15.256071+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -245,5 +245,11 @@ I've also written the prompt up as a **deliverable rather than a detail** — di
 One open question I couldn't settle without measuring: **is the per-iteration gate the ~73-test subset or all 517?** The rail runs every iteration so runtime is a real constraint, but a subset is exactly how a regression sneaks through. Worth timing before T2 is written.
 
 Tickets not filed — the session is scoped to EPIC-12 and I'll leave creation to you.
+
+<!-- xgd-turn id="af41ea5b-3006-4694-aa96-d15cacacc40b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T01:45:14.854987+00:00" -->
+#### You
+Lets keep this cleanly separate from the production code, this is a dev tool it should not get accidentally deployed
 
 <!-- xgd-chat-end -->
