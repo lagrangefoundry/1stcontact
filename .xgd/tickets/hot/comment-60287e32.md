@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T18:54:30.697632+00:00'
+updated_at: '2026-09-16T18:55:53.492528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -565,5 +565,58 @@ I think we need to be careful about mixing jobs here. Inbox vs Spam is one probl
 So lets say we have a single bot account (on paid gmail) and every day we trigger every email sending form on every customer to send and email to that account. We open the email, we click on (test) the links in the email and we despam it if it went to spam. That should not harm our interaction score for those accounts and it tells us that the forms are working. There is also signal there if emails end up in spam despite all that love so that would be something worth tracking too - it would give us a lower bound on spam classification problems.
 
 For measuring spam lets get a third party and work through questions of cost and frequency - I think once a week for a new account, once a month for an established one plus a debug send option if mail seems to be getting spammed.
+
+<!-- xgd-turn id="08b22919-94a6-4f31-891f-9ef12f6e9d1e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:55:53.320694+00:00" -->
+#### Claude
+The separation is right, and it's cleaner than what I was proposing. It also resolves the tension in my earlier advice: `BODY.PEEK` and never-engage applies to *measurement* seeds, where engagement biases the result. Your functional bot has the opposite requirement — engage hard, because a healthy well-fed account is what makes it a reliable canary. Two different accounts with two different disciplines, no conflict.
+
+And the lower-bound logic is sound: if mail survives an account that opens everything, clicks everything and rescues it from spam, and *still* lands in spam, something is badly broken. Low sensitivity, very high specificity — exactly what you want in an alarm rather than a gauge.
+
+## The gotcha: synthetic submissions pollute the record
+
+Triggering Alice's contact form daily creates a fake lead in her contact list every day, fires her notification, and distorts every metric we show her. The record is the thing we're selling; filling it with 365 bot enquiries a year would be self-inflicted.
+
+So synthetic submissions need a marker — HMAC'd with a platform secret so it isn't forgeable — that the handler recognises. The instinct is to short-circuit on it, but that would stop testing the code path you're trying to test. Better to run the **full real path and write the record flagged synthetic**, then filter it from every view, count, and metric Alice sees, and suppress her notification. You exercise everything and keep the data clean.
+
+The metrics point matters as much as the list: a bot that opens and clicks 100% of 30 messages a month will wreck Alice's reported open rate if those sends are counted. Same flag, applied to reporting.
+
+**One upside you may not have counted:** that synthetic traffic is guaranteed-positive engagement on her domain — opened, clicked, rescued from spam. It's gentle continuous domain warming, which is genuinely valuable for a low-volume sender whose reputation would otherwise be built on 200 messages a month.
+
+## Shared code paths vs per-customer config
+
+Worth splitting, because it cuts the volume several-fold with almost no loss.
+
+The **code paths** — contact form, booking, quote request, receipt, invoice, newsletter confirmation — are shared across every customer. They break for everyone at once. Test all of them frequently against a canary site we own, where synthetic data costs nothing and there's no record to pollute.
+
+What's genuinely **per-customer** is the configuration: their DNS, their DKIM selector, their sending domain's reputation, their template. That needs one representative send per customer per day, not six.
+
+So: full path matrix on the canary, high frequency; one path per real customer daily, to validate their specific config. Six times less mail, and you'd still catch both classes of failure.
+
+## Addressing
+
+You'll need per-customer attribution in the mailbox — with a few hundred arrivals a day, "which customer's form is broken" has to be answerable without parsing bodies. Plus-addressing (`bfm+<customer-id>@`) or a catch-all on the Workspace domain both work, and the catch-all is more robust since some form validators choke on `+` in an email field.
+
+I'd also run more than one destination mailbox eventually — a single address is a single point of blindness if it ever gets classified oddly, and you'd lose visibility across the whole fleet simultaneously.
+
+## Two notes on the paid-Gmail choice
+
+Workspace filtering isn't consumer Gmail filtering — different defaults, admin-configurable. For functional testing that's irrelevant, and for your lower-bound signal it actually *strengthens* the logic: Workspace is the friendlier environment, so spam placement there is even more damning.
+
+But it means: **do not allowlist our senders in the Workspace admin console.** The reflex when a monitoring account's mail starts going to spam is to allowlist it so the monitor keeps working — and that would silently destroy the only placement signal the system has. Worth writing down somewhere an admin will find it, because it's a very natural thing to do at 2am.
+
+## Measurement cadence
+
+Weekly for new, monthly for established, plus on-demand debug send — I'd take that as-is. Two triggers I'd add:
+
+- **Before the first send to a newly imported list**, since that's the highest-risk moment in the whole system.
+- **On complaint or bounce rate crossing a threshold**, so the test fires before Alice notices rather than after.
+
+The debug send is the best part of it as product: Alice says "my emails are going to spam," and instead of a support conversation she gets a real placement test back within minutes, with evidence and a specific cause. That's a good moment for the AI panel to earn its place.
+
+---
+
+Still happy to write this up as a DOC under CHAT-54 whenever you want it — the separation of functional-vs-placement, the canary/config split, and the don't-allowlist warning are the bits most likely to get lost otherwise.
 
 <!-- xgd-chat-end -->
