@@ -361,7 +361,9 @@ describe('REQ-255 every stored reference is re-gated', () => {
     const { log } = await recordThenCheck(cwd, {})
     for (const name of REFERENCES) {
       const bundle = path.join('storage', 'references', name, 'index')
-      expect(log).toContain(`node ${path.join('tools', 'generate', 'bin', '1c.mjs')} refold --ref ${bundle}`)
+      // The verb and its arguments are the contract; WHERE `1c.mjs` sits is an
+      // installation detail, resolved from the module rather than from a cwd.
+      expect(log.some((line) => line.startsWith('node') && line.endsWith(` refold --ref ${bundle}`))).toBe(true)
       expect(log.some((line) => line.startsWith('node') && line.includes(` l1-gate --ref ${bundle} --json`))).toBe(true)
       expect(log.some((line) => line.includes(` gate ${railSlug(name)} --ref ${bundle} --json --sandbox`))).toBe(true)
     }
