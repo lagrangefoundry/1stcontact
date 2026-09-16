@@ -5,9 +5,9 @@ type: request
 title: 'Reproduction console: capture a site, reproduce its home page, show the diff'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:16.558352+00:00'
-updated_at: '2026-09-16T03:17:35.464268+00:00'
+updated_at: '2026-09-16T03:50:52.903840+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -103,6 +103,58 @@ of today's manual reproduction loop, which is why it lands first.
     dropped), and every later step in the iteration has to point `--ref` at that
     exact directory.
 
+
+## Implementation consequences
+
+These are behaviours the requirements above imply rather than state, recorded
+here because they are asserted by test and would otherwise look unmotivated.
+
+20. **Static resolution is reused, not restated.** The console serves each
+    iteration's rendered site and diff images off disk, which needs the same
+    confinement, directory-index and extensionless rules the builder origin
+    already has. That resolver lived in `tools/generate/src/cli/serve.ts`, whose
+    other imports drag the node-only store barrel (and its
+    `@cloudflare/workers-types` ambients) along with it — a cost a console that
+    serves two scratch directories has no reason to pay, and the alternative was
+    a second copy of a traversal guard, which is the failure `serve.ts`'s own
+    note says must not happen. So the resolver moved to
+    `tools/generate/src/cli/static-file.ts`, unchanged, and its two existing
+    callers (`builder.ts` and the CLI barrel) now name that module directly.
+    **No re-export is left behind on `serve.ts`** — one import path to the
+    resolver, not two.
+21. **A served path cannot escape its iteration.** `/iteration/<n>/…` resolves
+    inside that iteration's own directory and nothing above it; an attempt to
+    climb out is refused rather than served, and an iteration that does not
+    exist is a 404 rather than a hole.
+22. **Artifact URLs carry a trailing slash.** Without it a reproduction's
+    document-relative asset references resolve one level too high and the page
+    loads with no CSS and no images, so a link that arrives without one is
+    redirected to the slash form.
+23. **Nothing the console serves is cached.** Every byte of it is rebuilt under
+    the browser by the next iteration, so a cached copy is a stale answer to
+    the one question the console exists to ask.
+24. **The diff link is a page, not a directory listing.** It shows what
+    `1c diff` reported, in [[DOC-19]]'s worst-first reading order: the headline
+    numbers, then the two heatmaps, then a reference / reproduction / difference
+    triptych per ranked region. The crop paths in `regions.json` are absolute —
+    `1c diff` wrote that report for an operator reading it on their own disk —
+    so the console serves the same files by name out of the iteration's own
+    directory.
+25. **A site is one sandbox slug, derived from its host.** Re-running rebuilds
+    that sandbox site in place, which is what `1c repro` already does; the
+    iteration's *artifacts* are what is kept separately (requirement 17).
+26. **`1c capture page` grows a `--json` flag** (requirement 19). Under it the
+    command reports `{url, name, dir, sections, assets, l1Nodes, widths}` and
+    prints nothing else — the whole command runs through `withCleanStdout`, so
+    a browser launch, a font fetch or a Vite notice cannot land in the middle
+    of the document. Without the flag the prose line is unchanged.
+27. **A failed step is reported by name, with what the process said.** The last
+    few informative lines are kept, and lines with no word character in them
+    are dropped first: Playwright prints its "browser is not installed" refusal
+    inside a drawn box, so the literal last line of the commonest capture
+    failure is box-drawing characters — which said that the run failed and
+    nothing whatever about why.
+
 ## Out of scope
 
 - Any AI (that is [[REQ-256]]), and the fourth per-iteration link to the gap
@@ -133,8 +185,14 @@ page reports the failure instead of hanging.
   number. The browser polls a small status endpoint for the running/failed line
   and reloads when the version moves. There is no client build step and no
   duplicated markup.
-- **Zero dependencies.** The console package declares none; it is node builtins
-  and the `1c` binary.
+- **One dependency: `vite`.** The console declares nothing else — everything it
+  does is node builtins and the `1c` binary. `vite` is there because the console
+  is TypeScript and node cannot import it directly; the launcher boots a Vite
+  SSR server and loads the console through `ssrLoadModule`, the same bootstrap
+  `bin/1c` uses and for the same reason ([[REQ-150]]). The bootstrap is written
+  out rather than shared with `tools/generate`: reaching in for it would put the
+  console into the import graph of the package the deployable Worker reads its
+  engine out of, which is the one direction requirement 12 forbids.
 
 Related: [[EPIC-12]] §8.1, §8.3, §8.6 · [[REQ-150]] (why the CLI compiles on the
 fly) · [[DOC-19]]
