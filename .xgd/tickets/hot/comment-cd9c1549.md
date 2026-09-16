@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T00:28:10.564924+00:00'
+updated_at: '2026-09-16T00:29:20.868502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2062,5 +2062,28 @@ Also on the local test:
 ```
 
 first call is 401 then 404s?
+
+<!-- xgd-turn id="2c550f7e-1c7f-43e9-acda-156a0eeaf544-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T00:29:20.381733+00:00" -->
+#### You
+1stcontact.io is WRONG tho - this will ultimately be served by xgd.dev so hardcoding is not helpful here.
+
+Also on the local test:
+
+```
+[wrangler:info] GET /site/site_bca807fc7cdd0bf418b15e255f8c45c6/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6 401 Unauthorized (6ms)
+[wrangler:info] GET /favicon.ico 401 Unauthorized (2ms)
+[wrangler:info] GET /site/site_bca807fc7cdd0bf418b15e255f8c45c6/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6 404 Not Found (8ms)
+[wrangler:info] GET /site/site_bca807fc7cdd0bf418b15e255f8c45c6/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6 404 Not Found (13ms)
+
+```
+
+first call is 401 then 404s?
+
+ok the 401 gives this message:
+Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-key-1'.
+
+when I call localhost. If I try on 127.0.0.1 I get 404 (same path)
 
 <!-- xgd-chat-end -->
