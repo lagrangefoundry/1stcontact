@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:07:01.843058+00:00'
+updated_at: '2026-09-16T04:16:05.379961+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -223,5 +223,13 @@ The bounce/complaint plumbing for this already exists in `email-webhook.ts`; bro
 ---
 
 Short version: third party yes, but as infrastructure under our product, not as the product. Where does the list live is the decision, and I'd keep it.
+
+<!-- xgd-turn id="558653a9-92ee-4e28-b90d-04c7ac26fe5f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T04:16:05.072439+00:00" -->
+#### You
+**The single biggest control, though, is where addresses come from.** Our lists are small and warm — people who filled in a form or bought something. That's a far better starting position than the median Mailchimp account. The thing that destroys it is arbitrary CSV import, which is how purchased lists get in. I'd either not ship import at first, or gate it behind attestation plus a throttled first send with complaint-rate watching. <-- that's funny, I was just thinking about list import. We need it, there is no around it. If I have been working as a plumber for the last 20 years I have a mailing list of customers not being able to leverage that mailing list would be seriously damaging our product.
+
+## Once someone unsubscribes, no code path emails them again — including anything reclassified as "transactional" to slip past. That's the rule most homegrown senders get wrong. <-- transactional has to get through - "Your payment method failed" is a message they want - unless they are no longer a customer altogether. But we do not want Alice trying to reclassify mail..
 
 <!-- xgd-chat-end -->
