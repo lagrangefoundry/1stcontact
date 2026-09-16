@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T18:29:11.162998+00:00'
+updated_at: '2026-09-16T18:38:08.994646+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -468,5 +468,17 @@ Two things to build in: ground every piece of advice in *their* actual figures r
 ---
 
 Want me to capture any of this? There's a DOC's worth of design here, and the DMARC-RUA-instead-of-Postmaster finding in particular is the kind of thing that'll get rediscovered painfully in six months if it isn't written down.
+
+<!-- xgd-turn id="54a5807a-714c-42db-b009-4f2f2b3271bb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:38:08.619164+00:00" -->
+#### You
+**On DIY: I'd advise against it, and the reason isn't account creation.** It's that a freshly created, never-used Gmail account is not a representative recipient. Gmail's filtering is heavily personalised and engagement-driven — it learns from what that specific user opens, replies to and rescues from spam. A dormant account with no history doesn't behave like a real mailbox, so you'd be measuring something, but not the thing you care about. Commercial panels maintain *aged* accounts with activity histories, and that's most of what you're paying for. <-- I'm still not quite discouraged yet if we only need a small number of accounts to do the test tests then those could be created overtime from different IP addresses if necessary. It's only if we need volume that it becomes a real problem. And the accounts would get email I'm assuming this is something that we would want to test on a regular basis whatever once a week perhaps more frequently when an account is new. So out of the gate no the account would be fresh and disregarded but after a year of operation we could have a dozen Google accounts and they would be getting daily emails, we could also reply as well that helps boost our ratings.
+
+GlockApps is the accessible tier — roughly $60–100/month for a small plan <-- so cost is one thing but control and visibility is another I recognize that people in this business probably have better infrastructure but do they have a PI can we access that stuff directly and can we do regular tests.
+
+**But here's the reframe that makes it cheap:** you don't need per-customer seed testing. Most of what you're measuring is the health of *our sending path* — the IP pool, the ESP, the template HTML, the auth setup. That's a handful of tests per week for the whole platform, not per customer. <-- really? Why not per customer? Why not as just a part of our ongoing basic flow monitoring?
+
+I am expecting to establish a basic flow monitoring (BFM) system that should test the functionality of all aspects of the platform and where necessary individual sites. There is obviously some thought needs to go in to what things must be tested at a per domain level versus being tested at a platform level. Platform level tests should be done very frequently individual site tests could be less frequent potentially but one of the things that I want to be able to guarantee to customers is that they know that their site is up and functioning as expected including the email forms and payments (I am assuming that stripe will offer some kind of sandbox for us to test against in production).
 
 <!-- xgd-chat-end -->
