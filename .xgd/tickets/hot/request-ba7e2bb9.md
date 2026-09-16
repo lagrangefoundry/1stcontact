@@ -6,7 +6,7 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-16T22:05:42.764280+00:00'
+updated_at: '2026-09-16T23:58:48.306498+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -340,3 +340,55 @@ in `AI_DISALLOWED_TOOLS`. Requirement 9 holds unchanged, and [[DOC-53]] §2's
 "there is no `xgd`" remains true as written. This measurement is reproduced by
 `.xgd/tmp/d5/run.sh` and belongs beside the policy in `ai.ts`, alongside the
 original finding it re-confirms.
+
+
+### D7 — the round gets `Bash` and calls `xgd` directly. This SUPERSEDES D5.
+
+**The problem D5 and §4 were circling.** A round is a headless `claude -p`
+subprocess. Running `xgd` requires the `Bash` tool. `Bash` is denied by name in
+`AI_DISALLOWED_TOOLS`, so the round can run nothing, which is why the console
+files on its behalf. D5 then measured whether `Bash` could be handed over
+narrowly and found it cannot: `--allowedTools 'Bash(xgd ticket get:*)'` admits
+`Bash` wholesale and does not enforce the prefix. It is all or nothing.
+
+**The decision is all.** `Bash` comes off the deny list. The round calls `xgd`
+the same way every other agent on this project does — it is the API this
+project exposes to Claude Code, and a second mechanism wrapping it is a second
+thing to maintain for no capability that `xgd` does not already have.
+
+This settles §4 without either of the options §4 offered:
+
+- **Console-as-broker is dropped.** It was a workaround for the round's
+  inability to run a command, and the inability is gone.
+- **An MCP route is dropped and explicitly out of bounds.** `xgd mcp-server`
+  exists but is roughly a year old and unmaintained; nothing here depends on it
+  or modifies it.
+- **A ticket digest in the KB is dropped** — the ticket store is a rapidly
+  moving picture and is queried live. The KB carries documents, which are read
+  whole; everything else is a live `xgd` call.
+
+**Requirement 9 is amended.** It read: the round still has no tool that can
+write a file, run a command, reach the network or spawn an agent. It now reads:
+the round has `Bash` and may run `xgd`; every OTHER tool that can write a file,
+spawn an agent or reach the network stays denied by name. [[REQ-256]]
+behaviour 3 is narrowed by this ticket rather than upheld by it, and that is a
+deliberate reversal by the operator, not drift.
+
+**What is given up, stated honestly.** "The round cannot write" was a property
+of the process and becomes an instruction in the brief. The engine it is
+diagnosing is now editable by it. That is bounded by free-coding's own
+machinery — an un-ticketed edit is drift and `test_fix` eliminates it — so it
+is a cost that is already paid for elsewhere.
+
+**What is NOT given up, and is asserted instead.** The one expensive mistake is
+a ticket created at a `ready_*` status, because the dispatcher spawns an
+autonomous pipeline against it within about thirty seconds. Filing stays the
+console's job at `status: draft`, exactly as behaviour 4 has it, and in
+addition the console REPORTS after each round on any ticket the round created
+itself, asserting none carries a `ready_*` status. A check that reports, never
+one that prompts: the operator is not to be asked questions mid-round.
+
+### Requirement 11 (new)
+
+After each round, the console reports which tickets the round created directly,
+and asserts that none of them carries a `ready_*` status.
