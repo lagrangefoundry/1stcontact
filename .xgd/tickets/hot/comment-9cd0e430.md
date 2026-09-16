@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:18:03.591444+00:00'
+updated_at: '2026-09-16T17:18:51.136121+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -179,5 +179,18 @@ Node.js v24.2.0
 <!-- xgd-chat role="assistant" ts="2026-09-16T17:18:03.156928+00:00" -->
 #### Claude
 That's my miss — I ran `pnpm install` inside the free-coding worktree, and `xgd branch clean` deleted that worktree along with the `node_modules` it created. The main checkout never got it. The lockfile entry is committed, so a plain install fixes it:
+
+<!-- xgd-turn id="369e6495-8d3b-4177-9ccf-8bd8b47d8609-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:18:50.980378+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/repro-console              
+listen EADDRINUSE: address already in use 127.0.0.1:8710
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+can you please (1) give me a --port arg and (2) can you give me a command to kill the process holding a port?
 
 <!-- xgd-chat-end -->
