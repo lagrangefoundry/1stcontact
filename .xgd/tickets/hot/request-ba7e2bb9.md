@@ -6,7 +6,7 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-16T21:37:42.048770+00:00'
+updated_at: '2026-09-16T21:43:37.078447+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -127,6 +127,35 @@ Whichever is chosen: tickets are still only ever WRITTEN by the console,
 through the API, at `status: draft`. That is [[REQ-256]] behaviour 4 and it is
 not in question here.
 
+### 5. This ticket owns the tool policy, exclusively
+
+**Every change to what a round may do lands here.** `AI_ALLOWED_TOOLS`,
+`AI_DISALLOWED_TOOLS`, `AI_PERMISSION_MODE` and `AI_SETTING_SOURCES`
+(`tools/repro-console/src/ai.ts`) are this ticket's surface and no other
+ticket's. [[REQ-261]] is being worked concurrently, touches the same file, and
+carries an explicit requirement that it changes none of them — so if a
+permission question surfaces over there, it arrives here.
+
+Two things to settle while holding that surface:
+
+**The decision from behaviour 4** — console-as-broker, or scoped read-only
+`xgd` for the round. Whichever wins, the policy constants record it.
+
+**The deny list goes stale.** `AI_DISALLOWED_TOOLS` enumerates every tool that
+can act, and its own comment admits the list "can go stale as the CLI grows
+tools" — the enumeration is the gate precisely because a tool merely absent
+from the allow list was MEASURED to run anyway. A round gaining resume and a
+wider filing surface makes that staleness matter more.
+
+The session's reported tool list arrives in the transcript's first event.
+Check what the round actually got against what the policy intended, rather than
+trusting the enumeration to have kept up.
+
+**Anything measured here is recorded beside the policy**, in the form the
+original finding took: what was tried, what happened, and what it therefore
+proves. A permission asserted without a measurement is the exact mistake that
+finding exists to prevent.
+
 ### 5. Priming is measured
 
 The reason for this ticket is cost, so the change has to show a difference.
@@ -157,7 +186,12 @@ regression, and we should be able to see that rather than argue about it.
    recorded beside the policy, as [[REQ-256]]'s original finding was.
 9. [[REQ-256]] behaviour 3 holds unchanged: the round still has no tool that
    can write a file, run a command, reach the network or spawn an agent.
-10. Tool-call count and cost for a primed round are recorded against a
+10. Every change to `AI_ALLOWED_TOOLS`, `AI_DISALLOWED_TOOLS`,
+    `AI_PERMISSION_MODE` and `AI_SETTING_SOURCES` lands in this ticket and no
+    other, and each is justified by a recorded measurement.
+11. The round's actual tool list is checked against what the policy intended,
+    rather than assumed from the enumeration.
+12. Tool-call count and cost for a primed round are recorded against a
    comparable unprimed one.
 
 ## Acceptance
@@ -176,6 +210,9 @@ regression, and we should be able to see that rather than argue about it.
   context forward. This ticket is about what every round is told before it
   starts.
 - **What the round hands back** — [[REQ-261]].
+- **The outcome parser, transcript, recoverability and cost telemetry** —
+  [[REQ-261]]. This ticket consumes its cost telemetry (behaviour 5) but does
+  not build it.
 - The AI writing code. [[REQ-256]] stands.
 
 ## Related

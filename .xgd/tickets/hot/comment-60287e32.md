@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T19:39:36.856058+00:00'
+updated_at: '2026-09-16T21:48:05.605112+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -718,5 +718,56 @@ Both recorded in [[EPIC-13]] as resolved, with the original questions left stand
 Also flagged as obligations: KB corpus membership must default *out* (per-message embedding cost would swamp a corpus currently made of briefs and material), threading maps to ticket-plus-comments following the `chat_transcript` precedent, erasure has to reach the R2 blobs or it's erasure that reads correct and isn't, and volume is an open engineering question — this store was sized for uploads and chats, not every message every business sends.
 
 **On the tab seam**, one consequence worth watching: with config in Settings and per-contact history on the contact, what's actually left in the new tab is substantially *campaigns*. A unified cross-contact inbox is a hypothesis about how a one-van business works, not a known requirement. Your "simplify later" may land before the first tab is built rather than after — so I've written in: don't build the unified inbox until someone asks for one.
+
+<!-- xgd-turn id="37477873-f6f9-4b0f-a3f3-7279cbce80cb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:46:57.240084+00:00" -->
+#### You
+A write lock is a very reasonable addition to the ticket store. Let me add that in the framework.
+
+Yes no unified inbox - lets focus on emails under contacts.
+
+What is in the email tab as you see it today?>
+
+<!-- xgd-turn id="37477873-f6f9-4b0f-a3f3-7279cbce80cb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:48:05.415321+00:00" -->
+#### Claude
+Honest answer: once config went to Settings and the conversation went to the contact, the tab is **Campaigns** — and not much else. Let me check whether lists have a home already before I answer properly.
+
+No saved-segment or list concept exists yet, and the People tab is labelled **Contacts** (`config.js:87`). So this is greenfield, which makes the answer cleaner.
+
+## What's actually in it
+
+Six things, and they're all outgoing:
+
+1. **Campaign list** — drafts, scheduled, sending (with ramp progress visible, since a tranched send is a thing in flight), sent.
+2. **Composer** — markdown + AI for content, AI for styling and template, preview, test send.
+3. **Audience picker** — selects a saved segment and shows the count **after suppression is applied**. That's the number that matters and the one a business will otherwise get wrong.
+4. **Schedule and ramp** — send window ("nothing before 8am on launch day"), tranche sizes, halt thresholds.
+5. **Post-send results** — delivered, bounced, complained, unsubscribed, clicked. Deliberately *not* open rate as the headline number, since Apple's Mail Privacy Protection inflates it and a business making decisions on it is making them on noise.
+6. **Deliverability panel** — placement test results, the debug-send button, the AI advisor working the diagnostic ladder.
+
+## What I'd push out of it
+
+**Lists and segments → Contacts.** A list is a saved segment of contacts. Membership derives from the contact record, and "which lists is this person on" belongs on the contact page next to everything else true about them. Putting lists in a campaigns tab creates a second contact model that has to be kept in sync with the first — which is exactly the objection I raised against handing the list to Mailchimp, and it applies just as well internally.
+
+**Import → Contacts.** Importing a customer list creates contacts. The email-specific parts — validation, cleaning, provenance scoring — are *stages in that flow*, not a separate feature living in a different tab. Otherwise there are two import paths and they will diverge.
+
+**Per-contact consent → the contact.** The business-level "who unsubscribed this month" is a report and can sit with campaigns.
+
+**Auth and DNS health → Settings**, already decided.
+
+## The one cross-contact thing that isn't a campaign
+
+Inbound mail from an address that matches no contact. It can't render on a contact page because there isn't one, so it needs somewhere to land. But that's a **triage queue, not an inbox** — and by the same logic as import, I'd put it in Contacts as an unidentified/pending state rather than standing up a mail surface for it. It's the moment a contact gets created, which is a Contacts concern.
+
+## The sequencing consequence
+
+This is the useful part: **phase 1 needs no new tab at all.** Inbound capture touches Settings (addresses, forwarding, auth health), Contacts (the triage queue, contact creation) and the contact page (the conversation). Nothing else.
+
+The Campaigns tab doesn't need to exist until outgoing work starts — which is a later and much larger nibble. So "do we need two tabs?" resolves to **one, later**, and I'd name it **Campaigns** rather than Email. Calling it Email would promise the inbox we've just decided not to build.
+
+Want me to fold this into EPIC-13? It refines the OQ1 resolution — specifically lists and import moving to Contacts, and the finding that the first phase ships with zero new surfaces.
 
 <!-- xgd-chat-end -->

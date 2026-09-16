@@ -6,10 +6,10 @@ title: 'Serving a custom domain: the records, the runtime Worker route, and host
   resolution'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:49.963776+00:00'
-updated_at: '2026-09-16T18:18:59.331734+00:00'
+updated_at: '2026-09-16T21:59:47.899814+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8

@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-259
 created_by: xgd
 created_at: '2026-09-16T20:05:41.308228+00:00'
-updated_at: '2026-09-16T21:38:29.104825+00:00'
+updated_at: '2026-09-16T22:00:14.038957+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,89 @@ The prior session had already written and committed the implementation and merge
 **Ticket body:** I audited all 42 UAT names against the body and found five describing behaviour it didn't name — the empty-pool sentence, the toggle and address being separately reversible, the release dialog and its focused Cancel, release being idempotent, and `_dmarc` counting as present when only the world can see it. I added a *"Five smaller consequences"* subsection inside `What landed`, preserving everything already there, so reconciliation doesn't have to discover them.
 
 The ticket is parked at `free_coded`. Promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="f3e309d2-edd8-464a-8b42-eda182918d7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:43:36.243482+00:00" -->
+#### You
+Does this ticket contain UI visible changes?
+
+<!-- xgd-turn id="f3e309d2-edd8-464a-8b42-eda182918d7d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:44:12.585499+00:00" -->
+#### Claude
+Yes — this ticket is substantially a UI ticket. Let me pull the specifics rather than answer from the file list.
+
+Yes — and it's the larger half of the ticket. Roughly 600 of the 3779 added lines are the surface itself, plus the copy that lives in `domains.ts`.
+
+## What a customer sees
+
+A new **`Your domain`** section on the Settings pane, third in the list, directly beneath REQ-249's free web address. `apps/control-app/src/builder/domain.js` is entirely new (381 lines), with 88 lines of new CSS and 70 lines of new API client in `api.js`.
+
+**The three controls from the ticket's table:**
+- **The selector** — the account's active zones, with taken hosts listed but disabled. Above it: *"Your own web address. Once it is switched over, anyone typing it lands on the site we have built for you."* The button reads **Use this domain**.
+- **The email toggle** — labelled **Send email from this domain**, with a status line beneath that changes with state: *"Email to your customers comes from 1st Contact, not from ‹domain›"* → *"Setting up email from ‹domain›. This usually takes a few minutes — you can carry on, and it will come right on its own."* → *"Email to your customers comes from ‹domain›."*
+- **Release** — **Stop using this domain**, behind a modal that answers the actual fear rather than asking "are you sure": *"‹domain› will stop pointing at your site, and your free 1st Contact address takes over again"* / *"The domain stays yours and stays on your account — you can point it back here whenever you like."* Cancel holds focus.
+
+**Three more visible states:** an account with no domains gets a sentence and no controls at all (*"You do not have a domain with us yet. Ask and we will sort one out for you."*); a business member who isn't the account holder sees no pool and no buttons, only *"Ask the account owner to attach a domain to this site."*; and a domain already carrying mail gets told so **after** the attach, in their language — *"Your email is with Microsoft 365 — I'll keep that working."*
+
+`settings.js` also changed in both commits: the header comment was rewritten to count three sections instead of two, and the pane now appends and clears the domain section under the same business-switch generation guard as the hostname section.
+
+**Not visible:** no record type, record value, or Cloudflare zone id appears anywhere a customer can read — that's the ticket's central constraint, and `test_UAT_FC_REQ-259_no_record_type_or_value_appears_anywhere_a_customer_can_read` plus `..._no_answer_on_this_path_names_a_record_or_a_zone_id` are the two UATs holding it.
+
+One caveat on seeing it yourself: `dist-assets/builder/domain.js` is a build output, so a running builder won't pick up the new section until `./bin/1c assets` has run.
+
+<!-- xgd-turn id="bad7eacb-6bcc-4acf-a575-66e42e5c941b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:55:12.768085+00:00" -->
+#### You
+✗ This deployment has no CLOUDFLARE_DNS_TOKEN, so it manages no DNS. See bin/deploy.d/secrets/40-cloudflare-dns-token. <-- the deployment has a CLOUDFLARE_API_TOKEN with DNS access, why do I need to create multiple tokens?
+
+<!-- xgd-turn id="bad7eacb-6bcc-4acf-a575-66e42e5c941b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T21:56:12.887164+00:00" -->
+#### Claude
+The script argues its own case, but let me verify the claims hold in the current code before I answer.
+
+You don't need two tokens — you need two **names**, and you can point both at the same value.
+
+## Why the name is taken
+
+`CLOUDFLARE_API_TOKEN` already means something else in this deployment: `embedder.ts` reads it with `CLOUDFLARE_ACCOUNT_ID` as the REST transport for Workers AI (BUG-73). And that pair is enforced **both-or-neither** — `embedder.ts:248-249`:
+
+```ts
+if (accountId) throw new PartialAiCredentialError('CLOUDFLARE_API_TOKEN')
+if (apiToken) throw new PartialAiCredentialError('CLOUDFLARE_ACCOUNT_ID')
+```
+
+So if `cloudflare.ts` read `CLOUDFLARE_API_TOKEN` instead, making it reachable in production would push that name into the Worker's env with no `CLOUDFLARE_ACCOUNT_ID` beside it — and the embedder would throw at boot, taking the knowledge base down. Reusing the name breaks one capability to configure the other. That's the actual constraint, and it's REQ-257's decision, not REQ-259's.
+
+The second half of the argument is scope: `cloudflare.ts` maps one-to-one onto `Zone:DNS:Edit` + `Workers Routes:Edit` and reads the account id off the zones themselves, so it needs no account id at all — which is why it's one key rather than a pair.
+
+## What to actually do
+
+If your existing token genuinely carries `Zone:DNS:Edit` and `Workers Routes:Edit`, just give it the second name:
+
+```bash
+export CLOUDFLARE_DNS_TOKEN="$CLOUDFLARE_API_TOKEN"
+```
+
+The hook pushes it, `cloudflare.ts` reads it, and the 503s go away. Nothing requires the values to differ — only the names.
+
+Worth a check first, though: the two aren't interchangeable in practice here. Workers AI is an account-level API and zone editing is a zone-level one, and a token scoped for one commonly 401s on the other. If the DNS calls start failing after you set it, that's the reason, and a narrowly-scoped second token is the fix.
+
+## Two things I'd flag
+
+**The warning is about to become a failure.** The comment says it stays a `warn` because no customer surface reaches DNS yet — *"change `warn` to `fail` and the message is already written."* REQ-259 is that surface. A deployment without the token now means the `Your domain` section can't attach anything, so that hook is due a `warn`→`fail` flip. That's a separate ticket; this session is scoped to REQ-259, which is already `free_coded`.
+
+**You have an uncommitted edit to that file** — `ten` → `eleven` enumerated operations, matching REQ-258's `listRoutes`. It's comment-only and correct, but it's sitting unstaged in your working tree and wasn't part of REQ-259's four commits.
+
+<!-- xgd-turn id="874c85ee-f5d4-4e42-9e00-d9afb0a4efdd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:00:12.486717+00:00" -->
+#### You
+**The warning is about to become a failure.** The comment says it stays a `warn` because no customer surface reaches DNS yet — *"change *`warn`* to *`fail`* and the message is already written."* REQ-259 is that surface. A deployment without the token now means the `Your domain` section can't attach anything, so that hook is due a `warn`→`fail` flip. That's a separate ticket; this session is scoped to REQ-259, which is already `free_coded`. <-- please just make the change you are still only at three coded it is safe
+
+Always parallel agents editing don't be alarmed
 
 <!-- xgd-chat-end -->
