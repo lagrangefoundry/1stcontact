@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:14:17.109104+00:00'
+updated_at: '2026-09-16T17:14:30.254412+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -109,5 +109,41 @@ Ticket: `story_points: 8`, `version: 0.2.216`, commits `0d467ee0` and `657a4024`
 <!-- xgd-chat role="user" ts="2026-09-16T17:14:14.949880+00:00" -->
 #### You
 How do I start the tool?
+
+<!-- xgd-turn id="73f45d68-731d-41f8-8ba5-93f5a6e2baac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:14:28.869995+00:00" -->
+#### Claude
+From the repo root:
+
+```bash
+./bin/repro-console
+```
+
+That serves on **http://127.0.0.1:8710/** — loopback only. To pick a different port:
+
+```bash
+./bin/repro-console --port 9000
+```
+
+It prints the URL it bound to (`reproduction console → http://127.0.0.1:8710/`) and stays in the foreground; Ctrl-C stops it.
+
+## Using it
+
+1. Open the URL. The page is a text box and a **[reproduce]** button, nothing else.
+2. Type a site address — `joyfulculinarycreations.com` — and press **[reproduce]**.
+3. The status line reports each step as it runs (`Running iteration 1 — capture…`, then `refold`, `repro`, `render`, `diff`). Buttons are disabled while it runs.
+4. When it finishes, **Iteration 1** appears with three links — the original site, the reproduction, the diff images. Each opens in a new tab.
+5. **[run again]** appends Iteration 2 below it, re-running against the stored bundle (no re-capture), so an engine change you land between runs is picked up.
+
+## One prerequisite
+
+The capture step needs a headless browser. In this environment it isn't installed — a run fails at `capture` with Playwright's "browser is not installed" message. If you hit that:
+
+```bash
+npx playwright install chromium
+```
+
+Everything downstream of capture (refold → repro → render → diff) is offline.
 
 <!-- xgd-chat-end -->
