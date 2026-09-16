@@ -5,10 +5,10 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-16T00:15:10.539167+00:00'
+updated_at: '2026-09-16T00:46:04.819250+00:00'
 completed_at: null
 last_field_updated: status
-status: underway
+status: done
 fields:
   priority: medium
   chat_comment: comment-e8891c59
