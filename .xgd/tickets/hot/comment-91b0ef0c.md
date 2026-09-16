@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T23:01:01.925822+00:00'
+updated_at: '2026-09-16T23:02:48.816202+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -425,5 +425,58 @@ One thing still open from that chat, unrelated to the above: REQ-256 is at `free
 <!-- xgd-chat role="user" ts="2026-09-16T23:01:01.713944+00:00" -->
 #### You
 ok good - can you review the state of the tickets and implementations and tell me where we are? Can I try an end to end test?
+
+<!-- xgd-turn id="000b7e8c-9aaf-4caf-96e2-84f2c3aee3cf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T23:02:48.477451+00:00" -->
+#### Claude
+The lost round's transcript is still on disk. Let me check whether the fixed parser can actually recover it.
+
+Ran the five suites and checked the code rather than trusting ticket statuses. **Yes, you can run end to end — one command first.**
+
+## Where the tickets are
+
+| | | |
+|---|---|---|
+| **REQ-254** console | `ready_to_reconcile` | landed |
+| **REQ-255** rail | `free_coded` | landed |
+| **REQ-256** AI round | `free_coded` | landed |
+| **REQ-261** parser/resume/bugs | `free_coded` | landed, v0.2.227 |
+| **REQ-262** priming + KB | `draft` | **not built** |
+| **DOC-53** session KB doc | `draft` | skeleton; pipeline map still TO BE WRITTEN |
+
+## What's actually in the tree
+
+All of REQ-261 is real, not just ticketed — I checked each item: the balanced-brace parser replaced the fence regex (`ai.ts:626`), resume is wired (`session.ts`, `--resume`, a distinct preamble, `RESUME_MAX_ROUNDS`), the `bugs` list and `fileBugs()` exist, model/cost/turns are read off the stream, `digest.ts` writes the evidence pre-digest, and there's a `/iteration/N/recover` route behind a **[read it again]** button.
+
+**101 UATs pass across the five suites** (7.9s). `claude` is on your PATH, Playwright Chromium is installed, `vite` is present for the launcher, `1c gate` exists, and all three references are stored.
+
+## The one thing blocking you
+
+`storage/rail/` doesn't exist — there's no recorded baseline, so the rail will honestly report `REGRESSED · no baseline` on every iteration.
+
+```
+./bin/repro-rail record      # then:  ./bin/repro-console
+```
+
+That's the explicit human act the rail's own usage text describes. It re-gates all three references, so give it a few minutes.
+
+## A free win before you spend anything
+
+**Your lost round is recoverable, and I verified it rather than assuming.** I ran the fixed parser against the actual transcript on disk:
+
+```
+RECOVERED  status = filed
+title      : gate: reference coverage counts section background images as unreferenced
+body       : 6346 chars intact
+```
+
+The run directory `repro-gigabytealchemy-ai/iteration-1` is still there with its `outcome.json` frozen at *"the round produced no outcome block."* Start the console, it re-reads that run from disk, and **[read it again]** on Iteration 1 files the ticket from the stored transcript — spawning nothing, paying nothing. That gets the real gate defect ticketed before you run anything new.
+
+## What to expect that isn't a bug
+
+**Rounds are unprimed.** REQ-262 is `draft`, so there's no session KB and no engine map — a round finds its way by grepping and will re-derive the same bearings every time. It works; it costs more than it should. That's the whole point of REQ-262, and running now gives it the cost baseline to be measured against, since REQ-261's telemetry now records model, cost, turns and tokens per round.
+
+One sequencing note: REQ-254 sits at `ready_to_reconcile` while the three that build on it are at `free_coded`. Doesn't affect a test run — all the code is on `xgd-working` — but it's worth reconciling in order.
 
 <!-- xgd-chat-end -->
