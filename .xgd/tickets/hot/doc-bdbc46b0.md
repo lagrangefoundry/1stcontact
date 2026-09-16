@@ -6,9 +6,9 @@ title: The reproduction engine and the loop-1 session — the diagnosing session
   base
 created_by: REQ-261
 created_at: '2026-09-16T20:55:42.661492+00:00'
-updated_at: '2026-09-16T20:55:42.661492+00:00'
+updated_at: '2026-09-16T21:29:02.144397+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   doc_kind: architecture
@@ -30,7 +30,7 @@ Its three jobs:
    round actually has. This section grows. It is the reason this is a living
    document rather than a one-off write-up.
 
-Written against [[REQ-261]]. Sections marked **TO BE WRITTEN** are that
+Written against [[REQ-262]]. Sections marked **TO BE WRITTEN** are that
 ticket's work; the rest is what the first live round established and is true
 today.
 
@@ -38,7 +38,7 @@ today.
 
 ## 1. The pipeline
 
-**TO BE WRITTEN ([[REQ-261]]).** A map of `tools/generate/src/` — what each
+**TO BE WRITTEN ([[REQ-262]]).** A map of `tools/generate/src/` — what each
 module owns and where the boundaries fall. It must at minimum answer, without
 the reader having to grep:
 
@@ -156,12 +156,15 @@ found it with a grep of the ticket store and said so in the ticket, which is
 the difference between "here is a defect" and "here is a defect we have now
 seen twice and never fixed."
 
-Ticket bodies are plain markdown on disk under `.xgd/tickets/hot/`. They are
-greppable with the tools a round has.
+Tickets are read and written through the xgd ticket API, never by file path.
+A round has no `Bash`, so it cannot run `xgd` and must never be pointed at the
+ticket store directly. Prior tickets reach a round the same way its evidence
+does: the console reads them through the API and writes what the round needs as
+ordinary files. Supplying that properly is [[REQ-262]] requirement 7.
 
 ## 4. Related
 
-[[REQ-261]] (the work this document is part of) · [[REQ-256]] (the round) ·
+[[REQ-262]] (the work this document is part of) · [[REQ-261]] · [[REQ-256]] (the round) ·
 [[REQ-254]] (the console) · [[REQ-255]] (the rail) · [[EPIC-12]] §7.1, §8 ·
 [[DOC-19]] (the reproduction runbook) · [[DOC-21]] (the growth loop) ·
 [[DOC-23]] (L1 substrate) · [[DOC-27]] (L1 reproduction vocabulary) ·
