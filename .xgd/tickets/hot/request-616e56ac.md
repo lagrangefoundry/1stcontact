@@ -6,9 +6,9 @@ title: 'The DNS layer: zones, the Cloudflare client, the external resolver, and 
   operator backfill'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:39.898551+00:00'
-updated_at: '2026-09-16T03:55:43.907965+00:00'
+updated_at: '2026-09-16T03:55:44.071931+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -180,3 +180,134 @@ one.
 - A DKIM check that enumerates rather than probing known selector names.
 - A second external-DNS reader in ticket C, ticket E or [[EPIC-7]].
 - `zones.apex` without a unique index.
+
+
+---
+
+## Implementation decisions, 2026-09-15
+
+Taken in the free-coding session. Nothing above is withdrawn; what follows is
+where the ticket's shape met the code, and the places the answer was not obvious
+from the ticket alone.
+
+### Two new deployment keys, and they are deliberately NOT the embedder's pair
+
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` already exist in this
+deployment: `embedder.ts` reads them as the REST transport for Workers AI
+([[BUG-73]]), `.dev.vars` carries the account id commented out, and that pair is
+BOTH-OR-NEITHER — half of it is a `PartialAiCredentialError` at boot. Reusing
+either name for zone management would be wrong twice over. It would put a
+Workers-AI token where a `Zone:DNS:Edit` token is needed, and declaring the
+account id in `wrangler.toml` so production could see it would hand
+`transportFor` half a credential and break the project knowledge base on a
+deployment that had never asked for REST.
+
+So the DNS layer carries its own credential, under its own name:
+
+- **`CLOUDFLARE_DNS_TOKEN`** — a `wrangler secret`, pushed by
+  `bin/deploy.d/secrets/40-cloudflare-dns-token`, scoped to `Zone:DNS:Edit` and
+  `Workers Routes:Edit` and nothing else. Never in `wrangler.toml`; the existing
+  credential scan fails the build if it ever is.
+
+**And there is no second key**, because the account id is not configuration. A
+zone object carries its own `account.id`, so the client reads it from the zones
+the token can already see and memoises it. That is one fewer value to get wrong,
+it cannot drift from the account the token actually reaches, and it keeps this
+ticket's *"one module, one token"* literally true. An account with no zones at
+all cannot have one created into it; that is named as its own refusal rather than
+left to a confusing API error, and it is unreachable for this deployment, which
+has at least the two platform zones.
+
+### The resolver reads over DNS-over-HTTPS, because there is no other way out
+
+`fetch-guard.ts` already records the constraint this runs into: *"workerd cannot
+resolve a name before fetching it."* There is no UDP from a Worker and no
+resolver API on the platform, so reading live DNS means an HTTPS query to a
+public recursive resolver — Cloudflare's `cloudflare-dns.com/dns-query`, over the
+`application/dns-json` interface.
+
+**That is still reading from outside, which is the property this ticket asks
+for.** A recursive resolver follows the domain's delegation to its *current*
+authoritative nameservers; nothing about the zone being in our own Cloudflare
+account short-circuits it, and nothing here reads the zone back through the
+Cloudflare API. What it costs is cache latency — a recursive resolver answers
+with what it last saw, within TTL — and that is the correct answer anyway, since
+what a snapshot wants to record is what the world currently resolves.
+
+**The transport is injected, not configured.** `resendMailer(apiKey, fetchImpl)`
+is the shape already used for an external HTTP dependency, and it is what lets a
+UAT drive real DKIM probing and real provider classification against a scripted
+resolver rather than against whatever `example.com` happened to publish today.
+
+### The operator surface is three admin routes, not a CLI command
+
+The backfill and the drift check both need the D1 binding and the Cloudflare
+secret, and both live inside the Worker. `/api/admin/businesses` is the existing
+precedent for an operator action with no self-serve counterpart, down to the
+refusal: `ownsPlatformBusiness`, and a 404 rather than a 403, because an
+unprivileged caller asking whether an administrative surface exists is owed
+nothing.
+
+- **`GET /api/admin/zones`** — every recorded zone, plus the drift report: what
+  Cloudflare has that this table does not, what this table has that Cloudflare
+  does not, where the two disagree about status, and which rows are unattributed.
+  It writes nothing. An unrecorded zone is tagged as a platform apex or not,
+  which is the *"either a platform zone or a mistake"* distinction made legible
+  rather than left to the reader.
+- **`POST /api/admin/zones`** — the backfill. The operator names the apex and an
+  account by email; the row is written `origin = 'operator'`, `status` read from
+  Cloudflare, `assigned_ns` read from Cloudflare. The **account** comes from the
+  operator and never from Cloudflare, which is what the falsifier is about.
+- **`GET /api/admin/dns?domain=…`** — the resolver, as a real entry point. It
+  answers *"is there a live business on this domain today"* for an operator, and
+  it is what makes the resolver provable end to end rather than only as a
+  function.
+
+### `released` and `revoked` are declared and not implemented
+
+Exactly as `AddressKind`'s `custom` is in `hostname.ts`. Release is ticket C's
+control and a `pending` claim's 14-day expiry is ticket D's; both write a status
+this column already admits. What this ticket owes them is that the column is
+there and that every question is asked over the status rather than over a
+boolean, so neither lands as a migration.
+
+### What the resolver classifies, and why the lists are tables rather than logic
+
+`snapshot(domain)` resolves `A`, `AAAA`, `CNAME`, `MX`, `TXT` and `NS` on the
+apex, `A` and `CNAME` on `www`, and probes the DKIM selectors by name. It then
+names, in words a customer would recognise, who their **mail** is with (from MX),
+who their **web** is with (from the apex or `www` answer), and who else **sends**
+as them (from SPF `include:` tokens) — plus every DKIM selector that answered,
+with the provider whose selector it is.
+
+Each of those is a declared table of `{ pattern, provider }`, not a chain of
+conditionals, because the failure mode is a provider nobody added rather than a
+rule nobody got right — and a table says plainly what is known and therefore what
+is not. An unrecognised host is reported as the host, never as `null` dressed up
+as an absence: *"your mail is at `mx.example.net` and I do not recognise it"* is
+usable and *"you have no mail"* is dangerous.
+
+`live` is the summary the epic's gate wants — mail or web answering — and it is
+computed here and gated elsewhere, which is the surface/capability split the
+epic's sibling table states.
+
+### Two things this ticket touches that it did not name
+
+- **`db/migrations/0010_zones.sql` is added to the test fixture's migration
+  list.** `tests/support/d1-site-factory.ts` applies the real migration files
+  rather than restating a schema, so a file absent from that list is a schema the
+  suite cannot see.
+- **`RouterEnv` gains the token and `RouterDeps` gains two seams** — the
+  Cloudflare client and the resolver — for the reason every other external
+  dependency in that interface is injectable: a UAT asserting what the backfill
+  wrote should not have to reach a metered API to find out.
+
+### Falsifiers, extended
+
+- The zone client exposing any method that takes a path.
+- `CLOUDFLARE_DNS_TOKEN` in `wrangler.toml`, in either environment.
+- `CLOUDFLARE_ACCOUNT_ID` or `CLOUDFLARE_API_TOKEN` read by anything in the DNS
+  layer — they are the embedder's, and sharing them re-creates the both-or-neither
+  trap in a module that has no opinion about Workers AI.
+- A DKIM answer reported without the provider whose selector it is.
+- An unrecognised mail or web host reported as an absence rather than as a host.
