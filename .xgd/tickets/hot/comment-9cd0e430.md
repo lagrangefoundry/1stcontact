@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:40:04.398606+00:00'
+updated_at: '2026-09-16T17:40:58.534246+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -487,5 +487,58 @@ If keeping the reproduction's L1 per-iteration would be useful — so you can di
 <!-- xgd-chat role="user" ts="2026-09-16T17:40:02.731158+00:00" -->
 #### You
 (1) it might be useful to go back and revisit a site is it possible to point the console at an existing reproduction? (2) The full run of multiple iterations on a site will take a  little while, I need to be able to run multiple in different brower tabs - can I just fir them up on different ports? (3) I think we should keep iterations as we go the links should just keep appearing down the page as we do more iterations so I can always check to see how much we are changing
+
+<!-- xgd-turn id="edf83270-e5aa-405e-83a5-e08d8219592d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:40:58.484217+00:00" -->
+#### Claude
+Let me check a couple of things before answering — whether spawned `1c` steps bind ports (which decides (2)), and where the iteration list actually lives.
+
+Checked: `1c` runs Vite in `middlewareMode` with `hmr: false, ws: false`, so a spawned step **binds no port**. That settles (2).
+
+## (2) Multiple consoles on different ports — yes, works today
+
+```bash
+bin/repro-console --port 8710    # tab 1
+bin/repro-console --port 8711    # tab 2
+bin/repro-console --port 8712    # tab 3
+```
+
+Each is an independent process with its own state. Nothing in a step binds a port, so concurrent iterations don't fight over one.
+
+⚠️ **One real constraint: give each console a different site.** Two consoles on the *same* site collide on shared, slug-derived paths:
+
+- `storage/sandbox/repro-<host>/` — `1c repro` rebuilds this in place
+- `storage/tmp/repro-console/repro-<host>/iteration-N/` — wiped at the start of each run
+
+Same site in two tabs means they overwrite each other's work, silently. Different sites are fully isolated — different host → different bundle, different slug, different everything.
+
+## (3) Iterations already accumulate
+
+This is requirement 6 and it works — Iteration 1, 2, 3 stack down the page, each keeping its own links and its own artifacts. The UAT asserts exactly that. So if you're not seeing it, it's one of these two:
+
+**Pressing [reproduce] instead of [run again].** They're different verbs (requirement 16). [reproduce] takes the address and *starts a new list at Iteration 1* — it captures fresh. [run again] takes no address, re-runs the loaded site, and appends. If the address is still sitting in the box, [reproduce] is the tempting button and it's the one that resets you.
+
+**Restarting the console.** The iteration list is in-memory only. Kill the process and it's gone — even though every artifact is still sitting in `storage/tmp/repro-console/<slug>/`. The links die; the files don't.
+
+## (1) Pointing at an existing reproduction — not possible today
+
+[reproduce] always captures. There's no way to say "use the bundle already in `storage/references/faelan.com/index/`". You have three captures on disk (18M, 14M, 23M) that the console can't currently reach without re-hitting the site.
+
+---
+
+## What I'd build
+
+(1) and the restart half of (3) are the **same** feature: *the console's memory of a site should come from disk, not from process lifetime.*
+
+Concretely:
+
+1. **On [reproduce], if a bundle already exists for that host, reuse it** — skip capture, go straight to refold. Re-capturing is the thing that re-rolls the oracle and makes a fold change and a reference change inseparable; you almost never want it on a revisit. A separate **[recapture]** button for when you do.
+2. **Rebuild the iteration list from `storage/tmp/repro-console/<slug>/` on startup**, so restarting the console — or opening a second one on a site you ran yesterday — shows the history that's already on disk.
+3. **Keep the reproduction's `home.json` per iteration**, so you can diff iteration 1's fold against iteration 5's. Right now it's overwritten (from my last message) — and "how much are we changing" is exactly the question that needs it.
+
+Point 3 is the one that most directly serves *"so I can always check to see how much we are changing"* — the rendered pixels and diff images are kept, but the L1 itself isn't, and that's where the change actually lives.
+
+Want me to free-code that onto REQ-254? It's a branch, UATs, and the ticket-body language to motivate them. I'd guess 3 is the highest value of the three, and 1 is the one that unblocks you fastest.
 
 <!-- xgd-chat-end -->
