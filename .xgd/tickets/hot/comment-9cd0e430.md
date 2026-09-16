@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:29:47.622578+00:00'
+updated_at: '2026-09-16T17:29:58.241134+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -337,5 +337,11 @@ tools/generate/node_modules/.bin/playwright install chromium
 ```
 
 Let me run it now:
+
+<!-- xgd-turn id="addaafd1-995a-4eb9-a49c-42e6dd0efaaf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:29:57.492144+00:00" -->
+#### You
+I really prefer to run install scripts myself
 
 <!-- xgd-chat-end -->
