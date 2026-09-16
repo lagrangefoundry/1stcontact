@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:22:20.570172+00:00'
+updated_at: '2026-09-16T17:26:33.818745+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -303,5 +303,11 @@ Get the server up on a free port first. Then press **[reproduce]** — if Chromi
 Worth noting: that stale PID 14767 is a console that's been running since before this conversation started, on the default port. Once you kill it, plain `bin/repro-console` will work — no `--port` needed.
 
 And my earlier offer stands: the EADDRINUSE message is Node's raw text passed straight through, which is exactly why it read as opaque. I can make it name the port, print the `lsof` line, and point at `--port`. Say the word and I'll free-code it on REQ-254.
+
+<!-- xgd-turn id="a8f3b2de-245b-43b3-b715-6fbbd439d741-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:26:33.556811+00:00" -->
+#### You
+Sorry that pasted the wrong text. I am looking at that message Iteration 1 capture failed. I can't copy paste the message for some reason. It is trying to find an executable for chromium and failing - as I said I have tried the install and it doesn't change anything
 
 <!-- xgd-chat-end -->
