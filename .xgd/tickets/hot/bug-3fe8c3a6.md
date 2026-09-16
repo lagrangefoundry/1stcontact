@@ -6,9 +6,9 @@ title: A gated download link names a hardcoded host and the wrong channel, not t
   site's own address
 created_by: EPIC-10
 created_at: '2026-09-16T00:46:18.723054+00:00'
-updated_at: '2026-09-16T01:39:55.987642+00:00'
+updated_at: '2026-09-16T02:05:57.340871+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -146,7 +146,7 @@ surface an operator consults to find out whether it did.
 
 ## Test plan
 
-`tests/test_UAT_FC_BUG-97_download_host.test.ts`:
+`tests/test_UAT_FC_BUG-97_download_host.workers.test.ts`:
 
 - A published site with a platform hostname mails a link on **that** host, and the site key
   does not appear in the URL's authority.
@@ -154,33 +154,67 @@ surface an operator consults to find out whether it did.
   rather than by matching `1stc.site`, so [[EPIC-6]] lands unchanged.
 - A site holding both kinds mails the custom one.
 - A **draft**-channel submission mails a link that resolves against the draft, and a published
-  one against the published revision. The two are different URLs from the same form.
-- A site with no address at all refuses the delivery and reports why; no mail goes out carrying
-  a composed-from-nothing link, and no grant is minted for a link nobody can be given.
+  one against the published revision. The two are different URLs from the same form, and the
+  draft one names the business, so a mail read days later cannot resolve against whichever
+  business a session had selected.
+- A site with **no address at all** refuses the delivery and reports why; no mail goes out
+  carrying a composed-from-nothing link, and no grant is minted for a link nobody can be given.
 - A site with no address still delivers a message its form promises no artifact for, because
   that message carries no link to compose.
-- The two operator-facing callers still produce what they produce today. Asserted directly, so
-  the fix cannot quietly move the view-published click — the failure the constant's comment
-  exists to prevent.
-- The link a recipient receives is followable end to end in a development deployment, which is
-  the symptom.
+- The two operator-facing callers still produce what they produce today — the constant, and the
+  preview channel's redirect through the real route. Asserted directly, so the fix cannot
+  quietly move the view-published click, which is the failure the constant's comment exists to
+  prevent.
+- A submission from a **development** origin mails a link on that origin, and the origin is
+  taken from the request rather than supplied by the test — asserted by submitting through the
+  real preview route and reading the host back out of the mail.
 
-`tests/test_UAT_FC_BUG-97_draft_gate.test.ts`:
+`tests/test_UAT_FC_BUG-97_draft_gate.workers.test.ts` — the link is taken out of the mail and
+then **followed**, through the builder's own `route()`:
 
 - A site that has **never been published** takes a preview submission and the link it mails
   opens: the page lists exactly what the draft's form promises, and the artifact it links
-  arrives as its bytes.
+  arrives as its bytes, out of the draft's own assets.
+- The arrival and the download are recorded by the same statement the published gate records
+  them with, so *"they opened it"* means one thing whichever channel they opened it on.
+- A gated page and a gated artifact are never stored by any cache, and are not indexed.
 - The draft gate reads the **draft's** definition, so an artifact added to the form since the
-  last publish is on the page — and on a site with no revision at all there is a page rather
-  than a refusal.
-- A token minted against one site reaches nothing under another site's key, on the draft channel
-  as on the published one.
-- The published gate is unchanged, asserted through `public-site`'s own entry point.
+  last publish is on the page.
+- A token minted against one site reaches nothing under another site's key on the draft channel;
+  an unknown token is the ordinary refusal; a site key this business does not hold is refused;
+  and the **edit** channel answers no gate at all.
+- The published gate is unchanged, asserted through `public-site`'s own entry point — the page,
+  the artifact, and its bytes.
 
-`tests/test_UAT_FC_BUG-97_message_body.test.ts`:
+`tests/test_UAT_FC_BUG-97_message_body.test.ts`, through the real contact pane:
 
-- The message the pane lists carries the body that was sent, and the gate link in it is the one
-  the recipient was given — compared against the link the capture path actually minted.
-- A message the deployment could not send is reported as not sent, and names the missing mail
-  provider as the reason rather than showing a status that says it went.
-- A message that really was sent still reads as sent.
+- A message opens to show the body **that was sent**, and the gate link the recipient was given
+  is readable in it — which for a per-contact link is the only place it exists.
+- It is framed and sandboxed: no same-origin access, no scripts, and no top-level navigation, so
+  a message cannot restyle the builder or take its tab. `allow-popups` is granted, because a
+  link that cannot be pressed is a link that cannot be tested.
+- It is built on first open and only once, and a record kept without a body says so rather than
+  framing nothing.
+- A message the deployment could not send is reported as not sent and **names the missing mail
+  provider**, while the record's own status is still shown beside it; one that really was sent
+  carries no such note.
+
+### Two fixture corrections this needed, recorded so they are not read as drift
+
+`seedFormSite` seeded a `site.json` carrying no `id`, no `theme` and no `nav`, so **the draft it
+produced never validated**. Nothing noticed, because every suite using it read the definition out
+of the store and none of them rendered it — and the draft gate serves an artifact by rendering.
+It seeds `starterSiteJson` now, which is what `1c new` seeds, making the fixture's own claim
+(*"a site this returns is a site the serving Worker could serve"*) true.
+
+And a published fixture site now **holds a public address**, because [[REQ-238]] requires one
+before publishing and this helper writes the revision directly rather than going through
+`POST /api/publish`. Without it every delivery UAT in the suite would assert the refusal above —
+which is silence, and silence is the symptom.
+
+`giveSiteAnAddress` writes the row rather than claiming through `claimHostname`, for two reasons
+worth stating: a `custom` address has no shipped operation at all ([[EPIC-6]]), and the claim path
+is scoped to the business and deliberately refuses a second platform label — while the schema's
+own rule (`idx_site_domains_site_platform`) is per **site**. Two existing UATs that pinned
+`https://1stcontact.io/site/<key>/api/download/…` are updated to assert the site's own host:
+they were pinning the defect.
