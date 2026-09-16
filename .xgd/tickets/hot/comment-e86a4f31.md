@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T20:54:02.125536+00:00'
+updated_at: '2026-09-16T20:56:45.276996+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -399,5 +399,43 @@ Want me to split the engine doc out, or start on behaviour 1?
 Splitting it into a `doc` ticket would let the console work proceed without waiting on it. <-- without waiting on whatt? doc tickets and req tickets are implemented the same - this is a request for work so it should be an REQ - it can be as long as we need
 
 We need a DOC ticket for this work though that would be included as part of the sessions KB (not the production KB though). It should explain the pipeline, the sessions role, and be a place where we can accumulate learnings about how to find and fix issues best using the available tools.
+
+<!-- xgd-turn id="32a29904-0a45-48d0-9715-f12887d65711-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T20:56:44.849228+00:00" -->
+#### Claude
+Let me check how docs get into the production KB, since you want this one out of it.
+
+The production KB is opt-in — `doc_kind: system_kb`. Anything else is excluded by construction. Let me create the DOC.
+
+DOC-53 created. Now correcting REQ-261.
+
+Both corrections are in. **REQ-261** updated, **DOC-53** created.
+
+## Where I had it wrong
+
+I'd read your item 1 as *"let it file more than one gap ticket."* You meant the opposite shape: **one gap ticket, unbounded** — no cap on its size or on the scope of work it asks for — and bugs filed *separately* for anything it trips over on the way there.
+
+That reframes the first round's behaviour. It wrote: *"Regions 1–5 and 9 … are candidate classes for a later round; I am filing the one that is provable end-to-end."* Under your reading that isn't a throttle working correctly, it's a **defect** — those findings should have gone into the same ticket, and the later round they were deferred to starts from zero and will never know they were seen. Behaviour 2 now says deferring is losing, and requirement 3 makes the ticket explicitly unbounded. I've dropped the open question entirely.
+
+The separate-bug path also widened to match what you said: L1, **its own instructions**, or the broader `1c` implementation. The brief itself being a legitimate bug target is a good addition I hadn't captured.
+
+On splitting the doc out — "without waiting on what" was a fair challenge; I was reasoning about sequencing that doesn't exist here. The engine documentation stays in REQ-261 as work, and can be as long as it needs.
+
+## DOC-53
+
+`doc_kind: architecture`, which keeps it out of the production KB **by construction, not by convention** — `exportCorpus` admits only `doc_kind: system_kb` (`tools/generate/src/cli/kb.ts:256`), so nothing a round is primed with can reach a client-facing conversation. That's now a requirement with a check attached: DOC-53 must not appear in `1c kb build`'s output.
+
+Three sections, as you specified:
+
+1. **The pipeline** — marked TO BE WRITTEN, with the questions it must answer without the reader grepping (capture / fold / L1 / probes / gate, and where the boundaries fall). One thing I did write: the `backgroundImageUrl` vs `src` distinction, since that's precisely what cost the first round tool calls to rediscover.
+2. **The session's role** — written now, since I know it: three tools, no `jq`, no `node`, no `xgd`; one unbounded gap ticket plus separate bugs; diagnose the engine never the site; the transcribe-don't-reconstruct rule.
+3. **Learnings** — seeded with three from the first round, each written as reusable method rather than conclusion. The strongest is *check the instrument against the evidence* — the round didn't take a gate finding at face value, opened the files it derived from, found it false, then followed it into the verdict ladder to show it silently disables loop 1 on any background-image site. That's the pattern worth teaching.
+
+One note on DOC-53's shape: in this repo a DOC ticket's body *is* the document, so what exists now is a real skeleton with the parts I could write honestly, not a placeholder. I deliberately didn't invent the pipeline map — I've only seen `tools/generate/src/` secondhand through the round's citations, and writing it properly means reading it.
+
+Also worth flagging: DOC-53 makes the standing brief and the session KB two documents with overlapping content — the brief already states the one rule and the round's role. Whether the brief shrinks to a pointer or they stay parallel is a call for the implementation; I've left it open rather than deciding it in the ticket.
+
+Ready to start on behaviour 1 whenever you want it — that's still the one blocking every other demonstration.
 
 <!-- xgd-chat-end -->
