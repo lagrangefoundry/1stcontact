@@ -28,13 +28,10 @@ whatever has landed since.
 **The round writes no code.** It is a `claude -p` process that can read and do
 nothing else: every tool that can write a file, run a command, reach the network
 or spawn an agent is denied BY NAME — `AI_DISALLOWED_TOOLS` in `src/ai.ts`, and
-the note beside it records why naming rather than omitting is what gates. Three
+the note beside it records why naming rather than omitting is what gates. Two
 falsifiers run after every round and are shown on the page: the working tree is
-compared before and after, the filed ticket's status is read back (it must be
-`draft`; a `ready_*` status is a dispatcher trigger), and the tool list the
-session itself reported is checked against the policy — because an enumerated
-deny list goes stale as the CLI grows tools, and that staleness should be visible
-rather than silent.
+compared before and after, and the filed ticket's status is read back (it must
+be `draft`; a `ready_*` status is a dispatcher trigger).
 
 **One unbounded gap ticket, plus bugs.** The gap ticket is capped neither in size
 nor in the scope of work it asks for: a round that found five related residuals

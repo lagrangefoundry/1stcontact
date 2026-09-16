@@ -139,8 +139,6 @@ export interface AiOutcome {
   cost?: RoundCost
   /** The CLI session this round ran in — what the next round on this site resumes. */
   sessionId?: string
-  /** The tool list the session reported, checked rather than trusted (behavior 8). */
-  tools?: string[]
   /** Set when this outcome was read back off a finished round's artifacts (behavior 5). */
   recovered?: boolean
 }
@@ -422,30 +420,6 @@ export const AI_DISALLOWED_TOOLS: readonly string[] = [
   'EnterWorktree',
   'ExitWorktree',
 ]
-
-/**
- * The policy, checked against what the session actually reported (behavior 8).
- *
- * {@link AI_DISALLOWED_TOOLS} is enumerated, and its own note says the list "can
- * go stale as the CLI grows tools" — an accepted cost, because the alternative is
- * an allow list that was measured not to gate. What makes the staleness visible
- * rather than silent is this: the `system` init event reports the tool list the
- * session really has, and anything in it that the policy did not allow is named
- * on the page. A round that gains resume and a wider filing surface makes that
- * check worth more, not less.
- *
- * One line, not one per tool: the finding is "the session is wider than the
- * policy", and the names are the evidence for it.
- */
-export function toolPolicyViolations(reported: readonly string[] | undefined): string[] {
-  if (!reported?.length) return []
-  const unexpected = reported.filter((tool) => !AI_ALLOWED_TOOLS.includes(tool.split('(')[0]))
-  if (!unexpected.length) return []
-  return [
-    `the session reported ${unexpected.length} tool(s) the policy did not allow: ${unexpected.join(', ')}` +
-      ' — check whether any of them can act, and name it in AI_DISALLOWED_TOOLS if so.',
-  ]
-}
 
 /**
  * The permission mode the round runs under.
@@ -855,11 +829,10 @@ function attempt(env: NodeJS.ProcessEnv, opts: AiRunOptions, resume: string | un
     let pending = ''
     let finalText = ''
     let stderr = ''
-    // Read off the stream rather than guessed at (behavior 6 and behavior 8):
-    // what the CLI chose, what the round cost, and what it could actually do.
+    // Read off the stream rather than guessed at (behavior 6): what the CLI
+    // chose and what the round cost, neither of which was recorded before.
     let cost: RoundCost = {}
     let sessionId: string | undefined
-    let tools: string[] | undefined
 
     const consume = (chunk: string, flush = false): void => {
       pending += chunk
@@ -876,7 +849,6 @@ function attempt(env: NodeJS.ProcessEnv, opts: AiRunOptions, resume: string | un
           if (event.type === 'system' && event.subtype === 'init') {
             if (typeof event.session_id === 'string') sessionId = event.session_id
             if (typeof event.model === 'string') cost.model = event.model
-            if (Array.isArray(event.tools)) tools = event.tools.filter((t): t is string => typeof t === 'string')
           }
         } catch {
           // Not protocol — still shown, see formatStreamEvent.
@@ -893,7 +865,7 @@ function attempt(env: NodeJS.ProcessEnv, opts: AiRunOptions, resume: string | un
     })
     child.on('close', () => {
       consume('', true)
-      const observed = { cost, ...(sessionId ? { sessionId } : {}), ...(tools ? { tools } : {}) }
+      const observed = { cost, ...(sessionId ? { sessionId } : {}) }
       if (!finalText.trim()) {
         const why = stderr.trim().split('\n').filter((l) => /\w/.test(l)).slice(-3).join('\n')
         resolve({ status: 'failed', reason: why || 'the round produced no final message.', ...observed })

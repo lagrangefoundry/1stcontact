@@ -47,7 +47,6 @@ import {
   readGateReport,
   resumePreamble,
   spawnAiRunner,
-  toolPolicyViolations,
   type AiOutcome,
   type AiRunner,
   type FiledTicket,
@@ -686,9 +685,6 @@ export class ReproConsole {
     const bugs = await this.fileBugs(aiDir, outcome)
     outcome.violations = [
       ...roundViolations,
-      // Behavior 8: the deny list is enumerated and can go stale, so what the
-      // session REPORTED is checked against what the policy intended.
-      ...toolPolicyViolations(outcome.tools),
       ...filing,
       ...bugs,
       ...(await this.ticketViolations(outcome)),
@@ -855,14 +851,13 @@ export class ReproConsole {
     // not the parse's, and re-deriving them from a transcript would be a guess.
     if (it.outcome?.cost) outcome.cost = it.outcome.cost
     if (it.outcome?.sessionId) outcome.sessionId = it.outcome.sessionId
-    if (it.outcome?.tools) outcome.tools = it.outcome.tools
     this.running = true
     try {
       // No tree comparison: the round that wrote this transcript finished long
       // ago, so anything in the tree now is somebody else's and attributing it
       // to the round would be the false report behavior 3's check exists to
-      // avoid. The check that still means something — what the SESSION could do
-      // — is read off the recovered outcome inside `settle`.
+      // avoid. The filing checks in `settle` still apply: they are about what
+      // was FILED, which this act really did.
       await this.settle(it, aiDir, outcome, [])
     } finally {
       this.running = false

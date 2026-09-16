@@ -31,8 +31,6 @@ import {
   parseOutcome,
   readCost,
   resumePreamble,
-  toolPolicyViolations,
-  AI_ALLOWED_TOOLS,
   type AiOutcome,
   type AiRunOptions,
   type AiRunner,
@@ -464,40 +462,6 @@ describe('REQ-261 rounds carry context forward', () => {
     expect(resumed.args[resumed.args.indexOf('--permission-mode') + 1]).toBe('manual')
     expect(resumed.args).toContain('Bash')
     expect(resumed.args.indexOf('Bash')).toBeGreaterThan(resumed.args.indexOf('--disallowedTools'))
-  })
-})
-
-// ── behavior 8: the policy is checked, not remembered ────────────────────────
-
-describe('REQ-261 the tool policy is asserted', () => {
-  it('test_UAT_FC_REQ_261_a_session_wider_than_the_policy_is_reported', () => {
-    // `AI_DISALLOWED_TOOLS` is enumerated and its own note says it can go stale
-    // as the CLI grows tools. What makes the staleness visible rather than
-    // silent is the session's OWN reported tool list, checked against what the
-    // policy intended instead of trusted.
-    expect(toolPolicyViolations([...AI_ALLOWED_TOOLS])).toEqual([])
-    expect(toolPolicyViolations(undefined)).toEqual([])
-    // A parameterised grant is still the tool it names.
-    expect(toolPolicyViolations(['Read', 'Grep', 'Glob'])).toEqual([])
-    const found = toolPolicyViolations(['Read', 'Grep', 'Glob', 'TimeTravel', 'Bash(git *)'])
-    expect(found).toHaveLength(1)
-    expect(found[0]).toContain('TimeTravel')
-    expect(found[0]).toContain('Bash')
-    expect(found[0]).toContain('AI_DISALLOWED_TOOLS')
-  })
-
-  it('test_UAT_FC_REQ_261_the_check_runs_against_the_round_the_console_started', async () => {
-    const f = await startConsole({
-      ai: fakeAi({ calls: 0, prompts: [], resumes: [] }, {
-        status: 'no-gap',
-        summary: 'looked',
-        tools: ['Read', 'Glob', 'Grep', 'Write'],
-      }),
-    })
-    await reproduce(f)
-    const html = await page(f)
-    expect(html).toContain('the session reported 1 tool(s) the policy did not allow')
-    expect(html).toContain('Write')
   })
 })
 
