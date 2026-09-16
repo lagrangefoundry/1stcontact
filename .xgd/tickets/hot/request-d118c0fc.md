@@ -6,9 +6,9 @@ title: 'The hostname assistant: reconcile the surface with the built experience,
   keep the pane and the chat in step'
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:45.479150+00:00'
-updated_at: '2026-09-16T00:46:09.730842+00:00'
+updated_at: '2026-09-16T00:46:48.018130+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -25,6 +25,7 @@ fields:
   version: 0.2.210
   story_points: 5
 ---
+
 
 ## What this is
 
@@ -232,3 +233,113 @@ that was unobserved.
 | `test_UAT_FC_REQ-251_the_assistant_takes_an_address.workers.test.ts` | Section 4 — the three operations driven end to end through the real host |
 | `test_UAT_FC_REQ-251_the_pane_follows_the_assistant.test.ts` | Sections 1 and 2 — the signal, the re-read, and the half-typed candidate left alone |
 | `test_UAT_FC_REQ-251_one_set_of_rules.test.ts` | Section 3 — the declaration and the pane tied to one vocabulary |
+---
+
+## What shipped
+
+Commit `5800000879` (version `0.2.210`), merged into `xgd-working` as `bf384e9f97`.
+
+### 1. `business_changed` — the settings turn announces its own writes
+
+A second event kind beside `site_changed`, emitted by the settings branch of
+`streamPrompt` and carrying `{at, changes}`.
+
+**Derived, not declared**, for BUG-43's argument exactly. The site's signal is
+arithmetic over `store.counter(slug)`; a business is not a store and has no
+counter, so the equivalent is a count of write operations that actually
+*returned* — maintained by a hook `settings-core.ts` installs on each write op,
+and installed in `buildBusiness` where the business is in hand. **Which
+operations are writes is read out of the declaration's own `effect: "write"`
+entries** rather than listed beside it, so a future settings operation is
+announced the day it is declared. A refused claim announces nothing, because the
+count is taken after the operation returns.
+
+A NEW KIND AND NOT `site_changed`: a settings session has no site, and the host
+that consumes the site's signal answers it by reloading a preview frame.
+
+`chat.js`'s stream wrapper now observes both kinds through one `Map` — a `Map`
+and not an object index, because the key is a string off the wire and
+`constructor` would otherwise resolve to something on `Object.prototype`. The
+signal still leaves no trace in the transcript and a throwing host still does not
+take the turn with it. `app.js` hands `settingsChat` the one line the site chat
+has had since BUG-43.
+
+### 2. The pane re-reads
+
+`settings.reload()` — the pane goes back to the record, and the assistant does
+not write to the pane. Both facts, because the assistant can change both:
+
+- **the address**, through the same `/api/hostname` read the tab makes on open;
+- **the business name**, through `fetchBusinessRecord` over `/api/businesses` —
+  the list the shell already fetches, so **no new route was added**. A rename made
+  in the conversation moves the field and, through the existing `onRenamed`, the
+  switcher.
+
+**A re-read that finds no news changes nothing on screen.** The hostname section
+gained `refresh()` — distinct from `setAddresses()`, which a business *switch*
+calls and which is right to draw from nothing — and it acts only on a difference.
+A customer half-way through typing a candidate keeps it when the assistant
+renames the business beside them. Falsified: made unconditional, that case goes
+red.
+
+### 3. The declaration says what the field says
+
+Reconciled against [[REQ-249]]'s shipped copy and **tied to it by test** — the
+pane's exported sentences are imported and their distinctive phrases required to
+appear in the declaration, so a rewrite of either turns the other red.
+
+- **`free web address`** is the noun the model says out loud; the rule is stated
+  in the overview. `domain` is now used only where a customer-owned domain is
+  meant — asserted as a window around every occurrence, not as a global count.
+- **Three refusals, three destinations**: taken leads to another name, reserved to
+  a different word (every decoration of a kept word is kept too), invalid to a fix
+  of the same name.
+- **The whole host, always** — `alice.1stc.site`, never `alice`.
+- **For the business, not for this site** — `claim_hostname` was framed as the
+  site's address and now says what is actually enforced.
+- **The race sentence** — *"went while you were deciding"*, now said the same way
+  in both places.
+
+**Two structural names were deliberately left as `hostname`** — the `absences`
+headings [[REQ-238]] pins, and `hostname_label`. The rule this ticket adds is
+about `domain`; `hostname` remains the declaration's own word for what the
+operations are called, which the overview now says explicitly. Renaming those
+headings would have broken [[REQ-238]]'s evidence for no gain.
+
+### 4. Driving it
+
+Twelve cases take real turns through the Worker's route table over real D1 with
+the deployed schema, the Anthropic client the only double. **None of the three
+address operations had ever been called through the shipped host.** This is the
+first time several candidates are checked in one turn, the first time each of the
+three refusals is produced, and the first time the race and the second claim exist
+at all — the race is *produced* rather than described, by landing a rival's claim
+in the gap between the model's check call and its claim call.
+
+**The limit, stated:** a scripted model cannot prove that the model *chooses* to
+check several candidates before speaking, or *declines* to claim when told "just
+pick one". Those are properties of judgement, asked for in the declaration's
+`sequences` and `absences` (both strengthened here — the *"just pick one"* case is
+now answered explicitly). What the suite proves is that every one of those
+behaviours is reachable and correct when taken.
+
+## Tests
+
+| Suite | Cases |
+| --- | --- |
+| `test_UAT_FC_REQ-251_the_assistant_takes_an_address.workers.test.ts` | 12 |
+| `test_UAT_FC_REQ-251_the_pane_follows_the_assistant.test.ts` | 10 |
+| `test_UAT_FC_REQ-251_one_set_of_rules.test.ts` | 10 |
+
+Every claim was falsified against the bug: removing the `app.js` hook reds 4;
+making `refresh` unconditional reds the half-typed-candidate case; suppressing the
+host's signal reds 2; counting reads as writes reds the read-only case.
+
+**Regression:** 527 passing across all 64 test files that import anything this
+commit touched. One pre-existing failure in `test_UAT_FC_BUG-67_backend_settings`
+(`rejects a malformed document at install`), confirmed failing on a clean tree
+before this work and unrelated to it.
+
+**Merge note:** [[REQ-250]] landed on `xgd-working` mid-session and also added a
+method to `hostname.js` (`reveal()`). The conflict was additive and both methods
+were kept; the version bump was re-based above [[REQ-250]]'s to `0.2.210`.
