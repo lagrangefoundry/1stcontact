@@ -6,7 +6,7 @@
  * surface is exercisable without binding a socket, and the socket layer has
  * nothing in it worth a test of its own beyond "it binds to loopback".
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 // REUSED, NOT RESTATED. `resolveStaticFile` is the repo's single definition of
 // how a URL path becomes a file inside a directory — confinement, directory
@@ -16,12 +16,21 @@ import path from 'node:path'
 // the convention `apps/control-app` already follows for the same tree.
 import { resolveStaticFile } from '../../generate/src/cli/static-file'
 import { contentTypeOf } from '../../generate/src/store/content-type'
-import { renderConsolePage, renderDiffPage, type IterationView, type PageState } from './page'
+import {
+  renderConsolePage,
+  renderDiffPage,
+  renderTicketPage,
+  type AiView,
+  type IterationView,
+  type PageState,
+  type PollState,
+} from './page'
 import {
   captureListStep,
   findStoredCapture,
   parseCaptureList,
   readIterations,
+  readRail,
   runIteration,
   spawnStepRunner,
   StepFailure,
@@ -29,6 +38,20 @@ import {
   type StepRunner,
   type StoredCapture,
 } from './iteration'
+import {
+  buildPrompt,
+  CAPTURE_INCOMPLETE,
+  readBrief,
+  readGateReport,
+  spawnAiRunner,
+  type AiOutcome,
+  type AiRunner,
+  type GateSummary,
+} from './ai'
+import { spawnCommand, type CommandRunner } from './run'
+import { gapForClass, readGaps, recordGap } from './gaps'
+import { appendGapEvidence, fileGapTicket } from './ticket'
+import type { RailRoundResult } from './rail-round'
 
 /** Scratch space for every artifact the console produces. Gitignored (DOC-12). */
 export const CONSOLE_WORKSPACE = path.join('storage', 'tmp', 'repro-console')
@@ -47,11 +70,25 @@ export interface ConsoleResponse {
   body: string | Uint8Array
 }
 
+/** Where an AI round's own artifacts live, inside the iteration's directory. */
+export const AI_DIR = 'ai'
+export const AI_PROMPT_FILE = 'prompt.md'
+export const AI_TICKET_BODY_FILE = 'ticket-body.md'
+export const AI_TRANSCRIPT_FILE = 'transcript.txt'
+export const AI_OUTCOME_FILE = 'outcome.json'
+
 /** A finished iteration and the artifacts it left behind. */
 interface Iteration extends IterationView {
+  /** The iteration's own directory — everything below is inside it. */
+  dir: string
   siteOut: string
   diffOut: string
   pageOut: string
+  /** The bundle this round reproduced, so the AI round can be handed it. */
+  bundleDir: string
+  gate: GateSummary | null
+  railResult: RailRoundResult | null
+  outcome: AiOutcome | null
 }
 
 export interface ReproConsoleOptions {
@@ -59,6 +96,18 @@ export interface ReproConsoleOptions {
   cwd: string
   /** Injectable so the suite can run an iteration without a browser. */
   runStep?: StepRunner
+  /**
+   * Injectable so the suite can run a round without spending a token.
+   *
+   * The same seam {@link StepRunner} is, and for the same reason: the console's
+   * whole surface — behaviours 1, 2, 5, 6, 7 and 10 — is about what it does
+   * AROUND the AI, and none of it should need one to be exercised.
+   */
+  runAi?: AiRunner
+  /** Runs the rail, `git status` and `xgd ticket get`. Injectable likewise. */
+  runCommand?: CommandRunner
+  /** Where the rail and the AI executable are looked for. */
+  env?: NodeJS.ProcessEnv
 }
 
 /**
@@ -103,12 +152,31 @@ export class ReproConsole {
   private stored: StoredCapture[] = []
   private readonly cwd: string
   private readonly runStep: StepRunner
+  private readonly runAi: AiRunner
+  private readonly runCommand: CommandRunner
+  private readonly env: NodeJS.ProcessEnv
+  /**
+   * The round currently talking, and what it has said (behavior 2).
+   *
+   * The ONLY thing streamed. Every finished round is rendered from its own
+   * `ai/transcript.txt` on the next page build, so this holds one round at a
+   * time and is cleared the moment it ends.
+   */
+  private live: { n: number; text: string } | null = null
   /** The run in flight, so `close()` and the suite can wait for it. */
   private inFlight: Promise<void> = Promise.resolve()
 
   constructor(opts: ReproConsoleOptions) {
     this.cwd = opts.cwd
     this.runStep = opts.runStep ?? spawnStepRunner()
+    this.runAi = opts.runAi ?? spawnAiRunner(opts.env)
+    this.runCommand = opts.runCommand ?? spawnCommand
+    this.env = opts.env ?? process.env
+  }
+
+  /** The console's own scratch directory — where the gap registry lives. */
+  private get workspace(): string {
+    return path.join(this.cwd, CONSOLE_WORKSPACE)
   }
 
   /** Resolves when nothing is running. The suite's join point. */
@@ -123,14 +191,72 @@ export class ReproConsole {
       message: this.message,
       failed: this.failed,
       url: this.url,
-      iterations: this.iterations.map(({ n, originalUrl, reproHref, diffHref, pageHref }) => ({
-        n,
-        originalUrl,
-        reproHref,
-        diffHref,
-        pageHref,
-      })),
+      iterations: this.iterations.map((it) => this.view(it)),
       stored: this.stored.map(({ name, url }) => ({ name, url })),
+    }
+  }
+
+  /**
+   * What the poller gets, once a second.
+   *
+   * Small on purpose — see {@link PollState}. The page state carries every
+   * round's whole transcript; this carries one round's, and only while it is
+   * still moving, and only its tail: a long round would otherwise put its whole
+   * transcript on the wire every second for as long as it ran. The file keeps
+   * all of it, and the next page build renders all of it.
+   */
+  pollState(): PollState {
+    return {
+      version: this.version,
+      running: this.running,
+      message: this.message,
+      failed: this.failed,
+      live: this.live ? { n: this.live.n, text: tail(this.live.text) } : null,
+    }
+  }
+
+  /** One iteration as the page shows it, including the round beneath it. */
+  private view(it: Iteration): IterationView {
+    const ai = this.aiView(it)
+    return {
+      n: it.n,
+      originalUrl: it.originalUrl,
+      reproHref: it.reproHref,
+      diffHref: it.diffHref,
+      pageHref: it.pageHref,
+      // The fifth link exists only when a round really filed or appended
+      // something (behavior 5) — a link to a ticket that does not exist would
+      // be worse than the absence it is standing in for.
+      ...(it.outcome?.ticketUid && it.outcome.ticketId
+        ? { ticketHref: `/iteration/${it.n}/ticket`, ticketLabel: `the gap ticket (${it.outcome.ticketId})` }
+        : {}),
+      ...(it.gate ? { verdict: it.gate.verdict } : {}),
+      ...(it.railResult ? { rail: it.railResult.summary } : {}),
+      ...(ai ? { ai } : {}),
+    }
+  }
+
+  /**
+   * The AI block under an iteration, read from the round's own artifacts.
+   *
+   * The live round is the exception: its transcript is the in-memory buffer,
+   * because the file is being appended to as this renders and a half-flushed
+   * read would show the operator less than the poller already has.
+   */
+  private aiView(it: Iteration): AiView | undefined {
+    const live = this.live?.n === it.n
+    if (!live && !it.outcome) return undefined
+    const transcript = live
+      ? (this.live?.text ?? '')
+      : readIfPresent(path.join(it.dir, AI_DIR, AI_TRANSCRIPT_FILE))
+    const outcome = it.outcome
+    return {
+      status: live ? 'running' : (outcome?.status ?? 'failed'),
+      summary: live ? '' : (outcome?.summary ?? outcome?.reason ?? ''),
+      ...(outcome?.residualClass ? { residualClass: outcome.residualClass } : {}),
+      ...(outcome?.ticketId ? { ticketId: outcome.ticketId } : {}),
+      violations: live ? [] : (outcome?.violations ?? []),
+      transcript,
     }
   }
 
@@ -149,15 +275,25 @@ export class ReproConsole {
     this.iterations.length = 0
     for (const manifest of readIterations(path.join(this.cwd, CONSOLE_WORKSPACE, this.slug))) {
       const dir = path.join(this.cwd, CONSOLE_WORKSPACE, this.slug, `iteration-${manifest.n}`)
+      const diffOut = path.join(dir, 'diff')
       this.iterations.push({
         n: manifest.n,
         originalUrl: manifest.originalUrl || url,
         reproHref: `/iteration/${manifest.n}/site/`,
         diffHref: `/iteration/${manifest.n}/diff/`,
         pageHref: `/iteration/${manifest.n}/page`,
+        dir,
         siteOut: path.join(dir, 'site'),
-        diffOut: path.join(dir, 'diff'),
+        diffOut,
         pageOut: path.join(dir, 'page.json'),
+        bundleDir: manifest.bundleDir,
+        // The verdict, the rail and the round are all read back from the
+        // iteration's own artifacts, so a restart of the console shows the
+        // rounds it already ran — requirement 33 extended to what [[REQ-256]]
+        // added, rather than a second memory that only holds in this process.
+        gate: readGateReport(path.join(diffOut, 'gate.json')),
+        railResult: readRail(dir),
+        outcome: readOutcome(dir),
       })
     }
     this.version += 1
@@ -183,7 +319,7 @@ export class ReproConsole {
       return html(200, renderConsolePage(this.state()))
     }
     if (method === 'GET' && pathname === '/state') {
-      return json(200, this.state())
+      return json(200, this.pollState())
     }
     if (method === 'POST' && pathname === '/open') {
       return this.open(formField(req.body ?? '', 'url') ?? '')
@@ -293,25 +429,47 @@ export class ReproConsole {
         n,
         dir,
         runStep: this.runStep,
+        runCommand: this.runCommand,
+        env: this.env,
         onStep: (step: IterationStep['name']) => {
           this.message = `Running iteration ${n} — ${step}…`
         },
       })
       this.bundleDir = outcome.bundleDir
-      this.iterations.push({
+      const iteration: Iteration = {
         n,
         originalUrl: outcome.originalUrl || (this.url as string),
         reproHref: `/iteration/${n}/site/`,
         diffHref: `/iteration/${n}/diff/`,
         pageHref: `/iteration/${n}/page`,
+        dir,
         siteOut: outcome.siteOut,
         diffOut: outcome.diffOut,
         pageOut: outcome.pageOut,
-      })
+        bundleDir: outcome.bundleDir,
+        gate: outcome.gate,
+        railResult: outcome.rail,
+        outcome: null,
+      }
+      this.iterations.push(iteration)
       this.message = `Iteration ${n} finished.`
       this.failed = false
       // The list changed, so the browser reloads and picks the new block up.
       this.version += 1
+      /**
+       * THE ROUND STARTS AS SOON AS THE LINKS APPEAR (behavior 1).
+       *
+       * Not on a button — the links appearing IS the trigger, which is what
+       * makes the diagnosis a part of the iteration rather than a second thing
+       * a human has to remember to do. The version bump above is what puts the
+       * iteration on the page first, so the operator watches the round work
+       * (behavior 2) rather than waiting at a blank status line for it.
+       *
+       * Awaited inside the try, so `running` stays true until the round ends
+       * and [run again] cannot start a second one on top of a diagnosis still
+       * in flight (behavior 10, requirement 23).
+       */
+      await this.diagnose(iteration)
     } catch (err) {
       // A failed run leaves NO iteration on the page — `runIteration` stops at
       // the first step that did not do its job, so there is nothing half-built
@@ -326,13 +484,273 @@ export class ReproConsole {
     }
   }
 
+  /**
+   * The AI round under one iteration ([[REQ-256]]).
+   *
+   * Never throws. The iteration is already on the page by the time this runs,
+   * so every way this can end has to be something the page can SAY — a failure
+   * that escaped here would be reported as a failed iteration, which it is not.
+   */
+  private async diagnose(it: Iteration): Promise<void> {
+    const aiDir = path.join(it.dir, AI_DIR)
+    mkdirSync(aiDir, { recursive: true })
+
+    /**
+     * BEHAVIOR 7, DECIDED BY THE CONSOLE (requirement 16).
+     *
+     * `capture-incomplete` means the REFERENCE is wrong, not the engine. Filing
+     * it against the engine would be a false report and working its deltas
+     * would spend the round against an invalid oracle — so no AI process is
+     * started at all. The brief carries the rule too, because the round has to
+     * understand what it is looking at; it is enforced here because a rule the
+     * model is merely told is a rule it can get wrong on exactly the round
+     * where getting it wrong costs the most.
+     *
+     * A round with NO readable gate report stops for the same reason: that file
+     * is where the decision comes from, so starting without it is starting
+     * blind.
+     */
+    if (!it.gate) {
+      this.finishRound(it, { status: 'stopped', reason: 'no gate report — nothing to diagnose from.' })
+      return
+    }
+    if (it.gate.verdict === CAPTURE_INCOMPLETE) {
+      this.finishRound(it, {
+        status: 'stopped',
+        reason:
+          `${CAPTURE_INCOMPLETE} — the reference itself is wrong, which is not an engine gap. ` +
+          'Nothing filed; re-capture the site before reproducing it again.',
+      })
+      return
+    }
+
+    const gaps = readGaps(this.workspace)
+    const prompt = buildPrompt(readBrief(), {
+      n: it.n,
+      slug: this.slug,
+      originalUrl: it.originalUrl,
+      bundleDir: it.bundleDir,
+      evidenceDir: it.diffOut,
+      pageDocument: it.pageOut,
+      siteDir: it.siteOut,
+      gate: it.gate,
+      rail: it.railResult ?? { available: false, summary: 'not run' },
+      knownGaps: gaps,
+    })
+    // Written before the process starts (requirement 19): what the round was
+    // asked is an artifact of the round, reviewable after the fact and
+    // recoverable after a restart, like everything else in this directory.
+    const promptFile = path.join(aiDir, AI_PROMPT_FILE)
+    writeFileSync(promptFile, prompt)
+
+    const transcriptFile = path.join(aiDir, AI_TRANSCRIPT_FILE)
+    writeFileSync(transcriptFile, '')
+    this.live = { n: it.n, text: '' }
+    this.message = `Iteration ${it.n} — the AI is reviewing the diff…`
+    this.version += 1
+
+    // Behavior 3's falsifier, taken BEFORE the round so the comparison is
+    // against what the operator's tree already looked like rather than against
+    // clean — a console run on a dirty tree must not report the operator's own
+    // work as the AI's.
+    const before = await this.workingTree()
+
+    let outcome: AiOutcome
+    try {
+      outcome = await this.runAi({
+        cwd: this.cwd,
+        prompt,
+        onLine: (line) => {
+          if (this.live?.n !== it.n) return
+          this.live.text = this.live.text ? `${this.live.text}\n${line}` : line
+          appendLine(transcriptFile, line)
+        },
+      })
+    } catch (err) {
+      outcome = { status: 'failed', reason: err instanceof Error ? err.message : String(err) }
+    }
+    // The round's answer belongs to the round. Everything below fills in what
+    // the CONSOLE did with it — the ticket it filed, the status it read back,
+    // the violations it found — so it works on a copy: a runner that hands back
+    // a value it also holds must not find it rewritten underneath it.
+    outcome = { ...outcome }
+
+    // Behavior 3's falsifier is measured on the ROUND, before the console does
+    // any filing of its own — otherwise the console's own ticket write would be
+    // the thing the check reported.
+    const roundViolations = await this.codeViolations(before)
+    this.live = null
+
+    const filing = await this.file(it, aiDir, outcome)
+    outcome.violations = [...roundViolations, ...filing, ...(await this.ticketViolations(outcome))]
+    this.finishRound(it, outcome)
+  }
+
+  /**
+   * Turn what the round handed back into a ticket (behavior 4, requirement 17).
+   *
+   * THE CONSOLE FILES IT. The round has no tool that can run a command, so this
+   * is where `xgd ticket create --fields '{"status":"draft"}'` happens — which
+   * is what makes behavior 4's "never at a `ready_*` status" structural rather
+   * than a rule to be checked afterwards.
+   *
+   * ONE TICKET PER GAP CLASS (behavior 6, requirement 21) is decided here too:
+   * a class already in the registry gets an append, not a second ticket, and it
+   * gets one even when the round asked to file — the registry is what knows,
+   * and the round only knows what it was told.
+   */
+  private async file(it: Iteration, aiDir: string, outcome: AiOutcome): Promise<string[]> {
+    if (outcome.status !== 'filed' && outcome.status !== 'appended') return []
+    const residualClass = outcome.residualClass as string
+    const known = gapForClass(readGaps(this.workspace), residualClass)
+
+    if (known?.ticketUid) {
+      const evidence =
+        outcome.evidence ??
+        `\n### ${it.originalUrl} — iteration ${it.n}\n\n${outcome.ticket?.body ?? outcome.summary ?? ''}`
+      const failure = await appendGapEvidence({
+        cwd: this.cwd,
+        run: this.runCommand,
+        uid: known.ticketUid,
+        evidence,
+        evidenceFile: path.join(aiDir, AI_TICKET_BODY_FILE),
+      })
+      outcome.status = 'appended'
+      outcome.ticketId = known.ticketId
+      outcome.ticketUid = known.ticketUid
+      if (failure) return [failure]
+    } else if (outcome.ticket) {
+      const filed = await fileGapTicket({
+        cwd: this.cwd,
+        run: this.runCommand,
+        draft: outcome.ticket,
+        bodyFile: path.join(aiDir, AI_TICKET_BODY_FILE),
+      })
+      if (typeof filed === 'string') {
+        outcome.status = 'failed'
+        outcome.reason = filed
+        return [filed]
+      }
+      outcome.status = 'filed'
+      outcome.ticketId = filed.id
+      outcome.ticketUid = filed.uid
+    } else if (outcome.status === 'filed') {
+      // A round that claims to have filed but hands back no ticket has made a
+      // claim nothing can check — requirement 18's falsifier has no ticket to
+      // read back, and the page would otherwise show a green `filed` standing
+      // for nothing. Being unable to check it IS the finding.
+      outcome.status = 'failed'
+      outcome.reason = 'the round claimed to have filed without naming the ticket, so nothing can be checked.'
+      return [outcome.reason]
+    } else {
+      // An append against a class with no ticket on record — there is nothing
+      // to append to, and inventing one would break the one-per-class rule from
+      // the other side.
+      outcome.status = 'failed'
+      outcome.reason = `the round asked to append to '${residualClass}', which has no ticket on record.`
+      return [outcome.reason]
+    }
+
+    /**
+     * Recorded whether the round filed or appended: an appended round's
+     * contribution to the registry is the new reference and the new iteration,
+     * which is the evidence that the class recurs — the frequency signal
+     * [[EPIC-12]] §7.3 wanted, arriving here for free.
+     */
+    recordGap(this.workspace, {
+      residualClass,
+      ticketId: outcome.ticketId ?? '',
+      ticketUid: outcome.ticketUid ?? '',
+      summary: outcome.summary ?? '',
+      reference: it.bundleDir,
+      iteration: `${this.slug}#${it.n}`,
+    })
+    return []
+  }
+
+  /** Write the round's outcome beside its transcript and say so on the page. */
+  private finishRound(it: Iteration, outcome: AiOutcome): void {
+    it.outcome = outcome
+    writeFileSync(path.join(it.dir, AI_DIR, AI_OUTCOME_FILE), JSON.stringify(outcome, null, 2))
+    const what =
+      outcome.status === 'filed' || outcome.status === 'appended'
+        ? `${outcome.status} ${outcome.ticketId ?? 'a ticket'}`
+        : outcome.status
+    this.message = `Iteration ${it.n} finished — AI ${what}.${outcome.violations?.length ? ' See the violations under it.' : ''}`
+    this.failed = false
+    this.live = null
+    this.version += 1
+  }
+
+  /**
+   * The working tree, as `git status --porcelain` sees it.
+   *
+   * Behavior 3's falsifier. A checkout with no git — a tarball, a test's
+   * scratch directory — reports nothing, which makes the comparison vacuous
+   * rather than wrong: there is no claim being made that could be false.
+   */
+  private async workingTree(): Promise<Set<string>> {
+    const result = await this.runCommand('git', ['status', '--porcelain'], this.cwd).catch(() => null)
+    if (!result || result.code !== 0) return new Set()
+    return new Set(result.stdout.split('\n').map((line) => line.trim()).filter(Boolean))
+  }
+
+  /** Anything the round left in the tree that was not there before (behavior 3). */
+  private async codeViolations(before: Set<string>): Promise<string[]> {
+    const after = await this.workingTree()
+    const added = [...after].filter((entry) => !before.has(entry))
+    if (!added.length) return []
+    return [
+      `the round changed the working tree, which it must not (behavior 3): ${added.slice(0, 8).join('; ')}${
+        added.length > 8 ? `; …+${added.length - 8} more` : ''
+      }`,
+    ]
+  }
+
+  /**
+   * The status the filed ticket actually carries, read back (requirement 18).
+   *
+   * The console wrote `draft` when it created the ticket, so this is a
+   * CONFIRMATION rather than a gate — and it is worth the one command anyway,
+   * because `xgd ticket create` reporting success is not the same claim as the
+   * ticket existing at the status that was asked for, and a `ready_*` status is
+   * a dispatcher trigger: it spawns an autonomous pipeline against the ticket
+   * within seconds. A claim the console can check, it checks.
+   */
+  private async ticketViolations(outcome: AiOutcome): Promise<string[]> {
+    if (outcome.status !== 'filed' && outcome.status !== 'appended') return []
+    if (!outcome.ticketUid) return []
+    const result = await this.runCommand('xgd', ['ticket', 'get', outcome.ticketUid], this.cwd).catch(() => null)
+    if (!result || result.code !== 0) {
+      return [`could not read ${outcome.ticketUid} back, so its status is unverified.`]
+    }
+    const status = /Status:\s*(\S+)/.exec(result.stdout)?.[1]
+    outcome.ticketStatus = status
+    if (!status) return [`${outcome.ticketUid} reported no status, so it is unverified.`]
+    if (status === 'draft') return []
+    return [
+      `${outcome.ticketId ?? outcome.ticketUid} is at '${status}', not 'draft'` +
+        (status.startsWith('ready_')
+          ? ' — a ready_* status is a dispatcher trigger and will spawn an automated pipeline against it.'
+          : '.'),
+    ]
+  }
+
   /** `/iteration/<n>/site/…` and `/iteration/<n>/diff/…`, confined to that iteration. */
   private async serveArtifact(pathname: string): Promise<ConsoleResponse> {
-    const match = /^\/iteration\/(\d+)\/(site|diff|page)(\/.*)?$/.exec(pathname)
+    const match = /^\/iteration\/(\d+)\/(site|diff|page|ticket)(\/.*)?$/.exec(pathname)
     if (!match) return text(404, 'Not found')
     const iteration = this.iterations.find((it) => it.n === Number(match[1]))
     if (!iteration) return text(404, 'No such iteration')
     const rest = match[3]
+    /**
+     * The fifth link: the gap ticket this round filed (behavior 5, req 24).
+     *
+     * Rendered by asking xgd for it rather than by reading `.xgd/tickets/`.
+     * That layout is xgd's — it tiers tickets and it moves them — and a second
+     * reader of it here would go stale the first time it did.
+     */
+    if (match[2] === 'ticket') return this.serveTicket(iteration)
     /**
      * The reproduction's own L1 document (requirement 34).
      *
@@ -365,6 +783,18 @@ export class ReproConsole {
       headers: { 'content-type': contentTypeOf(file), 'cache-control': 'no-store, must-revalidate' },
       body: new Uint8Array(readFileSync(file)),
     }
+  }
+
+  /** `xgd ticket get <uid>`, as the operator would see it at their terminal. */
+  private async serveTicket(iteration: Iteration): Promise<ConsoleResponse> {
+    const uid = iteration.outcome?.ticketUid
+    if (!uid) return text(404, 'This round filed no ticket.')
+    const result = await this.runCommand('xgd', ['ticket', 'get', uid], this.cwd).catch(() => null)
+    const body = result?.code === 0 ? result.stdout : (result?.stderr || `could not read ${uid}`)
+    return html(
+      result?.code === 0 ? 200 : 502,
+      renderTicketPage(iteration.n, iteration.outcome?.ticketId ?? uid, body),
+    )
   }
 
   /** The diff images, assembled from what `1c diff` wrote beside them. */
@@ -427,4 +857,45 @@ function text(status: number, body: string): ConsoleResponse {
  */
 function seeOther(location: string): ConsoleResponse {
   return { status: 303, headers: { location, 'content-type': 'text/plain; charset=utf-8' }, body: '' }
+}
+
+/** A file's contents, or empty — used where absence and emptiness mean the same. */
+function readIfPresent(file: string): string {
+  return existsSync(file) ? readFileSync(file, 'utf8') : ''
+}
+
+/** The outcome an iteration's AI round recorded, or none. */
+function readOutcome(dir: string): AiOutcome | null {
+  const file = path.join(dir, AI_DIR, AI_OUTCOME_FILE)
+  if (!existsSync(file)) return null
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<AiOutcome>
+    if (typeof parsed.status !== 'string') return null
+    return { ...parsed, status: parsed.status, violations: parsed.violations ?? [] } as AiOutcome
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Append one transcript line to the round's own file (behavior 2, req 19).
+ *
+ * Written as it arrives rather than at the end, so a round that is killed
+ * part-way still leaves behind what it had said — which is exactly the round a
+ * human wants to read.
+ */
+function appendLine(file: string, line: string): void {
+  try {
+    appendFileSync(file, `${line}\n`)
+  } catch {
+    // The transcript is what the round said, not what it did. Losing a line to
+    // a full disk must not take the round's outcome down with it.
+  }
+}
+
+/** How much of a running round's transcript the poller is sent each second. */
+const LIVE_TAIL_CHARS = 20_000
+
+function tail(text: string): string {
+  return text.length <= LIVE_TAIL_CHARS ? text : `…\n${text.slice(-LIVE_TAIL_CHARS)}`
 }

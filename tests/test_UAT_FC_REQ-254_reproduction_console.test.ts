@@ -58,8 +58,10 @@ function outOf(step: IterationStep): string {
 interface FakeOptions {
   /** Step to fail at, and how. `once` fails the first attempt only. */
   failAt?: { step: IterationStep['name']; code: number; stderr: string; once?: boolean }
-  /** `1c diff` exits non-zero whenever it finds a region; it still writes its report. */
+  /** `1c gate` exits non-zero whenever it does not pass; it still writes its report. */
   diffExitCode?: number
+  /** The verdict the stand-in `1c gate` records (REQ-256 behaviours 4 and 7). */
+  verdict?: string
   /** Awaited before each step returns, so a test can hold a run open. */
   gate?: () => Promise<void>
   /** What `1c capture list --json` reports back. */
@@ -117,7 +119,10 @@ function fakeRunner(log: IterationStep['name'][], opts: FakeOptions = {}): StepR
         writeFileSync(path.join(out, 'assets', 'hero.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]))
         return { code: 0, stdout: `Rendered 2 file(s) → ${out}`, stderr: '' }
       }
-      case 'diff': {
+      case 'gate': {
+        // REQ-256 requirement 15 — `1c gate` replaced `1c diff` as the last
+        // step. It writes everything the bare diff wrote, in the same place,
+        // and `gate.json` and `values-diff.json` beside them.
         const out = outOf(step)
         mkdirSync(out, { recursive: true })
         const crops = ['region-1-ref.png', 'region-1-ours.png', 'region-1-diff.png']
@@ -136,7 +141,23 @@ function fakeRunner(log: IterationStep['name'][], opts: FakeOptions = {}): StepR
             ],
           }),
         )
-        // The real `1c diff` exits non-zero whenever it finds a region.
+        writeFileSync(
+          path.join(out, 'values-diff.json'),
+          JSON.stringify({ deltas: [{ selector: 'h1', field: 'color', ref: '#111', actual: '#222' }] }),
+        )
+        writeFileSync(
+          path.join(out, 'gate.json'),
+          JSON.stringify({
+            pass: false,
+            verdict: opts.verdict ?? 'reproduction-wrong',
+            diagnosis: 'the pixels disagree and the capture looks complete',
+            nextStep: 'diagnose the fold',
+            perceptual: { meanDiff: 12.5, pctOverThreshold: 4.25, regions: 1 },
+            values: { deltas: 1 },
+            coverage: { unreferencedImages: [] },
+          }),
+        )
+        // The real `1c gate` exits non-zero whenever it does not pass.
         return { code: opts.diffExitCode ?? 1, stdout: '', stderr: '' }
       }
       default:
@@ -151,11 +172,25 @@ interface Fixture {
   cwd: string
 }
 
-/** A console on an ephemeral loopback port, over its own scratch repo root. */
+/**
+ * A console on an ephemeral loopback port, over its own scratch repo root.
+ *
+ * The AI round and the rail are stubbed out here ([[REQ-256]] added both): this
+ * file is about what the console does AROUND a round, and a suite that spawned
+ * a real `claude` per test would spend tokens to assert nothing about it.
+ * [[REQ-256]]'s own suite drives those seams.
+ */
 async function startConsole(runStep: StepRunner): Promise<Fixture> {
   const cwd = mkdtempSync(path.join(tmpdir(), 'req254-'))
   scratchDirs.push(cwd)
-  const handle = await startReproConsole({ cwd, runStep, port: 0 })
+  const handle = await startReproConsole({
+    cwd,
+    runStep,
+    runAi: async () => ({ status: 'no-gap', summary: 'stubbed' }),
+    runCommand: async () => ({ code: 1, stdout: '', stderr: '' }),
+    env: {},
+    port: 0,
+  })
   openHandles.push(handle)
   return { handle, cwd }
 }
@@ -207,7 +242,7 @@ describe('REQ-254 the reproduction console', () => {
     // Requirement 3 — entering an address and pressing [reproduce] captures the
     // site and reproduces it. Requirement 14 — as a sequence of `1c` steps.
     await reproduce(f, 'joyfulculinarycreations.com')
-    expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'diff'])
+    expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'gate'])
 
     // Requirement 4 — the heading and its three links, and requirement 5 —
     // every one of them opens in a new tab, so following one never loses the
@@ -353,7 +388,7 @@ describe('REQ-254 the reproduction console', () => {
     gated = false
     release()
     await f.handle.console.settled()
-    expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'diff'])
+    expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'gate'])
     expect(((await (await get(f, '/state')).json()) as { running: boolean }).running).toBe(false)
   })
 
@@ -391,7 +426,7 @@ describe('REQ-254 the reproduction console', () => {
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 1</h2>')
     expect(html).not.toContain('failed at')
-    expect(html).toContain('Iteration 1 finished.')
+    expect(html).toContain('Iteration 1 finished')
   })
 
   it('test_UAT_FC_REQ_254_an_iteration_writes_only_into_scratch_space', async () => {
@@ -417,15 +452,15 @@ describe('REQ-254 the reproduction console', () => {
       diffOut: '/scratch/iteration-2/diff',
       pageOut: '/scratch/iteration-2/page.json',
     })
-    expect(steps.map((s) => s.name)).toEqual(['refold', 'repro', 'page', 'render', 'diff'])
+    expect(steps.map((s) => s.name)).toEqual(['refold', 'repro', 'page', 'render', 'gate'])
     for (const step of steps) expect(step.argv[0]).toBe(step.name)
     // Every step that reads the reference points at the SAME bundle — the one
     // the capture reported, not one re-derived from the address that was typed.
     for (const step of steps.filter((s) => s.argv.includes('--ref'))) {
       expect(step.argv[step.argv.indexOf('--ref') + 1]).toBe('storage/references/example.com/index')
     }
-    // The diff is graded on its report, not its exit code (requirement 18).
-    expect(steps.find((s) => s.name === 'diff')!.artifact).toBe('/scratch/iteration-2/diff/regions.json')
+    // The gate is graded on its report, not its exit code (requirement 18).
+    expect(steps.find((s) => s.name === 'gate')!.artifact).toBe('/scratch/iteration-2/diff/gate.json')
   })
 
   it('test_UAT_FC_REQ_254_capture_that_reports_no_bundle_is_refused_not_guessed', async () => {
@@ -466,7 +501,7 @@ describe('REQ-254 the reproduction console', () => {
     await page(f) // the blank page is what lists what is on disk
     await reproduce(f, 'example.com')
 
-    expect(log).toEqual(['refold', 'repro', 'page', 'render', 'diff'])
+    expect(log).toEqual(['refold', 'repro', 'page', 'render', 'gate'])
     expect(log).not.toContain('capture')
     expect(await page(f)).toContain('<h2>Iteration 1</h2>')
   })
@@ -548,7 +583,14 @@ describe('REQ-254 the reproduction console', () => {
     openHandles.length = 0
 
     // A NEW console process over the SAME scratch root — the restart.
-    const second = await startReproConsole({ cwd: first.cwd, runStep: fakeRunner([], { stored }), port: 0 })
+    const second = await startReproConsole({
+      cwd: first.cwd,
+      runStep: fakeRunner([], { stored }),
+      runAi: async () => ({ status: 'no-gap', summary: 'stubbed' }),
+      runCommand: async () => ({ code: 1, stdout: '', stderr: '' }),
+      env: {},
+      port: 0,
+    })
     openHandles.push(second)
     const revived: Fixture = { handle: second, cwd: first.cwd }
     await page(revived)

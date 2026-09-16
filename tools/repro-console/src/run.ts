@@ -25,13 +25,17 @@ export type CommandRunner = (cmd: string, args: string[], cwd: string) => Promis
 
 /** The real runner: spawn, collect both streams, resolve on close. */
 export const spawnCommand: CommandRunner = (cmd, args, cwd) =>
-  new Promise<CommandResult>((resolve, reject) => {
+  new Promise<CommandResult>((resolve) => {
     const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
     child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
-    child.on('error', reject)
+    // A command that cannot be spawned AT ALL resolves as a failure rather
+    // than rejecting. "the rail is not installed" and "the rail said no" are
+    // both answers, and only one of them is an exception — a caller reading
+    // `code` gets the same shape either way (REQ-256).
+    child.on('error', (err: Error) => resolve({ code: null, stdout, stderr: `${stderr}${err.message}` }))
     child.on('close', (code) => resolve({ code, stdout, stderr }))
   })
 

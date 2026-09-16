@@ -14,20 +14,22 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { CLI_ENTRY, oneC, spawnCommand, tailOf, type CommandResult } from './run'
+import { readGateReport, type GateSummary } from './ai'
+import { runRailRound, type RailRoundResult } from './rail-round'
+import { CLI_ENTRY, oneC, spawnCommand, tailOf, type CommandResult, type CommandRunner } from './run'
 
 /** One `1c` invocation. */
 export interface IterationStep {
   /** Named in the failure line the page shows, so "what failed" is a verb. */
-  name: 'capture' | 'refold' | 'repro' | 'page' | 'render' | 'diff'
+  name: 'capture' | 'refold' | 'repro' | 'page' | 'render' | 'gate'
   /** argv after `1c`. */
   argv: string[]
   /**
    * A file the step must have produced, judged INSTEAD of its exit code.
    *
-   * `1c diff` exits non-zero whenever it finds a region of interest, which is
-   * the normal outcome for every reproduction worth looking at — grading it on
-   * its exit code would report every real iteration as a failed run. What
+   * `1c gate` exits non-zero whenever the reconciliation does not pass, which
+   * is the normal outcome for every reproduction worth looking at — grading it
+   * on its exit code would report every real iteration as a failed run. What
    * separates "found differences" from "fell over" is whether it wrote its
    * report, so that is what is checked.
    */
@@ -62,7 +64,14 @@ export interface IterationPlan {
   slug: string
   /** `1c render --out` — the rendered reproduction this iteration serves. */
   siteOut: string
-  /** `1c diff --out` — this iteration's heatmaps, region triptychs and report. */
+  /**
+   * `1c gate --out` — this iteration's EVIDENCE directory (REQ-256 req 15).
+   *
+   * Named for the link that serves it. `1c gate` writes everything `1c diff`
+   * wrote — `diff.png`, `diff-blocks.png`, the region crops, `regions.json` —
+   * and beside them `values-diff.json` and `gate.json`, which is what makes one
+   * directory the whole of a round's evidence.
+   */
   diffOut: string
   /** Where this iteration's copy of the reproduction's L1 document is kept. */
   pageOut: string
@@ -122,12 +131,40 @@ export function reproductionSteps(plan: IterationPlan): IterationStep[] {
       saveStdoutAs: plan.pageOut,
     },
     { name: 'render', argv: ['render', plan.slug, '--sandbox', '--out', plan.siteOut] },
+    /**
+     * THE GATE, WHICH REPLACED THE BARE DIFF (REQ-256 requirement 15).
+     *
+     * `1c gate` runs the structural gate, the value gates and the perceptual
+     * eye and reconciles them. It reaches the same `gate-core` reconciliation
+     * `check_fidelity` does, so its verdict IS that verdict by construction —
+     * which is what [[REQ-256]]'s behaviours 4 and 7 need, the first as the
+     * evidence a gap ticket carries and the second as the `capture-incomplete`
+     * stop. It writes everything `1c diff` wrote into the same directory, so
+     * the diff link is unchanged; keeping `1c diff` and adding this beside it
+     * would render and photograph the page twice to produce one report.
+     */
     {
-      name: 'diff',
-      argv: ['diff', plan.slug, '--ref', plan.bundleDir, '--sandbox', '--out', plan.diffOut, '--json'],
-      artifact: path.join(plan.diffOut, 'regions.json'),
+      name: 'gate',
+      argv: ['gate', plan.slug, '--ref', plan.bundleDir, '--sandbox', '--out', plan.diffOut, '--json'],
+      artifact: path.join(plan.diffOut, 'gate.json'),
     },
   ]
+}
+
+/** Where a round's read-only rail result is kept, beside its other artifacts. */
+export const RAIL_FILE = 'rail.json'
+
+/** The rail result an iteration directory recorded, or none. */
+export function readRail(dir: string): RailRoundResult | null {
+  const file = path.join(dir, RAIL_FILE)
+  if (!existsSync(file)) return null
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<RailRoundResult>
+    if (typeof parsed.summary !== 'string') return null
+    return { available: parsed.available === true, pass: parsed.pass, summary: parsed.summary }
+  } catch {
+    return null
+  }
 }
 
 /** The step that asks which captures are already on disk (requirement 32). */
@@ -300,6 +337,10 @@ export interface RunIterationOptions {
   runStep: StepRunner
   /** Called as each step starts, so the page can say what is happening. */
   onStep?: (step: IterationStep['name']) => void
+  /** Runs the regression rail. Injectable for the same reason `runStep` is. */
+  runCommand?: CommandRunner
+  /** Where the rail is looked for; injectable so a test can point at a stub. */
+  env?: NodeJS.ProcessEnv
 }
 
 export interface IterationOutcome {
@@ -310,6 +351,10 @@ export interface IterationOutcome {
   siteOut: string
   diffOut: string
   pageOut: string
+  /** `1c gate`'s reconciliation, or null when it produced no readable report. */
+  gate: GateSummary | null
+  /** The cross-site state this round saw (REQ-256 behavior 8). */
+  rail: RailRoundResult
 }
 
 /**
@@ -350,6 +395,18 @@ export async function runIteration(opts: RunIterationOptions): Promise<Iteration
   }
 
   /**
+   * The regression rail, read-only (REQ-256 behavior 8).
+   *
+   * AFTER the reproduction and BEFORE the manifest: the round's own numbers are
+   * this site's, and the rail is every other site's, so a round that shows only
+   * the first is the exact blindness [[REQ-255]] exists to remove. Its verdict
+   * never fails the iteration — a red rail is information for this round and a
+   * gate for the free-coding session later, which is a different session.
+   */
+  const rail = await runRailRound(opts.cwd, opts.runCommand ?? spawnCommand, opts.env)
+  writeFileSync(path.join(opts.dir, RAIL_FILE), JSON.stringify(rail, null, 2))
+
+  /**
    * The manifest, written LAST (requirement 33).
    *
    * Last because its presence is what marks the iteration complete. A run that
@@ -361,7 +418,17 @@ export async function runIteration(opts: RunIterationOptions): Promise<Iteration
   const manifest: IterationManifest = { n: opts.n, originalUrl, bundleDir, slug: opts.slug }
   writeFileSync(path.join(opts.dir, MANIFEST_FILE), JSON.stringify(manifest, null, 2))
 
-  return { bundleDir, originalUrl, siteOut, diffOut, pageOut }
+  return {
+    bundleDir,
+    originalUrl,
+    siteOut,
+    diffOut,
+    pageOut,
+    // Read rather than returned by the step: `1c gate --json` prints the report
+    // AND writes it, and the file is the copy that survives to the next restart.
+    gate: readGateReport(path.join(diffOut, 'gate.json')),
+    rail,
+  }
 }
 
 /**

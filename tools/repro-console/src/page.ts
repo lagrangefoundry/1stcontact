@@ -26,6 +26,48 @@ export interface IterationView {
    * shows up. ([[REQ-256]]'s gap-ticket link is a fifth, not this one.)
    */
   pageHref: string
+  /**
+   * The fifth link: the gap ticket this round filed ([[REQ-256]] behavior 5).
+   *
+   * Absent on a round that filed nothing — a `capture-incomplete` stop, a
+   * `no-gap` verdict, a failed round — because a link to a ticket that does not
+   * exist is worse than no link.
+   */
+  ticketHref?: string
+  ticketLabel?: string
+  /** `1c gate`'s verdict for this round, shown beside the links. */
+  verdict?: string
+  /** What the regression rail said this round (behavior 8). */
+  rail?: string
+  /** The AI round under this iteration, if one ran. */
+  ai?: AiView
+}
+
+/**
+ * What the AI round under an iteration says about itself (REQ-256).
+ *
+ * Rendered server-side from the round's own artifacts on disk, exactly like
+ * every other part of an iteration, so a restart of the console shows the
+ * rounds it already ran rather than an empty page beside a full `storage/tmp/`.
+ * The only thing streamed is the round currently in flight — see
+ * {@link PollState.live}.
+ */
+export interface AiView {
+  status: 'running' | 'filed' | 'appended' | 'no-gap' | 'stopped' | 'failed'
+  /** One line under the heading: what the round did, or why it did not. */
+  summary: string
+  /** The kind of gap, not the symptom on this site. */
+  residualClass?: string
+  ticketId?: string
+  /**
+   * Behaviours 3 and 4's falsifiers, when either fired.
+   *
+   * SHOWN, NOT LOGGED. A check whose failure is invisible is not a check, and
+   * these two are the whole reason a diagnose-only AI is safe to run at all.
+   */
+  violations: string[]
+  /** What the round did, as it did it. Empty until the first line arrives. */
+  transcript: string
 }
 
 /** A capture already on disk, offered back on the blank page (requirement 31). */
@@ -47,6 +89,23 @@ export interface PageState {
   iterations: IterationView[]
   /** The captures on disk, so a site can be revisited without re-hitting it. */
   stored: StoredCaptureView[]
+}
+
+/**
+ * What the poller asks for, once a second.
+ *
+ * DELIBERATELY SMALLER THAN {@link PageState}. The page state carries every
+ * iteration's whole transcript, which is the right thing to render once and the
+ * wrong thing to send every second. The only transcript on the wire here is the
+ * one round that is still moving.
+ */
+export interface PollState {
+  version: number
+  running: boolean
+  message: string
+  failed: boolean
+  /** The round in flight and what it has said so far (behavior 2). */
+  live: { n: number; text: string } | null
 }
 
 function escapeHtml(value: string): string {
@@ -73,6 +132,17 @@ async function poll() {
     line.textContent = state.message;
     line.className = state.failed ? 'failed' : 'progress';
     for (const button of document.querySelectorAll('button')) button.disabled = state.running;
+    // The AI round in flight (REQ-256 behavior 2). One element, replaced whole:
+    // the transcript is short enough that diffing it would be more code than
+    // it saves, and the server is the single definition of what it says.
+    if (state.live) {
+      const pane = document.getElementById('ai-transcript-' + state.live.n);
+      if (pane && pane.textContent !== state.live.text) {
+        const atBottom = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 4;
+        pane.textContent = state.live.text;
+        if (atBottom) pane.scrollTop = pane.scrollHeight;
+      }
+    }
   } catch {}
   setTimeout(poll, 1000);
 }
@@ -97,7 +167,73 @@ figure { margin: 1.5rem 0 }
 figure img { max-width: 100%; border: 1px solid #8884 }
 .triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem }
 .triptych figcaption { font-size: .8rem; opacity: .7 }
+.verdict, .rail, .ai-status { margin: .25rem 0; font-size: .9rem }
+.verdict strong { font-family: ui-monospace, monospace }
+.rail { opacity: .75; white-space: pre-wrap }
+.ai-status.filed, .ai-status.appended { color: #1e7a3c }
+.ai-status.stopped, .ai-status.failed { color: #c0392b }
+.violations { color: #c0392b; font-size: .9rem; margin: .25rem 0 }
+pre.transcript {
+  white-space: pre-wrap; max-height: 22rem; overflow: auto; margin: .5rem 0 0;
+  padding: .6rem .7rem; border: 1px solid #8884; border-radius: 4px;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .9;
+}
 `
+
+/** One link, always in a new tab so following it never loses the console. */
+function link(href: string, label: string): string {
+  return `    <li><a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a></li>`
+}
+
+/** How each AI status reads under an iteration. */
+const AI_LABEL: Record<AiView['status'], string> = {
+  running: 'diagnosing…',
+  filed: 'filed',
+  appended: 'appended to',
+  'no-gap': 'found no engine gap',
+  stopped: 'stopped',
+  failed: 'failed',
+}
+
+/**
+ * One iteration: its links, its verdict, the rail, and the AI round beneath it.
+ *
+ * The AI block is a peer of the links rather than a separate panel, because
+ * behavior 1 makes the round a PART of the iteration — it starts as soon as the
+ * links appear and it is what that iteration produced.
+ */
+function renderIteration(it: IterationView): string {
+  const links = [
+    link(it.originalUrl, 'the original site'),
+    link(it.reproHref, 'the reproduction'),
+    link(it.diffHref, 'the diff images'),
+    link(it.pageHref, 'the L1 document'),
+    // The fifth (behavior 5). Present only when a round really filed something.
+    ...(it.ticketHref ? [link(it.ticketHref, it.ticketLabel ?? 'the gap ticket')] : []),
+  ].join('\n')
+
+  const verdict = it.verdict ? `  <p class="verdict">gate: <strong>${escapeHtml(it.verdict)}</strong></p>\n` : ''
+  // A <pre>, not a <p>: the rail reports one finding per line, and a paragraph
+  // collapses them into one run-on sentence (REQ-256 behavior 8).
+  const rail = it.rail ? `  <pre class="rail">regression rail: ${escapeHtml(it.rail)}</pre>\n` : ''
+
+  const ai = it.ai
+    ? `  <p class="ai-status ${it.ai.status}">AI — ${escapeHtml(AI_LABEL[it.ai.status])}${
+        it.ai.residualClass ? ` <code>${escapeHtml(it.ai.residualClass)}</code>` : ''
+      }${it.ai.summary ? `: ${escapeHtml(it.ai.summary)}` : ''}</p>\n` +
+      (it.ai.violations.length
+        ? `  <ul class="violations">${it.ai.violations.map((v) => `<li>${escapeHtml(v)}</li>`).join('')}</ul>\n`
+        : '') +
+      `  <pre class="transcript" id="ai-transcript-${it.n}">${escapeHtml(it.ai.transcript)}</pre>\n`
+    : ''
+
+  return `<section>
+  <h2>Iteration ${it.n}</h2>
+  <ul>
+${links}
+  </ul>
+${verdict}${rail}${ai}</section>`
+}
 
 /**
  * The console itself.
@@ -108,19 +244,7 @@ figure img { max-width: 100%; border: 1px solid #8884 }
  * sequence of printed paths.
  */
 export function renderConsolePage(state: PageState): string {
-  const rows = state.iterations
-    .map(
-      (it) => `<section>
-  <h2>Iteration ${it.n}</h2>
-  <ul>
-    <li><a href="${escapeHtml(it.originalUrl)}" target="_blank" rel="noopener noreferrer">the original site</a></li>
-    <li><a href="${escapeHtml(it.reproHref)}" target="_blank" rel="noopener noreferrer">the reproduction</a></li>
-    <li><a href="${escapeHtml(it.diffHref)}" target="_blank" rel="noopener noreferrer">the diff images</a></li>
-    <li><a href="${escapeHtml(it.pageHref)}" target="_blank" rel="noopener noreferrer">the L1 document</a></li>
-  </ul>
-</section>`,
-    )
-    .join('\n')
+  const rows = state.iterations.map(renderIteration).join('\n')
 
   // [run again] appears only once there is something to re-run. It takes no
   // address: [reproduce] captures and starts a new list at Iteration 1, this
@@ -218,6 +342,25 @@ ${headline}
 <figure><img src="${escapeHtml(base + 'diff-blocks.png')}" alt="block-averaged difference heatmap"><figcaption>block-averaged heatmap</figcaption></figure>
 <figure><img src="${escapeHtml(base + 'diff.png')}" alt="per-pixel difference heatmap"><figcaption>per-pixel heatmap</figcaption></figure>
 ${triptychs || '<p>No region of interest — the two agree everywhere the diff looks.</p>'}
+</body>
+</html>`
+}
+
+/**
+ * The gap ticket a round filed, as xgd itself prints it (REQ-256 req 24).
+ *
+ * THE CONSOLE DOES NOT READ `.xgd/tickets/`. That layout is xgd's — it tiers
+ * tickets, it moves them, and a second reader of it would go stale the first
+ * time it did. So the link runs `xgd ticket get` and shows what came back,
+ * which is also what the operator would see at their own terminal.
+ */
+export function renderTicketPage(n: number, ticketId: string, body: string): string {
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Iteration ${n} — ${escapeHtml(ticketId)}</title><style>${STYLE}</style></head>
+<body>
+<h2>Iteration ${n} — ${escapeHtml(ticketId)}</h2>
+<pre class="transcript">${escapeHtml(body)}</pre>
 </body>
 </html>`
 }
