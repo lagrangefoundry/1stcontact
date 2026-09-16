@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T21:35:36.477839+00:00'
+updated_at: '2026-09-16T21:36:40.685298+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -532,5 +532,13 @@ Say the word and I'll cut a branch and do just that.
 <!-- xgd-chat role="user" ts="2026-09-16T21:35:35.907923+00:00" -->
 #### You
 It surfaced a real design problem rather than just a style issue. A round has `Read`/`Glob`/`Grep` and **no **`Bash`** by design**, so it cannot run `xgd` — it cannot use the ticket API at all. <-- what is a "round" EVERY development session MUST have access to xgd BY DESIGN. That is essential! I thought you told me the sessions had access to everythign they need - they are CONSTRUCTED to make tickets if they can't run xgd they are missing critical capabilities!!!!!
+
+<!-- xgd-turn id="81438926-c8a9-4848-9bd9-e19d595dcf26-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:36:40.190588+00:00" -->
+#### You
+It surfaced a real design problem rather than just a style issue. A round has `Read`/`Glob`/`Grep` and **no **`Bash`** by design**, so it cannot run `xgd` — it cannot use the ticket API at all. <-- what is a "round" EVERY development session MUST have access to xgd BY DESIGN. That is essential! I thought you told me the sessions had access to everythign they need - they are CONSTRUCTED to make tickets if they can't run xgd they are missing critical capabilities!!!!!
+
+Tickets written directly will not be indexed or subject to the API rules - that is a disaster - do you not have warnings about this?
 
 <!-- xgd-chat-end -->
