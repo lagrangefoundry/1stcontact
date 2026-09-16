@@ -5,10 +5,10 @@ type: request
 title: Publish refuses a site with no address, and the refusal offers the way out
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:40.996562+00:00'
-updated_at: '2026-09-16T00:38:08.514990+00:00'
+updated_at: '2026-09-16T00:39:35.284891+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-c5175c8f
