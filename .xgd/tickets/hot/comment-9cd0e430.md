@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T18:08:59.596156+00:00'
+updated_at: '2026-09-16T18:09:36.905009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -638,5 +638,64 @@ Ticket: 4 commits, `story_points: 13`, `version: 0.2.219`, requirements 29–36 
 <!-- xgd-chat role="user" ts="2026-09-16T18:08:59.544186+00:00" -->
 #### You
 How do I bring up a previous sites reproduction attempts?
+
+<!-- xgd-turn id="7a9a5b13-33a2-4cb3-abe6-c131fb5a9a17-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T18:09:36.265657+00:00" -->
+#### Claude
+## How to do it
+
+**1. Restart the console** — your running process is still the old code:
+
+```bash
+lsof -ti tcp:8710 | xargs kill
+bin/repro-console
+```
+
+**2. The blank page now has a "captured already" list** — your three captures (`faelan.com/index`, `gigabytealchemy.ai/index`, `joyfulculinarycreations.com/index`).
+
+**3. Click one.** It loads that site without re-hitting it, and its iterations come back from disk with their links live.
+
+**4. [run again]** appends the next iteration below.
+
+You can also just type the address and press **[reproduce]** — it finds the stored bundle and skips the capture. The list is there so you don't have to remember how you typed it.
+
+---
+
+## ⚠️ Your two existing iterations won't come back
+
+I checked: `storage/tmp/repro-console/repro-faelan-com/iteration-1/` and `…/repro-gigabytealchemy-ai/iteration-1/` have **no `iteration.json`**. Recovery keys off that manifest, and those runs predate it — they were made by the old code.
+
+Worse: loading `faelan.com` and pressing **[run again]** will number the next run "Iteration 1" and **wipe that directory** before writing into it. The existing artifacts go.
+
+Two options:
+
+**Backfill the manifests** so the old runs are adopted. Paste this:
+
+```bash
+python3 - <<'EOF'
+import json, os
+root = os.path.abspath('storage/tmp/repro-console')
+sites = {
+  'repro-faelan-com': ('https://faelan.com', 'faelan.com/index'),
+  'repro-gigabytealchemy-ai': ('https://gigabytealchemy.ai', 'gigabytealchemy.ai/index'),
+}
+for slug, (url, bundle) in sites.items():
+    d = os.path.join(root, slug, 'iteration-1')
+    if not os.path.isdir(d):
+        continue
+    with open(os.path.join(d, 'iteration.json'), 'w') as f:
+        json.dump({'n': 1, 'originalUrl': url, 'bundleDir': os.path.abspath(f'storage/references/{bundle}'), 'slug': slug}, f, indent=2)
+    print('wrote', d)
+EOF
+```
+
+Then loading the site shows Iteration 1, and [run again] appends **Iteration 2** instead of clobbering. The "L1 document" link on those recovered iterations will 404 — they predate that too — but the other three work.
+
+**Or just let them go** and start fresh. Nothing downstream depends on them.
+
+---
+
+One caveat worth repeating, since it bites exactly here: if you're running several consoles at once, **give each one a different site**. Two consoles on `faelan.com` share the same scratch directory and the same sandbox slug, and each run wipes the iteration directory before writing it. Neither errors — they just overwrite each other.
 
 <!-- xgd-chat-end -->
