@@ -40,6 +40,7 @@ import type {
   DnsRecordSpec,
   WorkerRoute,
 } from './cloudflare'
+import { applyRecords, revertRecords, type AppliedRecord } from './records'
 import {
   addressByHost,
   attachCustomHosts,
@@ -194,18 +195,6 @@ export function routePatternFor(host: string): string {
   return `${normaliseHost(host)}/*`
 }
 
-/** Compare a record to a name and type, the way Cloudflare reports them. */
-function matches(record: DnsRecord, name: string, type: string): boolean {
-  return record.name.toLowerCase() === name && record.type.toUpperCase() === type
-}
-
-/** What a rollback has to undo for one record. */
-interface AppliedRecord {
-  record: DnsRecord
-  /** The record that was there before, or `null` when this one was created. */
-  restore: DnsRecordSpec | null
-}
-
 /**
  * Point a host at a site. Records, then routes, then the row.
  *
@@ -272,40 +261,15 @@ export async function serveHostOnSite(
   const created: WorkerRoute[] = []
   const replaced: DnsRecord[] = []
   try {
-    // THE ZONE IS READ ONCE AND EVERY DECISION IS MADE AGAINST THAT READING, so
-    // four records cost one listing rather than four.
-    const existing = await client.listRecords(zone.cfZoneId)
-    for (const spec of servingRecords(plan)) {
-      const prior = existing.find((record) => matches(record, spec.name, spec.type))
-      if (prior) {
-        // ALREADY EXACTLY RIGHT IS NOT A WRITE. Re-attaching a domain, or
-        // attaching one whose records somebody set by hand, must not churn the
-        // zone — and a no-op here is also what makes the operation repeatable
-        // after a partial failure.
-        if (prior.content === spec.content && prior.proxied === true) {
-          applied.push({ record: prior, restore: null })
-          continue
-        }
-        replaced.push(prior)
-        applied.push({
-          record: await client.updateRecord(zone.cfZoneId, prior.id, spec),
-          // RESTORED FROM WHAT WAS READ, so a rollback puts the zone back the way
-          // it was found rather than deleting a record this operation did not
-          // create. `updateRecord` is a `PUT` and replaces wholesale, which is
-          // what makes the prior reading a complete description of what to undo.
-          restore: {
-            type: prior.type,
-            name: prior.name,
-            content: prior.content,
-            ttl: prior.ttl,
-            priority: prior.priority,
-            proxied: prior.proxied,
-          },
-        })
-        continue
-      }
-      applied.push({ record: await client.createRecord(zone.cfZoneId, spec), restore: null })
-    }
+    // RECORDS FIRST, THROUGH `records.ts` — the zone is read once and every
+    // decision is made against that reading, an already-correct record is not
+    // rewritten, and what was replaced is reported rather than swallowed. That
+    // was written here first and moved out when the sending toggle became its
+    // second caller ([[REQ-259]]); the sequence is unchanged, which is what the
+    // ordering claims in this ticket's suite are about.
+    const wrote = await applyRecords(client, zone.cfZoneId, servingRecords(plan))
+    applied.push(...wrote.applied)
+    replaced.push(...wrote.replaced)
 
     // ROUTES SECOND. A route is what makes a proxied hostname reach this Worker
     // at all, and creating it before the record would leave a window in which
@@ -338,6 +302,10 @@ export async function serveHostOnSite(
  * second failure here must not replace it with a less informative one. What the
  * operator is left with is reported by the original refusal, and the zone is
  * visible to them in any case.
+ *
+ * THE ROUTES ARE THIS MODULE'S AND THE RECORDS ARE `records.ts`'S, which is the
+ * same division the forward path makes: what to write is a purpose's judgement,
+ * and how to put a record back is one answer shared by every purpose.
  */
 async function undo(
   client: CloudflareClient,
@@ -352,14 +320,7 @@ async function undo(
       /* the original error is the one worth reporting */
     }
   }
-  for (const entry of [...applied].reverse()) {
-    try {
-      if (entry.restore) await client.updateRecord(zone.cfZoneId, entry.record.id, entry.restore)
-      else await client.deleteRecord(zone.cfZoneId, entry.record.id)
-    } catch {
-      /* as above */
-    }
-  }
+  await revertRecords(client, zone.cfZoneId, applied)
 }
 
 /**

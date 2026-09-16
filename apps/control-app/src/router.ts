@@ -125,6 +125,20 @@ import {
   type CloudflareEnv,
 } from './cloudflare'
 import { dnsResolver, ResolverUnreachableError, type DnsResolver } from './resolver'
+// [[REQ-259]] — the customer-facing configuration for a domain we already hold:
+// the selector, the sending toggle, and release. It composes [[REQ-257]]'s pool
+// and resolver with [[REQ-258]]'s serving, and this router is its one caller.
+import {
+  attachDomain,
+  domainState,
+  NotTheAccountHolderError,
+  releaseDomain,
+  setDomainEmail,
+  UnknownDomainError,
+  isAccountHolder,
+} from './domains'
+import { SendingNotConfiguredError } from './sending'
+import { resendFor, ResendApiError, type ResendClient } from './resend'
 import {
   attributeZone,
   allZones,
@@ -1118,6 +1132,22 @@ export interface RouterDeps {
    * no credential and therefore no configuration.
    */
   resolver?: (env: RouterEnv) => DnsResolver
+  /**
+   * Resend's domain API — the sending half of a customer's domain
+   * ([[REQ-259]]).
+   *
+   * INJECTABLE FOR {@link RouterDeps.cloudflare}'S REASON AND NOT THE
+   * RESOLVER'S. The real client registers and deletes sending domains on the
+   * account this product actually sends from, so a suite holding a live key
+   * would not fail against the real API — it would succeed, and leave test
+   * domains behind on it.
+   *
+   * THE SEAM AND THE DEFAULT ANSWER THE SAME WAY — `null` for a deployment with
+   * no key — so a suite injecting `() => null` is asserting the real no-key
+   * behaviour rather than simulating one. A domain still attaches for the WEB
+   * without it; what does not happen is the sending half.
+   */
+  resend?: (env: RouterEnv) => ResendClient | null
 }
 
 /**
@@ -1469,6 +1499,40 @@ export const HOSTNAME_CLAIM_PATH = '/api/hostname/claim'
  * — rather than in the surface the person it happens to is looking at.
  */
 export const HOSTNAME_REVOKE_PATH = '/api/hostname/revoke'
+
+/**
+ * The customer's own domain — the selector, the sending toggle, and release
+ * ([[REQ-259]]).
+ *
+ * TWO PATHS FOR THREE CONTROLS, and the split is which SUBJECT is being changed.
+ * `/api/domain` is about the address — `GET` draws the whole section, `POST`
+ * attaches, `DELETE` releases — and `/api/domain/email` is about mail from it,
+ * which is separately reversible and must be, because a customer who wants their
+ * old `From` address back must not have to give up the website address they have
+ * just put on a van.
+ *
+ * `/api/domain` AND NOT `/api/admin/domains`. That one is the operator's, is
+ * gated on `ownsPlatformBusiness` and takes a business id in its body; this is
+ * business-scoped like every route around it, so the business is never named in a
+ * body and no caller can attach an address to one the request did not already
+ * resolve to. Two surfaces over one mechanism, and the mechanism — [[REQ-258]]'s
+ * `serveHostOnSite` — is called by both rather than reimplemented by either.
+ *
+ * THE GATE IS THE ACCOUNT HOLDER AND NOT THE BUSINESS OWNER, which is the one
+ * place this differs from `/api/hostname/claim` next door. What is being spent
+ * is an ACCOUNT asset — `zones.account_id` — and the assignment happens inside a
+ * business, so a member of one business must not be able to consume a domain the
+ * account holder bought for a sibling one. `isAccountHolder` is the predicate and
+ * `GET` answers it rather than refusing on it: a member who may not attach still
+ * needs to be told what their site's address is, and told who to ask.
+ *
+ * `GET` IS ALSO THE VERIFICATION POLL. Resend's wait is minutes and has no
+ * webhook here; a separate poll route would be a second way to ask one question,
+ * and a state that only moved when somebody pressed something would read as
+ * broken. See `domainState`.
+ */
+export const DOMAIN_PATH = '/api/domain'
+export const DOMAIN_EMAIL_PATH = '/api/domain/email'
 
 /**
  * What `/api/ai/session` is asked for when the conversation is the business's own
@@ -3357,6 +3421,140 @@ async function routeUncached(
           return json(409, { error: scrub(error.message) })
         }
         throw error
+      }
+    }
+
+    /**
+     * `/api/domain` — the customer's own domain ([[REQ-259]]).
+     *
+     * THREE CONTROLS AND NO RECORDS. `GET` draws the section — the pool, what is
+     * attached, where mail got to, and whether this caller may change any of it.
+     * `POST` attaches. `DELETE` releases. Nothing in any of the three answers
+     * names a record type, a record value or a Cloudflare zone id, which is this
+     * ticket's first falsifier.
+     *
+     * `GET` IS NOT GATED ON BEING THE ACCOUNT HOLDER; it REPORTS whether the
+     * caller is one. A member who may not attach still needs to be told what
+     * their site's address is and who to ask, and a 403 would tell them neither.
+     *
+     * `DELETE` IS IDEMPOTENT, on `/api/hostname/revoke`'s reasoning, and it
+     * exists at all because **finality is a `platform` rule and is not
+     * inherited**: a customer's own domain may be moved between sites, taken off
+     * a site, and taken away entirely, because it is theirs.
+     */
+    if (p === DOMAIN_PATH && (method === 'GET' || method === 'POST' || method === 'DELETE')) {
+      const scope = requireScope()
+      const resend: ResendClient | null = deps.resend ? deps.resend(env) : resendFor(env)
+
+      if (method === 'GET') {
+        return json(200, await domainState(identityEnv, deps.admission, scope.businessId, resend))
+      }
+
+      // THE WRITES ARE THE ACCOUNT HOLDER'S ALONE. Otherwise a member of one
+      // business can spend a domain belonging to a sibling business.
+      if (!(await isAccountHolder(identityEnv, deps.admission, scope.businessId))) {
+        console.warn(
+          JSON.stringify({
+            event: 'domain_write_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: scrub(new NotTheAccountHolderError().message) })
+      }
+
+      // A DEPLOYMENT THAT CANNOT REACH CLOUDFLARE CANNOT ATTACH OR RELEASE, and
+      // writing the row anyway would be [[REQ-258]]'s first falsifier — a
+      // hostname that resolves nowhere — rather than a refusal.
+      const client: CloudflareClient | null = deps.cloudflare
+        ? deps.cloudflare(env)
+        : cloudflareFor(env)
+      if (client === null) {
+        return json(503, { error: scrub(new CloudflareNotConfiguredError().message) })
+      }
+      const resolver = deps.resolver ? deps.resolver(env) : dnsResolver()
+
+      try {
+        if (method === 'DELETE') {
+          return json(200, await releaseDomain(identityEnv, client, resend, scope.businessId))
+        }
+        const body = await readJsonBody(request)
+        const attached = await attachDomain(identityEnv, client, resolver, resend, {
+          businessId: scope.businessId,
+          domain: typeof body.domain === 'string' ? body.domain : '',
+          // ON BY DEFAULT. The toggle's default is the ticket's, and the shape
+          // here is what makes it one: only an explicit `false` turns it off, so
+          // a caller that forgot the field gets the default rather than the
+          // opposite of it.
+          email: body.email !== false,
+        })
+        return json(200, attached)
+      } catch (err) {
+        // EACH REFUSAL KEEPS ITS OWN STATUS, on `/api/admin/domains`'s reasoning.
+        // A domain this account does not hold is a 404; a host already pointed at
+        // another site is a 409 and is a decision somebody already made; a zone
+        // that is not ready is a wait; an API refusal is somebody else's problem.
+        if (err instanceof UnknownDomainError) return json(404, { error: scrub(err.message) })
+        if (err instanceof NoZoneForHostError) return json(404, { error: scrub(err.message) })
+        if (err instanceof ZoneNotReadyError) return json(409, { error: scrub(err.message) })
+        if (err instanceof HostnameTakenError) return json(409, { error: scrub(err.message) })
+        if (err instanceof SendingNotConfiguredError) return json(409, { error: scrub(err.message) })
+        if (err instanceof InvalidHostnameError) return json(400, { error: scrub(err.message) })
+        if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
+        // RESEND'S OWN WORDS COME BACK THROUGH THE SCRUBBER, for the reason
+        // Cloudflare's do: the message is composed below us by a client that was
+        // handed a bearer token ([[REQ-146]] AC4).
+        if (err instanceof ResendApiError) return json(502, { error: scrub(err.message) })
+        throw err
+      }
+    }
+
+    /**
+     * POST /api/domain/email — send from this domain, or stop ([[REQ-259]]).
+     *
+     * ITS OWN PATH BECAUSE IT IS SEPARATELY REVERSIBLE. A customer who turned
+     * sending on and then found the new `From` address confusing must be able to
+     * put it back without giving up the website address they have just told
+     * their customers about — and one path taking an `email` flag beside an
+     * `attach` would make those two acts one request.
+     *
+     * THE ACCOUNT HOLDER'S, like the writes above: it writes DNS into a zone the
+     * account owns.
+     */
+    if (p === DOMAIN_EMAIL_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!(await isAccountHolder(identityEnv, deps.admission, scope.businessId))) {
+        console.warn(
+          JSON.stringify({
+            event: 'domain_email_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: scrub(new NotTheAccountHolderError().message) })
+      }
+      const client: CloudflareClient | null = deps.cloudflare
+        ? deps.cloudflare(env)
+        : cloudflareFor(env)
+      if (client === null) {
+        return json(503, { error: scrub(new CloudflareNotConfiguredError().message) })
+      }
+      const body = await readJsonBody(request)
+      try {
+        const email = await setDomainEmail(
+          identityEnv,
+          client,
+          deps.resend ? deps.resend(env) : resendFor(env),
+          deps.resolver ? deps.resolver(env) : dnsResolver(),
+          { businessId: scope.businessId, enabled: body.enabled !== false },
+        )
+        return json(200, { email })
+      } catch (err) {
+        if (err instanceof UnknownDomainError) return json(404, { error: scrub(err.message) })
+        if (err instanceof SendingNotConfiguredError) return json(409, { error: scrub(err.message) })
+        if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
+        if (err instanceof ResendApiError) return json(502, { error: scrub(err.message) })
+        throw err
       }
     }
 

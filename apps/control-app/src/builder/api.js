@@ -1314,3 +1314,73 @@ export async function claimHostname(label, fetchImpl = fetch) {
   if (!res.ok) throw new HostnameClaimError(await res.json().catch(() => null), res.status)
   return res.json()
 }
+
+/**
+ * The customer's own domain — the selector, the sending toggle, and release
+ * ([[REQ-259]]).
+ *
+ * FOUR ORDINARY CALLERS OF `/api/domain`, and nothing below decides anything.
+ * Which domains this account holds, whether one is free, whether this person may
+ * spend it, and where the sending verification got to are all answered by the
+ * Worker; this module carries the question there and the answer back. A client
+ * that re-derived any of it would be a second rule that can disagree with the
+ * first — and here the disagreement would be a selector offering a domain the
+ * attach then refuses.
+ *
+ * NOTHING HERE NAMES A RECORD. The wire shape carries a domain, an availability,
+ * a sentence and a state word; there is no field for a record type or a zone id,
+ * which is what makes *"if a customer is being shown a record type, we have
+ * failed"* a property of the API rather than a discipline of the section.
+ */
+
+/** What the domain section draws itself from, including the verification state. */
+export async function fetchDomain(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/domain'), { method: 'GET' })
+  if (!res.ok) throw new Error(`GET /api/domain → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Point one at this site.
+ *
+ * `email` DEFAULTS ON AND IS SENT EXPLICITLY. The Worker treats anything but
+ * `false` as on, so the two agree by construction — and sending it explicitly is
+ * what lets the toggle beside the selector mean something before the attach
+ * rather than only after it.
+ */
+export async function attachDomain(domain, email = true, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/domain'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ domain, email }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/domain → ${res.status}`)
+  }
+  return res.json()
+}
+
+/** Take it off this site. The zone stays on the account and stays in the pool. */
+export async function releaseDomain(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/domain'), { method: 'DELETE' })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `DELETE /api/domain → ${res.status}`)
+  }
+  return res.json()
+}
+
+/** Send from it, or stop. Separately reversible from the attachment itself. */
+export async function setDomainEmail(enabled, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/domain/email'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/domain/email → ${res.status}`)
+  }
+  return res.json()
+}

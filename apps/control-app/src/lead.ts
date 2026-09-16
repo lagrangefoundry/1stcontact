@@ -48,6 +48,7 @@ import { isEmailShape } from './builder/email-shape.js'
 import { emailsOf, normaliseEmail, type IdentityEnv } from './identity'
 import type { MailEnv, SendEmail } from './mail'
 import { mailerFor, mailFrom } from './mail'
+import { sendingFrom } from './sending'
 import {
   BOUNCED,
   COMPLAINED,
@@ -1087,6 +1088,24 @@ async function deliverForm(
   // and the second is `already_sent` for the same reason a second submission is.
   const delivered = new Set(history.flatMap((message) => message.assets))
 
+  /**
+   * WHAT THIS BUSINESS SENDS AS, resolved once per submission ([[REQ-259]]).
+   *
+   * `null` UNTIL THE CUSTOMER HAS A VERIFIED DOMAIN OF THEIR OWN, which is every
+   * business until one turns the toggle on and the records land — so the
+   * fallback below is what this product has always sent from and the ordinary
+   * path is unchanged.
+   *
+   * IT LOSES TO THE TEMPLATE'S OWN `from`, and keeps the precedence that was
+   * already here. A message page that names an address is naming it
+   * deliberately; a domain-wide default is what applies when nothing did.
+   *
+   * RESOLVED ONCE RATHER THAN PER MESSAGE. A form promising four artifacts sends
+   * four messages, and asking the same question four times would be four reads
+   * for one answer that cannot change inside a submission.
+   */
+  const domainFrom = await sendingFrom(env, scope.businessId)
+
   /** Queue, record and report one message. Shared so the two shapes cannot drift. */
   const post = async (
     outgoing: RenderedFor,
@@ -1099,7 +1118,7 @@ async function deliverForm(
         templateKey: outgoing.rendered.templateKey,
         templateUid: outgoing.rendered.templateUid,
         subject: outgoing.rendered.subject,
-        from: outgoing.rendered.from?.trim() || mailFrom(env),
+        from: outgoing.rendered.from?.trim() || domainFrom || mailFrom(env),
         // ONE RECIPIENT, AND THE TYPE IS WHAT SAYS SO — the same shape the invite
         // keeps, so a multi-recipient message is not expressible here either.
         to: primary.email,

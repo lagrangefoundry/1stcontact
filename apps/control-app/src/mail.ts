@@ -34,6 +34,8 @@
  * record path with a shape it only ever sees in production.
  */
 
+import { RESEND_API_BASE } from './resend'
+
 /** One message, and the whole of what a sender is told. */
 export interface Message {
   to: string
@@ -156,8 +158,15 @@ export class MailSendError extends Error {
   }
 }
 
-/** Resend's send endpoint. Named once, here, so nothing else can name it. */
-export const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+/**
+ * Resend's send endpoint. Named once, here, so nothing else can name it.
+ *
+ * COMPOSED FROM `resend.ts`'S BASE RATHER THAN SPELT OUT ([[REQ-259]]). That
+ * module manages sending DOMAINS and this one sends MESSAGES — two capabilities,
+ * deliberately two files — but they are one vendor at one hostname, and two
+ * literals is two places a provider move would have to be found.
+ */
+export const RESEND_ENDPOINT = `${RESEND_API_BASE}/emails`
 
 /** How much of a provider's refusal is worth carrying into an error message. */
 const DETAIL_LIMIT = 300
@@ -428,8 +437,10 @@ export interface CapturingMailer {
  * THIS IS NOT A CONVENIENCE. A suite that can reach a real provider is a suite
  * that can mail a real person from a fixture, and the first time it happens it
  * will be to somebody on the beta list. So the thing the tests run is the thing
- * that has no way to send: it holds no credential, calls no `fetch`, and imports
- * nothing that could.
+ * that has no way to send: it holds no credential, calls no `fetch`, and reaches
+ * nothing that could. (This file's one import is `resend.ts`'s hostname STRING,
+ * added by [[REQ-259]] so the vendor is named once — a constant, not a client,
+ * and there is no path from here to the module's own calls.)
  *
  * IT STILL RETURNS A `providerId`, prefixed `local_`. The record path
  * ([[REQ-198]]) then has the same shape in a test as in production — and the

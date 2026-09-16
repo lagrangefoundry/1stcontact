@@ -31,6 +31,15 @@
  * deliberately propagates to nothing is that the customer is TOLD what is now
  * inconsistent and gets to choose.
  *
+ * THREE SECTIONS, AND THE THIRD IS WHERE THE WORD *DOMAIN* IS CORRECT
+ * ([[REQ-259]]). The free web address deliberately refuses that word, because
+ * [[EPIC-6]] is going to sell the customer a real one and teaching them "domain"
+ * for a `1stc.site` hostname means unteaching it later. `Your domain` is that
+ * real one. The two sit next to each other and read as one sentence about the
+ * same subject — where people find you — or they read as two products, which is
+ * why they are adjacent and in that order: the free one first, because every
+ * business has it, and the bought one under it.
+ *
  * TWO SECTIONS, WITH OPPOSITE LIFECYCLES ([[REQ-249]]). The business's NAME is
  * changed freely and costs nothing to get approximately right; the free web
  * address beneath it is chosen once and lived with. They sit on one pane because
@@ -42,8 +51,9 @@
  */
 
 import { mountFields } from '@lagrangefoundry/webui-fields'
-import { fetchAddresses, fetchBusinessRecord, saveBusinessName } from './api.js'
+import { fetchAddresses, fetchBusinessRecord, fetchDomain, saveBusinessName } from './api.js'
 import { createHostnameSection } from './hostname.js'
+import { createDomainSection } from './domain.js'
 
 /**
  * The field, and the two sentences around it.
@@ -110,7 +120,9 @@ export function outOfDateNotes(effects) {
  *
  * @param {object} [options]
  * @param {{saveName?: Function, loadAddresses?: Function, loadBusiness?: Function,
- *   checkHostname?: Function, claimHostname?: Function}} [options.transport]
+ *   checkHostname?: Function, claimHostname?: Function, loadDomain?: Function,
+ *   attachDomain?: Function, releaseDomain?: Function, setDomainEmail?: Function}}
+ *   [options.transport]
  *   injected by tests; each defaults to the origin call. `loadBusiness` is
  *   [[REQ-251]]'s — what the record says NOW, for a re-read.
  * @param {(business: {id: string, name: string}) => void} [options.onRenamed]
@@ -172,8 +184,28 @@ export function createSettingsPanel(options = {}) {
     },
   })
 
+  /**
+   * The customer's own domain, as its own section ([[REQ-259]]).
+   *
+   * ITS OWN MODULE FOR `hostname.js`'S REASON, and one more: what it draws
+   * depends on an answer from the origin that includes an AUTHORISATION — the
+   * pool is the account's and a member who is not the account holder is told to
+   * ask — and a pane that inlined that would be deciding who may spend an
+   * account asset in the same file that edits a text field.
+   */
+  const domain = createDomainSection({
+    modalHost: element,
+    transport: {
+      ...(transport?.loadDomain ? { load: transport.loadDomain } : {}),
+      ...(transport?.attachDomain ? { attach: transport.attachDomain } : {}),
+      ...(transport?.releaseDomain ? { release: transport.releaseDomain } : {}),
+      ...(transport?.setDomainEmail ? { setEmail: transport.setDomainEmail } : {}),
+    },
+  })
+
   const loadAddresses = transport?.loadAddresses ?? fetchAddresses
   const loadBusiness = transport?.loadBusiness ?? fetchBusinessRecord
+  const loadDomain = transport?.loadDomain ?? fetchDomain
 
   let fields = null
   let business = null
@@ -217,19 +249,30 @@ export function createSettingsPanel(options = {}) {
     // the one thing on this pane that must never be shown under another
     // business's heading, and the re-read is allowed to fail.
     hostname.clear()
+    domain.clear()
     const mine = ++addressGeneration
     if (!business) {
       section.remove()
       hostname.element.remove()
+      domain.element.remove()
       element.append(empty)
       return
     }
     empty.remove()
-    element.append(section, hostname.element)
+    element.append(section, hostname.element, domain.element)
     void loadAddresses()
       .then((answer) => {
         if (mine !== addressGeneration) return
         hostname.setAddresses(answer)
+      })
+      .catch(() => {})
+    // THE SAME GENERATION GUARD, FOR THE SAME REASON. A business switch while
+    // this read is in flight would otherwise draw one business's domain — and
+    // its release button — under another business's heading.
+    void loadDomain()
+      .then((answer) => {
+        if (mine !== addressGeneration) return
+        domain.setState(answer)
       })
       .catch(() => {})
     fields = mountFields(fieldHost, {
@@ -292,15 +335,21 @@ export function createSettingsPanel(options = {}) {
   async function reload() {
     if (!business) return
     const mine = addressGeneration
-    const [record, answer] = await Promise.all([
+    const [record, answer, domainAnswer] = await Promise.all([
       loadBusiness().catch(() => null),
       loadAddresses().catch(() => null),
+      loadDomain().catch(() => null),
     ])
     // THE SAME GUARD THE OPEN READ CARRIES. A business switch can begin while
     // this is in flight, and the one thing that may not happen on this pane is
     // another business's address drawn under this one's heading.
     if (mine !== addressGeneration) return
     if (answer) hostname.refresh(answer)
+    // AND THE DOMAIN, WHICH HAS A REASON OF ITS OWN TO BE RE-READ. Resend's
+    // verification lands minutes after the records are written and nothing
+    // pushes it here; the section says it will come right on its own, and this
+    // is what makes that sentence true rather than an invitation to reload.
+    domain.refresh(domainAnswer)
     if (!record || record.id !== business.id) return
     const name = record.name ?? ''
     if (name === business.name) return
@@ -322,11 +371,14 @@ export function createSettingsPanel(options = {}) {
     getBusiness: () => business,
     /** The free web address section — for the host and for a suite. */
     hostname,
+    /** The customer's own domain section — for the host and for a suite. */
+    domain,
     clear: () => setBusiness(null),
     destroy() {
       fields?.destroy()
       fields = null
       hostname.destroy()
+      domain.destroy()
       element.remove()
     },
   }

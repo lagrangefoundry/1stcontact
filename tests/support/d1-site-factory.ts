@@ -112,8 +112,14 @@ const MIGRATIONS = [
   // whose column the serving code reads and the fixture's database does not
   // have — every host resolution failing on a column nobody can see from the
   // code, which is exactly `0009`'s case one migration later.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0011_site_domains_canonical.sql?raw'),
+  // [[REQ-259]] — `sending_domains`, the state of the email toggle. Applied here
+  // for every reason above, and one of its own: the surface reads this table on
+  // every draw, so a suite that skipped it would fail on a missing table in the
+  // route that answers *what does this business's domain section say* rather
+  // than in the operation that writes it.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0012_sending_domains.sql?raw'),
 ]
 
 /**
@@ -206,7 +212,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-258]]'s partial unique index on `site_domains`. It used to ask for
+ * [[REQ-259]]'s unique index on `sending_domains.domain`. It used to ask for
  * `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -215,16 +221,15 @@ export async function applySchema(): Promise<void> {
  * query serve both "already migrated" and "nothing here yet", exactly as
  * `PRAGMA table_info` did.
  *
- * AN INDEX AND NOT THE COLUMN IT GUARDS, because `0011`'s two statements land
- * in order and the index is the second: an index that exists implies the column
- * it is declared over does. Asking for the column instead would need a
- * `sql LIKE` clause, which is what `0009`'s marker needed and is more fragile
- * for no more answer.
+ * AN INDEX AND NOT THE TABLE IT GUARDS, because `0012`'s three statements land
+ * in order and this index is the second: an index that exists implies the table
+ * it is declared over does. Asking for the table instead would answer "at head"
+ * for a database that got half way through the file.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
   const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_site_domains_site_canonical')
+    .bind('idx_sending_domains_domain')
     .first<{ name: string }>()
   return row !== null
 }

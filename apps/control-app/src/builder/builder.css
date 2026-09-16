@@ -3153,6 +3153,94 @@ body {
   line-height: 1.45;
 }
 
+/* --- the customer's own domain ([[REQ-259]]) ---------------------------------
+ *
+ * THE SAME SHAPES AS THE SECTION ABOVE IT, deliberately. The free web address
+ * and the bought one sit next to each other and are about one subject — where
+ * people find you — so a second visual vocabulary here would make them read as
+ * two products. Everything below either reuses `builder-settings__*` or matches
+ * `builder-hostname__*` at the same sizes.
+ */
+.builder-domain__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.builder-domain__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.builder-domain__select {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+  padding: 6px 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: var(--shell-fg);
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+}
+
+.builder-domain__select:focus-visible {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 1px;
+}
+
+/* The address itself, which is the one fact on this section that matters. */
+.builder-domain__attached {
+  margin: 0;
+  font-size: var(--builder-control-font-size);
+}
+
+/* The toggle and its words are one control: the label wraps the checkbox so a
+   click anywhere on the sentence works, which is most of what makes a checkbox
+   usable at this size. */
+.builder-domain__email-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.builder-domain__email-line,
+.builder-domain__note,
+.builder-domain__line {
+  margin: 0;
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+
+/* What was already living on the domain, said once after the attach. Marked so
+   it reads as something we are telling them rather than something they chose —
+   and NOT as a warning, because it is not one: the mail it names goes on
+   working. */
+.builder-domain__note {
+  padding-left: 10px;
+  border-left: 2px solid var(--shell-accent);
+}
+
+.builder-domain__line:empty {
+  display: none;
+}
+
+/* Release sits alone under its own state, for the lock-in button's reason: it
+   is a different kind of act from the toggle above it and reads as one. */
+.builder-domain__release {
+  align-self: flex-start;
+}
+
+.builder-domain__confirm {
+  margin: 0 0 10px;
+  font-size: 0.95em;
+  line-height: 1.45;
+}
+
 /* --- the publish refusal that has somewhere to go ([[REQ-250]]) --------------
  *
  * The panel, the backdrop, the footer and the buttons are all `modal.js`'s and
