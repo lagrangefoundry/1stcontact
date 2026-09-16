@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T00:22:00.691893+00:00'
+updated_at: '2026-09-16T00:23:22.160470+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1994,5 +1994,55 @@ Want me to file that, and close BUG-96 pointing at it?
 <!-- xgd-chat role="user" ts="2026-09-16T00:22:00.618041+00:00" -->
 #### You
 ok good real progress - the email link contains the production URL though - how can I test this with the dev server?
+
+<!-- xgd-turn id="274b20d7-9455-40e8-915e-96dc3c9a35cf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T00:23:21.500872+00:00" -->
+#### Claude
+The email arrived — good. Let me look at how that link is built, since the origin is deliberately a constant.
+
+public-site dev is on **8787**. Let me confirm which channel the download actually serves from.
+
+Two good things in that: the grant's `form_handle` is **`whitepapers:signup`** — BUG-93's composite handle working, the whitepapers form finally resolving to itself. And `site_revisions` for xgd is **0**.
+
+Confirmed: `resolve()` returns `publishedOutPrefix(siteKey, live)` and returns `null` when there's no live revision. Your xgd site has **zero revisions**, so the download would 404 even on the right host.
+
+## Two separate things block the test
+
+**1. The origin is hardcoded.** `PUBLIC_SITE_ORIGIN = 'https://1stcontact.io'` — deliberately a constant, with a stated reason:
+
+> *"a var would invite a per-environment override whose only reachable effect would be to send an operator's 'view published' click somewhere else."*
+
+That reasoning was sound when the builder's *view published* button was the only caller. REQ-244's gated download is a second caller, and for it the argument **inverts** — the link is the whole deliverable, and in dev it must reach your local public-site or the feature can't be exercised at all. The constant's own rationale is now only half true.
+
+**2. The gate serves published bytes.** `serving.store.resolve(siteKey)` → `publishedOutPrefix(siteKey, live)`, `null` if nothing is live. Nothing is published locally.
+
+## Testing it today, no code changes
+
+Your grant is real and in local D1:
+
+```
+gate_3826ac56aa7de83a2a78b34564b5aee6   whitepapers:signup   2026-09-16T00:12:25Z
+```
+
+So:
+
+1. **Mint a revision** — `1c publish` (not `bin/publish`; that pushes draft *bytes* into the store, `1c publish` is the one that makes a version live). The headers are explicit that these two are "uncomfortably close" and do different things.
+2. **Swap the host, keep the path:**
+   ```
+   http://localhost:8787/site/site_bca807fc7cdd0bf418b15e255f8c45c6/api/download/gate_3826ac56aa7de83a2a78b34564b5aee6
+   ```
+
+Everything except the origin is already correct in the email you received.
+
+## The bug underneath
+
+A **draft-channel** submission mints a link into the **published** site. `gateUrl` calls `publicSiteUrl` regardless of channel, so pressing the button in your own preview produces a link that points at published bytes which, by definition, may not exist yet — and on a never-published site, cannot.
+
+That's not a dev-environment annoyance; it's wrong in production too. An operator testing their own form before publishing gets a live email containing a dead link, and `lead.ts` has a `LeadChannel` that already knows which case it's in — it just isn't consulted here.
+
+So I'd file one bug with two parts: the origin needs to be resolvable per-deployment (without reintroducing the misrouted "view published" click the comment warns about), and a draft-channel grant should point at the draft preview rather than the published site.
+
+Want me to file it? And shall I also file the local-migration-drift check and close BUG-96, both of which are still outstanding from before?
 
 <!-- xgd-chat-end -->
