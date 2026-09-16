@@ -5,9 +5,9 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T03:41:11.059648+00:00'
+updated_at: '2026-09-16T03:44:19.109884+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: chat-3f06fa6a
@@ -41,5 +41,74 @@ That comes into our system, we parse the headers figure out which contact it was
 Questions:
  - Are my fears of running a mailbox founded? Are there 3rd parties we coudl whitelabel to solve this for us? (email is a desirable capability if we can keep it lightweight?)
  - Does my workaround land?
+
+<!-- xgd-turn id="606b5568-da7b-470a-b41c-04f1eaa23058-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T03:44:17.533142+00:00" -->
+#### Claude
+Useful context from the repo first: outbound already exists — `apps/control-app/src/mail.ts` is a sender port with Resend behind it, and `email-webhook.ts` already lands delivery/bounce events on the record. So "we send, and we know what happened to it" is built. The gap is genuinely the inbound half.
+
+## 1. Are the fears founded?
+
+Partly — but they're aimed at the wrong object. Three different things get conflated under "running a mailbox":
+
+**Being the authoritative mailbox** (IMAP, storage, we are their email provider). Fear is **fully founded**. Never do this. Blast radius is total, the migration is the moment they churn, and the support burden is "where's my email" forever. It isn't our product.
+
+**Running our own SMTP/MX server.** **Fully founded.** Nobody should do this in 2026.
+
+**Being a forwarder in the inbound path** — MX points at a managed service, we see the message, we pass it on. **Much less scary than it feels**, for a reason worth internalising: SMTP is a store-and-forward protocol with retries built in. If our forwarder is down and returns a 4xx, the *sending* server queues and retries for several days. The business sees delayed mail, not lost mail. The catastrophic failures are specific and avoidable:
+
+- **Accept-then-drop.** Returning 250 and then losing the message. This is the only true data-loss mode, and it's entirely ours to avoid.
+- **MX pointing at nothing.** NXDOMAIN → hard bounce → the sender is told the business doesn't exist. This is a DNS mistake, not a runtime one.
+- **Us filtering.** The moment we make delivery decisions (spam, greylisting, size) we've become a mail provider and we own false positives — the worst failure in email, because it's silent.
+- **Breaking DKIM.** Forwarding rewrites nothing if you forward verbatim; modify the body (footer, re-encode MIME) and DKIM fails, DMARC fails, and the forward lands in spam. Non-obvious, easy to do by accident.
+
+Two design rules fall straight out and they're the whole safety story:
+
+> **Forward first, record second. Recording failure must never fail delivery.** (`await message.forward()`, then `ctx.waitUntil(record())`.)
+>
+> **Forward the bytes verbatim. Never filter, never modify, never hold.**
+
+**The one genuinely risky thing on your roadmap isn't inbound at all — it's outbound lists.** Marketing email to a list a small business assembled is how you get a shared IP pool blocklisted and one customer's bad habits poisoning everyone else's deliverability. That deserves more of your anxiety budget than MX does.
+
+### Third parties
+
+You don't need to whitelabel anything — the capability is already under you. **Cloudflare Email Routing + Email Workers** is exactly the shape you want: inbound receipt, a Worker that inspects the message, `message.forward()` to their real inbox. Free, in-stack, does SRS so forwarding doesn't break SPF. Its constraint is that the domain must be on Cloudflare and Email Routing takes MX for that zone.
+
+If you ever want it decoupled from the zone, the mature options are Postmark inbound streams (best reliability reputation), Mailgun Routes, SendGrid Inbound Parse, SES receipt rules. All the same shape: MX to them, MIME parsed to a webhook.
+
+The *different* category you may not have considered is **OAuth mailbox sync** — Nylas, Unipile, Aurinko, or Gmail/Graph APIs direct. This is the only thing that gives complete capture with zero behaviour change. The cost is Google's restricted-scope verification (annual third-party security assessment, real money, real calendar time) and the fact that you'd be ingesting their personal mail too. Worth knowing it exists; not worth reaching for yet.
+
+## 2. Does the workaround land?
+
+**Yes as a first move, no as the answer.** It's the proven pattern — HubSpot, Pipedrive, Copper all ship exactly this — and it's zero-risk because we're never in the delivery path. Three corrections and one gap:
+
+**BCC, not CC.** CC shows the customer a weird third-party address on their quote, which reads unprofessional and invites "who is this?". BCC is invisible and the `To:`/`Cc:` headers are still there to parse.
+
+**Per-business opaque address, not one shared `contact@`.** With a shared address you'd have to identify the business from `From:`, which is trivially spoofable — anyone who learns the address could inject fabricated history into any business's record. Give each business `b-<opaque>@in.1stc.site`. And treat the address as a secret that *will* leak (it ends up in forwarded threads and people's sent folders), so ingested records should still be marked lower-trust than what we captured ourselves.
+
+**It captures one side only, and only when they remember.** Realistically 50–70% at first, decaying. It misses cold inbound entirely, and it misses replies unless the customer hits reply-all.
+
+**The gap it can't close is the important one**: someone emailing the business cold never touches our system at all.
+
+## What I'd actually build, in order
+
+**0. The contact form — already done.** Per BUG-86 form submissions land server-side in the contact list. That's the highest-volume cold-inbound channel and it's already ours, with no email involved.
+
+**1. Own the address we publish on their site.** Here's the thing that changes the risk calculus entirely: **for a business currently using `alicesplumbing@gmail.com`, there is no incumbent MX to displace.** Giving them `hello@alicesplumbing.com` forwarding to that same Gmail is a pure upgrade — a failure means "the new address doesn't work yet", not "our email died". That's probably most of our market, and it's a real product benefit they'd value independently ("a proper business email address"). It also fixes the acknowledged gap in DOC-47: nobody is notified when an enquiry arrives. The forward *is* the notification. For businesses that already have MX on their domain, skip this tier — don't touch it.
+
+**2. Per-business BCC address.** Your proposal, corrected as above. Cheap, do it.
+
+**3. `Reply-To:` routing on everything we send.** This is the one that's nearly free given `mail.ts` already exists. Set `Reply-To: r+<thread>@reply.1stc.site` on outbound; the reply comes to us, gets recorded, gets forwarded. It's how every support tool threads, and it captures replies with zero human discipline required. As the front office starts sending on their behalf — follow-ups, invoices, lists — this covers a growing share of all correspondence automatically.
+
+**4. OAuth mailbox sync — later, bought not built,** and only if demand justifies the Google verification cost.
+
+Layers 1+3 are the interesting pair: between them, anything that starts with us or arrives at the address we published is captured without asking the business to do anything. Layer 2 is the discipline-dependent patch over what's left.
+
+One thing to fold into terms and the deletion path: storing both sides means holding the *customer's* words, not just the business's. Business is controller, we're processor — fine, but DOC-55's erasure story needs to reach it.
+
+---
+
+Want me to write this up as a DOC, or open a ticket for layer 3 (Reply-To capture)? That one's small and mostly sits on rails `mail.ts` already laid.
 
 <!-- xgd-chat-end -->
