@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:03:53.109107+00:00'
+updated_at: '2026-09-16T04:04:45.255221+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -116,5 +116,47 @@ Want me to write this up as a DOC, or open a ticket for layer 3 (Reply-To captur
 <!-- xgd-chat role="user" ts="2026-09-16T04:03:52.108456+00:00" -->
 #### You
 What is 4?
+
+<!-- xgd-turn id="5922e08f-e47b-4dd6-b99b-c590352cd82d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T04:04:44.997288+00:00" -->
+#### Claude
+Layers 1–3 are all **interception** — they see mail only because it flows through a path we control. Layer 4 is different in kind: we stop intercepting and instead **read the mailbox itself**.
+
+## The mechanic
+
+The business clicks "Connect Gmail" in the control app. They get Google's consent screen. We get a refresh token. From then on we call the Gmail API (or Microsoft Graph, for Outlook shops) and read their mail directly — `users.watch` with Pub/Sub for push, or poll on `historyId`.
+
+What that buys you is the thing nothing else can:
+
+- **Both directions, always.** No BCC discipline, no reliance on the address we published.
+- **Retroactively.** Their last three years of correspondence with every contact, backfilled on connect. Layers 1–3 only ever start recording from the day they're switched on.
+- **Zero behaviour change.** They keep using Gmail exactly as they do now, including from their phone at 7am on a job.
+
+That's complete capture. It's what Attio, Folk, Streak and every serious CRM do, and it's why their contact records feel alive from day one.
+
+## Why it's "later"
+
+**Google's restricted scopes.** `gmail.readonly` is classed restricted, which means public distribution requires OAuth verification *plus* an annual third-party security assessment (CASA, via an authorized assessor). That's real money every year and weeks-to-months of calendar time, with ongoing obligations on retention and incident response. Check current pricing and tiers directly — that regime shifts and my figures would be stale. Microsoft Graph is materially easier: publisher verification, no CASA equivalent.
+
+**The consent screen is a churn moment.** "1st Contact wants to read, compose, send and permanently delete all your email" is the most alarming dialog we will ever put in front of a plumber. Some fraction just closes the tab. It's a categorically different ask from "add this BCC address".
+
+**We'd be ingesting their personal life.** A business running on `alicesplumbing@gmail.com` has their kids' school, their bank and their GP in that same mailbox. We'd pull all of it and filter afterwards — meaning we've processed personal data of third parties who have no relationship with us whatsoever. Filtering at read time helps; it doesn't undo having touched it.
+
+**And it's more engineering than it looks**: per-account sync cursors, token refresh and revocation, backfill, rate limits, re-auth when they change password, MIME parsing at volume.
+
+## Why "bought"
+
+Nylas, Unipile and Aurinko all sell this as a product — one API over Gmail + Graph + raw IMAP, normalized message schema, sync state and webhooks handled. The question worth asking each of them directly is whether **their** verification covers the integration or whether we still need our own, because Google has tightened on "the app the user sees is the app that gets assessed". That single answer is the difference between an afternoon and a quarter.
+
+Watch the unit economics: these price per connected account per month. On a small-business product with thin margins, that's plausibly a paid-tier feature rather than something every customer gets.
+
+## The cheaper cousin
+
+**IMAP with an app password.** Same completeness, no OAuth verification at all — the customer pastes a credential and we sync. Clunkier, stores a secret instead of a revocable token, and Google has been steadily squeezing app passwords (worth checking where that stands now). But for a beta-era customer who actively wants complete history, it's a fraction of the work and a reasonable way to find out whether anyone cares before paying for CASA.
+
+## The honest case against ever doing it
+
+Layers 1 + 3 may make it unnecessary. If we publish the address *and* we send the outbound, what's left uncaptured is "the business types a cold email, from their own phone, to someone who has never contacted them and never will reply." For a plumber or a caterer that's a thin slice. Layer 4 earns its cost when businesses start telling us the record has holes that hurt — or when we move upmarket to people with actual sales pipelines. Until then it's a solution sized for a problem we haven't confirmed we have.
 
 <!-- xgd-chat-end -->
