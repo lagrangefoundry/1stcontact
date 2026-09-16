@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-249
 created_by: xgd
 created_at: '2026-09-16T00:11:43.203561+00:00'
-updated_at: '2026-09-16T00:26:22.108644+00:00'
+updated_at: '2026-09-16T00:30:55.445958+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -78,5 +78,11 @@ Done. REQ-249 is `free_coded` at `76c493c1`, merged into `xgd-working`, branch c
 - `test_UAT_FC_REQ-249_check_names_its_refusal.workers.test.ts` — 4 cases against real D1, over every reserved label the product ships.
 
 All adjacent builder suites pass (36 files, 284 tests). Two suites initially failed in the fresh worktree because `dist-assets` wasn't built — they pass after `bin/1c assets`, and are unrelated to this change.
+
+<!-- xgd-turn id="14f19409-062c-4f97-8850-73c1fe4ea0ce-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T00:30:55.099367+00:00" -->
+#### You
+I restarted the server and refreshed the page - I do not see any of this work on the Settings tab?
 
 <!-- xgd-chat-end -->
