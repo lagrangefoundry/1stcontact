@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:29:58.241134+00:00'
+updated_at: '2026-09-16T17:30:48.521702+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -343,5 +343,64 @@ Let me run it now:
 <!-- xgd-chat role="user" ts="2026-09-16T17:29:57.492144+00:00" -->
 #### You
 I really prefer to run install scripts myself
+
+<!-- xgd-turn id="addaafd1-995a-4eb9-a49c-42e6dd0efaaf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:30:47.948788+00:00" -->
+#### Claude
+Understood — I won't run installs again. That one was killed by the sandbox anyway (exit 137), so nothing was downloaded and nothing changed on your disk.
+
+Here's the command:
+
+```bash
+tools/generate/node_modules/.bin/playwright install chromium
+```
+
+**Why this one and not `npx`:** it's the repo's own Playwright 1.61.1 CLI, reached by explicit path so nothing on `PATH` can shadow it. It'll fetch `chromium-1228` and `chromium_headless_shell-1228` into `~/Library/Caches/ms-playwright/`, alongside the 1234/1243 you already have. Nothing is removed — the old revisions just sit there unused.
+
+To confirm afterwards:
+
+```bash
+ls ~/Library/Caches/ms-playwright/ | grep 1228
+```
+
+You should get `chromium-1228` and `chromium_headless_shell-1228`. Then press **[reproduce]** again.
+
+Let me record the preference so it sticks:
+
+Noted and saved — I'll hand over commands from here on rather than running them.
+
+## Where things stand
+
+The diagnosis holds regardless of who runs the install:
+
+| | |
+|---|---|
+| Repo needs | Chromium revision **1228** (from `playwright-core@1.61.1`'s `browsers.json`) |
+| On your disk | `1234`, `1243` — no 1228 |
+| Why | `npx playwright` resolves to the Python CLI in your active xgd venv, which pins its own revisions |
+
+Your command:
+
+```bash
+tools/generate/node_modules/.bin/playwright install chromium
+```
+
+Then verify and retry:
+
+```bash
+ls ~/Library/Caches/ms-playwright/ | grep 1228
+```
+
+Two `1228` entries means you're good — press **[reproduce]** again.
+
+## Loose ends from earlier in this session
+
+Worth flagging, since both were mine and both involved me running things I shouldn't have:
+
+- **`pnpm install --filter @1stcontact/repro-console`** also exited 137 in my sandbox. But `tools/repro-console/node_modules/vite` is present and the console boots, so that one had already done its work before being killed. No action needed.
+- **Port 8710** is still held by PID 14767 (a console from before this session). `kill 14767`, or just keep using `--port`.
+
+One thing I'd still like to do, when you're unblocked: make the capture failure message point at the right Playwright binary instead of repeating Playwright's own `npx playwright install` advice — which, as you found, is the command that *doesn't* work here. That's a code change on REQ-254, so branch + UAT + ticket language. Say the word.
 
 <!-- xgd-chat-end -->
