@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:05:40.351866+00:00'
+updated_at: '2026-09-16T04:07:01.843058+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -164,5 +164,64 @@ Layers 1 + 3 may make it unnecessary. If we publish the address *and* we send th
 <!-- xgd-chat role="user" ts="2026-09-16T04:05:40.302154+00:00" -->
 #### You
 ok lets talk about outbound and mailing lists. I was expecting to use a 3rd party for that...
+
+<!-- xgd-turn id="930d3a1b-64e4-4d19-b4f4-8864e9559a61-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T04:07:01.541794+00:00" -->
+#### Claude
+Worth splitting "third party" in two, because they're completely different decisions and only one of them is obviously right.
+
+## Two different third parties
+
+**Sending infrastructure** — Resend, Postmark, SES, Mailgun. We compose, we own the list, we own the record; they do SMTP, reputation, bounce handling. We already do this: `mail.ts` is a port with Resend behind it, and its docstring explicitly anticipates swapping to Postmark when deliverability makes that the answer.
+
+**A marketing platform** — Mailchimp, Klaviyo, Kit, Brevo. *They* own the list, the campaign editor, the unsubscribe page, the analytics. The customer logs into their UI.
+
+Using the first is obviously correct and already done. I suspect you mean the second, and that one I'd argue against — not on cost, on product.
+
+## Why not hand the list to Mailchimp
+
+**It breaks the record.** DOC-46 §2.3 is "the machinery remembers the conversation." If campaigns live in Mailchimp, the contact's history is split: we hold the form submission and the correspondence, Mailchimp holds the fact that Alice mailed them on Tuesday and they opened it twice. The one-place-that-remembers thesis dies quietly.
+
+**It's a second login and a second mental model.** The promise is that a plumber doesn't have to become a marketing operator. "Now go set up Mailchimp" is precisely becoming a marketing operator.
+
+**Two systems both believing they own contact state is a miserable sync problem.** An unsubscribe in Mailchimp must suppress in ours, instantly and permanently, or we mail someone who opted out. That bug is a legal problem, not a glitch.
+
+## The thing a third party does *not* offload
+
+This is the bit I'd flag hardest. Resend and Postmark will not suspend *a customer* — they'll suspend **our account**, because we're the customer of record. So using shared infrastructure doesn't transfer the risk, it **pools** it: one business importing a purchased list can take down sending for everyone.
+
+The mitigations are architectural and worth deciding now:
+
+- **Per-business sending domain with their own DKIM.** Mail goes from `alice@alicesplumbing.com`, signed with her key, not from `noreply@1stcontact.io`. Modern inbox reputation is heavily domain-scoped, so this contains blast radius *and* it looks right to her customers. It needs DNS records on her domain — which is free if we hold her zone, and that's already the direction for custom domains.
+- **Separate marketing from transactional streams, hard.** If campaign complaints poison the domain that sends password resets and invoices, the product breaks. Postmark enforces this structurally; note also that Postmark was transactional-only for years and is still opinionated about it — don't design marketing onto a transactional stream.
+- **Sub-accounts per business** where the ESP supports it (SES configuration sets, Mailgun subaccounts, Postmark servers), so suspension scopes to one customer.
+- **Skip dedicated IPs.** They need roughly 50k/month sustained to warm and hold. Below that a shared pool has *better* reputation than anything we could build. Not our problem for a long time.
+
+**The single biggest control, though, is where addresses come from.** Our lists are small and warm — people who filled in a form or bought something. That's a far better starting position than the median Mailchimp account. The thing that destroys it is arbitrary CSV import, which is how purchased lists get in. I'd either not ship import at first, or gate it behind attestation plus a throttled first send with complaint-rate watching.
+
+## What I'd build
+
+The thin campaign product on top of infra ESP. It's smaller than it sounds because we're not competing with Klaviyo. A business mailing 200 warm contacts needs: pick a segment, write it, preview it, send it, see opens and unsubs. No automation builder, no A/B, no journey canvas.
+
+And check whether Resend's Audiences/Broadcasts already covers the early version — same vendor, same API, list stays ours, and it'd buy time before building. I'd verify current feature depth rather than trust my sense of it.
+
+At volume the economics flip hard toward SES (roughly an order of magnitude cheaper per thousand), which is exactly the swap the existing port was built to make cheap.
+
+## Non-negotiables whatever we choose
+
+Google and Yahoo's bulk-sender rules have been in force since early 2024 and they're pass/fail:
+
+- **One-click unsubscribe** (RFC 8058 — the `List-Unsubscribe-Post` header, not just a footer link)
+- **SPF + DKIM + DMARC** aligned on the sending domain
+- **Spam complaint rate under 0.3%**, measured by them, enforced by silent junking
+
+Plus one of our own: **suppression is global per business and absolute.** Once someone unsubscribes, no code path emails them again — including anything reclassified as "transactional" to slip past. That's the rule most homegrown senders get wrong.
+
+The bounce/complaint plumbing for this already exists in `email-webhook.ts`; broadcast events are the same shape landing on the same record.
+
+---
+
+Short version: third party yes, but as infrastructure under our product, not as the product. Where does the list live is the decision, and I'd keep it.
 
 <!-- xgd-chat-end -->
