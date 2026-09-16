@@ -5,7 +5,7 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T01:47:16.711810+00:00'
+updated_at: '2026-09-16T01:47:35.717089+00:00'
 completed_at: null
 last_field_updated: epic_children
 status: draft
@@ -14,6 +14,7 @@ fields:
   chat_comment: comment-91b0ef0c
   epic_children:
   - request-5b2763c8
+  - request-f8712e87
 ---
 
 # Site duplication
