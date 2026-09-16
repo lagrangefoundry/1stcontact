@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-97
 created_by: xgd
 created_at: '2026-09-16T01:00:51.456961+00:00'
-updated_at: '2026-09-16T01:38:35.079098+00:00'
+updated_at: '2026-09-16T02:08:22.747080+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -128,5 +128,98 @@ Fold 5 in, or file it separately?
 <!-- xgd-chat role="user" ts="2026-09-16T01:38:34.472508+00:00" -->
 #### You
 5 - agree
+
+<!-- xgd-turn id="b95b878b-ef86-4419-a9b3-0b6ae30f37ab-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T02:08:21.866240+00:00" -->
+#### Claude
+Option (B) plus item 5. Starting with the ticket scope, then the branch.
+
+Ticket scoped. Now the branch.
+
+Now implementing. Shared gate vocabulary first:
+
+Now `public-url.ts` — the audience split the ticket is about:
+
+Now the address picker in `hostname.ts`:
+
+Now `lead.ts` — the origin field, the refusal, and the two link shapes:
+
+Now the link composition and the refusal in `deliverForm`:
+
+Now the `gateUrl` thunk in `captureLead`:
+
+Now the channel argument on `control-app`'s gate:
+
+Now document why the channel is there:
+
+Now `public-site/gate.ts` reuses the shared grammar and page:
+
+Now the preview gate route:
+
+Now the router's remaining pieces — `p` → request pathname, `GateRouteEnv`, and the draft artifact serving:
+
+Now the origin on the draft lead route:
+
+Now `deliverDraftArtifact`, next to `servePreview`:
+
+Now let's typecheck what we have before the UI half.
+
+Now the CSS:
+
+Now the fixtures — sites need addresses, per REQ-238:
+
+Now wire it into `seedFormSite`:
+
+Let me run the affected existing suites to see where we stand before writing the new UATs.
+
+Two failures, both older UATs pinning the defect itself. Updating them to assert the site's own host:
+
+Now the first UAT file:
+
+Now the draft gate UAT:
+
+The draft now renders. Cleaning up the probe and fixing the cache-control assertion:
+
+Now record the `uncacheable` interaction in the code, then the pane UAT:
+
+Now the full suite:
+
+Clean. Let me review my own diff before committing.
+
+Ticket updated. Now committing:
+
+`status=free_coded`, both SHAs recorded, version bumped to 0.2.214. Releasing the lock and tearing down the branch:
+
+Let me confirm the merged tree is green:
+
+BUG-97 is implemented, merged to `xgd-working`, and the ticket is `free_coded` (version 0.2.214).
+
+## What landed
+
+**The published link names the address the site has.** `gateLinkFor` in `lead.ts` reads `site_domains` through `hostname.ts`'s new `addressForLinks` — custom preferred over platform, asked over `kind` so EPIC-6 lands unchanged — and composes with `recipientSiteUrl`. `publicSiteUrl` and `PUBLIC_SITE_ORIGIN` are byte-identical; a UAT pins both operator callers, including the preview redirect through the real route.
+
+Option (B) as agreed: `https://<the site's host>/site/<key>/api/download/<token>`. The reasoning is recorded in `public-url.ts` next to the function, so the next reader doesn't re-litigate it.
+
+**The draft half.** A draft submission's link names the origin that took it plus the site's draft channel, and `control-app`'s preview route now answers the gate — page and artifact, the bytes out of the draft via `servePreview`. `openGate`/`takeAsset` take the channel, since a never-published site has no revision for a published read to resolve against. The link also names the business explicitly (`businessPath`), because a mail read days later shouldn't resolve against whichever business a session had selected.
+
+**No address → `no_site_address`**: no grant minted, no mail, reason reported. Reachable from the published channel only.
+
+**Item 5.** A message in the contact pane opens to show the body as sent, in a sandboxed iframe with `allow-popups` so the gate link is pressable — no same-origin, no scripts, no top-navigation. A message written `sent` with a `local_` provider id now says *"Recorded only — this deployment has no mail provider, so nothing was delivered."*
+
+The gate's path grammar and page moved to `contact-form/gate.ts` beside `DOWNLOAD_PATH`; `public-site` no longer keeps its own copy.
+
+## Two things worth your attention
+
+**A fixture bug the draft gate exposed.** `seedFormSite` seeded a `site.json` with no `id`, `theme` or `nav` — **its draft never validated**. No suite noticed because none of them ever rendered it. It seeds `starterSiteJson` now. Also, a published fixture site now holds an address, since REQ-238 requires one and that helper writes revisions directly rather than going through `POST /api/publish`. Both are recorded in the ticket body so reconciliation doesn't read them as drift.
+
+**Two pre-existing failures in the full suite, unrelated to this ticket** — I left them alone rather than widening scope:
+
+- `tests/bug32-webui-scope-rebrand.test.ts` — the webui scope is restated in `tools/generate/src/cli/assets.ts` and `tests/test_UAT_FC_REQ-228_the_assistant_can_read_the_tickets.workers.test.ts`, neither of which is in my diff.
+- `tests/test_UAT_FC_BUG-67_backend_settings.test.ts` — `install({ gemini: { model: 'x' } })` no longer throws.
+
+Everything else passes: 4352 tests, 512 files.
+
+**On your question 1** — with nothing published in dev there is no published channel to test on at all (`public-site` resolves a site through its live revision, so the form itself 404s). It collapses into question 2, and the draft path now carries it end to end with no address, no publish and no mail provider.
 
 <!-- xgd-chat-end -->
