@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T03:45:07.489155+00:00'
+updated_at: '2026-09-16T03:46:58.521914+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -624,5 +624,41 @@ I haven't cut a branch or written code — this was scoping. REQ-257 is the one 
 <!-- xgd-chat role="user" ts="2026-09-16T03:45:07.436129+00:00" -->
 #### You
 **The card ships as a notification with an undo.** <-- need to be careful the undo you are talking about what if the user comes back to that chat a year later we have made multiple changes to DNS between now and then but they don't know or understand and push the undo button...I think undo needs to preserve the new and the old state, and check that the new state is what it is expecting before reverting to the old, yes?
+
+<!-- xgd-turn id="99f660fd-ced6-4e99-973f-440b20a960ea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T03:46:58.466201+00:00" -->
+#### Claude
+You're right, and it's a better formulation than what I put in the ticket. Let me be precise about why.
+
+**Time was the wrong axis.** I wrote "undo has a horizon — past three weeks it doesn't restore cleanly." That's a proxy for the real question, and a bad one in both directions: a record nobody has touched for a year is perfectly safe to revert, and a record something else changed ten minutes ago is not. Your version answers the actual question exactly instead of approximating it by age. **The check replaces the horizon rather than supplementing it.**
+
+Four things that follow, which I'd want in the ticket alongside it:
+
+**It's per-operation and all-or-nothing.** An operation touches a *set* of records, so the entry stores the before-set and the after-set and compares the whole set. If any one member has drifted, the entire undo refuses. A partial revert is worse than none — half-reverting an SPF merge produces a record that was never correct at any point in time.
+
+**The comparison has to be semantic, or the feature dies the other way.** Cloudflare normalises things: TXT quoting, trailing dots on MX and CNAME targets, case. A byte-exact compare would report drift where nothing changed, undo would refuse always, and it'd be useless rather than dangerous — which is the failure mode nobody notices until they need it. Compare on `(name, type, value, ttl, proxied)`, normalised. And **not** on Cloudflare's record ids: a record deleted and recreated with an identical value gets a new id and is not drift.
+
+**Drift isn't only us.** The zone is in our account so the customer can't touch it, but: our own later operations, an operator working by hand in the dashboard (the epic already says that will happen), and **DKIM key rotation by Resend**, which changes `resend._domainkey` with nobody here doing anything. That last one is the case that makes the check earn its keep unprompted.
+
+**The refusal has to be sayable and not a dead end.** *"I can't undo this — your email settings have changed since then"*, plus what's different, plus a route to a human. Same standard as everything else on the customer-facing side.
+
+## One consequence worth your call
+
+Your scenario — *a year later, in an old chat* — argues that **the chat is the wrong home for the button**, even with the check. The check prevents corruption; it doesn't make "scroll back through a year-old conversation to find Undo" a real path anyone takes. So: the card carries Undo while it's the most recent change to those records, and the durable home is a **DNS change history** in settings — which is also the thing that makes the card's visibility claim survive the chat scrolling away.
+
+That's a small expansion of REQ-260's surface. Want it in, or kept as a note for later?
+
+Let me patch the ticket either way.
+
+Both updated. The only surviving mention of "horizon" in REQ-260 is the sentence explaining that it's been withdrawn and why.
+
+**REQ-260's Undo section is now** — compare-and-swap, with the four properties: per-operation and all-or-nothing; semantic normalised comparison and explicitly not on Cloudflare record ids; drift sources beyond us (Resend's DKIM rotation is the one that fires without anyone making a mistake); refusal as a sentence with a route to a human. Plus undo-is-itself-a-change, so the history doesn't lie and an undo can be undone.
+
+Seven falsifiers replaced the one weak horizon falsifier, including *"an undo that expires on elapsed time rather than on drift"* — so the thing I got wrong is now a named failure rather than a deleted paragraph.
+
+**EPIC-5 has the correction appended**, marked as withdrawing what the earlier section said rather than quietly overwriting it.
+
+**I did put the DNS change history in** — as "Where the button lives." It's one self-contained subsection, so it lifts out cleanly if you'd rather it wait. That's the only thing here I decided for you rather than with you, and it's the only reason REQ-260's 8 points might now be light.
 
 <!-- xgd-chat-end -->
