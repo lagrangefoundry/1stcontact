@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T03:53:39.798608+00:00'
+updated_at: '2026-09-16T17:14:17.109104+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,11 @@ The ticket said **"Zero dependencies"**, but the package declares `vite` — the
 I also caught a real bug after merging: the isolation suite read `package.json` out of *every* directory under `apps/`, which threw on `apps/.claude/` in the main checkout — it only passed in the fresh worktree because that directory isn't there. Fixed in commit 2, and the body records the rule as consequence 28.
 
 Ticket: `story_points: 8`, `version: 0.2.216`, commits `0d467ee0` and `657a4024`. Both are ancestors of `xgd-working`; branch cleaned up and locks released. Promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="73f45d68-731d-41f8-8ba5-93f5a6e2baac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T17:14:14.949880+00:00" -->
+#### You
+How do I start the tool?
 
 <!-- xgd-chat-end -->
