@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:43:20.398734+00:00'
+updated_at: '2026-09-16T17:56:49.407487+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -546,5 +546,91 @@ Want me to free-code that onto REQ-254? It's a branch, UATs, and the ticket-body
 <!-- xgd-chat role="user" ts="2026-09-16T17:43:20.237966+00:00" -->
 #### You
 PLease go ahead
+
+<!-- xgd-turn id="61e15441-65c4-4317-88d9-dc31482a8d64-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:56:49.252009+00:00" -->
+#### Claude
+Starting with the ticket, per protocol. First moving it back to `free_coding`:
+
+Now scoping the new behaviour into the ticket body:
+
+Now implementing. First `1c capture list --json`:
+
+Now adding `cmdCaptureList` next to `cmdCapturePage`:
+
+That would have broken the REQ-155 seam — `capture/capture.ts` must not import `node:fs`. Let me correct the design: the store comes in, the CLI adds the path.
+
+Good, both already imported. Now the USAGE text and a typecheck:
+
+Known worktree gap — `src/generated/*` isn't built here. Copying from the main checkout:
+
+No `--cwd` flag exists — `1c` always uses `process.cwd()`. Let me verify with a minimal bundle in the worktree:
+
+Now the console side. Checking whether a CLI verb already exposes a page document:
+
+Now the console. Starting with `iteration.ts`:
+
+Now `RunIterationOptions.n`, the manifest type, and disk recovery:
+
+Now `capture list` as a lookup, and the console's load/recapture logic:
+
+Now `console.ts` — reuse-not-recapture, disk recovery, the captured-sites list, and the fourth link:
+
+Now the core change — `startRun` reusing a stored capture:
+
+Now `page.ts` — the fourth link, the captured-sites list, and `[recapture]`:
+
+Typechecks clean. Now the UATs for the new behaviour:
+
+All existing UATs still pass. Now the new ones:
+
+Now the engine-side UAT for `capture list` (requirement 32) and the concurrency constraint (35):
+
+The step runner resolves `1c` relative to the step's `cwd`, so a scratch root can't find it. That's a real fragility — the console's own location is fixed regardless of where a step runs:
+
+CLI runs now — the remaining diff is just macOS's `/tmp` → `/private/tmp` symlink:
+
+All 26 pass. Adding the CLI-path decision to the ticket, then verifying the real console end to end:
+
+The launcher resolves `repoRoot` from its own location — so it's reading the worktree's (empty) storage. Let me give it a real bundle:
+
+The captured-sites list renders from real bundles. Verifying the one-click revisit:
+
+Exactly right, verified against the real CLI: `/open` loaded the site without running anything, and **[reproduce] went straight to `refold` — no capture step**. The refold failure is my scratch bundle (I copied only `capture.json`, no `multistate.json`), and it names the step and the reason.
+
+Clean. Committing:
+
+Version race — a ticket auto-commit landed after my merge. Re-bumping so the version-carrying commit is reachable:
+
+Done — all three landed on `xgd-working`, ticket back at `free_coded`.
+
+## What you asked for
+
+**(1) Revisit an existing reproduction.** [reproduce] on a site that already has a bundle now **skips the capture entirely** and goes straight to refold. That's requirement 15's logic applied to the first press instead of the second — re-capturing re-rolls the oracle, so the reference moves at the same instant the fold does and the two become inseparable. A separate **[recapture]** button is how you say you *meant* to move the reference. Host matching treats `example.com` and `www.example.com` as one site.
+
+The blank page now lists what's on disk under **"captured already"** — one click to load a site without touching the network.
+
+**(2) Multiple consoles on different ports.** Already worked; now asserted by test (requirement 35) rather than left as advice, because the failure mode is silent: same site in two consoles clobbers, neither errors. Different sites share nothing.
+
+**(3) Iterations accumulate.** They already did within one process — the gap was that the list was in-memory, so restarting showed an empty page beside a full `storage/tmp/`. Each iteration now writes a manifest, **written last** so a failed run leaves nothing to recover, and loading a site rebuilds the list from disk with the links live.
+
+## One thing I added beyond the ask
+
+Each iteration now keeps **the reproduction's own L1 document** as a fourth link. From your earlier question: `1c repro` rebuilds the sandbox site in place, so `home.json` — where the folded L1 actually lives — was being overwritten every iteration. Keeping only the rendered pixels kept the symptom and discarded the cause, which is precisely what *"check how much we are changing"* needs. It's copied in via `1c page get --json`, so the console knows a command that yields a page rather than a path where one is kept.
+
+## Verification
+
+- **26 passed, 1 skipped** across both REQ-254 suites on `xgd-working`; capture regression suites (`capture`, `BUG-67 host candidates`, `req83 fold`, `capture-list-marker`) all green.
+- **Live, against the real CLI**: loaded `faelan.com` from the stored list, pressed [reproduce], and the step log went `refold → …` with **no capture step**. It then failed at refold because my scratch bundle had only `capture.json` and no `multistate.json` — which is the failure path naming its step correctly.
+
+## Two corrections I made while building
+
+- `cmdCaptureList` initially constructed its own filesystem store. That would have pulled `node:fs` into the capture pipeline's import graph and undone the REQ-155 seam — it takes a store now, like `cmdCapturePage`, and the CLI composes the path.
+- The step runner resolved `1c` relative to the step's `cwd`. Those are different things: `cwd` picks which `storage/` tree a step reads; the CLI's location is fixed by where the console is installed. It only worked while the two coincided. Now resolved from the console's own module.
+
+Ticket: 4 commits, `story_points: 13`, `version: 0.2.219`, requirements 29–36 in the body. Locks released, branch cleaned.
+
+**Note:** your running console is the old code. Restart it to pick this up — and it'll now show your three captured sites on the blank page.
 
 <!-- xgd-chat-end -->
