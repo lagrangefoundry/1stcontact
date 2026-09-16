@@ -97,9 +97,15 @@ const MIGRATIONS = [
   // the fixture specifically: the baseline creates the column under its OLD
   // name, so a suite that skipped this file would build a schema whose column
   // the code no longer writes — every `grantFor` failing on a column nobody can
-  // see from the code. LAST IN THE LIST, which is what `atHead` below asks
-  // about.
+  // see from the code.
   () => import('../../db/migrations/0009_asset_grant_form_handle.sql?raw'),
+  // [[REQ-257]] — `zones`, the DNS layer's floor. Applied here for the same
+  // reason as every file above, and this one is load-bearing for the same reason
+  // `0008` is: the UNIQUE index on `apex` is the AUTHORITY that decides a race
+  // between two claims on one domain, so a fixture that skipped it would let a
+  // suite record one apex twice and prove the opposite of what the code does.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0010_zones.sql?raw'),
 ]
 
 /**
@@ -191,25 +197,24 @@ export async function applySchema(): Promise<void> {
 /**
  * Whether the database already holds what the LAST migration leaves behind.
  *
- * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today `0009`'s
- * rename of `asset_grants.instance_id`. It used to ask for `sites.kind`, which
- * `0005` adds; once anything came after `0005`, a database at `0005` would have
+ * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
+ * [[REQ-257]]'s `zones` table. It used to ask for `sites.kind`, which `0005`
+ * adds; once anything came after `0005`, a database at `0005` would have
  * answered "at head" and skipped the rest silently. So this marker MOVES WITH
  * THE LIST: a migration appended below without moving it re-opens exactly that
  * hole. `sqlite_master` answers on a database with no such table at all — an
  * empty result, not an error — which is what lets one query serve both "already
  * migrated" and "nothing here yet", exactly as `PRAGMA table_info` did.
  *
- * A COLUMN RATHER THAN AN INDEX THIS TIME, and `sqlite_master` still answers it:
- * SQLite rewrites the stored `CREATE TABLE` text when a column is renamed, so
- * the table's own definition is the record of whether `0009` has run.
+ * A WHOLE TABLE THIS TIME rather than `0009`'s renamed column, which needed the
+ * `sql LIKE` clause to be visible at all. A table either exists or does not, so
+ * the name alone is the question — and the marker being simpler than the one it
+ * replaced is a property of `0010`, not a relaxation of the rule above.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? AND sql LIKE ?",
-  )
-    .bind('asset_grants', '%form_handle%')
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .bind('zones')
     .first<{ name: string }>()
   return row !== null
 }

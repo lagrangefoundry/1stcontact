@@ -104,6 +104,25 @@ import {
   claimHostname,
   revokeHostname,
 } from './hostname'
+// [[REQ-257]] — the DNS layer. The zone table, the enumerated Cloudflare client
+// and the external resolver, each reached through its own module and never a
+// second time: this router is one of the three consumers the ticket names.
+import {
+  cloudflareFor,
+  CloudflareApiError,
+  CloudflareNotConfiguredError,
+  type CloudflareClient,
+  type CloudflareEnv,
+} from './cloudflare'
+import { dnsResolver, ResolverUnreachableError, type DnsResolver } from './resolver'
+import {
+  attributeZone,
+  allZones,
+  driftCheck,
+  PlatformZoneError,
+  UnknownZoneError,
+  ZoneApexTakenError,
+} from './zones'
 import { fidelityDeps } from './shot'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
@@ -740,7 +759,14 @@ export interface RouterEnv
     TicketStoreEnv,
     MailEnv,
     SessionCookieEnv,
-    EmbedderEnv {
+    EmbedderEnv,
+    // [[REQ-257]] — `CLOUDFLARE_DNS_TOKEN`, and it is DELIBERATELY NOT the pair
+    // `EmbedderEnv` above carries. Those two are Workers AI's ([[BUG-73]]) and
+    // are both-or-neither; a zone token wearing that name would be the wrong
+    // scope, and declaring their account id in `wrangler.toml` so production
+    // could see it would hand `transportFor` half a credential and take the
+    // project knowledge base down with it.
+    CloudflareEnv {
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
   /**
@@ -1047,6 +1073,41 @@ export interface RouterDeps {
    * scope rather than pretending to an admission it does not have.
    */
   admission?: Admission | null
+  /**
+   * The Cloudflare zone client ([[REQ-257]]), or `null` where this deployment
+   * has no token.
+   *
+   * INJECTABLE AT A TRUE EXTERNAL BOUNDARY, for the reason `imageFetch` is and
+   * with a sharper edge. The real client can DELETE A ZONE, and a suite that
+   * reached it would not fail — it would succeed, against whatever account the
+   * credential on the machine belongs to, and the first time it happened it
+   * would take a customer's mail down with it. Everything on this side of the
+   * seam is the production path: the guards, the provenance, the drift diff and
+   * the row that gets written.
+   *
+   * ABSENT IS THE ORDINARY CASE and resolves to {@link cloudflareFor}, which
+   * answers `null` when the deployment carries no credential — and `null` is a
+   * refusal here rather than a degraded mode.
+   */
+  cloudflare?: (env: RouterEnv) => CloudflareClient | null
+  /**
+   * The external DNS resolver ([[REQ-257]]).
+   *
+   * INJECTABLE FOR A DIFFERENT REASON FROM THE CLIENT ABOVE: reading public DNS
+   * is harmless, and what it is not is REPEATABLE. A UAT asserting that six DKIM
+   * selectors are probed by name and that an `MX` of `aspmx.l.google.com` is
+   * reported as Google Workspace has to drive a resolver it scripted, because
+   * the alternative is a suite whose verdict depends on what somebody else's
+   * domain published this week.
+   *
+   * SEPARATE FROM {@link RouterDeps.fetch} on `imageFetch`'s reasoning — a suite
+   * scripting DNS answers must not thereby have replaced the transport the
+   * material fetch guard is proved against.
+   *
+   * ABSENT IS THE ORDINARY CASE and resolves to {@link dnsResolver}, which needs
+   * no credential and therefore no configuration.
+   */
+  resolver?: (env: RouterEnv) => DnsResolver
 }
 
 /**
@@ -1082,7 +1143,19 @@ function secretsOf(env: RouterEnv): Array<string | undefined> {
   // bearer credential for a paid API exactly as the other two are, and the path
   // it travels ends in a provider error message that a model reads and a person
   // may be shown — which is the shape of leak this scrub exists for.
-  return [env.ANTHROPIC_API_KEY, env.RESEND_API_KEY, env.OPENAI_API_KEY]
+  //
+  // AND THE ZONE TOKEN, FROM THE DAY IT EXISTS ([[REQ-257]]). It travels the
+  // same path and is the most damaging of the four to leak: it can rewrite the
+  // DNS of every domain this deployment manages, including the MX records that
+  // carry a customer's mail. `cloudflare.ts` repeats Cloudflare's own words in
+  // its refusals and the zone routes return them, so the message a person is
+  // shown is composed from a reply to a request that carried this value.
+  return [
+    env.ANTHROPIC_API_KEY,
+    env.RESEND_API_KEY,
+    env.OPENAI_API_KEY,
+    env.CLOUDFLARE_DNS_TOKEN,
+  ]
 }
 
 /**
@@ -1200,6 +1273,47 @@ export const ACCEPTANCES_PATH = '/api/acceptances'
  * at the URL.
  */
 export const ADMIN_BUSINESSES_PATH = '/api/admin/businesses'
+
+/**
+ * Where the OPERATOR reads and attributes zones ([[REQ-257]]).
+ *
+ * `/api/admin/` FOR {@link ADMIN_BUSINESSES_PATH}'S REASON, and this one earns
+ * it twice over. Attributing a zone spends nothing and creates nothing, but it
+ * decides WHOSE a domain is, which is the fact every later authorisation
+ * question about that domain reads — and the answer cannot be derived from
+ * anywhere, so there is nobody but an operator to ask.
+ *
+ * NO SELF-SERVE COUNTERPART, and unlike the business route that is not a
+ * pre-billing gap to be filled in later. The zones this attributes are already
+ * in the platform Cloudflare account and already active; a customer-reachable
+ * route onto them would be a route by which one customer names somebody else's
+ * domain as their own.
+ *
+ * GET IS A REPORT AND WRITES NOTHING. It is the drift check — what Cloudflare
+ * holds that this deployment has not recorded, and the reverse — and its whole
+ * value is that it asks a question rather than answering it.
+ */
+export const ADMIN_ZONES_PATH = '/api/admin/zones'
+
+/**
+ * Where the OPERATOR reads live DNS for a domain ([[REQ-257]]).
+ *
+ * THE RESOLVER'S REAL ENTRY POINT, and the reason it has one at all. The read
+ * half is consumed in three places that do not exist yet — [[REQ-259]]'s
+ * pre-attach check, [[REQ-260]]'s assistant tools, [[EPIC-7]]'s check engine —
+ * so without a route it would ship as a function nothing calls, which is a
+ * capability nobody can confirm works.
+ *
+ * AND IT IS USEFUL ON ITS OWN. *"Is there a live business on this domain
+ * today"* is the question [[EPIC-5]] says decides the work, and an operator
+ * about to attribute a zone is exactly the person who needs it answered.
+ *
+ * READ-ONLY AND ABOUT SOMEBODY ELSE'S DOMAIN, so it is behind the same gate as
+ * the zones route: the answer names a business's mail provider and every sender
+ * authorised to send as them, which is not a fact about this deployment to hand
+ * to whoever asks.
+ */
+export const ADMIN_DNS_PATH = '/api/admin/dns'
 
 /**
  * The User tab's four routes ([[REQ-170]]).
@@ -2343,6 +2457,151 @@ async function routeUncached(
         note: typeof body.note === 'string' ? body.note : undefined,
       })
       return json(200, business)
+    }
+
+    /**
+     * `/api/admin/zones` — the operator's view of the DNS layer ([[REQ-257]]).
+     *
+     * ONE GATE FOR BOTH METHODS, AND IT IS `ADMIN_BUSINESSES_PATH`'S EXACTLY:
+     * `ownsPlatformBusiness`, over the admission and not over the resolved
+     * business, answering 404 rather than 403 because a caller asking whether an
+     * administrative surface exists is owed nothing. Zones are not a per-business
+     * capability that we happen to hold more of — they are the platform's own
+     * Cloudflare account, and every zone in it is equally ours until this table
+     * says otherwise.
+     *
+     * NO TOKEN IS A REFUSAL AND NOT AN EMPTY REPORT. This is the fail-closed rule
+     * the ticket states, and here it has teeth in an unobvious direction: a drift
+     * check assembled from no upstream data reports NO DRIFT, which is the one
+     * answer it must never give by accident. `requireCloudflare` throws and the
+     * route says which secret is missing.
+     */
+    if (p === ADMIN_ZONES_PATH && (method === 'GET' || method === 'POST')) {
+      const admission = deps.admission
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+
+      // THE SEAM AND THE DEFAULT ANSWER THE SAME WAY — `null` for a deployment
+      // that cannot reach Cloudflare — so a suite injecting `() => null` is
+      // asserting the real no-token refusal rather than simulating one.
+      const client: CloudflareClient | null = deps.cloudflare
+        ? deps.cloudflare(env)
+        : cloudflareFor(env)
+      if (client === null) {
+        // SCRUBBED THOUGH THERE IS NOTHING IN IT TO SCRUB, on the reasoning
+        // this file already records: a path that scrubs beside a path that does
+        // not is an invitation to add a third that does not, and the cost when
+        // there is nothing to scrub is nil.
+        return json(503, { error: scrub(new CloudflareNotConfiguredError().message) })
+      }
+
+      try {
+        /**
+         * GET — every recorded zone, and the drift report beside it.
+         *
+         * THE TWO TOGETHER RATHER THAN TWO ROUTES, because the question an
+         * operator actually has is *"what is the state of this"* and the drift
+         * is only readable against the rows it is a diff of. It writes nothing:
+         * `origin` is a human decision and there is no way to derive it, so a
+         * report that reconciled would be inventing the one fact the table
+         * exists to record.
+         */
+        if (method === 'GET') {
+          const [zones, drift] = await Promise.all([allZones(identityEnv), driftCheck(identityEnv, client)])
+          return json(200, { zones, drift })
+        }
+
+        /**
+         * POST — the backfill. An operator names the apex and the account.
+         *
+         * THE ACCOUNT ARRIVES BY EMAIL AND IS RESOLVED TO A KEY HERE, on
+         * `/api/admin/businesses`'s reasoning: an operator knows who somebody is
+         * by their address and has no reason to hold an `acct_…`. And the
+         * refusal is reported plainly for that route's reason too — the caller
+         * typed the address and is owed the difference between *no such account*
+         * and *done*.
+         */
+        const body = await readJsonBody(request)
+        const apex = typeof body.apex === 'string' ? body.apex : ''
+        const accountEmail = typeof body.accountEmail === 'string' ? body.accountEmail : ''
+        if (apex.trim() === '' || accountEmail.trim() === '') {
+          return json(400, { error: 'apex and accountEmail are required' })
+        }
+        const account = await findAccount(identityEnv, accountEmail)
+        if (!account) return json(404, { error: 'No account with that email address.' })
+
+        const zone = await attributeZone(identityEnv, client, { apex, accountId: account.id })
+        return json(200, { zone })
+      } catch (err) {
+        // EACH REFUSAL KEEPS ITS OWN STATUS, because they are four different
+        // things an operator does four different things about: a platform apex
+        // is a rule they cannot argue with, an apex already recorded is a
+        // decision somebody already made, an apex Cloudflare does not hold is a
+        // step not yet taken, and an API refusal is somebody else's problem.
+        if (err instanceof PlatformZoneError) return json(403, { error: scrub(err.message) })
+        if (err instanceof ZoneApexTakenError) return json(409, { error: scrub(err.message) })
+        if (err instanceof UnknownZoneError) return json(404, { error: scrub(err.message) })
+        // CLOUDFLARE'S OWN WORDS COME BACK THROUGH THE SCRUBBER, and this is the
+        // path that actually needs it: the message is composed from a refusal
+        // built BELOW us by a client that was handed a bearer token, which is
+        // exactly the shape of leak [[REQ-146]] AC4 defends against.
+        if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
+        throw err
+      }
+    }
+
+    /**
+     * GET /api/admin/dns?domain=… — what the world currently resolves
+     * ([[REQ-257]]).
+     *
+     * THE ANSWER TO *"IS THERE A LIVE BUSINESS ON THIS DOMAIN TODAY"*, which
+     * [[EPIC-5]] identifies as the question that decides the work — and the
+     * operator about to attribute a zone is exactly the person who needs it
+     * answered before they do.
+     *
+     * READ FROM OUTSIDE AND NEVER FROM OUR OWN ZONE. It follows the domain's
+     * current delegation, so it reports what the customer's visitors and the
+     * customer's mail servers actually get, which is the only reading that can
+     * detect a domain we have not taken over.
+     *
+     * BEHIND THE SAME GATE AS THE ZONES ROUTE. The answer names a business's mail
+     * provider and every sender authorised to send as them; that is a profile of
+     * somebody else's infrastructure, assembled on request, and it is not
+     * something to hand to whoever asks.
+     */
+    if (p === ADMIN_DNS_PATH && method === 'GET') {
+      const admission = deps.admission
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+      const domain = url.searchParams.get('domain') ?? ''
+      if (domain.trim() === '') return json(400, { error: 'domain is required' })
+      const resolver = deps.resolver ? deps.resolver(env) : dnsResolver()
+      try {
+        return json(200, await resolver.snapshot(domain))
+      } catch (err) {
+        // COULD-NOT-LOOK IS NOT THE SAME AS NOTHING-IS-PUBLISHED, and this is
+        // the one place the difference can be reported. An empty snapshot says
+        // *this domain is green field, write what you like*; a resolver that
+        // could not be reached must never be read as saying that.
+        if (err instanceof ResolverUnreachableError) return json(502, { error: scrub(err.message) })
+        throw err
+      }
     }
 
     /**
