@@ -6,10 +6,10 @@ title: 'Regression rail: a recorded baseline per reference, and one command that
   ''no worse'''
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:35.544080+00:00'
-updated_at: '2026-09-16T02:56:45.439237+00:00'
+updated_at: '2026-09-16T17:34:56.465988+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-bf282b3d
