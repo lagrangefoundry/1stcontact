@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-97
 created_by: xgd
 created_at: '2026-09-16T01:00:51.456961+00:00'
-updated_at: '2026-09-16T01:06:09.535612+00:00'
+updated_at: '2026-09-16T01:21:36.647424+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,5 +55,16 @@ Confirm that's in scope? It's the bulk of the work.
 - A site holding both kinds: prefer `custom`, else `platform`. Read over `kind`, never by matching the apex, so EPIC-6 lands unchanged.
 - No address → a new `DeliverySkip` (`no_site_address`) reported per asset through the existing `nothing()` path; the grant is not minted and no mail goes out. A form promising *no* assets still sends its welcome — it carries no `cta_url`, so there's nothing to compose.
 - `publicSiteUrl` and `PUBLIC_SITE_ORIGIN` stay exactly as they are; the new composition is its own function, and a UAT pins both operator callers' current output.
+
+<!-- xgd-turn id="47f7d474-c9b4-4188-93f7-f61a7083228b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T01:21:35.379459+00:00" -->
+#### You
+that sounds good - questions:
+
+1. what will happen when we are on dev servers with nothing published
+2. what happens when the user tries it in preview mode before publishing?
+
+2 is particularly important - we should think it through - it is not desirable for the user to be forced into a situation where the first time they can test the email is when the site is live (I mean if that's the best we can do etc we could accept it - but its not great)
 
 <!-- xgd-chat-end -->
