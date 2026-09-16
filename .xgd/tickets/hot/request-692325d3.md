@@ -5,10 +5,10 @@ type: request
 title: 'Choosing the 1stc.site hostname: the field, the check, and the lock-in'
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:28.341246+00:00'
-updated_at: '2026-09-16T00:25:57.371837+00:00'
+updated_at: '2026-09-16T00:29:30.663154+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-c5175c8f
