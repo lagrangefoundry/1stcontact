@@ -484,7 +484,7 @@
         },
         "placeholders": {
           "type": "array",
-          "description": "The blanks this message promises to fill in when it is sent, e.g. `cta_url` for the link the recipient follows. Email pages only. Whatever you declare here must stay in the copy — an edit that removed it would leave a message with a hole in it, so it is refused."
+          "description": "The blanks this message promises to fill in when it is sent, e.g. `cta_url` for the link the recipient follows. Email pages only. Whatever you declare here must stay in the copy — an edit that removed it would leave a message with a hole in it, so it is refused.\n\n`asset_name` decides **how many mails a form sends**, so declare it deliberately. Declared, this message is about ONE download and a form promising two sends it twice, each naming its own. Left out, it is about the whole set and is sent ONCE, with one link that opens all of them. A form promising several downloads almost always wants it left out — write the copy about the set (\"your papers are ready\") rather than about a paper."
         },
         "from": {
           "type": "string",
@@ -531,7 +531,7 @@
         },
         "placeholders": {
           "type": "array",
-          "description": "The blanks this message promises to fill in when it is sent, e.g. `cta_url` for the link the recipient follows. Email pages only. Whatever you declare here must stay in the copy — an edit that removed it would leave a message with a hole in it, so it is refused."
+          "description": "The blanks this message promises to fill in when it is sent, e.g. `cta_url` for the link the recipient follows. Email pages only. Whatever you declare here must stay in the copy — an edit that removed it would leave a message with a hole in it, so it is refused.\n\n`asset_name` decides **how many mails a form sends**, so declare it deliberately. Declared, this message is about ONE download and a form promising two sends it twice, each naming its own. Left out, it is about the whole set and is sent ONCE, with one link that opens all of them. A form promising several downloads almost always wants it left out — write the copy about the set (\"your papers are ready\") rather than about a paper."
         },
         "from": {
           "type": "string",

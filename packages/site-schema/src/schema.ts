@@ -566,6 +566,14 @@ export const moduleInstanceSchema = z
  * token is refused when it is written, rather than at the moment somebody is
  * waiting for the mail.
  *
+ * AND `asset_name` IS MORE THAN A BLANK — IT CHOOSES HOW MANY MAILS GO OUT
+ * ([[BUG-98]]). A message that names the artifact is ABOUT an artifact, so a form
+ * promising two sends it twice, each naming its own; a message that does not is
+ * about the SET and is sent once, with the one link that opens all of it. That is
+ * decided from this list rather than from a setting beside it, because the list
+ * is already the page's own statement of what its copy is about — and a second
+ * switch saying the same thing would be free to disagree with the words.
+ *
  * `from` IS OPTIONAL AND ABSENT MEANS THE DEPLOYMENT'S SENDING ADDRESS, exactly
  * as it does on a template ticket ([[REQ-205]]). Who a message is from is a
  * property of which message it is.

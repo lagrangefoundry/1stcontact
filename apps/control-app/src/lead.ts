@@ -81,6 +81,17 @@ import { renderL1Email } from '../../../packages/framework/src/l1/email-render'
 /** What a mail names an asset the form did not name. */
 const UNNAMED_ASSET = 'your download'
 
+/**
+ * The token that makes a message ABOUT ONE ARTIFACT ([[BUG-98]]).
+ *
+ * SPELLED ONCE BECAUSE IT IS NOW TWO THINGS. It was a value the sender happened
+ * to substitute; it is also the question *is this message about one artifact or
+ * about the set* — and a copy of the literal in the branch that asks, free to
+ * drift from the one in the substitution, would be a form whose message is
+ * chosen by one spelling and rendered by another.
+ */
+const ASSET_NAME = 'asset_name'
+
 /** Everything this module needs of the deployment. */
 export type LeadEnv = IdentityEnv & TicketStoreEnv & MailEnv
 
@@ -937,9 +948,27 @@ function suppressed(history: readonly MessageRecord[]): boolean {
  * business's welcome, and will not have it twice. Two forms naming one welcome
  * therefore send it once between them, which is what a welcome means.
  *
- * ONE MESSAGE PER ASSET, each naming its own artifact and linking at its own
- * URL. A single mail listing the set would be one record carrying one key, which
- * is exactly the ledger [[REQ-241]] widened.
+ * ONE MESSAGE PER DELIVERY, AND THE COPY SAYS WHAT A DELIVERY IS ([[BUG-98]]).
+ * It was one message per ASSET, which was right while an artifact WAS the
+ * message: the mail named the paper and linked straight at it, so two papers
+ * were two different mails. [[REQ-241]] made assets a set and [[REQ-244]] moved
+ * the link off the artifact onto a page listing the whole set — and after both,
+ * a form promising two papers through one set-style message sent that message
+ * twice, identical, 386ms apart, to somebody who pressed one button.
+ *
+ * SO THE TEMPLATE DECIDES, AND IT DECIDES WITH DATA IT ALREADY HOLDS. A message
+ * declaring `{{asset_name}}` is ABOUT an artifact — it says which one — and gets
+ * a message each, which is the case the loop was written for and is untouched. A
+ * message that does not name one is about the SET, and is sent once, carrying
+ * the one grant that opens all of it. Nothing new is configured: `placeholders`
+ * is the page's own promise about its copy, and what it promises is exactly what
+ * distinguishes the two shapes.
+ *
+ * THE LEDGER STAYS PER ARTIFACT WHATEVER THE MESSAGE WAS. It was never the thing
+ * that was wrong — each paper really did go out exactly once — so a set-style
+ * message records EVERY asset it delivered, and a later form promising one of
+ * them still sends nothing for it. What the fix guards is the thing the
+ * recipient actually experiences, which is a message.
  *
  * THE TEMPLATE IS RESOLVED ONCE, WHATEVER IT SENDS. Both shapes render the key
  * the FORM named — that is the whole of [[REQ-243]] — from the business's own
@@ -1007,9 +1036,7 @@ async function deliverForm(
   // EVERY KEY ALREADY SENT TO, AND THE ONES SENT WITHIN THIS LOOP. The second
   // half matters for a form that names one key twice: the first item delivers,
   // and the second is `already_sent` for the same reason a second submission is.
-  const delivered = new Set(
-    history.map((message) => message.asset).filter((key): key is string => key !== null),
-  )
+  const delivered = new Set(history.flatMap((message) => message.assets))
 
   /** Queue, record and report one message. Shared so the two shapes cannot drift. */
   const post = async (
@@ -1027,7 +1054,7 @@ async function deliverForm(
         // ONE RECIPIENT, AND THE TYPE IS WHAT SAYS SO — the same shape the invite
         // keeps, so a multi-recipient message is not expressible here either.
         to: primary.email,
-        ...(outgoing.asset === null ? {} : { asset: outgoing.asset }),
+        ...(outgoing.assets.length === 0 ? {} : { assets: outgoing.assets }),
         body: outgoing.rendered.body,
       },
       send,
@@ -1036,7 +1063,9 @@ async function deliverForm(
   // ── The form promises nothing: one message, keyed on the template ──────────
   if (assets.length === 0) {
     if (suppressed(history)) return { assets: [], message: { sent: false, skipped: 'suppressed' } }
-    if (history.some((message) => message.asset === null && message.templateKey === templateKey)) {
+    const had = (message: MessageRecord): boolean =>
+      message.assets.length === 0 && message.templateKey === templateKey
+    if (history.some(had)) {
       return { assets: [], message: { sent: false, skipped: 'already_sent' } }
     }
     // NO VALUES, AND THAT IS THE TOKEN CONTRACT DOING ITS JOB ([[REQ-243]] §3).
@@ -1044,7 +1073,7 @@ async function deliverForm(
     // else, so a form promising none supplies none — and a template declaring
     // `{{cta_url}}` is refused at render rather than sent with a dead button.
     const rendered = renderCopy(template, {})
-    const message = await post({ rendered, asset: null })
+    const message = await post({ rendered, assets: [] })
     await recordEvent(env, scope, {
       contactId,
       kind: EMAIL_SENT,
@@ -1054,25 +1083,67 @@ async function deliverForm(
     return { assets: [], message: { sent: true } }
   }
 
-  // ── The form promises artifacts: one message each ─────────────────────────
-  const outcomes: AssetOutcome[] = []
-  for (const asset of assets) {
+  // ── The form promises artifacts ───────────────────────────────────────────
+  //
+  // WHICH ONES WILL ACTUALLY GO OUT IS DECIDED FIRST, AND FOR BOTH SHAPES. The
+  // set-style send needs the whole answer before it can render anything — there
+  // is one message and it is sent only if SOMETHING is going — and the per-asset
+  // send wants exactly the same answer per item, so asking once is one loop
+  // rather than two spellings of one rule.
+  //
+  // `delivered` GROWS AS THE SCAN RUNS, which is what makes a form naming one key
+  // twice deliver it once: the second mention is `already_sent` for precisely the
+  // reason a second submission is.
+  const planned = assets.map((asset) => {
     const state = deliveryState(history, delivered, asset.key)
-    if (state !== 'send') {
-      outcomes.push({ key: asset.key, sent: false, skipped: state })
-      continue
+    if (state === 'send') delivered.add(asset.key)
+    return { asset, state }
+  })
+  const going = planned.filter((entry) => entry.state === 'send').map((entry) => entry.asset)
+  /** In DECLARATION ORDER, whatever order the sends happened in ([[REQ-241]]). */
+  const outcomes = (): AssetOutcome[] =>
+    planned.map(({ asset, state }) =>
+      state === 'send'
+        ? { key: asset.key, sent: true }
+        : { key: asset.key, sent: false, skipped: state },
+    )
+  if (going.length === 0) return { assets: outcomes() }
+
+  // `{{cta_url}}` IS THE GATED PAGE AND NO LONGER THE ARTIFACT ([[REQ-244]] §2,
+  // superseding [[REQ-241]]'s "its own link"). A link straight at the paper is
+  // the same link for everybody who was sent it, so it cannot say WHO followed it
+  // — which is the fact the whole download-tracking change exists to make
+  // expressible. It opens a page listing the SET, so every message this delivery
+  // sends carries the same one.
+  const link = await gateUrl()
+
+  // ── About the SET: one message, carrying every artifact going out ─────────
+  if (!(template.declared ?? []).includes(ASSET_NAME)) {
+    const message = await post({
+      rendered: renderCopy(template, { cta_url: link }),
+      assets: going.map((asset) => asset.key),
+    })
+    // ONE `asset.sent` PER ARTIFACT, ALL NAMING THE ONE MESSAGE. The timeline's
+    // unit is the artifact — `asset.downloaded` is written per artifact too, and
+    // *sent* and *taken* are only comparable while they count the same things —
+    // so a single event naming a list would make "did they take what we sent
+    // them" a question nobody could ask of one paper. The shared `ref` is what
+    // says they left in one mail.
+    for (const asset of going) {
+      await recordEvent(env, scope, {
+        contactId,
+        kind: ASSET_SENT,
+        ref: message.uid,
+        detail: { asset: asset.key, name: asset.name, status: message.status },
+      })
     }
-    // `{{cta_url}}` IS THE GATED PAGE AND NO LONGER THE ARTIFACT ([[REQ-244]]
-    // §2, superseding [[REQ-241]]'s "its own link"). A link straight at the paper
-    // is the same link for everybody who was sent it, so it cannot say WHO
-    // followed it — which is the fact the whole download-tracking change exists
-    // to make expressible. Both mails in a two-paper set therefore carry the SAME
-    // link, because §7 AC1 says it opens a page listing the SET; what keeps them
-    // separately legible is `{{asset_name}}`, and what keeps the LEDGER separate
-    // is the message's own asset key, both untouched.
-    const rendered = renderCopy(template, { cta_url: await gateUrl(), asset_name: asset.name })
-    const message = await post({ rendered, asset: asset.key })
-    delivered.add(asset.key)
+    return { assets: outcomes() }
+  }
+
+  // ── About ONE artifact: a message each, naming its own ────────────────────
+  for (const asset of going) {
+    const rendered = renderCopy(template, { cta_url: link, [ASSET_NAME]: asset.name })
+    const message = await post({ rendered, assets: [asset.key] })
     // THE TIMELINE ENTRY IS WRITTEN WHATEVER THE PROVIDER SAID, for the reason the
     // invite moves its pipeline stage on the attempt: a refused send is still a
     // send this business made, the record carries the failure, and an operator
@@ -1083,15 +1154,14 @@ async function deliverForm(
       ref: message.uid,
       detail: { asset: asset.key, name: asset.name, status: message.status },
     })
-    outcomes.push({ key: asset.key, sent: true })
   }
-  return { assets: outcomes }
+  return { assets: outcomes() }
 }
 
-/** One rendered message and the ledger key it is remembered by, if any. */
+/** One rendered message and the ledger keys it is remembered by. Empty for none. */
 interface RenderedFor {
   rendered: RenderedMessage
-  asset: string | null
+  assets: string[]
 }
 
 /*

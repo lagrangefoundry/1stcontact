@@ -95,8 +95,10 @@ describe('REQ-198 — the type', () => {
     expect(Object.keys(fields).sort()).toEqual(
       [
         'address_id',
-        // [[REQ-223]] — the asset a message carried, and the at-most-once ledger.
-        'asset',
+        // [[REQ-223]] — the assets a message carried, and the at-most-once
+        // ledger. A LIST since [[BUG-98]]: one set-style message may deliver a
+        // whole set, and a single key could remember only one of them.
+        'assets',
         'contact_id',
         'failure',
         'from',

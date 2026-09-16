@@ -101,7 +101,7 @@ describe('REQ-223 — asset delivery', () => {
 
     // AC-11 asserted where it can be asserted: the record of what was sent.
     const records = await messagesOf(first.contactId as string)
-    const forAsset = records.filter((message) => message.asset === ASSET.key)
+    const forAsset = records.filter((message) => message.assets.includes(ASSET.key))
     expect(forAsset).toHaveLength(1)
     expect(forAsset[0].to).toBe('once@example.com')
     expect(forAsset[0].status).toBe('sent')
