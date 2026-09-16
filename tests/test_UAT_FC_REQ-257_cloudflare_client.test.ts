@@ -107,9 +107,16 @@ describe('REQ-257 — the Cloudflare client', () => {
   it('test_UAT_FC_REQ-257_the_surface_is_enumerated_and_has_no_passthrough', () => {
     const client = clientOver(scripted(() => ({})).fetch)
 
-    // THE EXACT SET, not a subset. A suite asserting only that the ten
-    // operations exist would pass after an eleventh called `request` was added,
+    // THE EXACT SET, not a subset. A suite asserting only that the enumerated
+    // operations exist would pass after one more called `request` was added,
     // which is the one thing the ticket forbids.
+    //
+    // IT GREW BY ONE IN [[REQ-258]] AND THE ASSERTION IS STILL AN EQUALITY,
+    // which is the property worth keeping rather than the number. `listRoutes`
+    // is what taking a domain back down needs — `deleteRoute` is addressed by
+    // Cloudflare's route id, a value `site_domains` deliberately does not
+    // store — and `Workers Routes:Edit` already admits it, so the scope this
+    // list is a written-out reading of did not move.
     expect(Object.keys(client).sort()).toEqual(
       [
         'accountId',
@@ -120,6 +127,7 @@ describe('REQ-257 — the Cloudflare client', () => {
         'deleteRoute',
         'deleteZone',
         'listRecords',
+        'listRoutes',
         'listZones',
         'readZone',
         'updateRecord',

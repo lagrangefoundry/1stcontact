@@ -8,7 +8,9 @@
  * call site, and the answer to that question is exactly what the token's scope
  * is supposed to be checkable against. What {@link CloudflareClient} declares IS
  * the surface, and it maps one-to-one onto `Zone:DNS:Edit` and
- * `Workers Routes:Edit`.
+ * `Workers Routes:Edit`. It grew by one read in [[REQ-258]] — `listRoutes`,
+ * which taking a domain back down needs — and the scope it maps onto did not
+ * move, which is the property this arrangement exists to keep checkable.
  *
  * THE CREDENTIAL IS THIS MODULE'S OWN, AND DELIBERATELY NOT THE EMBEDDER'S.
  * `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` already exist here —
@@ -166,7 +168,7 @@ export interface WorkerRoute {
 }
 
 /**
- * The whole surface. Ten operations, and nothing that takes a path.
+ * The whole surface. Eleven operations, and nothing that takes a path.
  *
  * READ THIS AS THE TOKEN'S SCOPE WRITTEN OUT. Zones and records are
  * `Zone:DNS:Edit`; the two route methods are `Workers Routes:Edit`. Anything a
@@ -189,6 +191,20 @@ export interface CloudflareClient {
   createRecord(cfZoneId: string, record: DnsRecordSpec): Promise<DnsRecord>
   updateRecord(cfZoneId: string, recordId: string, record: DnsRecordSpec): Promise<DnsRecord>
   deleteRecord(cfZoneId: string, recordId: string): Promise<void>
+  /**
+   * Every Worker route on the zone ([[REQ-258]]).
+   *
+   * THE ELEVENTH OPERATION, AND IT IS A READ. Taking a domain back down means
+   * deleting the route that was created for it, and `deleteRoute` is addressed
+   * by Cloudflare's route id — a value this deployment does not keep, because a
+   * `site_domains` row records an address and not a vendor's handle for one.
+   * The alternative was a column holding that id, which is exactly the
+   * data-as-key shape `0010`'s own comment rejects for the zone.
+   *
+   * `Workers Routes:Edit` ALREADY ADMITS IT, so the token's scope is unchanged
+   * and the surface-as-scope reading in this file's header still holds.
+   */
+  listRoutes(cfZoneId: string): Promise<WorkerRoute[]>
   createRoute(cfZoneId: string, pattern: string, script: string): Promise<WorkerRoute>
   deleteRoute(cfZoneId: string, routeId: string): Promise<void>
 }
@@ -205,8 +221,8 @@ interface Envelope<T> {
  *
  * The falsifier is *"a method that takes a path and a body"*, and the word doing
  * the work is METHOD: a caller must not be able to reach an arbitrary endpoint.
- * A module-private helper is how ten operations share one set of headers and one
- * reading of Cloudflare's envelope without becoming eleven copies of it, and
+ * A module-private helper is how eleven operations share one set of headers and
+ * one reading of Cloudflare's envelope without becoming eleven copies of it, and
  * nothing outside this file can call it.
  */
 async function call<T>(
@@ -456,6 +472,20 @@ export function cloudflareFor(
 
     async deleteRecord(cfZoneId, recordId) {
       await call<unknown>(token, fetchImpl, 'DELETE', `/zones/${cfZoneId}/dns_records/${recordId}`)
+    },
+
+    async listRoutes(cfZoneId) {
+      const page = await call<{ id?: unknown; pattern?: unknown; script?: unknown }[]>(
+        token,
+        fetchImpl,
+        'GET',
+        `/zones/${cfZoneId}/workers/routes`,
+      )
+      return (page ?? []).map((route) => ({
+        id: String(route.id ?? ''),
+        pattern: String(route.pattern ?? ''),
+        script: String(route.script ?? ''),
+      }))
     },
 
     async createRoute(cfZoneId, pattern, script) {

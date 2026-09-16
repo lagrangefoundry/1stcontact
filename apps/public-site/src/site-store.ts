@@ -42,6 +42,45 @@ export interface SiteStore {
   resolve(siteKey: string): Promise<string | null>
   /** The revision id currently served as the site's published output, or `null`. */
   live(siteKey: string): Promise<number | null>
+  /**
+   * The site a `Host:` header names, or `null` when the host names none
+   * ([[REQ-258]]).
+   *
+   * THE THING `public-url.ts` SAID DID NOT EXIST. *"`public-site` resolves a site
+   * from that grammar and from `APEX_SITE_KEY`, and from nothing else — there is
+   * no host->site resolution."* There is now, and it is what turns a
+   * `site_domains` row from a record into an address: without it, attaching a
+   * customer's domain produces a correct row, a correct link, and a hostname
+   * that resolves nowhere.
+   *
+   * IT IS KIND-AGNOSTIC ON PURPOSE. The table holds `platform` and `custom` rows
+   * and this asks about neither — it asks which site a host reaches. A resolver
+   * that named a kind would have to be changed for `1stc.site` to resolve
+   * through it, which is a gate this Worker does not hold and should not be
+   * waiting on ([[TODO-6]] §§1 and 5 are about DNS and a certificate, not about
+   * code).
+   */
+  siteForHost(host: string): Promise<HostBinding | null>
+}
+
+/** What a host resolves to. */
+export interface HostBinding {
+  /** The site this host reaches. */
+  siteKey: string
+  /**
+   * **The** address for that site — this host, or the one it redirects to.
+   *
+   * ALWAYS PRESENT AND OFTEN EQUAL TO THE HOST ASKED ABOUT, which is what makes
+   * the caller's test a comparison rather than a null check. A site holds the
+   * apex and its `www`; one of them is the address and the other 301s to it, and
+   * [[DOC-45]] §4's *"a site has exactly one address"* is a statement about
+   * which, not about how many resolve.
+   *
+   * FALLS BACK TO THE HOST ASKED ABOUT when the site somehow holds no canonical
+   * row, because the alternative is a 301 to nothing — a site with a broken
+   * record should serve rather than loop.
+   */
+  canonicalHost: string
 }
 
 /**
@@ -64,6 +103,27 @@ export interface SiteDatabase {
     bind(...values: unknown[]): { first<T>(): Promise<T | null> }
   }
 }
+
+/**
+ * The one host->site query, and the `status` filter is not optional
+ * ([[REQ-258]], `0008_site_domains.sql`).
+ *
+ * *"EVERY READ IS FILTERED TO `active`; the column without the filter would be
+ * decoration."* Revocation is the only way a hostname that has to go — a bank's
+ * name, a government's, ours — can go at all, because an owner cannot change
+ * their own; and a resolver that ignored `status` would serve a revoked host
+ * forever while the dashboard showed it as taken back.
+ *
+ * THE CANONICAL HOST COMES BACK IN THE SAME ROUND TRIP, as a correlated subquery
+ * rather than a second call. It is needed on every request to a bound host — to
+ * decide whether to serve or to 301 — so a second query would double the cold
+ * cost of every customer's front page to learn a fact the first query's row
+ * already identifies.
+ */
+const HOST_QUERY =
+  'SELECT d.site_id AS site_id, ' +
+  "(SELECT c.host FROM site_domains c WHERE c.site_id = d.site_id AND c.status = 'active' AND c.canonical = 1 LIMIT 1) AS canonical_host " +
+  "FROM site_domains d WHERE d.host = ? AND d.status = 'active'"
 
 /**
  * {@link SiteStore} over `site_revisions`.
@@ -89,8 +149,74 @@ export interface SiteDatabase {
  */
 export class D1SiteStore implements SiteStore {
   private readonly cache = new Map<string, Promise<number | null>>()
+  private readonly hosts = new Map<string, Promise<HostBinding | null>>()
 
   constructor(private readonly db: SiteDatabase) {}
+
+  /**
+   * MEMOISED FOR THE LIFE OF THE INSTANCE, on `live`'s reasoning exactly: one
+   * instance is made per request, and a request asks this up to three times —
+   * once to decide which site the path names, once for the lead endpoint's
+   * target and once for the gate's. Three identical reads inside one request
+   * could also come back differently if a hostname were revoked between them,
+   * which would make one response internally inconsistent about which site it
+   * was serving.
+   */
+  siteForHost(host: string): Promise<HostBinding | null> {
+    const key = String(host ?? '').trim().toLowerCase()
+    const cached = this.hosts.get(key)
+    if (cached) return cached
+    const pending = this.readHost(key)
+    this.hosts.set(key, pending)
+    return pending
+  }
+
+  /**
+   * A HOST THIS DEPLOYMENT CANNOT LOOK UP IS ONE IT CANNOT CLAIM IS BOUND, so a
+   * failed read answers `null` rather than propagating.
+   *
+   * IT IS NOT DEFENSIVENESS AND IT IS NOT SILENT. The two states that produce it
+   * are real and neither should take the product down: this Worker declares no
+   * `migrations_dir` on purpose — *"migrations belong to the database and are
+   * applied once, by the Worker that owns the schema"* — so a local
+   * `wrangler dev` runs against an empty D1 where `site_domains` does not exist
+   * at all; and a transient D1 refusal is a thing that happens. Propagating
+   * would mean one unreadable table answering 500 on the platform's own front
+   * page as well as on every customer's.
+   *
+   * WHAT IT COSTS IS BOUNDED AND IS THE RIGHT WAY ROUND. A host that IS bound
+   * falls back to the unbound reading, where the root site is `APEX_SITE_KEY` —
+   * which a customer's domain is not, so it answers the same 404 an unpublished
+   * site does. It cannot serve the WRONG site, because `siteOfRoute`'s guard is
+   * about what a bound host may serve and an unbound host serves only what the
+   * URL names under `/site/<key>/` — which nobody has been given for somebody
+   * else's site.
+   *
+   * AND IT IS LOGGED EVERY TIME, because a customer's domain answering 404 is
+   * indistinguishable from an unpublished site, and this is the one line that
+   * tells the two apart afterwards.
+   */
+  private async readHost(host: string): Promise<HostBinding | null> {
+    if (host === '') return null
+    let row: { site_id: string; canonical_host: string | null } | null
+    try {
+      row = await this.db
+        .prepare(HOST_QUERY)
+        .bind(host)
+        .first<{ site_id: string; canonical_host: string | null }>()
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          event: 'host_resolution_failed',
+          host,
+          why: error instanceof Error ? error.message : String(error),
+        }),
+      )
+      return null
+    }
+    if (!row) return null
+    return { siteKey: row.site_id, canonicalHost: row.canonical_host ?? host }
+  }
 
   async resolve(siteKey: string): Promise<string | null> {
     const live = await this.live(siteKey)
