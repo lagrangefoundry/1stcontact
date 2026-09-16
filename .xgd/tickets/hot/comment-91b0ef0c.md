@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T22:29:59.361505+00:00'
+updated_at: '2026-09-16T22:31:48.995278+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -391,5 +391,33 @@ Both done.
 #### You
 Want me to correct §8.2 and REQ-256's body to match? <-- you can change the ticket to match what was built but any code changes need new tickets at this point I think - what is the change here?
 ay the word and I'll parent it. <-- sure
+
+<!-- xgd-turn id="cb58eaa3-d5b9-43b0-99fe-8468a12c0762-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T22:31:48.436872+00:00" -->
+#### Claude
+Let me check whether that correction is already ticketed before answering — REQ-261 is at `free_coded`, so some of it may already be built.
+
+Confirmed in code — let me re-read REQ-256's body, since it's been rewritten since my version.
+
+REQ-256's body has already been brought in line (requirement 4 now says the console runs `xgd`). Only the epic is stale — let me pull it fresh and patch.
+
+**No code change — that's the answer.** The correction was already built.
+
+REQ-261 behaviour 2 is that exact scope change, and REQ-261 is at `free_coded`. I verified it in the code rather than trusting the transcript: the brief at `tools/repro-console/src/ai.ts:357` now reads *"One gap ticket, and it is not bounded… Deferring is losing"*, there's a `bugs?: TicketDraft[]` on the outcome, and `console.ts:722 fileBugs()` files each one separately at `draft`. So the behaviour you corrected is live.
+
+**REQ-256 also needed nothing.** Its body was rewritten after mine — requirement 4 already says the AI hands back the ticket's *content* and the console runs `xgd ticket create`, and requirement 26 already states the append rule is decided by the console against its registry. I re-read it before touching anything and left it alone.
+
+**So only EPIC-12 §8.2 was stale**, and that's now fixed. Three changes:
+
+- **"One ticket per round, and it is not bounded"** replaces my one-finding-per-round reading, with the deferring-is-losing rule and a note that it supersedes the earlier text.
+- **The separate-bugs channel**, which I didn't have at all — including the first round's gate-misrouting find as the worked example of why it's needed.
+- **The console-files-it refinement**, which is better than what I wrote: `draft` status becomes structural rather than a rule, and "the AI wrote no code" becomes measured rather than instructed.
+
+I also added one clarification to §8.2 that the transcript showed causing real confusion: **a round is not a development session.** A round is a read-only diagnostic subprocess with `Read`/`Glob`/`Grep`; the free-coding session that implements its ticket is ordinary and has full `xgd`. Worth being explicit in the epic, since conflating them reads as "development sessions are crippled."
+
+**DOC-53 is parented** — `epic_parent: epic-bf282b3d`, and added to `epic_children`, which is now six.
+
+One thing still open from that chat, unrelated to the above: REQ-256 is at `free_coded` with green UATs on a parser that can't read a brief-conforming ticket. REQ-261 has since fixed it, so promoting is now safe — but nothing in REQ-256's body records that its own suite never covered the case. Say if you want that note appended before you promote.
 
 <!-- xgd-chat-end -->
