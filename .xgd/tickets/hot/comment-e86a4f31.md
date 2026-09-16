@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T19:48:54.974726+00:00'
+updated_at: '2026-09-16T20:00:52.607124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -259,5 +259,17 @@ Iteration 1
 Note the violations are the point, not decoration. The first says a round touched `tools/generate/` — which requirement 18 exists to make visible, and which the allowlist should have made impossible. The second says the filed ticket isn't at `draft`. Both are red, both are on the page rather than in a log, because a check whose failure is invisible isn't a check.
 
 Two caveats on what you're looking at. The transcript text is mine, written for the fixture — a real round's wording will differ, though the shape is exactly this. And the rail line reads REGRESSED only because the fixture has no recorded baseline; run `repro-rail record` and it becomes `no worse` with the per-reference numbers.
+
+<!-- xgd-turn id="28382eb5-e404-4b0b-ad16-fca4b54190f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T20:00:52.407457+00:00" -->
+#### You
+ok I'm running it a few questions:
+- This will produce a ticket for changes to the reproduction engine
+
+regression rail: the regression rail — REGRESSED
+REGRESSED · references: no baseline at storage/rail/baseline.json. The rail cannot say "no worse" against nothing — record one with `repro-rail record`.
+
+AI — failed: the round produced no outcome block.
 
 <!-- xgd-chat-end -->
