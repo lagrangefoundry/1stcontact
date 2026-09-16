@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:26:33.818745+00:00'
+updated_at: '2026-09-16T17:29:47.622578+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -309,5 +309,33 @@ And my earlier offer stands: the EADDRINUSE message is Node's raw text passed st
 <!-- xgd-chat role="user" ts="2026-09-16T17:26:33.556811+00:00" -->
 #### You
 Sorry that pasted the wrong text. I am looking at that message Iteration 1 capture failed. I can't copy paste the message for some reason. It is trying to find an executable for chromium and failing - as I said I have tried the install and it doesn't change anything
+
+<!-- xgd-turn id="a8f3b2de-245b-43b3-b715-6fbbd439d741-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:29:47.058973+00:00" -->
+#### Claude
+Now we're on the real problem. Let me diagnose rather than guess — the likely culprit is `npx` resolving a *different* Playwright than the repo uses, so it downloads a different browser build number.
+
+Found it. This is a **version mismatch**, and `npx` is the reason your installs aren't landing.
+
+Confirmed — and this explains exactly why your installs do nothing.
+
+**The repo needs Chromium revision `1228`. You have `1234` and `1243`. Nothing has ever installed `1228`.**
+
+The reason: there's no `node_modules/.bin/playwright` at the repo root, so `npx playwright` falls through to your `PATH` — and your active venv puts **Python** Playwright first:
+
+```
+/Users/martin/lagrangefoundry/xgd/.venv-working/bin/playwright   ← npx finds this
+```
+
+That's the Python binding's CLI. It pins its own browser revisions (1234/1243 — that's where those came from) and has no idea Node's `playwright@1.61.1` wants 1228. So every `npx playwright install` you ran succeeded, downloaded browsers, and installed the wrong ones.
+
+## The fix — use the repo's own Playwright
+
+```bash
+tools/generate/node_modules/.bin/playwright install chromium
+```
+
+Let me run it now:
 
 <!-- xgd-chat-end -->
