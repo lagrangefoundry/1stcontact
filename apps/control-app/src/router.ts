@@ -42,7 +42,16 @@ import type {
 } from '../../../tools/generate/src/publish/ladder'
 import { ladderFor } from './image-ladder'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
-import { publicSiteUrl } from './public-url'
+import { previewPath, publicSiteUrl } from './public-url'
+// [[BUG-97]] — the draft channel answers the gated download too, so the link a
+// preview submission mails is one the operator can actually open.
+import { openGate, takeAsset } from './gate'
+import {
+  downloadsPage,
+  GATE_CACHE,
+  GATE_HEADERS,
+  parseDownloadPath,
+} from '../../../packages/framework/src/modules/contact-form/gate'
 /*
  * THE LEAD ENDPOINT IS IMPORTED, NOT REBUILT ([[BUG-78]]). `handleLead` is
  * `public-site`'s, and it stays `public-site`'s: it owns what a hostile caller
@@ -3945,11 +3954,90 @@ async function routeUncached(
             ...env,
             LEAD_INTAKE: {
               captureLead: (spec: LeadSubmission) =>
-                captureLead(env as LeadIntakeEnv, { ...spec, channel: 'draft' }),
+                captureLead(env as LeadIntakeEnv, {
+                  ...spec,
+                  channel: 'draft',
+                  // AND SO IS THE ORIGIN ([[BUG-97]]). A draft submission's mail
+                  // links back into the draft, which only this server serves — so
+                  // the link has to name this server, and the honest source for
+                  // that is the request that arrived at it rather than a var
+                  // somebody sets per deployment. On a development machine it is
+                  // what makes the mailed link followable at all.
+                  origin: new URL(request.url).origin,
+                }),
             },
           } as unknown as LeadRequestEnv,
           identified: true,
         })
+      }
+
+      /**
+       * GET /preview/<siteKey>/draft/api/download/<token>[/<assetKey>] — the
+       * gated download, against the draft ([[BUG-97]]).
+       *
+       * WHY THIS EXISTS AT ALL, which is `api/lead`'s reason one step further on.
+       * [[BUG-78]] made the preview's form submit for real, and the mail it sends
+       * carries a link — so the surface an operator can actually press the button
+       * on is the surface whose link had nowhere to land. A draft link with no
+       * route is the same defect as a published link on the wrong host: something
+       * we sent somebody that cannot be opened.
+       *
+       * AND IT IS WHAT MAKES TESTING BEFORE PUBLISHING POSSIBLE. A site that has
+       * never been published has no published channel at all — `public-site`
+       * resolves a site through its live revision, so there is not even a form to
+       * submit — so the preview is not a convenience here, it is the only place
+       * the whole loop can run. With this route the operator presses the button,
+       * reads the mail, follows the link and takes the paper, with nothing
+       * published and no mail provider configured.
+       *
+       * `draft` ONLY, on the `api/lead` route's reasoning. The edit channel is
+       * not meant to be functional, and `published` falls through to the redirect
+       * below — which sends it to `public-site`, where the published gate lives
+       * and has lived since [[REQ-244]].
+       *
+       * THE SAME `openGate`/`takeAsset` THE PUBLISHED GATE USES, over a channel
+       * argument, and never a second implementation. `recordEvent` is the one
+       * definition of how a fact enters a contact's history ([[DOC-44]] §4.1) —
+       * the whole reason those functions live in this app rather than in the
+       * server that receives the request — so an arrival through the preview is
+       * recorded by the same statement as an arrival through the live site, and
+       * *"they opened it"* means one thing in the timeline.
+       *
+       * THE BYTES COME OUT OF `servePreview` AND NOT OUT OF R2. A gated artifact
+       * is a site asset ([[REQ-244]] §5), and on the draft channel the site's
+       * assets are whatever the draft holds — which is exactly what the renderer
+       * this route already uses serves for every other draft byte, including the
+       * refusals it applies to a path that tries to leave the site.
+       *
+       * THE OPERATOR IS AUTHENTICATED AND THE KEY IS CHECKED, so the indistinguishable
+       * 404 `public-site`'s gate is careful about is not this route's property to
+       * keep: there is no unauthenticated caller here to be given an oracle. What
+       * IS kept is that a site key this business does not hold is a 404 — the same
+       * check the `api/lead` route above makes, for the same reason.
+       */
+      const download =
+        method === 'GET' && channel === 'draft'
+          ? parseDownloadPath((preview[3] ?? '/').replace(/^\/+/, ''))
+          : null
+      if (download) {
+        const store = await openStore()
+        if (!(await store.hasDraft(site))) return text(404, 'Not found')
+        // THE SAME CAST THE `api/lead` ROUTE BELOW MAKES, to the same type:
+        // `GateEnv` IS `LeadEnv` and both are this app's own shape.
+        const gateEnv = env as LeadIntakeEnv
+        if (download.assetKey === null) {
+          const page = await openGate(gateEnv, site, download.token, 'draft')
+          if (!page) return text(404, 'Not found')
+          // THE REQUEST'S OWN PATHNAME AND NOT `p`. The page links its artifacts
+          // from the path it was reached at, and `p` has had the `/b/<id>` prefix
+          // split off it — so using it would emit links that drop the business and
+          // resolve against whichever one sorted first.
+          const listing = downloadsPage(new URL(request.url).pathname, page.assets)
+          return new Response(listing.body, { status: 200, headers: listing.headers })
+        }
+        const artifact = await takeAsset(gateEnv, site, download.token, download.assetKey, 'draft')
+        if (!artifact) return text(404, 'Not found')
+        return await deliverDraftArtifact(store, site, artifact.url)
       }
 
       if (channel === 'published') {
@@ -4775,6 +4863,64 @@ const SSE_HEARTBEAT_MS = 20_000
  */
 class StreamClosedError extends Error {
   readonly name = 'StreamClosedError'
+}
+
+/**
+ * One gated artifact, out of the DRAFT ([[BUG-97]]).
+ *
+ * IT IS `public-site`'s `deliver` WITH THE CHANNEL CHANGED, and the two are
+ * deliberately not one function: that one reads a published revision's objects
+ * out of R2 by prefix, this one asks the draft renderer, and the only thing they
+ * share is the rule about what an `assets[].url` MEANS. That rule is restated
+ * here rather than imported because it is four lines and the import would be an
+ * app depending on another app's Worker.
+ *
+ * AN ABSOLUTE URL IS A REDIRECT AND NOT A REFUSAL, exactly as it is on the
+ * published side. `assets[].url` is a free `url` an author types and every one in
+ * the stores today points off-site; refusing them would break every gated
+ * download that exists for no visitor's benefit. It is not an open redirect: the
+ * value is authored by the site's own operator, reached only through a valid
+ * token, and nothing a caller sends arrives here.
+ *
+ * A SITE-RELATIVE URL IS A DRAFT ASSET, served by {@link servePreview} — which is
+ * what serves every other draft byte, and therefore applies the same refusals to
+ * a path that tries to leave the site. The query and fragment are dropped for the
+ * reason the published side drops them: what follows is a store key, and `?v=2`
+ * would name an object nobody wrote.
+ */
+async function deliverDraftArtifact(
+  store: SiteStore,
+  site: string,
+  url: string,
+): Promise<Response> {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//')) {
+    return new Response(null, {
+      status: 302,
+      headers: { location: url, 'cache-control': GATE_CACHE },
+    })
+  }
+  const rel = url.split('#')[0].split('?')[0].replace(/^\/+/, '')
+  // A COMPONENT THAT LOOKS LIKE TRAVERSAL IS REFUSED rather than resolved, on
+  // `routes.ts`'s reasoning: a store key is built by concatenation, and a
+  // component whose meaning depends on who reads it is one to refuse outright.
+  if (rel === '' || rel.split('/').some((part) => part === '.' || part === '..')) {
+    return text(404, 'Not found')
+  }
+  const served = await servePreview(store, site, 'draft', `/${rel}`)
+  if (served.status !== 200) return served
+  // THE GATE'S OWN HEADERS ON THE WAY OUT. A per-contact artifact must not reach
+  // a shared cache or an index, and `servePreview` says nothing about either
+  // because every other byte it serves is an operator looking at their own draft.
+  //
+  // `cache-control` IS THEN RESTAMPED BY `uncacheable`, and that is not a reason
+  // to leave it unset here. What arrives is `NO_STORE`, which is strictly
+  // stronger than the gate's `private, no-store` — bare `no-store` forbids
+  // storage by any cache at all — so the property holds either way, and setting
+  // it means it still holds if this response ever leaves by another door.
+  // `x-robots-tag` has no such backstop, which is the half that is load-bearing.
+  const headers = new Headers(served.headers)
+  for (const [name, value] of Object.entries(GATE_HEADERS)) headers.set(name, value)
+  return new Response(served.body, { status: 200, headers })
 }
 
 /** Render `rel` out of a draft-side channel and answer with it. */

@@ -57,6 +57,7 @@ import {
 } from './messages'
 import { addContact } from './people'
 import { grantFor } from './grants'
+import { addressesOf, addressForLinks } from './hostname'
 import {
   DOWNLOAD_PATH,
   parseFormHandle,
@@ -66,8 +67,8 @@ import {
 // `currentShapeOf`.
 import { upgradePageModules } from '../../../packages/framework/src/modules/upgrade'
 import type { StoredInstance } from '../../../packages/framework/src/modules/upgrade'
-import { publicSiteUrl } from './public-url'
-import type { Scope } from './scope'
+import { previewPath, recipientSiteUrl, urlOn } from './public-url'
+import { businessPath, type Scope } from './scope'
 import { renderCopy, type MessageCopy, type RenderedMessage } from './templates'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { d1r2SiteStore, UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
@@ -144,6 +145,26 @@ export interface LeadSubmission {
    * has always meant.
    */
   channel?: LeadChannel
+  /**
+   * The origin the submission ARRIVED ON, for a link back to the same place
+   * ([[BUG-97]]).
+   *
+   * READ ON THE `draft` CHANNEL AND NOWHERE ELSE, which is the whole reason it
+   * can be a fact about the request rather than configuration. A draft
+   * submission is the operator pressing the button inside their own builder, so
+   * the builder that took the request is exactly the server that can serve them
+   * the link back — and on a development machine that is the one origin a link
+   * can name and still be followable, which is [[BUG-97]]'s symptom.
+   *
+   * A PUBLISHED SUBMISSION'S LINK IGNORES IT, deliberately. That link goes to a
+   * stranger and must name the address the SITE has, not the host the form
+   * happened to be served from — `/site/<key>/` on the apex today, which is the
+   * defect. See `recipientSiteUrl`.
+   *
+   * OPTIONAL, because `public-site` has no reason to send one and a draft
+   * submission without one composes no link rather than guessing an origin.
+   */
+  origin?: string
 }
 
 /** Why a submission wrote nothing. Reaches a log; never a visitor. */
@@ -187,14 +208,19 @@ export interface LeadOutcome {
 /**
  * Why a message this form would have sent did not go out.
  *
- * FIVE REASONS AND ONE VOCABULARY, shared by the per-asset outcomes and the
- * message outcome so a reader does not have to learn which words apply where.
+ * ONE VOCABULARY, shared by the per-asset outcomes and the message outcome so a
+ * reader does not have to learn which words apply where.
  *
- * THE LAST TWO ARE [[REQ-243]]'s AND SHOULD BE UNREACHABLE FROM A PUBLISHED
- * SITE, because publish refuses both. They are reachable from a DRAFT — the
- * builder's own preview submits against one and nothing validates it — which is
- * exactly why the send checks as well as the publish, and exactly why they are
- * reported rather than thrown.
+ * `no_template` IS [[REQ-243]]'s AND SHOULD BE UNREACHABLE FROM A PUBLISHED
+ * SITE, because publish refuses it. It is reachable from a DRAFT — the builder's
+ * own preview submits against one and nothing validates it — which is exactly why
+ * the send checks as well as the publish, and exactly why it is reported rather
+ * than thrown.
+ *
+ * `no_site_address` IS THE MIRROR IMAGE OF THAT, and it is worth saying so:
+ * publish refuses a site with no public address ([[REQ-238]]), so it is the
+ * PUBLISHED channel that should never reach it, and the draft channel cannot —
+ * a draft link names the builder and asks for no address at all.
  */
 export type DeliverySkip =
   | 'already_sent'
@@ -211,6 +237,23 @@ export type DeliverySkip =
    * there is one fewer state for a reader to learn.
    */
   | 'no_template'
+  /**
+   * The site has no public address to compose the recipient's link from
+   * ([[BUG-97]]).
+   *
+   * A STATE PUBLISHING FORBIDS, reported rather than assumed away. [[REQ-238]]
+   * makes an address required before a site goes live, so every site a stranger
+   * could have submitted from has one; if one is somehow reached — a revoked
+   * hostname ([[REQ-238]]'s safety valve leaves a live site with no address), a
+   * row deleted by hand — the alternative to this outcome is a mail whose button
+   * points into a domain nobody owns, sent to somebody who cannot tell.
+   *
+   * THE LINK IS WHAT IS REFUSED AND NOT THE LEAD. The contact is written, the
+   * press is recorded and the acceptances are kept, exactly as they are for every
+   * other reason a delivery does not go out. A submission is not worth less
+   * because we cannot address the follow-up.
+   */
+  | 'no_site_address'
 
 /** What became of one promised asset on one submission. */
 export interface AssetOutcome {
@@ -999,8 +1042,14 @@ async function deliverForm(
    * a link nobody holds is a row in `asset_grants` that can only ever be noise.
    * So the grant is minted at the first artifact that will ACTUALLY be sent, and
    * not before.
+   *
+   * `null` MEANS THERE IS NOWHERE TO POINT ([[BUG-97]]) — the site has no public
+   * address to compose a recipient's link from. It is answered rather than thrown
+   * for `no_template`'s reason: a submission that captured a lead and could not
+   * address the follow-up has an outcome, and an exception would replace it with
+   * a 500 that says less.
    */
-  gateUrl: () => Promise<string>,
+  gateUrl: () => Promise<string | null>,
   send: SendEmail,
 ): Promise<{ assets: AssetOutcome[]; message?: MessageOutcome }> {
   /** The same answer in whichever shape this form's outcome takes. */
@@ -1116,6 +1165,21 @@ async function deliverForm(
   // expressible. It opens a page listing the SET, so every message this delivery
   // sends carries the same one.
   const link = await gateUrl()
+  // NOWHERE TO POINT IS NOT SOMEWHERE TO POINT ([[BUG-97]]). A site with no
+  // public address cannot have a recipient's link composed for it, and the one
+  // thing this must not do is send the mail anyway carrying a URL assembled from
+  // a host nobody owns — to a stranger, who has no way to tell. The artifacts
+  // that were GOING report why; the ones already refused keep the reason they had,
+  // because `already_sent` is still the true answer for them.
+  if (link === null) {
+    return {
+      assets: planned.map(({ asset, state }) => ({
+        key: asset.key,
+        sent: false,
+        skipped: state === 'send' ? 'no_site_address' : state,
+      })),
+    }
+  }
 
   // ── About the SET: one message, carrying every artifact going out ─────────
   if (!(template.declared ?? []).includes(ASSET_NAME)) {
@@ -1324,6 +1388,79 @@ function reportAcceptanceSkipped(
 }
 
 /**
+ * The link the mail carries, or `null` when there is nowhere to point it
+ * ([[BUG-97]]).
+ *
+ * WHICH CHANNEL THE SUBMISSION ARRIVED ON IS THE WHOLE OF THE BRANCH, and the
+ * two answers have different audiences rather than different spellings of one:
+ *
+ *   - **`published`** — a stranger, by email. The link names THE ADDRESS THAT
+ *     SITE HAS, read from `site_domains` through the one module that reads it.
+ *     Sending them to this product's own host instead is the defect: it is a
+ *     domain they have never seen, and the `invite` seed's own comment already
+ *     records that an anonymous sender is most of what makes a real message look
+ *     like phishing. The same argument applies to the link as to the sender.
+ *   - **`draft`** — the operator, in their own builder ([[BUG-78]]). The link
+ *     names the builder that took the submission and the DRAFT channel, so a form
+ *     tested in the preview delivers something they can actually open. Pointing it
+ *     at the published site is the second half of this bug: on a site that has
+ *     never been published there is no revision for it to resolve against, so the
+ *     one surface an operator can press the button on produced the one link that
+ *     could not work.
+ *
+ * THE DRAFT PATH ASKS FOR NO ADDRESS, AND MUST NOT. [[REQ-238]] requires a public
+ * address before PUBLISHING, so a site still being built has none — a draft link
+ * that consulted `site_domains` would refuse the delivery for every site in the
+ * state this half exists to serve.
+ *
+ * THE GRANT IS MINTED AFTER THE DESTINATION IS KNOWN. Minting is a write, and a
+ * row in `asset_grants` for a link that was never composed and can never be sent
+ * is noise that outlives the submission — the same reasoning that makes the
+ * caller's thunk lazy, carried one step further in.
+ */
+async function gateLinkFor(
+  env: LeadEnv,
+  spec: LeadSubmission,
+  scope: Scope,
+  contactId: string,
+): Promise<string | null> {
+  const mint = async (): Promise<string> =>
+    (
+      await grantFor(env, scope, {
+        contactId,
+        siteId: spec.siteKey,
+        formHandle: spec.formHandle,
+      })
+    ).id
+
+  if ((spec.channel ?? 'published') === 'draft') {
+    // NO ORIGIN IS NO LINK rather than a guessed one. Every caller that submits a
+    // draft is answering a request and holds it; one that does not has no honest
+    // value to supply, and a constant here would be the per-environment override
+    // `PUBLIC_SITE_ORIGIN`'s own comment warns against, arriving by the back door.
+    const origin = (spec.origin ?? '').trim()
+    if (origin === '') return null
+    // IT NAMES THE BUSINESS EXPLICITLY, for the reason `businessPath` was written
+    // ([[REQ-217]]): a root-absolute builder path arrives naming no business and
+    // resolves against the FIRST admissible one, which for an operator holding two
+    // is the crossing `scope.ts` exists to prevent. A link in a mail is read days
+    // later, in whatever tab happens to be open, so it is the last URL that should
+    // depend on which business a session had selected.
+    return urlOn(
+      origin,
+      businessPath(
+        scope.businessId,
+        previewPath(spec.siteKey, 'draft', `/${DOWNLOAD_PATH}/${await mint()}`),
+      ),
+    )
+  }
+
+  const address = addressForLinks(await addressesOf(env, spec.siteKey))
+  if (address === null) return null
+  return recipientSiteUrl(address.host, spec.siteKey, `/${DOWNLOAD_PATH}/${await mint()}`)
+}
+
+/**
  * Take one public form submission, end to end.
  *
  * THE ORDER IS THE SAFETY PROPERTY. The site is resolved before a store handle
@@ -1399,19 +1536,20 @@ export async function captureLead(
 
   const store = await ticketStoreFor(env, scope)
   /**
-   * The link the mail carries, minted once and only if something is sent.
+   * The link the mail carries, composed once and only if something is sent.
    *
    * MEMOISED HERE AND NOT INSIDE THE GRANT TABLE. `grantFor` is find-or-mint and
    * is safe to call twice, but calling it per artifact would be a round trip per
-   * artifact for an answer that cannot differ between them.
+   * artifact for an answer that cannot differ between them — and since
+   * [[BUG-97]] the address read in front of it would be a second one.
+   *
+   * THE MEMO HOLDS `null` TOO, which is the point of memoising the PROMISE rather
+   * than the value: a site with no address is asked about once, and the refusal it
+   * earns is the same refusal for every artifact the form promised.
    */
-  let gate: Promise<string> | null = null
-  const gateUrl = (): Promise<string> => {
-    gate ??= grantFor(env, scope, {
-      contactId,
-      siteId: spec.siteKey,
-      formHandle: spec.formHandle,
-    }).then((grant) => publicSiteUrl(spec.siteKey, `/${DOWNLOAD_PATH}/${grant.id}`))
+  let gate: Promise<string | null> | null = null
+  const gateUrl = (): Promise<string | null> => {
+    gate ??= gateLinkFor(env, spec, scope, contactId)
     return gate
   }
 

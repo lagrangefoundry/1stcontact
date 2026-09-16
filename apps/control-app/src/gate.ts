@@ -28,7 +28,13 @@
 
 import { PAGE_ACCESSED, ASSET_DOWNLOADED } from './builder/contact-events.js'
 import { recordEvent } from './events'
-import { businessOfSite, formDefinitionOf, type FormDefinition, type LeadEnv } from './lead'
+import {
+  businessOfSite,
+  formDefinitionOf,
+  type FormDefinition,
+  type LeadChannel,
+  type LeadEnv,
+} from './lead'
 import { resolveGrant, type AssetGrant } from './grants'
 
 /** Everything this module needs of the deployment — the same as `lead.ts`. */
@@ -82,8 +88,29 @@ interface Resolved {
  * too. They cannot disagree unless a site has changed hands, and if they ever do,
  * refusing is the only answer that cannot serve one business's paper out of
  * another's contact record.
+ *
+ * `channel` IS THE SNAPSHOT THIS TOKEN'S FORM IS READ FROM ([[BUG-97]]), and it
+ * is `formDefinitionOf`'s own rule rather than a second one: *read the definition
+ * from the rendering the submitter was served*. A visitor to the live site gets
+ * the frozen revision; the operator who pressed the button inside their own
+ * preview got the draft, which on a site that has never been published is the
+ * only rendering there is — so a published read would resolve to nothing and the
+ * link would 404 for exactly the case the draft half exists to serve.
+ *
+ * IT IS NOT A PERMISSION AND IT WIDENS NOTHING. The channel is decided by which
+ * SERVER answered the request — `public-site` passes nothing and gets
+ * `published`, `control-app`'s authenticated preview route passes `draft` — so it
+ * is a fact about the route, on the same footing as the channel a submission
+ * carries. Nothing a caller can put in a URL reaches it, and the sideways rules
+ * above are unchanged by it: the grant still names the only site it can reach,
+ * and a form's promised set is still the only set an artifact can come from.
  */
-async function resolve(env: GateEnv, siteKey: string, token: string): Promise<Resolved | null> {
+async function resolve(
+  env: GateEnv,
+  siteKey: string,
+  token: string,
+  channel: LeadChannel,
+): Promise<Resolved | null> {
   const grant = await resolveGrant(env, token)
   if (!grant) return null
   if (grant.siteId !== siteKey) return null
@@ -91,7 +118,13 @@ async function resolve(env: GateEnv, siteKey: string, token: string): Promise<Re
   const site = await businessOfSite(env, siteKey)
   if (!site || site.businessId !== grant.businessId) return null
 
-  const definition = await formDefinitionOf(env, grant.businessId, siteKey, grant.formHandle)
+  const definition = await formDefinitionOf(
+    env,
+    grant.businessId,
+    siteKey,
+    grant.formHandle,
+    channel,
+  )
   if (!definition) return null
   return { grant, definition }
 }
@@ -107,8 +140,9 @@ export async function openGate(
   env: GateEnv,
   siteKey: string,
   token: string,
+  channel: LeadChannel = 'published',
 ): Promise<GatePage | null> {
-  const resolved = await resolve(env, siteKey, token)
+  const resolved = await resolve(env, siteKey, token, channel)
   if (!resolved) return null
   const { grant, definition } = resolved
   const assets = definition.assets.map(({ key, name }) => ({ key, name }))
@@ -144,8 +178,9 @@ export async function takeAsset(
   siteKey: string,
   token: string,
   assetKey: string,
+  channel: LeadChannel = 'published',
 ): Promise<GatedArtifact | null> {
-  const resolved = await resolve(env, siteKey, token)
+  const resolved = await resolve(env, siteKey, token, channel)
   if (!resolved) return null
   const { grant, definition } = resolved
   const asset = definition.assets.find((candidate) => candidate.key === assetKey)

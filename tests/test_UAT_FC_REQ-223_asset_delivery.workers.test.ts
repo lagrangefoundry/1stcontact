@@ -110,8 +110,13 @@ describe('REQ-223 — asset delivery', () => {
     // a link straight at the paper is the same for everybody who was sent it, so
     // it cannot say who followed it. The artifact is one click further on, behind
     // a token minted for this contact.
+    // ON THE SITE'S OWN HOST SINCE [[BUG-97]]. This used to name
+    // `1stcontact.io` — a constant, and so a domain the recipient had never seen
+    // — which is the defect that ticket is. The host is the fixture's, because
+    // the label is random and the only honest comparison is against the address
+    // the site was actually given.
     expect(forAsset[0].body).toMatch(
-      new RegExp(`https://1stcontact\\.io/site/${site.siteKey}/api/download/gate_[0-9a-f]{32}`),
+      new RegExp(`https://${site.host}/site/${site.siteKey}/api/download/gate_[0-9a-f]{32}`),
     )
     expect(forAsset[0].body).not.toContain(ASSET.url)
     expect(forAsset[0].body).toContain(ASSET.name)

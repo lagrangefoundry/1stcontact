@@ -5,6 +5,8 @@ import { defaultEmailDocument } from '../../packages/framework/src/l2/email-page
 import type { L1Document } from '@1stcontact/site-schema'
 import { formHandle } from '../../packages/framework/src/modules/contact-form/fields'
 import { nextSlug } from './site-seed'
+import { giveSiteAnAddress } from './site-address'
+import { starterSiteJson } from '../../tools/generate/src/cli/scaffold'
 
 /**
  * A PUBLISHED site carrying a `contact-form`, for [[REQ-223]]'s UATs.
@@ -197,9 +199,29 @@ export interface SeedFormOptions extends SeedForm {
    * path itself: what comes back is what R2 stored.
    */
   outFiles?: Record<string, string>
+  /**
+   * Bytes under the DRAFT's own `assets/`, by name ([[BUG-97]]).
+   *
+   * NOT THE SAME FIXTURE AS {@link outFiles}, and the difference is the whole
+   * point. That one writes objects into a frozen revision, which is where
+   * `public-site` reads a published artifact from. This writes the draft's
+   * assets, which is where the preview's renderer reads one — so a gated
+   * download minted from a preview submission has real bytes to arrive as. A
+   * test that needed both would supply both, exactly as a real site holds both.
+   */
+  draftAssets?: Record<string, string>
 }
 
 export interface SeededSite {
+  /**
+   * The host a RECIPIENT's link to this site names, or `null` for a site this
+   * fixture did not publish ([[BUG-97]]).
+   *
+   * HANDED BACK BECAUSE A TEST CANNOT SPELL IT. The label is random — see
+   * `giveSiteAnAddress` — so the only honest way to assert that a mail names the
+   * site's own host is to compare against the host the fixture actually gave it.
+   */
+  host: string | null
   /**
    * The site's 128-bit key — the token a published URL carries, and since
    * [[REQ-236]] the only name the store has for it.
@@ -455,7 +477,26 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
   const label = nextSlug('req223')
   const instanceId = options.instanceId ?? `form-${label}`
   const page = pageWith(options, instanceId)
-  const siteJson = { name: label, config: { businessName: 'Fixture' } }
+  /**
+   * A `site.json` THE PRODUCT'S OWN SCAFFOLD WROTE ([[BUG-97]]).
+   *
+   * IT USED TO BE `{ name, config: { businessName } }`, which is not a site: it
+   * carries no `id`, no `theme` and no `nav`, so the draft it produced FAILED TO
+   * VALIDATE. Nothing noticed, because every suite using this fixture read the
+   * definition out of the store and none of them ever RENDERED it — and the
+   * moment one does ([[BUG-97]]'s draft gate, which serves an artifact out of the
+   * draft), the renderer refuses the whole site. This file's own header claims *"a
+   * site this returns is a site the serving Worker could serve"*; `starterSiteJson`
+   * is what makes that true, and it is the same function `1c new` seeds with, so
+   * the fixture starts from what a real site starts from.
+   *
+   * `businessName` IS KEPT AT `Fixture`, because suites assert on it.
+   */
+  const siteJson = {
+    ...starterSiteJson(label),
+    name: label,
+    config: { ...(starterSiteJson(label).config as Record<string, unknown>), businessName: 'Fixture' },
+  }
   // [[REQ-247]] — the messages this site's forms send are pages of it, so they
   // are written into the very same draft and frozen into the very same revision
   // as the page carrying the form. That is not tidiness: it is what makes the
@@ -471,7 +512,31 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
   ]
 
   const siteKey = await store.createDraft()
-  await store.write(siteKey, { siteJson, pages, assets: [] })
+  const assets = Object.entries(options.draftAssets ?? {}).map(([name, body]) => ({
+    name,
+    bytes: new TextEncoder().encode(body),
+  }))
+  const siteContent = { siteJson, pages, assets }
+  await store.write(siteKey, siteContent)
+
+  /**
+   * A PUBLISHED SITE HAS A PUBLIC ADDRESS, because [[REQ-238]] makes one required
+   * before publishing ([[BUG-97]]).
+   *
+   * WHY THE FIXTURE HAS TO CARRY IT. This helper writes the revision directly
+   * rather than going through `POST /api/publish`, so it walks past the gate that
+   * would have refused a site with no address — and since [[BUG-97]] the send path
+   * reads that address to compose a recipient's link. A fixture without one would
+   * seed a state the product forbids and then assert the refusal it earns, which
+   * is silence: every delivery UAT in this suite quietly proving that nothing was
+   * sent.
+   *
+   * AND NOT FOR AN UNPUBLISHED ONE, which is equally load-bearing. A site being
+   * built has no address and needs none — the draft channel's link names the
+   * builder — so `publish: false` seeds exactly the state [[BUG-97]]'s draft half
+   * exists to serve.
+   */
+  const address = options.publish === false ? null : await giveSiteAnAddress(siteKey)
 
   if (options.publish !== false) {
     await store.writeRevision(
@@ -486,7 +551,10 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
         sha: 'fixture',
       },
       {
-        source: { siteJson, pages, assets: [] },
+        // THE REVISION'S SOURCE IS THE DRAFT'S, assets included — a publish
+        // freezes what the site held, and a fixture that dropped the assets
+        // would freeze a revision no publish could produce.
+        source: siteContent,
         out: new Map([
           ['index.html', options.outHtml ?? '<!doctype html><title>Home</title>'],
           ...Object.entries(options.outFiles ?? {}),
@@ -497,6 +565,7 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
 
   return {
     siteKey,
+    host: address?.host ?? null,
     instanceId,
     pageId: HOME_PAGE_ID,
     formHandle: formHandle(HOME_PAGE_ID, instanceId),
