@@ -380,18 +380,21 @@ describe('REQ-257 — the Cloudflare client', () => {
     expect(kept.pushed).toBeNull()
     expect(kept.out).toMatch(/already on 1stcontact-control-app/)
 
-    // WARN AND NOT FAIL, for `20-resend-api-key`'s reason: no customer surface
-    // reaches this yet, so aborting every deploy would stop the pipeline over a
-    // capability nobody can currently ask for. What it must not do is pass
-    // silently.
+    // ABSENT ABORTS THE DEPLOY. This row was a WARNING when REQ-257 shipped,
+    // on a condition REQ-257 itself wrote down: no customer surface reached the
+    // credential, so aborting every deploy would have stopped the pipeline over
+    // a capability nobody could ask for — *"the moment serving a custom domain
+    // depends on it"* was named as what would end that. [[REQ-259]] put `Your
+    // domain` on the Settings pane and is that moment, so the hook now fails.
+    // What this suite still owns is the rest of the contract; the flip and its
+    // asymmetry against `20-resend-api-key` are REQ-259's to prove.
     const missing = harness.run({ stored: [] })
-    expect(missing.code).toBe(0)
+    expect(missing.code).toBe(1)
     expect(missing.out).toMatch(/CLOUDFLARE_DNS_TOKEN is not set/)
-    expect(missing.out).toMatch(/manage no DNS/)
     expect(missing.pushed).toBeNull()
 
     const unreadable = harness.run({ listFails: true })
-    expect(unreadable.code).toBe(0)
+    expect(unreadable.code).toBe(1)
     expect(unreadable.out).toMatch(/could not be read to check/)
     expect(unreadable.pushed).toBeNull()
 
