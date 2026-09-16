@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-258
 created_by: xgd
 created_at: '2026-09-16T17:23:27.945287+00:00'
-updated_at: '2026-09-16T17:53:59.019567+00:00'
+updated_at: '2026-09-16T18:07:57.426043+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,14 @@ The ticket's named risk turns out to be **real**. Let me settle it properly.
 The risk is real: wrangler `PUT`s the whole route list and its own source says *"PUT will delete previous routes on this script."* That changes the config side of the ticket.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="a62adba4-eb12-423d-835a-94a85c9396ab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:07:56.397847+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
