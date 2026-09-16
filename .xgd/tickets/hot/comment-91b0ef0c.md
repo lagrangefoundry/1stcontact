@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-16T01:10:18.651729+00:00'
+updated_at: '2026-09-16T01:13:54.349192+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,57 @@ Three design points I'd hold firm on:
 <!-- xgd-chat role="user" ts="2026-09-16T01:10:16.935211+00:00" -->
 #### You
 an empty chat ticket <-- you know the actual transcripts are stored in comments attached to the tickets
+
+<!-- xgd-turn id="cd8a5c4c-5222-40a6-bb2e-699d91584e4b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T01:13:54.047394+00:00" -->
+#### Claude
+Let me actually check rather than rely on the file layout.
+
+I was wrong — my file glob missed cold storage. Reading it now.
+
+That's my error — the transcript is there, in cold storage my glob didn't reach. I should have used `xgd ticket get` on the `chat_comment` field rather than trusting a file search. Let me check what else I missed and fix the storage-path assumption.
+
+Confirmed: cold tickets live in the `xgd-stable` git snapshot, not the working tree — `xgd ticket get` is the only reliable path. And CHAT-29 changes the epic materially. Rewriting it.
+
+CHAT-29 is a full conversation — and it turns out to be the *origin* of this epic, not a footnote to CHAT-21. Epic rewritten around it. What changed:
+
+## The biggest thing I'd missed
+
+CHAT-29 settles doctrine that constrains every ticket, and its central claim cuts directly against the engineering instinct:
+
+> **An 80%-faithful copy is worse than no copy** — "you've handed the customer a diff against something they already like. Their eye goes straight to the 20% that's wrong."
+
+So partial fidelity isn't partial credit; on this surface it's negative. Which means the natural plan (ship the best duplication you can, iterate) is the wrong plan. CHAT-29's inversion instead: **the first output is a read-back, not a site** — a statement of comprehension ("here's what I see… what's working, what's been bugging you, what must not change?") that proves understanding before risking execution and *extracts the fidelity contract* so you know where to spend.
+
+That composes cleanly with CHAT-21's migration-as-consent rather than contradicting it: read-back → fidelity contract → preview-with-the-fix-on-it → the ask. I've made that sequence §2 of the epic, ahead of all the engineering.
+
+Two more that are cheap to honour and expensive to discover late: **"bring across", never "reproduce"** (fidelity bar you'll fail vs continuity bar you'll beat), and **never silently drop content** — the one thing that genuinely loses this customer.
+
+## It also gives the self-check loop a better metric
+
+I had workstream C anchored on pixel/value fidelity. CHAT-29's "never silently drop content" is **mechanically checkable** — the capture holds the full verbatim copy inventory — and it's the failure that actually costs you the customer. So the loop's round ordering is now: content completeness → semantic structure → value deltas → pixel regions. Pixel difference tells you *where to look*, not whether you succeeded.
+
+## Three capture gaps, checked against current code
+
+CHAT-29 tested against the real joyfulculinarycreations capture and named three. I verified each:
+
+| Gap | Status |
+|---|---|
+| Images orphaned (hero was a CSS background, no box/role/owner) | ✅ closed by BUG-27 |
+| `alt` text worthless — needs a vision captioning pass over `assets/` | ❌ not built (describer tool exists, nothing runs it over a bundle) |
+| No **semantic outline** artifact (`hints.json` ancestry + `repeatCount` + geometry → "3 sibling cards, each `{image, heading, body×3}`") | ❌ not built |
+
+The semantic outline is now the item I'd put first in the whole epic. It's much cheaper than the L1 fold because it only has to be *right about relationships*, never pixel-faithful — and it's what the read-back is made of, so it's inspectable by the customer. It sits ahead of the Elementor work, which addresses a different job (carrying across, not understanding).
+
+Also worth taking as settled: **aesthetic capture needs no more extraction work.** Tokens are strong, the six screenshots do the heavy lifting, and the leverage is the prompt layer. One caveat now recorded — `freq` ranks repetition, not importance, so a single high-impact hero accent ranks near zero; read salience off the screenshot.
+
+## Restructured
+
+Two workstreams became three: **A. Understanding** (semantic outline, captioning, the read-back), **B. Bringing across** (the builder transforms), **C. Convergence** (your 2–3 rounds). Fourteen proposed child tickets in §9, still unfiled.
+
+Open question 6 is now three-way rather than two: CHAT-5 wants duplication as the wedge, CHAT-29 says *don't offer reproduction at all*, CHAT-21 says migration must never be the ask. I think they reconcile — the diagnostic is the pitch, duplication is the mechanism, and the read-back is what's actually shown first — but that should be stated before any marketing copy exists.
+
+I've also saved a note to memory so I stop treating a `.xgd/tickets` grep as authoritative: cold tickets live in the `xgd-stable` git snapshot and aren't files at all.
 
 <!-- xgd-chat-end -->
