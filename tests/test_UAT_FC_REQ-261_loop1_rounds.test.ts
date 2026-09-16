@@ -25,6 +25,10 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  AI_ALLOWED_TOOLS,
+  AI_DISALLOWED_TOOLS,
+  AI_PERMISSION_MODE,
+  AI_SETTING_SOURCES,
   claudeCommand,
   describeCost,
   formatStreamEvent,
@@ -450,18 +454,41 @@ describe('REQ-261 rounds carry context forward', () => {
   })
 
   it('test_UAT_FC_REQ_261_resume_never_widens_what_a_round_may_do', () => {
-    // Requirement 5. Resume is a flag on the same invocation — the permission
-    // mode, the empty settings sources and both tool lists are identical on a
-    // resumed round, so [[REQ-256]] behaviours 3 and 4 hold on iteration 7
-    // exactly as on iteration 1.
+    // Requirements 5 and 6, which are one assertion here.
+    //
+    // Resume is A FLAG ON THE SAME INVOCATION: the resumed argv is the fresh
+    // argv plus `--resume <id>` and NOTHING else, so [[REQ-256]] behaviours 3
+    // and 4 hold on iteration 7 exactly as on iteration 1.
     const fresh = claudeCommand({})
     const resumed = claudeCommand({}, { resume: 'session-aaaa' })
     expect(fresh.args).not.toContain('--resume')
-    expect(resumed.args[resumed.args.indexOf('--resume') + 1]).toBe('session-aaaa')
-    expect(resumed.args.slice(0, fresh.args.length)).toEqual(fresh.args)
-    expect(resumed.args[resumed.args.indexOf('--permission-mode') + 1]).toBe('manual')
-    expect(resumed.args).toContain('Bash')
-    expect(resumed.args.indexOf('Bash')).toBeGreaterThan(resumed.args.indexOf('--disallowedTools'))
+    expect(resumed.args).toEqual([...fresh.args, '--resume', 'session-aaaa'])
+
+    /**
+     * ASSERTED AGAINST THE CONSTANTS, NEVER AGAINST THEIR VALUES.
+     *
+     * Requirement 6: the policy belongs to [[REQ-262]] and this ticket changes
+     * none of it. A UAT here that pinned `'manual'` or named `Bash` would make
+     * this file a SECOND place [[REQ-262]] has to edit to do its own job — the
+     * cross-session coupling behaviour 8 was rewritten to prevent. What this
+     * ticket owns is that the argv still says whatever the four constants say,
+     * on a resumed round as on a fresh one; what they say is not its business.
+     */
+    const policy = [
+      '--permission-mode',
+      AI_PERMISSION_MODE,
+      '--setting-sources',
+      AI_SETTING_SOURCES,
+      '--allowedTools',
+      ...AI_ALLOWED_TOOLS,
+      '--disallowedTools',
+      ...AI_DISALLOWED_TOOLS,
+    ]
+    for (const args of [fresh.args, resumed.args]) {
+      const at = args.indexOf('--permission-mode')
+      expect(at).toBeGreaterThan(-1)
+      expect(args.slice(at, at + policy.length)).toEqual(policy)
+    }
   })
 })
 
