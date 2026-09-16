@@ -96,6 +96,15 @@ which needed no change here: the hook contract was already right.
 `RESEND_API_KEY` arrived with [[REQ-196]] as `20-resend-api-key` — the same shape, with
 the absent-everywhere row warning rather than failing, for the reason above.
 
+`CLOUDFLARE_DNS_TOKEN` arrived with [[REQ-257]] as `40-cloudflare-dns-token`, warning for
+the same reason and saying in the same breath what would end it — *"the moment serving a
+custom domain depends on it"*. [[REQ-259]] is that moment: `Your domain` is a customer
+surface and every control in it goes through the zone credential, so the hook now
+**fails** the absent-everywhere row. `20-resend-api-key` deliberately did not move with
+it. REQ-259 calls that key too and is survivable without it — the domain still attaches
+and the toggle reports `off` — which is the test the table above actually states: the
+outcome must match what a deployment without the value does.
+
 REQ-149 corrected the guard itself. `10-anthropic-api-key` had tested the environment and
 nothing else, so a deploy from a shell without the key was refused even when the Worker had
 held the secret since the previous deploy — the operator was asked to re-supply a value in
