@@ -47,6 +47,26 @@ export class InvalidDefinitionError extends Error {
  * wrong the day [[EPIC-6]] lands, and a refusal that named neither would leave
  * the customer with a button that says no.
  */
+/**
+ * The machine-readable name of this refusal, as the wire carries it
+ * ([[REQ-250]]).
+ *
+ * IT EXISTS BECAUSE A CLIENT HAS TO TELL THIS REFUSAL FROM EVERY OTHER ONE, and
+ * the only honest handle for that is a code the Worker puts there deliberately.
+ * The prose above is written for a person and is allowed to be rewritten; a
+ * client reading the class of a refusal out of its sentence would break the day
+ * somebody improved the sentence. The HTTP status is not enough either — 409 is
+ * the shape of *the state of the business makes this refusable*, and there is
+ * nothing to stop a second refusal on this route sharing it.
+ *
+ * DECLARED BESIDE THE ERROR rather than at the route, so the value and the
+ * condition that raises it cannot drift apart. The browser builder cannot import
+ * this module, so it declares the same string; a static UAT pins the two
+ * together, which is the closest thing to one declaration that a runtime
+ * boundary allows.
+ */
+export const NO_PUBLIC_ADDRESS_CODE = 'NO_PUBLIC_ADDRESS'
+
 export class NoPublicAddressError extends Error {
   constructor(public slug: string) {
     super(

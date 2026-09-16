@@ -27,6 +27,7 @@ import { isEditablePicture } from './picture-kind.js'
 import { createLibraryPanel } from './library.js'
 import { createPeoplePanel } from './people.js'
 import { createSettingsPanel } from './settings.js'
+import { NO_PUBLIC_ADDRESS, openNoAddressModal } from './publish-address.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
 import { createPageIndex } from './pages.js'
@@ -502,6 +503,28 @@ export function mountBuilder(root, options = {}) {
   })
 
   /**
+   * The dialog the address refusal opens, held so a second refusal replaces it
+   * rather than stacking on it, and so teardown does not leave one over a torn
+   * down builder.
+   */
+  let noAddressModal = null
+
+  /**
+   * Where `Choose my web address` goes ([[REQ-250]]).
+   *
+   * THE SETTINGS TAB AND THEN THE SECTION, because either alone is half a route:
+   * the tab without the section leaves the customer on a pane to search, and the
+   * section without the tab is a scroll inside a panel nobody is looking at. It
+   * is declared here and closes over `settings`, which is built further down —
+   * the same forward reference Marked Points makes to the composer, and for the
+   * same reason: this runs on a click, long after everything exists.
+   */
+  const revealWebAddress = () => {
+    shell.setActiveTab(SETTINGS_TAB.id)
+    settings.hostname.reveal()
+  }
+
+  /**
    * Publish, with the builder held still while it runs ([[REQ-222]]).
    *
    * IT WRAPS THE SEAM RATHER THAN CHANGING THE ACTION, and that is what keeps
@@ -531,6 +554,26 @@ export function mountBuilder(root, options = {}) {
       block.release()
       return result
     } catch (err) {
+      // ONE REFUSAL IS NOT A FAILURE REPORT ([[REQ-250]]). A site with no public
+      // address has not gone wrong — nobody has chosen an address yet, and there
+      // is something for the customer to DO about it. So the lock comes off, the
+      // failure banner is not drawn, and the answer is a dialog that carries the
+      // route out of itself. Everything else below is untouched.
+      //
+      // THE `code` AND NOT THE PROSE, and not the bare 409 either: the Worker
+      // already applied the rule and said which answer this is, so reading the
+      // class of a refusal out of its sentence — or out of a status a second
+      // refusal on this route could one day share — would be a second copy of
+      // that rule, free to disagree. `api.js` is where it survives the throw.
+      if (err?.code === NO_PUBLIC_ADDRESS) {
+        block.release()
+        noAddressModal?.close()
+        noAddressModal = openNoAddressModal({
+          host: shell.element,
+          onChoose: () => revealWebAddress(),
+        })
+        return null
+      }
       // A FAILED PUBLISH IS REPORTED, AND THAT IS NOT A NICETY EITHER. A publish
       // can now fail for reasons the client can act on — a site whose ladder is
       // larger than one request can carry names exactly that — and it can fail
@@ -1427,6 +1470,11 @@ export function mountBuilder(root, options = {}) {
       // component, and the origin polls D1 for as long as it is held open.
       people.destroy()
       chat.destroy()
+      // THE ADDRESS DIALOG GOES WITH THE APP. It is mounted on the shell, so a
+      // teardown would take its backdrop away and leave its Escape handler bound
+      // to a document that no longer has it.
+      noAddressModal?.close()
+      noAddressModal = null
       settings.destroy()
       settingsChat.destroy()
       settingsSplit.destroy()

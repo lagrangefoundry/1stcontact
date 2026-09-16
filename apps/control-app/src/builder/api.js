@@ -608,9 +608,22 @@ export async function streamPublish(site, onProgress, fetchImpl = fetch) {
   // only failure here that has one — an invalid draft, a missing site, a lapsed
   // session. Read as JSON, because that is what the router answers with when it
   // refuses before committing to a stream.
+  //
+  // AND THE STATUS SURVIVES THE THROW ([[REQ-250]]). By the time the builder sees
+  // this it is an `Error` like every other publish failure, and one of them — a
+  // site with no public address — is not a line of text about something that went
+  // wrong, it is a decision nobody has made yet and a route to making it. Losing
+  // the status here would mean reading the class of a refusal out of its prose,
+  // which is a second copy of the rule the Worker already applied. `code` is what
+  // is actually branched on, because 409 is a shape and `NO_PUBLIC_ADDRESS` is
+  // the answer; `status` rides along because it costs nothing and the next caller
+  // to need one should not have to come back here for it.
   if (!res.ok) {
     const parsed = await res.json().catch(() => ({}))
-    throw new Error(parsed.error || `POST /api/publish → ${res.status}`)
+    const refusal = new Error(parsed.error || `POST /api/publish → ${res.status}`)
+    refusal.status = res.status
+    if (parsed.code) refusal.code = parsed.code
+    throw refusal
   }
 
   let terminal = null

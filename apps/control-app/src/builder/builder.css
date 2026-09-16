@@ -3049,3 +3049,18 @@ body {
   font-size: 0.95em;
   line-height: 1.45;
 }
+
+/* --- the publish refusal that has somewhere to go ([[REQ-250]]) --------------
+ *
+ * The panel, the backdrop, the footer and the buttons are all `modal.js`'s and
+ * the heading wears the ordinary `.builder-modal__title`. What is left is one
+ * paragraph, and it is set at reading rather than at label size: this dialog is
+ * the first place many customers meet the idea that their site needs an address
+ * at all, so the sentence explaining it is the content and not a caption under
+ * something else.
+ */
+.builder-no-address__body {
+  margin: 0 0 16px;
+  font-size: 0.95em;
+  line-height: 1.45;
+}

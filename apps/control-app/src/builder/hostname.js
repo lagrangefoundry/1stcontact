@@ -337,6 +337,30 @@ export function createHostnameSection(options = {}) {
       if (mine) showHeld(mine)
       else showField(apexHost ?? '')
     },
+    /**
+     * Put it where the customer is looking, and put the cursor in it
+     * ([[REQ-250]]).
+     *
+     * IT EXISTS BECAUSE ANOTHER SURFACE SENDS PEOPLE HERE. Publish refuses a site
+     * with no address and offers the route out of itself; that route lands on the
+     * Settings tab, where this is the second section and may be below the fold.
+     * Switching tab and leaving them to find it would be the same dead end one
+     * screen further on.
+     *
+     * IT IS SAFE ON A BUSINESS THAT HAS ALREADY CHOSEN, which cannot reach it by
+     * the route that motivates it but can by any other: `showHeld` has removed the
+     * box, so there is nothing to focus and the section is merely scrolled to. The
+     * guard is `isConnected` rather than a flag about which state is drawn, so
+     * there is no second copy of that question to keep in step.
+     *
+     * `scrollIntoView` IS OPTIONAL AT THE CALL, not assumed: jsdom does not
+     * implement it, and a suite driving this would otherwise be asserting a
+     * polyfill.
+     */
+    reveal() {
+      element.scrollIntoView?.({ block: 'start' })
+      if (input.isConnected) input.focus()
+    },
     clear() {
       dialog?.close()
       element.replaceChildren(title)
