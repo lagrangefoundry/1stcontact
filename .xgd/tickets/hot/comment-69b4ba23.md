@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-259
 created_by: xgd
 created_at: '2026-09-16T20:05:41.308228+00:00'
-updated_at: '2026-09-16T21:44:13.106093+00:00'
+updated_at: '2026-09-16T21:55:13.559917+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -152,5 +152,11 @@ A new **`Your domain`** section on the Settings pane, third in the list, directl
 **Not visible:** no record type, record value, or Cloudflare zone id appears anywhere a customer can read — that's the ticket's central constraint, and `test_UAT_FC_REQ-259_no_record_type_or_value_appears_anywhere_a_customer_can_read` plus `..._no_answer_on_this_path_names_a_record_or_a_zone_id` are the two UATs holding it.
 
 One caveat on seeing it yourself: `dist-assets/builder/domain.js` is a build output, so a running builder won't pick up the new section until `./bin/1c assets` has run.
+
+<!-- xgd-turn id="bad7eacb-6bcc-4acf-a575-66e42e5c941b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T21:55:12.768085+00:00" -->
+#### You
+✗ This deployment has no CLOUDFLARE_DNS_TOKEN, so it manages no DNS. See bin/deploy.d/secrets/40-cloudflare-dns-token. <-- the deployment has a CLOUDFLARE_API_TOKEN with DNS access, why do I need to create multiple tokens?
 
 <!-- xgd-chat-end -->
