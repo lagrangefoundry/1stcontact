@@ -6,9 +6,9 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T19:39:23.228686+00:00'
+updated_at: '2026-09-16T19:39:28.932500+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.222
+  story_points: 13
 ---
 
 Parent: [[EPIC-12]] §8. Third of three. **Depends on [[REQ-254]] (the console) and
