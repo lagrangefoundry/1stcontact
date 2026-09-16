@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T22:31:05.978439+00:00'
+updated_at: '2026-09-16T22:59:56.876532+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -731,5 +731,11 @@ Then restart the dashboard. I've left the file alone — it's your credential st
 ---
 
 **One gap worth a bug, which your session just found by walking into it.** `resend.ts:43` argues that *"a deployment that could send but not manage domains would offer the toggle and refuse it, which is worse than not offering it"* — and then nothing detects that state. An **absent** key degrades gracefully (toggle reports off, domain still attaches). A **sending-only** key throws a raw `ResendApiError` with Resend's English in it, which is exactly the worse-than-not-offering case the docstring names. The hazard is documented and unhandled. Want me to file it?
+
+<!-- xgd-turn id="536a18dd-ec1c-4105-95bc-300281a45293-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T22:59:56.576572+00:00" -->
+#### You
+This is all super frustrating - the API key I have supports account ID lookup! It should be in your environment - can you look it up and I will try to appease the code byu adding it explicitly
 
 <!-- xgd-chat-end -->
