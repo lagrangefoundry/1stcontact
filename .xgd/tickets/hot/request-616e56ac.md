@@ -6,10 +6,10 @@ title: 'The DNS layer: zones, the Cloudflare client, the external resolver, and 
   operator backfill'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:39.898551+00:00'
-updated_at: '2026-09-16T04:17:46.769586+00:00'
+updated_at: '2026-09-16T04:18:30.471231+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-2e7edd79
+  commits:
+  - working_sha: 73cf72607a274b879624b6da14495763c688bc3e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d2fce8effb33aa5341f9799b8abdfee1fdbe54a2
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.217
 ---
 
 ## What this is
