@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-256
 created_by: xgd
 created_at: '2026-09-16T18:09:43.058664+00:00'
-updated_at: '2026-09-16T19:48:02.483409+00:00'
+updated_at: '2026-09-16T19:48:54.974726+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -216,5 +216,48 @@ I have not seen any of this in a browser. Capture needs Chromium, which this san
 <!-- xgd-chat role="user" ts="2026-09-16T19:48:02.086199+00:00" -->
 #### You
 Anything UI visible from this session?
+
+<!-- xgd-turn id="4c8899c9-d2ba-42be-be3f-d700be03de61-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T19:48:54.925871+00:00" -->
+#### Claude
+You asked twice — let me just show you instead of describing it.
+
+Two rendered pages you can open in a browser right now — no server, no capture, no tokens:
+
+```
+.xgd/tmp/console-filed.html        a clean round
+.xgd/tmp/console-violations.html   the same round with both falsifiers firing
+```
+
+That second one is the interesting one, because it's the whole REQ-256 surface at once:
+
+```
+Iteration 1 finished — AI filed BUG-93. See the violations under it.
+
+Iteration 1
+  • the original site   • the reproduction   • the diff images
+  • the L1 document     • the gap ticket (BUG-93)
+  gate: reproduction-wrong
+  regression rail: the regression rail — REGRESSED
+                   REGRESSED · references: no baseline at storage/rail/baseline.json…
+  AI — filed fold-drops-gradient-direction: the fold writes every gradient vertically
+  • the round changed the working tree, which it must not (behavior 3):
+    M tools/generate/src/l1/fold.ts
+  • BUG-93 is at 'ready_to_implement', not 'draft' — a ready_* status is a
+    dispatcher trigger and will spawn an automated pipeline against it.
+  ┌ — session started (claude-opus-5)
+  │ → Read …/iteration-1/diff/gate.json
+  │ The mean is 31.2, but the mean is not the finding. Three regions are over
+  │ threshold and all three are in the fold.
+  │ → Grep linear-gradient tools/generate/src/l1
+  │ values-diff line 41: background-image reference `linear-gradient(105deg,…)`,
+  │ reproduction `linear-gradient(180deg,…)`. The angle is dropped, not wrong.
+  └ — filing a gap ticket against the reproduction engine
+```
+
+Note the violations are the point, not decoration. The first says a round touched `tools/generate/` — which requirement 18 exists to make visible, and which the allowlist should have made impossible. The second says the filed ticket isn't at `draft`. Both are red, both are on the page rather than in a log, because a check whose failure is invisible isn't a check.
+
+Two caveats on what you're looking at. The transcript text is mine, written for the fixture — a real round's wording will differ, though the shape is exactly this. And the rail line reads REGRESSED only because the fixture has no recorded baseline; run `repro-rail record` and it becomes `no worse` with the per-reference numbers.
 
 <!-- xgd-chat-end -->
