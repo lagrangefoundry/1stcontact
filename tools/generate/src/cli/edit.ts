@@ -1406,6 +1406,18 @@ export interface PageWriteOptions extends EditOptions {
  *
  * ONE PLACE THAT ASSEMBLES IT, so `add` and `update` cannot disagree about what
  * a subject defaults to or how a placeholder list is carried.
+ *
+ * A SUBJECT IS NEVER SILENTLY EMPTY ([[REQ-252]]). Blank is not a subject an
+ * author chose, it is one they cleared — and nothing downstream turns it into
+ * anything: the send puts `String(email.subject ?? '')` on the envelope and the
+ * message arrives with no subject line at all. So blank falls back here, in the
+ * one place the block is assembled, rather than in each reader: a store whose
+ * every email page carries a real subject is one where the builder can show what
+ * will be sent by showing what is stored, and where the send needs no opinion of
+ * its own about what an empty string meant.
+ *
+ * WHITESPACE IS BLANK, because a subject of three spaces is the same non-answer
+ * typed slightly differently, and a listing that showed it would show nothing.
  */
 function emailBlockOf(
   opts: PageWriteOptions,
@@ -1414,8 +1426,9 @@ function emailBlockOf(
 ): Record<string, unknown> {
   const declared = opts.placeholders ?? (previous?.placeholders as string[] | undefined)
   const from = opts.from ?? (previous?.from as string | undefined)
+  const asked = opts.subject ?? (previous?.subject as string | undefined) ?? ''
   return {
-    subject: opts.subject ?? (previous?.subject as string | undefined) ?? fallbackSubject,
+    subject: asked.trim() !== '' ? asked : fallbackSubject,
     ...(declared && declared.length > 0 ? { placeholders: declared } : {}),
     ...(from ? { from } : {}),
   }
@@ -1481,7 +1494,9 @@ export async function editPageAdd(
         slug: pageSlug,
         title,
         kind: 'email',
-        email: emailBlockOf(opts, title),
+        // [[REQ-252]] — the id when the title is blank, for `emailBlockOf`'s own
+        // reason: the fallback must itself be something a recipient could read.
+        email: emailBlockOf(opts, title.trim() !== '' ? title : pageId),
         modules: [],
         // THE COPY IS BUILT FROM THE DECLARATION AND NOT BESIDE IT. An email
         // page whose `placeholders` name a token its copy does not contain is
@@ -1566,7 +1581,8 @@ export async function editPageUpdate(
   if (mailed) {
     updated.email = emailBlockOf(
       opts,
-      String(updated.title ?? pageId),
+      // [[REQ-252]] — blank as well as absent; see `emailBlockOf`.
+      String(updated.title ?? '').trim() !== '' ? String(updated.title) : pageId,
       (file.page.email ?? {}) as Record<string, unknown>,
     )
   }

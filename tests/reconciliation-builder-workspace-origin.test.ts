@@ -369,6 +369,18 @@ describe('story-e674c60a builder origin', () => {
       // the success probe is safe to run against the fixture site.
       { route: '/api/pages', url: '/api/pages?site=alpha', ok: true },
       { route: '/api/pages', url: '/api/pages', ok: false },
+
+      // The subject write ([[REQ-252]]). Probed in the REFUSED shape only, for
+      // `/api/copy`'s reason below it: the success path writes to the fixture
+      // site, and a cacheability probe is not the place to mutate the thing
+      // every other probe in this table reads.
+      {
+        route: '/api/pages/subject',
+        url: '/api/pages/subject',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
       { route: '/api/copy', url: '/api/copy', ok: false },
       {
         route: '/api/copy',

@@ -43,6 +43,23 @@ export function createPageIndex(options) {
   let pending = null
 
   /**
+   * Who to tell when the listing changes ([[REQ-252]]).
+   *
+   * THE INDEX OUTLIVES THE CONTROLS AND NOW HAS TWO OF THEM. The page selector
+   * draws a row's name; the subject field draws the same row's `email` block.
+   * Before there was a second reader, "re-take the listing" and "redraw" could
+   * be the same line in the one control that did both — with two, a listing that
+   * arrives after a document does has to reach a control that did not ask for
+   * it, or the second reader goes on showing what the first one replaced.
+   *
+   * IT IS NOT AN ALTERNATIVE TO THE PANEL'S OWN EVENTS. Those say the pane
+   * moved, which is a different question — a reader can be on a new page with an
+   * unchanged listing, or on the same page with a changed one — so a control
+   * that cares about both subscribes to both.
+   */
+  const listeners = new Set()
+
+  /**
    * The path within the channel the pane is showing.
    *
    * THE LIVE DOCUMENT FIRST, because it is the only thing that knows where the
@@ -139,7 +156,30 @@ export function createPageIndex(options) {
       } catch {
         /* see above — the previous answer stands */
       }
+      // AFTER THE ROWS ARE IN PLACE, so a listener reads the new listing rather
+      // than being told about one it cannot see yet. A listener that throws is
+      // its own problem and must not cost the others their notification.
+      for (const cb of listeners) {
+        try {
+          cb(api.list())
+        } catch {
+          /* a control that cannot redraw is not a reason to skip the next one */
+        }
+      }
       return api.list()
+    },
+
+    /**
+     * Be told when the listing changes. Returns the unsubscribe.
+     *
+     * The caller owns the lifetime, exactly as `panel.on` makes it own the
+     * panel's: the toolbar throws its controls away on every mode and site
+     * change, and a callback still registered against a detached element is the
+     * leak `actionCleanups` exists to prevent.
+     */
+    onRefreshed(cb) {
+      listeners.add(cb)
+      return () => listeners.delete(cb)
     },
 
     /**

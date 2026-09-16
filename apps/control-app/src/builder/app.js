@@ -43,6 +43,7 @@ import {
   pagesAction,
   panelsAction,
   publishAction,
+  subjectAction,
 } from './toolbar.js'
 import {
   fetchMaterialItem,
@@ -56,6 +57,7 @@ import {
   previewUrl,
   saveMaterialName,
   saveMaterialRecipe,
+  saveSubject,
   setBusinessScope,
   uploadMaterial,
   writePalette,
@@ -142,8 +144,15 @@ export function mountBuilder(root, options = {}) {
     chatTransport = null,
     paletteTransport = null,
     /**
-     * The page control's one call ([[REQ-248]]). `null` keeps the origin's;
-     * a test injects `{list}` to drive the control without a Worker.
+     * The page control's calls — the listing ([[REQ-248]]) and the subject write
+     * ([[REQ-252]]). `null` keeps the origin's; a test injects
+     * `{list, saveSubject}` to drive both without a Worker.
+     *
+     * ONE TRANSPORT FOR BOTH, because they are one surface's two questions about
+     * the same thing: the listing carries the subject the field draws, and the
+     * write is what changes it. A second seam would let a host stub the listing
+     * and forget the write, which is the state where the field is visible and
+     * silently does nothing.
      */
     pagesTransport = null,
     /**
@@ -437,7 +446,23 @@ export function mountBuilder(root, options = {}) {
       // modals the render is showing, and in View that choice belongs to the
       // reader's own hand — a control that made it from the chrome would be
       // driving a channel whose whole job is to behave exactly as published.
-      actions: ['mode-toggle', 'pages', 'mark-points', 'panels', 'colors', 'open-new-tab', 'publish'],
+      //
+      // `subject` in THIS ONE ONLY ([[REQ-252]]). It writes to the draft, and a
+      // box that writes is not a channel behaving exactly as published. It sits
+      // directly after `pages` because it is a property OF the page that control
+      // names — moving between pages moves both, and a reader's eye goes from
+      // "which page" to "and what does it arrive as" without crossing anything
+      // else.
+      actions: [
+        'mode-toggle',
+        'pages',
+        'subject',
+        'mark-points',
+        'panels',
+        'colors',
+        'open-new-tab',
+        'publish',
+      ],
     })
     .restore()
 
@@ -607,6 +632,9 @@ export function mountBuilder(root, options = {}) {
     list: pagesTransport?.list ?? fetchPages,
   })
 
+  /** The subject write, beside the listing and from the same seam. */
+  const writeSubject = pagesTransport?.saveSubject ?? saveSubject
+
   const toolbar = createToolbar({
     panel,
     // THE SCOPE, HANDED DOWN ([[REQ-179]]). A toolbar action acts on the site
@@ -616,6 +644,7 @@ export function mountBuilder(root, options = {}) {
     actions: [
       modeToggleAction(),
       pagesAction(pages),
+      subjectAction(pages, writeSubject),
       markPointsAction(points),
       panelsAction(carry),
       colorsAction(openPalette),

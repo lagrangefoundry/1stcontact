@@ -330,6 +330,34 @@ export async function fetchPages(site, fetchImpl = fetch) {
 }
 
 /**
+ * What a message arrives as ([[REQ-252]]).
+ *
+ * BESIDE `fetchPages` AND NOT INSIDE IT, because they are different questions
+ * asked at different moments: the listing is re-taken on every document the pane
+ * shows, and this is sent once, when an operator finishes typing a subject.
+ *
+ * IT ANSWERS WITH THE PAGE THE WRITE PRODUCED, which is not always the subject
+ * that was sent: clearing the box stores the page's title instead, because a
+ * message with no subject line is not a thing this product sends. So the caller
+ * shows what came BACK rather than what it typed, and the box ends up holding
+ * what a recipient will actually read.
+ *
+ * FAILURES ARRIVE AS {@link CopyError}, through the same envelope every
+ * structured edit refuses with. That matters here for one reason in particular:
+ * a subject that dropped a token the message declares is refused by the same
+ * placeholder rule that guards the copy, and the refusal names the token.
+ */
+export async function saveSubject(site, page, subject, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/pages/subject'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ site, page, subject }),
+    }),
+  )
+}
+
+/**
  * The error a `/api/copy` call failed with.
  *
  * The origin answers a rejected edit with a 400 carrying the validator's own
