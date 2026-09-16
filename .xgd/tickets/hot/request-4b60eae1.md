@@ -5,10 +5,10 @@ type: request
 title: Publish refuses a site with no address, and the refusal offers the way out
 created_by: EPIC-5
 created_at: '2026-09-15T23:21:40.996562+00:00'
-updated_at: '2026-09-16T00:37:18.823964+00:00'
+updated_at: '2026-09-16T00:38:08.514990+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-c5175c8f
@@ -16,6 +16,14 @@ fields:
   needs_review: false
   chat_comment: comment-93dde5b3
   story_points: 2
+  commits:
+  - working_sha: 1834af666346960da6d50a54dff28e1db04ea855
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 59a08042ba955b455725c94acbf833695e29237e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.209
 ---
 
 ## What this is
