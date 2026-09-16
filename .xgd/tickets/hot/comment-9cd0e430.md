@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-254
 created_by: xgd
 created_at: '2026-09-16T03:12:07.943110+00:00'
-updated_at: '2026-09-16T17:21:47.067759+00:00'
+updated_at: '2026-09-16T17:22:20.570172+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -255,5 +255,53 @@ npx playwright install chromium and
 npx playwright install 
 
 I keepo getting this error
+
+<!-- xgd-turn id="9cacceb2-929a-4118-9f2c-43993722c0ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-16T17:22:19.841657+00:00" -->
+#### Claude
+Those are unrelated — `npx playwright install` won't touch this error, and never will.
+
+**EADDRINUSE means port 8710 is already taken.** Playwright is for the *capture* step, which runs much later, after the server has successfully started. You're not getting that far. Two separate problems, and right now you only have the first one.
+
+Let me check the port is still held:
+
+Still held — PID **14767**, same one as before. Nothing has killed it yet. Let me clear it for you:
+
+My sandbox won't let me kill processes, so this one's yours. Two options:
+
+**Fastest — just use another port. Works right now, nothing to kill:**
+
+```bash
+bin/repro-console --port 9000
+```
+
+**Or free 8710 first:**
+
+```bash
+kill 14767
+bin/repro-console
+```
+
+If it won't die: `kill -9 14767`.
+
+## Why Playwright isn't involved
+
+There are two independent problems, and you've been attacking the second one while blocked on the first:
+
+| | What it is | When it bites |
+|---|---|---|
+| **EADDRINUSE** | Port 8710 already has a listener — a console you started earlier that's still running | At **startup**. The server never binds, nothing serves |
+| **Missing Chromium** | Playwright has no browser binary to launch | Much later — only when you press **[reproduce]** and the `capture` step runs |
+
+You never reach the second one, because the first one stops the process before it serves anything. `npx playwright install` fixes a problem you haven't hit yet, so it looks like "nothing changed" — and it genuinely hasn't, because it's addressing something else entirely.
+
+Get the server up on a free port first. Then press **[reproduce]** — if Chromium really is missing, you'll see it in the page's status line as `Iteration 1 failed at capture`, with Playwright's own message quoted. That's the point at which `npx playwright install chromium` becomes the right move.
+
+---
+
+Worth noting: that stale PID 14767 is a console that's been running since before this conversation started, on the default port. Once you kill it, plain `bin/repro-console` will work — no `--port` needed.
+
+And my earlier offer stands: the EADDRINUSE message is Node's raw text passed straight through, which is exactly why it read as opaque. I can make it name the port, print the `lsof` line, and point at `--port`. Say the word and I'll free-code it on REQ-254.
 
 <!-- xgd-chat-end -->
