@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-54
 created_by: xgd
 created_at: '2026-09-16T03:41:11.059648+00:00'
-updated_at: '2026-09-16T04:23:52.429534+00:00'
+updated_at: '2026-09-16T18:14:52.272619+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -334,5 +334,11 @@ The absolutism was wrong because I collapsed two things that aren't alike. It's 
 There's a second reason the softer line is affordable, and it comes straight out of the per-business-domain decision from earlier: if Alice sends from `alicesplumbing.com` under her own DKIM, **she bears most of her own reputational cost.** That's not true of a pooled `1stcontact.io` sending domain, where her choice taxes everyone. The shared IP pool is still shared, so there's a floor we protect regardless — but per-domain sending is what makes it defensible to let her make an informed call about her own customer rather than having us make it for her.
 
 So: unsubscribe never blocks the invoice. A complaint stops the *robot* from chasing, not Alice.
+
+<!-- xgd-turn id="9e692f84-26f2-41ef-b7da-6fee32a3306d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T18:14:51.526125+00:00" -->
+#### You
+ok good discussion. If we pay attention to these constraints - do you think we can expect reasonable (90%+) delivery to Inbox from 1c sites?
 
 <!-- xgd-chat-end -->
