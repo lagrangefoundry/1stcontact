@@ -5,10 +5,10 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T03:17:35.705357+00:00'
+updated_at: '2026-09-16T19:39:26.147692+00:00'
 completed_at: null
 last_field_updated: status
-status: underway
+status: done
 fields:
   priority: medium
   chat_comment: comment-91b0ef0c
