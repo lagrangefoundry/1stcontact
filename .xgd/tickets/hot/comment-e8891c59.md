@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T23:02:13.597983+00:00'
+updated_at: '2026-09-16T23:55:33.435630+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -795,5 +795,15 @@ Then restart the dashboard.
 I've corrected the note that made me steer you wrong — it recorded the `wrangler.toml` half of the rule and read as a blanket "never add the account id," when in the dev secrets file the pair should be complete.
 
 Two things still on the table from earlier, neither urgent: the `resend.ts` gap (a sending-only key throws raw API English where an absent key degrades cleanly — the docstring names that case as worse-than-not-offering but nothing detects it), and EPIC-5 still sitting at `done` with four open children.
+
+<!-- xgd-turn id="764bff31-01e5-4bba-a0a8-fe960cd449d2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-16T23:55:32.116981+00:00" -->
+#### You
+**ne gap worth a bug, which your session just found by walking into it.** `resend.ts:43` argues that *"a deployment that could send but not manage domains would offer the toggle and refuse it, which is worse than not offering it"* — and then nothing detects that state. An **absent** key degrades gracefully (toggle reports off, domain still attaches). A **sending-only** key throws a raw `ResendApiError` with Resend's English in it, which is exactly the worse-than-not-offering case the docstring names. The hazard is documented and unhandled. Want me to file it?
+
+What I would prefer is a deploy that checks that we have the right keys that are uptodate with the right permissions. Silently degrading functionality on a broken deploy is not good.
+
+**2. Replace **`RESEND_API_KEY` with a **Full access** key from the Resend dashboard. That's the 401 you reported, and it's independent of everything Cloudflare. <-- I am skeptical of this it happened whe I clicked Use this domain - no emails were involved
 
 <!-- xgd-chat-end -->
