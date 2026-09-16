@@ -5,9 +5,9 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T22:30:19.020307+00:00'
+updated_at: '2026-09-16T22:31:35.549760+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: done
 fields:
   priority: medium
@@ -470,6 +470,16 @@ the xgd model: a change to the code gets a ticket and is free-coded.** In v1 the
 AI's deliverable *is* the ticket; the operator triggers the free coding of it as
 a separate, ordinary session.
 
+As built, that goes one step further than this section originally said: the AI
+hands back the ticket's **content**, and the *console* runs `xgd ticket create
+--fields '{"status":"draft"}'`. So "never at a `ready_*` status" is a property of
+the process rather than a rule a round is asked to keep — there is no status left
+for a round to get wrong. The round itself has `Read`/`Glob`/`Grep` and nothing
+that can write, spawn or reach the network, which makes "the AI wrote no code" a
+*measured* property too. Worth stating plainly, because a round is **not** a
+development session: the free-coding session that implements the resulting ticket
+is an ordinary one with full `xgd` and full tooling.
+
 This is slower per round, and it is the better trade for four reasons:
 
 - **Every engine fix acquires matrix coverage.** Free coding forces a UAT named
@@ -492,12 +502,29 @@ the named residual class · which reference(s) exhibit it · the evidence
 hypothesis about the engine · the proposed change. Nothing that could only be
 read off a screenshot (§7.5).
 
-**Two disciplines the AI must hold.** *One ticket per gap class, not per
-iteration* — if a later round hits a class that already has a ticket, it appends
-evidence to that ticket rather than filing a second ([[FREE-CODING.md]]'s
-proliferation rule). And *file only for engine gaps* — a `capture-incomplete`
-verdict means the reference is wrong, which is a different problem and must stop
-the round rather than become a ticket against the engine.
+**One ticket per round, and it is not bounded.** Operator decision, 2026-09-16,
+after the first live round deferred most of what it found: a round's gap ticket
+carries *everything* it diagnosed, with no cap on its size or on the scope of
+work it asks for. A round that finds five related residuals writes one ticket
+describing five. **Deferring is losing** — the later round a finding is deferred
+to starts from that finding's absence and will never know it was seen. This
+supersedes an earlier reading of this section as one-finding-per-round.
+
+**Bugs found on the way are filed separately.** Reaching a diagnosis makes a
+round trip over defects that are *not* reproduction-engine gaps — in L1, in its
+own standing brief, anywhere in the broader `1c` implementation. The first live
+round found one (the gate mis-routing its own verdict) and had nowhere to put it
+but folded into the gap ticket. Those come back as their own drafts, filed by the
+console on the same terms. A round that found no engine gap may still have found
+a bug.
+
+**Two disciplines that remain.** *One ticket per gap class* — a round whose
+diagnosis names a class already on record appends its evidence to that ticket
+instead of filing a second ([[FREE-CODING.md]]'s proliferation rule). This is
+enforced by the console against its own registry, not left to the round to
+remember. And *file only for engine gaps* — a `capture-incomplete` verdict means
+the reference is wrong, which is a different problem and must stop the round
+rather than become a ticket against the engine.
 
 **The residual risk, named.** A diagnose-only AI can write plausible tickets it
 never has to prove; in the edit model the rail was the immediate falsifier. Here
