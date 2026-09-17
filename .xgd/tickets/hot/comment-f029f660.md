@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:27:54.072500+00:00'
+updated_at: '2026-09-17T21:29:30.540843+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -483,5 +483,67 @@ Key questions:
 3. What work is needed to create the canary tests?
 
 Aside: there is an execution framework question that we have not discussed - how are the tests run? When are they run? How are the results made available, notifications (EPIC-14) etc. Most of this I don't think we care to worry about now except things that would cause is major rework
+
+<!-- xgd-turn id="27d7bd9e-b96a-4303-a98b-82cc9e71ff2c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:29:30.181829+00:00" -->
+#### Claude
+Let me check two things that change the answer to Q2.
+
+Here's the build, grounded in what I verified.
+
+## Q1 — Epics needing requirement changes
+
+Only **two are urgent by timing**; the rest are free whenever.
+
+| Epic | Change | Why now |
+|---|---|---|
+| **EPIC-11** Activity log | Body must say the timeline filters synthetic, before REQ-235 builds | **Highest value.** `contact_events` is written and not yet read. Saying it now costs nothing; saying it after the timeline exists is the retrofit |
+| **EPIC-7** Checks engine | The three checker requirements — async two-phase, writes-to-production, off-Worker | Blocks nothing today, blocks everything if asked after it's built DNS-shaped |
+| EPIC-14 Notifications | §2.8's rule — suppression keys on the record, in the audience resolver | Unbuilt, free |
+| EPIC-9 Billing | New tables hang off contacts: column + cascade | Unbuilt, free |
+| EPIC-8 Monitoring tab | Must not render synthetic; possible home for the sweep count | Unbuilt, free |
+| EPIC-13 Email | Update §5 to point at DOC-54 as normative — the initiator class is withdrawn and the run id is new | Underway |
+| EPIC-10 Forms | A note that its surfaces are now gutter-bearing. No REQ — the requirement is BFM's, the code is EPIC-10's | Epics own requirements, not files |
+
+EPIC-16 needs nothing; it already reads correctly.
+
+## Q2 — Code changes
+
+**Schema** — migration `0013`: `synthetic NOT NULL DEFAULT 0` + `run_id` on `users`, `contact_events`, `user_acceptances`, `asset_grants`.
+
+**New** — an HMAC mint/verify module, plus a secret hook (`bin/deploy.d/secrets/50-…`, following the existing `NN-name` convention).
+
+**Marker in** — `apps/public-site/src/lead.ts`: add to `RESERVED_FIELDS`, verify, pass through. One field added to `LeadIntakeBinding.captureLead`.
+
+**Stamp** — `control-app/src/lead.ts` threads it; `people.ts addContact` accepts it; `events.ts recordEvent`, `acceptances.ts recordAcceptance`, `grants.ts grantFor` derive it.
+
+**Filter** — `scope.ts` grows the field, and **here's the finding that changes the shape of this work**: `Scope` is *not* only built by `resolveScope`. There are literal constructions in `gate.ts` (×2), `lead.ts:1500` and others. Make the field **required** and the compiler enumerates every site and refuses to build until each one states its visibility. That's the impossible-to-forget property made real by the type system rather than by discipline — and it's why I'd resist an optional field with a default. Then the predicate goes into `peopleOf`, `personOf`, `personDetail`, `contactChangeHead`, `contactsChangedSince`.
+
+**Collect** — the delete-by-contact statement (the cascade does the rest), and the sweep added to `index.ts`'s existing `scheduled` handler.
+
+**Scoping call I'd make:** build the delete *function* today, skip the delete *button*. Mechanism (4) can't be proven without the statement; R5's UI is a Contacts surface and can follow.
+
+## Q3 — Canary tests
+
+Today's two tests need **no canary at all** — they run against the real HTTP path with vitest driving it. That's the honest scoping.
+
+A real production canary needs four things that don't exist: a canary site with a capture form in the platform tenant (`storage/sites/` already holds three definitions, so this is configuration); a reserved email domain; a runner; and the verification transport below. I'd not start any of it today.
+
+## The aside — two things carry real rework risk
+
+Most of the execution framework genuinely can wait. Two don't:
+
+**1. Verification transport.** A probe running outside Cloudflare submits a form over HTTPS and then *cannot query D1*. It must verify through an authenticated API. If we write today's verification as direct DB reads inside a test, we rewrite it the day the runner moves out. **Cheap insurance: make verification a function taking a run id, that the router can expose later** — not inline reads in a test file. Costs nothing now.
+
+This is the same object as §1(3)'s escape hatch — the synthetic-visible read with exactly one legitimate caller. It just needs to be shaped as something reachable over HTTP eventually.
+
+**2. At least one assertion goes through the real HTTP boundary.** The marker is verified at the edge in `public-site/src/lead.ts`. In-process tests of the write functions would never exercise that check. Cheap now, a habit that's expensive to retrofit.
+
+Everything else is safe to defer: trigger and schedule (the probe body doesn't change), notifications (safe as long as probes *declare* rather than send — already recorded), and result storage — where the cheapest correct answer today is **don't store results at all**, just log them, since EPIC-7 owns that store and an ad-hoc one would be a migration.
+
+---
+
+To build under free-coding I need a scoped REQ under EPIC-15 and a branch. Say go and I'll cut it — or tell me to fold the plan into the epic first if you'd rather review the requirement text before any code.
 
 <!-- xgd-chat-end -->
