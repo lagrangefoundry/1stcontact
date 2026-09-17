@@ -7,22 +7,30 @@
  * operator free-codes it in the ordinary way, and [run again] re-runs the
  * reproduction with whatever has landed since.
  *
- * THE ROUND HAS NO TOOL THAT CAN CHANGE ANYTHING (behavior 3, requirement 17).
- * {@link AI_ALLOWED_TOOLS} is reading and nothing else, and every tool that can
- * write a file, run a command, reach the network or spawn an agent whose tool
- * set is not this one is denied BY NAME in {@link AI_DISALLOWED_TOOLS} — which
- * removes it from the session's tool list outright rather than leaving it
- * available and merely unapproved.
+ * THE ROUND READS, AND RUNS `xgd`. Everything that can write a file, reach the
+ * network or spawn an agent whose tool set is not this one is denied BY NAME in
+ * {@link AI_DISALLOWED_TOOLS} — which removes it from the session's tool list
+ * outright rather than leaving it available and merely unapproved.
  *
- * THE DENY LIST IS THE GATE, NOT THE ALLOW LIST. This was measured, not
- * assumed: with `Bash` merely absent from the allow list and the permission
- * mode left at its default, a round asked to run `echo` in a shell ran it and
- * reported no permission denial. An allow list that does not deny is a
- * description of intent, and behavior 3 needs a property. So the round cannot
- * run `xgd` either — which is why the DELIVERABLE IS THE TICKET'S CONTENT and
- * the console is what files it (see {@link TicketDraft}). That also makes
- * behavior 4's "never at a `ready_*` status" structural: the console writes the
- * status, so there is no status for a round to get wrong.
+ * THE DENY LIST IS THE GATE, NOT THE ALLOW LIST. Measured twice, both times the
+ * same way: a tool merely absent from the allow list is still in the session and
+ * still runs, and a SCOPED allow rule (`Bash(xgd ticket get:*)`) admits the tool
+ * whole rather than narrowing it. See `measurements/tool-gating.sh` for the
+ * numbers. An allow list that does not deny is a description of intent.
+ *
+ * WHICH IS WHY `Bash` IS GRANTED WHOLE ([[REQ-262]] D7). [[REQ-256]] denied it
+ * and had the console file on the round's behalf; a round needs the ticket
+ * store, `xgd` is how this project exposes it, and the measurement above says
+ * there is no narrow version of that grant to make. So behaviour 3 is NARROWED
+ * here, deliberately and by the operator, rather than upheld.
+ *
+ * THE DELIVERABLE IS STILL THE TICKET'S CONTENT, and the console is still what
+ * files it (see {@link TicketDraft}). That is no longer forced by the round's
+ * inability to run a command, so it is asserted instead: behaviour 4's "never at
+ * a `ready_*` status" is checked after every round by
+ * {@link readyStatusViolations} ([[REQ-262]] requirement 11), because a
+ * `ready_*` status is a dispatcher trigger and the one mistake here that spends
+ * real money while nobody is watching.
  *
  * WHY THE `claude` CLI AND NOT A CLIENT. The console spawns `1c` per step
  * already; spawning the CLI the operator is signed in to adds no dependency,
@@ -36,6 +44,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import type { GapEntry } from './gaps'
+import { INDEX_FILE, type SessionKbResult } from './session-kb'
 import type { RailRoundResult } from './rail-round'
 
 /** How a round ended. `running` is the console's, never the AI's. */
@@ -239,6 +248,15 @@ export interface RoundContext {
    * claim comes from the captured file and a digest is a console's arithmetic.
    */
   digestFile?: string
+  /**
+   * The session KB ([[REQ-262]] behaviour 2) — every `doc` ticket, exported as
+   * ordinary markdown the round reaches with `Read`, `Glob` and `Grep`.
+   *
+   * ABSENT IS A VALID STATE. A KB that could not be built is a round that reads
+   * the engine the way the first one did, which worked; it is never a reason
+   * not to run. The prompt says which of the two it got.
+   */
+  kb?: SessionKbResult
   gate: GateSummary | null
   rail: RailRoundResult
   /** The classes that already have tickets (behavior 6). */
@@ -302,6 +320,25 @@ export function buildPrompt(brief: string, ctx: RoundContext): string {
       ].join('\n')
     : '- no gate report was produced for this round.'
 
+  /**
+   * WHAT THE ROUND IS TOLD ABOUT THE KB, and why it is this short.
+   *
+   * Naming the index and NOT the documents is the whole design. The corpus is
+   * around 900 KB; a prompt that listed 52 titles would cost tokens on every
+   * round to reproduce a file that is already on disk and already sorted. So
+   * the prompt names one file, says what it is for, and stops.
+   */
+  const kb =
+    ctx.kb && ctx.kb.docs.length
+      ? [
+          `\`${path.join(ctx.kb.dir, INDEX_FILE)}\` — **start here.** ${ctx.kb.docs.length} project document(s), one line each saying what that document answers.`,
+          '',
+          'The documents themselves are `<DOC-ID>.md` beside the index — `Grep` the directory when you are hunting a term, `Read` the two or three the index points you at. **Do not read the corpus**; it is far larger than a round should spend.',
+          '',
+          'It is swept from every `doc` ticket and rebuilt this round, so it is current. If the answer to a question is in here, it is cheaper and more reliable than deriving it from source — and a diagnosis that cites a document is one an implementer can check.',
+        ].join('\n')
+      : `- no knowledge base this round${ctx.kb?.error ? ` — ${ctx.kb.error}` : ''}. Read the engine directly.`
+
   const gaps = ctx.knownGaps.length
     ? ctx.knownGaps
         .map(
@@ -323,6 +360,10 @@ Iteration **${ctx.n}** of the reproduction of **${ctx.originalUrl}** (sandbox si
 
 ${gate}
 
+## What the project already knows
+
+${kb}
+
 ## Where the evidence is
 
 Every path is absolute and every file is already written. Read them.
@@ -339,6 +380,14 @@ ${
       : ''
 }
 The engine you are diagnosing is \`tools/generate/src/\` — the fold, the capture, the L1 substrate, the probes.
+
+## The ticket store
+
+You have \`Bash\`, and it is there so you can run \`xgd\`. Use it: \`xgd ticket list\` and \`xgd ticket get <id>\` are how you find out whether what you are looking at has been seen before. A defect observed twice and never fixed is a stronger ticket than the same defect observed once, and you cannot know which you have without looking.
+
+Read the store through \`xgd\`, never by path — \`.xgd/\`'s layout is xgd's own business and will move.
+
+**You still do not file.** You hand the ticket back and the console creates it at \`status: draft\`. Never create one yourself, and never at a \`ready_*\` status: that is a dispatcher trigger and it spawns an autonomous pipeline against your ticket within about thirty seconds.
 
 ## The regression rail
 
@@ -365,25 +414,59 @@ Now do the round. Finish with the JSON block described in §7 of the brief, and 
 // ── the tool policy ──────────────────────────────────────────────────────────
 
 /**
- * What the round may do (requirement 17): read, and nothing else.
+ * What the round may do: read the evidence, and run `xgd`.
  *
- * There is no tool here that can write a file, run a command, reach the
- * network or start another agent. That is the whole of behavior 3 — not a rule
- * the round is asked to keep, a shape the process has.
+ * `Bash` IS HERE DELIBERATELY ([[REQ-262]] D7), and it narrows [[REQ-256]]
+ * behaviour 3 rather than upholding it. The round needs the ticket store — the
+ * first live round went looking for prior art on its own defect and found that
+ * the same false positive had been observed once before and shipped without a
+ * fix, which was worth saying in its ticket. `xgd` is the API this project
+ * exposes to an agent for that, and running it requires a shell.
+ *
+ * IT COULD NOT BE GIVEN NARROWLY, AND THAT WAS MEASURED — see
+ * {@link AI_DISALLOWED_TOOLS} for the numbers. A scoped allow rule of the form
+ * `Bash(xgd ticket get:*)` admits `Bash` wholesale and does not enforce the
+ * prefix, so there is no half-measure to take: either the round has a shell or
+ * it cannot reach the ticket store at all. The operator chose the shell.
+ *
+ * WHAT THAT COSTS, STATED PLAINLY. "The round writes no code" stops being a
+ * property of the process and becomes an instruction in the brief. The engine
+ * the round is diagnosing is editable by it. That cost is bounded by machinery
+ * that already exists — an un-ticketed edit is drift and `test_fix` eliminates
+ * it — and the one genuinely expensive mistake, a ticket created at a `ready_*`
+ * status, is asserted against after every round rather than hoped about
+ * ([[REQ-262]] requirement 11, `readyStatusViolations`).
  */
-export const AI_ALLOWED_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep']
+export const AI_ALLOWED_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep', 'Bash']
 
 /**
  * What the round may not do, named rather than merely omitted.
  *
- * NAMING IS WHAT WORKS, AND THIS WAS MEASURED. A tool left off the allow list
- * is still IN the session — it is merely unapproved — and a round asked to run
- * `echo` through an unapproved `Bash` ran it and reported no denial. A tool
- * named here is removed from the session's tool list outright.
+ * NAMING IS WHAT WORKS, AND THIS HAS NOW BEEN MEASURED TWICE.
  *
- * Four families, and the reason for each:
+ *  1. [[REQ-256]], and re-confirmed on today's CLI: a tool left off the allow
+ *     list is still IN the session — merely unapproved — and a round asked to
+ *     run `echo` through an unapproved `Bash` ran it, `permission_denials: []`.
+ *  2. [[REQ-262]] D5: naming a PREFIX does not narrow the tool either. With
+ *     `--allowedTools 'Bash(xgd ticket get:*)'` and `Bash` absent from this
+ *     list, a round asked to run `echo MEASURED-B` ran it, exit 0, again with
+ *     `permission_denials: []`. A prefix rule ADMITS `Bash`; it does not scope
+ *     it.
  *
- *  - **authoring** — `Bash`, `Edit`, `Write`, `NotebookEdit`. The direct route.
+ * Both runs are reproducible from `measurements/tool-gating.sh`, which
+ * carries the numbers beside the script that produced them. The second is why
+ * `Bash` is in {@link AI_ALLOWED_TOOLS} whole rather than scoped: there was no
+ * scoped version to have.
+ *
+ * A tool named HERE is removed from the session's tool list outright, and that
+ * is still the only mechanism observed to gate anything.
+ *
+ * Three families, and the reason for each:
+ *
+ *  - **authoring** — `Edit`, `Write`, `NotebookEdit`. The direct route. `Bash`
+ *    is no longer among them and the round can write through it; these stay
+ *    denied because removing them costs the round nothing it needs and keeps
+ *    the cheap paths to an edit closed.
  *  - **delegation** — `Task`, `Workflow`, `Skill`. An agent this round spawned
  *    would not inherit this list, so a spawner is an authoring tool wearing a
  *    different name.
@@ -393,7 +476,7 @@ export const AI_ALLOWED_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep']
  *    whose evidence could have come from somewhere other than the capture.
  *  - **the machine's own state** — `CronCreate`, `CronDelete`, `EnterWorktree`,
  *    `ExitWorktree`. A dev tool that can schedule work or move the checkout it
- *    is diagnosing is not a read-only round.
+ *    is diagnosing has left the round's job behind.
  *
  * The list is enumerated, which means it can go stale as the CLI grows tools.
  * That is an accepted cost rather than an oversight: the alternative is trusting
@@ -402,7 +485,6 @@ export const AI_ALLOWED_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep']
  * the transcript's first line, is where that would be noticed.
  */
 export const AI_DISALLOWED_TOOLS: readonly string[] = [
-  'Bash',
   'Edit',
   'Write',
   'NotebookEdit',

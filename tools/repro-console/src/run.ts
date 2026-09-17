@@ -113,18 +113,30 @@ export function headOf(result: CommandResult, lines = 3): string {
 /**
  * The JSON document a `--json` command printed, read out of its stdout.
  *
- * Tolerant of a prefix on purpose. Every `--json` verb this package drives is
- * meant to print nothing but its document, but they are reached through a Vite
- * SSR bootstrap that may say something first, and a rail that fell over because
- * a dependency logged a deprecation would be a rail nobody trusts. The document
- * starts at the first `{`; anything before it is not ours.
+ * Tolerant of a prefix AND a suffix on purpose. Every `--json` verb this package
+ * drives is meant to print nothing but its document, but they are reached
+ * through a Vite SSR bootstrap that may say something first, and a rail that
+ * fell over because a dependency logged a deprecation would be a rail nobody
+ * trusts. `xgd` is the other case and it brackets its output: a `▶ xgd <version>`
+ * banner before the document and a `◀ xgd <version>` one after it. Slicing only
+ * from the first `{` handles the opening banner and chokes on the closing one,
+ * which is a failure that looks exactly like malformed data and is not.
+ *
+ * So the document is the span from the first `{` to the LAST `}`. That is not a
+ * parser — a `}` inside a trailing log line would still defeat it — but it is
+ * the shape these two callers actually produce, and the alternative is a
+ * brace-counting scan for a problem neither of them has.
  */
 export function parseJsonOutput<T>(stdout: string, what: string): T {
   const start = stdout.indexOf('{')
-  if (start === -1) throw new Error(`${what} printed no JSON document:\n${stdout.trim().slice(-400)}`)
+  const end = stdout.lastIndexOf('}')
+  if (start === -1 || end < start) {
+    throw new Error(`${what} printed no JSON document:\n${stdout.trim().slice(-400)}`)
+  }
+  const document = stdout.slice(start, end + 1)
   try {
-    return JSON.parse(stdout.slice(start)) as T
+    return JSON.parse(document) as T
   } catch {
-    throw new Error(`${what} printed a JSON document that would not parse:\n${stdout.slice(start).slice(0, 400)}`)
+    throw new Error(`${what} printed a JSON document that would not parse:\n${document.slice(0, 400)}`)
   }
 }

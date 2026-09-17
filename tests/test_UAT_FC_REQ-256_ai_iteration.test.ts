@@ -438,23 +438,39 @@ describe('REQ-256 the AI round', () => {
     expect(args[args.indexOf('--permission-mode') + 1]).toBe('manual')
     expect(args[args.indexOf('--setting-sources') + 1]).toBe('')
 
-    // Reading, and NOTHING else.
+    // Reading, and `xgd`.
+    //
+    // NARROWED BY [[REQ-262]] D7, DELIBERATELY. This assertion used to read
+    // `['Read', 'Glob', 'Grep']` and to require `Bash` in the deny list, and
+    // that was behaviour 3 as originally shipped. A round needs the ticket
+    // store — the first live round went looking for prior art on its own defect
+    // and found it — `xgd` is how this project exposes that, and running `xgd`
+    // needs a shell. REQ-262 D5 then measured whether the shell could be given
+    // narrowly and found it cannot: a `Bash(xgd ticket get:*)` prefix rule
+    // ADMITS `Bash` whole and does not enforce the prefix. So there was no
+    // half-measure available and the operator chose the grant.
+    //
+    // What is tested here is therefore the NEW policy, and the old one is
+    // recorded rather than erased so this is legible as a decision.
     const allowed = args.slice(args.indexOf('--allowedTools') + 1, args.indexOf('--disallowedTools'))
-    expect(allowed).toEqual(['Read', 'Glob', 'Grep'])
+    expect(allowed).toEqual(['Read', 'Glob', 'Grep', 'Bash'])
     expect(AI_ALLOWED_TOOLS).toEqual(allowed)
 
     // THE DENY LIST IS THE GATE, NOT THE ALLOW LIST — measured, not assumed: a
     // tool merely left off the allow list is still in the session and was seen
     // to run. So every tool that can author, delegate, reach the network or
-    // move this machine's state is named.
+    // move this machine's state is still named, and the grant above is the one
+    // exception to it.
     const denied = args.slice(args.indexOf('--disallowedTools') + 1)
-    for (const tool of ['Bash', 'Edit', 'Write', 'NotebookEdit', 'Task', 'Workflow', 'Skill', 'WebFetch', 'WebSearch']) {
+    for (const tool of ['Edit', 'Write', 'NotebookEdit', 'Task', 'Workflow', 'Skill', 'WebFetch', 'WebSearch']) {
       expect(AI_DISALLOWED_TOOLS, tool).toContain(tool)
       expect(denied, tool).toContain(tool)
     }
-    // …including `Bash`, which is why the round cannot run `xgd` either, and
-    // why the console is what files the ticket.
-    expect(allowed.some((tool) => tool.startsWith('Bash'))).toBe(false)
+    // `Bash` is NOT among them, and that is the change. What it costs — "the
+    // round writes no code" becoming an instruction rather than a property — is
+    // covered where it is now enforced: REQ-262's `readyStatusViolations`, and
+    // the console's existing working-tree falsifier.
+    expect(denied).not.toContain('Bash')
 
     // An operator may point it at another executable or another model.
     expect(claudeCommand({ REPRO_CONSOLE_AI: 'my-claude' }).command).toBe('my-claude')
