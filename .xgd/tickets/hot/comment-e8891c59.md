@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T01:47:58.014065+00:00'
+updated_at: '2026-09-17T02:25:50.846141+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1126,5 +1126,13 @@ Takes ownership of the cutover mail gap — previously unowned from both sides �
 Two notes in there worth knowing: the window is already free (EPIC-5's sequence creates and populates the zone before the pair is ever shown, so there's no new mechanism to build), and **send-as doesn't need to be in that window** — mail arriving is the urgent half, replying from the right address can follow without the customer being cut off.
 
 Test subjects are parked with the design: `nooneknowsura.dog` and `martinwesthead.com` for the clean path, `theflowerofscotland.com` for registrar≠host, `matrixconstruct.io` and `martinwesthead.us` for the no-RDAP fallback.
+
+<!-- xgd-turn id="df619148-fb65-42af-8855-8fa37b273a2d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T02:25:50.475321+00:00" -->
+#### You
+One other thought on this that I don't want to get lost.
+
+We should support sending a test email to check that the forwarding is working as intended - it should follow the test rails (see discussion on BFM) and not show up in the contact list - the user should be left to confirm (with a button in the email?) that they received it.
 
 <!-- xgd-chat-end -->
