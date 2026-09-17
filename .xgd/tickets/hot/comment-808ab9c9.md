@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T20:08:56.810343+00:00'
+updated_at: '2026-09-17T21:09:13.949100+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,13 @@ Then F3 (no CSP), F4 (absolute image `src` = an exfil beacon on next render), F5
 ## What I didn't do
 
 §5 lists 10 proposed REQs, prioritised, but I haven't filed them — your session rules say tickets only on an explicit ask. Say the word and they go in at `draft`. I'd also suggest promoting this to a `doc` (`doc_kind: architecture`, so it stays out of the production KB) after one review cycle, with DOC-2 linking to it as the platform-scope companion.
+
+<!-- xgd-turn id="226d8cd4-a8c5-4912-9a4d-650332c1a3e4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:09:13.411318+00:00" -->
+#### You
+Key question: given your initial rough assessment - are there any changes or features that need to be built now to secure the product?
+
+One thing that springs to mind about your prompt injection vectors - in principle, they should be constrained by tenant and should not be able to impact the back ups - in which case, a breach could take down a site, but it could be rapidly restored.
 
 <!-- xgd-chat-end -->
