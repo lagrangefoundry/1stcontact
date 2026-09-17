@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T21:53:05.411008+00:00'
+updated_at: '2026-09-17T21:55:59.526972+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1160,5 +1160,45 @@ Left open, since it's your call: **one button or two.** *"I got it"* is the mini
 <!-- xgd-chat role="user" ts="2026-09-17T21:53:04.834830+00:00" -->
 #### You
 Please check for security updates in your ticket
+
+<!-- xgd-turn id="c7289f0a-44f1-4310-b528-d148661e8930-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:55:59.007012+00:00" -->
+#### Claude
+Checked. One update landed 20 minutes before you asked — commit `443015617e`, append-only, 59 lines: **`## Security notes ([[EPIC-17]])`**, from the threat-model pass. Nothing else in the epic moved, and **no child ticket was touched**, which matters because two of them have already shipped.
+
+## What the pass added, and how much of it is already true
+
+| | Note | State |
+|---|---|---|
+| 1 | Assistant reads freely, proposes anything, **performs no privileged mutation** (MX/SPF/DMARC/DKIM/NS) — enforced by a toolbox-declared effect, not prose | **contradicts a decision in this epic** — below |
+| 2 | No mutation without a snapshot; a write without one is *refused* | **retroactive gap** — nothing persists a snapshot today |
+| 3 | Credential scoped per zone and per operation class; a read path never holds a write credential | **half true, half not buildable as written** |
+| 4 | Every zone write audited: actor (human / assistant / automation), target, before, after, reason, time | **not built** |
+| 5 | `SPF merges, never appends` is a security control, not just correctness | already in REQ-260 verbatim |
+
+## The one real conflict
+
+Note 1 answers open question 2 with *"performed by a human acting on a rendered diff."* This epic already decided the opposite shape, on 2026-09-16, in a section headed **"the change card is a notification with an undo, not a confirmation"** — killed as a consent mechanism on your own evidence (*"I would just accept what the AI said too"*), on the grounds that *"the safety is the constraint set, not the click."* REQ-260 carries that as its headline design decision and makes a card-enforced safety rule a falsifier.
+
+They reconcile, but only if the amendment says which half each one owns:
+
+- **EPIC-17 is right about authority.** A privileged mutation must not be an unattended tool call; a human hand commits it. That's the `Publish`-grant precedent and it's a grant question, not a UX one.
+- **This epic is right about meaning.** The click is the commit point, not the safety mechanism, and it must not be recorded as informed consent. The diff rendered must be *"your email will stop working"*, not `MX 10 mx.secureserver.net`.
+
+Left as-is, whoever builds REQ-260 reads two sections that tell them to build opposite things.
+
+## The two that are retroactive
+
+**REQ-259 is `free_coded` and writes records now.** `domains.ts:419` calls `resolver.snapshot()` only to *describe* live use to the customer — it doesn't store it, and `zones.ts` has no snapshot or audit table. So notes 2 and 4 are amendments against code that already ships, not against a design. Either they're a follow-on ticket or REQ-259 grows commits before it reconciles; that's your call and it's the only thing here with a clock on it.
+
+**Note 3 is partly not available.** The external read path already satisfies it for free — `resolver.ts` reads live DNS over DoH and holds no credential at all. But per-zone scoping can't cover `createZone`, which needs account-level scope by construction, so the honest shape is two credentials (an account-level create token, per-zone DNS tokens minted after) — and minting tokens needs `API Tokens Write`, a *more* powerful credential than the one we're trying to shrink. Worth recording as a considered trade rather than an unmet requirement, because `cloudflare.ts`'s "one module, one token, operations enumerated" was itself a deliberate blast-radius decision.
+
+## Two EPIC-17 items that name this epic and didn't make it into the notes
+
+- **FUT-5 — dangling DNS / subdomain takeover.** *"A customer CNAME pointing at us with no live site, or a revoked label. Revocation exists by design — re-issue must not."* That's REQ-258's release path and REQ-238's revocation, and neither ticket says anything about it.
+- **FUT-4 — the session cookie's `Domain` must never be set to a customer-site apex.** REQ-258 records sessions-don't-cross-to-a-custom-host as an *accepted limitation*. EPIC-17 makes it a control. Same behaviour, opposite reason, and the reason is what stops someone "fixing" it later.
+
+I've changed nothing. Want me to append a reconciliation to the epic — the authority/meaning split for note 1, the two missing items, and note 3's trade stated honestly — and say where notes 2 and 4 land against REQ-259?
 
 <!-- xgd-chat-end -->
