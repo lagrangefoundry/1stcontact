@@ -6,9 +6,9 @@ title: '1c: process.exit truncates piped stdout at 64 KiB, silently cutting ever
   large --json document'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:27.536394+00:00'
-updated_at: '2026-09-17T02:59:27.536394+00:00'
+updated_at: '2026-09-17T21:50:14.043102+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -125,3 +125,74 @@ A regression test can assert it without a browser: spawn the CLI with
 stdout parses.
 
 Found while diagnosing loop-1 iteration 2 of `repro-gigabytealchemy-ai`.
+
+## Decision — the first option
+
+The launcher sets `process.exitCode = exitCode` and returns. The process ends
+on its own once the event loop is empty, which is after node has flushed the
+queued tail of stdout, so the whole document reaches the pipe. The explicit
+`process.exit()` call is deleted rather than kept-and-drained: it has been in
+`tools/generate/bin/1c.mjs` since the commit that created the CLI
+(`0baf0db1f1`), it was never added to kill a handle, and `cli/index.ts` — every
+other line of the CLI that decides an exit status — already uses
+`process.exitCode` and never calls `process.exit`.
+
+**The accepted consequence.** A forced exit ends the process no matter what is
+still open; a natural one does not. If some command ever leaves a live handle
+behind after `server.close()`, that command will now hang where it used to exit
+fast. That is the deliberate trade: a hang is loud, names itself, and is
+diagnosable from `getActiveResourcesInfo()`, while the behaviour it replaces is
+a truncated document with exit code 0. This bug exists because the silent
+failure mode was chosen; the fix must not re-choose it.
+
+**The exit status is still the command's.** Every path that sets a status
+today keeps it: a command that succeeds exits 0, a command that throws exits 1
+through the launcher's own `catch`, and a command that sets `process.exitCode`
+itself is passed through unchanged. Measured before writing this: `list` and
+`page get` exit 0, `status`, `fonts check` and an unknown verb exit 1, both
+before and after the change.
+
+**The process must still terminate.** Letting the process end naturally is only
+correct if it does end. Measured with `getActiveResourcesInfo()` after
+`server.close()` for `list`, `status`, `kb status` and `fonts check`: one or two
+unref'd `Timeout`s, and every process exited on its own — `page get` in 2.1 s,
+against 3.6 s for the forced-exit build.
+
+## Scope
+
+`tools/generate/bin/1c.mjs` only. `tools/repro-console/bin/boot.mjs:59` has the
+same `await server.close(); process.exit(…)` shape and `repro-rail --json`
+prints its whole report through it (`rail.ts:801`), but the rail's output is
+under 64 KiB today and its spawn/vitest path could not be measured here — so it
+is left alone rather than changed blind. `smoke.mjs`, `bin/deploy.d/lib/probe.mjs`
+and the `bin/verify_*.mjs` scripts share the shape but print a line or a short
+table; latent only.
+
+## Test plan
+
+UATs in `tests/test_UAT_FC_BUG-101_piped_stdout_not_truncated.test.ts`, driving
+the real launcher as a subprocess — the launcher is an entry point and nothing
+about it is observable in-process.
+
+The fixture is **`1c page get gigabytealchemy home --json`**, not the
+`repro-gigabytealchemy-ai` sandbox site the bug was found on:
+`storage/sites/gigabytealchemy/draft/pages/home.json` is committed, so the test
+needs no sandbox, no capture and no browser, and its `--json` document is
+71219 bytes — past the 65536-byte pipe buffer with room to spare. `spawnSync`
+truncates exactly as an async `spawn` does, so the test can be synchronous.
+
+1. **The piped document is whole.** Spawn the CLI with piped stdio; the
+   captured stdout parses as JSON, and it is byte-identical to the same
+   command's output when redirected to a file. The byte count is asserted to
+   exceed 65536 as well, so that a future shrinking of the fixture below the
+   pipe buffer fails the test loudly instead of leaving it quietly vacuous.
+2. **The process ends by itself.** The same spawn is given a timeout and is
+   asserted to have exited by its own exit code rather than having been killed
+   by a signal — the observable form of "the process must still terminate".
+3. **The exit status is unchanged.** A successful command exits 0 and an
+   unknown verb exits 1.
+4. **The forced exit does not come back.** The launcher's source, with comment
+   lines stripped, contains no `process.exit(` call — the same shape
+   `test_UAT_FC_REQ-150_plain_vite_bootstrap` uses to hold an absence in place.
+   Comments are stripped because the header above explains at length why the
+   call is gone, and naming it there is the point of writing it.
