@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-14
 created_by: xgd
 created_at: '2026-09-17T00:34:57.069190+00:00'
-updated_at: '2026-09-17T00:44:43.668716+00:00'
+updated_at: '2026-09-17T01:49:38.158361+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,15 @@ EPIC-14's body is written. It stays at `draft` — this was scoping, no code, so
 - **Level-2 types** — I listed candidates and committed to none, per your "work through the details later."
 
 Two housekeeping notes: the title reads **"User Notifiations"** — I left it alone per the rules; say the word and I'll fix the typo (or rename to area style, e.g. *"Notifications: the framework, its controls, and channel-independent delivery"*). And **EPIC-7's notification section needs narrowing to check/*raise*** — it currently scopes routing, severity and suppression itself, which this framework takes over; I've recorded that as an amendment owed rather than editing that ticket from here.
+
+<!-- xgd-turn id="09c5188a-3eec-4927-8e5a-2dd0655c6637-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:49:38.064824+00:00" -->
+#### You
+I suspect notifications will only go to members.
+
+Our initial focus will be on 1c notifications going to our level 1 users (keep the bigger picture in mid but that's our focus).
+
+Feature request: If the user takes an action (like DNS configuration) that has a flow involving notifications and the user has notifications off we should have a popup we can trigger at the right place to let them know - if you turn notifications on we can tell you when your new domain is ready.
 
 <!-- xgd-chat-end -->
