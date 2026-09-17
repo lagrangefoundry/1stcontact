@@ -5,9 +5,9 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-17T19:00:26.694377+00:00'
+updated_at: '2026-09-17T21:33:44.656570+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: underway
 fields:
   priority: medium
@@ -506,3 +506,52 @@ Two principles, from the operator: **keep the count to a minimum**, and **every 
 - [[BUG-27]] — CSS background images / lazy media (closed; [[CHAT-29]] gap 2).
 
 - [[REQ-34]] — abandoned 18-site flexibility probe; the manual precursor.
+
+---
+
+## Security notes ([[EPIC-17]])
+
+Added from the [[EPIC-17]] threat-model pass. Duplication is the operation most
+likely to copy something it should not, and the defence is a **drop list stated
+in the spec** — because a naive copy takes everything, and every item below is
+something a copy would plausibly take.
+
+### 1. A duplicate crosses no business boundary
+
+Source and destination both resolve through `scope.ts`'s single decision, so a
+site key held but not owned duplicates nothing. This is not a new rule; it is
+[[REQ-168]]'s rule, named here because a two-site operation is the first one with
+two chances to get it wrong.
+
+### 2. A duplicate starts at revision 0
+
+`site_revisions` is **not** copied. Copying it would import another site's
+published history — breaking attribution (`published_by` would name someone who
+never published this site) and breaking the immutability guarantee, since a
+revision's frozen bytes in R2 belong to the site that published them and are
+addressed by its key. A duplicate has published nothing yet, and its history
+should say so.
+
+### 3. A duplicate carries no grants, tokens, sessions or markers
+
+Named individually because each is a distinct thing a copy would take:
+
+- **asset grants** — a per-contact link would open on a site that contact never
+  contacted ([[REQ-244]]);
+- **sign-in and session rows** — authority is not a property of a site;
+- **`chat` tickets and their transcripts** — the engagement record belongs to the
+  engagement, and the ledger is what the next session is primed from
+  ([[REQ-171]]);
+- **synthetic / BFM markers** — a duplicate pre-marked as test traffic would be
+  invisible to monitoring, which is [[EPIC-15]]'s stated attack in reverse.
+
+### 4. Contacts and correspondence are not duplicated
+
+A site is **site-definition data**; contacts are **business operational data**
+([[DOC-1]] §16). Duplicating them would copy third parties' personal data into a
+new context with no lawful basis for it being there.
+
+### 5. What it does carry — stated so the drop list is testable
+
+Pages, assets, config, palette. A drop list with no matching carry list is a
+list nobody can write a falsifier against.
