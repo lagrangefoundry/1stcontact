@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T01:42:17.803855+00:00'
+updated_at: '2026-09-17T21:40:41.055152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -561,5 +561,11 @@ Nothing else changed. Still the one prerequisite before your run:
 ./bin/repro-rail record
 ./bin/repro-console
 ```
+
+<!-- xgd-turn id="1f2f3648-8b3f-496a-a9de-ce336aac56e2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:40:40.624405+00:00" -->
+#### You
+REQ-265 is the gap ticket, it was created by the repro system - but it says created_by martin-github@westhead.me - can you create a bug to fix that please?
 
 <!-- xgd-chat-end -->
