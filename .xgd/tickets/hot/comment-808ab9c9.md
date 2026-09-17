@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:15:45.558875+00:00'
+updated_at: '2026-09-17T21:20:54.429036+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -173,5 +173,13 @@ Detect (sha mismatch or a report) → `checkoutRevision(site, N)` → publish fo
 Serializing publish behind the Durable Object that DOC-1 §7 already specifies moves to Next — it's a correctness/concurrency fix that items 3 and 4 make *visible* rather than silent, which is the right order.
 
 Ready to file 1–6 as REQs, or to start on 3 and 4 — they're small, self-contained, and 4 is close to free.
+
+<!-- xgd-turn id="027e8ad7-1d5b-4e49-b45f-ee56ef24782b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:20:54.036028+00:00" -->
+#### You
+ok so version immutability enforcement seems worth building now.
+
+What else needs to be built now? The current focus is to get a beta product ready for testing - that does not face the same level of real-world security threats as the final product - but again I am interested in what needs to be changed - or added in terms of specifications to any of the EPICs built or in-flight
 
 <!-- xgd-chat-end -->
