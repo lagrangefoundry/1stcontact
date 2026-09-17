@@ -6,9 +6,9 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-17T01:20:44.736519+00:00'
+updated_at: '2026-09-17T01:42:43.090151+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -486,3 +486,96 @@ Every browser-backed `1c` verb — `gate`, `diff`, `values-diff`, `capture`,
 `shot`, `aligned-crops` — is runnable by an agent session. The mechanism is
 stated wherever a round or an implementer is told to run one, and it is proven
 by running `1c gate` rather than asserted.
+
+
+### D10 — the round files its own tickets. This SUPERSEDES [[REQ-256]] behaviour 4.
+
+D7 gave the round `Bash`. [[REQ-256]] behaviour 4 had the console file on the
+round's behalf, and its justification was explicit: *"the round cannot run
+`xgd` — it cannot run anything — so what it produces is the ticket's
+substance."* That premise is gone, and the machinery it justified — hand back
+`type`/`title`/`body`, have the console shell out, parse the uid back, write the
+body through a temp file — is now a relay with nothing on the far end.
+
+**The round runs `xgd ticket create` itself.** It reports the ids it made. The
+console reads them back and records them.
+
+What this deletes from the live path: `TicketDraft` hand-back, `fileTicket`,
+`fileBugs`, `appendGapEvidence`, and the body-file dance. What it keeps: the
+console still reads every reported ticket back and asserts its status, and
+requirement 11's `ready_*` check still runs either side of the round.
+
+**`status: draft` is now an INSTRUCTION, not a structural guarantee**, and this
+is the honest cost. The console used to write the status, so there was no status
+for a round to get wrong. Now there is. It is mitigated, not eliminated: the
+brief says it plainly, requirement 11 reports any ticket that reaches a
+`ready_*` status during a round, and the read-back names the status each ticket
+actually carries. The scoped-`xgd` restriction that would have made this
+structural again does not exist — D5 measured that.
+
+### D11 — three residual classes are the primary mandate
+
+The brief's §5 currently offers *"a serializer bug, a missing L1 axis, a missing
+capture hint, or a region that needs promoting to flow"* — a flat list of
+examples that collapses two distinct classes and omits a third entirely. The
+renderer appears nowhere as a possible culprit.
+
+The mandate is three classes, and every finding names which one it is:
+
+1. **Engine shortfall** — the expected primary. L1 can carry the value and the
+   renderer honours it; the fold or the capture put the WRONG value in.
+2. **L1 cannot express it** — there is no way to author the thing in L1 as it
+   stands. Not only "no axis": also an axis with no parameter for the variant
+   needed, or a parameter that will not accept the required value because an
+   enum is too narrow, a range too tight, or the validator refuses it.
+3. **Renderer bug** — L1 carries the value and it is CORRECT, and the render is
+   still wrong: right value in the wrong place, the wrong colour, the wrong
+   size, the wrong order, or wrong at one viewport and right at another.
+
+They are distinguished by test, not by intuition, and the round states which
+test it ran:
+
+| | does L1 carry it? | is the L1 value correct? | does the render match L1? |
+|---|---|---|---|
+| 1 engine shortfall | yes | **no** | — |
+| 2 L1 cannot express it | **cannot be authored** | — | — |
+| 3 renderer bug | yes | yes | **no** |
+
+**Finding defects in `1c` is SECONDARY to all three.** A bug in the console, in
+the brief, in the CLI is worth filing and must not be folded into a gap ticket
+— but it is not what the round is for, and a round that spends itself on `1c`
+bugs and names no residual class has missed.
+
+### D12 — one REQ per round, internally ordered; multiple rounds are expected
+
+There is **no limit on the size of a gap ticket**. A round that sees five
+residuals writes all five: deferring a finding to "a later round" discards it,
+because the later round starts from the absence and will never know it was seen.
+
+But the issues in one round are not independent, and a ticket demanding all of
+them at once can fail as a whole where it would have succeeded in parts. So:
+
+- **One `request` per round**, listing every issue the round can see, **ordered**
+  — what must be fixed first at the top, what depends on it below, with the
+  dependency stated where there is one.
+- Each issue carries its own class (D11), its own evidence, its own proposed fix
+  and its own way to check it.
+- **The implementer does what it can**, in order, and is told so. A round that
+  lands the first three of five is a successful round.
+- **A later round re-diagnoses from fresh evidence.** What remains unfixed will
+  still be visible and will be reported again; that is the loop working, not
+  the loop repeating itself.
+
+### Requirement 16
+
+Every issue in a gap ticket states how the implementer SEES the problem — the
+command to run, the file to read, what a wrong result looks like and what a
+right one looks like. Where the command is browser-backed, the
+`CHROMIUM_LAUNCH_ARGS` flag from D9 is named with it.
+
+### Requirement 17
+
+The round creates its own tickets through `xgd ticket create` at
+`status: draft`, and reports their ids. The console files nothing on the
+round's behalf, reads every reported ticket back, and records the status each
+one actually carries.
