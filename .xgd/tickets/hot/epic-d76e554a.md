@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T03:56:26.788759+00:00'
+updated_at: '2026-09-17T04:10:17.620334+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -897,3 +897,81 @@ the `List-Unsubscribe` header rule in §"Decisions taken in [[CHAT-54]]" — hea
 body are two expressions of one requirement. A broadcast without it is a compliance
 failure and a deliverability one, and §"Outgoing"'s rule that no broadcast path may
 bypass suppression is the same principle applied one step earlier.
+
+
+
+### The template's own lifecycle: a latch, not a lifecycle
+
+The client: *"the template should go through the same lifecycle as the campaign, they
+are joined at the hip. One template can serve multiple campaigns but once a template
+has gone out it is frozen… Perhaps the simplest user experience is when we create a
+new campaign we also create a new style template. One or both could be created as
+copies of existing content?"*
+
+**The preservation goal is accepted without qualification** — *"we want to see what
+the user actually received, the actual logo that was used, the actual unsubscribe
+statement."* What follows is only about which mechanism delivers it.
+
+**A shared lifecycle is not available, and the client's own constraint is why.** One
+template serves multiple campaigns. Campaign A is `sent` while campaign B, on the
+same template, is still `draft`. The template cannot be in both states, and a shared
+object cannot share the lifecycle of each of its several owners.
+
+**So the template gets a one-way latch: `editable → used`.** It closes the moment any
+campaign pins it at draft-exit, and never reopens. `sending` is meaningless for a
+template. This is exactly *"once it has gone out it is frozen"*, without the
+contradiction.
+
+### Copy-on-write, and why the copy is lazy
+
+**Editing a `used` template mints a new version and repoints the campaign in hand.**
+It does not error, and it does not send the operator hunting for a duplicate button.
+From the surface this reads precisely as the client's proposal — creating a campaign
+also gives you a style template, seeded from an existing one. From the store it is
+one new ticket, and only when something actually changed.
+
+**The copy is lazy, and that is the load-bearing choice.** The alternative — every
+campaign minting its own template ticket at creation — was considered and rejected:
+
+- **It costs the "set up your brand once" property**, which is most of the value a
+  small business gets here. With a per-campaign copy there is no shared template left
+  to fix, so correcting a logo means editing every future campaign individually,
+  forever.
+- **It does not remove the concept it appears to remove.** Eager copies still need a
+  canonical *current* template to copy from — which is the `TemplateKey` that already
+  exists, now accompanied by N near-identical tickets.
+- **Copy-on-write already answers the objection eager copies were reaching for.** If
+  two drafts share v3 and one operator edits the styling, that edit mints v4 and
+  repoints only their campaign. The other draft is untouched. There is no shared
+  mutable state between drafts.
+
+Per §"Does the template need freezing too?", the campaign pins `template_uid` at the
+draft boundary. The latch and the pin are the same event seen from the two ends.
+
+### Freezing the template does not preserve the logo
+
+The client named *"the actual logo that was used"*, and **the freeze does not deliver
+it.** A logo is not bytes in the template; it is a URL to an image. Replace the file
+at that address and every preserved campaign silently re-renders with the new logo —
+the frozen HTML intact, and the claim it supports false.
+
+1. **Template assets must be content-addressed.** The URL derives from the bytes, so
+   a new logo is a new URL and the old one keeps resolving. §OQ2 already establishes
+   the precedent for attachments — *"addressing is content-derived, so the same
+   document forwarded around a thread dedups to one blob without anyone arranging
+   it"* — and template assets are the same problem.
+2. **An asset referenced by a pinned template can never be deleted, and this is worse
+   than an archive problem.** Email images are hot-linked: the recipient's client
+   fetches that logo *when the message is opened*, which may be a year later.
+   Deleting an old asset does not merely break the record, it breaks mail already
+   sitting in inboxes. This is a retention obligation on the blob store, and it has
+   to be reconciled with [[DOC-37]]'s erasure path rather than discovered by it.
+
+### One dependency to check before this is built
+
+`template` is an existing type with existing consumers — the platform's invite and
+lapse notices go through [[REQ-197]]'s keyed templates. Adding the latch extends a
+type this epic does not exclusively own. The latch appears to generalise correctly
+(a platform template that has been sent should also close rather than be edited in
+place), but that is a claim about REQ-197's current call sites, and it must be
+verified against them rather than assumed.
