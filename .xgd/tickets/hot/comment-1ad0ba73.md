@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-103
 created_by: xgd
 created_at: '2026-09-17T21:36:04.696954+00:00'
-updated_at: '2026-09-17T21:40:03.501206+00:00'
+updated_at: '2026-09-17T21:51:28.756107+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -90,5 +90,11 @@ Verified against `iteration-2/diff/regions.json`. Per-region `-ours.png` crops s
 5. **UAT reach.** Every existing `cmdValuesDiff`/`cmdGate` test drives the offline seam (`tests/req31-values-diff.test.ts:154`, `tests/req94-cross-gate-reconciliation.test.ts`); nothing exercises the live render→serve→query path, which is the one that actually needs the flag. If I hoist the write to a single site after `actual` is resolved, offline tests cover it structurally — but the assertion "the file holds what the browser produced" would need a fake `driverFactory` plus a served sandbox slug, which no existing test sets up. Tell me whether you want me to build that harness or accept the offline-seam proof.
 
 No code changed. Ticket body untouched pending your call on 1–5 (and on whether the perceptual PNG comes along).
+
+<!-- xgd-turn id="300a9d5d-4834-413c-b059-f6f203757d39-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:51:28.670897+00:00" -->
+#### You
+1 both, 2 yes 3 out of scope 4 sure 5 go with your recommendation
 
 <!-- xgd-chat-end -->
