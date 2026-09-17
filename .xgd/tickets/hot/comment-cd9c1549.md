@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-16T02:21:41.597209+00:00'
+updated_at: '2026-09-17T21:59:46.927667+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2229,5 +2229,11 @@ On the email "page"
 
 1. It would be helpful to see and be able to edit the subject line
 2. It would be helpful in the drop down list of pages if this page identified itself as an email page Email: Your two papers...
+
+<!-- xgd-turn id="6b1857cc-c157-43ec-bc6b-8d2dbefe1879-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:59:46.739897+00:00" -->
+#### You
+Can you please check for changes to your ticket for BFM guttering - is there work required for these - lets discuss
 
 <!-- xgd-chat-end -->
