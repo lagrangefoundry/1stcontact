@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:19:51.078538+00:00'
+updated_at: '2026-09-17T04:27:50.998948+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -260,5 +260,20 @@ The epic now records copy-to-write as the mechanism, with the naming correction 
 One consequence worth flagging, since it's a new obligation rather than a restatement: **the refusal has to be legible everywhere the operator might hit it, not just in the template editor.** The store refusal fires wherever a write lands — the styling pane, the AI chat pane if the copywriter tries to adjust the chrome, a bulk action. If any of those surfaces the raw store error instead of the message-plus-CTA, the operator gets a stack trace where you intended a clear explanation. Same for a `sent` campaign edited from the contact timeline. It's a UI-consistency requirement that follows from putting the enforcement in the store, which is still the right place for it.
 
 Nothing here has touched code — ticket body only, so no branch or free-coding cycle yet.
+
+<!-- xgd-turn id="9a92c380-2d43-40aa-b383-b39d4649935c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:27:50.595451+00:00" -->
+#### You
+**"Update this template"** — new version, *same key* <-- no no key the key is the ticket number the user changes it they EXPLICITLY CHOOSE which template they want 
+
+template-125 is chosen by the user to be associated with campaign-2551 which is sent on July 12 2027
+template-125 (unchanged) chosen by the user to be associated with campaign-2583 which is sent on July 28 2027
+
+Users site undergoes and upgrade, logo is changed. User cannot edit template-125 they hit [Make a copy] to create template-132
+
+template-132 chosen by the user to be associated with campaign-2653 which is sent on Aug 7 2027
+
+User is in control - don't confuse them with hidden keys and versions
 
 <!-- xgd-chat-end -->
