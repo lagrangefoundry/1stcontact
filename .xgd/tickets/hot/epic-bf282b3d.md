@@ -5,7 +5,7 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-16T22:31:35.549760+00:00'
+updated_at: '2026-09-17T01:27:32.308997+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -474,11 +474,35 @@ As built, that goes one step further than this section originally said: the AI
 hands back the ticket's **content**, and the *console* runs `xgd ticket create
 --fields '{"status":"draft"}'`. So "never at a `ready_*` status" is a property of
 the process rather than a rule a round is asked to keep — there is no status left
-for a round to get wrong. The round itself has `Read`/`Glob`/`Grep` and nothing
-that can write, spawn or reach the network, which makes "the AI wrote no code" a
-*measured* property too. Worth stating plainly, because a round is **not** a
+for a round to get wrong. Worth stating plainly, because a round is **not** a
 development session: the free-coding session that implements the resulting ticket
 is an ordinary one with full `xgd` and full tooling.
+
+**"The round writes no code" is an instruction, not a property — as of
+[[REQ-262]] D7.** It was briefly the stronger thing: with only `Read`/`Glob`/`Grep`
+granted, a round had no tool that could write. That was given up deliberately.
+The first live round went looking for prior art on its own defect and found the
+same false positive had been observed once before and shipped unfixed — worth
+saying in its ticket, and `xgd` is the API this project exposes for it. Running
+`xgd` needs a shell, and the grant **could not be made narrow**: it was measured
+that a `Bash(xgd ticket get:*)` prefix rule admits `Bash` wholesale without
+enforcing the prefix, so there was no half-measure available. `Bash` is in the
+allow list whole.
+
+So the engine a round diagnoses is editable by it, and what bounds that is no
+longer the process's shape:
+
+- **`Edit`/`Write`/`NotebookEdit`, every delegation tool and every network tool
+  stay denied by name** — the cheap routes to an edit are still closed, and
+  naming is the only mechanism measured to gate anything (an allow list that
+  merely omits a tool does not remove it from the session).
+- **The working tree is compared before and after every round** and any change is
+  named on the iteration in red. That check was defence in depth when the round
+  had no writing tool; it is now the load-bearing one.
+- **A ticket at a `ready_*` status is asserted against after every round**, which
+  is the one genuinely expensive mistake.
+- **An un-ticketed edit is drift, and `test_fix` eliminates it.** That machinery
+  already exists and is what this ultimately rests on.
 
 This is slower per round, and it is the better trade for four reasons:
 
