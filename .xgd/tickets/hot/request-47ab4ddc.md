@@ -6,9 +6,9 @@ title: 'fold: inline-boxed text runs lose their half-leading, so the glyphs pain
   above the reference'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:21.692738+00:00'
-updated_at: '2026-09-17T02:59:21.692738+00:00'
+updated_at: '2026-09-17T03:00:47.945067+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -531,3 +531,18 @@ wordmark further.
 [[DOC-53]] §1.2 (the fold and its own thesis), §1.6 (background imagery is
 `backgroundImageUrl`, never `src`) · [[DOC-19]] · [[DOC-23]] · [[DOC-27]] ·
 [[DOC-30]] · [[EPIC-12]] §7.1
+
+## Companion tickets filed by the same round
+
+- **BUG-101** — `1c`'s `process.exit` truncates piped stdout at 64 KiB. **Read
+  this before you start.** It is why every command in this ticket redirects
+  `1c page get` to a file rather than piping it, and it is why the round's
+  `ai/evidence-digest.md` says the hero background image is in the L1
+  "nowhere".
+- **BUG-100** — the gate's `unreferenced-image` coverage finding on
+  `assets/AlchemistLabWithTech.png` is a false positive. This round's evidence
+  is appended there.
+- **BUG-102** — `values-diff` joins section-level values by ordinal index; the
+  `§0 contentAnchor` delta is its artifact.
+- **BUG-103** — no flag writes the reproduction-side value manifest, which is
+  why BUG-102 could not be closed conclusively from stored evidence.
