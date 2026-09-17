@@ -6,7 +6,7 @@ title: The reproduction engine and the loop-1 session — the diagnosing session
   base
 created_by: REQ-261
 created_at: '2026-09-16T20:55:42.661492+00:00'
-updated_at: '2026-09-17T00:00:27.128853+00:00'
+updated_at: '2026-09-17T00:01:10.683048+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -31,9 +31,8 @@ Its three jobs:
    round actually has. This section grows. It is the reason this is a living
    document rather than a one-off write-up.
 
-Written against [[REQ-262]]. Sections marked **TO BE WRITTEN** are that
-ticket's work; the rest is what the first live round established and is true
-today.
+Written against [[REQ-262]]. §1 and §2 describe the engine and the session as
+they stand today; §3 accumulates and is never finished.
 
 ---
 
@@ -201,15 +200,22 @@ A **loop-1 round** ([[EPIC-12]] §7.1) reads the evidence one reproduction left
 on disk and describes what the ENGINE cannot yet do. It improves the engine by
 diagnosing it. It writes no code.
 
-**It has three tools: `Read`, `Glob`, `Grep`.** Everything that can write a
-file, run a command, reach the network or spawn an agent is denied by name
-([[REQ-256]] behaviour 3). This is a property of the process, not a rule the
-round is asked to keep. Consequences a round should plan around:
+**Its tools are `Read`, `Glob`, `Grep` and `Bash`.** `Bash` is there for one
+reason: to run `xgd`, which is the API this project exposes to an agent for
+reaching the ticket store. Everything else that can spawn an agent or reach the
+network is still denied by name — [[REQ-256]] behaviour 3, as narrowed by
+[[REQ-262]] D7. Consequences a round should plan around:
 
-- There is no `jq` and no `node`. A 4,000-line `multistate.json` is read and
-  grepped, so grep first and read the region you need.
-- There is no `xgd`. The round never files anything itself; it hands the
-  console content and the console files it.
+- **`Bash` could not be given narrowly, and this was measured.** A scoped allow
+  rule of the form `Bash(xgd ticket get:*)` admits `Bash` wholesale and does not
+  enforce the prefix. So the round holds a real shell: "it writes no code" is an
+  instruction it is expected to keep, not a wall it cannot cross. Keep it.
+- **Never create a ticket at a `ready_*` status.** That is a dispatcher trigger
+  — it spawns an autonomous pipeline against the ticket within about thirty
+  seconds. Gap tickets are handed to the console, which files them at
+  `status: draft`, and that remains the route.
+- A 4,000-line `multistate.json` is far cheaper to grep than to read. Grep
+  first, read only the region you need.
 
 **What a round produces.**
 
@@ -287,11 +293,15 @@ found it with a grep of the ticket store and said so in the ticket, which is
 the difference between "here is a defect" and "here is a defect we have now
 seen twice and never fixed."
 
-Tickets are read and written through the xgd ticket API, never by file path.
-A round has no `Bash`, so it cannot run `xgd` and must never be pointed at the
-ticket store directly. Prior tickets reach a round the same way its evidence
-does: the console reads them through the API and writes what the round needs as
-ordinary files. Supplying that properly is [[REQ-262]] requirement 7.
+**Do this with `xgd`, not with grep.** The round has `Bash` for exactly this
+([[REQ-262]] D7), so prior art is `xgd ticket list` and `xgd ticket get` — not
+a grep of `.xgd/tickets/`. The first round found its prior observation by
+grepping the store, which worked and should not be repeated: the on-disk layout
+is xgd's own business, and a round that reads it by path is coupled to an
+internal it does not own and will break silently when it moves.
+
+Writing stays the console's. A round hands back its gap ticket and the console
+files it at `status: draft`.
 
 ## 4. Related
 
