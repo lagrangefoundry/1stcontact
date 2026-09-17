@@ -15,6 +15,7 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d44e04ab
 ---
 
 `tools/generate/bin/1c.mjs` ends with `process.exit(exitCode)`. Node's
