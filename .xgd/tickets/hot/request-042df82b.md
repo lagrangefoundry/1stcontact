@@ -6,16 +6,27 @@ title: 'Inbound mail, end to end: capture against the contact, pending for a str
   and the synthetic mark'
 created_by: EPIC-13
 created_at: '2026-09-17T22:00:00.005762+00:00'
-updated_at: '2026-09-17T23:13:49.423544+00:00'
+updated_at: '2026-09-17T23:27:28.384557+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-d76e554a
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9120f6e1
+  commits:
+  - working_sha: b7476d7c193ef68215a17cee00f0069232260469
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: f7e203d6e034ae29af765c5ef2da462a91906161
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6bfd5bad7d3dcb74b2588a908c075ba5a3970ea8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.242
 ---
 
 # Inbound mail, end to end
