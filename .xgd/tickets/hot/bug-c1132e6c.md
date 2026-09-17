@@ -6,10 +6,10 @@ title: 'repro console: a round''s gap ticket is attributed to the operator, not 
   loop'
 created_by: EPIC-12
 created_at: '2026-09-17T21:42:17.916425+00:00'
-updated_at: '2026-09-17T22:15:43.007161+00:00'
+updated_at: '2026-09-17T22:16:50.113479+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   epic_parent: epic-bf282b3d
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-fe086f81
+  commits:
+  - working_sha: b96e9a8ece28e5ca63ea5a195a2d284d1306db75
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bab60193ce702e9920b388708e3c04d77fcbf33e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.239
 ---
 
 ## Symptom
