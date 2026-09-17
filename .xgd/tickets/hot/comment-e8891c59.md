@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T00:50:10.612357+00:00'
+updated_at: '2026-09-17T01:23:06.614468+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1034,5 +1034,15 @@ Worth noting it happened to you, though: that's precisely the confusion this flo
 ---
 
 Ready to cut the three tickets when you are — primitives (RDAP, registrar normalisation, DNSSEC gate, the provider-consequence knowledge), the durable procedure state, and the GoDaddy content pack. The Email Routing question I'd want answered first, since it changes what the primitives ticket has to sweep for.
+
+<!-- xgd-turn id="e9e883fe-3056-4e96-8128-adad22cef76f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:23:06.344910+00:00" -->
+#### You
+*"do we offer Email Routing at all?" <-- please read EPIC-13 for the design it is not yet functional but we are not blocked on getting everything else working by that.*
+
+**The reply path is the part that bites.** Routing gets mail *in* fine. Replying *from* `info@theirdomain.com` needs SMTP credentials pasted into Gmail <-- EPIC-13 these are not new requirements do not be afraid of them they are absolutely required for the product to work period - this is a matter of fixing them not avoiding
+
+The bottom line with email is that they will have to reconfigure it essentially from scratch - I think what we say here is: that is not your problem EPIC-13 will handle it. You will move DNSs and leave email broken - clear?
 
 <!-- xgd-chat-end -->
