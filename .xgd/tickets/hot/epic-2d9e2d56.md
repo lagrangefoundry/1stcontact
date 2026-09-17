@@ -5,7 +5,7 @@ type: epic
 title: User Notifiations
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T00:22:56.755347+00:00'
-updated_at: '2026-09-17T01:53:20.691209+00:00'
+updated_at: '2026-09-17T21:17:38.660526+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -707,9 +707,63 @@ delivery adapter.
 - **`MAIL.md` §4** records `List-Unsubscribe` as out of scope. D8 supersedes that
   for informational mail; the file should say so where the deferral is stated.
 
+## The first pass, and where its line is
+
+**As simple as possible, and a real framework rather than one hardcoded email.**
+The test of that is the second producer: if adding it is a registry entry and a
+raise, this worked; if it is a new send path, it did not. So the first pass ships
+*two* producers deliberately, and they are the two that already have a hole where
+a notification should be.
+
+**What is in.** The registry, one audience resolver, the decision, the record, the
+two control surfaces, two producers, and the probe the contextual prompt turns on.
+
+**What is deliberately out, and why it is safe to leave out for now — not why it
+does not matter:**
+
+- **`subject` and `platform` audience resolvers.** Every notification worth
+  sending at level 1 goes to the operators of a business, so `operators` alone
+  covers the whole first pass. The other two are registry-shaped additions, not a
+  second mechanism.
+- **The unauthenticated unsubscribe token and `List-Unsubscribe`** (D8). Every
+  recipient is a member with a portal, so the control is always reachable; and the
+  bulk-sender rules that require the header bite at a volume one email per lead
+  does not approach. **It becomes required before any type fans out to a list.**
+- **A separate sending subdomain for informational mail** (D9). Same reason and
+  the same trigger: the risk is proportional to volume and complaint rate, and at
+  one-per-lead it is not yet the thing most likely to hurt the sending domain.
+  **It becomes required before volume, and before any level-2 notification.**
+- **Push and SMS** (D11), **digests, quiet hours and an in-product inbox** (OQ3,
+  OQ5, OQ6). Nothing is stubbed for any of them.
+
+**The one thing kept that could have been cut:** a per-`(recipient, type)` cap
+over a window. It is a handful of lines because the decision record is already
+being read, and the hazard it removes — an afternoon of form spam becoming four
+hundred emails from the domain that also delivers our logins — is live the day the
+first producer ships.
+
 ## Children
 
-None yet.
+Five, in build order. Each is independently testable; the first three are a
+working notification.
+
+1. **The decision.** The registry, the `operators` resolver, the member filter,
+   the class rule, the preference and address checks, the coarse-as-AND, the cap,
+   and the decision record written whether or not anything sends. The sender is
+   injected, so this whole ticket is provable with no provider and no surface.
+2. **`lead.captured`.** The first producer, the template ticket for its copy, and
+   the first real send. Closes [[DOC-47]] §3's hole.
+3. **The controls.** The coarse switch on the portal ([[REQ-245]]'s endpoint and
+   pane) and the registry-driven fine-grained pane on Settings, with transactional
+   types listed and not toggled.
+4. **`sending.ready`, and the reachability probe.** `refreshSending`'s
+   `pending → verified` transition is an existing wait whose own copy already says
+   *"you can carry on, and it will come right on its own"* — so it is the second
+   producer, and the one that proves the registry is a registry. The probe (§9)
+   lands with it.
+5. **The contextual prompt.** The shared component, the promise string, and the
+   one flow that shows it — *"Send email from this domain"*, at the moment the
+   customer presses it.
 
 ## Siblings
 
