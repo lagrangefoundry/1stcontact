@@ -343,7 +343,10 @@ export type NameSource = 'placeholder' | 'label' | 'aria' | 'text' | 'alt'
  * mechanism — the layer where two different DOMs that render identically match.
  */
 export interface ElementGeometry {
-  /** `getBoundingClientRect()` box in full-page document coords. */
+  /** `getBoundingClientRect()` box in full-page document coords. For a text run
+   *  this is the LINE BOX it occupies (REQ-265): a block element's rect already is
+   *  that, and an inline element's content-area rect is converted at capture time.
+   *  The content area remains available as {@link renderedTextBox}. */
   box?: Box
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx?: number
@@ -450,6 +453,12 @@ export interface Field extends ElementGeometry {
   controlType?: string | null
   /** REQ-93 — the enclosing `<form>`'s resolved submission endpoint, else null. */
   formAction?: string | null
+  /** REQ-265 — the RENDERED colour of the control's placeholder ink (`#rrggbb`),
+   *  composited over what the field sits on, else null. A placeholder is painted
+   *  by a UA pseudo-element that inherits nothing, so no other axis on the control
+   *  describes it and no geometry field can see it. Optional so pre-REQ-265
+   *  bundles still parse. */
+  placeholderColor?: string | null
 }
 
 export interface ContentRun extends ElementGeometry {

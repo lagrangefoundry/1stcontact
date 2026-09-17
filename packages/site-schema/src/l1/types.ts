@@ -13,6 +13,7 @@ import type {
   l1ColumnTermSchema,
   l1ColumnSchema,
   l1ContainerSchema,
+  l1ControlAxesSchema,
   l1ControlSchema,
   l1DistributionSchema,
   l1DocumentSchema,
@@ -83,6 +84,8 @@ export type L1LayoutKeyframe = z.infer<typeof l1LayoutKeyframeSchema>
 export type L1ResponsiveLayout = z.infer<typeof l1ResponsiveLayoutSchema>
 export type L1Visibility = z.infer<typeof l1VisibilitySchema>
 export type L1TextAxes = z.infer<typeof l1TextAxesSchema>
+// REQ-265 — a control's axes: every text axis, plus the placeholder's ink.
+export type L1ControlAxes = z.infer<typeof l1ControlAxesSchema>
 // REQ-211 — one level of inline variation: a node's copy is a string or runs.
 export type L1TextRunAxes = z.infer<typeof l1TextRunAxesSchema>
 export type L1TextRun = z.infer<typeof l1TextRunSchema>

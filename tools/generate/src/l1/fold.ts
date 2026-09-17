@@ -30,6 +30,7 @@ import {
   type L1ColumnAnchor,
   type L1ColumnTerm,
   type L1Control,
+  type L1ControlAxes,
   type L1Document,
   type L1Filter,
   type L1FontFace,
@@ -2379,7 +2380,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       }
       // A captured control paints its surface on its own element, exactly as a
       // chip run does — same axes, same reader.
-      const axes = chipAxes(widestEl)
+      const axes: L1ControlAxes = chipAxes(widestEl)
+      // REQ-265 — and the one painted value a chip run has no equivalent of: the
+      // placeholder's ink. Without it the renderer's default (re-point the UA
+      // pseudo-element at the field's own colour) is the only possible outcome,
+      // which paints a reference's grey placeholder in the field's text colour.
+      const placeholder = widestEl.placeholderColor ? colorToHex(widestEl.placeholderColor) : null
+      if (placeholder) axes.placeholderColor = placeholder
       if (Object.keys(axes).length) control.axes = axes
       return control
     })

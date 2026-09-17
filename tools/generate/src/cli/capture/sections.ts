@@ -180,6 +180,9 @@ function toField(f: RawField): Field {
     // REQ-93 — the behavioural facts a mounted behavior module needs.
     controlType: f.controlType,
     formAction: f.formAction,
+    // REQ-265 — the placeholder's rendered ink. Carried verbatim; the fold writes
+    // it onto the control's axes and the renderer paints the pseudo-element with it.
+    placeholderColor: f.placeholderColor,
   }
 }
 
