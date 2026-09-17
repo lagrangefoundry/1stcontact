@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:23:27.433422+00:00'
+updated_at: '2026-09-17T04:29:44.722431+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -357,5 +357,11 @@ A collector that silently stopped looks exactly like a system with no garbage. T
 It also gives assertion #5 two halves: run a probe, let verification collect it, assert the sweep finds nothing; then write a synthetic row, skip verification, assert the sweep takes it.
 
 Still holding on the doc pending your call — DOC ticket under EPIC-15, or appended to the epic?
+
+<!-- xgd-turn id="0dd06d55-d23c-424c-a490-cf3c10db3260-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:29:44.661401+00:00" -->
+#### You
+Good please update the ticket and write the doc
 
 <!-- xgd-chat-end -->
