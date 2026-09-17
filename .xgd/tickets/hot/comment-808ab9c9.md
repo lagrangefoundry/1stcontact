@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:30:12.127123+00:00'
+updated_at: '2026-09-17T21:35:02.400960+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -237,5 +237,43 @@ Immutability enforcement is the one you've greenlit. Want me to scope it as a RE
 <!-- xgd-chat role="user" ts="2026-09-17T21:30:11.949898+00:00" -->
 #### You
 ok can you add security spec notes to 13, 5 , 16 and 12 and draft the immutability req please
+
+<!-- xgd-turn id="1715dafc-1d71-4b37-a350-cf4f31f0885c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:35:00.660576+00:00" -->
+#### Claude
+Let me check one implementation detail the REQ depends on — whether the stored digest is recomputable from what `readRevision` returns.
+
+Verification is genuinely a one-liner — `snapshotSha` takes exactly what `readRevision` returns, canonical JSON plus a byte key. Now the four epic amendments.
+
+Note: EPIC-13 grew from 1074 to 1229 lines since I first read it — someone else edited it mid-session. I composed from the current content, so their edit is preserved. Applying:
+
+Four epics amended. Now the immutability REQ.
+
+Done — four epics amended and **REQ-266** drafted under EPIC-17 (`status: draft`, priority high, linked as an epic child).
+
+## Security notes added
+
+**EPIC-13 (Email)** — six clauses. The load-bearing one: *inbound mail is untrusted input and `From` proves nothing*, from which follows that inbound mail may never write consent state, that attribution is a claim recorded with its DMARC/DKIM/SPF alignment evidence, and that an unaligned message is captured as **unverified** rather than threaded onto the contact as their words. Then: bodies reach an assistant only inside a proven untrusted-content envelope (and a "summarise correspondence" tool is an injection sink, not a read-only capability); forwarding destinations come from configuration and never from the message; DKIM/send-as credential custody; and per-business quotas plus a complaint-rate breaker as **beta-time**, because reputation is established once.
+
+**EPIC-5 (DNS)** — opens by answering open question 2 directly: *read freely, propose anything, perform no privileged mutation.* MX/SPF/DMARC/DKIM/NS go through a human on a rendered diff, enforced as a declared effect on the operation rather than prose — citing REQ-126's own reasoning that "the publishing rule went with the grant". Plus: no mutation without a snapshot (including non-privileged ones), zone-scoped credentials with no write credential on a read path, every zone write attributed to human/assistant/automation, and the SPF-merge rule recorded as the security control it also is.
+
+**EPIC-16 (Staging/deploy)** — staging holds no production data, *and if it ever does it **is** production*; no credential shared across environments (the staging-binding-writes-production failure named explicitly); one non-human identity per environment; the F7 digest pinning with "refuse a deploy whose digest differs from the one the tests ran against"; secrets only via the hook; and a deploy that can answer version/digest/actor/when.
+
+**EPIC-12 (Duplication)** — framed as a **drop list**, because a naive copy takes everything: no business-boundary crossing, revision 0 (copying `site_revisions` would break `published_by` attribution *and* the immutability guarantee REQ-266 establishes), no grants/sessions/chat transcripts/BFM markers — each with why a copy would plausibly take it — no contacts or correspondence, and a carry list so the drop list is testable.
+
+## REQ-266, and one design decision worth your eye
+
+The four gaps are: no trigger on `site_revisions`; bytes written before the PK that would refuse them; the digest stored and never verified; two publishes able to claim one id.
+
+The non-obvious part is **how to claim the id before writing bytes without breaking the property that the log never names a 404**. My answer: reserve the id in a *separate* `site_revision_claims` table first, write bytes, and still insert the revision row last. A completion flag on the revision row itself would have forced `site_revisions` to accept an `UPDATE` — a hole in the trigger exactly the size of the thing it guards. `nextRevisionOf` then reads the union, so an abandoned claim is never reissued.
+
+That also **resolves the corruption half of the publish race in the store**: the loser of the claim fails before writing a byte. So the Durable Object (§5c) stays worth building for ordering and stops being urgent — I've said so in the ticket rather than silently dropping it.
+
+I deliberately left `DELETE` out: `UPDATE` rewrites history, `DELETE` removes it, and removal is something DOC-37 erasure will legitimately need. Instead there's a source-level assertion that nothing but `forget()` deletes a revision row — same idiom as the existing `TENANT_ID`-has-no-third-reader UAT. Flagging it in case you'd rather have the trigger and take the erasure problem on later.
+
+Seven UATs are specified, each traced to a numbered clause, with the whole-ticket falsifier stated: *alter a published revision's bytes in the bucket and have anything in the product serve, check out, or report them as sound.*
+
+Ready to cut the branch and implement REQ-266 when you want it.
 
 <!-- xgd-chat-end -->
