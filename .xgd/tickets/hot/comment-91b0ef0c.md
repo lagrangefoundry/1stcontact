@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T01:27:53.447991+00:00'
+updated_at: '2026-09-17T01:40:18.673693+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -523,5 +523,11 @@ I'd flagged the old, stronger claim into EPIC-12 §8.2 last turn. **That's now c
 **Your lost round is still recoverable** and still free. `repro-gigabytealchemy-ai/iteration-1` is on disk with its `outcome.json` frozen at *"no outcome block"*; I re-confirmed the parser now recovers `status: filed` with the 6,346-char body intact. Press **[read it again]** on Iteration 1 before starting anything new — it files from the stored transcript without spawning a round.
 
 One expectation for this run: rounds now resume across iterations of the same site, so Iteration 2 continues Iteration 1's session rather than re-reading the brief. If numbers look anchored rather than re-derived, that's the resume trade-off REQ-261 flagged, not a regression.
+
+<!-- xgd-turn id="1190fd92-37ff-4dec-9061-54b2bb1e51c6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:40:16.818526+00:00" -->
+#### You
+**REQ-256's ticket body is now out of date with its own tests.** Behaviour 3 and requirement 17 still say the round gets *"reading tools and nothing else"* and *"cannot run *`xgd`*"*. <-- please fix this it will confuse reconciliation no end
 
 <!-- xgd-chat-end -->
