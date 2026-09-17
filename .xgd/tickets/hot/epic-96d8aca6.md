@@ -5,7 +5,7 @@ type: epic
 title: Staging environment and automated deploy
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-17T03:40:50.402446+00:00'
+updated_at: '2026-09-17T21:33:43.457945+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -357,3 +357,56 @@ None yet. Suggested order, and the first is not about staging at all:
 | [[REQ-147]] | Cloudflare Access on the control app |
 | [[BUG-59]] | `SERVICE_TOKEN_IDENTITIES` — how a machine caller gets an identity |
 | [[REQ-192]] | `bin/seed` and `db/dev-seed.sql` |
+
+---
+
+## Security notes ([[EPIC-17]])
+
+Added from the [[EPIC-17]] threat-model pass. This epic is the cheapest possible
+moment for every clause below: once a credential or a dataset is shared between
+environments, separating them is a migration rather than a decision.
+
+### 1. Staging holds no production data — and if it ever does, it *is* production
+
+Real contacts in staging are third parties' personal data in a system with
+weaker controls and more hands. There is no middle state: a staging environment
+holding real contacts inherits every control production has, or it holds none of
+them and holds no real data.
+
+### 2. No credential is shared between environments
+
+Separate D1, R2, Access application, service tokens and provider API keys per
+environment. **A staging binding that can write production storage is the
+specific failure this clause exists to prevent** — it converts a test deploy
+into a production incident, and it is invisible until it happens.
+
+### 3. Deploy identity
+
+One non-human identity per environment, scoped to what that environment
+deploys, rotated on a stated schedule, and never a human's token.
+`SERVICE_TOKEN_IDENTITIES` ([[BUG-59]]) already maps a machine caller to an
+identity; what this adds is that its scope and its rotation are stated rather
+than inherited.
+
+### 4. The component store is pinned and verified
+
+[[EPIC-17]] F7: `@lagrangefoundry/*` — the AI library, the toolbox bridge, the
+webui components — resolves out of an out-of-repo shared store and appears **zero
+times in `pnpm-lock.yaml`**. That is the code running the tool loop and the
+builder chrome, with no version pin and no integrity check.
+
+- resolve by version **and digest**;
+- record the resolved digest in the deploy record;
+- **refuse a deploy whose digest differs from the one the tests ran against.**
+
+### 5. Secrets reach the platform only through the secret hook
+
+`bin/deploy.d/secrets/` and `wrangler secret` — never `[vars]`, never a repo
+file. The existing [[REQ-149]] rule (*a deploy refuses when a required secret is
+absent*) is restated here as what it also is: a fail-closed control, on
+`access.ts`'s reasoning.
+
+### 6. A deploy is auditable
+
+Which version, which digests, which actor, when. An automated deploy that cannot
+answer those four is an automated deploy nobody can investigate.
