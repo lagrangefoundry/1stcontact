@@ -5,9 +5,9 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-17T19:15:22.188967+00:00'
+updated_at: '2026-09-17T21:33:38.551231+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: underway
 fields:
   priority: medium
@@ -604,3 +604,59 @@ This epic is not blocked on it. The flow ships breaking-and-warning; [[EPIC-13]]
 - _"I'll keep that working"_, or any sentence promising mail continuity.
 
 - A mail provider present in the snapshot and absent from the warning.
+
+---
+
+## Security notes ([[EPIC-17]])
+
+Added from the [[EPIC-17]] threat-model pass. This epic creates the
+highest-impact compromise path in the product: after it, our credential can
+rewrite a customer's MX, which is interception of the one thing [[EPIC-13]]
+calls unsurvivable. So the controls below are structural rather than procedural,
+in [[DOC-2]]'s sense of that distinction.
+
+### 1. The answer to open question 2
+
+> *"How much can the assistant change unsupervised once a domain is live and
+> serving a real business?"*
+
+**It may read every record freely, and it may propose any change. It may not
+perform a privileged one.** MX, SPF, DMARC, DKIM and NS mutations are carried
+out by a human acting on a rendered diff.
+
+The mechanism is a **declared effect on the operation, enforced by the toolbox**
+— not a sentence in the tool manual. The precedent is exactly `Publish`, which
+the consultant does not hold: [[REQ-126]] records that *"the publishing rule went
+with the grant"*, because a rule stated only in prose is a rule a long
+conversation decays. The same seam is [[EPIC-17]] §5 item 4, and this epic is the
+reason it is worth building now rather than later.
+
+The epic's existing sentence — *"the dangerous ones constrained rather than
+merely documented"* — is that requirement; this names what the constraint is.
+
+### 2. No mutation without a snapshot
+
+The pre-change snapshot (§Preservation) is what makes any change reversible. A
+mutation that lands without one is **refused**, including a non-privileged one:
+the snapshot is not a step in the cutover flow, it is the precondition for
+touching a zone at all.
+
+### 3. Credential scope, and the read path
+
+The zone credential is scoped per zone and per operation class wherever the API
+allows it, and **a read path never holds a write credential**. That is the same
+clause [[EPIC-7]] needs from the other side — a monitor that can repair a record
+is a compromised monitor that can rewrite a zone.
+
+### 4. Every zone write is audited
+
+Actor, target, before, after, reason, timestamp — with the actor distinguishing
+**human**, **assistant** and **automation**. A zone change we cannot attribute is
+a zone change we cannot explain to a customer whose mail stopped.
+
+### 5. `SPF merges, never appends` is a security control
+
+Already in the epic as correctness. Recorded here as what it also is: two
+`v=spf1` records on one name fails **all** mail from that name, which is a
+self-inflicted denial of the asset ranked first in [[EPIC-17]] §1. [[TODO-5]] is
+the evidence it happens to people who know better.
