@@ -6,6 +6,7 @@
  * interface — nothing above this file changes.
  */
 import type { Browser, Page, Response } from 'playwright'
+import { browserLaunchOptions } from './launch-args'
 import {
   FONT_BARRIER,
   FONTS_READY,
@@ -62,7 +63,7 @@ class PlaywrightDriver implements BrowserDriver {
 
   async navigate(url: string, viewport?: Viewport): Promise<void> {
     const playwright = await import('playwright')
-    this.browser = await playwright[this.engine].launch()
+    this.browser = await playwright[this.engine].launch(browserLaunchOptions())
     // REQ-48 (item 1) — freeze-determinism precondition. Motion (entrance
     // animations, hover transitions, parallax) is time-dependent, so an
     // unfrozen page projects a different frame every run and the whole gate is
@@ -305,7 +306,7 @@ export function createEngineDriver(engine: RenderEngine): BrowserDriverFactory {
 export async function engineAvailable(engine: RenderEngine = 'chromium'): Promise<boolean> {
   try {
     const playwright = await import('playwright')
-    const browser = await playwright[engine].launch()
+    const browser = await playwright[engine].launch(browserLaunchOptions())
     await browser.close()
     return true
   } catch {

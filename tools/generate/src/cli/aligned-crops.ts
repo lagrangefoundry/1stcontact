@@ -16,6 +16,7 @@
  * browser + image IO is the orchestrator.
  */
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs'
+import { browserLaunchOptions } from './capture/launch-args'
 import path from 'node:path'
 import { cmdRender } from './commands'
 import { startServe } from './serve'
@@ -212,7 +213,7 @@ export async function cmdAlignedCrops(opts: AlignedCropsOptions): Promise<{ area
   await cmdRender(slug, sub)
   const serve = await startServe(slug, sub)
   const playwright = await loadPlaywright()
-  const browser = await playwright.chromium.launch()
+  const browser = await playwright.chromium.launch(browserLaunchOptions())
   let oursPng: Buffer
   const oursBoxByText = new Map<string, Box>()
   try {
