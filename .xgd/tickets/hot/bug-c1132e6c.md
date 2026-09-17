@@ -6,9 +6,9 @@ title: 'repro console: a round''s gap ticket is attributed to the operator, not 
   loop'
 created_by: EPIC-12
 created_at: '2026-09-17T21:42:17.916425+00:00'
-updated_at: '2026-09-17T22:16:50.113479+00:00'
+updated_at: '2026-09-17T22:16:54.145749+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   severity: medium
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.239
+  story_points: 3
 ---
 
 ## Symptom
