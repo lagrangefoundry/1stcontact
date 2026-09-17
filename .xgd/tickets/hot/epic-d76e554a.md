@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-16T22:18:25.465264+00:00'
+updated_at: '2026-09-17T01:47:43.501321+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -498,3 +498,80 @@ the same sender every day and trains the client to ignore the queue.
 - **Is visual styling its own ticket?** The client wants AI styling as a template,
   reusable across content. That is plausibly a per-business ticket in the `template`
   key-resolved style rather than a field on each content.
+
+
+---
+
+## The cutover mail gap, and the ordering that closes it ([[EPIC-5]], 2026-09-16)
+
+Settled with the operator while scoping [[EPIC-5]]'s nameserver-change flow.
+**This epic now owns a seam neither epic owned before**, and records an ordering
+expectation for when it is built. **It is not a dependency and nothing here blocks
+[[EPIC-5]]** — that flow ships without it.
+
+### The gap
+
+[[EPIC-5]]'s flow moves a customer's nameservers to us. **That breaks their
+existing email**, and it cannot not break it: a `secureserver.net` `MX` copied
+forward points at a service that stops honouring the domain once its nameservers
+move, and the forwarding destinations behind it are private configuration inside
+the old provider's account — not discoverable from DNS at any price.
+
+So [[EPIC-5]]'s acceptance bar has been rewritten to match reality:
+
+> **Moving a customer's DNS to us breaks their existing email. They are told so, by
+> name, before they act — and it is reconfigured with their help before anyone
+> notices.**
+
+That epic owns the first half — detecting the incumbent provider from
+`resolver.ts`'s snapshot and naming it in the warning before the paste. **The
+second half is this epic's**, and was previously written down nowhere:
+[[EPIC-5]]'s Boundaries never mentioned email reconfiguration and this epic's
+Boundaries only hand DNS writes the other way.
+
+### The ordering, for when this is built
+
+**Configure the customer's email here first, so that mail comes up as control
+transfers rather than after it.** The operator's framing: *"we can actually do our
+email configuration first so that as soon as we have control we can have their
+email fixed — that is probably the correct ordering."*
+
+The window already exists and is free. [[EPIC-5]]'s pre-cutover sequence creates
+the Cloudflare zone in `pending` and populates it **before** the nameserver pair is
+ever shown, so there is an interval in which the zone is ours and fully written
+while nothing yet resolves from it. Email Routing configuration, the addresses and
+the forwarding destinations belong **in that window**:
+
+1. zone created `pending`, swept, web records written — [[EPIC-5]]
+2. **the customer is asked who their email should go to, and Routing is configured
+   in the pending zone** — this epic
+3. the nameserver pair is shown and pasted — [[EPIC-5]]
+4. mail resolves to our pipeline at the moment the delegation flips
+
+**Step 2 is the ordering claim, and it is what turns the gap from *however long it
+takes somebody to come back and finish* into minutes.** Retrofitting it later is
+strictly harder than leaving room for it now, which is why it is recorded before
+anything is built.
+
+**Send-as is not in that window and does not need to be.** Configuring Gmail to
+*send from* the forwarded address needs working SMTP credentials and a confirmation
+round-trip — already named above as the most fragile step in this epic. Mail
+arriving is the urgent half; replying from the right address can follow, and the
+customer is not cut off while it does.
+
+### The one question that must be asked, and why it is allowed
+
+Forwarding destinations are undiscoverable, so **the customer has to tell us where
+their email should go.** That is the single genuinely unanswerable-from-outside
+fact in the whole flow.
+
+It does not violate [[EPIC-5]]'s rule against questions a customer cannot answer,
+because that rule bans asking them to **validate** — *"is this MX correct?"* — and
+not asking them what they know. *"Who should your email go to?"* is a question a
+furniture restorer can answer, and there is no other source for it.
+
+### Until this is built
+
+[[EPIC-5]]'s flow warns and proceeds. The customer is told by provider name that
+their mail will stop, and some will choose to schedule the move rather than do it
+now — **which is the correct outcome, not a failure of the flow.**
