@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:45:43.201235+00:00'
+updated_at: '2026-09-17T04:46:10.609615+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -403,5 +403,35 @@ Nothing is built. The epic records that the gutter work doesn't start until EPIC
 <!-- xgd-chat role="user" ts="2026-09-17T04:45:43.073572+00:00" -->
 #### You
 What's open?
+
+<!-- xgd-turn id="99d68847-aebf-46a6-bae6-988edf02e629-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:46:10.560488+00:00" -->
+#### Claude
+Seventeen open items across the two tickets, but only three actually gate the first line of code.
+
+## Blocks the gutter build
+
+**1. Does `Scope` grow a field?** (DOC-54 §6.2) — the one real design call. Adding `synthetic` to `Scope` gets the impossible-to-forget property that makes R3 structural rather than conventional. But `Scope` is deliberately a one-field interface with a written rationale for being exactly that, so this amends a documented decision rather than slotting into it. **My lean: add it and amend the rationale** — the alternative is a predicate threaded beside `Scope` through the same call sites, which is the convention-not-mechanism failure wearing a disguise.
+
+**2. Is `synthetic` on the contact, the event, or both?** (EPIC-15 Q3 / DOC-54 §6.6 — same question, recorded in both) — decides whether the read filter is ever a join. A synthetic contact implies its events; the question is whether a *real* contact can ever carry a synthetic event. **My lean: both columns, no join** — the derivation via `INSERT … SELECT` makes the event column nearly free, and a join in the hot read path to answer a predicate is a cost paid on every page load.
+
+**3. Run id transport** (DOC-54 §6.1) — reserved address, explicit field, or both. Cheapest is the address for email-keyed flows plus an explicit field for the rest. Low stakes, but it's on the wire so it wants deciding before the RPC seam changes.
+
+## Decide during the build, not before
+
+TTL values per class and the sweep horizon; the implausible-harvest threshold (absolute or proportional); where the sweep's count surfaces. All three are constants you'll tune better with the thing in front of you.
+
+## Not this epic's, but time-sensitive
+
+**EPIC-15 Q1 — does EPIC-7 absorb the three checker requirements?** This is the one with a deadline that isn't ours. It blocks nothing today and blocks everything if it's asked after EPIC-7 is built DNS-shaped. Worth landing on that ticket before anyone starts it.
+
+**Q5 payments** is EPIC-9's, **Q6 the human-confirmed tri-state** is EPIC-7's verdict schema, **Q10 staging tiers** is EPIC-16's.
+
+## Deferred with the rest of BFM
+
+Q2 external runner, Q7 who hears about a failure, Q8 canary sites, Q9 customer-visible evidence, Q11 probe-history retention. None of these are needed to build the gutter, which is the point of having scoped DOC-54 to the gutter alone.
+
+**And the actual gate on starting isn't a question at all** — it's EPIC-10 being working and tested. That's recorded in the epic's Children section as the precondition.
 
 <!-- xgd-chat-end -->
