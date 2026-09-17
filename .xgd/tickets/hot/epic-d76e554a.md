@@ -5,9 +5,9 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T03:17:44.871600+00:00'
+updated_at: '2026-09-17T03:27:46.324050+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: underway
 fields:
   priority: high
@@ -675,3 +675,86 @@ other outcome worth distinguishing, because spam-foldering is both common and
 invisible to us — and it is a deliverability finding ([[EPIC-13]] §4) that no other
 signal we hold can produce. Two buttons cost nothing in the message and turn a
 binary into a diagnosis. Not decided.
+
+
+
+## Vocabulary, and where a campaign's body lives ([[CHAT-54]], 2026-09-16)
+
+The client opened this: *"We are using the term email and the associated ticket type
+for an actual email sent to a user. We are proposing to use the word campaign to
+describe an outgoing email sent to many users."* Then the question that forces the
+issue: *"is a campaign a single message? Or is it multiple messages to the same group
+of users, perhaps over time? If it's the latter then we need another word for the
+message because I don't want to overload email which seems to have been appropriate
+already."*
+
+### Four words, and one reserved
+
+**A campaign is a single send.** The decomposition already recorded above —
+campaign = content × list × schedule — has content singular, so a campaign is *these
+bytes, to these people, at this time*. Not a programme of messages, and not an
+umbrella over several sends.
+
+| word | what it names |
+|---|---|
+| **list** | the audience |
+| **content** | the composed message — the bytes themselves |
+| **campaign** | one send: content × list × schedule |
+| **email** | one actual message to one person |
+
+**This is also what the tools our customers came from mean.** Mailchimp and Klaviyo
+both use *campaign* for a single send and reserve a different word for the series;
+HubSpot is the outlier that makes campaign the umbrella. A small business's intuition
+for the word was formed by the first two, so we follow them.
+
+**`email` is not at risk of overload, because the model already prevents it.**
+Per-recipient sends are not tickets: a campaign to 800 people is one campaign, one
+list, and 800 events on the `contact_events` spine — **zero `email` tickets**. An
+`email` ticket exists only where a message owns its own body, which means one-to-one
+and transactional. The term keeps the meaning it already had.
+
+**`sequence` is reserved, and deliberately unbuilt.** When multiple messages go to
+the same list over time, that is a `sequence` — an ordered set of campaigns with
+relative timing. Naming it now is not a commitment to build it; it is so that nobody
+reaches for *campaign* to describe it and collapses the distinction that makes
+campaign mean one thing. *flow* and *journey* were the alternatives and say less.
+
+### Correction: two ticket types, not three — the campaign ticket carries the content
+
+The client's conclusion from the vocabulary: *"that means that the body of a campaign
+ticket can be the message content."*
+
+It does, and it **supersedes the three-type decomposition in §"Three ticket types,
+and one that must not be" above.** There is no separate content type. A campaign
+ticket's **body is the markdown the operator composed**; its fields carry the list
+reference, the schedule, the pinned template, and the delivery lifecycle. The
+surface's item list is therefore **Lists / Campaigns**, not Lists / Content /
+Campaigns.
+
+**What the separate content type was for, and why the body serves it better.** The
+argument above was immutability by the `template` precedent — *"edit produces a new
+ticket, and a sent campaign keeps pointing at the bytes that actually went out."*
+That property is preserved exactly by freezing the campaign body at send. What is
+lost is named reuse of one content across several campaigns, and the honest
+assessment is that **duplicate-this-campaign-as-a-draft covers nearly all of it**:
+an A/B test wants two different bodies anyway, and a re-send to non-openers is a new
+campaign with a different list. One entity fewer, one hop fewer from the contact
+event to the bytes, and one lock instead of two.
+
+**The lock's predicate is the one place campaign and `email` genuinely differ, and
+[[REQ-263]] must not be copied blindly.** That REQ freezes an `email` from create
+*with no `when`*, and gives the reason: the record is written before the provider is
+called, so there is no window in which editing the copy is legitimate. A campaign has
+exactly such a window — the draft, where the copywriter in the chat pane is the
+point. So the campaign rule carries a predicate on the draft state, which is the
+alternative REQ-263 examined and rejected for its own type. Same mechanism
+([[REQ-160]] in `@lagrangefoundry/ticketing`), different predicate, for a reason that
+must be written down at the declaration or someone will later "fix" the
+inconsistency.
+
+**One obligation this creates.** With no per-recipient ticket on the broadcast path,
+nothing stores the rendered bytes that reached any individual. What went out must
+therefore be **reconstructible** from the frozen body plus the pinned `template_uid`
+— which means the template reference is pinned by uid, never by key, and rendering is
+deterministic. If that ever stops holding, the record stops being evidence and a
+rendered artefact has to be stored instead.
