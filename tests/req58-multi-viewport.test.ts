@@ -187,6 +187,8 @@ const report = (deltas: ValueDelta[]): ValuesDiffReport => ({
   suppressed: 0,
   objects: [],
   unpairedActual: [],
+  // BUG-102 — the section-pairing record every report now carries.
+  sectionPairing: [],
 })
 
 describe('REQ-58 T2 — formatMultiViewportReport renders worst cell first', () => {

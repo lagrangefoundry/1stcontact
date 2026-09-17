@@ -254,7 +254,10 @@ export interface SectionValues {
    */
   backgroundImageUrl?: string
   /** BUG-13 — the section band's geometry (full-page document coords), so the
-   *  fold can place the background box. Present iff {@link backgroundImageUrl} is. */
+   *  fold can place the background box. REQ-88 carries it on EVERY section (both
+   *  projection paths set it unconditionally) — it is section geometry, not image
+   *  metadata — and BUG-102's geometry join reads it as the pairing key. Optional
+   *  only so pre-REQ-88 manifests, which carried it for image bands alone, parse. */
   box?: Box
 }
 
@@ -522,6 +525,39 @@ export interface ValuesDiffReport {
    * an extra object in the reproduction is a defect the flat list never named.
    */
   unpairedActual: UnpairedObject[]
+  /**
+   * BUG-102 — how each *reference* section paired with a repro band, in document
+   * order. The flat list reported `§0` as a delta while carrying nothing that said
+   * what either side's section actually was, so a reader could not tell whether the
+   * two `§0`s were even the same band. Empty when the sections could not be paired
+   * at all ({@link sectionsNotComparable}).
+   */
+  sectionPairing: SectionPairing[]
+  /**
+   * BUG-102 — set when section-level values could not be compared AT ALL, with the
+   * reason. A report fact, never a delta: a segmentation difference is not by itself
+   * a fidelity defect, and a permanent diagnostic row would make `1c values-diff`
+   * exit non-zero on a clean page forever.
+   */
+  sectionsNotComparable?: string
+}
+
+/**
+ * BUG-102 — one reference section's pairing verdict. `actualLabel` is null when no
+ * repro band overlapped it enough to be the same band; `overlap` is the vertical
+ * IoU that decided it (0 when unpaired).
+ */
+export interface SectionPairing {
+  /** `§n` on the reference side. */
+  label: string
+  /** The reference section's band geometry, when the manifest carries it. */
+  box?: Box
+  /** `§n` of the repro band it paired with, or null when unpaired. */
+  actualLabel: string | null
+  /** The paired repro band's geometry, when present. */
+  actualBox?: Box
+  /** Vertical intersection-over-union of the two bands; 0 when unpaired. */
+  overlap: number
 }
 
 /** REQ-51 — the object kinds the grouped view buckets by, for the card heading. */
@@ -998,9 +1034,11 @@ export function flattenCapture(capture: Capture): ValueManifest {
 
 /**
  * Flatten a live extraction (our reproduction) into a value manifest. Section
- * values are read from the *raw* bands (uncoalesced), so section indices align
- * with the capture's coalesced sections at the top of the document — where the
- * hero (the scrim/anchor target) always sits at index 0.
+ * values are read from the *raw* bands (uncoalesced), so the two sides' section
+ * indices do NOT correspond — the capture's are coalesced by style signature,
+ * and an L1 reproduction has a single body-spanning band whatever the reference
+ * did. BUG-102: the diff therefore joins sections by band geometry, not by the
+ * index this assigns, which is a position in document order and nothing more.
  */
 export function flattenSignals(signals: RawSignals, source: string): ValueManifest {
   const elements: ValueElement[] = []
@@ -1880,10 +1918,122 @@ function toUnpaired(el: ValueElement): UnpairedObject {
   return { label: el.text, role: el.role, kind: objectKindOf(el) }
 }
 
+// ── BUG-102 — section pairing ────────────────────────────────────────────────
+
+/**
+ * Two bands are the same band when their vertical intervals overlap by at least
+ * half their union. Sections are full-bleed, so the vertical interval is what
+ * distinguishes them; half-of-union is the floor that separates "the same hero,
+ * a little taller" from "a 192px header strip sitting inside an 800px hero"
+ * (IoU 0.24 — the pair the ordinal join silently made).
+ */
+const SECTION_OVERLAP_MIN = 0.5
+
+/** Vertical intersection-over-union of two bands — the section pairing score. */
+function verticalIoU(a: Box, b: Box): number {
+  const inter = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  if (inter <= 0) return 0
+  const union = Math.max(a.y + a.height, b.y + b.height) - Math.min(a.y, b.y)
+  return union > 0 ? inter / union : 0
+}
+
+/** True when every section carries the geometry the join reads (REQ-88 onward). */
+function hasSectionGeometry(sections: readonly SectionValues[]): boolean {
+  return sections.length > 0 && sections.every((s) => !!s.box)
+}
+
+/**
+ * True when this band vertically covers the full extent of its own manifest's
+ * elements — the signature of a flat L1 render, whose single `<body>` child is one
+ * body-spanning wrapper rather than a style-scope band (BUG-15's flat-DOM problem
+ * at the section layer). Measured against the elements rather than a page height
+ * because the manifest carries no document box.
+ */
+function spansWholePage(section: SectionValues, manifest: ValueManifest): boolean {
+  const band = section.box
+  if (!band) return false
+  const boxes = manifest.elements.map((e) => e.box).filter((b): b is Box => !!b)
+  if (boxes.length === 0) return false
+  let top = Infinity
+  let bottom = -Infinity
+  for (const b of boxes) {
+    if (b.y < top) top = b.y
+    if (b.y + b.height > bottom) bottom = b.y + b.height
+  }
+  return band.y <= top + 1 && band.y + band.height >= bottom - 1
+}
+
+/** One reference section's join result: the repro band it took, and the score. */
+interface SectionMatch {
+  section: SectionValues
+  overlap: number
+}
+
+/**
+ * BUG-102 — pair reference sections to repro bands by vertical overlap, one-to-one.
+ * Candidates above {@link SECTION_OVERLAP_MIN} are taken best-overlap-first, and a
+ * band already claimed is not re-used — so the reference's absolutely-positioned
+ * header loses its hero to the reference's own hero (IoU 1.0 beats 0.24) and is
+ * reported unpaired instead of compared against it.
+ *
+ * Crossed pairs (an earlier reference section taking a later band while a later one
+ * takes an earlier band) are not forbidden explicitly: at a half-of-union floor in a
+ * shared coordinate space, a crossing needs both sides to overlap each other more
+ * than they overlap their own partners, which the floor already rules out for every
+ * shape we have seen. Keyed by position in `expected`, not by `index`, so a manifest
+ * with non-contiguous section indices still pairs.
+ */
+function pairSectionsByGeometry(
+  expected: readonly SectionValues[],
+  actual: readonly SectionValues[],
+): Map<number, SectionMatch> {
+  const candidates: { ei: number; ai: number; overlap: number }[] = []
+  expected.forEach((es, ei) => {
+    actual.forEach((as, ai) => {
+      const overlap = verticalIoU(es.box!, as.box!)
+      if (overlap >= SECTION_OVERLAP_MIN) candidates.push({ ei, ai, overlap })
+    })
+  })
+  candidates.sort((a, b) => b.overlap - a.overlap)
+  const out = new Map<number, SectionMatch>()
+  const takenActual = new Set<number>()
+  for (const c of candidates) {
+    if (out.has(c.ei) || takenActual.has(c.ai)) continue
+    out.set(c.ei, { section: actual[c.ai], overlap: c.overlap })
+    takenActual.add(c.ai)
+  }
+  return out
+}
+
+/**
+ * The pre-REQ-88 fallback: join by ordinal `index`. Kept for manifests that carry no
+ * section geometry at all — silently comparing nothing would be worse than the
+ * ordinal join's known weakness, which only bites when the two sides segment
+ * differently.
+ */
+function pairSectionsByOrdinal(
+  expected: readonly SectionValues[],
+  actual: readonly SectionValues[],
+): Map<number, SectionMatch> {
+  const byIndex = new Map<number, SectionValues>()
+  for (const s of actual) byIndex.set(s.index, s)
+  const out = new Map<number, SectionMatch>()
+  expected.forEach((es, ei) => {
+    const as = byIndex.get(es.index)
+    if (!as) return
+    // Score it anyway when both sides happen to carry a box, so the pairing rows
+    // still say how well the ordinal pair actually overlapped.
+    out.set(ei, { section: as, overlap: es.box && as.box ? verticalIoU(es.box, as.box) : 0 })
+  })
+  return out
+}
+
 /**
  * Diff an actual manifest against an expected one, field by field, aligning
  * text elements by case-folded text and section-level values (scrim, vertical
- * anchor) by ordinal index. The verbatim text is itself compared once paired
+ * anchor) by band GEOMETRY — vertical overlap, since a section has no text to
+ * join on (BUG-102; ordinal index before it, still the fallback for a manifest
+ * carrying no section boxes). The verbatim text is itself compared once paired
  * (casing/whitespace the join key folds away is still a captured value). Only
  * fields present on the *expected* side are compared — the expected manifest
  * (the captured reference) is authoritative about what must be reproduced.
@@ -2583,15 +2733,61 @@ export function diffManifests(
   for (const q of queues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
   for (const q of fieldQueues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
 
-  // Section-level values (scrim, vertical anchor) — no text to join on, so
-  // aligned by ordinal index. Extra sections on either side (a segmentation
-  // mismatch, not a value delta) have no counterpart and are skipped.
-  const actBySection = new Map<number, SectionValues>()
-  for (const s of actual.sections ?? []) actBySection.set(s.index, s)
-  for (const es of expected.sections ?? []) {
-    const as = actBySection.get(es.index)
-    if (!as) continue
+  // Section-level values (scrim, vertical anchor) — no text to join on, so joined
+  // by GEOMETRY (BUG-102). Both sides carry the band box in the same full-page
+  // document coordinate space, so the natural key is vertical overlap; the ordinal
+  // join this replaced compared `§n` against whatever shared its index, which on a
+  // page whose header is `position: absolute` over the hero meant a 192px header
+  // strip against an 800px hero band. A reference section with no overlapping
+  // counterpart is a segmentation mismatch, not a value delta: it is recorded in
+  // `sectionPairing` as unpaired rather than compared against a stand-in.
+  const expSections = expected.sections ?? []
+  const actSections = actual.sections ?? []
+  const geometryJoin = hasSectionGeometry(expSections) && hasSectionGeometry(actSections)
+  const sectionPairing: SectionPairing[] = []
+  let sectionsNotComparable: string | undefined
+
+  // The flat-L1 degenerate case. An L1 render emits ONE element into `<body>`, and
+  // the extractor's bands are the `<body>` children, so the whole reproduction is a
+  // single body-spanning band: `§0` was being compared against the entire page and
+  // every other reference section was skipped in silence. Say that once, plainly —
+  // eight "unpaired" rows would be louder noise than the false delta they replace,
+  // and none of them would be about the reproduction.
+  const flatRepro =
+    geometryJoin &&
+    actSections.length === 1 &&
+    expSections.length > 1 &&
+    spansWholePage(actSections[0], actual)
+
+  if (flatRepro) {
+    const band = actSections[0].box!
+    sectionsNotComparable =
+      `the reproduction segments into ONE body-spanning band (${Math.round(band.height)}px, covering its whole page), ` +
+      `so the reference's ${expSections.length} sections have no bands to compare against — ` +
+      `section-level values (overlay, contentAnchor, textAlign) are UNMEASURED here, not clean`
+  }
+
+  const sectionMatches = flatRepro
+    ? new Map<number, SectionMatch>()
+    : geometryJoin
+      ? pairSectionsByGeometry(expSections, actSections)
+      : pairSectionsByOrdinal(expSections, actSections)
+
+  // Nothing is compared and nothing is listed under the flat-L1 verdict: the reason
+  // above stands in for the whole per-section pass.
+  const joinable: readonly SectionValues[] = flatRepro ? [] : expSections
+  joinable.forEach((es, ei) => {
+    const match = sectionMatches.get(ei)
+    const as = match?.section
     const label = `§${es.index}`
+    sectionPairing.push({
+      label,
+      box: es.box,
+      actualLabel: as ? `§${as.index}` : null,
+      actualBox: as?.box,
+      overlap: match?.overlap ?? 0,
+    })
+    if (!as) return
 
     const eo = es.overlay
     const ao = as.overlay
@@ -2617,7 +2813,7 @@ export function diffManifests(
     if (es.textAlign !== undefined && as.textAlign !== undefined && es.textAlign !== as.textAlign) {
       record(label, 'section', 'textAlign', es.textAlign, as.textAlign)
     }
-  }
+  })
 
   // REQ-48 (item 5) — viewport-match precondition. Layout recomposes per width,
   // so two sides shot at different viewports produce deltas that are artefacts of
@@ -2732,6 +2928,8 @@ export function diffManifests(
     suppressed,
     objects: cards,
     unpairedActual,
+    sectionPairing,
+    ...(sectionsNotComparable ? { sectionsNotComparable } : {}),
   }
 }
 
