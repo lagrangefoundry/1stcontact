@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:20:54.429036+00:00'
+updated_at: '2026-09-17T21:23:22.646590+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -181,5 +181,55 @@ Ready to file 1–6 as REQs, or to start on 3 and 4 — they're small, self-cont
 ok so version immutability enforcement seems worth building now.
 
 What else needs to be built now? The current focus is to get a beta product ready for testing - that does not face the same level of real-world security threats as the final product - but again I am interested in what needs to be changed - or added in terms of specifications to any of the EPICs built or in-flight
+
+<!-- xgd-turn id="027e8ad7-1d5b-4e49-b45f-ee56ef24782b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:23:22.570501+00:00" -->
+#### Claude
+Two quick checks before I answer, because the beta lens turns on what data the beta actually holds.
+
+Both checks came back clean-ish — and one of them changes the beta list. Writing the beta posture and the per-epic amendments into the ticket.
+
+Both sections are in the ticket. Here's the substance.
+
+## What the beta lens honestly relaxes
+
+Everything whose severity was carried by *an attacker choosing to show up*: the prompt-layer injection envelope, the published-site CSP, component-store digest pinning, security-event review, and the two structural guards (F5/F6 — cheap, but not blocking). They stay on the list; none is a beta blocker.
+
+## What it doesn't — four categories, none needing an attacker
+
+1. **Irreversible and unrecoverable effects.** Beta *raises* the accident rate — testers poke at things, and the assistant is one of the testers. A burned hostname and a lost revision both happen by ordinary mistake. This is a reliability argument before a security one.
+2. **Real personal data.** No beta exemption in law, and the most exposed people are third parties: the *contacts* of the test businesses, who never agreed to be anyone's test data. Erasure and export are explained by the portal and performed by nothing — which REQ-183 §4.2 deliberately keeps honest on the page, and which needs a human able to actually do it.
+3. **Reputation establishable only once.** Sending-domain reputation and the global `1stc.site` namespace are both *set* during beta.
+4. **Decisions that get expensive to reverse.** The confirmation seam costs one operation today and three surfaces after EPIC-5 and EPIC-13. The PSL submission has weeks of external lead time.
+
+## Beta blockers
+
+| | Build |
+|---|---|
+| 1 | Revision immutability + `sha` verification + restore control — agreed, and it's the backstop that makes everything else survivable |
+| 2 | Confirmation seam for irreversible operations |
+| 3 | **F1's interim half only** — `attachment` outside a render-safe allowlist, `nosniff`, sandbox CSP on `/api/material/file`, plus `validateSvg` on ingest. **The separate origin defers**: it's a URL change, and material URLs aren't baked into published pages, so it doesn't get much more expensive later |
+| 4 | F8 hygiene (`.dev.vars*`, Turnstile `hostname`) — minutes, and beta means more hands on the repo |
+| 5 | *Not code:* a manual erasure/export runbook + the retention decision recorded |
+| 6 | *Not code:* start the PSL submission — lead time, not effort |
+
+One thing I checked that's already right: consent evidence has integrity. `user_acceptances` holds current value with a `CHECK`, history lives in `contact_events` — the one table with an immutability trigger. Correct split, needs nothing.
+
+## Spec amendments — the highest-value ones
+
+Full table is §5b. The four that save the most:
+
+**EPIC-13 (Email)** — *Inbound mail may not write a contact's consent state, and its trust is a function of DMARC alignment.* An SMTP `From` is unauthenticated, so without this a spoofed sender attributes words — possibly an opt-in — to a real contact. The epic covers open-relay and destination verification but never says inbound content is *untrusted input*, and every capture and threading decision depends on that. Plus DKIM key and send-as SMTP credential custody.
+
+**EPIC-5 (DNS)** — *answer open question 2 with the confirmation seam*: the assistant reads everything and **proposes**; MX/SPF/DMARC/DKIM/NS mutations are performed by a human on a rendered diff, never an unattended tool call. Your epic already calls those records "privileged" and asks exactly this question — answering it in the spec is what makes the AI tools designable at all.
+
+**EPIC-16 (Staging/deploy)** — *staging may not hold production data, nor a credential that can write production D1 or R2.* If it ever holds real contacts, it **is** production. Cheapest possible moment; after a shared secret exists, separating them is a migration. F7's digest pinning belongs here.
+
+**EPIC-12 (Duplication)** — *a duplicate crosses no business boundary, starts at revision 0, and carries no grants, tokens, sessions or synthetic markers.* Copying revisions would import another site's history and muddy both attribution and the immutability guarantee you're about to enforce.
+
+Then: EPIC-4 (irreversible actions human-performed; PSL as a security control; cookie `Domain` never a customer apex), EPIC-9 (a grant is minted only from a signature-verified idempotent Stripe event — the billing webhook writes to *authorization*), EPIC-7 (a monitor reads, never writes), EPIC-14 (per-recipient limits, scoped links), EPIC-10 (attachments inherit F1's rule), EPIC-11 (contact content in a granted tool = AI-I7), EPIC-6 (transfer-auth custody; renewal failure is the largest single loss in the product), EPIC-15 (least-privilege credentials for synthetic runs), EPIC-8 (no metric crosses a business boundary).
+
+Immutability enforcement is the one you've greenlit. Want me to scope it as a REQ and start — trigger on `site_revisions`, claim the id before writing bytes, verify `sha` on checkout — or apply the epic amendments first while the analysis is fresh?
 
 <!-- xgd-chat-end -->
