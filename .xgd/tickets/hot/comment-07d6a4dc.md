@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T01:08:45.446535+00:00'
+updated_at: '2026-09-17T01:11:09.691821+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -414,5 +414,60 @@ I don't see anything here that recongnises that L1 or its rendering might be at 
 3. Rendering bug - engine gets it right, it can be express (and is) in L1 but the renderer fails to render it correctly
 
 The prompt should cover all these in its primary mandate - finding 1c bugs is secondary to all of that.
+
+<!-- xgd-turn id="85f7fe5b-9fa9-492a-9fac-6257d1f5c8ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T01:11:09.638106+00:00" -->
+#### Claude
+Three things in your message, and one of them I need to correct before the rest follows.
+
+**The restriction you want isn't available, and I already measured it.** `--allowedTools 'Bash(xgd ticket *)'` does not scope `Bash` — it *admits* `Bash` whole and ignores the prefix. That was D5 test B: `echo MEASURED-B` ran, exit 0, no denial. So "restrict to `xgd ticket **`" can't be enforced by the harness. The good news is it doesn't block you: **the round already has full `Bash` as of D7** — that shipped an hour ago. The brief saying "You do not run `xgd`" is simply stale text describing the old policy. Making it run `xgd` is a brief edit, not a permissions fight.
+
+Now the validation you asked for, because it's the one empirical question here.
+
+Now the actual test — can an implementing agent run the tools it needs? Trying the real ones against the stored bundle.
+
+Confirmed the known sandbox limit — Chromium can't get a Mach bootstrap port here. Mapping precisely what *does* work:
+
+## Validation result: mostly yes, with one real gap
+
+I ran these as the implementing agent, with the permissions I have:
+
+| | |
+|---|---|
+| `1c l1-gate --ref <bundle>` | ✅ ran — `PASS`, full 3-probe report, 0 fold residuals |
+| `1c render <slug> --sandbox` | ✅ rendered 2 files |
+| `1c page get <slug> home --sandbox --json` | ✅ 64 KB L1 document |
+| `1c page list`, `1c refold`, `repro`, `responsive-diff` | ✅ offline, never install-gated |
+| `xgd ticket *` | ✅ |
+| All evidence + all 11 bundle files | ✅ readable |
+| `npm test` | ✅ — I ran 69 tests this session |
+| **`1c gate`** | ❌ **Chromium dies: `bootstrap_check_in … Permission denied (1100)`** |
+| `1c diff`, `capture`, `shot`, `values-diff <slug>` | ❌ same browser dependency |
+| `1c values-diff --ref X --actual <manifest>` | ❌ browser-free form exists but rejects the bundle's manifest: `actual.elements is not iterable` |
+
+**So: the implementing agent can reach every material and run the offline half of the engine, but cannot re-run the browser-backed gate in a sandbox like mine.** The console can — it drove Chromium fine for the first round — so this is about *where the implementer runs*, not a missing capability.
+
+That has a direct consequence for your "how does the implementer check its work" request: **the ticket's check-your-work section must lead with something that works without a browser** — `1c l1-gate`, reading `values-diff.json`, a targeted `npm test` — and name `1c gate` as the operator-run confirmation rather than the primary check. If we write "run `1c gate` to see the problem" as the only instruction, a sandboxed implementer is stuck at step one.
+
+## On the three issue classes
+
+This is the most important thing in your message and the brief currently has no vocabulary for it. Right now §5 says a residual is *"a serializer bug, a missing L1 axis, a missing capture hint, or a region that needs promoting to flow"* — which collapses your (1) and (2) into a list of examples and **omits (3) entirely**. The renderer isn't mentioned anywhere in the brief as a possible culprit.
+
+Worth noting it's also a testable distinction rather than a judgement call, which makes it much stronger than a taxonomy the round has to intuit:
+
+- **(2) L1 can't express it** — the value is absent from the L1 document. `1c page get` shows nothing carrying it.
+- **(3) renderer bug** — the value *is* in the L1 document and the render is still wrong. `1c page get` shows it; the output doesn't.
+- **(1) engine shortfall** — L1 has the axis, the renderer honours it, but the fold/capture put the wrong value in.
+
+That's three distinguishable evidence patterns, and the round can be told to *state which test it ran*. I'd make that the spine of the new §5 and the mandatory first section of the ticket body.
+
+## Before I draft
+
+Everything above is agreed and I'll write it. Two things I want to get right rather than guess, because they change the code and not just the brief:
+
+**Does the round still hand back an outcome block at all?** If it creates its own tickets, the console's `fileTicket` path and the `ticket`/`bugs` fields in the outcome become dead — the round would report *"I filed REQ-263, BUG-96"* instead of handing over content. That's a real simplification and it reverses REQ-256 behaviour 4. I think it's what you want; say if not.
+
+**Multiple rounds — is the ordered list one ticket or several?** You said the ticket lists all issues in order with proposed fixes and the implementer does what it can. That reads to me as: **one REQ per round**, internally ordered, and a later round that finds the same class appends to it. The alternative — one ticket per issue — loses the ordering you're asking for. I'll go with one-REQ-per-round-internally-ordered unless you say otherwise.
 
 <!-- xgd-chat-end -->
