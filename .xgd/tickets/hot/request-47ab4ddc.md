@@ -6,10 +6,10 @@ title: 'fold: inline-boxed text runs lose their half-leading, so the glyphs pain
   above the reference'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:21.692738+00:00'
-updated_at: '2026-09-17T03:00:47.945067+00:00'
+updated_at: '2026-09-17T21:44:19.581926+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   auto_merge_back: true
