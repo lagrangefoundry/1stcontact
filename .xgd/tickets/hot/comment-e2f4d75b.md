@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-14
 created_by: xgd
 created_at: '2026-09-17T00:34:57.069190+00:00'
-updated_at: '2026-09-17T01:53:42.934976+00:00'
+updated_at: '2026-09-17T21:16:12.293553+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -110,5 +110,13 @@ Two things I'd flag:
 
 - **Members-only makes "send enquiries to `enquiries@alicesplumbing.com`" awkward** (OQ1). The shape of the answer is "to receive notifications, be a member" — a shared mailbox *can* be a contact, signed up like anybody else, and that keeps the path honest with no non-contact in it. Whether that's the answer or a dodge that reads as absurd the first time someone accepts terms on behalf of `enquiries@` is the open part. It's a real small-business want, so worth deciding before the audience resolver is written.
 - **I didn't file the prompt as a child ticket** — this session is scoped to EPIC-14 and you didn't say to create one. It's scoped inside the epic body and ready to lift out. Say the word and I'll file it as a child REQ.
+
+<!-- xgd-turn id="39a3168c-9504-455b-89ab-585f5a89eeff-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:16:12.239914+00:00" -->
+#### You
+Lets keep this as simple as possible for now. Id like to implement and test a simple notification framework.
+
+Can you lay out what this would look like in terms of tickets
 
 <!-- xgd-chat-end -->
