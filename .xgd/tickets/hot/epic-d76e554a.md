@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T04:19:40.648446+00:00'
+updated_at: '2026-09-17T04:30:21.077353+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,6 +13,7 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
+
 
 
 ## What the client asked for
@@ -825,42 +826,48 @@ all the things that a professional email needs, and of course the HTML styling t
 goes around it. All of that is a template and I think it's appropriate that the
 templates and the message body are kept separate."*
 
-**Agreed, and this is not a new type — it is the existing one.** Withdrawing the
-`content` type above reduced what *the Campaigns surface introduces* to two, `list`
-and `campaign`. `template` is a pre-existing type ([[REQ-197]],
-`apps/control-app/src/templates.ts`) and is untouched by that correction. The
-distinction §"Three ticket types" drew is in fact cleaner now than when it was
-written: **a template is a keyed role that gets re-filled; a campaign body is a
-specific thing said once.** Those were always different lifecycles, and now they are
-the only two.
+**Agreed.** A campaign's rendered output is **body × template**: the operator's
+markdown inside the business's chrome. The two are edited by different people at
+different rhythms — the copy changes every send, the chrome changes when the brand
+does — and that is why they are separate objects rather than two fields of one.
 
-So a campaign's rendered output is **body × template**: the operator's markdown
-inside the business's chrome.
+### The template is identified by its ticket, and the operator chooses it
 
-### Does the template need freezing too? No — it is already versioned, which is better
+**There is no key, no newest-wins resolution and no version chain.** An earlier draft
+of this section carried [[REQ-197]]'s `TemplateKey` convention over to campaign
+styling, and the client removed it: *"no key, the key is the ticket number the user
+changes it, they EXPLICITLY CHOOSE which template they want… User is in control —
+don't confuse them with hidden keys and versions."*
 
-The client: *"I guess maybe such a template needs to be frozen too? Or a version of
-it frozen? As soon as it has been attached to one campaign."*
+The worked example is the specification:
 
-**A version of it, and the mechanism already exists.** REQ-197's templates are keyed
-— `TemplateKey`, newest-ticket-wins — and editing one *"is writing a new ticket
-rather than editing a live one in place… the record of what was sent last month still
-points at the ticket that said it."* Templates are therefore immutable by
-construction rather than by lock, and no `immutable` rule is needed for them.
+> template-125 is chosen by the user to be associated with campaign-2551 which is
+> sent on July 12 2027
+> template-125 (unchanged) chosen by the user to be associated with campaign-2583
+> which is sent on July 28 2027
+>
+> Users site undergoes an upgrade, logo is changed. User cannot edit template-125
+> they hit [Make a copy] to create template-132
+>
+> template-132 chosen by the user to be associated with campaign-2653 which is sent
+> on Aug 7 2027
 
-**Freeze-on-first-attach would be the wrong mechanism and worth naming as rejected.**
-It would mean that attaching a template to one campaign makes the business's logo
-uncorrectable forever. Versioning gives the property the freeze was reaching for —
-every past campaign keeps pointing at the bytes it used — while leaving the template
-editable for all future sends.
+**Three things this fixes in what was written above.**
 
-**Which forces one decision: the pin is taken at the draft boundary, not at attach.**
-A draft campaign holds the template **key**, so a template corrected while the
-campaign is still being written reaches it — and previews show the current chrome. The
-`draft → sending` transition resolves that key to a `template_uid` and records it.
-So the draft boundary pins **three** things in one moment: the body freezes, the list
-resolves to a recipient set, and the template resolves to a version. An operator may
-override to a specific older version; that is the exception, not the default.
+1. **The campaign holds a template's ticket id from the moment the operator picks
+   it.** Nothing is resolved later. The earlier claim that a draft holds a key which
+   resolves to a uid at the draft boundary is withdrawn — the reference was never in
+   doubt, so the draft boundary settles **three** things, not four: the body freezes,
+   the list resolves to a recipient set, and the template latches to `used`.
+2. **Frozen is not retired.** July 28's campaign uses template-125 *after* it froze.
+   A `used` template stays fully selectable in the picker forever; the latch blocks
+   **editing**, never **reuse**. This needs saying because "frozen" reads as
+   "archived" to whoever builds that picker, and the example depends on it not being.
+3. **"Set up your brand once" is not a mechanism, it is the operator choosing.** The
+   propagation argued for earlier — correct the logo and future campaigns pick it up
+   — was solving a problem the client does not have, and the propagation *was* the
+   hidden behaviour rather than something paid for by it. When the brand changes the
+   operator copies once and picks the copy from then on.
 
 ### Preview and test send are two different tools, and both are required
 
@@ -876,8 +883,8 @@ category has both.
 **One renderer, and no preview-only path.** Preview must run the exact same render as
 the real send or it is a lie in the one place a lie is most expensive. Note also that
 **previewing a *sent* campaign is the same operation** — it is how the historical
-record is read back — which is what makes §"six constraints" obligation on
-deterministic rendering testable rather than aspirational.
+record is read back — which is what makes the reconstructibility obligation stated
+below testable rather than aspirational.
 
 Per §"six constraints" item 5, a test send leaves the campaign in `draft`, writes no
 contact events, and renders freezable content without freezing it.
@@ -886,11 +893,16 @@ contact events, and renders freezable content without freezing it.
 
 **The unsubscribe link cannot live in the frozen bytes.** It is template boilerplate,
 but it carries a token identifying *which* recipient is unsubscribing, so it is
-resolved per recipient at send time — as is every personalisation merge field. This
-qualifies the reconstructibility obligation recorded above: a sent campaign
-reconstructs to the message **modulo per-recipient substitution**, not byte for byte.
-Stated plainly because the unqualified claim is false, and a record whose guarantee
-is overstated is worse than one whose limits are written down.
+resolved per recipient at send time — as is every personalisation merge field.
+
+**Which requires stating the obligation this creates, and then its limit.** Because a
+broadcast writes no per-recipient ticket, nothing stores the bytes that reached any
+individual — so what went out must be **reconstructible** from the frozen body plus
+the chosen template, which makes deterministic rendering a requirement rather than a
+convenience. And the limit: a sent campaign reconstructs to the message **modulo
+per-recipient substitution**, not byte for byte. Stated plainly because the
+unqualified claim is false, and a record whose guarantee is overstated is worse than
+one whose limits are written down.
 
 **And the unsubscribe mechanism is not the template author's option.** The send path
 refuses a broadcast whose rendered output carries no unsubscribe affordance, matching
@@ -905,80 +917,56 @@ bypass suppression is the same principle applied one step earlier.
 
 The client: *"the template should go through the same lifecycle as the campaign, they
 are joined at the hip. One template can serve multiple campaigns but once a template
-has gone out it is frozen… Perhaps the simplest user experience is when we create a
-new campaign we also create a new style template. One or both could be created as
-copies of existing content?"*
+has gone out it is frozen."*
 
 **The preservation goal is accepted without qualification** — *"we want to see what
 the user actually received, the actual logo that was used, the actual unsubscribe
 statement."* What follows is only about which mechanism delivers it.
 
 **A shared lifecycle is not available, and the client's own constraint is why.** One
-template serves multiple campaigns. Campaign A is `sent` while campaign B, on the
-same template, is still `draft`. The template cannot be in both states, and a shared
-object cannot share the lifecycle of each of its several owners.
+template serves multiple campaigns. In the example above template-125 is `used` by
+campaign-2551 from July 12 while campaign-2583 is still in draft. The template cannot
+be `sent` and `draft` at once, and a shared object cannot share the lifecycle of each
+of its several owners.
 
-**So the template gets a one-way latch: `editable → used`.** It closes the moment any
-campaign pins it at draft-exit, and never reopens. `sending` is meaningless for a
+**So the template gets a one-way latch: `editable → used`.** It closes the first time
+a campaign carrying it leaves draft, and never reopens. `sending` is meaningless for a
 template. This is exactly *"once it has gone out it is frozen"*, without the
-contradiction.
+contradiction — and per the picker rule above, a latched template remains selectable.
 
 ### Copy-to-write: the refusal is explicit, and so is the copy
 
-The client, correcting the mechanism below: *"we just need a mechanism to tell the
-user 'this cannot be edited, if you want changes here is a CTA to make a copy'. This
-should be clear and explicit — what we were discussing before sounded like there were
-automated versioning things going on, that would be confusing."*
+The client: *"we just need a mechanism to tell the user 'this cannot be edited, if you
+want changes here is a CTA to make a copy'. This should be clear and explicit — what
+we were discussing before sounded like there were automated versioning things going
+on, that would be confusing."*
 
 **The term is copy-to-write, and the correction is more than naming.**
 *Copy-on-write* is a term of art for a mechanism whose defining property is that the
 copy is **invisible** — the system performs it and the actor never learns it
-happened. That invisibility is exactly what is being rejected here. The earlier draft
-of this section named the mechanism by the one attribute the product must not have.
+happened. That invisibility is exactly what is being rejected. The earlier draft named
+the mechanism by the one attribute the product must not have.
 
 **So the write is refused, the refusal is shown, and the copy is a deliberate act.**
-A `used` template that the operator tries to edit produces a real store refusal —
-[[REQ-160]]'s `immutable` rule with `when: "fields.status != draft"` — surfaced as an
-explicit message and a call to action. Nothing is intercepted, repointed or versioned
-behind the operator's back.
+Editing a `used` template produces a real store refusal — [[REQ-160]]'s `immutable`
+rule with `when: "fields.status != draft"` — surfaced as an explicit message and a
+single **[Make a copy]** call to action. The copy is a **new, independent template
+with its own ticket id**: template-132 is not a version of template-125, does not
+supersede it, and changes nothing about any campaign. Nothing is intercepted,
+repointed or resolved behind the operator's back.
 
-**This is also the simpler build, which is why it wins on more than clarity.**
-Copy-on-write needed that same lock *plus* a silent interception layer to catch the
-refusal and transparently repoint the campaign in hand. Copy-to-write is the lock and
-a message. One mechanism and one UI pattern, applied identically to a `used` template
-and to a `sent` campaign — the client's earlier *"it can be copied for another email
-blast"* is the same affordance on the other type.
+**This is also the simpler build, which is why it wins on more than clarity.** The
+rejected alternative needed that same lock *plus* a silent interception layer to catch
+the refusal and transparently repoint the campaign in hand. Copy-to-write is the lock
+and a message. One mechanism and one UI pattern, applied identically to a `used`
+template and to a `sent` campaign — the client's earlier *"it can be copied for
+another email blast"* is the same affordance on the other type.
 
-**"Set up your brand once" survives, because the copy inherits the key.** The
-concern that motivated the automated version — that a business must be able to
-correct its logo without touching every future campaign — is met as long as the copy
-takes the original's `TemplateKey`, so newest-wins makes it current. The property is
-unchanged; it now costs a click and a sentence rather than happening silently.
-
-**The CTA is two CTAs, and this follows from the explicitness itself.** *"Make a
-copy"* is ambiguous in a way that matters, because the readings differ in
-consequence:
-
-- **"Update this template"** — a new version under the **same key**, which becomes
-  the current template for future campaigns. Past campaigns keep the version they
-  used. This is fixing the logo.
-- **"Start a new template from this one"** — a **new key**, a separate design
-  alongside the original, changing nothing about what the next campaign looks like.
-  This is wanting a second look for announcements.
-
-Offering one undifferentiated *copy* button would reintroduce precisely the confusion
-the explicit refusal exists to prevent: the operator would not know whether they had
-just changed what their next campaign looks like.
-
-**Eager per-campaign templates remain rejected, for the unchanged reason.** Minting a
-template ticket for every campaign at creation time costs the "set up your brand
-once" property outright — there is no shared template left to correct, so fixing a
-logo means editing every future campaign individually, forever. It also fails to
-remove the concept it appears to remove, since eager copies still need a canonical
-*current* template to copy from, which is the `TemplateKey` that already exists.
-
-Per §"Does the template need freezing too?", the campaign pins `template_uid` at the
-draft boundary. The latch and the pin are the same event seen from the two ends.
+**Which means the refusal must be legible everywhere a write can land**, not only in
+the styling editor: the AI chat pane adjusting chrome, a bulk action, a `sent`
+campaign opened from the contact timeline. Enforcement belongs in the store, and that
+is the right place for it, but any surface that lets the raw store error through gives
+the operator a stack trace where an explanation was intended.
 
 ### Freezing the template does not preserve the logo
 
@@ -999,11 +987,25 @@ the frozen HTML intact, and the claim it supports false.
    sitting in inboxes. This is a retention obligation on the blob store, and it has
    to be reconciled with [[DOC-37]]'s erasure path rather than discovered by it.
 
-### One dependency to check before this is built
+### A campaign style template is not [[REQ-197]]'s `template` type
 
-`template` is an existing type with existing consumers — the platform's invite and
-lapse notices go through [[REQ-197]]'s keyed templates. Adding the latch extends a
-type this epic does not exclusively own. The latch appears to generalise correctly
-(a platform template that has been sent should also close rather than be edited in
-place), but that is a claim about REQ-197's current call sites, and it must be
-verified against them rather than assumed.
+Recorded as an inference from the client's identity rule rather than as something they
+specified, because it follows from it and will otherwise be discovered late.
+
+**The two have different identity models, and that is not a detail.** REQ-197's
+`template` is keyed — `TemplateKey`, newest-ticket-wins — *because nobody chooses it*:
+the platform reaches for "the invite template" and fills a role, with no human in the
+loop to pick a ticket. A campaign style template is the opposite case by the client's
+rule: it is chosen explicitly, by ticket id, by the operator, every time.
+
+Different identity, different lifecycle (latched versus newest-wins), so **a distinct
+type** rather than one type behaving two ways depending on which code path created the
+row. This is the same reasoning §"Three ticket types" applied when it separated
+campaign content from `template` — *"same principle, different lifecycle, so a new
+type"* — and the original statement there about the existing `template` being keyed
+remains true of the platform templates it was describing.
+
+**This dissolves a dependency flagged earlier in this section.** An earlier draft
+warned that latching `template` would extend a type with existing consumers and that
+the claim needed verifying against REQ-197's call sites. With a distinct type, the
+platform's invite and lapse notices are untouched and there is nothing to verify.
