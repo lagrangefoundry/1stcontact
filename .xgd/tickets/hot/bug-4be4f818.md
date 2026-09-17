@@ -15,6 +15,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-1ad0ba73
 ---
 
 `1c values-diff` and `1c gate` compute a full value manifest for the
