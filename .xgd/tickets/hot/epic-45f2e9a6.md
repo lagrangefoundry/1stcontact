@@ -5,13 +5,14 @@ type: epic
 title: DNS checks and monitoring (start of monitoring and notification)
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:25.030239+00:00'
-updated_at: '2026-09-12T20:49:54.610298+00:00'
+updated_at: '2026-09-17T21:39:47.690981+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
 fields:
   priority: medium
 ---
+
 
 ## What the client asked for
 
@@ -154,3 +155,38 @@ crosses.
 
 **Also see** [[TODO-6]] — `1stc.site` housekeeping, whose PSL submission has a
 multi-week lead time and no shortcut, so it wants starting before any of this.
+
+## The test gutter — this epic's share ([[DOC-54]])
+
+This epic is not a consumer of the gutter — it writes no contact records. It is
+[[EPIC-15]]'s **engine**, and what it owes is a shape decision that is free now and
+expensive later.
+
+[[EPIC-15]] concludes that BFM is *a checker family inside this epic's engine, not a
+second engine* — on this epic's own instruction to *"build the shape generically, even
+with one checker"*, and because [[EPIC-8]] is right that two places computing the same
+verdict will disagree and the customer will believe the wrong one.
+
+**Three requirements BFM places on the engine. They cost nothing to design in and a
+rewrite to retrofit, because a DNS checker needs none of them:**
+
+1. **A checker may be two-phase and asynchronous.** Send an email at T; the verdict
+   arrives when it lands in a mailbox at T+4m, or fails to by T+15m. A synchronous
+   observe-and-return interface cannot express this, and *every* interesting BFM probe
+   has this shape.
+2. **A checker may write to production.** That makes rate, ordering and blast radius
+   the engine's concern rather than each checker's — it must be able to say *"not more
+   than once an hour for this business"* and mean it, and it needs a global kill
+   switch. A bug in a probe loop runs against every customer, forever, unattended.
+3. **A checker may execute somewhere other than a Worker.** [[EPIC-15]] §4's
+   fate-sharing argument puts the alarm path and the outermost check off Cloudflare, so
+   the checker interface must not assume the runtime.
+
+**And one verdict-model requirement**, from [[EPIC-13]]'s forwarding test: some probes
+are confirmed by a **human**, so the verdict is `pass` / `fail` / **`no answer yet`**,
+and the third is not a failure. Someone who has not checked their email in two hours
+has told us nothing; rendering that red trains everyone to ignore the indicator. This
+epic owns the verdict store, so it owns whether that tri-state is general or special.
+
+**Timing:** none of this blocks anything today. All of it blocks everything if it is
+asked after this epic is built DNS-shaped.
