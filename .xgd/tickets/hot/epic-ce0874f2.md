@@ -5,13 +5,14 @@ type: epic
 title: 'Billing and payments: Stripe, subscriptions, invoices'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:33.626917+00:00'
-updated_at: '2026-09-12T21:01:25.387679+00:00'
+updated_at: '2026-09-17T21:39:49.813968+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
 fields:
   priority: medium
 ---
+
 
 > **Rewritten 2026-09-12.** The first draft of this epic scoped billing as *"what
 > the account pays us"* and argued at length that it could not be a tab. That was
@@ -237,3 +238,46 @@ multi-week lead time and no shortcut.
 ## Children
 
 None yet.
+
+## The test gutter — this epic's share ([[DOC-54]])
+
+Two obligations, and the second is larger than it looks because nothing here is built
+yet — which makes both of them free today.
+
+**1. Any table that hangs off a contact carries the mark and cascades.** [[DOC-54]] §3:
+add `synthetic NOT NULL DEFAULT 0` and `run_id`, and declare
+`FOREIGN KEY (contact_id) REFERENCES users (id) ON DELETE CASCADE` as
+`user_acceptances`, `asset_grants` and `contact_events` already do. Without the
+cascade, [[EPIC-15]]'s collector and the delete-contact affordance both silently leave
+this epic's rows behind — a contact removed from the list whose payment history
+survives is the *"we deleted them but kept the history"* mistake `0001_baseline.sql`
+warns about, in the one domain where it is also a legal problem.
+
+**2. This epic owns how the payments path is made synthetically testable**, and the
+client's requirement is settled even though the mechanism is not: *we need a full
+synthetic test path available.* [[EPIC-15]]'s decisions section holds the analysis; the
+decision is this epic's to take when it designs credential handling, which is the
+moment it is cheap.
+
+The constraining fact: **Stripe test mode is a separate environment, not a sandbox
+overlay on live.** Test and live objects occupy different ID spaces and cannot
+reference each other, and the two modes deliver webhooks under **different signing
+secrets** — so any design must know which mode a request is in before it can even
+verify the callback. The two viable shapes are complementary rather than alternatives:
+test credentials loaded in production and selected by the marker (full production code
+path including capture, canary tier only, because test objects cannot reference a live
+connected account), and a real card authorised-and-voided on live keys (the only shape
+that reaches a real connected account, and cheaper than charge-and-refund because a
+void leaves no processing fee behind).
+
+**The rule that follows, whichever is chosen: the signed marker is the only permitted
+input to credential selection.** This promotes [[DOC-54]] R1's unforgeability from
+tidiness to load-bearing for money — the dangerous failure is silent, since picking a
+test key for a real customer means the money never moves while our record says a
+payment succeeded.
+
+**Available regardless, and worth having anyway:** `charges_enabled` / `payouts_enabled`
+per connected account, which catches the real failure mode — Stripe disables an account
+when verification requirements change and the business finds out when the money stops —
+and `requirements.currently_due` / `past_due`, where warning the business *before* the
+deadline is a product feature rather than monitoring.
