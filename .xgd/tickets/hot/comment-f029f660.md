@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T03:44:41.244331+00:00'
+updated_at: '2026-09-17T03:48:23.070650+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -169,5 +169,60 @@ Please note the last turn of EPIC-5 it adds a nuance to our requirement for a ve
 What I would like you to do next is to review the existing epics and their children and the broader state of the implementation (use of epics is recent). And figure out where this Epic needs to impose requirements and modify things that have been built.
 
 Note: I do not want to invest much time today in a comprehensive test suite. However, I do want the guttering and some minimal tests to prove that the guttering works. So our short term focus is around the placement of guttering and sufficient tests to show it performs as intended. And the urgency is to build it and insert it as a requirement before it becomes an after thought
+
+<!-- xgd-turn id="141fc69a-e45f-4a73-aa16-d73af5e8bc9e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T03:48:22.997880+00:00" -->
+#### Claude
+Both noted. Now the survey — epics, children, and where the write paths actually are.
+
+Full picture. Writing the audit into the epic.
+
+Audit is in the epic as §6. Headline: **the surface is much smaller than the epic's framing implies, because only one flow is built end to end.** Your "place the guttering, don't build a suite" scoping is realistic as a day's work.
+
+## Where it lands
+
+| Epic | State | What EPIC-15 imposes |
+|---|---|---|
+| **EPIC-10** Forms | done, REQ-240–245 reconciled | **The entire live gutter surface** — the capture chain is the only end-to-end write path in production, and it's your worked example |
+| **EPIC-11** Activity log | draft, REQ-235 draft | **The best possible moment** — see below |
+| **EPIC-13** Email | underway, no children | Biggest future consumer; contract applies as written |
+| EPIC-16 | draft | Consumes probes; imposes an auth seam back on us |
+| EPIC-9/14/8/7/6 | unbuilt | Nothing to retrofit |
+| EPIC-1/4/5/12 | done | No contact-record writes — out of scope |
+
+**EPIC-11 is the timing find.** `contact_events` is already being *written* by the capture path, and no customer surface *reads* it yet. A column now is free; a column after REQ-235 builds the timeline is precisely the retrofit this epic exists to prevent.
+
+## Two mechanisms already exist in shape
+
+**(1) needs no new concept.** `public-site/src/lead.ts` already has `RESERVED_FIELDS` — trap, Turnstile token, form handle — stripped before anything reaches the record, on the stated reasoning that storing them *"would put three machine artefacts in a contact's provenance beside the words a person typed."* The marker is exactly that kind of artefact. What's new is the signature check, not the plumbing.
+
+**(2)'s derivation rule is already implemented.** `recordEvent` inserts `SELECT ?, u.id, u.tenant_id, … FROM users u` — `business_id` derived from the contact, never supplied. `synthetic` rides the same SELECT as `u.synthetic`. So the async-continuation case I flagged last turn — a webhook 30s later with no request context — is answered by a pattern already in the code.
+
+**And the reads are few:** `peopleOf` / `personOf` / `personDetail` / `contactChangeHead` / `contactsChangedSince`, from three `router.ts` call sites. All already take `Scope`, a one-field interface threaded everywhere — so the gutter rides `Scope` and gets the `forTenant` property without inventing a handle. The matrix you named is `builder/people-axes.js`, which renders from `peopleOf`'s output, so filtering there should cover it — worth confirming by test rather than by reading.
+
+Sized: **migration 0013, one RPC field, five write paths, five read paths.**
+
+## The two nuances you pointed at
+
+**EPIC-5's last turn forces the marker to carry an initiator class, not a boolean** — `platform` vs `customer`. The forwarding test is synthetic traffic whose entire point is that a human receives it. If that distinction is inferred downstream instead of signed at origin, the softening that lets the forwarding test through is the same hole a daily bot enquiry walks through.
+
+It also breaks uniform GC: a probe waiting on a human click has a lifecycle of days, not seconds. So **TTL is a property of the probe class**, and *"no answer yet"* is a third verdict state — rendering an unread inbox red trains everyone to ignore the indicator.
+
+**EPIC-16 §5 imposes an auth seam back on us**: staging behind Access means probes need to carry a service token. `SERVICE_TOKEN_IDENTITIES` (BUG-59) already does the mapping, so it's a seam not a build — but it has to land before the probe interface settles.
+
+## Proposed first build
+
+Four mechanisms at their smallest honest size, plus five assertions, each falsifying a different mechanism:
+
+1. A marked submission runs the **full path** and produces records — falsifies a short-circuit
+2. Those records appear in **no customer read** — list, detail, change feed, axes
+3. An event on a synthetic contact is synthetic **with no caller passing a flag** — the leak-prone half
+4. A **forged** marker is refused and the record is written **real** — the attack that matters
+5. Collection removes synthetic records and **leaves the real ones**
+
+Everything else — probes, tiers, external execution, verdict storage — waits.
+
+I haven't cut the child ticket; this session is scoped to EPIC-15 and you've said you have enough on deck. Say the word and I'll scope it, cut the branch, and build it.
 
 <!-- xgd-chat-end -->
