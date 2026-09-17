@@ -11,6 +11,7 @@ last_field_updated: body
 status: draft
 fields:
   priority: high
+  chat_comment: comment-a687a6e5
 ---
 
 ## What the client asked for
