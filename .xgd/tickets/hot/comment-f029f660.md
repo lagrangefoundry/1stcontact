@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:34:09.409277+00:00'
+updated_at: '2026-09-17T21:38:24.701383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -586,5 +586,13 @@ The part of #1 that still stands: shape the probe's verification as a function t
 Net effect: the execution-framework aside has **no decisions that need making today.** The only thing to carry forward is "verification is a function of a run id", which is free.
 
 Ready to cut the REQ under EPIC-15 and start — say go.
+
+<!-- xgd-turn id="944c7465-8cc0-4bed-9b4f-37cbd4b4eac1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:38:24.608359+00:00" -->
+#### You
+Can you add content to all the EPICs you listed, point them at your doc, make sure their scope of responsibiolity is clear for getting guttering/foundation in place.
+
+I lost track what is the REQ for?
 
 <!-- xgd-chat-end -->
