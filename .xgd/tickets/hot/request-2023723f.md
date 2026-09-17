@@ -5,7 +5,7 @@ type: request
 title: 'email tickets: freeze the record of a sent message'
 created_by: EPIC-3
 created_at: '2026-09-16T21:58:48.359181+00:00'
-updated_at: '2026-09-17T03:17:37.125434+00:00'
+updated_at: '2026-09-17T03:17:40.721715+00:00'
 completed_at: null
 last_field_updated: epic_parent
 status: draft
@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-0e43e7e5
+  epic_parent: epic-d76e554a
 ---
 
 ## What this adds
