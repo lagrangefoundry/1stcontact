@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T21:52:59.741986+00:00'
+updated_at: '2026-09-17T21:55:08.127039+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -597,5 +597,29 @@ One consequence I've written in: `readTicket()` currently regex-scrapes `Status:
 <!-- xgd-chat role="user" ts="2026-09-17T21:52:58.981355+00:00" -->
 #### You
 Please check for security updates in your ticket - not sure how relevant they are to a dev tool?
+
+<!-- xgd-turn id="0e7f112e-1081-4ed9-9e12-33f890fc7fab-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:55:06.953497+00:00" -->
+#### Claude
+Your instinct is right. I checked it properly rather than assuming, and **BUG-104 is not a security vulnerability** — appended to the ticket so it doesn't get re-litigated.
+
+## Why it isn't one
+
+Nothing reads `created_by` as a trust signal. I traced every consumer in `xgd`: the dashboard ticket header (`formatCreatedBy`), comment attribution rendering, an `api/intents.py` passthrough. All display-only. No authorization, routing, filtering, or dispatch decision touches it. Nothing in `1stcontact` reads it at all.
+
+The dispatcher triggers on `status` — which is exactly why the `ready_*` assertion exists and this field needs no equivalent. A wrong `created_by` grants nothing and blocks nothing. `medium` stands; I didn't raise it.
+
+What it does cost is **forensic**: it's the only marker separating "an unattended round wrote this" from "the operator wrote this," and a round's input includes `raw.html` captured from a third-party site. So it's a detection/attribution control whose value is entirely post-incident — audit-trail integrity for a single-operator local dev tool. That justifies fixing it, which was already justified. Nothing more.
+
+## Two things I did find, which I have *not* filed
+
+Neither is caused by this bug or fixed by fixing it, so I kept them out of BUG-104's scope and recorded them as adjacent findings:
+
+**1. The brief makes a claim that isn't true.** `DIAGNOSE-THE-GAP.md` §1 tells the round: *"You have no tool that can write a file, spawn another agent or reach the network."* With `Bash` granted whole, the first and third are false — `ai.ts` says so itself for authoring ("the round can write through it"). The deny list removes the named network *tools*; it does not remove `curl`. The sentence reads as a statement of fact about containment when it is really an instruction, and should be written as one.
+
+**2. Untrusted HTML meets an unrestricted shell.** The round reads captured third-party DOM while holding `Bash`, with no OS sandbox on the spawn — `claudeCommand` passes permission mode, both tool lists and empty setting sources, and no sandbox flag. This is a documented consequence of D7, not an oversight, and for sites you chose to reproduce the realistic risk is low. Worth noting only because D7's containment argument reasons about *tools* and never mentions shell egress.
+
+The D7 reasoning in `ai.ts` is unusually careful — it measured that scoped `Bash` rules don't scope and chose the shell knowingly. Neither finding contradicts that; they're both about the gap between what was decided and what the surrounding prose claims. Want me to file either?
 
 <!-- xgd-chat-end -->
