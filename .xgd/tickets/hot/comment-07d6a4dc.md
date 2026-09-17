@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T00:35:38.941365+00:00'
+updated_at: '2026-09-17T01:08:45.446535+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -384,5 +384,35 @@ There are three, and the distinction matters for the review:
 Worth knowing for the review: the brief is sent whole on a fresh round, but a **resumed** round gets `resumePreamble()` instead (`ai.ts`, REQ-261) — so anything we move into the brief is invisible to resumed rounds, and anything that must survive resume belongs in `buildPrompt`'s per-round half. That constraint shapes the keeps/moves/drops call more than anything else.
 
 If you want to read the current-shape prompt rather than the stale one, I can render one without spending a round — `buildPrompt` is a pure function.
+
+<!-- xgd-turn id="85f7fe5b-9fa9-492a-9fac-6257d1f5c8ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:08:45.072207+00:00" -->
+#### You
+ok first paragraph:
+**You can read, and that is all you can do. -->  You can read and create tickets, and that is all you can do.**
+
+**lets get ticket creation in at the start**
+
+Lets talk about the scope of the ticket. There is absolutely no fixed limit to the size of the ticket, but I am concerned that if we try to fix everything in one ticket we may fail because the issues are not all independent. So I think we need to recognize that there may be multiple rounds
+
+Perhaps the ticket lists all the issues it can see in order with proposed fixes and the implementation prompt is left to do what it can - can we validate that the implementation prompt (a version of you with the permissions you have) can get to all the materials and run all the tools?
+
+You do not run `xgd`. You hand the console a `type`, a `title` and a `body`, and
+it creates the ticket at `status: draft` — never at any `ready_*` status, which
+is a dispatcher trigger that would spawn an autonomous pipeline against your
+ticket within about thirty seconds. <-- this is nuts why not let it just run xgd?? Its much simpler - please you are making this too complicated we can restrict to xgd ticket ** - it should create a REQ ticket for the changes
+
+In the Body section: can we add how the implementing agent checks its work? It needs to get specific instructions on how to see the problem
+
+Again with bugs lets use xgd ticket directly please - or is there a reason not to?
+
+I don't see anything here that recongnises that L1 or its rendering might be at fault - there are 3 kinds of issue that are core:
+
+1. Engine short fall (expected primary)
+2. L1 lack of expressibility - something that cannot be captured in L1 as it is today (we will get these they are important to flag and they involve different fixes obviously)
+3. Rendering bug - engine gets it right, it can be express (and is) in L1 but the renderer fails to render it correctly
+
+The prompt should cover all these in its primary mandate - finding 1c bugs is secondary to all of that.
 
 <!-- xgd-chat-end -->
