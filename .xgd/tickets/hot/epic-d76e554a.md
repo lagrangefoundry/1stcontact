@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T04:46:45.186449+00:00'
+updated_at: '2026-09-17T20:08:05.245000+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,6 +13,7 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
+
 
 ## What the client asked for
 
@@ -1069,6 +1070,160 @@ from the body; rewriting it underneath produces a matrix describing a spec nobod
 now read, and nothing reports the discrepancy. That is the hazard framework
 [[EPIC-3]] exists to prevent, and it applies here in full.
 
-So the supersession is recorded **here**, in the epic that owns the design. Landing it
-in REQ-197 goes through whoever owns that cycle — after it reconciles, or by pulling
-it back deliberately — and not by editing the body in place.
+**And the client owns every cycle, which settles the route:** *"It has been built, we
+need a new ticket to change it — simple as that. REQ-197 cannot be changed now."* So
+the supersession is recorded **here**, in the epic that owns the design, and lands
+through a **new ticket** that changes the built behaviour. REQ-197 is left exactly as
+it is — not edited, not reopened, not pulled back.
+
+
+## Scoping session, 2026-09-17: the web-builder completion cut
+
+The client: *"I am focusing on the features that complete the web builder
+functionality — this includes email configuration, inbound and outbound but not the
+campaigns tab."* Plus the constraint on how it is broken up: *"I favor fewer tickets —
+each ticket ideally has something that I can see working."*
+
+**The cut lands on a seam this epic already drew.** §OQ1 put configuration in Settings
+and left *"one new tab, for the cross-contact work"* which is substantially campaigns.
+So "everything except the Campaigns tab" is not a new boundary; it is the one OQ1
+isolated.
+
+**No design doc covers this and none is needed.** [[DOC-46]] is *"What 1st Contact is,
+and how to say it"* — positioning, not design. **This epic is the design record.**
+
+### Verified against the code, and one claim in this epic corrected
+
+**Outbound already records the body.** `apps/control-app/src/messages.ts` writes an
+`email` ticket per send carrying the rendered message — *"THE BODY IS THE RENDERED
+MESSAGE. The template changes; what we sent does not."* It is called from `lead.ts`
+(form confirmations), `sessions.ts` (signin) and `invites.ts` (invite). §"What exists
+today" says outbound exists and that delivery events land on the spine; it does not
+say the **content** is already stored, and a reader could conclude it is not. It is.
+
+**So path 1's remaining gaps are two, and neither is the record itself:** the
+immutability lock ([[REQ-263]], blocked on framework [[REQ-160]]), and the synthetic
+mark (below). Migration head is `0012_sending_domains.sql` and no `synthetic` column
+exists yet, both as [[DOC-54]] §2.4 assumes.
+
+### The three paths, and what is true of each
+
+**1 — outbound from 1st Contact** (forms, transactions, notifications, campaigns).
+Built for everything that exists today, per above. Campaigns are out of this cut.
+
+**3 — inbound.** Nothing exists. The largest piece of new work in the cut.
+
+**2 — outbound from the business's own mail client**, sent as their forwarded address.
+**We cannot intercept it, and that is SMTP rather than a gap in our plumbing.** `MX`
+governs inbound only; outbound routing is chosen by the sending client, so a message
+Gmail sends never consults our DNS.
+
+**But the reply half is captured for free**, which lowers the urgency considerably. A
+customer replying to that message sends to the forwarded address, through our `MX`,
+and lands on the contact. The contact log gets the customer's entire side of every
+conversation regardless; what is missing is only the business's own sent copy.
+
+### The capture address, and the correction to a flaw that was not one
+
+The client's proposal: *"it doesn't matter what the actual address is — contact, info,
+biz, system. The point is it gets an email into our system that we can then process.
+We treat emails to this address specially, look at the addressees and add the email to
+their contact logs… it is not reliable but is nice to have, some users will use it
+religiously."*
+
+**Accepted, and it is in this cut, at the end.** An earlier objection here — that such
+an address would forward the business a copy of its own mail — was wrong. The address
+is ours and we decide it does not forward. There is nothing else to it.
+
+**One thing must be designed in from the start, or it becomes a migration:**
+
+> **Direction is derived from the `From`, not from the pipe a message arrived
+> through.**
+
+A BCC'd capture is an **outbound** message arriving on the **inbound** path. A record
+that infers *inbound means from a contact* files it backwards and makes the business a
+contact of itself. And the filing target differs: ordinary inbound files to the
+**sender**; a capture files to the **addressees**, so one message ticket produces N
+contact events. Both are trivial with direction and filing-target as explicit fields,
+and both are expensive without them. This is the accommodation the client asked for —
+*"I don't want to build something that cannot accommodate it."*
+
+**The other three ways to close path 2 are recorded as considered, not chosen:**
+mailbox sync over the Gmail API or IMAP (what HubSpot and Streak do — reliable, large
+privacy surface); custom SMTP submission so their send-as routes through us (**Workers
+cannot accept SMTP — no TCP listen — so this needs infrastructure we do not have**);
+and a Workspace admin routing rule BCC-ing all outbound (near-free, but Workspace only,
+and consumer Gmail cannot auto-BCC).
+
+### Settings, and the minimum configuration that makes cutover safe
+
+The controls, with the two that are not ours marked:
+
+| control | note |
+|---|---|
+| which domain | **[[EPIC-5]]'s selector** — not rebuilt here |
+| forwarding table | N rows, local-part → one or more destinations; ~20 is the cap |
+| destination verification | Cloudflare requires each destination to confirm by link |
+| catch-all | on/off plus destination — see below |
+| `noreply@` refused, `info@` discouraged | already decided above |
+| send-as status | read-only; the setup subsystem stays deferred |
+| record-vs-forward | we forward everything, we do not record everything |
+| deliverability status | **deferred** — *"more of a campaigns consideration… that is where we will meet it head on"* |
+
+**Destination verification is a real multi-step flow, and the machinery exists.** It
+is the same shape as §"The button is a token, and the mechanism already exists".
+
+**The minimum viable configuration is a primary forwarding address plus a catch-all**,
+and that is what makes step 2 of the cutover window safe to complete. The client:
+*"if the user's DNS already has email configured, we might suggest doing basic email
+config before switching the DNS so that email is always up."* The ordering was already
+recorded above; what is new is **what "configured enough to flip" means**, and this is
+it.
+
+**Which decides the catch-all default, against what §"Incoming" says.** That section
+has *"catch-all optional and off by default"* — correct steady-state, because a
+catch-all is a spam magnet. But at cutover it is precisely what stops mail being lost
+to an address nobody remembered. **Catch-all defaults on through cutover**, with a
+later prompt to turn it off once the real addresses are known. §"Incoming"'s default
+applies to a green-field domain, not to a migrating one.
+
+### What [[DOC-54]]'s gutter imposes on this cut
+
+Four constraints, all structural rather than additive:
+
+1. **Inbound email is a marker entry point on day one.** R1 requires the mark to reach
+   *"any entry point — form post, inbound email, webhook"*. Not a retrofit.
+2. **The mark must ride in the message.** §2.4's rule is *"in-flight mark where there
+   is one, parent's mark where there is not, never a default of false"* — and an
+   inbound message has no request context to carry one. The **reserved address
+   namespace** this epic already specifies under §5 is what supplies it. Two
+   requirements written independently turn out to be the same mechanism.
+3. **Message tickets are already in scope of the mark.** §2.4 names `messages.ts` —
+   `sendRecordedEmail` — as carrying `synthetic` in the ticket record, and migration
+   `0013` covers four tables today. Inbound adds message tickets and contact events to
+   what it must cover.
+4. **[[DOC-54]] depends on a state this epic has not built.** Its forwarding test
+   resolves by saying the test message *"lands where [[EPIC-13]] already sends
+   unmatched inbound mail — a pending / unidentified state in the contact list rather
+   than a mail surface."* **That state does not exist yet.** It is therefore not a
+   nicety of the inbound work; [[EPIC-15]]'s design is resting on it.
+
+### The shape: four tickets, each with something visible
+
+Proposed, not cut. Ordered; 4 may follow at any distance.
+
+1. **Inbound end-to-end.** Email Routing, the Email Worker, parse, message ticket,
+   contact event, visible on the contact — plus **unmatched sender → pending /
+   unidentified**, and the synthetic mark from the reserved namespace.
+   *Visible: mail sent to the domain appears on the contact; mail from a stranger
+   lands in pending.*
+2. **Email configuration in Settings.** Forwarding table, destination verification,
+   catch-all. *Visible: configure it, send, it forwards.*
+3. **Cutover integration.** The ask, Routing written into the pending zone, the
+   minimum-config floor. *Visible: run [[EPIC-5]]'s flow end to end and mail never
+   drops.*
+4. **The capture address.** Reserved, non-forwarding, filed to addressees.
+   *Visible: BCC it and the sent message appears on every recipient's log.*
+
+Outside the cut and small: the ticket superseding [[REQ-197]] (below), and
+[[REQ-263]]'s lock, which is blocked on framework [[REQ-160]].
