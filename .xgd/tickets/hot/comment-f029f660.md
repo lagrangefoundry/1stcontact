@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T03:25:37.820894+00:00'
+updated_at: '2026-09-17T03:44:41.244331+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -159,5 +159,15 @@ The warning I'd most want in front of the deployment epic: **staging probes cann
 Corollary: **the canary tier is not a staging environment.** It's real production, real DNS, real credentials, against sites we happen to own — which is what makes synthetic traffic there both safe and meaningful. So the gate is two-phase, and only the second phase needs the rollback story.
 
 I've added a Boundaries entry pointing deploy/rollback/progressive-rollout at your new epic, and left it unnamed since you haven't cut it yet — say the word once it has an ID and I'll link it both ways.
+
+<!-- xgd-turn id="141fc69a-e45f-4a73-aa16-d73af5e8bc9e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T03:44:40.612604+00:00" -->
+#### You
+Please note the last turn of EPIC-5 it adds a nuance to our requirement for a very specific email test case. Also note EPIC-16.
+
+What I would like you to do next is to review the existing epics and their children and the broader state of the implementation (use of epics is recent). And figure out where this Epic needs to impose requirements and modify things that have been built.
+
+Note: I do not want to invest much time today in a comprehensive test suite. However, I do want the guttering and some minimal tests to prove that the guttering works. So our short term focus is around the placement of guttering and sufficient tests to show it performs as intended. And the urgency is to build it and insert it as a requirement before it becomes an after thought
 
 <!-- xgd-chat-end -->
