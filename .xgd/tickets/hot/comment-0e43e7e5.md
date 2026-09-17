@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-263
 created_by: xgd
 created_at: '2026-09-17T03:13:28.633123+00:00'
-updated_at: '2026-09-17T03:36:04.945476+00:00'
+updated_at: '2026-09-17T03:37:38.694058+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,27 @@ For completeness on what you'd see today, before the install: 4 of the 10 pass (
 <!-- xgd-chat role="user" ts="2026-09-17T03:36:04.893581+00:00" -->
 #### You
 I ran bin/install do you have what you need?
+
+<!-- xgd-turn id="b46549a4-aaee-4019-8b1d-ab960ab136b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T03:37:38.384836+00:00" -->
+#### Claude
+Let me verify the shared store and re-run in the normal configuration.
+
+All 10 pass in the normal configuration now. Let me confirm the full project is still green with the real mechanism installed.
+
+While that runs, let me bring the ticket body's dependency note up to date.
+
+Yes — everything I needed. Verified in the normal configuration:
+
+- **Shared store refreshed**: `validation.js` is now 653 lines (was 463), and `store.js` carries the `_assertWritable` wrapper plus its 4 call sites.
+- **REQ-263 UATs**: 10/10 pass against `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ticketing` — no shim, the real resolution path.
+- **Full `workers` project**: 119 files, 1078 tests, all green with the lock enforcing.
+
+That matches exactly what the framework-source run predicted, so the lock is live and nothing regressed.
+
+No code changes were needed — the commit already on `xgd-working` (`2a099a8`, version 0.2.232) is correct as merged. I only updated the ticket body: the section that said "the dependency has to be installed before these can pass" was a pending action and is now a recorded fact, rewritten to capture the part worth keeping — that a `TypePack` predating the mechanism *ignores* an unknown `immutable` key rather than refusing it, so an uninstalled dependency presents as a declaration that silently does nothing. The 4-pass/6-fail signature is what tells those two apart, which is worth having written down for the next declaration over an upstream mechanism.
+
+REQ-263 stays at `free_coded`, 2 story points.
 
 <!-- xgd-chat-end -->
