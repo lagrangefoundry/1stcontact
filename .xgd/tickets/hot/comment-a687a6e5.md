@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T21:47:16.199084+00:00'
+updated_at: '2026-09-17T21:50:41.593545+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -519,5 +519,97 @@ Your scope covers most of the contact activity log requirements today. This feat
 My guidance - I would like to understand the contact activity log in the context of our overall logging system, it should not stand alone. However, It has its requirements, which are very different from system logging and I am not sure that they mix.
 
 Can you review what REQ-235 says, I am ready to implement it but I want to make sure we understand how it does/does not fit with lf:EPIC-1 and make sure that it can support the requirements that you have
+
+<!-- xgd-turn id="46a8fe93-1b43-4afa-a17f-168d24724ebe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:50:41.442901+00:00" -->
+#### Claude
+I'll read REQ-235 and the framework EPIC-1 before answering.
+
+Read REQ-235, EPIC-11, lf:EPIC-1 (now revision 8, 1332 lines), the installed `@lagrangefoundry/logging`, and the live `contact_events`/`events.ts`.
+
+## The short answer: EPIC-1 has already decided they don't mix, and said so structurally
+
+Your instinct is right, and it's better supported than you think — **EPIC-1 rules the contact activity log out of its own scope twice, on two different grounds.**
+
+§7 ("Dropping the word audit") names three lanes and puts business events outside:
+
+> *`contact_events`, `site_changes`, `ticket_changes`, `ledger.ts` … It is not a logging problem, so it stays out of scope. **It is a metrics source.***
+
+§42 then makes it a property of the data rather than a policy:
+
+> *`actor` never leaves the raw tier … member behaviour lives in `contact_events` — which means **no permanent tier carries a person, as a structural property rather than a policy one**.*
+
+I verified that's real in the shipped package: `DIMENSIONS` includes `actor`, and the comment in `record.js` says exactly that. So the system log's permanent tiers are per-business aggregates with no person in them, **by construction**.
+
+And §34 names the contact log without realising it. Rollup vs aggregation:
+
+> *Aggregation … output: **a different kind of thing** — a number, a chart, **a `contact_events` row**.*
+
+**So the contact activity log is not a view of the system log and not a tier of it. It is one of the log's aggregation outputs** — the same relationship EPIC-8's traffic charts have. That's what "should not stand alone" resolves to: it doesn't stand alone because it *consumes* the log, not because it lives inside it.
+
+## Why they can't be merged — the differences made precise
+
+Five, and each one alone is disqualifying:
+
+| | system log | contact spine |
+|---|---|---|
+| **lifetime** | pruned by `(kind, level)` — 7d / 30d / 180d, then rolled up | forever |
+| **mutability** | rollup is **lossy and irreversible** (§34) | `UPDATE` refused by the database trigger |
+| **grain** | one record per invocation | one row per milestone |
+| **audience** | operator and the AI | the *customer*, reading a person |
+| **erasure** | expiry — nobody requests it | DOC-37 severance must reach it, which is why `DELETE` is deliberately left reachable on the spine |
+
+The last two are the ones that would actually bite. Merging puts a named person's erasable data into a pipeline whose永 permanent tiers are aggregates — you can't sever an identity out of a rolled-up count, and you can't show a solo trader a customer-facing timeline assembled from a store that's pruning underneath it.
+
+## Where they do meet — one seam, and it's already specified
+
+EPIC-1 §41.5, in full:
+
+> *Member behaviour. Aggregation into `contact_events` — REQ-235's session inference. Its only demand on this design is that raw records carry `actor`/`contact_id` and a `trace_id` for session linkage, and that **the raw window outlives the inference schedule**.*
+
+That's the entire contract. Three obligations fall out, and REQ-235 should state them as its interface to EPIC-1 rather than re-deriving anything:
+
+1. Raw records carry `actor` + `trace_id` — already in `DIMENSIONS`.
+2. Raw `info` horizon (30d) ≫ session inference schedule. With the 04:17 cron the gap is ~18h, so this holds with enormous margin — **but the cron is the wrong granularity for your original ask**: a session ending at 10am isn't summarised until the next morning.
+3. The durable artifact is the `contact_events` row, not the raw rows. Which is REQ-235's genuine answer to EPIC-1's open Q14.1 (days or months?) — for *this* reader, **hours**.
+
+## What REQ-235 needs before you implement
+
+COMMENT-2905 already diagnosed most of this on 2026-09-14 and it was never applied, because the turn ended on four questions you didn't answer. Re-verified today, still true:
+
+**Stale facts in §1** — three. The cron exists (`crons = ["17 4 * * *"]`, `index.ts:562`, REQ-231), so §3's "first periodic job in the system" argument is dead and closing on a cron is a new caller. `apps/public-site/wrangler.toml` has no `[observability]` block at all — **EPIC-11 inherits the same error**. And `email.received` is inbound, so it's three of nine kinds, not two.
+
+**§2 stops being a store decision.** EPIC-1 §16 kills Analytics Engine on three verified grounds — adaptively sampled at volume, 3-month non-configurable retention, reads cost 4× writes. Sampling is fatal *specifically for you*: §4 refuses to "present a floor as a fact", and sessions inferred from a sampled stream do exactly that one layer down. **D1, bounded, with the `ticket_change_floor` → `reset` pattern AC-2 already names.** EPIC-11's "the raw layer is not D1 by default" is now wrong and should be corrected too.
+
+**§2 stops inventing a row shape.** `@lagrangefoundry/logging` is built and already in the shared store at `../node_modules/@lagrangefoundry/logging` — I verified it's there and that **nothing in 1c imports it yet**. REQ-235's first commit is the first consumer. Retention becomes `horizon(kind, level)`, a policy table and one extra `DELETE` predicate.
+
+**Still blocked on you:** §4/AC-5's per-surface durations. CHAT-53 contradicts your original EPIC-11 ask verbatim, and that's your call, not mine.
+
+## Does it support my scope? Mostly by not touching it — with three exceptions
+
+**Email never uses the raw layer.** Every email fact is a milestone written straight to `contact_events` — `email.sent/delivered/bounced` today, `email.received` next. So EPIC-13 and REQ-235 are independently shippable in either order. That's the good news.
+
+The three places they collide:
+
+**1. `TIMELINE_LIMIT = 100` is about to stop being safe, and `events.ts` says so in its own docstring:**
+
+> *paging it would be a control nobody has asked for over data nobody has enough of.*
+
+Email falsifies that sentence. Every message in both directions lands on the spine, plus a campaign event per recipient per send. A moderately chatty client blows through 100 rows in weeks — and the module already knows this shape of bug, which is why `provenanceOf` is its own query rather than the tail of the capped list. So **EPIC-11 scope item 5 (folding) stops being deferrable presentation and becomes a correctness requirement for reading a timeline at all.** REQ-235 §6 currently pushes it out explicitly. One of us has to own it, and it should be decided before I cut EPIC-13's ticket 1, because that's the ticket that makes the timeline long.
+
+**2. The gutter column is a shared prerequisite, and whoever ships first should land it.** EPIC-11 already owns `synthetic`/`run_id` on `contact_events` and argues — correctly — that it must land *before* anything reads the spine. EPIC-13's inbound ticket writes to the same table through the same `INSERT … SELECT … FROM users` derivation. That's one migration (DOC-54's `0013`, against verified head `0012`), not two. **This is the only real sequencing decision on the table today**, given you're ready to implement REQ-235 and I'm about to cut ticket 1.
+
+**3. A raw event store has no gutter position at all, and that's a new hole.** DOC-54 §2.4 names four tables plus message tickets — it doesn't name a raw log, because none existed when it was written. If REQ-235 lands one, BFM probe traffic writes raw rows, and EPIC-8's traffic aggregates count synthetic hits as visitors. That's DOC-54 §3's named failure — *"aggregates, counts and exports are the ones that get forgotten… the number is wrong in the flattering direction"* — arriving in the one store nobody has applied the contract to.
+
+**And one shared question worth answering once:** where does a fact about someone we haven't identified live? REQ-235 §2 says the raw layer exists *precisely because* `contact_id NOT NULL` can't hold anonymous events. EPIC-13 puts unmatched inbound mail in a pending/unidentified queue on the Contacts tab — no contact, no timeline entry. Same shape of fact, two stores. I think that's correct and should stay — the pending queue is **actionable state with sticky triage**, not a log — but if it isn't written down in both, somebody routes unmatched mail into the raw log or invents a third queue.
+
+## What I'd like from you
+
+1. **Timeline folding/paging — REQ-235 or EPIC-13 ticket 1?** My vote: EPIC-13 ticket 1, since it's the ticket creating the volume and it needs a readable contact page to demo at all.
+2. **Migration 0013 (`synthetic`/`run_id`) — who lands it?** Whoever's first; it should not appear in both tickets.
+3. The four questions from 2026-09-14 are still open, and §4/AC-5 can't be written without #1 of them (duration).
+
+Say the word and I'll (a) write the interface contract into EPIC-13 — the seam, the three obligations, and the three collisions, and (b) make the REQ-235 §1–§3 corrections and the EPIC-11 store correction. I haven't touched either, since you're about to implement REQ-235 and I don't want to move the body under you.
 
 <!-- xgd-chat-end -->
