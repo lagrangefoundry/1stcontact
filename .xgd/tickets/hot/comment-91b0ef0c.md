@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T21:40:41.055152+00:00'
+updated_at: '2026-09-17T21:42:37.787979+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -567,5 +567,29 @@ Nothing else changed. Still the one prerequisite before your run:
 <!-- xgd-chat role="user" ts="2026-09-17T21:40:40.624405+00:00" -->
 #### You
 REQ-265 is the gap ticket, it was created by the repro system - but it says created_by martin-github@westhead.me - can you create a bug to fix that please?
+
+<!-- xgd-turn id="1f2f3648-8b3f-496a-a9de-ce336aac56e2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:42:36.426728+00:00" -->
+#### Claude
+**BUG-104** filed at `draft`, parented to EPIC-12 (now 7 children).
+
+## What's actually causing it
+
+The brief tells the round to run a bare `xgd ticket create` — `tools/repro-console/brief/DIAGNOSE-THE-GAP.md:204`, no `--created-by`. With the flag absent, `xgd`'s `resolve_cli_created_by()` resolves in order: `--created-by` → `XGD_CHAT_TICKET_ID` → `git config user.email`. A round has no chat ticket, so it lands on the git identity of the checkout — yours.
+
+Neat confirmation of that chain: **BUG-104's own `created_by` reads `EPIC-12`**, because this session sets `XGD_CHAT_TICKET_ID`. The mechanism works; the round just has nothing in its environment that identifies it.
+
+## The fix has to be two-part
+
+Naming the flag in the brief is necessary and not sufficient — [[REQ-262]] D7 already forced this lesson on the `ready_*` rule: once the round holds `Bash`, what the brief asks for is an instruction, not a property. So the console checks it too, in `confirm()`, which already reads every claimed ticket back.
+
+One consequence I've written in: `readTicket()` currently regex-scrapes `Status:` out of `xgd ticket get`'s human output, and `created_by` isn't in that output at all — it's in `--json` under `frontmatter.created_by`. So the read-back moves to `--json`, which incidentally makes the existing status check parse rather than scrape.
+
+## Two things I recorded but kept out of scope
+
+**The structurally stronger fix is in the other repo.** An `XGD_CREATED_BY` env var the console sets around the round's subprocess — sitting alongside `XGD_CHAT_TICKET_ID` in the same resolution chain — would make correct provenance a property of the environment rather than an instruction anyone has to keep. That's an `xgd` change and wants its own ticket there; I haven't filed it. Say the word if you want one.
+
+**REQ-265 needs retrospective repair** once the exact string is settled. It's the only ticket a round has filed so far, so it's a one-line fix, and the string is a small open decision in the body: `repro-console` is the minimum, `repro-console:<slug>#<iteration>` costs nothing extra since the round knows both and is far more useful in a ticket list.
 
 <!-- xgd-chat-end -->
