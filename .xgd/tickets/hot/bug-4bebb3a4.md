@@ -6,10 +6,10 @@ title: '1c: process.exit truncates piped stdout at 64 KiB, silently cutting ever
   large --json document'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:27.536394+00:00'
-updated_at: '2026-09-17T21:54:39.994542+00:00'
+updated_at: '2026-09-17T22:08:01.103451+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
