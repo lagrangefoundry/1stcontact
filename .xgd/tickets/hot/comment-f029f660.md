@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:15:35.758616+00:00'
+updated_at: '2026-09-17T04:17:22.133532+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -283,5 +283,37 @@ I also recorded what would bring the class back, so it isn't re-derived: a *"tes
 Add it to scope - I want to be clear we are building for testability out of the gate
 
 The doc should cover everything that will be needed to build testability into the existing implementation and the epics on deck - if that is just gutters then thats all it needs to cover...
+
+<!-- xgd-turn id="17472641-b4a0-434a-b4f5-5d414597660f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:17:21.740823+00:00" -->
+#### Claude
+Let me check two things that determine whether the doc is "just gutters."
+
+Two findings that change the design. Updating scope.
+
+Added, and your call turns out to pay for itself twice.
+
+**Delete-contact and the synthetic collector are the same statement.** `user_acceptances`, `asset_grants` and `contact_events` all declare `FOREIGN KEY (contact_id) REFERENCES users (id) ON DELETE CASCADE`, and the baseline deliberately leaves `DELETE` alone on the event spine so erasure can reach it. So collecting a synthetic contact *is* deleting the contact. Building the customer-facing affordance builds mechanism (4)'s collector — and a collector exercised by hand daily is one that works when the scheduler needs it.
+
+Beyond that: it's a feature customers need anyway (mistypes, duplicates, DOC-37 erasure), and transparency genuinely beats concealment here — a customer-initiated test that leaves no trace is one she has to take on faith, whereas one that lands visibly and is hers to remove is evidence, and removing it proves a second thing works. There's no `deleteContact` today, so it's new, but small.
+
+I've also stated *built for testability out of the gate* as a standing rule at the head of Scope rather than leaving it implicit in the gutter section — every surface ships with the affordances a test needs, at the time it's built.
+
+## On "if that is just gutters, that's all it needs to cover"
+
+Mostly yes — with **one genuine addition I found while checking, and it's load-bearing.**
+
+**The gutter needs a run id, not just a boolean.** Mechanism (4) is *check the data and delete it* — which is impossible unless the probe can find the rows it produced. It can't: the public capture endpoint answers with *"the one frozen acknowledgement whatever it says"* (REQ-223 §2), deliberately, so no identifier crosses back to the caller. Every record a run writes has to carry that run's id, and then verification and collection are both "the rows stamped `run`". With a boolean alone, collection degrades to a TTL sweep and verification becomes a guess — which quietly undoes the improvement you made to GC two turns ago.
+
+Likely transport: `bfm+<run>@<reserved domain>`, so the capture path needs no extra wire field and flows that mint no contact carry it explicitly. That's a design-doc decision; the *requirement* is the run id.
+
+The only other non-gutter item on the board is **EPIC-16's service-token auth seam** for probing a private staging environment — already recorded, and it's a seam rather than a build since `SERVICE_TOKEN_IDENTITIES` exists.
+
+Everything else that makes this testable is already house pattern: injectable `fetchImpl` (`resolver.ts`), the `SendEmail` port behind `mailerFor`, and the RPC seam at `captureLead`.
+
+So the doc covers: the four mechanisms, the run id, delete-contact, the auth seam, and what each of the epics on deck inherits. That's the whole of it.
+
+**Ready to draft.** One confirmation needed: cut it as a DOC ticket under EPIC-15 (next id DOC-54), or append to the epic? You've been holding ticket count down, so I won't create it without your say-so.
 
 <!-- xgd-chat-end -->
