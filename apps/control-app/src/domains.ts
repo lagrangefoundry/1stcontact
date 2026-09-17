@@ -47,12 +47,13 @@ import type { Admission } from './identity'
 import type { IdentityEnv } from './identity'
 import { addressesOf, normaliseHost, siteOf, type SiteAddress } from './hostname'
 import type { DnsResolver, DomainSnapshot } from './resolver'
-import type { ResendClient } from './resend'
+import { ResendNotPermittedError, type ResendClient } from './resend'
 import {
   disableSending,
   enableSending,
   refreshSending,
   sendingFor,
+  SendingNotConfiguredError,
   type Sending,
 } from './sending'
 import { serveHostOnSite, servingPlan, stopServingHost } from './serving'
@@ -114,6 +115,19 @@ export interface DomainState {
   email: 'off' | 'pending' | 'verified' | 'failed'
   /** Whether this caller may attach, release or change the toggle. */
   mayAttach: boolean
+  /**
+   * Can this deployment configure sending at all? ([[REQ-264]])
+   *
+   * SEPARATE FROM {@link email}, because they answer different questions and
+   * collapsing them is what shipped the defect. `email` is where this
+   * customer's mail got to; this is whether the control that changes it can
+   * work — and when it cannot, the surface does not draw the control. A
+   * deployment with no `RESEND_API_KEY` and one holding a *Sending access* key
+   * are the same state here, which is the point: `resend.ts` says offering a
+   * toggle and refusing it is *"worse than not offering it"*, and that is true
+   * whichever way the deployment got there.
+   */
+  emailAvailable: boolean
   /** Why not, in a sentence, or null. */
   refusal: string | null
 }
@@ -291,21 +305,41 @@ export async function domainState(
   const siteKey = await siteOf(env, businessId)
   const addresses = siteKey === null ? [] : await addressesOf(env, siteKey)
   const attached = attachedDomain(addresses)
+  const holder = await isAccountHolder(env, admission, businessId)
 
   let sending = await sendingFor(env, businessId)
+  // CAN THIS DEPLOYMENT CONFIGURE SENDING AT ALL ([[REQ-264]]). Asked before the
+  // section draws rather than discovered when somebody presses the toggle, on
+  // `resend.ts`'s own rule. One request, on a pane nobody opens twice a minute,
+  // and only for the caller who could act on the answer — a member sees a
+  // disabled control either way, so spending a round trip to tell them which
+  // kind of disabled it is would buy nothing.
+  let emailAvailable = resend !== null
+  if (resend !== null && holder) emailAvailable = await resend.canManageDomains()
+
   // THE THIRD WAIT IS ASKED ABOUT ON A READ, and only while it is pending. The
   // customer's own question is *has my email come right yet*, and the surface
   // that answers it is this one — a separate poll route would be a second way to
   // ask one question, and a state that only moved when somebody pressed
   // something would read as broken.
-  if (sending && resend) sending = await refreshSending(env, resend, sending)
+  if (sending && resend) {
+    try {
+      sending = await refreshSending(env, resend, sending)
+    } catch (error) {
+      // A KEY NARROWED AFTER THE FACT MUST NOT BREAK THE READ. The records are
+      // published and the mail still flows; what has gone is our ability to ask
+      // Resend about it, so the last known answer stands and the toggle goes.
+      if (!(error instanceof ResendNotPermittedError)) throw error
+      emailAvailable = false
+    }
+  }
 
-  const holder = await isAccountHolder(env, admission, businessId)
   return {
     pool: holder ? await domainPool(env, admission?.ok ? admission.user.account_id : null, siteKey) : [],
     attached,
     email: emailStateOf(sending),
     mayAttach: holder,
+    emailAvailable,
     refusal: holder ? null : ASK_THE_ACCOUNT_HOLDER,
   }
 }
@@ -313,6 +347,18 @@ export async function domainState(
 function emailStateOf(sending: Sending | null): DomainState['email'] {
   return sending === null ? 'off' : sending.status
 }
+
+/**
+ * What a customer is told when this deployment cannot configure sending.
+ *
+ * ONE SENTENCE, IN OUR WORDS, for every way of getting there — no key, a
+ * *Sending access* key, a key revoked since. It names no provider and quotes
+ * none: *"This API key is restricted to only send emails"* is a sentence about
+ * our configuration shown to somebody who has no configuration ([[REQ-264]]).
+ */
+const SENDING_UNAVAILABLE =
+  'Sending from your own domain is not available on this deployment, so the ' +
+  'toggle would change nothing. Your website is unaffected.'
 
 /** What one attach did, as the surface reports it. */
 export interface AttachResult {
@@ -382,11 +428,22 @@ export async function attachDomain(
   const wantsEmail = request.email !== false
   let email: DomainState['email'] = 'off'
   if (wantsEmail && resend) {
-    const sending = await enableSending(env, client, resend, resolver, {
-      businessId: request.businessId,
-      zone,
-    })
-    email = sending.status
+    try {
+      const sending = await enableSending(env, client, resend, resolver, {
+        businessId: request.businessId,
+        zone,
+      })
+      email = sending.status
+    } catch (error) {
+      // A KEY THAT CANNOT MANAGE DOMAINS IS THE SAME AS NO KEY ([[REQ-264]]),
+      // and the attach is where that matters most: the customer asked for their
+      // domain and got it, and the thing they did not ask about — mail they
+      // assumed — reports `off` exactly as it does on a deployment with no
+      // sending credential. Refusing the whole attach over it would take the
+      // website away to punish a configuration the customer has no part in.
+      if (!(error instanceof ResendNotPermittedError)) throw error
+      email = 'off'
+    }
   }
   return { domain, liveUse, email }
 }
@@ -422,17 +479,25 @@ export async function setDomainEmail(
     throw new UnknownDomainError('There is no domain on this site to send from.')
   }
   const zone = await zoneForAttached(env, domain)
+  // ONE REFUSAL FOR BOTH WAYS OF NOT BEING ABLE TO SEND ([[REQ-264]]). It was
+  // an `UnknownDomainError`, which is a sentence about the domain for a
+  // condition that has nothing to do with it; `SendingNotConfiguredError` is
+  // the one this module already has for *turning sending on needs a live
+  // registration and there is none*, and a key the provider refuses is that
+  // condition arrived at from the other direction.
   if (resend === null) {
-    throw new UnknownDomainError(
-      'This deployment cannot set a domain up for sending, so the toggle would ' +
-        'change nothing.',
-    )
+    throw new SendingNotConfiguredError(SENDING_UNAVAILABLE)
   }
-  const sending = await enableSending(env, client, resend, resolver, {
-    businessId: request.businessId,
-    zone,
-  })
-  return sending.status
+  try {
+    const sending = await enableSending(env, client, resend, resolver, {
+      businessId: request.businessId,
+      zone,
+    })
+    return sending.status
+  } catch (error) {
+    if (!(error instanceof ResendNotPermittedError)) throw error
+    throw new SendingNotConfiguredError(SENDING_UNAVAILABLE)
+  }
 }
 
 /** The zone an attached host belongs to, or a refusal naming the host. */

@@ -138,7 +138,12 @@ import {
   isAccountHolder,
 } from './domains'
 import { SendingNotConfiguredError } from './sending'
-import { resendFor, ResendApiError, type ResendClient } from './resend'
+import {
+  resendFor,
+  ResendApiError,
+  ResendNotPermittedError,
+  type ResendClient,
+} from './resend'
 import {
   attributeZone,
   allZones,
@@ -753,6 +758,35 @@ function json(status: number, body: unknown): Response {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
   })
+}
+
+/**
+ * A Resend credential this deployment cannot use, answered as a state rather
+ * than as an error ([[REQ-264]]).
+ *
+ * 409 AND NOT 502, on `SendingNotConfiguredError`'s reasoning: 502 says *the
+ * thing you asked for went wrong upstream and might work if you press it
+ * again*, and this will not. It is the same answer a deployment with no
+ * `RESEND_API_KEY` gives, which is the whole point — the two are one state to
+ * a customer and must arrive as one.
+ *
+ * THE PROVIDER'S SENTENCE GOES TO THE LOG AND NOWHERE ELSE. An operator needs
+ * *"This API key is restricted to only send emails"* to fix it; the person
+ * looking at the screen has no API key, and showing them ours is this epic's
+ * standing falsifier. The scrubber is an argument because it is built per
+ * request from this deployment's own secrets — the message is ours and carries
+ * nothing to redact, and a path that scrubbed beside one that did not is an
+ * invitation to add a third that did not.
+ */
+function notPermitted(err: ResendNotPermittedError, scrub: (said: string) => string): Response {
+  console.warn(
+    JSON.stringify({
+      event: 'resend_credential_refused',
+      status: err.status,
+      detail: err.detail,
+    }),
+  )
+  return json(409, { error: scrub(err.message) })
 }
 
 function text(status: number, body: string): Response {
@@ -3501,6 +3535,11 @@ async function routeUncached(
         if (err instanceof SendingNotConfiguredError) return json(409, { error: scrub(err.message) })
         if (err instanceof InvalidHostnameError) return json(400, { error: scrub(err.message) })
         if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
+        // A REFUSED CREDENTIAL IS NOT A FAILED REQUEST ([[REQ-264]]), and it is
+        // tested before the general case because it IS one — the subclass would
+        // otherwise be caught below and answer with 502 and a sentence about an
+        // API key to somebody who has none.
+        if (err instanceof ResendNotPermittedError) return notPermitted(err, scrub)
         // RESEND'S OWN WORDS COME BACK THROUGH THE SCRUBBER, for the reason
         // Cloudflare's do: the message is composed below us by a client that was
         // handed a bearer token ([[REQ-146]] AC4).
@@ -3553,6 +3592,7 @@ async function routeUncached(
         if (err instanceof UnknownDomainError) return json(404, { error: scrub(err.message) })
         if (err instanceof SendingNotConfiguredError) return json(409, { error: scrub(err.message) })
         if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
+        if (err instanceof ResendNotPermittedError) return notPermitted(err, scrub)
         if (err instanceof ResendApiError) return json(502, { error: scrub(err.message) })
         throw err
       }

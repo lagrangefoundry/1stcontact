@@ -301,6 +301,10 @@ function resend(over: { status?: SendingDomain['status'] } = {}): {
         deleted.push(id)
         held.delete(id)
       },
+      // A KEY THAT CAN DO ALL FOUR CAN OBVIOUSLY MANAGE DOMAINS ([[REQ-264]]).
+      // The double answers what its own behaviour already implies; the case
+      // where it cannot is REQ-264's own suite, where refusing is the subject.
+      canManageDomains: async () => true,
     } as ResendClient,
   }
 }

@@ -24,6 +24,13 @@
  * is smaller — this token can create and delete SENDING DOMAINS, and the worst
  * it can do to somebody's mail is stop it being signed.
  *
+ * A 401 IS A STATEMENT ABOUT THE DEPLOYMENT AND NOT ABOUT THE REQUEST
+ * ([[REQ-264]]). The paragraph above about `RESEND_API_KEY` was already right
+ * and nothing enforced it: a *Sending access* key shipped, the toggle was
+ * offered, and the refusal reached a customer as Resend's own English. So a 401
+ * or 403 now arrives as {@link ResendNotPermittedError} — the same shape as
+ * having no key at all — and the surface answers it by not offering the toggle.
+ *
  * A DOUBLE IS WHAT THE SUITES DRIVE, for `cloudflare.ts`'s reason exactly: a
  * suite holding a live key would not fail against the real API, it would succeed
  * — and register test domains on the account this product actually sends from.
@@ -65,13 +72,50 @@ export class ResendNotConfiguredError extends Error {
 
 /** Resend refused, or could not be reached. */
 export class ResendApiError extends Error {
-  readonly name = 'ResendApiError'
+  // `string` AND NOT THE LITERAL, so {@link ResendNotPermittedError} can name
+  // itself. Nothing discriminates on this value — `instanceof` is what every
+  // caller tests — and an error that lied about its own name in a log would be
+  // the one thing this field is for.
+  readonly name: string = 'ResendApiError'
   constructor(
     message: string,
     /** The HTTP status, or 0 where the call never got an answer. */
     readonly status: number = 0,
   ) {
     super(message)
+  }
+}
+
+/**
+ * Resend refused the CREDENTIAL — 401 or 403 ([[REQ-264]]).
+ *
+ * IT IS A DIFFERENT FACT FROM A FAILED REQUEST, and collapsing the two is what
+ * put *"This API key is restricted to only send emails"* in front of a customer
+ * who has no API key and no configuration. A 401 on this path does not mean
+ * *that call went wrong*; it means **this deployment cannot configure sending**
+ * — which is the state a deployment with no key at all is in, and which the
+ * header of this file already says must be answered by not offering the toggle.
+ *
+ * SO THE MESSAGE IS OURS AND NOT RESEND'S. The provider's own sentence is kept
+ * on {@link detail} for the log an operator reads, and never becomes the
+ * message, because the message is what reaches a screen.
+ *
+ * A SUBCLASS AND NOT A FLAG, so a caller that has not been taught the
+ * difference still catches it as the `ResendApiError` it has always caught, and
+ * one that has been taught tests for this first.
+ */
+export class ResendNotPermittedError extends ResendApiError {
+  readonly name = 'ResendNotPermittedError'
+  constructor(
+    /** What Resend said, for the log — never for a customer. */
+    readonly detail: string,
+    status: number,
+  ) {
+    super(
+      'This deployment cannot set a domain up for sending, so the toggle would ' +
+        'change nothing.',
+      status,
+    )
   }
 }
 
@@ -122,6 +166,19 @@ export interface ResendClient {
   readDomain(id: string): Promise<SendingDomain | null>
   /** Unregister it. What release runs through. */
   deleteDomain(id: string): Promise<void>
+  /**
+   * Can this deployment's key manage domains at all? ([[REQ-264]])
+   *
+   * IT IS THE SAME `GET /domains` THE ATTACH MAKES, deliberately: a question
+   * answered by some other endpoint would return `true` for a sending-only key
+   * and prove the wrong thing. Asking before the section draws is what turns
+   * *"offer the toggle and refuse it"* into *"do not offer it"*.
+   *
+   * IT NEVER THROWS. A provider that could not be reached is not a credential
+   * that lacks a permission, so anything other than a refusal answers `true`
+   * and the failure surfaces where it belongs — on the button somebody pressed.
+   */
+  canManageDomains(): Promise<boolean>
 }
 
 /** Resend's domain JSON, as much of it as this module reads. */
@@ -219,6 +276,13 @@ async function call<T>(
   const payload = (await response.json().catch(() => null)) as (T & { message?: string }) | null
   if (!response.ok) {
     const said = String(payload?.message ?? '').slice(0, DETAIL_LIMIT)
+    // THE CREDENTIAL IS REFUSED HERE AND NOWHERE ELSE, which is why the mapping
+    // lives in the one call: four operations would otherwise each have to
+    // remember that 401 is not an ordinary failure, and the one that forgot
+    // would be the one a customer reached.
+    if (response.status === 401 || response.status === 403) {
+      throw new ResendNotPermittedError(said, response.status)
+    }
     throw new ResendApiError(
       `Resend refused ${method} ${path} (${response.status}). ${said}`.trim(),
       response.status,
@@ -255,18 +319,35 @@ export function resendFor(env: ResendEnv, fetchImpl: typeof fetch = fetch): Rese
         if (made === null) throw new ResendApiError('Resend registered the domain and said nothing.')
         return toDomain(made)
       } catch (err) {
-        if (!(err instanceof ResendApiError) || err.status < 400 || err.status >= 500) throw err
-        const held = await call<{ data?: DomainPayload[] }>(key, fetchImpl, 'GET', '/domains')
-        const already = (held?.data ?? []).find(
-          (row) => String(row.name ?? '').toLowerCase() === name,
-        )
-        if (!already) throw err
-        // THE LIST ANSWERS WITHOUT RECORDS, so the registration is re-read by id
-        // — a caller handed a domain with no records would publish nothing and
-        // then wait forever for a verification that cannot happen.
-        const full = await this.readDomain(String(already.id ?? ''))
-        if (full === null) throw err
-        return full
+        // ONLY THE STATUSES THAT MEAN *ALREADY EXISTS* ([[REQ-264]]). This read
+        // `status >= 400 && status < 500`, so a 401 entered the idempotency
+        // path, the fallback's own `GET /domains` failed with the same 401, and
+        // THAT second error is what surfaced — an authentication failure
+        // arriving dressed as a listing failure, on a verb the operator had not
+        // invoked. Resend answers a duplicate with 409 or with a 422 validation
+        // error; nothing else here is a reason to go looking.
+        if (!(err instanceof ResendApiError) || (err.status !== 409 && err.status !== 422)) {
+          throw err
+        }
+        try {
+          const held = await call<{ data?: DomainPayload[] }>(key, fetchImpl, 'GET', '/domains')
+          const already = (held?.data ?? []).find(
+            (row) => String(row.name ?? '').toLowerCase() === name,
+          )
+          if (already) {
+            // THE LIST ANSWERS WITHOUT RECORDS, so the registration is re-read by
+            // id — a caller handed a domain with no records would publish nothing
+            // and then wait forever for a verification that cannot happen.
+            const full = await this.readDomain(String(already.id ?? ''))
+            if (full !== null) return full
+          }
+        } catch {
+          // THE FALLBACK'S FAILURE IS NOT THE ANSWER. It was a guess this module
+          // made; the caller asked for a registration and the reason they did
+          // not get one is the ORIGINAL refusal, not whatever went wrong while
+          // we were checking a hunch.
+        }
+        throw err
       }
     },
 
@@ -284,6 +365,19 @@ export function resendFor(env: ResendEnv, fetchImpl: typeof fetch = fetch): Rese
         // and a domain that does not exist must not arrive as the same thing.
         if (err instanceof ResendApiError && err.status === 404) return null
         throw err
+      }
+    },
+
+    async canManageDomains() {
+      try {
+        await call(key, fetchImpl, 'GET', '/domains')
+        return true
+      } catch (err) {
+        if (err instanceof ResendNotPermittedError) return false
+        // UNREACHABLE IS NOT UNSCOPED. Hiding the toggle because a provider was
+        // slow would take a working capability away from a customer over a
+        // transient, and they would have no way to tell the difference.
+        return true
       }
     },
 

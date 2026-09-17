@@ -175,6 +175,19 @@ function makeTree(opts: {
     `printf '1c|%s\\n' "$*" >> "$SHIM_LOG"\necho "stub preflight"\nexit "\${ONE_C_EXIT:-0}"\n`,
   )
 
+  // THE SHARED HOOK MACHINERY TRAVELS WITH THE DRIVER ([[REQ-264]]). `bin/deploy`
+  // prints the capability report by running `bin/deploy.d/lib/probe.mjs`, and the
+  // hooks probe through `secret.sh` — a fixture tree holding the driver without
+  // them would be a tree the real driver cannot run in, which is the one thing
+  // this fixture exists not to be.
+  mkdirSync(path.join(root, 'bin', 'deploy.d', 'lib'), { recursive: true })
+  for (const file of ['probe.mjs', 'secret.sh']) {
+    copyFileSync(
+      path.join(REPO, 'bin', 'deploy.d', 'lib', file),
+      path.join(root, 'bin', 'deploy.d', 'lib', file),
+    )
+  }
+
   for (const kind of ['migrate', 'secrets'] as const) {
     const dir = path.join(root, 'bin', 'deploy.d', kind)
     mkdirSync(dir, { recursive: true })

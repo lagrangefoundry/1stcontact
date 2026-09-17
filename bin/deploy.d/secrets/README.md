@@ -25,6 +25,57 @@ The only half that is safe to look at is the list of **names**:
 npx wrangler secret list --env production
 ```
 
+## Presence is not capability
+
+A hook used to answer one question — *is there a value* — and a key with the wrong
+scope, the wrong account or an expired lifetime passed all three outcomes below and
+shipped. That is how a Resend **Sending access** key reached production: it sends mail
+and answers `401` to `GET /domains`, so `Your domain` offered a sending toggle it could
+never honour ([[REQ-264]]).
+
+So a value the operator supplies is **probed** before it is pushed, against the
+permission the product actually uses. `bin/deploy.d/lib/probe.mjs` holds every probe and
+is the only file that knows a provider's API; `bin/deploy.d/lib/secret.sh` is the shell
+mechanism the hooks share. Three rules govern a probe:
+
+- **Read-only.** A deploy must not create a DNS record to prove it can write one. Where a
+  permission cannot be proven without writing — `Zone:DNS:Edit` is the only one — the
+  nearest read is proven and the report says the edit is *inferred*, not verified.
+- **The probe is the call the product makes.** `GET /domains` for Resend is the request
+  that failed in the field. A synthetic health check on some other endpoint would answer
+  `200` for a sending-only key and prove the wrong thing.
+- **It runs on a rehearsal too.** Every request is a read, so `bin/deploy --dry-run` is a
+  way to find out whether the credentials still work before committing to a deploy.
+
+A probe answers one of four things, and the hook decides what each one costs:
+
+| Probe says | Means |
+|---|---|
+| **capable** | it can do the thing the product needs |
+| **insufficient** | the credential is live but lacks that permission |
+| **invalid** | the provider does not recognise it at all |
+| **unproven** | nobody answered — this never fails a deploy, because a lost network is not a broken key |
+
+**A stored value cannot be probed.** `wrangler secret list` answers with names; the value
+itself is unreadable by design. So a deploy that leaves a secret alone proves nothing
+about it, and the report says `unverified` rather than passing it. The probe therefore
+runs on a rotation and on a first push, which is exactly when the value is new.
+
+**Every hook writes a row, in every outcome.** They go to `$DEPLOY_CAPABILITY_REPORT` and
+`bin/deploy` prints them together under `==> Capabilities` at the end — what each
+credential can do, what it cannot, when it expires, and what is consequently off in the
+shipped product. One place, at the moment the operator is looking. A capability that is
+off and named nowhere in that output is a bug in this directory.
+
+### Expiry, which is the *"up to date"* half
+
+`GET /user/tokens/verify` returns `expires_on`, so a Cloudflare token inside its last
+thirty days is reported with the date rather than left to become a deploy that starts
+failing on a day nobody wrote down. **This is honestly partial**: Resend keys do not
+expire, and neither Anthropic nor OpenAI exposes an expiry over the API. The expiry line
+says which of those it is and is never left blank — a blank column would read as
+*checked and fine*, which is the one thing it must not say.
+
 ## Writing a hook
 
 A hook contains the *name* and the *push*, and decides between three outcomes before it
@@ -60,20 +111,36 @@ set -euo pipefail
 # One secret per hook, named after it: 10-anthropic-api-key
 [[ "$DEPLOY_APP" == "control-app" ]] || exit 0
 
-# Names are the only half that is safe to look at, and reading them changes
-# nothing — so this runs unchanged on a rehearsal. Not called at all when the
-# environment has the value, so the common path adds no round-trip.
-probe_store() {
-  local json
-  if ! json="$(cd "$DEPLOY_APP_DIR" && npx wrangler secret list --env "$DEPLOY_ENV" 2>/dev/null)"; then
-    echo unreadable
-  elif printf '%s' "$json" | grep -q '"name"[[:space:]]*:[[:space:]]*"NAME"'; then
-    echo present
-  else
-    echo absent
-  fi
-}
+# The shared mechanism — store reads, capability probes, report rows. The
+# decision table stays in the hook, because it is this credential's own claim
+# about what its absence costs.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/secret.sh"
+
+if [[ -n "${NAME:-}" ]]; then
+  action=push
+else
+  case "$(secret_in_store NAME)" in
+    present) action=keep ;;
+    absent) action=fail state=absent reason="the Worker has no NAME either" ;;
+    unreadable) action=fail state=unreadable reason="and its secrets could not be read to check" ;;
+  esac
+fi
+
+# Probed BEFORE the push and before the upload, so a credential that cannot do
+# the job is reported before anything is uploaded.
+capability=0
+if [[ "$action" == "push" ]]; then
+  set +e
+  capability_probe NAME
+  capability=$?
+  set -e
+  if [[ "$capability" == "3" ]]; then action=refused; fi
+fi
 ```
+
+Four copies of a store read lived in four hooks before [[REQ-264]]; the mechanism is
+shared now and only the decision table is per-hook. `secret_in_store` keeps the
+asymmetry described above — a read that failed is `unreadable`, never `present`.
 
 See `10-anthropic-api-key` for the whole shape, including the failure message.
 
@@ -104,6 +171,20 @@ surface and every control in it goes through the zone credential, so the hook no
 it. REQ-259 calls that key too and is survivable without it — the domain still attaches
 and the toggle reports `off` — which is the test the table above actually states: the
 outcome must match what a deployment without the value does.
+
+[[REQ-264]] gave every hook a capability probe and gave `bin/deploy` the report. It also
+moved two hooks' verdicts: a Resend key the provider REFUSES now fails (an absent key is
+a deliberate state and still only warns — a refused one is an operator error, and the
+Worker would select the Resend sender and error on every message), and an OpenAI key the
+provider refuses fails for the same reason (an absent key drops the image tool cleanly;
+a dead one offers it and fails every call). `40-cloudflare-dns-token` refuses a token
+that cannot read the account's zones on REQ-259's own argument, arrived at from the other
+direction: the section ships either way.
+
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` have a probe and deliberately no hook.
+Production selects the Worker's `AI` binding ([[BUG-73]]), so that pair is the operator's
+own build credential for `1c kb build` rather than something this deploy pushes — there
+is no secret here to guard, and the probe exists for the caller that has one.
 
 REQ-149 corrected the guard itself. `10-anthropic-api-key` had tested the environment and
 nothing else, so a deploy from a shell without the key was refused even when the Worker had

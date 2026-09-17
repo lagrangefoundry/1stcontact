@@ -55,7 +55,7 @@ import type { IdentityEnv } from './identity'
 import { applyRecords, removeRecords, revertRecords, matchesRecord } from './records'
 import type { AppliedRecord } from './records'
 import type { DnsResolver } from './resolver'
-import type { ResendClient, SendingRecord } from './resend'
+import { ResendNotPermittedError, type ResendClient, type SendingRecord } from './resend'
 import { newId } from '../../../tools/generate/src/store/ids'
 import type { Zone } from './zones'
 
@@ -382,6 +382,25 @@ export async function disableSending(
     ...(sending.dmarcOurs ? [{ name: dmarcName(sending.domain), type: 'TXT' }] : []),
   ]
   await removeRecords(client, cfZoneId, wanted)
-  if (resend && sending.providerId !== null) await resend.deleteDomain(sending.providerId)
+  if (resend && sending.providerId !== null) {
+    try {
+      await resend.deleteDomain(sending.providerId)
+    } catch (error) {
+      // TURNING SENDING OFF MUST ALWAYS WORK ([[REQ-264]]). A key narrowed to
+      // *Sending access* after the domain was registered cannot unregister it,
+      // and refusing the whole operation over that would strand a customer
+      // sending from a domain they have asked to stop sending from — with the
+      // records already down, which is the worst of the three states. The
+      // registration is left at Resend for the operator to clear.
+      if (!(error instanceof ResendNotPermittedError)) throw error
+      console.warn(
+        JSON.stringify({
+          event: 'sending_registration_left_behind',
+          domain: sending.domain,
+          providerId: sending.providerId,
+        }),
+      )
+    }
+  }
   await env.DB.prepare('DELETE FROM sending_domains WHERE id = ?').bind(sending.id).run()
 }

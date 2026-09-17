@@ -32,6 +32,15 @@
  * NOTHING HERE DECIDES ANYTHING, on `hostname.js`'s rule. Which domains this
  * account holds, whether one is free, whether this person may spend it and where
  * the verification got to are all the Worker's answers.
+ *
+ * AND WHETHER THE SENDING TOGGLE IS DRAWN AT ALL IS ONE OF THEM ([[REQ-264]]).
+ * `state.emailAvailable` is false on a deployment that cannot configure sending
+ * — no credential, or one the provider refuses — and the toggle is then not
+ * rendered rather than rendered and refused. A control that cannot work is
+ * *"worse than not offering it"*, and the customer is told nothing about it
+ * because there is nothing about it that is theirs to act on: the website is
+ * unaffected and mail keeps coming from 1st Contact, which is the ordinary
+ * state `emailLine` already describes.
  */
 
 import { createModalShell, modalButton, modalFooter } from './modal.js'
@@ -202,7 +211,11 @@ export function createDomainSection(options = {}) {
 
     // THE TOGGLE IS BESIDE THE SELECTOR AND DEFAULTS ON, so the customer decides
     // once rather than attaching and then being asked a second question about a
-    // domain that is already live.
+    // domain that is already live. It is absent entirely when this deployment
+    // cannot configure sending ([[REQ-264]]), and the attach then asks for no
+    // email — the customer gets their website and is not shown a promise the
+    // deployment cannot keep.
+    const offerEmail = state.emailAvailable !== false
     const toggle = document.createElement('input')
     toggle.type = 'checkbox'
     toggle.className = 'builder-domain__email'
@@ -216,7 +229,7 @@ export function createDomainSection(options = {}) {
       'builder-modal__btn builder-modal__btn--primary builder-domain__attach',
       () =>
         void run(async () => {
-          const done = await attach(select.value, toggle.checked)
+          const done = await attach(select.value, offerEmail && toggle.checked)
           // THE NOTES ARE THE ATTACH'S OWN ANSWER AND ARE SHOWN ONCE. They
           // describe what was found on the domain at the moment it was taken
           // over, which is not a fact a later read could reproduce.
@@ -230,29 +243,39 @@ export function createDomainSection(options = {}) {
 
     row.append(select, button)
     toggleLabel.prepend(toggle)
-    body.append(row, toggleLabel)
+    body.append(row)
+    if (offerEmail) body.append(toggleLabel)
   }
 
   /** The state most businesses with a domain are in: it is on, and it works. */
   function drawAttached() {
     body.append(el('p', 'builder-domain__attached', attachedLine(state.attached)))
 
-    const toggle = document.createElement('input')
-    toggle.type = 'checkbox'
-    toggle.className = 'builder-domain__email'
-    toggle.id = 'builder-domain-email'
-    toggle.checked = state.email !== 'off'
-    toggle.disabled = busy || !state.mayAttach
-    toggle.addEventListener('change', () =>
-      void run(async () => {
-        await setEmail(toggle.checked)
-        return load()
-      }),
-    )
-    const label = el('label', 'builder-domain__email-label', EMAIL_LABEL)
-    label.htmlFor = toggle.id
-    label.prepend(toggle)
-    body.append(label, el('p', 'builder-domain__email-line', emailLine(state.email, state.attached)))
+    // NO TOGGLE AND NO LINE ABOUT MAIL when this deployment cannot configure
+    // sending ([[REQ-264]]). The website is the thing the customer asked for and
+    // it is working; a dead control beside it, or a sentence explaining why the
+    // control is dead, would put our configuration on their screen.
+    if (state.emailAvailable !== false) {
+      const toggle = document.createElement('input')
+      toggle.type = 'checkbox'
+      toggle.className = 'builder-domain__email'
+      toggle.id = 'builder-domain-email'
+      toggle.checked = state.email !== 'off'
+      toggle.disabled = busy || !state.mayAttach
+      toggle.addEventListener('change', () =>
+        void run(async () => {
+          await setEmail(toggle.checked)
+          return load()
+        }),
+      )
+      const label = el('label', 'builder-domain__email-label', EMAIL_LABEL)
+      label.htmlFor = toggle.id
+      label.prepend(toggle)
+      body.append(
+        label,
+        el('p', 'builder-domain__email-line', emailLine(state.email, state.attached)),
+      )
+    }
 
     if (!state.mayAttach) return
     // RELEASE IS ALWAYS AVAILABLE, and that is the rule this section exists to
