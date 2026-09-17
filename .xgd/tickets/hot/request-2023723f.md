@@ -5,9 +5,9 @@ type: request
 title: 'email tickets: freeze the record of a sent message'
 created_by: EPIC-3
 created_at: '2026-09-16T21:58:48.359181+00:00'
-updated_at: '2026-09-17T03:24:05.472411+00:00'
+updated_at: '2026-09-17T03:24:09.798493+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.232
+  story_points: 2
 ---
 
 ## What this adds
