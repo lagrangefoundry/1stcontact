@@ -6,9 +6,9 @@ title: 'Inbound mail, end to end: capture against the contact, pending for a str
   and the synthetic mark'
 created_by: EPIC-13
 created_at: '2026-09-17T22:00:00.005762+00:00'
-updated_at: '2026-09-17T22:14:30.287448+00:00'
+updated_at: '2026-09-17T23:13:49.423544+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -352,7 +352,94 @@ send-as credentials ([[EPIC-17]] FUT-2) belong to tickets 2 and 4; the
 Content-Security-Policy that would harden §9 further is [[EPIC-17]] §5 item 3 and
 ships independently of this.
 
-## 12. Acceptance criteria
+## 12. What else this ticket lands, and why each is a consequence rather than a choice
+
+Each of these follows from something above and is named here so it is spec rather
+than something reconciliation has to infer from a diff.
+
+**The migration is `0014`, not `0013`, and `0015` carries this ticket's own two
+tables.** `0013` was taken by the revision-immutability trigger between this
+ticket being written and the files being cut. The number is bookkeeping; the
+split §7 asks for is real and is kept: `0014` is the gutter's columns alone — the
+thing [[REQ-235]] depends on and nothing else here — and `0015` is inbound mail's
+own schema, so that dependency stays narrow.
+
+**Where a business's mail is forwarded to is a column on `sending_domains`**
+(`forward_to`, nullable). §2 says we record and then forward; without somewhere
+to read a destination from, the deployed pipeline would record faithfully and
+swallow every message, which is the one failure §2 says a business cannot
+forgive. Forwarding is a property of the domain exactly as sending is, so it is a
+column on the table that already holds `(domain, business_id, zone_id)` and not a
+table of its own. `NULL` is ordinary and means nobody has said yet: the message is
+still recorded, the forward is skipped, and the skip is reported. **The surface
+that sets it is still ticket 2** (§10) — what is here is the place it will write
+to.
+
+**"A run that exists and is still open" needs a registry, so `0014` creates
+one.** §7 replaces two of [[DOC-54]] §2.1's three marker checks with a lookup,
+and a lookup needs a table: `synthetic_runs (id, opened_at, closes_at, note)`.
+Platform-level and not per business, because a probe run may touch several
+businesses and belongs to none of them. The window is a stamp rather than a
+duration, so *is this run open* is one comparison at the door; its default is a
+day — long enough that no human-confirmed probe is cut off mid-flight, short
+enough that a run id leaked into a spam filter's logs stops working.
+
+**The in-flight mark is a floor over the parent's, never an override.**
+[[DOC-54]] R2's rule is *parent's mark where there is no in-flight one*, which
+answers the async-continuation case but not this channel's own: a probe mailing
+in as an address that genuinely is a contact would otherwise write a **real**
+event onto a real person's timeline, because the parent row says so — which is
+exactly the customer-visible pollution the gutter exists to prevent. So
+`recordEvent`'s statement takes the greater of the two: a synthetic contact's
+events are synthetic whatever the traffic claims, and synthetic traffic's events
+are synthetic whoever it claims to be. The only way to write a real row is for
+both to be real, and no caller can clear the mark.
+
+**Default-deny rides the scope handle.** §7's *"every read of the spine filters by
+default, through the scoped path rather than by each call site remembering"* is
+implemented as a field on `Scope` (`includeSynthetic`, absent meaning deny) and
+one shared clause beside it. Five contact reads and two event reads ask the same
+question; seven restatements of `synthetic = 0` would be seven places for a
+refactor to drop one, and dropping one does not fail — it quietly shows bot
+traffic on a customer's screen. Seeing the gutter therefore requires asking for it
+by name, at a call site somebody wrote on purpose.
+
+**The contact's correspondence answers both directions.** §5 puts received mail on
+the contact's page, and the route that already answered *what have we sent this
+person* is the one the page reads. It now answers with what was received as well,
+and the pane interleaves the two into one sequence newest-first — a reader asking
+*what is going on with this person* wants a conversation, and two lists side by
+side make them do the interleave by eye. Ours is stamped when we queued it and
+theirs when it reached us; both are the moment the message entered the
+relationship, which is what the ordering is about.
+
+**Un-discarding is a control on the same surface as discarding.** §6 says a
+suppression is reversible and is not erasure; that is a route and a button, not
+only a nullable column.
+
+**Reading past the cap changes `eventsOf`'s signature.** Its fourth argument was a
+bare limit and becomes the timeline window — a limit and an opaque cursor. The
+cursor is carried on the event row rather than in a page envelope, so a reader
+pages by handing back the last row it holds and every existing caller's return
+type is unchanged. The end of a history is a short page, which is the only
+convention that costs no extra read; a cursor this module did not mint reads as no
+cursor at all, so no timeline refuses to render because a URL was hand-edited.
+
+**A synthetic run's blobs go under one reserved key prefix, spelled once.**
+[[DOC-54]] §2.5's prefix is a constant in the gutter module beside the address
+namespace, because a second spelling of either is a second answer to *is this
+ours* — and the failure mode of disagreeing is a probe's mail forwarded into a
+customer's inbox.
+
+**The builder's people pane now reads the queue on mount**, alongside the contact
+list. One existing test stubs that pane's transport and asserts the absence of the
+"could not reach the server" notice, which every unstubbed call raises; its
+fixture gains the new method for the reason it already documents for the three
+beside it. A queue that could not be read is hidden rather than shown empty — an
+empty triage box and a failed read look identical, and only one of them means
+there is nothing waiting.
+
+## 13. Acceptance criteria
 
 1. Mail addressed to a domain in `sending_domains` from an address in
    `user_emails` for that business produces a message ticket and exactly one
