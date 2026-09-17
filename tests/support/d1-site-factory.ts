@@ -140,6 +140,12 @@ const MIGRATIONS = [
   // to, and the senders it has stopped wanting to triage.
   // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0015_inbound_mail.sql?raw'),
+  // [[REQ-268]] — the two indexes collection reads. Applied here for every reason
+  // above; it is the cheapest entry in the list for the fixture (an index changes
+  // no result, only how it is found) and the most expensive one to omit from the
+  // LIST, because `atHead` now asks about its last statement.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0016_gutter_collection.sql?raw'),
 ]
 
 /**
@@ -232,7 +238,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-266]]'s immutability trigger on `site_revisions`. It used to ask for
+ * [[REQ-268]]'s `idx_users_synthetic`, the sweep's own index. It used to ask for
  * `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -241,10 +247,10 @@ export async function applySchema(): Promise<void> {
  * query serve both "already migrated" and "nothing here yet", exactly as
  * `PRAGMA table_info` did.
  *
- * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0015` creates a
- * table and then an index over it; asking for the table would answer "at head"
- * for a database that got half way through the file, exactly as asking for the
- * table `0012`'s index guards would have. The marker has to move with the list —
+ * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0016` creates two
+ * indexes; asking for the first would answer "at head" for a database that got
+ * half way through the file, exactly as asking for the table `0015` creates
+ * before its index would have. The marker has to move with the list —
  * a migration appended above without moving it re-opens that hole silently.
  *
  * AND `0014` MAKES THAT SHARPER THAN IT WAS ([[REQ-267]]). Every file up to it
@@ -255,7 +261,7 @@ export async function applySchema(): Promise<void> {
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
   const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_inbound_suppressions_live')
+    .bind('idx_users_synthetic')
     .first<{ name: string }>()
   return row !== null
 }

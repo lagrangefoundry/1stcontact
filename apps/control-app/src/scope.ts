@@ -4,6 +4,7 @@ import {
   type AdmittedBusiness,
   type IdentityEnv,
 } from './identity'
+import { isOpaqueId } from '../../../tools/generate/src/store/ids'
 
 /**
  * Which business this request operates on (REQ-168) — [[DOC-40]] §2.
@@ -72,10 +73,43 @@ export interface Scope {
    * purpose.
    */
   includeSynthetic?: boolean
+  /**
+   * The manufactured run this operation IS ([[REQ-268]] §1–3, [[DOC-54]] §2.2).
+   *
+   * THE WRITE-SIDE HALF OF {@link includeSynthetic}, AND THE TWO ARE DIFFERENT
+   * QUESTIONS. That one is a customer surface saying *show me the gutter as
+   * well*; this one is the platform saying *this operation is the gutter* — so a
+   * row written under it is marked, and a row read under it is that run's own.
+   *
+   * ITS PRESENCE IS THE MARK AND ITS VALUE IS THE RUN. A separate boolean beside
+   * it would make a synthetic row with no run id constructible, and that row is
+   * precisely the one [[DOC-54]] §2.9 says nothing downstream can ever find
+   * again: the sweep can see it, and collection by run cannot.
+   *
+   * IT RIDES THE SCOPE FOR THE REASON {@link includeSynthetic} DOES, and it buys
+   * something that one cannot: `captureLead` sets it once and `addContact`,
+   * `recordEvent`, `recordAcceptance` and `grantFor` all mark what they write
+   * without a single one of them growing a parameter. [[REQ-268]] §2's rule is
+   * *no call site supplies the flag*, and a scope field is how that is kept.
+   *
+   * IT ALSO SCOPES THE WRITE PATH'S OWN READS TO THE RUN, which is not a
+   * refinement but a requirement. A marked submission's find-or-create lookup
+   * must not resolve a REAL contact who happens to hold the same address —
+   * attaching a probe's event to a customer's own person is the one way marked
+   * traffic could pollute the record it exists to stay out of.
+   */
+  runId?: string
 }
 
 /**
  * The `AND` clause that excludes the gutter, or nothing at all ([[DOC-54]] R3).
+ *
+ * THREE ANSWERS NOW, NOT TWO ([[REQ-268]]). A scope naming a RUN gets that run's
+ * own rows and nothing else — neither the customer's real ones nor another run's
+ * — which is what makes a marked write's find-or-create lookup safe and what
+ * makes `peopleOf` under a run id a legitimate way to see what a probe produced.
+ * Absence of both fields is still the customer's answer, and is still the one a
+ * caller gets by saying nothing.
  *
  * SPELLED ONCE, HERE, BESIDE THE FIELD IT READS. Five people reads and two
  * event reads ask this same question, and seven copies of `synthetic = 0` is
@@ -86,6 +120,21 @@ export interface Scope {
  * a join and a bare column in a single-table read.
  */
 export function realOnly(scope: Scope, alias = ''): string {
+  const run = (scope.runId ?? '').trim()
+  if (run !== '') {
+    // THE ONE VALUE THIS MODULE EVER INTERPOLATES, AND IT IS REFUSED UNLESS IT
+    // IS AN ID THIS SYSTEM MINTED ([[REQ-268]]). `realOnly` returns SQL and no
+    // bind values — which is what lets seven call sites append it without one of
+    // them getting the argument order wrong — so a run id has to arrive in the
+    // string itself. `isOpaqueId` is the same predicate `newId` satisfies by
+    // construction, and nothing else can reach this field: a run id is minted
+    // server-side and set in code, never read off a request. A value that fails
+    // it is a programming error, and it is refused rather than escaped, because
+    // an escaped one would mean this function had quietly become a place where
+    // caller-shaped strings belong.
+    if (!isOpaqueId(run)) throw new UnscopedError(`realOnly (run id '${run}')`)
+    return ` AND ${alias}synthetic = 1 AND ${alias}run_id = '${run}'`
+  }
   return scope.includeSynthetic ? '' : ` AND ${alias}synthetic = 0`
 }
 
