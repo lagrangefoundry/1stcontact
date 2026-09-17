@@ -7,6 +7,7 @@ import { formHandle } from '../../packages/framework/src/modules/contact-form/fi
 import { nextSlug } from './site-seed'
 import { giveSiteAnAddress } from './site-address'
 import { starterSiteJson } from '../../tools/generate/src/cli/scaffold'
+import { snapshotSha } from '../../tools/generate/src/store/revision-model'
 
 /**
  * A PUBLISHED site carrying a `contact-form`, for [[REQ-223]]'s UATs.
@@ -548,7 +549,13 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
         by: null,
         basedOn: null,
         changes: { added: pages.map((entry) => entry.name), modified: [], removed: [] },
-        sha: 'fixture',
+        // THE REAL DIGEST OF THE SNAPSHOT BESIDE IT ([[REQ-266]] §4). It used
+        // to be the literal 'fixture', which was harmless only while nothing
+        // compared the two; `readRevision` verifies now, and the capture path
+        // reads a form's frozen definition through it — so a made-up digest
+        // would seed a state no publish can produce and then refuse every read
+        // of it.
+        sha: await snapshotSha(siteContent),
       },
       {
         // THE REVISION'S SOURCE IS THE DRAFT'S, assets included — a publish

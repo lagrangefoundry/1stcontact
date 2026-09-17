@@ -22,8 +22,10 @@ import {
   checkoutRevision,
   publishSite,
   revisionHistory,
+  verifyRevisions,
   type CheckoutResult,
   type PublishResult,
+  type RevisionIntegrityReport,
 } from '../publish/publish'
 import { starterHomePage, starterSiteJson } from './scaffold'
 
@@ -93,6 +95,28 @@ export function cmdList(opts: GlobalOptions = {}): SiteListing[] {
 /** The publish log, newest-first. */
 export function cmdRevisions(slug: string, opts: GlobalOptions = {}): Promise<RevisionEntry[]> {
   return revisionHistory(fsSiteStore(ctxOf(opts)), slug)
+}
+
+// ── verify ────────────────────────────────────────────────────────────────────
+
+/**
+ * `1c verify` — is this site's published history intact? ([[REQ-266]] §5)
+ *
+ * A CLIENT OF `verifyRevisions`, exactly as `cmdPublish` is a client of
+ * `publishSite`. The walk is over the port, so the same function answers for the
+ * operator's disk here and for D1 and R2 wherever a deployment chooses to ask
+ * it; what the command adds is which store it is talking to.
+ *
+ * IT EXISTS SO THE OPERATION HAS A CALLER. Verification on read already protects
+ * every revision anybody asks for; the revisions nobody asks for are where a
+ * silent alteration would sit, and a function only a test can reach is not an
+ * answer to that.
+ */
+export function cmdVerify(
+  slug: string,
+  opts: GlobalOptions = {},
+): Promise<RevisionIntegrityReport> {
+  return verifyRevisions(fsSiteStore(ctxOf(opts)), slug)
 }
 
 // ── render ────────────────────────────────────────────────────────────────────

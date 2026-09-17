@@ -118,8 +118,16 @@ const MIGRATIONS = [
   // every draw, so a suite that skipped it would fail on a missing table in the
   // route that answers *what does this business's domain section say* rather
   // than in the operation that writes it.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0012_sending_domains.sql?raw'),
+  // [[REQ-266]] — `site_revision_claims` and the immutability trigger on
+  // `site_revisions`. Applied here for every reason above, and it is the most
+  // load-bearing of the lot for this fixture: the store now CLAIMS a revision id
+  // before it writes a byte and refuses one already claimed, so a suite that
+  // skipped this file would fail every publish on a missing table — and the
+  // trigger is the thing the ticket's first UAT asserts, which cannot be
+  // asserted against a database that does not carry it.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0013_revision_immutability.sql?raw'),
 ]
 
 /**
@@ -212,7 +220,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-259]]'s unique index on `sending_domains.domain`. It used to ask for
+ * [[REQ-266]]'s immutability trigger on `site_revisions`. It used to ask for
  * `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -221,15 +229,16 @@ export async function applySchema(): Promise<void> {
  * query serve both "already migrated" and "nothing here yet", exactly as
  * `PRAGMA table_info` did.
  *
- * AN INDEX AND NOT THE TABLE IT GUARDS, because `0012`'s three statements land
- * in order and this index is the second: an index that exists implies the table
- * it is declared over does. Asking for the table instead would answer "at head"
- * for a database that got half way through the file.
+ * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0013` creates a
+ * table and then a trigger; asking for the table would answer "at head" for a
+ * database that got half way through the file, exactly as asking for the table
+ * `0012`'s index guards would have. The marker has to move with the list — a
+ * migration appended above without moving it re-opens that hole silently.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_sending_domains_domain')
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = ?")
+    .bind('site_revisions_are_immutable')
     .first<{ name: string }>()
   return row !== null
 }

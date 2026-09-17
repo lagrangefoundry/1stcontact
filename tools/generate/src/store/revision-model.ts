@@ -112,7 +112,17 @@ export function liveRevisionOf(revisions: readonly RevisionEntry[]): number | nu
   return revisions.reduce((max, r) => Math.max(max, r.id), 0)
 }
 
-/** The next revision id: one past the highest ever minted. Forward-only. */
+/**
+ * The next revision id: one past the highest ever minted. Forward-only.
+ *
+ * THE ARITHMETIC, NOT THE ANSWER ([[REQ-266]] §2). A publish asks
+ * {@link SiteStore.nextRevision} rather than calling this over the log, because in the
+ * D1/R2 adapter an id can have been HANDED OUT without a publish having
+ * COMPLETED — reserved in `site_revision_claims` before a byte is written, so
+ * that two publishes of one site cannot mint the same id and interleave into one
+ * prefix. This stays the shared expression of "one past the highest", and the
+ * adapters with nothing to reserve answer with exactly it.
+ */
 export function nextRevisionOf(revisions: readonly RevisionEntry[]): number {
   return (liveRevisionOf(revisions) ?? 0) + 1
 }
@@ -217,6 +227,106 @@ export async function snapshotSha(snapshot: StoredSnapshot): Promise<string> {
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
     .slice(0, REVISION_SHA_LENGTH)
+}
+
+/**
+ * A revision whose stored bytes do not match the digest recorded for it
+ * ([[REQ-266]] §4).
+ *
+ * A REFUSAL AND NOT A WARNING. The whole point of freezing a definition is that
+ * what comes back is what went in; bytes that disagree with the record are the
+ * one case where answering *anything* is worse than answering nothing, because
+ * every caller downstream — the page a visitor is served, the checkout that
+ * replaces a draft, the form definition a lead is captured against — treats the
+ * answer as the published truth. A warning and a returned snapshot would be a
+ * restore that restores tampered bytes with a note in a log nobody reads.
+ *
+ * IT CARRIES BOTH DIGESTS because that is the whole content of the answer: what
+ * the log says this revision is, and what the store actually holds.
+ */
+export class RevisionIntegrityError extends Error {
+  readonly name = 'RevisionIntegrityError'
+  /** The store's own name for the site — a key in D1, a directory on disk. */
+  readonly site: string
+  readonly id: number
+  /** The digest recorded when the revision was published. */
+  readonly expected: string
+  /** The digest of what the store holds now. */
+  readonly actual: string
+
+  constructor(site: string, id: number, expected: string, actual: string) {
+    super(
+      `Revision ${id} of '${site}' does not match its recorded digest ` +
+        `(expected ${expected}, found ${actual}). Its stored bytes have changed ` +
+        `since it was published.`,
+    )
+    this.site = site
+    this.id = id
+    this.expected = expected
+    this.actual = actual
+  }
+}
+
+/**
+ * A publish refused because the revision id it named is already spoken for
+ * ([[REQ-266]] §2, §3).
+ *
+ * TWO REASONS, ONE ERROR, and the difference is worth reporting rather than
+ * flattening. `published` means a completed revision row already holds this id,
+ * which is a caller arriving with an id it did not mint. `claimed` means another
+ * publish of the same site reserved it first and may be writing into that prefix
+ * right now — the race [[EPIC-17]] §5 item 5c proposed a Durable Object for,
+ * resolved here at the point where it would do damage.
+ *
+ * EITHER WAY NOTHING WAS WRITTEN. The refusal happens before the first `put`,
+ * which is the property that distinguishes it from the primary key it replaces:
+ * that key also refused a duplicate, but only after every byte had already
+ * overwritten the revision it collided with.
+ */
+export class RevisionExistsError extends Error {
+  readonly name = 'RevisionExistsError'
+  readonly site: string
+  readonly id: number
+  readonly reason: 'published' | 'claimed'
+
+  constructor(site: string, id: number, reason: 'published' | 'claimed') {
+    super(
+      reason === 'published'
+        ? `Revision ${id} of '${site}' is already published and cannot be rewritten.`
+        : `Revision ${id} of '${site}' is already claimed by another publish.`,
+    )
+    this.site = site
+    this.id = id
+    this.reason = reason
+  }
+}
+
+/**
+ * The snapshot, or a refusal — one comparison, shared by every adapter
+ * ([[REQ-266]] §4).
+ *
+ * WHY IT IS HERE AND NOT IN EACH `readRevision`. Three adapters answer that verb
+ * and all three have to refuse identically, or "a revision is verified" becomes
+ * a claim about whichever store you happened to ask. This is the same reason the
+ * change list and the digest live in this module rather than in the adapters
+ * that produce them: the ARITHMETIC of a revision is a pure function of data,
+ * and both stores have to agree on it exactly.
+ *
+ * NO NEW CANONICALISATION. {@link snapshotSha} is already defined over exactly
+ * {@link StoredSnapshot}, which is exactly what `readRevision` returns, so
+ * verification is one recomputation and one string comparison. That it needed no
+ * new machinery is the strongest evidence the detector was built and simply
+ * never wired up.
+ */
+export async function verifiedSnapshot(
+  site: string,
+  id: number,
+  expected: string,
+  snapshot: StoredSnapshot,
+): Promise<StoredSnapshot> {
+  const actual = await snapshotSha(snapshot)
+  if (actual !== expected) throw new RevisionIntegrityError(site, id, expected, actual)
+  return snapshot
 }
 
 /** Zero-pad a revision id to its canonical 4-digit form (`1` → `0001`). */

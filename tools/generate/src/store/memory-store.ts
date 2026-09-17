@@ -3,6 +3,7 @@ import { assertWritableAssetNames } from './asset-name'
 import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
 import { emptyJournal, nextJournal, sliceSince } from './journal-model'
 import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import { nextRevisionOf, verifiedSnapshot } from './revision-model'
 import type {
   DraftSnapshot,
   SiteStore,
@@ -216,6 +217,13 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve(copy(site(slug)?.history ?? []))
     },
 
+    // ONE PAST THE LOG, for the reason the filesystem adapter gives ([[REQ-266]]
+    // §2): a Map in one isolate has no second writer to race, so there is no
+    // claim to keep and nothing to union with.
+    nextRevision(slug): Promise<number> {
+      return Promise.resolve(nextRevisionOf(site(slug)?.history ?? []))
+    },
+
     writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
       const found = require(slug)
       // Deep-copied in, so the snapshot cannot be reached through the draft it
@@ -240,17 +248,30 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve()
     },
 
-    readRevision(slug, id): Promise<StoredSnapshot | null> {
-      const held = site(slug)?.snapshots.get(id)
-      if (!held) return Promise.resolve(null)
-      return Promise.resolve({
+    async readRevision(slug, id): Promise<StoredSnapshot | null> {
+      const found = site(slug)
+      const held = found?.snapshots.get(id)
+      if (!held || !found) return null
+      const snapshot: StoredSnapshot = {
         siteJson: copy(held.siteJson),
         pages: held.pages.map((p: StoredPage) => ({ name: p.name, page: copy(p.page) })),
         assets: held.assets.map((a: StoredAsset) => ({
           name: a.name,
           bytes: new Uint8Array(a.bytes),
         })),
-      })
+      }
+
+      // [[REQ-266]] §4 — VERIFIED HERE TOO, EVEN THOUGH NOTHING CAN TAMPER WITH
+      // A MAP. The reason is what this adapter is for: it is the one every UAT
+      // of the publish surface runs against, so a store that skipped the check
+      // would make the ticket's whole claim untestable through the adapter that
+      // exists to prove the surface works. It also refuses a hand-written
+      // fixture whose digest does not describe the snapshot beside it — a state
+      // no publish can produce, and therefore one no test should be asserting
+      // against.
+      const entry = found.history.find((r: RevisionEntry) => r.id === id)
+      if (entry === undefined) return snapshot
+      return verifiedSnapshot(slug, id, entry.sha, snapshot)
     },
 
     draftBase(slug) {

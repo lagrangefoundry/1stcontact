@@ -9,6 +9,7 @@ import { templateFor } from '../apps/control-app/src/templates'
 import { emailsOf } from '../apps/control-app/src/identity'
 import type { Scope } from '../apps/control-app/src/scope'
 import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
+import { snapshotSha } from '../tools/generate/src/store/revision-model'
 import type { SiteStoreEnv } from '../tools/generate/src/store/d1r2-store'
 import { applySchema } from './support/d1-site-factory'
 import { handleFor, seedFormSite } from './support/lead-site'
@@ -153,6 +154,7 @@ async function publishDraft(tenantId: string, siteKey: string, id: number): Prom
   const store = await d1r2SiteStore(env as unknown as SiteStoreEnv).forTenant(tenantId)
   const pages = await store.readPages(siteKey)
   const siteJson = await store.readSiteJson(siteKey)
+  const source = { siteJson: siteJson ?? {}, pages, assets: [] }
   await store.writeRevision(
     siteKey,
     {
@@ -162,10 +164,14 @@ async function publishDraft(tenantId: string, siteKey: string, id: number): Prom
       by: null,
       basedOn: null,
       changes: { added: [], modified: pages.map((p) => p.name), removed: [] },
-      sha: `publish-${id}`,
+      // THE REAL DIGEST, because `readRevision` verifies it ([[REQ-266]] §4)
+      // and the send path under test reads the message out of this very
+      // revision. A made-up digest would refuse the read this suite exists to
+      // make.
+      sha: await snapshotSha(source),
     },
     {
-      source: { siteJson: siteJson ?? {}, pages, assets: [] },
+      source,
       out: new Map([['index.html', '<!doctype html><title>Home</title>']]),
     },
   )

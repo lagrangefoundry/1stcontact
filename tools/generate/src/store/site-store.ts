@@ -216,6 +216,26 @@ export interface SiteStore {
   revisions(site: string): Promise<RevisionEntry[]>
 
   /**
+   * The id the NEXT revision of this site will take ([[REQ-266]] §2).
+   *
+   * A PORT VERB AND NOT `nextRevisionOf(await revisions(site))`, which is what
+   * `publish.ts` used to compute. The arithmetic is unchanged — one past the
+   * highest ever minted, forward-only — but the set it is computed over is not
+   * the log alone any more. The D1/R2 adapter reserves an id in
+   * `site_revision_claims` before it writes a byte, so the highest id that has
+   * ever been HANDED OUT can exceed the highest id that was ever COMPLETED, and
+   * only the adapter holding that table can see the difference. A caller doing
+   * the arithmetic itself would hand out an id another publish is already
+   * writing into, which is the exact race the claim exists to close.
+   *
+   * THE ADAPTERS WITH NO CLAIMS ANSWER EXACTLY AS BEFORE. The filesystem and
+   * in-memory stores are single-writer by construction — one operator, one
+   * process — so `nextRevisionOf` over their own log is the whole answer, and
+   * they say so by calling it.
+   */
+  nextRevision(site: string): Promise<number>
+
+  /**
    * Freeze `content` as the revision `entry` names, and append `entry` to the
    * log — one act, because a revision that lists in the history and serves
    * nothing is worse than a publish that failed outright.
