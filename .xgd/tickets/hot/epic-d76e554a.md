@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T21:33:37.465222+00:00'
+updated_at: '2026-09-17T21:40:22.084018+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,6 +13,7 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
+
 
 ## What the client asked for
 
@@ -1299,3 +1300,47 @@ Bytes arriving by mail are bytes an anonymous party chose. They are never served
 as a *document* from an origin that holds a session — [[EPIC-17]] F1, which
 exists today on the upload path and would be re-opened here from the anonymous
 side.
+
+## The test gutter — this epic's share ([[DOC-54]])
+
+**§5 of this epic is superseded by [[DOC-54]], which is now the normative statement of
+the contract.** What §5 recorded was an early form, written before the mechanism was
+designed against the code. Three things changed, and §5 should be read through them:
+
+**1. The initiator class is withdrawn.** §5 carried an inversion — that a
+customer-initiated test is synthetic traffic whose delivery to the business is the
+point — and proposed keying an exception on the initiator. **Not needed.** The site
+owner is not a contact of her own site; she is a contact of 1st Contact. A forwarding
+test addressed *to* her business from a sender matching no contact lands where this
+epic already sends unmatched inbound mail — the pending/unidentified state on the
+Contacts tab — creating no contact, no timeline entry and no metric. There is nothing
+to suppress and the rule never engages. Landing there is arguably the feature: seeing
+the test arrive, having travelled the real path, is the end-to-end confidence the
+confirmation button exists to give. It should be dismissible on confirmation, or the
+queue accumulates one message per configuration change and becomes a queue nobody
+reads.
+
+The general rule that replaced the exception: **suppression keys on the record, not on
+the traffic** — one rule in [[EPIC-14]]'s resolver instead of two classes in the marker.
+
+**2. The marker carries a run id**, `newId('run')` ([[REQ-190]]'s minter, never a
+second shorter format). Verification and collection are both *"the rows stamped
+`run`"*; a boolean alone makes collection a time sweep and verification a guess. Where
+an email envelope is the only channel — an inbound probe with no request to attach a
+marker to — the reserved address carries it: `bfm+run_<hex>@…`, 40 characters against a
+64-character local-part limit.
+
+**3. Message bodies and attachments need the mark in two places.** The ticket record
+carries the column; **R2 blobs carry it in the key as a reserved prefix**, not in object
+metadata, because a bucket has no `WHERE` clause. A prefix makes the exclusion visible
+in the key, makes the sweep a prefix listing, and makes an accidental exposure
+greppable. Erasure must reach those blobs too, or it is erasure that reads correct and
+is not.
+
+**One obligation this epic should note now, since it is cheap only while unbuilt:** KB
+corpus membership must default *out* for synthetic messages. This epic already requires
+that for volume reasons; the gutter adds a second: a support answer citing a bot's
+enquiry is a retrieval failure with no symptom.
+
+**Ordering unchanged:** [[DOC-54]] is the contract, not a dependency. Nothing here waits
+on it beyond carrying the column when the tables are written.
