@@ -5,7 +5,7 @@ type: epic
 title: User Notifiations
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T00:22:56.755347+00:00'
-updated_at: '2026-09-17T21:22:10.012440+00:00'
+updated_at: '2026-09-17T21:39:48.754851+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -13,6 +13,7 @@ fields:
   priority: medium
   chat_comment: comment-e2f4d75b
 ---
+
 
 > "We need a platform capability to notify users of things. Notification will be
 > primarily email but we will add push (when we do the app) and maybe SMS so the
@@ -795,3 +796,34 @@ it.
 | [[EPIC-9]] | Billing and payments | where *"your payment failed"* comes from |
 | [[EPIC-11]] | Contact activity log | the spine a decision is recorded on |
 | [[EPIC-13]] | Email | the channel, its health, and campaigns |
+
+## The test gutter — this epic's share ([[DOC-54]])
+
+[[EPIC-15]] manufactures traffic through real code paths to prove they work.
+[[DOC-54]] R3 requires that traffic reach no customer — and **the notification half of
+that rule lives here, in one place, by design**.
+
+**What this epic owns: the audience resolver drops a declaration whose originating
+event is synthetic.** Nothing else in the product decides it.
+
+The rule is stated deliberately as *suppression keys on the **record**, not on the
+traffic* ([[DOC-54]] §2.8). A notification fires because a contact event happened; if
+that event carries the mark, it is suppressed. Traffic that produces no contact event
+has nothing to decide — which is how the client's forwarding-test case resolves
+without an exception, and why the marker did **not** need to carry an initiator class.
+
+**This epic's existing architecture is what makes the single point possible**, and the
+dependency runs the other way round from how it looks: because a producer *declares*
+and never sends — *"it does not know whether that becomes an email, a push or nothing
+at all, and it must never learn"* — there is exactly one place to put the check. Were
+any producer allowed to reach a mailer directly, suppression would have to be
+re-implemented at each one, and the bot enquiry that emails a business every morning
+would arrive through whichever producer forgot.
+
+So the obligation is small and the reason it is small is this epic's own design: **one
+predicate in the resolver, and the existing ban on producers sending directly is what
+keeps it to one.**
+
+**The falsifier:** any notification delivered to anyone but us on synthetic traffic.
+
+**Not this epic's:** the mark itself, the columns, the collector. [[DOC-54]] §2.
