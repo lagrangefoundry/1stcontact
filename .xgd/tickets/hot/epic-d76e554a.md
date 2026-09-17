@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T04:10:17.620334+00:00'
+updated_at: '2026-09-17T04:19:40.648446+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,6 +13,7 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
+
 
 ## What the client asked for
 
@@ -922,28 +923,59 @@ campaign pins it at draft-exit, and never reopens. `sending` is meaningless for 
 template. This is exactly *"once it has gone out it is frozen"*, without the
 contradiction.
 
-### Copy-on-write, and why the copy is lazy
+### Copy-to-write: the refusal is explicit, and so is the copy
 
-**Editing a `used` template mints a new version and repoints the campaign in hand.**
-It does not error, and it does not send the operator hunting for a duplicate button.
-From the surface this reads precisely as the client's proposal — creating a campaign
-also gives you a style template, seeded from an existing one. From the store it is
-one new ticket, and only when something actually changed.
+The client, correcting the mechanism below: *"we just need a mechanism to tell the
+user 'this cannot be edited, if you want changes here is a CTA to make a copy'. This
+should be clear and explicit — what we were discussing before sounded like there were
+automated versioning things going on, that would be confusing."*
 
-**The copy is lazy, and that is the load-bearing choice.** The alternative — every
-campaign minting its own template ticket at creation — was considered and rejected:
+**The term is copy-to-write, and the correction is more than naming.**
+*Copy-on-write* is a term of art for a mechanism whose defining property is that the
+copy is **invisible** — the system performs it and the actor never learns it
+happened. That invisibility is exactly what is being rejected here. The earlier draft
+of this section named the mechanism by the one attribute the product must not have.
 
-- **It costs the "set up your brand once" property**, which is most of the value a
-  small business gets here. With a per-campaign copy there is no shared template left
-  to fix, so correcting a logo means editing every future campaign individually,
-  forever.
-- **It does not remove the concept it appears to remove.** Eager copies still need a
-  canonical *current* template to copy from — which is the `TemplateKey` that already
-  exists, now accompanied by N near-identical tickets.
-- **Copy-on-write already answers the objection eager copies were reaching for.** If
-  two drafts share v3 and one operator edits the styling, that edit mints v4 and
-  repoints only their campaign. The other draft is untouched. There is no shared
-  mutable state between drafts.
+**So the write is refused, the refusal is shown, and the copy is a deliberate act.**
+A `used` template that the operator tries to edit produces a real store refusal —
+[[REQ-160]]'s `immutable` rule with `when: "fields.status != draft"` — surfaced as an
+explicit message and a call to action. Nothing is intercepted, repointed or versioned
+behind the operator's back.
+
+**This is also the simpler build, which is why it wins on more than clarity.**
+Copy-on-write needed that same lock *plus* a silent interception layer to catch the
+refusal and transparently repoint the campaign in hand. Copy-to-write is the lock and
+a message. One mechanism and one UI pattern, applied identically to a `used` template
+and to a `sent` campaign — the client's earlier *"it can be copied for another email
+blast"* is the same affordance on the other type.
+
+**"Set up your brand once" survives, because the copy inherits the key.** The
+concern that motivated the automated version — that a business must be able to
+correct its logo without touching every future campaign — is met as long as the copy
+takes the original's `TemplateKey`, so newest-wins makes it current. The property is
+unchanged; it now costs a click and a sentence rather than happening silently.
+
+**The CTA is two CTAs, and this follows from the explicitness itself.** *"Make a
+copy"* is ambiguous in a way that matters, because the readings differ in
+consequence:
+
+- **"Update this template"** — a new version under the **same key**, which becomes
+  the current template for future campaigns. Past campaigns keep the version they
+  used. This is fixing the logo.
+- **"Start a new template from this one"** — a **new key**, a separate design
+  alongside the original, changing nothing about what the next campaign looks like.
+  This is wanting a second look for announcements.
+
+Offering one undifferentiated *copy* button would reintroduce precisely the confusion
+the explicit refusal exists to prevent: the operator would not know whether they had
+just changed what their next campaign looks like.
+
+**Eager per-campaign templates remain rejected, for the unchanged reason.** Minting a
+template ticket for every campaign at creation time costs the "set up your brand
+once" property outright — there is no shared template left to correct, so fixing a
+logo means editing every future campaign individually, forever. It also fails to
+remove the concept it appears to remove, since eager copies still need a canonical
+*current* template to copy from, which is the `TemplateKey` that already exists.
 
 Per §"Does the template need freezing too?", the campaign pins `template_uid` at the
 draft boundary. The latch and the pin are the same event seen from the two ends.
