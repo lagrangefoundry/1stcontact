@@ -5,9 +5,9 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-16T23:57:42.435275+00:00'
+updated_at: '2026-09-17T01:47:16.589867+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: done
 fields:
   priority: medium
@@ -688,3 +688,123 @@ wrong durable home for the button**: the card carries `Undo` while it is the mos
 recent change to those records, and the lasting home is a **DNS change history** on
 the settings surface, which is also what makes the card's visibility claim survive
 the chat scrolling away.
+
+
+---
+
+## Correction, 2026-09-16: moving their DNS breaks their email, and this epic stops pretending otherwise
+
+Settled with the operator. **This withdraws the acceptance bar at the top of this
+ticket and rewrites what the *"Preservation, not confirmation"* section is for.**
+Nothing else in the epic moves. It is recorded here rather than edited in place so
+that anybody who read the original knows it changed and why.
+
+### What is withdrawn
+
+> ~~**A customer's existing mail, and anything else already running on their
+> domain, survives the move to us without them being asked a question they cannot
+> answer.**~~
+
+And with it, three mechanics the old bar required:
+
+- ~~copying `MX`, SPF, DKIM and `_dmarc` forward into the pending zone
+  automatically~~
+- ~~re-resolving mail records after propagation and comparing them to the
+  snapshot~~
+- ~~*"Your email is with Microsoft — I'll keep that working."*~~ That sentence is
+  now a lie and must not be said.
+
+### The bar, restated
+
+> **Moving a customer's DNS to us breaks their existing email. They are told so,
+> by name, before they act — and it is reconfigured with their help before anyone
+> notices.**
+
+The operator's statement of it: *"moving their DNS will break their existing email
+config. However with their help we can probably reconfigure it before anyone
+notices."*
+
+**The non-mail half of the old bar survives intact.** Their website, their
+verification `TXT` records, the subdomain pointing at their booking system — all of
+it is swept and written into the pending zone before the paste, so for everything
+that is not mail the cutover remains a no-op in what resolves. **The split is
+mail / not-mail**, and it is the only change.
+
+### Why the old bar could not be met
+
+Mail is not a record we can copy. A `secureserver.net` `MX` copied forward points
+at a service that stops honouring this domain once its nameservers move, and the
+forwarding destinations behind it are private configuration inside the old
+provider's account — **not discoverable from DNS at any price.** Preserving mail
+would have meant reproducing a service we cannot read the configuration of. The
+old bar described an outcome no sequence of DNS writes could produce.
+
+### What the preservation apparatus is now for
+
+**The sweep stays and changes purpose.** `hasLiveMail`, the DKIM selector probe
+(`DKIM_SELECTORS`, not enumerable, so probed by name), the `MAIL_HOSTS` and
+`SPF_SENDERS` attribution — none of it is deleted. It stops meaning *preserve this*
+and starts meaning:
+
+> **name exactly what is about to stop working, before they act.**
+
+**That is more load-bearing than it was, not less.** Under preservation, a missed
+DKIM selector was a silent degradation discovered weeks later. Under this bar, a
+missed provider is the difference between an informed customer and an ambushed one,
+and the ambush is the failure this epic was written to prevent. The probe earns its
+keep either way; only the sentence it produces changes.
+
+### Asking is now allowed, and the rule that survives
+
+The old section's title — *"Preservation, not confirmation"* — was built on the
+client's objection that *"our users are not going to be in a position to confirm
+anything here."* **That objection stands and is not weakened.** What changes is
+that it was never a ban on questions; it was a ban on asking a customer to
+*validate* something they cannot evaluate.
+
+- **Refused, still:** *"Is this MX record correct?"* — they cannot know, and their
+  yes launders our error into their approval.
+- **Required, now:** *"Who should your email go to?"* — a furniture restorer can
+  answer that, and there is no other source for it. It is the one fact in this
+  whole flow that is genuinely undiscoverable.
+
+So the flow asks what they know and never asks them to check our work. That is the
+same rule, applied to a case the original text did not anticipate.
+
+### What the customer is told, and when
+
+Before the nameserver paste, never after:
+
+> *"Your email currently goes to Microsoft 365. When you switch this over it will
+> stop, and we'll set it back up with you afterwards."*
+
+**Some customers will stop at that sentence, and that is the correct outcome.** A
+business whose mail is how they get work, choosing to schedule the move rather than
+do it now, has been served correctly by this flow.
+
+### Reconfiguration is [[EPIC-13]]'s and is not this epic's to build
+
+That epic owns the incoming pipeline, the addresses and forwarding, and the
+send-as setup it already names as *"the most fragile customer-facing step in the
+epic… a subsystem, not a help page."* Its own Boundaries already give DNS writes
+here. **What neither epic owned was the mail gap at cutover, and [[EPIC-13]] now
+does** — see the ordering expectation recorded there.
+
+This epic is not blocked on it. The flow ships breaking-and-warning; [[EPIC-13]]
+later moves the configuration earlier in the sequence and closes the gap.
+
+### What this changes elsewhere
+
+- **[[REQ-260]]'s SPF-merge and `_dmarc` rules are unchanged and still right.**
+  Their justification shifts from *do not break their existing mail* to *do not
+  break the mail [[EPIC-13]] is about to configure*. Same rules, same falsifiers.
+- **The pre-cutover ordering section stands for everything except mail.** The zone
+  is created, swept and populated before the pair is shown, so the web cutover is
+  still a no-op in what resolves. The mail half of that window is where
+  [[EPIC-13]]'s configuration will eventually land.
+- **Two falsifiers above are withdrawn** — the ones requiring mail records to be
+  carried forward and re-verified after propagation. Replaced by:
+  - A nameserver pair shown without the customer having been told, by provider
+    name, that their mail will stop.
+  - *"I'll keep that working"*, or any sentence promising mail continuity.
+  - A mail provider present in the snapshot and absent from the warning.
