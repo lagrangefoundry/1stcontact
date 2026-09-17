@@ -86,6 +86,7 @@ export type {
   ObjectParam,
   ObjectCard,
   UnpairedObject,
+  SectionPairing,
   DiffOptions,
   StateProjection,
   MultiStateCapture,
