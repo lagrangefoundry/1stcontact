@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T01:23:06.614468+00:00'
+updated_at: '2026-09-17T01:24:15.942388+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1044,5 +1044,47 @@ Ready to cut the three tickets when you are — primitives (RDAP, registrar norm
 **The reply path is the part that bites.** Routing gets mail *in* fine. Replying *from* `info@theirdomain.com` needs SMTP credentials pasted into Gmail <-- EPIC-13 these are not new requirements do not be afraid of them they are absolutely required for the product to work period - this is a matter of fixing them not avoiding
 
 The bottom line with email is that they will have to reconfigure it essentially from scratch - I think what we say here is: that is not your problem EPIC-13 will handle it. You will move DNSs and leave email broken - clear?
+
+<!-- xgd-turn id="e9e883fe-3056-4e96-8128-adad22cef76f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T01:24:14.789399+00:00" -->
+#### Claude
+Let me read EPIC-13 before I confirm the boundary.
+
+Clear. Moving DNS is EPIC-5's; email comes back up under EPIC-13, and this flow doesn't try to carry it across. That's consistent with EPIC-13 as written — it already names send-as as *"a subsystem, not a help page"*, and its Boundaries already give DNS writes to EPIC-5.
+
+**One thing that needs fixing before I write tickets against it.** EPIC-5's acceptance bar currently says the opposite, in bold:
+
+> **A customer's existing mail, and anything else already running on their domain, survives the move to us without them being asked a question they cannot answer.** […] Everything else in this epic is mechanics. That sentence is the acceptance bar.
+
+And the entire *"Preservation, not confirmation"* section — sweep, copy forward automatically, probe DKIM selectors, verify against the snapshot after propagation — exists to satisfy it. Left standing, the next agent builds mail preservation, because that's what the epic tells them the ticket is for. That's a documentation fix, not a reopened decision.
+
+## What I'd change, and what survives
+
+**Deleted:** copy MX/SPF/DKIM forward automatically; verify mail still resolves after cutover; *"your email is with Microsoft — I'll keep that working."* That sentence becomes a lie.
+
+**Kept, with its purpose changed:** the resolver's mail detection. `hasLiveMail`, the DKIM probe, the provider attribution — they stop meaning *"preserve this"* and start meaning ***"tell them exactly what is about to stop working, by name."*** Arguably more load-bearing than before: under preservation a missed selector was a silent degradation; under this it's the difference between an informed customer and an ambushed one.
+
+**Kept unchanged:** REQ-260's SPF-merge and `_dmarc` rules. Their justification shifts from *don't break their existing mail* to *don't break the mail EPIC-13 is about to configure*, but the rules are identical and still right.
+
+## The one line I'd hold
+
+**Broken-with-warning, never broken-silently.** Both epics converge on it independently — EPIC-13's *"an email outage is invisible, total, and the fastest way to lose a customer permanently"*, and EPIC-5's whole reason for the sweep. So the flow still has to say, before the paste: *"your email currently goes to Microsoft 365. When you switch this over it will stop, and we'll set it back up with you afterwards."* That's a sentence a furniture restorer can act on — and it's the point where some of them will stop, which is the correct outcome.
+
+## One seam nobody owns yet
+
+EPIC-13's Boundaries hand DNS writes to EPIC-5; EPIC-5 never mentions email reconfiguration. **So the mail gap at cutover is currently unowned by both.**
+
+And there's a free decision worth taking now while it's still free: the pending zone exists and is populated *before* the nameservers are pasted. That window is exactly where EPIC-13's Email Routing config would land, which is the difference between a gap of minutes and a gap of however long it takes someone to come back and finish. EPIC-13 isn't functional and isn't blocking — but the ordering should leave room for it rather than have to be retrofitted.
+
+---
+
+Proposed, in order:
+
+1. **Amend EPIC-5** — restate the acceptance bar as *mail is not preserved; it is named, warned about, and handed to EPIC-13*, and rewrite the Preservation section to match. Append-only, with the old text marked withdrawn, same as the other corrections.
+2. **Cut the three tickets** — primitives (RDAP, registrar normalisation, DNSSEC gate and poll, provider-consequence knowledge), durable procedure state and the guided-walkthrough mechanism, GoDaddy content pack.
+3. Add a line to **EPIC-13's Boundaries** claiming the cutover mail gap, so the seam is owned from both sides.
+
+Say go and I'll do all three.
 
 <!-- xgd-chat-end -->
