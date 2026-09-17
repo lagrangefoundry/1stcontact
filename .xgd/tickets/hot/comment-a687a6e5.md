@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T03:55:06.875086+00:00'
+updated_at: '2026-09-17T03:56:38.604727+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -143,5 +143,36 @@ No other docs needed changing. I checked every ticket that mentions campaigns: D
 I think templates could be a different thing there is in my mind to aspects to the content of our campaign. There is the message content which is what we just described as going into the campaign ticket body. But then there is also the associated styling and boiler plate. By which I mean logo had a copyright notice terms and conditions unsubscribe all the things that are professional email needs and of course the HTML styling that goes around it. All of that is a template and I think it's appropriate that the templates and the message body are kept separate. We obviously need a Preview that will allow the user to see the styled message before they hit send. We probably need a test message so they can actually send an email to themselves and see what it looks like in gmail before they send it but I still think that the template which will be reused over many messages should be kept separate from the message content.
 
 I guess maybe such a template needs to be frozen too? Or a version of it frozen? As soon as it has been attached to 1campaign
+
+<!-- xgd-turn id="1442f4b6-7590-4639-9cae-37e8aa6c84bc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T03:56:38.554374+00:00" -->
+#### Claude
+You've landed on the answer that's already half-built here, and the version instinct is right. Let me answer the freeze question first because it changes what we write.
+
+**No lock needed — and freeze-on-first-attach would actively hurt.** Attach a template to one campaign and you could never fix the logo again. What you want is the second thing you said: *a version of it frozen*. That mechanism already exists in this repo. REQ-197's `template` type is **keyed** — `TemplateKey`, newest-ticket-wins — and its own words are *"replacing a template is writing a new ticket rather than editing a live one in place… the record of what was sent last month still points at the ticket that said it."* So templates are immutable by construction, not by lock: you edit freely forever, each edit mints a new version, every past campaign keeps pointing at the bytes it actually used.
+
+That only holds if the campaign pins `template_uid` (the specific version) and never `template_key` (the role). Which raises the one real decision hiding in your question: **when is the pin taken?** If a draft pins at attach time, a template fix made while you're still writing won't reach your draft — surprising and annoying. So the draft holds the *key*, and the draft→sending transition resolves it to a uid. **One moment, three things pinned: the body freezes, the audience snapshots, the template version resolves.** An operator can override to a specific old version, but that's the exception.
+
+Let me also correct something I wrote imprecisely last turn: "two ticket types, not three" counted only what the Campaigns surface *introduces* — list and campaign. `template` is a pre-existing type and is entirely unaffected. In fact the epic's original argument for why template is its own type gets *cleaner* now: a template is a keyed role that gets re-filled, a campaign body is a specific thing said once. Those were always different lifecycles; now they're the only two.
+
+Two things worth adding on top of what you raised:
+
+**Preview and test send are different tools and you need both.** Preview shows you *our* rendering; a test send shows you *Gmail's*, which mangles HTML in ways no preview can predict — that's why every tool has both. The constraint that matters: preview must render through the exact same path as the real send, or it's a lie. And note previewing a *sent* campaign is the same operation, which is how the historical record gets read back — so one renderer, no preview-only path.
+
+**The unsubscribe link can't be in the frozen bytes.** You listed it as template boilerplate, and it is, but it carries a token identifying *who* is unsubscribing — so it's resolved per recipient at send time, same as `{{first_name}}`. That qualifies the reconstructibility claim I wrote into the epic last turn: a sent campaign reconstructs to the message *modulo per-recipient merge fields*, not byte-for-byte. Worth stating plainly or "reconstructible" is quietly false. And the send path should refuse a broadcast whose rendered output has no unsubscribe mechanism — that's compliance and deliverability, not a template author's option.
+
+Writing this into the epic now.
+
+Recorded — append-only, 86 lines, the only removal being the timestamp.
+
+Four subsections added to EPIC-13:
+
+- **The template is the other half of the content, and it stays separate** — `body × template`, with the note that `template` is a pre-existing type untouched by last turn's correction.
+- **Does the template need freezing too? No — it is already versioned** — the freeze-on-first-attach alternative written down as explicitly rejected with its reason, so nobody re-proposes it. And the pin decision: the draft boundary now pins three things in one moment — body freezes, list resolves to a recipient set, template resolves to a version.
+- **Preview and test send are two different tools** — with the one-renderer rule, and the observation that previewing a sent campaign is the same operation, which is what makes the deterministic-render obligation testable rather than aspirational.
+- **What per-recipient substitution does to "frozen"** — the unsubscribe token and merge fields, so "reconstructible" is stated with its limits rather than overstated.
+
+One open thread I'd flag but haven't written as decided: the campaign body is markdown, and a template is HTML chrome with a slot for it. That's implied by everything above but never stated, and it's the seam where markdown rendering and email-safe HTML have to meet — inline styles, table layouts, no `<style>` blocks that Gmail strips. It's the least glamorous part of email and where most of the surprise lives. Worth its own pass when you're ready.
 
 <!-- xgd-chat-end -->
