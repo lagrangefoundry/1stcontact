@@ -5,14 +5,15 @@ type: doc
 title: 'The test gutter: how manufactured traffic is marked, hidden, and collected'
 created_by: EPIC-15
 created_at: '2026-09-17T04:32:20.771169+00:00'
-updated_at: '2026-09-17T04:32:20.771169+00:00'
+updated_at: '2026-09-17T21:19:42.370572+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
   epic_parent: epic-312f9446
 ---
+
 
 **Audience: whoever builds or reviews a write path, a read path, or a probe.** This
 document carries `doc_kind: architecture`, so it is excluded from the production
@@ -162,10 +163,33 @@ So every record a run writes carries that run's id, and both verification and
 collection become *"the rows stamped `run`"*. With a boolean alone, verification is a
 guess and collection degrades to a time sweep.
 
-**Transport** — open decision, §6.1. The economical option is to carry it in the
-reserved address the probe submits, `bfm+<run>@<reserved domain>`, so the capture path
-needs no extra wire field; flows that mint no contact carry it explicitly. The
-requirement is the run id, not its carrier.
+**What the id is: `newId('run')`, the existing minter.** The client's instinct — a
+short opaque hash, never a sequence — is already the house rule, and
+`tools/generate/src/store/ids.ts` is *"the one minter of opaque keys"* ([[REQ-190]]):
+`<prefix>_<32 hex>`, 128 bits from a CSPRNG. Two things it settles:
+
+- **Do not mint a shorter variant.** That module's own rule is that *"the system mints
+  it stops being a property the moment there are two of them."* A second id format for
+  runs would be that second minter.
+- **It is deliberately not a digest.** *"A hash of the row's data is data-as-key wearing
+  a disguise."* Read the client's "hash" as *opaque, fixed-length, unguessable*, which
+  is what this produces — not as content-derived, which it warns against.
+
+The one constraint this document adds: the id may travel in an email local part, so it
+must be safe there. `newId`'s `[a-z]+_[0-9a-f]{32}` is — `bfm+run_<32 hex>@…` is 40
+characters against a 64-character limit. If a shorter form is ever wanted for log
+legibility, that is display truncation, never a second identifier.
+
+**How it travels: inside the signed marker, everywhere a marker can ride the request.**
+An earlier draft offered the reserved address as an alternative *"so the capture path
+needs no extra wire field"* — **which was wrong**: the marker has to be on the request
+regardless, for R1's signature check, so there is no field to save. Carrying the run id
+inside the signed token is strictly better, because it is then signed: a run id cannot
+be swapped for another run's.
+
+**The reserved address carries it only where the envelope is the sole channel** — an
+inbound email probe, where there is no request to attach a marker to. Not an
+alternative: a different channel, with its own carrier, for the same id.
 
 ### 2.3 Where the marker enters
 
@@ -191,6 +215,12 @@ and ambiguity in a delete predicate (§2.7) is how a real contact gets collected
 
 **Not a field inside a JSON bag.** D1 cannot index into one, and this predicate is on
 every read.
+
+**On the contact *and* on the event — both, and therefore never a join.** A synthetic
+contact implies its events, so the event column is redundant in the common case. It is
+carried anyway for two reasons: the derivation below makes it nearly free, and the
+alternative is a join to `users` in the hot read path to answer a predicate that every
+read asks. A column is paid once at write; a join is paid on every page load.
 
 **Migration `0013`** (0012 is the current head), across the four tables the capture
 chain writes:
@@ -239,7 +269,12 @@ reached from three call sites in `router.ts` — the people list, the contact de
 the change poller.
 
 Every one already takes `Scope`, a deliberately single-field interface
-(`{ businessId }`) threaded through the whole application. **The gutter rides `Scope`**,
+(`{ businessId }`) threaded through the whole application. **`Scope` grows the field**
+— decided, and it amends rather than ignores that interface's written rationale, which
+argues against a *discriminated union* over a second variant that will never exist, not
+against a second field carrying an independent fact. Visibility is exactly such a fact:
+orthogonal to which business is being read, asked by every read, and catastrophic to
+forget. **The gutter rides `Scope`**,
 which obtains the property `tickets.ts` describes for `forTenant` —
 
 > *tenancy is bound into the handle, never passed per call … the scoped handle is also
@@ -247,8 +282,11 @@ which obtains the property `tickets.ts` describes for `forTenant` —
 
 — without inventing a second handle. That is the reason R3 is a small change rather
 than a sweep, and it is the strongest available answer to the "thirty call sites,
-twenty-nine of which remember" failure. Whether the field lands on `Scope` itself is
-§6.2.
+twenty-nine of which remember" failure.
+
+The alternative — a predicate threaded *beside* `Scope` through the same call sites —
+was rejected: it reaches every place the field would have reached and relies on each
+one remembering, which is the convention-not-mechanism failure wearing a disguise.
 
 **The matrix** the client named is `builder/people-axes.js` ([[DOC-44]] §3,
 [[REQ-188]]) — the Lead/Member axes. It renders from `peopleOf`'s output, so filtering
@@ -455,20 +493,23 @@ whole of why it is separable.
 
 ## 6. Open decisions
 
-1. **Run id transport** — carried in the reserved address (`bfm+<run>@…`), an explicit
-   field, or both. §2.2.
-2. **Does `Scope` grow a field**, or does the predicate ride alongside it? Adding to
-   `Scope` obtains the impossible-to-forget property, but `Scope` is currently a
-   one-field interface with a written rationale for being exactly that, which would
-   need amending rather than ignoring. §2.6.
-3. **TTL values per probe class**, and the sweep's horizon above them. §2.7.
-4. **The implausible-harvest threshold**, and whether it is absolute or a proportion of
+**Resolved 2026-09-16, recorded here so the reasoning is not re-derived:**
+
+- **`Scope` grows the field** (§2.6). The predicate-alongside alternative is rejected.
+- **`synthetic` is on the contact and on the event** (§2.4). Both, so the read filter
+  is never a join.
+- **The run id is `newId('run')` and rides inside the signed marker** (§2.2); the
+  reserved address carries it only where an envelope is the sole channel. The earlier
+  "saves a wire field" argument for the address was wrong.
+
+**Still open, and none of them gate the first code — they are constants better tuned
+with the thing in front of you:**
+
+1. **TTL values per probe class**, and the sweep's horizon above them. §2.7.
+2. **The implausible-harvest threshold**, and whether it is absolute or a proportion of
    live rows. §2.7.
-5. **Where the sweep's count surfaces** — invocation log is day one; [[EPIC-8]] is the
+3. **Where the sweep's count surfaces** — invocation log is day one; [[EPIC-8]] is the
    eventual home if it is a gutter health metric.
-6. **Does `synthetic` belong on the contact, the event, or both?** A synthetic contact
-   implies its events; whether a real contact can carry a synthetic event decides
-   whether the read filter is ever a join.
 
 ---
 
