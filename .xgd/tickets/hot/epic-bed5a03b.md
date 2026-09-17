@@ -5,7 +5,7 @@ type: epic
 title: Security Analysis
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T19:33:30.327185+00:00'
-updated_at: '2026-09-17T21:11:31.448875+00:00'
+updated_at: '2026-09-17T21:15:24.100209+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -363,27 +363,50 @@ true yet.
 So the public site is genuinely out of reach of a hijacked turn, and so is every
 other business. The reachable blast radius is **one business's draft**.
 
-### Where the hypothesis breaks
+### The draft is expendable; the published revision is the artifact
 
-1. **The draft has no restore point.** The change journal is explicitly *not* a
-   revision — a bounded window of clipped `before`/`after` strings for
-   orientation (`store/journal-model.ts`). A draft holding weeks of unpublished
-   work has nothing behind it. "Take down a site" is survivable; "shred the
-   draft" currently is not.
-2. **Restore is implemented but unreachable in production.** `checkoutRevision`
-   exists and is correct — it refuses a dirty draft unless forced — but it is
-   wired only to the filesystem store through the CLI (`cli/commands.ts:189`,
-   `fsSiteStore(ctx)`). There is no route and no control. Restoring a customer's
-   site from a published revision is today an operation the product cannot
-   perform.
-3. **No stated backup posture.** Nothing in the repo or the docs names D1 Time
-   Travel, an R2 lifecycle or retention policy, or a restore runbook. "We can
-   restore" is currently an assumption, not a tested property.
-4. **The AI is not the worst-case actor.** Tenant confinement is a property of
-   the *assistant's* grant. **F1** hands an attacker the **signed-in user's**
-   authority instead — which includes publish, hostname claim and every route —
-   and if the viewer is a platform operator it crosses businesses. Recovery must
-   be sized against F1, not against a hijacked turn.
+The operator's line, and it is the right one: **nobody should expect to restore a
+draft.** A draft is working state. What must survive anything is the **published
+site — fixed in time and immutable — and that has to be enforced rather than
+intended.** Recovery is then a single well-defined move: check out revision N and
+publish it forward. The schema already anticipates exactly this — `based_on`
+exists *"so that a forward-only rollback is self-documenting"* ([[DOC-12]] §4,
+`0001_baseline.sql:210-213`).
+
+So the journal's not being a revision is **correct by design**, and the earlier
+framing of it as a gap is withdrawn.
+
+### Immutability today: intended, respected, enforced nowhere
+
+| Layer | What holds it | Enforced? |
+|---|---|---|
+| Revision numbering | `-- Monotonic per site, and forward-only. Never reused, never renumbered.` plus `PRIMARY KEY (site_id, id)` (`0001_baseline.sql:203-223`) | **Yes** for the row's existence |
+| The revision row | nothing forbids `UPDATE` or `DELETE`. The schema contains **exactly one** immutability trigger and it is on `contact_events` — *"a correction is an appended event that supersedes, never an edit of the row that was wrong"* (`0001_baseline.sql:709-713`) | **No** |
+| The frozen bytes in R2 | `writeRevision` `put`s every object into `published/<site>/<id>/` **before** the `INSERT` whose primary key would have refused the id (`d1r2-store.ts:788-862`). `put` overwrites | **No** — the constraint protects the log, not the bytes |
+| Byte integrity | `sha` — a digest of the frozen definition, recorded at publish (`publish.ts:322`) and described in the schema as *"AUDIT, NOT ADDRESSING… are these the same bytes?"* — is **never read back anywhere**. `readRevision` reads the row for existence and the objects for content, and compares nothing | **No** — the detector exists and is not wired up |
+| Concurrent publishes | `nextRevisionOf(history)` is read-then-write with no lock (`publish.ts:316`). Two publishes compute the same id, both write into the same prefix, one `INSERT` wins | **No** — [[DOC-1]] §7 specifies a Durable Object for exactly this; not built |
+| Write authority over the bucket | `public-site` holds an R2 binding to the whole `SITES` bucket; *"This Worker READS ONLY"* is a comment, not a grant (`public-site/wrangler.toml:40`) | **No** |
+
+None of these is a live exploit path today — the only writer of a revision is
+the publish path, and it behaves. They are the difference between *a property
+the code respects* and *a property the store guarantees*, which is the
+distinction the operator is asking to close, and the same distinction [[DOC-2]]
+draws between structural and procedural security.
+
+The cheapest of them is also the most valuable: **the digest is already being
+computed and stored.** Verifying it on checkout turns "immutable by convention"
+into "tamper-evident by construction" for the price of one comparison.
+
+### What recovery then is
+
+1. Detect (sha mismatch, or the operator's report).
+2. `checkoutRevision(site, N)` — implemented, correct, and today reachable only
+   through the CLI against the **filesystem** store (`cli/commands.ts:189`,
+   `fsSiteStore(ctx)`). It needs a route and a control.
+3. Publish forward. `based_on` records what it was rolled back to.
+
+The draft is discarded in step 2, which is the point: `checkoutRevision` already
+refuses a dirty draft unless forced, and forcing it is the correct answer here.
 
 ### The principle, stated for reuse
 
@@ -408,7 +431,10 @@ Not yet filed — say the word and they go in at `draft`.
 | 2 | **Assets: validate SVG content on the upload path, not only the AI path** | F1 (c), PUB-6 | **Now** |
 | 3 | **Both Workers: a Content-Security-Policy and the standard response headers** | F3, F4, AI-A7 | **Now** (ships with 1) |
 | 4 | **AI surface: a confirmation seam for irreversible operations** — declared effect, enforced by the toolbox; the model proposes, the human performs | F2, AI-A4, and the mechanism [[EPIC-5]] OQ2 needs for AI-A9 | **Now** — one operation today, three surfaces later |
-| 5 | **Recovery: a draft restore point, and a restore control in the product** | §4a (1)(2) — makes "confine, then recover" true | **Now** |
+| 5 | **Enforce published-revision immutability** — an `UPDATE`/`DELETE` trigger on `site_revisions` on the `contact_events` precedent; claim the revision id **before** writing bytes; refuse a `put` into an existing revision prefix | §4a — the store guarantees it instead of the writer respecting it | **Now** |
+| 5a | **Verify the digest that is already stored** — compare `sha` on checkout (and on a scheduled sweep); the detector exists and is unwired | §4a — tamper-evident for the price of one comparison | **Now** (smallest item on this list) |
+| 5b | **A restore control in the product** — `checkoutRevision` + publish forward, over the D1/R2 store; discard the draft, record `based_on` | §4a — recovery exists in the CLI against the filesystem store only | **Now** |
+| 5c | **Serialize publishing** — the Durable Object [[DOC-1]] §7 already specifies | §4a — two publishes can compute the same revision id | Next |
 | 6 | **Router: a structural guard that every route arm names its gate** | F5, EDGE-4, AUTHZ-4 | **Now** (a test, not a feature) |
 | 7 | **AI surface: pin each role's granted capability set with a UAT** | F6, AI-A2, and what keeps 4 from regressing | **Now** (a test, not a feature) |
 | 8 | **Ops: state and test the backup posture** — D1 Time Travel, R2 retention, a restore runbook | §4a (3), PLAT-5 | Next |
