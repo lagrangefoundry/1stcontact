@@ -6,10 +6,10 @@ title: 'The deploy verifies credentials exist, not that they work: capability pr
   and a capability report'
 created_by: EPIC-5
 created_at: '2026-09-16T23:57:42.205741+00:00'
-updated_at: '2026-09-17T00:39:03.917318+00:00'
+updated_at: '2026-09-17T00:40:09.101272+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,8 +17,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-7e515561
+  commits:
+  - working_sha: 35a4023b50e4d56c4c432c034fa6aabb433bea83
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 71811ba8948d3dfde3136dbef1dde9daffaf01ce
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.229
 ---
-
 
 ## What this is
 
