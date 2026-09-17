@@ -6,9 +6,9 @@ title: 'fold: inline-boxed text runs lose their half-leading, so the glyphs pain
   above the reference'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:21.692738+00:00'
-updated_at: '2026-09-17T21:44:19.581926+00:00'
+updated_at: '2026-09-17T22:13:26.897682+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -547,3 +547,180 @@ wordmark further.
   `§0 contentAnchor` delta is its artifact.
 - **BUG-103** — no flag writes the reproduction-side value manifest, which is
   why BUG-102 could not be closed conclusively from stored evidence.
+
+
+---
+
+# What landed
+
+Both issues are closed. Issue 3 closes with issue 1, as predicted. Three things
+below differ from the "Proposed change" sections above; each is stated with the
+reason, because the difference is the design decision.
+
+## Issue 1 — the conversion happens at CAPTURE, not in the fold
+
+**This is a deviation from both options the ticket proposed, and it is
+deliberate.** Both proposals put the correction in `fold.ts`; neither is what
+landed.
+
+What landed instead: **a text run's captured `box` IS the line box it occupies.**
+The normalisation is one function, `lineBoxOf`, in the page-scope extract script,
+applied where the run's box is chosen. A block element's rect already is a line
+box top, so it is returned untouched; an inline element's rect is its content
+area, so it is converted by the half-leading the computed style has in hand.
+
+Three reasons for moving it:
+
+- **The resolving value only exists in the page.** The half-leading is
+  `(lineHeight − contentHeight) / 2`, and `contentHeight` is a fragment rect that
+  no serialised bundle carries. Converting downstream means re-deriving it from
+  values that were never captured.
+- **Every downstream consumer already meant "line box".** The fold pins `box.y`
+  as the L1 leaf's `y`; `values-diff` measures `position` and the inter-row `gap`
+  from the same rect. Converting once at the source is one edit; converting per
+  consumer is three, each inferring a layout mode it cannot see.
+- **It closes the ticket's own objection to option A.** The cheap heuristic
+  (`box` deep-equals `renderedTextBox` and `box.height` is not a multiple of
+  `lineHeightPx`) is the fold inferring a layout mode from a coincidence of two
+  rects. `lineBoxOf` reads `display` and `line-height` directly — a fact, not a
+  coincidence.
+
+The content area is **not lost**: it remains `renderedTextBox`, which for the two
+affected gigabytealchemy runs is exactly the rect this replaces.
+
+**Guards, each of which leaves today's rect untouched rather than guessing:** a
+`display` that is not `inline`; a `line-height: normal`, whose used value is a
+font metric no computed style exposes; a zero-size or fragment-less rect. The
+element's own vertical padding and border come off the fragment rect before what
+is left is called a content area (a fragment's rect is its *border* box). A
+wrapped inline run gets `rects.length` line boxes, not one.
+
+**Both signs are proved, not just the reference's.** The reference showed the
+negative half-leading (content area *taller* than the line box, glyphs painting
+high). A line box roomier than its content area corrects the other way, and the
+fixture carries one of each.
+
+### Consequence for stored bundles — a re-capture, not a `refold`
+
+The ticket's "How to see it" says `1c refold --ref $REF`. **That is not enough
+for issue 1.** `cmdRefold` replays the retained `multistate.json` oracle — "a
+refold changes what we DERIVE, never what we OBSERVED" — and the old content-area
+rects are in that oracle. Applying this needs `1c capture page <url>` (or an
+offline `reextractFromBundle`, which re-runs the extract script against the
+bundle's own mirrored bytes). The issue-2 half needs a re-capture for the same
+reason the ticket already states.
+
+### Documentation moved with the meaning
+
+`RawGeometry.box` and `ElementGeometry.box` now say what they hold. A field whose
+meaning silently depended on a layout mode is the defect; leaving the doc comment
+saying `getBoundingClientRect()` would leave the defect in place with the
+arithmetic corrected.
+
+## Issue 2 — the axis is a control-specific extension, and the capture resolves and composites
+
+### The axis: `l1ControlAxesSchema`, not a member of `l1TextAxesSchema`
+
+**Deviation.** The ticket proposed `placeholderColor` inside `l1TextAxesSchema`.
+It landed as `l1ControlAxesSchema = l1TextAxesSchema.extend({ placeholderColor })`,
+carried by `l1ControlSchema` only, because a text run has no placeholder: on the
+text bag the axis would be inert in every document ever written, and would still
+have to be read, documented and validated there. The bag is still `.strict()` —
+it gained one name, not permission.
+
+### The capture: two failure modes the ticket's one-liner does not survive
+
+`getComputedStyle(el, '::placeholder').color` is the right read, and taking its
+value as it stands loses the measurement in two measured ways:
+
+- **It is not always an `rgb()` string.** Tailwind v4's preflight paints a
+  placeholder with `color-mix(in oklab, currentColor 50%, transparent)`, whose
+  computed value serialises as `oklab(… / 0.5)`. The existing `rgbaOf` regex
+  reads nothing there and the value is dropped silently — REQ-52's lesson
+  arriving in a second place. A 1×1 canvas is the resolver: Chromium hands the
+  oklab token straight back from both `getComputedStyle` and `ctx.fillStyle`, but
+  *painting* it and reading the pixel back gives exact sRGB bytes for every space
+  the engine understands. Reached only when the cheap regex fails, so the common
+  case pays nothing.
+- **It is sometimes translucent.** Both shapes are real and measured — Chromium's
+  own default computes *opaque* (`rgb(117, 117, 117)`), while the Tailwind rule
+  above is half-alpha — so neither compositing unconditionally nor taking the
+  declared value unconditionally is right. A translucent ink is composited over
+  what the field sits on, for the reason `surfaceFillOf` already composites: a
+  half-alpha ink over a backdrop is not the colour the eye reads.
+
+Null when the control has no placeholder to paint, and for every non-control
+element. Optional on `RawField`, `Field` and `ValueElement`, so a pre-REQ-265
+bundle still parses.
+
+### The fold authors it
+
+Not named in the ticket, and required for the chain to close: `foldToL1`'s
+control branch writes the captured `placeholderColor` onto the control's axes
+alongside the chip axes it already writes. Without it the capture reads a value
+that reaches no document.
+
+### The renderer
+
+`color: <placeholderColor>` when the axis is present; the pre-REQ-265
+`color: inherit` when it is absent, so every existing document renders exactly as
+it did — which is what the three UATs that pin that default continue to describe.
+`opacity: 1` is kept in **both** branches: an authored ink is the composited
+colour the reference paints, not a value to fade again.
+
+### `values-diff` can finally see it
+
+As the ticket suggested, and slightly further: `placeholderColor` is a
+`DeltaProperty` of kind `color`, compared by ΔE against the same tolerance as any
+other ink, and a param of the `control` object so it is visible in the object
+table rather than only in a delta. Compared **only when both sides recorded one**,
+so a reference captured before this value existed stays inert rather than
+reporting every reproduction's placeholder as wrong.
+
+## Evidence
+
+`tests/req265-line-box-and-placeholder-ink.test.ts` — nine UATs against
+`tests/fixtures/capture/req265-line-box-and-placeholder.html`, a committed
+fixture served over an ephemeral loopback server (no third-party site is hit).
+The four browser UATs drive a real headless Chromium and are gated on
+`chromiumAvailable()`; the rest pin the downstream consequences with no browser.
+
+| UAT | pins |
+|---|---|
+| `inline_run_box_is_its_line_box` | an inline run's `box` is one line-height tall, `renderedTextBox` still holds the content area, and the two share a centre line — the conversion stated as the invariant it is |
+| `inline_run_line_box_is_corrected_in_both_directions` | the roomier line box, so the correction is proved with the other sign |
+| `block_run_box_is_still_its_border_box` | a block run's box is still the border box, padding intact — the conversion did not leak onto the block path |
+| `fold_pins_the_line_box_the_capture_recorded` | the ticket's stated right answer: the gigabytealchemy wordmark folds to `y = 83`, not `79` |
+| `capture_records_the_placeholder_ink` | an authored opaque ink verbatim; the engine's own default; the oklab half-alpha ink resolved *and* composited, bracketed strictly between the ink and the band; and nothing invented for a control with no placeholder |
+| `l1_accepts_a_placeholder_colour_on_a_control` | the axis validates, and the bag is still closed |
+| `renderer_paints_the_authored_placeholder_ink` | the authored ink is painted, the typed text keeps its own colour, and the absent case is unchanged |
+| `fold_authors_the_captured_placeholder_ink` | the capture's value reaches the control's axes |
+| `values_diff_reports_a_placeholder_ink_difference` | the gigabytealchemy shape is reported; agreement is silent; a pre-REQ-265 reference stays inert |
+
+## Files
+
+| file | change |
+|---|---|
+| `tools/generate/src/cli/capture/extract.ts` | `lineBoxOf`; `resolvedRgba`; `placeholderColorOf`; `RawField.placeholderColor`; `RawGeometry.box` doc |
+| `tools/generate/src/cli/capture/types.ts` | `Field.placeholderColor`; `ElementGeometry.box` doc |
+| `tools/generate/src/cli/capture/sections.ts` | carry `placeholderColor` onto `Field` |
+| `tools/generate/src/cli/capture/values-diff.ts` | `ValueElement.placeholderColor`; the `placeholderColor` delta property, its kind, its type, its control param, and the comparison |
+| `packages/site-schema/src/l1/schema.ts` | `l1ControlAxesSchema`; `l1ControlSchema.axes` reads it |
+| `packages/site-schema/src/l1/types.ts` | `L1ControlAxes` |
+| `packages/framework/src/l1/render.ts` | paint the authored placeholder ink, default unchanged |
+| `tools/generate/src/l1/fold.ts` | author `placeholderColor` onto a folded control |
+
+## Regression scope run
+
+Typecheck clean across `packages/site-schema`, `packages/framework` and
+`tools/generate`. Green: the new file (9/9), the control/texture and
+`req96-control-composition` UATs that pin the placeholder default, `bug21`/`bug22`
+control surfaces, the fold suites, the seven `values-diff` suites, the L1
+substrate and authoring-envelope suites, the behavior-module and contact-form
+suites, and the edit-render channel suites.
+
+Four failures are **pre-existing on a clean `xgd-working` tree** and were
+confirmed there, not introduced here — all one class, `driverFactory was not
+supplied`: `capture.test.ts` (`REQ-12_style_segmentation`,
+`REQ-12_offline_reextraction`), `reconciliation-l1-fold.test.ts` and
+`req83-capture-to-l1-fold.test.ts` (both `_hints`).
