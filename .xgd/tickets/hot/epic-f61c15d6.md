@@ -5,13 +5,14 @@ type: epic
 title: 'Monitoring tab: site health and site metrics'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:29.096735+00:00'
-updated_at: '2026-09-12T21:01:41.072303+00:00'
+updated_at: '2026-09-17T21:39:50.863102+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
 fields:
   priority: medium
 ---
+
 
 ## What the client asked for
 
@@ -159,3 +160,32 @@ this epic satisfies, for the same reason. The contrast does not hold.
 What *is* still true, and is the reason this epic cites the rule at all, is that
 [[DOC-40]] §2 lists monitoring among the things a business owns — so this tab
 needs no argument beyond that.
+
+## The test gutter — this epic's share ([[DOC-54]])
+
+This epic renders; it computes nothing. Two consequences of [[DOC-54]] land here, and
+the first is an instance of this epic's own boundary rule rather than a new one.
+
+**1. Nothing on this tab may include synthetic records** — and metrics are where that
+gets forgotten. The health verdicts are the obvious case and will be handled. *"Did
+anyone come"* is the one at risk: a probe that submits a form daily is a visit, a
+conversion and an enquiry, and a bot that opens and clicks every message it is sent
+will lift a reported open rate. [[DOC-54]] §3 puts it plainly — aggregates, counts and
+exports get forgotten precisely because they do not look like views, and the number is
+wrong in the flattering direction, which is the hardest kind of wrong to notice.
+
+This is also the tab where the customer would first see the consequence, since it is
+the surface whose entire job is numbers about their business.
+
+**2. This is the eventual home for the sweep's harvest count**, from [[DOC-54]] §2.7 —
+though the invocation log is the correct day-one answer and this can wait.
+
+Worth knowing why the number is interesting rather than housekeeping: **a non-empty
+sweep is a bug report.** If collection-on-verification is working, the sweep takes
+nothing, every time. Every row it does take means a probe run leaked. So the count is a
+health metric for the gutter itself, expected to read zero — which makes it an
+operator number rather than a customer one, and it should land on whatever internal
+view this epic grows rather than in front of a business.
+
+**Not this epic's:** computing verdicts, scheduling, the mark, the collector — the same
+boundary this epic already draws with [[EPIC-7]], extended to [[EPIC-15]] unchanged.
