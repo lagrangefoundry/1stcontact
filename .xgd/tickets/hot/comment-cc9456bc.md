@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-265
 created_by: xgd
 created_at: '2026-09-17T21:35:29.264314+00:00'
-updated_at: '2026-09-17T22:24:47.451651+00:00'
+updated_at: '2026-09-17T22:27:15.601767+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,32 @@ Go I need to restart the repro server to pick this change up?
 <!-- xgd-chat role="user" ts="2026-09-17T22:24:46.198071+00:00" -->
 #### You
 Do I need to restart the repro server to pick this change up?
+
+<!-- xgd-turn id="a6a9acfe-10b8-447a-a145-723b558481ce-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:27:15.313677+00:00" -->
+#### Claude
+No — nothing to restart. `bin/repro-console` says it in its own header, and it checks out:
+
+- Each console round spawns a **fresh `node tools/generate/bin/1c.mjs` per step** (`spawnStepRunner`, `tools/repro-console/src/iteration.ts:444`).
+- `1c.mjs` compiles the CLI from TypeScript source through a Vite SSR server on **every invocation** — there's no built artifact to stale out.
+- My change is entirely in `tools/generate/src/**`, `packages/framework/src/l1/render.ts` and `packages/site-schema`. Nothing in `tools/repro-console/src/**`, which is the only long-lived process. (Had I touched that, a restart *would* be needed.)
+
+## But a re-run on the existing bundle will mislead you
+
+This is the important part, and it's sharper than what I flagged last turn.
+
+The console runs `1c capture` **only on the first iteration for a site**; every re-run starts at `refold` — deliberately, per `REFOLD_NOTE`: *"refold from the retained oracle; never re-capture on a re-run."* Both fixes are capture-side, so the stored `multistate.json` / `capture.json` still hold the old numbers.
+
+Meanwhile `1c gate`'s values-diff is **asymmetric**:
+
+| side | source | code path |
+|---|---|---|
+| reproduction | live headless extract at gate time (`fidelity-core.ts:339`) | **new** — line boxes |
+| reference | stored `capture.json` (`flattenCapture`, `fidelity-core.ts:554`) | **old** — content areas |
+
+So an iteration-3 on `repro-gigabytealchemy-ai` won't show the fix as neutral — it will show `position`/`gap` deltas off by half a leading *in the opposite direction*, reading as a fresh regression the change didn't cause.
+
+**To actually see it:** re-capture the URL (`1c capture page <url>`, or start the site fresh in the console so iteration 1 runs a capture). Then the next round's refold-and-gate is measuring like against like.
 
 <!-- xgd-chat-end -->
