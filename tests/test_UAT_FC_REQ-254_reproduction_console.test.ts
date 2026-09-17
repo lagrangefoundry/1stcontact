@@ -134,10 +134,45 @@ function fakeRunner(log: IterationStep['name'][], opts: FakeOptions = {}): StepR
           JSON.stringify({
             meanDiff: 12.5,
             pctOverThreshold: 4.25,
-            // `1c diff` records ABSOLUTE crop paths — it wrote the report for an
-            // operator reading it on their own disk.
+            dims: { w: 1280, h: 900 },
+            blockPx: 16,
+            rankedBy: 'score',
+            // BUG-99 — THIS STUB CARRIES THE REAL REGION SHAPE, and it is not a
+            // detail. It previously wrote `{id, crops}` alone, because that is
+            // all the crop-serving path under test reads. A diagnosing round was
+            // then pointed at a sandbox backed by this stub, read the region
+            // record, and filed BUG-99 against the engine for discarding
+            // geometry the engine has never discarded — the geometry was missing
+            // from the fixture, not from `regions.json`.
+            //
+            // A fixture stands in for the thing it fakes. One that carries less
+            // than its subject is not a smaller fixture, it is a false statement
+            // about the artifact, and it costs whoever believes it a round. So
+            // this mirrors `PerceptualDiffReport`: bbox, score, mean, area, the
+            // node leads, and the ABSOLUTE crop paths `1c diff` records because
+            // it wrote the report for an operator reading it on their own disk.
             regions: [
-              { id: 1, crops: { ref: path.join(out, crops[0]), actual: path.join(out, crops[1]), diff: path.join(out, crops[2]) } },
+              {
+                id: 1,
+                bbox: { x: 96, y: 240, w: 320, h: 64 },
+                score: 246.4,
+                meanDiff: 30.8,
+                area: 20480,
+                nodes: {
+                  ref: [
+                    {
+                      kind: 'element',
+                      index: 3,
+                      text: 'Example Domain',
+                      role: 'heading',
+                      box: { x: 96, y: 240, w: 320, h: 48 },
+                      overlap: { ofRegion: 0.75, ofNode: 1 },
+                    },
+                  ],
+                  actual: [],
+                },
+                crops: { ref: path.join(out, crops[0]), actual: path.join(out, crops[1]), diff: path.join(out, crops[2]) },
+              },
             ],
           }),
         )
@@ -288,6 +323,17 @@ describe('REQ-254 the reproduction console', () => {
     expect(diffPage).toContain('/iteration/1/diff/region-1-ref.png')
     expect(diffPage).toContain('/iteration/1/diff/region-1-ours.png')
     expect(diffPage).toContain('/iteration/1/diff/region-1-diff.png')
+    // BUG-99 — each triptych is CAPTIONED with the region's own geometry and the
+    // best lead from each side. Three unlabelled images say *that* something
+    // differs; the caption says where, how hard, and what is under it, which is
+    // the difference between a picture to interpret and a fact to quote.
+    expect(diffPage).toContain('96,240 320×64')
+    expect(diffPage).toContain('score 246.4')
+    expect(diffPage).toContain('Example Domain')
+    // A region the reference has a node under and the reproduction does not is
+    // something we failed to draw — the asymmetry is the finding, so it is said.
+    expect(diffPage).toContain('ours: nothing')
+    expect(diffPage).toContain('ranked by')
 
     const image = await get(f, '/iteration/1/diff/diff.png')
     expect(image.headers.get('content-type')).toBe('image/png')

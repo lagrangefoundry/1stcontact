@@ -149,6 +149,23 @@ function bullets(rows: string[], cap: number, more: string): string {
  * Pure: it takes parsed documents and returns text, so what it says is testable
  * without a reproduction, a browser or a disk.
  */
+/**
+ * BUG-99 — the best lead on one side of a region, in one phrase.
+ *
+ * `nothing` is a real answer and the most informative one there is: a region the
+ * reference has a node under and the reproduction does not is something we
+ * failed to draw.
+ */
+function leadPhrase(side: unknown): string {
+  const leads = Array.isArray(side) ? (side as Array<Record<string, unknown>>) : []
+  const lead = leads[0]
+  if (!lead) return '_nothing_'
+  const what = lead.text ? `“${String(lead.text)}”` : String(lead.src ?? lead.role ?? lead.kind ?? 'node')
+  const overlap = (lead.overlap ?? {}) as Record<string, unknown>
+  const pct = typeof overlap.ofRegion === 'number' ? ` (${Math.round(overlap.ofRegion * 100)}% of region)` : ''
+  return `${what}${pct}`
+}
+
 export function buildDigest(input: DigestInput): string {
   const out: string[] = [
     `# Derived facts — iteration ${input.n}`,
@@ -183,17 +200,30 @@ export function buildDigest(input: DigestInput): string {
   )
 
   // ── ranked pixel regions ───────────────────────────────────────────────────
-  const regionReport = input.regions as { meanDiff?: unknown; pctOverThreshold?: unknown; regions?: unknown }
+  const regionReport = input.regions as {
+    meanDiff?: unknown
+    pctOverThreshold?: unknown
+    rankedBy?: unknown
+    regions?: unknown
+  }
   const regions = Array.isArray(regionReport?.regions) ? (regionReport.regions as Array<Record<string, unknown>>) : []
   out.push(
     `## Pixel regions — ${regions.length} ranked (\`regions.json\`)`,
     '',
-    `mean ${String(regionReport?.meanDiff ?? '?')}/255 · ${String(regionReport?.pctOverThreshold ?? '?')}% of pixels over threshold`,
+    `mean ${String(regionReport?.meanDiff ?? '?')}/255 · ${String(regionReport?.pctOverThreshold ?? '?')}% of pixels over threshold` +
+      (regionReport?.rankedBy ? ` · ranked by \`${String(regionReport.rankedBy)}\`, highest first` : ''),
     '',
     bullets(
       regions.map((region) => {
         const box = (region.bbox ?? {}) as Record<string, unknown>
-        return `#${String(region.id)} (${String(box.x)}, ${String(box.y)}) ${String(box.w)}×${String(box.h)} · score ${String(region.score)} · mean ${String(region.meanDiff)} · \`region-${String(region.id)}-{ref,ours,diff}.png\``
+        const geometry = `#${String(region.id)} (${String(box.x)}, ${String(box.y)}) ${String(box.w)}×${String(box.h)} · score ${String(region.score)} · mean ${String(region.meanDiff)} · \`region-${String(region.id)}-{ref,ours,diff}.png\``
+        // BUG-99 — the leads, on the same line as the geometry they belong to.
+        // The point of the digest is to save a read; a region whose sides name
+        // different things (or where one names nothing) is the fact worth having
+        // without opening the file.
+        const nodes = region.nodes as { ref?: unknown; actual?: unknown } | undefined
+        if (!nodes) return geometry
+        return `${geometry}<br>under it — ref: ${leadPhrase(nodes.ref)} · ours: ${leadPhrase(nodes.actual)}`
       }),
       MAX_REGIONS,
       'read `regions.json`',

@@ -30,12 +30,18 @@ import {
   cropRaster,
   deriveRegions,
   extractRect,
+  nodeScaleFor,
+  resolveRegionNodes,
   round,
   type CoreDiffResult,
   type DiffRegion,
   type DiffTuning,
+  type NodeSource,
   type Raster,
   type RegionBox,
+  type RegionNode,
+  type RegionNodeOptions,
+  type RegionNodes,
 } from './perceptual-core'
 
 /**
@@ -49,11 +55,17 @@ export {
   cropRaster,
   deriveRegions,
   extractRect,
+  nodeScaleFor,
+  resolveRegionNodes,
   type CoreDiffResult,
   type DiffRegion,
   type DiffTuning,
+  type NodeSource,
   type Raster,
   type RegionBox,
+  type RegionNode,
+  type RegionNodeOptions,
+  type RegionNodes,
 }
 
 // ── image I/O (the shell around the codec) ────────────────────────────────────
@@ -162,6 +174,22 @@ export interface DiffOptions extends GlobalOptions {
   actualOut?: string
   /** Diff tuning knobs. */
   tuning?: DiffTuning
+  /**
+   * BUG-99 — the two value manifests, so each region can name the nodes under it.
+   *
+   * OPTIONAL BY CONSTRUCTION. Resolving a lead needs element geometry the
+   * perceptual eye does not itself compute, and `1c diff` is routinely pointed at
+   * a pair of loose PNGs with no manifest anywhere; a required input would have
+   * made the cheapest use of this command impossible. Supplied → every region
+   * carries `nodes`; absent → the region record is exactly what it was, which is
+   * what keeps `--actual <png>` working with no bundle in sight.
+   *
+   * `1c gate` always supplies both, because it has already computed them for the
+   * value eye. That is the path a diagnosing round reads.
+   */
+  nodeSources?: { ref?: NodeSource; actual?: NodeSource }
+  /** BUG-99 — lead-resolution knobs (leads per side, overlap floor, text length). */
+  nodeOptions?: RegionNodeOptions
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */
   driverFactory?: BrowserDriverFactory
   /** Fixed serve port; defaults to an ephemeral port. */
@@ -172,12 +200,35 @@ export interface DiffOptions extends GlobalOptions {
 export interface PerceptualDiffReport {
   ref: string
   actual: string
+  /**
+   * The image dimensions every `bbox` — and every `nodes[].box` — is relative to.
+   * The two rasters are cropped to a common rectangle before diffing, so this is
+   * the intersection, not either source's own size.
+   */
   dims: { w: number; h: number }
   blockPx: number
   meanDiff: number
   pctOverThreshold: number
   bands: number[]
-  regions: (DiffRegion & { crops: { ref: string; actual: string; diff: string } })[]
+  /**
+   * BUG-99 — the key `regions` is ordered by, descending. Stated rather than
+   * left implicit in array order, so "regions, largest first" is a guarantee a
+   * reader can rely on instead of an assumption they have to make.
+   *
+   * It is `score` (Σ block-average over the cluster's cells) and NOT `area`,
+   * deliberately: score ranks a large-faint region alongside a small-intense
+   * one, where area alone promotes a big pale wash over a small hard mismatch.
+   * `area` is carried per region, so the other order is available to anyone who
+   * wants it.
+   */
+  rankedBy: 'score'
+  /** BUG-99 — manifest→image scale used to resolve `nodes`, per side. Absent when no manifest was supplied. */
+  nodeScale?: { ref: number; actual: number }
+  regions: (DiffRegion & {
+    crops: { ref: string; actual: string; diff: string }
+    /** BUG-99 — the manifest records under this region. Absent when no manifest was supplied. */
+    nodes?: RegionNodes
+  })[]
 }
 
 /**
@@ -286,9 +337,18 @@ export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> 
     }
     await writeGrayPng(blockHeat, w, h, path.join(outDir, 'diff-blocks.png'))
 
+    // BUG-99 — resolve the node leads BEFORE cutting the crops, so the annotated
+    // region is the one thing carried forward. The crops and the leads describe
+    // the same rectangle; deriving them from two different objects is how they
+    // drift apart.
+    const hasSources = opts.nodeSources?.ref !== undefined || opts.nodeSources?.actual !== undefined
+    const annotated = hasSources
+      ? resolveRegionNodes(core.regions, opts.nodeSources ?? {}, w, opts.nodeOptions)
+      : core.regions
+
     // Per-region crop triptychs (ref / ours / diff), extracted at the bbox.
     const regionsWithCrops = [] as PerceptualDiffReport['regions']
-    for (const region of core.regions) {
+    for (const region of annotated) {
       const b = region.bbox
       const refCrop = path.join(outDir, `region-${region.id}-ref.png`)
       const oursCrop = path.join(outDir, `region-${region.id}-ours.png`)
@@ -309,6 +369,15 @@ export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> 
       meanDiff: round(core.meanDiff),
       pctOverThreshold: round(core.pctOverThreshold),
       bands: core.bands.map(round),
+      rankedBy: 'score',
+      ...(hasSources
+        ? {
+            nodeScale: {
+              ref: nodeScaleFor(opts.nodeSources?.ref, w),
+              actual: nodeScaleFor(opts.nodeSources?.actual, w),
+            },
+          }
+        : {}),
       regions: regionsWithCrops,
     }
     writeFileSync(path.join(outDir, 'regions.json'), JSON.stringify(report, null, 2))
@@ -323,13 +392,26 @@ export function formatDiffReport(report: PerceptualDiffReport): string {
   const head = `perceptual-diff: ${report.ref} ⇄ ${report.actual}\n  mean ${report.meanDiff.toFixed(2)} / 255 · ${report.pctOverThreshold.toFixed(1)}% pixels over threshold · ${report.regions.length} region(s)`
   const band = `  bands: ${report.bands.map((b) => b.toFixed(1)).join(' ')}`
   if (report.regions.length === 0) return `${head}\n${band}\n  ✓ no regions of interest`
-  const rows = report.regions.map(
-    (r) => `  #${r.id} score ${r.score.toFixed(1)} (mean ${r.meanDiff.toFixed(1)}) @ ${r.bbox.x},${r.bbox.y} ${r.bbox.w}×${r.bbox.h}`,
-  )
+  const rows = report.regions.map((r) => {
+    const line = `  #${r.id} score ${r.score.toFixed(1)} (mean ${r.meanDiff.toFixed(1)}) @ ${r.bbox.x},${r.bbox.y} ${r.bbox.w}×${r.bbox.h}`
+    // BUG-99 — the best lead from each side, on a continuation line. A region
+    // whose sides name different things (or where one side names nothing) is the
+    // most informative thing this report can say, so it is said here rather than
+    // left for whoever opens `regions.json`.
+    const lead = r.nodes ? `\n       ref: ${describeLead(r.nodes.ref[0])} · ours: ${describeLead(r.nodes.actual[0])}` : ''
+    return line + lead
+  })
   return `${head}\n${band}\n${rows.join('\n')}`
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
+
+/** One lead in one phrase — `nothing` when the side has none, which is itself the finding. */
+function describeLead(lead: RegionNode | undefined): string {
+  if (!lead) return 'nothing'
+  const what = lead.text ? `“${lead.text}”` : (lead.src ?? lead.role ?? lead.kind)
+  return `${what} (${Math.round(lead.overlap.ofRegion * 100)}% of region)`
+}
 
 function defaultCropName(input: string, box: RegionBox): string {
   const ext = path.extname(input)
