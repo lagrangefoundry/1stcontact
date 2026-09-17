@@ -5,7 +5,7 @@ type: epic
 title: Security Analysis
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T19:33:30.327185+00:00'
-updated_at: '2026-09-17T20:08:32.458818+00:00'
+updated_at: '2026-09-17T21:11:31.448875+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -339,22 +339,83 @@ per-hostname controls once custom domains land.
 
 ---
 
+## 4a. Blast radius and recovery
+
+The operator's hypothesis — *injection should be constrained by tenant and
+should not reach the backups, so a breach takes a site down and it is rapidly
+restored* — is the right frame, and it is worth stating as a design principle
+because it converts an unwinnable goal (*stop injection*) into two buildable
+ones (**bound the blast radius**, **make restore real**). Checked against the
+code, the first half is already true by construction and the second half is not
+true yet.
+
+### What is already confined (verified)
+
+| Claim | Evidence |
+|---|---|
+| A session cannot name another business | The store handle is `forTenant`-bound before the host is reached; there is **no tenant argument anywhere on the path** (`ai.ts:100-104`, `:327-330`). `scope.ts` has already made that decision per request. |
+| A session cannot name another site | The L1 surface declares one site and no operation takes a site argument (`l1-surface.json` overview). |
+| A hijacked turn cannot publish | `Publish` is not in the consultant's grant (`instances.json`) — by grant, not by instruction. |
+| A hijacked turn cannot delete assets | `ManageAssets` (`add_asset`, `remove_asset`) is **not granted** either. |
+| Published revisions are append-only | `site_revisions` rows plus frozen source and render in R2; live is derived as the highest id, never stored, so there is no pointer to repoint (`d1r2-store.ts:70-75`, [[DOC-12]] §4). |
+| Total site destruction is unreachable | `forget()` deletes a site and every revision, is tenant-scoped, and **has no caller anywhere in the product**. |
+
+So the public site is genuinely out of reach of a hijacked turn, and so is every
+other business. The reachable blast radius is **one business's draft**.
+
+### Where the hypothesis breaks
+
+1. **The draft has no restore point.** The change journal is explicitly *not* a
+   revision — a bounded window of clipped `before`/`after` strings for
+   orientation (`store/journal-model.ts`). A draft holding weeks of unpublished
+   work has nothing behind it. "Take down a site" is survivable; "shred the
+   draft" currently is not.
+2. **Restore is implemented but unreachable in production.** `checkoutRevision`
+   exists and is correct — it refuses a dirty draft unless forced — but it is
+   wired only to the filesystem store through the CLI (`cli/commands.ts:189`,
+   `fsSiteStore(ctx)`). There is no route and no control. Restoring a customer's
+   site from a published revision is today an operation the product cannot
+   perform.
+3. **No stated backup posture.** Nothing in the repo or the docs names D1 Time
+   Travel, an R2 lifecycle or retention policy, or a restore runbook. "We can
+   restore" is currently an assumption, not a tested property.
+4. **The AI is not the worst-case actor.** Tenant confinement is a property of
+   the *assistant's* grant. **F1** hands an attacker the **signed-in user's**
+   authority instead — which includes publish, hostname claim and every route —
+   and if the viewer is a platform operator it crosses businesses. Recovery must
+   be sized against F1, not against a hijacked turn.
+
+### The principle, stated for reuse
+
+> **Confine, then recover.** Every AI capability is bounded to one business by
+> the handle rather than by a predicate; every destructive or irreversible
+> effect either has a restore point behind it or a human in front of it.
+
+That sentence is what makes the prompt-injection rows in §3.4 tolerable while
+the prompt-layer defence (REQ 8 below) is still outstanding — and it is what
+stops being true the moment AI-I6/AI-I7 land, because those change *who* can
+reach the context, not what a turn may do.
+
+---
+
 ## 5. Proposed REQs
 
 Not yet filed — say the word and they go in at `draft`.
 
-| Prio | Ticket | Covers |
-|---|---|---|
-| 1 | **Library: untrusted uploads must not be documents on the builder's origin** | F1 (a)+(b) |
-| 2 | **Assets: validate SVG content on the upload path, not only the AI path** | F1 (c), PUB-6 |
-| 3 | **AI surface: a confirmation seam for irreversible operations** | F2, AI-A4, and the mechanism [[EPIC-5]] OQ2 needs |
-| 4 | **Both Workers: a Content-Security-Policy and the standard response headers** | F3, F4 |
-| 5 | **Router: a structural guard that every route arm names its gate** | F5, EDGE-4, AUTHZ-4 |
-| 6 | **AI surface: pin each role's granted capability set with a UAT** | F6, AI-A2 |
-| 7 | **Deploy: pin and verify the shared component store by digest** | F7 |
-| 8 | **Prompt injection: an untrusted-content envelope, proven by UAT** | AI-I2…I5 — the prompt-layer half that the address guards do not cover |
-| 9 | **Ops: name the security events, and review them** | PLAT-6 |
-| 10 | **Hygiene: `.dev.vars*`, Turnstile `hostname`/`action`, `workers_dev` on public-site** | F8 |
+| # | Ticket | Covers | When |
+|---|---|---|---|
+| 1 | **Library: untrusted uploads must not be documents on the builder's origin** (separate origin; interim `attachment` + `nosniff` + sandbox CSP) | F1 (a)+(b), AUTHZ-6 | **Now** |
+| 2 | **Assets: validate SVG content on the upload path, not only the AI path** | F1 (c), PUB-6 | **Now** |
+| 3 | **Both Workers: a Content-Security-Policy and the standard response headers** | F3, F4, AI-A7 | **Now** (ships with 1) |
+| 4 | **AI surface: a confirmation seam for irreversible operations** — declared effect, enforced by the toolbox; the model proposes, the human performs | F2, AI-A4, and the mechanism [[EPIC-5]] OQ2 needs for AI-A9 | **Now** — one operation today, three surfaces later |
+| 5 | **Recovery: a draft restore point, and a restore control in the product** | §4a (1)(2) — makes "confine, then recover" true | **Now** |
+| 6 | **Router: a structural guard that every route arm names its gate** | F5, EDGE-4, AUTHZ-4 | **Now** (a test, not a feature) |
+| 7 | **AI surface: pin each role's granted capability set with a UAT** | F6, AI-A2, and what keeps 4 from regressing | **Now** (a test, not a feature) |
+| 8 | **Ops: state and test the backup posture** — D1 Time Travel, R2 retention, a restore runbook | §4a (3), PLAT-5 | Next |
+| 9 | **Deploy: pin and verify the shared component store by digest** | F7 | Before the first paying customer |
+| 10 | **Prompt injection: an untrusted-content envelope, proven by UAT** | AI-I2…I5 | **Gated on AI-I6/AI-I7** — mandatory before inbound mail or contacts reach a role's tools; deferrable until then *because* §4a holds |
+| 11 | **Ops: name the security events, and review them** | PLAT-6 | Next |
+| 12 | **Hygiene: `.dev.vars*`, Turnstile `hostname`/`action`, `workers_dev` on public-site** | F8 | Next (minutes) |
 
 Recommended alongside: promote this matrix to a `doc` (`doc_kind: architecture`,
 so it stays out of the production KB) once it has been through one review cycle,
