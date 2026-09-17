@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-101
 created_by: xgd
 created_at: '2026-09-17T21:35:31.205901+00:00'
-updated_at: '2026-09-17T21:48:14.489038+00:00'
+updated_at: '2026-09-17T21:55:20.122175+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -93,5 +93,48 @@ No code changed; the two probe copies I ran are deleted and the tree is clean.
 <!-- xgd-chat role="user" ts="2026-09-17T21:48:12.775004+00:00" -->
 #### You
 Option A it is
+
+<!-- xgd-turn id="94168791-2aef-4b57-b77c-ee9f7f261ab2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:55:19.499833+00:00" -->
+#### Claude
+Decision noted — Option A. Starting the free-coding flow with Step 1: scope the ticket.
+
+Now the UAT file.
+
+Done. BUG-101 is landed on `xgd-working` and the ticket is `free_coded`.
+
+## The change
+
+`tools/generate/bin/1c.mjs` — `process.exit(exitCode)` → `process.exitCode = exitCode`, with a comment carrying the reason, the measurement, and the accepted trade-off.
+
+```
+./bin/1c page get gigabytealchemy home --json | wc -c   →  71219   (was 65536)
+… | python3 -c "import json,sys; json.load(sys.stdin)"  →  ok
+```
+
+## The UATs
+
+`tests/test_UAT_FC_BUG-101_piped_stdout_not_truncated.test.ts`, five tests, all driving the real binary as a subprocess against the committed `gigabytealchemy/home` fixture — no sandbox, no capture, no browser.
+
+1. **`a_piped_json_document_arrives_whole`** — piped bytes are byte-identical to the same command redirected to a file, with a floor assertion that the fixture still exceeds 65536 so it can't go quietly vacuous.
+2. **`the_piped_document_parses_as_the_l1_page`** — parses, `ok: true`, `data.page` present, `"kind"` fields countable; the two false statements the digest derived.
+3. **`the_process_ends_on_its_own`** — exits by status, not by signal. This is the guardrail for the new risk.
+4. **`the_exit_status_is_still_the_commands`** — `list` → 0, unknown verb → 1.
+5. **`the_launcher_never_forces_an_exit`** — no `process.exit(` in the comment-stripped source.
+
+I checked they're real evidence by reverting the launcher and re-running: 1, 2 and 5 fail against the old build; 3 and 4 pass on both, which is correct — they exist to hold the trade-off in place, not to distinguish the builds.
+
+Regression scope, all green: the three launcher suites (`REQ-150`, `req37-launcher`, `req89-astro-lazy`) and the four CLI-spawning suites (`reconciliation-1c-install-preflight`, `reconciliation-1c-astro-free-render`, `reconciliation-scaffold-starter-l1`, `REQ-255 regression rail`) — 59 passed, 2 skipped.
+
+Version bumped 0.2.232 → 0.2.233. Commit `db7e693184`, merged by `git merge` (SHA preserved), branch cleaned, lock released.
+
+## Two things I decided without you, since you'd only answered Q1
+
+**Q2 — `boot.mjs` is out of scope**, and the ticket body now says so and why. It's the identical shape and `repro-rail --json` prints its whole report through it, but the rail's output is under 64 KiB today and I couldn't measure its spawn/vitest path here — so changing it would have been the same blind edit I argued against. It's a real latent bug; say the word and I'll file it as its own ticket.
+
+**Q3 — the regression test target** is what I recommended: `gigabytealchemy/home`, assert parses *and* exceeds the pipe buffer.
+
+One incidental find: a fresh branch worktree can't run the CLI at all — `apps/control-app/src/generated/` is gitignored, so `1c` dies at `Failed to load url ./generated/ticketing`. I copied it in from the main checkout. Same class as the webui-resolution problem, different directory.
 
 <!-- xgd-chat-end -->
