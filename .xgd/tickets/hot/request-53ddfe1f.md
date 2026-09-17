@@ -5,16 +5,24 @@ type: request
 title: Published revisions are immutable by enforcement, not by convention
 created_by: EPIC-17
 created_at: '2026-09-17T21:34:35.066365+00:00'
-updated_at: '2026-09-17T21:57:44.241956+00:00'
+updated_at: '2026-09-17T22:08:56.677473+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bed5a03b
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9ce90ad2
+  commits:
+  - working_sha: efb3a946fee01ad62904df00200a9c3e385a87a0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 52d29d2ac3b48603b57d662f3942e9a3277543de
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.236
 ---
 
 ## What this is
