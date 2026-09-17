@@ -6,7 +6,7 @@ title: 'values-diff: section-level values are joined by ordinal index, so §n co
   unrelated bands'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:32.864506+00:00'
-updated_at: '2026-09-17T03:00:49.224131+00:00'
+updated_at: '2026-09-17T21:52:27.991294+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -150,3 +150,126 @@ Found while diagnosing loop-1 iteration 2 of `repro-gigabytealchemy-ai`.
 the reproduction-side value manifest). The fold residual that explains the pixel
 evidence quoted above is **REQ-265**; the truncation that forces the
 file-redirect in the commands above is **BUG-101**.
+
+
+---
+
+## Root cause, corrected (investigation 2026-09-17)
+
+The ordinal join is the defect, but the reproduction side is not "6 bands offset
+by one". **It carries exactly ONE section.**
+
+`flattenSignals` reads section values from `signals.bands`, and `extract.ts`
+builds `bands` from the **direct children of `<body>`** whose painted extent is
+≥ 8px. An L1 render emits a single root element into `<body>`
+(`render.ts:3444`, `emitNode(doc.root, …)`), so there is exactly one band root
+and its `paintedExtent` is the whole document. The `section-band-*` nodes quoted
+above are its *grandchildren* — never band roots. This is BUG-15's flat-DOM
+problem one level up, at the section layer instead of the element layer.
+
+Confirmed by running the real `EXTRACT_SCRIPT` under jsdom over an L1-shaped DOM
+(one relative wrapper; absolutely-positioned band boxes and text as siblings):
+
+```
+L1-shaped DOM -> bands: 1
+[{ box: { x: 0, y: 0, width: 1280, height: 1900 }, anchor: 0.33, overlay: null }]
+```
+
+The stored evidence agrees with this and not with the ordinal-offset reading. If
+the reproduction really had six bands offset by one, reference `§1` (the hero,
+`overlay {#030717, 0.3}`) would have been compared against the cream band at
+y 800 and an `overlay` delta would be in the report. There is no overlay delta in
+either stored iteration
+(`storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-{1,2}/diff/values-diff.json`
+— both carry the same two deltas and nothing else).
+
+So the true behaviour today is:
+
+- the only section-level comparison ever made against an L1 reproduction is
+  reference `§0` against the whole-page wrapper;
+- `§1 … §n` hit `if (!as) continue` and are **silently skipped** — `overlay`,
+  `contentAnchor` and `textAlign` are unevaluated axes, not mispaired ones;
+- the one delta produced is a false positive by construction, and it is frozen:
+  identical in iteration 1 and iteration 2, unfixable by changing the
+  reproduction, and re-presented every round as work to do.
+
+## Scoped behaviour
+
+Join sections by geometry and be honest when they cannot be joined at all. This
+ticket does **not** change what the reproduction extracts — giving an L1 render
+real section bands is a separate, larger piece of work (see "Deliberately out of
+scope" below), so the outcome here is that the false delta disappears and the
+blindness is stated rather than hidden.
+
+1. **Pair by vertical overlap, not by ordinal.** Both sides carry
+   `SectionValues.box` in the same full-page document coordinate space. Two
+   sections pair when their vertical intervals overlap by at least half their
+   union (vertical IoU ≥ 0.5) — sections are full-bleed bands, so the vertical
+   interval is what distinguishes them. Pairing is one-to-one: candidate pairs
+   are taken best-overlap-first, and a section already paired is not re-used.
+   The reference's absolutely-positioned header (`§0`, y 0…192) therefore does
+   **not** pair with a hero band spanning y 0…800 (IoU 0.24), while a hero that
+   reproduces at the same geometry pairs at IoU ≈ 1.
+
+2. **A reference section with no overlapping counterpart is reported, not
+   compared.** It is recorded as unpaired instead of being compared against
+   whatever shares its index. The reference's header strip having no band in the
+   reproduction is the interesting fact; the ordinal join converted it into a
+   0.16 anchor difference.
+
+3. **A reproduction that segments into one body-spanning band reports that
+   section values are NOT COMPARABLE.** When the actual manifest carries exactly
+   one section whose band vertically covers the full extent of the
+   reproduction's own elements, and the reference carries more than one, no
+   section values are compared and no per-section unpaired rows are emitted:
+   there is a single stated reason instead. Eight unpaired rows saying nothing
+   but "this is a flat L1 render" would be louder noise than the false delta
+   they replace.
+
+4. **Pairing stays visible in the report.** `values-diff.json` reported `§0` in
+   `deltas` but carried nothing describing what either side's section actually
+   was. The report now carries, per reference section, its label and band box,
+   the repro band it paired with (label + box) or null, and the overlap
+   fraction — plus the not-comparable reason when it is set. The human
+   `formatReport` output gains a matching block.
+
+5. **Sections without geometry keep the ordinal join.** Geometry pairing needs
+   `box` on every section of both sides. A pre-REQ-88 manifest (and a fixture
+   built without boxes) has none, so the old ordinal join is kept as the
+   documented fallback rather than silently comparing nothing.
+
+6. **Paired sections diff exactly as before.** `overlay`, `contentAnchor` and
+   `textAlign` are compared with the same tolerances on sections that do pair —
+   this ticket changes *which* two sections are compared, never how.
+
+7. **Exit semantics are unchanged.** An unpaired section and a not-comparable
+   verdict are report facts, not deltas: they do not enter `deltas`, do not
+   count toward the gate's delta count, and do not make `1c values-diff` exit
+   non-zero. A segmentation difference is not by itself a fidelity defect, and a
+   permanent diagnostic row would make a clean page fail forever.
+
+As a technical consequence of (1) and (5): `SectionValues.box`'s doc comment
+still says "Present iff `backgroundImageUrl` is", which REQ-88 made untrue on
+both projection paths. The geometry join depends on that field, so the comment
+is corrected to match the code.
+
+**Expected result on the evidence above:** the `§0 contentAnchor`
+`bottom (0.66)` vs `center (0.50)` delta is gone; the report states that the
+reproduction segments into one body-spanning band, so the reference's 8 sections
+have no bands to compare against.
+
+## Deliberately out of scope
+
+- **Giving an L1 reproduction real section bands.** The structural fix is to
+  derive the repro's bands from painted full-bleed backdrops (`backdropBoxes()`
+  already finds exactly the `section-band-*` / `section-bg-0` boxes but emits
+  them as *fields*), which additionally requires `overlayOf` and `anchorRatioOf`
+  to work by box containment rather than DOM descent — in a flat L1 tree the
+  scrim and the text runs are siblings of the band box, not its children. That
+  is the REQ-88 / BUG-20 surface-chain treatment applied at the section layer,
+  and it is its own ticket. Until it lands, section-level fidelity against an L1
+  reproduction is unmeasured — which is precisely what (3) now says out loud.
+- **A `§n` card in `objects`.** `ObjectCard` / `buildObjectCard` are typed on
+  `ValueElement` and bucketed by `ObjectKind` (`text | image | control |
+  divider`); a section is neither. The readability complaint is answered by (4)
+  instead.
