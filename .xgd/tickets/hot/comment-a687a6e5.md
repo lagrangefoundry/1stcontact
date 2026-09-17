@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T03:27:57.974404+00:00'
+updated_at: '2026-09-17T03:50:31.099046+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -95,5 +95,15 @@ Two consequences I've written down because they'll bite otherwise:
 **Nothing now stores the rendered bytes for a broadcast.** With no per-recipient ticket, what actually went out has to be *reconstructible* from the frozen body plus the pinned template — which means `template_uid`, never `template_key`, and deterministic rendering. If that ever stops holding, the record stops being evidence and we have to store a rendered artefact instead.
 
 Also from the last turn: REQ-263 is now EPIC-13's child.
+
+<!-- xgd-turn id="2813b81c-2503-4a2b-95de-3f1dc12d7e7e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T03:50:30.938558+00:00" -->
+#### You
+`content` as its own type, separate from the campaign <-- when I said that I was thinking that a campaign was a sequence of email sends, not one. Please update the epic and any related docs with the change.
+
+Freezing the campaign body at send preserves that exactly. What's genuinely lost is named reuse of one content across several campaigns, and "duplicate this campaign as a draft" covers close to all of it: an A/B wants two different bodies anyway, and a re-send to non-openers is a new campaign with a different list. <-- I suggest we keep it simple. A campaign is a single send of a single message to a single list of users. Once the send is triggered the campaign would move into a different state perhaps it goes from draft to sending to sent. The sending could take a while particularly if it is a new list or a large list, that's fine. But my point is that once it is out of draft mode the content is frozen. And then becomes a historical record and as a point out it can be copied for another email blast.
+
+Honestly I am not familiar with mailing list software. Does that feel like an appropriate simplification? Other constraints that would impose that you feel are an appropriate at this level?
 
 <!-- xgd-chat-end -->
