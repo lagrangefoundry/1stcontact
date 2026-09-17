@@ -6,7 +6,7 @@ title: Colour alpha is not representable in the captured value set — transluce
   (hero veil) flatten to opaque fills
 created_by: xgd
 created_at: '2026-07-24T22:51:43.884923+00:00'
-updated_at: '2026-08-05T17:38:10.449242+00:00'
+updated_at: '2026-09-17T20:21:16.712929+00:00'
 completed_at: '2026-08-05T17:38:10.449242+00:00'
 last_field_updated: status
 status: free_and_reconciled
