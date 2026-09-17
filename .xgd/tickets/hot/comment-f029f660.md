@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:21:58.466174+00:00'
+updated_at: '2026-09-17T04:23:27.433422+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -325,5 +325,37 @@ With a boolean alone, collection degrades to a TTL sweep and verification become
 Check needs a run id, agreed
 Delete on success only - leave on fail - agreed
 But also - can we talk about a periodic sweep that captures anything that's missed regardless of run number?
+
+<!-- xgd-turn id="7397aeb2-504c-4882-831f-d4074525d50b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:23:26.468666+00:00" -->
+#### Claude
+Yes — and it's a genuinely different mechanism from what's in there now, not a bigger version of it. The property that matters: **it must not key on the run registry at all.**
+
+Recorded. Yes to the sweep, and the design turns on one property: **it keys on the row, never on a run registry.** `synthetic = 1 AND created_at < horizon`, nothing else. The moment it joins to a table of known runs, a lost run row means orphans that live forever — which is exactly what it exists to catch. It has to be able to collect rows from a run nobody remembers, a probe since deleted, a run id in a format we no longer write, or a path that stamped `synthetic` and forgot the run id.
+
+**Its horizon is a floor above every per-class TTL, generously so** — the human-confirmed probes run for days, and a sweep that outran them would delete evidence a probe was still waiting on. It's leak collection, not lifecycle management, so it can afford to be slow. It takes failure scaffolding too once the horizon passes: a month-old failure won't be debugged, and the verdict survives regardless.
+
+## The reframe worth having
+
+**A non-empty sweep is a bug report, not hygiene.** If verify-and-delete is working, this pass takes nothing, every time. Every row it does take means a run leaked — crashed between writing and verifying, stamped without a run id, verification never ran. So the count is a health metric for the gutter itself and belongs somewhere visible. Expected harvest is zero; that's the falsifier.
+
+## The recursion is already solved here
+
+A collector that silently stopped looks exactly like a system with no garbage. The session-purge cron already states both halves of the answer in its docstring — it *"reports rather than returns"*, because the invocation log is *"where a sweep that has quietly been taking nothing for a month is visible"*, and it *"does not swallow a failure"*, so a throw marks the invocation failed and surfaces in the dashboard. Same handler, same discipline, second sweep.
+
+## Safety, since this is a scheduled `DELETE` on production
+
+- `synthetic` as **`NOT NULL DEFAULT 0`** — a nullable flag makes an unstamped row ambiguous under three-valued logic, and ambiguity in a delete predicate is how a real contact gets collected
+- **Bounded per invocation**, so a predicate bug leaks damage slowly rather than instantly
+- **It refuses an implausible harvest** — expected count is zero-to-a-handful, so a sweep about to take ten thousand contacts has a broken predicate, not a backlog. Stop and shout.
+
+## One limit worth stating so the sweep isn't over-trusted
+
+**It collects rows that were marked and not reaped. It cannot see rows that were never marked.** A write path that stamped neither flag nor run id produced something indistinguishable from real data, and no sweep will ever find it. That failure is mechanism (2)'s to prevent by being *structural* — derived from context and parent, never passed by a caller — which is the reason (2) is the one that can't be a convention.
+
+It also gives assertion #5 two halves: run a probe, let verification collect it, assert the sweep finds nothing; then write a synthetic row, skip verification, assert the sweep takes it.
+
+Still holding on the doc pending your call — DOC ticket under EPIC-15, or appended to the epic?
 
 <!-- xgd-chat-end -->
