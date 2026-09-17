@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-17T22:03:02.100940+00:00'
+updated_at: '2026-09-17T23:42:46.986139+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2277,5 +2277,13 @@ Nothing here is code. In order:
 3. Leave REQ-268 where it is — it's correctly scoped and correctly gated.
 
 Which of those do you want, and where should delete-contact live?
+
+<!-- xgd-turn id="e833d02b-d794-4df8-8990-24ae2558343f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T23:42:45.449782+00:00" -->
+#### You
+Why did the reproduction console end its round with: round finished · $9.67 · 27m 21s · 112 turns · 178→89.9k tok
+
+This MUST be run against my subscription - not the API tokens???
 
 <!-- xgd-chat-end -->
