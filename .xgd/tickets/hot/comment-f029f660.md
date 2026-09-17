@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:18:22.996890+00:00'
+updated_at: '2026-09-17T21:20:05.083461+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -441,5 +441,33 @@ Q2 external runner, Q7 who hears about a failure, Q8 canary sites, Q9 customer-v
 1. I already said yes to 1
    2. both
    3. I don't understand this one - I think a short hash would be the safest way to id a run
+
+<!-- xgd-turn id="a09922ae-ace1-4f84-8d70-3606057855f9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:20:04.273321+00:00" -->
+#### Claude
+`newId` settles your instinct with one correction worth making.
+
+All three recorded as resolved, with the reasoning, so they don't get re-derived.
+
+**1. `Scope` grows the field.** I've written in why it doesn't actually conflict with that interface's rationale: the existing argument is against a *discriminated union* over a second variant that will never exist — not against a second field carrying an independent fact. Visibility is exactly such a fact: orthogonal to which business is being read, asked by every read, catastrophic to forget. The alternative (a predicate threaded *beside* `Scope` through the same call sites) is rejected explicitly — it reaches every place the field would and relies on each one remembering.
+
+**2. Both columns, so never a join.** The event column is redundant in the common case, but the derivation makes it nearly free, and the alternative is joining to `users` in the hot read path to answer a predicate every read asks. A column is paid once at write; a join on every page load.
+
+## 3 — my question was badly posed, and your answer improves it
+
+I conflated two things: what the run id *is*, and how it *travels*. You answered the first, and the codebase settles it in your favour with one correction.
+
+`tools/generate/src/store/ids.ts` is *"the one minter of opaque keys"* (REQ-190) — `<prefix>_<32 hex>`, 128 bits from a CSPRNG. So **use `newId('run')`**, not a new short format, because that module's own rule is *"the system mints it stops being a property the moment there are two of them."*
+
+The correction: it's deliberately **not** a digest — *"a hash of the row's data is data-as-key wearing a disguise."* So read your "hash" as *opaque, fixed-length, unguessable*, which is what `newId` gives, rather than content-derived. Length isn't a problem anywhere it appears: `bfm+run_<32 hex>@…` is 40 characters against a 64-character local-part limit. If you want it shorter in logs, that's display truncation, not a second identifier.
+
+**And the transport question dissolves rather than needing an answer** — because I had it wrong in the doc. I'd written that the reserved address carries the run id *"so the capture path needs no extra wire field."* There is no field to save: the marker must be on the request anyway for the signature check. So the run id rides **inside the signed marker**, which is strictly better because it's then signed — a run id can't be swapped for another run's. The reserved address carries it only where an envelope is the sole channel, i.e. an inbound email probe with no request to attach a marker to. Different channel, same id, not an alternative.
+
+## What's left
+
+Three constants, none gating code: TTL per probe class and the sweep horizon above it; the implausible-harvest threshold (absolute or proportional); where the sweep's count surfaces. All better tuned with the thing in front of you.
+
+The gate on starting is still EPIC-10 being working and tested.
 
 <!-- xgd-chat-end -->
