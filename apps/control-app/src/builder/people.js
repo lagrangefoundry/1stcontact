@@ -91,6 +91,10 @@ import {
   fetchPeople,
   fetchPerson,
   fetchPersonMessages,
+  fetchPersonEvents,
+  fetchPendingInbound,
+  promoteInbound,
+  setInboundSuppressed,
   invitePeople,
   openGrant,
   provisionBusinessFor,
@@ -524,6 +528,143 @@ function messageLine(message) {
 }
 
 /**
+ * How many events one page of history holds.
+ *
+ * IT MUST AGREE WITH `TIMELINE_LIMIT` ON THE SERVER, and what it is used for is
+ * the only thing that could go wrong if it drifts: deciding whether a page came
+ * back FULL, which is how this pane knows whether to offer the next one. Too
+ * small and the button never appears on a history that has more; too large and
+ * it appears on one that does not and then removes itself on the first press —
+ * so the failure is cosmetic in one direction and a hidden truncation in the
+ * other.
+ */
+const HISTORY_PAGE = 100
+
+/**
+ * A RECEIVED body, rendered inert ([[REQ-267]] §9).
+ *
+ * TEXT AND NEVER MARKUP, AND THIS IS THE WHOLE SECURITY CONTROL. An outbound
+ * message is copy we composed and goes in a sandboxed frame so the operator can
+ * press its link; a received body is a string an anonymous stranger chose, and
+ * the origin it would be rendered on holds the operator's session. Putting it in
+ * a document at all — frame or not — is stored XSS with an email address as the
+ * delivery mechanism, which is [[EPIC-17]] F1's shape arriving through a new
+ * door.
+ *
+ * `textContent` IS THE MECHANISM. There is no `innerHTML` path from a received
+ * body to the DOM, no `srcdoc`, no parse: a `<script>` in the mail is the word
+ * "script" on the screen, an `onerror=` attribute is characters, and an
+ * `<img src="https://tracker/...">` issues no request because no element was
+ * ever created for it. That last one matters on its own — a remote image in a
+ * mail body is a read receipt and an IP disclosure for the operator who opened
+ * it.
+ *
+ * `<pre>` BECAUSE MAIL IS LINE-BROKEN. The sender's wrapping is the only layout
+ * the message has, and collapsing it would make a quoted reply unreadable.
+ */
+function receivedBody(text) {
+  const body = el('pre', 'builder-people__rcvbody')
+  body.textContent = String(text ?? '')
+  return body
+}
+
+/**
+ * One received message, as the detail pane lists it ([[REQ-267]] §5).
+ *
+ * IT SAYS WHETHER THE SENDER WAS WHO THEY SAID, EVERY TIME. An SMTP sender is
+ * unauthenticated: resolving an address to a contact says who the sender CLAIMS
+ * to be, and threading that onto a person's page as their words without telling
+ * the reader is the one thing this surface must not do. `pass` is a verdict and
+ * so is nothing else — `none` means the sender publishes no policy, which is
+ * ordinary for a small business's correspondent, and `unknown` means we were not
+ * told.
+ *
+ * A REFUSED MESSAGE IS STILL A LINE. Over the size bound, so its body was never
+ * read — and a refusal that left no trace would be indistinguishable from mail
+ * that never arrived, which is the failure a business cannot forgive.
+ *
+ * ATTACHMENTS ARE NAMED AND ARE NOT LINKS. The bytes are stored and nothing
+ * serves them ([[REQ-267]] §5); a name with no link is the honest rendering of
+ * "we have this and you cannot fetch it yet", where a dead link would be a
+ * promise the product does not keep.
+ */
+function receivedLine(record) {
+  const line = el('li', 'builder-people__message')
+  const open = el('details', 'builder-people__msgopen')
+  const head = el('summary', 'builder-people__msghead')
+  head.append(el('span', 'builder-people__msgsubject', record.subject || '(no subject)'))
+  head.append(el('span', 'builder-people__msgwhen', shortWhen(record.receivedAt)))
+  const direction = el('span', 'builder-people__msgstatus', 'received')
+  direction.dataset.status = 'received'
+  head.append(direction)
+  if (record.alignment !== 'pass') {
+    const flag = el('span', 'builder-people__msgunverified', 'unverified')
+    flag.dataset.alignment = String(record.alignment ?? 'unknown')
+    flag.title =
+      'The sender was not authenticated, so this is who the message CLAIMS to be from.'
+    head.append(flag)
+  }
+  open.append(head)
+  open.append(el('span', 'builder-people__msgfrom', record.envelopeFrom || ''))
+  if (record.status === 'refused') {
+    open.append(el('span', 'builder-people__msgfailure', record.refusal || 'Not recorded.'))
+  }
+  const attachments = Array.isArray(record.attachments) ? record.attachments : []
+  if (attachments.length > 0) {
+    open.append(
+      el(
+        'span',
+        'builder-people__msgattachments',
+        `Attached: ${attachments.map((one) => one?.name ?? 'attachment').join(', ')}`,
+      ),
+    )
+  }
+  // BUILT ON FIRST OPEN, on `messageLine`'s reasoning — and here it also means a
+  // stranger's body is not in the document at all until somebody asks for it.
+  open.addEventListener('toggle', () => {
+    if (!open.open || open.querySelector('.builder-people__rcvbody')) return
+    open.append(
+      (record.body ?? '') === ''
+        ? el('p', 'builder-people__msgnobody', 'This message was recorded without a body.')
+        : receivedBody(record.body),
+    )
+  })
+  line.append(open)
+  return line
+}
+
+/**
+ * Sent and received in one sequence, newest first ([[REQ-267]] §5).
+ *
+ * ONE LIST AND NOT TWO, on the history's own reasoning: a reader asking *what is
+ * going on with this person* wants a conversation, and two lists side by side
+ * make them do the interleave by eye and get it wrong on the one occasion it
+ * matters.
+ *
+ * THE TWO STAMPS MEAN DIFFERENT THINGS AND SORT TOGETHER ANYWAY. Ours is when we
+ * queued it; theirs is when it reached us. Both are the moment the message
+ * entered the relationship, which is what the ordering is about.
+ *
+ * PURE AND EXPORTED, because the interleaving is the claim and it is provable
+ * without a DOM.
+ */
+export function mergeCorrespondence(sent, received) {
+  const rows = [
+    ...(Array.isArray(sent) ? sent : []).map((message) => ({
+      at: message?.queuedAt ?? '',
+      direction: 'sent',
+      message,
+    })),
+    ...(Array.isArray(received) ? received : []).map((record) => ({
+      at: record?.receivedAt ?? '',
+      direction: 'received',
+      message: record,
+    })),
+  ]
+  return rows.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+}
+
+/**
  * What one invite did, said in one sentence ([[REQ-199]]).
  *
  * EVERY SELECTED CONTACT GETS A LINE, including the ones that worked. A report
@@ -779,6 +920,10 @@ export function createPeoplePanel(options = {}) {
     list: fetchPeople,
     item: fetchPerson,
     messages: fetchPersonMessages,
+    events: fetchPersonEvents,
+    pending: fetchPendingInbound,
+    promote: promoteInbound,
+    suppress: setInboundSuppressed,
     saveRecord: savePersonRecord,
     grant: openGrant,
     revoke: revokeGrant,
@@ -1525,12 +1670,21 @@ export function createPeoplePanel(options = {}) {
     const messages = section(view, 'Messages')
     try {
       const answer = await transport.messages(detail.person.id)
-      const sent = Array.isArray(answer.messages) ? answer.messages : []
-      if (sent.length === 0) {
-        messages.append(el('p', 'builder-people__msgempty', 'Nothing has been sent to them yet.'))
+      // BOTH DIRECTIONS ([[REQ-267]] §5). A route that answered only with what we
+      // had SENT made a reply invisible on the one surface that exists to show
+      // what has passed between us and this person.
+      const rows = mergeCorrespondence(answer.messages, answer.received)
+      if (rows.length === 0) {
+        messages.append(
+          el('p', 'builder-people__msgempty', 'Nothing has passed between you yet.'),
+        )
       } else {
         const list = el('ul', 'builder-people__messages')
-        for (const message of sent) list.append(messageLine(message))
+        for (const row of rows) {
+          list.append(
+            row.direction === 'received' ? receivedLine(row.message) : messageLine(row.message),
+          )
+        }
         messages.append(list)
       }
     } catch (err) {
@@ -1663,17 +1817,65 @@ export function createPeoplePanel(options = {}) {
       // AN `<ol>`, because the order is the meaning. A history in an unordered
       // list is a history a stylesheet is free to reflow.
       const lines = el('ol', 'builder-people__events')
-      for (const event of events) {
-        const said = describeEvent(event)
-        const line = el('li', 'builder-people__event')
-        line.append(el('span', 'builder-people__eventkind', said.label))
-        line.append(el('span', 'builder-people__eventwhen', said.when))
-        if (said.learned) {
-          line.append(el('span', 'builder-people__eventlearned', `recorded ${said.learned}`))
+      const draw = (page) => {
+        for (const event of page) {
+          const said = describeEvent(event)
+          const line = el('li', 'builder-people__event')
+          line.append(el('span', 'builder-people__eventkind', said.label))
+          line.append(el('span', 'builder-people__eventwhen', said.when))
+          if (said.learned) {
+            line.append(el('span', 'builder-people__eventlearned', `recorded ${said.learned}`))
+          }
+          lines.append(line)
         }
-        lines.append(line)
+        return page.length === 0 ? null : page[page.length - 1].cursor
       }
+      let cursor = draw(events)
       history.append(lines)
+
+      /**
+       * THE REST OF THE HISTORY ([[REQ-267]] §8).
+       *
+       * THE CAP WAS SAFE WHILE NOTHING WROTE VOLUME AND IS NOT NOW. Every
+       * message in both directions lands on the spine, so without this the
+       * hundredth row is where a contact's history appears to BEGIN — silently,
+       * which is the only way a truncation can mislead.
+       *
+       * SHOWN ONLY WHEN THE PAGE CAME BACK FULL, because a short page IS the end
+       * and a button that answers "nothing more" is a button that taught the
+       * operator not to press it.
+       *
+       * IT DISAPPEARS WHEN IT REACHES THE END, for the same reason.
+       */
+      if (events.length >= HISTORY_PAGE && transport.events) {
+        const more = el('button', 'builder-people__more', 'Load older')
+        more.type = 'button'
+        more.addEventListener('click', async () => {
+          more.disabled = true
+          try {
+            const page = await transport.events(detail.person.id, cursor)
+            const older = Array.isArray(page.events) ? page.events : []
+            const last = draw(older)
+            if (last) cursor = last
+            if (older.length < HISTORY_PAGE) more.remove()
+            else more.disabled = false
+          } catch (err) {
+            // SAID IN PLACE AND NOT SWALLOWED. A button that goes quiet is
+            // indistinguishable from a history that has ended, which is the one
+            // thing this control exists to stop being ambiguous.
+            more.replaceWith(
+              el(
+                'p',
+                'builder-people__msgempty',
+                `The rest of their history could not be read: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              ),
+            )
+          }
+        })
+        history.append(more)
+      }
     }
 
     /**
@@ -1703,6 +1905,116 @@ export function createPeoplePanel(options = {}) {
   async function reopen(personId, view) {
     view.replaceChildren()
     await fill({ id: personId }, view)
+  }
+
+  /**
+   * MAIL FROM SOMEBODY THIS BUSINESS DOES NOT KNOW ([[REQ-267]] §6).
+   *
+   * IT IS NOT A SECOND LIST OF PEOPLE, and that is the whole reason it sits here
+   * as a disclosure rather than as a facet on the list below. No `users` row was
+   * created for any of these and no timeline entry was written — a speculative
+   * contact per stranger would fill the CRM with spam, and it would break the
+   * property the test gutter rests on. What is waiting is messages, and the
+   * decision is whether any of them should become a person at all.
+   *
+   * COLLAPSED, AND HIDDEN ENTIRELY WHEN EMPTY. An empty queue is the steady
+   * state; a permanent empty box beside the contact list is chrome the operator
+   * learns to stop seeing, which is the opposite of what a triage surface is for.
+   *
+   * ITS COUNT IS IN THE SUMMARY because that is the only part visible while it is
+   * closed, and *is there anything waiting* is the question it has to answer
+   * without being opened.
+   */
+  const pendingBlock = el('details', 'builder-people__pending')
+  const pendingHead = el('summary', 'builder-people__pendinghead', 'Unidentified mail')
+  const pendingList = el('ul', 'builder-people__pendinglist')
+  pendingBlock.append(pendingHead, pendingList)
+  pendingBlock.hidden = true
+  controls.append(pendingBlock)
+
+  /**
+   * One waiting message, with the two decisions ([[REQ-267]] §6).
+   *
+   * TWO CONTROLS AND NOT THREE. Promote makes them a contact and gives them
+   * their mail; Discard stops the queue asking again. There is no delete,
+   * deliberately — the record is evidence, a suppression is reversible, and a
+   * triage control that destroyed a message would be the one act here that
+   * cannot be undone.
+   *
+   * THE BODY IS NOT SHOWN AT ALL. This is a decision about a SENDER, taken from
+   * the subject and the address; the body is a stranger's text and belongs on the
+   * contact's page after they are one, where it is rendered inert.
+   */
+  function pendingRow(record) {
+    const row = el('li', 'builder-people__pendingrow')
+    row.append(el('span', 'builder-people__pendingfrom', record.envelopeFrom || '(no sender)'))
+    row.append(el('span', 'builder-people__pendingsubject', record.subject || '(no subject)'))
+    row.append(el('span', 'builder-people__pendingwhen', shortWhen(record.receivedAt)))
+    if (record.alignment !== 'pass') {
+      const flag = el('span', 'builder-people__msgunverified', 'unverified')
+      flag.dataset.alignment = String(record.alignment ?? 'unknown')
+      row.append(flag)
+    }
+    const promote = el('button', 'builder-people__pendingpromote', 'Add as contact')
+    promote.type = 'button'
+    promote.addEventListener('click', async () => {
+      promote.disabled = true
+      try {
+        await transport.promote(record.uid)
+        // THE LIST IS RE-READ AND NOT PATCHED. A promotion writes a person, an
+        // address, an account and one event per message that followed them —
+        // reconstructing that here would be a second answer to what a contact
+        // is, and the one thing this control promises is that there is only one.
+        await refresh()
+        await refreshPending()
+      } catch (err) {
+        promote.disabled = false
+        row.append(el('span', 'builder-people__pendingerror', errorText(err)))
+      }
+    })
+    const discard = el('button', 'builder-people__pendingdiscard', 'Not a contact')
+    discard.type = 'button'
+    discard.title =
+      'Stop asking about this sender. Their later mail is still received and still forwarded.'
+    discard.addEventListener('click', async () => {
+      discard.disabled = true
+      try {
+        await transport.suppress(record.envelopeFrom, true)
+        await refreshPending()
+      } catch (err) {
+        discard.disabled = false
+        row.append(el('span', 'builder-people__pendingerror', errorText(err)))
+      }
+    })
+    row.append(promote, discard)
+    return row
+  }
+
+  /** Re-read the queue. Safe to call when the transport supplies none. */
+  async function refreshPending() {
+    if (!transport.pending) return
+    let answer
+    try {
+      answer = await transport.pending()
+    } catch {
+      // A QUEUE THAT COULD NOT BE READ IS HIDDEN RATHER THAN SHOWN EMPTY. An
+      // empty triage box and a failed read look identical, and only one of them
+      // means there is nothing waiting — so the honest thing is to claim
+      // nothing. The contacts list beside it is unaffected, which is the half
+      // the operator actually came for.
+      pendingBlock.hidden = true
+      return
+    }
+    const rows = Array.isArray(answer.pending) ? answer.pending : []
+    pendingList.replaceChildren()
+    pendingHead.textContent = `Unidentified mail (${rows.length})`
+    pendingBlock.hidden = rows.length === 0
+    for (const record of rows) pendingList.append(pendingRow(record))
+  }
+
+  /** One error, as a line of text. */
+  function errorText(err) {
+    return err instanceof Error ? err.message : String(err)
   }
 
   const listDetail = mountListDetail(element, {
@@ -1765,6 +2077,10 @@ export function createPeoplePanel(options = {}) {
     // is an ordinary state rather than a failure: the pane is the one it was
     // before [[REQ-233]].
     if (typeof answer.seq === 'string') await subscribe(answer.seq)
+    // THE QUEUE IS RE-READ WITH THE LIST, and after it rather than before: a
+    // promotion performed from the queue redraws both, and the contacts list is
+    // the half the operator is looking at while the second read is in flight.
+    await refreshPending()
     return all
   }
 
@@ -1877,6 +2193,12 @@ export function createPeoplePanel(options = {}) {
     // such row — which the invite would then refuse, naming a person the
     // operator is not even looking at.
     selected.clear()
+    // THE QUEUE GOES WITH THE ROWS ([[REQ-267]] §6). It is this business's
+    // unidentified mail, and leaving it on screen across a switch would offer an
+    // operator the chance to promote another business's stranger into the one
+    // they are now looking at.
+    pendingList.replaceChildren()
+    pendingBlock.hidden = true
     invite.hidden = true
     add.hidden = true
     syncInvite()

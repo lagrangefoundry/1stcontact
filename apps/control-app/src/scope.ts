@@ -43,6 +43,50 @@ import {
  */
 export interface Scope {
   businessId: string
+  /**
+   * Show the test gutter's rows too ([[DOC-54]] §2.6, [[REQ-267]]).
+   *
+   * THE GUTTER RIDES `Scope`, AND THAT IS THE WHOLE MECHANISM. Manufactured
+   * traffic — a probe filling in a real form to prove it works — writes real
+   * rows, marked `synthetic`. Every one of them must be invisible to the
+   * customer: not merely absent from the list, but absent from every count,
+   * aggregate, export, feed and AI context they can reach. An aggregate is the
+   * one that gets forgotten, because it does not look like a "view": a bot that
+   * opens every message wrecks a reported open rate, in the flattering
+   * direction, which is the hardest kind of wrong to notice.
+   *
+   * SO IT IS A FIELD ON THE HANDLE EVERY READ ALREADY TAKES, rather than a
+   * predicate threaded beside it. A predicate reaches exactly the same call
+   * sites and relies on each one remembering; a field on `Scope` obtains what
+   * `tickets.ts` obtains from `forTenant` — *"tenancy is bound into the handle,
+   * never passed per call"* — without inventing a second handle.
+   *
+   * AND IT AMENDS `Scope`'s OWN RATIONALE RATHER THAN IGNORING IT. The argument
+   * above is against a discriminated UNION over a second variant that will never
+   * exist. This is a second FIELD carrying an independent fact: visibility is
+   * orthogonal to which business is being read, is asked by every read, and is
+   * catastrophic to forget.
+   *
+   * OPTIONAL, AND ABSENT MEANS DENY. Default-deny is structural: seeing the
+   * gutter requires asking for it by name, at a call site somebody wrote on
+   * purpose.
+   */
+  includeSynthetic?: boolean
+}
+
+/**
+ * The `AND` clause that excludes the gutter, or nothing at all ([[DOC-54]] R3).
+ *
+ * SPELLED ONCE, HERE, BESIDE THE FIELD IT READS. Five people reads and two
+ * event reads ask this same question, and seven copies of `synthetic = 0` is
+ * seven places for one of them to be dropped by a refactor — which would not
+ * fail, it would quietly show bot traffic on a customer's screen.
+ *
+ * THE TABLE ALIAS IS THE CALLER'S, because the same clause has to reach `u.` in
+ * a join and a bare column in a single-table read.
+ */
+export function realOnly(scope: Scope, alias = ''): string {
+  return scope.includeSynthetic ? '' : ` AND ${alias}synthetic = 0`
 }
 
 /** Why a target was refused. Reaches the log; never the wire — see below. */

@@ -126,8 +126,20 @@ const MIGRATIONS = [
   // skipped this file would fail every publish on a missing table — and the
   // trigger is the thing the ticket's first UAT asserts, which cannot be
   // asserted against a database that does not carry it.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0013_revision_immutability.sql?raw'),
+  // [[REQ-267]] / [[DOC-54]] §2.4 — the test gutter's `synthetic` / `run_id`
+  // columns on the four tables the capture chain writes, and the run registry
+  // the inbound marker is validated against. Applied here for the reason every
+  // file above is: `wrangler d1 migrations apply` will run it against every
+  // database this product has, and a fixture that skipped it would build a
+  // schema WITHOUT columns every people read and every timeline read now name —
+  // so every one of them would fail on an unknown column, which reads as a query
+  // bug and is not one.
+  () => import('../../db/migrations/0014_capture_gutter.sql?raw'),
+  // [[REQ-267]] — inbound mail's own two: where a business's mail is forwarded
+  // to, and the senders it has stopped wanting to triage.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0015_inbound_mail.sql?raw'),
 ]
 
 /**
@@ -229,16 +241,21 @@ export async function applySchema(): Promise<void> {
  * query serve both "already migrated" and "nothing here yet", exactly as
  * `PRAGMA table_info` did.
  *
- * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0013` creates a
- * table and then a trigger; asking for the table would answer "at head" for a
- * database that got half way through the file, exactly as asking for the table
- * `0012`'s index guards would have. The marker has to move with the list — a
- * migration appended above without moving it re-opens that hole silently.
+ * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0015` creates a
+ * table and then an index over it; asking for the table would answer "at head"
+ * for a database that got half way through the file, exactly as asking for the
+ * table `0012`'s index guards would have. The marker has to move with the list —
+ * a migration appended above without moving it re-opens that hole silently.
+ *
+ * AND `0014` MAKES THAT SHARPER THAN IT WAS ([[REQ-267]]). Every file up to it
+ * was re-runnable or merely wasteful to re-run; that one is `ALTER TABLE ADD
+ * COLUMN`, which is an ERROR the second time. So this check is now what stands
+ * between a suite calling `applySchema` twice and a hard failure in setup.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = ?")
-    .bind('site_revisions_are_immutable')
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+    .bind('idx_inbound_suppressions_live')
     .first<{ name: string }>()
   return row !== null
 }

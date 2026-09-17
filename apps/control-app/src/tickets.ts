@@ -16,6 +16,7 @@ import { MESSAGE_STATUSES, QUEUED } from './messages'
 import { UnscopedError, type Scope } from './scope'
 import { ACCEPTANCE_SCHEMA, ACCEPTANCE_TYPE } from './acceptances'
 import { TEMPLATE_SCHEMA, TEMPLATE_TYPE } from './templates'
+import { INBOUND_EMAIL_SCHEMA, INBOUND_EMAIL_TYPE } from './inbound'
 
 /**
  * The product ticket store (REQ-162) — [[DOC-38]] §6, [[DOC-10]] §8.
@@ -652,6 +653,21 @@ export function productTypePack(): ProductTypePack {
      * path and no platform branch.
      */
     [ACCEPTANCE_TYPE]: ACCEPTANCE_SCHEMA,
+
+    /**
+     * One RECEIVED message — [[REQ-267]], [[EPIC-13]].
+     *
+     * REGISTERED HERE AND DEFINED IN `inbound.ts`, for the reason the two above
+     * give: the shape belongs beside the code that reads it back. What lives
+     * here is the fact that this platform's tickets come in this type at all.
+     *
+     * A SECOND TYPE AND NOT A WIDENED `email`. The outbound one requires four
+     * things a received message cannot have — a contact, an address row, a
+     * template key and a queue stamp — and its lifecycle describes an attempt WE
+     * made. Making those optional to share one type would leave the schema
+     * saying nothing about either shape.
+     */
+    [INBOUND_EMAIL_TYPE]: INBOUND_EMAIL_SCHEMA,
 
     [AWARENESS_REPORT_TYPE]: {
       fields: {

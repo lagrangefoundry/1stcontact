@@ -263,6 +263,9 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-52 — a session that lapses under a work
     invite: async () => ({}),
     fulfil: async () => ({}),
     revoke: async () => ({}),
+    // THE UNIDENTIFIED-MAIL QUEUE ([[REQ-267]] §6), read alongside the list on
+    // mount and therefore quiet here for the reason stated above `quietPages`.
+    pending: async () => ({ pending: [] }),
   }
 
   type Builder = {
