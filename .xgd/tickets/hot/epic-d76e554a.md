@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T03:52:24.259053+00:00'
+updated_at: '2026-09-17T03:56:26.788759+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,7 +13,6 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
-
 
 ## What the client asked for
 
@@ -813,3 +812,88 @@ the three things a campaign is made of, and freezing it leaves the other two ope
 reference. It does **not** copy the list, the schedule, the recipient snapshot or the
 outcome. Copying any of those would make the new campaign a claim about a send that
 never happened.
+
+
+
+### The template is the other half of the content, and it stays separate
+
+The client: *"there is in my mind two aspects to the content of our campaign. There
+is the message content… But then there is also the associated styling and boiler
+plate. By which I mean logo, a copyright notice, terms and conditions, unsubscribe,
+all the things that a professional email needs, and of course the HTML styling that
+goes around it. All of that is a template and I think it's appropriate that the
+templates and the message body are kept separate."*
+
+**Agreed, and this is not a new type — it is the existing one.** Withdrawing the
+`content` type above reduced what *the Campaigns surface introduces* to two, `list`
+and `campaign`. `template` is a pre-existing type ([[REQ-197]],
+`apps/control-app/src/templates.ts`) and is untouched by that correction. The
+distinction §"Three ticket types" drew is in fact cleaner now than when it was
+written: **a template is a keyed role that gets re-filled; a campaign body is a
+specific thing said once.** Those were always different lifecycles, and now they are
+the only two.
+
+So a campaign's rendered output is **body × template**: the operator's markdown
+inside the business's chrome.
+
+### Does the template need freezing too? No — it is already versioned, which is better
+
+The client: *"I guess maybe such a template needs to be frozen too? Or a version of
+it frozen? As soon as it has been attached to one campaign."*
+
+**A version of it, and the mechanism already exists.** REQ-197's templates are keyed
+— `TemplateKey`, newest-ticket-wins — and editing one *"is writing a new ticket
+rather than editing a live one in place… the record of what was sent last month still
+points at the ticket that said it."* Templates are therefore immutable by
+construction rather than by lock, and no `immutable` rule is needed for them.
+
+**Freeze-on-first-attach would be the wrong mechanism and worth naming as rejected.**
+It would mean that attaching a template to one campaign makes the business's logo
+uncorrectable forever. Versioning gives the property the freeze was reaching for —
+every past campaign keeps pointing at the bytes it used — while leaving the template
+editable for all future sends.
+
+**Which forces one decision: the pin is taken at the draft boundary, not at attach.**
+A draft campaign holds the template **key**, so a template corrected while the
+campaign is still being written reaches it — and previews show the current chrome. The
+`draft → sending` transition resolves that key to a `template_uid` and records it.
+So the draft boundary pins **three** things in one moment: the body freezes, the list
+resolves to a recipient set, and the template resolves to a version. An operator may
+override to a specific older version; that is the exception, not the default.
+
+### Preview and test send are two different tools, and both are required
+
+The client: *"We obviously need a Preview that will allow the user to see the styled
+message before they hit send. We probably need a test message so they can actually
+send an email to themselves and see what it looks like in gmail."*
+
+They answer different questions and neither substitutes for the other. **Preview
+shows our rendering; a test send shows Gmail's**, and Gmail, Outlook and Apple Mail
+each rewrite HTML in ways no preview can predict. That is why every tool in the
+category has both.
+
+**One renderer, and no preview-only path.** Preview must run the exact same render as
+the real send or it is a lie in the one place a lie is most expensive. Note also that
+**previewing a *sent* campaign is the same operation** — it is how the historical
+record is read back — which is what makes §"six constraints" obligation on
+deterministic rendering testable rather than aspirational.
+
+Per §"six constraints" item 5, a test send leaves the campaign in `draft`, writes no
+contact events, and renders freezable content without freezing it.
+
+### What per-recipient substitution does to "frozen" and "reconstructible"
+
+**The unsubscribe link cannot live in the frozen bytes.** It is template boilerplate,
+but it carries a token identifying *which* recipient is unsubscribing, so it is
+resolved per recipient at send time — as is every personalisation merge field. This
+qualifies the reconstructibility obligation recorded above: a sent campaign
+reconstructs to the message **modulo per-recipient substitution**, not byte for byte.
+Stated plainly because the unqualified claim is false, and a record whose guarantee
+is overstated is worse than one whose limits are written down.
+
+**And the unsubscribe mechanism is not the template author's option.** The send path
+refuses a broadcast whose rendered output carries no unsubscribe affordance, matching
+the `List-Unsubscribe` header rule in §"Decisions taken in [[CHAT-54]]" — header and
+body are two expressions of one requirement. A broadcast without it is a compliance
+failure and a deliverability one, and §"Outgoing"'s rule that no broadcast path may
+bypass suppression is the same principle applied one step earlier.
