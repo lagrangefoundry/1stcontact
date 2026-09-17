@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T20:05:38.508912+00:00'
+updated_at: '2026-09-17T20:08:18.171495+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -461,5 +461,53 @@ On your CC idea specifically — one flaw worth naming: `contact@mysite.com` is 
 **Deliverability status** — read-only from `resolver.ts`. I'd defer, but flag it as a conscious omission. <-- yes defer this it is more of a campaigns consideration (not entirely but I think that is where we will meet it head on)
 
 Also be aware of the BFM guttering requirements see EPIC-15 and doc 51
+
+<!-- xgd-turn id="1aef6e8a-a89d-48ea-a4b2-136b1278d1b5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T20:08:16.011366+00:00" -->
+#### Claude
+Two corrections of mine before anything else.
+
+**The CC point — you're right, I invented a problem.** The address is ours; we decide it doesn't forward. Nothing more to it. Your design is the whole design: a reserved address, don't forward it, read the addressees, file the message to their logs.
+
+**And I was wrong about path 1.** I said the gap is that we don't store what was sent. We do — `messages.ts` already writes an `email` ticket per send with the **rendered body**, called from `lead.ts` (form confirmations), `sessions.ts` (signin) and `invites.ts`. Its own docstring: *"THE BODY IS THE RENDERED MESSAGE. The template changes; what we sent does not."* So path 1 is essentially built for every path that exists today. The real gaps are just the immutability lock (REQ-263) and the synthetic mark — which collapses my proposed ticket #4 almost to nothing.
+
+**Path 2 stays in scope, at the end.** It is small and it is inbound, you're right. One thing has to be designed in from the start or it gets expensive:
+
+> **Direction is derived from the `From`, not from the pipe a message arrived through.**
+
+A BCC'd capture is an *outbound* message arriving on the *inbound* path. If the record infers "inbound = from a contact", that capture files backwards — the business becomes a contact of itself. And the filing rule differs: normal inbound files to the sender; a capture files to the **addressees**, so one message ticket produces N contact events. Both are trivial if the model has direction and filing-target as explicit fields; both are a migration if it doesn't.
+
+**Destination verification** — agreed, and the epic already names the machinery: §"The button is a token, and the mechanism already exists". **Deliverability** — deferred, noted as meeting us head-on in campaigns.
+
+## BFM guttering
+
+It's **DOC-54** you want, not 51 — DOC-51 is *"The client's material — what you may use, and what you must ask"*. DOC-54 is *"The test gutter: how manufactured traffic is marked, hidden, and collected"*. Four things in it bite directly on this scope:
+
+1. **R1 names inbound email as an entry point** the marker must reach — *"form post, inbound email, webhook"*. So the inbound Worker is a marker entry point on day one, not a retrofit.
+2. **The derivation rule is strict:** *"in-flight mark where there is one, parent's mark where there is not, never a default of false."* For inbound there's no request context to carry a mark, so **the mark has to ride in the message** — which is exactly what EPIC-13's reserved address namespace is for. That connects two things that were written independently.
+3. **DOC-54 §2.4 already names `messages.ts` as carrying `synthetic` in the ticket record.** Migration `0013` is planned against head `0012` — I verified `0012_sending_domains.sql` is current and no `synthetic` column exists yet. Inbound adds message tickets and contact events to what that migration has to cover.
+4. **DOC-54 depends on a state EPIC-13 hasn't built.** Its forwarding test resolves by saying the test message *"lands where EPIC-13 already sends unmatched inbound mail — a pending / unidentified state in the contact list."* That state doesn't exist. So the unmatched-sender landing place isn't a nicety in ticket 1 — EPIC-15's design is resting on it.
+
+## Revised shape — four tickets
+
+1. **Inbound end-to-end** — Routing + Email Worker + parse + message ticket + contact event + visible on the contact + **unmatched sender → pending/unidentified** + the synthetic mark from the reserved namespace. *Demo: mail to the domain appears on the contact; mail from a stranger lands in pending.*
+2. **Email configuration in Settings** — forwarding table, destination verification, catch-all.
+3. **Cutover integration** — the ask, Routing written into the pending zone, the minimum-config floor.
+4. **Capture address** — reserved, non-forwarding, files to addressees. *Demo: BCC it, see your sent message on every recipient's log.*
+
+Writing all of this into the epic now, no tickets cut.
+
+Recorded — 159 lines in, the only removals being the timestamp and the three-line REQ-197 paragraph that said the wrong thing about routing (now: new ticket, REQ-197 untouched).
+
+Three things in there I'd point at as more than bookkeeping:
+
+**The correction to this epic's own "what exists today."** That section said outbound exists and delivery events land on the spine — and left a reader to infer the content isn't stored. It is. I've written the correction in rather than quietly fixing it, because someone scoping ticket 4 off the original text would have built something that already exists.
+
+**DOC-54 and this epic turn out to specify the same mechanism.** The gutter needs an in-flight mark on inbound mail and there's no request context to carry one; this epic reserves an address namespace for BFM. Those were written independently and they're the same thing. Worth knowing before either gets built, because it means the reserved namespace isn't optional decoration — it's the only place the mark can enter on that path.
+
+**EPIC-15 is resting on something that doesn't exist.** Its forwarding test resolves cleanly *because* the test message lands in "pending/unidentified" — a state DOC-54 describes as one this epic "already sends unmatched inbound mail" to. We don't. It's in ticket 1 now, but if ticket 1 gets trimmed, that's the thing that can't be trimmed out of it.
+
+And the catch-all call — default **on** through cutover, off for green-field — is written as overriding §"Incoming"'s stated default rather than contradicting it silently. That's the one judgement in this pass I'd most want you to overrule if you disagree, since it's the difference between a spam magnet and a lost-mail incident and I've picked a side.
 
 <!-- xgd-chat-end -->
