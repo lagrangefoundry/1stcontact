@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-17T21:59:46.927667+00:00'
+updated_at: '2026-09-17T22:03:02.100940+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2235,5 +2235,47 @@ On the email "page"
 <!-- xgd-chat role="user" ts="2026-09-17T21:59:46.739897+00:00" -->
 #### You
 Can you please check for changes to your ticket for BFM guttering - is there work required for these - lets discuss
+
+<!-- xgd-turn id="6b1857cc-c157-43ec-bc6b-8d2dbefe1879-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:03:01.580338+00:00" -->
+#### Claude
+I read the epic, both of today's edits to it, EPIC-15, DOC-54's child ticket, and swept the store for anything that already covers the delete affordance.
+
+## What changed on EPIC-10
+
+Two edits today, both after the last session:
+
+**21:40 UTC — a new section, "The test gutter — this epic's share ([[DOC-54]])"** (`a6ac30152f`). It records four code changes landing on this epic's surfaces — the marker joining `RESERVED_FIELDS` in `lead.ts`, the `captureLead` RPC seam gaining one field, `addContact`/`recordAcceptance`/`grantFor` stamping or deriving with no call site passing a flag, and a rejected marker degrading to a **real** record rather than refusing the submission. Plus the sequencing constraint, the delete-contact pull-forward, and that `test_UAT_FC_REQ-223_lead_endpoint.workers.test.ts` is the harness to extend.
+
+**21:59 — body reflow, and status flipped `done` → `underway`** (`70648d63d0`).
+
+## Is work required? Three answers, and only one of them is a gap
+
+**1. The gutter threading itself — no EPIC-10 work item.** REQ-268 (`request-c8c83140`, draft, created 22:01 today under EPIC-15) owns all four mechanisms, including every line of it that sits in this epic's files. EPIC-10's new section says so explicitly — *"the requirement belongs to EPIC-15 rather than here — epics own requirements, not files."* That section is documentation so reconciliation isn't surprised. Nothing to file.
+
+**2. Delete contact — real work, and it has no ticket anywhere.** This is the gap. REQ-268 §5 excludes it by name: *"Probes, tiers, … and the customer-facing delete button. The collection function is built because mechanism 4 cannot otherwise be proven; its Contacts surface is [[EPIC-10]]'s."* EPIC-15 §1a agrees — surface belongs to Contacts. EPIC-10's body says it's *"arriving on this epic's surface"*. But EPIC-10 has six children (REQ-240–245), EPIC-11 has one, and a title sweep across the whole store turns up nothing for it. So both epics have handed it to the other's surface and neither has filed it.
+
+Worth deciding before it's written, because two of these bite: the cascade already takes events/acceptances/grants with the contact, so **the deletion cannot leave an audit trail in the contact's own timeline** — it deletes it. If a business needs to know a contact was removed, that record has to live somewhere else. And R2 (message bodies, blobs) isn't reached by a foreign key.
+
+**3. The sequencing gate is not met, and that's the larger piece.** Both epics say the gutter doesn't start until EPIC-10 is *"working and tested"*. Right now:
+
+- status was flipped `done` → `underway` an hour ago
+- **11 tickets name EPIC-10 as `epic_parent` but aren't in its `epic_children`** — REQ-246/247/248/252/253 and BUG-93/94/95/97/98. The back-link is one-sided, probably trimmed by a body rewrite.
+- BUG-95 and BUG-97 are still `free_coded`; the rest are `ready_to_reconcile`. None reconciled.
+- The epic's **Verification section is stale** — it still reports "all 13 UAT files pass, 4043 passed at 0.2.196", which predates the entire week that found the chain didn't actually work end to end (BUG-93 resolving submissions to the wrong form, BUG-94 the email page being unopenable, BUG-98 sending one identical message per asset).
+- Its **"What shipped" and "The children" sections cover 240–245 only** — nothing about email-as-a-page, the page control, the download gate's host bug, or the duplicate-send fix.
+
+So the honest state is that EPIC-10 claims a verification that no longer describes it, and REQ-268's start gate reads against that claim.
+
+## What I'd suggest
+
+Nothing here is code. In order:
+
+1. **Refresh EPIC-10's children, "What shipped" and "Verification"** to cover 246–253 and the bugs, and repair the `epic_children` back-link. That's this session's job and I can do it now.
+2. **File the delete-contact child** — say the word and I'll create it; I won't without you asking. My inclination is EPIC-10 rather than EPIC-11 (it's the Contacts surface, and EPIC-11 is the activity log), but it's arguable.
+3. Leave REQ-268 where it is — it's correctly scoped and correctly gated.
+
+Which of those do you want, and where should delete-contact live?
 
 <!-- xgd-chat-end -->
