@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T01:21:28.550447+00:00'
+updated_at: '2026-09-17T01:41:17.531869+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -553,5 +553,11 @@ I have these and haven't drafted yet — they're the brief rewrite, which you wa
 5. Body gains a **check-your-work** section per issue — how to see the problem, now including the Chromium flag.
 
 Want me to draft the new brief end to end for you to read, or go section by section starting with §1 and §5?
+
+<!-- xgd-turn id="0563d1ed-35b3-4ab1-aeec-a21257511339-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:41:16.536549+00:00" -->
+#### You
+yes please go ahead
 
 <!-- xgd-chat-end -->
