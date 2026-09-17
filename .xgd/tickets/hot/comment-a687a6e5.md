@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:08:36.736896+00:00'
+updated_at: '2026-09-17T04:10:26.775660+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -180,5 +180,50 @@ One open thread I'd flag but haven't written as decided: the campaign body is ma
 <!-- xgd-chat role="user" ts="2026-09-17T04:08:36.551187+00:00" -->
 #### You
 I think our template ends up with a lifecycle. It is important that we preserve the template for the same reason we need to preserve the content, we want to see what the user actually received, the actual logo that was used, the actual unsubscribe statement etc. etc. But the template should go through the same lifecycle as the campaign they are joined at the hip, one template can serve multiple campaigns but once a template has gone out it is frozen. It would have a lifecycle like a campaign wood and once it has appeared in using his email it must be frozen. Perhaps the simplest user experience is when we create a new campaign we also create a new style template. One or both could be created as copies of existing content?
+
+<!-- xgd-turn id="d7cf33a8-6115-4e97-a9ab-a97683d09e4d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:10:26.218942+00:00" -->
+#### Claude
+Strong agreement on the preservation goal, and one correction on the mechanism — because the thing you asked for and the thing that delivers it aren't quite the same shape.
+
+**"The same lifecycle as the campaign" can't hold, and your own constraint is why.** You said one template can serve multiple campaigns. So campaign A is `sent` while campaign B, on the same template, is still `draft`. What state is the template in? It can't be both. A shared object can't share the lifecycle of each of its several owners.
+
+What a template actually needs is **a one-way latch, not a lifecycle**: `editable → used`. It closes the moment any campaign pins it at draft-exit, and never reopens. `sending` is meaningless for a template; `draft`/`used` is the whole state machine. That gives you exactly what you asked for — *once it has gone out it is frozen* — without the contradiction.
+
+**Copy-on-write then gives you every other property on your list, including your UX.** Editing a `used` template doesn't error and doesn't make the operator go find a "duplicate" button — it transparently mints a new version and repoints the campaign they're working on. From the UI that reads precisely as *"creating a campaign also creates a new style template, seeded from an existing one."* From the store it's one new ticket only when someone actually changes something.
+
+The reason to do the copy lazily rather than eagerly matters, and it's your customers' core value here — **set up your brand once**:
+
+- **Eager** (every campaign gets its own template ticket at creation): fixing the logo means editing every future campaign individually, forever. There's no shared thing left to fix. You'd end up reintroducing a "current template" concept to copy *from* — which is the key you already have, plus N near-identical copies.
+- **Lazy** (copy-on-write): fix the logo once, every future campaign picks it up, every past campaign keeps its pinned version. And it kills the spooky-action worry too — if two drafts share v3 and one operator edits styling, that edit mints v4 and repoints only their campaign. The other draft is untouched.
+
+## The catch, and it's the thing you specifically named
+
+You said you want to see *"the actual logo that was used."* **Freezing the template does not give you that.** The logo isn't bytes in the template — it's a URL to an image. Replace `logo.png` at the same address and every preserved campaign silently re-renders with the new logo. The frozen HTML is intact and the claim it supports is false.
+
+Two consequences, and the second is worse than a record problem:
+
+1. **Template assets must be content-addressed** — URL derived from the bytes, so new logo means new URL and the old one keeps resolving. The epic already has this precedent for attachments: *"addressing is content-derived — so the same document forwarded around a thread dedups to one blob."* Same mechanism, applied to template assets.
+2. **Assets referenced by a pinned template can never be deleted** — because email images are hot-linked. The recipient's client fetches that logo *when they open the message*, which might be next year. Deleting an old asset doesn't just break the archive, it breaks mail already sitting in inboxes.
+
+One flag before this gets built: `template` is an existing type already serving platform messages (the invite, the lapse notice) via REQ-197. Adding the latch extends a type with other consumers. I think it generalises correctly — a platform template that's been sent should also close rather than be edited in place — but that needs checking against its current callers rather than assuming.
+
+Writing it up.
+
+Recorded — append-only, 79 lines, the single deletion being the timestamp.
+
+Four subsections: the latch (with the A-sent/B-draft contradiction spelled out so nobody re-proposes a shared lifecycle), copy-on-write with eager per-campaign copies written down as considered-and-rejected and *why*, the content-addressed asset requirement, and the REQ-197 consumer check as an explicit unverified claim rather than an assumption.
+
+Where the model stands now, for a campaign leaving draft — one moment, four things settle:
+
+| | what happens |
+|---|---|
+| **body** | freezes |
+| **list** | resolves to a recipient set (consent stays live per-recipient) |
+| **template** | resolves to a `template_uid`, and that version latches to `used` |
+| **assets** | must already be content-addressed, or the preservation claim is void |
+
+The asset retention obligation is the one I'd watch. It's the only constraint in this whole thread that reaches outside the epic — it lands on the blob store and collides with DOC-37's erasure path, since "never delete an asset a sent campaign references" and "sever this person's identity on request" are going to want the same bytes gone and not gone. Worth a proper look before either side hardens, though it's not blocking anything today.
 
 <!-- xgd-chat-end -->
