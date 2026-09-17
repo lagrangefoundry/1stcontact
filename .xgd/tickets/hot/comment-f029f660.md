@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:04:17.191474+00:00'
+updated_at: '2026-09-17T04:05:57.466660+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -236,5 +236,42 @@ ok so I think the next step is a design document that captures the requirements,
 Epic 10 has landed but its still fresh and untested - I think the order of business will be to get what we have working there first and then add the guttering and create the production tests so that we can prove that it still works and that the tests are transparent to the user. 
 
 Thoughts? Ready to draft the doc?
+
+<!-- xgd-turn id="adfeeadf-978c-4a19-ba5b-dd8349f0df8b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:05:57.028318+00:00" -->
+#### Claude
+Your analysis is better than mine. Let me check one thing before I agree in writing.
+
+Confirmed — EPIC-13 §: *"a pending/unidentified state in the contact list rather than a mail surface, where triage is promote-to-contact."* Your argument holds exactly. Recording the relaxation.
+
+You're right, and the withdrawal makes the design smaller rather than just looser. Recorded.
+
+**The general rule that replaces it is better than the exception it replaces: suppression keys on the record, not on the traffic.** A notification fires because a contact event happened; if that event is synthetic, suppress it. Traffic that produces no contact event has nothing to decide. One rule instead of two marker classes, and it sits where the notification is declared rather than in the signed payload.
+
+I also recorded what would bring the class back, so it isn't re-derived: a *"test my contact form"* feature. That one genuinely does create a lead on Alice's own site, and she plausibly *should* get the "new enquiry" notification, because that notification is most of what she's testing. Nothing on the board asks for it. One small addition to your point — the triage entry should be dismissible on confirmation, or the queue accumulates one message per config change and becomes a queue nobody reads.
+
+## On the ordering — agreed, and for a reason worth stating
+
+EPIC-10 first isn't just sequencing politeness. **You can't prove guttering is transparent unless the ungutted flow is known-good.** With the capture chain fresh and untested, a failure after we add the gutter is ambiguous — is it the gutter or the chain it's threaded through? Establishing the baseline first is what makes assertion #2 ("these records appear in no customer read") mean something, because you'll know the records *would* have appeared.
+
+And your phrasing contains two distinct claims worth keeping separate in the doc: **that it still works** (the gutter didn't break capture) and **that the tests are transparent** (the gutter hid what it should). Different failures, different evidence — the first is a regression on EPIC-10, the second is a new assertion.
+
+## Ready to draft — here's the shape I'd propose
+
+A DOC under EPIC-15 (next id would be DOC-54), structured to your three asks:
+
+1. **Requirements** — the four mechanisms as normative statements, each with its falsifier. Plus the two boundaries that keep scope honest: platform-initiated vs the record-keyed suppression rule above, and *"write real, reap hard"*.
+2. **Architecture** — the marker's shape and signing; where it enters (`RESERVED_FIELDS` in `public-site/src/lead.ts`); the one RPC field on `captureLead`; the five write paths and how the flag reaches each (supplied at `addContact`, derived everywhere else via the `INSERT ... SELECT` pattern already in `recordEvent`); the five read paths and the `Scope` carry; migration 0013 across four tables; collection as verify-and-delete with a per-class TTL backstop.
+3. **Implications for clients** — and I'd read "clients" as *callers*, since that's where the cost lands: what a new write path must do, what a new read path gets for free, what the R2 key prefix rule means for blobs, and the one genuinely invasive consequence — that `Scope` grows a second field and every construction site sees it.
+
+Plus a short **sequencing** section carrying your ordering and the baseline argument.
+
+Two things I'd want to settle in the drafting rather than guess:
+
+- **Does `Scope` grow a field, or does the synthetic predicate ride separately?** Adding to `Scope` gets the `forTenant` property — impossible to forget — but `Scope` is currently a deliberate one-field interface with a written rationale for being exactly that. I lean toward adding it and amending the rationale; worth your call since it touches everything.
+- **Whether the doc covers only the gutter, or the whole of BFM.** I'd scope it to the gutter — it's what's being built, and a doc covering probes and tiers would be design fiction for months. The epic already holds the wider picture.
+
+Say go and I'll draft it. Since this session is scoped to EPIC-15 and you've been holding ticket count down, confirm you want it cut as a DOC ticket rather than appended to the epic.
 
 <!-- xgd-chat-end -->
