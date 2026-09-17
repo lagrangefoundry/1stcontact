@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-d76e554a
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-9120f6e1
 ---
 
 # Inbound mail, end to end
