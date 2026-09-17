@@ -5,9 +5,9 @@ type: request
 title: Published revisions are immutable by enforcement, not by convention
 created_by: EPIC-17
 created_at: '2026-09-17T21:34:35.066365+00:00'
-updated_at: '2026-09-17T21:46:43.159723+00:00'
+updated_at: '2026-09-17T21:57:44.241956+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -191,3 +191,90 @@ UATs named `test_UAT_FC_<this ticket>_*`, each tracing to a clause above:
 The falsifier for the whole ticket: **alter a published revision's bytes in the
 bucket and have anything in the product serve, check out, or report them as
 sound.**
+
+
+---
+
+## Implementation decisions taken while building this
+
+Recorded here rather than left for reconciliation to infer, because each one is
+behaviour a UAT asserts.
+
+### The claim is reached through a new port verb, `nextRevision(site)`
+
+§2 says *"`nextRevisionOf` considers the union of both tables"*. It cannot:
+`nextRevisionOf` is pure arithmetic over a `RevisionEntry[]` and the claims table
+is the D1/R2 adapter's own, invisible to a caller. So the arithmetic is unchanged
+and the *question* moves onto the port — `publishSite` asks the store for the
+next id instead of computing one from the log it just read. The filesystem and
+in-memory adapters answer with exactly `nextRevisionOf` over their own log,
+because a single-writer tier has no race to close and reserving an id there would
+be machinery guarding against a second publisher that does not exist.
+
+The id is read at the moment the revision entry is built — after every refusal
+above it (invalid draft, missing message, no public address, over-budget ladder),
+so a publish that refuses reserves nothing and a site does not burn a revision
+number every time its author makes a mistake.
+
+### Verification is in all three adapters, through one shared helper
+
+§4 names `readRevision`, and three adapters implement it. Putting the comparison
+only in the D1/R2 one would make §5's walk report "sound" on the two tiers it was
+not wired into — including the operator's own disk, where a revision directory
+and its `history.json` are two files anyone with the checkout can edit. So the
+comparison is `verifiedSnapshot(site, id, expected, snapshot)` in
+`revision-model.ts`, beside the digest it recomputes, and every adapter calls it.
+Where a store holds a snapshot with no log entry to check it against — a
+half-written publish, a directory copied in by hand — it reads back unverified,
+because the absence of a record cannot support a refusal.
+
+Two consequences:
+
+- **Fixtures that wrote a made-up digest now compute a real one.**
+  `tests/support/lead-site.ts` recorded `sha: 'fixture'` and REQ-247's
+  `publishDraft` recorded `sha: 'publish-N'`. Both were harmless only while
+  nothing compared them; both seed revisions the capture path then reads through
+  `readRevision`. A digest that describes nothing is a state no publish can
+  produce, so the fixtures record the digest of the snapshot they are writing.
+- **`forget()` drops `site_revision_claims` alongside `site_revisions`**, so a
+  reservation never outlives the site it reserved for.
+
+### §5's walk gets a CLI surface, `1c verify <slug>`
+
+§5 asks for *"one operation"* and is explicit that scheduling it is out of scope.
+An operation only a test can reach is not an answer to *"is our published history
+intact?"*, so `verifyRevisions(store, slug)` — port-level, so it runs against
+either tier — is exposed as `1c verify <slug>`. It prints each altered revision
+with both digests and **exits non-zero when the report is non-empty**, because
+this is the kind of command something eventually runs unattended and a check that
+reports a corrupted history by printing a line and succeeding will be watched by
+nothing.
+
+### The walk drives `readRevision` rather than repeating the comparison
+
+It catches the refusal and records it. A second comparison written inside the
+walk could pass while the read path refused, which is a report that reassures
+about a store that is already broken. The walk also does not stop at the first
+mismatch — an operator asking whether their history is intact needs the whole
+answer.
+
+A revision the log names and the store denies outright (`readRevision` answers
+`null` — its objects are gone) is reported too, as a mismatch with no actual
+digest. It is not a digest disagreement, but it is the same answer to the same
+question: this revision cannot be restored.
+
+### §6's assertion has a second half
+
+The source scan proves no path outside `forget()` deletes a revision row. A suite
+that only checked for absence would keep passing if `forget()` stopped deleting
+them as well — at which point dropping a site leaves its published revisions
+behind, which is the *"we deleted them but kept the history"* mistake
+`0001_baseline.sql` warns about in so many words. So the companion case asserts
+`forget()` still deletes both the revisions and their claims.
+
+### Migration `0013_revision_immutability.sql`
+
+One file: the `site_revision_claims` table, then the `BEFORE UPDATE` trigger. The
+test harness's `atHead` marker moves to the trigger — the last statement of the
+last file — because a marker naming the first statement answers "at head" for a
+database that got half way through.
