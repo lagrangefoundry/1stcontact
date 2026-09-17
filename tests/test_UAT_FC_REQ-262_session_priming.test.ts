@@ -39,7 +39,14 @@ import {
   readyStatusViolations,
   type ReadyTicket,
 } from '../tools/repro-console/src/ticket'
-import { AI_ALLOWED_TOOLS, AI_DISALLOWED_TOOLS, buildPrompt, claudeCommand } from '../tools/repro-console/src/ai'
+import {
+  AI_ALLOWED_TOOLS,
+  AI_DISALLOWED_TOOLS,
+  buildPrompt,
+  claudeCommand,
+  parseOutcome,
+  readBrief as readBriefFile,
+} from '../tools/repro-console/src/ai'
 import { inSystemKb } from '../tools/generate/src/cli/kb'
 import type { CommandRunner } from '../tools/repro-console/src/run'
 
@@ -435,3 +442,128 @@ function roundContext(over: Record<string, unknown>): Parameters<typeof buildPro
     ...over,
   } as Parameters<typeof buildPrompt>[1]
 }
+
+// ── D10/D11/D12: what the brief now tells the round ──────────────────────────
+
+describe('REQ-262 the brief teaches the three classes and direct filing', () => {
+  /**
+   * Normalised, because these are assertions about PROSE.
+   *
+   * Line wrapping and blockquote markers are LAYOUT. A phrase that moved across
+   * a line break, or into a `>` block, has not been removed — and failing on
+   * that teaches the next editor to fight the formatting rather than to keep
+   * the rule.
+   */
+  const brief = (): string =>
+    readBriefFile()
+      .replace(/^\s*>\s?/gm, '')
+      .replace(/\s+/g, ' ')
+
+  it('test_UAT_FC_REQ_262_the_three_classes_are_the_primary_mandate', () => {
+    // D11. The brief used to offer one flat list — "a serializer bug, a missing
+    // L1 axis, a missing capture hint, or a region that needs promoting to
+    // flow" — which collapses engine shortfall and L1 inexpressibility into
+    // examples of each other and omits the renderer entirely. A round had no
+    // vocabulary for "L1 says the right thing and the renderer disagrees", so
+    // it could not report one.
+    const text = brief()
+    expect(text).toMatch(/engine shortfall/i)
+    expect(text).toMatch(/L1 cannot express it/i)
+    expect(text).toMatch(/renderer bug/i)
+
+    // Class 2 is WIDER than "there is no axis" — the operator's correction. An
+    // axis with no parameter for the variant, or a parameter that will not take
+    // the value, is the same finding wearing a different hat.
+    expect(text).toMatch(/no parameter for the variant/i)
+    expect(text).toMatch(/enum is too narrow|too narrow/i)
+    expect(text).toMatch(/validator refuses/i)
+
+    // Class 3 is "wrong", not "missing" — also the operator's correction.
+    expect(text).toMatch(/wrong place/i)
+    expect(text).toMatch(/right at one viewport and wrong at another/i)
+
+    // And they are distinguished by a TEST the round states, not by intuition.
+    expect(text).toMatch(/three questions, in order/i)
+    expect(text).toMatch(/1c page get/i)
+    expect(text).toMatch(/state in the ticket which test you ran/i)
+  })
+
+  it('test_UAT_FC_REQ_262_defects_in_1c_are_secondary_to_the_three', () => {
+    // D11's last clause. A bug in the console or the CLI is worth filing and
+    // must never be folded into a gap ticket — but a round that files three of
+    // them and names no residual class has missed what it is for, and the brief
+    // has to say so or the easy findings will crowd out the hard ones.
+    expect(brief()).toMatch(/secondary/i)
+    expect(brief()).toMatch(/names no residual class has missed/i)
+  })
+
+  it('test_UAT_FC_REQ_262_the_round_is_told_to_file_its_own_tickets_at_draft', () => {
+    // D10 and requirement 17. The brief's §1 used to open "You can read, and
+    // that is all you can do" and §6 said "You do not run `xgd`" — both true of
+    // [[REQ-256]] and both false since D7.
+    const text = brief()
+    expect(text).toMatch(/You can read, run `xgd`, and create tickets/i)
+    expect(text).not.toMatch(/You do not run `xgd`/i)
+    expect(text).toContain('xgd ticket create')
+    // `request` for the gap: it asks for framework growth.
+    expect(text).toMatch(/--type request/)
+    // The one expensive mistake, named where the round will read it.
+    expect(text).toMatch(/Never at any `ready_\*` status/i)
+    expect(text).toMatch(/thirty seconds/i)
+  })
+
+  it('test_UAT_FC_REQ_262_the_ticket_is_unbounded_but_ordered_over_many_rounds', () => {
+    // D12. No size limit — deferring a finding discards it. But the issues are
+    // not independent, so a ticket demanding all of them at once can fail whole
+    // where it would have succeeded in parts. Both halves have to be said, or
+    // the round optimises one against the other.
+    const text = brief()
+    expect(text).toMatch(/no limit on the size of this ticket/i)
+    expect(text).toMatch(/Deferring is losing/i)
+    expect(text).toMatch(/not independent/i)
+    expect(text).toMatch(/order them/i)
+    expect(text).toMatch(/Landing the first three of five is a success/i)
+  })
+
+  it('test_UAT_FC_REQ_262_each_issue_says_how_the_implementer_sees_it', () => {
+    // Requirement 16. The implementer is a fresh session that was not here. An
+    // implementer that cannot reproduce the problem is reduced to trusting the
+    // round's description of it — which is the reconstruction §2 forbids,
+    // reached from the other end.
+    const text = brief()
+    expect(text).toMatch(/The command to run/i)
+    expect(text).toMatch(/What a wrong result looks like/i)
+    expect(text).toMatch(/What a right result looks like/i)
+
+    // D9's flag travels with every browser-backed command, or the implementer
+    // meets a FATAL and concludes the instrument is unavailable.
+    expect(text).toContain('CHROMIUM_LAUNCH_ARGS=--single-process')
+    expect(text).toMatch(/not\*?\*? a missing browser/i)
+    expect(text).toMatch(/l1-gate`, `1c render`, `1c page get` and `1c refold` need no flag/i)
+  })
+
+  it('test_UAT_FC_REQ_262_the_outcome_block_reports_ids_not_ticket_bodies', () => {
+    // The brief and the parser have to agree, or the round writes something the
+    // console reads as a failure. This is the seam between the two documents,
+    // so it is asserted across both rather than in either alone.
+    const text = brief()
+    expect(text).toContain('"ticketId"')
+    expect(text).toContain('"bugTickets"')
+    expect(text).toMatch(/You have already filed by this point/i)
+
+    const filed = parseOutcome(
+      '```json\n{"status":"filed","residualClass":"fold-x","ticketId":"REQ-263","bugTickets":["BUG-96"]}\n```',
+    )
+    expect(filed).toMatchObject({ status: 'filed', ticketId: 'REQ-263', bugTickets: ['BUG-96'] })
+  })
+
+  it('test_UAT_FC_REQ_262_the_brief_points_at_the_kb_rather_than_at_doc_ids', () => {
+    // The old §8 cited [[DOC-19]] and [[DOC-17]] and delivered neither — the
+    // round could not reach either one. They are files in the KB now, and the
+    // brief says so rather than leaving a citation the round cannot follow.
+    const text = brief()
+    expect(text).toMatch(/knowledge base named in the round context carries these as ordinary files/i)
+    expect(text).toContain('[[DOC-53]]')
+    expect(text).toContain('[[DOC-19]]')
+  })
+})

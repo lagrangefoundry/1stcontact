@@ -49,16 +49,14 @@ import {
   spawnAiRunner,
   type AiOutcome,
   type AiRunner,
-  type FiledTicket,
   type GateSummary,
-  type TicketDraft,
+  type ReadTicket,
 } from './ai'
 import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
 import { spawnCommand, type CommandRunner } from './run'
 import { gapForClass, readGaps, recordGap } from './gaps'
-import { appendGapEvidence, fileTicket, readyStatusSnapshot, readyStatusViolations,
-  type ReadyTicket } from './ticket'
+import { TICKET_STATUS, readyStatusSnapshot, readyStatusViolations, type ReadyTicket } from './ticket'
 import { buildSessionKb, type SessionKbResult } from './session-kb'
 import type { RailRoundResult } from './rail-round'
 
@@ -248,17 +246,17 @@ export class ReproConsole {
       // The fifth link exists only when a round really filed or appended
       // something (behavior 5) — a link to a ticket that does not exist would
       // be worse than the absence it is standing in for.
-      ...(it.outcome?.ticketUid && it.outcome.ticketId
+      ...(it.outcome?.ticketId
         ? { ticketHref: `/iteration/${it.n}/ticket`, ticketLabel: `the gap ticket (${it.outcome.ticketId})` }
         : {}),
-      // …and one more per bug the round tripped over ([[REQ-261]] behavior 2).
-      // Peers of the gap link because they are peers as tickets: filed by the
-      // same console, at the same status, from the same round.
+      // …and one more per `1c` defect the round filed on the way ([[REQ-261]]
+      // behaviour 2). Peers of the gap link because they are peers as tickets:
+      // same round, same status, created the same way.
       ...(it.outcome?.bugTickets?.length
         ? {
-            extraTickets: it.outcome.bugTickets.map((bug) => ({
-              href: `/iteration/${it.n}/ticket/${bug.uid}`,
-              label: `a bug it found (${bug.id})`,
+            extraTickets: it.outcome.bugTickets.map((id) => ({
+              href: `/iteration/${it.n}/ticket/${id}`,
+              label: `a bug it found (${id})`,
             })),
           }
         : {}),
@@ -702,14 +700,7 @@ export class ReproConsole {
    * weaker kind of filing, with its own rules to go stale.
    */
   private async settle(it: Iteration, aiDir: string, outcome: AiOutcome, roundViolations: string[]): Promise<void> {
-    const filing = await this.file(it, aiDir, outcome)
-    const bugs = await this.fileBugs(aiDir, outcome)
-    outcome.violations = [
-      ...roundViolations,
-      ...filing,
-      ...bugs,
-      ...(await this.ticketViolations(outcome)),
-    ]
+    outcome.violations = [...roundViolations, ...(await this.confirm(it, outcome))]
     /**
      * A FAILED ROUND SAYS WHERE ITS WORDS ARE ([[REQ-261]] behavior 5).
      *
@@ -728,117 +719,104 @@ export class ReproConsole {
   }
 
   /**
-   * File the bugs a round tripped over ([[REQ-261]] behavior 2).
+   * Read back what the round says it filed ([[REQ-262]] D10, requirement 17).
    *
-   * SEPARATE TICKETS, NOT A SECTION OF THE GAP. A defect in L1, in the round's
-   * own brief, or anywhere else in `1c` is not a gap in the reproduction engine,
-   * and folding it into the gap ticket is what the first round had to do for
-   * want of anywhere else to put it. Each is created exactly as the gap ticket
-   * is — `xgd ticket create`, by the console, at `draft` — so widening what a
-   * round may REPORT has not widened what it may trigger.
+   * THE CONSOLE NO LONGER FILES. [[REQ-256]] behaviour 4 had it create the
+   * ticket because the round could not run a command; D7 gave the round `Bash`
+   * and D10 gave it the job, so `xgd ticket create` happens in the round and
+   * this is what checks the result. What used to be a relay — hand back
+   * `type`/`title`/`body`, shell out, parse the uid, write the body through a
+   * temp file — is gone, along with `fileTicket`, `fileBugs` and
+   * `appendGapEvidence` on this path.
    *
-   * Filed on every status: a round that found no engine gap may still have
-   * found a bug, and that is the case this list exists for.
+   * READ BACK, NOT TRUSTED. `status: draft` used to be structural: the console
+   * wrote the status, so there was no status for a round to get wrong. Now
+   * there is one, and the mitigation is that every id the round reports is
+   * fetched and the status it REALLY carries is recorded. A `ready_*` status is
+   * a dispatcher trigger and gets said so in as many words.
+   *
+   * NOTHING HERE FAILS A ROUND THAT DID THE WORK. The tickets exist already —
+   * the round made them — so a console that marked the round failed because it
+   * could not read one back would be reporting its own blindness as the round's
+   * error, and would hide a real diagnosis behind it. Everything it finds is a
+   * violation line instead, which is how the page already says a round
+   * misbehaved.
    */
-  private async fileBugs(aiDir: string, outcome: AiOutcome): Promise<string[]> {
-    const drafts: TicketDraft[] = outcome.bugs ?? []
-    if (!drafts.length) return []
-    const problems: string[] = []
-    const filed: FiledTicket[] = []
-    for (const [index, draft] of drafts.entries()) {
-      const result = await fileTicket({
-        cwd: this.cwd,
-        run: this.runCommand,
-        draft,
-        bodyFile: path.join(aiDir, bugBodyFile(index)),
-      })
-      if (typeof result === 'string') problems.push(`the bug '${draft.title}' was not filed: ${result}`)
-      else filed.push({ id: result.id, uid: result.uid, title: draft.title })
-    }
-    if (filed.length) outcome.bugTickets = filed
-    return problems
-  }
-
-  /**
-   * Turn what the round handed back into a ticket (behavior 4, requirement 17).
-   *
-   * THE CONSOLE FILES IT. The round has no tool that can run a command, so this
-   * is where `xgd ticket create --fields '{"status":"draft"}'` happens — which
-   * is what makes behavior 4's "never at a `ready_*` status" structural rather
-   * than a rule to be checked afterwards.
-   *
-   * ONE TICKET PER GAP CLASS (behavior 6, requirement 21) is decided here too:
-   * a class already in the registry gets an append, not a second ticket, and it
-   * gets one even when the round asked to file — the registry is what knows,
-   * and the round only knows what it was told.
-   */
-  private async file(it: Iteration, aiDir: string, outcome: AiOutcome): Promise<string[]> {
+  private async confirm(it: Iteration, outcome: AiOutcome): Promise<string[]> {
     if (outcome.status !== 'filed' && outcome.status !== 'appended') return []
-    const residualClass = outcome.residualClass as string
-    const known = gapForClass(readGaps(this.workspace), residualClass)
+    /**
+     * A CLAIM WITH NO ID IS A FAILED ROUND, and it is caught here as well as in
+     * the parser. `parseOutcome` rejects it for a round that reported through a
+     * transcript, but an outcome can also arrive from a runner directly, and a
+     * console that then asked `xgd` about `undefined` would turn an unverifiable
+     * claim into a confusing one. There is nothing to read back, so there is
+     * nothing to put on the page except that fact.
+     */
+    if (!outcome.ticketId) {
+      outcome.status = 'failed'
+      outcome.reason = `the round claimed to have filed but named no ticket id, so there is nothing to read back.`
+      return [outcome.reason]
+    }
+    const problems: string[] = []
+    const read: ReadTicket[] = []
 
-    if (known?.ticketUid) {
-      const evidence =
-        outcome.evidence ??
-        `\n### ${it.originalUrl} — iteration ${it.n}\n\n${outcome.ticket?.body ?? outcome.summary ?? ''}`
-      const failure = await appendGapEvidence({
-        cwd: this.cwd,
-        run: this.runCommand,
-        uid: known.ticketUid,
-        evidence,
-        evidenceFile: path.join(aiDir, AI_TICKET_BODY_FILE),
-      })
-      outcome.status = 'appended'
-      outcome.ticketId = known.ticketId
-      outcome.ticketUid = known.ticketUid
-      if (failure) return [failure]
-    } else if (outcome.ticket) {
-      const filed = await fileTicket({
-        cwd: this.cwd,
-        run: this.runCommand,
-        draft: outcome.ticket,
-        bodyFile: path.join(aiDir, AI_TICKET_BODY_FILE),
-      })
-      if (typeof filed === 'string') {
-        outcome.status = 'failed'
-        outcome.reason = filed
-        return [filed]
-      }
-      outcome.status = 'filed'
-      outcome.ticketId = filed.id
-      outcome.ticketUid = filed.uid
-    } else if (outcome.status === 'filed') {
-      // A round that claims to have filed but hands back no ticket has made a
-      // claim nothing can check — requirement 18's falsifier has no ticket to
-      // read back, and the page would otherwise show a green `filed` standing
-      // for nothing. Being unable to check it IS the finding.
-      outcome.status = 'failed'
-      outcome.reason = 'the round claimed to have filed without naming the ticket, so nothing can be checked.'
-      return [outcome.reason]
-    } else {
-      // An append against a class with no ticket on record — there is nothing
-      // to append to, and inventing one would break the one-per-class rule from
-      // the other side.
-      outcome.status = 'failed'
-      outcome.reason = `the round asked to append to '${residualClass}', which has no ticket on record.`
-      return [outcome.reason]
+    const gap = await this.readTicket(outcome.ticketId)
+    read.push(gap)
+    outcome.ticketStatus = gap.status
+    if (!gap.found) problems.push(`could not read ${gap.id} back, so its status is unverified.`)
+    else if (gap.status !== TICKET_STATUS) problems.push(wrongStatus(gap))
+
+    // Secondary `1c` defects, read back the same way and to the same standard —
+    // they are peers as tickets even though they are secondary as findings.
+    for (const id of outcome.bugTickets ?? []) {
+      const bug = await this.readTicket(id)
+      read.push(bug)
+      if (!bug.found) problems.push(`could not read ${bug.id} back, so its status is unverified.`)
+      else if (bug.status !== TICKET_STATUS) problems.push(wrongStatus(bug))
+    }
+    outcome.ticketsRead = read
+
+    /**
+     * ONE TICKET PER GAP CLASS (behaviour 6), now observed rather than enforced.
+     *
+     * The console used to decide this — a class already in the registry got an
+     * append whatever the round asked for. It cannot any more: by the time it
+     * sees the outcome the ticket is already created. So a round that filed a
+     * SECOND ticket for a class that had one is reported, with both ids, for a
+     * human to merge. Saying nothing would let the registry quietly hold one id
+     * while two tickets described one class.
+     */
+    const known = gapForClass(readGaps(this.workspace), outcome.residualClass as string)
+    if (known?.ticketId && known.ticketId !== outcome.ticketId) {
+      problems.push(
+        `'${outcome.residualClass}' already had ${known.ticketId}, and this round filed ` +
+          `${outcome.ticketId} for the same class. One of them should be merged into the other.`,
+      )
     }
 
     /**
      * Recorded whether the round filed or appended: an appended round's
-     * contribution to the registry is the new reference and the new iteration,
-     * which is the evidence that the class recurs — the frequency signal
-     * [[EPIC-12]] §7.3 wanted, arriving here for free.
+     * contribution is the new reference and the new iteration, which is the
+     * evidence that the class recurs — the frequency signal [[EPIC-12]] §7.3
+     * wanted, arriving here for free.
      */
     recordGap(this.workspace, {
-      residualClass,
+      residualClass: outcome.residualClass as string,
       ticketId: outcome.ticketId ?? '',
-      ticketUid: outcome.ticketUid ?? '',
+      ticketUid: outcome.ticketId ?? '',
       summary: outcome.summary ?? '',
       reference: it.bundleDir,
       iteration: `${this.slug}#${it.n}`,
     })
-    return []
+    return problems
+  }
+
+  /** One ticket, as `xgd` reports it. Never throws — see {@link confirm}. */
+  private async readTicket(id: string): Promise<ReadTicket> {
+    const result = await this.runCommand('xgd', ['ticket', 'get', id], this.cwd).catch(() => null)
+    if (!result || result.code !== 0) return { id, status: '', found: false }
+    const status = /Status:\s*(\S+)/.exec(result.stdout)?.[1]
+    return status ? { id, status, found: true } : { id, status: '', found: false }
   }
 
   /**
@@ -955,36 +933,7 @@ export class ReproConsole {
     }
   }
 
-  /**
-   * The status the filed ticket actually carries, read back (requirement 18).
-   *
-   * The console wrote `draft` when it created the ticket, so this is a
-   * CONFIRMATION rather than a gate — and it is worth the one command anyway,
-   * because `xgd ticket create` reporting success is not the same claim as the
-   * ticket existing at the status that was asked for, and a `ready_*` status is
-   * a dispatcher trigger: it spawns an autonomous pipeline against the ticket
-   * within seconds. A claim the console can check, it checks.
-   */
-  private async ticketViolations(outcome: AiOutcome): Promise<string[]> {
-    if (outcome.status !== 'filed' && outcome.status !== 'appended') return []
-    if (!outcome.ticketUid) return []
-    const result = await this.runCommand('xgd', ['ticket', 'get', outcome.ticketUid], this.cwd).catch(() => null)
-    if (!result || result.code !== 0) {
-      return [`could not read ${outcome.ticketUid} back, so its status is unverified.`]
-    }
-    const status = /Status:\s*(\S+)/.exec(result.stdout)?.[1]
-    outcome.ticketStatus = status
-    if (!status) return [`${outcome.ticketUid} reported no status, so it is unverified.`]
-    if (status === 'draft') return []
-    return [
-      `${outcome.ticketId ?? outcome.ticketUid} is at '${status}', not 'draft'` +
-        (status.startsWith('ready_')
-          ? ' — a ready_* status is a dispatcher trigger and will spawn an automated pipeline against it.'
-          : '.'),
-    ]
-  }
-
-  /** `/iteration/<n>/site/…` and `/iteration/<n>/diff/…`, confined to that iteration. */
+  
   private async serveArtifact(pathname: string): Promise<ConsoleResponse> {
     const match = /^\/iteration\/(\d+)\/(site|diff|page|ticket)(\/.*)?$/.exec(pathname)
     if (!match) return text(404, 'Not found')
@@ -1043,12 +992,11 @@ export class ReproConsole {
    */
   private async serveTicket(iteration: Iteration, wanted?: string): Promise<ConsoleResponse> {
     const bugs = iteration.outcome?.bugTickets ?? []
-    const uid = wanted ? bugs.find((bug) => bug.uid === wanted)?.uid : iteration.outcome?.ticketUid
-    if (!uid) return text(404, 'This round filed no such ticket.')
-    const result = await this.runCommand('xgd', ['ticket', 'get', uid], this.cwd).catch(() => null)
-    const body = result?.code === 0 ? result.stdout : (result?.stderr || `could not read ${uid}`)
-    const label = wanted ? (bugs.find((bug) => bug.uid === uid)?.id ?? uid) : (iteration.outcome?.ticketId ?? uid)
-    return html(result?.code === 0 ? 200 : 502, renderTicketPage(iteration.n, label, body))
+    const id = wanted ? bugs.find((bug) => bug === wanted) : iteration.outcome?.ticketId
+    if (!id) return text(404, 'This round filed no such ticket.')
+    const result = await this.runCommand('xgd', ['ticket', 'get', id], this.cwd).catch(() => null)
+    const body = result?.code === 0 ? result.stdout : (result?.stderr || `could not read ${id}`)
+    return html(result?.code === 0 ? 200 : 502, renderTicketPage(iteration.n, id, body))
   }
 
   /** The diff images, assembled from what `1c diff` wrote beside them. */
@@ -1152,4 +1100,14 @@ const LIVE_TAIL_CHARS = 20_000
 
 function tail(text: string): string {
   return text.length <= LIVE_TAIL_CHARS ? text : `…\n${text.slice(-LIVE_TAIL_CHARS)}`
+}
+
+/** One read-back that came out at the wrong status, said in one line. */
+function wrongStatus(ticket: ReadTicket): string {
+  return (
+    `${ticket.id} is at '${ticket.status}', not '${TICKET_STATUS}'` +
+    (ticket.status.startsWith('ready_')
+      ? ' — a ready_* status is a dispatcher trigger and will spawn an automated pipeline against it.'
+      : '.')
+  )
 }

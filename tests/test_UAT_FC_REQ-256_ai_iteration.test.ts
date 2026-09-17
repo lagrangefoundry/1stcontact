@@ -258,11 +258,9 @@ const FILED = {
   status: 'filed' as const,
   residualClass: 'fold-drops-gradient-direction',
   summary: 'the fold writes every gradient vertically',
-  ticket: {
-    type: 'bug' as const,
-    title: 'fold: background gradient direction is dropped',
-    body: '## Residual class\n\n`fold-drops-gradient-direction`\n\n## Evidence\n\nvalues-diff line 41.',
-  },
+  // AN ID, NOT A DRAFT ([[REQ-262]] D10). The round ran `xgd ticket create`
+  // itself; this is what it reports having made, and the console reads it back.
+  ticketId: 'REQ-263',
 }
 
 // ── the round ────────────────────────────────────────────────────────────────
@@ -337,23 +335,23 @@ describe('REQ-256 the AI round', () => {
       'the reproduction',
       'the diff images',
       'the L1 document',
-      'the gap ticket (BUG-93)',
+      'the gap ticket (REQ-263)',
     ])
     expect(links[4][1]).toBe('/iteration/1/ticket')
 
     // …and it serves the ticket as xgd itself prints it (requirement 24) —
-    // asked for by uid, not read out of `.xgd/tickets/`.
+    // asked for by id, not read out of `.xgd/tickets/`.
     const ticket = await get(f, '/iteration/1/ticket')
     expect(ticket.status).toBe(200)
     expect(await ticket.text()).toContain('fold: gradient direction is dropped')
-    expect(asked).toContainEqual(['xgd', 'ticket', 'get', 'bug-1a2b3c4d'])
+    expect(asked).toContainEqual(['xgd', 'ticket', 'get', 'REQ-263'])
 
     // The round's claim, and the class it named, are on the page too.
     expect(html).toContain('fold-drops-gradient-direction')
     expect(html).toContain('the fold writes every gradient vertically')
     // And the round's outcome is an artifact of the round (requirement 19).
     const dir = path.join(f.cwd, CONSOLE_WORKSPACE, slugForUrl('joyfulculinarycreations.com'), 'iteration-1', AI_DIR)
-    expect(JSON.parse(readFileSync(path.join(dir, AI_OUTCOME_FILE), 'utf8')).ticketId).toBe('BUG-93')
+    expect(JSON.parse(readFileSync(path.join(dir, AI_OUTCOME_FILE), 'utf8')).ticketId).toBe('REQ-263')
   })
 
   it('test_UAT_FC_REQ_256_capture_incomplete_stops_the_round_and_files_nothing', async () => {
@@ -406,20 +404,20 @@ describe('REQ-256 the AI round', () => {
 
     // Round 2 was handed the class and its ticket, and told to append to it.
     expect(log.prompts[1]).toContain('fold-drops-gradient-direction')
-    expect(log.prompts[1]).toContain('BUG-93')
+    expect(log.prompts[1]).toContain('REQ-263')
     expect(log.prompts[1]).toContain('append to that ticket')
 
     // One entry, not two — carrying both rounds as the evidence it recurs.
     const gaps = readGaps(path.join(f.cwd, CONSOLE_WORKSPACE))
     expect(gaps).toHaveLength(1)
     expect(gaps[0].residualClass).toBe('fold-drops-gradient-direction')
-    expect(gaps[0].ticketId).toBe('BUG-93')
+    expect(gaps[0].ticketId).toBe('REQ-263')
     expect(gaps[0].iterations).toHaveLength(2)
 
     // Both iterations link the same ticket — behavior 9's [run again] appended.
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 2</h2>')
-    expect([...html.matchAll(/the gap ticket \(BUG-93\)/g)]).toHaveLength(2)
+    expect([...html.matchAll(/the gap ticket \(REQ-263\)/g)]).toHaveLength(2)
   })
 
   it('test_UAT_FC_REQ_256_the_round_has_no_way_to_author_anything', async () => {
@@ -478,42 +476,39 @@ describe('REQ-256 the AI round', () => {
   })
 
   it('test_UAT_FC_REQ_256_the_console_files_the_ticket_and_writes_draft_itself', async () => {
-    // Behavior 4 — created through `xgd ticket create` at `status=draft`, never
-    // at any `ready_*` status. The console writes the status, so there is no
-    // status for a round to get wrong: the rule is structural rather than a
-    // thing the prompt asks for and a check catches afterwards.
+    // Behaviour 4, REVERSED BY [[REQ-262]] D10 and kept here under its old name
+    // so the reversal is legible rather than silently absent.
+    //
+    // It used to read: the console runs `xgd ticket create --fields
+    // '{"status":"draft"}'`, so the status is structural and there is no status
+    // for a round to get wrong. Its whole justification was that the round
+    // could not run a command. D7 gave it `Bash`, D10 gave it the job, and the
+    // relay was deleted.
+    //
+    // `draft` is therefore an INSTRUCTION now, and this asserts the two things
+    // that replaced the guarantee: the console creates NOTHING, and it reads
+    // back every id the round reports so the status it really carries is on the
+    // record rather than assumed.
     const asked: string[][] = []
     const f = await startConsole({
       ai: fakeAi({ prompts: [], calls: 0 }, FILED),
-      commands: fakeCommands({ log: asked }),
+      commands: fakeCommands({ log: asked, ticket: 'Status: draft\nTitle: fold: gradient direction is dropped' }),
     })
     await reproduce(f)
 
-    const create = asked.find((call) => call[0] === 'xgd' && call[2] === 'create')
-    expect(create).toBeDefined()
-    expect(create![create!.indexOf('--type') + 1]).toBe('bug')
-    expect(create![create!.indexOf('--title') + 1]).toBe('fold: background gradient direction is dropped')
-    expect(JSON.parse(create![create!.indexOf('--fields') + 1])).toEqual({ status: 'draft' })
-    // The body goes through a file: a gap ticket's body is multi-line markdown
-    // quoting values, and passing it as one argument would make its correctness
-    // a question about quoting rather than about what the round found.
-    const bodyFile = create![create!.indexOf('--body-file') + 1]
-    expect(bodyFile.endsWith(AI_TICKET_BODY_FILE)).toBe(true)
-    expect(readFileSync(bodyFile, 'utf8')).toContain('fold-drops-gradient-direction')
+    expect(asked.filter((call) => call[0] === 'xgd' && call[2] === 'create')).toHaveLength(0)
+    expect(asked).toContainEqual(['xgd', 'ticket', 'get', 'REQ-263'])
+    expect(await page(f)).toContain('the gap ticket (REQ-263)')
 
-    // …and the ticket xgd reported is the one the page links.
-    expect(await page(f)).toContain('the gap ticket (BUG-93)')
-
-    // A refusal from xgd is the round failing, not a ticket the page pretends
-    // exists.
+    // A ticket the round named but that cannot be read back is a violation, not
+    // a ticket the page pretends exists: an unverifiable claim to have filed is
+    // the failure mode the read-back is for.
     const g = await startConsole({
       ai: fakeAi({ prompts: [], calls: 0 }, FILED),
-      commands: fakeCommands({ createCode: 1 }),
+      commands: fakeCommands({ ticketCode: 1 }),
     })
     await reproduce(g)
-    const html = await page(g)
-    expect(html).toContain('xgd refused to create the ticket')
-    expect(html).not.toContain('the gap ticket')
+    expect(await page(g)).toContain('could not read REQ-263 back')
   })
 
   it('test_UAT_FC_REQ_256_a_round_that_touched_the_tree_is_reported_as_a_violation', async () => {
@@ -555,10 +550,12 @@ describe('REQ-256 the AI round', () => {
     expect(html).toContain('dispatcher trigger')
 
     // A round that claims to have filed without naming the ticket cannot be
-    // checked at all, which is itself the finding.
+    // checked at all, which is itself the finding. Since [[REQ-262]] D10 the
+    // parser catches it — there is no id to read back, so there is nothing for
+    // the console to do but say the round failed.
     const g = await startConsole({ ai: fakeAi({ prompts: [], calls: 0 }, { status: 'filed', summary: 'done' }) })
     await reproduce(g)
-    expect(await page(g)).toContain('without naming the ticket')
+    expect(await page(g)).toContain('named no ticket id')
   })
 
   it('test_UAT_FC_REQ_256_the_rail_runs_read_only_and_its_result_is_shown', async () => {
@@ -716,7 +713,7 @@ describe('REQ-256 the AI round', () => {
     expect(recovered).toContain('<h2>Iteration 1</h2>')
     expect(recovered).toContain('AI — filed')
     expect(recovered).toContain('fold-drops-gradient-direction')
-    expect(recovered).toContain('the gap ticket (BUG-93)')
+    expect(recovered).toContain('the gap ticket (REQ-263)')
     expect(recovered).toContain('reading gate.json')
     // …and the verdict it was decided on came back too.
     expect(recovered).toContain('reproduction-wrong')
@@ -731,7 +728,14 @@ describe('REQ-256 the brief is a document', () => {
     // console, and it must carry six things at minimum.
     expect(BRIEF_FILE.endsWith(path.join('brief', 'DIAGNOSE-THE-GAP.md'))).toBe(true)
     expect(existsSync(BRIEF_FILE)).toBe(true)
+    // NORMALISED, because these are assertions about PROSE. The brief is a
+    // hand-wrapped markdown document, and a phrase that moves across a line
+    // break when a paragraph is re-flowed has not been removed — failing on
+    // that teaches the next editor to fight the wrap rather than to keep the
+    // rule.
     const brief = readBrief()
+      .replace(/^\s*>\s?/gm, '')
+      .replace(/\s+/g, ' ')
 
     // The one rule, and that it binds the DIAGNOSIS.
     expect(brief).toContain('Transcribe from the captured DOM')
@@ -837,14 +841,15 @@ describe('REQ-256 the outcome block', () => {
     // shows the shape before filling it in must not have its example read as
     // its answer.
     const outcome = parseOutcome(
-      'Here is the shape:\n```json\n{"status":"filed","residualClass":"example","ticket":{"type":"bug","title":"t","body":"b"}}\n```\n' +
+      'Here is the shape:\n```json\n{"status":"filed","residualClass":"example","ticketId":"REQ-1"}\n```\n' +
         'And here is mine:\n```json\n{"status":"filed","residualClass":"fold-x","summary":"s",' +
-        '"ticket":{"type":"bug","title":"fold: gradient direction is dropped","body":"## Evidence\\n\\nvalues-diff line 41."}}\n```\n',
+        '"ticketId":"REQ-263","bugTickets":["BUG-96"]}\n```\n',
     )
     expect(outcome).toMatchObject({
       status: 'filed',
       residualClass: 'fold-x',
-      ticket: { type: 'bug', title: 'fold: gradient direction is dropped' },
+      ticketId: 'REQ-263',
+      bugTickets: ['BUG-96'],
     })
 
     // A round that produced no block produced no answer — which is a failed
@@ -864,21 +869,25 @@ describe('REQ-256 the outcome block', () => {
     expect(
       parseOutcome('```json\n{"status":"filed","residualClass":"fold-x","summary":"s"}\n```'),
     ).toMatchObject({ status: 'failed' })
+    // A claim to have filed, with no class named, cannot be recorded against a
+    // gap class and is a failed round.
     expect(
-      parseOutcome('```json\n{"status":"filed","ticket":{"type":"bug","title":"t","body":"b"}}\n```'),
+      parseOutcome('```json\n{"status":"filed","ticketId":"REQ-263"}\n```'),
     ).toMatchObject({ status: 'failed' })
-    // An id is the CONSOLE's to fill in — a round that names one is not
-    // trusted for it, because it has no tool that could have created a ticket.
+    // THE ID IS NOW THE ROUND'S TO REPORT ([[REQ-262]] D10), and it is what
+    // makes the claim checkable. This assertion used to read the other way —
+    // the id was the console's to fill in and a round naming one was not
+    // trusted, because it had no tool that could have created a ticket. It has
+    // one now, so a claim with NO id is the failure: there is nothing to read
+    // back, and an unverifiable claim to have filed is worse than an honest one
+    // to have failed.
     expect(
-      parseOutcome(
-        '```json\n{"status":"filed","residualClass":"fold-x","ticketId":"BUG-93",' +
-          '"ticket":{"type":"bug","title":"t","body":"b"}}\n```',
-      ).ticketId,
-    ).toBeUndefined()
-    // `appended` carries the evidence to add, and is failed without it.
+      parseOutcome('```json\n{"status":"filed","residualClass":"fold-x","summary":"s"}\n```'),
+    ).toMatchObject({ status: 'failed' })
+    // `appended` is the same shape: the round appended to a ticket it names.
     expect(
-      parseOutcome('```json\n{"status":"appended","residualClass":"fold-x","evidence":"also on faelan.com"}\n```'),
-    ).toMatchObject({ status: 'appended', evidence: 'also on faelan.com' })
+      parseOutcome('```json\n{"status":"appended","residualClass":"fold-x","ticketId":"REQ-241"}\n```'),
+    ).toMatchObject({ status: 'appended', ticketId: 'REQ-241' })
     expect(parseOutcome('```json\n{"status":"appended","residualClass":"fold-x"}\n```')).toMatchObject({
       status: 'failed',
     })

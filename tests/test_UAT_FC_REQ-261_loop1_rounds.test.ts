@@ -32,6 +32,7 @@ import {
   claudeCommand,
   describeCost,
   formatStreamEvent,
+  jsonObjectsFromEnd,
   parseOutcome,
   readCost,
   resumePreamble,
@@ -251,18 +252,11 @@ const FILED_WITH_BUG: AiOutcome = {
   status: 'filed',
   residualClass: 'coverage-check-misses-section-background-images',
   summary: 'the coverage check reads a field background imagery cannot reach',
-  ticket: {
-    type: 'bug',
-    title: 'gate: reference coverage misses section background images',
-    body: '## Residual class\n\n`coverage-check-misses-section-background-images`\n\n```json\n{"src": 0}\n```',
-  },
-  bugs: [
-    {
-      type: 'bug',
-      title: 'gate: a false coverage finding overrides the perceptual verdict',
-      body: '## Symptom\n\n`reconcileGates` tests coverage before the deltas.',
-    },
-  ],
+  // IDS, NOT DRAFTS ([[REQ-262]] D10). The round ran `xgd ticket create` itself
+  // and reports what it made; the console reads these back rather than creating
+  // anything of its own.
+  ticketId: 'REQ-263',
+  bugTickets: ['BUG-96'],
   sessionId: 'session-aaaa',
   cost: { model: 'claude-opus-5', costUsd: 0.42, durationMs: 195_000, turns: 21, inputTokens: 48_000, outputTokens: 9_100 },
 }
@@ -277,16 +271,25 @@ describe('REQ-261 the outcome block survives the ticket body', () => {
     // first of them, truncating 7,500 characters to 1,130. The transcript is
     // kept byte-for-byte so the parse is proved against what a real round
     // really wrote, not against a shape invented to suit it.
+    // ASSERTED ON THE SCANNER, NOT ON `parseOutcome`. [[REQ-262]] D10 changed
+    // what an outcome block CONTAINS — a round files its own tickets now and
+    // reports an id, so this transcript's `ticket` draft is last season's
+    // shape. What it is kept for is untouched by that: it is the real text that
+    // really broke the real parser, and `jsonObjectsFromEnd` is the thing that
+    // has to survive it. Reasserting it through `parseOutcome` would be
+    // testing the new contract against an old fixture and would prove neither.
     const transcript = readFileSync(OBSERVED_ROUND, 'utf8')
-    const outcome = parseOutcome(transcript)
+    const blocks = [...jsonObjectsFromEnd(transcript)] as Array<Record<string, unknown>>
+    const answer = blocks.find((block) => typeof block.residualClass === 'string')
 
-    expect(outcome.status).toBe('filed')
-    expect(outcome.residualClass).toBe('coverage-check-misses-section-background-images')
+    expect(answer?.status).toBe('filed')
+    expect(answer?.residualClass).toBe('coverage-check-misses-section-background-images')
     // Whole, and with the evidence that broke the old parse still in it.
-    expect(outcome.ticket?.body.length).toBeGreaterThan(6000)
-    expect(outcome.ticket?.body).toContain('```json')
-    expect(outcome.ticket?.body).toContain('unreferenced-image')
-    expect(outcome.ticket?.body).toContain('## Proposed change')
+    const body = (answer?.ticket as { body?: string } | undefined)?.body ?? ''
+    expect(body.length).toBeGreaterThan(6000)
+    expect(body).toContain('```json')
+    expect(body).toContain('unreferenced-image')
+    expect(body).toContain('## Proposed change')
     // The old regex is what this replaces — it really does truncate this text.
     const lazy = [...transcript.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/g)]
     expect(lazy.length).toBeGreaterThan(0)
@@ -299,11 +302,14 @@ describe('REQ-261 the outcome block survives the ticket body', () => {
     // data; and a block with no fence around it at all is still read.
     const withFences = parseOutcome(
       'Here is the shape:\n```json\n{"status":"no-gap","summary":"the example"}\n```\n' +
-        'And mine:\n```json\n{"status":"filed","residualClass":"fold-x","summary":"mine",' +
-        '"ticket":{"type":"bug","title":"fold: x","body":"see:\\n```json\\n{\\"a\\":1}\\n```\\ndone"}}\n```\n',
+        'And mine:\n```json\n{"status":"filed","residualClass":"fold-x","ticketId":"REQ-263",' +
+        '"summary":"see:\\n```json\\n{\\"a\\":1}\\n```\\ndone"}\n```\n',
     )
-    expect(withFences).toMatchObject({ status: 'filed', residualClass: 'fold-x', summary: 'mine' })
-    expect(withFences.ticket?.body).toContain('```json\n{"a":1}\n```')
+    expect(withFences).toMatchObject({ status: 'filed', residualClass: 'fold-x', ticketId: 'REQ-263' })
+    // Fences inside a STRING are data, wherever that string lives. The body
+    // moved into the ticket the round files itself ([[REQ-262]] D10), so the
+    // summary is what carries them here — the parser never cared which key.
+    expect(withFences.summary).toContain('```json\n{"a":1}\n```')
 
     // No fence at all.
     expect(parseOutcome('{"status":"no-gap","summary":"bare"}')).toMatchObject({ status: 'no-gap', summary: 'bare' })
@@ -323,36 +329,33 @@ describe('REQ-261 a round files bugs beside its gap ticket', () => {
     // Requirement 4. The first round found a defect in the INSTRUMENT — the
     // gate mis-routing its own verdict — which is not a gap in the engine being
     // judged, and it had no shape in which to report it except folding it into
-    // the gap ticket. Now it has one, and the console files it exactly as it
-    // files the gap: `xgd ticket create`, by the console, at `draft`.
+    // the gap ticket. It has one now: its own ticket, beside the gap.
+    //
+    // WHO CREATES IT CHANGED ([[REQ-262]] D10). It used to be the console,
+    // because the round could not run a command. The round runs `xgd` now and
+    // files both itself, so what is asserted here is the other half: the
+    // console creates NOTHING, and reads back everything the round says it made.
     const asked: string[][] = []
     const f = await startConsole({ ai: fakeAi({ calls: 0, prompts: [], resumes: [] }, FILED_WITH_BUG), commands: fakeCommands({ log: asked }) })
     await reproduce(f)
 
-    const creates = asked.filter((call) => call[0] === 'xgd' && call[2] === 'create')
-    expect(creates).toHaveLength(2)
-    for (const create of creates) {
-      // Requirement 5 restated where it matters: widening what a round may
-      // REPORT has not widened what it may TRIGGER. A `ready_*` status is a
-      // dispatcher trigger; the console writes the status, on both tickets.
-      expect(JSON.parse(create[create.indexOf('--fields') + 1])).toEqual({ status: 'draft' })
-    }
-    const bug = creates[1]
-    expect(bug[bug.indexOf('--title') + 1]).toBe('gate: a false coverage finding overrides the perceptual verdict')
-    const bugBody = bug[bug.indexOf('--body-file') + 1]
-    expect(path.basename(bugBody)).toBe(bugBodyFile(0))
-    expect(readFileSync(bugBody, 'utf8')).toContain('reconcileGates')
+    expect(asked.filter((call) => call[0] === 'xgd' && call[2] === 'create')).toHaveLength(0)
+
+    // Both ids were fetched, which is what makes the round's claim checkable
+    // rather than merely stated.
+    const gets = asked.filter((call) => call[0] === 'xgd' && call[1] === 'ticket' && call[2] === 'get').map((c) => c[3])
+    expect(gets).toContain('REQ-263')
+    expect(gets).toContain('BUG-96')
 
     // Both are on the page, as peers, and the bug's own page is served.
     const html = await page(f)
     const labels = [...html.matchAll(/<a href="([^"]+)" target="_blank"[^>]*>([^<]+)<\/a>/g)].map((m) => m[2])
-    expect(labels).toContain('the gap ticket (BUG-93)')
-    expect(labels).toContain('a bug it found (BUG-94)')
-    const served = await get(f, '/iteration/1/ticket/bug-00000002')
-    expect(served.status).toBe(200)
-    // The console is not a ticket browser: a uid this round did not file is not
-    // readable through it.
-    expect((await get(f, '/iteration/1/ticket/bug-99999999')).status).toBe(404)
+    expect(labels).toContain('the gap ticket (REQ-263)')
+    expect(labels).toContain('a bug it found (BUG-96)')
+    expect((await get(f, '/iteration/1/ticket/BUG-96')).status).toBe(200)
+    // The console is not a ticket browser: an id this round did not report is
+    // not readable through it.
+    expect((await get(f, '/iteration/1/ticket/BUG-99999')).status).toBe(404)
   })
 
   it('test_UAT_FC_REQ_261_a_round_that_found_no_gap_can_still_file_a_bug', async () => {
@@ -365,18 +368,17 @@ describe('REQ-261 a round files bugs beside its gap ticket', () => {
       ai: fakeAi({ calls: 0, prompts: [], resumes: [] }, {
         status: 'no-gap',
         summary: 'nothing the engine got wrong',
-        bugs: [{ type: 'request', title: 'brief: §7 does not say fences are allowed in a body', body: 'It should.' }],
+        bugTickets: ['BUG-97'],
       }),
       commands: fakeCommands({ log: asked }),
     })
     await reproduce(f)
 
-    const creates = asked.filter((call) => call[0] === 'xgd' && call[2] === 'create')
-    expect(creates).toHaveLength(1)
-    expect(creates[0][creates[0].indexOf('--type') + 1]).toBe('request')
     const html = await page(f)
     expect(html).toContain('AI — found no engine gap')
-    expect(html).toContain('a bug it found (BUG-93)')
+    expect(html).toContain('a bug it found (BUG-97)')
+    // The console still created nothing; the round did ([[REQ-262]] D10).
+    expect(asked.filter((call) => call[0] === 'xgd' && call[2] === 'create')).toHaveLength(0)
   })
 
   it('test_UAT_FC_REQ_261_the_brief_asks_for_one_unbounded_ticket_and_for_bugs', async () => {
@@ -543,7 +545,23 @@ describe('REQ-261 a round is recoverable and priced', () => {
     // round produced no outcome block.`, which does not mention that the whole
     // diagnosis is sitting in the file beside the message.
     const log: AiLog = { calls: 0, prompts: [], resumes: [] }
-    const said = readFileSync(OBSERVED_ROUND, 'utf8').split('\n')
+    // The REAL round's prose, with the block a round would write today appended
+    // ([[REQ-262]] D10 — it files its own tickets and reports ids). The prose is
+    // the part that matters here: it is thousands of characters of fenced
+    // evidence, and recovering an answer from the far side of it is exactly
+    // what this path exists to do. Rewriting the fixture's own block would have
+    // tested the recovery against a shape no round produces any more.
+    const said = [
+      ...readFileSync(OBSERVED_ROUND, 'utf8').split('\n'),
+      '```json',
+      JSON.stringify({
+        status: 'filed',
+        residualClass: 'coverage-check-misses-section-background-images',
+        ticketId: 'REQ-263',
+        summary: 'the coverage check reads a field background imagery cannot reach',
+      }),
+      '```',
+    ]
     const f = await startConsole({
       ai: fakeAi(log, { status: 'failed', reason: 'the round produced no outcome block.' }, said),
     })
@@ -562,11 +580,11 @@ describe('REQ-261 a round is recoverable and priced', () => {
     const after = await page(f)
     expect(after).toContain('AI — filed')
     expect(after).toContain('coverage-check-misses-section-background-images')
-    expect(after).toContain('the gap ticket (BUG-93)')
-    // …and what was filed is the round's own body, fenced evidence and all.
-    const filed = readFileSync(path.join(roundDir(f), 'ticket-body.md'), 'utf8')
-    expect(filed.length).toBeGreaterThan(6000)
-    expect(filed).toContain('```json')
+    expect(after).toContain('the gap ticket (REQ-263)')
+    // The console wrote no body file, because it filed nothing — the ticket was
+    // already there. What recovery salvages is the round's ANSWER, read from the
+    // far side of thousands of characters of fenced evidence.
+    expect(existsSync(path.join(roundDir(f), 'ticket-body.md'))).toBe(false)
     // The recovered outcome is recorded as recovered, so the artifact says
     // where it came from rather than claiming to be a round that ran.
     expect(JSON.parse(readFileSync(path.join(roundDir(f), AI_OUTCOME_FILE), 'utf8')).recovered).toBe(true)

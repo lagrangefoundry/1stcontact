@@ -25,7 +25,7 @@
  * here, deliberately and by the operator, rather than upheld.
  *
  * THE DELIVERABLE IS STILL THE TICKET'S CONTENT, and the console is still what
- * files it (see {@link TicketDraft}). That is no longer forced by the round's
+ * files it. That is no longer forced by the round's
  * inability to run a command, so it is asserted instead: behaviour 4's "never at
  * a `ready_*` status" is checked after every round by
  * {@link readyStatusViolations} ([[REQ-262]] requirement 11), because a
@@ -53,39 +53,15 @@ export type AiStatus = 'running' | 'filed' | 'appended' | 'no-gap' | 'stopped' |
 /** The statuses a round may claim for itself in its outcome block. */
 export const CLAIMABLE_STATUSES: readonly AiStatus[] = ['filed', 'appended', 'no-gap', 'stopped']
 
-/**
- * A ticket a round hands back for the console to file (behavior 4).
- *
- * CONTENT, NOT A COMMAND. The round cannot run `xgd` — it cannot run anything —
- * so what it produces is the ticket's substance and the console turns that into
- * `xgd ticket create --fields '{"status":"draft"}'`. The five things behavior 4
- * requires a gap ticket to carry all live in `body`; `type` and `title` are
- * separate because xgd takes them separately.
- *
- * ONE SHAPE FOR BOTH DELIVERABLES ([[REQ-261]] behavior 2). A round produces the
- * one gap ticket against the reproduction engine, and — separately — any bugs it
- * tripped over on the way there: in L1, in its own brief, anywhere in `1c`.
- * Those are the same shape because they are filed the same way, by the same
- * console, at the same `draft` status. What differs is only which of the two
- * lists in {@link AiOutcome} they arrive in.
- *
- * NEITHER IS BOUNDED. A gap ticket describing five related residuals is one
- * ticket, not five rounds' worth of deferral — see the brief, §6.
- */
-export interface TicketDraft {
-  /** `bug` when the engine has a defect, `request` when it never had the capability. */
-  type: 'bug' | 'request'
-  /** Titled by AREA, not by type — the type is already in the ticket list. */
-  title: string
-  /** The residual class, the references, the evidence, the hypothesis, the change. */
-  body: string
-}
 
 /** A ticket the console really created, as xgd named it. */
-export interface FiledTicket {
+export interface ReadTicket {
+  /** What the round said it created. */
   id: string
-  uid: string
-  title: string
+  /** The status it really carries, or why it could not be read. */
+  status: string
+  /** Absent when `xgd` would not answer about it at all. */
+  found: boolean
 }
 
 /**
@@ -119,8 +95,14 @@ export interface AiOutcome {
   status: AiStatus
   /** The kind of gap, not the symptom on one site. See the brief, §5. */
   residualClass?: string
-  /** Present on `filed`: the ticket the console is to create. */
-  ticket?: TicketDraft
+  /**
+   * The ticket the round created for the gap ([[REQ-262]] requirement 17).
+   *
+   * REPORTED BY THE ROUND, NOT WRITTEN BY THE CONSOLE. The round runs
+   * `xgd ticket create` itself; this is the id it says it made, and the console
+   * reads it back rather than taking it on trust.
+   */
+  ticketId?: string
   /**
    * Bugs found on the way to the diagnosis ([[REQ-261]] behavior 2).
    *
@@ -129,20 +111,15 @@ export interface AiOutcome {
    * point of this list is that such a finding no longer has to be folded into a
    * gap ticket it does not belong in — or dropped.
    */
-  bugs?: TicketDraft[]
-  /** Present on `appended`: the markdown to add to the class's existing ticket. */
-  evidence?: string
-  /** Filled in by the console once it has filed or appended. */
-  ticketId?: string
-  ticketUid?: string
-  /** What the console made of {@link bugs} — one entry per bug it really filed. */
-  bugTickets?: FiledTicket[]
+  bugTickets?: string[]
+  /** What reading each reported ticket back actually found. */
+  ticketsRead?: ReadTicket[]
   summary?: string
   /** Why a `stopped` or `failed` round did not file. */
   reason?: string
   /** Behaviours 3 and 4's falsifiers, filled in by the console after the round. */
   violations?: string[]
-  /** The status the filed ticket actually carries, read back (behavior 4). */
+  /** The status the gap ticket actually carries, read back (behavior 4). */
   ticketStatus?: string
   /** The model, the cost and the shape of the round ([[REQ-261]] behavior 6). */
   cost?: RoundCost
@@ -791,28 +768,34 @@ export function parseOutcome(finalText: string): AiOutcome {
       residualClass: str(outcome.residualClass),
       summary: str(outcome.summary),
       reason: str(outcome.reason),
-      // Carried on EVERY status ([[REQ-261]] behavior 2). A round that found no
-      // engine gap may still have tripped over a defect in L1 or in its own
-      // brief, and the bugs list is the only shape it has to report one in.
-      ...(readTicketDrafts(outcome.bugs).length ? { bugs: readTicketDrafts(outcome.bugs) } : {}),
+      // Carried on EVERY status ([[REQ-261]] behavior 2, now as ids). A round
+      // that found no engine gap may still have tripped over a defect in L1 or
+      // in its own brief, and this list is the only shape it has to report one
+      // in. Ids rather than drafts since [[REQ-262]] D10: the round filed them.
+      ...(ticketIds(outcome.bugTickets).length ? { bugTickets: ticketIds(outcome.bugTickets) } : {}),
     }
-    if (status === 'filed') {
-      const ticket = readTicketDraft(outcome.ticket)
-      if (!ticket) return { status: 'failed', reason: 'the round claimed to have filed but handed back no ticket.' }
-      if (!base.residualClass) {
-        return { status: 'failed', reason: 'the round handed back a ticket without naming its residual class.' }
-      }
-      return { ...base, ticket }
-    }
-    if (status === 'appended') {
-      const evidence = str(outcome.evidence)
-      if (!evidence || !base.residualClass) {
+    /**
+     * A CLAIM TO HAVE FILED IS A TICKET ID ([[REQ-262]] D10, requirement 17).
+     *
+     * The round runs `xgd ticket create` itself now, so what it reports is what
+     * it DID, not what it would like done. The id is what makes the claim
+     * checkable: the console reads that ticket back and records the status it
+     * really carries. A claim with no id is unverifiable, and an unverifiable
+     * claim to have filed is worse than an honest failure — it would put a
+     * round on the page as successful with nothing behind it.
+     */
+    if (status === 'filed' || status === 'appended') {
+      const ticketId = str(outcome.ticketId)
+      if (!ticketId) {
         return {
           status: 'failed',
-          reason: 'the round claimed to have appended without naming a class and the evidence to add.',
+          reason: `the round claimed to have ${status} but named no ticket id, so there is nothing to read back.`,
         }
       }
-      return { ...base, evidence }
+      if (!base.residualClass) {
+        return { status: 'failed', reason: `the round claimed to have ${status} without naming its residual class.` }
+      }
+      return { ...base, ticketId }
     }
     return base
   }
@@ -820,30 +803,16 @@ export function parseOutcome(finalText: string): AiOutcome {
 }
 
 /**
- * The bug drafts a round handed back, dropping any that is not a ticket.
+ * The secondary ticket ids a round reports, dropping anything that is not one.
  *
- * DROPPED, NOT FAILED — unlike the gap ticket. A malformed gap draft fails the
- * round because the gap IS the deliverable and an empty one would be filed in
- * its place. A malformed bug is an aside: losing it costs one aside, and failing
- * the whole round over it would throw away the diagnosis as well.
+ * DROPPED, NOT FAILED — unlike the gap ticket. A missing gap id fails the round
+ * because the gap IS the deliverable. A malformed entry here is an aside:
+ * losing it costs one aside, and failing the whole round over it would throw
+ * away the diagnosis too.
  */
-function readTicketDrafts(value: unknown): TicketDraft[] {
+function ticketIds(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value.map(readTicketDraft).filter((draft): draft is TicketDraft => draft !== undefined)
-}
-
-/** A ticket draft, or nothing — a half-filled one is not a ticket. */
-function readTicketDraft(value: unknown): TicketDraft | undefined {
-  if (typeof value !== 'object' || value === null) return undefined
-  const draft = value as Record<string, unknown>
-  const title = str(draft.title)
-  const body = str(draft.body)
-  if (!title || !body) return undefined
-  // `bug` when the engine has a defect, `request` when it never had the
-  // capability. Anything else is a type this project does not free-code
-  // against, so it is normalised rather than passed through to xgd.
-  const type = draft.type === 'request' ? 'request' : 'bug'
-  return { type, title, body }
+  return value.map(str).filter((id): id is string => id !== undefined)
 }
 
 function str(value: unknown): string | undefined {
