@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:33:14.165419+00:00'
+updated_at: '2026-09-17T21:34:09.409277+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -552,5 +552,39 @@ To build under free-coding I need a scoped REQ under EPIC-15 and a branch. Say g
 #### You
 **1. Verification transport.** A probe running outside Cloudflare submits a form over HTTPS and then *cannot query D1*. <-- do we need an AWS lamda for this?
 **2. At least one assertion goes through the real HTTP boundary.** The marker is verified at the edge in `public-site/src/lead.ts`. In-process tests of the write functions would never exercise that check. Cheap now, a habit that's expensive to retrofit. <-- what does this mean?
+
+<!-- xgd-turn id="6c52a9f7-0ff4-4250-8e65-735ac54a171d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:34:08.390418+00:00" -->
+#### Claude
+Let me check whether that harness already exists, because it changes the answer.
+
+Good news on both — one is a non-issue and the other is already built.
+
+## No Lambda — I conflated two things and should have separated them
+
+**The verification endpoint is a route on our own control app.** The probe asks "did the records land?" over authenticated HTTPS, and the thing answering is the Worker we already deploy. It's §1(3)'s escape hatch — the synthetic-visible read — given an HTTP surface. No new cloud, no new account.
+
+**Where the *runner* executes is the separate question**, and it's §4's fate-sharing argument. There the answer is: most probe execution stays on Cloudflare (it needs the bindings and secrets, and it's testing Cloudflare-hosted things anyway); only the alarm path, the outside-in HTTP check and the dead-man's switch need to be elsewhere.
+
+And for those, **GitHub Actions is already arriving free with EPIC-16** — that epic puts the deploy pipeline there, so the runner, the secrets and the Cloudflare tokens all exist by the time BFM wants them. Plus a bought uptime service for the dead-man's switch, per §4.
+
+Lambda would mean an AWS account, IAM, a second deploy pipeline and a second secret store — for a cron job. Wrong size of tool.
+
+## Concern #2 — what I meant, and it's already solved
+
+What I meant: the marker is verified at the edge, in `public-site/src/lead.ts`, before anything crosses the RPC to `captureLead`. If every test imports `captureLead` and calls it directly with the mark already set, you've tested that writes stamp and reads filter — but never that the marker arrived on the form post, that the HMAC check ran, or that a **forged** marker is rejected. Assertion #4 is only meaningful at the boundary; in-process you'd be testing a function you handed `synthetic: true` to yourself, which proves nothing about forgery.
+
+**But `tests/test_UAT_FC_REQ-223_lead_endpoint.workers.test.ts` already does exactly this**, and its docstring states the standard:
+
+> *Every case drives `worker.fetch` — `public-site`'s real handler, with its real route grammar — inside workerd, against a real D1 database carrying the deployed schema and a real R2 bucket... The service binding is the REAL `captureLead`, so a row asserted here is a row `addContact` wrote; the only doubles are the two things a test must never reach for itself, Cloudflare's siteverify endpoint and the rate limiter.*
+
+There are `seedFormSite` and `applySchema` helpers beside it. So the habit exists, the scaffolding exists, and the gutter UATs extend that file's pattern rather than inventing one. **Withdraw the concern** — it costs nothing because it's already the house standard.
+
+The part of #1 that still stands: shape the probe's verification as a function taking a run id rather than inline DB reads. That existing test asserts via `eventsOf` directly, which is correct for an in-process UAT and is precisely what an external probe can't do — so the probe's version wants to be callable over HTTP from the start.
+
+Net effect: the execution-framework aside has **no decisions that need making today.** The only thing to carry forward is "verification is a function of a run id", which is free.
+
+Ready to cut the REQ under EPIC-15 and start — say go.
 
 <!-- xgd-chat-end -->
