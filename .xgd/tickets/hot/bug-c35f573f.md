@@ -15,6 +15,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-3d422f9d
 ---
 
 `tools/generate/src/cli/capture/values-diff.ts:2588–2593` joins the two sides'
