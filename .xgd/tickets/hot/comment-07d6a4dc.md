@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T01:41:17.531869+00:00'
+updated_at: '2026-09-17T01:56:18.033659+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -559,5 +559,70 @@ Want me to draft the new brief end to end for you to read, or go section by sect
 <!-- xgd-chat role="user" ts="2026-09-17T01:41:16.536549+00:00" -->
 #### You
 yes please go ahead
+
+<!-- xgd-turn id="0563d1ed-35b3-4ab1-aeec-a21257511339-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T01:56:17.853048+00:00" -->
+#### Claude
+Recording the decisions first, then I'll draft. Let me check the blast radius of "the round files its own tickets" before I write the brief, since the brief and the code have to agree.
+
+Blast radius is clear: `fileTicket`, `fileBugs`, `appendGapEvidence` and `TicketDraft` all become dead on the live path. Recording the decisions, then drafting.
+
+Now the brief. Cutting a branch and writing it.
+
+Now the code, so the console agrees with what the brief tells the round to do.
+
+I injected a module-level function inside the class body. Moving it out:
+
+Typechecks. Now cleaning up the newly-dead filing code and seeing what the existing suites say.
+
+All 12 failures are tests asserting the old contract. They need the same honest treatment as before. Let me look at the shared fixtures first — most of this is probably central.
+
+`fakeCommands` already answers `ticket get` with `Status: draft`, so read-back works. The failures are contract assertions. Working through them — starting with REQ-261's parse tests, which are about fence survival, not ticket shape.
+
+Only the recover test left — it replays the real transcript, whose block is the old shape.
+
+REQ-261 green. Now REQ-256's seven.
+
+The phrase wraps across a line break. Prose assertions shouldn't be reflow-sensitive — fixing that properly, plus the rest.
+
+The fake runner bypasses the parser, which exposed a real hole — `confirm()` assumed `ticketId` was present. Guarding it:
+
+All 51 green. Now UATs for the new brief content and the D10 contract, which nothing yet covers.
+
+The brief's new blockquote leaves `>` markers behind when I collapse whitespace. The normaliser should strip them — that's what "normalising prose" means.
+
+127 passing across all seven console suites. Committing and merging back.
+
+Done and merged. REQ-262 `free_coded` at 0.2.231, six commits, **129 tests passing** across all seven console suites on `xgd-working`.
+
+## The brief — `tools/repro-console/brief/DIAGNOSE-THE-GAP.md`
+
+All five of your points are in. The three that changed its shape:
+
+**§1 opens as you asked** — *"You can read, run `xgd`, and create tickets, and that is all you can do."* Ticket creation is now the second sentence, not buried in §6. `xgd ticket create` with `--type request`, at `draft`, with the `ready_*` warning and the thirty seconds right there.
+
+**§5 is rebuilt around your three classes** and is now explicitly the primary mandate. Both your corrections landed:
+
+- **Class 2** is wider than "the value is absent" — no axis at all, *or* an axis with no parameter for the variant, *or* a parameter that won't accept the value because an enum is too narrow, a range too tight, or the validator refuses.
+- **Class 3** is "wrong, not missing" — wrong place, wrong colour, wrong size, wrong order, right at 1440 and wrong at 375.
+
+Three questions asked in order, each answerable from a file or a command, and the round must **state which test it ran**. `1c` defects are demoted to secondary in as many words: *"a round that files three `1c` bugs and names no residual class has missed."*
+
+**§6 carries your multi-round point.** No size limit, *"Deferring is losing"* — but the issues are not independent, so: one `request` per round, **ordered by dependency**, implementer works down it, and *"landing the first three of five is a success."* Each issue must say how the implementer sees it — the command, what wrong looks like, what right looks like — with the `CHROMIUM_LAUNCH_ARGS` prefix on every browser-backed command.
+
+## The code now agrees with the brief
+
+The round runs `xgd ticket create` and reports ids. The console creates **nothing** — it reads every id back and records the status each actually carries. `fileTicket`, `fileBugs`, `appendGapEvidence`, `parseTicketRef` and `TicketDraft` are deleted. A relay with nothing on the far end is worse than no relay, because it looks like it's doing something.
+
+**Two things I gave up, so you know:** `status: draft` was structural and is now an instruction — mitigated by the brief, the `ready_*` check, and the read-back, but not replaced. And one-ticket-per-class moves from *enforced* to *observed*: the console can't redirect a filing that already happened, so a duplicate gets reported with both ids for a human to merge.
+
+I updated REQ-256's and REQ-261's UATs rather than deleting them — each reversal sits next to the assertion that replaced it, so *"the console files the ticket and writes draft itself"* still exists under its old name and explains why it now asserts the opposite.
+
+**A test caught a real hole:** `confirm()` assumed `ticketId` was present. True for parsed outcomes, false for one arriving straight from a runner — it would have asked `xgd` about `undefined`. Guarded.
+
+## Worth a look before the next live round
+
+The brief is 351 lines and I'd rather you read §5 and §6 yourself than take my summary — they're where your direction went in, and they're the two the round actually acts on.
 
 <!-- xgd-chat-end -->
