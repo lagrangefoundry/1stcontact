@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T03:52:51.348513+00:00'
+updated_at: '2026-09-17T03:55:06.875086+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -135,5 +135,13 @@ And: duplicate-as-draft copies the body and the template reference, never the li
 **The one cost, so you can price it.** If you ever build `sequence`, each step is a campaign with its own body, so a body shared across steps means duplicated bytes. Small, and years away — I'd take the simplification.
 
 No other docs needed changing. I checked every ticket that mentions campaigns: DOC-4, DOC-35 and EPIC-12 use it incidentally in a way that's consistent, and EPIC-14's boundary already says *"a campaign is a human composing to a list"* — which is this decision, written before we made it.
+
+<!-- xgd-turn id="1442f4b6-7590-4639-9cae-37e8aa6c84bc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T03:55:06.584805+00:00" -->
+#### You
+I think templates could be a different thing there is in my mind to aspects to the content of our campaign. There is the message content which is what we just described as going into the campaign ticket body. But then there is also the associated styling and boiler plate. By which I mean logo had a copyright notice terms and conditions unsubscribe all the things that are professional email needs and of course the HTML styling that goes around it. All of that is a template and I think it's appropriate that the templates and the message body are kept separate. We obviously need a Preview that will allow the user to see the styled message before they hit send. We probably need a test message so they can actually send an email to themselves and see what it looks like in gmail before they send it but I still think that the template which will be reused over many messages should be kept separate from the message content.
+
+I guess maybe such a template needs to be frozen too? Or a version of it frozen? As soon as it has been attached to 1campaign
 
 <!-- xgd-chat-end -->
