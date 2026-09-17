@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T23:57:57.145979+00:00'
+updated_at: '2026-09-17T00:22:48.902732+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -857,5 +857,42 @@ No email was sent. Sending was *configured*, because the toggle defaults on and 
 One flag in the ticket: its subject is broader than EPIC-5 — it touches the LLM keys and the embedder pair, and deploy hooks aren't DNS management. I parented it here because REQ-259 already moved that hook to `fail` and this continues the same argument. Re-parent if you'd rather.
 
 Nothing coded — this was scoping. And the two env changes from the last turn are still yours to make.
+
+<!-- xgd-turn id="ea6283a3-2d08-4343-b8dd-6929693f0d3d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T00:22:48.815964+00:00" -->
+#### You
+Ok lets assume that this is now in-hand - we will come back to it if I can't get it working.
+
+Now, lets talk about the next phase - changing a domain's DNS on its registra.
+
+I want to start with GoDaddy - it seems a sensible first choice and I still have many domains there that we can play with.
+
+I want to experiment with a new UX here - I want to try to get the AI to walk me through - a combination of canned instructions, screenshots but with the ability for the user to ask questions at any time. The AI needs (and has?) tooling to check on the status at any point and clear guidance on how to help.
+
+I imagine we set this up for a handful of providers and then have a generic script for the rest.
+
+Roughly I imagine we do this:
+CTA on settings [address box] [CTA:Help me move this web address] (text above explains what this is for, that its for when you own an address with another provider
+This triggers a macro-prompt (canned prompt fed to the AI). It starts by looking up the address and discovering who the registra is and what the settings are.
+Then come back to the user: "I've found your address it is registered with GoDaddy -  We need to change the settings on the godady side. do you have access to that account."
+yes -> proceed
+no -> can you find the person with access, we need to make some changes there to move that address.
+"Ok, if you are ready to proceed, I will start by making a copy of all your settings to make sure we don't loose anything on the way"
+> trigger copy dns api - check it has arrived
+Sanity check on the settings - can we make this work after moving it? If not may need a deeper discussion with the user - they may be prepared to drop some of the config to make this work
+
+Next, step by step instructions:
+ok go to godaddy.com [links to new tab] in your browser and log in - tell me when you are ready...
+
+Now select "manage" next to the domain you want to move [screenshot]
+
+...
+
+exact text with how it should look in the boxes provided by godaddy
+
+Finally an explanation about the wait and the propagation delay and a promise that we will let them know by email when its ready - or if there is a problem (I will put a pin in notifications for now)
+
+In the AI script we need to forsee problems (domain is already serving a different site - email configuration - anything else) and help the AI with language and the resolutions that we are able to offer.
 
 <!-- xgd-chat-end -->
