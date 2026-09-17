@@ -17,7 +17,15 @@ import type { Box, SurfaceShape } from './types'
  * two different DOMs that render identically project to the same values.
  */
 export interface RawGeometry {
-  /** `getBoundingClientRect()` in full-page document coords. */
+  /**
+   * `getBoundingClientRect()` in full-page document coords.
+   *
+   * REQ-265 — for a TEXT RUN this is the **line box** the run occupies. That is
+   * what a block element's rect already is; an inline element's rect is its
+   * content area (font ascent+descent, not `line-height`), so it is converted at
+   * capture time — see `lineBoxOf` in the page script. The content area is not
+   * lost: it is {@link RawRun.renderedTextBox}.
+   */
   box: { x: number; y: number; width: number; height: number }
   /**
    * BUG-22 — the box that PAINTS the surface behind this element, with that box's
@@ -207,6 +215,23 @@ export interface RawField extends RawGeometry {
    * derivation records the gap rather than inventing one.
    */
   formAction?: string | null
+  /**
+   * REQ-265 — the RENDERED colour of the control's placeholder ink (`#rrggbb`),
+   * else null.
+   *
+   * A placeholder is painted by a UA pseudo-element that inherits nothing, so no
+   * axis on the element itself describes it and no geometry field can see it: a
+   * reference that leaves the browser default in place and a reproduction that
+   * re-points it at the field's own colour agree on every captured value and
+   * differ by the whole of the placeholder's ink. Measured on gigabytealchemy.ai
+   * as `#746f69` against `#000000` — four controls, 17% of that reproduction's
+   * ranked pixel residual, and invisible to `values-diff` entirely.
+   *
+   * Composited the way {@link RawRun.surfaceFill} is: the UA default is a
+   * half-alpha ink, so the declared value alone is not what the eye sees. Null
+   * for a control with no placeholder, and for every non-control element.
+   */
+  placeholderColor?: string | null
 }
 
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
@@ -478,6 +503,56 @@ export const EXTRACT_SCRIPT = `(() => {
   function absBox(el) {
     var r = el.getBoundingClientRect();
     return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+  }
+  // REQ-265 -- an inline element's rect is its CONTENT AREA, not its line box.
+  //
+  // \`getBoundingClientRect()\` on a non-replaced INLINE box returns the union of
+  // its fragments' border boxes, and a fragment's height is the font's
+  // ascent+descent at that size -- NOT \`line-height\`. On a block it returns the
+  // border box, whose top IS the top of the first line box. So a run's \`box\`
+  // meant two different things depending on a layout mode nothing downstream
+  // could see, and the difference is exactly the half-leading CSS uses to centre
+  // the content area inside the line box: \`(lineHeight - contentHeight) / 2\`.
+  //
+  // Measured on gigabytealchemy.ai: the wordmark \`<span>\` reported
+  // \`y=79, height=97\` against \`line-height: 90\`, so a fold that transcribed 79 as
+  // a line-box top placed the glyphs 3.5px HIGH -- 82% of that reproduction's
+  // ranked pixel residual, plus its only HIGH \`gap\` delta (the 7px of 97 vs 90).
+  //
+  // The line box is what every downstream consumer means by "where this run
+  // sits": the fold pins it as the L1 leaf's \`y\`, and the values-diff measures
+  // \`position\` and the inter-row \`gap\` from it. So the conversion happens ONCE,
+  // here, where the computed style that resolves it is already in hand -- rather
+  // than being re-derived by each consumer from a rect whose meaning it would
+  // first have to infer. The content area is not lost: it is \`renderedTextBox\`,
+  // which for these runs is the rect this replaces.
+  //
+  // Returns null -- leaving today's rect untouched -- for anything that is not an
+  // inline box, and for \`line-height: normal\`, whose used value is a font metric
+  // no computed style exposes. Both sides of a diff read the same rule, so an
+  // uncorrected run is uncorrected symmetrically.
+  function lineBoxOf(el, s) {
+    if (s.display !== 'inline') return null;
+    var lh = parseFloat(s.lineHeight);
+    if (isNaN(lh) || !(lh > 0)) return null;
+    var rects = el.getClientRects();
+    if (!rects.length) return null;
+    var r = el.getBoundingClientRect();
+    if (!(r.width > 0) || !(r.height > 0)) return null;
+    // A fragment's rect is its BORDER box, so the element's own vertical padding
+    // and border come off before what is left can be called a content area.
+    var inset = (parseFloat(s.paddingTop) || 0) + (parseFloat(s.borderTopWidth) || 0);
+    var contentH = rects[0].height - inset - ((parseFloat(s.paddingBottom) || 0) + (parseFloat(s.borderBottomWidth) || 0));
+    if (!(contentH > 0)) return null;
+    var half = (lh - contentH) / 2;
+    return {
+      x: r.left + window.scrollX,
+      y: r.top + window.scrollY + inset - half,
+      width: r.width,
+      // One line box per fragment. The rect spans first-fragment top to
+      // last-fragment bottom, so a wrapped inline run's line boxes span n * lh.
+      height: rects.length * lh
+    };
   }
   function unionBoxes(a, b) {
     if (!a) return b;
@@ -861,6 +936,75 @@ export const EXTRACT_SCRIPT = `(() => {
     if (!acc || acc[3] <= 0) return null;
     return '#' + h2(acc[0]) + h2(acc[1]) + h2(acc[2]);
   }
+  // REQ-265 -- the RENDERED colour of a control's placeholder ink.
+  //
+  // \`::placeholder\` is a UA pseudo-element and inherits NOTHING, so a
+  // placeholder's colour is not on any axis of the element that owns it. That
+  // made it the one painted value the capture could not see at all: on
+  // gigabytealchemy.ai four fields whose placeholders paint \`#746f69\` were
+  // reproduced painting \`#000000\`, with every captured value on both sides in
+  // agreement and \`deltaCount: 0\` on all four.
+  //
+  // Composited when it is translucent, for the reason surfaceFillOf composites: a
+  // half-alpha ink over the field's own backdrop is not the colour the eye reads.
+  // Both shapes are real and measured -- Chromium's own default computes OPAQUE
+  // (rgb(117, 117, 117)), while Tailwind v4's preflight computes a 50%-alpha ink
+  // -- so neither compositing unconditionally nor taking the declared value
+  // unconditionally is right. Null when the control has no placeholder to paint.
+  // REQ-265 -- resolve ANY computed colour string to [r, g, b, a] in sRGB.
+  //
+  // rgbaOf reads the rgb()/rgba() serialisation, which is what the engine returns
+  // for a colour authored in a legacy space -- and is NOT what it returns for a
+  // modern one. Measured: Tailwind v4's preflight paints a placeholder with
+  // color-mix(in oklab, currentColor 50%, transparent), whose computed value
+  // serialises as oklab(0.173 ... / 0.5). The regex reads nothing there and the
+  // value is dropped silently, which is REQ-52's lesson arriving in a second place.
+  //
+  // A 1x1 canvas is the resolver, because serialisation tricks are not: Chromium
+  // hands the oklab string straight back from both getComputedStyle and
+  // ctx.fillStyle (measured), while PAINTING the token and reading the pixel back
+  // gives exact sRGB bytes for every space the engine understands. Reached only
+  // when the cheap regex fails, so the common case pays nothing.
+  var COLOR_CANVAS = null;
+  function resolvedRgba(str) {
+    var c = rgbaOf(str);
+    if (c) return c;
+    if (!str) return null;
+    try {
+      if (!COLOR_CANVAS) COLOR_CANVAS = document.createElement('canvas');
+      var ctx = COLOR_CANVAS.getContext('2d');
+      ctx.clearRect(0, 0, 1, 1);
+      // A token the engine cannot parse leaves fillStyle untouched, so seed it
+      // with a value we can recognise rather than trusting the assignment.
+      ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+      ctx.fillStyle = str;
+      if (ctx.fillStyle === 'rgba(0, 0, 0, 0)') return null;
+      ctx.fillRect(0, 0, 1, 1);
+      var px = ctx.getImageData(0, 0, 1, 1).data;
+      var a = px[3] / 255;
+      return a > 0 ? [px[0], px[1], px[2], a] : null;
+    } catch (e) { return null; }
+  }
+  function placeholderColorOf(el) {
+    var tag = (el.tagName || '').toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea') return null;
+    if (!el.placeholder) return null;
+    var c = null;
+    try { c = resolvedRgba(getComputedStyle(el, '::placeholder').color); } catch (e) { return null; }
+    if (!c || c[3] === 0) return null;
+    if (c[3] < 0.999) {
+      var under = surfaceFillOf(el);
+      if (under) {
+        c = composite(c, [
+          parseInt(under.slice(1, 3), 16),
+          parseInt(under.slice(3, 5), 16),
+          parseInt(under.slice(5, 7), 16),
+          1
+        ]);
+      }
+    }
+    return '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
+  }
   // REQ-62 -- the panel/card GRADIENT fill behind a run, the sibling to the
   // composited solid surfaceFillOf. A gradient panel (bg-gradient-to-br from-…)
   // is a background-IMAGE over a transparent background-color, so surfaceFillOf
@@ -1217,9 +1361,13 @@ export const EXTRACT_SCRIPT = `(() => {
       // The element's box IS the run's box only while it holds a single run; when
       // it holds several, that shared box says nothing about where this one paints.
       var ownRun = runCounts.get(el) === 1;
-      var glyphs = ownRun ? renderedTextBox(el) : textNodeBox(n);
-      var runBox = ownRun ? absBox(el) : (glyphs || absBox(el));
       var s = getComputedStyle(el);
+      var glyphs = ownRun ? renderedTextBox(el) : textNodeBox(n);
+      // REQ-265 -- a run's box is the LINE BOX it occupies. For a block element
+      // the border box already is that; for an inline one the rect is the content
+      // area, so \`lineBoxOf\` converts it (and returns null for every other case,
+      // leaving the rect exactly as it was).
+      var runBox = ownRun ? (lineBoxOf(el, s) || absBox(el)) : (glyphs || absBox(el));
       // A text-fill gradient is a background-image gradient clipped to the text
       // (background-clip: text). Capture the raw gradient CSS for TS-side
       // normalization; ignore non-clipped backgrounds (those are band fills).
@@ -1423,6 +1571,9 @@ export const EXTRACT_SCRIPT = `(() => {
         // resolved action (its submission endpoint).
         controlType: controlTypeOf(el),
         formAction: formActionOf(el),
+        // REQ-265 -- the one painted value a control carries that no other axis
+        // can hold (see placeholderColorOf). Null for anything without one.
+        placeholderColor: placeholderColorOf(el),
       });
     }
     return out;

@@ -220,6 +220,15 @@ export interface ValueElement {
    */
   controlType?: string | null
   formAction?: string | null
+  /**
+   * REQ-265 — the RENDERED colour of a control's placeholder ink (`#rrggbb`),
+   * composited over what the field sits on; null/absent when the control has
+   * none. A placeholder is painted by a UA pseudo-element that inherits nothing,
+   * so it is described by no other axis here — a reference that keeps the browser
+   * default and a reproduction that re-points it at the field's own colour match
+   * on every value the diff compared and differ by the whole of the ink.
+   */
+  placeholderColor?: string | null
 }
 
 /**
@@ -400,6 +409,8 @@ export type DeltaProperty =
   | 'aspect'
   // ── BUG-27 — the painted CSS background image (the hero / section imagery) ──
   | 'backgroundImage'
+  // ── REQ-265 — a control's placeholder ink (a UA pseudo-element inherits nothing) ──
+  | 'placeholderColor'
   // ── REQ-48 (item 5) multi-viewport / responsive reflow ───────────────────
   | 'viewport'
   | 'overflow'
@@ -914,6 +925,9 @@ export function fieldToElement(field: Field): ValueElement {
   // module (input type + submission endpoint), rather than stranding the control.
   if (field.controlType != null) el.controlType = field.controlType
   if (field.formAction != null) el.formAction = field.formAction
+  // REQ-265 — the placeholder's rendered ink, so the fold can author it and the
+  // diff can compare it. Absent on pre-REQ-265 bundles, which keeps both inert.
+  if (field.placeholderColor != null) el.placeholderColor = field.placeholderColor
   return el
 }
 
@@ -1372,6 +1386,9 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   // ── Type A — authored values (copy the reference value into place) ──
   text: 'A',
   color: 'A',
+  // REQ-265 — the placeholder's ink is an authored value like any other colour:
+  // once L1 can carry it, the repair is to copy the reference's value into place.
+  placeholderColor: 'A',
   surfaceFill: 'A',
   gradient: 'A',
   surfaceGradient: 'A',
@@ -1501,6 +1518,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   aspect: 'media',
   // BUG-27 — a wrong/absent background photograph is a media defect.
   backgroundImage: 'media',
+  // REQ-265 — placeholder ink is ink: a colour defect, ranked like every other.
+  placeholderColor: 'color',
   transform: 'transform',
   motion: 'motion',
 }
@@ -1797,7 +1816,7 @@ function objectKindOf(el: ValueElement): ObjectKind {
 const KIND_PARAMS: Record<ObjectKind, string[]> = {
   text: ['fontFamily', 'fontSizePx', 'fontWeight', 'color', 'letterSpacingPx', 'lineHeightPx', 'renderedTextBox', 'box'],
   image: ['name', 'objectFit', 'aspect', 'box'],
-  control: ['name', 'nameSource', 'box'],
+  control: ['name', 'nameSource', 'placeholderColor', 'box'],
   divider: ['box'],
 }
 
@@ -1818,6 +1837,7 @@ const PARAM_PROPS: Record<string, DeltaProperty[]> = {
   renderedTextBox: ['renderedTextBox'],
   box: ['position', 'size'],
   nameSource: ['containment'],
+  placeholderColor: ['placeholderColor'],
   objectFit: ['objectFit'],
   aspect: ['aspect'],
   name: [],
@@ -1847,6 +1867,8 @@ function paramValue(name: string, el: ValueElement | undefined): string {
       return el.accessibleName || '—'
     case 'nameSource':
       return nameSourceLabel(el.nameSource)
+    case 'placeholderColor':
+      return el.placeholderColor ?? '—'
     case 'objectFit':
       return el.objectFit ?? '—'
     case 'aspect':
@@ -2498,6 +2520,17 @@ export function diffManifests(
     // label-above defect the perceptual + value diffs both miss.
     if (nameContained(exp.nameSource) !== nameContained(act.nameSource)) {
       push(exp, 'containment', nameSourceLabel(exp.nameSource), nameSourceLabel(act.nameSource))
+    }
+    // REQ-265 — the placeholder's ink, compared like `color` (ΔE). This is the
+    // one painted value a control carries that no geometry or name axis can see,
+    // so without it a field whose placeholder paints the wrong colour reports
+    // `deltaCount: 0` and only the perceptual eye disagrees. Compared only when
+    // both sides recorded one, so a pre-REQ-265 reference stays inert.
+    if (exp.placeholderColor && act.placeholderColor) {
+      const dEph = colorDistance(exp.placeholderColor, act.placeholderColor)
+      if (dEph > colorTol) {
+        push(exp, 'placeholderColor', exp.placeholderColor, act.placeholderColor, dEph)
+      }
     }
     // BUG-27 — the painted media handle. Compared by mirrored basename because the
     // two sides legitimately name the same bytes differently: the reference carries

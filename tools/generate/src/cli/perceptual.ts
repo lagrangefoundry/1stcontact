@@ -15,7 +15,7 @@
  * The image side reuses the {@link cmdShot} render→serve→shoot seam ([[REQ-13]]);
  * a pre-shot PNG (`--actual`) short-circuits the browser for offline re-diff.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs'
+import { copyFileSync, readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -148,6 +148,18 @@ export interface DiffOptions extends GlobalOptions {
   size?: ViewportName
   /** Output directory for diff.png / diff-blocks.png / regions.json / crops. */
   out?: string
+  /**
+   * BUG-103 — keep the REPRODUCTION's screenshot at this path.
+   *
+   * Without it the shot goes to a `mkdtemp` scratch directory that is deleted in
+   * the `finally` below, while `regions.json` persists the deleted path as its
+   * `actual` field — a stored report naming a file that does not exist. The
+   * per-region `-ours.png` crops survive, so what is lost is every part of the
+   * reproduction the region ranker did not happen to pick, and the ability to
+   * re-run `1c diff --actual <png>` offline. Same discard as the value
+   * manifest's, one artifact over.
+   */
+  actualOut?: string
   /** Diff tuning knobs. */
   tuning?: DiffTuning
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */
@@ -231,6 +243,15 @@ export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> 
       port: opts.port,
     })
     actualImage = shotOut
+  }
+  // BUG-103 — before the scratch directory is torn down, and unconditional so a
+  // pre-shot `--actual` is copied out too: the flag names where the actual side
+  // is, regardless of which path produced it.
+  if (opts.actualOut) {
+    const kept = path.resolve(opts.actualOut)
+    mkdirSync(path.dirname(kept), { recursive: true })
+    if (path.resolve(actualImage) !== kept) copyFileSync(actualImage, kept)
+    actualImage = kept
   }
 
   try {

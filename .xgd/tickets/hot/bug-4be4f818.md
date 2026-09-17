@@ -6,16 +6,24 @@ title: 'values-diff / gate: the reproduction-side value manifest is computed and
   with no flag to write it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:38.410536+00:00'
-updated_at: '2026-09-17T21:52:40.867297+00:00'
+updated_at: '2026-09-17T22:11:57.461719+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-1ad0ba73
+  commits:
+  - working_sha: f5b819a8d3dd556c0fcb86b1660621035b5b9af0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ceb78ba93701944ed858f40accf4ddfdead7f74c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.237
 ---
 
 `1c values-diff` and `1c gate` compute a full value manifest for the

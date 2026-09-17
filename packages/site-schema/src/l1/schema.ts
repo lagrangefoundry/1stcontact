@@ -1343,6 +1343,27 @@ export const l1ImageSchema = z
  * An unbound name renders nothing: a control whose module is absent degrades
  * inertly rather than painting a bare, UA-styled input into the page.
  */
+/**
+ * REQ-265 — a control's paint axes: every text-run axis, plus the one value only
+ * a control has.
+ *
+ * A placeholder is painted by a UA pseudo-element (`::placeholder`) that inherits
+ * NOTHING, so its colour is not expressible by any axis on the element itself —
+ * setting the control's `color` paints the typed text too, which is a different
+ * claim. Before this axis existed the renderer had to choose one behaviour for
+ * every document (it re-pointed the pseudo-element at the field's own colour), so
+ * a reference that deliberately left the browser default in place could not be
+ * authored at all: there was no pair of L1 values that produced it.
+ *
+ * It is an EXTENSION of the text-axis bag rather than a member of it, because a
+ * text run has no placeholder — the axis would be inert on every run in every
+ * document and would still have to be read, documented and validated there.
+ */
+export const l1ControlAxesSchema = l1TextAxesSchema.extend({
+  /** The placeholder's ink. Absent → the renderer's default (inherit the field's colour). */
+  placeholderColor: l1Color.optional(),
+})
+
 export const l1ControlSchema = z
   .object({
     kind: z.literal('control'),
@@ -1350,10 +1371,11 @@ export const l1ControlSchema = z
     /** The module-declared element this node paints (a field name, `submit`, …). */
     control: z.string().min(1),
     /**
-     * Paint axes, identical to a text run's: a control is a styled text-bearing
-     * leaf (a placeholder, a button label) that may also paint its own surface.
+     * Paint axes, identical to a text run's, plus `placeholderColor` — the one
+     * painted value only a control has: a control is a styled text-bearing leaf
+     * (a placeholder, a button label) that may also paint its own surface.
      */
-    axes: l1TextAxesSchema.optional(),
+    axes: l1ControlAxesSchema.optional(),
     responsive: l1TextResponsiveSchema.optional(),
     ...nodeAxisGroupsShape,
   })

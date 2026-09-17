@@ -374,6 +374,10 @@ Cross-gate reconciliation (REQ-94) — run l1-gate + values-diff + perceptual di
   1c gate <slug> --ref <captureBundleDir> [--source draft|published] [--size mobile|tablet|desktop]
           [--out <dir>] [--json] [--sandbox] [--mean-floor <0-255>] [--pct-floor <0-100>]
   1c gate --ref <captureBundleDir> --actual-image <png> --actual-manifest <manifest.json> [--out <dir>] [--json]
+    (BUG-103) with --out, writes actual-manifest.json, expected-manifest.json and actual.png beside
+    values-diff.json / regions.json / gate.json — the artifacts that describe the REPRODUCTION rather than
+    the comparison. No flag: the reproduction console already passes --out, and evidence a round has to know
+    to ask for is evidence it will not have.
     l1-gate is blind to colour/font/media BY DESIGN and values-diff can only compare elements present in
     BOTH manifests — so a page whose capture missed its imagery passes both while the perceptual eye reads
     80% of pixels wrong. This verb makes that DISAGREEMENT the finding. A perceptual FLOOR fails the run
@@ -391,6 +395,12 @@ Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
 Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json] [--sandbox]
   1c values-diff --ref <captureBundleDir> --actual <manifest.json> [--out <file>] [--json]
+    (BUG-103) --actual-out <manifest.json> / --expected-out <manifest.json> WRITE the manifests the diff was
+    computed from — the reproduction's and the reference's. Both sides, because a delta's actual value is
+    often a summary (contentAnchor: center (0.50)) and the two section lists are not the same kind of list
+    (the capture's are coalesced, the reproduction's are the raw bands). Same shape --actual reads, so the
+    offline path round-trips; written even when the side came from disk. Not available with --multi-viewport
+    (the ladder's actual side is a multi-state projection, not one manifest) — use --size instead.
   1c values-diff <slug> --ref <captureBundleDir> --multi-viewport [--source …] [--out <file>] [--json]
     (REQ-64) add --collapse to dedup to one row per DEFECT (x-viewport multiplier removed), grouped in
     repair order: Type-A flat (copy) -> Type-A structural (author) -> Type-B (emergent residual).
@@ -409,6 +419,8 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
 Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regions + crop triptychs:
   1c diff <slug> --ref <bundleDir|refPng> [--source draft|published] [--size mobile|tablet|desktop] [--out <dir>] [--json] [--sandbox]
   1c diff --ref <bundleDir|refPng> --actual <png> [--out <dir>] [--json]
+    (BUG-103) --actual-out <png> keeps the reproduction's screenshot; without it the shot is deleted with the
+    scratch dir and the actual path recorded in regions.json names a file that no longer exists.
     Tuning: [--block <px>] [--threshold <0-255>] [--block-threshold <0-255>] [--bands <n>] [--top <n>] [--pad <px>]
     (REQ-61) --size shoots the actual at that viewport and pairs it against the bundle's screenshot-<width>.png.
   1c crop <image> --box <x,y,w,h> [--out <png>]
@@ -1311,6 +1323,12 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       const actualPath = typeof flags.actual === 'string' ? flags.actual : undefined
+      // BUG-103 — the OUTPUT side of the manifest seam. `--actual` and `--out`
+      // were both inputs-or-reports; nothing wrote the manifests the diff was
+      // computed from, so a summarised delta (`contentAnchor: center (0.50)`)
+      // could not be read back to the values behind it.
+      const actualOut = typeof flags['actual-out'] === 'string' ? flags['actual-out'] : undefined
+      const expectedOut = typeof flags['expected-out'] === 'string' ? flags['expected-out'] : undefined
       const slug = actualPath ? undefined : requireSlug(rest[0])
       const source: RenderChannel = flags.source === 'published' ? 'published' : 'draft'
       // REQ-53 tolerance flags: axes we author are exact by default; `--tolerant`
@@ -1360,6 +1378,10 @@ export async function run(argv: string[]): Promise<void> {
             source,
             refBundleDir: ref,
             out: typeof flags.out === 'string' ? flags.out : undefined,
+            // BUG-103 — passed through so the ladder path REFUSES them rather
+            // than dropping them; an ignored flag reads as a flag that worked.
+            actualOut,
+            expectedOut,
             diffOptions,
           }),
         )
@@ -1394,6 +1416,8 @@ export async function run(argv: string[]): Promise<void> {
           refBundleDir: ref,
           actualManifestPath: actualPath,
           out: typeof flags.out === 'string' ? flags.out : undefined,
+          actualOut,
+          expectedOut,
           diffOptions,
           size,
         }),
@@ -1442,6 +1466,9 @@ export async function run(argv: string[]): Promise<void> {
         ref,
         actualImagePath,
         out: typeof flags.out === 'string' ? flags.out : undefined,
+        // BUG-103 — keep the reproduction's own screenshot instead of deleting it
+        // with the scratch dir and leaving `regions.json` naming a missing file.
+        actualOut: typeof flags['actual-out'] === 'string' ? flags['actual-out'] : undefined,
         tuning,
         size: parseSize(flags.size),
       })

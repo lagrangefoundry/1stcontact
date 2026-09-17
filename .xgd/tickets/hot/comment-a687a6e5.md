@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T22:03:04.763144+00:00'
+updated_at: '2026-09-17T22:13:20.673210+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -676,5 +676,57 @@ EPIC-13's six EPIC-17 clauses all trace into REQ-267 §11 as a table. Two things
 - REQ-267 will need a **MIME parser dependency** (Workers-compatible, since `raw` is a stream and the platform gives us nothing). I'll name the exact package and the install command before coding rather than picking one now.
 
 Next step is `xgd branch cut REQ-267` and the migration. Say go and I'll start with `0013` alone, so REQ-235 is unblocked before the rest of the inbound work lands.
+
+<!-- xgd-turn id="0377589e-ba66-4b16-93b9-8396f12fdd31-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:10:26.295808+00:00" -->
+#### You
+You are an EPIC session - you create and watch the children - they do the coding
+
+Please also check for BFM changes (EPIC-15)
+
+<!-- xgd-turn id="0377589e-ba66-4b16-93b9-8396f12fdd31-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:13:19.889974+00:00" -->
+#### Claude
+Understood — I create and watch; children code. That changes my next step, and I'll correct it below.
+
+Three BFM findings, one of them a blocker. Updating REQ-267.
+
+Noted and saved — I'll stop at "the child is ready to be picked up". My "next step is `xgd branch cut`" line was out of role; that's REQ-267's session, not this one.
+
+## BFM check — three findings, one of them a blocker
+
+**1. Migration `0013` is claimed by three epic bodies and owned by no ticket.**
+
+- **EPIC-11**: *"What this epic owns: the `synthetic` and `run_id` columns on `contact_events`, landing before REQ-235 builds anything that reads them."*
+- **EPIC-15** §Children: its **first code child** is *"four things rather than three: the signed marker, the `synthetic` column, the default-excluding read handle, **and the reaper**"* — and adds *"it does not start until EPIC-10 is working and tested."*
+- **REQ-267**, as of my last turn.
+
+EPIC-15 has cut no code child; only DOC-54 exists. So the migration everyone agrees is urgent is filed nowhere.
+
+**2. The gate behind it is real, and EPIC-15's read of it is stale.** EPIC-15 §6 records EPIC-10 as *"done, REQ-240–245 reconciled"*. All six are **`ready_to_reconcile`**, not reconciled. If `0013` rides EPIC-15's bundle, then **REQ-235 and REQ-267 are both transitively blocked on EPIC-10's reconciliation** — a chain neither ticket knew it was in an hour ago. EPIC-15's body needs that correction; it isn't mine to edit.
+
+I've recorded the collision and the gate in REQ-267 rather than quietly claiming the migration, with the split it assumes stated as *pending your decision*: **a column is not the gutter**. `0013` is one additive migration that unblocks two epics and is cheapest now, which is EPIC-11's own argument; the four *mechanisms* stay EPIC-15's and stay gated. If you refuse the split, REQ-267 drops `0013` and both it and REQ-235 move their dependency onto EPIC-15's child.
+
+**3. A real spec gap the reserved-address channel has, and DOC-54 doesn't cover.** §2.1 rejects a marker that is *"unsigned, malformed, or outside its time window"* — but an email local part is an unsigned bearer string, so **two of those three checks have no carrier on the inbound path**. A run id travels through SMTP hops and spam filters in the clear; without a window it becomes a permanent make-my-mail-invisible token for anyone who ever saw one. REQ-267 now requires the run id to **name a run that exists and is still open**, with unknown/closed/expired all degrading to real. That leg depends on EPIC-15's run registry; the never-forward half doesn't (an address matching the reserved pattern is reserved regardless), so it ships either way.
+
+Also folded in: synthetic attachment blobs now take DOC-54 §2.5's **reserved key prefix**, not just the message prefix — a bucket has no `WHERE` clause and the reaper's sweep is a prefix listing. REQ-267 is at 13 ACs; the new ones cover the degrade-to-real cases and the blob prefix.
+
+## State of the children
+
+| | |
+|---|---|
+| **REQ-267** `draft` | Ready to be picked up **except** for the `0013` ownership call. Everything else is specified. |
+| **REQ-235** `draft` | `depends_on: REQ-267`. Blocked on §4's duration question (CHAT-53 vs your original ask) before AC-5 can be written. |
+| Tickets 2–4 | Not cut. I'll cut them as REQ-267 gets picked up, unless you want them earlier. |
+
+## What needs you
+
+1. **Does `0013` split from EPIC-15's bundle?** My recommendation is yes — column now, mechanisms gated. It's the one decision standing between REQ-267 and being picked up.
+2. **REQ-235 §4's duration question** — still open from 2026-09-14.
+3. **`apps/control-app/.dev.vars~`** — still untracked and still not matched by `.gitignore`'s `.dev.vars` / `.dev.vars.*`. EPIC-17 F8. Want me to widen the pattern and delete the backup, or is that file yours?
+
+**Nothing to install or migrate yet** — no code exists. When REQ-267's session writes `0013` it'll hand you the `wrangler d1 migrations apply` line; `@lagrangefoundry/logging` needs no install at all.
 
 <!-- xgd-chat-end -->

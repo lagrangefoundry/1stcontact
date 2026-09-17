@@ -63,6 +63,25 @@ export interface ValuesDiffOptions extends GlobalOptions {
   size?: ViewportName
   /** Pre-extracted actual manifest JSON path; when set, no browser is launched. */
   actualManifestPath?: string
+  /**
+   * BUG-103 — write the REPRODUCTION's own value manifest here. The manifest is
+   * built every run (it is the actual side of the diff) and was then dropped on
+   * the floor: what landed on disk described only the *comparison*, so a delta
+   * whose `actual` is a summary — `contentAnchor: center (0.50)` — could not be
+   * read back to the values it summarised. Same serialised shape {@link
+   * actualManifestPath} accepts as input, so the offline re-diff round-trips.
+   */
+  actualOut?: string
+  /**
+   * BUG-103 — write the REFERENCE's value manifest here. Needed beside
+   * {@link actualOut}, not instead of it: on the default path the expected side
+   * is `flattenCapture(capture.json)`, an in-process projection of the bundle
+   * rather than a stored artifact, and the two sides' `sections` are not the
+   * same kind of list (the capture's are coalesced, the reproduction's are the
+   * raw bands — see {@link flattenSignals}). One side alone cannot distinguish a
+   * misplaced section from a section-count mismatch.
+   */
+  expectedOut?: string
   /** Write the full report JSON here in addition to returning it. */
   out?: string
   /** Diff tolerances (REQ-53); axes we author are exact by default, `tolerant` restores loose matching. */
@@ -125,8 +144,25 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
   }
 
   const report = diffManifests(expected, actual, opts.diffOptions)
+  writeManifests(opts, expected, actual)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
   return report
+}
+
+/**
+ * BUG-103 — persist the two manifests the diff was computed from.
+ *
+ * Unconditional: a side read from disk via `--actual` is written out again
+ * rather than skipped, so `--actual-out` means the same thing on every path and
+ * `values-diff --actual-out X` followed by `values-diff --actual X` is a true
+ * round-trip with no caveat about which path produced the file.
+ *
+ * One call site per diff so there is exactly one place a manifest can fail to be
+ * written — the live browser path and the offline path share it.
+ */
+function writeManifests(opts: ValuesDiffOptions, expected: ValueManifest, actual: ValueManifest): void {
+  if (opts.expectedOut) writeFileSync(path.resolve(opts.expectedOut), JSON.stringify(expected, null, 2))
+  if (opts.actualOut) writeFileSync(path.resolve(opts.actualOut), JSON.stringify(actual, null, 2))
 }
 
 /**
@@ -169,6 +205,7 @@ async function valuesDiffAtSize(opts: ValuesDiffOptions, size: ViewportName): Pr
   }
 
   const report = diffManifests(expected, actual, opts.diffOptions)
+  writeManifests(opts, expected, actual)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
   return report
 }
@@ -198,6 +235,18 @@ function referenceViewports(projections: StateProjection[]): Viewport[] {
  * comparison it cannot make.
  */
 export async function cmdValuesDiffMultiViewport(opts: ValuesDiffOptions): Promise<StateDiff[]> {
+  // BUG-103 — the manifest seam is single-manifest by construction; across the
+  // ladder the actual side is a whole MultiStateCapture, a different shape that
+  // `--actual` could not read back. Refused rather than ignored: silently
+  // dropping an unrecognised flag is what let `--actual-out` look like it worked
+  // for a whole round before this bug was filed.
+  if (opts.actualOut || opts.expectedOut) {
+    throw new Error(
+      'values-diff --multi-viewport cannot write manifests: across the ladder the actual side is a ' +
+        'multi-state projection, not one manifest. Use the single-width path or --size <name> with ' +
+        '--actual-out / --expected-out.',
+    )
+  }
   const reference = await readMultiState(fsReferenceBundle(opts.refBundleDir))
   if (!reference || reference.projections.length === 0) {
     throw new Error(

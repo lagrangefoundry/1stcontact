@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-265
 created_by: xgd
 created_at: '2026-09-17T21:35:29.264314+00:00'
-updated_at: '2026-09-17T22:07:48.529859+00:00'
+updated_at: '2026-09-17T22:15:40.544174+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,53 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="82cfe87b-41d9-47d2-af75-3498a987f826-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:15:39.417119+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me check the current state.
+
+Now let me run the new test file in the foreground.
+
+Confirmed pre-existing. Now the fold and values-diff scope:
+
+Pre-existing. Now the values-diff and render scope:
+
+Now let me update the ticket body with what actually landed:
+
+Now version bump and commit on the branch:
+
+Now lock, merge back into `xgd-working`:
+
+Version raced — `xgd-working` moved to 0.2.237. Rebasing so the bump-carrying commit is the tip:
+
+Now bump on top of the rebased tip and amend so the bump-carrying commit is the tip:
+
+Re-verifying on the rebased tip (values-diff auto-merged against incoming changes):
+
+Green. Now merging (should be a fast-forward):
+
+REQ-265 is free-coded and landed on `xgd-working`.
+
+## What shipped
+
+**Issue 1 — the half-leading.** A text run's captured `box` now *is* the line box it occupies. `getBoundingClientRect` returns the border box on a block (whose top is the first line box's top) but the *content area* on a non-replaced inline — nothing downstream could tell them apart, so the fold transcribed one as the other and the renderer painted the glyphs half a leading out.
+
+I deviated from both options the ticket proposed: the correction landed in the page-scope extract script (`lineBoxOf`), not in the fold. Three reasons, recorded in the ticket and the code: the resolving value (`contentHeight`) exists only in the page and no bundle carries it; every downstream consumer already meant "line box" (fold keyframes, values-diff `position` and `gap`), so one conversion beats three; and reading `display`/`line-height` directly is a fact where the fold-side heuristic was a coincidence of two rects — the ticket's own objection to its option A. The content area survives as `renderedTextBox`.
+
+**Issue 2 — the placeholder's ink.** `placeholderColor` now travels capture → L1 → render, and values-diff compares it. Two things the ticket's one-liner doesn't survive, both measured on the fixture: Tailwind v4's preflight computes `oklab(… / 0.5)`, which the existing `rgb()` regex reads as nothing (a 1×1 canvas resolves it); and a translucent ink isn't the colour the eye reads (composited like `surfaceFillOf`). The axis went on a control-specific `l1ControlAxesSchema` extension rather than into `l1TextAxesSchema` — a text run has no placeholder, so it would be inert in every document.
+
+## One thing worth flagging
+
+**The ticket's "How to see it" is now wrong for issue 1.** It says `1c refold --ref $REF`, but `cmdRefold` replays the retained `multistate.json` — "a refold changes what we DERIVE, never what we OBSERVED" — and the old content-area rects are in that oracle. Verifying this needs a re-capture. I've recorded that in the ticket.
+
+## Verification
+
+- Typecheck clean across `site-schema`, `framework`, `generate`.
+- 9/9 new UATs (4 drive real headless Chromium against a committed loopback-served fixture, gated on `chromiumAvailable()`); plus the values-diff, control/texture, fold, substrate, behavior-module, contact-form and edit-render suites — all green, re-run after the rebase.
+- **4 failures are pre-existing**, confirmed by running them on a clean `xgd-working`: `capture.test.ts` (×2), `reconciliation-l1-fold.test.ts`, `req83-capture-to-l1-fold.test.ts` — all the same `driverFactory was not supplied` class, unrelated to this change.
+
+`xgd-working` raced ahead to 0.2.237 mid-session, so I rebased and re-bumped to 0.2.238 with the bump amended into the tip commit. Commit `f4e70654d9`, 5 story points, parked at `free_coded` for you to promote when ready.
 
 <!-- xgd-chat-end -->

@@ -6,10 +6,10 @@ title: 'Inbound mail, end to end: capture against the contact, pending for a str
   and the synthetic mark'
 created_by: EPIC-13
 created_at: '2026-09-17T22:00:00.005762+00:00'
-updated_at: '2026-09-17T22:00:00.005762+00:00'
+updated_at: '2026-09-17T22:14:30.287448+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-d76e554a
@@ -153,7 +153,9 @@ from them is not.
 
 **Attachments are stored and are not served.** Bytes arriving by mail are bytes an
 anonymous party chose ([[EPIC-17]] F1, [[EPIC-13]] §Security 6). They are written
-to R2 under the message's prefix, their metadata goes on the ticket, and **this
+to R2 under the message's prefix — and a **synthetic** message's blobs under
+[[DOC-54]] §2.5's reserved key prefix, because a bucket has no `WHERE` clause and the
+reaper's sweep is a prefix listing. Their metadata goes on the ticket, and **this
 ticket ships no download surface for them** — that re-opens F1 from the anonymous
 side and belongs with F1's separate-origin work, not here.
 
@@ -196,19 +198,39 @@ messages it suppressed were never deleted.
 
 ## 7. The synthetic mark
 
-**The reserved address namespace carries it.** An inbound message has no request
-context to attach an in-flight marker to, so the mark rides the address:
-`bfm+run_<hex>@…` ([[DOC-54]] §"the marker carries a run id" — `newId('run')`,
-never a second shorter format; 40 characters against a 64-character local-part
-limit). This is the one channel where the envelope is the only thing available,
-and [[EPIC-13]] §5's reserved namespace and [[DOC-54]] R1's *"any entry point —
-form post, inbound email, webhook"* turn out to be the same mechanism.
+**What this ticket owns is the inbound carrier, not the marker primitive.**
+[[EPIC-15]]'s first code child owns four mechanisms — the signed marker, the
+`synthetic` column, the default-excluding read handle, and the reaper. This ticket
+implements the one channel that child cannot cover and consumes the rest.
 
-**A bad marker degrades to real** ([[DOC-54]]). Marking real traffic as test is
-the attack; an unparseable or unverifiable marker means the message is ordinary
-mail.
+**The reserved address namespace is the carrier, because the envelope is the sole
+channel.** An inbound message has no request to attach a signed marker to, so the mark
+rides the address: `bfm+run_<32 hex>@…` — `newId('run')`, never a second shorter format
+([[REQ-190]]: *"the system mints it stops being a property the moment there are two of
+them"*), 40 characters against a 64-character local-part limit. [[DOC-54]] §2.2 is
+explicit that this is *"not an alternative: a different channel, with its own carrier,
+for the same id."* [[EPIC-13]] §5's reserved namespace and [[DOC-54]] R1's *"any entry
+point — form post, inbound email, webhook"* turn out to be the same mechanism.
 
-**The reserved namespace never appears in any UI**, and never forwards.
+**An address carries no signature, so the run id is validated against a live run.**
+[[DOC-54]] §2.1 rejects a marker that is *"unsigned, malformed, or outside its time
+window"* — but a local part is an unsigned bearer string, so two of those three checks
+have no carrier here. The replacement is a lookup: **the run id must name a run that
+exists and is still open**, and an unknown, closed or expired one degrades to real. A
+run id travels through SMTP hops and spam filters in the clear; without the time
+window it would be a permanent make-my-mail-invisible token for anyone who ever saw
+one. [[DOC-54]] states the window for the request path and does not yet state this
+channel's equivalent — it should, and this ticket is where the requirement first
+bites.
+
+**A bad marker degrades to real** ([[DOC-54]] §2.1). Marking real traffic as test is
+the attack worth closing; an unparseable, unknown or expired marker means the message
+is ordinary mail, captured and forwarded like any other.
+
+**The reserved namespace never appears in any UI**, and never forwards. This half needs
+no run registry — an address matching the reserved pattern is reserved whether or not
+its run id resolves — so it ships with this ticket regardless of §7's sequencing note
+below.
 
 ### Migration `0013` — [[DOC-54]] §2.4, landed here
 
@@ -233,6 +255,28 @@ than by each call site remembering.
 ticket**, because [[REQ-235]] depends on it and on nothing else here. This
 ticket's own tables (the sender suppression of §6) are a later migration, so that
 dependency stays narrow.
+
+### Whose migration `0013` is — surfaced, not settled here
+
+**Three epic bodies claim it.** [[EPIC-11]] owns *"the `synthetic` and `run_id` columns
+on `contact_events`, landing before [[REQ-235]] builds anything that reads them."*
+[[EPIC-15]] makes it part of its **first code child** — *"four things rather than three:
+the signed marker, the `synthetic` column, the default-excluding read handle, and the
+reaper"* — and adds that the child *"does not start until [[EPIC-10]] is working and
+tested."* And this ticket lands it. No ticket has been cut for it by anybody.
+
+**The gate is real and is not this epic's to clear.** [[EPIC-10]]'s six children
+(REQ-240–245) are all `ready_to_reconcile`, not reconciled — so [[EPIC-15]] §6's
+statement that they are *"reconciled"* is stale. If `0013` is part of [[EPIC-15]]'s
+bundle, then [[REQ-235]] and this ticket are both transitively blocked on
+[[EPIC-10]]'s reconciliation.
+
+**The split this ticket assumes, pending an operator decision:** a column is not the
+gutter. `0013` is one additive, zero-risk migration that unblocks two epics and is
+cheapest at the moment nothing reads the spine — which is [[EPIC-11]]'s own argument
+for landing it early. The four *mechanisms* stay [[EPIC-15]]'s and stay gated. If that
+split is refused, this ticket drops `0013` and depends on [[EPIC-15]]'s child instead,
+and [[REQ-235]] moves its dependency with it.
 
 ## 8. The timeline reads past 100
 
@@ -336,13 +380,16 @@ ships independently of this.
    synthetic contact is synthetic without the caller supplying it, derived through
    `recordEvent`'s existing `SELECT … FROM users`; and a scoped read excludes
    synthetic rows by default.
-10. A message to a reserved `bfm+run_<hex>@` address is marked synthetic with that
-    run id, is never forwarded, and does not appear in any customer-visible read.
-    A malformed marker is treated as real mail.
-11. A contact with more than `TIMELINE_LIMIT` events can be read to the end
+10. A message to a reserved `bfm+run_<hex>@` address is never forwarded and does not
+    appear in any customer-visible read. A malformed local part, an unknown run id and
+    a run id whose window has closed are each treated as real mail — captured,
+    forwarded, and written unmarked.
+11. A synthetic message's attachment blobs are written under the reserved key prefix,
+    so a prefix listing finds every blob a run produced and finds no real one.
+12. A contact with more than `TIMELINE_LIMIT` events can be read to the end
     through the cursor, `provenanceOf` returns the genuinely earliest event for
     that contact, and the ordering across page boundaries matches the single-query
     ordering.
-12. A captured HTML body reaches the contact page inert: a body containing a
+13. A captured HTML body reaches the contact page inert: a body containing a
     script, an event-handler attribute and a remote image neither executes nor
     issues a remote request when the page renders it.
