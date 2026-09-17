@@ -6,7 +6,7 @@ title: The reproduction engine and the loop-1 session — the diagnosing session
   base
 created_by: REQ-261
 created_at: '2026-09-16T20:55:42.661492+00:00'
-updated_at: '2026-09-17T00:01:10.683048+00:00'
+updated_at: '2026-09-17T01:19:54.651235+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -216,6 +216,20 @@ network is still denied by name — [[REQ-256]] behaviour 3, as narrowed by
   `status: draft`, and that remains the route.
 - A 4,000-line `multistate.json` is far cheaper to grep than to read. Grep
   first, read only the region you need.
+- **The browser-backed verbs need one flag here.** `1c gate`, `1c diff`,
+  `1c values-diff`, `1c capture`, `1c shot` and `1c aligned-crops` all drive
+  Chromium, and an agent session's commands run inside a sandbox that denies
+  Chromium's Mach port registration — so it dies before the first frame. Export
+  `CHROMIUM_LAUNCH_ARGS=--single-process` and they all work. This is
+  [[REQ-262]] D9, and it was proven by running `1c gate` to a full
+  cross-gate reconciliation, not by reasoning about it.
+
+  It is worth knowing WHY, because the failure is misleading: the browser is
+  present and healthy — `chrome-headless-shell --version` answers — and only
+  the child-process handoff is refused. Read as "no browser here", it invites
+  the conclusion that the instrument is unavailable and that someone else's
+  recorded evidence will have to do. That is the reconstruction this loop
+  exists to prevent, arrived at from the wrong direction.
 
 **What a round produces.**
 

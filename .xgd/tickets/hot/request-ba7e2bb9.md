@@ -6,9 +6,9 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-17T00:15:30.991076+00:00'
+updated_at: '2026-09-17T01:19:02.806668+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -423,3 +423,58 @@ are behaviour and so they are stated rather than left to the code to imply.
     plainly that it has no KB this round. That is the round we had before this
     ticket, and it was a working round. Turning an improvement into a new way to
     fail would be a poor trade.
+
+
+### D9 — Chromium runs in an agent sandbox. It needed one flag.
+
+**The claim this replaces was wrong.** It was reported here that a sandboxed
+agent "cannot re-run the browser-backed gate", and that the check-your-work
+instructions in a gap ticket would therefore have to avoid `1c gate`. That was
+accepting a constraint instead of attacking it. The operator pushed back — the
+round, the implementer and the console all run on the same laptop in the same
+directory, and there is no reason the tools should differ — and the pushback
+was correct.
+
+**What actually fails.** Chromium's browser process registers a Mach port
+rendezvous server so it can hand ports to its renderer and GPU children. macOS
+seatbelt, which wraps an agent session's commands, denies the registration:
+
+```
+FATAL:base/apple/mach_port_rendezvous_mac.cc:159] Check failed: kr == KERN_SUCCESS.
+bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.N: Permission denied (1100)
+```
+
+**It is not a missing browser**, and the distinction is the whole finding:
+`chrome-headless-shell --version` prints its version happily. Only the
+registration is denied, and only once a child process is needed.
+
+**`--single-process` removes the children**, so there are no ports to hand over
+and nothing to register. Measured, in this order:
+
+1. `--single-process` alone → Chromium wrote a real 2,727-byte PNG.
+2. Through Playwright → a page rendered, computed styles read back exactly
+   (`rgb(192, 57, 43)`), geometry returned.
+3. **`1c gate repro-gigabytealchemy-ai --ref …` ran end to end**, reproducing the
+   first round's numbers exactly — `l1-gate PASS`, 2 value deltas over 59
+   matched elements, perceptual mean 0.69/255, 12 regions, and the same false
+   `unreferenced-image` coverage finding. The whole instrument, working, inside
+   the sandbox.
+
+**The seam.** `CHROMIUM_LAUNCH_ARGS` — comma-separated extra launch arguments,
+applied at every browser launch in `tools/generate/` (`launch-args.ts`).
+OPT-IN: `--single-process` is not a supported upstream configuration, is slower
+and less isolated, and an operator's console has no sandbox and no reason to
+pay for it. An unconfigured host launches exactly what it launched before.
+
+**Consequence for the brief.** The check-your-work section of a gap ticket
+leads with `1c gate` and the other browser-backed verbs, because they work.
+What it must also carry is the flag, since an implementing agent that does not
+know about it will conclude the tool is broken and fall back to reading someone
+else's evidence — which is the reconstruction the whole loop exists to prevent.
+
+### Requirement 15
+
+Every browser-backed `1c` verb — `gate`, `diff`, `values-diff`, `capture`,
+`shot`, `aligned-crops` — is runnable by an agent session. The mechanism is
+stated wherever a round or an implementer is told to run one, and it is proven
+by running `1c gate` rather than asserted.
