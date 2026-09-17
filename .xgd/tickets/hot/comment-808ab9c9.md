@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:11:54.134622+00:00'
+updated_at: '2026-09-17T21:13:40.560636+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -117,5 +117,11 @@ The **prompt-injection envelope** — the prompt-layer defence for untrusted ret
 Also next-not-now: backup posture (8), shared-store pinning (9), security-event review (11), the F8 hygiene items (12, minutes).
 
 Want me to file these as REQs? I'd file 1–5 first and scope them properly; say the word and they go in.
+
+<!-- xgd-turn id="64fc4924-1d23-47e9-b207-2a8ef509ec5f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:13:40.487775+00:00" -->
+#### You
+**The draft has no restore point.** The change journal is explicitly *not* a revision — clipped `before`/`after` strings for orientation. A draft holding weeks of unpublished work has nothing behind it. <-- no I would not expect to restore the draft I think the draft is expendable. What we can restore is the published site that should be fixed in time and immutable. That is something that we should enforce
 
 <!-- xgd-chat-end -->
