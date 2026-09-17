@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-101
 created_by: xgd
 created_at: '2026-09-17T21:35:31.205901+00:00'
-updated_at: '2026-09-17T21:55:20.122175+00:00'
+updated_at: '2026-09-17T22:01:45.601034+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,11 @@ Version bumped 0.2.232 → 0.2.233. Commit `db7e693184`, merged by `git merge` (
 **Q3 — the regression test target** is what I recommended: `gigabytealchemy/home`, assert parses *and* exceeds the pipe buffer.
 
 One incidental find: a fresh branch worktree can't run the CLI at all — `apps/control-app/src/generated/` is gitignored, so `1c` dies at `Failed to load url ./generated/ticketing`. I copied it in from the main checkout. Same class as the webui-resolution problem, different directory.
+
+<!-- xgd-turn id="015ddcf5-ee5c-41d7-8082-ac976dd482fe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:01:44.336519+00:00" -->
+#### You
+go with your recommendations
 
 <!-- xgd-chat-end -->
