@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:13:40.560636+00:00'
+updated_at: '2026-09-17T21:15:45.558875+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -123,5 +123,55 @@ Want me to file these as REQs? I'd file 1–5 first and scope them properly; say
 <!-- xgd-chat role="user" ts="2026-09-17T21:13:40.487775+00:00" -->
 #### You
 **The draft has no restore point.** The change journal is explicitly *not* a revision — clipped `before`/`after` strings for orientation. A draft holding weeks of unpublished work has nothing behind it. <-- no I would not expect to restore the draft I think the draft is expendable. What we can restore is the published site that should be fixed in time and immutable. That is something that we should enforce
+
+<!-- xgd-turn id="64fc4924-1d23-47e9-b207-2a8ef509ec5f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:15:45.485959+00:00" -->
+#### Claude
+Accepted — that's a cleaner line, and it changes what needs building. Let me check whether immutability is actually *enforced* today or just conventional.
+
+That changes the answer materially. Three things to verify, and all three came back the same way:
+
+Ticket updated; the draft-restore framing is withdrawn. Your line is better, and checking it produced a sharper finding than the one it replaced.
+
+## Immutability is intended, respected, and enforced nowhere
+
+Six layers, and the *only* thing actually enforced is that a revision id can't be re-used in the log:
+
+| Layer | Enforced? |
+|---|---|
+| Revision numbering — `PRIMARY KEY (site_id, id)`, and the schema comment says *"Never reused, never renumbered"* | **Yes** |
+| The revision **row** — nothing forbids `UPDATE` or `DELETE` | **No** |
+| The frozen **bytes** in R2 | **No** |
+| Byte integrity — the `sha` digest | **No** |
+| Concurrent publishes | **No** |
+| Write authority over the bucket | **No** |
+
+Three of those are worth spelling out.
+
+**The constraint protects the log, not the bytes.** `writeRevision` `put`s every object into `published/<site>/<id>/` *before* the `INSERT` whose primary key would have refused the id. `put` overwrites. So the one guard that exists is evaluated after the damage it would have prevented.
+
+**The detector already exists and is unwired.** `sha` — a digest of the frozen definition, which the schema itself annotates *"AUDIT, NOT ADDRESSING… are these the same bytes?"* — is computed at publish, stored on the row, and **never read back anywhere**. `readRevision` checks the row for existence and reads the objects for content, and compares nothing. Wiring that comparison into checkout is the smallest item on the whole list and it converts "immutable by convention" into "tamper-evident by construction".
+
+**Your own schema has the precedent.** There is exactly one immutability trigger in the entire database, and it's on `contact_events`: *"a correction is an appended event that supersedes, never an edit of the row that was wrong."* That is precisely the argument for `site_revisions`, and it's in the same file.
+
+None of this is a live exploit path — the publish path is the only writer and it behaves. It's the gap between *a property the code respects* and *a property the store guarantees*, which is the same structural-vs-procedural line DOC-2 draws.
+
+## What recovery becomes
+
+Detect (sha mismatch or a report) → `checkoutRevision(site, N)` → publish forward. The schema already anticipated this: `based_on` exists *"so that a forward-only rollback is self-documenting."* `checkoutRevision` is implemented and correct — it even refuses a dirty draft unless forced, and forcing it is the right answer here, because the draft is expendable. What's missing is only that it's wired to the **filesystem** store via the CLI. It needs a route and a control.
+
+## Revised "build now"
+
+1. Untrusted uploads off the builder origin + CSP/headers *(F1, F3, F4)*
+2. Confirmation seam for irreversible operations *(F2)*
+3. **Enforce revision immutability** — trigger on `site_revisions`; claim the id **before** writing bytes; refuse a `put` into an existing revision prefix
+4. **Verify the `sha` on checkout** — smallest item here, largest ratio
+5. **A restore control over the D1/R2 store** — checkout + publish forward
+6. Route-gate inventory guard and granted-capability pin *(tests)*
+
+Serializing publish behind the Durable Object that DOC-1 §7 already specifies moves to Next — it's a correctness/concurrency fix that items 3 and 4 make *visible* rather than silent, which is the right order.
+
+Ready to file 1–6 as REQs, or to start on 3 and 4 — they're small, self-contained, and 4 is close to free.
 
 <!-- xgd-chat-end -->
