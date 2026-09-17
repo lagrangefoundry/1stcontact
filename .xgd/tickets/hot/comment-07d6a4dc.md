@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T01:15:54.455312+00:00'
+updated_at: '2026-09-17T01:21:28.550447+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -480,5 +480,78 @@ That has a direct consequence for your "how does the implementer check its work"
 
 - **(3) renderer bug** — the value *is* in the L1 document and the render is still wrong. `1c page get` shows it; the output doesn't. <-- the value is L1 AND its correct BUT the output doesn't show it CORRECTLY - perhaps its there but in the wrong place or its the wrong color etc etc
 - **(1) engine shortfall** — L1 has the axis, the renderer honours it, but the fold/capture put the wrong value in.
+
+<!-- xgd-turn id="44282fa3-dfa3-4734-b541-2df6102d2bc5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T01:21:27.944930+00:00" -->
+#### Claude
+You're right — I was accepting the constraint instead of attacking it. Let me actually debug it.
+
+The binary runs — only Mach port registration is denied. That's the seatbelt around my Bash tool, and it bites the moment Chromium spawns a child. Two things worth trying:
+
+**`--single-process` works** — Chromium rendered and wrote a real PNG inside the sandbox. Let me confirm it works through Playwright, which is what the engine actually uses.
+
+Three `launch()` calls, none passing args. Testing whether `--single-process` survives a real page render through Playwright before I design around it.
+
+It passed — screenshot bytes and the exact computed colour both asserted. **Full Chromium rendering, computed styles and geometry all work under `--single-process` inside the sandbox.**
+
+Let me wire it into the engine's three launch sites and prove `1c gate` runs.
+
+Cutting a branch for this — it's a code change and it belongs to REQ-262's tool-access requirement.
+
+Now the real proof — `1c gate` end to end, inside the sandbox.
+
+**`1c gate` runs end to end inside the sandbox.** Real Chromium, real screenshots, full cross-gate reconciliation — and it reproduces the first round's numbers exactly: mean 0.69/255, 12 regions, 2 deltas, and the same false `unreferenced-image` finding.
+
+The browser was never the constraint. It was one flag. Recording it:
+
+My regex stopped at the first `)`, so it captured `browserLaunchOptions(`. The code is right; the test was wrong. Fixing it:
+
+Now updating DOC-53 so every future round and implementer knows, then committing.
+
+Landed and merged — REQ-262 at 0.2.230, four commits, 20 tests green, and `1c gate` runs from the main checkout.
+
+## You were right, and the correction matters
+
+The browser was never missing. `chrome-headless-shell --version` answered fine the whole time — only Chromium's *child-process* Mach port registration was denied. `--single-process` removes the children, so there's nothing to register. One flag, now `CHROMIUM_LAUNCH_ARGS`, opt-in so your unsandboxed console is unaffected.
+
+**Every browser-backed verb is available to an implementing agent.** So the check-your-work section leads with `1c gate` — it just has to carry the flag, because an agent that hits that FATAL and reads it as "no browser" will fall back to someone else's recorded evidence. Which is the reconstruction the whole loop exists to prevent, arrived at from the wrong direction. DOC-53 §2 says exactly that now.
+
+## Your correction to the three classes — you're right on both
+
+I'd written the tests too narrowly. Restating:
+
+**(2) L1 can't express it.** Not just "the value is absent". The family is *L1 has no way to say this*:
+- no axis for the property at all
+- the axis exists but has no parameter for the variant needed
+- the parameter exists but won't accept the required value (enum too narrow, range too tight, validator rejects it)
+
+Test: try to *author* it. If there's no field, no accepted value, or the validator refuses — it's class 2. That's `validateL1` / `L1_ENVELOPE` rejecting you, which is a hard, quotable signal rather than an impression.
+
+**(3) renderer bug.** Not "the output doesn't show it" — **the output doesn't show it *correctly***. Present but in the wrong place, wrong colour, wrong size, wrong order, wrong at one viewport and right at another.
+
+Test: the L1 document carries the right value, and the render disagrees with it. `1c page get` shows the truth; the rendered output contradicts it.
+
+That makes the discriminator cleaner than I had it:
+
+| | L1 carries it? | is it correct in L1? | does the render match L1? |
+|---|---|---|---|
+| **1 engine shortfall** | yes | ✗ wrong value | — (renderer is honest) |
+| **2 L1 can't express it** | ✗ can't be authored at all | — | — |
+| **3 renderer bug** | yes | ✓ correct | ✗ |
+
+Three questions, asked in order, each answerable from a file or a command. And every one of them is now runnable by the implementer.
+
+## Still open from your message
+
+I have these and haven't drafted yet — they're the brief rewrite, which you wanted to do together:
+
+1. §1 → *"You can read and create tickets, and that is all you can do"*, with ticket creation up front.
+2. The round runs `xgd ticket` directly; creates a **REQ** for the changes. Console stops filing. (Reminder: the `xgd ticket **` restriction isn't enforceable — D5 — so this rests on the brief plus the `ready_*` assertion.)
+3. Bugs filed the same way, directly, and demoted to **secondary** to the three classes.
+4. Ticket lists all issues **in order** with proposed fixes; multiple rounds expected.
+5. Body gains a **check-your-work** section per issue — how to see the problem, now including the Chromium flag.
+
+Want me to draft the new brief end to end for you to read, or go section by section starting with §1 and §5?
 
 <!-- xgd-chat-end -->
