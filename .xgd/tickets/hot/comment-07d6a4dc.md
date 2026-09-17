@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T00:35:11.014514+00:00'
+updated_at: '2026-09-17T00:35:38.941365+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -362,5 +362,27 @@ Say when, and I'll bring the keeps/moves/drops table for the brief.
 <!-- xgd-chat role="user" ts="2026-09-17T00:35:08.886546+00:00" -->
 #### You
 can you point me at the prompt file?
+
+<!-- xgd-turn id="c8d972d3-b22a-4f69-97b2-cb5f8ae16c4d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T00:35:38.870117+00:00" -->
+#### Claude
+There are three, and the distinction matters for the review:
+
+**The one you probably want to edit:**
+
+`tools/repro-console/brief/DIAGNOSE-THE-GAP.md` — 268 lines, the standing brief. Plain markdown, hand-edited, deliberately a file in the repo so changing what the AI is told is a diff someone reviews. This is where the method lives: the one rule, the reading order, the verdict table, how to name a residual class, the output contract.
+
+**The one that generates the rest:**
+
+`tools/repro-console/src/ai.ts:309-381` — `buildPrompt()`. Everything the brief can't know: this round's gate summary, where the evidence is, the KB pointer, the ticket-store section, the rail, known gap classes. Editing this is a code change.
+
+**What actually got sent, so we can review the real thing:**
+
+`storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-1/ai/prompt.md` — 11.6 KB, written before the round started. Note this one is **stale**: it's from the 2026-09-16 round, so it predates the KB and the ticket-store section. It's the right artifact for judging what the first round was working from, not for judging what a round gets now.
+
+Worth knowing for the review: the brief is sent whole on a fresh round, but a **resumed** round gets `resumePreamble()` instead (`ai.ts`, REQ-261) — so anything we move into the brief is invisible to resumed rounds, and anything that must survive resume belongs in `buildPrompt`'s per-round half. That constraint shapes the keeps/moves/drops call more than anything else.
+
+If you want to read the current-shape prompt rather than the stale one, I can render one without spending a round — `buildPrompt` is a pure function.
 
 <!-- xgd-chat-end -->
