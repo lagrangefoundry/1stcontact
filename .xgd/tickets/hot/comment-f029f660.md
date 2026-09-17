@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:46:10.609615+00:00'
+updated_at: '2026-09-17T21:18:22.996890+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -433,5 +433,13 @@ TTL values per class and the sweep horizon; the implausible-harvest threshold (a
 Q2 external runner, Q7 who hears about a failure, Q8 canary sites, Q9 customer-visible evidence, Q11 probe-history retention. None of these are needed to build the gutter, which is the point of having scoped DOC-54 to the gutter alone.
 
 **And the actual gate on starting isn't a question at all** — it's EPIC-10 being working and tested. That's recorded in the epic's Children section as the precondition.
+
+<!-- xgd-turn id="a09922ae-ace1-4f84-8d70-3606057855f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:18:22.818690+00:00" -->
+#### You
+1. I already said yes to 1
+   2. both
+   3. I don't understand this one - I think a short hash would be the safest way to id a run
 
 <!-- xgd-chat-end -->
