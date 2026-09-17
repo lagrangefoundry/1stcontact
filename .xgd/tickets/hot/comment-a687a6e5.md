@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T22:03:04.763144+00:00'
+updated_at: '2026-09-17T22:10:27.343189+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -676,5 +676,13 @@ EPIC-13's six EPIC-17 clauses all trace into REQ-267 §11 as a table. Two things
 - REQ-267 will need a **MIME parser dependency** (Workers-compatible, since `raw` is a stream and the platform gives us nothing). I'll name the exact package and the install command before coding rather than picking one now.
 
 Next step is `xgd branch cut REQ-267` and the migration. Say go and I'll start with `0013` alone, so REQ-235 is unblocked before the rest of the inbound work lands.
+
+<!-- xgd-turn id="0377589e-ba66-4b16-93b9-8396f12fdd31-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:10:26.295808+00:00" -->
+#### You
+You are an EPIC session - you create and watch the children - they do the coding
+
+Please also check for BFM changes (EPIC-15)
 
 <!-- xgd-chat-end -->
