@@ -5,15 +5,14 @@ type: request
 title: 'email tickets: freeze the record of a sent message'
 created_by: EPIC-3
 created_at: '2026-09-16T21:58:48.359181+00:00'
-updated_at: '2026-09-16T23:07:01.599907+00:00'
+updated_at: '2026-09-17T03:17:37.125434+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: epic_parent
 status: draft
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
-  epic_parent: ticket://lagrangefoundry/lagrange-framework/EPIC-3
   chat_comment: comment-0e43e7e5
 ---
 
