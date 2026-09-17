@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:32:53.897193+00:00'
+updated_at: '2026-09-17T04:45:43.201235+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -397,5 +397,11 @@ Plus the non-requirements, recorded so they aren't re-proposed: no separate test
 **§6 Open decisions** — six, of which two matter before code: run id transport, and whether `Scope` grows a field. That second one is a real call — adding to `Scope` gets the impossible-to-forget property, but `Scope` is deliberately a one-field interface with a written rationale for being exactly that, which would need amending rather than ignoring.
 
 Nothing is built. The epic records that the gutter work doesn't start until EPIC-10 is working and tested.
+
+<!-- xgd-turn id="99d68847-aebf-46a6-bae6-988edf02e629-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:45:43.073572+00:00" -->
+#### You
+What's open?
 
 <!-- xgd-chat-end -->
