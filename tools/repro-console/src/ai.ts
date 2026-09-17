@@ -348,6 +348,8 @@ Every path is absolute and every file is already written. Read them.
 - \`${path.join(ctx.evidenceDir, 'gate.json')}\` — the full reconciliation, including the coverage block.
 - \`${path.join(ctx.evidenceDir, 'values-diff.json')}\` — the value deltas. **This is your strongest evidence.**
 - \`${path.join(ctx.evidenceDir, 'regions.json')}\` — the ranked pixel regions. Read these before the mean; they point, they do not measure.
+- \`${path.join(ctx.evidenceDir, 'actual-manifest.json')}\` and \`${path.join(ctx.evidenceDir, 'expected-manifest.json')}\` — the two value manifests the deltas were computed from, reproduction and reference. **Read these when a delta is summarised rather than raw** — \`contentAnchor: center (0.50)\` is a band name and two decimals over a \`sections\` list you can read in full here, on both sides. The two lists are not the same kind of list: the reference's sections are coalesced, the reproduction's are its raw bands, so compare the counts before you trust an index.
+- \`${path.join(ctx.evidenceDir, 'actual.png')}\` — the reproduction's own screenshot, the actual side of the perceptual diff. \`1c crop\` it anywhere; the \`region-*-ours.png\` crops only cover what the region ranker picked.
 - \`${ctx.bundleDir}\` — the reference bundle: \`capture.json\`, \`raw.html\`, \`multistate.json\`, \`screenshot.full.png\`. **\`raw.html\` is the ground truth.**
 - \`${ctx.pageDocument}\` — this iteration's copy of the reproduction's own L1 document, as \`1c page get … --json\` printed it.
 - \`${ctx.siteDir}\` — the rendered reproduction.

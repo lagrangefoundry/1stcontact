@@ -157,7 +157,15 @@ export interface GateOptions extends GlobalOptions {
   actualImagePath?: string
   /** Pre-extracted actual manifest JSON — short-circuits the browser for the value eye. */
   actualManifestPath?: string
-  /** Directory for the perceptual artifacts, the values report, and `gate.json`. */
+  /**
+   * Directory for the perceptual artifacts, the values report, and `gate.json`.
+   *
+   * BUG-103 — and for the three artifacts that describe the REPRODUCTION rather
+   * than the comparison: `actual-manifest.json`, `expected-manifest.json`,
+   * `actual.png`. No flag gates them. The reproduction console already runs
+   * `1c gate … --out <iteration>/diff`, so writing them here is what puts them in
+   * front of a diagnosing round; a flag it would have to know to pass would not.
+   */
   out?: string
   /** Override the provisional perceptual floor for this run. */
   floor?: Partial<PerceptualFloor>
@@ -191,12 +199,15 @@ export async function cmdGate(opts: GateOptions): Promise<GateReport> {
     ref: opts.ref,
     actualImagePath: opts.actualImagePath,
     out,
+    actualOut: out ? path.join(out, 'actual.png') : undefined,
   })
   const values = await cmdValuesDiff({
     ...opts,
     refBundleDir: opts.ref,
     actualManifestPath: opts.actualManifestPath,
     out: out ? path.join(out, 'values-diff.json') : undefined,
+    actualOut: out ? path.join(out, 'actual-manifest.json') : undefined,
+    expectedOut: out ? path.join(out, 'expected-manifest.json') : undefined,
   })
 
   const report = reconcileGates({ l1Gate, coverage, perceptual, values, floor: opts.floor })
