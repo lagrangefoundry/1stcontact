@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:40:46.123004+00:00'
+updated_at: '2026-09-17T22:00:15.292704+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -632,5 +632,11 @@ Proposed scope for it — today's build, matching what you asked for:
 Delete-contact's *button* deliberately excluded — the function is needed to prove mechanism (4); the Contacts surface can follow.
 
 Want me to cut it?
+
+<!-- xgd-turn id="65c2d176-9bb3-44df-b612-e9afe0e48180-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:00:14.666022+00:00" -->
+#### You
+yes - what does it depend on?
 
 <!-- xgd-chat-end -->
