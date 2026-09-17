@@ -5,7 +5,7 @@ type: epic
 title: User Notifiations
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T00:22:56.755347+00:00'
-updated_at: '2026-09-17T21:17:38.660526+00:00'
+updated_at: '2026-09-17T21:22:10.012440+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -744,26 +744,46 @@ first producer ships.
 
 ## Children
 
-Five, in build order. Each is independently testable; the first three are a
-working notification.
+Two.
 
-1. **The decision.** The registry, the `operators` resolver, the member filter,
-   the class rule, the preference and address checks, the coarse-as-AND, the cap,
-   and the decision record written whether or not anything sends. The sender is
-   injected, so this whole ticket is provable with no provider and no surface.
-2. **`lead.captured`.** The first producer, the template ticket for its copy, and
-   the first real send. Closes [[DOC-47]] §3's hole.
-3. **The controls.** The coarse switch on the portal ([[REQ-245]]'s endpoint and
-   pane) and the registry-driven fine-grained pane on Settings, with transactional
-   types listed and not toggled.
-4. **`sending.ready`, and the reachability probe.** `refreshSending`'s
-   `pending → verified` transition is an existing wait whose own copy already says
-   *"you can carry on, and it will come right on its own"* — so it is the second
-   producer, and the one that proves the registry is a registry. The probe (§9)
-   lands with it.
-5. **The contextual prompt.** The shared component, the promise string, and the
-   one flow that shows it — *"Send email from this domain"*, at the moment the
-   customer presses it.
+### 1. The framework, its first notification, and its controls
+
+Everything that decides whether a person is told, plus the first thing they are
+told about, plus the two places they control it. One branch, because none of the
+three is testable in the product without the other two — and in particular
+**shipping an informational notification with no way to switch it off is the one
+thing §4 forbids**, so the controls are not a follow-on.
+
+- The registry, in `src/builder/` with no imports, on `acceptances.js`'s and
+  `contact-events.js`'s precedent: the one definition has to be readable by the
+  pane that draws a control and the worker that decides a send.
+- The preference keys registered in the existing acceptance registry, so
+  `user_acceptances` holds them and absence means the declared default.
+- The decision: the `operators` resolver, the member filter, the class rule, the
+  preference check with the coarse switch as an AND **enforced here rather than in
+  the pane**, the address-suppression check, and the cap.
+- The decision record, written whether or not anything sends.
+- `lead.captured` — the producer, its template ticket, and the first real send.
+- The coarse switch on the portal and the registry-driven pane on Settings.
+
+The sender is injected throughout, so every rule above is provable with no
+provider and no browser — `messages.ts`'s own discipline, which already states it:
+*"a suite drives `sendRecordedEmail` with a stub, and there is no import here that
+could reach a network."*
+
+### 2. The contextual prompt
+
+The probe (§9), the shared prompt component, the promise string, and
+`sending.ready` — raised from `refreshSending`'s `pending → verified`, whose copy
+already says *"you can carry on, and it will come right on its own"* — shown at the
+moment the customer presses **Send email from this domain**.
+
+**It is separate because it is the falsifier for the first.** Adding a second
+producer should be a registry entry and a raise; if it turns out to be a second
+send path, the first ticket got the seam wrong, and that is evidence worth
+collecting rather than obscuring by building both sides at once. It is also
+separable in the other direction: the first ticket is complete and useful without
+it.
 
 ## Siblings
 
