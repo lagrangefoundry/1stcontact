@@ -5,7 +5,7 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-17T01:27:32.308997+00:00'
+updated_at: '2026-09-17T01:41:48.021268+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -650,7 +650,7 @@ console acquires a build script or a wrangler config, or if any package under
 `apps/` gains a dependency on it. A convention nobody checks is precisely how a
 dev tool ends up in production.
 
-#### Risk 2 — the AI's *edits* reach production. Dissolved by §8.2.
+#### Risk 2 — the AI's *edits* reach production. Bounded, not dissolved.
 
 Worth recording why it was a risk, because the coupling is real and permanent.
 `apps/control-app` imports the engine **directly from `tools/generate/src/` by
@@ -659,12 +659,29 @@ relative path** — `store/d1r2-store`, `store/ids`, `publish/ladder`,
 code**. Directory layout cannot separate them, and should not: improving the
 shared engine is the entire point of loop 1.
 
-**§8.2 removes the risk at its source — the AI writes no code**, so there is
-nothing of its authorship to reach anywhere. Engine changes arrive by free
-coding, through the same review, UAT and reconciliation path as every other
-change in the project. Operator position, recorded: we are pre-production, the
-reproduction engine is poor, and production is deployed separately by an explicit
-human act — so this was never the acute risk.
+**§8.2 was originally recorded here as removing the risk at its source** — the
+AI writes no code, so there is nothing of its authorship to reach anywhere. That
+was true only while the round had no tool that could write. [[REQ-262]] D7
+granted it `Bash` so it could reach the ticket store (§8.2 records why, and why
+the grant could not be narrowed), so the engine is editable by a round again and
+the guarantee is an instruction rather than a property.
+
+**The risk is bounded rather than removed**, by four things, none of which is the
+console's directory layout:
+
+- the round is **instructed** not to write, and the **working tree is compared
+  before and after every round**, with any change named on the iteration in red;
+- **authoring, delegation and network tools stay denied by name** — the cheap
+  routes to an edit are closed, and naming is the only mechanism measured to gate
+  anything;
+- an edit that reached the tree anyway is **un-ticketed, which is drift**, and
+  `test_fix` eliminates it;
+- changes meant to land arrive **by free coding**, through the same review, UAT
+  and reconciliation path as every other change in the project.
+
+Operator position, recorded: we are pre-production, the reproduction engine is
+poor, and production is deployed separately by an explicit human act — so this
+was never the acute risk, which is what makes the D7 trade a reasonable one.
 
 Two things stay, now as ordinary hygiene rather than as mitigations:
 
