@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T03:50:31.099046+00:00'
+updated_at: '2026-09-17T03:52:51.348513+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,35 @@ Also from the last turn: REQ-263 is now EPIC-13's child.
 Freezing the campaign body at send preserves that exactly. What's genuinely lost is named reuse of one content across several campaigns, and "duplicate this campaign as a draft" covers close to all of it: an A/B wants two different bodies anyway, and a re-send to non-openers is a new campaign with a different list. <-- I suggest we keep it simple. A campaign is a single send of a single message to a single list of users. Once the send is triggered the campaign would move into a different state perhaps it goes from draft to sending to sent. The sending could take a while particularly if it is a new list or a large list, that's fine. But my point is that once it is out of draft mode the content is frozen. And then becomes a historical record and as a point out it can be copied for another email blast.
 
 Honestly I am not familiar with mailing list software. Does that feel like an appropriate simplification? Other constraints that would impose that you feel are an appropriate at this level?
+
+<!-- xgd-turn id="2813b81c-2503-4a2b-95de-3f1dc12d7e7e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T03:52:51.064022+00:00" -->
+#### Claude
+Yes — it's an appropriate simplification, and reassuringly unoriginal: draft → scheduled → sending → sent with the content frozen at send is close to exactly what Mailchimp and Klaviyo do. You're not inventing a model here, you're landing on the one the category converged on. Epic updated; the correction is now written as a **withdrawn premise** rather than a change of mind, since the three-type split was the right answer to "campaign = a sequence" and simply has nothing to be separate *from* once campaign means one send.
+
+The freeze point is worth stating more strongly than "it's the historical record", and I've written it that way. Because `sending` is deliberately long — ramping and the 8am floor make slowness a feature — an edit mid-send wouldn't just rewrite history, it would send recipients 401–800 a **different message** from 1–400, with nothing recording that two things went out under one name. Freezing at the draft boundary makes that structurally impossible.
+
+## The constraints I'd add at this level
+
+Freezing the body covers *content*. A campaign is content × list × schedule, and the other two are still open. Six, of which the first two are a pair and the important one:
+
+**1. The audience has to be snapshotted too.** A list is alive — people join and leave during a send. If the campaign resolves recipients lazily, "who did we send this to" is unanswerable a month later, and a resume after a crash can't know where it got to. So the draft→sending transition resolves the list to a recipient set, after suppression, and records it.
+
+**2. But consent stays live — and this is the exception nobody must tidy away.** If someone unsubscribes twenty minutes into an 800-person send, they must not receive it. So suppression is re-checked *per recipient at the moment of sending*, against the frozen set. **Snapshot the audience; never snapshot consent.** These two look contradictory and aren't, which is precisely why it needs writing down.
+
+**3. Cancel is a first-class state, not a failure.** Spotting the wrong list at recipient 50 must be stoppable. `cancelled` records how far it got — filing it as `failed` makes a deliberate act read as an incident.
+
+**4. `sent` means accepted, not delivered.** Bounces and complaints arrive hours later, per recipient, by webhook, and land on the contact spine. The campaign may aggregate them for display; it must not be the record of them.
+
+**5. A test send must not move the lifecycle.** "Send it to me first" is what everyone does before a blast. It leaves the campaign in draft and writes no contact events — the one path that renders freezable content without freezing it.
+
+**6. Resume must not double-send.** A ramped send *will* be interrupted. That needs a progress cursor over the frozen, ordered recipient set — which is only possible *because* of constraint 1.
+
+And: duplicate-as-draft copies the body and the template reference, never the list, schedule, snapshot or outcome. Copying those would make the new campaign a claim about a send that never happened.
+
+**The one cost, so you can price it.** If you ever build `sequence`, each step is a campaign with its own body, so a body shared across steps means duplicated bytes. Small, and years away — I'd take the simplification.
+
+No other docs needed changing. I checked every ticket that mentions campaigns: DOC-4, DOC-35 and EPIC-12 use it incidentally in a way that's consistent, and EPIC-14's boundary already says *"a campaign is a human composing to a list"* — which is this decision, written before we made it.
 
 <!-- xgd-chat-end -->
