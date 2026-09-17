@@ -5,7 +5,7 @@ type: epic
 title: 'Forms: capture, acceptances, and onboarding'
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T23:46:56.989430+00:00'
-updated_at: '2026-09-14T03:46:41.756804+00:00'
+updated_at: '2026-09-17T21:40:23.174199+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -20,6 +20,7 @@ fields:
   - request-7c513b4a
   - request-37ac28bf
 ---
+
 
 ## What the client asked for
 
@@ -320,3 +321,48 @@ store needs `wrangler d1 migrations apply DB --local` once.
 The whitepapers page in particular still says "Send me both papers" and promises
 none, which is the configuration this epic makes expressible and does not itself
 perform.
+
+## The test gutter — this epic's share ([[DOC-54]])
+
+**This epic's surfaces are where the gutter first lands, and the requirement belongs to
+[[EPIC-15]] rather than here** — epics own requirements, not files. Recorded so the
+change arrives expected rather than as a surprise in reconciliation.
+
+The capture chain is the only end-to-end write path in production, which makes it both
+the client's worked example (*"we want to test the whitepaper sign-up flow"*) and the
+entire live surface of [[DOC-54]]. The changes touching this epic's code:
+
+- **`public-site/src/lead.ts`** — the marker joins `RESERVED_FIELDS`, and it belongs
+  there on this epic's own stated reasoning: those are wire-level machine artefacts
+  stripped before the record, because storing them *"would put three machine artefacts
+  in a contact's provenance beside the words a person typed."* The marker is exactly
+  that kind of artefact. What is new is the signature check, not the plumbing.
+- **The `captureLead` RPC seam** gains one field. [[REQ-223]] §3.2 made this an
+  entrypoint no URL reaches, so the mark cannot be injected past the boundary that
+  verifies it.
+- **`addContact`, `recordAcceptance`, `grantFor`** stamp or derive; no call site
+  supplies a flag.
+- **A rejected marker does not reject the submission.** It degrades to ordinary traffic
+  and the record is written **real**. Refusing instead would turn a signing bug into
+  lost customer data, and the attack worth closing runs the other way — marking real
+  traffic as test would let a caller make a competitor's leads vanish from their own
+  dashboard.
+
+**The sequencing constraint, which is the client's and is about evidence:** the gutter
+does not go in until this epic is **working and tested**. It landed recently and is
+unverified; a failure after the gutter is threaded through it would be ambiguous
+between the two. The baseline is what makes the gutter's assertions mean anything,
+because only then is it known that the records *would* have appeared.
+
+**Also arriving on this epic's surface, from [[DOC-54]] R5: delete contact.** Pulled
+forward because it is what replaces being clever about a *"test my contact form"*
+feature — let a test lead be an ordinary lead and let the business remove it. It is a
+feature customers need regardless, it is the same statement as [[EPIC-15]]'s collector
+(the cascade takes the whole chain), and a collector exercised by hand daily is one
+that works when the scheduler needs it.
+
+**The existing UAT harness is the standard to extend**, not replace:
+`test_UAT_FC_REQ-223_lead_endpoint.workers.test.ts` already drives `worker.fetch`
+inside workerd against real D1 and R2 with the **real** `captureLead` behind the
+binding. The marker's edge verification can only be proven there — calling
+`captureLead` directly with the mark already set proves nothing about forgery.
