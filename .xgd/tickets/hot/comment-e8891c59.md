@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T00:48:24.585159+00:00'
+updated_at: '2026-09-17T00:50:10.612357+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -978,5 +978,61 @@ theflowerofscotland.com
 ﻿﻿﻿nooneknowsura.dog
 **martinwesthead.com**
 **martinwesthead.us**
+
+<!-- xgd-turn id="1a380866-47d0-474f-8bf5-b916d009a3ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T00:50:09.595283+00:00" -->
+#### Claude
+Fair correction — I overstated that. My survey was of the 13 zones your Cloudflare token could see; I had no window into GoDaddy-registered domains that aren't in Cloudflare, and I wrote it as a statement about your domains rather than about what I'd looked at. Same for `.co.uk` — I inferred that from "UK small business" and shouldn't have asserted it.
+
+Let me look at the real list.
+
+Your GoDaddy list is much more useful than what I could see. Results:
+
+| Domain | Registrar | Nameservers | RDAP | DNSSEC |
+|---|---|---|---|---|
+| `nooneknowsura.dog` | GoDaddy | **GoDaddy** | yes | off |
+| `martinwesthead.com` | GoDaddy | **GoDaddy** | yes | off |
+| `theflowerofscotland.com` | GoDaddy | **DreamHost** | yes | off |
+| `matrixconstruct.io` | — | — | **none** | — |
+| `martinwesthead.us` | — | — | **none** | — |
+
+Three real test subjects, and they're better than a matched set: the first two are the clean happy path, and **`theflowerofscotland.com` is the valuable one** — GoDaddy registrar, DreamHost DNS. That's the registrar≠host case, which is the shape a real customer actually arrives in. No MX on any of them, so the email-forwarding experiment needs one set up first.
+
+And the coverage rule is now measured rather than guessed: **gTLDs always have RDAP** — including new ones, `.dog` and `.dev` and `.site` all worked. **ccTLDs are hit and miss** — `.ai` yes; `.io`, `.me`, `.us` no. So the fallback path isn't an edge case: two of the five you just named need it.
+
+## DNSSEC — yes, exactly that
+
+`secureDNS.delegationSigned` is registry data — it reflects the DS record at the parent zone, which *is* the thing that breaks. So it polls cleanly:
+
+detect signed → *"you'll need to switch this off at GoDaddy first, here's where"* → **poll RDAP until it flips false** → only then show the nameservers.
+
+Same *checking… still checking… done* pattern as the nameserver change itself, which is nice — one mechanism, two uses. Two caveats: DS removal takes real time to clear the parent zone, so it's a **fifth wait** with its own state; and RDAP responses can be cached, so the poll needs to tolerate a stale `true`.
+
+Turning it on at `martinwesthead.com` or `nooneknowsura.dog` is the right way to build this, since you'd otherwise be coding blind against a case you can't reproduce.
+
+## Email — you're right, and it lands on an open question
+
+I wasn't proposing we keep forwarding through GoDaddy — I was flagging that it breaks and needs a plan. Yours is the plan. Two things to decide with eyes open, because both are already recorded in the epic:
+
+**What you're describing is Cloudflare Email Routing**, and *"do we offer Email Routing at all?"* is Open Question 1 in EPIC-5. This flow is the first thing that forces it, because a customer with a GoDaddy forward can't be migrated without an answer. Worth deciding deliberately here rather than by default.
+
+**The reply path is the part that bites.** Routing gets mail *in* fine. Replying *from* `info@theirdomain.com` needs SMTP credentials pasted into Gmail — the epic's own objection: *"a half-feature that receives but cannot reply may be worse than nothing."* Solvable, but it's a step a furniture restorer will need walking through, and it belongs in this flow's scope if the answer is yes.
+
+**And it puts us back on the apex SPF.** `MAIL.md:96` — `1stcontact.io`'s apex SPF carries `include:_spf.mx.cloudflare.net` *because* of Email Routing. The epic's comfortable claim that sending "need not touch their apex SPF" holds for Resend alone; turning on Routing reopens exactly the merge case that's the most dangerous record we handle. Not a blocker — but it means the SPF-merge rule in REQ-260 goes from theoretical to load-bearing.
+
+**Can we see where it forwards to? No.** Forwarding destinations live in GoDaddy's account config, not in DNS. The MX only says mail goes to `secureserver.net`; everything after that is private. So it's ask-the-customer, or walk them to the GoDaddy screen and have them read it out — your worst case is the actual case.
+
+That's worth naming as a principle, because it's the first point in the whole flow where *"notify, don't ask"* genuinely can't hold. But it passes the epic's real test: *"who should your email go to?"* is a question a furniture restorer **can** answer. The rule was never "never ask" — it was never ask them to *validate* something they can't evaluate.
+
+## The registrar surprise
+
+Pointing nameservers at Cloudflare and transferring the registration are separate operations — the second needs an auth code, an unlock, and clears a 60-day lock. So `merklebonsai.com` and `positronica.ai` are Cloudflare-DNS, GoDaddy-registered. Transfers are EPIC-6's.
+
+Worth noting it happened to you, though: that's precisely the confusion this flow exists to keep customers out of, and it caught the person who designed the system. Good argument for the walkthrough naming both providers explicitly rather than saying "your domain provider."
+
+---
+
+Ready to cut the three tickets when you are — primitives (RDAP, registrar normalisation, DNSSEC gate, the provider-consequence knowledge), the durable procedure state, and the GoDaddy content pack. The Email Routing question I'd want answered first, since it changes what the primitives ticket has to sweep for.
 
 <!-- xgd-chat-end -->
