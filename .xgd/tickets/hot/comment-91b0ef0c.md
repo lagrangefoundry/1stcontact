@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T21:42:37.787979+00:00'
+updated_at: '2026-09-17T21:52:59.741986+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -591,5 +591,11 @@ One consequence I've written in: `readTicket()` currently regex-scrapes `Status:
 **The structurally stronger fix is in the other repo.** An `XGD_CREATED_BY` env var the console sets around the round's subprocess — sitting alongside `XGD_CHAT_TICKET_ID` in the same resolution chain — would make correct provenance a property of the environment rather than an instruction anyone has to keep. That's an `xgd` change and wants its own ticket there; I haven't filed it. Say the word if you want one.
 
 **REQ-265 needs retrospective repair** once the exact string is settled. It's the only ticket a round has filed so far, so it's a one-line fix, and the string is a small open decision in the body: `repro-console` is the minimum, `repro-console:<slug>#<iteration>` costs nothing extra since the round knows both and is far more useful in a ticket list.
+
+<!-- xgd-turn id="0e7f112e-1081-4ed9-9e12-33f890fc7fab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:52:58.981355+00:00" -->
+#### You
+Please check for security updates in your ticket - not sure how relevant they are to a dev tool?
 
 <!-- xgd-chat-end -->
