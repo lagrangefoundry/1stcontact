@@ -6,8 +6,8 @@ title: 'Library: an uploaded .md is stored undescribed because the browser sends
   content type'
 created_by: xgd
 created_at: '2026-09-01T20:41:58.464808+00:00'
-updated_at: '2026-09-11T18:53:54.279502+00:00'
-completed_at: null
+updated_at: '2026-09-16T01:48:36.832553+00:00'
+completed_at: '2026-09-14T10:29:09.410155+00:00'
 last_field_updated: status
 status: bundled
 fields:
