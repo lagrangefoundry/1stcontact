@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T04:30:21.077353+00:00'
+updated_at: '2026-09-17T04:46:45.186449+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,8 +13,6 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
-
-
 
 ## What the client asked for
 
@@ -1009,3 +1007,68 @@ remains true of the platform templates it was describing.
 warned that latching `template` would extend a type with existing consumers and that
 the claim needed verifying against REQ-197's call sites. With a distinct type, the
 platform's invite and lapse notices are untouched and there is nothing to verify.
+
+
+
+### This design supersedes [[REQ-197]]'s keyed resolution
+
+The client: *"REQ-197 is wrong, we need to supersede it with this design."* Accepted,
+with one distinction that decides how much of it goes.
+
+**Verified state before deciding:** REQ-197 is coded and sits at
+`ready_to_reconcile` with two working commits. `apps/control-app/src/templates.ts`
+serves three system messages — `invite`, `signin`, `lapsed` — through
+`templateFor(store, key)` with seed-if-absent, called from `invites.ts` (two sites)
+and `sessions.ts` (one). Nothing is on main.
+
+**Two separable things are bundled in it, and only one is wrong.**
+
+1. **Role resolution** — `invite` resolves to *some* ticket. This is necessary and is
+   not what the client objected to. A signin message fires for a tenant who has never
+   opened the templates surface; there is no human present to choose a ticket id, and
+   a new tenant has no templates at all. Something must answer *which ticket is this
+   business's invite email*.
+2. **Newest-ticket-wins as the resolution rule** — *"THE SENDER LOOKS A TEMPLATE UP
+   BY TemplateKey, NEVER BY UID… the newest ticket carrying the key wins."* This is
+   precisely the hidden versioning the client rejected: nobody points at anything, the
+   winner is implicit, and it changes as a **side effect of creating a ticket**.
+
+**So (2) is superseded and (1) is kept, in the form this section already
+established: a role is a pointer the business sets, not a query that picks a
+winner.**
+
+- A system role is a **named slot** in the business's settings holding a template's
+  ticket id — `invite → template-125`.
+- Sending reads the slot. One answer, inspectable, with no dependence on creation
+  order or clock skew between two tickets sharing a key.
+- template-125 latches to `used` on first send and refuses edits. **[Make a copy]**
+  yields template-132.
+- The business then **explicitly repoints the slot**. The surface may offer it at the
+  moment of the copy — *use template-132 for invites?* — but it is a choice, never a
+  consequence. This is the whole of the client's rule applied to platform messages.
+- **Seed-if-absent survives unchanged.** A new tenant's slot is empty; seeding mints
+  the ticket and sets the slot. `ensureTemplates` keeps its job.
+
+**This reverses the two-type recommendation recorded above.** §"A campaign style
+template is not REQ-197's `template` type" split them *because* their identity models
+differed — chosen-by-ticket versus keyed. Superseding newest-wins removes that
+difference: both are chosen by ticket id, both latch on first send, both are copied
+rather than edited. **So it is one type**, and the split loses its premise. The only
+remaining difference is that a system message needs a named slot because no human is
+present when it sends, and a campaign does not because the operator picks at
+composition time.
+
+### Timing: REQ-197's body must not be edited to carry this
+
+**The change is cheap now and will not stay cheap.** Three call sites, no migration,
+nothing on main — this is the least expensive moment this decision will ever have.
+
+**But `ready_to_reconcile` is exactly the state in which that ticket's text is
+committed to.** A reconcile cycle derives its technical design and capability matrix
+from the body; rewriting it underneath produces a matrix describing a spec nobody can
+now read, and nothing reports the discrepancy. That is the hazard framework
+[[EPIC-3]] exists to prevent, and it applies here in full.
+
+So the supersession is recorded **here**, in the epic that owns the design. Landing it
+in REQ-197 goes through whoever owns that cycle — after it reconciles, or by pulling
+it back deliberately — and not by editing the body in place.
