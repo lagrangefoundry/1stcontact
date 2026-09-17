@@ -6,16 +6,24 @@ title: 'values-diff: section-level values are joined by ordinal index, so §n co
   unrelated bands'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:32.864506+00:00'
-updated_at: '2026-09-17T21:52:27.991294+00:00'
+updated_at: '2026-09-17T22:01:52.477327+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-3d422f9d
+  commits:
+  - working_sha: 5e6d1405e781774736dedec31eb9cdfb590c7440
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e6e988e870a639f9d0dc1ef80259292f4d69bbb8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.234
 ---
 
 `tools/generate/src/cli/capture/values-diff.ts:2588–2593` joins the two sides'
