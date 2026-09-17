@@ -3052,8 +3052,21 @@ function emitNode(
       // the browser's grey inside the box. Re-point it at the element's own
       // colour — the reference's placeholder-labelled field then paints from L1
       // like every other run.
+      //
+      // REQ-265 — unless the document says otherwise. `placeholderColor` is the
+      // one painted value a control has that no other axis can hold, and until it
+      // existed this default was the ONLY behaviour: a reference that deliberately
+      // kept the browser's own grey placeholder was unauthorable, because setting
+      // the field's `color` to that grey would have greyed the typed text too.
+      // Absent → the default above, unchanged, so every existing document renders
+      // exactly as it did. `opacity: 1` is kept in both branches: an authored ink
+      // is the composited colour the reference paints, not a value to fade again.
       if (el.tag === 'input' || el.tag === 'textarea') {
-        state.rules.push({ selector: `${selector}::placeholder`, decls: ['color: inherit', 'opacity: 1'] })
+        const placeholder = cssColor(node.axes?.placeholderColor)
+        state.rules.push({
+          selector: `${selector}::placeholder`,
+          decls: [`color: ${placeholder ?? 'inherit'}`, 'opacity: 1'],
+        })
       }
       html = controlHtml(el, cls)
       break
