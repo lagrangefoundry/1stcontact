@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-17T03:41:09.194249+00:00'
+updated_at: '2026-09-17T21:53:08.920813+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,11 @@ What else the body settles:
 - **Test data: one site corpus, two destinations.** [[EPIC-15]] puts canaries in production deliberately; if staging fixtures are authored separately they drift and its open question 7 becomes two problems. Also: `bin/seed`'s safety guard is that `--remote` has to be typed — staging makes typing it a habit, so seeding must *refuse* the production database rather than warn.
 
 I took [[EPIC-15]] §3 at its word and had this epic consume its probes rather than author any; that section was written addressed to this epic before it existed. The one thing I'd push back to it: staging probes need an auth seam to carry a service token, and that's cheaper to say now than after its probe interface settles.
+
+<!-- xgd-turn id="9804a85f-55c1-46f7-8fd1-08db8b0d1fb3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:53:08.709802+00:00" -->
+#### You
+Please check for security updates in your ticket
 
 <!-- xgd-chat-end -->
