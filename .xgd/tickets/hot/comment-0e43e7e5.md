@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-263
 created_by: xgd
 created_at: '2026-09-17T03:13:28.633123+00:00'
-updated_at: '2026-09-17T03:24:33.192206+00:00'
+updated_at: '2026-09-17T03:36:04.945476+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -100,5 +100,11 @@ REQ-160 is `free_coded` in the framework, but `/Users/martin/lagrangefoundry/nod
 I restored the shim before committing, so the worktree left no hand-edited generated file behind.
 
 For completeness on what you'd see today, before the install: 4 of the 10 pass (the declaration assertion and the three "still allowed" cases) and 6 fail — every case asserting a refusal or a `locked` block. That's the stale dependency, not the change.
+
+<!-- xgd-turn id="b46549a4-aaee-4019-8b1d-ab960ab136b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T03:36:04.893581+00:00" -->
+#### You
+I ran bin/install do you have what you need?
 
 <!-- xgd-chat-end -->
