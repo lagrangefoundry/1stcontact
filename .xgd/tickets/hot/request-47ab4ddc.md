@@ -6,9 +6,9 @@ title: 'fold: inline-boxed text runs lose their half-leading, so the glyphs pain
   above the reference'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:21.692738+00:00'
-updated_at: '2026-09-17T22:15:06.583501+00:00'
+updated_at: '2026-09-17T22:15:12.117126+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.238
+  story_points: 5
 ---
 
 Loop 1, iteration 2 of `repro-gigabytealchemy-ai` against the stored reference
