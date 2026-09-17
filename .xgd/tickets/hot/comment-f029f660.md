@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:29:44.722431+00:00'
+updated_at: '2026-09-17T04:32:53.897193+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -363,5 +363,39 @@ Still holding on the doc pending your call — DOC ticket under EPIC-15, or appe
 <!-- xgd-chat role="user" ts="2026-09-17T04:29:44.661401+00:00" -->
 #### You
 Good please update the ticket and write the doc
+
+<!-- xgd-turn id="0dd06d55-d23c-424c-a490-cf3c10db3260-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:32:53.455967+00:00" -->
+#### Claude
+Creating the doc.
+
+DOC-54 created. Linking it from the epic.
+
+Done. **DOC-54 — "The test gutter: how manufactured traffic is marked, hidden, and collected"** (`doc-ae2500ae`, `doc_kind: architecture`, child of EPIC-15). The epic is updated to carry the sweep design, the run id, delete-contact, the testability-out-of-the-gate rule, and links to the doc both ways.
+
+## What's in the doc
+
+**§1 Requirements** — five, each with the observation that falsifies it, because a requirement without a falsifier is an aspiration:
+
+- **R1** traffic marked in flight — signed, unforgeable, carries a run id, rides the request not a route
+- **R2** data marked at rest — derived from context or parent, never passed by a caller, no default of false
+- **R3** excluded from every production read — not just list views; aggregates, exports, metrics, AI context
+- **R4** collected — verify-and-delete on pass, retain on fail, plus the run-ignorant sweep
+- **R5** a business can delete a contact
+
+Plus the non-requirements, recorded so they aren't re-proposed: no separate test route, no short-circuit on the marker, no initiator class, no test-only environment for this.
+
+**§2 Architecture** — against the code as it stands. The marker's shape and the safe-direction rule (a rejected marker degrades to real traffic rather than refusing the submission — a signing bug must not become lost customer data). The run id and why the frozen acknowledgement forces it. Entry via `RESERVED_FIELDS`, the one RPC field on `captureLead`. Migration 0013 across four tables, and the `INSERT … SELECT` derivation already in `recordEvent`. Blob key prefixes. Reads riding `Scope`. Collection in two passes with the cascade, the sweep, and the safety rules. Suppression keyed on the record, with the withdrawn initiator class recorded so it isn't re-derived.
+
+**§2.9** states the failure the architecture *cannot* catch — the sweep collects rows that were marked and not reaped, never rows that were never marked. That's R2's failure, and it's why R2 is the one mechanism that can't be a convention.
+
+**§3 Implications for clients** — read as *callers*, since that's where the cost lands: write a record, read for a customer, add a table hanging off a contact, write blobs, declare a notification. Plus a per-epic table. The line I'd most want read: aggregates and exports are the ones that get forgotten, because they don't look like "views".
+
+**§4 Sequencing** — your order with the baseline argument, the two distinct claims (*it still works* vs *the tests are transparent*), and the five assertions.
+
+**§6 Open decisions** — six, of which two matter before code: run id transport, and whether `Scope` grows a field. That second one is a real call — adding to `Scope` gets the impossible-to-forget property, but `Scope` is deliberately a one-field interface with a written rationale for being exactly that, which would need amending rather than ignoring.
+
+Nothing is built. The epic records that the gutter work doesn't start until EPIC-10 is working and tested.
 
 <!-- xgd-chat-end -->
