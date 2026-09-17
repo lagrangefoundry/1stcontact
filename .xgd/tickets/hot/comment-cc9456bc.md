@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-265
 created_by: xgd
 created_at: '2026-09-17T21:35:29.264314+00:00'
-updated_at: '2026-09-17T22:15:40.544174+00:00'
+updated_at: '2026-09-17T22:23:29.329768+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -130,5 +130,11 @@ I deviated from both options the ticket proposed: the correction landed in the p
 - **4 failures are pre-existing**, confirmed by running them on a clean `xgd-working`: `capture.test.ts` (×2), `reconciliation-l1-fold.test.ts`, `req83-capture-to-l1-fold.test.ts` — all the same `driverFactory was not supplied` class, unrelated to this change.
 
 `xgd-working` raced ahead to 0.2.237 mid-session, so I rebased and re-bumped to 0.2.238 with the bump amended into the tip commit. Commit `f4e70654d9`, 5 story points, parked at `free_coded` for you to promote when ready.
+
+<!-- xgd-turn id="fde2de0f-1807-47f3-b44b-7f9680306b3e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:23:28.675125+00:00" -->
+#### You
+Go I need to restart the repro server to pick this change up?
 
 <!-- xgd-chat-end -->
