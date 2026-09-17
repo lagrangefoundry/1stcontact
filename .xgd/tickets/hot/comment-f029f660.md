@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T03:23:30.447172+00:00'
+updated_at: '2026-09-17T03:25:37.820894+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -133,5 +133,31 @@ ok good - so we need garbage collection too. So in general:
 4) garbage collection that ensures that test data is cleaned up after a test is complete and the results are checked - perhaps it happens at the same time - check the data and delete it
 
 Note: I am just about to add an epic for automated deployment that will likely use these tests. I think we will need a production environment (eventually)
+
+<!-- xgd-turn id="57c1df5e-eddc-4597-b4ad-132d7e3263e6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T03:25:37.659262+00:00" -->
+#### Claude
+Environments grounded: `bin/deploy` already takes `--env` (defaults to `production`), but only `[env.production]` is actually defined — the seam exists, the second environment doesn't. Now restructuring §1 around your four mechanisms.
+
+Your four mechanisms are now the normative form of §1, quoted verbatim with what each requires in this codebase underneath. Three things came out of writing them up that weren't in my earlier version:
+
+**Your GC refinement is better than what I had, and it replaces it.** Verify-and-delete as one step makes steady-state synthetic volume *the number of probes in flight* rather than *days of accumulated debris* — that removes the bloat question rather than managing it. But it doesn't remove the sweeper, and the two cases where it doesn't are worth designing for: **delete on pass, retain on fail** (the partial record is the diagnostic — how far the flow got is most of what makes "your form is broken" actionable), and orphans from probes that never returned a verdict at all. So: lifecycle-driven collection, time-based backstop. Falsifier: a synthetic row older than the longest probe timeout whose probe passed.
+
+**(2) has a non-obvious half that's where a naive implementation leaks.** Async continuations have no request context — a delivery webhook arriving 30s later is a different request carrying no marker. It knows it's synthetic because the *record it attaches to* is. So the rule is: in-flight marker where there is one, parent's flag where there isn't, never a default of false. The precedent is exact — `contact_events.business_id` is already "derived from the contact and never supplied," every insert an `INSERT ... SELECT`. Same mechanism, same reason.
+
+Also on (2): **blobs have no `WHERE` clause**, so the mark goes in the R2 key as a reserved prefix, not object metadata — which makes the GC sweep a prefix listing and an accidental exposure greppable.
+
+**(3) and (4) turn out to be coupled in a useful way.** Since verification is a read of synthetic rows, the "show synthetic" escape hatch has *exactly one legitimate caller* — the verifier. That means any other consumer of it is a bug detectable by inspection, which is the strongest guarantee available for a rule otherwise enforced by discipline.
+
+## On deployment and environments
+
+Grounded this before writing it: `bin/deploy` already takes `--env`, defaults to `production`, and documents `--env staging` in its own usage — but only `[env.production]` is defined in either `wrangler.toml`. **The seam exists, the environment doesn't**, so a second one is configuration rather than architecture.
+
+The warning I'd most want in front of the deployment epic: **staging probes cannot be the deploy gate.** Staging has different DNS, no real MX, test ESP credentials, no real connected accounts — so the flows BFM exists for are *precisely the ones that differ between environments*. Staging probes catch code regressions and are structurally incapable of catching config and integration failures. A deployment epic will be tempted to conflate them because it's much cheaper, and the failure is silent: a green gate that never tested the thing that breaks.
+
+Corollary: **the canary tier is not a staging environment.** It's real production, real DNS, real credentials, against sites we happen to own — which is what makes synthetic traffic there both safe and meaningful. So the gate is two-phase, and only the second phase needs the rollback story.
+
+I've added a Boundaries entry pointing deploy/rollback/progressive-rollout at your new epic, and left it unnamed since you haven't cut it yet — say the word once it has an ID and I'll link it both ways.
 
 <!-- xgd-chat-end -->
