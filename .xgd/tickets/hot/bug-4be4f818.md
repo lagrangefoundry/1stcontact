@@ -6,9 +6,9 @@ title: 'values-diff / gate: the reproduction-side value manifest is computed and
   with no flag to write it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:38.410536+00:00'
-updated_at: '2026-09-17T02:59:38.410536+00:00'
+updated_at: '2026-09-17T03:00:50.245110+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: medium
@@ -91,3 +91,7 @@ exists only inside the process.
 straight back through `--actual` reproduces the same report with no browser.
 
 Found while diagnosing loop-1 iteration 2 of `repro-gigabytealchemy-ai`.
+
+**Companion:** **BUG-102** is the delta this blocked a round from closing
+(`values-diff` joins section-level values by ordinal index). **BUG-101** is why
+the commands above redirect `1c page get` to a file rather than piping it.
