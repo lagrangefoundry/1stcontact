@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T00:17:02.993189+00:00'
+updated_at: '2026-09-17T00:35:11.014514+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -356,5 +356,11 @@ Everything it depends on is now in place. I have three concrete findings to brin
 3. **One sentence I wrote in `INDEX.md` is badly worded** — *"read whole it is far larger than a round should spend"*. Cosmetic, but the round reads it every time. I'd fold it into the prompt-review commit rather than spend a whole free-coding cycle on one sentence.
 
 Say when, and I'll bring the keeps/moves/drops table for the brief.
+
+<!-- xgd-turn id="c8d972d3-b22a-4f69-97b2-cb5f8ae16c4d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T00:35:08.886546+00:00" -->
+#### You
+can you point me at the prompt file?
 
 <!-- xgd-chat-end -->
