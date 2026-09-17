@@ -54,9 +54,16 @@ import {
 } from './ai'
 import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
-import { spawnCommand, type CommandRunner } from './run'
+import { parseJsonOutput, spawnCommand, type CommandRunner } from './run'
 import { gapForClass, readGaps, recordGap } from './gaps'
-import { TICKET_STATUS, readyStatusSnapshot, readyStatusViolations, type ReadyTicket } from './ticket'
+import {
+  ROUND_CREATED_BY,
+  TICKET_STATUS,
+  filedByRound,
+  readyStatusSnapshot,
+  readyStatusViolations,
+  type ReadyTicket,
+} from './ticket'
 import { buildSessionKb, type SessionKbResult } from './session-kb'
 import type { RailRoundResult } from './rail-round'
 
@@ -764,7 +771,10 @@ export class ReproConsole {
     read.push(gap)
     outcome.ticketStatus = gap.status
     if (!gap.found) problems.push(`could not read ${gap.id} back, so its status is unverified.`)
-    else if (gap.status !== TICKET_STATUS) problems.push(wrongStatus(gap))
+    else {
+      if (gap.status !== TICKET_STATUS) problems.push(wrongStatus(gap))
+      problems.push(...wrongProvenance(gap))
+    }
 
     // Secondary `1c` defects, read back the same way and to the same standard —
     // they are peers as tickets even though they are secondary as findings.
@@ -772,7 +782,10 @@ export class ReproConsole {
       const bug = await this.readTicket(id)
       read.push(bug)
       if (!bug.found) problems.push(`could not read ${bug.id} back, so its status is unverified.`)
-      else if (bug.status !== TICKET_STATUS) problems.push(wrongStatus(bug))
+      else {
+        if (bug.status !== TICKET_STATUS) problems.push(wrongStatus(bug))
+        problems.push(...wrongProvenance(bug))
+      }
     }
     outcome.ticketsRead = read
 
@@ -811,12 +824,37 @@ export class ReproConsole {
     return problems
   }
 
-  /** One ticket, as `xgd` reports it. Never throws — see {@link confirm}. */
+  /**
+   * One ticket, as `xgd` reports it. Never throws — see {@link confirm}.
+   *
+   * PARSED, NOT SCRAPED ([[BUG-104]]). This read `Status:` out of the human
+   * rendering with a regex, which worked and was never going to reach
+   * `created_by` — that field is not in the human output at all. `--json` puts
+   * both in one document under `frontmatter`, so the provenance check arrives
+   * and the status check stops depending on the shape of a log line.
+   *
+   * UNREADABLE IS ITS OWN ANSWER. A refusal, a parse failure and a document
+   * with no status in it all come back `found: false` with empty fields, which
+   * {@link confirm} reports as unverified. It must never read as a provenance
+   * failure: "the console could not look" and "the round filed under the wrong
+   * name" are different findings and a reader has to be able to tell them
+   * apart.
+   */
   private async readTicket(id: string): Promise<ReadTicket> {
-    const result = await this.runCommand('xgd', ['ticket', 'get', id], this.cwd).catch(() => null)
-    if (!result || result.code !== 0) return { id, status: '', found: false }
-    const status = /Status:\s*(\S+)/.exec(result.stdout)?.[1]
-    return status ? { id, status, found: true } : { id, status: '', found: false }
+    const unread: ReadTicket = { id, status: '', createdBy: '', found: false }
+    const result = await this.runCommand('xgd', ['ticket', 'get', id, '--json'], this.cwd).catch(() => null)
+    if (!result || result.code !== 0) return unread
+    try {
+      const doc = parseJsonOutput<{ frontmatter?: { status?: string; created_by?: string } }>(
+        result.stdout,
+        'xgd ticket get --json',
+      )
+      const status = doc.frontmatter?.status
+      if (!status) return unread
+      return { id, status, createdBy: doc.frontmatter?.created_by ?? '', found: true }
+    } catch {
+      return unread
+    }
   }
 
   /**
@@ -1100,6 +1138,24 @@ const LIVE_TAIL_CHARS = 20_000
 
 function tail(text: string): string {
   return text.length <= LIVE_TAIL_CHARS ? text : `…\n${text.slice(-LIVE_TAIL_CHARS)}`
+}
+
+/**
+ * A read-back whose `created_by` does not say a round filed it ([[BUG-104]]).
+ *
+ * Returns nothing in the ordinary case, so it composes into the problem list
+ * without a conditional at every call site. Only reached for a ticket that was
+ * READ — an unreadable one is already reported as unverified, and reporting it
+ * twice under two different headings would say the console found two problems
+ * where it found one.
+ */
+function wrongProvenance(ticket: ReadTicket): string[] {
+  if (filedByRound(ticket.createdBy)) return []
+  return [
+    `${ticket.id} was filed as '${ticket.createdBy || '(nothing)'}', not as '${ROUND_CREATED_BY}:<slug>#<n>'. ` +
+      `A round's ticket that carries the operator's identity is an unreviewed machine diagnosis wearing a ` +
+      `human's name — pass \`--created-by\` to \`xgd ticket create\`, see the brief §6.`,
+  ]
 }
 
 /** One read-back that came out at the wrong status, said in one line. */

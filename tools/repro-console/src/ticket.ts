@@ -18,6 +18,44 @@ import { parseJsonOutput, type CommandRunner } from './run'
 /** The status every ticket a round creates is expected to carry, and the only one. */
 export const TICKET_STATUS = 'draft'
 
+// ── the provenance assertion ([[BUG-104]]) ───────────────────────────────────
+
+/**
+ * The marker every ticket a round files carries in `created_by`.
+ *
+ * WHY THERE IS A MARKER AT ALL. `xgd ticket create` with no `--created-by`
+ * resolves the identity itself, and for a round the resolution falls all the way
+ * through to `git config user.email` — the operator's. So every ticket any round
+ * has filed reads as though a human wrote it, and nothing in the store separates
+ * an unattended machine diagnosis from the operator's own words. That is the one
+ * place this loop's authority is invisible, and it is invisible in the direction
+ * that matters.
+ *
+ * The brief (§6) asks for `repro-console:<slug>#<iteration>`, which is strictly
+ * more useful in a ticket list than the bare marker and costs the round nothing
+ * — it is handed both in its own prompt.
+ */
+export const ROUND_CREATED_BY = 'repro-console'
+
+/**
+ * Was this ticket filed by a round?
+ *
+ * A PREFIX, NOT THE EXACT RUN. The console knows this round's slug and
+ * iteration and could demand the literal string back — and deliberately does
+ * not, for two reasons. An APPENDED ticket was filed by some EARLIER round, so
+ * its run qualifier is legitimately a different one; demanding this round's
+ * would report a violation on a round that did exactly as it was told. And the
+ * qualifier is free text an LLM types, so an abbreviated slug would fail an
+ * exact match while being no kind of provenance failure. The boundary worth
+ * checking is machine-versus-human, and the marker is that boundary exactly.
+ *
+ * The separator is required so that a `created_by` which merely STARTS with the
+ * marker — `repro-console-operator@example.com` — does not pass as one.
+ */
+export function filedByRound(createdBy: string): boolean {
+  return createdBy === ROUND_CREATED_BY || createdBy.startsWith(`${ROUND_CREATED_BY}:`)
+}
+
 // ── the `ready_*` assertion ([[REQ-262]] requirement 11) ─────────────────────
 
 /**

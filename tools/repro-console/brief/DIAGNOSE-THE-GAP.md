@@ -189,7 +189,9 @@ them, **append to that ticket** and report `"status": "appended"`.
 
 If you trip over a defect in the console, in this brief, in the CLI — file it as
 a `bug`, separately, to the same standard of evidence. It is worth having and it
-must never be folded into a gap ticket.
+must never be folded into a gap ticket. It is a ticket you file, so it carries
+`--created-by 'repro-console:<slug>#<iteration>'` exactly as the gap ticket does
+(§6) — the console reads these back to the same standard.
 
 But it is not what you are for. A round that files three `1c` bugs and names no
 residual class has missed.
@@ -202,10 +204,21 @@ Run `xgd ticket create` yourself:
 
 ```
 xgd ticket create --type request \
+  --created-by 'repro-console:<slug>#<iteration>' \
   --title 'fold: background gradient direction is dropped' \
   --fields '{"status":"draft"}' \
   --body-file <a file you wrote>
 ```
+
+**`--created-by` is not optional, and it is not decoration.** Without it `xgd`
+falls back to `git config user.email` — the operator's identity on the checkout
+you happen to be running in — so a ticket you wrote unattended arrives claiming
+a human wrote it. That is the one place this round's authority is invisible in
+the ticket store, and it is invisible in the direction that matters. Take
+`<slug>` and `<iteration>` from **This round** below: for iteration 3 of
+`joyfulculinarycreations` the value is `repro-console:joyfulculinarycreations#3`.
+The console reads every ticket you name back and reports a ticket that does not
+carry it.
 
 Use `--body-file`, not `--body`. The body is multi-line markdown quoting values
 out of JSON, and passing that as one argument makes its correctness a question

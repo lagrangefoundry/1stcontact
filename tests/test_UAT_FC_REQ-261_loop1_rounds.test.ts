@@ -59,6 +59,7 @@ import {
   slugForUrl,
 } from '../tools/repro-console/src/console'
 import type { CommandRunner } from '../tools/repro-console/src/run'
+import { xgdTicketGetJson, type XgdTicketGetOptions } from './support/xgd-ticket-get'
 import type { IterationStep, StepResult, StepRunner } from '../tools/repro-console/src/iteration'
 import { startReproConsole, type ConsoleHandle } from '../tools/repro-console/src/server'
 
@@ -184,7 +185,7 @@ function fakeAi(log: AiLog, outcome: AiOutcome | ((call: number) => AiOutcome), 
 
 interface CommandOptions {
   log?: string[][]
-  ticket?: string
+  ticket?: XgdTicketGetOptions
 }
 
 /** What the machine answers. Every `xgd ticket create` gets its own id. */
@@ -202,7 +203,7 @@ function fakeCommands(opts: CommandOptions = {}): CommandRunner {
       }
     }
     if (command === 'xgd' && args[1] === 'update') return { code: 0, stdout: 'Updated', stderr: '' }
-    if (command === 'xgd') return { code: 0, stdout: opts.ticket ?? 'Status: draft\nTitle: a ticket', stderr: '' }
+    if (command === 'xgd') return { code: 0, stdout: xgdTicketGetJson(opts.ticket), stderr: '' }
     return { code: 0, stdout: 'rail: no worse', stderr: '' }
   }
 }

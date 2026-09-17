@@ -54,12 +54,21 @@ export type AiStatus = 'running' | 'filed' | 'appended' | 'no-gap' | 'stopped' |
 export const CLAIMABLE_STATUSES: readonly AiStatus[] = ['filed', 'appended', 'no-gap', 'stopped']
 
 
-/** A ticket the console really created, as xgd named it. */
+/** A ticket the round really filed, as xgd reports it. */
 export interface ReadTicket {
   /** What the round said it created. */
   id: string
   /** The status it really carries, or why it could not be read. */
   status: string
+  /**
+   * Who `xgd` recorded as having filed it ([[BUG-104]]).
+   *
+   * The only field in the store that separates "an unattended round wrote this"
+   * from "the operator wrote this", so it is read back beside the status rather
+   * than taken on trust. Empty when the ticket could not be read at all —
+   * which is `found: false`, a different outcome from wrong provenance.
+   */
+  createdBy: string
   /** Absent when `xgd` would not answer about it at all. */
   found: boolean
 }

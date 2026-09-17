@@ -43,6 +43,7 @@ import { parseTicketRef } from '../tools/repro-console/src/ticket'
 import { RAIL_ENV, ROUND_PHASES, runRailRound, summarise } from '../tools/repro-console/src/rail-round'
 import type { RailReport } from '../tools/repro-console/src/rail'
 import type { CommandRunner } from '../tools/repro-console/src/run'
+import { xgdTicketGetJson, type XgdTicketGetOptions } from './support/xgd-ticket-get'
 import type { IterationStep, StepResult, StepRunner } from '../tools/repro-console/src/iteration'
 import {
   AI_DIR,
@@ -154,8 +155,8 @@ function fakeAi(
 interface CommandOptions {
   /** `git status --porcelain`, in call order. The round runs between them. */
   git?: string[]
-  /** What `xgd ticket get` says. */
-  ticket?: string
+  /** What `xgd ticket get --json` reports about the ticket read back. */
+  ticket?: XgdTicketGetOptions
   ticketCode?: number
   /** Make `xgd ticket create` / `--append-body-file` refuse. */
   createCode?: number
@@ -184,7 +185,7 @@ function fakeCommands(opts: CommandOptions = {}): CommandRunner {
     }
     if (command === 'xgd' && args[1] === 'update') return { code: opts.appendCode ?? 0, stdout: 'Updated', stderr: '' }
     if (command === 'xgd') {
-      return { code: opts.ticketCode ?? 0, stdout: opts.ticket ?? 'Status: draft\nTitle: fold: a gap', stderr: '' }
+      return { code: opts.ticketCode ?? 0, stdout: xgdTicketGetJson(opts.ticket), stderr: '' }
     }
     return { code: 0, stdout: 'rail: no worse', stderr: '' }
   }
@@ -324,7 +325,7 @@ describe('REQ-256 the AI round', () => {
     const asked: string[][] = []
     const f = await startConsole({
       ai: fakeAi(log, FILED),
-      commands: fakeCommands({ log: asked, ticket: 'Status: draft\nTitle: fold: gradient direction is dropped' }),
+      commands: fakeCommands({ log: asked, ticket: { status: 'draft', title: 'fold: gradient direction is dropped' } }),
     })
     await reproduce(f)
 
@@ -344,7 +345,7 @@ describe('REQ-256 the AI round', () => {
     const ticket = await get(f, '/iteration/1/ticket')
     expect(ticket.status).toBe(200)
     expect(await ticket.text()).toContain('fold: gradient direction is dropped')
-    expect(asked).toContainEqual(['xgd', 'ticket', 'get', 'REQ-263'])
+    expect(asked).toContainEqual(['xgd', 'ticket', 'get', 'REQ-263', '--json'])
 
     // The round's claim, and the class it named, are on the page too.
     expect(html).toContain('fold-drops-gradient-direction')
@@ -492,12 +493,12 @@ describe('REQ-256 the AI round', () => {
     const asked: string[][] = []
     const f = await startConsole({
       ai: fakeAi({ prompts: [], calls: 0 }, FILED),
-      commands: fakeCommands({ log: asked, ticket: 'Status: draft\nTitle: fold: gradient direction is dropped' }),
+      commands: fakeCommands({ log: asked, ticket: { status: 'draft', title: 'fold: gradient direction is dropped' } }),
     })
     await reproduce(f)
 
     expect(asked.filter((call) => call[0] === 'xgd' && call[2] === 'create')).toHaveLength(0)
-    expect(asked).toContainEqual(['xgd', 'ticket', 'get', 'REQ-263'])
+    expect(asked).toContainEqual(['xgd', 'ticket', 'get', 'REQ-263', '--json'])
     expect(await page(f)).toContain('the gap ticket (REQ-263)')
 
     // A ticket the round named but that cannot be read back is a violation, not
@@ -541,7 +542,7 @@ describe('REQ-256 the AI round', () => {
     const log: AiLog = { prompts: [], calls: 0 }
     const f = await startConsole({
       ai: fakeAi(log, FILED),
-      commands: fakeCommands({ ticket: 'Status: ready_to_implement\nTitle: fold: a gap' }),
+      commands: fakeCommands({ ticket: { status: 'ready_to_implement' } }),
     })
     await reproduce(f)
 
