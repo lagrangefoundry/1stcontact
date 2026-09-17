@@ -5,7 +5,7 @@ type: epic
 title: User Notifiations
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T00:22:56.755347+00:00'
-updated_at: '2026-09-17T00:44:21.170877+00:00'
+updated_at: '2026-09-17T01:53:20.691209+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -61,6 +61,31 @@ across a dozen producers they become a class of bug with no symptom: *"I never
 got an email"* is unanswerable, and the worst case is not a missing lead alert
 but a customer who can no longer receive a sign-in link and nothing anywhere
 says so.
+
+## Where the focus is
+
+**The first pass is 1st Contact's own notifications to our level-1 customers**, and
+the bigger picture above is held rather than built. That means, concretely:
+
+- The producer is an event in the product — a form submission, a DNS verdict, a
+  payment — and the recipient is a **member of the 1st Contact business**: Alice,
+  who signed up and has a Settings tab.
+- The audience resolver exercised is `operators` (§3), and because level is a
+  position rather than a property the same declaration reaches us on our own
+  business the moment we are the ones with the lead.
+- Both control surfaces are built, because the fine-grained one is what the client
+  asked for and the coarse one already half exists.
+- **Level 2 is designed for and not built.** §2 gives the structural reason it
+  waits, which is stronger than "we have not decided which ones": a level-2
+  notification needs a level-2 *member*, and a business's own sign-up flow is
+  barely a thing yet.
+
+This focus decides what is *implemented*, not what is *modelled*. Every rule below
+is written so that the level-2 case is a set of registry entries and a portal
+pane rather than a second code path — which is [[DOC-40]] §2.1 rule 1's named
+failure mode, and the one thing this epic cannot afford to get wrong, because a
+platform-only notification framework would have to be rewritten to serve the
+customers it was built for.
 
 ## What exists today, verified
 
@@ -141,6 +166,9 @@ rather than reinvented.
 - **There is no address a phone could live at.** `user_emails` is email-only by
   name and by CHECK, and there is no `phone` column anywhere in the schema —
   [[DOC-42]] §4.1 already records this as a gap that bites hardest at level 2.
+- **Nothing can ask whether a notification *would* arrive.** There is no
+  reachability question anywhere, which is the primitive the contextual prompt
+  turns on.
 - **`List-Unsubscribe` is deliberately absent.** `MAIL.md` §4 defers it as
   *"incoherent on a sign-in link the recipient asked for thirty seconds ago"*,
   and says it becomes right *"if this platform ever sends marketing mail"*. This
@@ -187,7 +215,44 @@ a customer's notification copy is the customer's.
 **Falsifier:** a notification raised under a key nobody declared; a control label
 spelt at a call site; a `switch` on the key anywhere but the registry.
 
-### 2. Audience is relational, and there is no level
+### 2. A notification goes to a member, and to nobody else
+
+A **member** is [[DOC-42]] §4's access axis: a contact who has signed up, which
+is `tos_accepted_at` set and written by an act of their own. Not a lead, not a
+form submitter, not somebody we invited and who never answered.
+
+This is a narrowing of the audience resolvers in §3 and it is the constraint that
+makes the rest of this epic coherent, for three reasons that are all the same
+reason:
+
+- **A member has somewhere to put a preference.** They have an account, a portal
+  and a login, so every control in §6 is reachable by them. A stranger who cannot
+  reach any control should not be receiving preference-governed mail — the
+  framework would be claiming to honour a choice they were never able to express.
+- **A member has a relationship worth notifying about.** A notification says
+  *something happened that concerns your standing with this business*. A lead has
+  no standing yet.
+- **A member is erasable through a path that already exists.** Their preferences
+  and their decision records hang off a `users` row that cascades.
+
+**So the things we already send to non-members are not notifications**, and that
+is a statement about what they are rather than an exemption. An invite goes to
+somebody who is by definition not yet a member; a sign-in link and a gated
+download go to whoever just performed the act that asked for them. All three are
+**replies to an act**, addressed to the person who acted, and the distinction is
+sharp enough to build on:
+
+> A **reply** answers something this person just did. A **notification** tells
+> them about something that happened elsewhere, or later, or to somebody else.
+
+A reply consults no preference because there is none to consult — they asked
+thirty seconds ago. A notification always does, unless its class forbids it.
+
+**Falsifier:** a notification type whose audience can resolve to a contact with
+no `tos_accepted_at`; a preference consulted before a reply; the word
+*notification* used for the invite.
+
+### 3. Audience is relational, and there is no level
 
 The client's three levels are the right way to *talk* about this and the wrong
 way to build it. [[DOC-42]] §3 is explicit — *a level is a position, not a
@@ -218,7 +283,7 @@ knowing how deep it is standing.
 **Falsifier:** a `level` field on a notification type; an audience resolver that
 consults `TENANT_ID`; a notification type that exists only for the platform.
 
-### 3. Two classes, and the discipline that keeps the second one small
+### 4. Two classes, and the discipline that keeps the second one small
 
 `informational` consults the recipient's preferences. `transactional` does not —
 which is the client's *"I don't think we offer an opt-out for the second"*, and
@@ -240,14 +305,14 @@ user just requested the whitepapers"* does not: they can read it in the CRM
 whenever they like, and that is exactly why the client picked those two examples.
 
 **And a transactional notification is still not a guarantee of delivery.** It
-skips the preference check and nothing else — §4's third suppression still
+skips the preference check and nothing else — §5's third suppression still
 applies to it, and pretending otherwise is how a lockout becomes invisible.
 
 **Falsifier:** a class argument on the raise call; a transactional type whose
 withholding costs the recipient nothing; a producer that can promote its own
 notification's class.
 
-### 4. Three suppressions, and they are not the same thing
+### 5. Three suppressions, and they are not the same thing
 
 They arrive from three different places, mean three different things, and have
 three different remedies. Conflating any pair produces a silent failure, so the
@@ -265,7 +330,7 @@ this, expect it to be wrong until T"*) and [[EPIC-13]] §5's synthetic traffic
 the raiser knows and the framework cannot infer, so they travel as flags on the
 raise and are honoured in one place rather than re-implemented per producer.
 
-**Preference suppression** is §5 and §6.
+**Preference suppression** is §6 and §7.
 
 **Address suppression** is the existing bounce/complaint rule, generalised from
 `lead.ts` to every send. It overrides the class, because a hard bounce is the
@@ -277,14 +342,14 @@ every sign-in link.
 suppressed address**, and it must be loud rather than silent: recorded as a
 refusal with its reason, visible on the contact's record, and raised to the
 operators as its own notification. The person on the other end of it cannot log
-in and cannot be told why by mail. §9 OQ3 is the channel that would actually
+in and cannot be told why by mail. OQ3 is the channel that would actually
 reach them.
 
 **Falsifier:** one suppression check that answers all three questions; a
 transactional send that bypasses the address check; a producer flag that some
 producers honour and others do not.
 
-### 5. Control lives in two places, and both are about a person
+### 6. Control lives in two places, and both are about a person
 
 The client's split is right and the two surfaces are for two different moments.
 
@@ -313,7 +378,7 @@ exist.
 registry; a coarse switch that a fine-grained one can override; a transactional
 type rendered with a toggle.
 
-### 6. A preference is a preference acceptance, and absence means the default
+### 7. A preference is a preference acceptance, and absence means the default
 
 Notification preferences go in `user_acceptances` as `preference`-type keys.
 Nothing new is needed, and three properties of that table are exactly right for
@@ -337,7 +402,7 @@ them apart is not a consent record.
 contact per type (which is both an N×M write and [[DOC-42]] §5's *"a constant
 that can go missing"*); any reader that treats a missing row as *off*.
 
-### 7. Channel is chosen at delivery, and the raise never names one
+### 8. Channel is chosen at delivery, and the raise never names one
 
 A raise names a type, a cause and a recipient. A **channel resolver** then asks,
 per recipient: which channels does this type allow, which of them can this person
@@ -351,6 +416,34 @@ is who calls it.
 **Falsifier:** a producer that names a channel or composes a subject line; a
 notification type whose per-channel copy is authored in code; `SendEmail` imported
 anywhere outside the email adapter.
+
+### 9. A flow may ask in advance whether a notification would arrive
+
+The decision in §5 is normally taken at send time, once, and recorded. It is also
+worth **asking ahead of time**, by the flow that is about to depend on it: *if I
+raise `domain.ready` for this person, will it reach them?*
+
+It must be the **same code** that answers both, or the two disagree and the
+product starts telling people things about their own settings that are not true.
+So the probe is the decision function run without sending, and it returns the
+reason rather than a boolean — the reasons are §5's, and they want different
+things said about them:
+
+| Reason | What is true | What to offer |
+| --- | --- | --- |
+| would arrive | nothing to say | nothing |
+| preference is off | they switched it off, or never switched it on | turn it on |
+| no address for any allowed channel | we have no way to reach them | add one |
+| address suppressed | mail to them bounces or was reported | **a different address** — a preference cannot fix this |
+
+The fourth row is the reason this is a typed reason and not a boolean. A prompt
+that offers *"turn notifications on and we'll tell you when your domain is
+ready"* to somebody whose address is burned has made a promise the system cannot
+keep, and it is the most confident-sounding lie the framework could tell.
+
+**Falsifier:** a probe that reproduces the decision logic instead of calling it; a
+probe that returns true/false; any surface that offers a preference toggle as the
+remedy for a suppressed address.
 
 ## Scope
 
@@ -399,7 +492,51 @@ separate table from `login_tokens` rather than one with a `purpose` column.
 At minimum a per-`(recipient, type)` cap over a window, because the concrete
 hazard is not gradual growth — it is one afternoon of form spam turning into four
 hundred emails from a domain that also delivers our logins. Coalescing and digests
-are §9 OQ5.
+are OQ5.
+
+### 7. The contextual prompt
+
+**The feature:** when a person starts a flow whose payoff arrives later by
+notification, and §9's probe says it would not reach them, the flow may raise a
+prompt at the moment it is relevant — *"turn this on and we'll tell you when your
+new domain is ready."*
+
+It is the answer to a specific failure: notifications off is a perfectly
+reasonable standing choice that becomes the wrong choice for the twenty minutes
+somebody is waiting on a DNS cutover, and the only moment they would ever think
+about it is the moment they press the button. A settings pane cannot reach that
+moment; only the flow can.
+
+Six rules, and each one is there because the obvious version of this feature
+breaks it:
+
+1. **The flow decides where, the framework decides whether.** The flow picks the
+   moment — it is the only thing that knows when the request has been made and the
+   waiting has started. Whether the prompt appears at all is §9's probe, never the
+   flow's own guess at a preference.
+2. **It names the notification, in that notification's words.** Not *"enable
+   notifications"*. So the registry carries a **promise** string written for
+   exactly this sentence — *"when your new domain is ready"* — beside the control
+   label, because a prompt and a control that describe the same type differently
+   is how somebody turns the wrong thing on.
+3. **One click grants that one type.** Not everything. Turning the whole category
+   on to get one thing is the move people resent, and resenting the prompt is how
+   a useful prompt becomes the cookie banner.
+4. **If the coarse switch is what is blocking, say so.** §6 makes it an AND, so
+   granting the single type changes nothing while the master switch is off — and
+   flipping the master switch starts delivering every other default-on type too.
+   That is a real consequence and the prompt states it in words; it does not
+   quietly flip it and it does not silently fail.
+5. **It never blocks the flow.** The domain gets configured whether they answer,
+   dismiss, or ignore it. A modal that gates the work would make the notification
+   feel like a toll.
+6. **Dismissal is an answer and is recorded**, and the prompt does not return for
+   that person and that type. Asking twice is asking for a no.
+
+It is a surface in an app, so it exists at levels 0 and 1 and has no level-2 form
+at all — Bob has no app to be prompted in ([[DOC-42]] §1). That is a limit of the
+mechanism rather than a gap to fill: the level-2 equivalent is the copy on the
+form he is filling in, which is a site edit.
 
 ## Decisions
 
@@ -407,10 +544,11 @@ are §9 OQ5.
 write nobody designed — `builder/acceptances.js`'s own reasoning, which this
 follows rather than restates.
 
-**D2. Audience is relational.** `subject` / `operators` / `platform`, resolved
-from the event. No level anywhere ([[DOC-42]] §3).
+**D2. Audience is relational, and resolves only to members.** `subject` /
+`operators` / `platform`, resolved from the event, and every one of them filtered
+to contacts who have signed up (§2). No level anywhere ([[DOC-42]] §3).
 
-**D3. Class is on the type, not on the raise**, and is decided by §3's test.
+**D3. Class is on the type, not on the raise**, and is decided by §4's test.
 
 **D4. The three suppressions stay three**, applied in order, each recorded with
 its own reason.
@@ -420,21 +558,38 @@ type's declared default.
 
 **D6. The coarse switch is an AND over the fine-grained ones.**
 
-**D7. The three identity messages become transactional notification types in the
-same pass.** `invite`, `signin` and `lapsed` are notifications in everything but
-name, and leaving them beside the framework would leave two ledgers, two
-suppression stories and two answers to *what have we sent this person*. Routing
-them through it is cheap precisely because transactional consults no preference —
-and XGD's simplicity mandate makes this the choice rather than an option: the new
-path replaces the old rather than sitting next to it.
+**D7. The identity messages stay outside the notification layer — amended.** An
+earlier draft of this decision absorbed `invite`, `signin` and `lapsed` as
+transactional notification types, to get one ledger and one suppression check.
+**§2 overturns it.** An invite by definition goes to somebody who is not a member;
+a sign-in link and a gated download go to whoever just performed the act that
+asked for them. They are **replies**, and making a reply a notification would mean
+the audience resolver had to admit non-members — which is the one thing §2
+forbids, and it would forbid it for the sake of tidiness rather than for a reader.
 
-The risk is named and closed by construction: **a sign-in link must never be
-withheld because of a preference**, and it cannot be, because its class forbids
-consulting one.
+**What the earlier draft was right about is kept, and it needs no reversal**: the
+one ledger and the one address-suppression check live in the **delivery** layer,
+below both. `sendRecordedEmail` stays the single way an email leaves the building
+and the single place the address check is made. A notification is one caller of
+it; a reply is another. One path, several callers — which is already true today
+across `invites.ts`, `sessions.ts` and `lead.ts`.
 
-**D8. `MAIL.md`'s `List-Unsubscribe` deferral expires here.** That deferral was
-conditional on this platform never sending bulk mail, and an informational
-notification stream is bulk mail in the sense the bulk-sender rules mean.
+So the risk the earlier draft closed by construction is closed more simply: **a
+sign-in link cannot be withheld by a preference** because it never reaches the
+layer that consults one.
+
+**D8. `MAIL.md`'s `List-Unsubscribe` deferral expires here, and the unauthenticated
+token is demoted.** The deferral was conditional on this platform never sending
+bulk mail, and an informational notification stream is bulk mail in the sense the
+bulk-sender rules mean — so the header pair is required regardless.
+
+**What §2 changes is the token behind it.** An earlier draft made the token the
+only route, on the grounds that a level-2 form submitter has no session and may
+never have one. Under §2 that person receives no notifications at all, so every
+recipient is a member with a login and a portal, and the control is always
+reachable the ordinary way. The token therefore exists for *one-click*, which a
+login-gated link is not, and not because there is no other route — a smaller claim
+on a smaller mechanism.
 
 **D9. Informational notifications must not share their return path with
 sign-in.** `messages.ts` already names the failure — complaints degrade the
@@ -445,9 +600,16 @@ separate reputation."* For a level-2 notification the domain at risk is the
 them and puts this squarely against [[EPIC-13]]'s *never break the business's
 mail*.
 
-**D10. Nothing is built for push or SMS.** Not an adapter, not a stub, not a
-disabled config key. What is owed to them is the seam and §7's falsifier; what
-they actually need before they can exist is §"Before another channel can exist".
+**D10. The contextual prompt is part of the framework, not of the flow that shows
+it.** The registry carries the promise string, §9's probe decides whether to
+appear, and the prompt component is shared; a flow supplies the moment and nothing
+else. Each flow writing its own would produce as many answers to *have you got
+notifications on* as there are flows, and they would drift apart in the direction
+of optimism.
+
+**D11. Nothing is built for push or SMS.** Not an adapter, not a stub, not a
+disabled config key. What is owed to them is the seam and §8's falsifier; what
+they actually need before they can exist is the section below on other channels.
 
 ## Before another channel can exist
 
@@ -477,6 +639,10 @@ delivery adapter.
 - **The rest of the Settings tab** → [[EPIC-4]]. The notification pane is this
   epic's; the pane pattern is that one's.
 - **The events that cause billing notifications** → [[EPIC-9]].
+- **The flows that show the contextual prompt** → [[EPIC-5]] and [[EPIC-6]] own the
+  cutover and purchase flows and choose the moment. This epic owns the probe, the
+  promise string and the component; a flow that reimplemented any of the three
+  would be the thing D10 exists to prevent.
 - **The contact timeline** → [[EPIC-11]] owns the spine. A notification decision
   is a new `kind` on it, which is a code change by that table's design.
 - **Erasure** → [[DOC-37]]. Preferences and decisions cascade on contact delete
@@ -488,15 +654,23 @@ delivery adapter.
 1. **Can an audience be an address that is not a contact?** *"Send enquiries to
    `enquiries@alicesplumbing.com`, not to every operator"* is an ordinary
    small-business want, and a shared mailbox is not a person — it has no
-   preferences, no suppression history and no erasure rights. Allowing it is
-   useful and puts a non-contact in a path that assumes a contact everywhere.
+   preferences, no suppression history and no erasure rights.
+
+   §2 gives the shape of the answer rather than settling it: to receive
+   notifications, be a member. A shared mailbox *can* be one — a contact whose
+   address happens to be read by several people, signed up like anybody else — and
+   that keeps the whole path honest with no non-contact in it. Whether that is the
+   answer we want, or a dodge that will read as absurd the first time somebody has
+   to accept terms on behalf of `enquiries@`, is the open part.
 2. **What are the level-2 notification types?** Explicitly deferred by the
-   client. Candidates, none committed: the artifact they asked for is ready; a
-   reply to their enquiry; a booking made, confirmed or approaching (not built);
-   a receipt (not built); their own sign-in link (exists, and becomes a
-   transactional type under D7).
+   client, and §2 adds a structural reason to be in no hurry: a level-2
+   notification needs a level-2 member, and a business's own sign-up is barely a
+   thing yet. Candidates, none committed: a booking made, confirmed or approaching
+   (not built); a receipt (not built); a reply to a thread they started. Note that
+   the artifact they asked for and their own sign-in link are **replies** under §2
+   and so are not on this list at all.
 3. **Is there an in-product inbox as a channel?** It needs no address, no
-   consent and no deliverability, and it is the only honest answer to §4's
+   consent and no deliverability, and it is the only honest answer to §5's
    hardest case — a person whose every external channel is suppressed. Strong
    candidate; it is also the thing that makes *"we could not reach you"*
    recoverable rather than terminal.
@@ -524,11 +698,11 @@ delivery adapter.
   *"Notification — what happens on a verdict change, with severity, routing
   (operator vs customer) and suppression"* and calls it *"the part most likely to
   be under-built"*. Under this epic it is not built there at all: routing is an
-  audience declaration per check, suppression is §4's producer flag, and severity
+  audience declaration per check, suppression is §5's producer flag, and severity
   is either a class or a property of the check's own verdict. Its
   check/notify framing needs narrowing to check/raise.
 - **[[EPIC-13]] §3's *"consent and opt-out — per-list and per-category"* is the
-  same store as §6's.** Two opt-out surfaces for one person is the failure,
+  same store as §7's.** Two opt-out surfaces for one person is the failure,
   whichever epic builds the second one.
 - **`MAIL.md` §4** records `List-Unsubscribe` as out of scope. D8 supersedes that
   for informational mail; the file should say so where the deferral is stated.
