@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:20:05.083461+00:00'
+updated_at: '2026-09-17T21:27:54.072500+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -469,5 +469,19 @@ The correction: it's deliberately **not** a digest — *"a hash of the row's dat
 Three constants, none gating code: TTL per probe class and the sweep horizon above it; the implausible-harvest threshold (absolute or proportional); where the sweep's count surfaces. All better tuned with the thing in front of you.
 
 The gate on starting is still EPIC-10 being working and tested.
+
+<!-- xgd-turn id="27d7bd9e-b96a-4303-a98b-82cc9e71ff2c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:27:53.846734+00:00" -->
+#### You
+ok so what we need to build today is (1) the guttering (2) one or two tests to demonstrate that the guttering works (not exhaustive tests of the code).
+
+Key questions:
+
+1. Which Epics need additional requirements to get the guttering in place?
+2. What changes are needed to existing code to get the guttering in place?
+3. What work is needed to create the canary tests?
+
+Aside: there is an execution framework question that we have not discussed - how are the tests run? When are they run? How are the results made available, notifications (EPIC-14) etc. Most of this I don't think we care to worry about now except things that would cause is major rework
 
 <!-- xgd-chat-end -->
