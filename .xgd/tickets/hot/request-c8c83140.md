@@ -6,10 +6,10 @@ title: 'The test gutter: a signed marker, marked records, default-excluded reads
   and collection'
 created_by: EPIC-15
 created_at: '2026-09-17T22:01:26.424737+00:00'
-updated_at: '2026-09-17T22:01:26.424737+00:00'
+updated_at: '2026-09-17T23:11:25.211738+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-312f9446
