@@ -39,7 +39,7 @@
  */
 
 import { newId } from '../../../tools/generate/src/store/ids'
-import type { Scope } from './scope'
+import { realOnly, type Scope } from './scope'
 
 /**
  * What this module needs from the environment: a database, and nothing else.
@@ -85,6 +85,32 @@ export interface ContactEvent {
   /** The detail record this event points at, when there is one. Else null. */
   ref: string | null
   detail: Record<string, unknown>
+  /**
+   * Manufactured traffic produced this ([[DOC-54]], [[REQ-267]]).
+   *
+   * REPORTED RATHER THAN FILTERED OUT HERE. A read that asked for the gutter
+   * asked on purpose and needs to be able to tell the two apart on the row; a
+   * read that did not never sees one at all, because {@link eventsOf} excludes
+   * them in SQL. Both halves are needed: filtering without reporting would make
+   * the one surface that may look at test data unable to label it.
+   */
+  synthetic: boolean
+  /** Which probe run produced it, when one did. Null on every real row. */
+  runId: string | null
+  /**
+   * Where to resume from, to read the events BEFORE this one ([[REQ-267]] §8).
+   *
+   * ON THE ROW AND NOT ON A PAGE WRAPPER. The cursor is a property of an event —
+   * *this position in the ordering* — so carrying it here lets a reader page by
+   * handing back the last row it holds, and leaves every existing caller's
+   * return type exactly as it was. A `{events, nextCursor}` envelope would have
+   * been the same information in a shape that breaks every call site to add it.
+   *
+   * OPAQUE, AND THE ONLY THING A CALLER DOES WITH IT IS HAND IT BACK. It encodes
+   * the query's own ordering — `occurred_at` and the row id that breaks its ties
+   * — and nothing outside this module parses it.
+   */
+  cursor: string
 }
 
 /** What a writer says happened. */
@@ -99,6 +125,25 @@ export interface EventSpec {
   occurredAt?: string
   ref?: string | null
   detail?: Record<string, unknown>
+  /**
+   * This event was produced by manufactured traffic ([[REQ-267]] §7).
+   *
+   * THE IN-FLIGHT MARK, AND IT IS THE EXCEPTION RATHER THAN THE RULE.
+   * [[DOC-54]] R2's rule is *in-flight mark where there is one, parent's mark
+   * where there is not, never a default of false* — and for almost everything
+   * that writes here the parent is the whole answer, which is why the statement
+   * below derives it from `users` and why no ordinary caller passes this.
+   *
+   * WHAT NEEDS IT IS A SYNTHETIC MESSAGE FROM A REAL CONTACT'S ADDRESS. A probe
+   * mailing in as somebody who genuinely is a contact would otherwise write a
+   * REAL event onto a real person's timeline, because the parent row says so —
+   * which is exactly the customer-visible pollution the gutter exists to
+   * prevent. The mark is taken as a floor, never as an override: a synthetic
+   * contact's events are synthetic whatever the traffic says.
+   */
+  synthetic?: boolean
+  /** The run that produced it. Ignored unless {@link synthetic} is set. */
+  runId?: string | null
 }
 
 /** Refused because the contact is not in this business, or does not exist. */
@@ -139,11 +184,24 @@ export function contactEventInsert(
   const now = spec.now ?? new Date().toISOString()
   const scoped = spec.businessId !== undefined
   const where = scoped ? 'WHERE u.id = ? AND u.tenant_id = ?' : 'WHERE u.id = ?'
+  // THE MARK RIDES THE SAME `SELECT` THE BUSINESS DOES ([[DOC-54]] §2.4,
+  // [[REQ-267]] §7). `business_id` is read off the contact's own row precisely
+  // so the two can never disagree, and `synthetic` is the same fact about a
+  // different axis — which is what answers R2's hardest case, an async
+  // continuation with no request context, with a pattern this statement already
+  // had. A caller cannot supply the business and cannot clear the mark.
+  //
+  // THE IN-FLIGHT MARK IS A FLOOR AND NOT AN OVERRIDE — `MAX`, not the
+  // parameter. A synthetic contact's events are synthetic whatever the traffic
+  // claims, and synthetic traffic's events are synthetic whoever it claims to
+  // be; the only way to write a real row is for both to be real.
   const statement = env.DB.prepare(
     'INSERT INTO contact_events (id, contact_id, business_id, kind, occurred_at, ' +
-      'recorded_at, ref, detail) ' +
-      `SELECT ?, u.id, u.tenant_id, ?, ?, ?, ?, ? FROM users u ${where}`,
+      'recorded_at, ref, detail, synthetic, run_id) ' +
+      'SELECT ?, u.id, u.tenant_id, ?, ?, ?, ?, ?, MAX(u.synthetic, ?), ' +
+      `COALESCE(u.run_id, ?) FROM users u ${where}`,
   )
+  const synthetic = spec.synthetic ? 1 : 0
   const values: unknown[] = [
     spec.id ?? newId('evt'),
     spec.kind,
@@ -151,6 +209,8 @@ export function contactEventInsert(
     now,
     spec.ref ?? null,
     JSON.stringify(spec.detail ?? {}),
+    synthetic,
+    synthetic === 1 ? (spec.runId ?? null) : null,
     spec.contactId,
   ]
   if (scoped) values.push(spec.businessId)
@@ -166,6 +226,10 @@ interface EventRow {
   recorded_at: string
   ref: string | null
   detail: string
+  synthetic: number
+  run_id: string | null
+  /** SQLite's own row id — the tie break, and half the cursor. */
+  rowid: number
 }
 
 function toEvent(row: EventRow): ContactEvent {
@@ -189,11 +253,40 @@ function toEvent(row: EventRow): ContactEvent {
     recordedAt: row.recorded_at,
     ref: row.ref,
     detail,
+    synthetic: row.synthetic === 1,
+    runId: row.run_id,
+    cursor: encodeCursor(row.occurred_at, row.rowid),
   }
 }
 
+/**
+ * The cursor's two halves, joined by a character neither can contain.
+ *
+ * AN ISO STAMP AND A ROW ID, WHICH IS THE QUERY'S OWN ORDERING AND NOT A SECOND
+ * ONE ([[REQ-267]] §8). `ORDER BY occurred_at DESC, rowid DESC` is what
+ * {@link eventsOf} has always done and what the index supports; a cursor built
+ * from anything else would page in an order the query does not produce, and the
+ * symptom is a row appearing on two pages or on neither.
+ *
+ * A NEWLINE IS THE SEPARATOR because an ISO stamp cannot hold one and a row id
+ * is digits — so the split is unambiguous without escaping.
+ */
+function encodeCursor(occurredAt: string, rowid: number): string {
+  return `${occurredAt}\n${rowid}`
+}
+
+/** The two halves back, or null for anything that is not one of ours. */
+function decodeCursor(cursor: string): { at: string; rowid: number } | null {
+  const newline = cursor.indexOf('\n')
+  if (newline <= 0) return null
+  const rowid = Number(cursor.slice(newline + 1))
+  if (!Number.isSafeInteger(rowid)) return null
+  return { at: cursor.slice(0, newline), rowid }
+}
+
 const EVENT_COLUMNS =
-  'id, contact_id, business_id, kind, occurred_at, recorded_at, ref, detail'
+  'id, contact_id, business_id, kind, occurred_at, recorded_at, ref, detail, ' +
+  'synthetic, run_id, rowid'
 
 /**
  * Record one event, now.
@@ -240,6 +333,21 @@ export async function recordEvent(
  */
 export const TIMELINE_LIMIT = 100
 
+/** What a reader asks for beyond the contact itself ([[REQ-267]] §8). */
+export interface TimelineWindow {
+  /** How many rows this page holds. Defaults to {@link TIMELINE_LIMIT}. */
+  limit?: number
+  /**
+   * Resume before this row — a {@link ContactEvent.cursor} from the page above.
+   *
+   * A VALUE THIS MODULE MINTED, OR NOTHING. An unparseable cursor reads as
+   * absent rather than as an error: the caller gets the first page, which is the
+   * answer a reader who has lost their place actually wants, and no timeline
+   * refuses to render because a URL was hand-edited.
+   */
+  before?: string | null
+}
+
 /**
  * One contact's history, newest first.
  *
@@ -254,19 +362,54 @@ export const TIMELINE_LIMIT = 100
  * otherwise an imported signup from March sorts above this morning's invite. The
  * row id breaks a tie, so two events stamped in the same millisecond keep the
  * order they were written in rather than swapping between reads.
+ *
+ * AND IT PAGES NOW ([[REQ-267]] §8). {@link TIMELINE_LIMIT} was a cap and not a
+ * page on a stated assumption — *"data nobody has enough of"* — that inbound
+ * mail falsifies: every message in both directions lands on the spine, and a
+ * campaign writes an event per recipient. What the cap would then mean is that
+ * the hundredth row is where a contact's history appears to BEGIN, silently.
+ *
+ * THE CURSOR IS THE QUERY'S OWN ORDERING AND NOT A SECOND ONE. `(occurred_at,
+ * rowid)` is what the `ORDER BY` above already uses and what the index already
+ * supports, so paging costs no new index and cannot disagree with the order a
+ * single unpaged read would have produced.
+ *
+ * THE END OF THE HISTORY IS A SHORT PAGE, which is the ordinary convention and
+ * the only one that needs no extra round trip: a full page whose successor is
+ * empty costs one wasted read, and a `hasMore` flag would cost one extra read
+ * on EVERY page to compute.
+ *
+ * AND IT EXCLUDES THE TEST GUTTER BY DEFAULT ([[DOC-54]] R3). The exclusion is
+ * in the SQL and reached through {@link Scope}, so it is not something each call
+ * site has to remember — see `realOnly`.
  */
 export async function eventsOf(
   env: EventEnv,
   scope: Scope,
   contactId: string,
-  limit: number = TIMELINE_LIMIT,
+  window: TimelineWindow = {},
 ): Promise<ContactEvent[]> {
+  const limit = window.limit ?? TIMELINE_LIMIT
+  const from = window.before ? decodeCursor(window.before) : null
+  // STRICTLY BEFORE THE CURSOR'S OWN ROW, in the compound ordering the `ORDER
+  // BY` uses. A comparison on `occurred_at` alone would re-serve every row
+  // sharing the boundary stamp — which is not a corner case, because an import
+  // writes a whole history on one stamp and this cap is what an import first
+  // runs into.
+  const page = from
+    ? ' AND (occurred_at < ? OR (occurred_at = ? AND rowid < ?))'
+    : ''
+  const values: unknown[] = [scope.businessId, contactId]
+  if (from) values.push(from.at, from.at, from.rowid)
+  values.push(limit)
   const { results } = await env.DB.prepare(
     `SELECT ${EVENT_COLUMNS} FROM contact_events ` +
-      'WHERE business_id = ? AND contact_id = ? ' +
-      'ORDER BY occurred_at DESC, rowid DESC LIMIT ?',
+      'WHERE business_id = ? AND contact_id = ?' +
+      realOnly(scope) +
+      page +
+      ' ORDER BY occurred_at DESC, rowid DESC LIMIT ?',
   )
-    .bind(scope.businessId, contactId, limit)
+    .bind(...values)
     .all<EventRow>()
   return (results ?? []).map(toEvent)
 }
@@ -289,8 +432,9 @@ export async function provenanceOf(
 ): Promise<ContactEvent | null> {
   const row = await env.DB.prepare(
     `SELECT ${EVENT_COLUMNS} FROM contact_events ` +
-      'WHERE business_id = ? AND contact_id = ? ' +
-      'ORDER BY occurred_at ASC, rowid ASC LIMIT 1',
+      'WHERE business_id = ? AND contact_id = ?' +
+      realOnly(scope) +
+      ' ORDER BY occurred_at ASC, rowid ASC LIMIT 1',
   )
     .bind(scope.businessId, contactId)
     .first<EventRow>()

@@ -12,6 +12,7 @@ import {
   type DenialReason,
   type IdentityEnv,
 } from './identity'
+import { receiveMail, type InboundEnv } from './inbound'
 import { type LeadEnv } from './lead'
 import { route, type RouterEnv } from './router'
 import { handleSignIn, type SignInEnv } from './sign-in'
@@ -24,6 +25,7 @@ import {
 } from './sessions'
 import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
 import { guardTerms } from './terms'
+import { ticketStoreFor } from './tickets'
 
 /**
  * `app.1stcontact.io` — the control app, and the builder itself (REQ-145).
@@ -75,7 +77,14 @@ import { guardTerms } from './terms'
  * and every API route, not merely un-navigated-to.
  */
 
-export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv, SignInEnv, LeadEnv {
+export interface Env
+  extends AccessEnv,
+    RouterEnv,
+    IdentityEnv,
+    EmailWebhookEnv,
+    SignInEnv,
+    LeadEnv,
+    InboundEnv {
   /**
    * LOCAL DEVELOPMENT ONLY, and only when Access is unconfigured.
    *
@@ -562,5 +571,34 @@ export default {
   async scheduled(event: ScheduledController, env: Env): Promise<void> {
     const purged = await purgeSessions(env)
     console.log(JSON.stringify({ event: 'sessions_purged', cron: event.cron, ...purged }))
+  },
+
+  /**
+   * Inbound mail ([[REQ-267]], [[EPIC-13]]). Email Routing delivers here.
+   *
+   * IT IS A DOORWAY AND NOT A PIPELINE. Everything it does is `inbound.ts`'s,
+   * which is what keeps *what a received message does* testable as a function —
+   * driven with a message a suite composed, inside workerd, against a real
+   * database — and leaves this file with only the wiring: the store opener the
+   * pipeline is handed rather than imports, and the log line.
+   *
+   * IT DOES NOT THROW, AND `receiveMail` IS WRITTEN SO IT CANNOT. An exception
+   * out of an email handler is a message the platform may redeliver, and a
+   * redelivery after a ticket has already been written records the same message
+   * twice. Every outcome — including a capture that failed and a forward that
+   * failed — comes back as a value and goes to the invocation log, which is
+   * where a question like *is capture actually working* is answered from.
+   *
+   * IT IS ON THE DEFAULT HANDLER AND NOT IN `worker.ts`. Nothing here needs a
+   * workerd BUILT-IN — `ForwardableEmailMessage` is a type and types are erased
+   * — so keeping it beside `fetch` leaves this module resolvable outside
+   * workerd, which is what the sixty node-project suites that import it depend
+   * on.
+   */
+  async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+    const outcome = await receiveMail(env, message, {
+      openStore: (scope) => ticketStoreFor(env, scope),
+    })
+    console.log(JSON.stringify({ event: 'mail_received', ...outcome }))
   },
 } satisfies ExportedHandler<Env>

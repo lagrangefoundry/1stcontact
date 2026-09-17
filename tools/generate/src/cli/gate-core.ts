@@ -40,6 +40,11 @@ import { promoteToFlow, threeProbeGate } from '../l1/probes'
 import type { ThreeProbeReport } from '../l1/probes'
 import type { FoldedForm } from '../l1/forms'
 import type { ReferenceBundle } from '../store/reference-store'
+// BUG-100 — the coverage proxy compares image handles by mirrored-asset basename,
+// which is the identity `localizeAssets` mirrors by and the one the values-diff
+// already uses for background URLs. Reusing the helper rather than writing a
+// second normaliser keeps "is this the same asset?" answered in one place.
+import { assetBasename } from './capture/values-diff'
 import type {
   MultiStateCapture,
   StateProjection,
@@ -91,9 +96,12 @@ export interface CoverageFinding {
 export interface ReferenceCoverage {
   /** Image assets the capture mirrored into the bundle. */
   mirroredImages: number
-  /** Mirrored image assets some reference element carries as its media `src`. */
+  /** BUG-100 — mirrored image assets the reference manifest names, by any of the
+   *  fields that can hold an image handle: an element's media `src`, an element's
+   *  `backgroundImageUrl` (a nested backdrop box), or a section band's
+   *  `backgroundImageUrl` (the hero, on a page whose imagery is CSS-painted). */
   referencedImages: number
-  /** Mirrored image assets no reference element references, by local path. */
+  /** Mirrored image assets nothing in the reference manifest names, by local path. */
   unreferencedImages: string[]
   /** Sections the capture segmented the reference page into. */
   sections: number
@@ -201,6 +209,46 @@ function manifestHeight(manifest: ValueManifest): number {
 }
 
 /**
+ * BUG-100 — every way a reference manifest can name a mirrored image, as a set
+ * of mirrored-asset basenames.
+ *
+ * This read `manifest.elements[].src` alone, which is the ONE field a background
+ * image structurally cannot reach. Both the extractor (BUG-27) and the section
+ * projection (BUG-13) say so in as many words: a painted surface "carries the
+ * image handle as `backgroundImageUrl` rather than `src`, because it paints a
+ * SURFACE behind content, not replaced content in flow", and a band's imagery
+ * "never reaches the element manifest". So on a page whose imagery is all CSS
+ * `background-image` — `gigabytealchemy.ai`, the bundle this file's own floor is
+ * calibrated against — the set came back EMPTY and every mirrored asset was
+ * reported unreferenced, unconditionally. That is not a noisy line: a coverage
+ * finding outranks the value-delta count in {@link reconcileGates}, so one false
+ * `unreferenced-image` turns a `reproduction-wrong` run into `capture-incomplete`
+ * and tells the operator to stop and fix a capture that is in fact complete.
+ *
+ * Membership is by BASENAME, not by URL string. The two sides name the same
+ * bytes differently — a ladder projection carries the absolute origin URL where a
+ * single-width projection carries the site-local `assets/…` mirror — and
+ * `assetBasename` is already how the values-diff asks "is the same asset painted
+ * here?". A handle with no basename (an empty tail, a bare `data:` handle) is
+ * left out rather than admitted as a wildcard.
+ */
+function referencedAssets(manifest: ValueManifest): Set<string> {
+  const names = new Set<string>()
+  const add = (handle: string | null | undefined): void => {
+    const name = assetBasename(handle)
+    if (name) names.add(name)
+  }
+  for (const el of manifest.elements) {
+    add(el.src)
+    // BUG-27 — a text-free backdrop box nested below the band root.
+    add(el.backgroundImageUrl)
+  }
+  // BUG-13 — the section band's own imagery: the hero, on a photography-led page.
+  for (const section of manifest.sections) add(section.backgroundImageUrl)
+  return names
+}
+
+/**
  * Read the bundle's reference-coverage proxies.
  *
  * Both are numbers the pipeline already computed and simply never reported:
@@ -231,10 +279,13 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
   }
   const manifest = projection.manifest
   const images = (await readCapture(bundle)).assets.filter((a) => a.kind === 'image')
-  const referenced = new Set(
-    manifest.elements.map((el) => el.src).filter((src): src is string => typeof src === 'string' && src.length > 0),
-  )
-  const unreferencedImages = images.filter((a) => !referenced.has(a.src)).map((a) => a.localPath)
+  const referenced = referencedAssets(manifest)
+  const unreferencedImages = images
+    .filter((a) => {
+      const name = assetBasename(a.src)
+      return !name || !referenced.has(name)
+    })
+    .map((a) => a.localPath)
 
   const sections = manifest.sections.length
   const pageHeightPx = manifestHeight(manifest)
@@ -245,8 +296,9 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
     findings.push({
       kind: 'unreferenced-image',
       detail:
-        `${unreferencedImages.length} of ${images.length} mirrored image asset(s) are referenced by no ` +
-        `element in the reference manifest — the capture kept the bytes but never attributed them to the page.`,
+        `${unreferencedImages.length} of ${images.length} mirrored image asset(s) are referenced by ` +
+        `nothing in the reference manifest — neither an element's media \`src\` nor any \`backgroundImageUrl\` ` +
+        `names them, so the capture kept the bytes but never attributed them to the page.`,
     })
   }
   if (pxPerSection > SECTION_DENSITY_PX) {

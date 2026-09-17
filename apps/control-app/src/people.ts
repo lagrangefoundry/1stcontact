@@ -96,7 +96,7 @@ import {
   type NamePatch,
   type PersonName,
 } from './names'
-import type { Scope } from './scope'
+import { realOnly, type Scope } from './scope'
 import { endSessionsFor } from './sessions'
 
 /**
@@ -352,8 +352,14 @@ function toPerson(row: UserRecord, formerNames: string[] = []): Person {
  */
 export async function peopleOf(env: IdentityEnv, scope: Scope): Promise<Person[]> {
   const { results } = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? ` +
-      'ORDER BY u.created_at ASC, u.id ASC',
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ?` +
+      // THE TEST GUTTER IS EXCLUDED BY DEFAULT ([[DOC-54]] R3, [[REQ-267]]). A
+      // probe's contact is a real row in this table, and a customer must never
+      // meet one — in this list, in a count over it, or in anything derived from
+      // it. The exclusion rides `Scope` rather than being restated here, which
+      // is what keeps it a property of the handle rather than of who remembered.
+      realOnly(scope, 'u.') +
+      ' ORDER BY u.created_at ASC, u.id ASC',
   )
     .bind(scope.businessId)
     .all<UserRecord>()
@@ -386,7 +392,8 @@ export async function personOf(
 ): Promise<Person | null> {
   if (personId === '') return null
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, personId)
     .first<UserRecord>()
@@ -408,7 +415,8 @@ export async function personDetail(
   personId: string,
 ): Promise<PersonDetail | null> {
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, personId)
     .first<UserRecord>()
@@ -1253,7 +1261,9 @@ function partsOf(cursor: string): { at: string; id: string } {
  */
 export async function contactChangeHead(env: IdentityEnv, scope: Scope): Promise<string> {
   const row = await env.DB.prepare(
-    'SELECT updated_at, id FROM users WHERE tenant_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1',
+    'SELECT updated_at, id FROM users WHERE tenant_id = ?' +
+      realOnly(scope) +
+      ' ORDER BY updated_at DESC, id DESC LIMIT 1',
   )
     .bind(scope.businessId)
     .first<{ updated_at: string; id: string }>()
@@ -1303,8 +1313,9 @@ export async function contactsChangedSince(
   // it is deliberately not on {@link Person} either, because a stamp the pane
   // could render is a stamp somebody eventually renders.
   const { results } = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS}, u.updated_at AS updated_at ${USER_SOURCE} WHERE u.tenant_id = ? ` +
-      'AND (u.updated_at > ? OR (u.updated_at = ? AND u.id > ?)) ' +
+    `SELECT ${USER_COLUMNS}, u.updated_at AS updated_at ${USER_SOURCE} WHERE u.tenant_id = ?` +
+      realOnly(scope, 'u.') +
+      ' AND (u.updated_at > ? OR (u.updated_at = ? AND u.id > ?)) ' +
       'ORDER BY u.updated_at ASC, u.id ASC LIMIT ?',
   )
     .bind(scope.businessId, at, at, id, limit)
