@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-265
 created_by: xgd
 created_at: '2026-09-17T21:35:29.264314+00:00'
-updated_at: '2026-09-17T22:23:29.329768+00:00'
+updated_at: '2026-09-17T22:24:47.451651+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,11 @@ I deviated from both options the ticket proposed: the correction landed in the p
 <!-- xgd-chat role="user" ts="2026-09-17T22:23:28.675125+00:00" -->
 #### You
 Go I need to restart the repro server to pick this change up?
+
+<!-- xgd-turn id="a6a9acfe-10b8-447a-a145-723b558481ce-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:24:46.198071+00:00" -->
+#### You
+Do I need to restart the repro server to pick this change up?
 
 <!-- xgd-chat-end -->
