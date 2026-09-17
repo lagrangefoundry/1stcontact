@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-14
 created_by: xgd
 created_at: '2026-09-17T00:34:57.069190+00:00'
-updated_at: '2026-09-17T21:21:33.788638+00:00'
+updated_at: '2026-09-17T21:22:19.999685+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -172,5 +172,25 @@ The five are laid out as `## Children` in EPIC-14 but **not filed** — say the 
 <!-- xgd-chat role="user" ts="2026-09-17T21:21:33.733426+00:00" -->
 #### You
 The fewer tickets the better - 5 is excessive for this feature
+
+<!-- xgd-turn id="4885ebb0-c942-46f6-9e20-86ebb8f0f19e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:22:19.338574+00:00" -->
+#### Claude
+Fair — collapse to two.
+
+Two tickets.
+
+**1. The framework, its first notification, and its controls.** The registry, the decision (operators resolver, member filter, class rule, preference check with coarse-as-AND, address suppression, cap), the decision record, `lead.captured` with its template and first real send, and both control surfaces — portal coarse switch, registry-driven Settings pane.
+
+My old T1/T2/T3 were three tickets pretending to be independent. They aren't: the decision has nothing to decide without a producer, and **shipping an informational notification with no way to switch it off is exactly what the epic's class rule forbids** — so the controls can't be a follow-on. One branch.
+
+**2. The contextual prompt.** The probe, the shared component, the promise string, and `sending.ready` raised from `refreshSending`'s transition, shown when they press "Send email from this domain".
+
+I'd keep this one separate, and the reason is load-bearing rather than tidiness: **it's the falsifier for the first ticket.** Adding a second producer should be a registry entry and a raise. If it turns out to need a second send path, ticket 1 got the seam wrong — and that's evidence worth collecting, which you lose if both sides are built at once by the same hand in the same branch. It also cuts the other way: ticket 1 is complete and useful on its own, so if the prompt slips, nothing is half-built.
+
+Collapsing further would mean one branch covering a registry, a decision path, a producer, two panes, a probe and a modal, with every UAT tracing back to one body. That's where traceability starts slipping, which is the failure mode the free-coding protocol exists to prevent.
+
+Both are in EPIC-14 as `## Children` and still **unfiled**. Say go and I'll create the two requests and cut the branch for the first.
 
 <!-- xgd-chat-end -->
