@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:45:09.451936+00:00'
+updated_at: '2026-09-17T04:46:55.019240+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -312,5 +312,42 @@ The one thing still genuinely unresolved from this whole thread is the asset/era
 <!-- xgd-chat role="user" ts="2026-09-17T04:45:08.982532+00:00" -->
 #### You
 **Yeah REQ-197 is wrong we need to supersede it with this design - ok?**
+
+<!-- xgd-turn id="29b17958-62db-479d-805b-840a4cf311c5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:46:54.618835+00:00" -->
+#### Claude
+Let me check what REQ-197 actually is and whether it's built before agreeing — superseding it means something different if it's shipping.
+
+Agreed — with one refinement that I think makes it right rather than just smaller, and one caution about *when*.
+
+I read REQ-197 and `templates.ts`. It's coded and sitting at `ready_to_reconcile` with two working commits, serving three system messages — `invite`, `signin`, `lapsed` — via `templateFor(store, key)` with seed-if-absent, called from `invites.ts` (two sites) and `sessions.ts` (one).
+
+**The refinement: two separable things are bundled in REQ-197, and only one of them is wrong.**
+
+1. **Role resolution** — `invite` → some ticket. This is *necessary* and isn't the thing you objected to. A signin email fires at 3am for a tenant who has never opened the templates UI; there is no human present to choose a ticket id, and a brand-new tenant has no templates at all. Something has to answer "which ticket is this business's invite email."
+2. **Newest-ticket-wins as the resolution rule** — this is exactly the hidden versioning you rejected. Nobody points at anything; the winner is implicit, and it changes as a *side effect* of creating a ticket.
+
+So supersede (2), keep (1), and the replacement is the design we just built: **a role is a pointer the business sets, not a query that picks a winner.**
+
+- `invite` is a named slot in settings holding `template-125`.
+- Sending reads the slot → template-125. One answer, inspectable, no clock-ordering.
+- template-125 is `used` and frozen. Edit refuses → **[Make a copy]** → template-132.
+- The business **explicitly repoints** the slot to 132. The UI can offer that right at the copy — "use template-132 for invites? [Yes/No]" — but it's a choice, never a consequence.
+- Seed-if-absent survives: a new tenant's slot is empty, seeding mints the ticket and sets the slot.
+
+**Which reverses what I recommended last turn.** I split campaign templates from platform templates into two types *because* they had different identity models. Superseding newest-wins removes that difference — both are chosen by ticket id, both latch, both copy-to-write. So it's **one type**, and the split loses its premise. That's a simplification your instinct bought that I'd argued us out of.
+
+**The caution is timing, and it's specific.** REQ-197 is `ready_to_reconcile` — coded, awaiting reconcile. That's the cheapest possible moment to change the design (three call sites, no migration, nothing on main), but it's also precisely the state where **its body must not be edited**: a reconcile cycle commits to the ticket text, and rewriting it underneath produces a capability matrix describing a spec nobody can read. That's the exact hazard framework EPIC-3 exists to prevent.
+
+So I'll record the supersession in EPIC-13 — where the design lives — and **not** touch REQ-197's body. Landing it in REQ-197 needs to go through whoever owns that cycle, either after it reconciles or by pulling it back deliberately. Want me to raise that with them once this is written down?
+
+Recorded — timestamp plus two trailing blank lines; nothing substantive removed.
+
+The epic now carries the supersession with the verified state of REQ-197 in it (coded, `ready_to_reconcile`, three call sites, nothing on main), the role-slot replacement, and the explicit note that this collapses the two-type split back to one type — so a later reader sees the reversal and its reason rather than two contradictory sections.
+
+The one thing I'd still flag: **superseding REQ-197 is now written down but not landed.** The design says one thing and the code at `ready_to_reconcile` says another, and that gap is only safe while somebody remembers it exists. It needs to reach REQ-197 through its own cycle — not by editing that body now, for the reason above.
+
+Say the word and I'll raise it with whoever owns that cycle. I'd also hold off on any code in this session until that's sorted, since the template type is the thing both sides want to change and racing REQ-197's reconcile would be the worst way to discover the conflict.
 
 <!-- xgd-chat-end -->
