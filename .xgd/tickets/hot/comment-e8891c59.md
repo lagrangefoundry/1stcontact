@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T01:24:15.942388+00:00'
+updated_at: '2026-09-17T01:46:16.815571+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1086,5 +1086,13 @@ Proposed, in order:
 3. Add a line to **EPIC-13's Boundaries** claiming the cutover mail gap, so the seam is owned from both sides.
 
 Say go and I'll do all three.
+
+<!-- xgd-turn id="b409edca-3e3c-4456-91d3-0043fff35d71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:46:15.841629+00:00" -->
+#### You
+That's a documentation fix, not a reopened decision. <-- please fix it. bottom line is moving their DNS will break their existing email config. However with their help we can probably reconfigure it before anyone notices.
+
+Once we have all this down, we can actually do our email configuration first so that as soon as we have control we can have their email fixed - that is probably the correct ordering but lets keep it separate until EPIC-13 is ready - please add that ordering expectation to EPIC13 though - please don't cut any more ticket yet I have enough oin deck to be tracking we will get to these in a little while
 
 <!-- xgd-chat-end -->
