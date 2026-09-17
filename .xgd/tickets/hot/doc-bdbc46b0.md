@@ -6,9 +6,9 @@ title: The reproduction engine and the loop-1 session — the diagnosing session
   base
 created_by: REQ-261
 created_at: '2026-09-16T20:55:42.661492+00:00'
-updated_at: '2026-09-16T22:30:17.967630+00:00'
+updated_at: '2026-09-17T00:00:27.128853+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   doc_kind: architecture
@@ -39,31 +39,161 @@ today.
 
 ## 1. The pipeline
 
-**TO BE WRITTEN ([[REQ-262]]).** A map of `tools/generate/src/` — what each
-module owns and where the boundaries fall. It must at minimum answer, without
-the reader having to grep:
+A reproduction runs **capture → fold → render → gate**, and every residual
+belongs to exactly one of those stages. Naming the stage is most of the
+diagnosis, because it decides which module owns the fix and what evidence is
+admissible.
 
-- **Capture** — what a reference bundle contains (`capture.json`, `raw.html`,
-  `multistate.json`, `screenshot.full.png`), what each file is authoritative
-  for, and what the capture deliberately does not record.
-- **Fold** — how a capture becomes an L1 document, and which decisions are the
-  fold's rather than the capture's.
-- **L1 substrate** — the typed element tree. Cross-reference [[DOC-23]],
-  [[DOC-27]] and [[DOC-30]] rather than restating them, but say which axes
-  exist and which residuals are "L1 has no axis for this".
-- **Probes** — what they measure and what they cannot see.
-- **Gate** — `gate-core.ts`, the three gates, `reconcileGates`, and the verdict
-  ladder. **The gate is the instrument, not the engine.** A defect in the gate
-  is a defect in the thing that judges the reproduction, and it can be wrong
-  independently of whether the reproduction is.
+```
+live site ──capture──▸ reference bundle ──fold──▸ L1 document ──render──▸ site
+                              │                                            │
+                              └──────────────── gate ◂───────────────────── ┘
+```
 
-The field-level distinctions that cost a round tool calls to rediscover belong
-here explicitly. The first one, from the first round:
+`tools/generate/src/` is the whole engine. Roughly 44,000 lines, but the parts
+a round diagnoses are these.
 
-> Section and band background imagery is carried as `backgroundImageUrl`, never
-> as `src`. `src` is for replaced content in flow. A background image paints a
-> SURFACE behind content, so it never reaches the element manifest as `src` —
-> `values-diff.ts:246-250`, `extract.ts:1336-1340`, `types.ts:443-446`.
+### 1.1 Capture — `cli/capture/`
+
+Navigate the live site in a real browser, intercept and mirror every response,
+read **computed** styles out of the rendered DOM, screenshot, segment, and
+assemble a bundle. `pipeline.ts` is the sequence; `extract.ts` is the script
+that runs *in page scope*, so every colour and font is read after `var()` has
+resolved and every hidden node is filtered by real geometry — the things static
+HTML cannot see. There is no static fallback: a browser failure retries and
+then fails ([[DOC-13]] §2.1, §3).
+
+**A bundle holds more than the brief names.** In
+`storage/references/<site>/<page>/`:
+
+| file | what it is authoritative for |
+|---|---|
+| `raw.html` | **ground truth.** The bytes the origin served. |
+| `capture.json` | the catalog-agnostic structured essence — sections, theme, assets, backgrounds. The AI's primary input ([[DOC-13]] §4). |
+| `multistate.json` | the 6-viewport × 4-interaction-state oracle. The `ValueManifest` the value gates compare against. |
+| `l1.json` | the folded L1 document, if the bundle was folded. |
+| `forms.json`, `hints.json` | folded form structure; structural hints from `hints.ts`. |
+| `screenshot.full.png` | the full-page raster the perceptual diff shoots against. |
+| `screenshot-{320,375,768,1024,1280,1440}.png` | the per-viewport rasters. |
+| `rendered.html` | the DOM after scripting, distinct from `raw.html`. |
+| `assets/` | every mirrored subresource, so the bundle is re-extractable offline. |
+
+**What capture deliberately does not record.** Not CSS mechanism — no
+`flex-direction`, no tag names. Every field is a *rendered fact*: a painted
+box, a computed radius, the browser's own a11y role and name. Two different
+DOMs that render identically project to the same values, and that is the point.
+A residual of the form "the engine lost the fact that this was a `<ul>`" is
+usually not a capture gap; it is a request for a mechanism capture is designed
+not to carry.
+
+### 1.2 Fold — `l1/fold.ts`
+
+Turns the multi-viewport capture into one `L1Document`. It matches each node
+across the sampled widths, then emits one L1 leaf per node carrying its
+authored axes, a geometry keyframe track, per-segment `interpolate|snap` flags,
+and a visibility rule derived from presence across the ladder.
+
+**The fold emits the absolute-base form.** Every leaf is absolutely placed by
+its per-width keyframes. That is always a valid layout and it closes the
+round-trip with zero structural inference. The structure primitives — container
+layout, sizing — are left empty deliberately; they are an optional overlay
+recovered later, on demand, by `promoteToFlow`.
+
+This is why `fold.ts`'s own header can say reproduction is *near-mechanical*,
+and why it is worth quoting to yourself before filing: **"Any residual delta is
+a serializer bug or a missing L1 axis — a framework fix, not a per-site one."**
+That sentence is this loop's whole thesis, written by the engine about itself.
+
+### 1.3 L1 — the substrate
+
+The typed element tree. [[DOC-23]] is the substrate, [[DOC-27]] the
+reproduction vocabulary, [[DOC-30]] the control-surface API; read those rather
+than re-deriving them here.
+
+What a round needs from them is the shape of one residual class: **"L1 has no
+axis for this."** The test is [[DOC-24]]'s — *an axis belongs in L1 iff it
+moves a pixel*. A property that moves a pixel and has no typed axis is a
+framework gap and a good ticket. A property that moves no pixel is not.
+
+### 1.4 Probes — `l1/probes.ts`
+
+Three probes decide whether a reproduced document is geometrically good enough:
+
+- **(a) sample-fidelity** — reproduced geometry matches the oracle at the 6
+  captured widths, within tolerance.
+- **(b) off-sample** — renders sane at 500px and 900px, widths the fold never
+  sampled: no overlap, no clip.
+- **(c) content-robustness** — perturbed content (longer text, taller image)
+  keeps the envelope.
+
+**The evaluator is analytic and browser-free.** It mirrors what the renderer
+emits — the absolute `interpolate|snap` geometry maths and CSS flow stacking —
+and estimates a text run's natural height. So every probe is deterministic
+evidence on every run, never a cross-engine skip. The browser-backed
+`capture(render(L1)) ≈ L1` check is separate, in `roundtrip.ts`.
+
+**What probes cannot see.** They are geometry and envelope only. Colour, type,
+gradients, imagery — a probe is silent on all of it. A page can pass all three
+probes and be visibly wrong, which is exactly the case the value gates exist
+for.
+
+### 1.5 Gate — `cli/gate-core.ts`
+
+**The gate is the instrument, not the engine.** It judges the reproduction, and
+it can be wrong independently of whether the reproduction is. A defect here is
+as real as a defect in the fold, and harder to see, because the instrument is
+what you would normally use to look.
+
+Three gates, reconciled into one verdict:
+
+1. **the L1 gate** — `threeProbeGate`, §1.4.
+2. **the perceptual eye** — `perceptual-core.ts`, pure arithmetic over rasters.
+   Floors: mean > `PERCEPTUAL_MEAN_FLOOR` or pct > `PERCEPTUAL_PCT_FLOOR` is a
+   breach.
+3. **the value gates** — `capture/values-diff.ts`. `flattenCapture` /
+   `flattenSignals` project both sides into a flat `ValueManifest`, one
+   `ValueElement` per verbatim text run plus a `SectionValues` per section for
+   treatments a text run cannot hold. `diffManifests` aligns by case-folded
+   text and diffs each field. **These are the sharpest evidence a ticket can
+   carry**, because they are exact values with selectors, not impressions.
+
+Plus **reference coverage** — two proxies the pipeline already computed and
+never used to report: unreferenced mirrored images, and segmentation density.
+
+**The verdict ladder, in `reconcileGates`, in order.** The order is the whole
+mechanism, so read it as a ladder and not as a set:
+
+| # | condition | verdict |
+|---|---|---|
+| 1 | `!l1Gate.pass` | `structural-failure` |
+| 2 | no perceptual breach | `pass` |
+| 3 | `coverage.findings.length` | `capture-incomplete` |
+| 4 | `deltas > 0` | `reproduction-wrong` |
+| 5 | otherwise | `unexplained-disagreement` |
+
+Rung 3 sitting above rung 4 is deliberate and documented: a delta count
+measured against an impoverished reference is not evidence, because the value
+gates compare elements present in both manifests and are therefore *blind* to
+substance the capture never recorded. They are not disagreeing; they cannot
+see.
+
+**The consequence a round must hold in mind.** A false coverage finding does
+not merely add a noisy line — it *hijacks* the verdict, converting a
+`reproduction-wrong` run into `capture-incomplete`, which this loop's own brief
+treats as "stop, file nothing." §3.1 is the worked example of exactly that, and
+it is the reason §1.5 opens the way it does.
+
+### 1.6 Field-level distinctions that cost tool calls to rediscover
+
+This list grows. Each entry is here because a round spent calls deriving it
+from source.
+
+**Background imagery is `backgroundImageUrl`, never `src`.** `src` is for
+replaced content in flow. A background image paints a SURFACE behind content,
+so it never reaches the element manifest as `src` — `values-diff.ts:246-250`,
+`extract.ts:1336-1340`, `types.ts:443-446` ("Distinct from `src`"). On a page
+whose imagery is all CSS `background-image`, the string `"src"` may not occur
+in `multistate.json` at all.
 
 ## 2. The session's role
 
