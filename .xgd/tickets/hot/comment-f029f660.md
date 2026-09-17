@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:17:22.133532+00:00'
+updated_at: '2026-09-17T04:21:58.466174+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -315,5 +315,15 @@ Everything else that makes this testable is already house pattern: injectable `f
 So the doc covers: the four mechanisms, the run id, delete-contact, the auth seam, and what each of the epics on deck inherits. That's the whole of it.
 
 **Ready to draft.** One confirmation needed: cut it as a DOC ticket under EPIC-15 (next id DOC-54), or append to the epic? You've been holding ticket count down, so I won't create it without your say-so.
+
+<!-- xgd-turn id="7397aeb2-504c-4882-831f-d4074525d50b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:21:58.176072+00:00" -->
+#### You
+With a boolean alone, collection degrades to a TTL sweep and verification becomes a guess — which quietly undoes the improvement you made to GC two turns ago. <-- 
+
+Check needs a run id, agreed
+Delete on success only - leave on fail - agreed
+But also - can we talk about a periodic sweep that captures anything that's missed regardless of run number?
 
 <!-- xgd-chat-end -->
