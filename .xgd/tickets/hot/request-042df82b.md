@@ -6,9 +6,9 @@ title: 'Inbound mail, end to end: capture against the contact, pending for a str
   and the synthetic mark'
 created_by: EPIC-13
 created_at: '2026-09-17T22:00:00.005762+00:00'
-updated_at: '2026-09-17T23:27:28.384557+00:00'
+updated_at: '2026-09-17T23:27:34.169914+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -27,6 +27,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.242
+  story_points: 13
 ---
 
 # Inbound mail, end to end
