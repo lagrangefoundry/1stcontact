@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T19:17:37.986308+00:00'
+updated_at: '2026-09-17T20:05:38.508912+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -447,5 +447,19 @@ Ordered, each with something visible:
 A fifth exists but isn't in this scope: the new ticket superseding REQ-197's keyed resolution. Small, and it can wait.
 
 Shall I write this into the epic as a scoping section — the path-2 analysis, the minimum-config floor, the catch-all decision, and the four-ticket shape — with no tickets cut?
+
+<!-- xgd-turn id="1aef6e8a-a89d-48ea-a4b2-136b1278d1b5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T20:05:38.274868+00:00" -->
+#### You
+On your CC idea specifically — one flaw worth naming: `contact@mysite.com` is a *forwarding* address, so CC'ing it sends the business a copy of their own email. It'd need a **reserved capture address that doesn't forward**, which is the same namespace concept the epic already reserves for BFM synthetic traffic. <-- why is that a forwarding address? What does that mean? It doesn't matter what the actual address is contact, info, biz, system - can call it whatever. The point is it gets an email into our system that we can then process - we treat emails to this address specially, look at the adddressees and add the email to their contact logs - I think is small and simple - it is not reliable but is nice to have, some users will use it religiously.
+
+**My recommendation: defer path 2 out of this scope entirely.** It's a CRM-sync feature, not email configuration, and it's the only one of the three with real infrastructure cost. Ship 1 and 3, keep the data model indifferent to how a sent message arrived, and revisit. <-- surely what I have in mind is small and part of the in-bound email path - its at the end of this scope but I (a) don't want to loose it and (b) don't want to build something that cannot accomodate it
+
+**Destination verification** — Cloudflare Email Routing *requires* each destination address to confirm by clicking a link before it can receive. This is a real multi-step flow, not a text field, and it's the piece most likely to be underestimated. <-- this is good yes. We have a lot of that machinery though
+
+**Deliverability status** — read-only from `resolver.ts`. I'd defer, but flag it as a conscious omission. <-- yes defer this it is more of a campaigns consideration (not entirely but I think that is where we will meet it head on)
+
+Also be aware of the BFM guttering requirements see EPIC-15 and doc 51
 
 <!-- xgd-chat-end -->
