@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:46:55.019240+00:00'
+updated_at: '2026-09-17T19:15:06.997958+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -349,5 +349,33 @@ The epic now carries the supersession with the verified state of REQ-197 in it (
 The one thing I'd still flag: **superseding REQ-197 is now written down but not landed.** The design says one thing and the code at `ready_to_reconcile` says another, and that gap is only safe while somebody remembers it exists. It needs to reach REQ-197 through its own cycle — not by editing that body now, for the reason above.
 
 Say the word and I'll raise it with whoever owns that cycle. I'd also hold off on any code in this session until that's sorted, since the template type is the thing both sides want to change and racing REQ-197's reconcile would be the worst way to discover the conflict.
+
+<!-- xgd-turn id="23b4c68c-2743-42b2-9087-1f81e2dfaad6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T19:15:06.846711+00:00" -->
+#### You
+It has been built we need a new ticket to change it - simple as that. (I own all cycle :-) ) - REQ-197 cannot be changed now.
+
+Ok we need to start getting concrete. I am focusing on the features that complete the web builder functionality - this includes email configuration, inbound and outbound but not the campaigns tab.
+
+I think we have a design doc that covers this? 46? Can you summarize for me the work that needs to be done and the user settings?
+
+As I see it there are the following email paths:
+
+1. outgoing from 1c - forms, transactions, notifications, campaigns
+2. outgoing from user's email - sent as martin@lagrangefoundry.ai
+3. incoming
+
+1 and 3 should all end up in the contact log and we create a ticket (frozen) with the contents
+
+Can we intercept 2? Or do we need to ask the user to cc a special address (e.g. contact@mysite.com)
+
+The settings has to allow configuration of email forward. Sending one incoming address to one or more outgoing addresses - one of these incoming addresses can be marked as a catchall. We can allow many of these - say 20?
+
+Suggestion: needs to be thought through - if the user's DNS already has email configured, we might suggest doing basic email config (e.g. primary forwarding address and catchall) before switching the DNS so that email is always up. Note the pattern for DNS switching will involve an AI chat flow. (see EPIC-5 IIRC)
+
+These settings are part of that DNS switch and need to fit into that story seamlessly.
+
+Don't cut any tickets yet there are a lot on the board - lets just work through the high level requirements - I favor fewer tickets - each ticket ideally has something that I can see working.
 
 <!-- xgd-chat-end -->
