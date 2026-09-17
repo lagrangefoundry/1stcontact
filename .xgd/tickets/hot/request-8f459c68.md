@@ -6,7 +6,7 @@ title: 'The deploy verifies credentials exist, not that they work: capability pr
   and a capability report'
 created_by: EPIC-5
 created_at: '2026-09-16T23:57:42.205741+00:00'
-updated_at: '2026-09-17T00:26:39.852113+00:00'
+updated_at: '2026-09-17T00:39:03.917318+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -18,6 +18,7 @@ fields:
   needs_review: false
   chat_comment: comment-7e515561
 ---
+
 
 ## What this is
 
@@ -295,7 +296,19 @@ is what the caller gets. The fallback is a guess this module makes; the reason a
 caller did not get a registration is the original error, not whatever went wrong
 while we were checking a hunch.
 
-### One thing found while building it
+### Two small things the shape forced
+
+**`.gitignore` carried a bare `lib/`** — the Python build-output block, which
+matches at any depth — so `bin/deploy.d/lib/` was invisible to git and the whole
+shared mechanism would have been committed as nothing. It is exempted by name
+rather than renamed around, because `lib/` is what the directory is.
+
+**A corrupt row does not fail a deploy.** The report is append-only lines from
+several hooks; a line that will not parse is a lost row and is dropped, because
+a deploy that aborted over its own report's formatting would be the report
+causing the outage it exists to prevent.
+
+## One thing found while building it
 
 `probe.mjs`'s *was I run as a command* check compared `process.argv[1]` against
 `import.meta.url` as strings, which is `smoke.mjs`'s shape. **`/tmp` is a symlink
