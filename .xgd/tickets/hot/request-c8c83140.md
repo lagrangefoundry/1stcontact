@@ -6,16 +6,21 @@ title: 'The test gutter: a signed marker, marked records, default-excluded reads
   and collection'
 created_by: EPIC-15
 created_at: '2026-09-17T22:01:26.424737+00:00'
-updated_at: '2026-09-17T23:56:56.784207+00:00'
+updated_at: '2026-09-17T23:58:42.031187+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-312f9446
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f39161e2
+  commits:
+  - working_sha: 7b68d0294a988128099393c3e718bb91ec454b6c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.244
 ---
 
 **The gutter primitive.** [[DOC-54]] is the design; this ticket is the behaviour this
