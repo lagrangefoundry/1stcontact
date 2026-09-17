@@ -6,9 +6,9 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-17T01:19:02.806668+00:00'
+updated_at: '2026-09-17T01:20:44.736519+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: free_coded
 fields:
   priority: high
@@ -20,10 +20,18 @@ fields:
   - working_sha: 0d7e2d57747236eec2e49cf796f93cfbafdcc17c
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: 82051fd6237f651a3e119ab0fe41040356dcff15
     reconcile_sha: null
     main_sha: null
-  version: 0.2.228
+    working_sha_history: []
+  - working_sha: 7a47077db3262eb1af1c5115f9d7d8cf8dded802
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9670a3a58e3234cad86287b22d4dbcf7477231d1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.230
 ---
 
 Parent: [[EPIC-12]] §8. **Split out of [[REQ-261]]**, which now covers the
