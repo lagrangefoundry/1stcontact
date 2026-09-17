@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:29:30.540843+00:00'
+updated_at: '2026-09-17T21:33:14.165419+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -545,5 +545,12 @@ Everything else is safe to defer: trigger and schedule (the probe body doesn't c
 ---
 
 To build under free-coding I need a scoped REQ under EPIC-15 and a branch. Say go and I'll cut it — or tell me to fold the plan into the epic first if you'd rather review the requirement text before any code.
+
+<!-- xgd-turn id="6c52a9f7-0ff4-4250-8e65-735ac54a171d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:33:13.483262+00:00" -->
+#### You
+**1. Verification transport.** A probe running outside Cloudflare submits a form over HTTPS and then *cannot query D1*. <-- do we need an AWS lamda for this?
+**2. At least one assertion goes through the real HTTP boundary.** The marker is verified at the edge in `public-site/src/lead.ts`. In-process tests of the write functions would never exercise that check. Cheap now, a habit that's expensive to retrofit. <-- what does this mean?
 
 <!-- xgd-chat-end -->
