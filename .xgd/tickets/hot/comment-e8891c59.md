@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T00:26:06.234064+00:00'
+updated_at: '2026-09-17T00:48:24.585159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -958,5 +958,25 @@ The **no** branch — *"can you find the person with access"* — is a dead end,
 Shape I'd propose: **one ticket for the primitives** (RDAP client, registrar normalisation, DNSSEC gate, the provider-consequence knowledge base the AI reasons from), **one for the durable procedure state and the guided-walkthrough mechanism**, and **one for the GoDaddy content pack** — with the generic script falling out of the same mechanism. REQ-260 first, since the status tooling is its.
 
 Want me to cut those? And I'd want your call on whether the GoDaddy email-forwarding question gets answered by experiment before the content pack is written — I think it should.
+
+<!-- xgd-turn id="1a380866-47d0-474f-8bf5-b916d009a3ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T00:48:24.320289+00:00" -->
+#### You
+OK DNSSEC - I can always turn it on on one of my domains. I believe all the domains you are aware of are CF registra I have other domains with Godaddy.
+
+It sounds like RDAP can test for DNSSEC - if so we can notify the user when it has been disabled, right?
+
+Godaddy email forwarding - are you suggesting that we take the DNS but continue to forward the email through GoDaddy? No that's wrong - we need to take control of email am put it over our pipes. Can we see where the email is being forwarded to? If not we will have to get the user to tell us, worst case we guide them to the godaddy UX and find the settings.
+
+registrar GoDaddy, nameservers Cloudflare <-- oh it is? that's annoying I thought I moved the registra. That was my intent. Wow>
+
+`.co.uk`** is likely your most common customer TLD <-- I don't think that is true**
+**And you have nothing to test the actual move with.** Of your 13 zones, only `merklebonsai.com` and `positronica.ai` are at GoDaddy — and both already point at Cloudflare nameservers. <-- sorry but how would you know about my GoDaddy addresses I haven't told you about them
+matrixconstruct.io
+theflowerofscotland.com
+﻿﻿﻿nooneknowsura.dog
+**martinwesthead.com**
+**martinwesthead.us**
 
 <!-- xgd-chat-end -->
