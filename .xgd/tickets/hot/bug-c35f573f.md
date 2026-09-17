@@ -6,9 +6,9 @@ title: 'values-diff: section-level values are joined by ordinal index, so §n co
   unrelated bands'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:32.864506+00:00'
-updated_at: '2026-09-17T02:59:32.864506+00:00'
+updated_at: '2026-09-17T03:00:49.224131+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: medium
@@ -144,3 +144,8 @@ having **no counterpart band** in the reproduction, and every paired `§n`
 compares two bands that overlap in the page.
 
 Found while diagnosing loop-1 iteration 2 of `repro-gigabytealchemy-ai`.
+
+**Companion:** the missing-artifact half of this is **BUG-103** (no flag writes
+the reproduction-side value manifest). The fold residual that explains the pixel
+evidence quoted above is **REQ-265**; the truncation that forces the
+file-redirect in the commands above is **BUG-101**.
