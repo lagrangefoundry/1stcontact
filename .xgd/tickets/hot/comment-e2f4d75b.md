@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-14
 created_by: xgd
 created_at: '2026-09-17T00:34:57.069190+00:00'
-updated_at: '2026-09-17T21:16:12.293553+00:00'
+updated_at: '2026-09-17T21:17:59.346475+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -118,5 +118,53 @@ Two things I'd flag:
 Lets keep this as simple as possible for now. Id like to implement and test a simple notification framework.
 
 Can you lay out what this would look like in terms of tickets
+
+<!-- xgd-turn id="39a3168c-9504-455b-89ab-585f5a89eeff-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:17:59.158907+00:00" -->
+#### Claude
+`refreshSending` is the find — `pending → verified` is a real existing wait, and the copy already says *"you can carry on, and it will come right on its own."* That's an invitation to a notification, and it means the prompt feature has a home today with no dependency on the unbuilt DNS epics.
+
+Recording the cut line in the epic first, so the children's UATs have body language to trace to:
+
+Five tickets. The first three are a working notification; 4 and 5 are the feature you asked for last turn.
+
+## T1 — The decision (`request`)
+
+The framework, and nothing that draws or sends. One module in `src/builder/` with no imports — `acceptances.js` and `contact-events.js`'s precedent, because the registry has to be readable by both the pane and the worker — plus the decide-and-record path beside `messages.ts`.
+
+- Registry: key, class, audience, default, label, promise string.
+- Preference keys registered in the existing acceptance registry (coarse + per-type), so `user_acceptances` stores them and absence means the declared default.
+- `operators` resolver only, filtered to members (`tos_accepted_at`).
+- The checks in order: producer flag → class → preference (with coarse as an AND, enforced **here**, not in the pane) → address suppression → cap.
+- The decision record, written whether or not anything sends.
+
+**The sender is injected**, so the whole ticket is provable with no provider and no browser — which is `messages.ts`'s own existing discipline (*"a suite drives `sendRecordedEmail` with a stub, and there is no import here that could reach a network"*). This is the biggest ticket and the only one with real design risk.
+
+## T2 — `lead.captured` (`request`)
+
+First producer, first real send. The template ticket for the copy, raised from the form-submission path, delivered through `sendRecordedEmail`. Closes the hole DOC-47 §3 already admits to in the product's own voice.
+
+## T3 — The controls (`request`)
+
+The coarse switch on the portal — extending REQ-245's endpoint and pane, which already does read-and-write of a contact's own preferences — and the registry-driven fine-grained pane on Settings, following EPIC-4's section pattern. Transactional types listed, not toggled. The pane is drawn from the registry, so T4's new type appears in it without this ticket being reopened; that's the cheapest possible proof the registry is load-bearing.
+
+## T4 — `sending.ready` and the probe (`request`)
+
+The second producer, and the one that proves this is a framework: adding it should be a registry entry and a raise. `refreshSending`'s `pending → verified` is the wait. The reachability probe lands here — same decision function, no send, typed reason rather than a boolean.
+
+## T5 — The contextual prompt (`request`)
+
+The shared component, the promise string, and one flow showing it: "Send email from this domain", at the moment they press it.
+
+---
+
+**Three notes on the shape:**
+
+- **T1+T2 is the smallest thing worth shipping** — a real notification, end to end, with the control mechanism present but no UI for it. If you want to see it work before committing to the rest, stop there.
+- **T4 is the ticket that would expose a bad T1.** If adding the second producer means touching anything but the registry and one call site, T1 got the seam wrong. Worth doing early for that reason, even though T3 is what you explicitly asked for — the two are independent and can swap.
+- **I cut two things from the epic's decisions** and recorded why in the body rather than dropping them silently: the unsubscribe token/`List-Unsubscribe` (D8) and the separate sending subdomain (D9). Both are safe at one-email-per-lead and both are written down with their trigger — D8 before any type fans out to a list, D9 before volume or any level-2 notification. I kept the rate cap, which I'd flagged as cuttable, because it's a handful of lines against a hazard that's live the day T2 ships.
+
+The five are laid out as `## Children` in EPIC-14 but **not filed** — say the word and I'll create them, then cut the branch for T1.
 
 <!-- xgd-chat-end -->
