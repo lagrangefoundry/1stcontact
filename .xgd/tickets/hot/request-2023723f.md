@@ -5,9 +5,9 @@ type: request
 title: 'email tickets: freeze the record of a sent message'
 created_by: EPIC-3
 created_at: '2026-09-16T21:58:48.359181+00:00'
-updated_at: '2026-09-17T03:24:09.798493+00:00'
+updated_at: '2026-09-17T03:36:48.278776+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -22,6 +22,7 @@ fields:
   version: 0.2.232
   story_points: 2
 ---
+
 
 ## What this adds
 
@@ -134,20 +135,26 @@ UATs (`test_UAT_FC_<TICKET-ID>_*`) against the real store:
 - the rule is read off `productTypePack()` itself, so dropping or moving the
   declaration fails loudly rather than silently ceasing to enforce
 
-### The dependency has to be installed before these can pass
+### The dependency is an install, and the failure mode is silence
 
 `@lagrangefoundry/ticketing` reaches this repository through the out-of-repo
 shared store at `/Users/martin/lagrangefoundry/node_modules`, which `bin/install`
-in the framework populates and nothing else updates. REQ-160 is `free_coded`
-there but has not been installed, so the store's `TypePack` ignores an
-`immutable` key it does not know — inertly, not loudly. Until an operator runs
+in the framework populates and nothing else updates — so REQ-160 being
+`free_coded` there is not the same fact as the mechanism being reachable here.
+Installed on 2026-09-16 with:
 
     cd /Users/martin/lagrangefoundry/lagrange-framework
     python3 bin/install --lang js --component ticketing
 
-the declaration is present and unenforced, and the six UATs that assert a
-refusal or a `locked` block fail. The four that assert the declaration itself
-and the send path still pass, which is the shape to expect.
+WORTH RECORDING BECAUSE THE GAP IS SILENT. A `TypePack` that predates the
+mechanism ignores an `immutable` key it does not know rather than refusing it,
+so an uninstalled dependency presents as a declaration that is simply not
+enforced — no error, no warning, and a `locked` block that is merely absent.
+The UATs are what make that state legible: against the stale store four pass
+(the declaration itself, and the send path, which is unaffected by definition)
+and six fail, which is precisely the signature of the mechanism being missing
+rather than the declaration being wrong. Against the installed store all ten
+pass, as does the whole `workers` project.
 
 
 ## The specification
