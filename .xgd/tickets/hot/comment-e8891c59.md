@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T02:25:50.846141+00:00'
+updated_at: '2026-09-17T02:27:19.257595+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1134,5 +1134,25 @@ Test subjects are parked with the design: `nooneknowsura.dog` and `martinwesthea
 One other thought on this that I don't want to get lost.
 
 We should support sending a test email to check that the forwarding is working as intended - it should follow the test rails (see discussion on BFM) and not show up in the contact list - the user should be left to confirm (with a button in the email?) that they received it.
+
+<!-- xgd-turn id="df619148-fb65-42af-8855-8fa37b273a2d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T02:27:17.443406+00:00" -->
+#### Claude
+Captured in EPIC-13 — and it turns out to be the first concrete consumer of the BFM contract, which surfaces one thing worth flagging.
+
+Recorded in EPIC-13, appended. No ticket.
+
+Three things I added around your note, because they were implied by it and would otherwise get re-derived:
+
+**Why the human click isn't redundant with the delivery webhook we already have.** `email.delivered` proves the message reached the forwarding destination's mail server and nothing more — spam-foldering, a downstream rule dropping it, an address nobody reads any more are all invisible to it. The click is the only evidence that crosses the last hop. That's the argument for the button existing at all, so it's worth having written down.
+
+**`no answer yet` is a third state, not a failure.** Someone who hasn't checked their email for two hours has told us nothing. Rendering that red trains everyone to ignore the indicator, and the indicator is the whole product here. Real failure is only rejection or bounce.
+
+**It inverts one of the BFM rules, and that's the flag worth raising.** §5 says synthetic traffic must never reach the business. Here the business is deliberately the recipient — the entire point is a human seeing it and pressing a button. That contract was written for *platform-initiated* traffic on a schedule; this is *customer-initiated*, and it's the one class that must get through. So the exception needs to key on **the initiator**, carried in the marker rather than inferred later — otherwise a general softening of the rule lets a bot enquiry through the same hole.
+
+Also noted: reuse REQ-244's token mechanism for the button rather than minting a second public token-bearing endpoint; and guard the loop, since the test enters our own MX and forwards back out — a destination pointing at the same domain should be refused at configuration time, not discovered at send.
+
+Left open, since it's your call: **one button or two.** *"I got it"* is the minimum; *"I found it in spam"* is a deliverability finding no other signal we hold can produce, and it costs nothing in the message.
 
 <!-- xgd-chat-end -->
