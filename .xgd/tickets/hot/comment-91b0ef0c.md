@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T01:40:18.673693+00:00'
+updated_at: '2026-09-17T01:42:17.803855+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -529,5 +529,37 @@ One expectation for this run: rounds now resume across iterations of the same si
 <!-- xgd-chat role="user" ts="2026-09-17T01:40:16.818526+00:00" -->
 #### You
 **REQ-256's ticket body is now out of date with its own tests.** Behaviour 3 and requirement 17 still say the round gets *"reading tools and nothing else"* and *"cannot run *`xgd`*"*. <-- please fix this it will confuse reconciliation no end
+
+<!-- xgd-turn id="1190fd92-37ff-4dec-9061-54b2bb1e51c6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T01:42:16.869352+00:00" -->
+#### Claude
+Now the same overstatement in EPIC-12 §8.6, which still says Risk 2 is dissolved.
+
+Fixed. Every remaining hit is the corrected text describing what changed, not a stale claim.
+
+## What I changed in REQ-256
+
+Four passages, all describing the same thing — the tool grant:
+
+- **Behaviour 3** keeps *"the AI writes no code"* but now records its standing: an instruction checked after the fact, not a property of the tool set, amended by REQ-262 D7. It names what holds it — requirement 18's working-tree comparison, which was defence in depth and is now load-bearing.
+- **Requirement 17** rewritten to the real grant: `Read`, `Glob`, `Grep`, `Bash`. Why `Bash` (the round needs the ticket store — your first round found prior art on its own defect), why it couldn't be narrow (`Bash(xgd ticket get:*)` admits `Bash` wholesale), **both measurements** with their numbers, and what the grant costs stated plainly. Filing stays the console's job.
+- **Requirement 20** no longer justifies the console owning the ticket id with *"the round has no tool that could have created a ticket"* — which is now false. It's asserted rather than assumed, precisely because the round *could* reach `xgd`.
+- **Requirement 14** said Risk 2 was *dissolved*. It's **bounded** — instruction plus working-tree falsifier, authoring tools denied by name, un-ticketed edits eliminated as drift, real changes arriving by free coding.
+
+I kept the old claim visible in each case (*"as originally written this said dissolved…"*) rather than silently overwriting. Reconciliation reads a body against code and a history; an amendment it can see the shape of is easier to trust than a body that was always right.
+
+## Also corrected EPIC-12 §8.6
+
+Same overstatement, same fix — the heading went from *"Dissolved by §8.2"* to *"Bounded, not dissolved"*, with the four things that actually bound it. Your recorded position on why the trade is acceptable (pre-production, engine is poor, production deploys by explicit human act) is retained and now reads as the justification for D7 rather than as a reason the risk was absent.
+
+**35 UATs still green** after the body edits — the tests were already asserting the amended policy, so this closes the gap in the direction of the code rather than against it.
+
+Nothing else changed. Still the one prerequisite before your run:
+
+```
+./bin/repro-rail record
+./bin/repro-console
+```
 
 <!-- xgd-chat-end -->
