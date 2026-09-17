@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-312f9446
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-f39161e2
 ---
 
 **The gutter primitive.** [[DOC-54]] is the design; this ticket is the behaviour this
