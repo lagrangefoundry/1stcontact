@@ -6,7 +6,7 @@ title: values-diff mis-attributes split text+box controls — phantom radius del
   the repair order while the real geometry defect goes unreported
 created_by: xgd
 created_at: '2026-07-24T22:50:44.105883+00:00'
-updated_at: '2026-08-05T17:38:10.947684+00:00'
+updated_at: '2026-09-17T20:21:15.970105+00:00'
 completed_at: '2026-08-05T17:38:10.947684+00:00'
 last_field_updated: status
 status: free_and_reconciled
