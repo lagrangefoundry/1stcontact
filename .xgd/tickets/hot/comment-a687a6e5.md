@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T03:56:38.604727+00:00'
+updated_at: '2026-09-17T04:08:36.736896+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -174,5 +174,11 @@ Four subsections added to EPIC-13:
 - **What per-recipient substitution does to "frozen"** — the unsubscribe token and merge fields, so "reconstructible" is stated with its limits rather than overstated.
 
 One open thread I'd flag but haven't written as decided: the campaign body is markdown, and a template is HTML chrome with a slot for it. That's implied by everything above but never stated, and it's the seam where markdown rendering and email-safe HTML have to meet — inline styles, table layouts, no `<style>` blocks that Gmail strips. It's the least glamorous part of email and where most of the surprise lives. Worth its own pass when you're ready.
+
+<!-- xgd-turn id="d7cf33a8-6115-4e97-a9ab-a97683d09e4d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:08:36.551187+00:00" -->
+#### You
+I think our template ends up with a lifecycle. It is important that we preserve the template for the same reason we need to preserve the content, we want to see what the user actually received, the actual logo that was used, the actual unsubscribe statement etc. etc. But the template should go through the same lifecycle as the campaign they are joined at the hip, one template can serve multiple campaigns but once a template has gone out it is frozen. It would have a lifecycle like a campaign wood and once it has appeared in using his email it must be frozen. Perhaps the simplest user experience is when we create a new campaign we also create a new style template. One or both could be created as copies of existing content?
 
 <!-- xgd-chat-end -->
