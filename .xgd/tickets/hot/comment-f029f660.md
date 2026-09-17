@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T03:48:23.070650+00:00'
+updated_at: '2026-09-17T04:04:17.191474+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -224,5 +224,17 @@ Four mechanisms at their smallest honest size, plus five assertions, each falsif
 Everything else — probes, tiers, external execution, verdict storage — waits.
 
 I haven't cut the child ticket; this session is scoped to EPIC-15 and you've said you have enough on deck. Say the word and I'll scope it, cut the branch, and build it.
+
+<!-- xgd-turn id="adfeeadf-978c-4a19-ba5b-dd8349f0df8b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:04:17.140283+00:00" -->
+#### You
+**EPIC-5's last turn forces the marker to carry an initiator class, not a boolean** — `platform` vs `customer`. The forwarding test is synthetic traffic whose entire point is that a human receives it. If that distinction is inferred downstream instead of signed at origin, the softening that lets the forwarding test through is the same hole a daily bot enquiry walks through. <-- you know, we may be overthinking this. The site owner in this context is not a contact. They are a contact of 1c but NOT of their site - which is where they are running the test. We have discussed a little in I think epic 13 is it the email one, about the need for a "inbox" for messages that are not associated with a contact. This test message would be an example of just that. Is it so bad if this message ends up in that bucket? I don't think so in fact it could be considered a feature it would be confidence building for the user that the system was working end to end. So maybe we can relax on this nuance.
+
+ok so I think the next step is a design document that captures the requirements, the architectural solution and the implications for clients.
+
+Epic 10 has landed but its still fresh and untested - I think the order of business will be to get what we have working there first and then add the guttering and create the production tests so that we can prove that it still works and that the tests are transparent to the user. 
+
+Thoughts? Ready to draft the doc?
 
 <!-- xgd-chat-end -->
