@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-268
 created_by: xgd
 created_at: '2026-09-17T23:06:08.757708+00:00'
-updated_at: '2026-09-17T23:37:00.836890+00:00'
+updated_at: '2026-09-17T23:40:43.844254+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -87,5 +87,14 @@ The collision is real and worth pinning: a marked submission at an address a rea
 Now the full regression sweep on the merged tree.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="689e8079-db28-46be-94de-feb3ffd9cc76-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T23:40:42.227285+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
