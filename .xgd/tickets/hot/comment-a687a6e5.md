@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T20:08:18.171495+00:00'
+updated_at: '2026-09-17T21:47:16.199084+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -509,5 +509,15 @@ Three things in there I'd point at as more than bookkeeping:
 **EPIC-15 is resting on something that doesn't exist.** Its forwarding test resolves cleanly *because* the test message lands in "pending/unidentified" — a state DOC-54 describes as one this epic "already sends unmatched inbound mail" to. We don't. It's in ticket 1 now, but if ticket 1 gets trimmed, that's the thing that can't be trimmed out of it.
 
 And the catch-all call — default **on** through cutover, off for green-field — is written as overriding §"Incoming"'s stated default rather than contradicting it silently. That's the one judgement in this pass I'd most want you to overrule if you disagree, since it's the difference between a spam magnet and a lost-mail incident and I've picked a side.
+
+<!-- xgd-turn id="46a8fe93-1b43-4afa-a17f-168d24724ebe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:47:15.234647+00:00" -->
+#### You
+Your scope covers most of the contact activity log requirements today. This feature is sort of being pulled in two different directions (1) Lagrange-framework EPIC-1 as an aggregate view of a system log and (2) Your requirements. REQ-235 was written before both.
+
+My guidance - I would like to understand the contact activity log in the context of our overall logging system, it should not stand alone. However, It has its requirements, which are very different from system logging and I am not sure that they mix.
+
+Can you review what REQ-235 says, I am ready to implement it but I want to make sure we understand how it does/does not fit with lf:EPIC-1 and make sure that it can support the requirements that you have
 
 <!-- xgd-chat-end -->
