@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T01:47:43.501321+00:00'
+updated_at: '2026-09-17T02:27:07.934517+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -575,3 +575,102 @@ furniture restorer can answer, and there is no other source for it.
 [[EPIC-5]]'s flow warns and proceeds. The customer is told by provider name that
 their mail will stop, and some will choose to schedule the move rather than do it
 now — **which is the correct outcome, not a failure of the flow.**
+
+
+---
+
+## The forwarding test: a real message, on the test rails, confirmed by a human
+
+Operator, 2026-09-16, recorded so it is not lost. **Configuring forwarding and
+believing it works are different things**, and the gap between them is where a
+business silently stops receiving enquiries.
+
+So: **send a test email to the address under test, let it travel the whole
+forwarding path, and let the customer confirm they received it — with a button in
+the message itself.**
+
+### Why a human click and not a delivery event
+
+We already receive `email.delivered` from the provider (`email-webhook.ts`,
+[[REQ-198]]). **It is not sufficient here and the difference is the whole point.**
+A delivery event proves the message reached the forwarding destination's mail
+server. It proves nothing about whether it reached the human:
+
+- foldered as spam — invisible to every signal we hold;
+- accepted by the destination MTA and then dropped by a downstream rule;
+- forwarded to an address that no longer belongs to anyone who reads it.
+
+**The click is the only evidence that crosses the last hop.** Everything else stops
+at a server. That is why the confirmation is a button in the message rather than an
+inference from a webhook, and it is why the test is worth building at all rather
+than trusting configuration.
+
+### It rides the rails in §5, and is their first consumer
+
+Every bullet of the BFM contract applies unchanged — the signed synthetic marker,
+`synthetic` on every write, default-filtered reads, the reserved address namespace,
+and the full real code path with no short-circuit. **This is the first concrete
+thing that needs that contract**, which makes it a useful check on it: if the
+forwarding test cannot be expressed in those five rules, the rules are wrong and it
+is cheaper to find out here than after the BFM epic is built.
+
+Consequences, stated so nobody has to re-derive them:
+
+- **It does not appear in the contact list**, on any activity log, in campaign
+  statistics, or in any customer-visible count. It creates no contact and no
+  contact event.
+- **It does not count as a send** for reputation, metering or billing.
+- **It runs the real pipeline.** A test that took a shortcut past Email Routing or
+  past the Email Worker would be testing something other than the thing being
+  configured.
+
+### One place it inverts the contract, and the BFM epic needs to know
+
+§5 says *"customer notifications are suppressed for synthetic traffic — a daily bot
+enquiry must never reach the business."* **Here the business is deliberately the
+recipient**: the entire purpose is for a human at that address to see the message
+and press a button.
+
+That contract was written for **platform-initiated** synthetic traffic on a
+schedule. This is **customer-initiated** synthetic traffic, and it is the one class
+that must reach a person. The suppression rule therefore needs a narrow, explicit
+exception keyed on the initiator — not a general softening, which would let a bot
+enquiry through the same hole.
+
+**The initiator is the distinction to build in**, and it should exist in the marker
+rather than being inferred later.
+
+### Three states, and *no answer* is not *failed*
+
+`sent` → `confirmed` → and, crucially, **`no answer yet`**, which is a third state
+and not a failure. A customer who has not looked at their email for two hours has
+told us nothing. Rendering that as a red failure trains everyone to ignore the
+indicator, and the indicator is the product here.
+
+A real failure is only: the provider rejected it, or it bounced. Silence is
+silence, and it says so.
+
+### The button is a token, and the mechanism already exists
+
+The recipient may be signed out, on a phone, on a device that has never seen this
+product. So the link carries its own authority — the same shape as [[REQ-244]]'s
+gated download (`GET /api/download/<token>` reaching `AssetGate` over a service
+binding, with no URL into the tenant). **Reuse that mechanism; a second
+token-bearing public endpoint is a second thing to get wrong.**
+
+### One hazard to guard
+
+The test is sent **to** the address being configured, so it enters our own `MX`,
+runs the Email Worker, and is forwarded back out to the customer's real mailbox.
+That round trip is exactly what makes it a real test — **and a forwarding
+destination that points back at the same domain is a mail loop.** It needs a hop
+guard, and the configuration surface should refuse that destination outright
+rather than discovering it at send time.
+
+### Open
+
+**One button or two?** *"I got it"* is the minimum. *"I found it in spam"* is the
+other outcome worth distinguishing, because spam-foldering is both common and
+invisible to us — and it is a deliverability finding ([[EPIC-13]] §4) that no other
+signal we hold can produce. Two buttons cost nothing in the message and turn a
+binary into a diagnosis. Not decided.
