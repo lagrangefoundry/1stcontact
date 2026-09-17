@@ -6,7 +6,7 @@ title: 'values-diff / gate: the reproduction-side value manifest is computed and
   with no flag to write it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:38.410536+00:00'
-updated_at: '2026-09-17T03:00:50.245110+00:00'
+updated_at: '2026-09-17T21:52:40.867297+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -96,3 +96,80 @@ Found while diagnosing loop-1 iteration 2 of `repro-gigabytealchemy-ai`.
 **Companion:** **BUG-102** is the delta this blocked a round from closing
 (`values-diff` joins section-level values by ordinal index). **BUG-101** is why
 the commands above redirect `1c page get` to a file rather than piping it.
+
+
+---
+
+## Scope for the fix (agreed 2026-09-17, after reading the code)
+
+### Three corrections to the report above
+
+**1. The failure is silent, not an error.** `1c`'s argv parser
+(`tools/generate/src/cli/args.ts`) is permissive — any `--x value` lands in
+`flags` and nothing validates the set — so `1c values-diff … --actual-out
+/tmp/actual.json` today exits **0**, prints a normal report, and writes no file.
+The "Wrong result (now)" above should read: the run looks clean and `/tmp` stays
+empty.
+
+**2. The reference side is derived and discarded too, and the §0 question needs
+both sides.** On the default (no `--size`) path the expected manifest is
+`flattenCapture(readCapture(bundle))` — a projection computed in-process, not a
+stored artifact. Only `--size` / `--multi-viewport` take the reference from
+persisted `multistate.json` projections. And the two sides are not the same kind
+of list: `flattenSignals`' own docstring says the reproduction's sections come
+from the **raw, uncoalesced** bands while the capture's are **coalesced**, with
+only index 0 guaranteed to correspond. So a round holding only the reproduction's
+section list still cannot tell a misplaced hero from a band-count mismatch. The
+fix writes **both** manifests.
+
+**3. The reproduction screenshot is discarded the same way, one file over.**
+`cmdDiff` (`cli/perceptual.ts`) shoots the reproduction into a `mkdtemp`
+scratch directory and `rmSync`s it in a `finally`, then persists the path it just
+deleted as fact. `iteration-2/diff/regions.json` records
+`"actual": "/var/folders/…/T/req38-diff-HQ40UY/actual.png"`, which does not
+exist. The per-region `-ours.png` crops survive; the full reproduction raster
+does not, so a round cannot crop an area the region ranker did not pick and
+cannot re-run `1c diff --actual` offline. It is the same defect in the same
+artifact set — the perceptual half of the offline seam is one-way for the same
+reason the value half is — and it is fixed here rather than filed again.
+
+### What this ticket changes
+
+- `1c values-diff` gains `--actual-out <manifest.json>` and
+  `--expected-out <manifest.json>`. Each writes the manifest that side of the
+  comparison actually used, in the same serialised shape `--actual` already
+  accepts as input, so the offline re-diff path round-trips.
+- `1c diff` gains `--actual-out <png>`: the reproduction screenshot it shoots is
+  kept at that path instead of being deleted with the scratch directory, and
+  `regions.json`'s `actual` field names a file that exists.
+- `1c gate` needs no new flag. When it is given `--out <dir>` it writes
+  `actual-manifest.json`, `expected-manifest.json` and `actual.png` into that
+  directory beside `values-diff.json`, `regions.json` and `gate.json`,
+  unconditionally. This is what puts the evidence in the reproduction console's
+  iteration directory, since the console already runs `1c gate … --out <diff>`.
+- The round brief's "Where the evidence is" list names the three new files, or
+  rounds will not know they exist.
+- Writing happens whether or not the side was supplied from disk. Feeding
+  `--actual <in.json> --actual-out <out.json>` copies the input rather than
+  skipping the write, so the flag means the same thing on every path and the
+  round-trip claim holds without a caveat.
+- `--multi-viewport` is **out of scope**: its actual side is a whole
+  `MultiStateCapture` across the ladder, not one manifest. Combining it with
+  `--actual-out` / `--expected-out` is rejected with an error naming the
+  single-width and `--size` paths, rather than silently ignored — silent
+  ignoring of an unrecognised flag is what made correction 1 above possible.
+
+### How to know it is fixed (replaces the check above)
+
+```
+REF=/Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index
+CHROMIUM_LAUNCH_ARGS=--single-process ./bin/1c values-diff repro-gigabytealchemy-ai \
+  --ref $REF --sandbox --actual-out /tmp/actual.json --expected-out /tmp/expected.json
+```
+
+Both files exist; each has a `sections` array; the reproduction's section count,
+band boxes and `contentAnchorRatio`s can be read beside the reference's, so the
+`§0` `contentAnchor` delta can be argued from evidence on both sides. Feeding
+`/tmp/actual.json` back through `--actual` reproduces the same report with no
+browser. After a gate run with `--out`, the three files are in the iteration's
+`diff/` directory and `regions.json`'s `actual` path exists on disk.
