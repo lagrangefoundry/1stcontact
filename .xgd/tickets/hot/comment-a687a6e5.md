@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:10:26.775660+00:00'
+updated_at: '2026-09-17T04:18:32.403595+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -225,5 +225,13 @@ Where the model stands now, for a campaign leaving draft — one moment, four th
 | **assets** | must already be content-addressed, or the preservation claim is void |
 
 The asset retention obligation is the one I'd watch. It's the only constraint in this whole thread that reaches outside the epic — it lands on the blob store and collides with DOC-37's erasure path, since "never delete an asset a sent campaign references" and "sever this person's identity on request" are going to want the same bytes gone and not gone. Worth a proper look before either side hardens, though it's not blocking anything today.
+
+<!-- xgd-turn id="359e3dc8-2073-441e-9a8c-bcdf522715eb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:18:32.124245+00:00" -->
+#### You
+Yes, we just need a mechanism to tell the user "this cannot be edited if you want changes here is a CTA to make a copy". This should be clear and explicit - what we were discussing before sounded like there were automated versioning things going on - that would be confusing.
+
+I don't like copy-on-write it is copy-to-write, agree?
 
 <!-- xgd-chat-end -->
