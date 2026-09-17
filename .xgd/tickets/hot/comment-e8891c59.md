@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-16T23:57:57.145979+00:00'
+updated_at: '2026-09-17T00:26:06.234064+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -857,5 +857,106 @@ No email was sent. Sending was *configured*, because the toggle defaults on and 
 One flag in the ticket: its subject is broader than EPIC-5 — it touches the LLM keys and the embedder pair, and deploy hooks aren't DNS management. I parented it here because REQ-259 already moved that hook to `fail` and this continues the same argument. Re-parent if you'd rather.
 
 Nothing coded — this was scoping. And the two env changes from the last turn are still yours to make.
+
+<!-- xgd-turn id="ea6283a3-2d08-4343-b8dd-6929693f0d3d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T00:22:48.815964+00:00" -->
+#### You
+Ok lets assume that this is now in-hand - we will come back to it if I can't get it working.
+
+Now, lets talk about the next phase - changing a domain's DNS on its registra.
+
+I want to start with GoDaddy - it seems a sensible first choice and I still have many domains there that we can play with.
+
+I want to experiment with a new UX here - I want to try to get the AI to walk me through - a combination of canned instructions, screenshots but with the ability for the user to ask questions at any time. The AI needs (and has?) tooling to check on the status at any point and clear guidance on how to help.
+
+I imagine we set this up for a handful of providers and then have a generic script for the rest.
+
+Roughly I imagine we do this:
+CTA on settings [address box] [CTA:Help me move this web address] (text above explains what this is for, that its for when you own an address with another provider
+This triggers a macro-prompt (canned prompt fed to the AI). It starts by looking up the address and discovering who the registra is and what the settings are.
+Then come back to the user: "I've found your address it is registered with GoDaddy -  We need to change the settings on the godady side. do you have access to that account."
+yes -> proceed
+no -> can you find the person with access, we need to make some changes there to move that address.
+"Ok, if you are ready to proceed, I will start by making a copy of all your settings to make sure we don't loose anything on the way"
+> trigger copy dns api - check it has arrived
+Sanity check on the settings - can we make this work after moving it? If not may need a deeper discussion with the user - they may be prepared to drop some of the config to make this work
+
+Next, step by step instructions:
+ok go to godaddy.com [links to new tab] in your browser and log in - tell me when you are ready...
+
+Now select "manage" next to the domain you want to move [screenshot]
+
+...
+
+exact text with how it should look in the boxes provided by godaddy
+
+Finally an explanation about the wait and the propagation delay and a promise that we will let them know by email when its ready - or if there is a problem (I will put a pin in notifications for now)
+
+In the AI script we need to forsee problems (domain is already serving a different site - email configuration - anything else) and help the AI with language and the resolutions that we are able to offer.
+
+<!-- xgd-turn id="ea6283a3-2d08-4343-b8dd-6929693f0d3d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T00:26:05.864488+00:00" -->
+#### Claude
+This is ticket D, and you've designed most of it. Let me check what tooling actually exists before I respond to the shape.
+
+RDAP is decisive — one unauthenticated call returns the registrar, the current nameservers **and DNSSEC status**. Let me measure coverage across your actual TLD mix, since that's what decides the design.
+
+One more check — whether the resolver can already recognise the provider that matters most here.
+
+Good news first: **more of this exists than you'd expect, and the one missing primitive is better than I hoped.**
+
+## What's already built
+
+REQ-257 shipped `resolver.snapshot(domain)` — it already returns `mail`, `web`, `senders`, `dkim`, `hasLiveMail`, `hasLiveWeb` and a `live` summary, and it already knows `secureserver.net` → **GoDaddy** in all three attribution tables (`resolver.ts:147,181,206`), plus `websitebuilder.online`. `cloudflare.createZone()` returns the assigned nameserver pair, `recordZone` writes the row, `syncZoneStatus`/`mirrorStatus` mirror Cloudflare's state machine, and `resolve(name,'NS')` is your status check. So *"the AI needs tooling to check status at any point"* — the capability is there; what's missing is exposing it to the assistant, which is **REQ-260, still at `draft`**. That makes REQ-260 a hard dependency of this, not a sibling.
+
+## RDAP is the missing primitive, and it gives you three things in one call
+
+I tested it live. `https://rdap.org/domain/<name>`, unauthenticated, returns:
+
+- **the registrar** — `GoDaddy.com, LLC`, authoritatively
+- **the current nameservers**
+- **`secureDNS.delegationSigned`** — DNSSEC status
+
+That third one is the important one, and it's not in your flow.
+
+## Three gaps in your design, in order of how badly they end
+
+**1. DNSSEC — the one that takes the domain completely dark.** If the domain is signed and you change nameservers without removing the DS record at the registrar first, every validating resolver returns SERVFAIL. Not degraded — *unresolvable*, for web and mail, for everyone. It's invisible in the DNS records themselves, so a records-only sweep can't see it. RDAP hands it to you for free.
+
+It also adds a step *and a wait* to the GoDaddy script that isn't in your draft: turn DNSSEC off at GoDaddy, **wait for the DS to expire from the parent zone**, then change nameservers. Doing both in one sitting is the mistake.
+
+All 12 of your domains report `delegationSigned=False`, so **you will never hit this in your own testing** — which is exactly why it has to be designed in rather than discovered.
+
+**2. GoDaddy email forwarding — your "deeper discussion" case, made concrete.** GoDaddy gives away email forwarding on domains registered with them. Their own documentation ties it to their nameservers. If your customer's `info@` is a GoDaddy forward, this flow may silently kill the mailbox their business runs on — the exact harm the epic's acceptance bar names.
+
+I'd flag this as **needs empirical verification rather than assumption**: it's plausible that copying the `secureserver.net` MX records forward keeps it working, and it's plausible it doesn't. That's a testable question and it should be answered before the flow ships, not by a customer.
+
+**3. Registrar is not the DNS host, and your flow needs both.** The nameserver paste happens at the **registrar**; the records you're copying live at whoever currently hosts the **DNS**. Those are routinely different — registered at GoDaddy, DNS at Wix. Your `merklebonsai.com` is exactly this shape in reverse: registrar GoDaddy, nameservers Cloudflare. So the walkthrough has to name two providers without confusing the customer about which browser tab they're in.
+
+## Two practical findings
+
+**RDAP coverage is not universal.** `.io` and `.me` returned 404 — no RDAP service. `.com`, `.ai`, `.site`, `.dev` all worked. ICANN mandates it for gTLDs; many ccTLDs opt out. **`.co.uk` is likely your most common customer TLD** and needs checking specifically — if Nominet has no RDAP, you need a fallback path (NS-based heuristic, which identifies the DNS host and *not* the registrar, so the honest fallback is asking the customer *"who did you buy this from?"*).
+
+**Registrar names come back in three spellings** across your own domains — `Cloudflare, Inc.`, `Cloudflare, Inc`, `CloudFlare, Inc.`. Whatever selects the GoDaddy instruction set must normalise, not string-match, or a punctuation change silently drops a customer into the generic script.
+
+**And you have nothing to test the actual move with.** Of your 13 zones, only `merklebonsai.com` and `positronica.ai` are at GoDaddy — and both already point at Cloudflare nameservers. To exercise the real flow you'd need to point one back at GoDaddy's nameservers first (safe on a parked domain, and it doubles as the email-forwarding experiment).
+
+## The part that's actually hard
+
+Not the script — the script is content. It's that **"ask questions at any time" plus a twelve-step procedure means the assistant must hold its place while going off-script and coming back.** And because nameserver propagation is hours, the customer *will* close the tab and return tomorrow. So procedure state has to be durable and outside the transcript: which step, what we've written, what we swept, what we're waiting for. That's the engineering; the canned prompt is the easy half.
+
+It's also the argument for your instinct over a static wizard: when the customer says *"I don't see that button"*, a wizard is stuck and an assistant can adapt. Which matters, because **screenshots go stale** — GoDaddy redesigns, and an 18-month-old screenshot is worse than none. They need a verified-on date and a text fallback the AI drops to.
+
+## One small fix to your flow
+
+The **no** branch — *"can you find the person with access"* — is a dead end, and it's a common landing spot (the nephew set it up). Cheap improvement: make the procedure **transferable**, so the customer forwards a link and their web person completes it. Turns the most common failure into a path.
+
+---
+
+Shape I'd propose: **one ticket for the primitives** (RDAP client, registrar normalisation, DNSSEC gate, the provider-consequence knowledge base the AI reasons from), **one for the durable procedure state and the guided-walkthrough mechanism**, and **one for the GoDaddy content pack** — with the generic script falling out of the same mechanism. REQ-260 first, since the status tooling is its.
+
+Want me to cut those? And I'd want your call on whether the GoDaddy email-forwarding question gets answered by experiment before the content pack is written — I think it should.
 
 <!-- xgd-chat-end -->

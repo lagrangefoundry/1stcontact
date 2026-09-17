@@ -6,16 +6,24 @@ title: 'Loop-1 session priming: review the prompt and build the session''s knowl
   base'
 created_by: REQ-261
 created_at: '2026-09-16T21:28:26.800840+00:00'
-updated_at: '2026-09-16T23:58:48.306498+00:00'
+updated_at: '2026-09-17T00:15:30.991076+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-07d6a4dc
+  commits:
+  - working_sha: 0d7e2d57747236eec2e49cf796f93cfbafdcc17c
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 82051fd6237f651a3e119ab0fe41040356dcff15
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.228
 ---
 
 Parent: [[EPIC-12]] §8. **Split out of [[REQ-261]]**, which now covers the
@@ -392,3 +400,26 @@ one that prompts: the operator is not to be asked questions mid-round.
 
 After each round, the console reports which tickets the round created directly,
 and asserts that none of them carries a `ready_*` status.
+
+
+### Requirements 12–14 (added while implementing D2)
+
+These are consequences of D2's sweep rule rather than new intentions, but they
+are behaviour and so they are stated rather than left to the code to imply.
+
+12. **The KB is rebuilt every round, so it cannot be stale.** A document written
+    or edited since the last round is present in the next one without anybody
+    refreshing anything. The alternative — build once, refresh on demand — makes
+    "is this current?" a question the round has to hold, and removing questions
+    the round would otherwise answer for itself is the entire purpose of the KB.
+
+13. **A document that is retired stops being searchable, not merely stops being
+    refreshed.** A sweep that only ever adds leaves a deleted document sitting in
+    the KB looking current, and a round would quote it. A stale file in a swept
+    directory is worse than a missing one.
+
+14. **A KB that cannot be built never fails the round.** If `xgd` will not list,
+    the round runs against whatever is on disk — possibly nothing — and is told
+    plainly that it has no KB this round. That is the round we had before this
+    ticket, and it was a working round. Turning an improvement into a new way to
+    fail would be a poor trade.

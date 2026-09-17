@@ -57,7 +57,9 @@ import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
 import { spawnCommand, type CommandRunner } from './run'
 import { gapForClass, readGaps, recordGap } from './gaps'
-import { appendGapEvidence, fileTicket } from './ticket'
+import { appendGapEvidence, fileTicket, readyStatusSnapshot, readyStatusViolations,
+  type ReadyTicket } from './ticket'
+import { buildSessionKb, type SessionKbResult } from './session-kb'
 import type { RailRoundResult } from './rail-round'
 
 /** Scratch space for every artifact the console produces. Gitignored (DOC-12). */
@@ -599,6 +601,20 @@ export class ReproConsole {
      * re-sending it would grow the session by the brief's own length every
      * iteration, and that growth is half of what makes a long chain dangerous.
      */
+    /**
+     * THE SESSION KB, BUILT BEFORE THE PROMPT NAMES IT ([[REQ-262]] behaviour 2).
+     *
+     * Rebuilt every round so it cannot go stale, and in the WORKSPACE rather
+     * than in this iteration's directory: it is identical across iterations of a
+     * site, and a per-iteration copy would write close to 900 KB per round to
+     * say the same thing.
+     *
+     * It never fails the round. A KB that could not be built leaves the round
+     * reading the engine directly, which is the round we had before this ticket
+     * and was a working one.
+     */
+    const kb = await buildSessionKb({ cwd: this.cwd, run: this.runCommand, workspace: this.workspace })
+
     const brief = readBrief()
     const resumeCtx = { bundleDir: it.bundleDir, briefHash: briefFingerprint(brief) }
     const saved = readSession(this.siteDir)
@@ -614,6 +630,7 @@ export class ReproConsole {
       pageDocument: it.pageOut,
       siteDir: it.siteOut,
       digestFile,
+      kb,
       gate: it.gate,
       rail: it.railResult ?? { available: false, summary: 'not run' },
       knownGaps: gaps,
@@ -636,6 +653,10 @@ export class ReproConsole {
     // clean — a console run on a dirty tree must not report the operator's own
     // work as the AI's.
     const before = await this.workingTree()
+    // REQUIREMENT 11's falsifier, taken at the same moment and for the same
+    // reason: measured by difference, so a ticket an operator promoted in
+    // another window before the round started is not attributed to the round.
+    const readyBefore = await this.readySnapshot()
 
     let outcome: AiOutcome
     try {
@@ -666,7 +687,7 @@ export class ReproConsole {
     // Behavior 3's falsifier is measured on the ROUND, before the console does
     // any filing of its own — otherwise the console's own ticket write would be
     // the thing the check reported.
-    const roundViolations = await this.codeViolations(before)
+    const roundViolations = [...(await this.codeViolations(before)), ...(await this.readyViolations(readyBefore))]
     this.live = null
 
     await this.settle(it, aiDir, outcome, roundViolations)
@@ -902,6 +923,36 @@ export class ReproConsole {
         added.length > 8 ? `; …+${added.length - 8} more` : ''
       }`,
     ]
+  }
+
+  /**
+   * Which tickets sit at a dispatcher-trigger status right now
+   * ([[REQ-262]] requirement 11).
+   *
+   * A snapshot that cannot be taken is EMPTY rather than fatal. The check is a
+   * safety net over an instruction the round is expected to keep anyway, and a
+   * console that refused to diagnose because `xgd` was slow would have turned a
+   * safety net into a new way to fail.
+   */
+  private async readySnapshot(): Promise<Map<string, ReadyTicket>> {
+    try {
+      return await readyStatusSnapshot(this.cwd, this.runCommand)
+    } catch {
+      return new Map()
+    }
+  }
+
+  /** What reached a trigger status while the round ran. */
+  private async readyViolations(before: Map<string, ReadyTicket>): Promise<string[]> {
+    // An unavailable "before" makes every existing ready ticket look new, which
+    // would report dozens of violations that are nothing to do with the round.
+    // Saying nothing is the honest answer when the comparison cannot be made.
+    if (!before.size) return []
+    try {
+      return readyStatusViolations(before, await readyStatusSnapshot(this.cwd, this.runCommand))
+    } catch {
+      return []
+    }
   }
 
   /**

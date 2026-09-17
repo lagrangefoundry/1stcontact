@@ -6,9 +6,9 @@ title: 'The deploy verifies credentials exist, not that they work: capability pr
   and a capability report'
 created_by: EPIC-5
 created_at: '2026-09-16T23:57:42.205741+00:00'
-updated_at: '2026-09-17T00:05:34.969242+00:00'
+updated_at: '2026-09-17T00:39:03.917318+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
   needs_review: false
   chat_comment: comment-7e515561
 ---
+
 
 ## What this is
 
@@ -181,3 +182,152 @@ management. It is parented here because [[REQ-259]] already moved
 `40-cloudflare-dns-token` from `warn` to `fail` and this is the same argument
 continued, and because the failure that prompted it was on this epic's surface.
 Re-parent freely.
+---
+
+## What was built
+
+### The probe library — one file that knows the providers
+
+`bin/deploy.d/lib/probe.mjs` holds every probe and is the only file that knows a
+provider's API. Plain JavaScript, no transform and no dependency, for
+`tools/generate/bin/smoke.mjs`'s reason: it runs from a shell before a deploy, at
+the moment the toolchain is least likely to be warm. Every probe is a pure
+function of a `fetch`, so the UATs drive them with a double and no suite ever
+holds a real key.
+
+`bin/deploy.d/lib/secret.sh` is the shell mechanism the hooks share —
+`secret_in_store`, `capability_probe`, `capability_record`. **Four hooks carried
+four byte-identical copies of `probe_store`** and this ticket was about to give
+each of them a second copied block; the mechanism is shared now and only the
+decision table stays in the hook, because that table is the per-credential claim
+about what an absence costs.
+
+### Four verdicts, and each hook decides what they cost
+
+| Probe says | Means |
+|---|---|
+| **capable** | it can do the thing the product needs |
+| **insufficient** | the credential is live but lacks that permission |
+| **invalid** | the provider does not recognise it at all |
+| **unproven** | nobody answered |
+
+`unproven` never fails a deploy: a lost network is not a broken key, and the
+presence guard is still the gate. Everything else is per-hook, and deliberately
+asymmetric:
+
+| Hook | insufficient | invalid |
+|---|---|---|
+| `20-resend-api-key` | **warn**, loudly — the key still sends, and the runtime half below makes the deployment degrade exactly as one with no key does | **fail** — the Worker would select the Resend sender and error on every message, which is worse than the absent case this hook forgives |
+| `40-cloudflare-dns-token` | **fail** | **fail** — [[REQ-259]]'s argument from the other direction: `Your domain` ships either way, so a token that cannot read the zones draws a selector it cannot spend |
+| `10-anthropic-api-key` | n/a | **fail** — a control app that cannot take a turn is a broken deploy that looks fine |
+| `30-openai-api-key` | n/a | **fail** — absent stays ordinary and drops the tool cleanly; a dead key offers the tool and fails every call |
+
+### What a probe cannot do, and the report says so
+
+**A secret that lives only in Cloudflare's store cannot be read back** —
+`wrangler secret list` answers with names. So a credential the operator did not
+supply this run is recorded `stored`, which prints as **unverified** and never as
+*ok*, with its effect recorded as *unknown — nothing was probed, so nothing is
+claimed either way*. The probe therefore runs on a rotation and on a first push,
+which is exactly when the value is new.
+
+Probes are reads, so they run on a rehearsal too — `bin/deploy --dry-run` is now
+a way to check the credentials before committing to a deploy, and it reaches the
+same verdict by the same route including the refusal.
+
+### The capability report
+
+`bin/deploy` creates the row file, exports `DEPLOY_CAPABILITY_REPORT` to every
+hook, and prints every row together under `==> Capabilities` after the upload and
+before the deployed list. **The driver still knows no secret's name**, which is
+what the hook directory exists to preserve.
+
+Every hook writes a row in every outcome — push, keep, absent, unreadable,
+degraded — because a report with a hole in it is a report whose holes are
+indistinguishable from passes. Each row carries what the credential can do, what
+it cannot, its expiry and what is consequently off in the shipped product, in a
+sentence rather than a column.
+
+`CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` **has a probe and deliberately
+no hook**: production selects the Worker's own `AI` binding ([[BUG-73]]), so the
+pair is the operator's build credential for `1c kb build` rather than something
+this deploy pushes. There is no secret here to guard, and the probe exists for
+the caller that has one. Its vector width is checked as well as its status,
+because a model answering at another width produces an index whose vectors are
+not comparable with the Worker's — and that failure is not an error, it is
+plausible-looking nonsense.
+
+### The runtime half
+
+- **`ResendNotPermittedError`**, a subclass of `ResendApiError` thrown by the one
+  `call` on 401 or 403. Its message is ours; the provider's sentence is kept on
+  `detail` for the log an operator reads and never becomes the message.
+- **`ResendClient.canManageDomains()`** — the same `GET /domains` the attach
+  makes, answered before the section draws rather than discovered when somebody
+  presses the toggle. It never throws: an unreachable provider is not a
+  credential that lacks a permission, so anything other than a refusal answers
+  `true`.
+- **`DomainState.emailAvailable`** — false for a deployment with no credential
+  *and* for one whose key is refused, because those are one state to a customer.
+  Asked once, for the account holder only; a member sees a disabled control
+  either way.
+- **The builder does not draw the toggle when it is false**, on either state that
+  draws one, and says nothing about the absence — a sentence explaining why a
+  control is missing would put our configuration on a customer's screen. The
+  attach then asks for no email, so the request matches what was offered.
+- **The attach still gives the customer their website.** A refused sending
+  credential reports `email: 'off'` and writes no mail row; refusing the whole
+  attach would take away the thing they asked for to punish a configuration they
+  have no part in.
+- **Pressing the toggle is a 409 in our words** — `SendingNotConfiguredError`,
+  replacing an `UnknownDomainError` that was a sentence about the domain for a
+  condition that has nothing to do with it. 409 and not 502, because 502 says
+  *press it again* and this will not come right.
+- **Turning sending off always works**, and so does release: a key narrowed after
+  the domain was registered cannot unregister it, and refusing over that would
+  leave a customer sending from a domain they asked to stop sending from, with
+  the records already down. The registration is left at Resend and logged.
+
+### The `createDomain` bug
+
+The fallback is entered only on 409 and 422 — the statuses that actually mean
+*already exists* — and where the fallback itself fails, the **original** refusal
+is what the caller gets. The fallback is a guess this module makes; the reason a
+caller did not get a registration is the original error, not whatever went wrong
+while we were checking a hunch.
+
+### Two small things the shape forced
+
+**`.gitignore` carried a bare `lib/`** — the Python build-output block, which
+matches at any depth — so `bin/deploy.d/lib/` was invisible to git and the whole
+shared mechanism would have been committed as nothing. It is exempted by name
+rather than renamed around, because `lib/` is what the directory is.
+
+**A corrupt row does not fail a deploy.** The report is append-only lines from
+several hooks; a line that will not parse is a lost row and is dropped, because
+a deploy that aborted over its own report's formatting would be the report
+causing the outage it exists to prevent.
+
+## One thing found while building it
+
+`probe.mjs`'s *was I run as a command* check compared `process.argv[1]` against
+`import.meta.url` as strings, which is `smoke.mjs`'s shape. **`/tmp` is a symlink
+to `/private/tmp` on macOS and a worktree checkout can sit under one too**, so
+the comparison answers *false* for a file that is plainly being run — and the
+symptom is not an error, it is a report that prints nothing and exits 0. Both
+sides are resolved through `realpath` now.
+
+## Test plan
+
+| File | Covers |
+|---|---|
+| `tests/test_UAT_FC_REQ-264_capability_probes.test.ts` | every probe against a `fetch` double: sending-only vs refused vs full access, zone scope and expiry, the model keys, the embedder pair's width, *nothing is written or sent*, the expiry line is never blank, an unprobed row reads as unverified, the report names what is off |
+| `tests/test_UAT_FC_REQ-264_hooks_probe_capability.test.ts` | the shipped hooks under a stubbed `npx` and `node`: the probe runs before the push, each hook's own policy, a stored value is recorded rather than passed, every outcome writes a row, a rehearsal probes, no hook carries its own copy of the mechanism, and a whole `bin/deploy --dry-run` prints the rows its hooks wrote |
+| `tests/test_UAT_FC_REQ-264_resend_client.test.ts` | the shipped client: 401/403 as a refusal in our words, the fallback's statuses, the original error surviving a failed fallback, `canManageDomains` |
+| `tests/test_UAT_FC_REQ-264_sending_unavailable.workers.test.ts` | real D1 and the shipped routes: `emailAvailable: false` matching the no-key case, the attach still serving the website, the toggle refused at 409 with none of Resend's words, off and release never blocked |
+| `tests/test_UAT_FC_REQ-264_the_toggle_is_not_offered.test.ts` | the shipped builder section in a real document: no toggle, no line about mail, no email asked for, and an answer that says nothing still draws it |
+
+Regression scope: the REQ-144/149/196/257/259 deploy and domain suites, and
+`reconciliation-platform-build-deploy-smoke` — whose fixture tree now copies
+`bin/deploy.d/lib/` with the driver, because a tree holding the driver without
+its machinery is a tree the real driver cannot run in.
