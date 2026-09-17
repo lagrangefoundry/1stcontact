@@ -6,9 +6,9 @@ title: 'repro console: a round''s gap ticket is attributed to the operator, not 
   loop'
 created_by: EPIC-12
 created_at: '2026-09-17T21:42:17.916425+00:00'
-updated_at: '2026-09-17T22:09:47.117133+00:00'
+updated_at: '2026-09-17T22:15:43.007161+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -106,7 +106,10 @@ so far.
 
 ## Test plan
 
-UATs named `test_UAT_FC_<TICKET-ID>_*` in `tools/repro-console/tests/`:
+UATs named `test_UAT_FC_BUG-104_*` in `tests/` — the repo's own test root, not
+`tools/repro-console/tests/` as first written here. `vitest.node.config.mts`
+includes `tests/**/*.test.ts` and nothing else, so a suite under `tools/` would
+never have run:
 
 1. The brief's create example carries `--created-by` — a static assertion over
    `DIAGNOSE-THE-GAP.md`, the same shape as the existing brief-content tests.
@@ -165,3 +168,87 @@ neither is caused by this bug and neither is fixed by fixing it:
    operator chose to reproduce the realistic risk is low. It is worth being
    written down where D7's reasoning is, because the containment argument
    there covers tools and does not mention shell egress.
+
+## What landed
+
+Written after implementation, because two things in the Fix above were left open
+for whoever built it and one turned out not to be buildable.
+
+### The string is `repro-console:<slug>#<iteration>`, checked by its marker
+
+The brief asks for the run-qualified form — it is strictly more useful in a
+ticket list than the bare marker and costs the round nothing, since its prompt
+already names both the slug and the iteration. `ROUND_CREATED_BY` in
+`tools/repro-console/src/ticket.ts` is the one definition site for the
+`repro-console` marker; the brief and the console both derive from it, and a UAT
+asserts the brief carries it so the two cannot drift apart silently.
+
+**The check is a prefix on the marker, not an exact match on the run**, and that
+is deliberate in two directions. An *appended* ticket was filed by an earlier
+round, so its qualifier is legitimately a different one — demanding this round's
+would report a violation against a round that did exactly as it was told. And
+the qualifier is free text an LLM types, so an abbreviated slug would fail an
+exact match while being no kind of provenance failure. The boundary worth
+checking is machine-versus-human and the marker is that boundary exactly.
+
+The separator is required, so a `created_by` that merely *starts* with the marker
+— `repro-console-operator@example.com` — does not pass as one.
+
+### The console checks bug tickets to the same standard
+
+`confirm()` applies the provenance check to the secondary `1c` bug tickets as
+well as to the gap ticket. They are filed by the same round through the same
+command; a check that covered only the gap ticket would let half of a round's
+output keep the operator's name. The brief says so in §5 for the same reason.
+
+### A violation never fails the round
+
+Consistent with everything else `confirm()` finds. The diagnosis is real and was
+done; a console that discarded it over its own audit trail would be committing a
+worse version of the fault it was reporting. The finding is a line in the round's
+violations, which is how the page already says a round misbehaved.
+
+### `ReadTicket` grew `createdBy`, and unreadable stayed its own outcome
+
+`readTicket()` now runs `xgd ticket get <id> --json` and parses
+`frontmatter.status` and `frontmatter.created_by` through the existing
+`parseJsonOutput` — which already tolerates `xgd`'s `▶`/`◀` banners, so no new
+parsing was written. A refusal, a non-JSON answer and a document with no status
+all come back `found: false` with empty fields and are reported as *unverified*.
+That is a different finding from wrong provenance and must not collapse into it:
+one asks the reader to repair a ticket, the other says the console could not
+look. An empty `created_by` is exactly the value a naive check would have
+reported as a violation, so this is asserted rather than assumed.
+
+### Test infrastructure: one definition of the read-back document
+
+`tests/support/xgd-ticket-get.ts` renders what `xgd ticket get --json` prints,
+banners included. Three suites drive `readTicket()` through the injected
+`CommandRunner`; before this change the document each had to produce was the one
+line `Status: draft`, cheap enough to restate, and it is now a nested frontmatter
+object. Three hand-written copies would drift the moment a fourth field is read
+back. `test_UAT_FC_REQ-256_*` and `test_UAT_FC_REQ-261_*` were moved onto it as
+part of this change.
+
+### Retrospective repair of REQ-265: blocked, not done
+
+`created_by` is settable only at creation. `xgd ticket create` takes
+`--created-by`; `xgd ticket update` has no equivalent and `--stdin` with a
+`created_by` key is refused ("Must provide --title, --fields, --body, …").
+Editing the ticket file directly is not an option — the file is the store's, not
+ours. So REQ-265 keeps `martin-github@westhead.me` until either `xgd` grows a way
+to amend the field or the operator decides it is not worth one. It is one ticket
+and the loop is correct from here on.
+
+### Adjacent finding, not fixed here
+
+`ai.ts`'s `buildPrompt` still carries the pre-[[REQ-262]]-D10 text — "**You still
+do not file.** You hand the ticket back and the console creates it at `status:
+draft`. Never create one yourself" — and, under "What you hand back", "the
+console files each one separately at `draft`". Both contradict the brief's §1 and
+§6, which tell the round to run `xgd ticket create` itself, and contradict what
+the console actually does (`ticket.ts`'s own header records that `fileTicket` was
+deleted). A round is handed the brief and this prompt in one message and has to
+pick. Not touched here: it is a stale-prompt defect that predates this ticket,
+is not caused by it and is not fixed by fixing it. Raised for the operator
+rather than folded in.
