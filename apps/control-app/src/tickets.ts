@@ -479,6 +479,60 @@ export function productTypePack(): ProductTypePack {
       // refusing to record — the record is the evidence, and evidence that
       // refuses to be written is the failure this ticket exists to prevent.
       body: { required: true },
+      /**
+       * THE RECORD OF A SENT MESSAGE IS WRITE-ONCE ([[REQ-263]], mechanism
+       * [[REQ-160]]).
+       *
+       * A message record is the historical evidence that something went out.
+       * Evidence that can be rewritten is not evidence, so the store refuses
+       * the write rather than the product relying on nothing happening to issue
+       * one. This is type-pack CONFIGURATION over the component's one lock
+       * engine — there is no mechanism here, and a second implementation of
+       * "is this editable?" above the store is precisely how a UI comes to
+       * offer an edit form the store will refuse.
+       *
+       * NO `when`, SO THE CONTENT IS FROZEN FROM CREATE. The record is written
+       * before the provider is called ([[REQ-198]]), and what is written at
+       * that moment is exactly what the operator composed and pressed send on.
+       * There is no window in which editing the copy would be legitimate.
+       * `when: 'fields.status != queued'` was the obvious alternative and is
+       * weaker for no gain: it would leave the copy editable in the seconds
+       * before the provider answers — the one window in which an edit would be
+       * both invisible and wrong.
+       *
+       * THE DELIVERY LIFECYCLE IS IN `except`, BECAUSE IT IS NOT CONTENT.
+       * These four are what the attempt and the later webhooks return, never
+       * what anybody decided: `queued → sent` writes `status`, `provider_id`
+       * and `sent_at`; a failure writes `status` and `failure`; a `delivered` /
+       * `bounced` / `complained` webhook writes those two again, hours later
+       * ([[REQ-247]]). Freezing them would break delivery tracking, which is
+       * the opposite of preserving the record. Everything the operator decided
+       * — `subject`, `to`, `from`, `template_key`, `template_uid`, `assets`,
+       * `queued_at`, and the rendered body — is frozen, and `fields.*` freezes
+       * a field added here later by default, so a hole is discovered as a loud
+       * refusal rather than silently left open.
+       *
+       * NOTE THE PREDICATE NAMESPACE, even though this rule uses no predicate:
+       * `email`'s lifecycle lives at `fields.status` and is a different thing
+       * from the ticket's own `status` column. The selectors are explicitly
+       * prefixed for that reason, so `fields.status` here can never be read as
+       * the column.
+       *
+       * NOT FROZEN, deliberately: the ticket's own `status` column and `links`.
+       * Neither is content the operator composed — `links` on this ticket is
+       * our own bookkeeping, and an INBOUND reference lives on the source
+       * ticket and was never reachable from here anyway. Archiving is not
+       * gated by the engine at all, which is what keeps the erasure path open
+       * ([[DOC-37]]); a comment is its own ticket, so an annotation about a
+       * message that bounced still lands on a frozen record.
+       */
+      immutable: [
+        {
+          freeze: ['body', 'title', 'fields.*'],
+          except: ['fields.status', 'fields.provider_id', 'fields.sent_at', 'fields.failure'],
+          message: 'a message record is what was sent; it cannot be edited',
+        },
+      ],
     },
 
     /**
@@ -613,6 +667,27 @@ export function productTypePack(): ProductTypePack {
 export const AWARENESS_KIND = AWARENESS_REPORT_KIND
 
 /**
+ * One write-lock rule, as a type schema declares it ([[REQ-263]], upstream
+ * [[REQ-160]]).
+ *
+ * THE SELECTOR SPELLINGS ARE NOT NARROWED TO A UNION, and that is deliberate.
+ * The component checks them where the pack is constructed and throws a config
+ * error naming the bad one, so a union here would duplicate that check in a
+ * second place free to fall behind it — and would be checking a literal this
+ * file wrote three lines above the declaration.
+ */
+export interface LockRule {
+  /** Absent means the rule always holds — write-once content. */
+  when?: string
+  /** `title`, `status`, `body`, `links`, `fields.<name>`, or `fields.*`. */
+  freeze: string[]
+  /** Selectors a wildcard in `freeze` does not reach. */
+  except?: string[]
+  /** The prose a refusal carries. */
+  message?: string
+}
+
+/**
  * The pack, as far as this repository types it.
  *
  * `TypePack` reaches us through the generated shim as a value, not a type — the
@@ -622,7 +697,19 @@ export const AWARENESS_KIND = AWARENESS_REPORT_KIND
 export interface ProductTypePack {
   types(): string[]
   has(type: string): boolean
-  schema(type: string): { fields?: Record<string, unknown>; body?: Record<string, unknown> }
+  /**
+   * `immutable` IS NAMED HERE because it is read, not merely declared
+   * ([[REQ-263]]). A surface that has to answer "may this be edited?" without
+   * a ticket in hand — a form deciding whether to render at all — reads the
+   * rule off the pack, and left unnamed that call site would have to cast
+   * around the type it is otherwise checked by. Per-ticket the answer is
+   * {@link Ticket.locked}, which is the better one wherever a ticket exists.
+   */
+  schema(type: string): {
+    fields?: Record<string, unknown>
+    body?: Record<string, unknown>
+    immutable?: LockRule[]
+  }
 }
 
 /** The bindings the ticket store needs. `BLOBS` is NOT `SITES` — see above. */
@@ -806,6 +893,19 @@ export interface TicketStore {
     patch?: Record<string, unknown>
     expected_version?: number
   }): Promise<{ ticket: Ticket }>
+  /**
+   * Move a ticket to the trash — the component's own lifecycle, a column and
+   * not a status.
+   *
+   * NAMED HERE BECAUSE [[REQ-263]] DEPENDS ON IT NOT BEING GATED. An `email` is
+   * write-locked from create, and archive is the erasure path ([[DOC-37]]): a
+   * lock that reached it would be a retention policy nobody asked for, and
+   * would collide head-on with deleting a business. That is a claim about this
+   * repository's declaration, so it is asserted here — and an assertion that
+   * has to cast around the type it is otherwise checked by is one the type
+   * should have named instead.
+   */
+  archive(a: { uid: string }): Promise<{ ticket: Ticket }>
   comment(a: { uid: string; kind: string; body: string }): Promise<{ comment: Ticket }>
   comments(a: { uid: string }): Promise<{ comments: Ticket[] }>
   attach(a: {
@@ -898,6 +998,25 @@ export interface Ticket {
   archived: boolean
   created_at: string
   updated_at: string
+  /**
+   * Why this ticket cannot be fully written, when something says so
+   * ([[REQ-263]], upstream [[REQ-160]]).
+   *
+   * PRESENT ONLY WHEN A RULE MATCHES, and omitted entirely otherwise — so a
+   * type with no lock emits exactly the shape it always did. It rides on every
+   * read and on every write's own return, because a LIST is where a UI decides
+   * whether to offer an edit control at all, and a caller that can only learn
+   * this by attempting the write renders a form that throws on submit.
+   *
+   * `except` IS REPORTED BESIDE `frozen` because without it a caller knows only
+   * that something is locked, not what it may still write — which is the
+   * question the block exists to answer. It is omitted when empty.
+   */
+  locked?: {
+    frozen: string[]
+    except?: string[]
+    message: string
+  }
 }
 
 /**
