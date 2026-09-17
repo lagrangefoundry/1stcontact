@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:30:35.878496+00:00'
+updated_at: '2026-09-17T04:45:09.451936+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -306,5 +306,11 @@ Where the template model now stands:
 - **Distinct type** from REQ-197's keyed platform templates — recorded as my inference from your rule, flagged as such.
 
 The one thing still genuinely unresolved from this whole thread is the asset/erasure collision: "never delete an asset a sent campaign references" against DOC-37's identity severance. Your example sharpens it rather than softening it — template-125's logo has to keep resolving for mail sent in July 2027 that someone opens in 2029. Not blocking anything today, but it wants a decision before either side of it hardens.
+
+<!-- xgd-turn id="29b17958-62db-479d-805b-840a4cf311c5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:45:08.982532+00:00" -->
+#### You
+**Yeah REQ-197 is wrong we need to supersede it with this design - ok?**
 
 <!-- xgd-chat-end -->
