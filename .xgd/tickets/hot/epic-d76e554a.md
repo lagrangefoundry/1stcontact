@@ -5,15 +5,16 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T21:40:22.084018+00:00'
+updated_at: '2026-09-17T22:00:00.555369+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: epic_children
 status: underway
 fields:
   priority: high
   chat_comment: comment-a687a6e5
+  epic_children:
+  - request-042df82b
 ---
-
 
 ## What the client asked for
 
