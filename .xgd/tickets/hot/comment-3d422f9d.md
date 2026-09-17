@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-102
 created_by: xgd
 created_at: '2026-09-17T21:36:39.023282+00:00'
-updated_at: '2026-09-17T21:49:39.053971+00:00'
+updated_at: '2026-09-17T22:02:48.614824+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -101,5 +101,47 @@ How far do you want to take this — (a), (b), or (a) now with (b) as a separate
 <!-- xgd-chat role="user" ts="2026-09-17T21:49:38.685978+00:00" -->
 #### You
 Lets go with a please
+
+<!-- xgd-turn id="2540b36d-820c-4151-86f3-b92af4520393-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:02:47.649864+00:00" -->
+#### Claude
+Now the implementation. First the types and the pairing helper:
+
+Now the report types:
+
+Now the join site itself:
+
+Now the human report block in `formatReport`:
+
+Now the UAT tests:
+
+Fixing the one fixture that would wrongly trip the flat-render path:
+
+Option (a) is landed and merged to `xgd-working`.
+
+## What changed
+
+**The join** (`tools/generate/src/cli/capture/values-diff.ts`) — sections now pair by band geometry: vertical intersection-over-union in the shared full-page coordinate space, one-to-one, best-overlap-first, above a half-of-union floor. The reference's 192px absolutely-positioned header loses the hero band to the reference's own hero (IoU 1.0 beats 0.24) and is reported unpaired instead of compared against it. The false `§0 contentAnchor` delta is gone.
+
+**Two new report facts**, neither a delta:
+- `sectionPairing` — per reference section: its label and band box, the repro band it took (label + box) or `null`, and the overlap that decided it. This answers the ticket's "a reader cannot see what either side's section actually was".
+- `sectionsNotComparable` — set when the reproduction segments into one body-spanning band, which is what every L1 render is. One stated reason instead of eight unpaired rows about the reproduction's DOM shape.
+
+Because neither enters `deltas`, the gate's delta count and `1c values-diff`'s exit code are unchanged — a clean page still reports zero deltas while saying its sections were unmeasured.
+
+**Fallback and no-regression** — manifests without section geometry (pre-REQ-88, and the REQ-31 fixtures) keep the ordinal join, documented as such; paired sections diff on `overlay` / `contentAnchor` / `textAlign` exactly as before. `formatReport` gained a matching block. `SectionValues.box`'s doc comment — which still claimed it was present only alongside `backgroundImageUrl` — is corrected.
+
+## Verification
+
+- 11 UATs in `tests/test_UAT_FC_BUG-102_section_geometry_join.test.ts`, built on the real reference geometry transcribed from the bundle (untracked, so inlined).
+- 26 neighbouring suites run green: req31/35/53/51/58/63 values-diff, bug15 flat-DOM, bug24 scrim, bug13 fold, req47/48/56, the reconcile and cross-gate suites.
+- `tsc --noEmit` on `tools/generate` adds no errors (the 21 pre-existing `./generated/*` resolution errors are unchanged).
+
+One unrelated edit: `tests/req58-multi-viewport.test.ts`'s report fixture gained `sectionPairing: []`, since the field is required on every report. No assertion changed.
+
+Ticket `BUG-102` is `free_coded`, commits `5e6d1405` + the gate's version bump `e6e988e8` (0.2.234), body scoped before coding with the corrected root cause and an explicit out-of-scope note. The branch is merged and cleaned.
+
+Left undone, deliberately and recorded on the ticket: giving an L1 reproduction real section bands (derive them from painted full-bleed backdrops; `overlayOf` and `anchorRatioOf` would need box containment rather than DOM descent). Until that lands, section-level fidelity against an L1 reproduction is unmeasured — which the report now says out loud rather than papering over with a false delta.
 
 <!-- xgd-chat-end -->
