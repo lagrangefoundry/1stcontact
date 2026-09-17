@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:38:24.701383+00:00'
+updated_at: '2026-09-17T21:40:46.123004+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -594,5 +594,43 @@ Ready to cut the REQ under EPIC-15 and start — say go.
 Can you add content to all the EPICs you listed, point them at your doc, make sure their scope of responsibiolity is clear for getting guttering/foundation in place.
 
 I lost track what is the REQ for?
+
+<!-- xgd-turn id="944c7465-8cc0-4bed-9b4f-37cbd4b4eac1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:40:45.813323+00:00" -->
+#### Claude
+The REQ is the free-coding scope ticket for today's code — I'll explain below. First, the epic updates.
+
+All six updated, each with a section headed *"The test gutter — this epic's share ([[DOC-54]])"*, stating what that epic owns and what it doesn't. Highlights rather than boilerplate:
+
+- **EPIC-11** — the columns land before REQ-235 builds anything that reads them, plus the one that gets missed: **the session rollup**. The timeline is an obvious read and will get filtered; a rollup that *counts* events isn't obviously a read, and a synthetic event inflates it silently.
+- **EPIC-7** — the three checker requirements plus the tri-state verdict. Framed as: costs nothing to design in, a rewrite to retrofit, because a DNS checker needs none of them.
+- **EPIC-14** — one predicate in the resolver, and I've written *why* it's only one: because that epic already forbids producers from sending directly. The dependency runs the opposite way from how it looks.
+- **EPIC-9** — the cascade obligation, and ownership of the payments synthetic path with the Stripe separate-environment constraint and the rule that the marker is the only permitted input to credential selection.
+- **EPIC-8** — metrics are where this gets forgotten; *"did anyone come"* is the number at risk. Plus the sweep count as an operator metric, expected to read zero.
+- **EPIC-13** — §5 marked superseded, with the three specific changes (initiator class withdrawn, run id added, blob key prefix).
+- **EPIC-10** — the code changes arrive expected, the sequencing constraint, delete-contact, and the existing UAT harness named as the standard to extend.
+
+## What the REQ is for
+
+It's the free-coding scope ticket — the protocol needs one before any code:
+
+> scope ticket first with behaviour description → cut a branch → code + UATs named `test_UAT_FC_<TICKET-ID>_*` → commit `[FREE-CODED]` → `status=free_coded` + `fields.commits`
+
+The reason it can't just be EPIC-15 or DOC-54: **every UAT has to trace to language in its ticket's body**, and that ticket has to be the unit of work. An epic is a container and a doc is a design — neither carries testable behaviour statements the matrix can bind a UAT to. Without a REQ, the coverage matrix has nothing to attach the tests to and `test_fix` eliminates the code as drift.
+
+So DOC-54 is *what we decided and why*; the REQ is *the behaviour this branch delivers*, written so each of the five assertions has a sentence to point at.
+
+Proposed scope for it — today's build, matching what you asked for:
+
+- Migration 0013 — `synthetic` + `run_id` on the four tables
+- The HMAC marker: mint, verify, and the reserved field on the capture path
+- Stamping across the five write paths; `Scope` grows the required field; the predicate on the five reads
+- The collector (delete-by-contact) and the sweep in the existing `scheduled` handler
+- Two UATs extending the REQ-223 harness — one proving marked traffic runs the full path and reaches no customer read, one proving a forged marker is refused and written real
+
+Delete-contact's *button* deliberately excluded — the function is needed to prove mechanism (4); the Contacts surface can follow.
+
+Want me to cut it?
 
 <!-- xgd-chat-end -->
