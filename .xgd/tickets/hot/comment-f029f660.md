@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T03:15:17.688094+00:00'
+updated_at: '2026-09-17T03:23:30.447172+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,18 @@ Then the finding that most reduces the bloat surface: **tenancy already gutters 
 The bloat actually worth watching isn't rows — it's **R2 message bodies** and **the embedding corpus** (`knowledge.ts` embeds tickets, so a synthetic message costs money per message *and* pollutes retrieval).
 
 Consequence for the first child: the gutter primitive is now **four** things, not three — marker, column, read handle, **and the reaper**. A marker without a TTL is a slow leak with a clean conscience.
+
+<!-- xgd-turn id="57c1df5e-eddc-4597-b4ad-132d7e3263e6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T03:23:30.039829+00:00" -->
+#### You
+ok good - so we need garbage collection too. So in general:
+
+1) standard mechanism to mark test traffic as test inflight
+2) standard mechanism to mark test data (from that traffic) as test and code that adds that mark when writing the row/ticket/blob etc
+3) standard rules to ensure that test data is excluded from all standard production queries
+4) garbage collection that ensures that test data is cleaned up after a test is complete and the results are checked - perhaps it happens at the same time - check the data and delete it
+
+Note: I am just about to add an epic for automated deployment that will likely use these tests. I think we will need a production environment (eventually)
 
 <!-- xgd-chat-end -->
