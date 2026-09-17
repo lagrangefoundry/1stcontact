@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-262
 created_by: xgd
 created_at: '2026-09-16T21:40:12.882573+00:00'
-updated_at: '2026-09-17T01:11:09.691821+00:00'
+updated_at: '2026-09-17T01:15:54.455312+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -469,5 +469,16 @@ Everything above is agreed and I'll write it. Two things I want to get right rat
 **Does the round still hand back an outcome block at all?** If it creates its own tickets, the console's `fileTicket` path and the `ticket`/`bugs` fields in the outcome become dead — the round would report *"I filed REQ-263, BUG-96"* instead of handing over content. That's a real simplification and it reverses REQ-256 behaviour 4. I think it's what you want; say if not.
 
 **Multiple rounds — is the ordered list one ticket or several?** You said the ticket lists all issues in order with proposed fixes and the implementer does what it can. That reads to me as: **one REQ per round**, internally ordered, and a later round that finds the same class appends to it. The alternative — one ticket per issue — loses the ordering you're asking for. I'll go with one-REQ-per-round-internally-ordered unless you say otherwise.
+
+<!-- xgd-turn id="44282fa3-dfa3-4734-b541-2df6102d2bc5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:15:53.939377+00:00" -->
+#### You
+That has a direct consequence for your "how does the implementer check its work" request: **the ticket's check-your-work section must lead with something that works without a browser <-- NO come on lets get Chromium working if that's what we need you are being a slave to the wrong constraints on the problem - there is absolutely NO reason why all the tools available to the repro system are not available to you - you are running in the same directory on the same laptop please lets just debug this**
+
+**2) L1 can't express it** — the value is absent from the L1 document. `1c page get` shows nothing carrying it. <-- is that the only failure case? what if its there but there's a parameter we can't set, or a parameter value that won't be accepted etc.
+
+- **(3) renderer bug** — the value *is* in the L1 document and the render is still wrong. `1c page get` shows it; the output doesn't. <-- the value is L1 AND its correct BUT the output doesn't show it CORRECTLY - perhaps its there but in the wrong place or its the wrong color etc etc
+- **(1) engine shortfall** — L1 has the axis, the renderer honours it, but the fold/capture put the wrong value in.
 
 <!-- xgd-chat-end -->
