@@ -9,7 +9,7 @@ import {
   diffSnapshots,
   isEmptyChangeSet,
   liveRevisionOf,
-  nextRevisionOf,
+  RevisionIntegrityError,
   snapshotSha,
 } from '../store/revision-model'
 
@@ -313,7 +313,24 @@ export async function publishSite(
     : EMPTY_LADDER
   const rendered = await renderSiteFiles(snapshot.result.value, { delivery: ladder.manifest })
   const entry: RevisionEntry = {
-    id: nextRevisionOf(history),
+    /*
+     * [[REQ-266]] §2 — THE STORE MINTS THE ID, not `nextRevisionOf(history)`.
+     *
+     * The arithmetic is identical and the id is still one past the highest ever
+     * minted. What changed is the SET it is computed over: the D1/R2 adapter
+     * reserves an id before it writes a byte, so ids that were handed out but
+     * never completed have to count too, and only the adapter holding that
+     * reservation can see them. Computing it here from `history` — which is the
+     * log of COMPLETED publishes — would hand out an id another publish of the
+     * same site is already writing into.
+     *
+     * IT IS READ HERE AND NOT EARLIER. Everything above this point can still
+     * refuse — an invalid draft, a form naming a missing message, a site with no
+     * address, an over-budget ladder — and a publish that refuses must reserve
+     * nothing, or a site would burn a revision number every time its author made
+     * a mistake.
+     */
+    id: await store.nextRevision(slug),
     publishedAt: opts.now ?? new Date().toISOString(),
     message: opts.message ?? '',
     by: opts.by ?? null,
@@ -396,4 +413,70 @@ export async function checkoutRevision(
   })
   await store.setDraftBase(slug, target)
   return { id: target }
+}
+
+/** One revision the integrity walk could not vouch for ([[REQ-266]] §5). */
+export interface RevisionMismatch {
+  id: number
+  /** The digest recorded when the revision was published. */
+  expected: string
+  /**
+   * The digest of what the store holds now, or `null` when the store denied the
+   * revision outright — a row the log names whose objects have gone.
+   */
+  actual: string | null
+}
+
+/** What {@link verifyRevisions} found. */
+export interface RevisionIntegrityReport {
+  /** How many revisions were examined. */
+  checked: number
+  /** Every revision whose bytes disagree with the log, oldest first. */
+  mismatches: RevisionMismatch[]
+}
+
+/**
+ * Walk every revision of a site and recompute each digest ([[REQ-266]] §5).
+ *
+ * WHY THE QUESTION NEEDS ITS OWN OPERATION. Verification on read answers "is the
+ * revision I am about to serve sound?", which is the question that protects a
+ * visitor and a restore. It does not answer "is our published history intact?" —
+ * that one is about revisions nobody has asked for, which is precisely where a
+ * silent alteration would sit undisturbed. Without this, answering it means
+ * checking out every revision by hand.
+ *
+ * IT DRIVES `readRevision` RATHER THAN REIMPLEMENTING THE COMPARISON. The point
+ * of the walk is that the same detector every read path uses says the same thing
+ * about every revision; a second comparison written here could pass while the
+ * read path refused, which is a report that reassures about a store that is
+ * already broken. So the refusal is caught and recorded rather than avoided.
+ *
+ * ONE PASS, NOT A REFUSAL. The first bad revision does not stop the walk — an
+ * operator asking whether their history is intact needs the whole answer, and a
+ * walk that threw on the earliest mismatch would hide every later one behind it.
+ *
+ * OVER THE PORT, SO IT WORKS ON EITHER TIER. The operator's disk and the
+ * deployment's D1 and R2 hold revisions in completely different shapes and both
+ * answer {@link SiteStore.revisions} and {@link SiteStore.readRevision}, which
+ * is all this needs.
+ */
+export async function verifyRevisions(
+  store: SiteStore,
+  slug: string,
+): Promise<RevisionIntegrityReport> {
+  const history = [...(await store.revisions(slug))].sort((a, b) => a.id - b.id)
+  const mismatches: RevisionMismatch[] = []
+  for (const entry of history) {
+    try {
+      const snapshot = await store.readRevision(slug, entry.id)
+      // The log names it and the store denies it. That is not a digest
+      // disagreement, but it is the same answer to the same question — this
+      // revision cannot be restored — so it is reported rather than skipped.
+      if (snapshot === null) mismatches.push({ id: entry.id, expected: entry.sha, actual: null })
+    } catch (err) {
+      if (!(err instanceof RevisionIntegrityError)) throw err
+      mismatches.push({ id: entry.id, expected: err.expected, actual: err.actual })
+    }
+  }
+  return { checked: history.length, mismatches }
 }

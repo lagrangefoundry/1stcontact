@@ -63,6 +63,9 @@ export {
   nextRevisionOf,
   snapshotEntries,
   snapshotSha,
+  verifiedSnapshot,
+  RevisionExistsError,
+  RevisionIntegrityError,
   REVISION_SHA_LENGTH,
 } from './revision-model'
 
