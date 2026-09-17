@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-5
 created_by: xgd
 created_at: '2026-09-15T00:39:51.674778+00:00'
-updated_at: '2026-09-17T01:24:15.942388+00:00'
+updated_at: '2026-09-17T01:47:58.014065+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1086,5 +1086,45 @@ Proposed, in order:
 3. Add a line to **EPIC-13's Boundaries** claiming the cutover mail gap, so the seam is owned from both sides.
 
 Say go and I'll do all three.
+
+<!-- xgd-turn id="b409edca-3e3c-4456-91d3-0043fff35d71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T01:46:15.841629+00:00" -->
+#### You
+That's a documentation fix, not a reopened decision. <-- please fix it. bottom line is moving their DNS will break their existing email config. However with their help we can probably reconfigure it before anyone notices.
+
+Once we have all this down, we can actually do our email configuration first so that as soon as we have control we can have their email fixed - that is probably the correct ordering but lets keep it separate until EPIC-13 is ready - please add that ordering expectation to EPIC13 though - please don't cut any more ticket yet I have enough oin deck to be tracking we will get to these in a little while
+
+<!-- xgd-turn id="b409edca-3e3c-4456-91d3-0043fff35d71-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T01:47:57.235744+00:00" -->
+#### Claude
+Both amendments, no tickets.
+
+Both landed, appended so nothing prior was touched. No tickets cut.
+
+## EPIC-5
+
+The old bar is struck through and restated:
+
+> **Moving a customer's DNS to us breaks their existing email. They are told so, by name, before they act — and it is reconfigured with their help before anyone notices.**
+
+Three mechanics withdrawn with it: copying mail records forward, re-verifying them after propagation, and the *"I'll keep that working"* sentence — now explicitly named as a lie that must not be said.
+
+Two things I made precise while writing it, because they'd otherwise get lost:
+
+**The split is mail / not-mail, and that's the only change.** Their website, verification TXTs, the subdomain pointing at a booking system — still swept, still written into the pending zone before the paste. For everything that isn't mail the cutover stays a no-op.
+
+**The sweep survives and gets more important, not less.** `hasLiveMail`, the DKIM probe, the provider attribution — repurposed from *preserve this* to *name exactly what is about to stop working*. Under the old bar a missed selector was a silent degradation; under this one it's the difference between an informed customer and an ambushed one, which is the failure the epic exists to prevent.
+
+I also recorded why *"Preservation, **not confirmation**"* doesn't become wrong — the client's objection banned asking a customer to **validate** (*"is this MX correct?"*), never asking them what they know (*"who should your email go to?"*). Same rule, case the original text didn't anticipate.
+
+## EPIC-13
+
+Takes ownership of the cutover mail gap — previously unowned from both sides — and carries your ordering as a claim for when it's built: **configure email in the pending zone, before the nameserver paste**, so mail resolves to our pipeline at the moment delegation flips. Marked explicitly as not a dependency; EPIC-5 ships breaking-and-warning.
+
+Two notes in there worth knowing: the window is already free (EPIC-5's sequence creates and populates the zone before the pair is ever shown, so there's no new mechanism to build), and **send-as doesn't need to be in that window** — mail arriving is the urgent half, replying from the right address can follow without the customer being cut off.
+
+Test subjects are parked with the design: `nooneknowsura.dog` and `martinwesthead.com` for the clean path, `theflowerofscotland.com` for registrar≠host, `matrixconstruct.io` and `martinwesthead.us` for the no-RDAP fallback.
 
 <!-- xgd-chat-end -->
