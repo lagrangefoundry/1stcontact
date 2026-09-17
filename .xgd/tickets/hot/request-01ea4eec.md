@@ -5,8 +5,8 @@ type: request
 title: 'Capture in workerd: a ReferenceStore port, with the filesystem behind it'
 created_by: xgd
 created_at: '2026-08-20T23:16:33.604977+00:00'
-updated_at: '2026-09-11T18:53:53.884112+00:00'
-completed_at: null
+updated_at: '2026-09-16T01:48:29.724811+00:00'
+completed_at: '2026-09-14T10:29:15.326735+00:00'
 last_field_updated: status
 status: bundled
 fields:
