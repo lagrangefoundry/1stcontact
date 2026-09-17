@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-264
 created_by: xgd
 created_at: '2026-09-16T23:59:05.399364+00:00'
-updated_at: '2026-09-17T00:29:53.847909+00:00'
+updated_at: '2026-09-17T00:34:36.740385+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -45,5 +45,14 @@ Now the builder UI, then typecheck.
 Now the workers-level runtime UAT and the builder UI one.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="ddc63744-56e3-45be-a737-465b8806341b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T00:34:35.903131+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
