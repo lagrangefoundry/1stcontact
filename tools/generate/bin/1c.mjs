@@ -98,4 +98,25 @@ try {
 } finally {
   await server.close()
 }
-process.exit(exitCode)
+// NATURAL EXIT, NOT `process.exit` (BUG-101). This line was
+// `process.exit(exitCode)`, which ends the process with queued writes still
+// queued. stdout is asynchronous when it is a PIPE, so any document larger than
+// the OS pipe buffer (65536 bytes on macOS) reached every consumer cut to
+// exactly that length — with no error and exit code 0. A real site's
+// `page get … --json` is 71 KB, and the reproduction console writes a step's
+// stdout straight to disk, so a round's copy of the L1 was a truncated prefix
+// and every statement derived from it was false. Redirecting to a file hid the
+// whole thing, because a file descriptor is synchronous and lost nothing.
+//
+// Setting the status and returning lets node flush both streams before the
+// event loop empties. It is also what the rest of the CLI already does:
+// `cli/index.ts` assigns `process.exitCode` throughout and calls
+// `process.exit` nowhere.
+//
+// THE TRADE IS DELIBERATE. A forced exit ends the process whatever is still
+// open; this one does not, so a command that ever leaves a live handle behind
+// after `server.close()` will hang here rather than exit fast. That is the
+// better failure: a hang names itself and is diagnosable from
+// `process.getActiveResourcesInfo()`, while the behaviour it replaces was a
+// truncated document that claimed to have succeeded.
+process.exitCode = exitCode
