@@ -14,6 +14,7 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-29d46d33
 ---
 
 Loop 1, iteration 1 of `repro-gigabytealchemy-ai` against the stored reference
