@@ -5,7 +5,7 @@ type: request
 title: 'L1 reproduction pipeline: capture bundle → servable, gate-able site'
 created_by: xgd
 created_at: '2026-07-21T23:30:09.316183+00:00'
-updated_at: '2026-08-05T17:38:12.718338+00:00'
+updated_at: '2026-09-17T20:21:12.996317+00:00'
 completed_at: '2026-08-05T17:38:12.718338+00:00'
 last_field_updated: status
 status: free_and_reconciled
