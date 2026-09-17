@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T02:48:52.463094+00:00'
+updated_at: '2026-09-17T03:12:11.080060+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,13 @@ One correction worth flagging: **Stripe test mode is a separate environment, not
 **My suggestion for the first child:** the gutter primitive — `synthetic` column, signed marker, default-excluding read handle — not a probe. Six epics are waiting on the contract, and it's the thing that gets more expensive every week.
 
 Want me to raise the three checker requirements on EPIC-7 directly, so they're visible to whoever builds it?
+
+<!-- xgd-turn id="940106e6-c50f-430b-8dd2-5109614bf522-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T03:12:10.794554+00:00" -->
+#### You
+One correction worth flagging: **Stripe test mode is a separate environment, not a sandbox overlay on live** — you can't run a test transaction through live keys, so a synthetic payment on the real path isn't available. The epic redirects to `charges_enabled`/`requirements` per connected account, which catches the actual failure mode anyway. <-- there's a whole discussion to have about this I don't think we should try to close the conversation down with a single sentence. We could include test credentials in production for the purposes of testing. It does open other failure possibilities but it would mean that the real code path loaded into production would get a full test service. Alternatives would be to have a test credit card loaded up and run small payments perhaps just auth and cancel. But we haven't built the payment system yet let's just take on board that we needed full synthetic test path available.
+
+**My suggestion for the first child:** the gutter primitive — `synthetic` column, signed marker, default-excluding read handle — not a probe. Six epics are waiting on the contract, and it's the thing that gets more expensive every week. <--you are suggesting that we store the synthetic rows and just don't show them? That sounds like it could bloat. Would we garbage collect them later? What if we just didn't store the synthetics but validated they arrived some other way
 
 <!-- xgd-chat-end -->
