@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T03:18:11.525936+00:00'
+updated_at: '2026-09-17T03:26:13.806532+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -71,5 +71,11 @@ Two things that pressure-test "campaign = one send", both resolving cleanly unde
 - **Re-send to non-openers** — a second campaign: different list (the non-openers), different schedule, same content.
 
 Say the word and I'll record this as a Vocabulary section on the epic — the table plus the reserved `sequence`, and the note that `email` tickets are one-to-one only, which is the sentence that actually protects the term.
+
+<!-- xgd-turn id="81140979-d498-45ad-9e38-50fcc0659977-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T03:26:13.500903+00:00" -->
+#### You
+ok good I like those terms and that means that the body of a campaign ticket can be the message content
 
 <!-- xgd-chat-end -->
