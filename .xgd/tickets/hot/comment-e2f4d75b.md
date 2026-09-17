@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-14
 created_by: xgd
 created_at: '2026-09-17T00:34:57.069190+00:00'
-updated_at: '2026-09-17T21:17:59.346475+00:00'
+updated_at: '2026-09-17T21:21:33.788638+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -166,5 +166,11 @@ The shared component, the promise string, and one flow showing it: "Send email f
 - **I cut two things from the epic's decisions** and recorded why in the body rather than dropping them silently: the unsubscribe token/`List-Unsubscribe` (D8) and the separate sending subdomain (D9). Both are safe at one-email-per-lead and both are written down with their trigger — D8 before any type fans out to a list, D9 before volume or any level-2 notification. I kept the rate cap, which I'd flagged as cuttable, because it's a handful of lines against a hazard that's live the day T2 ships.
 
 The five are laid out as `## Children` in EPIC-14 but **not filed** — say the word and I'll create them, then cut the branch for T1.
+
+<!-- xgd-turn id="4885ebb0-c942-46f6-9e20-86ebb8f0f19e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:21:33.733426+00:00" -->
+#### You
+The fewer tickets the better - 5 is excessive for this feature
 
 <!-- xgd-chat-end -->
