@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T04:05:57.466660+00:00'
+updated_at: '2026-09-17T04:15:35.758616+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -273,5 +273,15 @@ Two things I'd want to settle in the drafting rather than guess:
 - **Whether the doc covers only the gutter, or the whole of BFM.** I'd scope it to the gutter — it's what's being built, and a doc covering probes and tiers would be design fiction for months. The epic already holds the wider picture.
 
 Say go and I'll draft it. Since this session is scoped to EPIC-15 and you've been holding ticket count down, confirm you want it cut as a DOC ticket rather than appended to the epic.
+
+<!-- xgd-turn id="17472641-b4a0-434a-b4f5-5d414597660f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T04:15:35.605175+00:00" -->
+#### You
+I also recorded what would bring the class back, so it isn't re-derived: a *"test my contact form"* feature. <-- short term lets not try to be clever we will give the user a "delete contact" feature - that way they see everything and clean up is their problem.
+
+Add it to scope - I want to be clear we are building for testability out of the gate
+
+The doc should cover everything that will be needed to build testability into the existing implementation and the epics on deck - if that is just gutters then thats all it needs to cover...
 
 <!-- xgd-chat-end -->
