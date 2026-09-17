@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:09:13.949100+00:00'
+updated_at: '2026-09-17T21:11:54.134622+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,53 @@ Then F3 (no CSP), F4 (absolute image `src` = an exfil beacon on next render), F5
 Key question: given your initial rough assessment - are there any changes or features that need to be built now to secure the product?
 
 One thing that springs to mind about your prompt injection vectors - in principle, they should be constrained by tenant and should not be able to impact the back ups - in which case, a breach could take down a site, but it could be rapidly restored.
+
+<!-- xgd-turn id="226d8cd4-a8c5-4912-9a4d-650332c1a3e4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:11:53.881678+00:00" -->
+#### Claude
+Good question to press on — that hypothesis is testable, so let me test it before answering.
+
+Verified the hypothesis against the code — it holds for one half and breaks on the other. Let me record that in the ticket first.
+
+Ticket updated with §4a. Now the answer.
+
+## Your instinct is right, and it's already half-built
+
+I checked it rather than assumed it. **Tenant confinement holds by construction**, and better than I expected:
+
+- The store handle is `forTenant`-bound before the AI host is reached, and there is **no tenant argument anywhere on that path** — so there's no string to get wrong. `scope.ts` made the decision per request.
+- The L1 surface declares one site and no operation takes a site argument.
+- `Publish` isn't granted. Nor is `ManageAssets` — so a hijacked turn can't delete assets either.
+- Published revisions are append-only, and live is *derived* as the highest id rather than stored, so there's no pointer to repoint.
+- `forget()` — which deletes a site and all its revisions — has **no caller in the product**.
+
+So the reachable blast radius of an injected turn is exactly one thing: **one business's draft**.
+
+## Where it breaks — and it's the "rapidly restored" half
+
+1. **The draft has no restore point.** The change journal is explicitly *not* a revision — clipped `before`/`after` strings for orientation. A draft holding weeks of unpublished work has nothing behind it.
+2. **Restore is implemented but unreachable.** `checkoutRevision` exists and is correct, but it's wired only to the filesystem store via the CLI. No route, no button. Restoring a customer's site from a revision is something the product currently cannot do.
+3. **No stated backup posture** — nothing names D1 Time Travel, R2 retention, or a restore runbook anywhere. "We can restore" is an assumption, not a tested property.
+4. **The AI isn't the worst-case actor.** Tenant confinement is a property of the *assistant's grant*. F1 hands an attacker the **signed-in user's** authority — publish, hostname claim, every route — and if the viewer is a platform operator, it crosses businesses. Size recovery against F1, not against a hijacked turn.
+
+The useful reframe your question produces, which I've written into the ticket as a reusable principle: **confine, then recover.** Every capability bounded to one business *by the handle rather than by a predicate*; every destructive or irreversible effect has either a restore point behind it or a human in front of it. That turns "stop prompt injection" (unwinnable) into two buildable things.
+
+## What needs building now — five items
+
+| | What | Why now |
+|---|---|---|
+| **1** | **Untrusted uploads off the builder's origin** — separate origin; interim `attachment` + `nosniff` + sandbox CSP, plus `validateSvg` on the upload path. Ships with the CSP/headers work. | The only finding where a *current, ordinary* user action leads to full account takeover. It's contained today and stops being contained the moment uploads are anonymous. |
+| **2** | **A confirmation seam for irreversible operations** — declared effect, enforced by the toolbox; model proposes, human performs. | Pure architecture timing. Today it's one operation (`claim_hostname`) and the pattern is already proven by how `Publish` was withheld. After EPIC-5 and EPIC-13 it's a retrofit across three surfaces — and it's the mechanism EPIC-5's open question 2 is asking for. |
+| **3** | **A draft restore point, and a restore control in the product.** | This is your hypothesis made true. It's the thing that licenses treating injection as survivable. |
+| **4–5** | **Route-gate inventory guard** and **granted-capability pin** — both tests, not features. | Hours of work, and they're what stop 1–3 regressing. The second is what makes the confirmation seam durable rather than a one-off. |
+
+## What can wait, and why that's now defensible
+
+The **prompt-injection envelope** — the prompt-layer defence for untrusted retrieved content. Normally I'd push it hard. But your containment argument is what buys the deferral: with tenant confinement + no publish + no asset deletion + a real restore path, today's worst case is a recoverable draft. It becomes **mandatory** at AI-I6/AI-I7 — inbound mail, or contacts reaching a role's tools — because those change *who can reach the context* from "the client" to "anyone with an email address". I've marked it gated rather than deferred, so it can't quietly slip past that line.
+
+Also next-not-now: backup posture (8), shared-store pinning (9), security-event review (11), the F8 hygiene items (12, minutes).
+
+Want me to file these as REQs? I'd file 1–5 first and scope them properly; say the word and they go in.
 
 <!-- xgd-chat-end -->
