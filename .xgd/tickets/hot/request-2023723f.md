@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   epic_parent: ticket://lagrangefoundry/lagrange-framework/EPIC-3
+  chat_comment: comment-0e43e7e5
 ---
 
 ## What this adds
