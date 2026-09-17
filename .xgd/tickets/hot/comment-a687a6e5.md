@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:27:50.998948+00:00'
+updated_at: '2026-09-17T04:30:35.878496+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -275,5 +275,36 @@ Users site undergoes and upgrade, logo is changed. User cannot edit template-125
 template-132 chosen by the user to be associated with campaign-2653 which is sent on Aug 7 2027
 
 User is in control - don't confuse them with hidden keys and versions
+
+<!-- xgd-turn id="9a92c380-2d43-40aa-b383-b39d4649935c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:30:35.455311+00:00" -->
+#### Claude
+You're right, and the mistake is worse than the CTA count — I'd kept newest-wins resolution alive from REQ-197 and it doesn't belong here at all. Your example makes the model plain: **template-125 is template-125.** The operator picks it for campaign-2551 and picks it again for campaign-2583 three weeks later. Nothing resolves, nothing becomes current, nothing is inherited.
+
+So the two CTAs collapse to your one: **[Make a copy] → template-132**, independent, in draft, and from then on the operator picks 132 because they choose to. "Set up your brand once" was a solution to a problem you don't have — the propagation I was defending *is* the hidden behaviour, not a benefit paid for by it.
+
+Your example also settles something I hadn't stated: **frozen ≠ retired.** template-125 goes out on July 12 and is frozen; on July 28 campaign-2583 uses it unchanged. So a `used` template stays fully selectable — the latch blocks editing, never reuse. That needed writing down, because "frozen" reads like "archived" to whoever builds the picker.
+
+And it changes the pin timing I recorded two turns ago. I had the draft holding a *key* that resolved to a uid at the draft boundary. With no keys, the campaign holds the template's ticket id from the moment the operator chooses it. So at the draft boundary only three things happen — body freezes, list snapshots, template latches to `used` — and the template reference was never in doubt.
+
+**One consequence I'd flag as my inference rather than your instruction:** this means a campaign's style template is *not* REQ-197's `template` type. That one is keyed and newest-wins precisely because nobody chooses it — the system reaches for "the invite template" and fills a role. Yours is chosen by ticket id and latched. Different identity model, different lifecycle, so it should be a distinct type rather than the same type behaving two ways depending on who created it. The good news is that this **dissolves the dependency I flagged last turn** — platform templates are untouched, so there's nothing to verify against REQ-197's callers.
+
+Rewriting the affected sections rather than layering another correction — the key assumption is threaded through several of them.
+
+Written. Two sections out (the versioning argument, the REQ-197 dependency), two in, everything else preserved — preview/test send, the per-recipient substitution limit, and the logo/asset constraints all survived the rewrite.
+
+Your worked example is quoted verbatim in the epic; it's the clearest specification in the whole section, and it carries the dates, so the July 12 / July 28 / Aug 7 sequence documents "frozen but still selectable" better than any rule I could write about it.
+
+Two repairs I made while in there, since they were consequences of my own earlier edits rather than of your correction: the reconstructibility obligation had two live cross-references pointing at a passage I'd dropped during an earlier rewrite. It's now stated where it's used, with its limit — reconstructible from the frozen body plus the chosen template, *modulo per-recipient substitution*.
+
+Where the template model now stands:
+
+- **template-125 is template-125.** The operator picks it per campaign. No key, no resolution, no chain.
+- **Latch:** `editable → used`, closing the first time a campaign carrying it leaves draft. Blocks editing, never reuse.
+- **[Make a copy]** yields an independent new template with its own id. It supersedes nothing.
+- **Distinct type** from REQ-197's keyed platform templates — recorded as my inference from your rule, flagged as such.
+
+The one thing still genuinely unresolved from this whole thread is the asset/erasure collision: "never delete an asset a sent campaign references" against DOC-37's identity severance. Your example sharpens it rather than softening it — template-125's logo has to keep resolving for mail sent in July 2027 that someone opens in 2029. Not blocking anything today, but it wants a decision before either side of it hardens.
 
 <!-- xgd-chat-end -->
