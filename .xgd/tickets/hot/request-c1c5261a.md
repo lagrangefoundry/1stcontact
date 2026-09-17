@@ -6,9 +6,9 @@ title: 'AI iteration in the console: review the diff, file a gap ticket, stop fo
   the human'
 created_by: EPIC-12
 created_at: '2026-09-16T01:47:59.959791+00:00'
-updated_at: '2026-09-16T21:27:00.485357+00:00'
+updated_at: '2026-09-17T01:41:30.443739+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -53,6 +53,16 @@ We watch it work a few times before we consider letting it do more.
 3. **The AI writes no code.** It does not edit `tools/generate/`, it does not
    commit, and it does not touch the reproduced site. A round that ends in an
    edit rather than a ticket is a defect.
+
+   **Standing, as amended by [[REQ-262]] D7: this is an instruction, checked
+   after the fact — not a property of the process.** It was briefly the
+   stronger thing, while the round had no tool that could write. D7 granted
+   `Bash` so the round could reach the ticket store, and the grant could not be
+   made narrow (requirement 17), so the engine the round diagnoses is editable
+   by it. What holds this behavior is requirement 18's working-tree comparison,
+   which was defence in depth and is now the load-bearing check, together with
+   the authoring tools still being denied by name and `test_fix` eliminating
+   any un-ticketed edit as drift.
 4. **The AI's deliverable is a gap ticket** against the reproduction engine, at
    `status=draft` — never at any `ready_*` status, which would spawn an
    automated pipeline against it. What the AI hands back is the ticket's
@@ -113,12 +123,22 @@ We watch it work a few times before we consider letting it do more.
 
 ## Isolation ([[EPIC-12]] §8.6)
 
-14. Risk 2 — the AI's edits reaching deployable code — is dissolved by behavior
-    3: the AI authors no code, so there is nothing of its authorship to reach
-    anywhere. Engine changes arrive by free coding, through the same review, UAT
-    and reconciliation path as every other change in the project. **No part of
-    the console invokes a deploy**; deploying stays a separate, explicit, human
-    act.
+14. Risk 2 — the AI's edits reaching deployable code — is **bounded by behavior
+    3, not dissolved by it.** As originally written this requirement said
+    dissolved, which was true while the round had no tool that could write;
+    [[REQ-262]] D7 granted `Bash` and the engine is editable by the round again
+    (requirement 17). What bounds the risk now:
+    - the round is **instructed** not to write, and requirement 18 compares the
+      working tree before and after and names any change on the iteration;
+    - the authoring and delegation tools stay **denied by name**, so the cheap
+      routes to an edit are closed;
+    - an edit that reached the tree anyway is **un-ticketed, which is drift**,
+      and `test_fix` eliminates it;
+    - engine changes that are meant to land arrive by free coding, through the
+      same review, UAT and reconciliation path as every other change.
+
+    **No part of the console invokes a deploy**; deploying stays a separate,
+    explicit, human act.
 
 ## Behaviour the above implies
 
@@ -141,20 +161,44 @@ unmotivated.
     expensive — a false report against the engine. The brief still carries the
     rule (behavior 11), because the AI has to understand what it is looking at
     on the rounds it does run.
-17. **The AI is a `claude -p` process with reading tools and nothing else, and
-    the console files the ticket.** The round gets `Read`, `Glob` and `Grep`;
-    every tool that can write a file, run a command, reach the network or spawn
-    an agent whose tool set is not this one is **denied by name**.
+17. **The AI is a `claude -p` process that can read and run `xgd`, and the
+    console is what files the ticket.** The round gets `Read`, `Glob`, `Grep`
+    and `Bash`; every tool that can author a file directly, spawn an agent
+    whose tool set is not this one, reach the network, or change the machine's
+    own state is **denied by name**.
 
-    The deny list is the gate, and this was **measured rather than assumed**:
-    with `Bash` merely absent from the allow list and the permission mode at
-    its default, a round asked to run `echo` in a shell ran it and reported no
-    denial. An allow list that does not deny is a statement of intent, and
-    behavior 3 needs a property.
+    **`Bash` is granted deliberately ([[REQ-262]] D7), and it narrows behavior
+    3 rather than upholding it.** The round needs the ticket store: the first
+    live round went looking for prior art on its own defect and found the same
+    false positive had been observed once before and shipped without a fix,
+    which was worth saying in its ticket. `xgd` is the API this project exposes
+    to an agent for that, and running it requires a shell.
 
-    So the round cannot run `xgd` either, and the deliverable is the ticket's
-    content rather than a command. Two things follow, and they are the point
-    rather than a side effect:
+    **It could not be granted narrowly, and that was measured.** A scoped rule
+    of the form `Bash(xgd ticket get:*)` admits `Bash` wholesale and does not
+    enforce the prefix, so there is no half-measure available: either the round
+    has a shell or it cannot reach the ticket store at all.
+
+    The deny list is the gate, and that was **measured twice, both times the
+    same way**: (1) with `Bash` merely absent from the allow list and the
+    permission mode at its default, a round asked to run `echo` in a shell ran
+    it and reported no denial; (2) with a `Bash(xgd ticket get:*)` prefix rule
+    and `Bash` absent from the deny list, a round asked to run `echo` ran it,
+    exit 0, `permission_denials: []`. An allow list that does not deny is a
+    statement of intent. Both runs are reproducible from the console's
+    `measurements/` directory, which carries the numbers beside the script that
+    produced them.
+
+    **What the grant costs, stated plainly.** "The round writes no code" stops
+    being a property of the process and becomes an instruction in the brief.
+    That cost is bounded by machinery that already exists — an un-ticketed edit
+    is drift and `test_fix` eliminates it — and the one genuinely expensive
+    mistake, a ticket created at a `ready_*` status, is asserted against after
+    every round rather than hoped about (requirement 18).
+
+    **The deliverable is still the ticket's content, not a command the round
+    runs.** The round can now reach `xgd`, but filing stays the console's job,
+    and two things follow that are the point rather than a side effect:
     - **The console writes `status: draft`**, so behavior 4's "never at a
       `ready_*` status" is structural — there is no status left for a round to
       get wrong.
@@ -181,8 +225,11 @@ unmotivated.
     status, the residual class, a summary, and — per status — either the
     **ticket to create** (type, title, body) or the **evidence to append** to
     the class's existing ticket. The **id and uid are the console's to fill in**
-    once it has filed, because the round has no tool that could have created a
-    ticket; a round that names one is not trusted for it. The console does not
+    once it has filed, because the console is what files it; a round that names
+    one is not trusted for it. Since [[REQ-262]] D7 the round *could* reach
+    `xgd` itself, which is exactly why this is asserted rather than assumed —
+    an id the console did not create is not an id it will believe, and
+    requirement 18 reads the filed ticket's status back regardless. The console does not
     mine the transcript — a claim it is told is checkable (requirement 18), a
     claim it guessed is not.
 
