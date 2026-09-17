@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T03:27:46.324050+00:00'
+updated_at: '2026-09-17T03:52:24.259053+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,6 +13,7 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
+
 
 ## What the client asked for
 
@@ -677,8 +678,7 @@ signal we hold can produce. Two buttons cost nothing in the message and turn a
 binary into a diagnosis. Not decided.
 
 
-
-## Vocabulary, and where a campaign's body lives ([[CHAT-54]], 2026-09-16)
+## Vocabulary, and the campaign as a single send ([[CHAT-54]], 2026-09-16)
 
 The client opened this: *"We are using the term email and the associated ticket type
 for an actual email sent to a user. We are proposing to use the word campaign to
@@ -690,10 +690,8 @@ already."*
 
 ### Four words, and one reserved
 
-**A campaign is a single send.** The decomposition already recorded above —
-campaign = content × list × schedule — has content singular, so a campaign is *these
-bytes, to these people, at this time*. Not a programme of messages, and not an
-umbrella over several sends.
+**A campaign is a single send of a single message to a single list.** Not a
+programme of messages, and not an umbrella over several sends.
 
 | word | what it names |
 |---|---|
@@ -719,42 +717,99 @@ relative timing. Naming it now is not a commitment to build it; it is so that no
 reaches for *campaign* to describe it and collapses the distinction that makes
 campaign mean one thing. *flow* and *journey* were the alternatives and say less.
 
-### Correction: two ticket types, not three — the campaign ticket carries the content
+### Correction: the three-type decomposition rested on the other meaning of "campaign"
 
-The client's conclusion from the vocabulary: *"that means that the body of a campaign
-ticket can be the message content."*
+§"Three ticket types, and one that must not be" above separates `content` from
+`campaign` as distinct ticket types. **That separation is withdrawn**, and the reason
+matters more than the outcome: it was not a different judgement about the same
+question, it was the answer to a different question. The client: *"when I said that I
+was thinking that a campaign was a sequence of email sends, not one."*
 
-It does, and it **supersedes the three-type decomposition in §"Three ticket types,
-and one that must not be" above.** There is no separate content type. A campaign
-ticket's **body is the markdown the operator composed**; its fields carry the list
-reference, the schedule, the pinned template, and the delivery lifecycle. The
-surface's item list is therefore **Lists / Campaigns**, not Lists / Content /
-Campaigns.
+Under that reading the separation was correct and near-forced — a programme of sends
+obviously cannot keep one body in its own body, and the content each send reaches for
+has to live somewhere addressable. Under **campaign = one send**, the premise is gone
+and so is the entity. There is no second thing for a content ticket to be separate
+*from*.
 
-**What the separate content type was for, and why the body serves it better.** The
-argument above was immutability by the `template` precedent — *"edit produces a new
-ticket, and a sent campaign keeps pointing at the bytes that actually went out."*
-That property is preserved exactly by freezing the campaign body at send. What is
-lost is named reuse of one content across several campaigns, and the honest
-assessment is that **duplicate-this-campaign-as-a-draft covers nearly all of it**:
-an A/B test wants two different bodies anyway, and a re-send to non-openers is a new
-campaign with a different list. One entity fewer, one hop fewer from the contact
-event to the bytes, and one lock instead of two.
+**So: two ticket types, not three.** A campaign ticket's **body is the message
+content** — the markdown the operator composed. Its fields carry the list reference,
+the schedule, the pinned template, the lifecycle state and the send outcome. The
+surface's item list is **Lists / Campaigns**, not Lists / Content / Campaigns.
 
-**The lock's predicate is the one place campaign and `email` genuinely differ, and
-[[REQ-263]] must not be copied blindly.** That REQ freezes an `email` from create
-*with no `when`*, and gives the reason: the record is written before the provider is
-called, so there is no window in which editing the copy is legitimate. A campaign has
-exactly such a window — the draft, where the copywriter in the chat pane is the
-point. So the campaign rule carries a predicate on the draft state, which is the
-alternative REQ-263 examined and rejected for its own type. Same mechanism
-([[REQ-160]] in `@lagrangefoundry/ticketing`), different predicate, for a reason that
-must be written down at the declaration or someone will later "fix" the
-inconsistency.
+**The immutability argument survives intact.** §"Three ticket types" grounded the
+separate content type in the `template` precedent — *"edit produces a new ticket, and
+a sent campaign keeps pointing at the bytes that actually went out."* Freezing the
+campaign body preserves that property exactly, with one entity fewer, one hop fewer
+from the contact event to the bytes, and one lock instead of two. Reuse of one body
+across sends becomes **duplicate-as-draft**, which is what the client described:
+*"it can be copied for another email blast."*
 
-**One obligation this creates.** With no per-recipient ticket on the broadcast path,
-nothing stores the rendered bytes that reached any individual. What went out must
-therefore be **reconstructible** from the frozen body plus the pinned `template_uid`
-— which means the template reference is pinned by uid, never by key, and rendering is
-deterministic. If that ever stops holding, the record stops being evidence and a
-rendered artefact has to be stored instead.
+### The lifecycle, and where the freeze falls
+
+**`draft → scheduled → sending → sent`**, plus `paused`, `cancelled` and `failed`.
+The client's framing: *"once the send is triggered the campaign would move into a
+different state… The sending could take a while particularly if it is a new list or a
+large list, that's fine. But my point is that once it is out of draft mode the
+content is frozen. And then becomes a historical record."*
+
+**The freeze falls at the exit from draft, and the reason is stronger than the
+record.** `sending` is a long state by design — scope item 3 above asks for ramping
+and an 8am floor, so slowness is a feature, not a degradation. Which means an edit
+during `sending` would not merely rewrite history; it would send recipients 401–800 a
+**different message** from the one recipients 1–400 received, with nothing in the
+system recording that two different things went out under one name. Freeze at the
+draft boundary and that is structurally impossible.
+
+**This is the one place the campaign rule must differ from [[REQ-263]], and the
+difference must be written at the declaration.** REQ-263 freezes an `email` from
+create *with no `when`*, because the record is written before the provider is called
+and no legitimate editing window exists. A campaign has exactly such a window — the
+draft, where the copywriter in the chat pane is the whole point. So the campaign rule
+carries `when: "fields.status != draft"`, which is the shape REQ-263 examined and
+deliberately rejected for its own type. Same mechanism ([[REQ-160]] in
+`@lagrangefoundry/ticketing`), different predicate, for a reason that must be recorded
+or someone will later "fix" the inconsistency.
+
+### What freezing the body does not cover, and six constraints it implies
+
+The simplification is sound — it is close to what Mailchimp and Klaviyo actually do,
+so it is a well-trodden model rather than a novel one. But *content* is only one of
+the three things a campaign is made of, and freezing it leaves the other two open.
+
+1. **The audience must be snapshotted too, and it is not the same as freezing it.**
+   A list is a living entity — people join and leave while a send is running. If the
+   campaign resolves its recipients lazily, *"who did we send this to"* is
+   unanswerable a month later and a resume after failure cannot know where it got to.
+   So the draft→sending transition **resolves the list to a recipient set and records
+   it**, after suppression, and that set is what the send walks.
+2. **But suppression stays live, and this is the exception that must not be tidied
+   away.** If someone unsubscribes twenty minutes into an 800-person send they must
+   not receive it — so suppression is re-checked **per recipient at the moment of
+   sending**, against the frozen set. Snapshot the audience; never snapshot consent.
+   §"Outgoing" above makes this the hard rule it derives from: no broadcast path may
+   bypass the suppression check.
+3. **Cancel is a first-class state, not a failure.** The operator who spots a typo or
+   the wrong list at recipient 50 must be able to stop the send. `cancelled` is a
+   legitimate terminal state that records how far it got; modelling it as `failed`
+   would make an intentional act read as an incident, which is exactly the confusion
+   the BFM hooks in §5 exist to avoid.
+4. **`sent` means accepted, not delivered.** The lifecycle ends when the provider has
+   accepted every recipient. Delivery, bounce and complaint arrive later, per
+   recipient, by webhook, and land on the `contact_events` spine — per §OQ2, not on
+   the campaign. The campaign may aggregate them for display; it must not be the
+   record of them.
+5. **A test send must not move the lifecycle.** *"Send this to me first"* is what
+   every operator does before a blast, and it is not a send of the campaign. It
+   leaves the campaign in `draft`, writes no contact events, and is the one path that
+   renders frozen-able content without freezing it.
+6. **Resume must not double-send.** A long ramped send will be interrupted —
+   deployment, Worker eviction, provider outage. Resuming safely needs a progress
+   cursor over the frozen, ordered recipient set, and per §OQ2 the per-recipient
+   facts live on the spine rather than in tickets. That is a hard engineering
+   constraint on the send path, and it is only satisfiable *because* the recipient
+   set is frozen — constraint 1 is what makes it possible.
+
+**And one note on duplicate-as-draft:** it copies the body and the template
+reference. It does **not** copy the list, the schedule, the recipient snapshot or the
+outcome. Copying any of those would make the new campaign a claim about a send that
+never happened.
