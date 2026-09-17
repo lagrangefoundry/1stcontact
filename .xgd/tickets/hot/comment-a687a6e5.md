@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T03:26:13.806532+00:00'
+updated_at: '2026-09-17T03:27:57.974404+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -77,5 +77,23 @@ Say the word and I'll record this as a Vocabulary section on the epic — the ta
 <!-- xgd-chat role="user" ts="2026-09-17T03:26:13.500903+00:00" -->
 #### You
 ok good I like those terms and that means that the body of a campaign ticket can be the message content
+
+<!-- xgd-turn id="81140979-d498-45ad-9e38-50fcc0659977-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T03:27:57.377356+00:00" -->
+#### Claude
+Agreed, and recorded on EPIC-13 as a new dated section (appended, nothing rewritten).
+
+It's worth being explicit that your conclusion **overturns something the epic had already decided**, rather than following from it. §"Three ticket types, and one that must not be" had `content` as its own type, separate from the campaign. Putting the content in the campaign body means **two types, not three** — list and campaign — and the tab's item list drops from Lists / Content / Campaigns to **Lists / Campaigns**. I've written it as a `### Correction:` subsection, matching how the earlier list-entity correction was handled, so the original reasoning and the reason it was superseded both stay legible.
+
+The old argument for a separate content type was immutability by the `template` precedent — *"edit produces a new ticket, and a sent campaign keeps pointing at the bytes that actually went out."* Freezing the campaign body at send preserves that exactly. What's genuinely lost is named reuse of one content across several campaigns, and "duplicate this campaign as a draft" covers close to all of it: an A/B wants two different bodies anyway, and a re-send to non-openers is a new campaign with a different list.
+
+Two consequences I've written down because they'll bite otherwise:
+
+**The freeze predicate differs from `email`'s, and that's not an inconsistency to tidy up.** REQ-263 freezes an `email` from create with *no* `when`, on the grounds that the record is written before the provider is called so no legitimate editing window exists. A campaign has exactly such a window — the draft, where the AI copywriter in the chat pane is the whole point. So campaign carries a predicate on the draft state, which is the shape REQ-263 examined and deliberately rejected for itself. Same mechanism (framework REQ-160), different predicate, and the reason has to sit at the declaration or someone later "fixes" it.
+
+**Nothing now stores the rendered bytes for a broadcast.** With no per-recipient ticket, what actually went out has to be *reconstructible* from the frozen body plus the pinned template — which means `template_uid`, never `template_key`, and deterministic rendering. If that ever stops holding, the record stops being evidence and we have to store a rendered artefact instead.
+
+Also from the last turn: REQ-263 is now EPIC-13's child.
 
 <!-- xgd-chat-end -->
