@@ -6,16 +6,21 @@ title: '1c: process.exit truncates piped stdout at 64 KiB, silently cutting ever
   large --json document'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:27.536394+00:00'
-updated_at: '2026-09-17T21:50:17.590148+00:00'
+updated_at: '2026-09-17T21:54:39.994542+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   severity: high
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d44e04ab
+  commits:
+  - working_sha: db7e69318478b102755f64010f8d5e22b9e56743
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.233
 ---
 
 `tools/generate/bin/1c.mjs` ends with `process.exit(exitCode)`. Node's
