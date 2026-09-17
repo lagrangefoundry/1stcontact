@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T01:25:07.940286+00:00'
+updated_at: '2026-09-17T01:27:53.447991+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -484,5 +484,44 @@ One sequencing note: REQ-254 sits at `ready_to_reconcile` while the three that b
 <!-- xgd-chat role="user" ts="2026-09-17T01:25:07.762732+00:00" -->
 #### You
 Can you do another pass 262 is implemented I was going to try again? Let me know if we are r4eady for another e2e test?
+
+<!-- xgd-turn id="b278756f-0d2e-4c5e-8a0e-e932f2ac525a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T01:27:51.866389+00:00" -->
+#### Claude
+`Bash` is now in the allow list — that changes a claim I wrote into the epic last turn. Let me read the full rationale.
+
+Everything's green and REQ-262 landed cleanly. One thing I need to fix first — a claim I put in the epic last turn is now false.
+
+**Ready — same single prerequisite as before, which hasn't been done yet.**
+
+```
+./bin/repro-rail record      # storage/rail/ still does not exist
+./bin/repro-console
+```
+
+## REQ-262 landed clean
+
+`free_coded` at 0.2.230. **121 UATs pass across all seven console suites**, none skipped. New: `session-kb.ts`, `brief/DIAGNOSE-THE-GAP.md`, and `measurements/tool-gating.sh`.
+
+**DOC-53 is finished** — 16KB, no `TO BE WRITTEN` left. The pipeline map is real: capture / fold / L1 / probes / gate, plus §1.6 on the field-level distinctions that cost the first round tool calls, and three learnings written as method.
+
+**The KB design is "no membership to maintain"** — every DOC ticket is materialized to `kb/<DOC-ID>.md` (50 of them), and the prompt names only the **index**, with an explicit *"do not read the corpus."* If `xgd` won't list, the round runs on whatever's on disk and says so — a missing KB can't fail a round.
+
+## One change you should know about before you run
+
+**REQ-262 D7 gave the round `Bash`, and that narrows REQ-256 behaviour 3.** The reasoning is sound and documented: the round needs the ticket store (your first round found the same false positive had shipped unfixed once before), `xgd` needs a shell, and it was *measured* that `Bash(xgd ticket get:*)` admits `Bash` wholesale without enforcing the prefix — so there was no scoped version to grant.
+
+The cost is stated plainly in the code: **"the round writes no code" stops being a property of the process and becomes an instruction in the brief.** The engine it's diagnosing is now editable by it. What bounds that is the working-tree diff checked after every round and shown in red, the `ready_*` status assertion, and `test_fix` eliminating un-ticketed drift.
+
+I'd flagged the old, stronger claim into EPIC-12 §8.2 last turn. **That's now corrected** — the epic records the grant, why it couldn't be narrow, and which checks became load-bearing.
+
+## Two things to settle, neither blocking
+
+**REQ-256's ticket body is now out of date with its own tests.** Behaviour 3 and requirement 17 still say the round gets *"reading tools and nothing else"* and *"cannot run `xgd`"*. REQ-262's session amended REQ-256's **test** to assert `['Read','Glob','Grep','Bash']` — with a good comment explaining why — but left the body. So a UAT no longer traces to its ticket language, and REQ-256 is sitting at `free_coded` headed for reconcile, which will read the contradiction as drift. Want me to update REQ-256's body to match what was built? Doc-only, and it's the case you've already sanctioned.
+
+**Your lost round is still recoverable** and still free. `repro-gigabytealchemy-ai/iteration-1` is on disk with its `outcome.json` frozen at *"no outcome block"*; I re-confirmed the parser now recovers `status: filed` with the 6,346-char body intact. Press **[read it again]** on Iteration 1 before starting anything new — it files from the stored transcript without spawning a round.
+
+One expectation for this run: rounds now resume across iterations of the same site, so Iteration 2 continues Iteration 1's session rather than re-reading the brief. If numbers look anchored rather than re-derived, that's the resume trade-off REQ-261 flagged, not a regression.
 
 <!-- xgd-chat-end -->
