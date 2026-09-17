@@ -6,10 +6,10 @@ title: 'values-diff: section-level values are joined by ordinal index, so §n co
   unrelated bands'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:32.864506+00:00'
-updated_at: '2026-09-17T22:01:52.477327+00:00'
+updated_at: '2026-09-17T22:08:06.310061+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: medium
