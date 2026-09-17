@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T19:15:06.997958+00:00'
+updated_at: '2026-09-17T19:17:37.986308+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -377,5 +377,75 @@ Suggestion: needs to be thought through - if the user's DNS already has email co
 These settings are part of that DNS switch and need to fit into that story seamlessly.
 
 Don't cut any tickets yet there are a lot on the board - lets just work through the high level requirements - I favor fewer tickets - each ticket ideally has something that I can see working.
+
+<!-- xgd-turn id="23b4c68c-2743-42b2-9087-1f81e2dfaad6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T19:17:37.936044+00:00" -->
+#### Claude
+Let me gather the facts before answering — DOC-46, EPIC-5's cutover flow, and what the epic already records as verified-today.
+
+Facts first: **DOC-46 isn't the doc.** It's *"What 1st Contact is, and how to say it"* — positioning and language. No DOC covers email design. **EPIC-13 is the design doc** — it's ~57k characters now and already holds everything below. Nothing needs extracting unless you want a DOC for a different audience.
+
+And your scope lands exactly on a line the epic already drew. OQ1 resolved the surface question: **email configuration goes in Settings, not a tab of its own** — *"addresses, forwarding, catch-all, authentication and DNS health, and send-as status are written once and read many times, which is what EPIC-4 built Settings to be."* The one new tab is substantially just campaigns. So "everything except the Campaigns tab" is a clean cut along a seam that's already there, not a new boundary.
+
+## The three paths
+
+**Path 1 — outbound from 1c.** Sender port exists (`mail.ts` + Resend, REQ-196) and delivery events already land on the contact spine (`email-webhook.ts`, REQ-198). **The gap is the record**: we know a message was delivered, we don't store what it said. That's the frozen ticket, and it's REQ-263 — which depends on framework REQ-160 for the mechanism.
+
+**Path 3 — inbound.** Nothing exists. No Routing, no Worker, no parse, no bodies, no threading. This is the largest single piece of new work in your scope.
+
+**Path 2 — outbound from their own mail client. No, we can't intercept it, and it isn't a limitation we can engineer around.** MX governs *inbound only*. When Gmail sends as `martin@lagrangefoundry.ai`, it goes Gmail → recipient's MX. Our DNS is not consulted and never will be — outbound routing is chosen by the sending client, and that's SMTP, not a Cloudflare gap.
+
+**But the priority is lower than it looks, because the reply half is free.** A customer replying to that message sends to `martin@lagrangefoundry.ai` → our MX → captured. So the contact log gets *the customer's entire side* of every conversation regardless. What's missing is only the business's own sent copy.
+
+Four ways to close that gap, in descending order of how much I'd trust them:
+
+| approach | cost | catch |
+|---|---|---|
+| **Mailbox sync** (Gmail API / IMAP, read Sent) | OAuth + a sync loop | What HubSpot and Streak actually do. Reliable. Big privacy surface. |
+| **Custom SMTP submission** — their send-as routes through us | **We'd need a real SMTP endpoint** | Workers can't accept SMTP (no TCP listen), so this needs infra we don't have. Also needs checking whether consumer Gmail permits it or only Workspace. |
+| **Workspace BCC routing rule** | ~zero | Admin sets one rule, all outbound BCC'd to us. **Workspace only** — consumer Gmail can't auto-BCC. |
+| **Ask them to CC manually** | zero | Won't happen reliably. Humans don't. |
+
+On your CC idea specifically — one flaw worth naming: `contact@mysite.com` is a *forwarding* address, so CC'ing it sends the business a copy of their own email. It'd need a **reserved capture address that doesn't forward**, which is the same namespace concept the epic already reserves for BFM synthetic traffic.
+
+**My recommendation: defer path 2 out of this scope entirely.** It's a CRM-sync feature, not email configuration, and it's the only one of the three with real infrastructure cost. Ship 1 and 3, keep the data model indifferent to how a sent message arrived, and revisit.
+
+## The settings inventory
+
+1. **Which domain** — already EPIC-5's selector. Don't rebuild it.
+2. **Forwarding table** — N rows of `local-part → one or more destinations`. Your 20 is a reasonable cap.
+3. **Destination verification** — Cloudflare Email Routing *requires* each destination address to confirm by clicking a link before it can receive. This is a real multi-step flow, not a text field, and it's the piece most likely to be underestimated.
+4. **Catch-all** — on/off plus its destination.
+5. **`noreply@` refused**, `info@` discouraged — already decided.
+6. **Send-as status** — read-only here; the setup subsystem is deferred (the epic already puts it outside the cutover window).
+7. **Record-vs-forward** — we forward everything, we don't record everything, or a published address fills the activity log with spam. Already decided; needs a control.
+8. **Deliverability status** — read-only from `resolver.ts`. I'd defer, but flag it as a conscious omission.
+
+## The cutover ordering — you already settled this
+
+It's recorded in EPIC-13 from 2026-09-16, and EPIC-5 carries the matching correction. The sequence:
+
+1. Zone created `pending`, live DNS swept, web records written — **EPIC-5**
+2. **Customer is asked who their email should go to; Routing is configured in the pending zone** — **EPIC-13**
+3. Nameserver pair shown and pasted — **EPIC-5**
+4. Mail resolves to our pipeline at the moment delegation flips
+
+Your addition is genuinely new though: **a minimum viable config — primary forwarding address plus catch-all — is the floor that makes step 2 safe to complete.** That's what "configured enough to flip" means, and it wasn't written down.
+
+**Which surfaces a conflict worth deciding now.** The epic says *"catch-all optional and off by default"* — correct steady-state, since a catch-all is a spam magnet. But at cutover it's the exact thing that stops mail being lost to an address nobody remembered. I'd make **catch-all default-on through cutover**, with a later prompt to turn it off once the real addresses are known. Tell me if you'd rather it stay off.
+
+## Proposed shape — four tickets
+
+Ordered, each with something visible:
+
+1. **Inbound end-to-end, one address, hardcoded** — Routing + Email Worker + parse + frozen ticket + contact event + visible on the contact page. *Demo: send mail to the domain, watch it appear on the contact.* This is the spine everything else hangs off.
+2. **Email configuration in Settings** — the forwarding table, destination verification, catch-all. *Demo: configure it in the UI, send, it forwards.*
+3. **Cutover integration** — step 2 of the window: the ask, Routing written into the pending zone, the minimum-config floor. *Demo: run EPIC-5's flow end to end and mail never drops.*
+4. **Outbound record** — every 1c-sent message writes its frozen ticket and event, not just the delivery webhook. *Demo: trigger a form confirmation, read its actual content on the contact log.* **Blocked on framework REQ-160** — worth starting that now if it isn't moving.
+
+A fifth exists but isn't in this scope: the new ticket superseding REQ-197's keyed resolution. Small, and it can wait.
+
+Shall I write this into the epic as a scoping section — the path-2 analysis, the minimum-config floor, the catch-all decision, and the four-ticket shape — with no tickets cut?
 
 <!-- xgd-chat-end -->
