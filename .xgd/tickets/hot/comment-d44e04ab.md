@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-101
 created_by: xgd
 created_at: '2026-09-17T21:35:31.205901+00:00'
-updated_at: '2026-09-17T22:01:45.601034+00:00'
+updated_at: '2026-09-17T22:03:31.914088+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,26 @@ One incidental find: a fresh branch worktree can't run the CLI at all — `apps/
 <!-- xgd-chat role="user" ts="2026-09-17T22:01:44.336519+00:00" -->
 #### You
 go with your recommendations
+
+<!-- xgd-turn id="015ddcf5-ee5c-41d7-8082-ac976dd482fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:03:31.558567+00:00" -->
+#### Claude
+Only open item was filing the `boot.mjs` defect separately. Doing that now.
+
+Done.
+
+**BUG-105 filed** — `repro-rail: process.exit truncates piped stdout past 64 KiB`, at `draft`, severity/priority medium. The body carries:
+
+- the defect at `tools/repro-console/bin/boot.mjs:57–60` and its one exposed consumer, `rail.ts:801`;
+- **why it's a separate ticket rather than a missed call site** — `boot.mjs`'s own header explains that reaching into `tools/generate` for a shared bootstrap is the import direction EPIC-12 §8.6 forbids, so two launchers is by design;
+- the two things BUG-101 left unestablished, written as the ticket's job rather than as background: whether the rail's report actually crosses 64 KiB (I recorded that as an inference, not a measurement, and said so), and whether the rail terminates without the forced exit given it spawns `1c`, `pnpm` and `vitest` children;
+- both candidate fixes, including the drain-then-exit variant I verified during this investigation, so whoever picks it up doesn't have to re-derive the fallback;
+- the four latent-but-under-threshold sites (`smoke.mjs`, `probe.mjs`, the two `verify_*.mjs`), listed so the next survey doesn't rediscover them;
+- a test plan that names the real obstacle — the rail runs real suites, so an end-to-end UAT is neither fast nor hermetic — and the way around it: `boot.mjs` takes its entry module as an argument, so a fixture entry whose `main` prints a >64 KiB document tests the launcher's exit behaviour without running a rail at all.
+
+BUG-101 is unchanged at `free_coded`. No code was written for BUG-105 — filing it was the recommendation; fixing it blind was the thing I argued against.
+
+I also extended the `worktree-breaks-webui-resolution` memory with today's finding. It already covered `apps/control-app/src/generated/` killing the workerd project; what's new is that the same gap kills *every* `1c` invocation in a fresh worktree via `material.ts`'s `./generated/ticketing` import — so node-project UATs that spawn the CLI are unrunnable too — and that the fix is to copy the whole directory, as the first action after `xgd branch cut`.
 
 <!-- xgd-chat-end -->
