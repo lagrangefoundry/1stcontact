@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T04:18:32.403595+00:00'
+updated_at: '2026-09-17T04:19:51.078538+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -233,5 +233,32 @@ The asset retention obligation is the one I'd watch. It's the only constraint in
 Yes, we just need a mechanism to tell the user "this cannot be edited if you want changes here is a CTA to make a copy". This should be clear and explicit - what we were discussing before sounded like there were automated versioning things going on - that would be confusing.
 
 I don't like copy-on-write it is copy-to-write, agree?
+
+<!-- xgd-turn id="359e3dc8-2073-441e-9a8c-bcdf522715eb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T04:19:49.031670+00:00" -->
+#### Claude
+Agreed on the name, and it's more than a naming preference — that's why it's worth conceding properly. "Copy-on-write" is a term of art for a mechanism whose *defining* property is that the copy is invisible: the OS does it, you never learn it happened. That invisibility is precisely what you're rejecting. So I named a mechanism by the one attribute you don't want. **Copy-to-write** is accurate: the write is refused, the user is told, the copy is a deliberate act.
+
+And my friction objection was weaker than I made it sound. Everything I argued for survives intact, because the copy inherits the template's key — so "fix the logo once" still works, it just costs a click and a clear sentence instead of happening behind the operator's back. That's a good trade and I was defending the wrong side of it.
+
+It's also **simpler to build**, which is worth saying because it's a point in favour rather than deference. The refusal is a real store refusal — REQ-160's `immutable` rule with `when: "fields.status != draft"` — surfaced as a real message. Copy-on-write would have needed that same lock *plus* a silent interception layer to catch the refusal and transparently repoint the campaign. One mechanism, one UI pattern, applied to both templates and sent campaigns.
+
+**One thing your explicitness principle forces, though: the CTA is two CTAs.** "Make a copy" is ambiguous in a way that matters, because the two readings have different consequences:
+
+- **"Update this template"** — new version, *same key*, becomes the current template for future campaigns. Past campaigns keep the version they used. This is fixing the logo.
+- **"Start a new template from this one"** — new key, a separate design sitting alongside. Changes nothing about what the next campaign looks like. This is wanting a second look for announcements.
+
+If we're going to tell the user what's happening rather than doing it silently, we have to tell them *which of these* they're doing — offering one undifferentiated "copy" button would reintroduce exactly the confusion the explicitness is there to prevent.
+
+Correcting the epic now — replacing the copy-on-write subsection rather than layering another correction onto something I wrote twenty minutes ago.
+
+Done — the diff removes only the copy-on-write subsection and the timestamp; the latch, the logo/asset constraints, and the REQ-197 check are untouched.
+
+The epic now records copy-to-write as the mechanism, with the naming correction explained (not just applied, so it doesn't get "improved" back to the term of art later), the fact that it's the simpler build, the note that brand-once survives because the copy inherits the `TemplateKey`, and the two-CTA split.
+
+One consequence worth flagging, since it's a new obligation rather than a restatement: **the refusal has to be legible everywhere the operator might hit it, not just in the template editor.** The store refusal fires wherever a write lands — the styling pane, the AI chat pane if the copywriter tries to adjust the chrome, a bulk action. If any of those surfaces the raw store error instead of the message-plus-CTA, the operator gets a stack trace where you intended a clear explanation. Same for a `sent` campaign edited from the contact timeline. It's a UI-consistency requirement that follows from putting the enforcement in the store, which is still the right place for it.
+
+Nothing here has touched code — ticket body only, so no branch or free-coding cycle yet.
 
 <!-- xgd-chat-end -->
