@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-264
 created_by: xgd
 created_at: '2026-09-16T23:59:05.399364+00:00'
-updated_at: '2026-09-17T00:34:36.740385+00:00'
+updated_at: '2026-09-17T00:40:38.822414+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -54,5 +54,53 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="ddc63744-56e3-45be-a737-465b8806341b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T00:40:37.756693+00:00" -->
+#### Claude
+I'll start by reading the ticket and checking the current state of work.
+
+Now the files are visible to git. Let me typecheck and run the tests.
+
+Control-app typechecks clean. Now the test suites.
+
+Now the workers-runtime UAT, which needs real D1.
+
+All five new UAT files pass. Now the regression scope named in the ticket.
+
+All green. Now let me review the implementation before committing.
+
+All green. Two behaviours I should record in the ticket body before committing — the gitignore exemption, and the report's tolerance of a corrupt row.
+
+Body updated. Now the version bump and commit.
+
+Now lock, merge working in, bump, and fast-forward in one shot.
+
+Done. REQ-264 is `free_coded`.
+
+## What landed
+
+**The deploy half** — `bin/deploy.d/lib/probe.mjs` holds one read-only probe per credential, each being *the call the product actually makes* (`GET /domains` for Resend, `verify`→`/zones` for the Cloudflare zone token, `GET /v1/models` for the model keys, a 384-dim embed for the Workers AI pair). It answers capable / insufficient / invalid / unproven, reports Cloudflare's expiry date and warns inside 30 days, and never leaves the expiry column blank for providers that expose none. `bin/deploy.d/lib/secret.sh` is the mechanism four hooks each had a copy of; the decision table stays per-hook because the asymmetry (Resend warns on sending-only, the zone token fails) is the point. `bin/deploy` prints one capability report at the end and still knows no secret's name.
+
+**The runtime half** — a 401/403 is now `ResendNotPermittedError` carrying our sentence, with Resend's kept on `detail` for the log. The section asks `canManageDomains()` before it draws, so the toggle is absent rather than dead; the attach still gives the customer their website and reports `email: 'off'`; pressing the toggle is a 409 in our words; off and release are never blocked.
+
+**The `createDomain` bug** — the idempotency fallback is entered only on 409/422, and where the fallback itself fails the *original* refusal is what the caller gets.
+
+## Two things I had to fix to finish
+
+- **`.gitignore` carried a bare `lib/`** from the Python build-output block, which matches at any depth — `bin/deploy.d/lib/` was invisible to git and the entire shared mechanism would have committed as nothing. Exempted by name.
+- A corrupt report row is dropped rather than failing the deploy. Both are now recorded in the ticket body, since the UATs assert them.
+
+## Tests — all run in the foreground, all green
+
+| Scope | Result |
+|---|---|
+| 5 new REQ-264 UAT files (45 tests) | pass |
+| node regression scope (10 files, 99 tests) — deploy-workflow, build-deploy-smoke, REQ-144/149/196/257/258/259 | pass |
+| workers regression scope (5 files, 58 tests) — mail, zones, custom domain, domain surface, publish | pass |
+| `tsc --noEmit` on control-app | clean |
+
+Version bumped to `0.2.229`; commits `35a4023b50` and `71811ba894` are on `xgd-working`; branch merged and cleaned. The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
