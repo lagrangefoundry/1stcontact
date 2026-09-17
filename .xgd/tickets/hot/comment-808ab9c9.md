@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:23:22.646590+00:00'
+updated_at: '2026-09-17T21:30:12.127123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -231,5 +231,11 @@ Full table is §5b. The four that save the most:
 Then: EPIC-4 (irreversible actions human-performed; PSL as a security control; cookie `Domain` never a customer apex), EPIC-9 (a grant is minted only from a signature-verified idempotent Stripe event — the billing webhook writes to *authorization*), EPIC-7 (a monitor reads, never writes), EPIC-14 (per-recipient limits, scoped links), EPIC-10 (attachments inherit F1's rule), EPIC-11 (contact content in a granted tool = AI-I7), EPIC-6 (transfer-auth custody; renewal failure is the largest single loss in the product), EPIC-15 (least-privilege credentials for synthetic runs), EPIC-8 (no metric crosses a business boundary).
 
 Immutability enforcement is the one you've greenlit. Want me to scope it as a REQ and start — trigger on `site_revisions`, claim the id before writing bytes, verify `sha` on checkout — or apply the epic amendments first while the analysis is fresh?
+
+<!-- xgd-turn id="1715dafc-1d71-4b37-a350-cf4f31f0885c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:30:11.949898+00:00" -->
+#### You
+ok can you add security spec notes to 13, 5 , 16 and 12 and draft the immutability req please
 
 <!-- xgd-chat-end -->
