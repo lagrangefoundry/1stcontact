@@ -5,7 +5,7 @@ type: epic
 title: Security Analysis
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T19:33:30.327185+00:00'
-updated_at: '2026-09-17T21:15:24.100209+00:00'
+updated_at: '2026-09-17T21:22:57.533877+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -446,6 +446,83 @@ Not yet filed — say the word and they go in at `draft`.
 Recommended alongside: promote this matrix to a `doc` (`doc_kind: architecture`,
 so it stays out of the production KB) once it has been through one review cycle,
 with [[DOC-2]] linking to it as the platform-scope companion.
+
+---
+
+## 5a. Beta posture — what the lens legitimately relaxes, and what it does not
+
+The current goal is a beta for testing, and that genuinely changes the
+arithmetic: the adversary population is invited and known, the anonymous input
+paths do not exist yet (no inbound mail, no form attachments), and the targets
+are low-value. A threat model that ignores that is a threat model nobody follows.
+
+**What beta relaxes.** Everything whose severity was carried by *an attacker
+choosing to show up*: the prompt-layer injection envelope (AI-I2…I5), the
+published-site CSP, component-store digest pinning (F7), security-event review
+(PLAT-6), and the structural guards (F5, F6 — cheap, but not blocking). All of
+these stay on the list and none of them is a beta blocker.
+
+**What beta does not relax**, in four categories — and none of them needs an
+attacker:
+
+1. **Irreversible and unrecoverable effects.** Beta *raises* the accident rate:
+   testers poke at things, and the assistant is one of the testers. A
+   permanently burned hostname and a lost published revision both happen by
+   ordinary mistake. This is the category the operator identified, and it is a
+   reliability argument before it is a security one.
+2. **Real personal data.** There is no beta exemption in data-protection law,
+   and the people most exposed are third parties: the *contacts* of the test
+   businesses, who never agreed to be anybody's test data. [[DOC-37]]'s erasure
+   and export are explained by the portal and performed by nothing today — which
+   [[REQ-183]] §4.2 keeps honest on the page, and which needs a human able to
+   actually do it.
+3. **Reputation that can only be established once.** Sending-domain reputation
+   ([[EPIC-13]]) and the global `1stc.site` namespace ([[DOC-45]] §7) are both
+   *set* during beta. Neither can be re-set.
+4. **Decisions that get expensive to reverse.** A confirmation seam costs one
+   operation today and three surfaces after [[EPIC-5]] and [[EPIC-13]]. The
+   `1stc.site` PSL submission has weeks of external lead time ([[TODO-6]] §1).
+
+### The beta blocker list
+
+| # | Build | Category |
+|---|---|---|
+| 1 | **Revision immutability enforcement, `sha` verification, and a restore control** (§5 items 5, 5a, 5b) | (1) — and it is the backstop that makes every other risk on this page survivable |
+| 2 | **Confirmation seam for irreversible operations** (§5 item 4) | (1), (4) |
+| 3 | **The interim half of F1 only** — `attachment` disposition outside a render-safe allowlist, `nosniff`, and a sandbox CSP on `/api/material/file`, plus `validateSvg` on ingest. **The separate origin defers**: it is a URL change and material URLs are not baked into published pages, so it does not get materially more expensive later | (4), partially |
+| 4 | **F8 hygiene** — `.dev.vars*`, Turnstile `hostname`/`action` | minutes, and beta means more hands on the repo |
+| 5 | **Not code: a manual erasure and export runbook**, plus the retention decision recorded | (2) |
+| 6 | **Not code: start the `1stc.site` PSL submission** | (3), (4) — lead time, not effort |
+
+### One thing that is already right, checked
+
+Consent evidence needs integrity, and it has it: `user_acceptances` holds the
+*current* value with a `CHECK` constraint, and the history lives in
+`contact_events`, which is the one table in the schema with an immutability
+trigger. That is the correct split and needs nothing.
+
+---
+
+## 5b. Spec amendments, per epic
+
+What to add to each epic's body **before** its next REQ is written. Ordered by
+how much the amendment saves.
+
+| Epic | Clause to add | Why it has to be in the spec |
+|---|---|---|
+| [[EPIC-13]] Email | **Inbound mail may not write a contact's consent state, and its trust is a function of DMARC alignment.** An SMTP `From` is unauthenticated: without this, a spoofed sender attributes words — and potentially an opt-in — to a real contact. Also: inbound bodies are AI-I6, the product's first anonymous path into model context; and DKIM private keys plus send-as SMTP credentials need a named custody model. | The epic covers open-relay and destination verification. It does not yet say that inbound content is *untrusted input*, and every capture and threading decision depends on that. |
+| [[EPIC-5]] DNS | **Answer open question 2 with the confirmation seam:** the assistant may read every record and *propose* any change; MX/SPF/DMARC/DKIM/NS mutations are performed by a human on a rendered diff and are never an unattended tool call. Plus: zone-scoped credentials per operation class, and every zone write audited with actor and reason. | The epic already calls those records "privileged" and asks exactly this question. Answering it in the spec is what makes the AI tools designable. |
+| [[EPIC-16]] Staging & deploy | **Staging may not hold production data, and may not hold a credential that can write production D1 or R2.** If it ever holds real contacts it *is* production. Deploy identity: scope, rotation, and one identity per environment. Component-store digest pinning (F7) lands here. | Cheapest possible moment. After a shared secret exists, separating them is a migration. |
+| [[EPIC-4]] Settings | **Irreversible actions are human-performed.** Plus two facts that belong in the spec rather than in a runbook: the `1stc.site` PSL entry is a *security control* (until it lands, every customer site shares an eTLD+1), and the session cookie's `Domain` must never be set to a customer-site apex. | The hostname claim is this epic's surface, and the PSL lead time makes it critical path. |
+| [[EPIC-12]] Duplication | **A duplicate crosses no business boundary, starts at revision 0, and carries no grants, tokens, sessions or synthetic markers.** Copying revisions would import another site's history and muddy both attribution and the immutability guarantee. | Duplication is the operation most likely to copy something it should not. Stating what it drops is cheaper than discovering it. |
+| [[EPIC-9]] Billing | **A grant is minted only from a signature-verified, idempotent Stripe event, and price/plan is resolved server-side.** Entitlement grants are the authorization source ([[DOC-40]] §5), so the billing webhook is a privilege-escalation surface, not just a data feed. | This is the one place a webhook writes to authorization. |
+| [[EPIC-7]] DNS checks | **A monitor reads; it never writes.** A check that can repair a record is a compromised monitor that can rewrite a zone. | One sentence now; a credential separation later. |
+| [[EPIC-14]] Notifications | **A notification is an outbound channel an attacker can drive** (the epic already records the shape: *"abuse of a marketing form breaks the login"*). Add: per-recipient rate limits, single-purpose scoped links, and no untrusted text echoed into a channel an assistant later reads. | Notification volume is the abuse; the epic names it and does not yet bound it. |
+| [[EPIC-10]] Forms | **If attachments are ever accepted, F1's rule governs them** — never served as a document from an origin holding a session. Also Turnstile `hostname`/`action`. | Attachments are the most likely next feature to re-open F1 from the anonymous side. |
+| [[EPIC-11]] Activity log | **The moment contact content reaches a granted tool, visitor-supplied text becomes model context (AI-I7)** — gate that on the injection posture, not on the tab shipping. | The spine is already append-only and correct; what needs stating is the AI coupling. |
+| [[EPIC-6]] Registrar | **Transfer-authorisation custody, and renewal failure as an availability threat.** A lapsed renewal loses a customer's domain outright — no attacker required, and the largest single loss in the product. | Registrar accounts are a takeover path and renewals are a deadline. |
+| [[EPIC-15]] BFM | Already has the right rule (a bad marker degrades to *real*). Add: **synthetic runs hold least-privilege credentials**, and a scheduled destructive step names the blast radius it is allowed. | The rails exist; the credential scope does not. |
+| [[EPIC-8]] Monitoring | **No metric crosses a business boundary**, and synthetic traffic is excluded from customer-visible numbers. | Aggregates are where tenancy quietly leaks. |
 
 ---
 
