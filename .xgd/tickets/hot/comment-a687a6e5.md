@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T21:50:41.593545+00:00'
+updated_at: '2026-09-17T21:55:51.402570+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -611,5 +611,15 @@ Email falsifies that sentence. Every message in both directions lands on the spi
 3. The four questions from 2026-09-14 are still open, and §4/AC-5 can't be written without #1 of them (duration).
 
 Say the word and I'll (a) write the interface contract into EPIC-13 — the seam, the three obligations, and the three collisions, and (b) make the REQ-235 §1–§3 corrections and the EPIC-11 store correction. I haven't touched either, since you're about to implement REQ-235 and I don't want to move the body under you.
+
+<!-- xgd-turn id="436346f3-bb9c-41fa-a2f4-5d699ddadf03-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:55:51.181401+00:00" -->
+#### You
+ok please create your ticket 1 and update 235 as you suggest and ref ticket 1 as a dependency
+
+I run installs and migrations tell me what and when and I will run the command for you.
+
+Please check for security updates in your ticket.
 
 <!-- xgd-chat-end -->
