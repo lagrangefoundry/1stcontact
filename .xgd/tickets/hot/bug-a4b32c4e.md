@@ -5,16 +5,17 @@ type: bug
 title: 'fidelity diff: ranked pixel regions carry no geometry, only crop image paths'
 created_by: REQ-256
 created_at: '2026-09-16T18:28:26.584326+00:00'
-updated_at: '2026-09-16T18:28:26.584326+00:00'
+updated_at: '2026-09-17T23:11:55.796692+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: high
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-561123fd
+  story_points: 3
 ---
 
 ## Residual class
