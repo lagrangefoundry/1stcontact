@@ -5,10 +5,10 @@ type: bundle
 title: BUG-12 + BUG-13 + BUG-14 + BUG-15 + BUG-16 + 11 more
 created_by: xgd
 created_at: '2026-07-29T18:34:41.203786+00:00'
-updated_at: '2026-09-17T20:19:11.714112+00:00'
+updated_at: '2026-09-17T20:20:59.264671+00:00'
 completed_at: '2026-08-05T17:38:07.508525+00:00'
 last_field_updated: status
-status: ready_to_reconcile
+status: free_and_reconciled
 fields:
   commits:
   - working_sha: null
