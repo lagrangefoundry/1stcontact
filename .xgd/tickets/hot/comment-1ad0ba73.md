@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-103
 created_by: xgd
 created_at: '2026-09-17T21:36:04.696954+00:00'
-updated_at: '2026-09-17T21:51:28.756107+00:00'
+updated_at: '2026-09-17T22:12:15.666832+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -96,5 +96,60 @@ No code changed. Ticket body untouched pending your call on 1–5 (and on whethe
 <!-- xgd-chat role="user" ts="2026-09-17T21:51:28.670897+00:00" -->
 #### You
 1 both, 2 yes 3 out of scope 4 sure 5 go with your recommendation
+
+<!-- xgd-turn id="300a9d5d-4834-413c-b059-f6f203757d39-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:12:15.600448+00:00" -->
+#### Claude
+Scoping the ticket first.
+
+Now the edits. Starting with `fidelity.ts`.
+
+Now `perceptual.ts` — keep the reproduction screenshot.
+
+Now the `1c diff` flag and the USAGE lines.
+
+Now the round brief's evidence list.
+
+Now the UAT file.
+
+Now the second UAT file.
+
+Now an end-to-end CLI check through the real binary.
+
+Adding a UAT for the round-brief change so every code edit is covered.
+
+Now the version bump, fast-forward and claim in one shot.
+
+Done. BUG-103 is `free_coded` at 0.2.237, both commits recorded.
+
+## What landed
+
+**`values-diff` gains `--actual-out` / `--expected-out`** (`cli/fidelity.ts`). One `writeManifests` call, shared by the live path and the offline path, so they can't diverge. Both sides, because the expected side is a projection computed in-process too, and the two `sections` lists aren't comparable without seeing both — `flattenSignals`' own docstring says the reproduction's are raw bands where the capture's are coalesced. Writes unconditionally, so `--actual-out X` → `--actual X` round-trips with no caveat.
+
+**`--multi-viewport` refuses the flags** before any I/O, naming `--size` as the alternative. It has nothing of the right shape to write, and the argv parser accepts unknown flags silently — which is what made `--actual-out` look like it worked for a whole round.
+
+**`1c diff` gains `--actual-out <png>`** (`cli/perceptual.ts`). The reproduction's screenshot is kept instead of dying with the scratch dir, so `regions.json`'s `actual` names a file that exists.
+
+**`1c gate --out <dir>` writes all three** — `actual-manifest.json`, `expected-manifest.json`, `actual.png` — with no flag, which is what reaches the console's iteration directory. The round brief's evidence list names them and says why.
+
+## Verification
+
+7 UATs, all traced to ticket-body language. With the two write sites neutered, 5 of 6 then-existing UATs fail — the seventh is the multi-viewport refusal, which has its own code.
+
+End-to-end through the real `./bin/1c`, the ticket's own delta now reads on both sides:
+
+```
+LOW [contentAnchor] "§0" (section): expected bottom (0.66) · actual center (0.50)
+expected.json → 1 section [(0, 0.66)]      actual.json → [(0, 0.5)]
+```
+
+Full suite after merging `xgd-working`: 2 failures, both pre-existing on `main` (`bug32-webui-scope-rebrand`, `test_UAT_FC_BUG-67_backend_settings`) — confirmed by running each on the main checkout. A first full run showed 10 failures; 8 were parallel-load flakes that cleared on re-run.
+
+## One thing I corrected in the ticket
+
+The reported symptom was wrong in a way that would have broken the acceptance check: there is no `error: unknown option --actual-out`. The parser accepts anything, so the old behaviour was exit 0, a clean report, and no file. I rewrote that section of the body along with the scope decisions before cutting the branch.
+
+Also folded in the perceptual half, since you didn't object — `regions.json` was persisting a path to a deleted temp file. Same defect, one artifact over.
 
 <!-- xgd-chat-end -->
