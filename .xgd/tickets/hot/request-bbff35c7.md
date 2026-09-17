@@ -6,8 +6,8 @@ title: 'Session seeding and turn reminders: two-KB priming, the change cursor, a
   the delta channel'
 created_by: xgd
 created_at: '2026-08-30T23:19:07.355942+00:00'
-updated_at: '2026-09-11T18:53:54.146532+00:00'
-completed_at: null
+updated_at: '2026-09-16T01:48:40.522165+00:00'
+completed_at: '2026-09-14T10:29:11.537297+00:00'
 last_field_updated: status
 status: bundled
 fields:
