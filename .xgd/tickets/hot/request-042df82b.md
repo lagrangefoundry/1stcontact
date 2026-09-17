@@ -6,10 +6,10 @@ title: 'Inbound mail, end to end: capture against the contact, pending for a str
   and the synthetic mark'
 created_by: EPIC-13
 created_at: '2026-09-17T22:00:00.005762+00:00'
-updated_at: '2026-09-17T22:12:38.465750+00:00'
+updated_at: '2026-09-17T22:14:30.287448+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-d76e554a
@@ -17,7 +17,6 @@ fields:
   needs_review: false
   chat_comment: comment-9120f6e1
 ---
-
 
 # Inbound mail, end to end
 
