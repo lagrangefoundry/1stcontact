@@ -11,6 +11,7 @@ last_field_updated: title
 status: ongoing
 fields:
   priority: medium
+  chat_comment: comment-808ab9c9
 ---
 
 (new ticket)
