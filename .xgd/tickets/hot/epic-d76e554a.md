@@ -5,7 +5,7 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T20:08:05.245000+00:00'
+updated_at: '2026-09-17T21:33:37.465222+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -13,7 +13,6 @@ fields:
   priority: high
   chat_comment: comment-a687a6e5
 ---
-
 
 ## What the client asked for
 
@@ -1227,3 +1226,76 @@ Proposed, not cut. Ordered; 4 may follow at any distance.
 
 Outside the cut and small: the ticket superseding [[REQ-197]] (below), and
 [[REQ-263]]'s lock, which is blocked on framework [[REQ-160]].
+
+---
+
+## Security notes ([[EPIC-17]])
+
+Added from the [[EPIC-17]] threat-model pass. Each clause is spec language, not
+commentary: a REQ under this epic is expected to trace a UAT to it.
+
+### 1. Inbound mail is untrusted input, and `From` proves nothing
+
+An SMTP sender is unauthenticated. Every capture and threading decision below
+follows from that one fact, and the epic's existing §2 does not yet say it.
+
+- **Inbound mail may never write a contact's consent state.** Consent changes
+  come from a surface the contact authenticated to, or from an explicit
+  acceptance event — never from the content or the claimed sender of a message.
+  Without this, a spoofed `From` attributes an opt-in to a real person, and the
+  record we keep as evidence becomes evidence of something that did not happen.
+- **Attribution is a claim, recorded with its evidence.** A captured message
+  carries the SPF/DKIM/DMARC alignment result *as evaluated at receipt*, on the
+  event. An unaligned message is captured and shown as **unverified**; it is not
+  silently threaded onto the contact as their words.
+- **Address matching does not upgrade trust.** Resolving an address to a contact
+  ([[DOC-44]]) says who the sender *claims* to be, and nothing more.
+
+### 2. Inbound bodies are this product's first anonymous path into model context
+
+[[EPIC-17]] §3.4 calls this AI-I6 and rates it the highest-value injection
+channel the product will ever have: today only an invited client can put text in
+front of the assistant; after this epic, anyone with an email address can.
+
+- A captured body reaches an assistant **only inside an untrusted-content
+  envelope** — marked as data, with the instruction that it is never to be
+  obeyed — and that envelope must be proven by UAT before the first tool that
+  reads mail is granted.
+- **A tool that summarises correspondence is not a read-only capability.** It is
+  an injection sink with whatever authority the session holds, so it is gated on
+  §1's marking and on [[EPIC-17]] §5's confirmation seam, not on the tab
+  shipping.
+
+### 3. Forwarding is a relay, and a relay decides from configuration only
+
+The epic's §6 has destination verification and rate limits; this adds the part
+that closes the redirect: **a forwarding destination is read from configuration
+and never from the message** — not from `Reply-To`, not from an address in the
+body, not from a header a sender controls.
+
+### 4. Key and credential custody
+
+- **DKIM private keys are secrets** with a rotation story, held as
+  `wrangler secret` and never in a repo file or a `[vars]` block.
+- **Send-as SMTP credentials are the customer's, and we prefer never to hold
+  them.** If the Gmail flow requires holding one, it is per-business,
+  write-only, never logged, and never echoed into a chat — the register a
+  credential leaks in ([[REQ-146]] AC4, `redact.ts`).
+
+### 5. Reputation is a shared asset, and beta is when it is set
+
+Every business sends through infrastructure the others share, so one abusive or
+careless sender degrades deliverability for all of them ([[EPIC-17]] §1, A6).
+Because reputation is established once and cannot be re-established, these are
+**beta-time and not GA-time**:
+
+- per-business send quotas from the first send;
+- a complaint-rate circuit breaker that stops sending rather than degrading;
+- no shared-IP send for a business that has not passed the deliverability gate.
+
+### 6. Attachments inherit the upload rule
+
+Bytes arriving by mail are bytes an anonymous party chose. They are never served
+as a *document* from an origin that holds a session — [[EPIC-17]] F1, which
+exists today on the upload path and would be re-opened here from the anonymous
+side.
