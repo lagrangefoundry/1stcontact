@@ -624,6 +624,11 @@ function trunc(s: string, max = 48): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s
 }
 
+/** BUG-102 — a section band's vertical span, the axis its pairing is decided on. */
+function bandLabel(box: { y: number; height: number } | undefined): string {
+  return box ? `y ${Math.round(box.y)}…${Math.round(box.y + box.height)}` : '(no geometry)'
+}
+
 /**
  * A delta that is NOT tied to a reference object card: a section treatment
  * (`§n`), a document-level precondition (viewport), a render-only unilateral
@@ -692,6 +697,24 @@ export function formatReport(report: ValuesDiffReport): string {
     )
     for (const o of unpairedRef) lines.push(`      ref only    ${o.kind} "${trunc(o.label)}" (${o.role})`)
     for (const o of unpairedAct) lines.push(`      repro only  ${o.kind} "${trunc(o.label)}" (${o.role})`)
+  }
+
+  // BUG-102 — section pairing. The flat list names a section `§n` but says nothing
+  // about which band that was on either side, so an operator could not tell whether
+  // a section delta compared two bands that are even in the same place.
+  if (report.sectionsNotComparable) {
+    lines.push('')
+    lines.push(`  ⚠ SECTIONS NOT COMPARABLE  ${report.sectionsNotComparable}`)
+  } else {
+    const unpairedSections = report.sectionPairing.filter((s) => !s.actualLabel)
+    if (unpairedSections.length > 0) {
+      lines.push('')
+      lines.push(
+        `  ⚠ UNPAIRED SECTIONS  ${unpairedSections.length} reference section(s) had no overlapping repro band ` +
+          `(a segmentation mismatch, not a value delta):`,
+      )
+      for (const s of unpairedSections) lines.push(`      ${s.label} ${bandLabel(s.box)} — no counterpart band`)
+    }
   }
 
   // Stale-reference warning — reference objects paired with a repro that HAS box

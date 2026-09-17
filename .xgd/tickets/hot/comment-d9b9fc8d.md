@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-17T03:41:09.194249+00:00'
+updated_at: '2026-09-17T21:57:06.397342+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,25 @@ What else the body settles:
 - **Test data: one site corpus, two destinations.** [[EPIC-15]] puts canaries in production deliberately; if staging fixtures are authored separately they drift and its open question 7 becomes two problems. Also: `bin/seed`'s safety guard is that `--remote` has to be typed — staging makes typing it a habit, so seeding must *refuse* the production database rather than warn.
 
 I took [[EPIC-15]] §3 at its word and had this epic consume its probes rather than author any; that section was written addressed to this epic before it existed. The one thing I'd push back to it: staging probes need an auth seam to carry a service token, and that's cheaper to say now than after its probe interface settles.
+
+<!-- xgd-turn id="9804a85f-55c1-46f7-8fd1-08db8b0d1fb3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:53:08.709802+00:00" -->
+#### You
+Please check for security updates in your ticket
+
+<!-- xgd-turn id="9804a85f-55c1-46f7-8fd1-08db8b0d1fb3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T21:57:05.403134+00:00" -->
+#### Claude
+Checked. An [[EPIC-17]] pass appended a six-clause **Security notes** section to EPIC-16 at 21:33 last night, and EPIC-17's own §5 delegation table names this epic as the owner. I verified each clause against the code and folded them into the plan — body updated, status still `draft`, no code touched.
+
+**The clause that isn't what it looks like.** §4 (pin the `@lagrangefoundry/*` store by digest) reads as hardening. It isn't — it's a prerequisite for child 1. `bin/build`'s first stage is a preflight *because* the store is populated out of band: `@lagrangefoundry` appears zero times in `pnpm-lock.yaml` and in no `package.json`, and resolves through `require.resolve` anchored at the main checkout. So the moment the workflow starts calling `bin/build` it fails at stage 1 until the runner can get the store. "How does CI obtain it" and "pin it by digest" are one question answered once. Added as open question 10 and moved ahead of child 1 rather than after it.
+
+**§2 already has an instance in the repo.** "A staging binding that can write production storage" is exactly `bin/deploy.d/migrate/10-d1-site-store` — it hardcodes the database name `1stcontact` while honouring `--env`, so pointed at staging it migrates production's D1. Already in the body as an audit finding; now labelled as what it is.
+
+**One thing the appended section implies for staging but doesn't state.** `apps/public-site/wrangler.toml` sets `workers_dev = true` (EPIC-17 F8(c)), and `workers_dev` *is* inherited by a named environment — the control app's own comment says so. So `[env.staging]` that says nothing about it ships a `*.workers.dev` hostname no Access policy covers, serving the staging public site and `/api/lead` to anyone who guesses it. The Access application on the staging hostname would look correct and prove nothing. Added to §5. The production instance stays EPIC-17's item 12 and shouldn't wait on this epic.
+
+Also: §1 settles open question 9 (no production data + wipe-and-reseed is one policy, not two); §3 and §6 became children 6 and part of child 4's artifact; §5 was already the shipped behaviour of the secret hooks — restated as a control because the secrets are about to move to GitHub, which is precisely when "just put it in `[vars]` for staging" gets tempting.
 
 <!-- xgd-chat-end -->

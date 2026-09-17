@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-15
 created_by: xgd
 created_at: '2026-09-17T02:42:17.757214+00:00'
-updated_at: '2026-09-17T21:40:46.123004+00:00'
+updated_at: '2026-09-17T22:01:45.784409+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -632,5 +632,41 @@ Proposed scope for it — today's build, matching what you asked for:
 Delete-contact's *button* deliberately excluded — the function is needed to prove mechanism (4); the Contacts surface can follow.
 
 Want me to cut it?
+
+<!-- xgd-turn id="65c2d176-9bb3-44df-b612-e9afe0e48180-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:00:14.666022+00:00" -->
+#### You
+yes - what does it depend on?
+
+<!-- xgd-turn id="65c2d176-9bb3-44df-b612-e9afe0e48180-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:01:44.438079+00:00" -->
+#### Claude
+Two findings before I cut it — one changes the design.
+
+**REQ-268** — *"The test gutter: a signed marker, marked records, default-excluded reads, and collection"* (`request-c8c83140`), child of EPIC-15, priority high. Body written so each of the three UATs has explicit behaviour language to trace to.
+
+## One design correction, from counting the blast radius
+
+I told you to make the `Scope` field **required** so the compiler enumerates every construction site. I was wrong about the tradeoff. There are only 4 production construction sites (`gate.ts` ×2, `lead.ts:1500`, `router.ts:2444`, plus `resolveScope`) — but **93 test files** reference `businessId:`, and a required field breaks compilation across all of them. That's a mechanical diff large enough to bury the actual change.
+
+And my reasoning was borrowed from the wrong case. "Required, so nobody forgets" is right for a **write**, where forgetting is silent and dangerous. This is a **read predicate where forgetting is safe by construction**: absent means *exclude*, so every call site that says nothing gets the correct answer. The only caller needing to *see* marked records is the verifier, and if it forgets, its assertion fails loudly.
+
+So: `Scope` still grows the field — your "yes" stands — but **optional, absent means exclude.** Recorded that way in REQ-268 §3.
+
+## What it depends on
+
+**One real gate:** EPIC-10 working and tested. That's your sequencing call and it's the only thing genuinely blocking. Worth flagging that verifying it is itself work of unknown size — the test state has known noise (the KB suites fail on a clean tree, and the builder-origin suites need `./bin/1c assets` on a fresh checkout), so "is EPIC-10 green" needs establishing before it can be a baseline.
+
+**One operator task, which blocks deploying but not building:** a platform secret for the HMAC, needing a value and a `bin/deploy.d/secrets/NN-` hook. Local work runs off a dev value in `.dev.vars`. I'll hand you the exact command rather than running it.
+
+**Depends on nothing else.** Not EPIC-7, EPIC-14 or EPIC-16 — all recorded, none needed. No canary site, no external runner, no verdict store. That separability is the point of having scoped DOC-54 to the gutter alone.
+
+**Assets already in place:** the `newId` minter, the cascade on all three child tables, the `RESERVED_FIELDS` pattern, the `INSERT … SELECT` derivation, and the workerd UAT harness with `seedFormSite`/`applySchema`.
+
+All three blocking decisions are resolved. TTL, harvest threshold and where the sweep count surfaces are tunable during the build.
+
+Ready to cut the branch when you've called EPIC-10 green — or say the word and I'll start on the parts that don't touch its code path.
 
 <!-- xgd-chat-end -->

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T21:50:41.593545+00:00'
+updated_at: '2026-09-17T22:10:27.343189+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -611,5 +611,78 @@ Email falsifies that sentence. Every message in both directions lands on the spi
 3. The four questions from 2026-09-14 are still open, and §4/AC-5 can't be written without #1 of them (duration).
 
 Say the word and I'll (a) write the interface contract into EPIC-13 — the seam, the three obligations, and the three collisions, and (b) make the REQ-235 §1–§3 corrections and the EPIC-11 store correction. I haven't touched either, since you're about to implement REQ-235 and I don't want to move the body under you.
+
+<!-- xgd-turn id="436346f3-bb9c-41fa-a2f4-5d699ddadf03-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T21:55:51.181401+00:00" -->
+#### You
+ok please create your ticket 1 and update 235 as you suggest and ref ticket 1 as a dependency
+
+I run installs and migrations tell me what and when and I will run the command for you.
+
+Please check for security updates in your ticket.
+
+<!-- xgd-turn id="436346f3-bb9c-41fa-a2f4-5d699ddadf03-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T22:03:04.504198+00:00" -->
+#### Claude
+Now writing ticket 1's body.
+
+REQ-267 created. Now revising REQ-235, preserving §4–§6 as they stand.
+
+Now recording the cut in EPIC-13's body.
+
+Done — three writes, all verified intact.
+
+## REQ-267 created (`request-042df82b`) — ticket 1 of EPIC-13
+
+**"Inbound mail, end to end: capture against the contact, pending for a stranger, and the synthetic mark"** — `draft`, priority high, auto-linked as EPIC-13's first child. 12 ACs.
+
+Scope as the epic's cut specified, plus the two items you assigned it. One refinement I made rather than taking the scope literally:
+
+- **Paging is in, folding is out.** I split the seam at **correctness vs presentation** — that a reader can reach every event is REQ-267's (it's the ticket creating the volume); collapsing runs of low-value kinds into a readable row stays EPIC-11 item 5. Taking all of "folding" would have pulled a presentation redesign into an inbound-pipeline ticket.
+- **Migration `0013` is split from REQ-267's own tables.** `0013` is DOC-54's contract alone (four tables, `synthetic` + `run_id`); the sender-suppression table for sticky discard is a later migration. That keeps REQ-235's dependency to one additive migration instead of to a whole inbound pipeline.
+
+Verified while writing it, and it shaped the spec: `ForwardableEmailMessage` gives `from`/`to` as the **envelope**, `headers`, `raw` as a stream, `rawSize`, and `setReject`/`forward`/`reply` — **no MIME parser and no DMARC verdict field**. So parsing is ours, and the alignment result arrives as a header whose exact spelling I've marked as "read from current Cloudflare docs before writing the parse" rather than guessed. Tenancy resolves cleanly: `sending_domains` has a unique index on `domain` → `business_id`.
+
+## REQ-235 updated, with REQ-267 as `depends_on`
+
+New **§0** states the EPIC-1 relationship: the contact log is an *aggregation output*, not a tier — with §7, §42 and §34 quoted, the five reasons they can't merge, and §41.5's seam restated as three obligations REQ-235 owes the framework. §1's three stale facts corrected. §2 now consumes `@lagrangefoundry/logging`'s record, picks **D1 with AE rejected on the three verified grounds**, and makes retention a `(kind, level)` band. §3 reopens as "a new caller of the existing cron — but 04:17 daily leaves an 18-hour lag, so it needs a sub-daily expression."
+
+Two things I added that weren't in my summary to you:
+- **A redaction position** (§2) — the raw store holds URLs, headers and IPs; EPIC-1 §2/§10 plus the package's B5 enforce it at the sink, not at call sites. New AC-5.
+- **The raw store's gutter hole** (§2) — DOC-54 §2.4 names four tables and predates any raw log, so BFM probes would land in EPIC-8's traffic aggregates as visitors. New AC-11.
+
+**§4/AC-5 I did not resolve.** CHAT-53 vs your original EPIC-11 quote is still your call, so per-surface minutes is marked provisional with the question stated, including the solo-trader case. Everything else in §4–§6 stands as drafted.
+
+EPIC-13's body records the cut and the two boundary decisions.
+
+## Security check
+
+EPIC-13's six EPIC-17 clauses all trace into REQ-267 §11 as a table. Two things the existing notes didn't cover, now in the ticket:
+
+**§9 — rendering captured mail is a new untrusted-content surface.** REQ-267 is the first ticket that displays anonymous input inside the builder. A stranger's HTML body rendered on the origin holding an operator session is stored XSS with an email address as the delivery mechanism — EPIC-17 F1's shape through a different door, and F1's writeup is about *uploaded* bytes, so nothing currently covers it. Bodies render inert, remote images don't load by default (read-receipt beacon + operator IP disclosure). AC-12 asserts it.
+
+**§3 — tenancy from the envelope recipient, never the `To:` header.** A message can be Bcc'd to us with `To:` naming another business entirely. AC-2 asserts it.
+
+**One live issue, outside the ticket:** `apps/control-app/.dev.vars~` is sitting untracked in the working tree, and `.gitignore` has `.dev.vars` and `.dev.vars.*` — **neither matches the tilde suffix**. That's an editor backup of a secrets file one `git add -A` away from a commit, and it's EPIC-17 F8's exact hygiene item. Want me to widen the pattern to `.dev.vars*` and delete the backup? I haven't touched it — it's your file and I don't know if it holds something you still need.
+
+## What you'll need to run, and when
+
+**Nothing yet.** No code exists, so no migration and no install.
+
+- `@lagrangefoundry/logging` needs **no install** — it's already resolvable in the shared store at `../node_modules/@lagrangefoundry/logging`. Verified, and nothing in 1c imports it yet.
+- **Migration `0013`** will be REQ-267's first commit. I'll write the file and hand you the exact `wrangler d1 migrations apply` line — local first, then production — once it's written.
+- REQ-267 will need a **MIME parser dependency** (Workers-compatible, since `raw` is a stream and the platform gives us nothing). I'll name the exact package and the install command before coding rather than picking one now.
+
+Next step is `xgd branch cut REQ-267` and the migration. Say go and I'll start with `0013` alone, so REQ-235 is unblocked before the rest of the inbound work lands.
+
+<!-- xgd-turn id="0377589e-ba66-4b16-93b9-8396f12fdd31-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T22:10:26.295808+00:00" -->
+#### You
+You are an EPIC session - you create and watch the children - they do the coding
+
+Please also check for BFM changes (EPIC-15)
 
 <!-- xgd-chat-end -->

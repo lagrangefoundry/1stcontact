@@ -18,6 +18,7 @@ import { appendHistory, readHistory } from './history'
 import { appendChange, changesSince, draftCounter } from './journal'
 import { loadSite } from './loadSite'
 import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import { nextRevisionOf, verifiedSnapshot } from './revision-model'
 import type {
   DraftSnapshot,
   SiteStore,
@@ -162,6 +163,15 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       return Promise.resolve(readHistory(ctx, slug).revisions)
     },
 
+    // ONE PAST THE LOG, because this tier has no claim table to union with
+    // ([[REQ-266]] §2). The operator's disk is a single writer — one process,
+    // one `1c publish` at a time — so the read-then-write window the claim
+    // closes in D1 cannot open here, and reserving an id would be machinery
+    // guarding against a second publisher that does not exist.
+    nextRevision(slug): Promise<number> {
+      return Promise.resolve(nextRevisionOf(readHistory(ctx, slug).revisions))
+    },
+
     async writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
       // The frozen definition, as a complete byte copy — a revision directory is
       // what `loadSite(ctx, slug, <id>)` reads, so it has to be shaped exactly
@@ -206,9 +216,9 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       appendHistory(ctx, slug, entry)
     },
 
-    readRevision(slug, id): Promise<StoredSnapshot | null> {
+    async readRevision(slug, id): Promise<StoredSnapshot | null> {
       const dir = revisionDir(ctx, slug, id)
-      if (!pathExists(dir)) return Promise.resolve(null)
+      if (!pathExists(dir)) return null
       const siteJsonFile = path.join(dir, 'site.json')
       const pages: StoredPage[] = listFilesRel(path.join(dir, 'pages'))
         .filter((rel) => rel.endsWith('.json'))
@@ -220,13 +230,28 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
         name: rel,
         bytes: new Uint8Array(fs.readFileSync(path.join(dir, 'assets', rel))),
       }))
-      return Promise.resolve({
+      const snapshot: StoredSnapshot = {
         siteJson: pathExists(siteJsonFile)
           ? readJson<Record<string, unknown>>(siteJsonFile)
           : null,
         pages,
         assets,
-      })
+      }
+
+      // [[REQ-266]] §4 — VERIFIED AGAINST THE LOG'S OWN DIGEST. `history.json`
+      // and `revisions/NNNN/` are two files on a disk anyone with the checkout
+      // can edit, and a revision directory quietly changed after the fact is
+      // exactly what a checkout would then restore. The comparison is the shared
+      // {@link verifiedSnapshot}, so this tier refuses identically to the cloud.
+      //
+      // WHEN THE LOG HAS NO ENTRY the directory is all there is, and there is
+      // nothing to verify AGAINST — a half-written publish, or a tree copied in
+      // by hand. It reads back unverified rather than being refused, which is
+      // the behaviour that existed before this and the only one the absence of a
+      // record can support.
+      const entry = readHistory(ctx, slug).revisions.find((r) => r.id === id)
+      if (entry === undefined) return snapshot
+      return verifiedSnapshot(slug, id, entry.sha, snapshot)
     },
 
     draftBase(slug) {

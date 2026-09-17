@@ -6,16 +6,17 @@ title: 'repro console: a round''s gap ticket is attributed to the operator, not 
   loop'
 created_by: EPIC-12
 created_at: '2026-09-17T21:42:17.916425+00:00'
-updated_at: '2026-09-17T21:42:17.916425+00:00'
+updated_at: '2026-09-17T22:09:47.117133+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: medium
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-fe086f81
 ---
 
 ## Symptom
@@ -118,3 +119,49 @@ UATs named `test_UAT_FC_<TICKET-ID>_*` in `tools/repro-console/tests/`:
    --json`, and a ticket that cannot be read back is still reported as
    unverified rather than as a provenance failure. The two are different
    outcomes and must not collapse into one.
+
+
+## Security: checked, and it is not a vulnerability
+
+Asked directly, because "an autonomous process files under a human's identity"
+sounds like a privilege problem. It is not one here, and the check is recorded
+so it does not get re-litigated.
+
+**Nothing reads `created_by` as a trust signal.** Every consumer in `xgd` is
+display-only: the dashboard's ticket header (`static/index.html`'s
+`formatCreatedBy`), comment attribution rendering, `api/intents.py`'s
+passthrough. No authorization, routing, filtering or dispatch decision reads
+the field. The dispatcher triggers on `status`, which is why the `ready_*`
+assertion exists and this one does not need to. Nothing in `1stcontact` reads
+it at all. So a wrong `created_by` grants nothing and blocks nothing.
+
+**What it does cost is forensic.** `created_by` is the only marker that
+separates "an unattended round wrote this" from "the operator wrote this."
+That is a detection and attribution control, not a preventive one — its whole
+value is post-incident, when someone is working out where a claim came from.
+The relevant property is that a round's input includes `raw.html` captured
+from a third-party site, so a round's output is downstream of content this
+project did not write. A ticket carrying the operator's name is a ticket whose
+reader has no cue to read it with that in mind.
+
+That is the honest size of it: **audit-trail integrity for a single-operator
+local dev tool**. It justifies fixing the bug — which was already justified —
+and it does not justify raising the severity. `medium` stands.
+
+**Two adjacent findings, raised separately rather than folded in here**, since
+neither is caused by this bug and neither is fixed by fixing it:
+
+1. `brief/DIAGNOSE-THE-GAP.md` §1 tells the round "You have no tool that can
+   write a file, spawn another agent or reach the network." With `Bash` granted
+   whole ([[REQ-262]] D7, `ai.ts`'s `AI_ALLOWED_TOOLS`), the first and third
+   are not true — `ai.ts` says so itself for authoring ("the round can write
+   through it"). The deny list removes the named network *tools*; it does not
+   remove `curl`. The sentence reads as a statement of fact about the round's
+   containment and is an instruction. It should be written as one.
+2. Untrusted captured HTML is read by a round holding an unrestricted shell,
+   with no OS sandbox on the spawn (`claudeCommand` passes permission mode,
+   tool lists and setting sources; no sandbox flag). This is a known and
+   documented consequence of D7 rather than an oversight, and for sites the
+   operator chose to reproduce the realistic risk is low. It is worth being
+   written down where D7's reasoning is, because the containment argument
+   there covers tools and does not mention shell egress.

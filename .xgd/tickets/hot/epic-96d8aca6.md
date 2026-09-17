@@ -5,7 +5,7 @@ type: epic
 title: Staging environment and automated deploy
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-17T21:33:43.457945+00:00'
+updated_at: '2026-09-17T21:56:50.186090+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -13,6 +13,7 @@ fields:
   priority: medium
   chat_comment: comment-d9b9fc8d
 ---
+
 
 ## What the client asked for
 
@@ -256,6 +257,15 @@ control app for the same reason it is restated under production — a `workers.d
 hostname that no Access policy covers is exactly the hole the flag exists to
 close.
 
+**And `public-site` is that hole today.** `apps/public-site/wrangler.toml` sets
+`workers_dev = true` at the top level ([[EPIC-17]] F8(c)), and — unlike vars and
+bindings — `workers_dev` *is* inherited by a named environment. So an
+`[env.staging]` block that says nothing about it ships a `*.workers.dev` hostname
+no Access policy covers, serving the staging public site and `/api/lead` to
+anyone who guesses it. The Access application on the staging hostname would look
+perfectly correct and prove nothing. One line under `[env.staging]`; production's
+own `workers_dev = true` is [[EPIC-17]]'s item 12 and wants doing regardless.
+
 The cost lands on [[EPIC-15]]: staging probes need an auth seam to carry the
 token. Worth telling that epic now rather than after its probe interface has
 settled.
@@ -326,6 +336,13 @@ safety mechanism or a report.
    will not see and the operator will.
 9. **How long is staging data live?** Wipe-and-reseed on every run is the simplest
    correct answer and makes the seed's idempotence testable by construction.
+   Security note §1 settles the policy half of it: no production data, ever.
+10. **How does the CI runner obtain the shared component store?** `bin/build`
+   opens with a preflight precisely because `@lagrangefoundry/*` is populated out
+   of band and `pnpm install` cannot supply it. Until the runner has a way to get
+   the store, the first child cannot run `bin/build` at all — so this question and
+   security note §4's pin are one piece of work, and they gate child 1 rather than
+   following it.
 
 ## Children
 
@@ -333,14 +350,25 @@ None yet. Suggested order, and the first is not about staging at all:
 
 1. **Put the cloud deploy on `bin/build` + `bin/deploy`.** The workflow is wrong
    today, in production, and every automated thing after this depends on the cloud
-   path being the same path. Includes the migrate hook's database-name fix.
+   path being the same path. Includes the migrate hook's database-name fix
+   (which is security note §2's failure, already present in the repository) and
+   the shared-store pin (security note §4 / open question 10), without which the
+   workflow cannot run `bin/build` at all.
 2. **`[env.staging]` and its resources** — wrangler blocks, D1, R2, hostnames,
-   Access, and the parity UATs extended to the new environment.
+   Access, and the parity UATs extended to the new environment. Separate
+   credentials per environment is security note §2; `workers_dev = false` for the
+   staging public site is §5 above.
 3. **The seed** — environment-aware, idempotent, production-refusing, sourced from
-   the one site corpus.
+   the one site corpus. Refusing production is security note §1's clause as much
+   as §4's of this epic.
 4. **The gate** — staging round, promotion, production round, artifacts, and the
-   failure notification.
+   failure notification. The run artifact is the deploy record of security note
+   §6, and the digest comparison of §4 is one of the gate's conditions.
 5. **The migration policy check** (§6), if open question 4 says it can be one.
+6. **Deploy identity** (security note §3) — one non-human identity per
+   environment, scoped, rotated on a stated schedule. Separable from 1, which can
+   ship on whatever token the operator holds today; not deferrable past the point
+   where staging exists, because that is when there are two.
 
 ## Related
 
@@ -410,3 +438,34 @@ absent*) is restated here as what it also is: a fail-closed control, on
 
 Which version, which digests, which actor, when. An automated deploy that cannot
 answer those four is an automated deploy nobody can investigate.
+
+### 7. Where these land — checked against the code, 2026-09-17
+
+Three of the six are already load-bearing in the plan above rather than additions
+to it, and one of them is not a hardening pass at all.
+
+- **§2 already has a concrete instance in this repository.**
+  `bin/deploy.d/migrate/10-d1-site-store` hardcodes the database *name*
+  `1stcontact` while honouring `--env`, so pointed at staging it migrates
+  production's D1. That is exactly "a staging binding that can write production
+  storage", it exists today, and it is fixed in child 1.
+- **§4 is a prerequisite, not a hardening pass.** `bin/build`'s first stage is a
+  preflight *because* the store is populated out of band and `pnpm install`
+  cannot supply it — `@lagrangefoundry` appears zero times in `pnpm-lock.yaml`
+  and in no `package.json`, and resolves through `require.resolve` anchored at
+  the main checkout. So the cloud deploy cannot run `bin/build` until the store
+  is obtainable in the runner, and "how does CI get it" and "pin it by digest"
+  are one question answered once. Gates child 1. Open question 10.
+- **§1 settles open question 9.** No production data in staging, plus
+  wipe-and-reseed on every run, is one policy rather than two.
+- **§3 and §6 become children** — deploy identity (child 6) and the deploy record
+  (child 4's artifact).
+- **§5 is already the shipped behaviour** of `bin/deploy.d/secrets/`. It is
+  restated here as a control because the secrets are about to move to GitHub, and
+  that is exactly the move during which "just put it in `[vars]` for staging"
+  becomes tempting.
+
+One clause from [[EPIC-17]] that is *not* restated above because it belongs
+elsewhere: F8(c)'s `workers_dev = true` on production's public site. Staging
+inherits the consequence (§5), but the production instance is [[EPIC-17]]'s item
+12 and should not wait for this epic.

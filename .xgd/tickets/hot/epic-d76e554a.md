@@ -5,13 +5,15 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-17T21:40:22.084018+00:00'
+updated_at: '2026-09-17T22:02:22.167378+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
 fields:
   priority: high
   chat_comment: comment-a687a6e5
+  epic_children:
+  - request-042df82b
 ---
 
 
@@ -1217,6 +1219,8 @@ Proposed, not cut. Ordered; 4 may follow at any distance.
    unidentified**, and the synthetic mark from the reserved namespace.
    *Visible: mail sent to the domain appears on the contact; mail from a stranger
    lands in pending.*
+   **Cut 2026-09-17 as [[REQ-267]]**, carrying two additions decided in that
+   session — see below.
 2. **Email configuration in Settings.** Forwarding table, destination verification,
    catch-all. *Visible: configure it, send, it forwards.*
 3. **Cutover integration.** The ask, Routing written into the pending zone, the
@@ -1227,6 +1231,35 @@ Proposed, not cut. Ordered; 4 may follow at any distance.
 
 Outside the cut and small: the ticket superseding [[REQ-197]] (below), and
 [[REQ-263]]'s lock, which is blocked on framework [[REQ-160]].
+
+### What ticket 1 picked up from [[EPIC-11]], and why it is cheaper here
+
+Decided while reviewing [[REQ-235]] against framework [[EPIC-1]] (2026-09-17). Two
+items sat between the two epics; both are cheapest in whichever ships first, and that
+is this one.
+
+**Migration `0013` lands in [[REQ-267]].** [[DOC-54]] §2.4's `synthetic` / `run_id`
+columns cover four tables the capture chain writes, and inbound mail writes two of
+them. [[EPIC-11]] is explicit that the columns must land **before** anything reads the
+spine; [[REQ-235]] is the thing that would read it. Splitting it out — `0013` is the
+[[DOC-54]] contract alone, [[REQ-267]]'s own sender-suppression table is a later
+migration — keeps [[REQ-235]]'s dependency on this epic narrow, to one additive
+migration rather than to a whole inbound pipeline.
+
+**Timeline paging lands in [[REQ-267]]; folding stays [[EPIC-11]].** `eventsOf` caps
+at `TIMELINE_LIMIT = 100` with no cursor, and its docstring justifies that as *"a
+control nobody has asked for over data nobody has enough of."* This epic is what
+falsifies it: every message in both directions goes on the spine, plus one event per
+recipient per campaign send. The seam between the two epics is **correctness versus
+presentation** — that a reader can reach every event is this epic's, because this epic
+creates the volume; that runs of low-value kinds collapse into a readable row remains
+[[EPIC-11]] scope item 5.
+
+**One thing [[REQ-235]] gained in return, recorded because it constrains nothing
+here:** framework [[EPIC-1]] §42 keeps `actor` out of every permanent log tier, on the
+grounds that *"member behaviour lives in `contact_events`"*. The contact spine is the
+system log's aggregation sink, not one of its tiers — which is why an email milestone
+is written to the spine directly and never routed through a log.
 
 ---
 

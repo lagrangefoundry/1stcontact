@@ -13,6 +13,8 @@ import {
   PUBLISHED_ROOT,
   publishedOutPrefix,
   publishedSourcePrefix,
+  RevisionExistsError,
+  verifiedSnapshot,
 } from './revision-model'
 import type {
   DraftSnapshot,
@@ -555,6 +557,11 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         DB.prepare('DELETE FROM site_assets WHERE site_id = ?').bind(siteKey),
         DB.prepare('DELETE FROM site_pages WHERE site_id = ?').bind(siteKey),
         DB.prepare('DELETE FROM site_revisions WHERE site_id = ?').bind(siteKey),
+        // [[REQ-266]] — the reservations go with the revisions they reserved. A
+        // claim outliving its site would refuse an id to a site that no longer
+        // exists, which is harmless until the row is the only thing keeping a
+        // dropped site's key alive in a cascade nobody remembers writing.
+        DB.prepare('DELETE FROM site_revision_claims WHERE site_id = ?').bind(siteKey),
         // Scoped to this tenant as well as to the key, so the statement reads as
         // what it is: a handle may only drop a site of its own business, even
         // holding a key it could not otherwise have obtained.
@@ -785,12 +792,102 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return (results ?? []).map(rowToRevision)
     },
 
+    /**
+     * One past the highest id EITHER table has ever held ([[REQ-266]] §2).
+     *
+     * THE UNION IS THE WHOLE POINT. `site_revisions` records publishes that
+     * COMPLETED; `site_revision_claims` records ids that were HANDED OUT, which
+     * includes the one another publish reserved four milliseconds ago and is
+     * writing into right now. Answering from the log alone would hand that id
+     * out a second time and put two drafts' bytes into one prefix — the race
+     * this ticket closes.
+     *
+     * A CLAIM THAT NEVER COMPLETED STILL COUNTS, and that is deliberate rather
+     * than a leak. Forward-only numbering promises ids are never reused; a gap
+     * in the sequence is what that promise looks like when a publish dies
+     * halfway, and recycling the id would send the next writer into a prefix the
+     * first one may already have put objects into.
+     */
+    async nextRevision(site): Promise<number> {
+      const row = await DB.prepare(
+        'SELECT MAX(id) AS highest FROM (' +
+          `SELECT id FROM site_revisions WHERE ${OWNED} ` +
+          'UNION ALL ' +
+          `SELECT id FROM site_revision_claims WHERE ${OWNED}` +
+          ')',
+      )
+        .bind(site, tenantId, site, tenantId)
+        .first<{ highest: number | null }>()
+      return (row?.highest ?? 0) + 1
+    },
+
     async writeRevision(site, entry: RevisionEntry, content: RevisionContent) {
       // OWNERSHIP IS PROVEN FIRST, before a single byte is written, and the key
-      // every object below is built from is the caller's own. There is no claim
-      // to make any more ([[REQ-190]]): the published address IS this key, so no
+      // every object below is built from is the caller's own. There is no NAME
+      // to claim any more ([[REQ-190]]): the published address IS this key, so no
       // other business can be publishing to it and there is nothing to refuse.
+      // (The revision-id claim below is a different thing wearing the same word —
+      // that one is about two publishes of THIS site, not two businesses.)
       if (!(await owns(site))) throw new Error(`No site '${site}' in this store.`)
+
+      /*
+       * [[REQ-266]] §3 — A PUBLISHED PREFIX IS NEVER WRITTEN INTO, and the check
+       * happens BEFORE the first `put` rather than after the last one.
+       *
+       * The primary key on `site_revisions` already refused a duplicate id, and
+       * still does — but it was evaluated by the `INSERT` at the bottom of this
+       * function, which is to say after every object of the colliding revision
+       * had already been overwritten. `put` overwrites; there is no conditional
+       * form of it. So the guard that existed was evaluated after the damage it
+       * would have prevented, and the revision the log named was a mixture of
+       * two publishes with a digest describing neither.
+       *
+       * DEFENCE IN DEPTH FOR THE CLAIM BELOW, not a substitute for it. The claim
+       * is what resolves a RACE between two publishes; this refuses a caller
+       * that arrived with an id it never minted — a retry, a replayed request, a
+       * fixture — where there is no race at all and nothing for the claim to
+       * lose.
+       */
+      const published = await DB.prepare(
+        `SELECT id FROM site_revisions WHERE ${OWNED} AND id = ?`,
+      )
+        .bind(site, tenantId, entry.id)
+        .first<{ id: number }>()
+      if (published !== null) throw new RevisionExistsError(site, entry.id, 'published')
+
+      /*
+       * [[REQ-266]] §2 — THE ID IS CLAIMED FIRST, IN A SEPARATE TABLE.
+       *
+       * `nextRevision` is a read, and everything below is a write into the
+       * prefix that read named. Two publishes of one site could interleave
+       * between them, and the primary key that would eventually have caught it
+       * is fifty lines and one whole revision's worth of objects away. Inserting
+       * the claim here moves the refusal to the front: the loser of the race
+       * fails having written nothing, so there is no half-revision for anyone to
+       * discover later.
+       *
+       * THE FAILURE IS RE-READ RATHER THAN PATTERN-MATCHED ON ITS MESSAGE. D1
+       * reports a constraint violation as a driver error whose text is not this
+       * module's to depend on; asking the table whether the claim is there
+       * answers the question the error was only evidence for. Anything else is
+       * rethrown untouched, because a database that is down is not a revision
+       * that is taken.
+       */
+      try {
+        await DB.prepare(
+          'INSERT INTO site_revision_claims (site_id, id, claimed_at) VALUES (?, ?, ?)',
+        )
+          .bind(site, entry.id, new Date().toISOString())
+          .run()
+      } catch (err) {
+        const claimed = await DB.prepare(
+          `SELECT id FROM site_revision_claims WHERE ${OWNED} AND id = ?`,
+        )
+          .bind(site, tenantId, entry.id)
+          .first<{ id: number }>()
+        if (claimed !== null) throw new RevisionExistsError(site, entry.id, 'claimed')
+        throw err
+      }
 
       const source = publishedSourcePrefix(site, entry.id)
       const out = publishedOutPrefix(site, entry.id)
@@ -864,9 +961,13 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     },
 
     async readRevision(site, id): Promise<StoredSnapshot | null> {
-      const row = await DB.prepare(`SELECT id FROM site_revisions WHERE ${OWNED} AND id = ?`)
+      // `sha` COMES BACK WITH THE EXISTENCE CHECK ([[REQ-266]] §4). It is one
+      // more column on a statement this function already ran, so verification
+      // costs no round trip — the digest was computed, stored and never read,
+      // and wiring it up is a wider SELECT and one comparison at the bottom.
+      const row = await DB.prepare(`SELECT id, sha FROM site_revisions WHERE ${OWNED} AND id = ?`)
         .bind(site, tenantId, id)
-        .first<{ id: number }>()
+        .first<{ id: number; sha: string }>()
       // The ROW vouches for the revision, never the bucket's key space. An
       // interrupted publish can leave objects behind; without a row they are
       // unreachable rather than quietly readable as a revision nobody finished.
@@ -900,7 +1001,18 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       }
       assets.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
-      return { siteJson, pages, assets }
+      // [[REQ-266]] §4 — WHAT CAME BACK IS WHAT WENT IN, OR NOTHING COMES BACK.
+      // The row vouches for the revision's EXISTENCE and the objects carry its
+      // content, and until now nothing compared the two. A bucket is reachable
+      // by more than this store — an operator with credentials, a future
+      // migration, a mistake — so "the objects under this prefix are the ones
+      // the publish wrote" was a property of nobody having touched them.
+      //
+      // IT IS THE PATH THAT MATTERS BECAUSE EVERY OTHER PATH IS ON IT.
+      // `checkoutRevision` reads a revision through here, which is the restore
+      // this ticket exists for; so does the capture endpoint reading a form's
+      // frozen definition, and so does the builder's revision preview.
+      return verifiedSnapshot(site, id, row.sha, { siteJson, pages, assets })
     },
 
     async draftBase(site) {

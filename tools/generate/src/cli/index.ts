@@ -7,6 +7,7 @@ import {
   cmdPublish,
   cmdRender,
   cmdRevisions,
+  cmdVerify,
   ctxOf,
   type GlobalOptions,
 } from './commands'
@@ -274,6 +275,10 @@ Usage:
     Replaces the draft with a revision. Forward-only: publishing afterwards mints a
     NEW highest revision recording what it descended from — history never rewinds.
   1c revisions <slug> [--sandbox]
+  1c verify <slug> [--sandbox]
+    Recomputes every published revision's digest and reports any whose stored bytes
+    no longer match the log. A published revision is immutable (REQ-266); this is how
+    you ask whether the history still is, without checking each one out by hand.
   1c reset [--yes] [--include-public] [--port <n>]
     Empties the LOCAL dev store: apps/control-app/.wrangler/state, which is where
     \`wrangler dev\` persists D1 and R2 — every site, page, change journal, asset,
@@ -735,6 +740,33 @@ export async function run(argv: string[]): Promise<void> {
         const n = r.changes.added.length + r.changes.modified.length + r.changes.removed.length
         console.log(`r${r.id}\t${r.publishedAt}\t${n} change(s)\t${r.message}`)
       }
+      return
+    }
+
+    case 'verify': {
+      const slug = requireSlug(rest[0])
+      const { checked, mismatches } = await cmdVerify(slug, global)
+      if (checked === 0) {
+        console.log('(no revisions)')
+        return
+      }
+      for (const m of mismatches) {
+        console.log(
+          `r${m.id}\tALTERED\texpected ${m.expected}, found ${m.actual ?? '(no bytes)'}`,
+        )
+      }
+      // A NON-EMPTY REPORT IS A NON-ZERO EXIT, because this is the kind of
+      // command something eventually runs unattended, and a check that reports a
+      // corrupted history by printing a line and succeeding is a check that will
+      // be watched by nothing.
+      if (mismatches.length > 0) {
+        throw new Error(
+          `${mismatches.length} of ${checked} revision(s) of '${slug}' no longer match ` +
+            `their recorded digest. A published revision is immutable; these have changed ` +
+            `since they were published.`,
+        )
+      }
+      console.log(`${checked} revision(s) verified — every one matches its digest.`)
       return
     }
 
