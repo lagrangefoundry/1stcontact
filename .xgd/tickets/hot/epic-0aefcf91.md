@@ -6,15 +6,16 @@ title: 'Contact activity log: every server-side event, and the session rollup on
   timeline'
 created_by: EPIC-10
 created_at: '2026-09-13T21:15:16.835381+00:00'
-updated_at: '2026-09-13T21:15:53.758040+00:00'
+updated_at: '2026-09-17T21:39:46.662366+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: draft
 fields:
   priority: medium
   epic_children:
   - request-8ef68c26
 ---
+
 
 ## What the client asked for
 
@@ -142,3 +143,42 @@ spine's instinct already — facts in, derivation out.
   identified for free; tying *anonymous* browsing on a published site back to a known
   contact needs a cookie or pixel, is a materially larger thing, and is the point at which
   the privacy cost stops being incidental. Not assumed in scope.
+
+## The test gutter — this epic's share ([[DOC-54]])
+
+[[EPIC-15]] manufactures traffic to prove the product's flows still work, and
+[[DOC-54]] is the contract that keeps that traffic out of what a business sees.
+**This epic is the most time-critical consumer of it**, for a reason that is about
+timing rather than difficulty.
+
+`contact_events` is **already written** — the capture path calls `recordEvent` today —
+and **nothing customer-facing reads it yet**, because [[REQ-235]] is still draft. That
+is the cheapest moment this contract will ever have. A column added now is an
+additive migration nobody notices; the same column added after the timeline, the
+rollups and the detail pane exist is the retrofit [[DOC-54]] §0 exists to prevent,
+with every read written in between defaulting to unfiltered.
+
+**What this epic owns:**
+
+- **The `synthetic` and `run_id` columns on `contact_events`**, landing before
+  [[REQ-235]] builds anything that reads them. `NOT NULL DEFAULT 0` — a nullable flag
+  makes an unstamped row ambiguous under three-valued logic, and ambiguity in the
+  collector's delete predicate is how a real contact gets taken.
+- **Derivation, never supply.** `recordEvent` already inserts
+  `SELECT ?, u.id, u.tenant_id, … FROM users u`, which the baseline schema justifies as
+  the reason *"an event cannot be filed under a business its contact does not belong
+  to."* `synthetic` rides that same `SELECT` as `u.synthetic`. This is [[DOC-54]] R2's
+  hardest case — an async continuation with no request context, such as a delivery
+  webhook arriving thirty seconds later — answered by a pattern this epic's table
+  already has.
+- **Every read of the spine filters by default**, through the scoped path rather than
+  by each call site remembering.
+
+**The one that will be missed, and it is this epic's alone: the session rollup.** The
+timeline is an obvious read and will get filtered. A rollup that *counts* events is
+not obviously a read, and a synthetic event inflates it silently — the number is
+wrong in the flattering direction, which is the hardest kind of wrong to notice.
+[[DOC-54]] §3 states the general rule; this is the concrete instance.
+
+**Not this epic's:** the marker and its signing, the collector and the sweep, the
+probes. [[EPIC-15]] and [[DOC-54]].
