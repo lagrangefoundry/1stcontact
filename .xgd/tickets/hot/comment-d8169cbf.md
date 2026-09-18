@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T21:02:42.933954+00:00'
+updated_at: '2026-09-18T21:03:34.302255+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -317,5 +317,11 @@ Where EPIC-19 stands:
 Worth a flag while it's fresh: your **production** store likely has the same shape, and the sites there have had real client conversations. Nothing is at risk — the transcripts survive, they're just invisible — but the longer it runs the more sessions accumulate at stale addresses. Whenever you want, the survey half of BUG-116 is small and read-only, so we can find out what's actually there before deciding on a repair.
 
 Otherwise — carry on building with the consultant. That's what this epic is for, and the friction you hit is what I want to see.
+
+<!-- xgd-turn id="958a9e9d-5836-4bce-9492-562b83efe221-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T21:03:34.248473+00:00" -->
+#### You
+Can you delete the orphaned xgd chats please and the back up
 
 <!-- xgd-chat-end -->
