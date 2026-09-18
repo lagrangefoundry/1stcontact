@@ -6,15 +6,24 @@ title: 'values-diff / gate: a reference section with no reproduction band is rep
   nowhere the gate reads'
 created_by: repro-console:repro-gigabytealchemy-ai#3
 created_at: '2026-09-18T02:09:05.808092+00:00'
-updated_at: '2026-09-18T03:39:50.222567+00:00'
+updated_at: '2026-09-18T03:46:49.827483+00:00'
 completed_at: null
-last_field_updated: status
-status: free_coding
+last_field_updated: story_points
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-e0a7ae41
+  commits:
+  - working_sha: 6873817c340c92b080f2fcde8ec8172c23be1a05
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 84f9d3e45d6aae94ad2d02eccbe4dbaab44ac705
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.257
+  story_points: 3
 ---
 
 Found by loop 1, iteration **3** of `repro-gigabytealchemy-ai` against
@@ -145,3 +154,107 @@ CHROMIUM_LAUNCH_ARGS=--single-process 1c gate repro-gigabytealchemy-ai \
 (`1c gate` drives Chromium; without `CHROMIUM_LAUNCH_ARGS=--single-process` an
 agent session dies at `bootstrap_check_in … Permission denied (1100)` before the
 first frame. That is the sandbox, not a missing browser.)
+
+---
+
+## What landed
+
+All three numbered items above, plus the consequences they force. An unpaired
+band is **counted, never escalated** — the verdict ladder is untouched, exactly
+as the scope above says.
+
+### 1. `ValuesDiffReport` carries the counts, on both sides
+
+Two new required fields, derived from the same pairing pass that builds
+`sectionPairing` so a count can never disagree with the rows it summarises:
+
+- **`unpairedSections`** — reference sections no reproduction band overlapped.
+- **`unpairedActualSections`** — the repro-side mirror: bands no reference
+  section paired to. This side was visible **nowhere at all**, not even in
+  `sectionPairing`, which only ever had a row per *reference* section. The
+  reference-side count alone would read as "the reproduction has fewer bands",
+  which a page that segments *differently* rather than more coarsely does not
+  do — this reproduction has seven bands to the reference's eight and could
+  equally have had nine.
+
+Each entry is an **`UnpairedSection`** (`{ label, box? }`), newly exported —
+item 3's geometry, so a reader can locate the band without going back to
+`sectionPairing` to look it up.
+
+Both lists are **empty under BUG-102's flat-L1 verdict**
+(`sectionsNotComparable`): that reason stands in for the whole per-section pass,
+and eight "unpaired" rows underneath it would be louder noise than the single
+line above them. The one repro band in that case is not "extra" — it is the
+reason.
+
+### 2. `gate-core.ts` carries them to the gate, and the pass rung says so
+
+`GateReport.values` gains `unpairedSections` and `unpairedActualSections` as
+counts. `ReconcileInput.values` asks for both as `readonly unknown[]`,
+**required rather than optional**, for the two reasons BUG-106 gives for
+`unpairedActual`: countable-only so a caller with no such type can still satisfy
+it, and required because the defect being fixed *is* a fact the type made
+impossible to carry.
+
+The pass rung gains **one** rung, not two. The two counts are the same fact seen
+from either side — the pages segment differently — and splitting them would put
+two near-identical lines in a list whose whole value is that an operator skims
+it. It names whichever sides are non-zero and ends with what the count costs:
+those bands' section-level values (overlay, contentAnchor, textAlign) are
+UNMEASURED rather than clean.
+
+### 3. Consequences beyond the three items
+
+- **`formatGateReport` prints it.** The operator report is the other consumer of
+  `GateReport`, and every count on its `values-diff` line is about *elements* —
+  a band with no counterpart is invisible in all of them. A row is emitted under
+  that line when either count is non-zero, alongside the existing
+  `sectionsNotComparable` row.
+- **`formatReport` (`1c values-diff`) reads the new fields instead of
+  re-deriving them.** It already printed the reference side, computed inline
+  from `sectionPairing`; it now reads `report.unpairedSections` so its text and
+  the gate's rung cannot drift apart, and prints the repro side too, which it
+  never named.
+- **The AI fidelity surface documents them.** `check_fidelity` returns
+  `report.values` verbatim, so the new keys reach a model with no prose saying
+  what they mean. `ai/fidelity-surface.json`'s `fidelity_report.values` entry
+  now names both and says what a non-zero count costs.
+- **A reproduction manifest carrying *no* bands now reports every reference
+  section as unpaired.** That follows directly from the definition — with
+  nothing to pair against, nothing pairs — and it corrected one BUG-106 fixture
+  that was asserting an *earned* silence (`a_genuinely_silent_pass_still_says_
+  nothing_outstanding`) while emitting no repro bands at all. Its
+  `actualManifest(…, flat: false)` helper now mirrors the reference's bands one
+  for one, so the section pass is genuinely clean and BUG-106's AC — that a run
+  with comparable sections still reads exactly as it did — is pinned by a
+  fixture that actually meets it. BUG-106's intent is unchanged; only its
+  fixture was wrong.
+
+### Test plan
+
+`tests/test_UAT_FC_BUG-111_unpaired_section_reaches_the_gate.test.ts` — 11 UATs
+at two levels, because the fact has to survive two hops:
+
+**`diffManifests`** (the real gigabytealchemy geometry, transcribed as BUG-102's
+suite transcribes it): the counts exist on both sides with their boxes; they
+agree with the `sectionPairing` rows they summarise; the repro side is counted
+symmetrically; two sides that segment identically report nothing (the counts are
+earned, not decorative); flat-L1 stays a single reason rather than eight counts;
+the printed values report names both sides.
+
+**`cmdGate`** (the ticket): driven through the real command over a synthetic
+bundle via the same offline seams BUG-100/BUG-106 use — a pre-shot actual PNG
+and a pre-extracted actual manifest, no headless browser, nothing we own
+mocked. Three reference bands against a reproduction that renders all three
+headings but segments into two: every element pairs, the eye is quiet, the
+verdict is `pass`, and the middle band was compared by nothing. The UATs pin
+that `gate.json` carries the count, that the pass rung names it and points at
+`values.unpairedSections`, that the repro side gets the same rung, that a run
+whose bands all pair still reads "Nothing outstanding from this gate.", and that
+the operator report prints it.
+
+Regression scope run green: the 20 values-diff / gate / fidelity / surface
+suites (BUG-100, BUG-102, BUG-103, BUG-106, BUG-107, REQ-31/32/33/35/45/47/48/
+49/51/53/58/63/94/157/219/228/254/270/271, `reconcile-values-diff-*`,
+`reconciliation-cross-gate-reconciliation`, `bug15-values-diff-l1-flat-dom`),
+plus `tsc --noEmit -p tools/generate/tsconfig.json` clean.

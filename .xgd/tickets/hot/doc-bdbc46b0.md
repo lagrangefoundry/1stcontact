@@ -6,7 +6,7 @@ title: The reproduction engine and the loop-1 session — the diagnosing session
   base
 created_by: REQ-261
 created_at: '2026-09-16T20:55:42.661492+00:00'
-updated_at: '2026-09-18T00:50:34.219670+00:00'
+updated_at: '2026-09-18T03:50:49.984315+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -166,8 +166,8 @@ mechanism, so read it as a ladder and not as a set:
 | # | condition | verdict |
 |---|---|---|
 | 1 | `!l1Gate.pass` | `structural-failure` |
-| 2 | no perceptual breach | `pass` |
-| 3 | `coverage.findings.length` | `capture-incomplete` |
+| 2 | no perceptual breach AND no value breach | `pass` |
+| 3 | perceptual breach AND `coverage.findings.length` | `capture-incomplete` |
 | 4 | `deltas > 0` | `reproduction-wrong` |
 | 5 | otherwise | `unexplained-disagreement` |
 
@@ -176,6 +176,37 @@ measured against an impoverished reference is not evidence, because the value
 gates compare elements present in both manifests and are therefore *blind* to
 substance the capture never recorded. They are not disagreeing; they cannot
 see.
+
+**The value floor (BUG-110).** Rung 2 has TWO bounds, not one. `VALUES_TIER_FLOOR`
+is the worst `SeverityTier` a passing run may carry — default `MEDIUM`, so `HIGH`
+and `CRITICAL` breach and tone/treatment drift does not. Before it existed the
+verdict was decided by the perceptual floor and the L1 gate alone: `deltas` was
+counted and used only to narrate rung 2, and every rung below it was unreachable
+once the pixels were within their floor. A reproduction of `gigabytealchemy.ai`
+with **no document outline and no links at all** — 11 `a11yRole: heading →
+generic` deltas and 2 `link → generic`, all `kind: semantics`, all `HIGH` —
+therefore read `"pass": true`.
+
+Semantics is the axis that proves why a pixel floor cannot be the whole gate: a
+heading reproduced as a styled `<div>` paints the same glyphs at the same size in
+the same place, so the perceptual eye is *structurally* incapable of seeing it.
+
+Consequences for a round:
+
+- **`pass` is now two floors.** A run that passes carried no delta above
+  `floor.valuesTier`. `floor.valuesTier` is echoed into `gate.json` exactly as the
+  perceptual bounds are, and `values.worstTier` says which tier the verdict was
+  decided against — **read `worstTier` before `deltas`**, because fourteen tonal
+  deltas and fourteen lost headings are both `14`.
+- **Rung 3 is gated on the perceptual breach.** `capture-incomplete`'s whole
+  diagnosis is that the eye saw what the value gates are blind to; a run whose
+  pixels are clean and whose value gate *did* see the break is the opposite case
+  and lands on rung 4. The false-coverage hijack below still applies under a
+  breaching eye — the ordering there is unchanged.
+- **Rung 4 has two prose variants**, both-eyes-agree and values-only. The
+  values-only one names the worst tier and the bound it broke.
+- `1c gate --values-tier <CRITICAL|HIGH|MEDIUM|LOW|none>` moves the bound;
+  `none` restores the pre-BUG-110 "pixels decide alone".
 
 **The consequence a round must hold in mind.** A false coverage finding does
 not merely add a noisy line — it *hijacks* the verdict, converting a

@@ -467,7 +467,7 @@ describe('REQ-256 the AI round', () => {
     }
     // `Bash` is NOT among them, and that is the change. What it costs — "the
     // round writes no code" becoming an instruction rather than a property — is
-    // covered where it is now enforced: REQ-262's `readyStatusViolations`, and
+    // covered where it is now enforced: REQ-262's `readyStatusFindings`, and
     // the console's existing working-tree falsifier.
     expect(denied).not.toContain('Bash')
 

@@ -170,6 +170,25 @@ function actualManifest(elements: ValueElement[] = []): string {
   return file
 }
 
+/**
+ * BUG-110 — the reproduction's copy of a reference run, so the pair compares
+ * rather than going missing. `overrides` drifts ONE axis, which is how a
+ * sub-floor (tonal / treatment) delta is produced deliberately: a repro that
+ * simply omits the run raises a CRITICAL `presence` delta instead, and those
+ * fail the run now.
+ */
+function reproOf(run: ContentRun, overrides: Partial<ValueElement> = {}): ValueElement {
+  return {
+    text: run.text,
+    role: run.role,
+    color: run.color,
+    fontFamily: run.fontFamily,
+    fontSizePx: run.fontSizePx,
+    fontWeight: run.fontWeight,
+    ...overrides,
+  }
+}
+
 /** One reference run the reproduction can either carry or drop. */
 const HEADING: ContentRun = {
   role: 'heading',
@@ -218,13 +237,22 @@ describe('REQ-94 — a failing perceptual eye is not outvoted by clean value gat
     // the sharp instrument (values-diff) still has deltas to work. This must keep
     // passing — the new gate exists to catch what the value gates MISS, not to
     // duplicate a gate that already exits non-zero on every delta.
+    //
+    // BUG-110 NARROWED THIS, and the fixture says how. The claim is about
+    // RESIDUAL deltas on a reproduction an operator would accept — tone and
+    // treatment — so the reproduction now carries the reference's run with one
+    // axis drifted (a LOW-tier `color`), which is that case. It used to carry
+    // NOTHING, which raised a CRITICAL `presence` delta: a page with none of its
+    // content on it is not a faithful reproduction, and the gate saying `pass`
+    // there is the defect BUG-110 was filed for. Everything at or below the
+    // value floor still passes, which is this AC's actual subject.
     const ref = await writeBundle({ images: 0, content: [HEADING], sections: [] })
     const report = await cmdGate({
       ref,
       // 4/255 everywhere: mean 4 (under the floor), and below the 32 per-pixel
       // threshold so no pixel counts as "over".
       actualImagePath: await actualShot(4),
-      actualManifestPath: actualManifest(),
+      actualManifestPath: actualManifest([reproOf(HEADING, { color: '#1f2937' })]),
       out: freshDir('out'),
     })
 
@@ -352,7 +380,10 @@ describe('REQ-94 — the perceptual floor is explicit and overridable', () => {
     const manifest = actualManifest()
 
     const dflt = await cmdGate({ ref, actualImagePath: shot, actualManifestPath: manifest, out: freshDir('out') })
-    expect(dflt.floor).toEqual({ mean: 8, pct: 25 })
+    // BUG-110 — the floor object carries the value gate's bound alongside the two
+    // perceptual ones, for the reason this AC exists: a bound that is not in the
+    // report is a bound the reader has to already know.
+    expect(dflt.floor).toEqual({ mean: 8, pct: 25, valuesTier: 'MEDIUM' })
     expect(dflt.pass).toBe(true)
 
     // The floor is provisional (DOC-21 §4 wants it calibrated), so it must be a
@@ -364,7 +395,7 @@ describe('REQ-94 — the perceptual floor is explicit and overridable', () => {
       out: freshDir('out'),
       floor: { mean: 1 },
     })
-    expect(tight.floor).toEqual({ mean: 1, pct: 25 })
+    expect(tight.floor).toEqual({ mean: 1, pct: 25, valuesTier: 'MEDIUM' })
     expect(tight.pass).toBe(false)
     expect(tight.verdict).toBe('unexplained-disagreement')
   })

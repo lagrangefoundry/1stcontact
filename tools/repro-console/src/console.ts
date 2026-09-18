@@ -60,12 +60,14 @@ import {
   ROUND_CREATED_BY,
   TICKET_STATUS,
   filedByRound,
+  readyStatusArrivals,
+  readyStatusFindings,
   readyStatusSnapshot,
-  readyStatusViolations,
+  type ReadyFindings,
   type ReadyTicket,
 } from './ticket'
 import { buildSessionKb, type SessionKbResult } from './session-kb'
-import type { RailRoundResult } from './rail-round'
+import { NO_BASELINE_NOTICE, type RailRoundResult } from './rail-round'
 
 /** Scratch space for every artifact the console produces. Gitignored (DOC-12). */
 export const CONSOLE_WORKSPACE = path.join('storage', 'tmp', 'repro-console')
@@ -219,7 +221,27 @@ export class ReproConsole {
       url: this.url,
       iterations: this.iterations.map((it) => this.view(it)),
       stored: this.stored.map(({ name, url }) => ({ name, url })),
+      ...(this.notice() ? { notice: this.notice() as string } : {}),
     }
+  }
+
+  /**
+   * A condition of the checkout the operator should not be able to miss
+   * ([[BUG-114]]).
+   *
+   * THE MOST RECENT RAIL DECIDES, and only it: an earlier iteration's answer is
+   * about a checkout that may since have had a baseline recorded, and a notice
+   * that outlived its cause is the next thing an operator learns to ignore.
+   * Iterations that ran no rail at all are passed over rather than treated as an
+   * answer, because they are not one.
+   */
+  private notice(): string | undefined {
+    for (let i = this.iterations.length - 1; i >= 0; i -= 1) {
+      const rail = this.iterations[i].railResult
+      if (!rail) continue
+      return rail.noBaseline ? NO_BASELINE_NOTICE : undefined
+    }
+    return undefined
   }
 
   /**
@@ -309,6 +331,7 @@ export class ReproConsole {
         ? { recoverHref: `/iteration/${it.n}/recover` }
         : {}),
       violations: live ? [] : (outcome?.violations ?? []),
+      observations: live ? [] : (outcome?.observations ?? []),
       transcript,
     }
   }
@@ -692,10 +715,11 @@ export class ReproConsole {
     // Behavior 3's falsifier is measured on the ROUND, before the console does
     // any filing of its own — otherwise the console's own ticket write would be
     // the thing the check reported.
-    const roundViolations = [...(await this.codeViolations(before)), ...(await this.readyViolations(readyBefore))]
+    const ready = await this.readyFindings(readyBefore, outcome)
+    const roundViolations = [...(await this.codeViolations(before)), ...ready.violations]
     this.live = null
 
-    await this.settle(it, aiDir, outcome, roundViolations)
+    await this.settle(it, aiDir, outcome, roundViolations, ready.observations)
   }
 
   /**
@@ -706,8 +730,17 @@ export class ReproConsole {
    * same path as one handed over live — otherwise "recovered" would be a second,
    * weaker kind of filing, with its own rules to go stale.
    */
-  private async settle(it: Iteration, aiDir: string, outcome: AiOutcome, roundViolations: string[]): Promise<void> {
+  private async settle(
+    it: Iteration,
+    aiDir: string,
+    outcome: AiOutcome,
+    roundViolations: string[],
+    observations: string[] = [],
+  ): Promise<void> {
     outcome.violations = [...roundViolations, ...(await this.confirm(it, outcome))]
+    // Kept apart from the violations all the way to the page ([[BUG-114]]):
+    // merging them here would be the whole bug again, one layer lower.
+    outcome.observations = observations
     /**
      * A FAILED ROUND SAYS WHERE ITS WORDS ARE ([[REQ-261]] behavior 5).
      *
@@ -958,17 +991,44 @@ export class ReproConsole {
     }
   }
 
-  /** What reached a trigger status while the round ran. */
-  private async readyViolations(before: Map<string, ReadyTicket>): Promise<string[]> {
+  /**
+   * What reached a trigger status while the round ran, and who is answerable
+   * for it ([[BUG-114]]).
+   *
+   * THE ARRIVAL IS FOUND BY DIFFERENCE AND CHARGED BY ATTRIBUTION. Finding one
+   * needs two snapshots because the store records no process against a status
+   * change. Charging one needs `created_by`, which the LIST does not carry — so
+   * each arrival, and only an arrival, is read back individually. That costs one
+   * `xgd ticket get` per arrival and the ordinary round has none.
+   */
+  private async readyFindings(before: Map<string, ReadyTicket>, outcome: AiOutcome): Promise<ReadyFindings> {
+    const nothing: ReadyFindings = { violations: [], observations: [] }
     // An unavailable "before" makes every existing ready ticket look new, which
-    // would report dozens of violations that are nothing to do with the round.
+    // would report dozens of arrivals that are nothing to do with the round.
     // Saying nothing is the honest answer when the comparison cannot be made.
-    if (!before.size) return []
+    if (!before.size) return nothing
+    let arrivals: ReadyTicket[]
     try {
-      return readyStatusViolations(before, await readyStatusSnapshot(this.cwd, this.runCommand))
+      arrivals = readyStatusArrivals(before, await readyStatusSnapshot(this.cwd, this.runCommand))
     } catch {
-      return []
+      return nothing
     }
+    if (!arrivals.length) return nothing
+    const createdBy = new Map<string, string>()
+    for (const arrival of arrivals) {
+      const read = await this.readTicket(arrival.uid)
+      // Only a ticket that was really read is recorded. An unreadable one stays
+      // out of the map, so it is unattributed rather than falsely innocent —
+      // `createdBy: ''` would read as a ticket the console looked at.
+      if (read.found) createdBy.set(arrival.uid, read.createdBy)
+    }
+    // What the round said it filed, by both id and uid — the round reports ids,
+    // the snapshot carries uids, and a round PROMOTING a ticket it filed is
+    // exactly the case only its own words can connect.
+    const named = new Set(
+      [outcome.ticketId, ...(outcome.bugTickets ?? [])].filter((id): id is string => Boolean(id)),
+    )
+    return readyStatusFindings(arrivals, { named, createdBy })
   }
 
   
@@ -1162,7 +1222,7 @@ function readOutcome(dir: string): AiOutcome | null {
   try {
     const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<AiOutcome>
     if (typeof parsed.status !== 'string') return null
-    return { ...parsed, status: parsed.status, violations: parsed.violations ?? [] } as AiOutcome
+    return { ...parsed, status: parsed.status, violations: parsed.violations ?? [], observations: parsed.observations ?? [] } as AiOutcome
   } catch {
     return null
   }

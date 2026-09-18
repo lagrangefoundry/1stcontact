@@ -184,7 +184,15 @@ interface ActualSpec {
   /**
    * When true the reproduction is ONE body-spanning band — the flat-L1 shape
    * BUG-102 named, which makes the reference's sections not comparable at all.
-   * When false it carries no band geometry, so the sections join normally.
+   * When false it mirrors the reference's bands one for one, so every section
+   * pairs and the section pass is genuinely clean.
+   *
+   * BUG-111 — it used to emit NO bands at all in the false case, and the
+   * difference did not show until an unpaired reference band became a reported
+   * fact: with nothing to pair against, every reference band is unpaired, so
+   * `a_genuinely_silent_pass` was asserting a silence its own fixture had not
+   * earned. The band geometry below is `bandValues`' — same `y`, same height —
+   * so the vertical overlap is 1.0 and each band takes its own counterpart.
    */
   flat?: boolean
 }
@@ -199,7 +207,7 @@ function actualManifest(spec: ActualSpec): string {
   for (const el of elements) if (el.box) bottom = Math.max(bottom, el.box.y + el.box.height)
   const sections: SectionValues[] = spec.flat
     ? [{ index: 0, overlay: null, contentAnchorRatio: null, box: { x: 0, y: 0, width: 1280, height: bottom + 40 } }]
-    : []
+    : spec.headings.map((_, i) => bandValues(i, 1280))
   const manifest: ValueManifest = { source: 'draft:fixture', elements, sections }
   writeFileSync(file, JSON.stringify(manifest))
   return file
