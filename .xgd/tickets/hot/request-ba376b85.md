@@ -5,15 +5,23 @@ type: request
 title: 'The assistant can report a defect: adopt the upstream development surface'
 created_by: EPIC-19
 created_at: '2026-09-18T21:45:39.352452+00:00'
-updated_at: '2026-09-18T22:49:44.390241+00:00'
+updated_at: '2026-09-18T22:55:45.355888+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-01898991
+  commits:
+  - working_sha: cb45ab81502a766b4a35dd8f1d1f788c76b3245a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 058ed7abef43db180800d72b0c215ffcadaa09b9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.265
 ---
 
 Parent: [[EPIC-19]]. Asked for by the operator on 2026-09-18, after the builder
