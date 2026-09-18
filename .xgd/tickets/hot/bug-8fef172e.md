@@ -6,9 +6,9 @@ title: 'gate: the verdict is decided by the perceptual floor alone, so 13 HIGH s
   deltas still report pass'
 created_by: repro-console:repro-gigabytealchemy-ai#3
 created_at: '2026-09-18T02:08:33.305770+00:00'
-updated_at: '2026-09-18T03:56:56.655050+00:00'
+updated_at: '2026-09-18T03:57:30.712314+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -326,3 +326,21 @@ Regression scope: `tests/req94-cross-gate-reconciliation.test.ts`,
 `tests/test_UAT_FC_BUG-100_coverage_background_images.test.ts`,
 `tests/test_UAT_FC_BUG-106_gate_reports_what_it_measured.test.ts`,
 `tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts`, plus the full suite.
+
+
+## Landed
+
+`0.2.260`, commits `db4402de04` (the change) and `0d322e88de` (version).
+
+Merged back over a moved `xgd-working`: **BUG-111** had landed in the same two
+files. Both conflicts were additive and both sides were kept —
+`GateReport.values` now carries `worstTier` (BUG-110) *and* `unpairedSections` /
+`unpairedActualSections` (BUG-111), and `fidelity-surface.json`'s `values` shape
+carries both sentences. Neither ticket's claim is weakened by the other:
+BUG-111's counts say what was not compared, BUG-110's tier says how bad what
+*was* compared is.
+
+Full suite on the merged tree: 5004 tests, 10 failures across 5 files, none
+touching the gate — 4 reproduce on a clean `xgd-working` checkout (pre-existing)
+and 6 are the known worktree-location artifact (the builder/webui origin serves
+503 for `/framework/*` outside the main checkout).
