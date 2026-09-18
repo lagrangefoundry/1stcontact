@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T19:36:46.647975+00:00'
+updated_at: '2026-09-18T19:37:45.185163+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -115,5 +115,46 @@ Say the word and I'll file the child ticket.
 <!-- xgd-chat role="user" ts="2026-09-18T19:36:46.359699+00:00" -->
 #### You
 Hmm...how is the delegate prompted - it has to get the prompt from the parent, right?
+
+<!-- xgd-turn id="9de78e62-f118-447f-b2d7-487adeadc417-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T19:37:44.709633+00:00" -->
+#### Claude
+Right — and the split is sharper than you'd expect. There are two channels, and only one comes from the parent.
+
+**System channel — the host's, not the parent's.** `_openWorker` calls `manager.createSession(role, registryName, {sessionId})`, so the worker's system prompt is its *role's* priming, assembled by the normal path. The parent contributes nothing to it and has no parameter that could. That's what makes "the brief carries intent, the role carries authority" structural rather than a convention.
+
+**User channel — the parent's, and it's exactly one turn.** `_runWorker` calls `manager.promptStream(workerSid, brief(goal, checks))`. `brief()` (delegation_toolbox.js:505) assembles:
+
+```
+<the parent's goal prose, verbatim>
+
+Before you report, make each of these checks and report it as passed or
+failed with a reason. Quote each one back exactly as written here:
+- <check 1>
+- <check 2>
+
+When the work is done, report the result. What you report is the whole of
+what the session that gave you this work receives; it does not see this
+conversation.
+```
+
+That is the entire crossing. Not the parent's transcript, not the parent's priming, not the client's words.
+
+**One turn, not a conversation.** The turn contains the worker's whole tool loop — many calls, many round-trips — but it never gets a second user message. The parent can't iterate with a worker; an underspecified brief comes back thin and the parent re-delegates. That's what bounds the cost of a single `Delegate` call.
+
+## The part that matters for us
+
+A worker knows only three things: what its role's priming teaches it, what its surfaces let it read, and what the parent wrote in the goal. It doesn't know what your client said, what you decided four turns ago, or why. Three consequences:
+
+1. **Site binding is free.** `config.surfaces` are built by the host per delegation, so the L1 surface arrives already bound to the slug. The worker can read and write the right site without being told which one.
+
+2. **Corpus access is a grant decision.** Without the knowledge surface, everything about the client's brand has to be in the goal prose. With it, a Haiku session is reading the client's knowledge base — and it's the cheap model making retrieval judgements.
+
+3. **The consultant doesn't currently know how to brief a worker.** Nothing in `priming.json` teaches it what a good goal or a good `accept` check looks like, and the entire value of the split rests on exactly that skill. The surface's own overview is blunt about the failure mode: if the parent re-inspects everything the worker did, the tokens have been *moved to the more expensive side*, not saved. So adopting this means authoring new priming, not just wiring — and that authoring is the hard part, because you're teaching an Opus session to write prompts for a Haiku one at runtime.
+
+Worth knowing on the accounting side: worker spend rolls into the caller's ledger, attributed to the delegation, on every exit path — including `failed` and `stopped`.
+
+All of this is now in the epic body. It reinforces my earlier ordering: build with the consultant first, watch where it writes long mechanical sequences, and let those observations tell you what the worker's role and its brief-writing priming should say.
 
 <!-- xgd-chat-end -->
