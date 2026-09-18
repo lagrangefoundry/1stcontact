@@ -79,6 +79,31 @@ export {
 } from './schema'
 export type { CaptureAxis } from './schema'
 export { EXTRACT_SCRIPT } from './extract'
+// REQ-274 — the single declaration site for every value axis. Exported so a
+// caller can ask the table what it covers (and what it cannot read on one side)
+// rather than reading two projection bodies to find out.
+export {
+  AXIS_TABLES,
+  FIELD_AXES,
+  GEOMETRY_AXES,
+  MANIFEST_AXES,
+  RUN_AXES,
+  SECTION_AXES,
+  UNMEASURED_AXES,
+  observedUnmeasuredAxes,
+  readerOf,
+  unmeasuredAxesOf,
+  unmeasuredAxisLabel,
+  unsupplied,
+} from './value-axes'
+export type {
+  AxisRole,
+  AxisScope,
+  AxisSide,
+  AxisSideName,
+  CaptureBand,
+  UnmeasuredAxis,
+} from './value-axes'
 export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
 export {
   flattenCapture,
