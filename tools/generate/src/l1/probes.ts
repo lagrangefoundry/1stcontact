@@ -8,13 +8,20 @@
  * **demand-driven structure recovery** that promotes only the pinned regions that
  * fail.
  *
- * The three probes (from the ticket):
+ * The probes:
  *   (a) sample-fidelity     — reproduced geometry matches the oracle at the 6
  *                             captured widths within tolerance.
  *   (b) off-sample          — renders sane (no overlap / clip) at intermediate
  *                             widths (500 / 900px) the fold never sampled.
  *   (c) content-robustness  — perturbed content (longer text / taller image)
  *                             keeps the envelope: no overlap / clip.
+ *   (d) on-sample           — BUG-112 — renders sane at the CAPTURED widths,
+ *                             unperturbed, on the document actually served. The
+ *                             three above were the whole gate for long enough
+ *                             that the name `threeProbeGate` outlived its truth;
+ *                             what it missed was the plainest case of all, a
+ *                             page that collides as it stands at the width the
+ *                             reference was measured at.
  *
  * The evaluator is **analytic and browser-free**: it mirrors exactly what the
  * renderer emits — the absolute `interpolate|snap` geometry math and CSS flow
@@ -65,6 +72,12 @@ export interface EvalLeaf {
   box: EvalBox
   /** True when the leaf is placed by absolute geometry (out of flow). */
   pinned: boolean
+  /**
+   * BUG-112 — the node declared `stacked: true`: an overlap it takes part in is
+   * the design, not a collision. Carried onto the leaf so the overlap scan can
+   * read it without walking back up to the node.
+   */
+  stacked?: true
 }
 
 /** A geometry-envelope violation found during evaluation. */
@@ -340,18 +353,18 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // measure's join key (see `sampleFidelity`), and the oracle side joins the
       // same run group into the same string — so a node that emphasises a word
       // still pairs with the element it was folded from.
-      ctx.leaves.push({ path, kind: 'text', text: l1PlainText(node.text), id: node.id, box, pinned })
+      ctx.leaves.push({ path, kind: 'text', text: l1PlainText(node.text), id: node.id, box, pinned, ...stackedOf(node) })
       return box.height
     }
     case 'image': {
       if (pinned && node.geometry!.keyframes[0].height !== undefined) {
         box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
       }
-      ctx.leaves.push({ path, kind: 'image', id: node.id, box, pinned })
+      ctx.leaves.push({ path, kind: 'image', id: node.id, box, pinned, ...stackedOf(node) })
       return box.height
     }
     case 'slot': {
-      ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned })
+      ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned, ...stackedOf(node) })
       return box.height
     }
     case 'control': {
@@ -361,7 +374,7 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       if (pinned && node.geometry!.keyframes[0].height !== undefined) {
         box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
       }
-      ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned })
+      ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned, ...stackedOf(node) })
       return box.height
     }
     case 'box':
@@ -373,7 +386,7 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
         if (pinned && node.geometry!.keyframes[0].height !== undefined) {
           box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
         }
-        ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned })
+        ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned, ...stackedOf(node) })
         return box.height
       }
       const gap = node.kind === 'container' ? (node.gapPx ?? 0) : 0
@@ -454,6 +467,15 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
   }
 }
 
+/**
+ * BUG-112 — the node's declared stacking intent, as a spreadable fragment so an
+ * unmarked node carries no key at all (rather than an explicit `undefined`,
+ * which would survive `JSON.stringify` into every serialized leaf).
+ */
+function stackedOf(node: L1Node): { stacked?: true } {
+  return node.stacked ? { stacked: true } : {}
+}
+
 /** Do two boxes overlap by more than `eps` on both axes? */
 function overlaps(a: EvalBox, b: EvalBox, eps: number): boolean {
   const ix = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
@@ -509,6 +531,14 @@ export function evaluateLayout(
   )
   for (let i = 0; i < solid.length; i++) {
     for (let j = i + 1; j < solid.length; j++) {
+      // BUG-112 — the DECLARED exemption, beside the synthesized-surface one
+      // above. The two are the same judgement reached two ways: a backing
+      // surface is known to be intentional because the fold invented it to sit
+      // behind its own runs, and a `stacked` node is known to be intentional
+      // because a document says so in as many words. One side of the pair is
+      // enough — an overlap has a figure and a ground, and the declaration is
+      // made by whichever node is the composition.
+      if (solid[i].stacked || solid[j].stacked) continue
       if (overlaps(solid[i].box, solid[j].box, opts.epsilonPx)) {
         findings.push({
           kind: 'overlap',
@@ -771,6 +801,19 @@ export interface EnvelopeReport {
 }
 
 /**
+ * The one thing every envelope probe does: lay the document out at each width
+ * and keep the findings. The probes differ only in WHICH document, WHICH widths
+ * and HOW MUCH content perturbation — so that is all each of them says.
+ */
+function envelopeAt(doc: L1Document, widths: number[], contentScale: number): EnvelopeReport {
+  const byWidth = widths.map((width) => ({
+    width,
+    findings: evaluateLayout(doc, width, { contentScale }).findings,
+  }))
+  return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
+}
+
+/**
  * Probe (b) — evaluate the document at intermediate widths the fold never
  * sampled (default 500 / 900px) and assert the envelope holds: no sibling
  * overlap, no horizontal clip. Catches interpolation / snap brackets that
@@ -780,9 +823,40 @@ export function offSampleProbe(
   doc: L1Document,
   options: { widths?: number[] } = {},
 ): EnvelopeReport {
-  const widths = options.widths ?? [500, 900]
-  const byWidth = widths.map((width) => ({ width, findings: evaluateLayout(doc, width).findings }))
-  return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
+  return envelopeAt(doc, options.widths ?? [500, 900], 1)
+}
+
+// ── probe (d): on-sample envelope ─────────────────────────────────────────────
+
+/**
+ * BUG-112 — probe (d) — the envelope at the **captured** widths, with content
+ * exactly as the document holds it.
+ *
+ * This is the case the other two envelope probes structurally could not cover,
+ * and the hole was not small: a reproduction that painted five pairs of text
+ * over each other at 1280px — the width the perceptual gate photographs —
+ * returned `pass`, because
+ *
+ *   - probe (b) looks only at 500 / 900px, which no capture samples, and
+ *   - probe (c) looks at the captured widths but only under a 2.5x content
+ *     perturbation, which is a question about *resilience*, and
+ *   - probe (a) evaluates the document at every captured width, unperturbed —
+ *     and destructured `{ leaves }`, discarding the findings on the same line.
+ *
+ * So the collisions were computed, at the right widths, on the right document,
+ * three times per run, and thrown away every time.
+ *
+ * Unperturbed collisions at a sampled width are a different class of defect from
+ * the other two probes' findings. Probe (b) and (c) report *fragility* — this
+ * would break if the viewport were between samples, or if the copy grew. This
+ * reports a page that is broken **as it stands, at a width the reference itself
+ * was measured at**, and no averaging of pixels can make that faithful.
+ */
+export function onSampleProbe(
+  doc: L1Document,
+  options: { widths?: number[] } = {},
+): EnvelopeReport {
+  return envelopeAt(doc, options.widths ?? doc.widths, 1)
 }
 
 // ── probe (c): content robustness ─────────────────────────────────────────────
@@ -798,25 +872,24 @@ export function contentRobustnessProbe(
   doc: L1Document,
   options: { scale?: number; widths?: number[] } = {},
 ): EnvelopeReport {
-  const scale = options.scale ?? 2.5
-  const widths = options.widths ?? doc.widths
-  const byWidth = widths.map((width) => ({
-    width,
-    findings: evaluateLayout(doc, width, { contentScale: scale }).findings,
-  }))
-  return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
+  return envelopeAt(doc, options.widths ?? doc.widths, options.scale ?? 2.5)
 }
 
-// ── the 3-probe gate ──────────────────────────────────────────────────────────
+// ── the acceptance gate ───────────────────────────────────────────────────────
 
-export interface ThreeProbeReport {
+export interface AcceptanceReport {
   pass: boolean
   sampleFidelity: SampleFidelityReport
   offSample: EnvelopeReport
   contentRobustness: EnvelopeReport
+  /**
+   * BUG-112 — the envelope at the captured widths, unperturbed, on the document
+   * the reproduction is actually SERVED from ({@link AcceptanceOptions.served}).
+   */
+  onSample: EnvelopeReport
 }
 
-export interface ThreeProbeOptions {
+export interface AcceptanceOptions {
   fidelity?: SampleFidelityOptions
   offSampleWidths?: number[]
   contentScale?: number
@@ -828,28 +901,50 @@ export interface ThreeProbeOptions {
    * overlay — pass `promoteToFlow(base).doc` here when the base needed recovery.
    */
   recovered?: L1Document
+  /**
+   * BUG-112 — the document that is actually WRITTEN TO DISK and served, which is
+   * a third thing again, and on this codebase's own bundles it is neither of the
+   * two above by accident: `1c repro` writes the absolute base while the
+   * envelope probes grade the recovered overlay (BUG-113). Defaults to `doc`.
+   *
+   * It is a parameter rather than an assumption because "which document does the
+   * operator's browser load" is a fact about the *caller*, and the one time this
+   * module guessed, the gate certified an artifact nobody served.
+   */
+  served?: L1Document
 }
 
 /**
- * Run all three acceptance probes against a reproduced document + its oracle.
- * Fidelity is measured on the absolute base `doc`; the envelope probes are
- * measured on `options.recovered ?? doc`. The gate passes only when every probe
- * passes; each residual a sub-report carries names a framework gap to feed back.
+ * Run every acceptance probe against a reproduced document + its oracle.
+ *
+ * Three documents, because there are three genuinely different questions:
+ *   - fidelity is a property of the absolute base `doc` (it reproduces the oracle);
+ *   - the off-sample + content-robustness envelopes measure `options.recovered`
+ *     (the structure-recovered overlay), because resilience is what recovery buys;
+ *   - the on-sample envelope measures `options.served`, because a collision the
+ *     reader can see at a captured width is a fact about the page they load and
+ *     about nothing else.
+ *
+ * The gate passes only when every probe passes; each residual a sub-report
+ * carries names a framework gap to feed back.
  */
-export function threeProbeGate(
+export function acceptanceGate(
   doc: L1Document,
   oracle: OracleSource,
-  options: ThreeProbeOptions = {},
-): ThreeProbeReport {
+  options: AcceptanceOptions = {},
+): AcceptanceReport {
   const recovered = options.recovered ?? doc
+  const served = options.served ?? doc
   const sampleFidelity = sampleFidelityProbe(doc, oracle, options.fidelity)
   const offSample = offSampleProbe(recovered, { widths: options.offSampleWidths })
   const contentRobustness = contentRobustnessProbe(recovered, { scale: options.contentScale })
+  const onSample = onSampleProbe(served, { widths: options.fidelity?.widths })
   return {
-    pass: sampleFidelity.pass && offSample.pass && contentRobustness.pass,
+    pass: sampleFidelity.pass && offSample.pass && contentRobustness.pass && onSample.pass,
     sampleFidelity,
     offSample,
     contentRobustness,
+    onSample,
   }
 }
 

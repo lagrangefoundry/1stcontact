@@ -154,7 +154,19 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     expect(report.promoted.length).toBeGreaterThan(0)
     expect(report.contentRobustness.pass).toBe(true)
     expect(report.sampleFidelity.pass).toBe(true)
-    expect(report.pass).toBe(true)
+
+    // BUG-112 — and the gate still does not pass, because recovery closes the
+    // residual on an overlay `1c repro` never writes. This fixture's SERVED
+    // document — the absolute base — has its heading overrun the body copy at the
+    // two narrowest captured widths, unperturbed. That was always true of it; the
+    // gate simply had no probe that looked.
+    //
+    // REQ-88's acceptance that recovery closing the residual makes the run pass
+    // is superseded on that one point: recovery is a property of the overlay, and
+    // a verdict is a claim about the page the operator loads.
+    expect(report.onSample.pass).toBe(false)
+    expect(report.onSample.byWidth.filter((w) => w.findings.length).map((w) => w.width)).toEqual([320, 375])
+    expect(report.pass).toBe(false)
   })
 
   it('test_UAT_FC_REQ-88_l1_gate_requires_recaptured_bundle', async () => {

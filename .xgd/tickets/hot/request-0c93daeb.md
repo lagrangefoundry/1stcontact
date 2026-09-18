@@ -6,10 +6,10 @@ title: 'repro console: two operator decision points, and a re-capture that does 
   reset the site'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:39.360214+00:00'
-updated_at: '2026-09-18T02:25:39.360214+00:00'
+updated_at: '2026-09-18T03:53:03.398964+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: body
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-bf282b3d
@@ -110,3 +110,124 @@ no way to re-capture that does not reset the iteration list and lose the chain.
   on the page.
 - A round reading a bundle captured before a landed fix can say so from the
   bundle itself, without being told.
+
+
+---
+
+## What landed
+
+### Part 1 — the two decision points
+
+`execute()` no longer calls `diagnose()`. A finished iteration sets its message
+and stops; the round is started by `POST /iteration/<n>/diagnose`, from a
+**[diagnose this]** button rendered under that iteration's links, and from
+nowhere else in the console.
+
+The button is offered while nothing is running and the iteration has **no round
+worth keeping** — none yet, or one that failed (labelled *diagnose again*). It
+is not offered on a round that reached an answer: `[read it again]` re-files from
+that round's transcript for free, and re-running would pay for the same reading
+twice.
+
+The hold after a filing is **derived, not stored**: the last iteration's outcome
+is `filed` or `appended` and no release marker sits beside it. `POST /release`
+writes that marker (`ai/implemented.json`) into the round's own directory, so the
+hold **survives a restart of the console** — an operator returning to an inert
+button is exactly the case the held state exists for, and "returning" routinely
+means a restart. A round that filed nothing — `no-gap`, `stopped`, `failed` —
+holds nothing: the hold is about an implementation that was *asked for*.
+
+The hold gates **both** presses that advance the chain: `[run again]`, and
+`[recapture]` of the site already loaded. Both produce the next iteration, and
+the next iteration exists to measure the implementation. The page disables them
+(`data-held`, honoured by the poller as well as by the render, so the button does
+not silently re-enable a second after the round ends) and the handler refuses the
+press that lands in the gap.
+
+Nothing else about the round changed: `capture-incomplete` still stops and files
+nothing with no AI process started at all, the transcript still streams under its
+iteration, and `running` is still held for a round's whole length so nothing can
+start on top of one.
+
+### Part 2 — a re-capture that keeps the chain
+
+`[recapture]` naming the site already on the page **appends the next iteration**
+instead of resetting the list: the iterations, the slug and the loaded URL are
+left alone and only the bundle is dropped, which is what makes the run capture
+rather than refold. Naming a *different* site is still the other verb and still
+starts a new chain — "the same site" is `bareHost`, exported from `iteration.ts`
+so the console's question and `findStoredCapture`'s are one comparison rather
+than two spellings of it.
+
+The new iteration is marked `recaptured: true` in its `iteration.json` and
+labelled *re-captured* on the page, with the reason: its numbers are not
+comparable with the iteration above it, because the reference moved as well as
+the engine. Every iteration also records and shows **which bundle it used and
+when that bundle was captured** (`bundleCapturedAt`), so a chain whose reference
+moved half way through reads as one chain with a marked seam. The capture time is
+the only thing that can say this: a bundle's name is URL-derived and overwriting,
+so `bundleDir` is the same string either side of a re-capture.
+
+That same fact makes `session.ts`'s reset rule 1 fire for the first time. The
+rule has always read "a different bundle, **or the same site re-captured**", and
+the second half could not be observed while `bundleDir` was the only key; the
+bundle's `capturedAt` is now part of the resume context, so **a re-capture cuts
+the resume chain** and the next round pays full price rather than reasoning from
+remembered numbers about a page that no longer exists.
+
+### Part 2, item 3 — the reference's own age, handed to the round
+
+`1c capture page` already stamps `capturedAt` and (since [[REQ-270]])
+`captureSchema`; nothing in the engine changed. What is new is that the console
+reads them — through one new leaf module, `src/bundle.ts`, the single reader of
+those field names — and hands them over:
+
+- the **digest** opens with a *reference* section naming the bundle, its capture
+  time and its schema stamp, and
+- the **prompt** says the same in a paragraph placed above the evidence list,
+  because a fact that only appears in a file the round *may* read is a fact the
+  round may miss, and this is the one whose being missed costs a whole round.
+
+Beside them the console lists the **engine commits that landed after the
+capture** (`git log --since=<capturedAt> -- tools/generate/src`, bounded and
+never fatal). That is the arithmetic the observed round spent $7.70 and 78 turns
+on, over two inputs that were on the disk the whole time. Three states are
+distinguished and each says which it is — commits landed, nothing landed, and
+*this bundle carries no capture time* (the last being a finding about the
+instrument, never quietly collapsed into "nothing landed", which would read as
+permission to file).
+
+The brief gains a section under §4 stating the consequence a round has to draw:
+a residual measured against an oracle older than its fix is a landed fix waiting
+on a re-capture, not an outstanding gap, and `1c refold` can never close that
+window because the axis a capture fix adds is absent from an oracle the old
+extractor wrote.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-272_operator_decision_points.test.ts` — ten UATs over the
+real console, its real HTTP surface and the real manifests, with `1c`, `claude`,
+`git` and `xgd` substituted through the seams the console already had. The fake
+capture step stamps a **different** `capturedAt` on every call, which is what
+makes "the reference moved" observable at all.
+
+- the iteration finishes with its links, **no round runs**, and the button starts
+  exactly one (both halves, in one test);
+- `capture-incomplete` still stops and files nothing, and a second press during a
+  round — of `[diagnose this]` or of `[run again]` — is refused;
+- `[run again]` is inert after a filing, names the ticket it waits for, and runs
+  the next iteration once released;
+- the hold survives a restart, and the release is recorded on disk;
+- a round that filed nothing holds nothing;
+- re-capture appends a marked iteration, keeps the earlier ones and their
+  artifacts, and every iteration names its bundle and capture time;
+- a re-capture cuts the resume chain;
+- re-capture on a *different* site still starts a new chain;
+- the digest and the prompt carry the capture time, the schema stamp and what
+  landed after it;
+- a quiet engine and an unstamped bundle each say which they are.
+
+The three suites that drove the round through the old automatic trigger —
+[[REQ-256]], [[REQ-261]], [[REQ-262]] — press `[diagnose this]` (and release the
+hold) in their fixtures. What they assert is unchanged, which is the point: this
+ticket moved the trigger and left the round alone.

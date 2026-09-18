@@ -4,13 +4,13 @@
  * `1c capture` already folds a multi-viewport capture into an absolute-base
  * `l1.json` + a retained `multistate.json` oracle. This module turns that bundle
  * into a **servable, gate-able 1c site**, closing the last gap between the L1
- * library (foldToL1 / renderL1 / threeProbeGate) and an operator workflow:
+ * library (foldToL1 / renderL1 / acceptanceGate) and an operator workflow:
  *
  *   - {@link cmdRepro}  — import a bundle's `l1.json` (+ REQ-93's `forms.json`
  *                          behaviour bindings) as an L1 page site, so the existing
  *                          `render / serve / shot / diff / values-diff` loop works
  *                          on the reproduction unchanged.
- *   - {@link cmdL1Gate} — run the mechanical 3-probe acceptance gate (DOC-19) on
+ *   - {@link cmdL1Gate} — run the mechanical acceptance gate (DOC-19) on
  *                          the bundle's oracle: fold → promote → gate, reporting
  *                          each residual as a framework-gap signal.
  *
@@ -20,8 +20,8 @@
 import { defaultTokens, latestModuleVersion } from '@1stcontact/framework'
 import { l1DocumentSlotNames, validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
-import { foldToL1, localizeAssets, promoteToFlow, threeProbeGate } from '../l1'
-import type { FoldedForm, FoldResidual, ThreeProbeReport } from '../l1'
+import { acceptanceGate, foldToL1, localizeAssets, promoteToFlow } from '../l1'
+import type { AcceptanceReport, FoldedForm, FoldResidual } from '../l1'
 import { draftDir, emptyDir, ensureDir, fsReferenceBundle, siteDir, writeDraftBase, writeJson } from '../store'
 import type { ReferenceBundle } from '../store'
 import { ctxOf } from './commands'

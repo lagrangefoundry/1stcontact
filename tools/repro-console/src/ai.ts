@@ -30,9 +30,10 @@
  * being structural: it used to be a field the console wrote, and is now an
  * instruction a round can get wrong. It is asserted instead: behaviour 4's
  * "never at a `ready_*` status" is checked after every round by
- * {@link readyStatusViolations} ([[REQ-262]] requirement 11), because a
- * `ready_*` status is a dispatcher trigger and the one mistake here that spends
- * real money while nobody is watching.
+ * {@link readyStatusFindings} ([[REQ-262]] requirement 11, narrowed to what is
+ * attributable to the round by [[BUG-114]]), because a `ready_*` status is a
+ * dispatcher trigger and the one mistake here that spends real money while
+ * nobody is watching.
  *
  * WHY THE `claude` CLI AND NOT A CLIENT. The console spawns `1c` per step
  * already; spawning the CLI the operator is signed in to adds no dependency,
@@ -131,6 +132,16 @@ export interface AiOutcome {
   reason?: string
   /** Behaviours 3 and 4's falsifiers, filled in by the console after the round. */
   violations?: string[]
+  /**
+   * What merely happened while the round ran ([[BUG-114]]).
+   *
+   * A SECOND LIST, NOT A SOFTER VIOLATION. Both come from the same check — a
+   * ticket arriving at a dispatcher-trigger status — and the whole point of
+   * BUG-114 is that an arrival nothing ties to the round is not a thing the
+   * round did. One list the operator must act on, one they may want to look at;
+   * folding them together is what taught an operator to discount both.
+   */
+  observations?: string[]
   /** The status the gap ticket actually carries, read back (behavior 4). */
   ticketStatus?: string
   /** The model, the cost and the shape of the round ([[REQ-261]] behavior 6). */
@@ -509,7 +520,7 @@ Now do the round. Finish with the JSON block described in §7 of the brief, and 
  * that already exists — an un-ticketed edit is drift and `test_fix` eliminates
  * it — and the one genuinely expensive mistake, a ticket created at a `ready_*`
  * status, is asserted against after every round rather than hoped about
- * ([[REQ-262]] requirement 11, `readyStatusViolations`).
+ * ([[REQ-262]] requirement 11, `readyStatusFindings`).
  */
 export const AI_ALLOWED_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep', 'Bash']
 

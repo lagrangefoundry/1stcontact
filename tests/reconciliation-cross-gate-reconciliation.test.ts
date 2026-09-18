@@ -39,6 +39,7 @@ import {
   writeRasterPng,
   PERCEPTUAL_MEAN_FLOOR,
   PERCEPTUAL_PCT_FLOOR,
+  VALUES_TIER_FLOOR,
   type BrowserDriverFactory,
   type Capture,
   type CaptureAsset,
@@ -233,6 +234,34 @@ function actualManifest(elements: ValueElement[] = []): string {
   return file
 }
 
+/**
+ * BUG-110 — the reproduction's copy of a reference run, so the pair COMPARES
+ * rather than going missing, with `overrides` drifting one axis. That is how a
+ * sub-floor (tonal / treatment) delta is produced deliberately: a reproduction
+ * that simply omits the run raises a CRITICAL `presence` delta instead, and a
+ * delta above the value floor fails the run.
+ */
+function reproOf(run: ContentRun, overrides: Partial<ValueElement> = {}): ValueElement {
+  return {
+    text: run.text,
+    role: run.role,
+    color: run.color,
+    fontFamily: run.fontFamily,
+    fontSizePx: run.fontSizePx,
+    fontWeight: run.fontWeight,
+    ...overrides,
+  }
+}
+
+/**
+ * BUG-110 — a reproduction carrying {@link HEADING} with its colour drifted: ONE
+ * LOW-tier `color` delta, which is what "value deltas are evidence, not exit
+ * code" is about — residual drift on a page an operator would accept.
+ */
+function tonalManifest(): string {
+  return actualManifest([reproOf(HEADING, { color: '#1f2937' })])
+}
+
 /** One reference run the reproduction can either carry or drop. */
 const HEADING: ContentRun = {
   role: 'heading',
@@ -265,7 +294,12 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     const report = await cmdGate({
       ref,
       actualImagePath: await actualShot(4),
-      actualManifestPath: actualManifest(),
+      // BUG-110 — the reproduction carries the reference's run with its colour
+      // drifted, so the four signals are all non-trivial AND the run still
+      // reaches `pass`: an empty reproduction now raises a CRITICAL `presence`
+      // delta, which fails the run and would make this a report about the
+      // verdict rather than about the four signals being reconciled at all.
+      actualManifestPath: tonalManifest(),
       out,
       driverFactory: driver.factory,
     })
@@ -318,7 +352,9 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     // (d) The verb is the CLI's, and its exit status follows the verdict.
     const stdout = vi.spyOn(console, 'log').mockImplementation(() => {})
     const shot = await actualShot(4)
-    const manifest = actualManifest()
+    // BUG-110 — a passing run needs a reproduction that is actually there; see
+    // the note on the first `cmdGate` call above.
+    const manifest = tonalManifest()
 
     process.exitCode = 0
     await cli.run(['gate', '--ref', ref, '--actual-image', shot, '--actual-manifest', manifest, '--json'])
@@ -390,7 +426,14 @@ describe('story-24098299 — cross-gate reconciliation', () => {
       actualManifestPath: manifest,
       out: freshDir('out'),
     })
-    expect(clean.floor).toEqual({ mean: PERCEPTUAL_MEAN_FLOOR, pct: PERCEPTUAL_PCT_FLOOR })
+    // BUG-110 — the floor object carries the value gate's tier bound alongside
+    // the two perceptual ones. Same contract, one more bound: this AC is that no
+    // bound the verdict was decided against is left implicit.
+    expect(clean.floor).toEqual({
+      mean: PERCEPTUAL_MEAN_FLOOR,
+      pct: PERCEPTUAL_PCT_FLOOR,
+      valuesTier: VALUES_TIER_FLOOR,
+    })
     expect(clean.pass).toBe(true)
     expect(formatGateReport(clean, ref)).toContain(
       `✓ within floor (mean ≤ ${PERCEPTUAL_MEAN_FLOOR}, pct ≤ ${PERCEPTUAL_PCT_FLOOR}%)`,
@@ -408,7 +451,7 @@ describe('story-24098299 — cross-gate reconciliation', () => {
       out: freshDir('out'),
       floor: { mean: 1 },
     })
-    expect(tight.floor).toEqual({ mean: 1, pct: PERCEPTUAL_PCT_FLOOR })
+    expect(tight.floor).toEqual({ mean: 1, pct: PERCEPTUAL_PCT_FLOOR, valuesTier: VALUES_TIER_FLOOR })
     expect(tight.perceptualBreach).toBe(true)
     expect(tight.pass).toBe(false)
 
@@ -586,7 +629,13 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     expect(structural.l1Pass).toBe(false)
     expect(structural.verdict).toBe('structural-failure')
     expect(structural.pass).toBe(false)
-    expect(structural.diagnosis).toMatch(/not geometrically faithful/)
+    // BUG-112 — the diagnosis NAMES what the structural gate saw rather than
+    // restating that it failed. This fixture overhangs its viewport by 600px, so
+    // what it saw is a clip at every captured width, and it says so — with the
+    // `1c l1-gate` residuals still named as the follow-on step.
+    expect(structural.diagnosis).toMatch(/exceeds viewport/)
+    expect(structural.layout.pass).toBe(false)
+    expect(structural.layout.findings.every((f) => f.kind === 'clip')).toBe(true)
     expect(structural.nextStep).toMatch(/l1-gate/)
 
     // (b) capture-incomplete — floor breached AND coverage suspect. The value
@@ -637,10 +686,15 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     expect(unexplained.nextStep).toMatch(/FRAMEWORK gap/)
 
     // (e) pass — the eyes agree; remaining value deltas point at the value verb.
+    //     BUG-110 — "remaining" is now load-bearing: the reproduction carries the
+    //     reference's run with only its colour drifted (LOW tier, under the value
+    //     floor). The empty manifest the other rungs use raises a CRITICAL
+    //     `presence` delta, and a page with none of its content on it is not a
+    //     pass however close its pixels are.
     const passing = await cmdGate({
       ref: ourFault,
       actualImagePath: await actualShot(4),
-      actualManifestPath: manifest,
+      actualManifestPath: tonalManifest(),
       out: freshDir('out'),
     })
     expect(passing.verdict).toBe('pass')
@@ -673,9 +727,19 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     //     geometry gate passes is reported as PASSING even while the value eye
     //     still reports deltas — the report states the count and sends the
     //     operator to the value verb, which already exits non-zero on any delta.
+    //
+    //     BUG-110 NARROWED THIS. The claim is about the COUNT: a delta count is
+    //     evidence to work, not an exit code, and the gate must not become a
+    //     second `1c values-diff`. That is intact — the deltas below stay
+    //     reported and the run stays a pass. What the count never carried is
+    //     SEVERITY, and severity is now a bound of its own: the reproduction here
+    //     drifts the reference run's colour (LOW tier, under the value floor)
+    //     rather than omitting it, because an omitted run is a CRITICAL
+    //     `presence` delta and a page with none of its content on it is not a
+    //     pass however close its pixels are.
     const ref = await writeCaptureBundle({ images: 0, content: [HEADING], sections: [] })
     const shot = await actualShot(4)
-    const manifest = actualManifest()
+    const manifest = tonalManifest()
     const report = await cmdGate({
       ref,
       actualImagePath: shot,
@@ -690,7 +754,7 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     expect(report.nextStep).toContain(`${report.values.deltas} delta(s)`)
     expect(report.nextStep).toMatch(/values-diff/)
 
-    // …and the exit status agrees: the delta count never enters the verdict.
+    // …and the exit status agrees: the delta COUNT never enters the verdict.
     const stdout = vi.spyOn(console, 'log').mockImplementation(() => {})
     process.exitCode = 0
     await cli.run(['gate', '--ref', ref, '--actual-image', shot, '--actual-manifest', manifest, '--json'])

@@ -18,7 +18,7 @@
  *
  * WHAT IS HERE. Everything that reads a {@link ReferenceBundle} through the port
  * or computes over data already in hand: the perceptual floor, the coverage
- * proxies, the three-probe L1 gate, and the reconciliation itself. What is NOT
+ * proxies, the L1 acceptance gate, and the reconciliation itself. What is NOT
  * here is the command — `1c gate` still lives in `gate.ts`, still writes its
  * report, and still reads exactly these functions, so there is one place where a
  * verdict is decided and the CLI is a caller of it rather than its owner.
@@ -36,18 +36,22 @@ import { readCapture, readMultiState } from './capture/bundle'
 // functions this uses are pure and live in two modules.
 import { foldToL1 } from '../l1/fold'
 import type { FoldResidual } from '../l1/fold'
-import { promoteToFlow, threeProbeGate } from '../l1/probes'
-import type { ThreeProbeReport } from '../l1/probes'
+import { acceptanceGate, promoteToFlow } from '../l1/probes'
+import type { AcceptanceReport, EnvelopeReport } from '../l1/probes'
 import type { FoldedForm } from '../l1/forms'
 import type { ReferenceBundle } from '../store/reference-store'
 // BUG-100 — the coverage proxy compares image handles by mirrored-asset basename,
 // which is the identity `localizeAssets` mirrors by and the one the values-diff
 // already uses for background URLs. Reusing the helper rather than writing a
 // second normaliser keeps "is this the same asset?" answered in one place.
-import { assetBasename } from './capture/values-diff'
+// BUG-110 — the value gate's floor is a TIER bound, so the reconciliation reads
+// the same ordering the deltas were ranked by rather than keeping a second copy
+// of the severity taxonomy that could drift from it.
+import { assetBasename, TIER_RANK } from './capture/values-diff'
 import { staleCaptureDetail } from './capture/schema'
 import type {
   MultiStateCapture,
+  SeverityTier,
   StateProjection,
   ValueManifest,
   ValuesDiffReport,
@@ -73,6 +77,37 @@ export const PERCEPTUAL_MEAN_FLOOR = 8
 export const PERCEPTUAL_PCT_FLOOR = 25
 
 /**
+ * BUG-110 — the VALUE gate's floor: the worst {@link SeverityTier} a run may
+ * carry and still pass. A delta ranked above it fails the run no matter how
+ * close the pixels are.
+ *
+ * WHY THERE HAS TO BE ONE. Before this bound the ladder was decided by the
+ * perceptual floor and the L1 gate alone: `deltas` was counted, never weighed,
+ * and every rung below `pass` was unreachable once the pixels were within their
+ * floor. So a reproduction of `gigabytealchemy.ai` that had lost EVERY heading
+ * and EVERY link on the page — 13 HIGH `a11yRole` deltas, no document outline,
+ * nothing that is still a link — reported `verdict: "pass"`. Semantics is the
+ * axis that proves the point: a heading that renders as a `generic` div moves no
+ * pixel at all, so the eye is structurally incapable of seeing it and the one
+ * gate that CAN see it had no way to reach the verdict.
+ *
+ * WHY `MEDIUM`, i.e. why HIGH and CRITICAL breach and nothing else does. The
+ * gate must not become a second `1c values-diff` — that verb already exits
+ * non-zero on ANY delta, and a gate that did the same would be a duplicate of it
+ * rather than the cross-gate reconciliation REQ-94 built. So the bound is set at
+ * the line the tier table already draws: LOW is tone (colour, scrim, spacing)
+ * and MEDIUM is treatment (shape, border, weight) — residual drift on a
+ * reproduction an operator would accept, and exactly what REQ-94's "faithful
+ * reproduction passes despite value deltas" was about. HIGH and above is
+ * structure: a lost heading, a link that is no longer a link, a size that is
+ * wrong, something absent. None of those is a close reproduction.
+ *
+ * `null` holds the value gate to nothing, which is the behaviour every run had
+ * before this bound existed (`--values-tier none`).
+ */
+export const VALUES_TIER_FLOOR: SeverityTier = 'MEDIUM'
+
+/**
  * Page height per captured section above which segmentation is treated as
  * suspect. DOC-13 §7 is explicit that a uniformly-styled page is correctly ONE
  * section, so a long band is not wrong by itself — this is a proxy reported as
@@ -87,6 +122,44 @@ export interface CoverageFinding {
   kind: 'unreferenced-image' | 'section-density' | 'stale-capture'
   /** Operator-facing sentence: what was measured and why it reads as a gap. */
   detail: string
+}
+
+/**
+ * BUG-112 — one on-sample layout collision on the served document.
+ *
+ * `kind` + `detail` are deliberately the SAME two keys a {@link CoverageFinding}
+ * carries, and for the same reason: `detail` is a finished operator-facing
+ * sentence, so every surface that already knows how to print a coverage finding
+ * — the CLI report, the `check_fidelity` tool result an AI round reads — carries
+ * this one with no new format to learn. `width` and `paths` are the machine-side
+ * halves of the same sentence, for a caller that wants to sort or navigate
+ * rather than read.
+ */
+export interface LayoutCollision {
+  kind: 'overlap' | 'clip'
+  /** Operator-facing sentence: what collided with what, at which width. */
+  detail: string
+  /** The captured width the collision was found at. */
+  width: number
+  /** Index paths of the leaves involved. */
+  paths: string[]
+}
+
+/**
+ * Flatten an envelope report into collisions, width by width and, inside each
+ * width, in the order the probe walked the page — so the list an operator reads
+ * is the page top to bottom rather than a bag sorted by nothing.
+ */
+export function layoutCollisions(report: EnvelopeReport): LayoutCollision[] {
+  return report.byWidth.flatMap(({ width, findings }) =>
+    findings.map((f) => ({ kind: f.kind, detail: `at ${width}px: ${f.detail}`, width, paths: [...f.paths] })),
+  )
+}
+
+/** The first `n` collisions as one semicolon-joined sentence, with a tail count. */
+function namedCollisions(all: LayoutCollision[], n = 5): string {
+  const head = all.slice(0, n).map((c) => c.detail).join('; ')
+  return all.length > n ? `${head}; …and ${all.length - n} more` : head
 }
 
 /**
@@ -116,15 +189,20 @@ export interface ReferenceCoverage {
 /**
  * What the reconciliation concluded.
  *
- * - `pass`                     — every gate this command owns is clear.
+ * - `pass`                     — every gate this command owns is clear: the eye is
+ *                                within its floor AND no value delta ranks above
+ *                                the value floor (BUG-110).
  * - `structural-failure`       — `l1-gate` itself failed; ordinary, pre-existing.
  * - `capture-incomplete`       — perceptual floor breached AND reference coverage
  *                                is suspect. The value gates are not wrong, they
  *                                are BLIND: they cannot raise a delta against
  *                                substance the capture never recorded.
- * - `reproduction-wrong`       — perceptual floor breached, coverage clean, and
- *                                the value gates do see deltas. They agree; the
- *                                values-diff already names what to fix.
+ * - `reproduction-wrong`       — the reproduction differs and the value gates name
+ *                                how. Either the perceptual floor is breached,
+ *                                coverage is clean and both eyes agree; or
+ *                                (BUG-110) the eye is within its floor and a
+ *                                delta above the value floor failed the run on
+ *                                its own — the semantic class no pixel shows.
  * - `unexplained-disagreement` — perceptual floor breached and nothing else sees
  *                                it. A framework gap: an axis that moves pixels
  *                                which the value manifest does not carry.
@@ -136,15 +214,39 @@ export type GateVerdict =
   | 'reproduction-wrong'
   | 'unexplained-disagreement'
 
-/** The floor a run was held to (echoed into the report so it is never implicit). */
-export interface PerceptualFloor {
+/**
+ * The floor a run was held to (echoed into the report so it is never implicit).
+ *
+ * BUG-110 — renamed from `PerceptualFloor`, because it is no longer only the
+ * perceptual one. It is ONE object carrying every bound the verdict was decided
+ * against, for the reason the name it had was written for: a bound that is not
+ * in the report is a bound the reader has to already know.
+ */
+export interface GateFloor {
   mean: number
   pct: number
+  /**
+   * BUG-110 — the worst {@link SeverityTier} a passing run may carry.
+   * `null` means the value gate is held to nothing (the pre-BUG-110 behaviour).
+   */
+  valuesTier: SeverityTier | null
 }
 
 /** Everything the reconciliation reads. Pure input — no I/O, no browser. */
 export interface ReconcileInput {
-  l1Gate: Pick<L1GateResult, 'pass'>
+  /**
+   * BUG-112 — `onSample` travels beside `pass`, and it is not redundant with it.
+   * `pass` already folds the on-sample envelope in, so the VERDICT is right
+   * either way; what `onSample` adds is the ability to say WHAT collided, which
+   * is the whole difference between "the structural gate failed" and a brief an
+   * AI round can act on.
+   *
+   * Required, not optional, for the reason the BUG-106 note below gives at
+   * length: a `Pick` that structurally excludes the facts a caller would have to
+   * remember to pass is a caller that will one day not remember. Every caller
+   * here holds a whole {@link L1GateResult}, so satisfying it costs nothing.
+   */
+  l1Gate: Pick<L1GateResult, 'pass' | 'onSample'>
   coverage: ReferenceCoverage
   /**
    * REQ-157 — `regions` is only ever counted here, so this asks for something
@@ -190,10 +292,21 @@ export interface ReconcileInput {
     unmatched: number
     /** REQ-51 — repro objects that paired with no reference object. */
     unpairedActual: readonly unknown[]
+    /**
+     * BUG-111 — reference sections no repro band overlapped, and the repro-side
+     * mirror. COUNTABLE ONLY, and REQUIRED rather than optional, for the same two
+     * reasons `unpairedActual` above is: a caller with no such type can still
+     * satisfy a `readonly unknown[]`, and the defect this fixes was a fact the
+     * type made impossible to carry — so the reconciliation asks for it instead
+     * of trusting a call site to remember. An unpaired band is not a delta, so
+     * without these the whole fact reached the gate as nothing at all.
+     */
+    unpairedSections: readonly unknown[]
+    unpairedActualSections: readonly unknown[]
     /** BUG-102 — why section-level values could not be compared at all, when they could not. */
     sectionsNotComparable?: string
   }
-  floor?: Partial<PerceptualFloor>
+  floor?: Partial<GateFloor>
 }
 
 export interface GateReport {
@@ -203,9 +316,11 @@ export interface GateReport {
   diagnosis: string
   /** The single next action the verdict implies. */
   nextStep: string
-  floor: PerceptualFloor
+  floor: GateFloor
   /** True when the perceptual diff exceeded either bound. */
   perceptualBreach: boolean
+  /** BUG-110 — true when a value delta ranks above `floor.valuesTier`. */
+  valuesBreach: boolean
   l1Pass: boolean
   perceptual: { meanDiff: number; pctOverThreshold: number; regions: number }
   /**
@@ -219,9 +334,31 @@ export interface GateReport {
     matched: number
     unmatched: number
     unpairedActual: number
+    /**
+     * BUG-110 — the worst tier among `deltas`, which is what `valuesBreach` was
+     * decided from. `null` when there are no deltas to rank. Carried because a
+     * COUNT says nothing about severity: the run this ticket came from read
+     * `deltas: 14` on a page that had lost its entire outline, and 14 is also
+     * what a page with fourteen slightly-off colours reads.
+     */
+    worstTier: SeverityTier | null
+    /**
+     * BUG-111 — how many bands went UNCOMPARED on each side. Read next to
+     * `coverage.sections`: that number counts the reference's bands, so a run
+     * reporting eight sections and one unpaired section has compared seven.
+     */
+    unpairedSections: number
+    unpairedActualSections: number
     sectionsNotComparable?: string
   }
   coverage: ReferenceCoverage
+  /**
+   * BUG-112 — what the served document does at the captured widths, as it
+   * stands. `pass: false` here is always a `structural-failure` verdict: a page
+   * that paints a run over its neighbour at a width the reference itself was
+   * measured at is wrong however the pixels average out.
+   */
+  layout: { pass: boolean; findings: LayoutCollision[] }
 }
 
 /**
@@ -371,6 +508,27 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
 }
 
 /**
+ * BUG-110 — a tier's rank, tolerant of one that is not in the table.
+ *
+ * `0` for an absent or unrecognised tier, so it can never exceed a floor: a
+ * caller that hands the reconciliation a delta shape it does not understand gets
+ * the pre-BUG-110 verdict rather than a failure invented from a value that was
+ * never classified.
+ */
+function tierRank(tier: SeverityTier | null | undefined): number {
+  return tier ? (TIER_RANK[tier] ?? 0) : 0
+}
+
+/** The worst tier among a run's deltas, or `null` when there are none. */
+function worstTierOf(deltas: ValuesDiffReport['deltas']): SeverityTier | null {
+  let worst: SeverityTier | null = null
+  for (const delta of deltas) {
+    if (tierRank(delta.tier) > tierRank(worst)) worst = delta.tier
+  }
+  return worst
+}
+
+/**
  * Reconcile the three gates into one verdict.
  *
  * Ordering is deliberate. Coverage is consulted BEFORE the value-delta count
@@ -382,16 +540,27 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
  * to work first.
  */
 export function reconcileGates(input: ReconcileInput): GateReport {
-  const floor: PerceptualFloor = {
+  const floor: GateFloor = {
     mean: input.floor?.mean ?? PERCEPTUAL_MEAN_FLOOR,
     pct: input.floor?.pct ?? PERCEPTUAL_PCT_FLOOR,
+    // `undefined` is "not asked", which takes the default; `null` is "asked for
+    // no bound", which is the pre-BUG-110 behaviour and must survive `??`.
+    valuesTier: input.floor?.valuesTier === undefined ? VALUES_TIER_FLOOR : input.floor.valuesTier,
   }
   const { meanDiff, pctOverThreshold } = input.perceptual
   const perceptualBreach = meanDiff > floor.mean || pctOverThreshold > floor.pct
   const deltas = input.values.deltas.length
+  // BUG-110 — the value gate's own breach, ranked by the SAME table the deltas
+  // were sorted by. An unrecognised tier ranks 0 and cannot breach: the bound
+  // exists to fail runs on evidence, never on a value it could not classify.
+  const worstTier = worstTierOf(input.values.deltas)
+  const valuesBreach = floor.valuesTier !== null && tierRank(worstTier) > tierRank(floor.valuesTier)
   const unpairedActual = input.values.unpairedActual.length
+  const unpairedSections = input.values.unpairedSections.length
+  const unpairedActualSections = input.values.unpairedActualSections.length
   const notComparable = input.values.sectionsNotComparable
   const coverage = input.coverage
+  const collisions = layoutCollisions(input.l1Gate.onSample)
 
   let verdict: GateVerdict
   let diagnosis: string
@@ -399,9 +568,28 @@ export function reconcileGates(input: ReconcileInput): GateReport {
 
   if (!input.l1Gate.pass) {
     verdict = 'structural-failure'
-    diagnosis = 'The 3-probe gate failed: the reproduction is not geometrically faithful to the oracle.'
-    nextStep = 'Work `1c l1-gate --ref <bundle>` — its residuals each name the framework gap to close.'
-  } else if (!perceptualBreach) {
+    // BUG-112 — an on-sample collision is named HERE rather than left to
+    // `1c l1-gate`, because it is the one structural failure an operator can
+    // confirm by opening the page: two runs painted on top of each other at a
+    // width the reference was measured at. Leaving it as "work the residuals"
+    // is what sent an AI round after fourteen sub-pixel value deltas while the
+    // form controls sat on the prose above them.
+    diagnosis = collisions.length
+      ? `The acceptance gate failed: the SERVED document collides with itself at ${
+          new Set(collisions.map((c) => c.width)).size
+        } captured width(s) — ${namedCollisions(collisions)}. ` +
+        'A run painted over its neighbour is a reproduction defect no perceptual average can excuse.'
+      : 'The acceptance gate failed: the reproduction is not geometrically faithful to the oracle.'
+    nextStep = collisions.length
+      ? 'Fix the collisions first (`layout.findings` lists every pair and width) — either give the ' +
+        'colliding region structure so it cannot overlap, or, where the stack IS the design, declare ' +
+        'it on the node with `stacked: true` so the intent is recorded rather than inferred. Then work ' +
+        '`1c l1-gate --ref <bundle>` for the remaining residuals.'
+      : 'Work `1c l1-gate --ref <bundle>` — its residuals each name the framework gap to close.'
+    // BUG-110's value-severity bound joins the perceptual one here: both are
+    // breaches a passing run must be clear of, and neither can rescue a
+    // structural failure above.
+  } else if (!perceptualBreach && !valuesBreach) {
     verdict = 'pass'
     diagnosis =
       'The perceptual eye and the structural gate agree the reproduction is faithful. ' +
@@ -415,8 +603,12 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // so the pass rung enumerates every fact this run is carrying and falls back
     // to the original sentence only when it is carrying none.
     //
-    // THE LADDER IS UNCHANGED. Nothing here decides a verdict — a run that
-    // passed still passes. What changes is that it says what it did not measure.
+    // BUG-110 — this used to read "THE LADDER IS UNCHANGED. Nothing here decides
+    // a verdict." That was true of BUG-106 and is no longer true of the rung: a
+    // delta above `floor.valuesTier` now fails the run before it gets here. What
+    // is STILL true, and is the point of the list, is that everything below the
+    // value floor is reported rather than decided — a run reaching this rung is
+    // a pass, and the list is how it says what it is nonetheless carrying.
     // EACH ITEM NAMES ITS FACT AND WHERE THE DETAIL ALREADY IS, rather than
     // quoting it. The reason and the finding are both in this same report, two
     // keys away, and pasting them in full turns one next action into a wall of
@@ -434,6 +626,33 @@ export function reconcileGates(input: ReconcileInput): GateReport {
           `expected side only and does not see them (\`values.unpairedActual\`)`,
       )
     }
+    // BUG-111 — the fourth way the pass rung was silent about what it did not
+    // measure. A reference band with no repro counterpart produces no delta (BUG-102
+    // classified it correctly as a segmentation mismatch) and no coverage finding, so
+    // the only trace it left was a row in `values-diff.json`'s `sectionPairing` —
+    // which this report does not summarise and no reader of it opens. One rung, not
+    // two: the two counts are the same fact seen from either side (the pages segment
+    // differently), and splitting them would put two near-identical lines in a list
+    // whose whole value is that it is skimmable.
+    if (unpairedSections > 0 || unpairedActualSections > 0) {
+      const sides: string[] = []
+      if (unpairedSections > 0) {
+        sides.push(
+          `${unpairedSections} reference section(s) had no reproduction band to compare against ` +
+            `(\`values.unpairedSections\`)`,
+        )
+      }
+      if (unpairedActualSections > 0) {
+        sides.push(
+          `${unpairedActualSections} reproduction band(s) had no reference section ` +
+            `(\`values.unpairedActualSections\`)`,
+        )
+      }
+      outstanding.push(
+        `${sides.join(' and ')} — the two pages segment differently, so those bands' section-level values ` +
+          `(overlay, contentAnchor, textAlign) are UNMEASURED rather than clean`,
+      )
+    }
     if (notComparable) {
       outstanding.push(
         'section-level values were NOT compared at all on this run, so the delta count above says nothing ' +
@@ -449,7 +668,15 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     nextStep = outstanding.length
       ? `Every gate is within its floor, but this run is NOT silent: ${outstanding.join('; ')}.`
       : 'Nothing outstanding from this gate.'
-  } else if (coverage.findings.length) {
+  } else if (perceptualBreach && coverage.findings.length) {
+    // BUG-110 — `capture-incomplete` is explicitly gated on the PERCEPTUAL
+    // breach now that a run can reach this rung on the value gate alone. Its
+    // whole diagnosis is that the eye sees a page-scale difference the value
+    // gates are BLIND to; a run whose pixels are within their floor and whose
+    // value gate DID see the break is the opposite case, and saying the value
+    // gates could not see it would be false about the very deltas that failed
+    // the run. The perceptual ordering — coverage BEFORE the delta count — is
+    // unchanged, which is what BUG-100's suite pins.
     verdict = 'capture-incomplete'
     diagnosis =
       'The perceptual eye sees a page-scale difference the value gates do not, and reference coverage ' +
@@ -464,10 +691,30 @@ export function reconcileGates(input: ReconcileInput): GateReport {
         : '.')
   } else if (deltas > 0) {
     verdict = 'reproduction-wrong'
-    diagnosis =
-      'The perceptual eye and the value gates agree the reproduction differs, and reference coverage is ' +
-      'clean — so the reference is trustworthy and the defect is ours.'
-    nextStep = `Work the ${deltas} \`1c values-diff\` delta(s): they name, element by element, what to fix.`
+    // BUG-110 — two ways to arrive here now, and they are not the same finding.
+    // The original is both eyes agreeing. The new one is the value gate ALONE:
+    // pixels within their floor, and a delta above the value floor anyway. That
+    // second case is not a weaker version of the first — it is the class the eye
+    // is structurally unable to see, because a heading that renders as a
+    // `generic` div moves no pixel. Saying "the perceptual eye and the value
+    // gates agree" there would be false about the one gate that did the work.
+    if (perceptualBreach) {
+      diagnosis =
+        'The perceptual eye and the value gates agree the reproduction differs, and reference coverage is ' +
+        'clean — so the reference is trustworthy and the defect is ours.'
+      nextStep = `Work the ${deltas} \`1c values-diff\` delta(s): they name, element by element, what to fix.`
+    } else {
+      diagnosis =
+        `The perceptual eye is WITHIN its floor and the run still fails: the value gate reports a ` +
+        `${worstTier}-tier delta, above this run's value floor of ${floor.valuesTier}. Pixel closeness is not ` +
+        'fidelity — a heading that renders as a generic box, or a link that is no longer a link, moves no ' +
+        'pixel at all, so the eye is structurally unable to see it and only the value gate can.'
+      nextStep =
+        `Work the ${deltas} \`1c values-diff\` delta(s) worst-first — ${worstTier} tier is what failed the run` +
+        (coverage.findings.length
+          ? `; reference coverage also reports ${coverage.findings.map((f) => `\`${f.kind}\``).join(', ')} (\`coverage.findings\`).`
+          : '.')
+    }
   } else {
     verdict = 'unexplained-disagreement'
     diagnosis =
@@ -486,6 +733,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     nextStep,
     floor,
     perceptualBreach,
+    valuesBreach,
     l1Pass: input.l1Gate.pass,
     perceptual: { meanDiff, pctOverThreshold, regions: input.perceptual.regions.length },
     values: {
@@ -493,15 +741,19 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       matched: input.values.matched,
       unmatched: input.values.unmatched,
       unpairedActual,
+      worstTier,
+      unpairedSections,
+      unpairedActualSections,
       ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
     },
     coverage,
+    layout: { pass: input.l1Gate.onSample.pass, findings: collisions },
   }
 }
 
 // ── the structural gate ──────────────────────────────────────────────────────
 
-export interface L1GateResult extends ThreeProbeReport {
+export interface L1GateResult extends AcceptanceReport {
   /** Paths of the pinned sibling groups `promoteToFlow` recovered into flow. */
   promoted: string[]
   /**
@@ -521,9 +773,9 @@ export interface L1GateResult extends ThreeProbeReport {
 }
 
 /**
- * Run the 3-probe acceptance gate against a capture bundle's oracle. Folds the
+ * Run the acceptance gate against a capture bundle's oracle. Folds the
  * `multistate.json` to the absolute base, applies demand-driven `promoteToFlow`
- * for the envelope probes, and runs {@link threeProbeGate}. The returned report's
+ * for the envelope probes, and runs {@link acceptanceGate}. The returned report's
  * residuals each name a framework gap (a missing L1 axis, a capture-hint gap, or
  * a region needing promotion) to feed back per the DOC-21 growth loop.
  */
@@ -539,6 +791,12 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
   const forms: FoldedForm[] = []
   const base = foldToL1(multiState, { residuals: foldResiduals, forms })
   const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE })
-  const report = threeProbeGate(base, multiState, { recovered, contentScale: CONTENT_SCALE })
+  // BUG-112 — `served` is `base`, NAMED, because that is what `1c repro` writes
+  // to disk (`cmdRepro` imports `promoteToFlow` and never calls it — see
+  // BUG-113, which owns the question of whether that is the right document).
+  // Until that question is settled the gate's job is to grade the artifact the
+  // operator's browser loads, whichever one it is, rather than to assume the
+  // recovered overlay it certifies is the one that got written.
+  const report = acceptanceGate(base, multiState, { recovered, served: base, contentScale: CONTENT_SCALE })
   return { ...report, promoted, foldResiduals, forms }
 }

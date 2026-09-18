@@ -26,7 +26,7 @@ import {
   offSampleProbe,
   promoteToFlow,
   sampleFidelityProbe,
-  threeProbeGate,
+  acceptanceGate,
 } from '../tools/generate/src'
 import type {
   MultiStateCapture,
@@ -529,14 +529,14 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     // Non-vacuous #1: run against the purely-pinned base with NO recovery
     // overlay → pass = false, driven by content-robustness failing. Fidelity is
     // still measured on the absolute base and passes.
-    const ungated = threeProbeGate(base, cap, { contentScale: 2.5 })
+    const ungated = acceptanceGate(base, cap, { contentScale: 2.5 })
     expect(ungated.pass).toBe(false)
     expect(ungated.contentRobustness.pass).toBe(false)
     expect(ungated.sampleFidelity.pass).toBe(true)
 
     // Non-vacuous #2: same base + a structure-recovered overlay → pass = true,
     // with every sub-report passing.
-    const gated = threeProbeGate(base, cap, { recovered, contentScale: 2.5 })
+    const gated = acceptanceGate(base, cap, { recovered, contentScale: 2.5 })
     expect(gated.pass).toBe(true)
     expect(gated.sampleFidelity.pass).toBe(true)
     expect(gated.offSample.pass).toBe(true)
