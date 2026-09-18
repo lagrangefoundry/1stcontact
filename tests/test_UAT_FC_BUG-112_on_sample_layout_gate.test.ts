@@ -98,7 +98,14 @@ const CLEAN_COVERAGE: ReferenceCoverage = {
   findings: [],
 }
 const QUIET = { meanDiff: 0.3, pctOverThreshold: 0.1, regions: [] }
-const NO_DELTAS = { deltas: [], matched: 40, unmatched: 0, unpairedActual: [] }
+const NO_DELTAS = {
+  deltas: [],
+  matched: 40,
+  unmatched: 0,
+  unpairedActual: [],
+  unpairedSections: [],
+  unpairedActualSections: [],
+}
 const NO_COLLISIONS: EnvelopeReport = { pass: true, byWidth: [] }
 
 /** Every child of the folded root, in document order. */
