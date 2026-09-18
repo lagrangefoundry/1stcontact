@@ -6,15 +6,30 @@ title: A store failure after image generation discards paid-for bytes with no re
   path
 created_by: EPIC-19
 created_at: '2026-09-18T21:47:09.055296+00:00'
-updated_at: '2026-09-18T22:43:50.961635+00:00'
+updated_at: '2026-09-18T23:23:37.893225+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c5a61044
+  commits:
+  - working_sha: 644389d9a882f911350d55a053739d614a84f0e5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 49b9266727a0a2b80fc6b0d536ac9fb8a3972ad8
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: dbba59169d0952f6ca155a8c1b53203d364c5cfc
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 43db694912154a28247344c46dad4a314d50447b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.269
+  story_points: 3
 ---
 
 Parent: [[EPIC-19]]. Reported by the builder assistant in conversation on
@@ -112,3 +127,118 @@ same underlying fault as [[BUG-117]], which broke in the same session.
 
 **Check that first.** Two different surfaces reporting a store-level deployment
 fault within one session is more likely to be one cause than two.
+
+
+---
+
+## Item 5, answered: the store was never unavailable
+
+**Both pictures were stored perfectly, and they are still here.** The section
+above expected the money to be gone. It is not. They are `MATERIAL-13`
+(`material-90ee7e31`, 21:32:48Z) and `MATERIAL-14` (`material-365f481c`,
+21:33:46Z) — records, this product's whole material vocabulary, attachments
+`attachment-69eac3a7` and `attachment-0ccfebf1`, and 3.4 MB of PNG each in R2
+under the tenant's blob prefix. One of them has since been placed on a site.
+Nothing needed recovering, because nothing was lost except the **ability to name
+what had been made**.
+
+So `create` succeeded and `attach` succeeded, and the fault is in neither of the
+two cases the report enumerated. It is in a third the report could not see,
+because it is ours and not the plugin's.
+
+## What actually threw
+
+`generatedMaterialStore` in `apps/control-app/src/imagegen.ts` is the handle the
+plugin is given as `options.store`. Its `attach` does three things: the store's
+own `attach`, the `filename`/`content_type` write-back, and then **a knowledge
+index refresh**. The first two are the store. The third is not:
+
+```ts
+if (index) await index(args.uid)   // ProjectKnowledge.onMaterialWritten
+```
+
+The embedder was broken for the whole session — the REST-transport detached-fetch
+fault established under [[BUG-117]] — so that refresh threw. The plugin can only
+read a throw out of a store handle as one thing, and said so:
+
+> The image was generated but could not be stored, so there is no ticket to hand
+> on. This is a deployment fault.
+
+The cheap, self-healing half of the operation destroyed the expensive,
+unrepeatable half's only receipt. **The ticket's own instinct was right: it was
+one cause and not two**, and [[BUG-117]] is where that cause is being fixed.
+
+## The rule this ticket establishes here
+
+> **The index seam is a refresh, not a write, and a refresh failure must never
+> fail the write it follows.**
+
+The project KB's indexer is a change-feed consumer keyed on `updated_at`, so a
+failed pass costs a *window* of invisibility and nothing durable — the next
+upload, the next generated image, the next transcript that grows enough
+re-embeds everything whose timestamp moved. It is retried for free, by design.
+The write it follows is not like that: by the time the seam runs, the bytes and
+the record exist, and a caller handed a failure is a caller who does not hold the
+uid.
+
+This is stated once, in one function, `indexAfterWrite` in `material.ts`, and
+used at every place the seam is awaited:
+
+- **The image plugin's store handle**, which is the reported fault. The handle
+  now reports on *the store* — its throws mean the store refused, so
+  `store_unavailable` means what it says and a retry is worth the model's while.
+- **The upload path** (`ingest`), which awaits the same seam after the client's
+  own file is already stored. Failing the upload over a refresh would lose their
+  file to a problem they cannot see and did not cause; they would retry and get a
+  duplicate. `defaultIndexer`'s own note already argues this for a *missing*
+  embedder — the code simply never applied it to a *failing* one.
+- **The description correction** (`reviseDescription`), for the same reason.
+
+**Never silently.** [[DOC-39]] §4 is explicit that unindexed means INVISIBLE
+rather than stale, so both cases say so, loudly, once, naming the uid — and the
+failure case **carries the underlying cause**, which is what the report was
+missing and what would have diagnosed this in one reading rather than two
+generations. `ingest`'s envelope `indexed` flag becomes the honest answer ("is
+this in the index") instead of "was a hook wired", so a surface can tell a client
+their file is here but not findable yet.
+
+**One definition site.** The loud log lived in `router.ts` as `warnUnindexed`,
+fired from three routes. It moves to `material.ts` beside the seam it describes,
+because only the seam knows which of the two sentences applies. The routes lose
+their copy.
+
+**What does NOT change.** The `filename`/`content_type` write-back stays fatal:
+it is a store write, and its failure leaves a record the Library reads wrongly. A
+genuine store failure still raises `store_unavailable` — swallowing the index
+error must not swallow the thing that error is for.
+
+## Items 1–4 are still upstream, and still worth having
+
+Nothing here makes `_store` correct. A real store failure still discards the
+bytes with no write-ahead, still cannot say which of `create`/`attach` failed,
+still withholds the cause behind `host_detail: false`, and still offers no way to
+store an image already paid for. What changes is that this deployment no longer
+manufactures that failure out of a successful one.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-119_a_failed_index_must_not_lose_the_picture.workers.test.ts`,
+in the workers project, through `route()` over real D1 and real R2 with the real
+ticket store, type pack, plugin and tool loop. The index seam is not doubled to
+avoid work — it is made to fail, because the failure is the subject.
+
+1. **A failing index does not cost the generated picture.** The reported session
+   reproduced: the provider is paid once, the refresh throws, and the model is
+   handed the record *carrying the uid* rather than `store_unavailable` / "could
+   not be stored" / "deployment fault". The material is in the Library with its
+   bytes, its `origin`, its content type and the prompt as its body.
+2. **And the loss of searchability is loud**, naming the uid, saying NOT indexed,
+   and quoting the underlying cause.
+3. **A real store failure is still a real store failure.** Real store, real D1,
+   over an R2 bucket that refuses the blob write: the handle rejects, and the
+   index is never reached.
+4. **An upload survives a failing index too** — 200, `indexed: false`, the loud
+   log, and the client's file stored with its attachment.
+
+Verified RED against the unfixed code: claims 1 and 4 fail with the exact
+sentence the report quoted, and a 500 on the upload.

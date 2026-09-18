@@ -6,9 +6,9 @@ title: 'knowledge search: corpus_unreadable is a catch-all that reports a transi
   failure as a permanent deployment fault'
 created_by: EPIC-19
 created_at: '2026-09-18T21:46:07.949789+00:00'
-updated_at: '2026-09-18T22:44:34.998737+00:00'
+updated_at: '2026-09-18T22:45:29.534970+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -209,3 +209,14 @@ Item 3's diagnostic half turns out to be already satisfied on our side: the
 audit record carries the host's unredacted account even where the model's
 message does not, which is how this root cause was found at all. What is missing
 is what the *model* is told, and that is upstream.
+
+
+### Upstream tickets filed
+
+- `lagrange-framework` **BUG-59** (`bug-e7700d9e`) — `WorkersAiEmbedder` and
+  `HttpSurface` call `fetch` as a method, which workerd refuses. The root cause;
+  the fix landed here works through the declared `fetch` seam, so consuming
+  theirs later is a deletion rather than a migration.
+- `lagrange-framework` **BUG-60** (`bug-309ea2bd`) — `corpus_unreadable` is a
+  catch-all whose declared message asserts a cause the code cannot know. Items
+  1–3 of this ticket, verbatim.

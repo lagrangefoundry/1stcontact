@@ -50,7 +50,7 @@ import {
   type EditOptions,
   type EditOutput,
 } from './edit'
-import { cmdCapturePage, cmdCaptureList } from './capture'
+import { cmdCapturePage, cmdCaptureList, combineAudits, runCaptureAudit, createPlaywrightDriver } from './capture'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import {
   cmdColors,
@@ -70,6 +70,10 @@ import {
   checkSharedStore as checkSharedStoreImpl,
 } from './shared-store'
 import { startBuilder } from './builder'
+// [[REQ-273]] — the listener that lets the Worker's assistant file a defect
+// into the project that builds it. Started here because `1c builder` is the
+// one Node process that lives exactly as long as the dev server does.
+import { filingVars, startFilingService, type FilingService } from './filing'
 import {
   builderIsRunning,
   humanBytes,
@@ -299,7 +303,7 @@ Usage:
     store rather than resetting it. Stop the server first.
     --include-public extends it to apps/public-site/.wrangler/state.
 
-  1c builder [--port <n>] [--remote]
+  1c builder [--port <n>] [--remote] [--no-filing]
     Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
     routes, store and runtime as production. Serves what \`1c assets\` built, so run
     that first. The store is the LOCAL simulated D1/R2; seed it with \`bin/publish\`.
@@ -307,6 +311,11 @@ Usage:
     Refuses to start when the local database is behind db/migrations/, naming the
     pending files and the command that applies them; --remote skips that check,
     because the deployed database is \`bin/deploy\`'s to migrate.
+    It also starts a loopback FILING SERVICE (REQ-273), so the assistant can
+    report a defect in this software into THIS project's ticket store — never
+    into the client's. Its address and a per-run bearer are passed to wrangler
+    as vars; a deployed builder has neither and gets no filing tool at all.
+    --no-filing leaves it out.
 
 System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
   1c kb build
@@ -354,6 +363,14 @@ Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
     Bundles are named after the host that ANSWERED, so which captures exist is a
     question only the engine can answer — the reproduction console reads this to
     offer a stored site back without re-hitting it (REQ-254).
+
+  1c capture audit [<bundleName>] [--all] [--json]
+    What does this page USE that the capture does not carry? (REQ-275)
+    Walks the STORED bundle's own rendered DOM in a real browser, enumerates every CSS longhand
+    whose rule matches a visible element (plus inline styles and DOM attributes), and triages each
+    against the coverage register. Reports the properties nothing has decided about — the axes a
+    reproduction round would otherwise discover one at a time — plus what the extractor records
+    and this bundle carries no instance of. --all audits every stored bundle and combines.
 
   1c capture page <url> [--json]
     --json reports the bundle machine-readably ({url, name, dir, sections, assets, l1Nodes, widths}).
@@ -949,7 +966,35 @@ export async function run(argv: string[]): Promise<void> {
         if (check.kind === 'unreadable') console.warn(check.message)
       }
 
+      // THE FILING SERVICE ([[REQ-273]]), started before wrangler so its address
+      // can be handed over as a var. `filing.ts` states the whole argument; the
+      // part that belongs here is why it is THIS command's job: the service has
+      // to be a Node process, it has to live exactly as long as the dev server,
+      // and this is the process that starts the dev server and waits on it.
+      //
+      // A FAILURE TO START IS A WARNING AND NEVER A REFUSAL. Being able to file
+      // a defect is not a precondition for building a site, and a dev server
+      // that would not start because the shared store was not installed would
+      // be trading a whole product for a capability nobody was using yet — the
+      // same trade `host-core.ts` refuses when a knowledge base is missing.
+      let filing: FilingService | null = null
+      if (flags['no-filing'] !== true) {
+        try {
+          filing = await startFilingService({ root })
+        } catch (error) {
+          console.warn(
+            `The assistant will not be able to file development tickets: ${
+              (error as Error)?.message ?? String(error)
+            }`,
+          )
+        }
+      }
+
       const args = ['wrangler', 'dev', '--port', port, ...devEnv.args]
+      // THE VAR NAMES ARE `filing.ts`'S, not restated here: they are the only
+      // contract between this Node process and the Worker, and the failure mode
+      // of two copies drifting is silent — no var, no surface, no error.
+      if (filing) args.push(...filingVars(filing))
       // `--remote` edits the DEPLOYED database from a laptop. Local is the
       // default because a dev loop that writes to production by default is one
       // keystroke from losing a site; `bin/publish` seeds the local one.
@@ -958,6 +1003,9 @@ export async function run(argv: string[]): Promise<void> {
       console.log(
         `Builder (wrangler dev) on http://localhost:${port}\n` +
           `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
+          (filing
+            ? `  filing: on — the assistant can report a defect into this project (port ${filing.port})\n`
+            : '  filing: off — the assistant cannot report a defect\n') +
           '  seed it with `bin/publish`\n',
       )
       // AFTER the banner and BEFORE wrangler's own output, which is where an
@@ -967,17 +1015,24 @@ export async function run(argv: string[]): Promise<void> {
       for (const warning of devEnv.warnings) console.warn(warning)
       if (devEnv.warnings.length) console.warn('')
       const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
-      await new Promise<void>((resolve, reject) => {
-        child.on('error', reject)
-        child.on('exit', (code) => {
-          if (code === 0 || code === null) resolve()
-          else reject(new CommandError({
-            code: 'ENVIRONMENT',
-            message: `wrangler dev exited with ${code}.`,
-            hint: 'Run `1c assets` first — the Worker serves what it builds.',
-          }))
+      try {
+        await new Promise<void>((resolve, reject) => {
+          child.on('error', reject)
+          child.on('exit', (code) => {
+            if (code === 0 || code === null) resolve()
+            else reject(new CommandError({
+              code: 'ENVIRONMENT',
+              message: `wrangler dev exited with ${code}.`,
+              hint: 'Run `1c assets` first — the Worker serves what it builds.',
+            }))
+          })
         })
-      })
+      } finally {
+        // IN A `finally`, so a wrangler that failed to start does not leave a
+        // listener holding a port. It is `unref`'d as well, so this is belt and
+        // braces rather than the only thing keeping the process honest.
+        await filing?.close()
+      }
       return
     }
 
@@ -1101,6 +1156,70 @@ export async function run(argv: string[]): Promise<void> {
             : bundles.length
               ? bundles.map((b) => `${b.name}\n  ${b.dir}${b.url ? `\n  ${b.url}` : ''}`).join('\n')
               : 'No captures yet.',
+        )
+        return
+      }
+      /**
+       * REQ-275 — `capture audit` turns "which axis are we missing?" from a
+       * question each reproduction round answers once, expensively, into one
+       * mechanical pass over a bundle that already exists.
+       *
+       * IT TAKES A BUNDLE, NOT A URL, and the bundle is served offline. The
+       * bundle's `rendered.html` is the DOM its `capture.json` was extracted
+       * from, so the two sides of the comparison are the same page by
+       * construction; pointing this at the live site would report the site's own
+       * drift since capture as an instrument gap.
+       */
+      if (sub === 'audit') {
+        const cwd = global.cwd ?? process.cwd()
+        const store = fsReferenceStore(cwd)
+        const named = typeof rest[1] === 'string' ? rest[1] : undefined
+        const all = flags.all === true
+        if (!named && !all) {
+          console.error('capture audit requires a bundle name, or --all.\n\n' + USAGE)
+          process.exitCode = 1
+          return
+        }
+        const names = named ? [named] : await store.list()
+        if (!names.length) {
+          console.error('No capture bundles on disk — run `1c capture page <url>` first.')
+          process.exitCode = 1
+          return
+        }
+        const audits = []
+        for (const name of names) {
+          audits.push(await runCaptureAudit(store.bundle(name), { driverFactory: createPlaywrightDriver }))
+        }
+        const combined = combineAudits(audits)
+        if (flags.json === true) {
+          console.log(JSON.stringify(combined, null, 2))
+          return
+        }
+        for (const audit of combined.audits) {
+          console.log(
+            `${audit.bundle} (${audit.url})\n` +
+              `  ${audit.elements} visible element(s); ${audit.observed} propert(ies) in use, ` +
+              `${audit.carried} carried, ${audit.lost.length} used-but-absent, ` +
+              `${audit.untriaged.length} untriaged` +
+              (audit.stale ? `\n  ⚠ ${audit.stale}` : ''),
+          )
+        }
+        const section = (title: string, rows: typeof combined.untriaged): string =>
+          rows.length
+            ? `\n${title} (${rows.length}):\n` +
+              rows
+                .map(
+                  (r) =>
+                    `  ${r.property}  ×${r.count} [${r.bundles.join(', ')}]` +
+                    (r.values.length ? `\n      ${r.values.slice(0, 4).join(' | ')}` : '') +
+                    (r.note ? `\n      ${r.note}` : ''),
+                )
+                .join('\n')
+            : `\n${title}: none`
+        console.log(
+          section('UNTRIAGED — used by a page, no decision recorded', combined.untriaged) +
+            section('USED BUT ABSENT — recorded axis, no instance in the bundle', combined.lost) +
+            section('NOT EXPRESSIBLE IN L1 — a capability item, not an instrument one', combined.notExpressible),
         )
         return
       }

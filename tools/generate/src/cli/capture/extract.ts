@@ -71,6 +71,17 @@ export interface RawGeometry {
    */
   href: string | null
   /**
+   * REQ-275 — whether the nearest enclosing anchor opens a NEW BROWSING CONTEXT.
+   *
+   * The other half of {@link href}, and surfaced by `1c capture audit` rather
+   * than by a reproduction round: `dom:target` was in use on two of the three
+   * stored references and decided about by nothing. Recorded as the derived
+   * boolean L1 actually carries (`link.newTab`), not as the raw `target`, since
+   * `_self`/`_parent`/`_top`/a named frame all mean the same thing to a
+   * reproduction that has no frames.
+   */
+  newTab: boolean | null
+  /**
    * REQ-269 — the outline depth (1…6) of the nearest enclosing heading, else null.
    * `a11yRole` reports the single word `heading` for all six tags, and `aria-level`
    * occurred nowhere in a capture bundle, so the level had to be recorded beside
@@ -234,6 +245,29 @@ export interface RawField extends RawGeometry {
    * derivation records the gap rather than inventing one.
    */
   formAction?: string | null
+  /**
+   * REQ-275 — the control's SUBMISSION KEY (its `name` attribute), else null.
+   *
+   * `controlType` and `formAction` above were REQ-93's half of the submission
+   * contract; `1c capture audit` found the rest of it unrecorded. Without this
+   * the fold slugifies the visible label to invent a key, which reads perfectly
+   * and posts `your-email` where the reference's handler expects `email`. No
+   * pixel gate can see the difference.
+   */
+  controlName?: string | null
+  /**
+   * REQ-275 — the enclosing `<form>`'s verb (`GET`/`POST`), else null. A form
+   * whose handler expects a POST and receives a GET puts every answer in the URL
+   * and loses the submission.
+   */
+  formMethod?: string | null
+  /**
+   * REQ-275 — whether the browser itself refuses to submit without this field
+   * (the `required` attribute or its `aria-required` mirror), else null. A
+   * required field reproduced optional is a behavioural defect with no painted
+   * trace at all.
+   */
+  required?: boolean | null
   /**
    * REQ-265 — the RENDERED colour of the control's placeholder ink (`#rrggbb`),
    * else null.
@@ -1205,6 +1239,25 @@ export const EXTRACT_SCRIPT = `(() => {
     var m = /^h([1-6])$/.exec(h.tagName.toLowerCase());
     return m ? parseInt(m[1], 10) : 2;
   }
+  // REQ-275 -- does the nearest enclosing anchor open a NEW BROWSING CONTEXT?
+  //
+  // Found by the completeness probe, not by a round: '1c capture audit' reported
+  // 'dom:target' in use on two of the three stored references and decided about
+  // by nothing. hrefOf has recorded where a link goes since REQ-269 and this is
+  // the other half of the same fact -- a reproduction of a footer whose social
+  // links all open in place is wrong in a way no pixel gate can see.
+  //
+  // Recorded as the DERIVED fact, not the attribute, because that is what L1
+  // says: l1LinkSchema.newTab is a boolean the renderer always pairs with
+  // rel="noopener noreferrer", and _self/_parent/_top/a named frame all
+  // mean "not a new tab" to a reproduction that has no frames. Transcribing
+  // 'target' verbatim would put four values in the bundle that fold to two.
+  function newTabOf(el) {
+    var a = el.closest ? el.closest('a[href]') : null;
+    if (!a) return null;
+    var t = (a.getAttribute('target') || '').trim().toLowerCase();
+    return t === '_blank' ? true : false;
+  }
   // The a11y role: an explicit role attr wins, else the implicit role for the tag
   // (the browser's own framework-agnostic semantic label — a <button>, an <a
   // href>, and a role="button" div all project to the same fact).
@@ -1763,6 +1816,8 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-269 -- the navigation target (see hrefOf), next to the role the same
         // attribute decides. Null when nothing encloses this element in a link.
         href: hrefOf(el),
+        // REQ-275 -- and whether that link opens in a new browsing context.
+        newTab: newTabOf(el),
         // REQ-269 -- the outline depth a11yRole's single word 'heading' flattens away.
         headingLevel: headingLevelOf(el),
         arrangement: null,
@@ -1846,6 +1901,8 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-269 -- the navigation target (see hrefOf), next to the role the same
         // attribute decides. Null when nothing encloses this element in a link.
         href: hrefOf(el),
+        // REQ-275 -- and whether that link opens in a new browsing context.
+        newTab: newTabOf(el),
         // REQ-269 -- the outline depth a11yRole's single word 'heading' flattens away.
         headingLevel: headingLevelOf(el),
         arrangement: null,
@@ -1887,6 +1944,10 @@ export const EXTRACT_SCRIPT = `(() => {
         // resolved action (its submission endpoint).
         controlType: controlTypeOf(el),
         formAction: formActionOf(el),
+        // REQ-275 -- the rest of the submission contract (see controlNameOf).
+        controlName: controlNameOf(el),
+        formMethod: formMethodOf(el),
+        required: requiredOf(el),
         // REQ-265 -- the one painted value a control carries that no other axis
         // can hold (see placeholderColorOf). Null for anything without one.
         placeholderColor: placeholderColorOf(el),
@@ -1919,6 +1980,37 @@ export const EXTRACT_SCRIPT = `(() => {
     var raw = form.getAttribute('action');
     if (raw == null || raw.trim() === '') return null;
     return form.action || raw;
+  }
+  // REQ-275 -- the three submission facts beside the two REQ-93 already records.
+  // All three came out of '1c capture audit' as used-and-undecided on the one
+  // stored reference that has a form, and each is invisible to every pixel gate
+  // there is: a reproduction can match the reference to the last pixel while
+  // posting the wrong keys, to the wrong verb, with no field the browser insists
+  // on. formActionOf alone was never the whole endpoint.
+
+  // The control's SUBMISSION KEY. The fold slugifies the visible label to invent
+  // one, which is a guess that reads well and submits 'your-email' where the
+  // reference's handler expects 'email'.
+  function controlNameOf(el) {
+    var raw = el.getAttribute ? el.getAttribute('name') : null;
+    return raw == null || raw.trim() === '' ? null : raw.trim();
+  }
+  // The enclosing form's VERB, upper-cased. A form whose handler expects a POST
+  // and receives a GET puts every answer in the URL and loses the submission.
+  function formMethodOf(el) {
+    var form = el.form || (el.closest ? el.closest('form') : null);
+    if (!form) return null;
+    var raw = (form.getAttribute('method') || '').trim().toUpperCase();
+    return raw === 'POST' ? 'POST' : 'GET';
+  }
+  // Whether the browser itself refuses to submit without this field. Both the
+  // attribute and the ARIA mirror count: a custom control states it with
+  // aria-required, and both carry the same invisible obligation.
+  function requiredOf(el) {
+    if (!el.getAttribute) return null;
+    if (el.hasAttribute('required')) return true;
+    var aria = (el.getAttribute('aria-required') || '').trim().toLowerCase();
+    return aria === 'true' ? true : false;
   }
 
   // Repeated sub-units within a band (cards): the first sibling group of >=2

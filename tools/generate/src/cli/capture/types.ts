@@ -389,6 +389,11 @@ export interface ElementGeometry {
    *  `link` axis (REQ-106) needs; without it the fold had nothing to write and every
    *  reproduced link was dead text. Optional so pre-REQ-269 bundles still parse. */
   href?: string | null
+  /** REQ-275 — whether that link opens a new browsing context (L1's `link.newTab`).
+   *  Found by `1c capture audit`, not by a round: a reproduction whose footer links
+   *  all open in place is wrong in a way no pixel gate can see. Optional so
+   *  pre-REQ-275 bundles still parse. */
+  newTab?: boolean | null
   /** REQ-269 — the outline depth (1…6) of the nearest enclosing heading, else null.
    *  `a11yRole` flattens all six tags to the word `heading`, so the level is the
    *  half of the heading role no other captured field holds. */
@@ -469,6 +474,19 @@ export interface Field extends ElementGeometry {
   controlType?: string | null
   /** REQ-93 — the enclosing `<form>`'s resolved submission endpoint, else null. */
   formAction?: string | null
+  /** REQ-275 — the control's submission KEY (its `name`), else null. The fold
+   *  otherwise slugifies the visible label to invent one, which posts `your-email`
+   *  where the reference's handler expects `email`. Optional so pre-REQ-275
+   *  bundles still parse. */
+  controlName?: string | null
+  /** REQ-275 — the enclosing `<form>`'s verb (`GET`/`POST`), else null. The other
+   *  half of {@link formAction}: the right endpoint reached by the wrong verb
+   *  loses the submission. */
+  formMethod?: string | null
+  /** REQ-275 — whether the browser refuses to submit without this field
+   *  (`required`, or its `aria-required` mirror), else null. A required field
+   *  reproduced optional is a behavioural defect with no painted trace. */
+  required?: boolean | null
   /** REQ-265 — the RENDERED colour of the control's placeholder ink (`#rrggbb`),
    *  composited over what the field sits on, else null. A placeholder is painted
    *  by a UA pseudo-element that inherits nothing, so no other axis on the control
