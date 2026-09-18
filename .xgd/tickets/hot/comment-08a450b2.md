@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-18T02:30:46.522368+00:00'
+updated_at: '2026-09-18T02:31:15.041456+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -273,5 +273,24 @@ Promotion to `ready_to_reconcile` is yours to make when you're satisfied.
 <!-- xgd-chat role="user" ts="2026-09-18T02:30:46.071299+00:00" -->
 #### You
 is this done
+
+<!-- xgd-turn id="8c6d3f18-97c6-4656-b2ec-31ed6377c5f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:31:13.524988+00:00" -->
+#### Claude
+Yes — the free-coding is complete and verified on `xgd-working`:
+
+- **Status** `free_coded`, version `0.2.253`, story points 13.
+- **All three commits reachable** from the current tip (`36f33e2b47`, `64a47dd620`, `8cc50f29d3`), all tagged `[FREE-CODED]`.
+- **All five new files present** on HEAD — `activity.ts`, `log.ts`, `0018_activity_log.sql`, and both UAT files.
+- **Branch and worktree gone**, lock released.
+- **Ticket body** carries §9 covering the behaviour added as implementation consequence, so every UAT traces to ticket language.
+
+Two things that are deliberately *not* done, and are yours to decide:
+
+1. **Promotion to `ready_to_reconcile`** — I left it at `free_coded` as the protocol requires.
+2. **`public-site` has no raw store.** §2 says so explicitly ("wired into `control-app` and not into `public-site`… deliberately left for whoever gives it a store"), so it's in-scope-as-excluded rather than missed — but it does mean the Worker that serves actual visitors still retains nothing.
+
+The only caveat on the test evidence: two pre-existing node failures remain (`bug32` scope restatement, `BUG-67` gemini settings), both confirmed identical on `xgd-working` before this work.
 
 <!-- xgd-chat-end -->
