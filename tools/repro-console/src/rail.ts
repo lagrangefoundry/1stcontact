@@ -87,6 +87,18 @@ export interface RailReport {
   phases: PhaseResult[]
   /** Set when the run was a `record`, listing what the bar moved from and to. */
   recorded?: string[]
+  /**
+   * True when there was no recorded bar at all, so this run measured nothing.
+   *
+   * `pass` is still `false` — a rail that cannot answer "no worse" must not exit
+   * 0 — but the two falses mean different things, and only one of them is a
+   * finding about the engine. "There is no baseline in this checkout" is a state
+   * of the checkout; "a recorded number got worse" is a claim about the code.
+   * Callers that report the rail rather than gate on it — {@link summarise},
+   * {@link formatRailReport} — read this to tell those apart, which is why it is
+   * on the report and not buried in a phase's prose.
+   */
+  noBaseline?: boolean
 }
 
 export interface RailOptions {
@@ -629,6 +641,7 @@ export async function runRail(opts: RailOptions): Promise<RailReport> {
   if (!baseline) {
     return {
       pass: false,
+      noBaseline: true,
       ms: elapsed(started),
       partial: false,
       phases: [
@@ -732,6 +745,17 @@ function seconds(ms: number): string {
  * design constraint rather than trivia ([[EPIC-12]] §9 Q7).
  */
 export function formatRailReport(report: RailReport): string {
+  // Nothing was measured, so nothing is worse: printing this under FAIL and
+  // "what is worse than the recorded bar" would report the empty checkout as a
+  // regression. The exit code stays 1 — the rail still could not do its job.
+  if (report.noBaseline) {
+    return [
+      `regression rail: NOT AVAILABLE  (${seconds(report.ms)})`,
+      '',
+      `  no baseline at ${BASELINE_FILE} — the rail has nothing to compare against.`,
+      '  Record one with `repro-rail record`.',
+    ].join('\n')
+  }
   const verdict = report.pass ? (report.partial ? 'PASS (partial — see what was not gated)' : 'PASS') : 'FAIL'
   const lines: string[] = [`regression rail: ${verdict}  (${seconds(report.ms)})`, '']
   for (const phase of report.phases) {
