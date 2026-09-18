@@ -6,10 +6,10 @@ title: 'values-diff: one projection over both sides — retire the asymmetric-ax
   as a category'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:18.860464+00:00'
-updated_at: '2026-09-18T23:39:28.738083+00:00'
+updated_at: '2026-09-18T23:40:46.580611+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5dd0ad13
+  commits:
+  - working_sha: 7d4743575f6d5360c3bf3cc83f3606e56c4559bd
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 94dda174e834d3459c872feebe2b198c92795599
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.271
 ---
 
 # One projection over both sides — retire the asymmetric-axis defect as a category
