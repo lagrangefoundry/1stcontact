@@ -316,4 +316,56 @@ describe('BUG-113 — the gate grades the document that is served', () => {
     unhold(sliding.root)
     expect(overlaps(sliding, 500, capture).length).toBeGreaterThan(0)
   })
+
+  it('test_UAT_FC_BUG-113_gate_grades_the_retained_artifact_and_reports_a_stale_fold', async () => {
+    // The gate used to re-fold `multistate.json` and grade THAT, while `1c repro`
+    // serves the bundle's retained `l1.json`. The two agree only until the folder
+    // changes — and this ticket's own per-window reflow hold changed it, so every
+    // bundle captured before it retains a document the gate would never have
+    // looked at. Same defect as the one this ticket closes, one level out.
+    const capture = reflowingCapture()
+    const { dir, forms } = await bundleOf(capture)
+    const bundle = fsReferenceBundle(dir)
+
+    // A current bundle: what is retained IS what the oracle folds to, so there is
+    // nothing to report and the verdict is about both at once.
+    const current = await cmdL1Gate(bundle)
+    expect(current.staleFold).toBeNull()
+    expect(current.offSample.pass).toBe(true)
+
+    // Now retain a document the current folder would not produce — an older fold,
+    // standing in for the pre-hold one: every track slides through the widths
+    // between samples instead of holding across them.
+    const staleForms: FoldedForm[] = []
+    const stale = JSON.parse(JSON.stringify(foldToL1(capture, { forms: staleForms }))) as L1Document
+    const unhold = (node: L1Node): void => {
+      if (node.geometry?.segments) node.geometry.segments = node.geometry.segments.map(() => 'interpolate')
+      const kids = node.kind === 'container' ? node.children : ((node as { children?: L1Node[] }).children ?? [])
+      kids.forEach(unhold)
+    }
+    unhold(stale.root)
+    // The controls are half the page, and their presentation is retained beside
+    // the body in `forms.json` — so an older fold means an older BOTH.
+    const staleMounts = JSON.parse(JSON.stringify(staleForms)) as FoldedForm[]
+    staleMounts.forEach((f) => unhold(f.form))
+    await writeL1(bundle, stale)
+    await writeForms(bundle, staleMounts)
+
+    const report = await cmdL1Gate(bundle)
+
+    // The verdict is about the RETAINED document — the one `1c repro` will serve.
+    // Re-folding would have reported this page clean, which is precisely the
+    // false PASS this ticket exists to stop.
+    expect(report.offSample.pass).toBe(false)
+    expect(overlaps(mountBehaviours(stale, staleMounts), 500, capture).length).toBeGreaterThan(0)
+
+    // And the divergence is named, with the remedy, rather than silently absorbed.
+    expect(report.staleFold).toContain('1c refold')
+
+    // Staleness is a fact about the bundle, not a quality judgement: it says the
+    // subject of the verdict would change, not that the subject is bad. So the
+    // document that IS retained is still the one every probe read.
+    const servedNow = await cmdRepro('repro-stale', { cwd, ref: dir })
+    expect(servedNow.served?.offSample.filter((w) => w.findings > 0).length).toBeGreaterThan(0)
+  })
 })

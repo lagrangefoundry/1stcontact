@@ -3,6 +3,7 @@
  * signals. Colors and font sizes are already resolved (var() gone) because they
  * were read from computed styles in the page; here we only aggregate and shape.
  */
+import type { L1FontFace } from '@1stcontact/site-schema'
 import type { RawRun, RawSignals } from './extract'
 import type { ColorUsage, Theme, ThemeFont, ThemeSubScale, ThemeSubScales } from './types'
 
@@ -141,4 +142,28 @@ export function buildTheme(
     containerMaxWidthPx: signals.containerMaxWidthPx,
     subScales: buildSubScales(runs),
   }
+}
+
+/**
+ * REQ-90 — turn the captured theme's font handles into L1 font-face resources:
+ * one entry per mirrored `.woff2` (family → served asset). A single-weight family
+ * pins its weight; a multi-weight family leaves weight unset (the capture aggregates
+ * the per-face weight away, so binding the family name is what moves the pixel).
+ * Families whose face never mirrored (`files: []` — e.g. a CDN the intercept missed)
+ * contribute nothing, and the fold drops any face no text paints.
+ */
+export function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
+  const out: L1FontFace[] = []
+  for (const f of fonts) {
+    const weight = f.weights.length === 1 ? f.weights[0] : undefined
+    for (const src of f.files) {
+      // An `@font-face` declares ONE family name; a painted run carries the full
+      // stack (BUG-16). Declaring the stack would emit `font-family: "Cinzel serif"`,
+      // which no run's `Cinzel, serif` can ever match — so bind the primary token.
+      const face: L1FontFace = { family: primaryFamily(f.family), src }
+      if (weight !== undefined) face.weight = weight
+      out.push(face)
+    }
+  }
+  return out
 }

@@ -28,7 +28,12 @@
  * REQ-157's "reproduces `1c gate`'s reconciliation" a property of the build
  * rather than of anyone's care.
  */
-import { readCapture, readMultiState } from './capture/bundle'
+import { readCapture, readForms, readL1, readMultiState } from './capture/bundle'
+// `./capture/theme`, NOT `./capture/capture` — same deep-path rule as the fold
+// import below. `capture.ts` re-exports this, but it also imports `./pipeline`,
+// and taking it from there would put Playwright back in the Worker's graph.
+import { fontResourcesFromTheme } from './capture/theme'
+import type { Capture } from './capture/types'
 // DEEP PATHS, not the `../l1` barrel. That barrel re-exports `roundtrip.ts`,
 // which drives a real browser over `node:http` and pulls the `capture` barrel's
 // Playwright with it — so importing `../l1` for the fold put Playwright into the
@@ -807,6 +812,37 @@ export interface L1GateResult extends AcceptanceReport {
    * form was mounted, so it is not a gap in L1's expressive power.
    */
   forms: FoldedForm[]
+  /**
+   * BUG-113 — set when the bundle's retained `l1.json` is not what a fresh fold
+   * of its own `multistate.json` produces, i.e. the artifact this gate graded
+   * (and `1c repro` serves) was folded by an older folder.
+   *
+   * This is a STALENESS fact, not a quality one, so it does not move `pass`:
+   * the retained document is the one that will be served, so grading it is
+   * correct however old it is. What would NOT be correct is letting the operator
+   * read that verdict without knowing a re-fold would change the subject of it —
+   * which is the same "the verdict is about a different artifact" defect this
+   * ticket exists to close, so it is surfaced rather than silently absorbed.
+   *
+   * `null` when the retained fold is current, or when the bundle has no
+   * `l1.json` at all (nothing retained to be stale).
+   */
+  staleFold: string | null
+}
+
+/**
+ * BUG-113 — the bundle's `capture.json`, or `null` when it has none.
+ *
+ * Only the staleness comparison wants this, and that comparison is advisory, so
+ * a missing member must not turn into a thrown gate. {@link readCapture} is the
+ * strict reader for the callers that genuinely cannot proceed without a theme.
+ */
+async function readCaptureOrNull(bundle: ReferenceBundle): Promise<Capture | null> {
+  try {
+    return await readCapture(bundle)
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -832,8 +868,42 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
     )
   }
   const foldResiduals: FoldResidual[] = []
-  const forms: FoldedForm[] = []
-  const base = foldToL1(multiState, { residuals: foldResiduals, forms })
+  const freshForms: FoldedForm[] = []
+  // The fresh fold is still computed, because `foldResiduals` is a question
+  // about FOLDER POWER — which element kinds L1 cannot express yet — and only
+  // today's folder can answer it. It is no longer what gets graded.
+  // Folded exactly as `1c refold` folds — FONTS INCLUDED. This fold is the
+  // reference the retained artifact is compared against, so any option `refold`
+  // passes and this does not shows up as a spurious difference: omitting `fonts`
+  // reported every bundle stale, including one refolded seconds earlier.
+  //
+  // Read SOFTLY, though. `capture.json` is not something this gate has ever
+  // required, and starting to require it would fail bundles that gate fine today
+  // for the sake of a comparison that is advisory. Without it the fold simply
+  // carries no font faces, exactly as it did before.
+  const captured = await readCaptureOrNull(bundle)
+  const fresh = foldToL1(multiState, {
+    ...(captured ? { fonts: fontResourcesFromTheme(captured.theme.fonts) } : {}),
+    residuals: foldResiduals,
+    forms: freshForms,
+  })
+  // BUG-113 — grade what is SERVED. `1c repro` writes the bundle's retained
+  // `l1.json` (localized), not a re-fold of its oracle, so a gate that re-folds
+  // is grading a document the operator will never be handed. The two agree only
+  // until the folder changes — and this ticket's own per-window reflow hold
+  // changed it, which is how the gap was found: on `gigabytealchemy.ai` the gate
+  // read 0 off-sample findings while the page `repro` wrote read 3 at 500px.
+  // Retained wins; the divergence is reported as `staleFold` below.
+  const retained = await readL1(bundle)
+  const retainedForms = retained ? await readForms(bundle) : []
+  const base = retained ?? fresh
+  const forms = retained ? retainedForms : freshForms
+  const staleFold =
+    retained && JSON.stringify(retained) !== JSON.stringify(fresh)
+      ? `bundle '${bundle.name}' retains an l1.json its own oracle no longer folds to — ` +
+        `this verdict grades the retained document, which is what \`1c repro\` serves; ` +
+        `run \`1c refold --ref <bundle>\` to re-derive it and gate the current fold`
+      : null
   // The oracle's own text heights. A text leaf pins no height, so without these
   // the envelope is drawn around an estimate — which is what reported five
   // overlaps per width on a document whose boxes match the oracle to 0.89px.
@@ -863,5 +933,5 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
     fidelityMaxDeltaPx: recoveredFidelity.maxDelta,
     fidelityResiduals: recoveredFidelity.residuals.length,
   }
-  return { ...report, promoted, recovery, foldResiduals, forms }
+  return { ...report, promoted, recovery, foldResiduals, forms, staleFold }
 }

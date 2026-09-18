@@ -17,34 +17,20 @@ import { readCapture, writeBundle, writeForms, writeHints, writeL1, writeLadderS
 import { bundleNameFor, type ReferenceStore } from '../../store/reference-store'
 import { foldToL1 } from '../../l1/fold'
 import type { FoldedForm } from '../../l1/forms'
-import { primaryFamily } from './theme'
+import { fontResourcesFromTheme, primaryFamily } from './theme'
 import type { StructuralHints } from './hints'
 import type { BrowserDriverFactory, Capture, RenderEngine, ThemeFont } from './types'
 import type { MultiStateCapture } from './values-diff'
 
-/**
- * REQ-90 — turn the captured theme's font handles into L1 font-face resources:
- * one entry per mirrored `.woff2` (family → served asset). A single-weight family
- * pins its weight; a multi-weight family leaves weight unset (the capture aggregates
- * the per-face weight away, so binding the family name is what moves the pixel).
- * Families whose face never mirrored (`files: []` — e.g. a CDN the intercept missed)
- * contribute nothing, and the fold drops any face no text paints.
- */
-export function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
-  const out: L1FontFace[] = []
-  for (const f of fonts) {
-    const weight = f.weights.length === 1 ? f.weights[0] : undefined
-    for (const src of f.files) {
-      // An `@font-face` declares ONE family name; a painted run carries the full
-      // stack (BUG-16). Declaring the stack would emit `font-family: "Cinzel serif"`,
-      // which no run's `Cinzel, serif` can ever match — so bind the primary token.
-      const face: L1FontFace = { family: primaryFamily(f.family), src }
-      if (weight !== undefined) face.weight = weight
-      out.push(face)
-    }
-  }
-  return out
-}
+// REQ-90's `fontResourcesFromTheme` MOVED to `./theme`, and is re-exported here
+// so no caller had to move with it.
+//
+// WHY IT WENT. It is a pure ThemeFont[] → L1FontFace[] mapping, but this module
+// imports `./pipeline` and so drags Playwright into any graph that touches it.
+// BUG-113 needs the same fold `1c refold` performs — fonts included — from
+// `gate-core.ts`, which is deliberately Playwright-free. `./theme` is pure and
+// already owns `primaryFamily`, the normaliser this joins on.
+export { fontResourcesFromTheme } from './theme'
 
 export interface CapturePageOptions {
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */

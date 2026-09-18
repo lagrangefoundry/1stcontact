@@ -1250,7 +1250,7 @@ export async function run(argv: string[]): Promise<void> {
         const findings = (r: { byWidth: Array<{ findings: unknown[] }> }): number =>
           r.byWidth.reduce((n, w) => n + w.findings.length, 0)
         console.log(
-          `3-probe gate on ${ref}: ${report.pass ? 'PASS' : 'FAIL'}\n` +
+          `acceptance gate on ${ref}: ${report.pass ? 'PASS' : 'FAIL'}\n` +
             `  sample-fidelity     ${mark(report.sampleFidelity.pass)}  ` +
             `(maxΔ ${report.sampleFidelity.maxDelta.toFixed(1)}px, ${report.sampleFidelity.residuals.length} residual(s), ` +
             `${report.sampleFidelity.unmatched.length} unmatched` +
@@ -1261,16 +1261,27 @@ export async function run(argv: string[]): Promise<void> {
               ? `, ${report.sampleFidelity.mounted.length} in mounted behaviour`
               : '') +
             `)\n` +
+            // BUG-112's probe (d), printed because BUG-113 makes it part of the
+            // verdict: a probe that can turn this line FAIL and is not on the
+            // report is the same defect one level up — a verdict about something
+            // the reader cannot see.
+            `  on-sample           ${mark(report.onSample.pass)}  (${findings(report.onSample)} envelope finding(s) at the captured widths)\n` +
             `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
             // BUG-113 — promotion is a PRICED ALTERNATIVE now, not the document
-            // the two envelope probes above just graded. Those graded the served
+            // the envelope probes above just graded. Those graded the served
             // page; this says what serving the recovered overlay instead would
             // have cost against the oracle.
             `  recovery (not served): ${report.recovery.promoted.length ? report.recovery.promoted.join(', ') : 'no region'} — ` +
             `${report.recovery.servedFindings} finding(s) → ${report.recovery.recoveredFindings}, ` +
             `at maxΔ ${report.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
             `${report.recovery.fidelityResiduals} fidelity residual(s)\n` +
+            // BUG-113 — the gate grades the bundle's RETAINED l1.json, because
+            // that is what `1c repro` serves. When a re-fold of the same oracle
+            // would produce something else, say so: the verdict is still about
+            // the served document, but the operator should not have to discover
+            // that a refold changes its subject.
+            (report.staleFold ? `  ⚠ stale fold: ${report.staleFold}\n` : '') +
             // REQ-93 — behaviours recovered into slots. Reported beside the fold
             // residuals because it is the same completeness question from the
             // other side: what the page needs that raw L1 does not express.
