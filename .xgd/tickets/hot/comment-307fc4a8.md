@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-271
 created_by: xgd
 created_at: '2026-09-18T02:42:05.159597+00:00'
-updated_at: '2026-09-18T03:09:30.084217+00:00'
+updated_at: '2026-09-18T03:13:55.466330+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,14 @@ Waiting on the full suite. Here's where things stand:
 **Verified against the real bundle:** re-folding a copy of `gigabytealchemy.ai/index` removes `section-band-0` (`{"surfaceFill":"#030717"}`) and nothing else — `section-bg-0` keeps `overlay #030717 @ 0.3`, the document background stays `#e8dfd3`, 70 nodes → 69. Ticket body updated with what landed and the test plan; title untouched.
 
 Not yet done: version bump, commit, merge back, `free_coded`.
+
+<!-- xgd-turn id="255a1429-b210-4556-8ed9-612555c80262-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:13:54.249707+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
