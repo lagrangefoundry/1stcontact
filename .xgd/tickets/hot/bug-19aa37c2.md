@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-55b8ebfd
 ---
 
 `values-diff` compares a fixed parameter table per object kind, and no kind's
