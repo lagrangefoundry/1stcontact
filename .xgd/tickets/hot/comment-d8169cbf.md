@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T21:06:27.361749+00:00'
+updated_at: '2026-09-18T21:08:45.840465+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -378,5 +378,11 @@ No dangling comments, and each business conversation is keyed on its `biz_` id. 
 Two things worth knowing: the archive file is **untracked** in git (`storage/` is only partly tracked), so it'll show in `git status` — commit it or move it wherever you'd rather it lived. And it's now the only copy of that conversation, since the backup is gone.
 
 BUG-116 records it, and I've noted that export-then-delete is a third outcome the production survey has to be able to produce — alongside re-home and retire — because what to do with a superseded conversation is a judgement about its worth, not something a rule can decide.
+
+<!-- xgd-turn id="4c2e8df4-5f92-4fe4-a090-5a5f0c60b7a5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T21:08:45.700455+00:00" -->
+#### You
+ok so I have been playing with the reproduction console and every run generates a bunch of bugs - ai think we are up to 9 now some of these will be L1 bugs, can you review all these and see if there are patterns - is there anything we can do to get ahead of fixing bug by bug?
 
 <!-- xgd-chat-end -->
