@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:51:35.425208+00:00'
+updated_at: '2026-09-18T02:58:35.922375+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -905,5 +905,13 @@ EPIC-13's children are **REQ-267 and REQ-263, and that is all**. Item 2 of the c
 **Three separate things must land before forwarding works end to end**, and only one is UI: the Settings surface, the Email Routing provisioning (ticket 3), and the schema above.
 
 Want me to scope ticket 2 now? Since the design is already settled in the epic body, it's mostly transcription plus resolving the two schema questions — the table shape, and whether inbound should stop depending on `sending_domains`. I'd keep Routing provisioning in ticket 3 as cut, unless you want them merged, which is arguable given neither is useful alone.
+
+<!-- xgd-turn id="c6d4fab0-9235-461e-9bf6-f68e1b911005-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:58:35.822639+00:00" -->
+#### You
+`forward_to`** cannot express the agreed design.** Migration 0015 added a single `TEXT` column with the comment *"One domain, one destination, one row." <-- that is their config ours has to map to it. You can have as many forwarding rows as you like, right? so whats the problem? Our one row with 1 forwarding address and 6 destinations becomes six rows...am I wrong?*
+
+**Inbound is currently gated on outbound.** `businessOfDomain` resolves the recipient by `SELECT ... FROM sending_domains WHERE domain = ?`, and the only INSERT into that table is in `enableSending`. So a business that never turns the Resend toggle on **cannot receive mail at all** — the Worker rejects with a permanent SMTP error. That directly contradicts the cutover ordering you recorded (*"basic email config before switching the DNS so that email is always up"*), where inbound must work first and send-as follows later. <-- I'm not 100% following but as presented this sounds like a flaw in our data model which we own and can change so...?
 
 <!-- xgd-chat-end -->
