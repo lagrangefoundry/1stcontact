@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:58:35.922375+00:00'
+updated_at: '2026-09-18T02:59:33.867369+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -913,5 +913,25 @@ Want me to scope ticket 2 now? Since the design is already settled in the epic b
 `forward_to`** cannot express the agreed design.** Migration 0015 added a single `TEXT` column with the comment *"One domain, one destination, one row." <-- that is their config ours has to map to it. You can have as many forwarding rows as you like, right? so whats the problem? Our one row with 1 forwarding address and 6 destinations becomes six rows...am I wrong?*
 
 **Inbound is currently gated on outbound.** `businessOfDomain` resolves the recipient by `SELECT ... FROM sending_domains WHERE domain = ?`, and the only INSERT into that table is in `enableSending`. So a business that never turns the Resend toggle on **cannot receive mail at all** — the Worker rejects with a permanent SMTP error. That directly contradicts the cutover ordering you recorded (*"basic email config before switching the DNS so that email is always up"*), where inbound must work first and send-as follows later. <-- I'm not 100% following but as presented this sounds like a flaw in our data model which we own and can change so...?
+
+<!-- xgd-turn id="c6d4fab0-9235-461e-9bf6-f68e1b911005-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:59:33.662895+00:00" -->
+#### Claude
+Right on the second, and half-right on the first — the correction is only *which table*.
+
+Your instinct is right — more rows is the answer. Two corrections on the specifics.
+
+**That comment is ours, not Cloudflare's.** It's in `db/migrations/0015_inbound_mail.sql`, arguing why `forward_to` went on `sending_domains` rather than into a table of its own. So "one domain, one destination, one row" is a statement about *our* schema, and it's enforced: `0012` declares `CREATE UNIQUE INDEX idx_sending_domains_domain ON sending_domains (domain)`, with the reason spelled out — two rows for one domain would mean two businesses each believing they'd configured its mail, and one's release would tear down the other's records. So six rows there is structurally impossible, and it would break sending if it weren't. The table also has no local-part column at all, so even six rows couldn't say `hello@ → a,b,c` and `sales@ → d,e`.
+
+**So: a new table, and your shape is the right one.** `(business_id, domain, local_part, destination)`, N rows, one per destination — your 1-address-to-6-destinations is six rows, exactly as you said, just not in that table. Plus a catch-all row or flag. That's ticket 2's migration, and it's small.
+
+**Where Cloudflare's model genuinely does constrain us** — worth being precise, because it's not where you'd expect. Email Routing *has* a rules table (address → destination, many rows), but we don't use it for routing: we take a catch-all into the Email Worker, because capture requires the Worker to see every message. Our Worker does the forwarding itself via `message.forward()`. What Cloudflare owns is **destination verification** — a destination must be confirmed by link in the account before `forward()` will deliver to it. That's the "their config ours maps to" that really exists, and the epic already has it as a control. One consequence: `inbound.ts:516` calls `message.forward(destination)` once, so fanning out to six needs a loop — and whether multiple `forward()` calls per message are permitted is the one thing I'd confirm against current Cloudflare docs before committing to 1→N, since the whole design rests on it.
+
+**On the second point — yes, ours, and we change it.** To restate it plainly: `businessOfDomain` asks "who owns this recipient domain?" and asks `sending_domains`, which only gets a row when someone turns the *outbound* Resend toggle on. So today a business that hasn't enabled sending gets its inbound mail **rejected with a permanent SMTP error** — the sender is told the address doesn't exist. That's backwards for cutover, where inbound must be working before the nameservers move and send-as follows much later.
+
+The fix belongs in ticket 2: resolve the recipient domain from something that exists independently of sending. `site_domains` already maps host → `site_id` → business, and exists as soon as a domain is attached — which is the right precondition. Or the new inbound table carries the domain itself. Either way it stops being a consequence of the sending toggle.
+
+Neither of these is a blocker; both are decisions ticket 2 should record rather than discover. Shall I scope it? The design is already settled in the epic, so it's mostly transcription plus nailing those two and the `forward()` fan-out question.
 
 <!-- xgd-chat-end -->
