@@ -120,6 +120,12 @@ function toContentRun(r: RawRun): ContentRun {
   run.borderRadiusPx = r.borderRadiusPx
   run.boxShadow = r.boxShadow
   run.a11yRole = r.a11yRole
+  // REQ-269 — the navigation target, carried verbatim; the fold writes it onto
+  // the leaf's `link` axis and the renderer is the sole `<a>` sink.
+  if (r.href != null) run.href = r.href
+  // REQ-269 — and the outline depth, which the fold writes onto the leaf's
+  // `heading` role. Carried only when the run is inside a heading.
+  if (r.headingLevel != null) run.headingLevel = r.headingLevel
   run.arrangement = r.arrangement
   run.zIndex = r.zIndex
   run.filter = r.filter
@@ -144,6 +150,8 @@ const toContentRuns = (runs: RawRun[]): ContentRun[] => runs.map(toContentRun)
 function toField(f: RawField): Field {
   return {
     a11yRole: f.a11yRole,
+    // REQ-269 — the navigation target: a linked image is a link like any other.
+    href: f.href,
     box: f.box,
     borderRadiusPx: f.borderRadiusPx,
     borderWidthPx: f.borderWidthPx,
@@ -183,6 +191,12 @@ function toField(f: RawField): Field {
     // REQ-265 — the placeholder's rendered ink. Carried verbatim; the fold writes
     // it onto the control's axes and the renderer paints the pseudo-element with it.
     placeholderColor: f.placeholderColor,
+    // REQ-269 — the control's content inset. Carried verbatim, exactly as a text
+    // run's padding is; the fold writes it onto the control leaf's `padding` axis.
+    paddingTopPx: f.paddingTopPx,
+    paddingRightPx: f.paddingRightPx,
+    paddingBottomPx: f.paddingBottomPx,
+    paddingLeftPx: f.paddingLeftPx,
   }
 }
 

@@ -895,6 +895,45 @@ export const l1LinkSchema = z
 /** REQ-106 — the navigation role a node may take. */
 export type L1Link = z.infer<typeof l1LinkSchema>
 
+/**
+ * REQ-269 — the **heading role**: this run is a heading, at this level.
+ *
+ * L1 had no way to say it, and `.strict()` meant a document that invented one was
+ * rejected rather than ignored — so every reproduced page came out with no
+ * document outline at all. Measured on gigabytealchemy.ai: 11 runs read
+ * `a11yRole: heading` on the reference side and `generic` on the reproduction's,
+ * against 1 `<h1>`, 5 `<h2>` and 6 `<h3>` in the source and **zero** heading tags
+ * in the render.
+ *
+ * DOC-24's test — *an axis belongs in L1 iff it moves a pixel* — does not admit
+ * this on its own, and that is deliberate: all 11 reproduce with the right family,
+ * size, weight and colour. Two things admit it anyway. DOC-23 §7's acceptance is
+ * `capture(render(L1)) ≈ L1` **measured on the capture/values-diff spine**, and
+ * `a11yRole` is on that spine, so projecting `heading` to `generic` is a
+ * round-trip failure on a field the capture records. And the consequence is not
+ * cosmetic: a marketing page with no heading structure is what a search engine
+ * reads and what a screen reader navigates by.
+ *
+ * Shaped like {@link l1LinkSchema} and {@link l1ActionSchema}, and for the same
+ * reason: it is a ROLE the node takes, not a kind of node and not a paint axis.
+ * The renderer is the sole `<h1>`…`<h6>` sink, exactly as it is the sole `<a>`
+ * sink. `control` deliberately cannot carry it (a heading around a form control is
+ * malformed), which `.strict()` enforces by shape rather than by a remembered rule.
+ */
+export const l1HeadingSchema = z
+  .object({
+    /**
+     * The outline depth, 1…6. Bounded by the envelope validator rather than here,
+     * on the same terms as `link.href`'s allowlist: the shape says what the field
+     * IS, the envelope says what a document may contain.
+     */
+    level: z.number(),
+  })
+  .strict()
+
+/** REQ-269 — the heading role a text run may take. */
+export type L1Heading = z.infer<typeof l1HeadingSchema>
+
 // ── Modals (REQ-212) ──────────────────────────────────────────────────────────
 //
 // L1 could not express a modal at all, and the substrate said so out loud:
@@ -1305,6 +1344,8 @@ export const l1TextSchema = z
     link: l1LinkSchema.optional(),
     /** REQ-212 — the disclosure verb; the renderer is the sole `<button>` sink. */
     action: l1ActionSchema.optional(),
+    /** REQ-269 — the heading role; the renderer is the sole `<h1>`…`<h6>` sink. */
+    heading: l1HeadingSchema.optional(),
   })
   .strict()
 

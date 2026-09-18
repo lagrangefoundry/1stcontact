@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-269 — the shape an L1 reproduction has: one body child, bands as siblings</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Georgia, serif; background: #f4f1ea; color: #1a1a1a; }
+      /* render.ts emits exactly ONE element into <body>, and every band, scrim and
+         run inside it is an absolutely-positioned SIBLING — so a <body>-children
+         scan finds one band covering the whole page and nothing else. */
+      .root { position: relative; width: 100%; height: 1200px; }
+      .band { position: absolute; left: 0; right: 0; }
+      .run { position: absolute; left: 88px; font-size: 20px; line-height: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="root">
+      <div class="band" style="top: 0; height: 400px; background: #030717"></div>
+      <!-- the scrim: a translucent full-bleed veil, a SIBLING of the band it veils -->
+      <div class="band" style="top: 0; height: 400px; background: rgba(3, 7, 23, 0.3)"></div>
+      <p class="run" style="top: 180px; color: #f5e6a3">Hero copy over the scrim</p>
+
+      <div class="band" style="top: 400px; height: 300px; background: #e8dfd3"></div>
+      <p class="run" style="top: 500px">Copy on the second band</p>
+
+      <!-- 700…900 paints no backdrop of its own: the body background shows through -->
+      <p class="run" style="top: 780px">Copy on the page background</p>
+
+      <div class="band" style="top: 900px; height: 300px; background: #0f172b"></div>
+      <p class="run" style="top: 1000px; color: #e8dfd3">Footer copy</p>
+    </div>
+  </body>
+</html>

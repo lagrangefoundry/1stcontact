@@ -377,6 +377,15 @@ export interface ElementGeometry {
   pseudo?: 'before' | 'after' | 'both' | null
   /** ARIA role — the browser's framework-agnostic semantic label. */
   a11yRole?: string
+  /** REQ-269 — the navigation target of the nearest enclosing anchor (site-internal
+   *  when same-origin, absolute when cross-origin), else null. The substance L1's
+   *  `link` axis (REQ-106) needs; without it the fold had nothing to write and every
+   *  reproduced link was dead text. Optional so pre-REQ-269 bundles still parse. */
+  href?: string | null
+  /** REQ-269 — the outline depth (1…6) of the nearest enclosing heading, else null.
+   *  `a11yRole` flattens all six tags to the word `heading`, so the level is the
+   *  half of the heading role no other captured field holds. */
+  headingLevel?: number | null
   /** Rendered arrangement relative to the previous element in the section. */
   arrangement?: Arrangement | null
   /**
@@ -459,6 +468,15 @@ export interface Field extends ElementGeometry {
    *  describes it and no geometry field can see it. Optional so pre-REQ-265
    *  bundles still parse. */
   placeholderColor?: string | null
+  /** REQ-269 — the element's own per-side padding, as a text run has carried all
+   *  along. On a form control this is the content inset the placeholder and the
+   *  typed text sit in; captured on a text-free element for the first time here,
+   *  because the renderer's UA reset zeroes a control's padding and only an axis
+   *  can win against it. Optional so pre-REQ-269 bundles still parse. */
+  paddingTopPx?: number
+  paddingRightPx?: number
+  paddingBottomPx?: number
+  paddingLeftPx?: number
 }
 
 export interface ContentRun extends ElementGeometry {
