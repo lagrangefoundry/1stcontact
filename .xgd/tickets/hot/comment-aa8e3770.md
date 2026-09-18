@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-18
 created_by: xgd
 created_at: '2026-09-18T02:34:28.344861+00:00'
-updated_at: '2026-09-18T02:38:05.983454+00:00'
+updated_at: '2026-09-18T02:43:51.354257+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,13 @@ REQ-235 §6 names its own exclusions, and EPIC-1 §27 parks a list in 1c's court
 Not "logging" — that name is what makes it a dupe. Something like **"Observability: the access log, the rollup ladder, and the diagnostic query surface"**, scoped explicitly as *"the parts EPIC-1 §27 assigns to 1c and REQ-235 §6 declined"*, with EPIC-11/REQ-235 named as the built raw tier it sits on top of rather than replaces.
 
 Want me to write that into EPIC-18 as the body, with a title you can override? I'd keep the boundaries section explicit so the next session can't re-collide with EPIC-11 or EPIC-8.
+
+<!-- xgd-turn id="5c5e6299-3145-4abc-baaa-d49b01540951-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:43:51.281443+00:00" -->
+#### You
+**EPIC-1 §43 Q1, still open: does **`route`**/**`event`** survive to the daily tier?** §37 is blunt that this is the only irreversible decision in the whole design <-- what does it mean?
+
+Not "logging" <-- no it reall is logging - this is the real logging the contact activity log is a user visible record of contact activity that is NOT logging and we decided they are separate and unrelated. What you are doijng is Logging capital L no arguments
 
 <!-- xgd-chat-end -->
