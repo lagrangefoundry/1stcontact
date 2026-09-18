@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-121
 created_by: xgd
 created_at: '2026-09-18T23:20:58.577804+00:00'
-updated_at: '2026-09-18T23:51:46.724613+00:00'
+updated_at: '2026-09-18T23:58:37.568412+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,14 @@ Now the pane UAT:
 The build is green. Now the ticket body must match what was actually built — two design details changed during implementation:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="2eef257f-c964-495b-9245-1dc279026c78-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:58:36.648104+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
