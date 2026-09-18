@@ -5,10 +5,10 @@ type: request
 title: 'The assistant can report a defect: adopt the upstream development surface'
 created_by: EPIC-19
 created_at: '2026-09-18T21:45:39.352452+00:00'
-updated_at: '2026-09-18T22:56:00.253788+00:00'
+updated_at: '2026-09-18T22:59:09.141432+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
