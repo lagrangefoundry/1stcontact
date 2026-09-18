@@ -6,10 +6,10 @@ title: 'repro console: two operator decision points, and a re-capture that does 
   reset the site'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:39.360214+00:00'
-updated_at: '2026-09-18T05:03:16.962709+00:00'
+updated_at: '2026-09-18T05:16:15.780659+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-bf282b3d
