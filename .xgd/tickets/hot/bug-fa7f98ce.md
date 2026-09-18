@@ -6,10 +6,10 @@ title: 'repro console: the round prompt says both "you file the ticket yourself"
   "you never file"'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:30:26.217135+00:00'
-updated_at: '2026-09-18T00:51:25.722331+00:00'
+updated_at: '2026-09-18T02:03:54.261735+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
