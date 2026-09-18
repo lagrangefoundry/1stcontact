@@ -6,9 +6,9 @@ title: 'repro console: two checks that cry wolf — the ready_* assertion and th
   rail'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:43.950444+00:00'
-updated_at: '2026-09-18T03:46:54.235106+00:00'
+updated_at: '2026-09-18T03:47:29.520436+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: free_coding
 fields:
   priority: medium
@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-dbce224c
+  story_points: 3
 ---
 
 # Repro console: two checks that cry wolf — the `ready_*` assertion and the empty rail
