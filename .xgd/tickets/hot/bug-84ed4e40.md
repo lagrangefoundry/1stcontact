@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-af2a66dc
 ---
 
 # The gate cannot see text painted over text
