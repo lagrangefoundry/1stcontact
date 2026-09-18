@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T21:47:41.307009+00:00'
+updated_at: '2026-09-18T22:29:37.992731+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -491,5 +491,11 @@ You were right that this is the nasty one. `_store` creates the ticket, *then* a
 On recovery: **almost certainly not for these two.** It'd need an orphan blob, only possible if `attach` was reached, and there's no operation here that reads one. I've put a look in R2 in the ticket, but the honest expectation is the money's gone.
 
 One thing worth acting on before anything else: **BUG-117 and BUG-119 both reported store-level deployment faults in the same session.** Two surfaces failing that way within one session is more likely one cause than two — I've flagged that in both tickets.
+
+<!-- xgd-turn id="9f5b6c9b-3fcb-414b-815a-88cb5efb2aee-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T22:29:37.803036+00:00" -->
+#### You
+Can we actually have a generated picture appear in the chat flow?
 
 <!-- xgd-chat-end -->
