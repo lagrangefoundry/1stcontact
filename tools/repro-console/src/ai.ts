@@ -232,6 +232,23 @@ export function readBrief(file: string = BRIEF_FILE): string {
 
 // ── the prompt ───────────────────────────────────────────────────────────────
 
+/**
+ * When the reference was taken, and what the engine has done since.
+ *
+ * Both halves are needed for the round to reach the conclusion on its own: the
+ * timestamp comes off the bundle, the commit list comes off the engine's log,
+ * and neither alone says whether the residual in front of it is outstanding or
+ * merely un-re-captured.
+ */
+export interface ReferenceProvenance {
+  /** The bundle's own `capturedAt`, or absent on a bundle written before the stamp. */
+  capturedAt?: string
+  /** [[REQ-270]]'s extractor stamp, or absent — which reads as schema 1. */
+  captureSchema?: number
+  /** Engine commits that landed after the capture, newest first, one line each. */
+  landedSince: string[]
+}
+
 /** Everything about one round the brief does not already say. */
 export interface RoundContext {
   n: number
@@ -240,6 +257,16 @@ export interface RoundContext {
   originalUrl: string
   /** The reference bundle every step pointed `--ref` at — `raw.html` lives here. */
   bundleDir: string
+  /**
+   * When that bundle was taken, and what has landed since ([[REQ-272]] part 2).
+   *
+   * IN THE PROMPT AND NOT ONLY IN THE DIGEST, which is a deliberate exception to
+   * "paths, not contents". Everything else the prompt summarises is a pointer at
+   * evidence; this is a fact ABOUT that evidence, and a round that misses it
+   * files a ticket for work already done — which is exactly what happened, at
+   * $7.70 and 78 turns, on the round that motivated [[REQ-272]].
+   */
+  reference?: ReferenceProvenance
   /** Where `1c gate` wrote `gate.json`, `values-diff.json`, `regions.json`. */
   evidenceDir: string
   /** This iteration's copy of the reproduction's own L1 document. */
@@ -350,6 +377,34 @@ export function buildPrompt(brief: string, ctx: RoundContext): string {
         ].join('\n')
       : `- no knowledge base this round${ctx.kb?.error ? ` — ${ctx.kb.error}` : ''}. Read the engine directly.`
 
+  /**
+   * THE AGE OF THE ORACLE, SAID BEFORE THE EVIDENCE IS LISTED ([[REQ-272]]).
+   *
+   * Placed above the evidence rather than below it because it changes how every
+   * file under it must be read. The digest carries the same facts at length; this
+   * is the one-paragraph version, because a fact that only appears in a file the
+   * round MAY read is a fact the round may miss — and this is the one whose being
+   * missed costs a whole round.
+   */
+  const reference = ctx.reference
+    ? [
+        ctx.reference.capturedAt
+          ? `- captured at **${ctx.reference.capturedAt}**${
+              ctx.reference.captureSchema === undefined
+                ? ', with no extractor schema stamp — read it as schema 1'
+                : ` at extractor schema ${ctx.reference.captureSchema}`
+            }.`
+          : '- **this bundle carries no capture time**, so how old the oracle under every number below is cannot be told from it. That is a defect in the instrument and worth a bug ticket.',
+        ...(ctx.reference.landedSince.length
+          ? [
+              `- **${ctx.reference.landedSince.length} commit(s) have landed in the engine since.** A residual you are about to file may already be fixed and merely not re-captured — \`1c refold\` re-derives the fold from the oracle this bundle already holds and never re-runs the capture, so a CAPTURE-side fix cannot show up here until the operator re-captures. The digest lists them; check the ones that touch what you are filing.`,
+            ]
+          : ctx.reference.capturedAt
+            ? ['- nothing has landed in the engine since, so every residual below is measured by the instrument running now.']
+            : []),
+      ].join('\n')
+    : '- nothing is recorded about when this reference was taken.'
+
   const gaps = ctx.knownGaps.length
     ? ctx.knownGaps
         .map(
@@ -374,6 +429,10 @@ ${gate}
 ## What the project already knows
 
 ${kb}
+
+## The reference you are measuring against
+
+${reference}
 
 ## Where the evidence is
 

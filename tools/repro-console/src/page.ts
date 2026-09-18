@@ -49,6 +49,51 @@ export interface IterationView {
   rail?: string
   /** The AI round under this iteration, if one ran. */
   ai?: AiView
+  /**
+   * Where to post to START the round on this iteration ([[REQ-272]] part 1,
+   * behaviour 2).
+   *
+   * Absent while something is running and on an iteration whose round already
+   * reached an answer — the console never offers a button that would spend a
+   * round's money on a question already answered.
+   */
+  diagnoseHref?: string
+  diagnoseLabel?: string
+  /**
+   * Which reference this iteration measured against ([[REQ-272]] part 2).
+   *
+   * On EVERY iteration, because `re-captured` is a statement about a comparison
+   * and a comparison needs both sides visible. A chain whose reference moved
+   * half way through then reads as one chain with a marked seam in it, rather
+   * than as a score that jumped for no reason a reader can see.
+   */
+  reference?: ReferenceView
+}
+
+/** The reference bundle one iteration used, and whether it moved to get there. */
+export interface ReferenceView {
+  /** `<host>/<pathSlug>` — the bundle's own name. */
+  bundle: string
+  /** When those bytes were taken, when the bundle records it. */
+  capturedAt?: string
+  /** This iteration re-captured; its numbers are not comparable with the one above. */
+  recaptured?: boolean
+}
+
+/**
+ * The loop, held after a round filed ([[REQ-272]] part 1, behaviour 3).
+ *
+ * Carries what it is waiting for rather than only the fact of waiting: an
+ * operator returning to this page after an hour has to be able to read WHY the
+ * button is inert without reconstructing it from the round above.
+ */
+export interface HeldView {
+  /** The iteration whose filing is holding the loop. */
+  n: number
+  /** One sentence: what landed, and what has to happen before the loop advances. */
+  waitingFor: string
+  /** Where to post the operator's "it has landed". */
+  releaseHref: string
 }
 
 /**
@@ -105,7 +150,8 @@ export interface PageState {
   url: string | null
   iterations: IterationView[]
   /** The captures on disk, so a site can be revisited without re-hitting it. */
-  stored: StoredCaptureView[]
+  stored: StoredCaptureView[]  /** Why the loop will not advance, when it will not ([[REQ-272]] part 1). */
+  held: HeldView | null
 }
 
 /**
@@ -123,6 +169,14 @@ export interface PollState {
   failed: boolean
   /** The round in flight and what it has said so far (behavior 2). */
   live: { n: number; text: string } | null
+  /**
+   * Whether the loop is held ([[REQ-272]] part 1, behaviour 3).
+   *
+   * A boolean rather than the whole {@link HeldView}: the sentence is rendered
+   * into the page and the page reloads when the version moves, so all the poller
+   * needs between reloads is enough to keep the held button inert.
+   */
+  held: boolean
 }
 
 function escapeHtml(value: string): string {
@@ -148,7 +202,12 @@ async function poll() {
     const line = document.getElementById('status');
     line.textContent = state.message;
     line.className = state.failed ? 'failed' : 'progress';
-    for (const button of document.querySelectorAll('button')) button.disabled = state.running;
+    // A held button stays inert between reloads ([[REQ-272]] part 1, b3).
+    // Keying on state.running alone would re-enable the held control a second
+    // after the round that held it finished - the press the hold exists to stop.
+    for (const button of document.querySelectorAll('button')) {
+      button.disabled = state.running || (state.held && button.dataset.held === '1');
+    }
     // The AI round in flight (REQ-256 behavior 2). One element, replaced whole:
     // the transcript is short enough that diffing it would be more code than
     // it saves, and the server is the single definition of what it says.
@@ -186,7 +245,12 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 .triptych figcaption { font-size: .8rem; opacity: .7 }
 /* BUG-99 — the caption spans the three cells rather than becoming a fourth. */
 .triptych .region-caption { grid-column: 1 / -1; font-size: .85rem; opacity: .9; font-family: ui-monospace, monospace }
-.verdict, .rail, .ai-status { margin: .25rem 0; font-size: .9rem }
+.verdict, .rail, .ai-status, .reference { margin: .25rem 0; font-size: .9rem }
+.reference { opacity: .7; font-size: .8rem }
+.reference .moved { opacity: 1; color: #b8860b; font-weight: 600 }
+.held { margin: 1rem 0; padding: .6rem .8rem; border: 1px solid #b8860b; border-radius: 4px; font-size: .9rem }
+.held form { display: inline; margin-top: .4rem }
+.decide { margin: .5rem 0 }
 .verdict strong { font-family: ui-monospace, monospace }
 .rail { opacity: .75; white-space: pre-wrap }
 .ai-status.filed, .ai-status.appended { color: #1e7a3c }
@@ -234,6 +298,38 @@ function renderIteration(it: IterationView): string {
     ...(it.extraTickets ?? []).map((ticket) => link(ticket.href, ticket.label)),
   ].join('\n')
 
+  /**
+   * WHICH REFERENCE THIS ITERATION USED ([[REQ-272]] part 2, items 1 and 2).
+   *
+   * The `re-captured` marker is the load-bearing half: a refold's numbers are
+   * comparable with the iteration above it — that is the comparison the loop
+   * exists to make — and a re-capture's are not, because the oracle moved at the
+   * same moment the engine did. Saying which kind of change happened is what
+   * preserves the comparison rather than destroying it.
+   */
+  const reference = it.reference
+    ? `  <p class="reference">reference <code>${escapeHtml(it.reference.bundle)}</code>${
+        it.reference.capturedAt ? ` captured ${escapeHtml(it.reference.capturedAt)}` : ' (no capture time recorded)'
+      }${
+        it.reference.recaptured
+          ? ` — <span class="moved">re-captured</span>, so these numbers are not comparable with iteration ${it.n - 1}'s; the reference moved as well as the engine.`
+          : ''
+      }</p>\n`
+    : ''
+
+  /**
+   * THE FIRST DECISION POINT, AS A BUTTON ([[REQ-272]] part 1, behaviour 2).
+   *
+   * Under the links rather than above them, because the order on the page is the
+   * order of the act: look at the reproduction, look at the diff, look at the
+   * document, and then decide whether this is worth a round.
+   */
+  const decide = it.diagnoseHref
+    ? `  <form class="decide" method="post" action="${escapeHtml(it.diagnoseHref)}"><button title="start the AI round on this iteration — it reads the evidence above and files what it finds">${escapeHtml(
+        it.diagnoseLabel ?? 'diagnose this',
+      )}</button></form>\n`
+    : ''
+
   const verdict = it.verdict ? `  <p class="verdict">gate: <strong>${escapeHtml(it.verdict)}</strong></p>\n` : ''
   // A <pre>, not a <p>: the rail reports one finding per line, and a paragraph
   // collapses them into one run-on sentence (REQ-256 behavior 8).
@@ -261,7 +357,7 @@ function renderIteration(it: IterationView): string {
   <ul>
 ${links}
   </ul>
-${verdict}${rail}${ai}</section>`
+${reference}${verdict}${rail}${decide}${ai}</section>`
 }
 
 /**
@@ -278,8 +374,30 @@ export function renderConsolePage(state: PageState): string {
   // [run again] appears only once there is something to re-run. It takes no
   // address: [reproduce] captures and starts a new list at Iteration 1, this
   // re-runs the site already loaded and appends the next one.
+  //
+  // `data-held` is what the poller keys on ([[REQ-272]] part 1, behaviour 3):
+  // this button advances the loop, and the loop does not advance until the
+  // operator says the implementation the last round asked for has landed.
   const again = state.iterations.length
-    ? `<form method="post" action="/run-again"><button${state.running ? ' disabled' : ''}>run again</button></form>`
+    ? `<form method="post" action="/run-again"><button data-held="1"${
+        state.running || state.held ? ' disabled' : ''
+      }>run again</button></form>`
+    : ''
+
+  /**
+   * THE SECOND DECISION POINT ([[REQ-272]] part 1, behaviour 3).
+   *
+   * It says what it is waiting for and it says it on the page, because the
+   * operator this is written for is the one who comes back an hour later to a
+   * button that does nothing. A disabled control with no explanation beside it
+   * reads as a bug in the console.
+   */
+  const held = state.held
+    ? `<p class="held">⏸ ${escapeHtml(state.held.waitingFor)}
+  <form method="post" action="${escapeHtml(state.held.releaseHref)}"><button${
+    state.running ? ' disabled' : ''
+  }>the implementation has landed</button></form>
+</p>`
     : ''
 
   /**
@@ -306,7 +424,10 @@ export function renderConsolePage(state: PageState): string {
 
   // [recapture] re-hits the site and re-rolls the oracle, which is occasionally
   // exactly right and never what [reproduce] should quietly do — so it is its
-  // own button, offered beside the box rather than in place of anything.
+  // own button, offered beside the box rather than in place of anything. On the
+  // site already loaded it APPENDS the next iteration rather than starting a new
+  // list ([[REQ-272]] part 2), which is what makes "did the capture fix move the
+  // numbers" a question the page can answer.
   return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>reproduction console</title><style>${STYLE}</style></head>
@@ -314,11 +435,14 @@ export function renderConsolePage(state: PageState): string {
 <form method="post" action="/run">
   <input name="url" value="${escapeHtml(state.url ?? '')}" placeholder="site address" autocomplete="off" autofocus>
   <button${state.running ? ' disabled' : ''}>reproduce</button>
-  <button${state.running ? ' disabled' : ''} formaction="/recapture" title="re-hit the site and re-roll the reference">recapture</button>
+  <button data-held="1"${
+    state.running || state.held ? ' disabled' : ''
+  } formaction="/recapture" title="re-hit the site and re-roll the reference — on the site already loaded this keeps the iteration chain and marks the seam">recapture</button>
 </form>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
 ${stored}
 ${rows}
+${held}
 ${again}
 <script>${POLL_SCRIPT}</script>
 </body>

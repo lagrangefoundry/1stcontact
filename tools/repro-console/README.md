@@ -1,4 +1,4 @@
-# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261, [[EPIC-12]] §8)
+# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261 / REQ-272, [[EPIC-12]] §8)
 
 A localhost-only dev console that runs one reproduction round end to end —
 capture a site, reproduce its home page, diff the two — and puts the three
@@ -16,14 +16,34 @@ images, the reproduction's own L1 document — each opening in a new tab. **run
 again** re-runs the reproduction and appends *Iteration 2* below it; earlier
 iterations stay on the page with their own artifacts.
 
-## The AI round ([[REQ-256]], [[REQ-261]])
+## The loop, and the two places it stops ([[REQ-272]])
 
-As soon as an iteration's links appear an **AI process starts**, reads that
+```
+capture and compare
+  ── you look, then press [diagnose this]
+AI round → files a gap ticket
+  ── [run again] is HELD; you free-code the fix, then press
+     [the implementation has landed]
+run again → capture and compare
+  ── you look, then press [diagnose this]
+```
+
+Both stops are the same principle: the expensive thing does not start until
+somebody has looked. A finished iteration leaves the page **idle** with its links
+live, and the round starts from **diagnose this** on that iteration and from
+nowhere else. When a round files a ticket, **run again** goes inert and says what
+it is waiting for — the next iteration exists to measure that implementation, so
+running one before it lands measures nothing new. The release is a file beside
+the round, so the hold survives a restart of the console.
+
+## The AI round ([[REQ-256]], [[REQ-261]], [[REQ-272]])
+
+Press **diagnose this** on an iteration and an **AI process starts**, reads that
 round's evidence, and finishes by **filing a gap ticket against the reproduction
 engine**. Its transcript streams onto the page underneath the iteration, and the
 ticket it filed becomes a fifth link. Then it stops: the operator free-codes the
-ticket in the ordinary way and presses **run again**, which reproduces with
-whatever has landed since.
+ticket in the ordinary way, presses **the implementation has landed**, and
+presses **run again**, which reproduces with whatever has landed since.
 
 **The round writes no code.** It is a `claude -p` process that can read and do
 nothing else: every tool that can write a file, run a command, reach the network
@@ -40,10 +60,30 @@ Anything it tripped over that is *not* a gap in the reproduction engine — a
 defect in L1, in the brief, anywhere in `1c` — comes back in a separate `bugs`
 list and the console files each as its own `draft` ticket, on every status.
 
+**The reference can move, deliberately.** **run again** *refolds*: it re-derives
+the fold from the oracle the bundle already holds, so a FOLD change shows up and
+the reference stays still, which is the comparison an iteration exists to make. A
+**capture** change is invisible to a refold by construction — the axis the fix
+added is not in an oracle the old extractor wrote — so **recapture**, on the site
+already loaded, takes a fresh bundle and **appends the next iteration rather than
+starting a new list**. That iteration is marked *re-captured* on the page and in
+its `iteration.json`, because its numbers are not comparable with the one above
+it: the reference moved as well as the engine. Every iteration also shows which
+bundle it used and when that bundle was captured, so a chain whose reference
+moved half way through reads as one chain with a marked seam.
+
+**A round knows how old its oracle is.** The digest opens with the reference's own
+`capturedAt` and `captureSchema` and the engine commits that landed after it, and
+the prompt says the same in a paragraph. This is arithmetic the console can do for
+free over the bundle's own stamp and `git log`; the round that made it a ticket
+spent **$7.70 and 78 turns** arriving at "the reference was captured 70 minutes
+before the commit that fixed the residuals measured against it".
+
 **Rounds resume.** A second iteration on the same reproduction continues the
 first round's CLI session rather than re-deriving its bearings, and is not
-re-sent the brief. The chain is cut when the reference moves, when the brief
-changes, or after `RESUME_MAX_ROUNDS` rounds — the scope and the reasoning are in
+re-sent the brief. The chain is cut when the reference moves — a different bundle, **or the
+same site re-captured** — when the brief changes, or after `RESUME_MAX_ROUNDS`
+rounds — the scope and the reasoning are in
 `src/session.ts`. A resumed round is told, in as many words, that what it
 remembers is a pointer and never evidence.
 
