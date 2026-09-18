@@ -6,10 +6,10 @@ title: 'repro console: two checks that cry wolf — the ready_* assertion and th
   rail'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:43.950444+00:00'
-updated_at: '2026-09-18T03:47:29.520436+00:00'
+updated_at: '2026-09-18T03:47:56.614658+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-bf282b3d
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   chat_comment: comment-dbce224c
   story_points: 3
+  commits:
+  - working_sha: 60bed8240199a251aec898468b139d51f285bf33
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a691146586f86bccccb33c447a4efd99cbebdb30
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.258
 ---
 
 # Repro console: two checks that cry wolf — the `ready_*` assertion and the empty rail
