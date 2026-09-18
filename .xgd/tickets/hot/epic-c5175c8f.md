@@ -5,9 +5,9 @@ type: epic
 title: 'DNS management: nameservers, records, and AI tools'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:16.884935+00:00'
-updated_at: '2026-09-18T00:07:16.933565+00:00'
+updated_at: '2026-09-18T03:26:26.135265+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: done
 fields:
   priority: medium
@@ -660,3 +660,133 @@ Already in the epic as correctness. Recorded here as what it also is: two
 `v=spf1` records on one name fails **all** mail from that name, which is a
 self-inflicted denial of the asset ranked first in [[EPIC-17]] §1. [[TODO-5]] is
 the evidence it happens to people who know better.
+
+
+## Design session, 2026-09-17: the cutover UX, and the ordering that changes ([[EPIC-13]])
+
+**The nameserver-change experience was deliberately left undesigned here**, and
+§"Scoping session, 2026-09-15" records it as such: *"the nameserver-change
+experience is deliberately not ticketed… the operator's call is that it needs
+some thought."* This section is that thought, worked through with the operator in
+[[EPIC-13]]'s session because the mail half is that epic's. **Where anything below
+contradicts what this epic already records, this supersedes it** — what is here is
+the design, and what was here was this epic filling in a gap that was left open on
+purpose.
+
+### The principle: capture is read-only, and nothing is acted on until it is complete
+
+The operator's framing: *"we separate configuration capture from action… the user
+should configure everything once, before we make any changes. Then we tell them
+when everything has been done. How we implement everything under the covers and in
+what order is up to us."*
+
+**This is a statement about a harrowing experience, not about our plumbing.** A
+non-technical customer moving the address their business runs on cannot hold a
+multi-day asynchronous procedure in their head. What they can do is answer
+questions in one sitting. So every question is asked before anything is changed,
+and everything after the paste is ours to sequence.
+
+### The ordering, which changes
+
+§"The pre-cutover ordering, which is what makes preservation structural" has the
+zone created **first** — *"create the zone (`pending`) — we now have somewhere to
+write"* — and the sweep and the writes after it. **That ordering is replaced:**
+
+1. **Read.** RDAP and [[REQ-257]]'s resolver snapshot. Registrar, current
+   nameservers, DNSSEC, who handles mail, who handles web. Nothing is written
+   anywhere, at us or at Cloudflare.
+2. **Check** that the apex is claimable at all (below). Reserves nothing.
+3. **Capture.** Everything the customer has to tell us, in one sitting — above all
+   the forwarding destinations, which §"Correction, 2026-09-16" establishes are
+   *"not discoverable from DNS at any price"* and are therefore the one thing only
+   they can supply.
+4. **Then claim.** Create the zone `pending`, write the swept records and the ones
+   we are adding, configure Email Routing, and show the nameserver pair.
+5. **Paste**, and the delegation flips.
+
+**Steps 4 and 5 are minutes apart rather than a session apart**, and the window
+§"Preservation" needs — the zone ours and fully populated while nothing resolves
+from it — is unchanged in kind and only shorter in duration.
+
+**Why the claim moves to the end, in this epic's own terms.** Creating a `pending`
+zone is an *action at a third party*, which is exactly what the principle says
+comes after capture. It is also the action that produces the squat this epic
+already worries about: §"Design session, 2026-09-15" concedes that our account
+allows one zone per apex, that an abandoned `pending` claim meets a legitimate
+second claimant with *"that domain is already being set up"*, and that releasing it
+has to be an operator path because self-service release *"would hand the squatter a
+second lever."* **Claiming only for customers who finished configuring shrinks that
+class to nearly nothing** — a squat now costs the squatter a whole configuration
+sitting rather than typing a domain into a box.
+
+### The check moves to the front, and it is this epic's own split for the third time
+
+The one thing that must not be discovered at step 4 is that the apex cannot be
+claimed — because the customer has by then spent a sitting configuring. Both ways
+of failing are visible at step 1: the apex may already be a zone in **our** account,
+or it may be the on-ramp §"The on-ramps" calls the trap — already on Cloudflare in
+the **customer's own** account, which looks easiest and is among the worst.
+
+So the flow needs a cheap, non-mutating availability check during the read. **This
+is [[REQ-238]]'s `check`/`claim` split in a third place**, and §"Design session,
+2026-09-15" already reads the second occurrence as evidence the shape is right:
+*"the cheap operation is honest about proving nothing, and the authority is a thing
+outside our code that cannot be argued with."* RDAP supplies the trap-case half for
+free, since the nameservers come back in the same response and
+`*.ns.cloudflare.com` identifies itself.
+
+### RDAP, promoted out of chat into this body
+
+**Recorded in [[COMMENT-3001]] and nowhere durable until now**, which is why it has kept
+being re-derived. One unauthenticated call — `https://rdap.org/domain/<name>` —
+returns three things this flow needs and DNS cannot give:
+
+- **the registrar**, authoritatively, which is what selects the per-provider
+  instructions §"The nameserver-change experience" asks for;
+- **the current nameservers**, which answer the on-ramp question and the trap case;
+- **`secureDNS.delegationSigned`**, which is DNSSEC, and which is invisible to any
+  records-only sweep.
+
+**Coverage is not universal, and the earlier note about which TLDs matter was
+wrong.** `.com`, `.ai`, `.site`, `.dev` and — verified 2026-09-17 against Nominet —
+**`.co.uk`** all return 200 with registrar, nameservers and `secureDNS`. `.io` and
+`.me` return 404; ICANN mandates RDAP for gTLDs and many ccTLDs opt out.
+
+**`.co.uk` is a TLD this flow must handle. It is not, and was never established to
+be, the most common one our customers hold.** [[COMMENT-3001]] asserted it was *"likely
+your most common customer TLD"*; the operator corrected it in the same thread and
+the claim was withdrawn as an inference from *"UK small business"* rather than from
+any survey. It is recorded here because the withdrawal sat below the assertion and
+the assertion kept being read on its own.
+
+**The fallback, where RDAP has no service, identifies the DNS host and not the
+registrar** — so the honest fallback is asking the customer *"who did you buy this
+from?"*, which §"Correction, 2026-09-16" already licenses: we may ask them what
+they know, and never ask them to validate what we found.
+
+**And registrar names must be normalised, not string-matched.** The same registrar
+came back as `Cloudflare, Inc.`, `Cloudflare, Inc` and `CloudFlare, Inc.` across our
+own domains. A punctuation change silently dropping a customer into the generic
+script is a failure nobody would think to test for.
+
+### DNSSEC, which is the one that takes the domain completely dark
+
+**If a domain is signed and its nameservers change before the DS record is removed
+at the registrar and has expired from the parent zone, every validating resolver
+returns SERVFAIL.** Not degraded — unresolvable, web and mail, for everyone.
+
+This adds a step **and a wait** at the registrar that no draft of this flow has: turn
+DNSSEC off, wait for the DS to leave the parent, *then* change the nameservers.
+**Doing both in one sitting is the mistake.**
+
+Under the ordering above it lands where it should — RDAP reports it at step 1, so a
+signed domain is known to need two sittings **before** the customer is promised
+anything, rather than discovered after the paste. All 12 of our own domains report
+`delegationSigned=False`, which is precisely why this has to be designed in rather
+than met in production.
+
+### What this leaves to [[EPIC-13]]
+
+The mail half: what is captured at step 3, the forwarding surface that captures it,
+the two notification rails, and the resumability the capture phase needs. Recorded
+there rather than here.
