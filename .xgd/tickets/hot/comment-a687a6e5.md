@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:34:42.223543+00:00'
+updated_at: '2026-09-18T02:35:10.597468+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -763,5 +763,31 @@ Nothing here is a defect and nothing needs changing — REQ-264 is `free_coded` 
 <!-- xgd-chat role="user" ts="2026-09-18T02:34:40.430663+00:00" -->
 #### You
 Surely the domain is owned by Cloudflare why dopes resend need credentials to change domain
+
+<!-- xgd-turn id="3da39539-1ad5-4f0f-a6f3-b103f3e1018c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:35:09.527556+00:00" -->
+#### Claude
+Two different things are being confused by the word "domain" — and the code splits them cleanly.
+
+**Cloudflare owns the zone. Resend owns the sending identity.** We never ask Resend to change DNS; it has no access to your zone and couldn't write a record if it wanted to. Cloudflare does every write, through `CLOUDFLARE_DNS_TOKEN`. What Resend is asked for is something Cloudflare cannot produce.
+
+Look at what `enableSending` actually does (`sending.ts:263`):
+
+```
+const registered = await resend.createDomain(domain)   // Resend
+const specs = toSpecs(registered.records)              // → Cloudflare specs
+...                                                     // we write them into the zone
+await resend.verifyDomain(registered.id)               // Resend
+```
+
+`createDomain` **returns the records**. That's the crux. We don't know what to write until Resend tells us, because:
+
+- **The DKIM record is a public key whose private half only Resend holds.** `resend._domainkey.<domain>` publishes a keypair that Resend mints per domain and signs your outgoing mail with. Cloudflare can publish any string you hand it, but it cannot invent a key that Resend will sign with. That record's *value* can only come from Resend.
+- **The return-path `MX` on `send.<domain>` points at Resend's infrastructure**, and Resend has to be expecting mail for that subdomain — bounce handling for your domain has to be provisioned on their side.
+- **Authorization to use the From address.** Even with perfect DNS, Resend will refuse `no-reply@yourdomain.com` unless that domain is registered on your Resend account. SPF authorizes Resend-the-service to send for you; the account registration authorizes *your* account specifically. Otherwise anyone with a Resend key could send as anyone who'd published the SPF record.
+- **`verifyDomain` / `readDomain` are the third wait.** Resend does its own resolver check that the records landed, and its verdict — `pending` / `verified` / `failed` — is the state the toggle reports. That's a fact that lives only at Resend.
+
+So the split is: **Resend generates and verifies, Cloudflare publishes.** Two credentials, two jobs. The message you hit means the Resend half is unavailable — we could write the records into your zone perfectly well, but they'd be records for a sending identity that doesn't exist, pointing at a DKIM key nobody holds. Mail from them would fail SPF/DKIM at the receiver and land in spam, which is worse than not offering the toggle. Hence the refusal up front.
 
 <!-- xgd-chat-end -->
