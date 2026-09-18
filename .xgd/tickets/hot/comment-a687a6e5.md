@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:35:10.597468+00:00'
+updated_at: '2026-09-18T02:39:50.021228+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -789,5 +789,11 @@ await resend.verifyDomain(registered.id)               // Resend
 - **`verifyDomain` / `readDomain` are the third wait.** Resend does its own resolver check that the records landed, and its verdict — `pending` / `verified` / `failed` — is the state the toggle reports. That's a fact that lives only at Resend.
 
 So the split is: **Resend generates and verifies, Cloudflare publishes.** Two credentials, two jobs. The message you hit means the Resend half is unavailable — we could write the records into your zone perfectly well, but they'd be records for a sending identity that doesn't exist, pointing at a DKIM key nobody holds. Mail from them would fail SPF/DKIM at the receiver and land in spam, which is worse than not offering the toggle. Hence the refusal up front.
+
+<!-- xgd-turn id="9eb2c15b-5e39-4724-a3c6-bf7ac6f1692b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:39:49.844911+00:00" -->
+#### You
+I restarted the server - do I need to sign in again: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-37872'.
 
 <!-- xgd-chat-end -->
