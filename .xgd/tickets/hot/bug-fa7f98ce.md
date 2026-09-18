@@ -6,15 +6,20 @@ title: 'repro console: the round prompt says both "you file the ticket yourself"
   "you never file"'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:30:26.217135+00:00'
-updated_at: '2026-09-18T00:50:50.141157+00:00'
+updated_at: '2026-09-18T00:51:22.479607+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-ccd1ee37
+  commits:
+  - working_sha: 5662ab68dd3ebfccbc050f8680328728c39f7abf
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.248
 ---
 
 The loop-1 round prompt tells the round both that it files its own ticket and
