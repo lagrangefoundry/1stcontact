@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:40:26.692621+00:00'
+updated_at: '2026-09-18T02:41:06.230668+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -814,5 +814,11 @@ Two practical notes:
 - Your 30-day token lifetime is unrelated here. That's set long precisely so a session doesn't expire mid-sitting (BUG-52 was misdiagnosed through that confusion) — this is a key rotation, not an expiry.
 
 Signing in again gets you a cookie signed by 48849 and you're back. It won't change the Resend toggle, though — that's the separate credential question from before.
+
+<!-- xgd-turn id="bf1432b8-f037-468d-b10c-da401e2a1b90-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:41:06.006250+00:00" -->
+#### You
+ok I changes the key, now it is working - Now, how do I configure forwarding emails addresses?
 
 <!-- xgd-chat-end -->
