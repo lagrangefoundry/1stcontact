@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-18T01:12:30.376914+00:00'
+updated_at: '2026-09-18T02:03:10.693435+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -227,5 +227,14 @@ Whole workers project is green (127 files, 1166 tests). Waiting on the node proj
 Two real regressions found. Fixing:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="8971d3c8-89bf-4701-9767-1330861a79c6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:03:10.044581+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
