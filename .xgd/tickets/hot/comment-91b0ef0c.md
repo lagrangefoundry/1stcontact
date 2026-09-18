@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T21:11:50.674502+00:00'
+updated_at: '2026-09-18T21:15:47.533772+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -775,5 +775,66 @@ The probe script that produced the overlap evidence is at `.xgd/tmp/widthprobe2.
 <!-- xgd-chat role="user" ts="2026-09-18T21:11:50.417392+00:00" -->
 #### You
 Can you review the state of your children and remind me where we are - I would like to proceed with another iteration on Gigabyte Alchemy if we are ready...I am expecting that the overlap problem will be fixed this next time, right?
+
+<!-- xgd-turn id="b415c41a-ba6e-43ce-a522-1440c0260205-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T21:15:47.299910+00:00" -->
+#### Claude
+Checked the code and ran the gate rather than reading statuses. **Yes, ready — and yes, the overlap is genuinely fixed.** One command first.
+
+## Where the children are
+
+| | | |
+|---|---|---|
+| REQ-254 console · REQ-256 AI round · REQ-261 parser/resume · REQ-262 priming | `ready_to_reconcile` | landed |
+| **BUG-112** gate sees collisions | `ready_to_reconcile` | landed |
+| **BUG-113** served vs. graded document | `ready_to_reconcile` | landed, 3 commits, 8 pts |
+| **REQ-272** two decision points | `ready_to_reconcile` | landed |
+| **BUG-114** checks that cry wolf | `ready_to_reconcile` | landed |
+| REQ-255 rail · BUG-104 attribution | `free_coded` | landed |
+| DOC-53 session KB | `draft` | doc, complete |
+
+Eight of eleven are queued for reconcile — worth a pass at some point, doesn't block you.
+
+## The overlap: fixed, and I verified it rather than trusting the ticket
+
+I copied the gigabytealchemy bundle, refolded it and re-gated:
+
+```
+before refold:  off-sample  FAIL  (3 envelope findings)
+after  refold:  off-sample  PASS  (0 envelope findings)
+                on-sample   PASS  (0 at the captured widths)
+                sample-fidelity PASS, maxΔ 0.9px, 0 residuals
+```
+
+BUG-113 turned out to be two defects, not the one I described to you:
+
+- The five "overlaps at captured widths" I found were **the evaluator's own fault** — a text leaf pins no height, so it estimated one and over-counted a line on 14 of 53 leaves. The oracle has zero overlapping pairs. The gate now uses the oracle's measured heights.
+- **The real collision was between captured widths.** The fold classified `interpolate|snap` per node, so across 375→768 fifteen nodes held while fifty-five interpolated through layouts the page never renders. At 700px `control form-0-your-name` painted over "Join our mailing list for updates" — the thing you saw. A ladder window where any node reflows now holds for every node.
+
+And it **declined** to serve `promoteToFlow`'s output, with numbers: recovery clears all 287 findings but costs 318 fidelity residuals and maxΔ 1426px on a 1440px viewport. That's the 80%-faithful copy §2.1 rules out. The cost is now printed on every run instead of being an implicit choice.
+
+## One thing to know before you press the button
+
+The **stored bundle is stale** — its `l1.json` was folded before this fix, and the gate says so unprompted (`⚠ stale fold … run 1c refold`). It self-heals: every console iteration starts with a `refold` step, so iteration 1 of your next run picks up the new fold automatically. I only mention it because if you gate the reference by hand you'll see the old numbers.
+
+## What will still be red, and it's deliberate
+
+`content-robustness FAIL (287 findings)`. An absolutely-positioned page is fragile by construction; the only recovery we have costs more fidelity than it's worth. BUG-113 names the real gap — *a flow recovery that preserves horizontal geometry* — and explicitly defers it.
+
+**The brief doesn't tell the round any of that.** So expect the next round to spend its budget on content-robustness. That's arguably the right next target, but it will re-derive a conclusion already written down, and it's the one thing I'd consider priming before you spend $20.
+
+## To run
+
+```
+./bin/repro-rail record      # storage/rail/ still doesn't exist
+./bin/repro-console
+```
+
+The rail no longer says `REGRESSED` for a missing baseline (BUG-114 — it reads `NOT YET RECORDED` now), but it's still unarmed, and this is the run where the engine has changed most. Recording takes a few minutes and re-gates all three references.
+
+Then: type the site → **[reproduce]** → page goes idle with the links → you look → **[diagnose]** starts the AI → it files → **[the implementation has landed]** unlocks [run again]. Both your stopping points are in.
+
+Want me to append the round's expected-residual context to the brief, or record §13 on the epic before you start?
 
 <!-- xgd-chat-end -->
