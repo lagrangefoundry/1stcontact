@@ -6,9 +6,9 @@ title: 'repro console: a round says what KIND of thing it found — instrument d
   or capability gap'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:26.883729+00:00'
-updated_at: '2026-09-18T23:32:44.402101+00:00'
+updated_at: '2026-09-18T23:40:15.481802+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -155,7 +155,29 @@ round on the loaded site, with the ticket ids under each class, so "show me the
 capability queue" is a glance at the console as well as a `--filter` on the
 field.
 
+**The class registry.** `gap-tickets.json` — the console's own memory of what
+each residual class has already been filed as — records the classes alongside
+the ticket, unioned across rounds like the references and the iterations beside
+it. A later round appending to a class can discover that what looked like a fold
+bug also cannot be authored in L1, and the next round's prompt carries where a
+known class sits as well as what it is.
+
 **Drift.** The prompt carries the closed set generated from the code, so the
 round is never told a set the console will not accept. A test asserts every
 class in the code appears in the brief with its meaning, so the two cannot part
 company silently.
+
+## Where it landed
+
+- `tools/repro-console/src/defect-class.ts` — the set, the queues, the parse,
+  the grouping and the one-line split. New.
+- `tools/repro-console/src/console.ts` — the read-back of `fields.defect_class`,
+  the violation, the status line's clause and the cross-round panel.
+- `tools/repro-console/src/ai.ts` — `ReadTicket.defectClasses`, and the prompt
+  section that hands the round the set.
+- `tools/repro-console/src/page.ts`, `src/gaps.ts`, `brief/DIAGNOSE-THE-GAP.md`,
+  `README.md`.
+- `tests/test_UAT_FC_REQ-276_defect_class.test.ts` — ten UATs.
+- `tests/support/xgd-ticket-get.ts` — the shared `xgd ticket get --json` stub now
+  carries a valid class by default, so suites that are not about this check do
+  not trip its violation.
