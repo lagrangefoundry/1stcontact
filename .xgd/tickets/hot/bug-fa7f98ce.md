@@ -6,7 +6,7 @@ title: 'repro console: the round prompt says both "you file the ticket yourself"
   "you never file"'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:30:26.217135+00:00'
-updated_at: '2026-09-18T00:46:16.143967+00:00'
+updated_at: '2026-09-18T00:50:50.141157+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -172,3 +172,24 @@ npm test -- tests/test_UAT_FC_BUG-108_round_files_its_own_ticket.test.ts \
 you file yourself" and "You still do not file".
 **Right result (after):** only the first, and `bugTickets` is described as a list
 of ids the round filed.
+
+
+## Two further stale assertions found while implementing
+
+**`tools/repro-console/brief/DIAGNOSE-THE-GAP.md` §6** told the round to *take
+`<slug>` and `<iteration>` from "This round" below* and assemble the
+`--created-by` value itself. Now that the round context writes the literal value
+out, §6 points at it and says to copy rather than assemble. The general form and
+the reason for the flag stay where they were.
+
+**`tests/test_UAT_FC_REQ-261_loop1_rounds.test.ts`** —
+`test_UAT_FC_REQ_261_the_brief_asks_for_one_unbounded_ticket_and_for_bugs`
+asserted the prompt contains `` `bugs` ``. That string existed in exactly one
+place: the round context's "hand it back in `bugs`" — naming a field the closing
+block has never had (it is `bugTickets`, and it holds ids). The assertion is
+corrected to `` `bugTickets` ``, which is both the real field and the thing the
+test meant to pin.
+
+The new UAT also carries one guard assertion — that the prompt really contains
+the brief file on disk — so the suite cannot quietly start asserting against a
+default that has drifted from the reviewed document.
