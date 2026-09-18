@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:50:05.735687+00:00'
+updated_at: '2026-09-18T02:51:35.425208+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -861,5 +861,49 @@ These are very strange gaps to come up at this point can you review what we have
 This includes the UX for setting forwarding emails, we talked about this in detail 1 forwarding email to one or more destinations, one (optinional) catch all email - remember?
 
 It also includes the plumbing to capture emails and do the actual forwarding, of course
+
+<!-- xgd-turn id="5bced195-d8d6-4bee-96de-3060998a2eb0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:51:34.831285+00:00" -->
+#### Claude
+You're right to push. Let me check rather than assert.
+
+Checked. Your memory is right on both counts, and so was my answer — the confusion is that **the design is fully agreed and recorded; the ticket for it was never cut.** Nothing dropped. Here's the review.
+
+## 1. The pipeline — yes, built
+
+REQ-267 is `ready_to_reconcile`. Mail arrives at `email()` (`index.ts:729`) → `receiveMail` (`inbound.ts:306`) → resolves the business from the envelope recipient → `capture()` writes an `inbound_email` ticket and a contact event via `recordEvent(EMAIL_RECEIVED)` → then forwards. Order is deliberate: capture is wrapped in try/catch so a parse failure still forwards, and the handler never throws (a redelivery would double-write the ticket). Stranger → pending queue, no speculative contact. All of that is real.
+
+## 2. Resend vs Cloudflare — different directions, both needed
+
+This is the actual confusion, and it's a fair one.
+
+**Resend is outbound only.** The toggle you just fixed writes SPF, DKIM and a return-path — and I checked what `enableSending` actually publishes (`sending.ts:278`): the specs come straight from `resend.createDomain()`, plus an optional `_dmarc`. The only MX in that set is on **`send.<domain>`**, which is the bounce return-path, on a subdomain nothing else occupies. **Your apex MX is never touched.** That's the whole "blast radius is smaller than it looks" argument in `sending.ts`'s header — it's what makes the toggle safe to ship.
+
+**Inbound needs the apex MX**, and that's Cloudflare Email Routing. Resend does not receive mail. So the two are orthogonal, not redundant: Resend gets your mail accepted when you send; Email Routing is what makes mail *to* you reach our Worker.
+
+And **nothing in this repo provisions Email Routing.** I grepped for it — zero API calls. That's REQ-267 §10: *"No cutover integration. Writing Routing into a pending zone is ticket 3."*
+
+## 3. The forwarding UX — agreed in detail, never ticketed
+
+Exactly as you remember, in the epic at §"Settings, and the minimum configuration that makes cutover safe":
+
+> **forwarding table** — N rows, local-part → one or more destinations; ~20 is the cap
+> **destination verification** — Cloudflare requires each destination to confirm by link
+> **catch-all** — on/off plus destination
+
+Plus: `noreply@` refused, `info@` discouraged; catch-all off by default steady-state but **on through cutover**; destination read from configuration and never from a header; a destination pointing back at the same domain refused outright as a mail loop.
+
+EPIC-13's children are **REQ-267 and REQ-263, and that is all**. Item 2 of the cut — *"Email configuration in Settings. Forwarding table, destination verification, catch-all"* — is listed as proposed and has no ticket. REQ-267 §10 names it as deliberately excluded.
+
+## Three things I found while checking that you should see
+
+**`forward_to` cannot express the agreed design.** Migration 0015 added a single `TEXT` column with the comment *"One domain, one destination, one row."* The agreed design is N local-parts each to one-or-more destinations. So that column is at best the catch-all destination — ticket 2 needs its own table and migration, not a writer for this column. Worth deciding explicitly rather than discovering during implementation.
+
+**Inbound is currently gated on outbound.** `businessOfDomain` resolves the recipient by `SELECT ... FROM sending_domains WHERE domain = ?`, and the only INSERT into that table is in `enableSending`. So a business that never turns the Resend toggle on **cannot receive mail at all** — the Worker rejects with a permanent SMTP error. That directly contradicts the cutover ordering you recorded (*"basic email config before switching the DNS so that email is always up"*), where inbound must work first and send-as follows later.
+
+**Three separate things must land before forwarding works end to end**, and only one is UI: the Settings surface, the Email Routing provisioning (ticket 3), and the schema above.
+
+Want me to scope ticket 2 now? Since the design is already settled in the epic body, it's mostly transcription plus resolving the two schema questions — the table shape, and whether inbound should stop depending on `sending_domains`. I'd keep Routing provisioning in ticket 3 as cut, unless you want them merged, which is arguable given neither is useful alone.
 
 <!-- xgd-chat-end -->
