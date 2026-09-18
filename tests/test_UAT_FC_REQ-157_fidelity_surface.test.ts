@@ -921,12 +921,25 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
     // reconciliation asks for it instead of letting a caller forget. Empty here
     // is a claim — these fixtures are about the verdict ladder, and none of them
     // renders an object the reference does not have.
-    const noDeltas = { deltas: [], matched: 40, unmatched: 0, unpairedActual: [] }
+    // BUG-111 — the band-pairing counts are REQUIRED on the input for the same
+    // reason `unpairedActual` is: an unpaired band is not a delta, so a type that
+    // cannot carry it drops the fact entirely. Empty on both sides here — these
+    // fixtures drive the verdict ladder, and every one of them segments the same.
+    const noDeltas = {
+      deltas: [],
+      matched: 40,
+      unmatched: 0,
+      unpairedActual: [],
+      unpairedSections: [],
+      unpairedActualSections: [],
+    }
     const deltas = {
       deltas: [{ property: 'color' }, { property: 'fontSizePx' }] as never,
       matched: 30,
       unmatched: 2,
       unpairedActual: [],
+      unpairedSections: [],
+      unpairedActualSections: [],
     }
 
     const verdicts = {

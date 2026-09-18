@@ -730,16 +730,20 @@ export function formatReport(report: ValuesDiffReport): string {
   if (report.sectionsNotComparable) {
     lines.push('')
     lines.push(`  ⚠ SECTIONS NOT COMPARABLE  ${report.sectionsNotComparable}`)
-  } else {
-    const unpairedSections = report.sectionPairing.filter((s) => !s.actualLabel)
-    if (unpairedSections.length > 0) {
-      lines.push('')
-      lines.push(
-        `  ⚠ UNPAIRED SECTIONS  ${unpairedSections.length} reference section(s) had no overlapping repro band ` +
-          `(a segmentation mismatch, not a value delta):`,
-      )
-      for (const s of unpairedSections) lines.push(`      ${s.label} ${bandLabel(s.box)} — no counterpart band`)
-    }
+  } else if (report.unpairedSections.length > 0 || report.unpairedActualSections.length > 0) {
+    // BUG-111 — read from the report's own counts rather than re-deriving them from
+    // `sectionPairing` here, so this text and the gate's rung can never disagree
+    // about how many bands went uncompared. The repro side is new: it was visible
+    // nowhere at all, and a page that segments DIFFERENTLY rather than more coarsely
+    // has bands on both sides with no counterpart.
+    lines.push('')
+    lines.push(
+      `  ⚠ UNPAIRED SECTIONS  ${report.unpairedSections.length} reference section(s) had no overlapping repro band · ` +
+        `${report.unpairedActualSections.length} repro band(s) had no reference section ` +
+        `(a segmentation mismatch, not a value delta):`,
+    )
+    for (const s of report.unpairedSections) lines.push(`      ref only    ${s.label} ${bandLabel(s.box)}`)
+    for (const s of report.unpairedActualSections) lines.push(`      repro only  ${s.label} ${bandLabel(s.box)}`)
   }
 
   // Stale-reference warning — reference objects paired with a repro that HAS box

@@ -95,6 +95,7 @@ export type {
   ObjectCard,
   UnpairedObject,
   SectionPairing,
+  UnpairedSection,
   DiffOptions,
   StateProjection,
   MultiStateCapture,
