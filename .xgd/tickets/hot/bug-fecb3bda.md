@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-c5a61044
 ---
 
 Parent: [[EPIC-19]]. Reported by the builder assistant in conversation on
