@@ -6,10 +6,10 @@ title: 'values-diff: role and a11yRole are never compared, so 11 lost headings r
   as zero deltas'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:29:41.453973+00:00'
-updated_at: '2026-09-17T23:29:41.453973+00:00'
+updated_at: '2026-09-18T00:46:44.782175+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
