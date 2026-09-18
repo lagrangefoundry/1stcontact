@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T20:33:35.614107+00:00'
+updated_at: '2026-09-18T20:36:03.554104+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -209,5 +209,15 @@ Keys should always be fixed independent and usually SHAs. Can you create a ticke
 (1) ensure that the data model has an immutable (non-data) key for business and sites
 (2) update the code to use that key rather than the site name
 (3) fix the any prod data that would be confused by this
+
+<!-- xgd-turn id="1bbcc938-b581-43f1-9399-7a4c7bfc4485-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T20:36:03.151617+00:00" -->
+#### You
+Keys should always be fixed independent and usually SHAs. Can you create a ticket to fix this please I think I need: (1) ensure that the data model has an immutable (non-data) key for business and sites (2) update the code to use that key rather than the site name (3) fix the any prod data that would be confused by this
+
+Or am I misreading it looks like this was maybe fixed - your last chat sessiona appears to point to a proper key, yes? In which case I need the data fix `chat-d73a11e1`  transcript pointed at `chat-50932534`
+
+This also needs fixing for any other sites in this state
 
 <!-- xgd-chat-end -->
