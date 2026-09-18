@@ -6,9 +6,9 @@ title: 'capture/fold/values-diff: a band background is fabricated when transpare
   compared by nothing, and wrong on the hero'
 created_by: repro-console:repro-gigabytealchemy-ai#3
 created_at: '2026-09-18T02:07:55.647301+00:00'
-updated_at: '2026-09-18T02:49:38.322552+00:00'
+updated_at: '2026-09-18T03:07:31.436023+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -16,6 +16,8 @@ fields:
   priority: medium
   chat_comment: comment-307fc4a8
 ---
+
+
 
 Loop 1, iteration **3** of `repro-gigabytealchemy-ai` against the stored bundle
 `storage/references/gigabytealchemy.ai/index`.
@@ -469,3 +471,164 @@ jq -c '.root.children[] | select(.id=="section-band-0") | .axes' \
 
 The perceptual gate must not move: mean stays at 0.31/255 and the region count
 at 10, because the plate was never visible.
+
+---
+
+# What landed
+
+All three issues are implemented. Everything below is behaviour this ticket now
+asserts, including the parts that are a technical consequence of what was asked
+rather than asked for directly.
+
+## Issue 1 — a band that paints nothing is recorded as painting nothing
+
+**`tools/generate/src/cli/capture/extract.ts`** — neither band path launders
+`rgbToHex`'s `null` into `bodyBg` any more. `RawBand.backgroundColor` is the
+band's **own** painted fill, or `null` when it paints none. A band that paints
+nothing and a band that paints white are now different records.
+
+**`colorScheme` is read off the backdrop, not off the fabrication.** The scheme
+was decided from the same laundered value, so a `<header>` whose only runs sit
+over a dark photograph under a 30 % navy scrim came out `light`. It is now
+`surfaceFillOf(bandElement) || bodyBg` — the existing helper that composites
+down the *geometric* surface chain, so a sibling that merely sits behind the
+band counts (exactly the header-over-hero shape) and a band that paints its own
+fill still reads that fill first. `bodyBg` survives only as the last resort: a
+page that paints nothing anywhere is read against the UA's own canvas.
+
+**`background.kind: 'none'` is the projection.** `{ kind: 'color' }` with no
+colour would read as a value the bundle *lost*; `none` is the positive assertion
+that the absence was measured. This is the option the ticket offered above, and
+it is the one that makes "no fill" mean something to the fold and to the diff.
+An image band with no base colour keeps `kind: 'image'` and simply carries no
+`color`.
+
+### A capture-schema bump, and why this ticket needs one
+
+The stored bundles in this project were all taken before the fix and every one
+of them asserts an opaque fill for bands that paint nothing. Reading those
+values as measurements is exactly the false-delta trap the ordering note above
+warns about — so the honest band fill is registered as **capture schema 3**
+(REQ-270's existing mechanism), with an entry in `CAPTURE_SCHEMA_AXES` naming
+`background.kind: "none"` as an axis today's extractor records. A bundle behind
+schema 3 is named in `staleCaptureDetail` like any other stale axis, and its
+band colours are treated as **unmeasured** rather than as measurements
+(see issue 2). This is a technical consequence of issue 1, not a separate
+intent: without it, landing issue 2 fires a false delta for every transparent
+band in every retained bundle.
+
+## Issue 2 — a band's fill is compared
+
+**`SectionValues.surfaceFill?: string | null`** — the band's base fill.
+Three-valued on purpose:
+
+- a hex — the band paints this;
+- `null` — the band paints nothing, measured;
+- `undefined` — **unmeasured**, which is the honest answer for a bundle older
+  than capture schema 3. An unmeasured axis is skipped rather than compared
+  against a stand-in, exactly as an unpaired section is.
+
+Projected on the reference side from `capture.json` `sections[].background.color`
+(schema-gated as above) and on the reproduction side from
+`RawBand.backgroundColor`, which the live extractor had measured all along and
+nothing had ever projected.
+
+**Compared in the per-section pass**, next to `overlay`, reusing the existing
+element-level `surfaceFill` delta property — a wrong band fill reads as the
+colour defect it is, with `colorDistance` against `colorTolerance` when both
+sides paint, and an unconditional delta when one paints and the other does not.
+
+`backgroundImageUrl` needed no work here: REQ-270's `backgroundImage` section
+comparison had already landed by the time this was implemented.
+
+**Repro-only band paint stops being noise.** An L1 render paints each band as a
+real full-bleed box, so the same fact arrives twice on the reproduction side —
+once on the band record and once as a `role: "generic"` element that can never
+pair, because the reference side has nothing for it to pair with. A textless
+leftover that is full-bleed and coincides with a band's own box to within a
+pixel of layout noise is recognised as band paint and left out of the
+"paired with nothing" tally, which the section pass now compares directly. A box
+that merely *sits on* a band, or a layer with its own geometry (the hero
+photograph inside a taller fill), is still reported.
+
+**The recognition is in the diff's reporting, not in the manifest.** The first
+implementation dropped these elements at projection time, in `flattenSignals` —
+which is wrong, and would have been a silent regression: a full-bleed textless
+box is exactly what the fold reads to rebuild a **backdrop** (BUG-27), so on a
+page-builder site whose panels are nested inside one wrapper it would have taken
+a hero photograph out of the fold's input. The manifest stays faithful to what
+was painted; only the tally stops double-counting a fact that already has a
+counterpart.
+
+**And whatever is left unpaired can be found.** `UnpairedObject` carries `box`
+and the actual-manifest `index`. `{label, role, kind}` reduced an untexted box
+to `(generic)/generic/box`: a count, not a finding.
+
+## Issue 3 — the fold never adopts a scrim colour as a band base
+
+**`tools/generate/src/l1/fold.ts`** — `buildSolidBands` no longer takes a run
+group's fill as the band's base when that fill *is* the scrim over the band.
+The two are distinguishable at fold time because the capture carries them
+separately (`overlay` beside the band's own fill). When the group fill equals
+the overlapping section's overlay colour, the base is whatever the band itself
+paints:
+
+- a measured colour → carry it;
+- measured as nothing (`null`) → the band paints nothing, so **no band node is
+  emitted at all**. A box with no fill paints nothing; emitting one carrying no
+  `surfaceFill` would be dead weight in the document and in the page-base
+  calculation. This is the ticket's "carries no `surfaceFill`", taken to its
+  conclusion.
+- unmeasured (`undefined` — a pre-schema-3 bundle) → also omitted. An unmeasured
+  fill is not a licence to keep the scrim colour.
+
+Verified against the retained bundle by re-folding a copy of it: `section-band-0`
+(`{"surfaceFill":"#030717"}`, the whole 800px hero) is gone, `section-bg-0` keeps
+`"overlay":{"color":"#030717","opacity":0.3}` unchanged, the document's own
+`background` stays `#e8dfd3`, and that band node is the *only* difference in the
+folded L1 (70 nodes → 69).
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-271_band_surface_fill.test.ts`, with
+`tests/fixtures/capture/req271-transparent-bands.html` — a reference-shaped page
+with a transparent `<body>`, a transparent absolutely-positioned `<header>` over
+a hero `<section>` that paints a photograph under a separate 30 %-alpha scrim
+element, and a cream section below.
+
+Browser legs drive a real headless Chromium over an ephemeral loopback server
+and skip cleanly where no browser can launch:
+
+- a transparent band records `kind: 'none'` with no colour, the hero records
+  `kind: 'image'` with no base colour and its scrim intact, a band that really
+  paints a fill still records it, and `#ffffff` is asserted nowhere;
+- the transparent header's `backgroundColor` is `null` and its `colorScheme` is
+  `dark`, while the cream band below still reads `light`;
+- an L1 render's band boxes (`req270-hero-layers.html`) reach
+  `sections[].surfaceFill`, remain in the manifest the fold reads, and are not
+  reported as repro objects that matched nothing — while the inner photograph
+  layer, which has its own geometry, is still both in the manifest and reported.
+
+Browser-free legs drive the real projection / diff / fold entry points:
+
+- a `null` band fill projects as `kind: 'none'`; a real white still projects as
+  `color`; an image band drops only the invented colour;
+- a pre-schema-3 bundle is named as unable to express the axis, and one that
+  demonstrably carries it is not;
+- both sides project `surfaceFill`, and a stale bundle leaves it `undefined`;
+- a wrong band fill is exactly one `§n surfaceFill` delta ( `(none)` → `#030717`,
+  the gigabytealchemy case), agreement is none, and an unmeasured side is skipped;
+- an unpaired object carries its box and manifest index;
+- a full-bleed box coinciding with a band is not counted as unpaired, while one
+  standing on the band, or sharing its top with its own height, still is;
+- a band whose only fill is its scrim emits no band node while the
+  `section-bg` box keeps the overlay at its real opacity; a band with a fill of
+  its own under a *different* scrim keeps that fill;
+- the retained gigabytealchemy ladder folds with no `#030717` plate (skipped in
+  a checkout that does not retain the bundle).
+
+Regression scope: the capture / fold / values-diff suites (`capture`, `bug13`,
+`bug14`, `bug15`, `bug19`, `bug24`, `bug27`, `req31`, `req35`, `req47`, `req53`,
+`req63`, `req83`, `req88-l1-repro-pipeline`, `req92-fold-full-language`,
+`reconciliation-l1-fold*`, `BUG-102`, `BUG-107`, `REQ-269`, `REQ-270`) plus the
+whole `node` vitest project.

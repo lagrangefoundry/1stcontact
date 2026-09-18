@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-18
 created_by: xgd
 created_at: '2026-09-18T02:34:28.344861+00:00'
-updated_at: '2026-09-18T02:45:27.126552+00:00'
+updated_at: '2026-09-18T03:16:26.056334+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -137,5 +137,68 @@ The consequence worth naming: REQ-235 built `log.ts` — raw store, D1 sink, ret
 That gives EPIC-18: the adopted raw tier and sink · the Tail Worker access log and `TraceItem` mapping · `public-site`, which has no `[observability]` block at all · the ladder and the R2 archive · the per-business debug switch with its `until` expiry · the operator/AI query surface · the 38 unconverted `console.*` sites · the practice doc.
 
 Shall I write that up as EPIC-18's body, titled **"Logging"**? The one thing I'd want your call on first: do you want §43 Q1 *decided in the epic* (my recommendation above, with route-normalisation pulled forward as its own early requirement), or stated as the open decision that blocks the ladder child?
+
+<!-- xgd-turn id="cf55f9ca-dde3-40fb-8f36-dca5cbe9672a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:54:44.510572+00:00" -->
+#### You
+OK I assume (1) the time periods are configurable - if we want to adjust how long we keep logs we can (2) what business model in cloud flare does this trigger? (3) what is the motivation for 400d?
+
+<!-- xgd-turn id="cf55f9ca-dde3-40fb-8f36-dca5cbe9672a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:55:51.635874+00:00" -->
+#### Claude
+Checked all three against the code and the ticket. Two of the three answers are "not as assumed".
+
+## 1. No — the periods are hardcoded
+
+`log.ts:335` and `:355`:
+
+```ts
+export const LEVEL_HORIZON_MS: Record<string, number> = {
+  debug: 7 * DAY_MS,  info: 30 * DAY_MS,
+  warn: 180 * DAY_MS, error: 180 * DAY_MS,
+}
+const KIND_HORIZON_MS = { [KINDS.CLIENT]: { debug: DAY_MS, info: 7 * DAY_MS } }
+```
+
+Module constants. Nothing reads `env`. The only runtime knob in the whole logging path is `env.LOG_LEVEL` (a single global verbosity floor — not per-business, no expiry). Changing how long we keep logs is a code edit and a deploy.
+
+That's a drift from the design, not just an omission. EPIC-1 §23 lists retention as one of the five seams and is explicit that it is **data, not code** — *"the framework owns the vocabulary; the host owns the values"* — and §27 puts "retention values" in 1c's column as *"a deployment policy"*. As shipped, the deployment policy is compiled into the deployment. Worth EPIC-18 owning: the band becomes configuration, which is also the natural home for the per-business debug switch, since both are "a level/horizon looked up at runtime rather than baked in".
+
+## 2. Cloudflare: Workers Paid, and nothing on this list reaches Enterprise
+
+Verified figures are EPIC-1 §16/§25, fetched 2026-09-13. §25's stated constraint is *"small consumer-level spend, and nothing here may become the thing that forces Enterprise."*
+
+**What's already built costs no new product.** D1 store + console sink. Workers Logs is on at `head_sampling_rate = 1` on control-app, inside the 20M events/month included.
+
+**What EPIC-18 adds, and what each triggers:**
+
+| Piece | Gate | Cost |
+|---|---|---|
+| Tail Worker (the access log) | **Workers Paid** | CPU time only, not per-request |
+| R2 archive | Workers Paid | R2 storage; or via Trace Events Logpush — 10M req/mo included, then $0.05/M |
+| Analytics Engine | Workers Paid | rejected for the raw layer by REQ-235; stays available for EPIC-8's counters |
+| Zone Logpush / Log Explorer | **Enterprise** | ruled out, and §25 argues we lose nothing — the Tail Worker record is richer and scoped to the Worker |
+
+So: the whole epic sits inside Workers Paid. The one genuine cost trap is **Analytics Engine reads at $1.00/M against $0.25/M for writes** — 4×. A tenant metrics pane that queries AE live on every page load is the expensive pattern, which is why EPIC-1 §18 says rollups into D1 are *the design, not an optimisation*.
+
+**One gap I'd flag:** EPIC-1 §16 verified Workers Logs, Tail Workers, Logpush and AE against the docs — it did **not** verify D1, which is the store REQ-235 actually chose. D1 bills on rows written and storage, and we are now writing at least one row per invocation with a 180-day warn/error band. At current scale that's almost certainly inside the included allowance, but it's the one number in this design nobody has checked, and it's the one attached to the store we're committed to. Worth pinning before the ladder adds rollup rows on top.
+
+## 3. 400d has no stated motivation — anywhere
+
+I went looking. `400` appears four times in EPIC-1 (§35 twice, §42, §43) and every one is a bare number in a table. It is asserted and never argued, which is unusual for that document and probably means it was reached for rather than reasoned to.
+
+The reconstruction that makes sense — mine, not the ticket's: **400 days ≈ 13 months**, one month past a year. That's the number that makes year-over-year comparison actually work, because on any given day you can still reach the same day last year *with margin* for a late rollup, a missed cron, or a question asked a few weeks after the period it's about. 365 alone fails on the day you need it. It's also roughly the industry convention for the same reason — GA4 caps user-data retention at 14 months, Search Console keeps 16.
+
+But the sharper point, connecting to your last question: **400d is the hourly tier, and under §42 the hourly tier is the only place `route` and `event` exist.** So 400d isn't really a storage number — it's the answer to *"how long can anyone ask which endpoint was slow, or which error was spiking."* That's why Q1 and the 400 are the same decision wearing two hats. If the daily tier kept `event` and a normalised `route`, 400d stops being load-bearing and becomes an ordinary cost knob — which, per §1 above, it should be configuration anyway.
+
+Given all three: I'd add **"retention is configuration, not constants"** to EPIC-18's scope as a near-term item, alongside the route normalisation. Both are cheap now, both get more expensive once the ladder is folding rows against them. Want me to write the body up on that basis?
+
+<!-- xgd-turn id="fe3674b7-5ba2-4070-9275-be2f2402c7e9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:16:25.523175+00:00" -->
+#### You
+Yeah can you put an addendum on EPIC-1 and I will follow up to get that implemented as config. On our side lets understand the cost profile - not a short term issue but worth knowing - what will it cost me for a few thousand hits a month how will that ramp?
 
 <!-- xgd-chat-end -->
