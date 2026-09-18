@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T02:09:39.381553+00:00'
+updated_at: '2026-09-18T02:23:29.361004+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -727,5 +727,11 @@ I'd file four children under EPIC-12, all testable:
 4. **`ready_*` check narrows to round-filed tickets** — plus record the rail baseline. Test: promoting a ticket by hand during a round produces no violation; a round filing at `ready_*` still does.
 
 Say the word and I'll create them. Nothing committed — investigation only.
+
+<!-- xgd-turn id="5cc3a1dd-af6d-4991-876d-81273943e60f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:23:28.940265+00:00" -->
+#### You
+Yes please
 
 <!-- xgd-chat-end -->
