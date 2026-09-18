@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:41:13.725156+00:00'
+updated_at: '2026-09-18T23:42:48.576846+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -732,5 +732,42 @@ Tell me which and I'll file it — it's a small, well-bounded REQ.
 <!-- xgd-chat role="user" ts="2026-09-18T23:41:13.111498+00:00" -->
 #### You
 Yeah I agree MATERIAL is a bit vague is that really what we called the tickets? I mean I would like to say IMAGE-5, DOC-7 but yes this is not too technical
+
+<!-- xgd-turn id="136f3b90-7863-4bc0-ab7d-8add96b2252b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:42:47.303368+00:00" -->
+#### Claude
+**Yes, that's really the ticket type** — but it's the *type*, not the kind. There's one ticket type `material` covering everything the client gives you, and `kind` (`image` / `font` / `document` / `capture`) is a field on it. `human_id` is minted per ticket type, so you get MATERIAL-n.
+
+And `material` is the right type name — it genuinely is "what the client gave us", whether that's a photograph or a brand book. It's just the wrong thing to put in front of a person.
+
+## So: keep the number, change the prefix
+
+Derive the label from `kind`, over the number the ticket already has:
+
+| kind | label |
+|---|---|
+| `image` | `IMAGE-12` |
+| `document` | `DOC-7` |
+| `font` | `FONT-3` |
+| `capture` | `CAPTURE-2` |
+
+Your Library is currently 13 images and 9 documents, so those two are what you'd actually see.
+
+**Why reuse the existing number rather than mint a per-kind sequence:** no second counter, no migration; the number stays globally unique across kinds, so `IMAGE-12` and `DOC-12` can never both exist; `MATERIAL-12` stays recoverable for debugging because it's the same number; and reclassifying an item relabels it without renumbering.
+
+**The cost, so you're choosing it rather than discovering it:** per-kind numbering won't be dense. You'll see `IMAGE-3`, `IMAGE-6`, `IMAGE-13` — not 1, 2, 3. Catalogue and invoice numbers behave that way and it reads as normal, but if you want dense per-kind numbering that's a second counter and a migration, and better decided now.
+
+Filed as **REQ-280**, with three things it has to do or it isn't shared:
+
+1. the catalogue item the consultant reads
+2. the Library row you read — and matchable by the row filter
+3. **as an input the consultant accepts**, so you can say "use IMAGE-5" and it resolves without translation
+
+(3) is the one that's easy to drop and is the whole point. It's also nearly free: `aliases` already exists and `haystack` already searches it.
+
+The uid stays as the machine handle — `library.ts:55` warns that changing it is "the drift in miniature", and it's persisted in stored edit recipes.
+
+One thing I wrote down explicitly: your "not too technical" ruling makes this a **carve-out from the priming's no-framework-vocabulary rule**, so the consultant may say `IMAGE-5` to a client. Recorded as a deliberate exception, so a later pass over the priming doesn't read it as a violation to clean up.
 
 <!-- xgd-chat-end -->
