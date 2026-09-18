@@ -6,9 +6,9 @@ title: 'values-diff: role and a11yRole are never compared, so 11 lost headings r
   as zero deltas'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:29:41.453973+00:00'
-updated_at: '2026-09-18T00:46:44.782175+00:00'
+updated_at: '2026-09-18T00:51:58.184966+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -89,6 +89,59 @@ A reader is told the reproduction has seven unpaired form controls.
 - Add a `box`/`surface` bucket to `objectKindOf` so a painted textless box is
   not presented as a control.
 
+## What was built
+
+**1. `a11yRole` is a first-class diffed property.** A new `semantics` delta kind
+holds it, tiered **HIGH** and leading the HIGH band. HIGH rather than CRITICAL
+because CRITICAL is reserved for a diff that cannot be trusted (`viewport`),
+content that is absent (`presence`, `text`), or structure that visibly
+re-composed (`arrangement`, `containment`) — a role regression is none of those.
+It ranks above every tonal and treatment axis because it is structural, and it
+is **Type A**: a role is authored (emit a heading element), so the repair is to
+copy the reference's value into place, not to measure a residual.
+
+Compared on the text pass only. A text-free field *joins* on `a11yRole` (it is
+the pairing queue's key), so comparing it there could only ever report equality.
+Guarded on both sides carrying the field, so a manifest captured before the role
+existed stays inert rather than reporting every one of its runs as a regression.
+
+**2. `headingLevel` is compared alongside it.** A technical consequence of (1)
+rather than a separate ask: `a11yRole` reports the single word `heading` for all
+six tags, so an `h2` reproduced as an `h4` agrees on the role word while building
+the wrong outline — exactly the class of loss this ticket is about, and the next
+one to go silent once (1) lands. Same `semantics` kind; the `property` still
+distinguishes "wrong role" from "right role, wrong depth". Compared only when
+both sides recorded a level (absent on every non-heading and on pre-REQ-269
+bundles).
+
+**3. The role is a row on the object card**, leading the `text` parameter table
+ahead of the typography that merely dresses the run. The card is the primary
+human read, so a lost heading has to be visible there and not only in the flat
+list.
+
+**4. `box` is a new `ObjectKind`,** and `objectKindOf` now decides `control` from
+a positive set of interactive a11y roles (textbox, button, checkbox, link, …)
+rather than by falling through to it. The old default was the inverse — anything
+textless that was not an image or a separator was a control — which is why seven
+painted bands were reported as seven unpaired form controls. An unrecognised
+explicit `role=` on a painted div now reads as a box, which is the safe
+direction.
+
+**5. A `box` card reports its painted fill and background image** (`surfaceFill`,
+`backgroundImage`, `box`) — a band has no name and no typography; its fill is its
+whole visible substance. That required extending the `surfaceFill` comparison to
+the textless pass, where it had never run: the fill was only ever compared where
+a *text run* sat on top of it, so a textless band painted the wrong colour
+reported its geometry, matched, and said nothing. Without this the new row would
+have rendered a value it never checked — the same defect this ticket is about, in
+a new place.
+
+**6. A stale assertion in `tests/req51-object-grouped-report.test.ts` is
+corrected.** `placeholderColor` joined the control parameter table with REQ-265
+and that test stayed pinned to the pre-REQ-265 list, so it had been red on a
+clean tree since. Fixed here because this change edits the same table and would
+otherwise leave a red test that reads as its own.
+
 ## How to see it, and how to know it is fixed
 
 ```
@@ -108,6 +161,38 @@ reproduction's has neither, and `deltas: 0`; `unpairedActual[0]` is
 
 **Right result (fixed):** the same manifests produce 13 `a11yRole` deltas
 naming each heading and link, and the unpaired band boxes are reported as boxes.
+
+**Measured after the fix**, re-diffing those exact two manifests:
+
+```
+deltas 13 {"a11yRole":13}
+unpaired kinds box,box,box,box,box,box,box
+A Different Approach: heading->generic   … (11 headings)
+LinkedIn: link->generic
+GitHub:   link->generic
+```
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-107_semantic_role_diff.test.ts` — pure, browser-free,
+manifests built in code:
+
+- a lost heading and a lost link each raise one `a11yRole` delta, and the body
+  run whose role agreed raises none (the axis adds no noise); each delta is
+  `HIGH` / `semantics` / Type `A`
+- the role is the first row on the text object card, flagged, and reaches
+  `formatReport`; a run with the right role keeps `deltaCount: 0`
+- the axis is inert when either side never captured the role
+- `h2 -> h4` raises a `headingLevel` delta when the role word agrees; equal
+  depths raise none
+- an unpaired painted band reads as `box`, while a `textbox` still reads as
+  `control`
+- a `box` card carries `['surfaceFill', 'backgroundImage', 'box']`, flags a
+  wrong fill and raises a `surfaceFill` delta; an equal fill raises none
+
+Regression scope: the 22 suites that exercise `diffManifests` (req31/35/47/48/
+51/53/56/58/59/62/63/265, bug15/20/22/27/102, REQ-269, the reconcile-values-diff
+set) — all green, plus the REQ-265 assertion above repaired.
 
 Related: REQ-269 issue 4 (L1 has no way to author a heading, which is what the
 deltas would be asking for) and issue 5 (the band boxes above).
