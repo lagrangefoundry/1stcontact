@@ -940,6 +940,23 @@ const AI_TICKETING_EXPORTS = [
   'TicketToolbox',
   'WRITE_GROUP',
   'instanceConfig',
+  // THE SECOND DECLARATION THE SAME PACKAGE SHIPS ([[REQ-273]]) — surface
+  // `development`, over the project that BUILDS this product rather than the
+  // tickets it holds for a client. Four more names and no more, for the reason
+  // the four above are four: the declaration (so the note this product appends
+  // to its overview amends the shipped text rather than replacing it), the
+  // surface class, the configuration builder, and the group constant — so that
+  // `FileDevelopmentTickets` is read from the bridge's own vocabulary rather
+  // than spelled as a literal in `development.ts`.
+  //
+  // THE `./node` REACH IS STILL NOT NAMED, and the shim still resolves the
+  // package ROOT. `XgdProject` spawns a subprocess and belongs to `1c`'s filing
+  // service; the Worker holds an HTTP client to that service and imports
+  // nothing that could pull `node:child_process` into the bundle.
+  'DEVELOPMENT_DECLARATION',
+  'DevelopmentToolbox',
+  'FILE_GROUP',
+  'developmentInstanceConfig',
 ] as const
 
 /**
