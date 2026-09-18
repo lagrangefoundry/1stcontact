@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T22:30:14.036455+00:00'
+updated_at: '2026-09-18T22:30:49.560736+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -503,5 +503,11 @@ Can we actually have a generated picture appear in the chat flow?
 <!-- xgd-chat role="assistant" ts="2026-09-18T22:30:13.178179+00:00" -->
 #### Claude
 Let me check — there are traces in the code suggesting some of this already exists.
+
+<!-- xgd-turn id="aac1083f-868c-4e17-b4d4-1dbd96cfe350-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T22:30:47.813198+00:00" -->
+#### You
+This might be an option for the AI, but I think it is usually the right thing - right now I have to switch to the library to see the image we just created.
 
 <!-- xgd-chat-end -->
