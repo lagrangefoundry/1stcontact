@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-18
 created_by: xgd
 created_at: '2026-09-18T02:34:28.344861+00:00'
-updated_at: '2026-09-18T02:55:52.348618+00:00'
+updated_at: '2026-09-18T03:16:26.056334+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -194,5 +194,11 @@ The reconstruction that makes sense — mine, not the ticket's: **400 days ≈ 1
 But the sharper point, connecting to your last question: **400d is the hourly tier, and under §42 the hourly tier is the only place `route` and `event` exist.** So 400d isn't really a storage number — it's the answer to *"how long can anyone ask which endpoint was slow, or which error was spiking."* That's why Q1 and the 400 are the same decision wearing two hats. If the daily tier kept `event` and a normalised `route`, 400d stops being load-bearing and becomes an ordinary cost knob — which, per §1 above, it should be configuration anyway.
 
 Given all three: I'd add **"retention is configuration, not constants"** to EPIC-18's scope as a near-term item, alongside the route normalisation. Both are cheap now, both get more expensive once the ladder is folding rows against them. Want me to write the body up on that basis?
+
+<!-- xgd-turn id="fe3674b7-5ba2-4070-9275-be2f2402c7e9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:16:25.523175+00:00" -->
+#### You
+Yeah can you put an addendum on EPIC-1 and I will follow up to get that implemented as config. On our side lets understand the cost profile - not a short term issue but worth knowing - what will it cost me for a few thousand hits a month how will that ramp?
 
 <!-- xgd-chat-end -->
