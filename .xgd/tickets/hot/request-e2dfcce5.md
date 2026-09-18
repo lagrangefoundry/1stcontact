@@ -14,6 +14,7 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-cdb69fd6
 ---
 
 Loop 1, iteration **2** of `repro-gigabytealchemy-ai` against the stored bundle
