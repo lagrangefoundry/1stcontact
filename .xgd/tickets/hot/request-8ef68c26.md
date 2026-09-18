@@ -6,9 +6,9 @@ title: 'The activity log: a raw server-side event store, and session summaries o
   the contact timeline'
 created_by: EPIC-10
 created_at: '2026-09-13T21:15:53.631580+00:00'
-updated_at: '2026-09-18T00:47:32.388234+00:00'
+updated_at: '2026-09-18T01:05:42.999495+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -164,7 +164,35 @@ probe produces invocations like any other, so without a position here [[EPIC-8]]
 aggregates count synthetic hits as visitors: [[DOC-54]] §3's named failure, *"the number is
 wrong in the flattering direction"*, in the one store the contract was never applied to.
 The raw record therefore carries the mark, and every customer-visible aggregate over it
-excludes it by default.
+excludes it by default. The mark rides the request rather than any call site ([[DOC-54]]
+R2's rule is *no call site supplies the flag*), so a probe's records are marked without a
+single `logger.info(...)` growing a parameter — and the reader reaches the exclusion
+through `Scope`, which is the field every other read in this system already takes.
+
+**Two sinks, and the console one is not a fallback.** Workers Logs reads severity off the
+console channel and it is the channel the deployment already has enabled, so that record is
+what an operator reads while the store is being built and what they still read when the
+store is down. The package's `fanout` guarantees a sink that throws neither reaches the
+caller nor stops the one after it, which is what "logging cannot fail a request" requires
+of two sinks rather than one. A store that is unavailable therefore costs the invocation
+nothing at all.
+
+**Buffered per invocation, with a ceiling.** A sink's `write` is synchronous by contract
+and a D1 write is not, so records are held and drained in one batch through
+`ctx.waitUntil`. The buffer has a ceiling; what is dropped is the tail, and the drop is
+itself recorded as a `warn`, because a silently truncated log is worse than a short one.
+
+**Two readers ship with it, and neither is a surface.** `readRecords` pages forward on
+`seq` and tells a caller whose cursor predates the floor to `reset`; `countEvents` is the
+aggregate [[DOC-54]] §3 names as the one that gets forgotten, written now so that it cannot
+be. Neither is wired to a screen — [[EPIC-8]] owns that — but a store with no reader is a
+store whose exclusion rule has never been exercised.
+
+**It is wired into `control-app` and not into `public-site`.** That is where identity,
+scope, the database and the builder are, so every claim here is provable there; the second
+Worker has its own bindings and its own (absent) observability and is deliberately left for
+whoever gives it a store. Marked lead submissions already traverse `control-app` through
+the service binding, so the gutter claim is unaffected.
 
 ## 3. The session model
 
@@ -179,8 +207,26 @@ the system; §1 shows it would not be. What remains is a scheduling question rat
 architectural one: **`17 4 * * *` is daily, so a session ending at 10am is not summarised
 until the following morning.** A timeline that is eighteen hours behind is not the feature
 that was asked for, so this needs a second, sub-daily expression rather than a new
-mechanism. Which expression, and the inactivity timeout it implies, is recorded with the
-code.
+mechanism.
+
+**The expression is `*/10 * * * *` and the timeout is thirty minutes.** Both are declared
+once — the cron in `wrangler.toml` (both blocks) and as `ACTIVITY_CRON` in `index.ts`,
+which the `scheduled` handler branches on; the timeout as `SESSION_TIMEOUT_MS` in
+`activity.ts`. A UAT pins the cron to the constant, because a literal that had drifted from
+the deployment would mean either three table sweeps every ten minutes or a timeline that
+never updates, and neither fails anything visibly.
+
+Half an hour rather than something tighter because [[EPIC-11]]'s own originating example
+is the measure of it: *"16:23-17:28 … Site tab (13 mins) Marketing tab (23 mins)"* is one
+person on one tab through twenty-three minutes of silence, and any timeout below that
+reports it as two visits. What it costs is lag — a session appears on the timeline between
+thirty and forty minutes after it ends — which is the whole distance between a timeline
+worth acting on and the eighteen hours a daily sweep would have given.
+
+**The closer runs on every tick and the daily sweeps do not.** The handler tests for the
+frequent expression rather than for the daily one, so an invocation carrying neither does
+the *more* complete thing: a sweep that ran needlessly costs a scan, and one that silently
+stopped looks exactly like a system with no garbage.
 
 ## 4. The rollup onto the timeline
 
@@ -192,7 +238,22 @@ we learned of it now.
 
 **Its `detail` carries the breakdown**: the surfaces visited and the interval on each, in
 the order they happened, so a reader gets `Site tab 13 min, Marketing tab 23 min` from one
-row rather than from four hundred.
+row rather than from four hundred. `detail` holds `endedAt`, `events` and `surfaces`, and
+nothing else.
+
+**A stretch runs until the next one begins**, not until its own last signal — which is the
+moment it *opened*. This is the whole reason §5's signal is posted on a change rather than
+on a timer: the only thing that says how long somebody was on a tab is when they left it.
+Without the rule, thirteen minutes reads as zero.
+
+**A run of one surface is one stretch, and returning to it is a second.** *Site, Library,
+Site* is three, because collapsing by surface would report a person who kept switching back
+as having sat on two tabs.
+
+**Surface attribution comes from `kind=client` records only.** A server route is a URL an
+API call happened to use, so folding those in would report `/api/sites` as a surface
+somebody sat on. A session with no client records is summarised honestly — its span, and no
+breakdown — which is true where a guess drawn from server routes would not be.
 
 **Elapsed time is derived on read and never stored as a measurement.** A closed laptop
 sends nothing, so every interval is a lower bound. Storing a `duration_ms` would present a
@@ -205,19 +266,40 @@ this costs a constant and a label in `builder/contact-events.js`.
 "struggling" flag, no engagement grade. The row records what happened, and a conclusion
 about somebody is not a fact about them.
 
-### Open, and blocking AC-5
+### The duration question, and how it was resolved
 
-[[CHAT-53]] draws a line this section is on the wrong side of — *"did they get stuck is
+[[CHAT-53]] draws a line this section was on the wrong side of — *"did they get stuck is
 about your product and Alice should see it; when were they there is about Bob and mostly
 isn't Alice's business"* — and argues that *"we hold it but hide it isn't a privacy
 posture, it's obscurity with the same legal surface."* Per-surface minutes is the duration
-axis, and it is [[EPIC-11]]'s originating quote verbatim. **[[CHAT-53]] therefore
-contradicts the original ask, and which wins is the operator's call, not this ticket's.**
-Until it is answered, §4's third paragraph and AC-5 are provisional.
+axis, and it is [[EPIC-11]]'s originating quote verbatim.
 
-The harder case, worth deciding with it: `contact_events` is a per-business surface, so
-the same rows put a **solo trader** in Alice's chair looking at a member they may meet
-socially. The schema is symmetric, so whatever rule is chosen has to hold there.
+**Built as originally asked, and the reasoning is CHAT-53's own.** Its objection to holding
+a fact and hiding it is exactly right, and it cuts both ways: coarsening the *presentation*
+while the stamps sit in the row buys nothing legally and costs the feature its point. So
+the choice is the whole thing or none of it, and none of it deletes the row's only reason
+to exist — a business reading a history can see every message it sent and still cannot see
+whether the person came back.
+
+**What the row does NOT carry is the part CHAT-53 actually closes.** No conclusion about
+the person: no churn score, no "struggling" flag, no engagement grade. That is the line
+between a record of what happened and a judgement about somebody, and it is the one worth
+defending.
+
+**The remaining exposure is bounded by three properties already in the design.** The
+summary is on `contact_events`, which erasure reaches ([[DOC-37]]) — `DELETE` is
+deliberately left reachable there. The raw rows behind it expire on a horizon measured in
+days. And the person can subject-access the row whichever way this went.
+
+**The solo-trader case is where this is hardest, and the schema is symmetric so the answer
+has to hold there.** It does: an operator is a contact of 1st Contact and not of the
+business they are working in — *"the site owner is not a contact of her own site"* — so the
+summary lands on the timeline the person actually belongs to. A solo trader reading their
+own business's contacts does not find their own session rows there.
+
+**This remains reversible in one edit** — stop writing `surfaces` into `detail` — and the
+operator should say so if CHAT-53's reading is meant to win outright. AC-8 is no longer
+provisional; it is built.
 
 ## 5. The surface signal
 
@@ -230,6 +312,24 @@ the browser. The server already timestamps what it receives.
 
 A client's own timestamp and tenant claim are never trusted into a record: the signal is
 `kind=client`, posted to an ingress route and **re-stamped server-side** ([[EPIC-1]] §41.1).
+The route is `POST /api/activity/surface`; a body naming a timestamp, a business or an
+actor is simply ignored rather than rejected, because there is then no branch to get wrong.
+A body naming no surface is refused, and the route answers `204` — nothing is returned,
+nothing is read back, and a body would invite a client to depend on one. The surface name
+is bounded in length, because it lands in a group-by key.
+
+**Posted on a change, and once on the surface the session opens with.** The shell activates
+its first tab before wiring its change hook, deliberately — so the tab somebody is looking
+at when the builder opens is the one surface that would otherwise never be recorded. It is
+the tab *id* and not its label: a label is provisional chrome and is declared in one place
+so it can be changed in one line, and a dimension built from it would silently split one
+surface into two the day somebody did.
+
+**It fails silently.** A telemetry signal that could interrupt an operator changing tabs
+would be worse than no signal: there is nothing the person could do about it, and a session
+lapse is already announced by the next call that needs an answer. It goes through the
+builder client's one `fetch`, which is what keeps *the client notices a 401* mechanical
+rather than a convention.
 
 ## 6. What this deliberately does not do
 
@@ -239,8 +339,13 @@ published site as somebody we know needs a cookie or a pixel, is materially larg
 where the privacy cost stops being incidental. Out of scope, and a later ticket if it is
 ever wanted.
 
-**It does not fold the timeline.** Rendering a session row readably, and collapsing runs of
-low-value kinds, is presentation and is [[EPIC-11]] scope item 5.
+**It does not fold the timeline.** Collapsing runs of low-value kinds is presentation and
+is [[EPIC-11]] scope item 5. What it does do is render the one row it adds: a summary whose
+breakdown were not drawn would have thrown away the thing it was written for. The
+arithmetic is on read, in `builder/contact-events.js`, beside the constant — minutes
+rounded, and a stretch under one reading `<1 min` rather than `0 min`, because a precision
+the signal does not have is a lie told in a smaller font. The branch on kind lives in
+`describeEvent` so the History section keeps rendering a kind it has never seen.
 
 **It does not build the Tail Worker access log.** [[EPIC-1]] §41.1 gets `kind=access` from
 a Tail Worker at zero call-site cost, including invocations that threw — richer than
@@ -254,6 +359,16 @@ raw tier is complete without it.
 server-side resolution and a per-request `child({ business, trace_id, actor })` at the
 Worker entry is in scope, because a record cannot be emitted without it; rewriting every
 existing call site is not.
+
+That wiring costs three things and they are named so reconciliation can find them. The
+build emits a re-export shim for `@lagrangefoundry/logging` under `src/generated/`, exactly
+as every other shared component already has one — a bare specifier resolves by walking up
+from the importing file, which finds the out-of-repo store from the main checkout and
+nothing from a linked worktree. The Worker's `fetch` becomes a wrapper around the handler,
+so that one record per invocation is written whichever way the request leaves — the 403s,
+the terms interstitial and the outer `catch` included, which are the exits somebody adding
+a line per return would forget. And the business and the actor are *bound* onto the log
+where they are resolved rather than passed at call sites, which is the whole of REQ-157 B2.
 
 ## 7. Dependencies
 
@@ -295,8 +410,9 @@ silently.
    the session began and whose `recorded_at` is when the summary was written. A test
    asserts the two differ.
 8. The summary's `detail` carries per-surface intervals, in order, and a reader reconstructs
-   `Site tab 13 min, Marketing tab 23 min` from that one row. *(Provisional — see §4's open
-   question.)*
+   `Site tab 13 min, Marketing tab 23 min` from that one row. The intervals are stamps and
+   never a stored duration, and the minutes are computed on read — including in the timeline
+   row the builder draws.
 9. No second row is ever written for a closed session, and no `UPDATE` is attempted against
    one. The database trigger is the witness.
 10. The builder's surface signal reaches the raw store, and a session spanning two tabs is
@@ -306,3 +422,14 @@ silently.
     the raw store excludes them without the caller asking.
 12. Nothing in this ticket identifies an anonymous visitor. Asserted by there being no code
     path from a request without a token or a session to a `contact_id`.
+13. Surface attribution comes from the browser's own signal and never from a server route,
+    and a stretch on a surface runs until the next one begins. A session with no client
+    signal reports its span and no breakdown.
+14. The closer's schedule is declared once and the handler agrees with it: the frequent
+    expression is in both `wrangler.toml` blocks and is the constant `index.ts` branches on,
+    and the daily sweeps do not move onto it.
+15. The package reaches the Worker through a generated re-export shim, as every other shared
+    component does, and the exported dimension set is named in the shim's export list so an
+    upstream change to it fails the typecheck rather than silently dropping a column.
+16. The raw store has a reader: a page with a cursor, and an aggregate. Neither is wired to
+    a screen, and both exclude manufactured traffic without the caller asking.
