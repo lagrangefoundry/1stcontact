@@ -6,16 +6,24 @@ title: 'repro console: two operator decision points, and a re-capture that does 
   reset the site'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:39.360214+00:00'
-updated_at: '2026-09-18T03:53:03.398964+00:00'
+updated_at: '2026-09-18T05:03:16.962709+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-7919010c
+  commits:
+  - working_sha: dcfac45ccc3b2b8370c7c6213db1c99d0a8a6383
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 14a9638037c05108aed069386662f2bc72473739
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.262
 ---
 
 # Repro console: two operator decision points, and a re-capture that does not reset the site
