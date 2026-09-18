@@ -228,11 +228,18 @@ export interface Theme {
   subScales: ThemeSubScales
 }
 
-export type BackgroundKind = 'color' | 'image' | 'gradient'
+/**
+ * REQ-271 — `none` is the positive assertion that the band paints NO fill of its
+ * own. It is not the same as a missing `color`: a bundle that simply lost the
+ * value and a band that genuinely paints nothing have to be distinguishable, or
+ * the fold cannot decide whether to omit `surfaceFill` and the diff cannot
+ * compare a band fill against anything.
+ */
+export type BackgroundKind = 'color' | 'image' | 'gradient' | 'none'
 
 export interface Background {
   kind: BackgroundKind
-  /** Painted background color (`#rrggbb`) when present. */
+  /** Painted background color (`#rrggbb`) when present; absent when `kind` is `none`. */
   color?: string
   /** Mirrored image asset path when the band paints an image. */
   image?: string

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-271 — a reference page whose header and hero paint no fill of their own</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      /* Deliberately NO background on <body> or <html>: gigabytealchemy's own
+         shape, and the reason the fabricated fill was literally the string
+         '#ffffff' rather than anything the page painted. */
+      body { font-family: Georgia, serif; color: #1a1a1a; }
+      /* An absolutely-positioned header with no bg-* of any kind, sitting OVER
+         the hero. Its only runs are read against a dark photograph under a
+         30% navy scrim, so its colour scheme is dark and nothing about it is
+         white. */
+      .site-header { position: absolute; top: 0; left: 0; right: 0; height: 192px; z-index: 40; }
+      .site-header a { position: absolute; top: 80px; color: #f5e6a3; font-size: 18px; text-decoration: none; }
+      .hero {
+        position: relative;
+        height: 800px;
+        background-image: url('req270-hero.png');
+        background-size: cover;
+        background-position: center;
+      }
+      /* The scrim as a real page authors it — a separate translucent element,
+         invisible to the hero's own background-image. */
+      .scrim { position: absolute; inset: 0; background-color: rgba(3, 7, 23, 0.3); }
+      .hero p { position: absolute; left: 88px; color: #f5e6a3; font-size: 40px; line-height: 52px; }
+      .about { background-color: #e8dfd3; padding: 64px 88px; }
+      .about p { font-size: 20px; line-height: 28px; }
+    </style>
+  </head>
+  <body>
+    <header class="site-header"><a href="/contact" style="left: 88px">Contact</a></header>
+    <section class="hero">
+      <div class="scrim"></div>
+      <p style="top: 420px">Intentional Software</p>
+      <p style="top: 520px; font-size: 24px; line-height: 32px">Tools for clarity</p>
+    </section>
+    <section class="about">
+      <p>A different approach to building software for small studios.</p>
+      <p>We start with what the work actually is.</p>
+    </section>
+  </body>
+</html>

@@ -53,8 +53,12 @@ function backgroundOf(band: RawBand, urlToLocal: (url: string) => string | undef
     }
   } else if (hasGradient) {
     bg = { kind: 'gradient', color, gradient: img }
-  } else {
+  } else if (color) {
     bg = { kind: 'color', color }
+  } else {
+    // REQ-271 — the band paints nothing. `{ kind: 'color' }` with no colour would
+    // read as a lost value; `none` says the absence was measured.
+    bg = { kind: 'none' }
   }
 
   // A separate translucent overlay element (a hero scrim, bg-slate-950/30 over an

@@ -42,6 +42,7 @@ import type {
   Viewport,
 } from './types'
 import type { RawRun, RawSignals } from './extract'
+import { captureSchemaOf } from './schema'
 import { subScalesFromSignals } from './theme'
 import { isSafeUrl } from '@1stcontact/site-schema'
 
@@ -268,6 +269,19 @@ export interface SectionValues {
   paddingBottomPx?: number
   /** REQ-64 — section band text-align (Type-A). */
   textAlign?: 'left' | 'center' | 'right'
+  /**
+   * REQ-271 — the band's own base fill (`#rrggbb`), or `null` when the band
+   * paints none. The most visually dominant property of a page, and until this
+   * axis existed it was compared by NOTHING: a reproduction could paint an
+   * opaque navy plate under a hero the reference paints nothing on and the value
+   * gate reported zero deltas for it.
+   *
+   * `undefined` means UNMEASURED, and is the honest answer for a capture bundle
+   * taken before schema 3 (REQ-271), whose transparent bands were all recorded
+   * as an opaque fabrication of the body's colour. Asserting that white would
+   * fire a false delta for every transparent band on the axis's first run.
+   */
+  surfaceFill?: string | null
   /**
    * BUG-13 — the section band's CSS `background-image` as a foldable URL, absent
    * when the band paints no image. The page's hero + section imagery is painted
@@ -658,6 +672,17 @@ export interface UnpairedObject {
   label: string
   role: string
   kind: ObjectKind
+  /**
+   * REQ-271 — where it is, and which manifest element it is. A `{label, role,
+   * kind}` triple for an untexted box reads `{"label":"(generic)","role":
+   * "generic","kind":"box"}` — seven of those told a reader the count and
+   * nothing else: they could not be located on the page, so the values they
+   * carried could not be checked against anything. Optional so pre-REQ-271
+   * reports parse.
+   */
+  box?: Box
+  /** REQ-271 — the object's index in the actual manifest's `elements`. */
+  index?: number
 }
 
 // ── gradient normalization ───────────────────────────────────────────────────
@@ -1073,6 +1098,14 @@ export function flattenCapture(capture: Capture): ValueManifest {
     if (section.background.kind === 'image' && section.background.image && isSafeUrl(section.background.image)) {
       sv.backgroundImageUrl = section.background.image
     }
+    // REQ-271 — the band's own base fill, and the schema gate that makes it
+    // readable as a measurement. Before capture schema 3 a band that painted
+    // nothing was recorded as an opaque `#ffffff` (the body's own fabricated
+    // fill), so projecting a pre-3 bundle's colour would assert white for every
+    // transparent band and fire a false delta on this axis's very first run.
+    // An older bundle leaves the axis UNMEASURED instead of asserting a value it
+    // never took; `staleCaptureDetail` already tells the operator to re-capture.
+    if (captureSchemaOf(capture) >= 3) sv.surfaceFill = section.background.color ?? null
     return sv
   })
   for (const section of capture.sections) {
@@ -1128,6 +1161,10 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
     // mirroring localizes it. Unsafe schemes are dropped by `bandBackgroundImageUrl`.
     const bgUrl = bandBackgroundImageUrl(band.backgroundImage)
     if (bgUrl) sv.backgroundImageUrl = bgUrl
+    // REQ-271 — the band's own base fill, `null` when it paints none. The live
+    // extractor has measured this all along (`RawBand.backgroundColor`); it was
+    // simply never projected, so nothing downstream could compare it.
+    sv.surfaceFill = band.backgroundColor ?? null
     return sv
   })
   for (const band of signals.bands) {
@@ -2064,9 +2101,57 @@ function buildObjectCard(
   }
 }
 
-/** Project a leftover (unpaired) repro element to its {@link UnpairedObject} note. */
-function toUnpaired(el: ValueElement): UnpairedObject {
-  return { label: el.text, role: el.role, kind: objectKindOf(el) }
+/**
+ * Project a leftover (unpaired) repro element to its {@link UnpairedObject} note.
+ *
+ * REQ-271 — with its geometry. `{label, role, kind}` alone reduces an untexted
+ * box to `(generic)/generic/box`, which is a count and not a finding: the reader
+ * is told seven objects exist and given nothing to find them with.
+ */
+function toUnpaired(el: ValueElement, index?: number): UnpairedObject {
+  const u: UnpairedObject = { label: el.text, role: el.role, kind: objectKindOf(el) }
+  if (el.box) u.box = el.box
+  if (index !== undefined && index >= 0) u.index = index
+  return u
+}
+
+/**
+ * REQ-271 — is this leftover repro object the band's own PAINT rather than an
+ * object standing on the band?
+ *
+ * The two sides represent band paint in structurally different places. A
+ * conventional page nests its content inside the band element, so the fill lives
+ * on the band record and the reference manifest holds no textless element for it
+ * at all. An L1 render paints each band as a real full-bleed box — so the same
+ * fact reaches the reproduction manifest twice, and the box copy can never pair,
+ * because there is nothing on the reference side to pair it with. Seven such
+ * objects sat in `unpairedActual` on every gigabytealchemy run, reported as
+ * "repro objects that matched nothing" when they are the band fills the section
+ * pass compares directly.
+ *
+ * Recognised HERE, in the diff's own reporting, and deliberately not by dropping
+ * the element from the manifest: a full-bleed textless box is exactly what the
+ * fold reads to rebuild a backdrop (BUG-27), so removing it upstream would take
+ * a hero photograph out of the fold's input on a page-builder site. The manifest
+ * stays faithful to what was painted; only the "paired with nothing" tally stops
+ * double-counting a fact it already has a counterpart for.
+ *
+ * Tight by construction — the box must be full-bleed and coincide with a band's
+ * own box to within a pixel of layout noise. A box that merely sits ON a band,
+ * or a layer with its own geometry (a photograph inside a taller fill), is an
+ * object in its own right and is still reported.
+ */
+function isBandPaint(el: ValueElement, sections: readonly SectionValues[], pageWidth: number): boolean {
+  const b = el.box
+  // `textless` is the projection's own flag for "this element carries no text"
+  // (`fieldToElement`); an empty `text` is NOT the same test — a field's text is
+  // its accessible name, falling back to `(<role>)`, and is never the empty string.
+  if (!b || !el.textless) return false
+  const TOL = 2
+  if (b.x > TOL || b.x + b.width < pageWidth - TOL) return false
+  return sections.some(
+    (s) => s.box && Math.abs(s.box.y - b.y) <= TOL && Math.abs(s.box.height - b.height) <= TOL,
+  )
 }
 
 // ── BUG-102 — section pairing ────────────────────────────────────────────────
@@ -2932,8 +3017,19 @@ export function diffManifests(
   // object ("M repro objects matched nothing"). Collected before the year mask /
   // systemic passes below add non-object deltas, so this stays object-only.
   const unpairedActual: UnpairedObject[] = []
-  for (const q of queues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
-  for (const q of fieldQueues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
+  // REQ-271 — the manifest position of each leftover, so a reader can go straight
+  // to `actual-manifest.json` element `[n]` instead of guessing which box it was;
+  // and band paint (see {@link isBandPaint}) left out of the tally entirely,
+  // because the section pass compares it against a real counterpart.
+  const actualAt = new Map<ValueElement, number>(actual.elements.map((el, i) => [el, i]))
+  const reproWidth = actual.viewport?.width ?? 0
+  const reproSections = actual.sections ?? []
+  const leftover = (el: ValueElement): void => {
+    if (isBandPaint(el, reproSections, reproWidth)) return
+    unpairedActual.push(toUnpaired(el, actualAt.get(el)))
+  }
+  for (const q of queues.values()) for (const el of q) leftover(el)
+  for (const q of fieldQueues.values()) for (const el of q) leftover(el)
 
   /**
    * REQ-270 — the reference sections that sit INSIDE `sections[i]`.
@@ -3030,6 +3126,29 @@ export function diffManifests(
         eo.color.toLowerCase() === ao.color.toLowerCase() &&
         Math.abs(eo.opacity - ao.opacity) <= opacityTol)
     if (!overlayOk) record(label, 'section', 'overlay', overlayLabel(eo), overlayLabel(ao))
+
+    // REQ-271 — the band's own base fill: the single most visually dominant
+    // property of a page, and until now compared by nothing at all. An L1 render
+    // could paint an opaque navy plate under a hero the reference paints nothing
+    // on — it did, on gigabytealchemy — and the value gate reported zero deltas.
+    //
+    // `undefined` on either side means the axis was not measured there (a capture
+    // bundle older than schema 3 cannot distinguish "paints white" from "paints
+    // nothing"), and an unmeasured axis is not a clean one: it is skipped rather
+    // than compared against a stand-in. Reuses the element-level `surfaceFill`
+    // property, so a wrong band fill reads as the colour defect it is.
+    if (es.surfaceFill !== undefined && as.surfaceFill !== undefined) {
+      const ef = es.surfaceFill
+      const af = as.surfaceFill
+      if (ef && af) {
+        const dE = colorDistance(ef, af)
+        if (dE > colorTol) record(label, 'section', 'surfaceFill', ef, af, dE)
+      } else if (ef !== af) {
+        // One side paints a fill and the other paints none — not a colour
+        // distance at all, and never within tolerance.
+        record(label, 'section', 'surfaceFill', ef ?? '(none)', af ?? '(none)')
+      }
+    }
 
     // REQ-270 — the section band's own imagery, compared by mirrored basename for
     // the same reason the element-level handle is (the two sides legitimately

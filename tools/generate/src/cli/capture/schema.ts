@@ -34,8 +34,13 @@ import type { Capture } from './types'
  *   because "no stamp" and "the oldest schema we know about" are the same fact.
  * - **2** — REQ-269: a form field's per-side padding, a run's `href`, a run's
  *   `headingLevel`, and `lineHeightPx` kept to two decimals.
+ * - **3** — REQ-271: a band that paints no fill of its own records
+ *   `background.kind: 'none'` instead of an opaque fabrication of the body's
+ *   colour. Every pre-3 bundle asserts a fill for bands that paint nothing, so
+ *   its `background.color` cannot be read as a measurement — which is exactly
+ *   what the section `surfaceFill` axis needs it to be.
  */
-export const CAPTURE_SCHEMA = 2
+export const CAPTURE_SCHEMA = 3
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -95,6 +100,15 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     axis: 'headingLevel',
     where: 'a content run (`sections[].content[]`)',
     present: (c) => runs(c).some((r) => typeof r.headingLevel === 'number'),
+  },
+  {
+    since: 3,
+    axis: 'an unpainted band background (`background.kind: "none"`)',
+    where: 'a section background (`sections[].background`)',
+    // A page every one of whose bands paints a real fill records no `none`
+    // however new its extractor is — the same asymmetry as `href` above, and the
+    // reason the version gate comes first.
+    present: (c) => c.sections.some((s) => s.background?.kind === 'none'),
   },
   {
     since: 2,

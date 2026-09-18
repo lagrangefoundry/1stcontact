@@ -1561,6 +1561,52 @@ function barBandFills(rows: SurfaceRow[], pageContentWidth: number, fullWidthFra
 }
 
 /**
+ * REQ-271 — the base fill a reconstructed band may carry, given the fill that was
+ * read off the runs standing on it.
+ *
+ * A band's fill is inferred from its runs' `surfaceFill`, and the capture
+ * flattens a translucent scrim into every run it covers (the alpha loss itself is
+ * BUG-24). So on a hero — a photograph under `bg-slate-950/30` — every run
+ * reports an opaque `#030717`, and the band builder promoted that to the band's
+ * BASE, painting an opaque navy plate under a section the reference paints
+ * nothing on. The same colour was then re-applied properly, at 0.3, as the
+ * `overlay` axis of the `section-bg` box emitted above it: the page painted
+ * `#030717` twice, once as a plate nobody chose and once as the scrim it is.
+ *
+ * The two are distinguishable at fold time because the capture carries them
+ * separately — `overlay` beside the band's own `surfaceFill`. A group fill equal
+ * to the scrim over that band is the scrim, never the base; the base is whatever
+ * the band itself paints, which is:
+ *
+ *  - a colour, when the capture measured one → carry it;
+ *  - `null` (nothing), when the capture measured that it paints none → omit the
+ *    band entirely, since a box with no fill paints nothing;
+ *  - `undefined` (unmeasured — a bundle older than capture schema 3, whose
+ *    transparent bands were recorded as an opaque fabrication) → omit as well.
+ *    An unmeasured fill is not a licence to keep the scrim colour.
+ */
+function bandBaseFill(
+  fill: string,
+  band: { y: number; height: number },
+  sections: readonly SectionValues[],
+): string | null {
+  let best: SectionValues | undefined
+  let bestOverlap = 0
+  for (const sv of sections) {
+    if (!sv.box) continue
+    const top = Math.max(band.y, sv.box.y)
+    const bot = Math.min(band.y + band.height, sv.box.y + sv.box.height)
+    if (bot - top > bestOverlap) {
+      bestOverlap = bot - top
+      best = sv
+    }
+  }
+  if (!best?.overlay) return fill
+  if (best.overlay.color.toLowerCase() !== fill.toLowerCase()) return fill
+  return typeof best.surfaceFill === 'string' ? best.surfaceFill : null
+}
+
+/**
  * BUG-14 — full-bleed **section-band** boxes. Band rows (full-width content runs
  * with no card treatment) are grouped into maximal consecutive-same-fill runs in
  * document order; the groups are ordered top-to-bottom and each band **tiles**
@@ -1582,6 +1628,7 @@ function buildSolidBands(
   sectionEdges: Map<number, number[]>,
   heightAt: Map<number, number>,
   edgeResponses: Map<number, Map<number, number>>,
+  sectionsAtWidest: readonly SectionValues[],
 ): L1Box[] {
   const groups: Array<{ fill: string; rows: SurfaceRow[] }> = []
   for (const r of bandRows) {
@@ -1704,7 +1751,13 @@ function buildSolidBands(
       if (Math.abs(first.height) >= 0.005) r.heightFactor = first.height
       if (r.yFactor !== undefined || r.heightFactor !== undefined) geometry.viewportResponse = r
     }
-    const node: L1Box = { kind: 'box', id: `section-band-${oi}`, geometry, axes: { surfaceFill: entry.g.fill } }
+    // REQ-271 — the fill the runs reported is not always the band's own; see
+    // {@link bandBaseFill}. A band whose only fill was the scrim over it paints
+    // nothing, and a box that paints nothing is not emitted.
+    const widestKf = keyframes.find((k) => k.at === widestW) ?? keyframes[keyframes.length - 1]
+    const base = bandBaseFill(entry.g.fill, { y: widestKf.y, height: widestKf.height ?? 0 }, sectionsAtWidest)
+    if (base === null) return
+    const node: L1Box = { kind: 'box', id: `section-band-${oi}`, geometry, axes: { surfaceFill: base } }
     const vis = visibilityFor(present, widths)
     if (vis) node.visibility = vis
     boxes.push(node)
@@ -2270,7 +2323,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     }
     sectionEdges.set(p.viewport.width, [...edges].sort((a, b) => a - b))
   }
-  const bandNodes = buildSolidBands(bandRows, widths, sectionEdges, heightAt, edgeResponses)
+  // REQ-271 — the widest width's section records, which carry each band's own
+  // measured fill alongside the scrim over it. The widest is the authoritative
+  // sample for a per-band decision, exactly as the section-background fold reads
+  // its URL and scrim from the widest entry that carries them.
+  const sectionsAtWidest =
+    projections.find((p) => p.viewport.width === Math.max(...widths))?.manifest.sections ?? []
+  const bandNodes = buildSolidBands(bandRows, widths, sectionEdges, heightAt, edgeResponses, sectionsAtWidest)
   const cardNodes = buildCards(cardRows, widths, heightAt, columnFit)
 
   // The page base is the band fill covering the greatest total height (shows only

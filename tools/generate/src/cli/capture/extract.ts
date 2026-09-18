@@ -273,6 +273,12 @@ export interface RawField extends RawGeometry {
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
 export interface RawBand {
   box: { x: number; y: number; width: number; height: number }
+  /**
+   * REQ-271 — the band's OWN painted background colour, or `null` when the band
+   * paints no fill at all (a transparent `<header>` over a hero). Never the
+   * body's colour standing in for a missing one: the fabricated value was
+   * indistinguishable from a measured one all the way into the bundle.
+   */
   backgroundColor: string | null
   backgroundImage: string
   colorScheme: 'light' | 'dark'
@@ -1951,6 +1957,21 @@ export const EXTRACT_SCRIPT = `(() => {
 
   // ── bands ─────────────────────────────────────────────────────────────────
   var bodyBg = rgbToHex(getComputedStyle(document.body).backgroundColor) || '#ffffff';
+  // REQ-271 -- the tone a band is READ AGAINST, which is a different question
+  // from what the band PAINTS and must not be answered with the same value.
+  //
+  // A band that paints no fill of its own used to be recorded as an opaque
+  // bodyBg fill, and colorScheme was then decided on that fabricated colour:
+  // gigabytealchemy's <header> -- whose only runs sit over a dark photograph
+  // under a 30% navy scrim -- came out 'light' on the strength of a white
+  // nobody painted. surfaceFillOf already answers the real question: it
+  // composites down the GEOMETRIC surface chain, so a sibling that merely sits
+  // behind the band counts (exactly the header-over-hero shape), and it starts
+  // with the band's own fill when the band has one. bodyBg stays as the last
+  // resort -- a page that paints nothing anywhere is read against the UA canvas.
+  function bandTone(el) {
+    return surfaceFillOf(el) || bodyBg;
+  }
   var bands = [];
   // BUG-27 — qualify and box each candidate on the PAINTED EXTENT of its subtree.
   // A collapsed-but-painting band (an absolutely-positioned header) reads 0px tall
@@ -2009,12 +2030,15 @@ export const EXTRACT_SCRIPT = `(() => {
     });
     geometricBands.forEach(function (br, bi) {
       var s = getComputedStyle(br.el);
-      var bg = rgbToHex(s.backgroundColor) || bodyBg;
+      // REQ-271 -- the band's OWN painted fill, null when it paints none. Not
+      // laundered into bodyBg: a band that paints nothing and a band that paints
+      // white are different facts and the bundle has to be able to say which.
+      var bg = rgbToHex(s.backgroundColor);
       bands.push({
         box: br.box,
         backgroundColor: bg,
         backgroundImage: sliceBackgroundImage(br),
-        colorScheme: luminance(bg) < 0.5 ? 'dark' : 'light',
+        colorScheme: luminance(bandTone(br.el)) < 0.5 ? 'dark' : 'light',
         fontFamily: familyStack(s.fontFamily),
         textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',
         paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
@@ -2030,7 +2054,8 @@ export const EXTRACT_SCRIPT = `(() => {
   bandRoots.forEach(function (br) {
     var band = br.el;
     var s = getComputedStyle(band);
-    var bg = rgbToHex(s.backgroundColor) || bodyBg;
+    // REQ-271 -- see the geometric path above: the band's own fill, or null.
+    var bg = rgbToHex(s.backgroundColor);
     var grp = itemGroup(band);
     var bbox = br.box;
     var content = runsUnder(band, grp.roots);
@@ -2043,7 +2068,7 @@ export const EXTRACT_SCRIPT = `(() => {
       box: bbox,
       backgroundColor: bg,
       backgroundImage: s.backgroundImage || 'none',
-      colorScheme: luminance(bg) < 0.5 ? 'dark' : 'light',
+      colorScheme: luminance(bandTone(band)) < 0.5 ? 'dark' : 'light',
       fontFamily: familyStack(s.fontFamily),
       textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',
       paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
