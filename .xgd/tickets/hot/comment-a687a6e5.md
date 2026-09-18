@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:20:17.507956+00:00'
+updated_at: '2026-09-18T03:22:07.368656+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1024,5 +1024,50 @@ Want me to write this into EPIC-13 as a UX section? It's a document change, so n
 This is the right shape, and it's close to what the epic already records — your "configure once, then we act" is step 2 of the cutover window (`EPIC-5` creates the zone `pending` and populates it *before* the nameserver pair is ever shown, so there's a free interval where the zone is ours and nothing resolves from it yet). Your framing adds the thing that section doesn't have: that the whole capture phase should feel like one sitting, and the async part should be invisible. <-- I'm not sure that is right. In my model we read ONLY, capture ALL settings once and THEN walk the user through the transfer - pending should happen at the end
 
 RDAP/WHOIS, which I don't think we do today - its in the plan, we talked about it - LMK if we can't do it we should fix
+
+<!-- xgd-turn id="e9ffcacd-cc4e-4381-9fe0-65eecd3ebb03-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T03:22:07.088829+00:00" -->
+#### Claude
+Both checked. You're right on both, and the second one has a gap worth knowing about.
+
+## Your ordering vs what EPIC-5 records
+
+They genuinely differ. EPIC-5 §"The pre-cutover ordering, which is what makes preservation structural" has:
+
+1. **Create the zone** (`pending`) — *"we now have somewhere to write"*
+2. Sweep
+3. Write everything into the pending zone
+4. Show the pair, paste
+
+Yours is: read-only → capture everything → *then* create, write and show as one burst at the end.
+
+**Yours is better, and EPIC-5 supplies the argument against its own ordering.** Creating a `pending` zone is an action at a third party, and it's the one that produces the squat problem that section already worries about at line 278: our Cloudflare account allows one zone per apex, so an abandoned pending claim holds the apex and a legitimate second claimant hits *"that domain is already being set up"* — which it explicitly concedes needs an operator release path because self-service release would hand a squatter a lever. Creating the zone only for people who finished configuring shrinks that class to almost nothing. It's also just your principle applied consistently: creating a zone *is* an action, so it belongs after capture.
+
+**One thing has to move to the front to make it safe.** Zone creation can fail — the apex may already be a zone in our account, or in the customer's own Cloudflare account (EPIC-5's "trap case", which it warns *looks* like the easiest case and is among the worst). Discovering that after twenty minutes of configuring is the worst possible moment to discover it. So: a cheap, non-mutating availability check during the read phase, and the claim at the end. That's not a new pattern — it's REQ-238's `check`/`claim` split, which EPIC-5 already invokes at line 268 and calls a sign it's right when it shows up twice. This is the third place.
+
+RDAP gives you the trap-case detection in the same call, since the nameservers come back and `*.ns.cloudflare.com` is self-identifying.
+
+## RDAP — yes, it's in the plan, and you remembered correctly
+
+It's in COMMENT-3001 on EPIC-5, tested live: `https://rdap.org/domain/<name>`, unauthenticated, returning registrar, current nameservers and `secureDNS.delegationSigned` in one call.
+
+**The gap: it exists only in that chat comment.** EPIC-5's body never mentions RDAP, WHOIS or DNSSEC — I grepped the whole repo, and the only hits are two chat comments plus an unrelated EPIC-6/TODO-6 mention of WHOIS privacy. Line 464 says the nameserver-change experience is *"deliberately not ticketed"*. So there's no ticket and no code. Same shape as the forwarding surface: agreed in conversation, never promoted to a body.
+
+**I re-ran the probes and can close the question that session left open.** It flagged `.co.uk` as *"likely your most common customer TLD"* and unverified:
+
+- **`.co.uk` has RDAP.** Nominet serves it — `bbc.co.uk` returns 200 with registrar, nameservers and `secureDNS: {delegationSigned: false, maxSigLife: 3024000}`. So your most common TLD is covered.
+- `.io` and `.me` still 404. The "who did you buy this from?" fallback is still needed, but for a much smaller set than feared.
+
+**And the DNSSEC finding deserves promoting, because it changes your flow rather than just the data.** If a domain is signed and the nameservers change before the DS record is removed at the registrar and expired from the parent zone, every validating resolver returns SERVFAIL — not degraded, unresolvable, web and mail, for everyone. That's an extra step *and an extra wait* at the registrar, and doing both in one sitting is the mistake. In your model it lands perfectly: RDAP tells us at step 1, during the read, so we know before we promise anything and can tell her up front that this one takes two sittings. All 12 of your own domains report `delegationSigned=False`, which is exactly why it has to be designed in rather than discovered.
+
+## What I'd write down
+
+Two document changes, no branch needed:
+
+- **EPIC-13** — the UX section: capture-then-act, the two notification rails, the resumability requirement, the per-provider lookup guidance.
+- **EPIC-5** — the ordering amendment, since yours contradicts what's recorded there, plus RDAP and DNSSEC promoted out of the chat comment into the body with the `.co.uk` result.
+
+The second touches another epic and this session is scoped to EPIC-13 — do you want me to edit EPIC-5's body directly, or leave it as a comment there for its own session to absorb?
 
 <!-- xgd-chat-end -->
