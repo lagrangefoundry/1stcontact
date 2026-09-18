@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T21:12:01.759646+00:00'
+updated_at: '2026-09-18T21:47:21.859979+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -317,6 +317,21 @@ shrinking.
 
 ## Children
 
+- [[REQ-273]] — The assistant can report a defect: adopt the upstream
+  `development` surface (`report_bug` / `request_capability` /
+  `add_ticket_detail`), which files into the PRODUCT's project rather than the
+  client's store. Today the consultant has `ReadTickets` and nothing else, so
+  three defects reached us as prose in a chat pane.
+- [[BUG-117]] — `corpus_unreadable` is a catch-all: a transient failure is
+  reported as a permanent deployment fault, with the message explicitly telling
+  the caller not to retry.
+- [[BUG-118]] — a generated picture's result never says where it went, so the
+  assistant looked in the site's assets, found nothing, and told the client it
+  was blind. Everything needed to avoid it is written in the library surface's
+  overview, which is not in the default one-line projection.
+- [[BUG-119]] — a store failure after image generation discards the bytes with no
+  write-ahead and no recovery path: it burns the generation cost and hands back
+  nothing. Same session as BUG-117, so check for one shared cause.
 - [[BUG-116]] — Chat sessions orphaned by the site-address migration. Finding 2's
   repair: verify the opaque-key model has no stragglers, re-home the orphaned
   conversations (three cases, only one of which is mechanical), survey and fix
