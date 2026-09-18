@@ -68,6 +68,7 @@ import type { ViewportName } from './shot'
 export {
   PERCEPTUAL_MEAN_FLOOR,
   PERCEPTUAL_PCT_FLOOR,
+  VALUES_TIER_FLOOR,
   SECTION_DENSITY_PX,
   referenceCoverage,
   reconcileGates,
@@ -76,7 +77,7 @@ export type {
   CoverageFinding,
   ReferenceCoverage,
   GateVerdict,
-  PerceptualFloor,
+  GateFloor,
   ReconcileInput,
   GateReport,
 } from './gate-core'
@@ -87,7 +88,7 @@ import {
   referenceCoverage,
   reconcileGates,
 } from './gate-core'
-import type { GateReport, GateVerdict, PerceptualFloor } from './gate-core'
+import type { GateReport, GateVerdict, GateFloor } from './gate-core'
 
 const VERDICT_LABEL: Record<GateVerdict, string> = {
   pass: 'PASS',
@@ -120,6 +121,16 @@ export function formatGateReport(report: GateReport, ref: string): string {
   const floorMark = report.perceptualBreach
     ? `  ✗ over floor (mean ≤ ${report.floor.mean}, pct ≤ ${report.floor.pct}%)`
     : `  ✓ within floor (mean ≤ ${report.floor.mean}, pct ≤ ${report.floor.pct}%)`
+  // BUG-110 — the value gate's own bound, printed the way the perceptual one is
+  // and on its own line beside the counts it is read against. An operator
+  // scanning this block could previously see "14 delta(s)" and have no way to
+  // tell fourteen slightly-off colours from a page that had lost every heading.
+  const valuesBound =
+    report.floor.valuesTier === null
+      ? '  · value floor: none (deltas are reported, never decisive)'
+      : report.valuesBreach
+        ? `  ✗ over value floor (worst ${report.values.worstTier}; no delta above ${report.floor.valuesTier})`
+        : `  ✓ within value floor (worst ${report.values.worstTier ?? 'none'}; no delta above ${report.floor.valuesTier})`
 
   const lines = [
     `cross-gate reconciliation on ${ref}: ${VERDICT_LABEL[report.verdict]}`,
@@ -131,6 +142,7 @@ export function formatGateReport(report: GateReport, ref: string): string {
     // paired at all gets its own row, because "0 delta(s)" on the line above is
     // silence about every section value on the page and reads as a clean bill.
     `  values-diff  ${report.values.deltas} delta(s) over ${report.values.matched} matched element(s), ${report.values.unmatched} unmatched, ${report.values.unpairedActual} repro object(s) unpaired`,
+    valuesBound,
     ...(report.values.sectionsNotComparable
       ? [wrap(`⚠ section values NOT comparable: ${report.values.sectionsNotComparable}`, '               ')]
       : []),
@@ -175,8 +187,11 @@ export interface GateOptions extends GlobalOptions {
    * front of a diagnosing round; a flag it would have to know to pass would not.
    */
   out?: string
-  /** Override the provisional perceptual floor for this run. */
-  floor?: Partial<PerceptualFloor>
+  /**
+   * Override the provisional floor for this run — either perceptual bound, or
+   * (BUG-110) the value gate's tier bound, `null` for "hold it to nothing".
+   */
+  floor?: Partial<GateFloor>
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */
   driverFactory?: BrowserDriverFactory
   /** Fixed serve port; defaults to an ephemeral port. */

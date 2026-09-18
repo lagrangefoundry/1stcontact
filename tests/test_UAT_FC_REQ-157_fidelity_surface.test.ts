@@ -30,6 +30,7 @@ import { classifyUrl, egressGuard, isPrivateHost } from '../tools/generate/src/c
 import {
   PERCEPTUAL_MEAN_FLOOR,
   PERCEPTUAL_PCT_FLOOR,
+  VALUES_TIER_FLOOR,
   reconcileGates,
 } from '../tools/generate/src/cli/gate'
 import type { ReferenceCoverage } from '../tools/generate/src/cli/gate'
@@ -816,7 +817,7 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
       diagnosis: string
       nextStep: string
       pass: boolean
-      floor: { mean: number; pct: number }
+      floor: { mean: number; pct: number; valuesTier: string | null }
       perceptual: { meanDiff: number; pctOverThreshold: number; regions: number }
       values: { deltas: number; matched: number; unmatched: number; unpairedActual: number }
       coverage: { mirroredImages: number; referencedImages: number; sections: number }
@@ -835,7 +836,14 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
     // the gate rather than a précis of it.
     expect(report.diagnosis).toBeTruthy()
     expect(report.nextStep).toBeTruthy()
-    expect(report.floor).toEqual({ mean: PERCEPTUAL_MEAN_FLOOR, pct: PERCEPTUAL_PCT_FLOOR })
+    // BUG-110 — the floor the surface echoes carries the value gate's tier bound
+    // alongside the two perceptual ones. It travels because `check_fidelity`
+    // returns `reconcileGates`' own `floor`, which is this AC's actual claim.
+    expect(report.floor).toEqual({
+      mean: PERCEPTUAL_MEAN_FLOOR,
+      pct: PERCEPTUAL_PCT_FLOOR,
+      valuesTier: VALUES_TIER_FLOOR,
+    })
     // The pictures are identical, so the eye is clean and the perceptual floor
     // cannot be what decided this.
     expect(report.perceptual.meanDiff).toBe(0)
