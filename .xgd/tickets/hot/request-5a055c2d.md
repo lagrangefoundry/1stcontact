@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-9df8a526
 ---
 
 # The round says what KIND of thing it found — instrument defect or capability gap
