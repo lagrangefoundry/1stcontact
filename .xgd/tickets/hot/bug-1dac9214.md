@@ -6,15 +6,20 @@ title: 'knowledge search: corpus_unreadable is a catch-all that reports a transi
   failure as a permanent deployment fault'
 created_by: EPIC-19
 created_at: '2026-09-18T21:46:07.949789+00:00'
-updated_at: '2026-09-18T22:41:31.883142+00:00'
+updated_at: '2026-09-18T22:44:30.799648+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-b2c0baa8
+  commits:
+  - working_sha: 11e79c87d60a639e26e17ad95a5d4ab90df5c6f1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.264
 ---
 
 Parent: [[EPIC-19]]. Reported by the builder assistant in conversation on
