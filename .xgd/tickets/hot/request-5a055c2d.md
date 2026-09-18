@@ -6,10 +6,10 @@ title: 'repro console: a round says what KIND of thing it found — instrument d
   or capability gap'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:26.883729+00:00'
-updated_at: '2026-09-18T22:31:26.883729+00:00'
+updated_at: '2026-09-18T23:32:44.402101+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   story_points: 3
@@ -78,3 +78,84 @@ afterwards — reconstructing it is what EPIC-19 just spent an audit doing.
 
 Re-classifying the existing ten tickets. EPIC-19 has done that and its table is
 quoted above; this ticket is about not needing to do it again.
+
+---
+
+# What was built
+
+## The closed set that survived contact with the brief
+
+Nine classes, one field value each, lower-case and hyphenated. The set is
+**declared once in code** (`tools/repro-console/src/defect-class.ts`) and is the
+only authority: the brief explains what each one means, the prompt carries the
+literal list, and the console checks read-back tickets against it.
+
+| class | queue | what it means |
+|---|---|---|
+| `instrument-blind` | ruler | the instrument reported pass/clean when it measured nothing, or measured the wrong thing |
+| `instrument-asymmetric` | ruler | the two sides were measured by different procedures, so the comparison is not like for like |
+| `instrument-no-axis` | ruler | the comparator has no axis for the property, so a real difference is invisible to the score |
+| `capture-loses-it` | ruler | the capture does not carry something the page had, so nothing downstream can recover it |
+| `fold-wrong` | ruler | the capture carries it and L1 can express it; the fold writes the wrong value |
+| `renderer-wrong` | ruler | L1 carries the right value and the render disagrees with it |
+| `l1-cannot-express` | **ceiling** | there is no way to author the thing in L1 as it stands |
+| `harness` | process | the console, the brief, the CLI or the round's own process — not the engine |
+| `cannot-tell` | unknown | the evidence in hand does not separate the instrument from the engine |
+
+Four **queues**, which is the split behaviour 3 asks the console to show:
+`ceiling` (raises the product's ceiling), `ruler` (makes the instrument
+trustworthy), `process` (neither), `unknown` (the honest answer).
+
+Two notes on why the set is this and not EPIC-19's seven rows verbatim:
+
+- The brief's §5 already sorts every engine finding into three kinds. Class 1
+  (*engine shortfall*) splits here into `capture-loses-it` and `fold-wrong`,
+  which is EPIC-19's own split; class 2 is `l1-cannot-express`; class 3 —
+  *renderer bug* — has no row in EPIC-19's table because rounds 1–3 filed none,
+  and is `renderer-wrong` here rather than left with nowhere to go.
+- The three instrument rows have no home in §5 at all today: they arrive as the
+  secondary `1c` bugs of §5's last subsection, which carry no class. That is
+  nine of twenty-two defects — the largest block — sorted by nothing.
+
+`cannot-tell` is a first-class member of the set and the brief says so. A forced
+choice between instrument and engine, made without the evidence to separate
+them, is confident noise that costs more to unpick than the absence would.
+
+## How it lands
+
+**The field.** `defect_class`, a non-empty list of ids from the set, passed by
+the round on `xgd ticket create --fields`. A list rather than a scalar because
+one gap ticket carries every residual a round found, ordered by dependency: if
+issue three is `l1-cannot-express` and issue one is `fold-wrong`, a scalar keyed
+to the leading issue would hide the ceiling finding from exactly the filter this
+ticket exists to make possible. Most tickets carry one.
+
+**The authority is the ticket, not the outcome block.** The console already
+reads every ticket a round names back through `xgd ticket get --json` to check
+its status and its `created_by`; it reads `fields.defect_class` in the same
+call. Nothing new is mined from the transcript and nothing is taken on trust —
+the class is checked where it has to be right, which is the store.
+
+**The check.** A read-back ticket carrying no `defect_class`, or one carrying a
+value outside the set, is a **violation** in the same list as a wrong status and
+a wrong `created_by`, shown under the round on the page. It applies to the gap
+ticket and to every secondary `1c` bug equally: "every ticket a round files"
+means every ticket.
+
+**The justification.** The brief requires one line per class in the ticket body,
+citing the evidence the round already has — which test it ran and what came
+back. Enforcing prose is not something the console can do honestly, so this is
+asked for in the brief and in the prompt, and the field is what is checked.
+
+**The split, on the page.** A round's status line and its block under the
+iteration say what it filed and in which classes, grouped by queue — `1 ceiling
+(l1-cannot-express), 2 ruler (fold-wrong, instrument-blind)`. A `what this loop
+has filed` panel above the iteration list aggregates the same split across every
+round on the loaded site, with the ticket ids under each class, so "show me the
+capability queue" is a glance at the console as well as a `--filter` on the
+field.
+
+**Drift.** The prompt carries the closed set generated from the code, so the
+round is never told a set the console will not accept. A test asserts every
+class in the code appears in the brief with its meaning, so the two cannot part
+company silently.
