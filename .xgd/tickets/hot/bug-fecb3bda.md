@@ -6,9 +6,9 @@ title: A store failure after image generation discards paid-for bytes with no re
   path
 created_by: EPIC-19
 created_at: '2026-09-18T21:47:09.055296+00:00'
-updated_at: '2026-09-18T23:02:12.997801+00:00'
+updated_at: '2026-09-18T23:02:17.811521+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -29,6 +29,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.269
+  story_points: 3
 ---
 
 Parent: [[EPIC-19]]. Reported by the builder assistant in conversation on
