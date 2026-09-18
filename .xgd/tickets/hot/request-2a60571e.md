@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-dfecee22
 ---
 
 # Audit capture completeness once, mechanically, instead of one round at a time
