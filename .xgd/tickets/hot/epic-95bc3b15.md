@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T22:36:09.682866+00:00'
+updated_at: '2026-09-18T23:01:12.275557+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -314,6 +314,90 @@ Opus round to rediscover the next one.
 reported deltas from 1 to 14. That is the instrument getting sharper, not the
 reproduction getting worse. The metric that means something is the unmeasured set
 shrinking.
+
+## Finding 4 — an in-flight turn does not survive the client leaving (2026-09-18)
+
+Operator navigated away from the Lagrange Foundry business mid-turn and lost the
+exchange. Checked: the site's transcript (`chat-50932534` /
+`comment-40c95649`, 57,348 bytes) holds 36 turns ending on a COMPLETE user/
+assistant pair. There is no orphaned user turn and no partial reply. **The
+in-flight turn left no trace — including the operator's own message.**
+
+### What is already durable, and what is not
+
+[[BUG-46]] solved half of this and the router says so at `router.ts:5326`:
+
+> A reload aborts the SSE, the next `controller.enqueue` throws on the cancelled
+> stream, that runs the generator's `finally` — where the library appends
+> `turn_end` and awaits `sync()` […] Registering the stream's completion means
+> the drain and this audit flush both outlive the client that walked away, which
+> is what makes a COMPLETED turn durable under a reload race.
+
+And it names precisely what is left:
+
+> It does not make an in-flight turn durable — that is the junction's business,
+> and in this Worker the junction is RAM (`ai.ts`), so an isolate evicted
+> mid-turn still loses it. Rendering from the junction is what narrows the
+> window; **only a Durable Object would close it.**
+
+Confirmed against the code: `ai.ts:202` and `:598` pass `lib.memoryJunctions()`,
+and `apps/control-app/wrangler.toml` declares no durable objects and no
+workflows — `main = "src/worker.ts"` and nothing else. So the turn is driven by
+the fetch request and the live record lives in the isolate. Both end when the
+client goes.
+
+**The turn is terminated, not completed.** That is the gap between what the
+system does and what the operator expects.
+
+### The operator's position (2026-09-18)
+
+> *"I think the user will expect an open turn to run to completion even if the
+> page is refreshed or navigated away from even if the browser is closed."*
+
+Agreed, and the losing of text is the least of it. Three reasons this matters
+more here than in an ordinary chat product:
+
+1. **Turns have side effects.** A consultant turn writes pages, palettes and
+   pictures. A turn killed after three of seven edits leaves the site
+   half-changed — and the change signal fires, so the pane re-renders and the
+   client SEES their site move with no reply explaining why. Nothing records that
+   the turn was interrupted.
+2. **Turns cost money.** A killed turn has already paid for its thinking and any
+   picture it generated. Same family as [[BUG-119]]: spend for an artifact nobody
+   receives.
+3. **Turns are long.** This is a tool loop against a browser and a store, not a
+   two-second reply. The window in which leaving costs you something is most of
+   the turn.
+
+### What closing it takes
+
+The reattach half is ALREADY BUILT and was written for exactly this. `tailSession`
+(`host-core.ts`) is a cursor-based subscriber over the junction, explicitly *"safe
+to do on any page load"* and *"never a second producer"*. What is missing is
+underneath it:
+
+- **A driver that outlives the request.** A Durable Object per session is the
+  natural shape: a session already has one identity (`site-site_<id>`), turns must
+  be serialised per session anyway — the transcript comment's compare-and-set
+  proves it — and the junction wants to live beside its driver. `ctx.waitUntil` is
+  not enough and BUG-46 already spent it on the drain.
+- **A durable junction**, so a second isolate can read the live turn. DO storage
+  if the DO is the driver.
+- **A resume contract on load**: does this session have a turn in flight, and from
+  what cursor. `tailSession` answers it once there is a durable producer.
+
+### Cheaper intermediate, worth doing either way
+
+**Fold the user's message before the turn starts.** Today an interrupted turn
+costs the operator their own words as well as the reply. Persisting the user turn
+up front means a lost turn costs only the answer — the question survives, is
+visible on reload, and can be re-sent with one click. That is a small change, it
+is independent of the Durable Object work, and it removes the most irritating
+half of the loss.
+
+**And say that a turn was interrupted.** A turn that ends without `turn_end` is
+knowable; the transcript should show it rather than leaving a gap the client reads
+as the assistant ignoring them.
 
 ## Children
 
