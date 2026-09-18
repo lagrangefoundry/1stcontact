@@ -929,12 +929,16 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
       unpairedActual: [],
     }
 
+    // BUG-112 — the on-sample envelope travels with `pass`. These fixtures are
+    // about the verdict LADDER, so every rung is handed a clean one: the ladder's
+    // shape must not depend on collisions it is not asking about.
+    const noCollisions = { pass: true, byWidth: [] }
     const verdicts = {
-      pass: reconcileGates({ l1Gate: { pass: true }, coverage: clean, perceptual: quiet, values: noDeltas }),
-      structural: reconcileGates({ l1Gate: { pass: false }, coverage: clean, perceptual: quiet, values: noDeltas }),
-      incomplete: reconcileGates({ l1Gate: { pass: true }, coverage: suspect, perceptual: loud, values: noDeltas }),
-      wrong: reconcileGates({ l1Gate: { pass: true }, coverage: clean, perceptual: loud, values: deltas }),
-      unexplained: reconcileGates({ l1Gate: { pass: true }, coverage: clean, perceptual: loud, values: noDeltas }),
+      pass: reconcileGates({ l1Gate: { pass: true, onSample: noCollisions }, coverage: clean, perceptual: quiet, values: noDeltas }),
+      structural: reconcileGates({ l1Gate: { pass: false, onSample: noCollisions }, coverage: clean, perceptual: quiet, values: noDeltas }),
+      incomplete: reconcileGates({ l1Gate: { pass: true, onSample: noCollisions }, coverage: suspect, perceptual: loud, values: noDeltas }),
+      wrong: reconcileGates({ l1Gate: { pass: true, onSample: noCollisions }, coverage: clean, perceptual: loud, values: deltas }),
+      unexplained: reconcileGates({ l1Gate: { pass: true, onSample: noCollisions }, coverage: clean, perceptual: loud, values: noDeltas }),
     }
 
     expect(verdicts.pass.verdict).toBe('pass')

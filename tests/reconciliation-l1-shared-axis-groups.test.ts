@@ -70,6 +70,11 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
   responsivePadding: { topPx: { keyframes: [{ at: 320, value: 8 }] } },
   interaction: { hover: { opacity: 0.9 } },
   reveal: { yPx: 22, durationMs: 640 },
+  // BUG-112 — the declared stacking intent. A scalar rather than an object bag,
+  // and `true` is its only legal value, so the "unknown key inside the group is
+  // refused" half of the sweep below holds for it the same way: anything that is
+  // not the literal is refused on every kind alike.
+  stacked: true,
 }
 
 /**

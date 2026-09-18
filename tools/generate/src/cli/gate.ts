@@ -71,9 +71,11 @@ export {
   SECTION_DENSITY_PX,
   referenceCoverage,
   reconcileGates,
+  layoutCollisions,
 } from './gate-core'
 export type {
   CoverageFinding,
+  LayoutCollision,
   ReferenceCoverage,
   GateVerdict,
   PerceptualFloor,
@@ -125,6 +127,16 @@ export function formatGateReport(report: GateReport, ref: string): string {
     `cross-gate reconciliation on ${ref}: ${VERDICT_LABEL[report.verdict]}`,
     '',
     `  l1-gate      ${report.l1Pass ? 'PASS' : 'FAIL'}  (geometry + envelope; blind to colour/font/media by design)`,
+    // BUG-112 — the served document's own collisions, printed under the gate
+    // that found them. Silent on a clean run: a row saying "0 collisions" on
+    // every page for ever is a row nobody reads by the time it matters.
+    ...(report.layout.findings.length
+      ? [
+          `    ⚠ ${report.layout.findings.length} on-sample collision(s) on the SERVED document:`,
+          ...report.layout.findings.slice(0, 8).map((f) => `      ${f.kind}: ${f.detail}`),
+          ...(report.layout.findings.length > 8 ? [`      …+${report.layout.findings.length - 8} more`] : []),
+        ]
+      : []),
     // BUG-106 — the counts, and then what they are worth. `unmatched` is
     // expected-side only, so the repro-side count goes on the same line rather
     // than being left to `values-diff.json`; a run whose sections could not be

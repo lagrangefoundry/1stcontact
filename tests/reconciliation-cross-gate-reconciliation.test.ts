@@ -586,7 +586,13 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     expect(structural.l1Pass).toBe(false)
     expect(structural.verdict).toBe('structural-failure')
     expect(structural.pass).toBe(false)
-    expect(structural.diagnosis).toMatch(/not geometrically faithful/)
+    // BUG-112 — the diagnosis NAMES what the structural gate saw rather than
+    // restating that it failed. This fixture overhangs its viewport by 600px, so
+    // what it saw is a clip at every captured width, and it says so — with the
+    // `1c l1-gate` residuals still named as the follow-on step.
+    expect(structural.diagnosis).toMatch(/exceeds viewport/)
+    expect(structural.layout.pass).toBe(false)
+    expect(structural.layout.findings.every((f) => f.kind === 'clip')).toBe(true)
     expect(structural.nextStep).toMatch(/l1-gate/)
 
     // (b) capture-incomplete — floor breached AND coverage suspect. The value

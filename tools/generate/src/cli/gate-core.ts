@@ -18,7 +18,7 @@
  *
  * WHAT IS HERE. Everything that reads a {@link ReferenceBundle} through the port
  * or computes over data already in hand: the perceptual floor, the coverage
- * proxies, the three-probe L1 gate, and the reconciliation itself. What is NOT
+ * proxies, the L1 acceptance gate, and the reconciliation itself. What is NOT
  * here is the command — `1c gate` still lives in `gate.ts`, still writes its
  * report, and still reads exactly these functions, so there is one place where a
  * verdict is decided and the CLI is a caller of it rather than its owner.
@@ -36,8 +36,8 @@ import { readCapture, readMultiState } from './capture/bundle'
 // functions this uses are pure and live in two modules.
 import { foldToL1 } from '../l1/fold'
 import type { FoldResidual } from '../l1/fold'
-import { promoteToFlow, threeProbeGate } from '../l1/probes'
-import type { ThreeProbeReport } from '../l1/probes'
+import { acceptanceGate, promoteToFlow } from '../l1/probes'
+import type { AcceptanceReport, EnvelopeReport } from '../l1/probes'
 import type { FoldedForm } from '../l1/forms'
 import type { ReferenceBundle } from '../store/reference-store'
 // BUG-100 — the coverage proxy compares image handles by mirrored-asset basename,
@@ -87,6 +87,44 @@ export interface CoverageFinding {
   kind: 'unreferenced-image' | 'section-density' | 'stale-capture'
   /** Operator-facing sentence: what was measured and why it reads as a gap. */
   detail: string
+}
+
+/**
+ * BUG-112 — one on-sample layout collision on the served document.
+ *
+ * `kind` + `detail` are deliberately the SAME two keys a {@link CoverageFinding}
+ * carries, and for the same reason: `detail` is a finished operator-facing
+ * sentence, so every surface that already knows how to print a coverage finding
+ * — the CLI report, the `check_fidelity` tool result an AI round reads — carries
+ * this one with no new format to learn. `width` and `paths` are the machine-side
+ * halves of the same sentence, for a caller that wants to sort or navigate
+ * rather than read.
+ */
+export interface LayoutCollision {
+  kind: 'overlap' | 'clip'
+  /** Operator-facing sentence: what collided with what, at which width. */
+  detail: string
+  /** The captured width the collision was found at. */
+  width: number
+  /** Index paths of the leaves involved. */
+  paths: string[]
+}
+
+/**
+ * Flatten an envelope report into collisions, width by width and, inside each
+ * width, in the order the probe walked the page — so the list an operator reads
+ * is the page top to bottom rather than a bag sorted by nothing.
+ */
+export function layoutCollisions(report: EnvelopeReport): LayoutCollision[] {
+  return report.byWidth.flatMap(({ width, findings }) =>
+    findings.map((f) => ({ kind: f.kind, detail: `at ${width}px: ${f.detail}`, width, paths: [...f.paths] })),
+  )
+}
+
+/** The first `n` collisions as one semicolon-joined sentence, with a tail count. */
+function namedCollisions(all: LayoutCollision[], n = 5): string {
+  const head = all.slice(0, n).map((c) => c.detail).join('; ')
+  return all.length > n ? `${head}; …and ${all.length - n} more` : head
 }
 
 /**
@@ -144,7 +182,19 @@ export interface PerceptualFloor {
 
 /** Everything the reconciliation reads. Pure input — no I/O, no browser. */
 export interface ReconcileInput {
-  l1Gate: Pick<L1GateResult, 'pass'>
+  /**
+   * BUG-112 — `onSample` travels beside `pass`, and it is not redundant with it.
+   * `pass` already folds the on-sample envelope in, so the VERDICT is right
+   * either way; what `onSample` adds is the ability to say WHAT collided, which
+   * is the whole difference between "the structural gate failed" and a brief an
+   * AI round can act on.
+   *
+   * Required, not optional, for the reason the BUG-106 note below gives at
+   * length: a `Pick` that structurally excludes the facts a caller would have to
+   * remember to pass is a caller that will one day not remember. Every caller
+   * here holds a whole {@link L1GateResult}, so satisfying it costs nothing.
+   */
+  l1Gate: Pick<L1GateResult, 'pass' | 'onSample'>
   coverage: ReferenceCoverage
   /**
    * REQ-157 — `regions` is only ever counted here, so this asks for something
@@ -222,6 +272,13 @@ export interface GateReport {
     sectionsNotComparable?: string
   }
   coverage: ReferenceCoverage
+  /**
+   * BUG-112 — what the served document does at the captured widths, as it
+   * stands. `pass: false` here is always a `structural-failure` verdict: a page
+   * that paints a run over its neighbour at a width the reference itself was
+   * measured at is wrong however the pixels average out.
+   */
+  layout: { pass: boolean; findings: LayoutCollision[] }
 }
 
 /**
@@ -392,6 +449,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   const unpairedActual = input.values.unpairedActual.length
   const notComparable = input.values.sectionsNotComparable
   const coverage = input.coverage
+  const collisions = layoutCollisions(input.l1Gate.onSample)
 
   let verdict: GateVerdict
   let diagnosis: string
@@ -399,8 +457,24 @@ export function reconcileGates(input: ReconcileInput): GateReport {
 
   if (!input.l1Gate.pass) {
     verdict = 'structural-failure'
-    diagnosis = 'The 3-probe gate failed: the reproduction is not geometrically faithful to the oracle.'
-    nextStep = 'Work `1c l1-gate --ref <bundle>` — its residuals each name the framework gap to close.'
+    // BUG-112 — an on-sample collision is named HERE rather than left to
+    // `1c l1-gate`, because it is the one structural failure an operator can
+    // confirm by opening the page: two runs painted on top of each other at a
+    // width the reference was measured at. Leaving it as "work the residuals"
+    // is what sent an AI round after fourteen sub-pixel value deltas while the
+    // form controls sat on the prose above them.
+    diagnosis = collisions.length
+      ? `The acceptance gate failed: the SERVED document collides with itself at ${
+          new Set(collisions.map((c) => c.width)).size
+        } captured width(s) — ${namedCollisions(collisions)}. ` +
+        'A run painted over its neighbour is a reproduction defect no perceptual average can excuse.'
+      : 'The acceptance gate failed: the reproduction is not geometrically faithful to the oracle.'
+    nextStep = collisions.length
+      ? 'Fix the collisions first (`layout.findings` lists every pair and width) — either give the ' +
+        'colliding region structure so it cannot overlap, or, where the stack IS the design, declare ' +
+        'it on the node with `stacked: true` so the intent is recorded rather than inferred. Then work ' +
+        '`1c l1-gate --ref <bundle>` for the remaining residuals.'
+      : 'Work `1c l1-gate --ref <bundle>` — its residuals each name the framework gap to close.'
   } else if (!perceptualBreach) {
     verdict = 'pass'
     diagnosis =
@@ -496,12 +570,13 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
     },
     coverage,
+    layout: { pass: input.l1Gate.onSample.pass, findings: collisions },
   }
 }
 
 // ── the structural gate ──────────────────────────────────────────────────────
 
-export interface L1GateResult extends ThreeProbeReport {
+export interface L1GateResult extends AcceptanceReport {
   /** Paths of the pinned sibling groups `promoteToFlow` recovered into flow. */
   promoted: string[]
   /**
@@ -521,9 +596,9 @@ export interface L1GateResult extends ThreeProbeReport {
 }
 
 /**
- * Run the 3-probe acceptance gate against a capture bundle's oracle. Folds the
+ * Run the acceptance gate against a capture bundle's oracle. Folds the
  * `multistate.json` to the absolute base, applies demand-driven `promoteToFlow`
- * for the envelope probes, and runs {@link threeProbeGate}. The returned report's
+ * for the envelope probes, and runs {@link acceptanceGate}. The returned report's
  * residuals each name a framework gap (a missing L1 axis, a capture-hint gap, or
  * a region needing promotion) to feed back per the DOC-21 growth loop.
  */
@@ -539,6 +614,12 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
   const forms: FoldedForm[] = []
   const base = foldToL1(multiState, { residuals: foldResiduals, forms })
   const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE })
-  const report = threeProbeGate(base, multiState, { recovered, contentScale: CONTENT_SCALE })
+  // BUG-112 — `served` is `base`, NAMED, because that is what `1c repro` writes
+  // to disk (`cmdRepro` imports `promoteToFlow` and never calls it — see
+  // BUG-113, which owns the question of whether that is the right document).
+  // Until that question is settled the gate's job is to grade the artifact the
+  // operator's browser loads, whichever one it is, rather than to assume the
+  // recovered overlay it certifies is the one that got written.
+  const report = acceptanceGate(base, multiState, { recovered, served: base, contentScale: CONTENT_SCALE })
   return { ...report, promoted, foldResiduals, forms }
 }
