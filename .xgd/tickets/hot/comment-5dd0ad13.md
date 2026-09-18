@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-274
 created_by: xgd
 created_at: '2026-09-18T22:38:58.712285+00:00'
-updated_at: '2026-09-18T23:23:46.184974+00:00'
+updated_at: '2026-09-18T23:41:08.573937+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,27 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="b33766ab-6954-42ce-8900-69295e04e42a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:41:08.319094+00:00" -->
+#### Claude
+Work is intact and verified. Now updating the ticket body to cover what the implementation actually landed.
+
+Now committing the code on the branch.
+
+REQ-274 is free-coded and landed on `xgd-working`.
+
+**What shipped** — `tools/generate/src/cli/capture/value-axes.ts` is now the single declaration site for every value axis. A row states the axis, its scope, its role (`compared` vs `carried`), a note, and **both** sides as required properties — either a reader or `unsupplied('<why>')`. `flattenCapture` and `flattenSignals` project from that table instead of two hand-written bodies; ~440 lines of duplicated reading deleted, and a UAT asserts nothing reaches a manifest except through a row.
+
+**The fifth instance existed.** Re-landing REQ-269 #5 and REQ-270 #2/#3/#4 as rows (no exceptions needed) exposed it: `paddingTopPx`, `paddingRightPx`, `paddingBottomPx` and `textAlign` on a text run. REQ-64 added all four to `RawRun` and to the comparator but never to `ContentRun`, so the reference could never supply them, the both-sides guard never fired, and four *compared* axes have read clean on every text run of every reproduction since. They're declared reference-side `unsupplied(...)`, which is what makes them enumerable and carries them to the gate.
+
+**One judgment call worth flagging.** The acceptance asked for the gate to "say so rather than passing", while also demanding no verdict regression on the three stored references — and those pull opposite ways, because the live table's unmeasured axes are present on every existing reference. I resolved in favour of the verdict: an unmeasured axis is a report fact, never a verdict (BUG-106/BUG-111's discipline). The run passes; the pass rung and the terminal report now *name* the axes, and `nextStep` no longer reads "Nothing outstanding from this gate." That decision is written into the ticket body rather than left for reconciliation to infer.
+
+BUG-102's coalesced-vs-raw geometry join is untouched, and a UAT pins that so the table isn't later mistaken for a claim about pairing.
+
+**Verification** — `tsc --noEmit` clean over `tools/generate`, both before and after merging `xgd-working` (which brought REQ-275's capture work in). Full `vitest run` sweep: 572 files / 4950 tests pass. Six failures, all pre-existing and unrelated — `bug32-webui-scope-rebrand` and `test_UAT_FC_BUG-67_backend_settings` fail identically on clean `xgd-working`; `test_UAT_FC_BUG-112_on_sample_layout_gate` fails identically at the branch's HEAD before these changes; the knowledge-base and build-smoke suites are worktree/parallel-load artifacts that pass in isolation.
+
+Ticket is at `free_coded`, version `0.2.271`, commits `7d47435` + `94dda17`. Branch merged and cleaned up. Promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
