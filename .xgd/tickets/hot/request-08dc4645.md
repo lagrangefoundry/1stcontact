@@ -6,10 +6,10 @@ title: 'capture/fold: a form field loses its padding, line-height rounds to whol
   pixels, and three more residuals a passing gate cannot see'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:28:40.678988+00:00'
-updated_at: '2026-09-18T00:30:17.897454+00:00'
+updated_at: '2026-09-18T00:39:08.368037+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
