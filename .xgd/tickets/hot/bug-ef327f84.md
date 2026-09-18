@@ -6,7 +6,7 @@ title: 'repro console: two checks that cry wolf — the ready_* assertion and th
   rail'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:43.950444+00:00'
-updated_at: '2026-09-18T03:40:00.957551+00:00'
+updated_at: '2026-09-18T03:46:54.235106+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -144,3 +144,17 @@ when there is no bar. What this ticket adds:
   rail is checking nothing and naming `repro-rail record`. That is the answer
   to "three rounds ran without the operator noticing": it is no longer a line
   folded into an iteration, it is a standing banner on the console itself.
+
+
+### Two details the tests also pin
+
+- The ordinary round — nothing arrived at a trigger status — reports neither a
+  violation nor an observation. Silence in the ordinary case is what makes
+  either list worth reading when one appears.
+- The notice is conditional, not decoration: a console with nothing to report
+  renders no banner at all, and the banner tracks the **most recent** rail, so
+  it goes as soon as a baseline is recorded.
+- `repro-rail`'s own terminal report says `NOT YET RECORDED` too, rather than
+  `NOT AVAILABLE`. One state of the checkout, one command that fixes it, and an
+  operator who meets it in the console and at the terminal should not have to
+  work out that they are the same thing. It still exits non-zero.
