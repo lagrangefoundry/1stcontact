@@ -6,16 +6,24 @@ title: 'gate: a reproduction that paints text over text passes — on-sample lay
   collisions are computed and discarded'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:29.092070+00:00'
-updated_at: '2026-09-18T03:59:29.724531+00:00'
+updated_at: '2026-09-18T04:01:00.928388+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-af2a66dc
+  commits:
+  - working_sha: 6162558c2db128aae48c8042764439eef32f4074
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a87c8f8fc65a7888212755dae11ce7569d40d7ca
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.261
 ---
 
 # The gate cannot see text painted over text
