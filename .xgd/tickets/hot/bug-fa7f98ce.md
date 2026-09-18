@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-ccd1ee37
 ---
 
 The loop-1 round prompt tells the round both that it files its own ticket and
