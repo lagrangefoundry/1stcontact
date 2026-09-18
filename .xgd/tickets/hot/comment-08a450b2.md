@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-18T02:25:03.129334+00:00'
+updated_at: '2026-09-18T02:30:46.522368+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -267,5 +267,11 @@ REQ-235 is landed on `xgd-working` at `free_coded`.
 Body now carries a new §9 recording the five things the implementation added as consequences — the spine-derived floor, the trailing session left open, the closer's scan bounds, the summary's synthetic floor, and the origin probe — so reconciliation finds them in the spec rather than in the diff. Commits `36f33e2b47`, `64a47dd620`, `8cc50f29d3`; version `0.2.253`; story points 13. Branch merged and cleaned; lock released.
 
 Promotion to `ready_to_reconcile` is yours to make when you're satisfied.
+
+<!-- xgd-turn id="8c6d3f18-97c6-4656-b2ec-31ed6377c5f5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:30:46.071299+00:00" -->
+#### You
+is this done
 
 <!-- xgd-chat-end -->
