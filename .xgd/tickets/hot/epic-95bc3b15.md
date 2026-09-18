@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T21:47:21.859979+00:00'
+updated_at: '2026-09-18T22:36:09.682866+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -317,6 +317,13 @@ shrinking.
 
 ## Children
 
+- [[REQ-217]] — *Chat: an image a turn produced appears in the conversation.* Already
+  built and free-coded (2026-09-11, `215187d64c`, 0.2.169) — the display handle,
+  the URL factory and both UATs are in. Revisited 2026-09-18 because the operator
+  still has to open the Library to see a generated picture: diagnose whether the
+  model is not pasting the line, the running build predates the commit, or the
+  call had no `materialUrl`. Its body is frozen at `ready_to_reconcile`, so the
+  finding is COMMENT-3142 and any priming change needs a new ticket.
 - [[REQ-273]] — The assistant can report a defect: adopt the upstream
   `development` surface (`report_bug` / `request_capability` /
   `add_ticket_detail`), which files into the PRODUCT's project rather than the
