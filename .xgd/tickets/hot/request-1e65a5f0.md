@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-5dd0ad13
 ---
 
 # One projection over both sides — retire the asymmetric-axis defect as a category
