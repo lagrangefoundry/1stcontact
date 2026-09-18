@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T19:37:30.581200+00:00'
+updated_at: '2026-09-18T19:45:58.227279+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -153,6 +153,34 @@ follow, and each is a decision this adoption has to make:
 
 Worker spend is rolled into the caller's ledger, attributed to the delegation, on
 every exit path including failure and stop.
+
+### Decision (2026-09-18): parked, and what we decided while parking it
+
+**Not adopting yet.** Build with the consultant first and watch where it writes
+long mechanical sequences; those observations should shape the worker's grant and
+its brief-writing priming, rather than the shape being guessed now.
+
+**When we do come back, the worker does NOT get the broader knowledge base.** In
+this context a worker needs its tool information and very specific instructions
+from the parent, and nothing else. If brand context is needed for the work, the
+PARENT supplies it in the goal prose — the parent is the session that has it, has
+already paid for it, and is the one making the judgement about what matters.
+
+Rationale, so it survives: a worker with corpus access puts retrieval judgement
+on the cheap model, re-introduces the expensive reading we were trying to move
+off the critical path, and blurs the one clean line this design has — intent
+comes from the parent, authority from the role. Supplying context in the brief
+keeps the parent accountable for the quality of the delegation, which is where
+the skill belongs.
+
+This is a statement about THIS delegate, not about delegation in general. A
+different kind of worker — research, summarisation, anything whose job IS
+reading — could reasonably be granted a corpus. The L1 authoring worker is not
+one of those.
+
+Open when we resume: the corpus-pollution question above (a `chat` ticket per
+delegation entering the project KB) may resolve itself if workers are cheap and
+short, but it still has to be answered before the first delegation ships.
 
 ## Children
 
