@@ -5,9 +5,9 @@ type: epic
 title: 'Email: capture, send, and never break the business''s mail'
 created_by: CHAT-54
 created_at: '2026-09-16T19:20:31.585909+00:00'
-updated_at: '2026-09-18T02:05:19.405991+00:00'
+updated_at: '2026-09-18T03:27:04.925685+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: underway
 fields:
   priority: high
@@ -773,3 +773,122 @@ The general rule that replaced the exception: **suppression keys on the record, 
 **One obligation this epic should note now, since it is cheap only while unbuilt:** KB corpus membership must default _out_ for synthetic messages. This epic already requires that for volume reasons; the gutter adds a second: a support answer citing a bot's enquiry is a retrieval failure with no symptom.
 
 **Ordering unchanged:** [[DOC-54]] is the contract, not a dependency. Nothing here waits on it beyond carrying the column when the tables are written.
+
+
+## Design session, 2026-09-17: the cutover UX, and what capture actually is ([[EPIC-5]])
+
+Worked through with the operator. §"The cutover mail gap" already records the
+*ordering* — mail configured in the window before the paste — but not the
+experience, and the experience is where this either works or frightens somebody
+out of moving their domain at all. **[[EPIC-5]] carries the amended sequence and
+the read-only half; this section carries the mail half and the two rules that
+follow from it.**
+
+### The principle, and it is the operator's
+
+*"We separate configuration capture from action. This is inherently an
+asynchronous execution environment — we have DNS propagation to deal with. The
+user should configure everything once, before we make any changes. Then we tell
+them when everything has been done. How we implement everything under the covers
+and in what order is up to us."*
+
+**Everything asynchronous is ours to hide.** A furniture restorer moving the
+address her business runs on cannot hold a multi-day procedure in her head; she
+can answer questions in one sitting. So every question is asked before anything
+changes, and the only thing she is asked to do afterwards is paste a nameserver
+pair.
+
+### What the capture conversation actually asks, and what it must not claim
+
+The shape, from the operator's sketch: *"I see you bought it on GoDaddy but
+DreamHost is managing it, I can walk you through that transfer. Before I do, let's
+check a few details…"*
+
+**What we can actually see, and the line must not outrun it:**
+
+- **Registrar** — RDAP, authoritatively ([[EPIC-5]], this session).
+- **Who manages DNS** — the nameservers, certainly.
+- **Who handles mail** — [[REQ-257]]'s snapshot classifies the `MX`.
+- **Whether that mail is forwarding or real mailboxes** — **no.** A
+  `secureserver.net` `MX` is both, and §"The cutover mail gap" is blunt that
+  destinations are *"not discoverable from DNS at any price."*
+
+So the question is *"I can see your mail is handled by GoDaddy — where should it go
+after the move?"* and never *"I see you have forwarding configured, is that
+right?"* The first is a question a furniture restorer can answer; the second asks
+her to validate a finding, which [[EPIC-5]]'s rule forbids.
+
+### Per-provider lookup guidance is a capability, not a help page
+
+The likeliest stall in the whole flow is *"I can't remember what my forwarding
+rules are."* Answering *"here is where GoDaddy hides them, and here is what the
+screen looks like"* is the difference between this being simple and being
+harrowing, and it is genuinely good assistant work. **Named as its own thing so it
+does not disappear inside the flow** and get built as a paragraph of static text.
+
+### Capture must be durable, and the flow re-enterable
+
+**The most likely outcome of that stall is that she leaves to go and look.**
+§"Until this is built" already rules that a customer who chooses to schedule the
+move rather than finish now is *"the correct outcome, not a failure of the flow"* —
+which only holds if she can come back to a half-filled form rather than to
+nothing.
+
+So the captured configuration persists with **nothing acted on**, and the procedure
+state lives outside the transcript: which step, what we read, what she told us,
+what we are waiting on. That is the operator's separation of capture from action
+restated as a durability requirement, and it is the part that most needs to be true
+before any of it is built.
+
+### Destination verification is a third-party round trip inside the capture phase
+
+Cloudflare requires every forwarding destination to confirm by clicking a link. So
+*"forward to sarah@ and bob@"* is work for two people who are not in the room and
+may not be at a computer — **asynchronous work inside the phase that is supposed to
+feel like one sitting.**
+
+Two consequences:
+
+- **Fire verification the moment a destination is captured.** It is an
+  account-level fact at Cloudflare and does not depend on the zone existing, so it
+  can run the entire time she is doing everything else — which under [[EPIC-5]]'s
+  amended ordering is the whole of the capture phase.
+- **An unverified destination blocks the paste.** Cutting over with one means mail
+  arrives, is recorded, and is silently swallowed — the `no_destination` outcome
+  [[REQ-267]] already reports — and *"never break the business's mail"* is the
+  promise this epic is built on. A configuration that cannot forward is not
+  configured.
+
+### Two notifications, two rails, and that is the design rather than a redundancy
+
+**The completion notice goes to the account holder's own address** — the one they
+signed up to 1st Contact with — and never to an address on the domain being moved.
+The reason is stronger than *"DNS might break it"*: a message reporting on a system
+would be delivered **by** that system, so it could only ever arrive when it was not
+needed.
+
+**But that notice proves our pipeline works, not that their forwarding works.** The
+proof of forwarding is §"The forwarding test": a real message sent **to** the
+address under test, travelling the entire real path, carrying a confirmation button
+a human presses. Telling the customer to test it themselves is weaker — a delivery
+event proves a message reached a mail server and never that it reached a person.
+
+So:
+
+| Message | Rail | What it proves |
+|---|---|---|
+| "Your domain is live, mail is flowing" | direct to their personal address | our side finished |
+| The forwarding test, with its button | through `MX` → Email Routing → Worker → forward | their side works |
+
+**The fact that they travel different paths is the feature.** If the first arrives
+and the second does not, the failure is localised before the customer has to
+describe it.
+
+### "We'll tell you when it's up" is triggered by observation, never by a timer
+
+[[REQ-257]]'s resolver reads DNS **from outside**, following the domain's current
+delegation rather than reading our own zone back — built for exactly this question.
+So the completion notice fires when we have observed the delegation flip and our
+`MX` answer, not after an interval. A timer would send *"all good"* into a
+delegation that had not moved, which is the one sentence that would destroy the
+trust the whole flow is trying to build.
