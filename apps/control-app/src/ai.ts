@@ -516,6 +516,20 @@ export function workerHost(
    * permanent state and is exactly how `templateRefusal` already behaves.
    */
   addresses: HostDeps['addresses'] = null,
+  /**
+   * The client's domain, as the assistant reads and changes it ([[REQ-260]]).
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above is
+   * one: it needs the identity environment, the Cloudflare client and the
+   * external resolver, and the router builds all three per request for the
+   * domain routes already.
+   *
+   * NULL IS ORDINARY. A deployment with no `CLOUDFLARE_DNS_TOKEN` manages no
+   * DNS and gets an assistant that does not know these tools exist — which is
+   * the same shape `fidelity` and `pictures` already have, and is the honest
+   * alternative to composing a surface that refuses every call.
+   */
+  dns: HostDeps['dns'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -615,6 +629,11 @@ export function workerHost(
       // through: `host-core.ts` binds it to the session's site and
       // `publishSite` decides what having none means. This file only carries it.
       addresses,
+      // THE CLIENT'S DOMAIN ([[REQ-260]]), passed straight through:
+      // `host-core.ts` composes the `dns` surface into the settings conversation
+      // when this is present and composes nothing when it is not, which is the
+      // one place that decision belongs.
+      dns,
       // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
       // knowledge wires above: the record does not depend on there being a
       // corpus, and a session with no knowledge base still decides things worth

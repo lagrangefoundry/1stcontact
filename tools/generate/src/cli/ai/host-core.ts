@@ -75,6 +75,12 @@ import {
   settingsSurfaceFor,
   type SettingsDeps,
 } from './settings-core'
+import {
+  dnsInstanceConfig,
+  dnsSurfaceFor,
+  type DnsChangeView,
+  type DnsDeps,
+} from './dns-core'
 import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
@@ -172,6 +178,33 @@ export const SITE_CHANGED = 'site_changed'
  * observes one needs no second reader for the other.
  */
 export const BUSINESS_CHANGED = 'business_changed'
+
+/**
+ * The settings host's event kind for "we have just changed the client's domain"
+ * ([[REQ-260]]).
+ *
+ * A THIRD KIND, AND THE FIRST ONE THAT CARRIES A PAYLOAD. {@link SITE_CHANGED}
+ * and {@link BUSINESS_CHANGED} carry a count and nothing else, deliberately: the
+ * pane beside the conversation is an ordinary caller of the same routes the
+ * assistant is, and a payload it rendered instead would make the assistant the
+ * pane's writer. This one is not that signal. It is the CARD — the sentence the
+ * client is owed at the moment their DNS changes, and the undo anchored on it —
+ * and it belongs in the conversation rather than in a pane, so it arrives with
+ * the change's own id and the sentence that was recorded with it.
+ *
+ * IT IS A NOTICE AND NOT A QUESTION, which is the whole design decision this
+ * ticket turns on. The obvious shape — propose, ask, apply on approval — sounds
+ * safe and is not: *a confirmation step the client cannot meaningfully perform
+ * is worse than none, because it launders our error into their approval.* The
+ * safety is in the operations' own rules, which hold whether or not anybody
+ * clicks; what this delivers is visibility, an audit record, and the commit
+ * point the undo hangs off.
+ *
+ * `meta.change` is the change's id, `meta.summary` the sentence recorded with
+ * it, and `meta.settles_by` when the world may be expected to agree. One event
+ * per change, so six changes are six cards rather than one silent cascade.
+ */
+export const DNS_CHANGED = 'dns_changed'
 
 /** One turn of a conversation, as the panel renders it. */
 export interface ChatTurn {
@@ -494,6 +527,21 @@ export interface HostDeps {
    * behaves in every respect as it did before this existed.
    */
   settings?: { businessId: string; deps: SettingsDeps } | null
+
+  /**
+   * The client's domain, as the assistant reads and changes it ([[REQ-260]]).
+   *
+   * BOUND TO THE SAME BUSINESS {@link HostDeps.settings} is, and composed into
+   * the same conversation: a domain is a property of the business rather than of
+   * a site, and the pane the client reads its history on is the settings pane.
+   *
+   * NULL IS ORDINARY AND IS THE DEFAULT, for `fidelity`'s reason: the `1c` CLI
+   * manages nobody's DNS, and a deployment with no Cloudflare credential manages
+   * none either. The surface is then simply absent, so its manual never mentions
+   * it and the model cannot propose, apologise for, or probe for an operation it
+   * has not got.
+   */
+  dns?: DnsDeps | null
 }
 
 
@@ -627,6 +675,22 @@ const baselines = new Map<string, number>()
  * host; the differences are the whole of what is reported.
  */
 const businessWrites = new Map<string, number>()
+
+/**
+ * The DNS changes each business's conversation has made and not yet reported
+ * ([[REQ-260]]).
+ *
+ * A QUEUE AND NOT A COUNT, which is the difference from {@link businessWrites}
+ * above. That signal says *something moved, go and re-read*; this one carries
+ * the sentence the client is owed, and the sentence is the whole of what the
+ * card is. A count would leave the pane to re-derive it, and a sentence rebuilt
+ * from a record diff is a sentence nobody wrote.
+ *
+ * DRAINED BY THE TURN THAT PRODUCED IT — see {@link streamPrompt} — so an entry
+ * cannot outlive the conversation it belongs to. Keyed the way its manager is,
+ * so {@link resetAiHost} clears it with everything else.
+ */
+const businessDnsChanges = new Map<string, DnsChangeView[]>()
 
 /**
  * A stable id per injected store, so a key can name one without a path.
@@ -1115,7 +1179,36 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
     }),
     new lib.ManualToolbox(),
   ]
-  const granted = { ...settingsInstanceConfig(), ...lib.manualInstanceConfig() }
+  const granted: Record<string, unknown> = {
+    ...settingsInstanceConfig(),
+    ...lib.manualInstanceConfig(),
+  }
+
+  /**
+   * THE CLIENT'S DOMAIN, WHERE THIS DEPLOYMENT MANAGES ONE ([[REQ-260]]).
+   *
+   * COMPOSED INTO THE SETTINGS CONVERSATION rather than into the site's, because
+   * a domain belongs to the business and not to a site — and because the pane
+   * the client reads the change history on is six inches to the left of this
+   * conversation.
+   *
+   * ABSENT IS AN ORDINARY DEPLOYMENT, and absent means the surface is not
+   * composed at all rather than composed and refusing: the manual is projected
+   * from what is granted, so a `1c` process or a Worker with no Cloudflare
+   * credential gets an assistant that does not know these tools exist.
+   *
+   * THE HOOK QUEUES THE CARD. `settings.deps`'s hook above counts writes so the
+   * pane can re-read; this one carries the sentence the client is owed, because
+   * a card is the sentence and nothing else can reconstruct it.
+   */
+  if (deps.dns) {
+    surfaces.unshift(
+      await dnsSurfaceFor(lib, deps.dns, (change) => {
+        businessDnsChanges.set(key, [...(businessDnsChanges.get(key) ?? []), change])
+      }),
+    )
+    Object.assign(granted, dnsInstanceConfig())
+  }
   const box = new lib.Toolbox(surfaces, granted, {
     audit: deps.audit ?? null,
     session: businessSessionIdFor(businessId),
@@ -1437,6 +1530,27 @@ export async function* streamPrompt(
       // write — and a Map read rather than the site half's store round trip, so
       // a turn that only answers a question costs nothing at all.
       if (event.kind !== TOOL_ACTIVITY) continue
+      /**
+       * THE CARDS FIRST ([[REQ-260]]), and the order is deliberate: the change to
+       * the client's DNS has already landed, so the notice about it belongs in
+       * the conversation at the point it happened rather than after whatever the
+       * pane does about it.
+       *
+       * ONE EVENT PER CHANGE, drained rather than counted, so six changes are six
+       * cards. A turn that made none drains an empty queue and costs one Map
+       * read.
+       */
+      const cards = businessDnsChanges.get(key)
+      if (cards && cards.length > 0) {
+        businessDnsChanges.set(key, [])
+        for (const card of cards) {
+          yield {
+            kind: DNS_CHANGED,
+            content: card.summary,
+            meta: { change: card.id, summary: card.summary, settles_by: card.settlesBy },
+          }
+        }
+      }
       const now = businessWrites.get(key) ?? 0
       if (now <= seen) continue
       const changes = now - seen
@@ -1693,4 +1807,8 @@ export function resetAiHost(): void {
   // turn and report a write that has already been seen — or, negative, none at
   // all.
   businessWrites.clear()
+  // AND THE CARDS THAT HAVE NOT BEEN DELIVERED ([[REQ-260]]). A queued change
+  // that outlived its conversation would be reported into the next one, putting
+  // a card about somebody's domain in a turn that did not touch it.
+  businessDnsChanges.clear()
 }

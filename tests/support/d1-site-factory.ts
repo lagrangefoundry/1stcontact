@@ -126,8 +126,15 @@ const MIGRATIONS = [
   // skipped this file would fail every publish on a missing table — and the
   // trigger is the thing the ticket's first UAT asserts, which cannot be
   // asserted against a database that does not carry it.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0013_revision_immutability.sql?raw'),
+  // [[REQ-260]] — `dns_changes`, every DNS change and what it takes to undo one.
+  // Applied here for every reason above, and one of its own: the undo is a
+  // compare-and-swap over a set this table HOLDS, so a suite that skipped it
+  // would fail on a missing table in the operation that records a change rather
+  // than in the one that reverts it — and the claim the ticket's UATs actually
+  // make is about what the second one does with what the first one wrote.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0014_dns_changes.sql?raw'),
 ]
 
 /**
@@ -220,7 +227,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-266]]'s immutability trigger on `site_revisions`. It used to ask for
+ * [[REQ-260]]'s `idx_dns_changes_zone`. It used to ask for
  * `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -229,16 +236,16 @@ export async function applySchema(): Promise<void> {
  * query serve both "already migrated" and "nothing here yet", exactly as
  * `PRAGMA table_info` did.
  *
- * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0013` creates a
- * table and then a trigger; asking for the table would answer "at head" for a
+ * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0014` creates a
+ * table and then two indexes; asking for the table would answer "at head" for a
  * database that got half way through the file, exactly as asking for the table
  * `0012`'s index guards would have. The marker has to move with the list — a
  * migration appended above without moving it re-opens that hole silently.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = ?")
-    .bind('site_revisions_are_immutable')
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+    .bind('idx_dns_changes_zone')
     .first<{ name: string }>()
   return row !== null
 }

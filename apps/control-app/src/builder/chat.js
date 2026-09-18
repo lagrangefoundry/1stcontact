@@ -65,6 +65,19 @@ const SITE_CHANGED = 'site_changed'
 const BUSINESS_CHANGED = 'business_changed'
 
 /**
+ * The host's event kind for "we have just changed the client's domain"
+ * ([[REQ-260]]). Its meaning is `host-core.ts`'s `DNS_CHANGED`; this is the same
+ * string on the client's side of the wire, held equal by the same arrangement
+ * the two above it have.
+ *
+ * IT IS THE ONE SIGNAL THAT CARRIES A PAYLOAD, and this pane still renders
+ * nothing from it: the meta goes to whoever asked for it, and what a card looks
+ * like is `dns-history.js`'s. A pane that knew what a DNS change was would be a
+ * pane that has to be taught the next kind of change too.
+ */
+const DNS_CHANGED = 'dns_changed'
+
+/**
  * Pass a turn through, telling the host each time it reports a write (BUG-43,
  * [[REQ-251]]).
  *
@@ -136,6 +149,20 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  *   a payload it could render instead would make the assistant the pane's writer
  *   — which is the one arrangement [[REQ-239]]'s "one API, two callers" rules
  *   out.
+ * @param {(meta: {change?: string, summary?: string, settles_by?: string}) => void}
+ *   [options.onDnsChanged]
+ *   Called once per change the turn made to the client's DOMAIN ([[REQ-260]]).
+ *
+ *   UNLIKE THE TWO ABOVE IT, THE SIGNAL CARRIES THE SENTENCE. Those two report
+ *   that something moved and the host re-reads; this one is the CARD — the words
+ *   the client is owed at the moment their DNS changes — and a sentence rebuilt
+ *   later from a record diff is a sentence nobody wrote. The pane does not render
+ *   it: what a card looks like belongs with the history that shows the same
+ *   sentence a year later.
+ *
+ *   IT IS A NOTICE AND NOT A QUESTION. There is no shape here that could carry an
+ *   approval back, deliberately — a confirmation the client cannot meaningfully
+ *   perform would only launder our error into their consent.
  * @param {(markdown: string) => string} [options.expandPrompt]
  *   REQ-210 — the last thing that happens to a draft before it becomes a turn.
  *
@@ -172,6 +199,7 @@ export function createChatPanel(options = {}) {
     transport = { streamPrompt: streamChatPrompt, streamReattach: streamChatReattach },
     onSiteChanged = () => {},
     onBusinessChanged = () => {},
+    onDnsChanged = () => {},
     expandPrompt = (markdown) => markdown,
     onImageClick = null,
   } = options
@@ -187,6 +215,10 @@ export function createChatPanel(options = {}) {
   const told = new Map([
     [SITE_CHANGED, onSiteChanged],
     [BUSINESS_CHANGED, onBusinessChanged],
+    // [[REQ-260]] — THE ONE THAT ARRIVES WITH SOMETHING TO SAY. The handler is
+    // given the change; where it puts it is the host's business, and the host
+    // puts it in the message the panel has already opened for this turn.
+    [DNS_CHANGED, onDnsChanged],
   ])
 
   const element = document.createElement('div')

@@ -138,6 +138,17 @@ import {
   isAccountHolder,
 } from './domains'
 import { SendingNotConfiguredError } from './sending'
+// [[REQ-260]] — the assistant's domain tools, the change history and the undo.
+// The wire is `dns-assistant.ts`; every safety rule is `dns-ops.ts`'s and holds
+// for these routes exactly as it does for the assistant, which is the point of
+// them being there rather than here.
+import { businessDns, changeView, undoDnsChange } from './dns-assistant'
+import {
+  DnsAlreadyUndoneError,
+  DnsDriftError,
+  UnknownDnsChangeError,
+  changesFor,
+} from './dns-changes'
 import {
   resendFor,
   ResendApiError,
@@ -717,6 +728,31 @@ function chatHost(
         // it, and `Publish` being outside the consultant's grant today is a line
         // of configuration rather than a guarantee.
         (deps.addresses ?? addressesFor)(env),
+        // THE CLIENT'S DOMAIN ([[REQ-260]]). Assembled here for the reason every
+        // wire above it is — the identity environment and the scope are both in
+        // hand — and NULL where this deployment has no zone credential, which
+        // composes no surface at all rather than one that refuses every call.
+        //
+        // THE SAME CLIENT AND THE SAME RESOLVER `/api/domain` USES, through the
+        // same injectable seams: one credential read, one place a deployment with
+        // none is discovered, and a suite that drives the domain routes with
+        // doubles drives the assistant's operations with the same ones.
+        //
+        // `businessDns` IS THE WIRE AND DECIDES NOTHING. Which names are
+        // privileged, whether a policy may be published and what an SPF merge
+        // produces are `dns-ops.ts`'s and hold for every caller — the assistant
+        // is not where those rules live, and a rule that lived there could be
+        // bypassed by a caller that renders no card.
+        (() => {
+          const client = deps.cloudflare ? deps.cloudflare(env) : cloudflareFor(env)
+          if (client === null) return null
+          return businessDns(
+            env as unknown as IdentityEnv,
+            client,
+            deps.resolver ? deps.resolver(env) : dnsResolver(),
+            scope.businessId,
+          )
+        })(),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -1567,6 +1603,26 @@ export const HOSTNAME_REVOKE_PATH = '/api/hostname/revoke'
  */
 export const DOMAIN_PATH = '/api/domain'
 export const DOMAIN_EMAIL_PATH = '/api/domain/email'
+
+/**
+ * The client's own record of what we have changed about their domain, and the
+ * undo ([[REQ-260]]).
+ *
+ * WHY THE HISTORY IS NOT IN THE CHAT. The card in the conversation is where a
+ * change is announced, and a conversation scrolls away — so the durable home of
+ * *"what has been done to my domain, and can I put it back"* is the settings
+ * surface, beside the domain section it is about. The card carries the same
+ * undo while it is on screen; this is where it still is a year later.
+ *
+ * `GET` IS NOT GATED ON BEING THE ACCOUNT HOLDER, on `/api/domain`'s reasoning:
+ * a member who may not change anything is still owed the truth about what
+ * changed, and a 403 would tell them neither what happened nor who to ask.
+ *
+ * `POST .../undo` IS THE ACCOUNT HOLDER'S, like every other write that touches a
+ * zone the account owns.
+ */
+export const DNS_CHANGES_PATH = '/api/domain/changes'
+export const DNS_UNDO_PATH = '/api/domain/changes/undo'
 
 /**
  * What `/api/ai/session` is asked for when the conversation is the business's own
@@ -3544,6 +3600,83 @@ async function routeUncached(
         // Cloudflare's do: the message is composed below us by a client that was
         // handed a bearer token ([[REQ-146]] AC4).
         if (err instanceof ResendApiError) return json(502, { error: scrub(err.message) })
+        throw err
+      }
+    }
+
+    /**
+     * GET /api/domain/changes — what we have changed, newest first ([[REQ-260]]).
+     *
+     * SENTENCES AND NOT RECORDS. Every entry is the sentence the client was shown
+     * when the change was made, stored with it — never a record type, never a
+     * value, never a zone. *"If a customer is being shown a record type, we have
+     * failed"* is [[REQ-259]]'s rule and this route is where it would be easiest
+     * to break, because the underlying rows hold exactly those things.
+     */
+    if (p === DNS_CHANGES_PATH && method === 'GET') {
+      const scope = requireScope()
+      const changes = await changesFor(identityEnv, scope.businessId)
+      return json(200, {
+        changes: changes.map((change) => ({
+          ...changeView(change),
+          at: change.createdAt,
+          // WHETHER THE BUTTON IS DRAWN AT ALL. An undo that has itself been
+          // undone, and an entry that IS an undo, both carry nothing to press —
+          // and a disabled button with no explanation is how a client learns the
+          // surface is unreliable.
+          undoable: change.undoneAt === null && change.operation !== 'undo',
+        })),
+        mayUndo: await isAccountHolder(identityEnv, deps.admission, scope.businessId),
+      })
+    }
+
+    /**
+     * POST /api/domain/changes/undo — put one back, or say why not ([[REQ-260]]).
+     *
+     * THE REFUSAL IS THE FEATURE. It compares the zone against what the change
+     * left before it writes anything, and a single drifted record refuses the
+     * whole undo — because a partial revert is worse than none, and because the
+     * thing that moved may be somebody else's work or an email provider rotating
+     * a key with nobody here doing anything at all. A 409 carrying a sentence is
+     * the answer; the surface reads it out.
+     */
+    if (p === DNS_UNDO_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!(await isAccountHolder(identityEnv, deps.admission, scope.businessId))) {
+        console.warn(
+          JSON.stringify({
+            event: 'dns_undo_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: scrub(new NotTheAccountHolderError().message) })
+      }
+      const client: CloudflareClient | null = deps.cloudflare
+        ? deps.cloudflare(env)
+        : cloudflareFor(env)
+      if (client === null) {
+        return json(503, { error: scrub(new CloudflareNotConfiguredError().message) })
+      }
+      const body = await readJsonBody(request)
+      try {
+        const undone = await undoDnsChange(
+          identityEnv,
+          client,
+          scope.businessId,
+          typeof body.change === 'string' ? body.change : '',
+        )
+        return json(200, { ...changeView(undone), at: undone.createdAt, undoable: false })
+      } catch (err) {
+        if (err instanceof UnknownDnsChangeError) return json(404, { error: scrub(err.message) })
+        if (err instanceof DnsAlreadyUndoneError) return json(409, { error: scrub(err.message) })
+        // A 409 AND NOT A 500. Drift is the expected outcome of an undo pressed
+        // late, not a failure of the request — and the body is a sentence the
+        // surface shows verbatim.
+        if (err instanceof DnsDriftError) {
+          return json(409, { error: scrub(err.message), drifted: err.what })
+        }
+        if (err instanceof CloudflareApiError) return json(502, { error: scrub(err.message) })
         throw err
       }
     }
