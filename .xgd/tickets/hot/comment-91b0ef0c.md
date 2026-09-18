@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T02:01:50.878452+00:00'
+updated_at: '2026-09-18T02:09:39.381553+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -642,5 +642,90 @@ AI run
 (3) I'm on the third iteration and things don't seem to be improving - there is really only one egregous issue: The text boxes at the bottom of the page are painted over the text area that should be above them. Honestly this should not need all this sophisticated machinery to find - that should just light up as a red flag. There may be situations where that effect is desirable but they should be explicitly chosen the repro engine should never create that it is so obviously wrong.
 
 So 3 is two things: 1 - I'm not seeing any improvement despite over $20 of tokens per turn (apparently) and 2 - the worst issue should be fixed immediately - probably mechanically, but why is the AI not seeing it???
+
+<!-- xgd-turn id="79ce6904-1bf1-46db-9005-ef559226584a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:09:38.209735+00:00" -->
+#### Claude
+Three answers, all checked against the code and the run artifacts on disk. (Iteration 3's round is still running as I write this — its transcript was last written at 19:08.)
+
+## (1) The `ready_*` warning is a known false positive, and it's yours
+
+`ticket.ts:104` says so explicitly: the check is **measured by difference, not by authorship**. It snapshots every ticket at a trigger status before the round and again after, and reports anything new. The ticket store doesn't record which process moved a status, so an operator promoting a ticket in another window during a round is indistinguishable from the round doing it.
+
+BUG-100 confirms it — `created_by: REQ-261`, promoted at 23:26. A round never touched it.
+
+**It's now narrowable, and wasn't when it was written.** BUG-104 added `ROUND_CREATED_BY` / `filedByRound()`, so the console can tell a round-filed ticket from a human one. Report a *violation* only when the offending ticket carries the `repro-console` marker; report anything else as an observation, or not at all. The one case that slips through is "the round promoted someone else's ticket" — catchable by also checking the uids the round named in its own outcome, which the console already has.
+
+## (2) The AI round is triggered by the links appearing, not by a button
+
+`console.ts:518` — *"Not on a button — the links appearing IS the trigger."* `runIteration()` awaits `this.diagnose(iteration)` unconditionally. There is no gate between compare and AI.
+
+Your sequence needs two pauses where there are currently zero:
+
+| | now | wanted |
+|---|---|---|
+| after capture + gate | AI starts immediately | **stop** — links on the page, `[diagnose]` button |
+| after AI files its ticket | `[run again]` available immediately | **stop** — `[run again]` disabled until you say the implementation landed |
+
+The second pause matters more than it looks, and (3) is why.
+
+## (3) Two separate things, and neither is the AI being dim
+
+### Why nothing is improving: the reference never moves
+
+`iteration.ts:96` — **`REFOLD_NOTE: 'refold from the retained oracle; never re-capture on a re-run'`**. All three iterations used the same `bundleDir`. The reasoning is sound for *fold* changes and wrong for *capture* changes: `refold` re-derives `l1.json` from the retained `multistate.json`, so a fix to the **extractor** is invisible until you re-capture.
+
+Iteration 1 filed exactly that kind of defect — capture drops form-control padding, discards every `href`. You implemented them. Iteration 2 then spent **$7.70 and 78 turns** to conclude, correctly:
+
+> *"The reference bundle was captured 70 minutes before the commit that fixed the residuals measured against it, so 100% of the frozen 1051.13 ranked region score is landed fixes waiting on a re-capture, and a bundle carries no schema stamp for anything to notice."*
+
+That round did its job. The loop wasted it. The console has no re-capture path that doesn't reset the iteration list.
+
+Also: **`storage/rail/baseline.json` still doesn't exist.** Every iteration's `rail.json` reads `REGRESSED · no baseline`. The safety rail has been inert for all three rounds.
+
+### Why the AI can't see the overlap: the gate tells it the page is fine
+
+Iteration 3's `gate.json`:
+
+```
+verdict: "pass"   l1Pass: true   meanDiff: 0.31 (floor 8)   pctOverThreshold: 0.1% (floor 25%)
+diagnosis: "The perceptual eye and the structural gate agree the reproduction is faithful."
+```
+
+So the round is handed a pass and pointed at 14 sub-pixel value deltas. It is doing what it was told.
+
+**But the detector you want already exists and is already firing.** `evaluateLayout` in `l1/probes.ts` reports `kind: 'overlap'` for any two solid leaves that intersect. I ran it against the exact document the console served for iteration 3 (`page.json` → `data.page.l1`):
+
+```
+repro   375   overlap=4
+repro   768   overlap=5
+repro  1280   overlap=5     ← the width the gate photographs
+repro  1440   overlap=5
+  "Intentional Software" overlaps "Tools for clarity, presence, and positive connection"
+  "Designed for developers…" overlaps "Open source and community-driven"
+  "Completely on-device…" overlaps "Creates space for deeper reflection and insight"
+```
+
+Five text-on-text collisions at 1280, and the gate said pass. Two independent reasons it can't see them:
+
+1. **`sampleFidelityProbe` throws the findings away.** `probes.ts:678` does `const { leaves } = evaluateLayout(doc, width)` — it evaluates the served document at every captured width, computes the overlaps, and discards them to grade box positions instead.
+
+2. **The two probes that *do* report findings grade a document nobody serves.** `gate-core.ts:532` builds `recovered = promoteToFlow(base)` and runs off-sample + content-robustness against that. `promoteToFlow` is exactly the machinery that converts pinned siblings to flow so they can't collide — and on this bundle it works: `recovered` has **0 findings at every width**. But `repro.ts:184` stores `localized.doc`, the **absolute base**, not the promoted one. The served `home.html` has **78 `position: absolute` rules**. So the gate certifies the flowed document and the browser renders the pinned one.
+
+That's also why the pixel eye is quiet: at 1280 the absolute boxes happen to land close enough that `meanDiff` is 0.31. Change the width, the font metrics, or one line of wrap — which your browser does — and absolutely-positioned text lands on its neighbour. Which is what you're looking at.
+
+**So your instinct is exactly right: this needs no sophisticated machinery.** The check is ~5 lines — surface `evaluateLayout(servedDoc, w).findings` for the captured widths and fail the gate on any `overlap`. It should be a hard structural failure, not a ranked region, because a reproduction that paints text over text is wrong regardless of how the pixels average out.
+
+---
+
+I'd file four children under EPIC-12, all testable:
+
+1. **Gate reports on-sample layout collisions in the served document** — surface the discarded findings; an `overlap` at a captured width is a gate failure. Test: this bundle goes from `pass` to failed-naming-5-overlaps.
+2. **`1c repro` serves the recovered document, not the absolute base** — or states why it shouldn't. This is the actual defect; (1) is the alarm. Test: `evaluateLayout` on the stored page reports 0 overlaps.
+3. **Console gains the two decision points** — `[diagnose]` gate and a held `[run again]`; plus a re-capture path that doesn't reset the site. Test: capture→gate leaves the page idle; the AI only starts on the button.
+4. **`ready_*` check narrows to round-filed tickets** — plus record the rail baseline. Test: promoting a ticket by hand during a round produces no violation; a round filing at `ready_*` still does.
+
+Say the word and I'll create them. Nothing committed — investigation only.
 
 <!-- xgd-chat-end -->
