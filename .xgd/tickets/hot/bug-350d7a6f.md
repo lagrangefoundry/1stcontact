@@ -5,16 +5,17 @@ type: bug
 title: An interrupted turn commits its work and discards its conversation
 created_by: EPIC-19
 created_at: '2026-09-18T23:11:24.573446+00:00'
-updated_at: '2026-09-18T23:11:24.573446+00:00'
+updated_at: '2026-09-18T23:35:59.007008+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-10d48ce1
 ---
+
 
 Parent: [[EPIC-19]]. Hit by the operator on 2026-09-18 on the Lagrange Foundry
 site (`site_936dd7c92e5e14df694dd9a80433aa4f`, session
@@ -123,3 +124,129 @@ divergence:
 the damage of every interruption between now and then — and because 1 is the
 integrity defect, which does not stop being one if turns later run to completion:
 a turn can still fail, and its two halves must still agree.
+---
+
+## Correction — the store evidence re-read (2026-09-18, before implementation)
+
+**The asymmetry above did not happen.** The two halves of that turn agreed; the
+reading that said otherwise turns on how a folded assistant turn is stamped.
+
+Read out of the live store (`comment-40c95649`, `comment-ca74b1b7`):
+
+- The `record_decision` at `22:24:12.671Z` carries
+  `turn="a2fd2b41a7fb45edade13b0274b67233"`.
+- The chat transcript holds **that same turn id**, as a complete pair: the
+  operator's long message (`role="user" ts="22:18:29.973Z"`) and the assistant's
+  whole reply (`role="assistant" ts="22:18:34.139Z"`), ending on *"When you're
+  out of the copy, tell me and I'll strip the full stops…"*.
+- `applyRecords` (`session_log.js`) stamps a folded assistant turn with the
+  timestamp of its **first delta**, not its `turn_end`. So a turn that starts
+  talking at 22:18:34 and calls its last tool at 22:24:12 is archived reading
+  `ts="22:18:34"`, which is what made the tool record look like it came after
+  the conversation ended. It came *inside* the same turn.
+
+Both artifacts were written 8ms apart at 22:24:46 because **one `apply` wrote
+both**, at that turn's end — tool records appended, prose folded, same
+increment. `_applyTools`'s `append_body` is not a continuous write: like the
+prose, it lands only when `ArchiveSyncer` drains a *closed* turn (`closedPrefix`
+holds back an open one). The two halves are already synchronous.
+
+**What was actually lost is worse in a simpler way: a whole turn, both halves,
+leaving nothing at all.** The turn the operator lost is the one between
+22:24:46 and the next recorded prompt at 23:19:08 — and the store holds no
+record of it of any kind: no user turn, no partial reply, and **no tool record
+either** (the tool transcript jumps straight from `a2fd2b41…` to `ce853c31…`).
+Their own next message says it: *"I was exploring the controls and lost a long
+response of mine and a partial response of yours."*
+
+So the defect is not divergence between the two halves. It is that **an
+in-flight turn lives entirely in one isolate's RAM and nothing about it is
+durable until it closes** — exactly what `ai.ts`'s junction comment says, with
+no asymmetry to soften it. Item 1 as written ("either both are append-only as
+they happen, or neither is") is already satisfied: *neither* is.
+
+### What that does to items 1–4
+
+- **Item 1** — restated rather than dropped. Nothing can be made
+  append-only-as-it-happens without a durable junction, but the one record that
+  matters most can be made durable **before** the model is ever called, so it
+  leads the turn's side effects rather than trailing them. That is item 2, and
+  it is now item 1's answer too.
+- **Item 2** — unchanged and confirmed as the real fix. Implemented here.
+- **Item 3** — unchanged. Implemented here.
+- **Item 4** (a Durable Object per session) — unchanged, still the only thing
+  that closes the window, still [[EPIC-19]] Finding 4's, still not this ticket.
+
+## What was built
+
+### 1. The client's words are durable before the model is called
+
+A turn's prompt is written to the session's `chat` ticket — `fields.pending_turn`,
+a JSON string carrying `{text, at, status}` — **before** `promptStream` is
+reached, so it is on disk before the first token is generated and before any
+tool can write to the site. It is the same find-or-create the corpus cursor
+(`kb_cursor`) already performs on the same ticket, and an unversioned field
+write for the same stated reason: a bookmark must never fail a turn.
+
+An interrupted turn therefore costs the client the answer and never the
+question.
+
+### 2. A turn that did not finish says so
+
+The record is cleared when the turn closes complete, and **kept, carrying its
+outcome** (`aborted` / `error`) when it does not. So a turn that ends abnormally
+leaves a mark rather than a gap, whether or not it managed to archive anything.
+
+### 3. What the client sees on the next page load
+
+`/api/ai/session` answers with `interrupted: {text, at, recorded}` when the
+session holds such a record, reconciled against the transcript it also returns:
+
+- **`recorded: false`** — the turn left nothing behind (the isolate went). The
+  pane paints the operator's words as their own turn, says the turn was
+  interrupted, and puts the text back in the composer so it is one keystroke
+  from being re-sent. The record is **kept**, because it is the only copy of
+  those words in existence.
+- **`recorded: true`** — the turn's records did land (BUG-46's drain ran) and
+  the reply above is incomplete. The pane says so and paints nothing else. The
+  record is **cleared on read**: the words are safe in the transcript, so the
+  notice is owed exactly once.
+
+### 4. The assistant is told, on its next turn
+
+A reminder entry (`turn.interrupted`, prose in `priming.json` like every other
+line a session is told) reports that the previous turn was cut. The client may
+not have seen the whole reply, and work the assistant had already done may not
+be described in the transcript — so re-orienting is cheaper than re-asking, and
+this is the channel REQ-131 and REQ-160 already deliver on. Absent when the
+previous turn completed, and it costs nothing: a `null` provider drops its entry
+and its separator.
+
+### What is NOT fixed here, stated plainly
+
+An in-flight turn is still driven by the fetch request and its records still
+live in one isolate's RAM. An eviction mid-turn still loses the assistant's
+partial prose and the turn's tool records together. This ticket bounds the
+damage — the question survives, the interruption is visible, and the assistant
+knows — it does not close the window. Only [[EPIC-19]] Finding 4's Durable
+Object does that.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-121_interrupted_turn.workers.test.ts` — real D1, real
+ticket store, real session manager and junction, the Anthropic client the only
+double (`pacedClient`, so a test can stand inside an open turn):
+
+1. The prompt is in the store before the model has answered a word.
+2. A turn whose isolate never comes back is reported to the next page load, with
+   the operator's words, and is still reported on the read after that.
+3. A turn that was abandoned but drained is reported as interrupted **once**,
+   with `recorded: true`, and not on the next read.
+4. A completed turn leaves no record and reports nothing.
+5. The next turn's model request carries the interrupted-turn reminder, and a
+   turn following a complete one does not.
+
+`tests/test_UAT_FC_BUG-121_interrupted_prompt_returns.test.ts` (jsdom, against
+the installed `webui-chat`) — the pane paints the unanswered prompt, says the
+turn was interrupted, and restores it to the composer only when the composer is
+empty.

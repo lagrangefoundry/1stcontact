@@ -35,7 +35,22 @@ export {
   engineAvailable,
 } from './playwright-driver'
 export type { RenderEngine } from './playwright-driver'
-export { reextractFromBundle, rewriteMirroredRefs } from './reextract'
+export { reextractFromBundle, rewriteMirroredRefs, serveBundle } from './reextract'
+// REQ-275 — the completeness probe. Node-only for the same reason re-extraction
+// is (it navigates a loopback origin), so it belongs on this barrel and not on a
+// Worker-reachable path.
+export { AUDIT_SCRIPT } from './audit-script'
+export type { ObservedProperty, RawAudit } from './audit-script'
+export { CAPTURE_COVERAGE } from './coverage'
+export type { CoverageEntry, CoverageVerdict } from './coverage'
+export { auditObservations, combineAudits, runCaptureAudit } from './audit'
+export type {
+  AuditFinding,
+  CaptureAudit,
+  CaptureAuditOptions,
+  CombinedAudit,
+  CombinedFinding,
+} from './audit'
 export {
   writeBundle,
   readCapture,
@@ -56,12 +71,39 @@ export type { BundleLocation } from './bundle'
 export {
   CAPTURE_SCHEMA,
   CAPTURE_SCHEMA_AXES,
+  captureFields,
+  captureRuns,
   captureSchemaOf,
   staleCaptureAxes,
   staleCaptureDetail,
 } from './schema'
 export type { CaptureAxis } from './schema'
 export { EXTRACT_SCRIPT } from './extract'
+// REQ-274 — the single declaration site for every value axis. Exported so a
+// caller can ask the table what it covers (and what it cannot read on one side)
+// rather than reading two projection bodies to find out.
+export {
+  AXIS_TABLES,
+  FIELD_AXES,
+  GEOMETRY_AXES,
+  MANIFEST_AXES,
+  RUN_AXES,
+  SECTION_AXES,
+  UNMEASURED_AXES,
+  observedUnmeasuredAxes,
+  readerOf,
+  unmeasuredAxesOf,
+  unmeasuredAxisLabel,
+  unsupplied,
+} from './value-axes'
+export type {
+  AxisRole,
+  AxisScope,
+  AxisSide,
+  AxisSideName,
+  CaptureBand,
+  UnmeasuredAxis,
+} from './value-axes'
 export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
 export {
   flattenCapture,

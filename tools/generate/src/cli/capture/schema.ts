@@ -39,8 +39,14 @@ import type { Capture } from './types'
  *   colour. Every pre-3 bundle asserts a fill for bands that paint nothing, so
  *   its `background.color` cannot be read as a measurement — which is exactly
  *   what the section `surfaceFill` axis needs it to be.
+ * - **4** — REQ-275: a link's `newTab`, and a form control's `controlName`,
+ *   `formMethod` and `required`. ONE bump for four axes, and that is the point:
+ *   every earlier number on this list was paid for by a reproduction round that
+ *   discovered a single missing axis the expensive way. These four came out of
+ *   one mechanical pass (`1c capture audit`) over the three stored references,
+ *   which is what the probe exists to make possible.
  */
-export const CAPTURE_SCHEMA = 3
+export const CAPTURE_SCHEMA = 4
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -68,14 +74,31 @@ export interface CaptureAxis {
   present: (capture: Capture) => boolean
 }
 
-const runs = (capture: Capture): readonly { [k: string]: unknown }[] =>
+/**
+ * Every content run in a bundle, as an open bag.
+ *
+ * EXPORTED FOR REQ-275's coverage registry, which asks the same question this
+ * file's axes ask — "does this bundle demonstrably carry X?" — over a much
+ * longer list. A second traversal there would be a second definition of what a
+ * run IS (section content, plus each repeated item's content), wrong the day a
+ * run can live somewhere else.
+ *
+ * The bag type is deliberate: a predicate here is asking about a field that may
+ * post-date the `ContentRun` the bundle on disk was written against, so it has
+ * to be able to ask about a key the compiler does not know is there.
+ */
+export const captureRuns = (capture: Capture): readonly { [k: string]: unknown }[] =>
   capture.sections.flatMap((s) => [
     ...s.content,
     ...s.items.flatMap((i) => i.content),
   ]) as unknown as readonly { [k: string]: unknown }[]
 
-const fields = (capture: Capture): readonly { [k: string]: unknown }[] =>
+/** Every text-free field in a bundle, as an open bag. See {@link captureRuns}. */
+export const captureFields = (capture: Capture): readonly { [k: string]: unknown }[] =>
   capture.sections.flatMap((s) => s.fields ?? []) as unknown as readonly { [k: string]: unknown }[]
+
+const runs = captureRuns
+const fields = captureFields
 
 /**
  * Every axis the current extractor records, with the schema version that
@@ -109,6 +132,34 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // however new its extractor is — the same asymmetry as `href` above, and the
     // reason the version gate comes first.
     present: (c) => c.sections.some((s) => s.background?.kind === 'none'),
+  },
+  {
+    since: 4,
+    axis: 'newTab',
+    where: 'a linked run or field (`sections[].content[]`, `sections[].fields[]`)',
+    // A page whose every link opens in place records `newTab: false` everywhere,
+    // which IS the axis being carried — so presence is "the key exists", not "it
+    // is true". A page with no links at all records nothing, and the version gate
+    // is what covers that, exactly as it does for `href` above.
+    present: (c) => [...runs(c), ...fields(c)].some((e) => typeof e.newTab === 'boolean'),
+  },
+  {
+    since: 4,
+    axis: 'controlName',
+    where: 'a form control (`sections[].fields[]`)',
+    present: (c) => fields(c).some((f) => typeof f.controlName === 'string'),
+  },
+  {
+    since: 4,
+    axis: 'formMethod',
+    where: 'a form control (`sections[].fields[]`)',
+    present: (c) => fields(c).some((f) => typeof f.formMethod === 'string'),
+  },
+  {
+    since: 4,
+    axis: 'required',
+    where: 'a form control (`sections[].fields[]`)',
+    present: (c) => fields(c).some((f) => typeof f.required === 'boolean'),
   },
   {
     since: 2,
