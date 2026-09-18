@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T21:39:55.599355+00:00'
+updated_at: '2026-09-18T21:42:45.318552+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -882,5 +882,68 @@ The loop is working exactly as designed. What it's telling you is that **the rul
 One metric warning: **stop reading delta count as progress.** Landing BUG-107 took deltas from 1 to 14 — that's the instrument sharpening, not the reproduction degrading. The number that means something is the unmeasured set shrinking.
 
 All of this is Finding 3 in EPIC-19. If you want, I can file a single ticket for the "ruler-first" program — items 1–3 as one coherent piece of work, since they share a root — rather than letting them stay scattered across four REQs. That would also let you pause the console for a round or two, which given $7/round of partly-rediscovery would pay for itself.
+
+<!-- xgd-turn id="92dc50fd-ea52-4c2e-89be-08976b5b3e42-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T21:42:43.904351+00:00" -->
+#### Claude
+Let me check this against what's landed since those rounds, rather than take it at face value.
+
+Read all ten tickets' states and checked the recommendations against the code. The analysis is sharp, but it's reading the backlog **as filed**, not as built — and that changes the conclusion.
+
+## All 22 defects are already implemented
+
+Every one of the ten tickets carries commits and a version:
+
+```
+REQ-265 v0.2.238   BUG-108 v0.2.248   BUG-109 v0.2.255
+BUG-107 v0.2.249   REQ-269 v0.2.247   REQ-271 v0.2.256
+BUG-106 v0.2.252   REQ-270 v0.2.254   BUG-111 v0.2.257
+                                      BUG-110 v0.2.260
+```
+
+Plus BUG-112/113/114/REQ-272 on top at 0.2.263+. They're on the working branch, not yet reconciled to main — but they're built, not queued.
+
+So EPIC-19 has committed its own pattern 4: a frozen snapshot making landed fixes invisible. That's not a knock on it — it was handed tickets, not a branch — and it doesn't touch the quality of the taxonomy. But two of its five recommendations are already in the tree:
+
+- **Item 2, `unmeasured` as a verdict** — BUG-106/111. `values-diff.ts:3183` now reads *"an unmeasured axis is not a clean one: it is skipped rather than compared against a stand-in"*, and BUG-111 lifts unpaired bands out of `sectionPairing` into counts the gate actually reads. Commits `1310d1ef76` "a pass says what it did not measure" and `6873817c34` "count the bands that went uncompared".
+- **Item 1, unfreeze the loop** — REQ-270 landed `CAPTURE_SCHEMA` with a per-axis staleness message; REQ-272 landed the chain-keeping `[recapture]`.
+
+## This changes what you should press
+
+I told you last turn to press **[reproduce]**. That was wrong, and item 1 is why. The stored bundle:
+
+```
+stamp: absent → schema 1      vs CAPTURE_SCHEMA 3 today
+  padding*Px on a field  : absent
+  href on a run          : absent
+  headingLevel on a run  : absent
+  background.kind "none" : absent
+  fractional lineHeight  : absent
+```
+
+All five registered axes missing — which is **exactly** EPIC-19's five capture-lossy defects. A refold cannot recover any of them by construction. If you press [reproduce], round 4 re-measures five residuals that were fixed across 0.2.238–0.2.256 and bills you ~$7 to rediscover them.
+
+**Press [recapture].** It's the button REQ-272 landed for precisely this, it keeps the chain, and it marks the iteration so the numbers either side aren't read as comparable. The honest cost: the oracle moves, the live site may have drifted, and iteration 1 after it is a new baseline rather than a comparison. That's the trade, and it's worth taking with a two-version gap.
+
+## Where EPIC-19 earns its keep
+
+**Item 4, the capture-completeness audit, is the best idea in the list and nobody has done it.** `CAPTURE_SCHEMA_AXES` is *reactive* — an axis joins the registry only after a round discovers it missing, at ~$7 a discovery. Mechanically diffing the CSS properties a reference page actually uses against what `capture.json` records, over two or three references, converts that into one list in one pass. Strongly endorse; this is the highest-leverage unfiled item in the epic.
+
+**Item 3, symmetry, is only half-addressed.** REQ-270's anchor fix declares the two sides incomparable and says why — that's the `unmeasured` discipline applied to the *symptom*. "One extractor over both sides against one schema" is still not the architecture. The category stays open, and I'd keep the ticket.
+
+**The metric warning is the most valuable sentence in the feedback.** Expect the numbers to get *worse* after the re-capture — newly-visible axes mean newly-countable deltas. That's the instrument sharpening. The number to watch is the unmeasured set shrinking.
+
+## One connection it couldn't make
+
+Its "2 genuine L1 capability gaps" now has a named third: BUG-113 measured the recovery that would clear all 287 content-robustness findings at 318 fidelity residuals and maxΔ 1426px, and declined to serve it. The gap is *a flow recovery that preserves horizontal geometry*. That's a class-2 item and belongs in the ceiling-raising queue it wants you to split out.
+
+## What I'd do
+
+1. `./bin/repro-rail record` — baseline before the oracle moves, not after.
+2. **[recapture]**, not [reproduce].
+3. Tell EPIC-19 not to file the ruler-first bundle — items 1–2 are done and the ticket would re-open closed work. The capture-completeness audit is the one worth filing, and it belongs under EPIC-12 with the rest of the instrument, not under EPIC-19.
+
+Want me to scope the capture-completeness audit onto EPIC-12 — you'd need to say so, since this session won't open a ticket otherwise — or reply to EPIC-19 first with the branch state so it can re-read against what's built?
 
 <!-- xgd-chat-end -->
