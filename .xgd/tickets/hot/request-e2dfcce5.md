@@ -6,9 +6,9 @@ title: 'capture/values-diff: the reference bundle predates the extractor measuri
   against it, and the reproduction''s own section paint is read from the wrong box'
 created_by: repro-console:repro-gigabytealchemy-ai#2
 created_at: '2026-09-18T00:55:41.446590+00:00'
-updated_at: '2026-09-18T02:15:01.334752+00:00'
+updated_at: '2026-09-18T02:31:53.193776+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-cdb69fd6
 ---
+
 
 Loop 1, iteration **2** of `repro-gigabytealchemy-ai` against the stored bundle
 `storage/references/gigabytealchemy.ai/index`.
@@ -639,3 +640,146 @@ comparable for `§1` and gives the reason.
   The fix is right; these are the first three things it exposed.
 - **REQ-265** — the half-leading class. Not seen this round.
 - **BUG-100** — the coverage image miscount. Clean this round.
+---
+
+# Implementation (free-coded)
+
+All four issues are fixed. Where the implementation made a choice the diagnosis
+left open, the choice and its reason are stated here — this section is the spec
+the UATs are written against.
+
+## Issue 1 — a bundle records which extractor took it
+
+`capture.json` gains **`captureSchema`**, an integer the extractor stamps into
+every bundle it writes (`tools/generate/src/cli/capture/schema.ts`,
+`CAPTURE_SCHEMA`). It is **optional on read and always will be**: a bundle
+written before the stamp existed parses unchanged and reads as **schema 1** —
+"no stamp" and "the oldest schema we know about" are the same fact.
+
+**Why a version and not a hash of the recorded key set.** A hash answers "is this
+bundle different" and cannot answer "different how". The operator needs the
+second question answered, so the version is paired with a declared **axis
+inventory** (`CAPTURE_SCHEMA_AXES`) naming each axis and the version that
+introduced it. Schema 2 is REQ-269's four: per-side padding on a form field,
+`href` and `headingLevel` on a content run, and `lineHeightPx` kept to two
+decimals. The inventory grows; nothing in it is ever revised.
+
+**The finding names only absence it can see.** A version comparison proves a
+bundle is behind, but not which axes it actually lacks — a bundle may carry one
+the stamp says predates it (re-extracted, hand-repaired). So each axis carries a
+`present` probe over the bundle, and an axis the bundle demonstrably holds is
+dropped from the finding even when the version says it should be absent: the
+finding claims absence, so it may only claim what it can see. The converse is
+deliberately **not** symmetric — a page with no links records no `href` however
+new its extractor is, so "not observed" can never prove "not recordable", which
+is exactly why the version gate comes first and the probe can only ever *remove*
+an axis from the list.
+
+`referenceCoverage` emits a **`stale-capture` coverage finding** naming both
+versions, the axes, and the re-capture command. It is a finding, **not** a hard
+failure and **not** an automatic re-capture: requirement 29's stability argument
+stands and the finding says so in as many words.
+
+The console's round context prints every coverage finding **verbatim** rather
+than counting them, beside the verdict. A finding is a statement about the
+*oracle*, which is the one thing a round cannot re-derive from the evidence —
+every file it is about to read was produced against that oracle.
+
+## Issue 2 — a band's paint comes from the layer that paints it
+
+`bandSlices()` still refuses to emit an inner backdrop as its own band, and now
+**keeps it as a layer of the slice that swallowed it** (`{ el, box, layers }`)
+instead of discarding it. The band record takes `backgroundImage` from the
+**topmost painted layer** of the slice (`sliceBackgroundImage`), falling back to
+the slice element's own.
+
+`backgroundColor` is deliberately **not** taken from the layer: the fill is what
+the outermost box paints, and an image layer's own colour is usually transparent.
+So the hero reads as the photograph over the fill, which is what it is.
+
+`backgroundImageUrl` is added to the section axes compared in `values-diff`,
+**by mirrored basename** — the same rule the element-level handle already uses,
+because the two sides legitimately spell the same bytes differently (the
+reference a site-local `assets/…` mirror, our render an absolute origin URL).
+A reproduction that loses the hero is now a delta instead of a silence.
+
+## Issue 3 — a scrim is a scrim however it is painted
+
+`overlayOf` and `overlayInBox` now share **one** definition, `scrimOf(el)`: a
+translucent `background-color` first, then a translucent colour stop of the
+element's `background-image`. Fixing it here rather than in `flattenSignals`
+keeps this independent of issue 2, as the diagnosis recommends.
+
+**The gradient rule is "the first TRANSLUCENT stop", not "the first stop"** —
+one widening of `sections.ts`'s `firstOverlay`. A fade-to-black scrim opens at
+alpha 0, and reading the first stop would report no scrim at all.
+
+The coverage rule is unchanged (a scrim must blanket ≥60% of the band), and an
+opaque gradient is still not a scrim.
+
+## Issue 4 — an anchor is only comparable over the same population
+
+`values-diff` skips the `contentAnchor` comparison for a reference section that
+another, **smaller** reference section overlaps, and records
+`anchorComparable: false` plus `anchorReason` (naming the overlapping section) on
+that `sectionPairing` entry. "Overlaps" means smaller and substantially
+contained — half of the inner section's own height inside the outer one — so two
+bands that merely abut are not an overlap and are still compared.
+
+Taking the simpler of the two options the diagnosis offers: the alternative
+(excluding those runs from the reproduction band's anchor) reconstructs one
+side's population from the other's segmentation, which is a second definition of
+the axis rather than a fix to the first. **Widening the tolerance was never an
+option** — one that absorbs 0.14 absorbs a real 100px shift too, so the guard
+fires on the overlap, whatever the two numbers are.
+
+## What this does not do
+
+**It does not re-capture `storage/references/gigabytealchemy.ai/index`.** That is
+the operator's call by design (requirement 29), and until it is taken the
+1051.13 ranked residual stays frozen and REQ-269's five fixes stay unverifiable.
+What changes is that the gate and the round now *say so* instead of reporting a
+clean `pass` over a stale oracle.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-270_capture_oracle_and_band_measurement.test.ts` — 12
+UATs, all passing.
+
+Five browser UATs drive a **real headless Chromium** against the committed
+fixture `tests/fixtures/capture/req270-hero-layers.html` (an opaque full-bleed
+fill with the photograph + gradient scrim sitting exactly inside it — the shape
+`render.ts` emits and the shape the gigabytealchemy reproduction paints) served
+over an ephemeral loopback server. They measure it **both ways**: the reference
+projection (`1c capture page`) and the reproduction path
+(`EXTRACT_SCRIPT` → `flattenSignals`), because the whole class of defect here is
+the two disagreeing. They skip cleanly where no browser can launch.
+
+Seven UATs need no browser: the schema stamp and its axis probe, the
+`stale-capture` coverage finding against bundles written to disk (stale and
+current), the round-context prompt, the lost-hero section delta, and both anchor
+legs.
+
+**RED evidence.** With `extract.ts` and `values-diff.ts` reverted to their
+pre-fix state, 6 of the 6 UATs covering issues 2–4 fail, each in the way the
+diagnosis describes: `overlay` reads `null`, the section carries no
+`backgroundImageUrl` on either side, a dropped hero produces no delta, and the
+anchor pairing carries no comparability record.
+
+Regression scope run green: `bug13`, `bug15`, `bug19`, `bug22`, `bug23`,
+`bug24`, `bug27`, `req31`, `req35`, `req47`, `req48`, `req53`, `req61`, `req86`,
+`req88`, `req94`, `BUG-100`, `BUG-102`, `BUG-103` (×2), `BUG-106`, `REQ-254`,
+`REQ-256`, `REQ-269`, the three `reconciliation-*-gate` suites and
+`reconciliation-size-aware-diff`.
+
+Six synthetic capture fixtures across five existing suites (`BUG-100`,
+`BUG-106`, `req94`, `reconciliation-cross-gate-reconciliation`) now carry
+`captureSchema: CAPTURE_SCHEMA`. Each stands in for a bundle taken by the
+current extractor, so without the stamp coverage correctly reported
+`stale-capture` and those suites would have been asserting against a bundle no
+live capture produces. No assertion was changed.
+
+Two pre-existing failures are unrelated and reproduce on an untouched checkout:
+`capture.test.ts` (`REQ-12_style_segmentation`, `REQ-12_offline_reextraction`)
+and `req83-capture-to-l1-fold.ts` (`REQ-83_hints`), all three throwing
+`driverFactory was not supplied` from the test itself.
