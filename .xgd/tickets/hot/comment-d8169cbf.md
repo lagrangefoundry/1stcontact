@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T19:37:45.185163+00:00'
+updated_at: '2026-09-18T19:45:34.303987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -156,5 +156,15 @@ A worker knows only three things: what its role's priming teaches it, what its s
 Worth knowing on the accounting side: worker spend rolls into the caller's ledger, attributed to the delegation, on every exit path — including `failed` and `stopped`.
 
 All of this is now in the epic body. It reinforces my earlier ordering: build with the consultant first, watch where it writes long mechanical sequences, and let those observations tell you what the worker's role and its brief-writing priming should say.
+
+<!-- xgd-turn id="836f9cb2-07cd-4c5f-b2ae-8bf5af11545e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T19:45:33.860036+00:00" -->
+#### You
+My feeling is the delegate does not need access to the broader kb. It needs information about the tools and very specific instructions from the parent and thats it. (May not be true for all delegates but in this context...) If brand context is needed it should be supplied by the parent.
+
+Let park this for now, as you said I don't think we are ready for it. We will come back Please record our thinking in your ticket so we can recover it easily.
+
+Now one quick question - I am looking at my Lagrange Foundry site - I built it with a chat session but I do not see that chat context in the window. Is that a bug? Is the chat session lost?
 
 <!-- xgd-chat-end -->
