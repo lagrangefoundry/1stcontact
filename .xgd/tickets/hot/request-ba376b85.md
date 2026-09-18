@@ -5,9 +5,9 @@ type: request
 title: 'The assistant can report a defect: adopt the upstream development surface'
 created_by: EPIC-19
 created_at: '2026-09-18T21:45:39.352452+00:00'
-updated_at: '2026-09-18T22:55:45.355888+00:00'
+updated_at: '2026-09-18T22:56:00.253788+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -22,6 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.265
+  story_points: 8
 ---
 
 Parent: [[EPIC-19]]. Asked for by the operator on 2026-09-18, after the builder
