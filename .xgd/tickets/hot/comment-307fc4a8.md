@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-271
 created_by: xgd
 created_at: '2026-09-18T02:42:05.159597+00:00'
-updated_at: '2026-09-18T03:13:55.466330+00:00'
+updated_at: '2026-09-18T03:26:00.203372+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -83,5 +83,37 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="255a1429-b210-4556-8ed9-612555c80262-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T03:26:00.142641+00:00" -->
+#### Claude
+Full `node` suite: 440 passed, 2 failed — both pre-existing (already confirmed failing identically on the unmodified main checkout). Now the `workers` project, since it imports the diff:
+
+All tests green (workers: 127 files / 1166 tests, all pass). Now committing and merging back.
+
+Re-running the full suite post-merge (xgd-working brought in new repro-console code and a new test):
+
+REQ-271 is `free_coded` and landed on `xgd-working`.
+
+## What shipped
+
+**Issue 1 — the capture stops fabricating a fill.** `extract.ts` no longer launders `rgbToHex`'s `null` into `bodyBg` in either band path; `RawBand.backgroundColor` is the band's own fill or `null`, projected as `background.kind: 'none'`. `colorScheme` now comes from `surfaceFillOf(bandElement)` — the existing helper that composites down the *geometric* surface chain, so a header over a scrimmed hero reads its real backdrop instead of an invented white.
+
+**Issue 2 — a band's fill is compared.** `SectionValues.surfaceFill` is three-valued (hex / `null` = paints nothing / `undefined` = unmeasured), projected on both sides and compared in the per-section pass, reusing the existing element-level `surfaceFill` delta property. `UnpairedObject` carries `box` and its manifest index, and an L1 render's own band boxes stop being counted as repro objects that matched nothing. `backgroundImageUrl` needed no work — REQ-270's section comparison had already landed.
+
+**Issue 3 — the fold drops the fabricated plate.** `buildSolidBands` no longer adopts a run-group fill that *is* the scrim over that band; with no measured base it emits no band node. Re-folding a copy of the retained `gigabytealchemy.ai/index` removes `section-band-0` (`#030717` over the whole 800px hero) and nothing else — `section-bg-0` keeps its overlay, the page background stays `#e8dfd3`, 70 nodes → 69.
+
+## Two judgment calls worth your attention
+
+- **Capture schema bumped to 3.** Every retained bundle asserts an opaque fill for bands that paint nothing, so reading `background.color` as a measurement would fire a false delta for every transparent band the moment the new axis went live — the exact trap your ordering note flagged. The reference-side projection is gated on schema ≥ 3 and leaves the axis *unmeasured* otherwise, with `staleCaptureDetail` naming it. Recorded in the ticket as a consequence of issue 1.
+- **Band-paint recognition lives in the diff, not the manifest.** My first cut dropped those elements in `flattenSignals`; I backed it out because a full-bleed textless box is exactly what the fold reads to rebuild a backdrop (BUG-27) — it would have removed a hero photograph from the fold's input on a page-builder site. The manifest stays faithful; only the tally changed.
+
+## Verification
+
+- `tests/test_UAT_FC_REQ-271_band_surface_fill.test.ts` (13 legs) + fixture `req271-transparent-bands.html`. Four legs drive a real Chromium and **skip in this sandbox** — `chromiumAvailable()` is false here, so the capture-side claims (`kind: 'none'`, `colorScheme: dark`, the L1 band-box leg) have no executed evidence from this machine and will first run wherever a browser is available.
+- Everything else ran: full `node` project **441 passed / 2 failed**, and `workers` **127 files, 1166 tests, all pass**. The two failures are `bug32-webui-scope-rebrand` and `BUG-67 backend_settings` — both reproduce identically on the unmodified main checkout, so they're pre-existing and unrelated.
+
+Commits `a1b4516` (code) and `21553f5` (version 0.2.256), branch cleaned, lock released. The ticket body carries the full "what landed" record, so it's safe to promote to `ready_to_reconcile` when you're ready.
 
 <!-- xgd-chat-end -->
