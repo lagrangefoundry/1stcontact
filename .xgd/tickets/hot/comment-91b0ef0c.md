@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T21:15:47.533772+00:00'
+updated_at: '2026-09-18T21:39:55.599355+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -836,5 +836,51 @@ The rail no longer says `REGRESSED` for a missing baseline (BUG-114 — it reads
 Then: type the site → **[reproduce]** → page goes idle with the links → you look → **[diagnose]** starts the AI → it files → **[the implementation has landed]** unlocks [run again]. Both your stopping points are in.
 
 Want me to append the round's expected-residual context to the brief, or record §13 on the epic before you start?
+
+<!-- xgd-turn id="92dc50fd-ea52-4c2e-89be-08976b5b3e42-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T21:39:55.433620+00:00" -->
+#### You
+I asked EPIC-19 to review the bugs the consople was generating. I am going to paste the feed back here because its suggestions are more relevant to you that to it...let duscuss:
+
+I read all of them — it's 10 tickets carrying **22 distinct defects** (REQ-265/269/270/271, BUG-106–111, plus evidence appended to BUG-100 and BUG-24). Three logged rounds cost **$22.28 over 246 turns** on `claude-opus-5[1m]`.
+
+## The headline
+
+**Only 2 of the 22 are L1 capability gaps.** Eleven are defects in the instrument that measures fidelity.
+
+| where it sits | n |
+| --- | --- |
+| instrument reports pass/clean when it measured nothing or wrong | 5 |
+| the two sides measured by different procedures | 4 |
+| capture loses information the page had | 5 |
+| comparator has no axis for it | 2 |
+| fold is wrong | 2 |
+| **L1 genuinely cannot express it** | **2** |
+| process/harness | 2 |
+
+The loop is working exactly as designed. What it's telling you is that **the ruler isn't trustworthy yet** — so it keeps finding ruler bugs instead of L1 bugs. The ticket quality is genuinely high (dependency-ordered, every claim quoted from a file or a command the round actually ran). The problem isn't the console; it's what you've pointed it at.
+
+## Four patterns
+
+**1. A false pass is the norm.** REQ-269 opens *"a pass verdict at mean 0.31 hides five residuals"*. REQ-271: *"a pass at mean 0.31 with 14 deltas."* BUG-106 reports `0 deltas, 0 unmatched` having measured nothing. BUG-107's missing comparison made 11 lost headings read as zero deltas. BUG-110's verdict ladder ignores the value gate's severity entirely. BUG-111's unpaired section is *"reported nowhere the gate reads"*. One design choice generates all six: **when the instrument can't see something, it answers pass rather than unknown.**
+
+**2. The two sides are read by different code.** REQ-270 #3 says it outright — *"the two sides are read by two different procedures"*. Different populations (#4), band paint read from the fill box on one side only (#2), bands on one side and none on the other (REQ-269 #5). None of these is authorable if one extractor runs over both sides against one schema.
+
+**3. The capture is a lossy bottleneck.** Padding, the line-height fraction, `href`, alpha, transparent-vs-white — one defect shape: the extractor stores a rounded or defaulted value instead of the true one. No fold fix or L1 axis recovers what capture discarded.
+
+**4. A frozen bundle makes landed fixes invisible.** REQ-271 confirms the score is *"again 1051.13, region for region"*, and 13 of its 14 deltas are REQ-269's already-ticketed residuals. Round 3 spent $4.91 and 56 turns largely re-confirming frozen items.
+
+## How to get ahead of it
+
+1. **Unfreeze the loop** (REQ-270 #1) — a bundle that records which extractor took it, and a re-capture when the extractor moves. This is the rate limiter, and it isn't a fidelity defect at all.
+2. **Make **`unmeasured`** a verdict, not a pass** — one change converts six of the 22 from silent to loud and prevents the next six.
+3. **Symmetry by construction** — one extractor over both sides. Retires pattern 2 as a *category* rather than as four tickets.
+4. **Audit capture completeness once** — mechanically diff the CSS properties a reference page uses against what `capture.json` records. Two or three references turns five rounds of discovery into one list.
+5. **Split the queues** — only the two class-2 items raise the product's ceiling, and they shouldn't sit behind ruler repair.
+
+One metric warning: **stop reading delta count as progress.** Landing BUG-107 took deltas from 1 to 14 — that's the instrument sharpening, not the reproduction degrading. The number that means something is the unmeasured set shrinking.
+
+All of this is Finding 3 in EPIC-19. If you want, I can file a single ticket for the "ruler-first" program — items 1–3 as one coherent piece of work, since they share a root — rather than letting them stay scattered across four REQs. That would also let you pause the console for a round or two, which given $7/round of partly-rediscovery would pay for itself.
 
 <!-- xgd-chat-end -->
