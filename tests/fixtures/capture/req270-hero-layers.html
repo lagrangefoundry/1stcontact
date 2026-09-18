@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-270 — an L1 reproduction's hero: a photograph + gradient scrim sitting inside an opaque fill</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Georgia, serif; background: #f4f1ea; color: #1a1a1a; }
+      /* render.ts emits ONE element into <body>; every band is an
+         absolutely-positioned SIBLING, so the top-level scan degenerates to a
+         single body-spanning band and the geometric slicer takes over. */
+      .root { position: relative; width: 100%; height: 1300px; }
+      .band { position: absolute; left: 0; right: 0; }
+      .run { position: absolute; left: 88px; font-size: 20px; line-height: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="root">
+      <!-- The hero, exactly as `render.ts` emits it and exactly as the
+           gigabytealchemy reproduction paints it:
+
+           .fill  an OPAQUE full-bleed colour box, slightly TALLER than the hero
+                  (the L1 band stretches to the viewport), so it is the outermost
+                  backdrop and wins the slice.
+           .hero  the photograph, with the L1 `overlay` axis painted the only way
+                  the renderer can paint it — a flat gradient LAYER in
+                  background-image — sitting exactly inside .fill.
+
+           Before REQ-270 the slicer kept .fill and DISCARDED .hero as "a layer of
+           that band", then read all the band's paint off .fill: the reproduction's
+           own hero photograph never reached its own manifest, and its scrim was
+           invisible because nothing looked at a gradient. -->
+      <div class="band fill" style="top: 0; height: 900px; background-color: #030717"></div>
+      <div
+        class="band hero"
+        style="
+          top: 0;
+          height: 800px;
+          background-image: linear-gradient(#0307174d, #0307174d), url('req270-hero.png');
+          background-size: cover;
+        "
+      ></div>
+      <p class="run" style="top: 300px; color: #f5e6a3">Hero copy over the scrim</p>
+      <p class="run" style="top: 400px; color: #f5e6a3">Second hero line</p>
+
+      <div class="band" style="top: 900px; height: 400px; background-color: #e8dfd3"></div>
+      <p class="run" style="top: 1000px">Copy on the second band</p>
+    </div>
+  </body>
+</html>

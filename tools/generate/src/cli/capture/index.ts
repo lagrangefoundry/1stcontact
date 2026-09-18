@@ -53,6 +53,14 @@ export {
   readHints,
 } from './bundle'
 export type { BundleLocation } from './bundle'
+export {
+  CAPTURE_SCHEMA,
+  CAPTURE_SCHEMA_AXES,
+  captureSchemaOf,
+  staleCaptureAxes,
+  staleCaptureDetail,
+} from './schema'
+export type { CaptureAxis } from './schema'
 export { EXTRACT_SCRIPT } from './extract'
 export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
 export {

@@ -1298,6 +1298,47 @@ export const EXTRACT_SCRIPT = `(() => {
 
   function hx(n) { return ('0' + Math.round(n).toString(16)).slice(-2); }
 
+  // REQ-270 -- A SCRIM'S COLOUR, WHEREVER IT IS PAINTED. The single definition
+  // both overlay readers below share, so a scrim syntax can never be legible on
+  // one side of a diff and invisible on the other.
+  //
+  // It was backgroundColor-ONLY, which made the reproduction side blind to the
+  // one syntax our own renderer emits: render.ts writes an L1 overlay axis as a
+  // flat gradient LAYER inside background-image (linear-gradient(#0307174d,
+  // #0307174d) over the hero photograph), never as a background-color. So the
+  // reference -- whose scrim IS a coloured box, or is read by sections.ts's
+  // route A out of the band's own gradient -- reported #030717 @ 0.3 and the
+  // reproduction reported none, and the diff blamed the reproduction for a veil
+  // it was painting correctly to within 1/255 across an 800px band.
+  //
+  // The gradient rule is sections.ts's firstOverlay rule with one widening: the
+  // FIRST TRANSLUCENT stop rather than the first stop. A fade-to-black scrim
+  // opens at alpha 0, and "the first stop" would read that as no scrim at all.
+  function gradientScrim(css) {
+    if (!css || css === 'none' || css.indexOf('gradient(') === -1) return null;
+    // url(...) is stripped first: a background-image is a LAYER LIST, and a
+    // photograph's own URL can carry a #fragment that reads as a hex colour.
+    var src = css.replace(/url\([^)]*\)/g, '');
+    var re = /(rgba?\([^)]*\)|hsla?\([^)]*\)|oklab\([^)]*\)|oklch\([^)]*\)|lab\([^)]*\)|lch\([^)]*\)|#[0-9a-fA-F]{3,8})/g;
+    var m;
+    while ((m = re.exec(src))) {
+      var c = rgbaOf(m[1]);
+      if (!c) continue;
+      if (c[3] > 0 && c[3] < 1) return { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(c[3] * 100) / 100 };
+    }
+    return null;
+  }
+  // The scrim this element paints, or null. A translucent background-COLOUR
+  // first (the conventional veil), then a translucent gradient LAYER.
+  function scrimOf(el) {
+    var cs = getComputedStyle(el);
+    var c = rgbaOf(cs.backgroundColor);
+    if (c && c[3] > 0 && c[3] < 1) {
+      return { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(c[3] * 100) / 100 };
+    }
+    return gradientScrim(cs.backgroundImage);
+  }
+
   // A scrim: a visible descendant that blankets most of the band and paints a
   // semi-transparent (0<alpha<1) background — the translucent layer that darkens
   // a hero image so text reads over it. The most-covering such layer wins. This
@@ -1316,15 +1357,14 @@ export const EXTRACT_SCRIPT = `(() => {
       // \color-mix(in oklab, …)\ / \oklab(… / .3)\, which the regex could not read,
       // so EVERY modern-syntax scrim was silently dropped and the hero rendered
       // unveiled. rgbaOf resolves any browser-understood colour and preserves alpha.
-      var c = rgbaOf(getComputedStyle(el).backgroundColor);
-      if (!c) continue;
-      var a = c[3];
-      if (!(a > 0 && a < 1)) continue; // opaque or fully transparent → not a scrim
+      // REQ-270 — and through scrimOf, so a gradient-layer veil counts too.
+      var sc = scrimOf(el);
+      if (!sc) continue;
       var r = absBox(el);
       var cover = (r.width * r.height) / area;
       if (cover < 0.6) continue; // must substantially blanket the band
       if (!best || cover > best.cover) {
-        best = { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(a * 100) / 100, cover: cover };
+        best = { color: sc.color, opacity: sc.opacity, cover: cover };
       }
     }
     return best ? { color: best.color, opacity: best.opacity } : null;
@@ -1388,21 +1428,31 @@ export const EXTRACT_SCRIPT = `(() => {
     // Outermost wins: a backdrop whose vertical range sits inside one already kept
     // is a layer OF that band (a hero photograph over its fill), not a band of its
     // own -- emitting both would report the same slice twice.
+    //
+    // REQ-270 -- but it is KEPT as a layer of the slice that swallowed it, not
+    // discarded. The band record used to read all its paint from the outermost
+    // element alone, and the outermost element is the one that qualifies by being
+    // an opaque FILL: on our own render the hero is .l1-1 (a full-bleed #030717
+    // fill) with .l1-7 (the photograph, plus its scrim) sitting exactly inside
+    // it, so the band recorded backgroundImage: none and the
+    // reproduction's own hero photograph never reached its own manifest. A
+    // reproduction that dropped the hero entirely would have diffed clean.
     cand.sort(function (a, b) {
       if (a.box.y !== b.box.y) return a.box.y - b.box.y;
       return b.box.height - a.box.height;
     });
     var kept = [];
     for (var j = 0; j < cand.length; j++) {
-      var inside = false;
+      var host = null;
       for (var k = 0; k < kept.length; k++) {
         var pbox = kept[k].box;
         if (cand[j].box.y >= pbox.y - 1 && cand[j].box.y + cand[j].box.height <= pbox.y + pbox.height + 1) {
-          inside = true;
+          host = kept[k];
           break;
         }
       }
-      if (!inside) kept.push(cand[j]);
+      if (host) host.layers.push(cand[j]);
+      else kept.push({ el: cand[j].el, box: cand[j].box, layers: [] });
     }
     if (kept.length < 2) return [];
     var out = [];
@@ -1416,13 +1466,13 @@ export const EXTRACT_SCRIPT = `(() => {
       // it is the body background showing through. Without it the content standing
       // on that stretch would have to be assigned to a band it is not inside.
       if (start - cursor >= BACKDROP_MIN_HEIGHT) {
-        out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: start - cursor } });
+        out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: start - cursor }, layers: [] });
       }
-      out.push({ el: kept[m].el, box: { x: 0, y: start, width: docW, height: end - start } });
+      out.push({ el: kept[m].el, box: { x: 0, y: start, width: docW, height: end - start }, layers: kept[m].layers });
       cursor = end;
     }
     if (docH - cursor >= BACKDROP_MIN_HEIGHT) {
-      out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: docH - cursor } });
+      out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: docH - cursor }, layers: [] });
     }
     return out;
   }
@@ -1444,10 +1494,11 @@ export const EXTRACT_SCRIPT = `(() => {
     var surf = paintedSurfaces();
     var best = null;
     for (var i = 0; i < surf.length; i++) {
-      var c = rgbaOf(getComputedStyle(surf[i].el).backgroundColor);
-      if (!c) continue;
-      var a = c[3];
-      if (!(a > 0 && a < 1)) continue;
+      // REQ-270 — scrimOf, not backgroundColor alone: our own renderer emits every
+      // L1 overlay axis as a gradient layer, so this read saw none on exactly
+      // the veil it was measuring.
+      var sc = scrimOf(surf[i].el);
+      if (!sc) continue;
       var r = surf[i].box;
       var ix0 = Math.max(r.x, box.x), ix1 = Math.min(r.x + r.width, box.x + box.width);
       var iy0 = Math.max(r.y, box.y), iy1 = Math.min(r.y + r.height, box.y + box.height);
@@ -1455,10 +1506,30 @@ export const EXTRACT_SCRIPT = `(() => {
       var cover = ((ix1 - ix0) * (iy1 - iy0)) / area;
       if (cover < 0.6) continue;
       if (!best || cover > best.cover) {
-        best = { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(a * 100) / 100, cover: cover };
+        best = { color: sc.color, opacity: sc.opacity, cover: cover };
       }
     }
     return best ? { color: best.color, opacity: best.opacity } : null;
+  }
+
+  // REQ-270 -- the paint of a geometric slice, which is not the paint of the box
+  // that FILLS it. bandSlices keeps every backdrop it swallowed (see there); the
+  // image a band shows is the one on its TOPMOST painted layer, and the slice
+  // element itself is only the fallback. Document-ordered smallest-last by
+  // bandSlices' own sort, so the last layer that paints an image is the top one.
+  //
+  // backgroundColor is deliberately NOT taken from the layer: the fill is what
+  // the outermost box paints, and an image layer's own colour is usually
+  // transparent. This is symmetric with the reference path, where the band
+  // element is the thing that paints because a conventional page nests.
+  function sliceBackgroundImage(slice) {
+    var layers = slice.layers || [];
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var img = getComputedStyle(layers[i].el).backgroundImage;
+      if (img && img !== 'none') return img;
+    }
+    var own = getComputedStyle(slice.el).backgroundImage;
+    return own || 'none';
   }
 
   // anchorRatioOf's geometric twin: where the slice's own content sits inside it,
@@ -1942,7 +2013,7 @@ export const EXTRACT_SCRIPT = `(() => {
       bands.push({
         box: br.box,
         backgroundColor: bg,
-        backgroundImage: s.backgroundImage || 'none',
+        backgroundImage: sliceBackgroundImage(br),
         colorScheme: luminance(bg) < 0.5 ? 'dark' : 'light',
         fontFamily: familyStack(s.fontFamily),
         textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',

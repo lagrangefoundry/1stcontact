@@ -45,6 +45,7 @@ import type { ReferenceBundle } from '../store/reference-store'
 // already uses for background URLs. Reusing the helper rather than writing a
 // second normaliser keeps "is this the same asset?" answered in one place.
 import { assetBasename } from './capture/values-diff'
+import { staleCaptureDetail } from './capture/schema'
 import type {
   MultiStateCapture,
   StateProjection,
@@ -83,7 +84,7 @@ export const SECTION_DENSITY_PX = 1200
 
 /** One reference-coverage proxy that came back suspect. */
 export interface CoverageFinding {
-  kind: 'unreferenced-image' | 'section-density'
+  kind: 'unreferenced-image' | 'section-density' | 'stale-capture'
   /** Operator-facing sentence: what was measured and why it reads as a gap. */
   detail: string
 }
@@ -318,7 +319,8 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
     throw new Error(`Bundle '${bundle.name}' has an empty multistate.json — nothing to measure coverage against.`)
   }
   const manifest = projection.manifest
-  const images = (await readCapture(bundle)).assets.filter((a) => a.kind === 'image')
+  const capture = await readCapture(bundle)
+  const images = capture.assets.filter((a) => a.kind === 'image')
   const referenced = referencedAssets(manifest)
   const unreferencedImages = images
     .filter((a) => {
@@ -332,6 +334,13 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
   const pxPerSection = Math.round(pageHeightPx / Math.max(1, sections))
 
   const findings: CoverageFinding[] = []
+  // REQ-270 — the oldest coverage question there is: was this bundle taken by
+  // the extractor now measuring against it? A capture is the INPUT to every
+  // other proxy here, so a bundle that cannot express an axis makes every gate
+  // downstream of it silent about that axis rather than clean. This sits first
+  // because it is the finding that explains the others.
+  const staleDetail = staleCaptureDetail(capture)
+  if (staleDetail) findings.push({ kind: 'stale-capture', detail: staleDetail })
   if (unreferencedImages.length) {
     findings.push({
       kind: 'unreferenced-image',

@@ -619,6 +619,18 @@ export interface Capture {
    */
   title?: string
   capturedAt: string
+  /**
+   * REQ-270 — the extractor schema this bundle was taken at (see
+   * `CAPTURE_SCHEMA`). OPTIONAL, and it always will be: every bundle written
+   * before the stamp existed parses, and reads as schema 1.
+   *
+   * `capturedAt` cannot stand in for this. A timestamp says when the bytes were
+   * written, not which axes the code writing them knew how to record, and the
+   * question a gate has to answer is the second one — a bundle taken seventy
+   * minutes before a capture fix landed is measured by a different instrument
+   * than the fold reading it, and nothing could tell.
+   */
+  captureSchema?: number
   viewport: Viewport
   theme: Theme
   sections: Section[]

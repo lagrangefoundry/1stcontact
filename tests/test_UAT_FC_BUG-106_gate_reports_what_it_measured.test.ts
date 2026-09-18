@@ -18,6 +18,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { CAPTURE_SCHEMA } from '../tools/generate/src/cli/capture'
 import { fsReferenceBundle as fsBundle } from '../tools/generate/src/store/fs-reference-store'
 
 /**
@@ -130,6 +131,11 @@ async function writeBundle(spec: BundleSpec): Promise<string> {
     host: 'fixture.test',
     path: '/',
     capturedAt: '2026-09-17T00:00:00.000Z',
+    // REQ-270 — this fixture stands in for a bundle taken by the CURRENT
+    // extractor, so it carries the stamp one has. Without it coverage would
+    // (correctly) report `stale-capture` and this suite would be asserting
+    // against a bundle no live capture produces.
+    captureSchema: CAPTURE_SCHEMA,
     viewport: { width: 1280, height: 800 },
     theme: { colors: [], fonts: [], typeScale: [], spacingScalePx: [], containerMaxWidthPx: null },
     sections: runs.map((run, i) => captureSection(i, run)),

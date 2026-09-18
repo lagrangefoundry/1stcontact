@@ -152,6 +152,19 @@ export interface GateSummary {
   regions?: number
   valueDeltas?: number
   unreferencedImages?: string[]
+  /**
+   * REQ-270 — every reference-coverage finding the gate recorded, verbatim.
+   *
+   * A round is told its ORACLE is suspect before it spends itself diagnosing a
+   * residual the oracle cannot move. `stale-capture` is the case that forced
+   * this: iteration 2 of `repro-gigabytealchemy-ai` re-ran against a bundle
+   * taken seventy minutes before the capture fix it was measuring, produced a
+   * ranked-region score identical to iteration 1 down to the bbox, and spent the
+   * round diagnosing five residuals that had already been fixed. The finding was
+   * two keys away in `gate.json` the whole time; being in the file is not the
+   * same as being in the round's hands.
+   */
+  coverageFindings?: { kind: string; detail: string }[]
 }
 
 /** The verdict that means the reference is wrong, not the engine (behavior 7). */
@@ -175,7 +188,7 @@ export function readGateReport(file: string): GateSummary | null {
       nextStep?: string
       perceptual?: { meanDiff?: number; pctOverThreshold?: number; regions?: number }
       values?: { deltas?: number }
-      coverage?: { unreferencedImages?: string[] }
+      coverage?: { unreferencedImages?: string[]; findings?: { kind?: string; detail?: string }[] }
     }
     if (typeof report.verdict !== 'string') return null
     return {
@@ -188,6 +201,9 @@ export function readGateReport(file: string): GateSummary | null {
       regions: report.perceptual?.regions,
       valueDeltas: report.values?.deltas,
       unreferencedImages: report.coverage?.unreferencedImages,
+      coverageFindings: (report.coverage?.findings ?? [])
+        .filter((f): f is { kind: string; detail: string } => typeof f?.kind === 'string' && typeof f?.detail === 'string')
+        .map((f) => ({ kind: f.kind, detail: f.detail })),
     }
   } catch {
     return null
@@ -304,6 +320,12 @@ export function buildPrompt(brief: string, ctx: RoundContext): string {
         ...(ctx.gate.unreferencedImages?.length
           ? [`- mirrored images no manifest element references: ${ctx.gate.unreferencedImages.join(', ')}`]
           : []),
+        // REQ-270 — the coverage findings are quoted IN FULL rather than counted.
+        // Each one is a statement about the ORACLE, which is the one thing a
+        // round cannot re-derive from the evidence: every file it is about to
+        // read was produced against that oracle, so a count would tell it a
+        // number and leave it to discover the meaning the expensive way.
+        ...(ctx.gate.coverageFindings ?? []).map((f) => `- **coverage \`${f.kind}\`** — ${f.detail}`),
         `- diagnosis: ${ctx.gate.diagnosis}`,
         `- next step: ${ctx.gate.nextStep}`,
       ].join('\n')

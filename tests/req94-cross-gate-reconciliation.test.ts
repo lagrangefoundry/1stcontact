@@ -18,6 +18,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { CAPTURE_SCHEMA } from '../tools/generate/src/cli/capture'
 import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 /**
@@ -132,6 +133,11 @@ async function writeBundle(spec: BundleSpec): Promise<string> {
     host: 'fixture.test',
     path: '/',
     capturedAt: '2026-07-25T00:00:00.000Z',
+    // REQ-270 — a fixture standing in for a bundle taken by the CURRENT
+    // extractor carries the stamp one has; without it coverage correctly
+    // reports `stale-capture` and this suite asserts against a bundle no
+    // live capture produces.
+    captureSchema: CAPTURE_SCHEMA,
     viewport: { width: 1280, height: 800 },
     theme: { colors: [], fonts: [], typeScale: [], spacingScalePx: [], containerMaxWidthPx: null },
     sections: [section(spec.content)],
@@ -280,6 +286,11 @@ describe('REQ-94 — reference coverage reports numbers the pipeline already had
       host: 'fixture.test',
       path: '/',
       capturedAt: '2026-07-25T00:00:00.000Z',
+      // REQ-270 — a fixture standing in for a bundle taken by the CURRENT
+      // extractor carries the stamp one has; without it coverage correctly
+      // reports `stale-capture` and this suite asserts against a bundle no
+      // live capture produces.
+      captureSchema: CAPTURE_SCHEMA,
       viewport: { width: 1280, height: 800 },
       theme: { colors: [], fonts: [], typeScale: [], spacingScalePx: [], containerMaxWidthPx: null },
       sections: [section([])],

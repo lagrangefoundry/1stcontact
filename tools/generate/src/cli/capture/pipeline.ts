@@ -52,6 +52,7 @@ import type {
   RenderEngine,
   Viewport,
 } from './types'
+import { CAPTURE_SCHEMA } from './schema'
 
 export interface CapturePipelineOptions {
   /** Injectable driver factory; defaults to local Playwright (DOC-13 §2.2). */
@@ -223,6 +224,9 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
       // every reader reaches its own fallback by the same route.
       ...(signals.title ? { title: signals.title } : {}),
       capturedAt: new Date().toISOString(),
+      // REQ-270 — stamp the extractor that took this bundle, so a gate can tell
+      // a current oracle from one that predates the axes it is being asked about.
+      captureSchema: CAPTURE_SCHEMA,
       viewport: signals.viewport,
       theme: buildTheme(signals, fontFilesByFamily),
       sections: buildSections(signals, (src) => urlToLocal.get(src)),

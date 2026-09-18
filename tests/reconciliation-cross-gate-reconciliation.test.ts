@@ -50,6 +50,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { CAPTURE_SCHEMA } from '../tools/generate/src/cli/capture'
 import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -166,6 +167,11 @@ async function writeCaptureBundle(spec: BundleSpec): Promise<string> {
     host: 'fixture.test',
     path: '/',
     capturedAt: '2026-07-25T00:00:00.000Z',
+    // REQ-270 — a fixture standing in for a bundle taken by the CURRENT
+    // extractor carries the stamp one has; without it coverage correctly
+    // reports `stale-capture` and this suite asserts against a bundle no
+    // live capture produces.
+    captureSchema: CAPTURE_SCHEMA,
     viewport: { width: 1280, height: 800 },
     theme: { colors: [], fonts: [], typeScale: [], spacingScalePx: [], containerMaxWidthPx: null, subScales: {} },
     sections: [section(spec.content)],
@@ -520,6 +526,11 @@ describe('story-24098299 — cross-gate reconciliation', () => {
         host: 'fixture.test',
         path: '/',
         capturedAt: '2026-07-25T00:00:00.000Z',
+        // REQ-270 — a fixture standing in for a bundle taken by the CURRENT
+        // extractor carries the stamp one has; without it coverage correctly
+        // reports `stale-capture` and this suite asserts against a bundle no
+        // live capture produces.
+        captureSchema: CAPTURE_SCHEMA,
         viewport: { width: 1280, height: 800 },
         theme: { colors: [], fonts: [], typeScale: [], spacingScalePx: [], containerMaxWidthPx: null, subScales: {} },
         sections: [section([])],
@@ -704,6 +715,11 @@ describe('story-24098299 — cross-gate reconciliation', () => {
         host: 'fixture.test',
         path: '/',
         capturedAt: '2026-07-25T00:00:00.000Z',
+        // REQ-270 — a fixture standing in for a bundle taken by the CURRENT
+        // extractor carries the stamp one has; without it coverage correctly
+        // reports `stale-capture` and this suite asserts against a bundle no
+        // live capture produces.
+        captureSchema: CAPTURE_SCHEMA,
         viewport: { width: 1280, height: 800 },
         theme: { colors: [], fonts: [], typeScale: [], spacingScalePx: [], containerMaxWidthPx: null, subScales: {} },
         sections: [section([])],
@@ -728,6 +744,11 @@ describe('story-24098299 — cross-gate reconciliation', () => {
       host: 'fixture.test',
       path: '/',
       capturedAt: '2026-07-25T00:00:00.000Z',
+      // REQ-270 — a fixture standing in for a bundle taken by the CURRENT
+      // extractor carries the stamp one has; without it coverage correctly
+      // reports `stale-capture` and this suite asserts against a bundle no
+      // live capture produces.
+      captureSchema: CAPTURE_SCHEMA,
       viewport: { width: 1280, height: 800 },
       theme: { colors: [], fonts: [], typeScale: [], spacingScalePx: [], containerMaxWidthPx: null, subScales: {} },
       sections: [section([])],

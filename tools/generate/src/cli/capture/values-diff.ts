@@ -591,6 +591,15 @@ export interface SectionPairing {
   actualBox?: Box
   /** Vertical intersection-over-union of the two bands; 0 when unpaired. */
   overlap: number
+  /**
+   * REQ-270 — whether `contentAnchor` was comparable on this pairing. `false`
+   * when another, smaller reference section sits inside this one: the two sides
+   * then measure the anchor over DIFFERENT POPULATIONS of runs and the numbers
+   * are not the same measurement. Absent when it was comparable.
+   */
+  anchorComparable?: boolean
+  /** Why the anchor was not comparable, when {@link anchorComparable} is false. */
+  anchorReason?: string
 }
 
 /**
@@ -2926,6 +2935,35 @@ export function diffManifests(
   for (const q of queues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
   for (const q of fieldQueues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
 
+  /**
+   * REQ-270 — the reference sections that sit INSIDE `sections[i]`.
+   *
+   * A reference capture's sections are style-scope bands and nothing makes them
+   * a partition: a header painted over the hero is its own section at its own,
+   * smaller box. A reproduction's geometric bands ARE a partition, so every run
+   * of an overlapped reference section is counted once on their side and twice
+   * on ours. Any axis derived from "the runs in this band" is therefore measured
+   * over two different populations, and `contentAnchor` is one.
+   *
+   * Smaller and substantially contained — half of the inner section's own height
+   * inside the outer one. A pair of adjacent bands that merely touch at an edge
+   * is not an overlap and must not disable a comparison.
+   */
+  function overlappingSmallerSections(
+    sections: readonly SectionValues[],
+    i: number,
+  ): readonly SectionValues[] {
+    const box = sections[i]?.box
+    if (!box) return []
+    return sections.filter((other, j) => {
+      if (j === i || !other.box) return false
+      if (other.box.height >= box.height) return false
+      const top = Math.max(box.y, other.box.y)
+      const bot = Math.min(box.y + box.height, other.box.y + other.box.height)
+      return bot - top > 0 && (bot - top) / other.box.height >= 0.5
+    })
+  }
+
   // Section-level values (scrim, vertical anchor) — no text to join on, so joined
   // by GEOMETRY (BUG-102). Both sides carry the band box in the same full-page
   // document coordinate space, so the natural key is vertical overlap; the ordinal
@@ -2973,13 +3011,14 @@ export function diffManifests(
     const match = sectionMatches.get(ei)
     const as = match?.section
     const label = `§${es.index}`
-    sectionPairing.push({
+    const pairing: SectionPairing = {
       label,
       box: es.box,
       actualLabel: as ? `§${as.index}` : null,
       actualBox: as?.box,
       overlap: match?.overlap ?? 0,
-    })
+    }
+    sectionPairing.push(pairing)
     if (!as) return
 
     const eo = es.overlay
@@ -2992,7 +3031,41 @@ export function diffManifests(
         Math.abs(eo.opacity - ao.opacity) <= opacityTol)
     if (!overlayOk) record(label, 'section', 'overlay', overlayLabel(eo), overlayLabel(ao))
 
-    if (es.contentAnchorRatio !== null && as.contentAnchorRatio !== null) {
+    // REQ-270 — the section band's own imagery, compared by mirrored basename for
+    // the same reason the element-level handle is (the two sides legitimately
+    // spell the same bytes differently). It was the one section axis NOT
+    // compared, so a reproduction that lost the hero photograph entirely
+    // produced zero deltas and a clean gate — the axis the whole band exists to
+    // carry was the axis nothing checked.
+    const expBandBg = assetBasename(es.backgroundImageUrl)
+    const actBandBg = assetBasename(as.backgroundImageUrl)
+    if (expBandBg !== actBandBg) {
+      record(label, 'section', 'backgroundImage', expBandBg ?? '(none)', actBandBg ?? '(none)')
+    }
+
+    // REQ-270 — THE ANCHOR IS ONLY COMPARABLE OVER THE SAME POPULATION OF RUNS.
+    //
+    // The reference's anchor is a DOM-descendant walk of the band element; ours
+    // is every run whose centre falls in the geometric slice. Those agree on a
+    // conventionally nested page and disagree exactly when the reference's own
+    // sections OVERLAP — a `position: absolute` header sitting over the hero is
+    // its own reference section, so its runs are not descendants of the hero and
+    // the reference excludes them, while a geometric slice is a partition and
+    // ours cannot. On gigabytealchemy that is 0.53 vs 0.39 on byte-identical
+    // geometry: a phantom 112px content shift, silent only because 0.14 happened
+    // to fall 0.01 under the tolerance.
+    //
+    // The fix is to say so rather than to compare two numbers that do not mean
+    // the same thing, and rather than to widen the tolerance — a tolerance that
+    // absorbs this would also absorb a real 100px shift.
+    const overlapping = overlappingSmallerSections(expSections, ei)
+    if (overlapping.length) {
+      pairing.anchorComparable = false
+      pairing.anchorReason =
+        `${overlapping.map((o) => `§${o.index}`).join(', ')} sits inside this band, so the reference measured its ` +
+        `anchor over a DOM-descendant population that EXCLUDES those runs while the reproduction's geometric band ` +
+        `includes them — the two anchors are not the same measurement and are not compared`
+    } else if (es.contentAnchorRatio !== null && as.contentAnchorRatio !== null) {
       if (Math.abs(es.contentAnchorRatio - as.contentAnchorRatio) > anchorTol) {
         record(label, 'section', 'contentAnchor', anchorLabel(es.contentAnchorRatio), anchorLabel(as.contentAnchorRatio))
       }
