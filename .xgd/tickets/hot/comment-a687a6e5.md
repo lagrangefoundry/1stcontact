@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:41:06.230668+00:00'
+updated_at: '2026-09-18T02:42:36.622790+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -820,5 +820,30 @@ Signing in again gets you a cookie signed by 48849 and you're back. It won't cha
 <!-- xgd-chat role="user" ts="2026-09-18T02:41:06.006250+00:00" -->
 #### You
 ok I changes the key, now it is working - Now, how do I configure forwarding emails addresses?
+
+<!-- xgd-turn id="bf1432b8-f037-468d-b10c-da401e2a1b90-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:42:35.596896+00:00" -->
+#### Claude
+You can't — there is no surface for it yet, and that's by design rather than an oversight.
+
+**What exists:** the pipeline reads a forwarding destination and acts on it. `inbound.ts:543` does `SELECT business_id, forward_to FROM sending_domains WHERE domain = ?`, and `forward()` at `inbound.ts:508` forwards to it. Migration `0015_inbound_mail.sql` added the column.
+
+**What doesn't:** anything that *writes* `forward_to`. I grepped the whole repo — the only five references are the read path in `inbound.ts`. No route, no UI, no API.
+
+That migration says so explicitly, in its own comment:
+
+> NULL IS ORDINARY AND MEANS "NOBODY HAS SAID YET" … **The SURFACE that sets it — the forwarding table, destination verification, catch-all — is ticket 2 of EPIC-13's cut and is deliberately not here**; what is here is the place it will write to, so ticket 1's pipeline is whole rather than structurally unable to forward.
+
+EPIC-13's cut list (line 693 onward) confirms it: item 1 is **REQ-267, cut and built** — that's the pipeline you're running. Item 2 is *"Email configuration in Settings. Forwarding table, destination verification, catch-all. Visible: configure it, send, it forwards."* — **proposed, not cut**. No ticket filed for it; `xgd ticket list` shows REQ-267 as the only inbound request.
+
+So right now mail to a configured domain is **recorded but not forwarded** — `forward()` returns `no_destination` and the outcome goes to the invocation log. Nothing is lost, nothing bounces, but nothing reaches a human inbox either.
+
+**Two things stand between you and working forwarding, and only one is the surface:**
+
+1. **`forward_to` has no writer.** As a stopgap you can set it by hand — `npx wrangler d1 execute 1stcontact --local --command "UPDATE sending_domains SET forward_to='you@example.com' WHERE domain='...'"` (drop `--local` for production). That bypasses destination verification and the mail-loop guard the epic calls for at line 399, so it's a probe, not a configuration.
+2. **Cloudflare Email Routing isn't provisioned by anything in this repo.** I found no Email Routing API calls at all. The `email()` handler is exported (`index.ts:729`) and will receive messages, but the zone needs Email Routing enabled with a rule pointing at the Worker — dashboard or API, by hand, today.
+
+Item 2 is squarely this epic's and it's the natural next thing after REQ-267. Want me to scope it as a child ticket? The epic already fixes most of its shape — Settings rather than a new tab (§OQ1), catch-all defaulting *on* through cutover and off afterwards (line 675), destination read from configuration and never from the message (line 739), and a refusal at configuration time for a destination that points back at the same domain.
 
 <!-- xgd-chat-end -->
