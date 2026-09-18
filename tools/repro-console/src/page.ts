@@ -193,6 +193,18 @@ export interface PageState {
    * class.
    */
   filings?: FilingsView
+  /**
+   * THE LOADED REFERENCE IS BEHIND THE EXTRACTOR ([[BUG-120]] behaviour 4).
+   *
+   * `staleCaptureDetail`'s own sentence, reused rather than restated, and
+   * rendered BESIDE the two continuations rather than under the round that
+   * discovered it. It is the one fact that decides which of them is worth
+   * pressing: a refold cannot recover an axis the stored oracle never had, so
+   * against a bundle this far back [run again] re-measures a residual that may
+   * already be fixed, however many times it runs. Absent when the bundle is
+   * current, because then the choice is a free one.
+   */
+  staleReference?: string
 }
 
 /** The loop's filings, grouped by queue and then by class ([[REQ-276]]). */
@@ -341,6 +353,25 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 .filings .queue.ceiling { color: #1e7a3c; opacity: 1 }
 .filings ul { font-size: .85rem }
 .filings code { font-family: ui-monospace, monospace }
+/* BUG-120 — the two continuations, together and labelled.
+   The flex rule on form above is the address row's; the continuation form is
+   rows of its own, one control per row with what it does beside it. */
+.continue { margin: 1.5rem 0 }
+.continue h2 { margin: 0 0 .3rem }
+.continue form { display: block }
+.choice { display: flex; gap: .6rem; align-items: baseline; margin: .5rem 0 }
+.choice button { flex: none }
+/* What a control will do to the iteration list, in text rather than a title
+   attribute: a tooltip is invisible on a touch device and to anyone not
+   hovering, which is the wrong channel for the fact that decides whether a
+   round measures anything. */
+.effect { font-size: .85rem; opacity: .75 }
+p.restart { margin: .4rem 0 0 }
+/* The stale reference, at the point of choosing. Same bar as .notice, because
+   it is the same kind of thing — a standing condition of what is loaded — and a
+   second colour for it would be a second thing to learn. */
+.stale-reference { border-left: 3px solid #d08b18; padding: .4rem .7rem; margin: .5rem 0; font-size: .85rem }
+.stale-reference code { font-family: ui-monospace, monospace }
 pre.transcript {
   white-space: pre-wrap; max-height: 22rem; overflow: auto; margin: .5rem 0 0;
   padding: .6rem .7rem; border: 1px solid #8884; border-radius: 4px;
@@ -463,17 +494,49 @@ ${reference}${verdict}${rail}${decide}${ai}</section>`
 export function renderConsolePage(state: PageState): string {
   const rows = state.iterations.map(renderIteration).join('\n')
 
-  // [run again] appears only once there is something to re-run. It takes no
-  // address: [reproduce] captures and starts a new list at Iteration 1, this
-  // re-runs the site already loaded and appends the next one.
-  //
-  // `data-held` is what the poller keys on ([[REQ-272]] part 1, behaviour 3):
-  // this button advances the loop, and the loop does not advance until the
-  // operator says the implementation the last round asked for has landed.
+  /**
+   * THE TWO CONTINUATIONS, TOGETHER AND LABELLED ([[BUG-120]]).
+   *
+   * [run again] and [recapture] are the same KIND of act — both append the next
+   * iteration to the list above and neither throws it away — and the console
+   * has always known it: both carry `data-held="1"` and both go inert under the
+   * hold, while [reproduce] does not. The page used to render them at opposite
+   * ends anyway, [recapture] pinned beside the address box where position reads
+   * "start over" and [run again] alone under the history where it reads
+   * "continue". An operator arriving at a page several iterations tall saw only
+   * the top pair, read both as restarts, and never pressed the one that would
+   * have shown them which of their landed fixes had moved the numbers.
+   *
+   * So they are one group, in the place the continuation already was — under
+   * the iteration list — and what separates them is stated rather than
+   * positional: one re-folds the reference we have, the other re-rolls it.
+   *
+   * ONE FORM, TWO SUBMIT BUTTONS. The grouping is structural rather than
+   * decorative: these post to different paths because they are different verbs,
+   * and `formaction` is how one form says that — the same mechanism the address
+   * row used for [recapture] before, kept so the POST targets are untouched.
+   * The hidden address is the site already loaded, which is what the address box
+   * held when [recapture] sat in it, so the request the console receives is
+   * byte-for-byte the one it received before.
+   *
+   * `data-held` is what the poller keys on ([[REQ-272]] part 1, behaviour 3):
+   * both advance the loop, and the loop does not advance until the operator says
+   * the implementation the last round asked for has landed.
+   */
+  const inert = state.running || state.held ? ' disabled' : ''
+  const next = state.iterations.length + 1
+  const last = state.iterations.length
   const again = state.iterations.length
-    ? `<form method="post" action="/run-again"><button data-held="1"${
-        state.running || state.held ? ' disabled' : ''
-      }>run again</button></form>`
+    ? `<section class="continue">
+  <h2>continue this chain — both of these append iteration ${next}</h2>
+${
+  state.staleReference ? `  <p class="stale-reference">⚠ ${inlineCode(state.staleReference)}</p>\n` : ''
+}  <form method="post" action="/run-again">
+    <input type="hidden" name="url" value="${escapeHtml(state.url ?? '')}">
+    <p class="choice"><button data-held="1"${inert}>run again</button> <span class="effect">keeps the reference this chain already has and re-folds it — appends iteration ${next}, whose numbers are comparable with iteration ${last}'s.</span></p>
+    <p class="choice"><button data-held="1"${inert} formaction="/recapture">recapture</button> <span class="effect">re-hits the site and re-rolls the reference first — also appends iteration ${next}, but its numbers are not comparable with iteration ${last}'s and the page marks the seam.</span></p>
+  </form>
+</section>`
     : ''
 
   /**
@@ -548,12 +611,19 @@ ${state.filings.groups
 </section>\n`
     : ''
 
-  // [recapture] re-hits the site and re-rolls the oracle, which is occasionally
-  // exactly right and never what [reproduce] should quietly do — so it is its
-  // own button, offered beside the box rather than in place of anything. On the
-  // site already loaded it APPENDS the next iteration rather than starting a new
-  // list ([[REQ-272]] part 2), which is what makes "did the capture fix move the
-  // numbers" a question the page can answer.
+  /**
+   * THE RESTART, ALONE IN THE RESTART POSITION ([[BUG-120]] behaviour 2).
+   *
+   * [reproduce] is the only one of the three that can begin a list, so the
+   * address row holds it and nothing else — [recapture] used to sit here, and
+   * the company was the whole defect: a continuation rendered above the history
+   * reads as a restart, whatever its tooltip says.
+   *
+   * What it does is under it in text rather than in a `title=`, on the same
+   * terms as the two continuations: it is not one fact but two — a new address
+   * begins a list, and the address already loaded reuses the bundle on disk —
+   * and neither is guessable from the word "reproduce".
+   */
   return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>reproduction console</title><style>${STYLE}</style></head>
@@ -561,10 +631,8 @@ ${state.filings.groups
 <form method="post" action="/run">
   <input name="url" value="${escapeHtml(state.url ?? '')}" placeholder="site address" autocomplete="off" autofocus>
   <button${state.running ? ' disabled' : ''}>reproduce</button>
-  <button data-held="1"${
-    state.running || state.held ? ' disabled' : ''
-  } formaction="/recapture" title="re-hit the site and re-roll the reference — on the site already loaded this keeps the iteration chain and marks the seam">recapture</button>
 </form>
+<p class="effect restart">starts a list rather than continuing one: a new address is captured and numbered from 1, and the site already loaded reuses the capture on disk.</p>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
 ${notice}${stored}
 ${filings}

@@ -16,6 +16,13 @@ import path from 'node:path'
 // the convention `apps/control-app` already follows for the same tree.
 import { resolveStaticFile } from '../../generate/src/cli/static-file'
 import { contentTypeOf } from '../../generate/src/store/content-type'
+// REUSED, NOT RESTATED, for the same reason ([[BUG-120]] behaviour 4). The
+// sentence a bundle behind the extractor deserves is already written, once, in
+// the file that owns `CAPTURE_SCHEMA` and the axis registry — and it is the
+// sentence that goes stale the day the extractor learns an axis. A second
+// spelling of it here would be a second thing to bump.
+import { staleCaptureDetail } from '../../generate/src/cli/capture/schema'
+import type { Capture } from '../../generate/src/cli/capture/types'
 import {
   renderConsolePage,
   renderDiffPage,
@@ -270,6 +277,7 @@ export class ReproConsole {
       iterations: this.iterations.map((it) => this.view(it)),
       stored: this.stored.map(({ name, url }) => ({ name, url })),
       held: this.heldView(),
+      ...(this.staleReference() ? { staleReference: this.staleReference() as string } : {}),
       ...(this.notice() ? { notice: this.notice() as string } : {}),
       ...(this.filingsView() ? { filings: this.filingsView() as FilingsView } : {}),
     }
@@ -303,6 +311,36 @@ export class ReproConsole {
     const filings = [...byTicket.values()]
     if (!filings.length) return null
     return { split: describeSplit(filings), groups: groupByQueue(filings) }
+  }
+
+  /**
+   * THE LOADED REFERENCE, WHEN IT IS BEHIND THE EXTRACTOR ([[BUG-120]] b4).
+   *
+   * READ FROM THE BUNDLE ON EVERY PAGE BUILD, not remembered: a re-capture
+   * overwrites the bundle in place, so a remembered answer would still be
+   * warning about a reference that has since been re-taken — which is the one
+   * moment the warning is wrong and the operator has just paid to make it wrong.
+   *
+   * It is a fact about the CHOICE, not about a round. `1c gate` already reports
+   * it as a coverage finding, but that is downstream of a press: the finding
+   * explains an iteration that has already been paid for, and this is the same
+   * sentence put where the operator decides whether to pay. Against a bundle
+   * this far back, [run again] re-measures a residual whose fix cannot reach it
+   * however many times it runs, and only [recapture] can.
+   */
+  private staleReference(): string | undefined {
+    if (this.bundleDir === undefined) return undefined
+    const file = path.join(this.bundleDir, 'capture.json')
+    if (!existsSync(file)) return undefined
+    try {
+      return staleCaptureDetail(JSON.parse(readFileSync(file, 'utf8')) as Capture) ?? undefined
+    } catch {
+      // A bundle that cannot be parsed or cannot be walked axis by axis says
+      // nothing here. The page is not the place that reports a broken bundle —
+      // the run that reads it fails loudly and says which step — and a console
+      // that refused to render over one would have hidden the history too.
+      return undefined
+    }
   }
 
   /**
