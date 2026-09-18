@@ -6,10 +6,10 @@ title: 'The activity log: a raw server-side event store, and session summaries o
   the contact timeline'
 created_by: EPIC-10
 created_at: '2026-09-13T21:15:53.631580+00:00'
-updated_at: '2026-09-17T22:01:56.357025+00:00'
+updated_at: '2026-09-18T00:47:32.388234+00:00'
 completed_at: null
-last_field_updated: depends_on
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   epic_parent: epic-0aefcf91
