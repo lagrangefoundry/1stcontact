@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:23:24.355336+00:00'
+updated_at: '2026-09-18T03:24:31.756612+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1075,5 +1075,13 @@ The second touches another epic and this session is scoped to EPIC-13 — do you
 <!-- xgd-chat role="user" ts="2026-09-18T03:23:24.078131+00:00" -->
 #### You
 It flagged `.co.uk` as *"likely your most common customer TLD"* <-- that's SO not ttrue and keeps coming up - could you find where is says that and fix it - it is a POSSIBLE domain to worry about unlikely to be the most common
+
+<!-- xgd-turn id="81353a58-53b4-4bda-8c23-0c8ba21a2445-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:24:31.388211+00:00" -->
+#### You
+It flagged `.co.uk` as *"likely your most common customer TLD"* <-- that's SO not ttrue and keeps coming up - could you find where is says that and fix it - it is a POSSIBLE domain to worry about unlikely to be the most common
+
+Yes please fix EPIC 5 - I know this is a change but I was deliberately NOT designing the UX at EPIC 5 so - this is now the design - anything EPIC 5 has is it filling in the gaps I was trying to deliberately leave
 
 <!-- xgd-chat-end -->
