@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d7d3f665
 ---
 
 # [recapture] is a continuation verb rendered in the restart position
