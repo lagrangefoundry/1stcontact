@@ -5,18 +5,28 @@ type: bug
 title: 1c repro serves the absolute base while the gate certifies the recovered document
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:34.264842+00:00'
-updated_at: '2026-09-18T05:05:46.277633+00:00'
+updated_at: '2026-09-18T05:10:52.549278+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9b245eb4
+  commits:
+  - working_sha: e55f61ab9bd9ee69b7f9a1350f87888c41fde072
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7c917a6fae5bca2a57b5f89efab0c34d33c49c7d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bf0c51343d0f26a74421b6f1ea45dbac6f37c62d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.263
 ---
-
 
 # `1c repro` serves the absolute base while the gate certifies the recovered document
 
