@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-18T00:41:09.269998+00:00'
+updated_at: '2026-09-18T02:03:10.693435+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -187,5 +187,54 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="94778173-fdd9-45f2-959d-83ce22a2b742-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T01:12:29.366433+00:00" -->
+#### Claude
+I have what I need. Let me set up the ticket and branch.
+
+Now let me set up the worktree and write the migration.
+
+Now the migration:
+
+Now the core module — `log.ts`:
+
+Now `activity.ts` — session inference and the rollup:
+
+Now wire the assets build to emit the logging shim:
+
+Now the `scheduled` handler:
+
+Now `wrangler.toml` crons and the router route:
+
+Now the builder client — the surface signal:
+
+Now wire `onTabChange` in `app.js`:
+
+Now register the migration in the test harness and write the UATs:
+
+Now the workers UAT:
+
+Now the node-side wiring UAT:
+
+Now let me update the ticket body to record the decisions the implementation made:
+
+Now let me check on the background regression run:
+
+Whole workers project is green (127 files, 1166 tests). Waiting on the node project:
+
+Two real regressions found. Fixing:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="8971d3c8-89bf-4701-9767-1330861a79c6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:03:10.044581+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->

@@ -327,7 +327,11 @@ describe('REQ-262 the round reaches the KB by reading, and tickets through xgd',
     expect(prompt).toMatch(/never by path/i)
     expect(prompt).toContain('`ready_*` status')
     expect(prompt).toContain('dispatcher trigger')
-    expect(prompt).toMatch(/You still do not file/i)
+    // [[BUG-108]]: this used to assert `/You still do not file/i`, which pinned
+    // the half of the contradiction the console cannot honour — D10 deleted the
+    // filing relay, so there was nothing on the far end of a hand-back. The
+    // round files; what survives here is the warning that actually matters.
+    expect(prompt).toMatch(/You file\./i)
   })
 })
 

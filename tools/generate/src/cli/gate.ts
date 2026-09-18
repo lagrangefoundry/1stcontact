@@ -125,7 +125,15 @@ export function formatGateReport(report: GateReport, ref: string): string {
     `cross-gate reconciliation on ${ref}: ${VERDICT_LABEL[report.verdict]}`,
     '',
     `  l1-gate      ${report.l1Pass ? 'PASS' : 'FAIL'}  (geometry + envelope; blind to colour/font/media by design)`,
-    `  values-diff  ${report.values.deltas} delta(s) over ${report.values.matched} matched element(s), ${report.values.unmatched} unmatched`,
+    // BUG-106 — the counts, and then what they are worth. `unmatched` is
+    // expected-side only, so the repro-side count goes on the same line rather
+    // than being left to `values-diff.json`; a run whose sections could not be
+    // paired at all gets its own row, because "0 delta(s)" on the line above is
+    // silence about every section value on the page and reads as a clean bill.
+    `  values-diff  ${report.values.deltas} delta(s) over ${report.values.matched} matched element(s), ${report.values.unmatched} unmatched, ${report.values.unpairedActual} repro object(s) unpaired`,
+    ...(report.values.sectionsNotComparable
+      ? [wrap(`⚠ section values NOT comparable: ${report.values.sectionsNotComparable}`, '               ')]
+      : []),
     `  perceptual   mean ${report.perceptual.meanDiff.toFixed(2)} / 255 · ${report.perceptual.pctOverThreshold.toFixed(1)}% of pixels over threshold · ${report.perceptual.regions} region(s)`,
     floorMark,
     '',

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-17T21:55:08.127039+00:00'
+updated_at: '2026-09-18T02:01:50.878452+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -621,5 +621,26 @@ Neither is caused by this bug or fixed by fixing it, so I kept them out of BUG-1
 **2. Untrusted HTML meets an unrestricted shell.** The round reads captured third-party DOM while holding `Bash`, with no OS sandbox on the spawn — `claudeCommand` passes permission mode, both tool lists and empty setting sources, and no sandbox flag. This is a documented consequence of D7, not an oversight, and for sites you chose to reproduce the realistic risk is low. Worth noting only because D7's containment argument reasons about *tools* and never mentions shell egress.
 
 The D7 reasoning in `ai.ts` is unusually careful — it measured that scoped `Bash` rules don't scope and chose the shell knowingly. Neither finding contradicts that; they're both about the gap between what was decided and what the surrounding prose claims. Want me to file either?
+
+<!-- xgd-turn id="79ce6904-1bf1-46db-9005-ef559226584a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:01:50.240190+00:00" -->
+#### You
+ok two things:
+
+(1) I am seeing this error in the concole - the AI filed it we implemented it and I moved it to this state - what's the problem?: a ticket reached a dispatcher-trigger status during this round: BUG-100 `bug-14025216`) is at `ready_to_reconcile`. The round files through the console at `draft` and must never set a `ready_*` status — see REQ-256 behaviour 4.
+
+(2) I need to see the reproduction before triggering an AI fix - the decision point is in the wrong place should be that I need two stopping points:
+Capture and compare
+*DECISION*
+AI run
+WAIT for manually triggered implementation
+Manually trigger next repro and compare
+*DECISION*
+AI run
+
+(3) I'm on the third iteration and things don't seem to be improving - there is really only one egregous issue: The text boxes at the bottom of the page are painted over the text area that should be above them. Honestly this should not need all this sophisticated machinery to find - that should just light up as a red flag. There may be situations where that effect is desirable but they should be explicitly chosen the repro engine should never create that it is so obviously wrong.
+
+So 3 is two things: 1 - I'm not seeing any improvement despite over $20 of tokens per turn (apparently) and 2 - the worst issue should be fixed immediately - probably mechanically, but why is the AI not seeing it???
 
 <!-- xgd-chat-end -->

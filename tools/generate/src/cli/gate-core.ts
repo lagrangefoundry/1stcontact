@@ -163,7 +163,35 @@ export interface ReconcileInput {
     /** The ranked regions — only ever counted here, so only countable. */
     regions: readonly unknown[]
   }
-  values: Pick<ValuesDiffReport, 'deltas' | 'matched' | 'unmatched'>
+  /**
+   * BUG-106 — what the value gates saw, INCLUDING what they could not see.
+   *
+   * This was `Pick<ValuesDiffReport, 'deltas' | 'matched' | 'unmatched'>`, and
+   * that `Pick` is the whole of the defect it is named for. `unmatched` counts
+   * unpaired *expected* objects only, and `deltas` counts comparisons that
+   * happened — so a run whose sections could not be paired at all, against a
+   * reproduction carrying seven objects the reference does not have, reported
+   * `{ deltas: 0, matched: 59, unmatched: 0 }` and read as a complete match. The
+   * two facts that would have said otherwise were structurally excluded from the
+   * type, so no amount of care at the call site could have carried them.
+   *
+   * Both are therefore asked for here rather than left to a caller to remember.
+   * `unpairedActual` is COUNTABLE ONLY, for the reason `perceptual.regions`
+   * above gives: it is only ever counted here, so asking for the report's own
+   * object type would make a caller with no such type unable to satisfy one it
+   * could never have produced. `sectionsNotComparable` is optional because it is
+   * optional on {@link ValuesDiffReport} — absent means the sections WERE
+   * comparable, which is a different fact from "not reported".
+   */
+  values: {
+    deltas: ValuesDiffReport['deltas']
+    matched: number
+    unmatched: number
+    /** REQ-51 — repro objects that paired with no reference object. */
+    unpairedActual: readonly unknown[]
+    /** BUG-102 — why section-level values could not be compared at all, when they could not. */
+    sectionsNotComparable?: string
+  }
   floor?: Partial<PerceptualFloor>
 }
 
@@ -179,7 +207,19 @@ export interface GateReport {
   perceptualBreach: boolean
   l1Pass: boolean
   perceptual: { meanDiff: number; pctOverThreshold: number; regions: number }
-  values: { deltas: number; matched: number; unmatched: number }
+  /**
+   * BUG-106 — the counts, and the two facts that say what they are worth.
+   * `unpairedActual` is the repro-side mirror of `unmatched`; a present
+   * `sectionsNotComparable` means every section-level value behind `deltas` is
+   * UNMEASURED on this run rather than clean.
+   */
+  values: {
+    deltas: number
+    matched: number
+    unmatched: number
+    unpairedActual: number
+    sectionsNotComparable?: string
+  }
   coverage: ReferenceCoverage
 }
 
@@ -340,6 +380,8 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   const { meanDiff, pctOverThreshold } = input.perceptual
   const perceptualBreach = meanDiff > floor.mean || pctOverThreshold > floor.pct
   const deltas = input.values.deltas.length
+  const unpairedActual = input.values.unpairedActual.length
+  const notComparable = input.values.sectionsNotComparable
   const coverage = input.coverage
 
   let verdict: GateVerdict
@@ -355,10 +397,49 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     diagnosis =
       'The perceptual eye and the structural gate agree the reproduction is faithful. ' +
       'No cross-gate disagreement to explain.'
-    nextStep =
-      deltas > 0
-        ? `\`1c values-diff\` still reports ${deltas} delta(s) — the sharp instrument for a page this close. Work them there.`
-        : 'Nothing outstanding from this gate.'
+    // BUG-106 — "Nothing outstanding from this gate." is a CLAIM, and it was
+    // emitted from the delta count alone. On the run this ticket came from it
+    // was false three ways at once: a coverage finding sat two keys below it in
+    // the same JSON, seven repro objects had paired with nothing, and eight
+    // reference sections had no band to be compared against at all. Naming only
+    // one of the three would leave the same sentence lying about the other two,
+    // so the pass rung enumerates every fact this run is carrying and falls back
+    // to the original sentence only when it is carrying none.
+    //
+    // THE LADDER IS UNCHANGED. Nothing here decides a verdict — a run that
+    // passed still passes. What changes is that it says what it did not measure.
+    // EACH ITEM NAMES ITS FACT AND WHERE THE DETAIL ALREADY IS, rather than
+    // quoting it. The reason and the finding are both in this same report, two
+    // keys away, and pasting them in full turns one next action into a wall of
+    // prose an operator skims past — which is how the contradiction went
+    // unnoticed in the first place.
+    const outstanding: string[] = []
+    if (deltas > 0) {
+      outstanding.push(
+        `\`1c values-diff\` still reports ${deltas} delta(s) — the sharp instrument for a page this close, so work them there`,
+      )
+    }
+    if (unpairedActual > 0) {
+      outstanding.push(
+        `${unpairedActual} repro object(s) paired with NOTHING in the reference — \`unmatched\` above is the ` +
+          `expected side only and does not see them (\`values.unpairedActual\`)`,
+      )
+    }
+    if (notComparable) {
+      outstanding.push(
+        'section-level values were NOT compared at all on this run, so the delta count above says nothing ' +
+          'about them (`values.sectionsNotComparable` gives the reason)',
+      )
+    }
+    if (coverage.findings.length) {
+      outstanding.push(
+        `reference coverage reports ${coverage.findings.map((f) => `\`${f.kind}\``).join(', ')} ` +
+          `(\`coverage.findings\` gives the detail)`,
+      )
+    }
+    nextStep = outstanding.length
+      ? `Every gate is within its floor, but this run is NOT silent: ${outstanding.join('; ')}.`
+      : 'Nothing outstanding from this gate.'
   } else if (coverage.findings.length) {
     verdict = 'capture-incomplete'
     diagnosis =
@@ -398,7 +479,13 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     perceptualBreach,
     l1Pass: input.l1Gate.pass,
     perceptual: { meanDiff, pctOverThreshold, regions: input.perceptual.regions.length },
-    values: { deltas, matched: input.values.matched, unmatched: input.values.unmatched },
+    values: {
+      deltas,
+      matched: input.values.matched,
+      unmatched: input.values.unmatched,
+      unpairedActual,
+      ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
+    },
     coverage,
   }
 }

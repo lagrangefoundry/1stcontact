@@ -818,7 +818,7 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
       pass: boolean
       floor: { mean: number; pct: number }
       perceptual: { meanDiff: number; pctOverThreshold: number; regions: number }
-      values: { deltas: number; matched: number; unmatched: number }
+      values: { deltas: number; matched: number; unmatched: number; unpairedActual: number }
       coverage: { mirroredImages: number; referencedImages: number; sections: number }
     }
 
@@ -915,11 +915,18 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
     // `deltas` is the delta LIST, not a count — `reconcileGates` reads its
     // length, so a number here would silently read as zero and two of the five
     // causes would be unreachable.
-    const noDeltas = { deltas: [], matched: 40, unmatched: 0 }
+    // BUG-106 — `unpairedActual` is the repro-side mirror of `unmatched` and is
+    // REQUIRED rather than optional, for the reason that ticket gives: the
+    // defect it fixes was a fact the type made impossible to carry, so the
+    // reconciliation asks for it instead of letting a caller forget. Empty here
+    // is a claim — these fixtures are about the verdict ladder, and none of them
+    // renders an object the reference does not have.
+    const noDeltas = { deltas: [], matched: 40, unmatched: 0, unpairedActual: [] }
     const deltas = {
       deltas: [{ property: 'color' }, { property: 'fontSizePx' }] as never,
       matched: 30,
       unmatched: 2,
+      unpairedActual: [],
     }
 
     const verdicts = {
