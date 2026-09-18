@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T22:27:42.537910+00:00'
+updated_at: '2026-09-18T22:32:01.281476+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -953,5 +953,58 @@ Want me to scope the capture-completeness audit onto EPIC-12 — you'd need to s
 This is your space EPIC-19 has plenty to do - can you pick up all the proposed improvements please and create new child tickets for all of them
 
 Your recapture vs reproduce is a little confusing - I have been hitting [Run Again] - the other two buttons are positioned at the top of the growing page and look like essentially restarts - [Run Again] looks like the continuation, no?
+
+<!-- xgd-turn id="c6290945-e141-4f65-a697-2314a5c2001a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T22:32:00.750955+00:00" -->
+#### Claude
+The button confusion is worth getting exactly right before I file anything — let me read the actual UI.
+
+Now I understand the layout — and you've found a real defect. Let me check the ticket tooling before filing.
+
+Evidence confirmed — `flattenCapture()` (values-diff.ts:1121) and `flattenSignals()` (values-diff.ts:1178) are literally the two procedures. Writing the six ticket bodies.
+
+Bodies written. Creating the six children now.
+
+All six are attached — EPIC-12 now has 17 children.
+
+## The tickets
+
+| | | pts | |
+|---|---|---|---|
+| **REQ-274** | one projection over both sides — retire the asymmetric-axis defect as a category | 8 | high |
+| **REQ-275** | audit capture completeness once, mechanically | 8 | high |
+| **REQ-276** | a round says what KIND of thing it found | 3 | med |
+| **REQ-277** | the unmeasured set is the headline number | 5 | high |
+| **REQ-278** | L1 capability: flow recovery preserving horizontal geometry | 13 | high |
+| **BUG-120** | `[recapture]` is a continuation verb in the restart position | 3 | high |
+
+REQ-274 landed a sharper citation than EPIC-19 had: the two procedures are `flattenCapture()` at `values-diff.ts:1121` and `flattenSignals()` at `:1178` — same return type, two independent bodies, and `flattenSignals`' own doc comment already confesses the drift. But they take genuinely different inputs (`Capture` vs `RawSignals`), so "one extractor over both sides" isn't literally achievable; the ticket asks for one *declaration site* per axis instead, and says why.
+
+**Two I did not file**, because filing them would re-open closed work and the free-coding matrix would read the duplicates as drift: items 1 and 2 are already in the tree (REQ-270 + REQ-272; BUG-106 + BUG-111). Say the word if you want them re-filed anyway.
+
+## On the buttons — you're right, and the code agrees with you
+
+[run again] **is** the continuation. You've been pressing the correct button.
+
+But so is **[recapture]**, and that's my bad framing last turn. REQ-272 part 2 deliberately made it keep the chain — it appends the next iteration, leaves the list and the slug alone, and marks the seam so the numbers either side aren't read as comparable. Its entire purpose is "did the capture-side fix move the numbers", which needs the earlier iterations still on the page.
+
+It just doesn't *look* like that, for exactly the reason you gave. Document order in `page.ts`:
+
+```
+<form action="/run">  [ address ] [reproduce] [recapture]   ← top, pinned
+   status / notice / stored
+   rows  ← the list, which grows
+   held
+[run again]                                                 ← bottom
+```
+
+Position says *top pair restart, bottom one continues*. Only [reproduce] actually restarts. And the markup already contradicts itself: **[run again] and [recapture] both carry `data-held="1"`** and are both gated by the hold, while [reproduce] isn't — the console classifies them as the same kind of action and then puts them at opposite ends of the page. The continuation-ness lives in a `title=` tooltip, which is the wrong channel for the one fact that decides whether a round measures anything.
+
+That's BUG-120, and I gave it the price: your bundle is schema 1 against an extractor at 3, so no number of [run again]s can recover those five axes — a refold re-derives from the oracle the *old* extractor wrote. The button that would show the fixes looked like it would destroy the history.
+
+So the concrete answer: **this once, press [recapture] instead of [run again].** It appends, same as always. You lose nothing on the page. What moves is the reference — which is the point, and why iteration 1 after it is a new baseline rather than a comparison.
+
+Record the rail first (`./bin/repro-rail record`), while the oracle is still the one all your existing numbers were measured against.
 
 <!-- xgd-chat-end -->
