@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T20:57:51.631981+00:00'
+updated_at: '2026-09-18T21:02:16.053966+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -291,5 +291,13 @@ Verified after writing: both session files still parse, each header's `id`/`chat
 Backup is at `.xgd/tmp/d1-backup-before-chat-repair.sqlite` if anything looks wrong. **Restart the builder** to pick it up — the archive caches session-uid lookups in memory.
 
 Still open on BUG-116: the production survey and repair, the key-model assertions, and making an orphan discoverable instead of silent. Those are code and go through the normal branch-and-UAT route.
+
+<!-- xgd-turn id="f73bc645-e225-4581-8748-1bf699d77c55-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T21:02:15.765573+00:00" -->
+#### You
+Sure leave xgd.
+
+Thank you I see my conversation again
 
 <!-- xgd-chat-end -->
