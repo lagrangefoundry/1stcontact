@@ -6,15 +6,29 @@ title: A store failure after image generation discards paid-for bytes with no re
   path
 created_by: EPIC-19
 created_at: '2026-09-18T21:47:09.055296+00:00'
-updated_at: '2026-09-18T22:59:56.156613+00:00'
+updated_at: '2026-09-18T23:02:12.997801+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c5a61044
+  commits:
+  - working_sha: 644389d9a882f911350d55a053739d614a84f0e5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 49b9266727a0a2b80fc6b0d536ac9fb8a3972ad8
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: dbba59169d0952f6ca155a8c1b53203d364c5cfc
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 43db694912154a28247344c46dad4a314d50447b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.269
 ---
 
 Parent: [[EPIC-19]]. Reported by the builder assistant in conversation on
