@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T22:30:49.560736+00:00'
+updated_at: '2026-09-18T22:36:45.296623+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -509,5 +509,55 @@ Let me check — there are traces in the code suggesting some of this already ex
 <!-- xgd-chat role="user" ts="2026-09-18T22:30:47.813198+00:00" -->
 #### You
 This might be an option for the AI, but I think it is usually the right thing - right now I have to switch to the library to see the image we just created.
+
+<!-- xgd-turn id="aac1083f-868c-4e17-b4d4-1dbd96cfe350-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T22:36:45.128812+00:00" -->
+#### Claude
+This one's mostly built already. Let me file it with what I found.
+
+REQ-217 already exists for this — I filed a duplicate. Let me read it and correct.
+
+I got that wrong — the handle *is* wired. Let me establish the real state before correcting the ticket.
+
+I need to correct that — my append contained a false claim. The feature is fully built.
+
+Good — the append never actually landed, so nothing false was written. Let me see what REQ-217 already records.
+
+Found it — REQ-217's body is frozen by design past `ready_to_reconcile`. My log filter hid the error. Using a comment instead.
+
+Yes — and it's **already built**. I went down a wrong path first, so let me give you the corrected picture.
+
+## This shipped on 2026-09-11
+
+**REQ-217 — "Chat: an image a turn produced appears in the conversation"** — free-coded as `215187d64c` at version 0.2.169, status `ready_to_reconcile`, with two UAT files including a workerd one that fetches the bytes back through the Worker's own route table.
+
+All of it is wired:
+
+- `imagegen.ts:391` passes `display: generatedDisplay(opts.materialUrl)` into the plugin
+- `router.ts:667` supplies the URL factory — the only place holding both the route and the resolved business
+- The sentence the model actually receives is explicit: *"Show this picture to the person you are talking to by including this line in your reply, exactly as written: `![name](url)`"*
+- `displayLine` is the single composer for both `write_image` and `create_image`, so the chat pane can read the material back off the `<img src>` — that's the REQ-220 contract
+- Clicking it opens the same modal the Library does
+
+So the question isn't "can we", it's **why isn't it happening for you**. Three candidates:
+
+1. **The model isn't pasting the line.** REQ-217 explicitly accepted this failure mode — *"for a failure that costs a client one click"*. That's the trade you're now overruling.
+2. **Your running build predates the commit.** `1c builder` never rebuilds the browser bundle; a `src/builder/*.js` change needs `./bin/1c assets`. **Check this first — one command, costs nothing.**
+3. The call took a path with no `materialUrl`, where absence is designed to be silent.
+
+## Your decision is recorded
+
+> *"This might be an option for the AI, but I think it is usually the right thing."*
+
+That overrules REQ-217's accepted failure mode: showing is the norm, the assistant needs a reason to *withhold*. It doesn't revive the host-injected trailer that ticket rejected — instead, make the expectation standing in `priming.json` (it composes with the existing `act-rather-than-narrate` reminder), then measure; if the picture is still omitted, the guarantee becomes structural with evidence behind it.
+
+That's on REQ-217 as **COMMENT-3142**, because its body is frozen at `ready_to_reconcile`. Any priming change needs a new ticket.
+
+## Two corrections on my own work
+
+I filed **REQ-279** as a duplicate before finding REQ-217 — archived it.
+
+And more usefully: my `update` and `append` calls to REQ-217 both *looked* like they succeeded and wrote nothing. The refusal — *"ticket is in the reconcile pipeline; body/title are frozen"* — was a log line my own output filter was cutting off. I've saved that to memory so I check writes properly rather than tailing filtered output.
 
 <!-- xgd-chat-end -->
