@@ -6,15 +6,16 @@ title: 'capture/fold: a form field loses its padding, line-height rounds to whol
   pixels, and three more residuals a passing gate cannot see'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:28:40.678988+00:00'
-updated_at: '2026-09-18T00:10:44.105015+00:00'
+updated_at: '2026-09-18T00:29:30.875390+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: free_coding
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-29d46d33
+  story_points: 8
 ---
 
 Loop 1, iteration 1 of `repro-gigabytealchemy-ai` against the stored reference
@@ -785,8 +786,21 @@ what the reproduction then does with it. Three of them additionally pin the
 **inert** case — a pre-REQ-269 bundle carries no padding, no href and no heading
 level, and must fold exactly as it did rather than having a value invented for it.
 
-Regression scope: full `--project node` suite. 6 files fail, none of them this
-work — `req51-object-grouped-report` fails identically with `values-diff.ts`
-reverted to HEAD (it is REQ-265's `placeholderColor` param, never added to that
-test's expectation), and the other five are the worktree's own missing
-`dist-assets` / webui artifacts plus an unrelated `BUG-67` settings assertion.
+Regression scope: the full `vitest run` suite (566 files, 4919 tests), run in
+the foreground in the branch worktree. **No failure is caused by this work**,
+established by measurement rather than by inspection:
+
+- **Three fail identically on unmodified `xgd-working`** — `bug32-webui-scope-rebrand`,
+  `req51-object-grouped-report` (REQ-265's `placeholderColor` param, never added to
+  that test's expectation) and `test_UAT_FC_BUG-67_backend_settings`. Pre-existing,
+  and unrelated to any file this ticket touches.
+- **Three fail only under full-suite parallel load** —
+  `reconciliation-builder-workspace-origin`, `reconciliation-l1-navigation` and
+  `test_UAT_FC_REQ-260_undo.workers`. All three pass in the branch worktree when run
+  on their own, and the failing set is not stable between two full runs of the same
+  tree, so the cause is load, not this change.
+
+The REQ-269 suite itself is 14 passed / 0 skipped with
+`CHROMIUM_LAUNCH_ARGS=--single-process`, and 8 passed / 6 skipped without it — the
+six browser legs gate themselves on `chromiumAvailable()` rather than failing where
+no browser can start.
