@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:42:36.622790+00:00'
+updated_at: '2026-09-18T02:50:05.735687+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -845,5 +845,21 @@ So right now mail to a configured domain is **recorded but not forwarded** — `
 2. **Cloudflare Email Routing isn't provisioned by anything in this repo.** I found no Email Routing API calls at all. The `email()` handler is exported (`index.ts:729`) and will receive messages, but the zone needs Email Routing enabled with a rule pointing at the Worker — dashboard or API, by hand, today.
 
 Item 2 is squarely this epic's and it's the natural next thing after REQ-267. Want me to scope it as a child ticket? The epic already fixes most of its shape — Settings rather than a new tab (§OQ1), catch-all defaulting *on* through cutover and off afterwards (line 675), destination read from configuration and never from the message (line 739), and a refusal at configuration time for a destination that points back at the same domain.
+
+<!-- xgd-turn id="5bced195-d8d6-4bee-96de-3060998a2eb0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:50:05.679621+00:00" -->
+#### You
+ok I'm confused that we are having this conversation now, I thought we agreed all this. Do you want to check your ticket I think your context is dropping stuff.
+
+So two things to check:
+1. I thought we just built the pipes so that all incoming mail hits our servers and we can save the mail and add an event to the activity log - yes?
+2. I thought you just said we are configuring email to go through resend - in which case why do we need CF routing?
+
+These are very strange gaps to come up at this point can you review what we have and what we need.
+
+This includes the UX for setting forwarding emails, we talked about this in detail 1 forwarding email to one or more destinations, one (optinional) catch all email - remember?
+
+It also includes the plumbing to capture emails and do the actual forwarding, of course
 
 <!-- xgd-chat-end -->
