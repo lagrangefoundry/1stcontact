@@ -6,10 +6,10 @@ title: 'capture: audit completeness once, mechanically, instead of one round at 
   time'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:25.525963+00:00'
-updated_at: '2026-09-18T23:38:57.855901+00:00'
+updated_at: '2026-09-18T23:41:29.562558+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
