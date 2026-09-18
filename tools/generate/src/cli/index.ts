@@ -50,7 +50,7 @@ import {
   type EditOptions,
   type EditOutput,
 } from './edit'
-import { cmdCapturePage, cmdCaptureList } from './capture'
+import { cmdCapturePage, cmdCaptureList, combineAudits, runCaptureAudit, createPlaywrightDriver } from './capture'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import {
   cmdColors,
@@ -354,6 +354,14 @@ Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
     Bundles are named after the host that ANSWERED, so which captures exist is a
     question only the engine can answer — the reproduction console reads this to
     offer a stored site back without re-hitting it (REQ-254).
+
+  1c capture audit [<bundleName>] [--all] [--json]
+    What does this page USE that the capture does not carry? (REQ-275)
+    Walks the STORED bundle's own rendered DOM in a real browser, enumerates every CSS longhand
+    whose rule matches a visible element (plus inline styles and DOM attributes), and triages each
+    against the coverage register. Reports the properties nothing has decided about — the axes a
+    reproduction round would otherwise discover one at a time — plus what the extractor records
+    and this bundle carries no instance of. --all audits every stored bundle and combines.
 
   1c capture page <url> [--json]
     --json reports the bundle machine-readably ({url, name, dir, sections, assets, l1Nodes, widths}).
@@ -1101,6 +1109,70 @@ export async function run(argv: string[]): Promise<void> {
             : bundles.length
               ? bundles.map((b) => `${b.name}\n  ${b.dir}${b.url ? `\n  ${b.url}` : ''}`).join('\n')
               : 'No captures yet.',
+        )
+        return
+      }
+      /**
+       * REQ-275 — `capture audit` turns "which axis are we missing?" from a
+       * question each reproduction round answers once, expensively, into one
+       * mechanical pass over a bundle that already exists.
+       *
+       * IT TAKES A BUNDLE, NOT A URL, and the bundle is served offline. The
+       * bundle's `rendered.html` is the DOM its `capture.json` was extracted
+       * from, so the two sides of the comparison are the same page by
+       * construction; pointing this at the live site would report the site's own
+       * drift since capture as an instrument gap.
+       */
+      if (sub === 'audit') {
+        const cwd = global.cwd ?? process.cwd()
+        const store = fsReferenceStore(cwd)
+        const named = typeof rest[1] === 'string' ? rest[1] : undefined
+        const all = flags.all === true
+        if (!named && !all) {
+          console.error('capture audit requires a bundle name, or --all.\n\n' + USAGE)
+          process.exitCode = 1
+          return
+        }
+        const names = named ? [named] : await store.list()
+        if (!names.length) {
+          console.error('No capture bundles on disk — run `1c capture page <url>` first.')
+          process.exitCode = 1
+          return
+        }
+        const audits = []
+        for (const name of names) {
+          audits.push(await runCaptureAudit(store.bundle(name), { driverFactory: createPlaywrightDriver }))
+        }
+        const combined = combineAudits(audits)
+        if (flags.json === true) {
+          console.log(JSON.stringify(combined, null, 2))
+          return
+        }
+        for (const audit of combined.audits) {
+          console.log(
+            `${audit.bundle} (${audit.url})\n` +
+              `  ${audit.elements} visible element(s); ${audit.observed} propert(ies) in use, ` +
+              `${audit.carried} carried, ${audit.lost.length} used-but-absent, ` +
+              `${audit.untriaged.length} untriaged` +
+              (audit.stale ? `\n  ⚠ ${audit.stale}` : ''),
+          )
+        }
+        const section = (title: string, rows: typeof combined.untriaged): string =>
+          rows.length
+            ? `\n${title} (${rows.length}):\n` +
+              rows
+                .map(
+                  (r) =>
+                    `  ${r.property}  ×${r.count} [${r.bundles.join(', ')}]` +
+                    (r.values.length ? `\n      ${r.values.slice(0, 4).join(' | ')}` : '') +
+                    (r.note ? `\n      ${r.note}` : ''),
+                )
+                .join('\n')
+            : `\n${title}: none`
+        console.log(
+          section('UNTRIAGED — used by a page, no decision recorded', combined.untriaged) +
+            section('USED BUT ABSENT — recorded axis, no instance in the bundle', combined.lost) +
+            section('NOT EXPRESSIBLE IN L1 — a capability item, not an instrument one', combined.notExpressible),
         )
         return
       }
