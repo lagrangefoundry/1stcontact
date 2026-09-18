@@ -5,9 +5,9 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T19:14:41.396252+00:00'
+updated_at: '2026-09-18T19:32:34.125341+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -79,6 +79,36 @@ and its own (narrower) L1 grant; `DelegationToolbox` composed into the
 consultant's toolbox over a `DelegationRuntime` whose `workers` map names that
 role's backend and `build`; `delegationInstanceConfig([workerRole])` merged into
 the consultant's grant, and `ReportDelegatedWork` on the worker's.
+
+### Adoption constraints (what makes it more than a config flip)
+
+The configuration half is small — a `claude_worker` entry in `backends.json` and
+a `delegation` entry in `instances.json`. The code half is real, because
+`WorkerConfig` requires `{backend, build}`: the host must supply a function that
+builds the adapter around the *worker's own* toolbox. That is a second
+`createL1Toolbox` call with a narrower grant and a second registered backend
+name — not a reuse of the consultant's.
+
+The worker also needs priming of its own. `priming_without_corpus` (role,
+product-system, `site.manual`, cache boundary) is the nearest existing shape: a
+worker needs the page vocabulary and its tool manual, and does not need the
+consultation method.
+
+Two consequences to decide before adopting, not after:
+
+- **A session record per delegation.** The worker is a whole session, and this
+  host's archive is `TicketSessionArchive` ([[REQ-160]]), so every delegation
+  creates a `chat` ticket in the tenant's store. `kb/knowledge_bases.json` filters
+  the project corpus on `type: [chat, material, reference, brief]` — so worker
+  transcripts would join the client's own knowledge base, and their growth would
+  ride the `corpus.delta` reminder back into the consultant's turn. Either the
+  corpus filter excludes worker sessions, or the client's knowledge base fills
+  with machine chatter.
+- **The live re-render survives, and that is not an accident.** `SITE_CHANGED` is
+  derived from `store.counter(slug)` polled after each `TOOL_ACTIVITY` event on
+  the caller's stream. A `Delegate` call is tool activity, so the worker's writes
+  are absorbed into the counter jump and the client's pane re-renders with them.
+  No extra wiring needed for the site conversation.
 
 ## Children
 
