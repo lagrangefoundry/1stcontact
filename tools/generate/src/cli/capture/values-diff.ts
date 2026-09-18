@@ -371,6 +371,9 @@ export interface StateDiff {
 export type DeltaProperty =
   | 'missing'
   | 'text'
+  // ── BUG-107 — the browser's own semantic role, and the outline depth it flattens ──
+  | 'a11yRole'
+  | 'headingLevel'
   | 'color'
   // ── REQ-58 (item 3b) card / panel fill behind the run ────────────────────
   | 'surfaceFill'
@@ -448,6 +451,8 @@ export type SeverityTier = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
 export type DeltaKind =
   | 'presence'
+  // ── BUG-107 — the document outline: what the browser says each run IS ──────
+  | 'semantics'
   | 'viewport'
   | 'containment'
   | 'arrangement'
@@ -588,8 +593,14 @@ export interface SectionPairing {
   overlap: number
 }
 
-/** REQ-51 — the object kinds the grouped view buckets by, for the card heading. */
-export type ObjectKind = 'text' | 'image' | 'control' | 'divider'
+/**
+ * REQ-51 — the object kinds the grouped view buckets by, for the card heading.
+ * BUG-107 — `box` is the painted textless rectangle (a section band, a hero
+ * backdrop, a card surface). It used to fall through to `control`, so a reader
+ * of the gigabytealchemy round was told the reproduction had seven unpaired
+ * *form controls* — every one of them a flat coloured band.
+ */
+export type ObjectKind = 'text' | 'image' | 'control' | 'divider' | 'box'
 
 /** REQ-51 — one row of an {@link ObjectCard}: a parameter, both sides, its verdict. */
 export interface ObjectParam {
@@ -1237,6 +1248,14 @@ export function unresolvedFonts(manifest: ValueManifest): ValueElement[] {
  */
 const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   presence: 'CRITICAL',
+  // BUG-107 — a lost heading / link is a SEMANTIC break: the document outline is
+  // gone and no pixel moved to say so. HIGH, not CRITICAL: CRITICAL is reserved
+  // for a diff that cannot be trusted (viewport), content that is absent
+  // (presence, text) or structure that visibly re-composed (arrangement,
+  // containment). A role regression is none of those — it ranks above every
+  // tonal and treatment axis because it is structural, and below the breaks that
+  // change what the page shows.
+  semantics: 'HIGH',
   viewport: 'CRITICAL',
   containment: 'CRITICAL',
   arrangement: 'CRITICAL',
@@ -1295,6 +1314,10 @@ const KIND_RANK: Record<DeltaKind, number> = {
   position: 3,
   text: 2,
   // HIGH band
+  // BUG-107 — leads the HIGH band: the semantic identity of a run is the first
+  // thing to fix, because every other axis on that run describes how a thing that
+  // is the WRONG THING has been dressed.
+  semantics: 10,
   gap: 9,
   overflow: 8,
   fontLoad: 7,
@@ -1414,6 +1437,10 @@ function isBadgeElement(el: ValueElement): boolean {
 const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   // ── Type A — authored values (copy the reference value into place) ──
   text: 'A',
+  // BUG-107 — a role is authored (emit a heading element), so it is a value to
+  // copy into place, not an emergent residual to measure.
+  a11yRole: 'A',
+  headingLevel: 'A',
   color: 'A',
   // REQ-265 — the placeholder's ink is an authored value like any other colour:
   // once L1 can carry it, the repair is to copy the reference's value into place.
@@ -1492,6 +1519,10 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   overflow: 'overflow',
   fontLoad: 'fontLoad',
   text: 'text',
+  // BUG-107 — both role axes share the one semantics kind; the `property` still
+  // distinguishes "wrong role" from "right role, wrong outline depth".
+  a11yRole: 'semantics',
+  headingLevel: 'semantics',
   color: 'color',
   // REQ-58 (item 3b) — a panel fill difference is a colour defect; reuse `color`.
   surfaceFill: 'color',
@@ -1828,12 +1859,40 @@ function boxLabel(box: Box | undefined): string {
   return `(${Math.round(box.x)}, ${Math.round(box.y)}) ${Math.round(box.width)}×${Math.round(box.height)}`
 }
 
+/**
+ * BUG-107 — the a11y roles that make a textless element an actual CONTROL: a
+ * thing a visitor operates. Stated positively, and the unknown case falls to
+ * `box` rather than to `control`, because the failure this replaces was the
+ * inverse default — *everything* textless that was not an image or a separator
+ * was called a control, so seven painted section bands were reported as seven
+ * unpaired form controls. An unrecognised explicit `role=` on a painted div is
+ * still a painted div; calling it a box is the safe direction.
+ */
+const CONTROL_ROLES: ReadonlySet<string> = new Set([
+  'textbox',
+  'searchbox',
+  'combobox',
+  'listbox',
+  'option',
+  'button',
+  'checkbox',
+  'radio',
+  'switch',
+  'slider',
+  'spinbutton',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'link',
+])
+
 /** Bucket a projected element into its object kind (for the card heading). */
 function objectKindOf(el: ValueElement): ObjectKind {
   if (!el.textless) return 'text'
   if (el.a11yRole === 'img') return 'image'
   if (el.a11yRole === 'separator') return 'divider'
-  return 'control'
+  if (el.a11yRole && CONTROL_ROLES.has(el.a11yRole)) return 'control'
+  return 'box'
 }
 
 /**
@@ -1843,10 +1902,27 @@ function objectKindOf(el: ValueElement): ObjectKind {
  * position is always visible (item 2).
  */
 const KIND_PARAMS: Record<ObjectKind, string[]> = {
-  text: ['fontFamily', 'fontSizePx', 'fontWeight', 'color', 'letterSpacingPx', 'lineHeightPx', 'renderedTextBox', 'box'],
+  // BUG-107 — `a11yRole` LEADS the text table: it is the run's semantic identity
+  // (what the browser says the thing IS), so it belongs above the typography that
+  // merely dresses it. A heading reproduced as a paragraph moves no pixel and was
+  // therefore invisible to every other row here.
+  text: [
+    'a11yRole',
+    'fontFamily',
+    'fontSizePx',
+    'fontWeight',
+    'color',
+    'letterSpacingPx',
+    'lineHeightPx',
+    'renderedTextBox',
+    'box',
+  ],
   image: ['name', 'objectFit', 'aspect', 'box'],
   control: ['name', 'nameSource', 'placeholderColor', 'box'],
   divider: ['box'],
+  // BUG-107 — a painted box carries no name and no typography; what it HAS is the
+  // surface it paints (fill, background photograph) and the rect it paints it in.
+  box: ['surfaceFill', 'backgroundImage', 'box'],
 }
 
 /**
@@ -1857,6 +1933,11 @@ const KIND_PARAMS: Record<ObjectKind, string[]> = {
  * string compare, so accessible-name drift the diff doesn't model still shows.
  */
 const PARAM_PROPS: Record<string, DeltaProperty[]> = {
+  // BUG-107 — one row for the semantic identity, reading BOTH axes: the role word
+  // and the outline depth it flattens (`heading` says nothing about h2-vs-h4).
+  a11yRole: ['a11yRole', 'headingLevel'],
+  surfaceFill: ['surfaceFill'],
+  backgroundImage: ['backgroundImage'],
   fontFamily: ['fontFamily'],
   fontSizePx: ['fontSizePx'],
   fontWeight: ['fontWeight'],
@@ -1876,6 +1957,16 @@ const PARAM_PROPS: Record<string, DeltaProperty[]> = {
 function paramValue(name: string, el: ValueElement | undefined): string {
   if (!el) return '—'
   switch (name) {
+    // BUG-107 — the role word, plus the heading depth when the capture recorded
+    // one (`heading h2`), so the row says which heading it was meant to be.
+    case 'a11yRole': {
+      if (!el.a11yRole) return '—'
+      return el.headingLevel != null ? `${el.a11yRole} h${el.headingLevel}` : el.a11yRole
+    }
+    case 'surfaceFill':
+      return el.surfaceFill || '—'
+    case 'backgroundImage':
+      return assetBasename(el.backgroundImageUrl) ?? '—'
     case 'fontFamily':
       return el.fontFamily || '—'
     case 'fontSizePx':
@@ -2597,6 +2688,17 @@ export function diffManifests(
     if (expBg !== actBg) {
       push(exp, 'backgroundImage', expBg ?? '(none)', actBg ?? '(none)')
     }
+    // BUG-107 — the painted FILL of a textless box, compared like `color` (ΔE).
+    // A section band or a card surface is the one object here whose whole visible
+    // substance is its fill, and it was only ever compared where a text run sat on
+    // top of it (`surfaceFill` on the text pass). A band with no text in it — the
+    // hero backdrop, a colour divider strip — reported its geometry and nothing
+    // else, so the `surfaceFill` row on its card would have rendered a value it
+    // never checked. Compared only when both sides recorded one.
+    if (exp.surfaceFill && act.surfaceFill) {
+      const dEfill = colorDistance(exp.surfaceFill, act.surfaceFill)
+      if (dEfill > colorTol) push(exp, 'surfaceFill', exp.surfaceFill, act.surfaceFill, dEfill)
+    }
     comparePadding(exp, act)
     compareGeometry(exp, act)
     if (exp.box && act.box) gapPairs.push({ exp, act })
@@ -2656,6 +2758,26 @@ export function diffManifests(
     const actText = maskYears ? normalizeYears(act.text) : act.text
     if (collapse(expText) !== collapse(actText)) {
       push(exp, 'text', exp.text, act.text)
+    }
+
+    // BUG-107 — the SEMANTIC identity of the run: what the browser says it is.
+    // Compared only on the text pass, because a text-free field JOINS on
+    // `a11yRole` (the queue key above) and therefore agrees by construction —
+    // comparing it there could only ever report equality.
+    //
+    // This is the axis that carries the document outline, and nothing else does:
+    // a reproduction that emits every heading as a styled paragraph paints the
+    // same pixels at the same size in the same place, so every other axis here
+    // agrees and the report read `deltas: []` over eleven lost headings and two
+    // lost links. Guarded on both sides carrying the field, so a manifest that
+    // predates the capture stays inert.
+    compareValueField(exp, act, 'a11yRole', exp.a11yRole, act.a11yRole)
+    // …and the half `a11yRole` flattens: it reports the single word `heading` for
+    // all six tags, so an h2 reproduced as an h4 agrees on the role word while the
+    // outline it builds is wrong. Compared only when BOTH sides recorded a level
+    // (it is absent on every non-heading, and on pre-REQ-269 bundles).
+    if (exp.headingLevel != null && act.headingLevel != null && exp.headingLevel !== act.headingLevel) {
+      push(exp, 'headingLevel', `h${exp.headingLevel}`, `h${act.headingLevel}`, Math.abs(exp.headingLevel - act.headingLevel))
     }
 
     // A colour the capture had to infer (fallback #000/#fff) is low-confidence

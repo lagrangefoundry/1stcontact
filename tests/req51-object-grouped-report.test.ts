@@ -187,7 +187,10 @@ describe('REQ-51 image and control cards carry relevant params', () => {
     expect(paramOf(image, 'objectFit')!.mismatch).toBe(true) // cover → fill flagged
 
     const control = report.objects.find((o) => o.kind === 'control')!
-    expect(control.params.map((p) => p.name)).toEqual(['name', 'nameSource', 'box'])
+    // `placeholderColor` joined the control table with REQ-265 (the one painted
+    // value a control carries that no geometry or name axis can see); this
+    // assertion stayed pinned to the pre-REQ-265 list and had been red since.
+    expect(control.params.map((p) => p.name)).toEqual(['name', 'nameSource', 'placeholderColor', 'box'])
     // placeholder-inside → label-above is a containment miss, flagged on nameSource.
     expect(paramOf(control, 'nameSource')!.mismatch).toBe(true)
   })
