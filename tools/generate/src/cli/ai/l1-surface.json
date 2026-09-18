@@ -279,7 +279,7 @@
       "op": "list_assets",
       "tool": "list_assets",
       "effect": "read",
-      "summary": "List the images and fonts this site can use — all of them.",
+      "summary": "The images and fonts this site can reference today — all of them. Not everything the client has given you: a file they uploaded, or a picture you generated, is in this list only once it has been placed on the site.",
       "returns": {
         "shape": "asset_list",
         "provenance": "untrusted"

@@ -227,9 +227,44 @@ export function embedderFor(env: EmbedderEnv, kb: string): Embedder | null {
       ? new WorkersAiEmbedder({
           accountId: (env.CLOUDFLARE_ACCOUNT_ID ?? '').trim(),
           apiToken: (env.CLOUDFLARE_API_TOKEN ?? '').trim(),
+          fetch: globalFetch(),
         })
       : new WorkersAiEmbedder({ binding: env.AI })
   return new DescribedEmbedder(inner, transport, kb)
+}
+
+/**
+ * `fetch`, invoked on the global scope ([[BUG-117]]).
+ *
+ * WHY THE REST TRANSPORT CANNOT USE THE DEFAULT. `WorkersAiEmbedder` keeps its
+ * fetch on the instance and calls it as a method — `await this._fetch(url,
+ * init)` — so the receiver is the embedder. workerd refuses a native global
+ * invoked that way, with `Illegal invocation: function called with incorrect
+ * `this` reference`, and the refusal is total: every embed over REST fails, in
+ * both knowledge bases, for as long as the credential is configured. That is
+ * what BUG-117 actually was, behind a `corpus_unreadable` that blamed the index.
+ *
+ * THE DISTINCTION IS NARROWER THAN "DETACHED FETCH IS UNSAFE", and the narrow
+ * version is what keeps this fix from spreading. A BARE call on a detached
+ * reference — `const doFetch = deps.fetch ?? fetch; doFetch(url)` — is accepted,
+ * because the runtime resolves an undefined receiver to the global scope. Every
+ * other fetch seam in this Worker (`fetch-guard.ts`, `mail.ts`, `resend.ts`,
+ * `cloudflare.ts`, `resolver.ts`) is that shape and none of them needs changing.
+ * Only a call through a property of some other object does.
+ *
+ * INJECTION IS THE DECLARED SEAM, not a workaround: upstream documents the
+ * constructor's `fetch` as *"injected for tests and for hosts that wrap it"*,
+ * and a Worker is such a host. A `bind` at construction would work equally well;
+ * naming the global at the call site is the spelling that says what the fix is.
+ *
+ * NO SUITE IN THE WORKERS PROJECT CAN CATCH A REGRESSION HERE THROUGH `fetch`
+ * ITSELF — `@cloudflare/vitest-pool-workers` replaces `globalThis.fetch` with a
+ * JavaScript wrapper, and a JavaScript function has no receiver check. The UAT
+ * establishes the rule against a global the pool has NOT replaced and then
+ * applies it to this call, which is why it is written the way it is.
+ */
+function globalFetch(): typeof fetch {
+  return (input, init) => globalThis.fetch(input, init)
 }
 
 /**

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T22:36:45.296623+00:00'
+updated_at: '2026-09-18T22:58:57.364860+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -559,5 +559,13 @@ That's on REQ-217 as **COMMENT-3142**, because its body is frozen at `ready_to_r
 I filed **REQ-279** as a duplicate before finding REQ-217 — archived it.
 
 And more usefully: my `update` and `append` calls to REQ-217 both *looked* like they succeeded and wrote nothing. The refusal — *"ticket is in the reconcile pipeline; body/title are frozen"* — was a log line my own output filter was cutting off. I've saved that to memory so I check writes properly rather than tailing filtered output.
+
+<!-- xgd-turn id="83f1f645-9348-490b-b5f9-7757285b8673-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T22:58:56.302667+00:00" -->
+#### You
+I just (accidentally) navigated away from the Lagrange Foundry business - when I returned I found I had lost my latest turn exchange which was in-progress with the AI - is it gone for good?
+
+Lets talk about this experience - I think the user will expect an open turn to run to completion even if the page is refreshed or navigated away from even if the browser is closed.
 
 <!-- xgd-chat-end -->
