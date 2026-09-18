@@ -6,10 +6,10 @@ title: 'gate: a reproduction that paints text over text passes — on-sample lay
   collisions are computed and discarded'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:29.092070+00:00'
-updated_at: '2026-09-18T02:25:29.092070+00:00'
+updated_at: '2026-09-18T03:42:49.393161+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-bf282b3d
