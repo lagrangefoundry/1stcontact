@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-18T02:03:10.693435+00:00'
+updated_at: '2026-09-18T02:31:15.041456+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -236,5 +236,61 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="8971d3c8-89bf-4701-9767-1330861a79c6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:25:02.758788+00:00" -->
+#### Claude
+Committed. Now merging current `xgd-working` in so I'm testing against the tip, then a full run.
+
+Green. Now recording the implementation consequences in the ticket body before committing.
+
+REQ-235 is landed on `xgd-working` at `free_coded`.
+
+## What shipped
+
+**The raw layer** — `db/migrations/0018_activity_log.sql` (`log_records` + `log_floor`) and `apps/control-app/src/log.ts`. The record is the shared logging package's, reached through a generated `./generated/logging` shim the assets build now emits; the columns are `RECORD_FIELDS` and a UAT fails if the two sets disagree. Two sinks through `fanout` (console stays the operator's read when the store is down), buffered per invocation and drained in `ctx.waitUntil`, with the dropped tail recorded as a `warn`. Retention is `horizon(kind, level)` — 7/30/180d — with a pruned-through floor that tells a stale cursor `reset`. Synthetic marking rides the request, not the call site, and both readers (`readRecords`, `countEvents`) exclude it by default.
+
+**Session inference and the rollup** — `apps/control-app/src/activity.ts`. 30-minute timeout, closed on a `*/10 * * * *` cron the handler branches on by constant; one `contact_events` row per session at close, `occurred_at` ≠ `recorded_at`, `detail` holding `endedAt`/`events`/`surfaces` and nothing else. The no-duplicate floor is read off the spine's own last summary rather than a cursor table.
+
+**The surface signal** — `POST /api/activity/surface`, re-stamped server-side, 204, silent on failure; posted on tab change and once on the opening tab. Minutes are computed on read in `builder/contact-events.js`.
+
+## Test state
+
+- REQ-235's 26 UATs pass; workers project fully green (127 files / 1166 tests).
+- Node project: 2 failures, both confirmed identical on `xgd-working` before my changes — `bug32-webui-scope-rebrand` (three pre-existing scope restatements, none mine; I removed the two my files would have added) and `BUG-67 backend settings` (upstream shared-store drift on gemini validation). Neither is from this work.
+- Two flakes seen once each under full-suite load and passing in isolation and on re-run: `reconciliation-builder-workspace-origin` (`unstable_dev` startup) and `REQ-260 undo` (same-millisecond change ordering). Not introduced here.
+- `pnpm -r build` (tsc --noEmit across all projects) clean.
+
+## Ticket
+
+Body now carries a new §9 recording the five things the implementation added as consequences — the spine-derived floor, the trailing session left open, the closer's scan bounds, the summary's synthetic floor, and the origin probe — so reconciliation finds them in the spec rather than in the diff. Commits `36f33e2b47`, `64a47dd620`, `8cc50f29d3`; version `0.2.253`; story points 13. Branch merged and cleaned; lock released.
+
+Promotion to `ready_to_reconcile` is yours to make when you're satisfied.
+
+<!-- xgd-turn id="8c6d3f18-97c6-4656-b2ec-31ed6377c5f5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:30:46.071299+00:00" -->
+#### You
+is this done
+
+<!-- xgd-turn id="8c6d3f18-97c6-4656-b2ec-31ed6377c5f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:31:13.524988+00:00" -->
+#### Claude
+Yes — the free-coding is complete and verified on `xgd-working`:
+
+- **Status** `free_coded`, version `0.2.253`, story points 13.
+- **All three commits reachable** from the current tip (`36f33e2b47`, `64a47dd620`, `8cc50f29d3`), all tagged `[FREE-CODED]`.
+- **All five new files present** on HEAD — `activity.ts`, `log.ts`, `0018_activity_log.sql`, and both UAT files.
+- **Branch and worktree gone**, lock released.
+- **Ticket body** carries §9 covering the behaviour added as implementation consequence, so every UAT traces to ticket language.
+
+Two things that are deliberately *not* done, and are yours to decide:
+
+1. **Promotion to `ready_to_reconcile`** — I left it at `free_coded` as the protocol requires.
+2. **`public-site` has no raw store.** §2 says so explicitly ("wired into `control-app` and not into `public-site`… deliberately left for whoever gives it a store"), so it's in-scope-as-excluded rather than missed — but it does mean the Worker that serves actual visitors still retains nothing.
+
+The only caveat on the test evidence: two pre-existing node failures remain (`bug32` scope restatement, `BUG-67` gemini settings), both confirmed identical on `xgd-working` before this work.
 
 <!-- xgd-chat-end -->

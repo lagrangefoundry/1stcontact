@@ -5,9 +5,9 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-17T21:42:18.155035+00:00'
+updated_at: '2026-09-18T02:26:15.889538+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: underway
 fields:
   priority: medium
@@ -20,6 +20,10 @@ fields:
   - request-ba7e2bb9
   - doc-bdbc46b0
   - bug-c1132e6c
+  - bug-84ed4e40
+  - bug-54eee0e0
+  - request-0c93daeb
+  - bug-ef327f84
 ---
 
 # Site duplication
@@ -556,3 +560,57 @@ new context with no lawful basis for it being there.
 
 Pages, assets, config, palette. A drop list with no matching carry list is a
 list nobody can write a falsifier against.
+
+
+## 12. Loop 1 in practice — what three live iterations showed (2026-09-17)
+
+The console ran three AI iterations against `gigabytealchemy.ai` before anything
+improved, and the reasons are worth keeping because none of them were the AI
+being weak. All four are filed as children below.
+
+**The gate certified the wrong artifact.** `1c repro` writes the absolute base;
+`gate-core` runs its envelope probes against `promoteToFlow(base)`. On this
+bundle the promoted document has zero layout findings and the served document
+has five text-on-text collisions at 1280px — and the gate returned `pass`,
+`l1Pass: true`, `meanDiff 0.31`. The served `home.html` carries 78
+`position: absolute` rules. The operator was looking at form controls painted
+over prose while the round was told the reproduction was faithful.
+
+**The detector already existed and was already firing.** `evaluateLayout` emits
+`kind: 'overlap'`; `sampleFidelityProbe` calls it on the served document at every
+captured width and destructures only `leaves`. The finding was computed and
+discarded on the same line. This is the operator's point in §2.6 terms: text
+painted over text should light up as a red flag without sophisticated machinery,
+and the machinery to do it was already in the file.
+
+**The reference never moved, so re-runs could not show improvement.** The
+refold-never-recapture rule (correct for fold changes) hides every capture-side
+fix. Iteration 1 filed capture-extractor defects; those landed; iteration 2 then
+spent $7.70 and 78 turns establishing that the bundle predated them. The round
+did its job — the loop wasted it.
+
+**The rail was inert for all three rounds** while reporting `REGRESSED`, because
+no baseline had ever been recorded. §8.4 said the rail must exist and be shown to
+fail correctly before the loop produces change proposals. It was built; it was
+never armed.
+
+### The children this produced
+
+- **[[BUG-112]]** — the gate surfaces on-sample layout collisions in the served
+  document and fails on them. The alarm. _Testable:_ today's bundle goes from
+  `pass` to failed-naming-five-overlaps, and a clean reproduction still passes.
+- **[[BUG-113]]** — resolve absolute-base vs recovered-overlay so the served
+  document is the document the verdict is about. The defect. _Testable:_ zero
+  `overlap` findings on the served document, and the fidelity cost of whichever
+  way it resolves is reported as a number.
+- **[[REQ-272]]** — the two operator decision points, and a re-capture that
+  continues the chain instead of resetting it. _Testable:_ a finished iteration
+  starts no round; `[run again]` is held until released; a re-captured iteration
+  is marked as such and the earlier ones survive.
+- **[[BUG-114]]** — the `ready_*` assertion stops reporting the operator's own
+  promotions as round violations, and a missing rail baseline stops reporting as
+  `REGRESSED`. _Testable:_ both directions of each.
+
+**Order.** [[BUG-112]] before [[BUG-113]] — the alarm is the test for the
+defect, and the same argument §10 makes for filing the rail before the loop it
+protects.

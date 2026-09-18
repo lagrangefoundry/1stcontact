@@ -150,8 +150,15 @@ const MIGRATIONS = [
   // would fail on a missing table in the operation that records a change rather
   // than in the one that reverts it — and the claim the ticket's UATs actually
   // make is about what the second one does with what the first one wrote.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0017_dns_changes.sql?raw'),
+  // [[REQ-235]] — `log_records` and `log_floor`, the raw server-side event store
+  // and the floor that tells a reader its window has been pruned. Applied here
+  // for every reason above, and one of its own: the Worker's own `fetch` now
+  // writes one record per invocation, so a suite that skipped this file would
+  // fail on a missing table in EVERY request it made rather than in the one
+  // assertion that is about logging.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0018_activity_log.sql?raw'),
 ]
 
 /**
@@ -244,7 +251,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-260]]'s `idx_dns_changes_zone`, the change log's own index. It used to
+ * [[REQ-235]]'s `idx_log_records_business`, the activity log's operator read. It used to
  * ask for `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -267,7 +274,7 @@ export async function applySchema(): Promise<void> {
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
   const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_dns_changes_zone')
+    .bind('idx_log_records_business')
     .first<{ name: string }>()
   return row !== null
 }

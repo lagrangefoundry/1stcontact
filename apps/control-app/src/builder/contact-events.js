@@ -136,6 +136,33 @@ export const ACCEPTANCE_WITHDRAWN = 'acceptance.withdrawn'
  */
 export const ACCEPTANCE_REQUESTED = 'acceptance.requested'
 
+/* ── The activity log ([[REQ-235]]) ──────────────────────────────────────── */
+
+/**
+ * They were here — one row per session, written once, after it ended.
+ *
+ * THE ONE KIND ON THIS SPINE THAT IS AN AGGREGATE RATHER THAN A MILESTONE, and
+ * it earns its place because the alternative is four hundred rows nobody can
+ * read. Every other kind here is a single fact; this is a summary of a stretch
+ * of raw records that have their own store and their own, much shorter, life
+ * ([[REQ-235]] §0). What survives is this row.
+ *
+ * IT COSTS A CONSTANT AND A LABEL, WHICH IS WHY `kind` CARRIES NO CHECK. The
+ * schema deliberately refuses to constrain the set so that a new capability can
+ * record something without a migration — this is that promise being collected.
+ *
+ * ITS `detail` CARRIES `endedAt`, `events` AND `surfaces` — the surfaces visited
+ * and the stretch on each, in the order they happened, so a reader gets *"Site
+ * 13 min, Library 23 min"* from one row rather than from four hundred. The
+ * stretches are STAMPS and not durations: a closed laptop sends nothing, so
+ * every interval is a lower bound and storing a `duration_ms` would present a
+ * floor as a fact. {@link summariseSession} is the arithmetic, done on read.
+ *
+ * AND NO CONCLUSION ABOUT THE PERSON GOES IN IT ([[CHAT-53]]) — no churn score,
+ * no "struggling" flag, no engagement grade. The row says what happened.
+ */
+export const SESSION_RECORDED = 'session.recorded'
+
 /* ── Mail ────────────────────────────────────────────────────────────────── */
 
 /**
@@ -165,6 +192,7 @@ const LABELS = {
   [EMAIL_DELIVERED]: 'Email delivered',
   [EMAIL_BOUNCED]: 'Email bounced',
   [EMAIL_RECEIVED]: 'Email received',
+  [SESSION_RECORDED]: 'Active session',
 }
 
 /**
@@ -190,4 +218,50 @@ export function eventLabel(kind) {
  */
 export function isKnownKind(kind) {
   return Object.hasOwn(LABELS, kind)
+}
+
+/**
+ * A session summary's `detail`, as a phrase.
+ *
+ * THE ARITHMETIC IS DONE HERE, ON READ, BECAUSE THE ROW DELIBERATELY HOLDS NONE
+ * ([[REQ-235]] §4). What is stored is a pair of stamps per stretch — facts — and
+ * minutes are what a reader wants; computing them at write time would have
+ * frozen a lower bound into an immutable row as though it were a measurement.
+ *
+ * ROUNDED TO MINUTES, AND A STRETCH SHORTER THAN ONE READS AS `<1 min`. A
+ * precision the underlying signal does not have is a lie told in a smaller font:
+ * these intervals are bounded below by how often a browser happens to speak, so
+ * seconds would be spurious and a bare `0 min` would read as "nothing happened".
+ *
+ * AN EMPTY BREAKDOWN IS AN HONEST ANSWER AND NOT A BLANK. A session made
+ * entirely of API calls has no surface anybody claimed, so it reports its whole
+ * span and says nothing about tabs — which is true, where a guess drawn from
+ * server routes would not be.
+ */
+export function summariseSession(detail) {
+  const bag = detail && typeof detail === 'object' ? detail : {}
+  const surfaces = Array.isArray(bag.surfaces) ? bag.surfaces : []
+  const parts = []
+  for (const stretch of surfaces) {
+    if (!stretch || typeof stretch !== 'object') continue
+    const label = String(stretch.surface ?? '').trim()
+    if (label === '') continue
+    parts.push(`${label} ${minutesBetween(stretch.from, stretch.to)}`)
+  }
+  return parts.join(', ')
+}
+
+/** How long a session ran, as the same phrase one stretch uses. */
+export function sessionSpan(occurredAt, detail) {
+  const bag = detail && typeof detail === 'object' ? detail : {}
+  return minutesBetween(occurredAt, bag.endedAt)
+}
+
+/** Two stamps as `13 min`, or `<1 min` for anything shorter. */
+function minutesBetween(from, to) {
+  const start = Date.parse(from ?? '')
+  const end = Date.parse(to ?? '')
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '<1 min'
+  const minutes = Math.round((end - start) / 60000)
+  return minutes < 1 ? '<1 min' : `${minutes} min`
 }

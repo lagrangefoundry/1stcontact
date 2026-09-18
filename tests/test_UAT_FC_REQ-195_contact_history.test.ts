@@ -197,7 +197,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-195 — a contact has a history on the ta
     // to skip the region where the one interesting case appears.
     expect(
       describeEvent({ occurredAt: '2026-09-03T08:05:00.000Z', recordedAt: '2026-09-03T08:05:00.000Z', kind: 'email.sent' }),
-    ).toEqual({ label: 'Email sent', when: '2026-09-03 08:05', learned: null })
+      // `note` IS THE FOURTH FIELD SINCE [[REQ-235]], and it is `null` here for
+      // the reason it is null on almost every row: only a session summary is an
+      // aggregate whose breakdown has to be drawn, and every other kind still
+      // renders as a label, a stamp, and — when it is news — a second stamp.
+    ).toEqual({ label: 'Email sent', when: '2026-09-03 08:05', learned: null, note: null })
 
     const detail = await open('usr_told')
     const drawn = rows(detail).map((row) => textOf(row, 'builder-people__eventlearned'))

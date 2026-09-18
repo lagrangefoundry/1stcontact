@@ -232,6 +232,55 @@ export async function fetchAiStatus(fetchImpl = fetch) {
  * before this existed. Refusing to draw the app over it would turn a blip into a
  * blank page.
  */
+/**
+ * Tell the origin which surface the operator is now on ([[REQ-235]] §5).
+ *
+ * WHY THE BROWSER HAS TO SAY THIS AT ALL. Every other thing the activity log
+ * knows, it knows because a request arrived. A tab that is being read makes no
+ * requests, so *"which tab, for how long"* is not inferable from server traffic:
+ * a tab nobody opened and a tab somebody has been reading for twenty minutes
+ * look identical. This one post is the difference.
+ *
+ * ONE POST PER CHANGE, AND NOTHING ELSE. No heartbeat, no timer, no duration
+ * computed here. The server timestamps what it receives and derives the rest,
+ * which is what keeps a client's clock out of a record — and what keeps this to
+ * a handful of requests per session rather than one every few seconds.
+ *
+ * IT FAILS SILENTLY, ON PURPOSE. A telemetry signal that could interrupt an
+ * operator changing tabs would be worse than no signal at all: there is nothing
+ * the person could do about it, nothing they asked for that did not happen, and
+ * a session lapse is already announced by {@link send} on the very next call
+ * that actually needs an answer.
+ *
+ * WHICH IS WHY THIS IS THE ONE CALL HERE THAT DOES NOT GO THROUGH {@link send},
+ * and the exception is the rule working rather than a hole in it. `send`
+ * ANNOUNCES — it puts "your session may have ended" on screen when a fetch
+ * rejects or answers 401 — and that announcement is right for a call the
+ * operator made and wrong for one they did not. A signal nobody asked for must
+ * not be able to tell somebody their session is over; a transient blip while
+ * they change tabs would then produce a sign-in banner over work that is fine.
+ * The 401 this misses is noticed by the next call that actually needs an answer,
+ * which is every other function in this module.
+ */
+export async function postSurface(surface, fetchImpl = fetch) {
+  try {
+    // STILL INSIDE THIS MODULE, which is what the "one fetch" rule is actually
+    // for: nothing outside `api.js` calls `fetch`, so the rule is where a
+    // request is made rather than which helper it uses. See above for why this
+    // one does not announce.
+    await fetchImpl(scoped('/api/activity/surface'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ surface }),
+      // The tab has changed; nothing on screen is waiting for this, and a
+      // pending request must not hold the page open behind a navigation.
+      keepalive: true,
+    })
+  } catch {
+    // See above: there is no failure here that is the operator's to act on.
+  }
+}
+
 export async function fetchBusinesses(fetchImpl = fetch) {
   try {
     const res = await send(fetchImpl, '/api/businesses')

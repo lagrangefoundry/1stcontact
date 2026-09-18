@@ -434,6 +434,21 @@ describe('story-e674c60a builder origin', () => {
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
 
+      // The builder's surface signal ([[REQ-235]] §5). Probed in its REJECTION
+      // shape, and here that is not a convenience: the success shape answers
+      // `204` deliberately -- nothing is returned, because a body would invite a
+      // client to depend on one -- and the `ok` branch below pins `200`. The
+      // refusal is reached on the body's own arguments, before any log is
+      // touched. The cacheable-refusal harm is real on this one: the signal is
+      // posted on every tab change, so a cached answer would make one operator's
+      // whole session read as a single surface.
+      {
+        route: '/api/activity/surface',
+        url: '/api/activity/surface',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
       // Ingestion ([[REQ-163]]). Probed in their REJECTION shape, for the same
       // reason the assistant's POSTs are: the success shape would store a blob
       // and call a model, and this criterion is about a header. A cacheable

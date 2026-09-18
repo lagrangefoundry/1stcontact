@@ -55,6 +55,7 @@ import {
   materialUidFromUrl,
   openChatSession,
   openSettingsSession,
+  postSurface,
   previewUrl,
   saveMaterialName,
   saveMaterialRecipe,
@@ -223,6 +224,26 @@ export function mountBuilder(root, options = {}) {
     // next). The shell validates the shape, so there is nothing to guard.
     tabs: TABS,
     tabStyle: 'underline',
+    /**
+     * WHICH SURFACE THE OPERATOR IS ON ([[REQ-235]] §5).
+     *
+     * THE SHELL'S OWN HOOK, not a listener bolted onto the tab strip. `tabs.js`
+     * already treats every `onTabChange` call as a genuine transition, so this
+     * fires once per change and never on a re-select — which is exactly the
+     * grain the record wants, because a repeated signal would report a person
+     * switching back and forth when they had not moved.
+     *
+     * THE ID AND NOT THE LABEL. The label is provisional chrome and is declared
+     * in `config.js` so it can be changed in one line; a dimension built from it
+     * would silently split one surface into two the day somebody did.
+     *
+     * NOT AWAITED, AND IT CANNOT FAIL A TAB CHANGE. {@link postSurface} swallows
+     * everything: there is nothing here the operator asked for and nothing they
+     * could do about a failure.
+     */
+    onTabChange: (tabId) => {
+      void postSurface(tabId)
+    },
     // The app typeface, through the shell's own token path. See APP_FONT.
     tokens: { font: APP_FONT },
     about: {
@@ -267,6 +288,19 @@ export function mountBuilder(root, options = {}) {
     ],
     ...(storage ? { storage } : {}),
   })
+
+  /*
+   * THE SURFACE THE SESSION OPENS ON ([[REQ-235]] §5).
+   *
+   * THE SHELL'S FIRST SELECTION IS NOT NOTIFIED, deliberately and upstream: it
+   * activates the first tab before wiring `onSelect`, so a host treats every
+   * callback as a genuine transition. That is the right rule and it leaves
+   * exactly one gap here — the tab somebody is looking at when the builder
+   * opens, which is the one they are most likely to still be on — so the opening
+   * surface is posted once, from the shell's own answer rather than from an
+   * assumption about which tab sorts first.
+   */
+  void postSurface(shell.getActiveTab())
 
   /**
    * The unconfigured-deployment banner, and the block that comes with it (REQ-173).

@@ -82,7 +82,12 @@ import {
   stageLabel,
   stageOf,
 } from './people-axes.js'
-import { eventLabel } from './contact-events.js'
+import {
+  SESSION_RECORDED,
+  eventLabel,
+  sessionSpan,
+  summariseSession,
+} from './contact-events.js'
 import { acceptanceLabel } from './acceptances.js'
 import { clearDetail } from './detail-pane.js'
 import {
@@ -785,7 +790,33 @@ export function formatWhen(iso) {
 export function describeEvent(event) {
   const when = formatWhen(event?.occurredAt)
   const learned = formatWhen(event?.recordedAt)
-  return { label: eventLabel(event?.kind), when, learned: learned === when ? null : learned }
+  return {
+    label: eventLabel(event?.kind),
+    when,
+    learned: learned === when ? null : learned,
+    note: noteFor(event),
+  }
+}
+
+/**
+ * The one extra clause a row may carry, or null for the rows that carry none.
+ *
+ * THE BRANCH ON KIND IS HERE AND NOT IN THE RENDERER, which is what keeps the
+ * History section's claim true: it draws whatever this returns and knows nothing
+ * about which kinds have a note. So a later kind that wants one is an edit to
+ * this function, and a kind that does not is unaffected.
+ *
+ * TODAY THERE IS EXACTLY ONE ([[REQ-235]]). A session summary is the only kind
+ * on this spine that is an aggregate — its whole value is the breakdown — so a
+ * row reading only *"Active session"* would have thrown away the thing it was
+ * written for. The arithmetic is {@link summariseSession}'s, done on read,
+ * because the row deliberately stores stamps and no duration.
+ */
+function noteFor(event) {
+  if (event?.kind !== SESSION_RECORDED) return null
+  const breakdown = summariseSession(event?.detail)
+  const span = sessionSpan(event?.occurredAt, event?.detail)
+  return breakdown === '' ? span : `${span} — ${breakdown}`
 }
 
 /**
@@ -1823,6 +1854,9 @@ export function createPeoplePanel(options = {}) {
           const line = el('li', 'builder-people__event')
           line.append(el('span', 'builder-people__eventkind', said.label))
           line.append(el('span', 'builder-people__eventwhen', said.when))
+          // The breakdown a summary row carries, when it has one. The renderer
+          // does not know which kinds do — see `noteFor`.
+          if (said.note) line.append(el('span', 'builder-people__eventnote', said.note))
           if (said.learned) {
             line.append(el('span', 'builder-people__eventlearned', `recorded ${said.learned}`))
           }

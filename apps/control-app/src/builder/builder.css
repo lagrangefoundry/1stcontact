@@ -1927,6 +1927,18 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* A summary row's breakdown ([[REQ-235]]). It sits between the kind and the
+   stamp and is the only cell allowed to be elided: it is the longest thing on
+   any row and the least damaged by being cut, because the stretch it names is
+   readable from its first word. */
+.builder-people__eventnote {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
 /* The second stamp is the exception and is drawn as one — quieter than the
    first, and after it, so the ordinary reading of a row is unaffected. */
 .builder-people__eventlearned {

@@ -6,10 +6,10 @@ title: 'The activity log: a raw server-side event store, and session summaries o
   the contact timeline'
 created_by: EPIC-10
 created_at: '2026-09-13T21:15:53.631580+00:00'
-updated_at: '2026-09-18T01:05:42.999495+00:00'
+updated_at: '2026-09-18T02:33:07.667610+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   epic_parent: epic-0aefcf91
@@ -18,6 +18,18 @@ fields:
   chat_comment: comment-08a450b2
   depends_on:
   - request-042df82b
+  commits:
+  - working_sha: 36f33e2b47c64823a85965c57e3212526ff31d14
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 64a47dd620b3d44a212b38bc91f558078f1fd722
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8cc50f29d38109f7d4563b248c9dec7469306cab
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.253
+  story_points: 13
 ---
 
 # The activity log
@@ -433,3 +445,44 @@ silently.
     upstream change to it fails the typecheck rather than silently dropping a column.
 16. The raw store has a reader: a page with a cursor, and an aggregate. Neither is wired to
     a screen, and both exclude manufactured traffic without the caller asking.
+
+
+## 9. What the implementation added, and why
+
+Recorded here so reconciliation finds it in the spec rather than in the diff. None
+of it is a second design — each is the mechanical consequence of a rule above that
+had to be answered somewhere.
+
+**The floor is the last summary the actor already has, read off the spine.**
+AC-9's *"no second row is ever written for a closed session"* needs a boundary,
+and the obvious one — a cursor table beside the log — is a second place the truth
+can live. The spine is permanent and refuses `UPDATE`, so the closer asks it
+directly: the most recent `session.recorded` row for this actor, and its
+`detail.endedAt`. That makes the no-duplicate property a consequence of where the
+floor comes from rather than a rule a second table has to stay consistent with.
+It is read off `detail.endedAt` and not `occurred_at`, because `occurred_at` is
+when the session *began* — using it would re-read the session just summarised.
+
+**The trailing session is left open.** A stretch whose last record is inside the
+timeout may still be running. A row written for it would be a summary of half an
+afternoon that can never be corrected, because the spine forbids `UPDATE` — so
+the closer skips it and picks it up on a later tick.
+
+**The closer's scan is bounded, and the bound is on cost and not on
+correctness.** A lookback (7 days), an actor cap and a per-actor record cap exist
+so one missed cron run — or a deployment that was down for a day — does not turn
+the next tick into a full-table walk. The lookback sits comfortably inside the
+`info` horizon (30 days), which is the constraint [[EPIC-1]] §41.5 actually
+imposes on this seam: *"the raw window outlives the inference schedule"*.
+
+**The summary carries the mark, and it is a floor there too** ([[DOC-54]]). A
+session made entirely of manufactured records is a manufactured session. The
+insert takes `MAX` of that and the contact's own mark, so a real contact's
+session can be marked by its traffic and a synthetic contact's session never
+reads as real.
+
+**The signal's route is probed like every other route the origin declares.** The
+builder-origin criterion checks both directions — declared-but-unprobed is the
+hole it was written to close — so a new route is a new probe or it is a failing
+build. It is probed in its refusal shape: the success answer is `204` by design,
+and the probe's success branch pins `200`.

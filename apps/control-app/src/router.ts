@@ -217,6 +217,8 @@ import { currentNameOf, type NamePatch } from './names'
 import { displayNameFrom, NAME_PART_NAMES } from './builder/people-name.js'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
+import { KINDS } from './generated/logging'
+import type { RequestLog } from './log'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { NoBusinessError, businessPath, splitBusinessPrefix, type Scope } from './scope'
 import {
@@ -798,6 +800,16 @@ export function previewRenderer(store: SiteStore): PreviewRenderer {
   return renderer
 }
 
+/**
+ * The longest surface name the signal above will store.
+ *
+ * A CEILING ON A DIMENSION, not on a payload. `route` is a group-by key, so an
+ * unbounded value there is a key with as many distinct values as there are
+ * callers — which makes every aggregate over it useless and every index over it
+ * expensive. The tab ids this is actually for are one word.
+ */
+const MAX_SURFACE_LENGTH = 64
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -1176,6 +1188,20 @@ export interface RouterDeps {
    * scope rather than pretending to an admission it does not have.
    */
   admission?: Admission | null
+  /**
+   * This invocation's logging ([[REQ-235]]).
+   *
+   * THREADED RATHER THAN REACHED FOR, on `ctx`'s precedent and for the same
+   * reason: it is minted in `index.ts`, once, where the `trace_id` is chosen and
+   * where the business and the actor are bound onto it — so a route that wants
+   * to say something about this invocation can only get it by being handed it.
+   *
+   * OPTIONAL, AND ABSENT IS ORDINARY. The Node builder transport calls `route()`
+   * directly and has no D1 to log into; the surface signal below simply records
+   * nothing there, which is the honest answer for a host with no store rather
+   * than a refusal of a route that has otherwise done its job.
+   */
+  log?: RequestLog
   /**
    * The Cloudflare zone client ([[REQ-257]]), or `null` where this deployment
    * has no token.
@@ -2183,7 +2209,54 @@ async function routeUncached(
     })
   }
 
-    /**
+  /**
+   * POST /api/activity/surface — the builder says which surface it is on
+   * ([[REQ-235]] §5).
+   *
+   * THE ONE CLIENT-SIDE PIECE, AND THE SMALLEST THING THAT CLOSES THE GAP. The
+   * builder makes requests as an operator works, but a quiet tab makes none — so
+   * *"which tab, and for how long"* is not inferable from server traffic at all:
+   * a tab nobody has opened and a tab somebody has been reading for twenty
+   * minutes are indistinguishable. This is the statement that separates them.
+   *
+   * IT IS A SIGNAL AND NOT A BEACON PROTOCOL. No heartbeats, no timers, no
+   * duration computed in the browser. One post when the surface CHANGES, and the
+   * server timestamps what it receives — which is why the record carries stamps
+   * and the arithmetic happens on read.
+   *
+   * THE CLIENT'S OWN TIMESTAMP AND TENANT CLAIM ARE NOT WHAT IS STORED
+   * ([[EPIC-1]] §41.1). `kind=client` means *a browser said this*, and a browser
+   * is re-stamped rather than trusted: `ts` comes from the server clock, the
+   * business comes from the scope the request was authorised under, and the
+   * actor comes from the admission — none of the three is read off the body. A
+   * body field naming any of them is simply ignored, which is stronger than
+   * rejecting it, because there is no branch to get wrong.
+   *
+   * WHAT THE BODY MAY SAY IS THE SURFACE, AND ONLY THAT. It is bounded in length
+   * and stripped, because it lands in a dimension — an unbounded string in a
+   * group-by key is a group-by key with as many values as there are callers.
+   *
+   * IT ANSWERS 204 AND NOT 200. Nothing is returned, nothing is read back, and a
+   * body would invite a client to depend on one.
+   */
+  if (p === '/api/activity/surface' && method === 'POST') {
+    const scoped = requireScope()
+    const body = await readJsonBody(request)
+    const surface = String(body.surface ?? '').trim().slice(0, MAX_SURFACE_LENGTH)
+    if (surface === '') return json(400, { error: 'surface is required' })
+    // A HOST WITH NO LOG RECORDS NOTHING AND STILL SUCCEEDS. The Node builder
+    // transport has no D1 to write into; refusing there would make a surface
+    // change fail in a builder where nothing is wrong.
+    deps.log?.logger().info('surface.shown', {
+      kind: KINDS.CLIENT,
+      route: surface,
+      business: scoped.businessId,
+      actor: deps.admission?.ok ? deps.admission.user.id : undefined,
+    })
+    return new Response(null, { status: 204 })
+  }
+
+  /**
    * POST /api/import — one whole site, copied up from a local store (REQ-145).
    *
    * THE WORKER IS THE WRITER, deliberately. `bin/publish` runs in Node, which

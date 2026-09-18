@@ -84,8 +84,18 @@ run_worker_first = true
 # nothing depends on remembering which keys inherit, and the failure mode of
 # losing the production one is silent — the deploy succeeds and the sweep simply
 # never runs. A UAT pins both declarations.
+#
+# TWO EXPRESSIONS NOW ([[REQ-235]]). The daily one is the right cadence for the
+# sweeps: dead credentials and leaked test rows have horizons measured in days,
+# and running those scans every ten minutes would be 143 walks a day that each
+# take nothing. The second one is the session closer's, and it is here because a
+# timeline cannot be daily — a session ending at ten in the morning would not
+# appear until the following morning, eighteen hours behind. The handler branches
+# on `event.cron` so the frequent tick does the closer and nothing else; the
+# expression is spelled in `index.ts` as `ACTIVITY_CRON` and a UAT pins the two
+# together.
 [triggers]
-crons = ["17 4 * * *"]
+crons = ["17 4 * * *", "*/10 * * * *"]
 
 # TENANT_ID names the PLATFORM's own business (REQ-168), BY KEY ([[REQ-190]]).
 #
@@ -434,7 +444,7 @@ run_worker_first = true
 
 # See the top-level block: restated rather than inherited, on purpose ([[REQ-231]]).
 [env.production.triggers]
-crons = ["17 4 * * *"]
+crons = ["17 4 * * *", "*/10 * * * *"]
 
 [[env.production.d1_databases]]
 binding = "DB"
