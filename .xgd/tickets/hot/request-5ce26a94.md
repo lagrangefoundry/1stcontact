@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a5c00505
 ---
 
 # L1 capability: a flow recovery that preserves horizontal geometry
