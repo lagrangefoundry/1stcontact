@@ -6,7 +6,7 @@ title: 'capture/fold/values-diff: a band background is fabricated when transpare
   compared by nothing, and wrong on the hero'
 created_by: repro-console:repro-gigabytealchemy-ai#3
 created_at: '2026-09-18T02:07:55.647301+00:00'
-updated_at: '2026-09-18T03:03:26.791286+00:00'
+updated_at: '2026-09-18T03:07:31.436023+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-307fc4a8
 ---
+
 
 
 Loop 1, iteration **3** of `repro-gigabytealchemy-ai` against the stored bundle
@@ -541,14 +542,23 @@ sides paint, and an unconditional delta when one paints and the other does not.
 comparison had already landed by the time this was implemented.
 
 **Repro-only band paint stops being noise.** An L1 render paints each band as a
-real full-bleed box, so the same fact arrived twice on the reproduction side —
-once on the band record and once as a `role: "generic"` element that could never
+real full-bleed box, so the same fact arrives twice on the reproduction side —
+once on the band record and once as a `role: "generic"` element that can never
 pair, because the reference side has nothing for it to pair with. A textless
-element that is full-bleed, coincides with a band's own box to within a pixel of
-layout noise, and carries no treatment of its own (no border, shadow, radius,
-ghosting, or media `src`) is recognised as band paint and not emitted as a
-second copy. A box that merely *sits on* a band, or a layer with its own
-geometry (the hero photograph inside a taller fill), keeps its place.
+leftover that is full-bleed and coincides with a band's own box to within a
+pixel of layout noise is recognised as band paint and left out of the
+"paired with nothing" tally, which the section pass now compares directly. A box
+that merely *sits on* a band, or a layer with its own geometry (the hero
+photograph inside a taller fill), is still reported.
+
+**The recognition is in the diff's reporting, not in the manifest.** The first
+implementation dropped these elements at projection time, in `flattenSignals` —
+which is wrong, and would have been a silent regression: a full-bleed textless
+box is exactly what the fold reads to rebuild a **backdrop** (BUG-27), so on a
+page-builder site whose panels are nested inside one wrapper it would have taken
+a hero photograph out of the fold's input. The manifest stays faithful to what
+was painted; only the tally stops double-counting a fact that already has a
+counterpart.
 
 **And whatever is left unpaired can be found.** `UnpairedObject` carries `box`
 and the actual-manifest `index`. `{label, role, kind}` reduced an untexted box
@@ -594,9 +604,10 @@ and skip cleanly where no browser can launch:
   paints a fill still records it, and `#ffffff` is asserted nowhere;
 - the transparent header's `backgroundColor` is `null` and its `colorScheme` is
   `dark`, while the cream band below still reads `light`;
-- an L1 render's band boxes (`req270-hero-layers.html`) reach `sections[].surfaceFill`
-  and are not also emitted as manifest elements, while the inner photograph layer
-  — which has its own geometry — keeps its place.
+- an L1 render's band boxes (`req270-hero-layers.html`) reach
+  `sections[].surfaceFill`, remain in the manifest the fold reads, and are not
+  reported as repro objects that matched nothing — while the inner photograph
+  layer, which has its own geometry, is still both in the manifest and reported.
 
 Browser-free legs drive the real projection / diff / fold entry points:
 
@@ -608,6 +619,8 @@ Browser-free legs drive the real projection / diff / fold entry points:
 - a wrong band fill is exactly one `§n surfaceFill` delta ( `(none)` → `#030717`,
   the gigabytealchemy case), agreement is none, and an unmeasured side is skipped;
 - an unpaired object carries its box and manifest index;
+- a full-bleed box coinciding with a band is not counted as unpaired, while one
+  standing on the band, or sharing its top with its own height, still is;
 - a band whose only fill is its scrim emits no band node while the
   `section-bg` box keeps the overlay at its real opacity; a band with a fill of
   its own under a *different* scrim keeps that fill;
