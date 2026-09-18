@@ -6,9 +6,9 @@ title: A generated picture's result never says where it went, so the assistant r
   itself blind
 created_by: EPIC-19
 created_at: '2026-09-18T21:46:39.302408+00:00'
-updated_at: '2026-09-18T22:46:22.595021+00:00'
+updated_at: '2026-09-18T22:56:25.485476+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -113,3 +113,129 @@ moments it matters, not about collapsing it.
 shape — though this project could add the sentence in the host's own result
 framing if that is faster. (2) is `library-surface.json` and the L1 surface's
 `list_assets` entry, both ours. (3) is `priming.json`, ours.
+
+---
+
+# What was implemented
+
+## One correction to the diagnosis above, and it is asserted not argued
+
+**The Library's overview IS in the projection the assistant reads.** The section
+"Why it did not read it" says the overview "is not in the default projection".
+That is wrong. The framework's manual renderer keeps a surface's overview *whole*
+at both levels and drops only the per-operation reference —
+`@lagrangefoundry/ai/src/toolbox/manual.js`, `surfaceBlock`: *"The overview is
+kept whole at both levels. Rendering only its first paragraph was measured and
+rejected"* — and `roles.ts` renders priming's tool guide as
+`box.manual({ level: 'summary' })`. So the paragraph that names this exact trap
+was in front of the assistant for the whole session.
+
+The gap was therefore never that the paragraph was withheld. It was that the
+paragraph sits above a list of one-liners which did not carry the distinction
+themselves, and that **nothing at all said where a newly made picture had gone**.
+Both of those are what changed. The correction is pinned by a UAT
+(`..._the_librarys_overview_is_in_the_projection_the_session_reads`) so that a
+future reader cannot "fix" this bug again by promoting an overview into a
+projection it is already in.
+
+## 1. The result of making a picture says where the picture went
+
+`apps/control-app/src/imagegen.ts`, `generatedDisplay`. The result now reads:
+
+> This picture is in the client's Library now, catalogued as `material-…` —
+> `screenshot` takes that name unchanged, so you can look at what you made, and
+> it is on the site only once you place it there. Show this picture to the person
+> you are talking to by including this line in your reply, exactly as written: …
+
+Three decisions inside that:
+
+- **Host-side, through the `display` seam, not upstream.** The ticket offers both.
+  The plugin's `generated_image` is the framework's shape, shared by every
+  adopter; *which of this deployment's two stores holds the bytes* is not a fact
+  the plugin can know — `store` is the host's, `origin: 'generated'` is the
+  host's vocabulary, and the Library is the host's surface. `host_display` is the
+  seam lagrange-framework REQ-149 opened for exactly this class of sentence, so
+  nothing upstream changes.
+- **It names the *uid*, not the filename.** The catalogue's canonical name for a
+  piece of material is its record's uid (`storedImageOf` in `material.ts`;
+  `resolveStoredImage` is the one rule), so the uid is the spelling that always
+  means exactly one picture — a filename is an alias and two uploads may share
+  one. It is also already in the record as `ticket`, so the sentence teaches that
+  the handle the model is already holding IS the name every way of looking at a
+  picture takes. That is precisely the link the ticket says is missing.
+- **It rides on the same condition the display line does, and that is a
+  deliberate residual.** The plugin composes the `display` field into the
+  declaration only where a host supplied a handle, so a deployment with nowhere
+  to show a picture is told nothing about where the picture went either.
+  `router.ts` is the only caller and always supplies `materialUrl`, so no shipped
+  session reads the poorer result. Making the field unconditional was considered
+  and rejected: it would make the manual describe a display line that never
+  arrives, and it would supersede [[REQ-217]]'s standing AC that *nowhere to show
+  it means no line*. Recorded here rather than silently absorbed.
+
+## 2. The two listings disambiguate at the point of choice
+
+The one-liner is the whole of what a session reads when it is *choosing* a tool,
+so each of the two now carries the distinction rather than relying on a
+paragraph further up:
+
+- `list_library` (`library-surface.json`): "The client's whole catalogue — every
+  file they have given you and every picture you have generated, whether it is on
+  the site or not. Not the same list as `list_assets`, which is only what the site
+  itself can reference."
+- `list_assets` (`l1-surface.json`): "The images and fonts this site can
+  reference today — all of them. Not everything the client has given you: a file
+  they uploaded, or a picture you generated, is in this list only once it has
+  been placed on the site."
+
+**Only one of the two names the other by tool name, deliberately.** The ticket
+asks for both. `list_library` names `list_assets`, which is safe: the Library
+surface is only ever composed alongside L1. The reverse is not safe — L1 is the
+base surface and is composed by hosts that have no Library at all (the `1c` CLI
+has no ticket store, so `host-core.ts` composes the catalogue not at all, by
+design). A one-liner in `l1-surface.json` naming `list_library` would put a tool
+name no such session has been granted into its manual, which is the failure the
+framework's own `manualLeaks` lint exists to catch within a declaration. So the
+L1 side names the *distinction* — placed on the site versus given to us — and no
+tool. The distinction is what the assistant needed; the tool name was the means.
+
+## 3. The priming's rule is widened, and the belief itself is forbidden
+
+`priming.json`, the `product-system` entry's "How to work". The fetch-a-fuller-
+entry rule now fires on *where a thing lives*, and on two one-liners that sound
+like the same list. A second paragraph closes the class rather than the instance:
+
+> Never report yourself unable — to see something, to find something, to do
+> something — on the strength of one tool answering nothing. Something you have
+> just made is somewhere, and whatever made it told you where in its own result,
+> so go back and read that result before you conclude anything. Telling your
+> client you cannot see your own work when you can costs them their trust in
+> everything else you tell them.
+
+That paragraph is the only guard that still holds the day a third store appears
+and nobody has written its one-liner yet.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-118_a_generated_picture_says_where_it_went.workers.test.ts`
+— the real plugin wired the way `router.ts` wires it, over real D1 and R2, with
+only the image provider's HTTP endpoint substituted. It generates a picture,
+reads the sentence, **takes the name out of the sentence as written** rather than
+off the record, and resolves it through `get_library_item` on the real catalogue
+surface — so the evidence is that what the result says is *true*, not that a
+string contains a word. It also asserts `placed_on` is empty, which is what makes
+"it is on the site only once you place it there" a fact about the record.
+
+`tests/test_UAT_FC_BUG-118_where_a_picture_lives.test.ts` — renders the tool guide
+a consultant is actually primed with (`manual({ level: 'summary' })`, from a real
+Toolbox with the Library surface composed as `host-core.ts` composes it) and
+asserts the two one-liners each carry the distinction; asserts the Library
+overview is present in that same projection (the correction above) while the
+reference half is not; and asserts both halves of the widened priming rule,
+including that the old narrow wording is gone.
+
+Regression scope run green: the picture/priming/surface suites
+(`REQ-217`, `REQ-208`, `REQ-228` ×2, `REQ-171`, `REQ-182`, `BUG-63`, `BUG-65`,
+`REQ-126`, `REQ-174`, `REQ-237`, `REQ-264`, the three
+`reconciliation-assistant-*`), plus `tsc --noEmit` over `apps/control-app` and
+`tools/generate`.
