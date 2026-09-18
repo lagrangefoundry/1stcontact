@@ -5,10 +5,10 @@ type: bug
 title: 1c repro serves the absolute base while the gate certifies the recovered document
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:34.264842+00:00'
-updated_at: '2026-09-18T05:10:55.816727+00:00'
+updated_at: '2026-09-18T05:15:44.059861+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-bf282b3d
