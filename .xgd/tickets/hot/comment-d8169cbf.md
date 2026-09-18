@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:12:19.949385+00:00'
+updated_at: '2026-09-18T23:23:25.787800+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -674,5 +674,11 @@ Filed as **BUG-121**, with items ordered so the integrity fix doesn't wait on th
 4. *Then* the policy question — running to completion — which needs the Durable Object and durable junction, with `tailSession` already built for the reattach.
 
 **1–3 should land before the DO work**, because the integrity defect doesn't go away once turns run to completion: a turn can still fail, and its two halves must still agree. EPIC-19's Finding 4 is corrected to match.
+
+<!-- xgd-turn id="c357bba7-a478-497e-885e-dc64a063d6b0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:23:25.250855+00:00" -->
+#### You
+ok so the consultant (we should use that word instead of assistant) and I are lacking a common frame of reference for assets. I am thinking that if we just expose the ticket ID (human readable) on the library item list that would do it - I assume the AI has access to that?
 
 <!-- xgd-chat-end -->
