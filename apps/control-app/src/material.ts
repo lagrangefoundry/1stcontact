@@ -302,10 +302,72 @@ const TYPE_BY_EXTENSION: Record<string, string> = {
  * document is **invisible**, not merely stale — search cannot return what it has
  * not embedded. An unwired optional hook is therefore the worst kind of silent
  * failure: uploads succeed, the Library fills up, and the assistant cannot find
- * any of it. So {@link ingest} reports whether the hook was present and the
- * router LOGS LOUDLY when it was not.
+ * any of it. So every call goes through {@link indexAfterWrite}, which says so
+ * loudly and answers whether this material is in the index.
  */
 export type IndexMaterial = (uid: string) => Promise<unknown>
+
+/**
+ * Run the index seam, and never let it undo the write it follows ([[BUG-119]]).
+ *
+ * THE SEAM IS A REFRESH, NOT A WRITE, and that is the whole argument. The
+ * project KB's indexer is a change-feed consumer: its manifest records
+ * `uid -> updated_at`, so the next pass over this corpus — the next upload, the
+ * next generated image, the next transcript that grows enough — re-embeds every
+ * ticket whose timestamp has moved since. A pass that fails therefore costs a
+ * WINDOW of invisibility and nothing durable; it is retried for free, by design,
+ * with nobody scheduling it.
+ *
+ * THE WRITE IT FOLLOWS IS NOT LIKE THAT. By the time this is reached the
+ * material exists, its bytes are in the blob store, and its record is the shape
+ * the Library reads. Throwing from here would report a failure for an operation
+ * that SUCCEEDED — and a caller holding a failure does not hold the uid, so the
+ * thing that was stored becomes a thing nobody can name.
+ *
+ * THAT IS NOT HYPOTHETICAL: IT IS [[BUG-119]]. The image plugin's store handle
+ * awaited this seam; a broken embedder ([[BUG-117]]) made it throw; and the
+ * plugin — which can only read a throw from a store handle as *the store is
+ * unavailable* — reported a deployment fault and discarded the ticket it had
+ * just created. Two generated images were reported to the client as money burned
+ * for nothing. Both were in the Library the whole time, bytes and all. The cheap,
+ * recoverable half of the operation destroyed the expensive, unrepeatable half's
+ * only receipt.
+ *
+ * SO THE ANSWER IS A BOOLEAN AND A LOUD LOG, AND NEVER SILENCE. Absence and
+ * failure are different sentences because they have different fixes — one is a
+ * `wrangler.toml` an operator has to edit, the other is a refresh that will very
+ * likely work next time — but both name the uid, both say NOT indexed, and
+ * callers with an envelope carry the answer out to a surface that can show it.
+ *
+ * @returns whether this material is in the index now.
+ */
+export async function indexAfterWrite(
+  index: IndexMaterial | null | undefined,
+  uid: string,
+): Promise<boolean> {
+  if (!index) {
+    console.warn(
+      `[REQ-163] material ${uid} was stored but NOT indexed: no AI binding is ` +
+        'configured, so the project knowledge base cannot embed it and nothing ' +
+        'will find it by search. Declare [ai] in apps/control-app/wrangler.toml, ' +
+        'under [env.production.ai] as well — a named environment inherits neither.',
+    )
+    return false
+  }
+  try {
+    await index(uid)
+    return true
+  } catch (error) {
+    console.warn(
+      `[BUG-119] material ${uid} was stored but NOT indexed: the index refresh ` +
+        `failed (${String((error as { message?: unknown })?.message ?? error)}). ` +
+        'The material itself is safe and nothing about it is lost — this seam is ' +
+        'a refresh over a change feed, so the next successful pass picks it up — ' +
+        'but until then nothing will find it by search.',
+    )
+    return false
+  }
+}
 
 export interface IngestDeps {
   /**
@@ -353,7 +415,11 @@ export interface Ingested {
   attachment: Ticket
   classification: Classification
   description: Description
-  /** False when no indexer was wired — the router turns this into a loud log. */
+  /**
+   * False when no indexer was wired, and false when the refresh failed
+   * ([[BUG-119]]) — {@link indexAfterWrite} has already said which, loudly. The
+   * material is stored either way; this is whether search can see it yet.
+   */
   indexed: boolean
   /**
    * The `material_text` comment holding the document's own text, or `null` for
@@ -652,9 +718,14 @@ async function ingest(
   // which is what lets the expensive map rebuild run asynchronously behind it. A
   // deferred index would leave the assistant blind for exactly as long as the
   // client is waiting to talk about what they just uploaded.
-  if (deps.index) await deps.index(ticket.uid)
+  //
+  // AWAITED IS NOT THE SAME AS FATAL, and {@link indexAfterWrite} is where that
+  // distinction lives ([[BUG-119]]): the client's file is already stored by this
+  // line, and failing the upload over a refresh would lose it to a problem they
+  // cannot see and did not cause. They would retry, and get a duplicate.
+  const indexed = await indexAfterWrite(deps.index, ticket.uid)
 
-  return { ticket, attachment, classification, description, indexed: Boolean(deps.index), text }
+  return { ticket, attachment, classification, description, indexed, text }
 }
 
 /** A filename from a URL's last path segment, or the host where it has none. */
@@ -1640,8 +1711,8 @@ export async function reviseDescription(
       fields: { description_status: 'ok', description_model: CLIENT_DESCRIBER },
     },
   })
-  if (index) await index(args.uid)
-  return { row: await readMaterial(store, args.uid), indexed: Boolean(index) }
+  const indexed = await indexAfterWrite(index, args.uid)
+  return { row: await readMaterial(store, args.uid), indexed }
 }
 
 /** `description_model` for a description the client wrote themselves. */
