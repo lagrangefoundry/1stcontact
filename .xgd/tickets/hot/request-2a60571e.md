@@ -6,10 +6,10 @@ title: 'capture: audit completeness once, mechanically, instead of one round at 
   time'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:25.525963+00:00'
-updated_at: '2026-09-18T23:37:35.330799+00:00'
+updated_at: '2026-09-18T23:38:53.082770+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-dfecee22
+  commits:
+  - working_sha: bd57f8860271210edafb23ca6c9091ddcccb473c
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 426eeb71647b8692350b4e97fa4528fcc92bc54f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.270
 ---
 
 # Audit capture completeness once, mechanically, instead of one round at a time
