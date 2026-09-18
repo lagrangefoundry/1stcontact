@@ -95,6 +95,35 @@ A region with no leads on either side is not nothing: it is a region over
 whitespace, or over a band no manifest describes, and that is itself worth
 saying out loud rather than resolving by opening the PNG.
 
+### The score is the unmeasured set, not the delta count ([[REQ-277]])
+
+**The delta count is not a score, and driving it down is not your job.** It
+counts the comparisons that *happened*. Every axis the instrument learns to read
+can only raise it: [[BUG-107]] added `role`/`a11yRole` comparison and took one
+reproduction from **1 delta to 14** with nothing about the page having changed —
+eleven lost headings that had been reading as *zero*. A round that optimised for
+fewer deltas would have argued against that change.
+
+**The number that means something is the unmeasured set, and it is the first
+line of your round context and of the digest.** It counts what the gate could
+not compare at all: compared axes only one side of the projection can read
+([[REQ-274]]), bands with no counterpart ([[BUG-111]]), elements that paired with
+nothing ([[BUG-106]]), and probes that declared they could not run. **An
+unmeasured axis is not a clean one** — `values-diff.ts`, [[BUG-106]] — and the
+whole of that silence is invisible in `deltas`.
+
+So:
+
+- **A gap whose fix makes the instrument see more is a good gap to file**, even
+  when closing it will raise the delta count. Say so in the ticket: *this will
+  add deltas, because it makes N currently-skipped measurements real.*
+- **A drop in the delta count over a rise in the unmeasured set is not
+  progress.** It is the instrument going blind, and it is worth a ticket of its
+  own in the `ruler` queue.
+- **Never report a rising delta count as a regression** without first reading
+  what the unmeasured set did. If it fell, the reproduction did not get worse —
+  the ruler got finer, and that is the outcome this loop is for.
+
 **The knowledge base is cheaper than the source.** The round context below names
 an index of every project document. If a question has a documented answer,
 reading it beats deriving it from `tools/generate/` — and a ticket that cites a

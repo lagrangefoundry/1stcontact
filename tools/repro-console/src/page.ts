@@ -9,6 +9,8 @@
  * {@link POLL_SCRIPT}.
  */
 
+import type { MeasurementView } from './unmeasured'
+
 /** One finished iteration, as the page shows it. */
 export interface IterationView {
   n: number
@@ -43,6 +45,18 @@ export interface IterationView {
    * differs is which of the round's two deliverables they came from.
    */
   extraTickets?: Array<{ href: string; label: string }>
+  /**
+   * THIS ITERATION'S TWO NUMBERS, IN THE ORDER THEY MUST BE READ ([[REQ-277]]).
+   *
+   * The unmeasured set is the headline and the delta count sits under it. The
+   * delta count is not removed — it is exact, it is the strongest evidence a
+   * ticket can carry, and it is what the round reads — it is simply no longer
+   * the thing the eye lands on first, because it can only RISE when the
+   * instrument sharpens. [[EPIC-19]] measured that inversion: [[BUG-107]] added
+   * `role` comparison and took a reproduction from 1 delta to 14 with nothing
+   * about the page having changed.
+   */
+  measurement?: MeasurementView
   /** `1c gate`'s verdict for this round, shown beside the links. */
   verdict?: string
   /** What the regression rail said this round (behavior 8). */
@@ -324,6 +338,18 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 /* BUG-99 — the caption spans the three cells rather than becoming a fourth. */
 .triptych .region-caption { grid-column: 1 / -1; font-size: .85rem; opacity: .9; font-family: ui-monospace, monospace }
 .verdict, .rail, .ai-status, .reference { margin: .25rem 0; font-size: .9rem }
+/* REQ-277 — the headline of an iteration. Bigger than the verdict and above
+   every link, because it is the number the operator's glance has to land on:
+   the delta count under it rises whenever the instrument sharpens, and a loop
+   that reads THAT as the score reads its own improvements as regressions. */
+.measure { margin: .4rem 0 .1rem; font-size: 1.05rem }
+.measure strong { font-variant-numeric: tabular-nums }
+.measure .breakdown { font-size: .8rem; opacity: .7 }
+.measure .move { font-size: .85rem; opacity: .85 }
+.deltas { margin: .1rem 0; font-size: .85rem; opacity: .75 }
+/* The sentence that stops the pair being misread. Not dimmed: an operator who
+   has never heard of REQ-277 has to be able to read the page correctly. */
+.reading { margin: .25rem 0 .5rem; font-size: .85rem; border-left: 3px solid #8888; padding-left: .6rem }
 .reference { opacity: .7; font-size: .8rem }
 .reference .moved { opacity: 1; color: #b8860b; font-weight: 600 }
 .held { margin: 1rem 0; padding: .6rem .8rem; border: 1px solid #b8860b; border-radius: 4px; font-size: .9rem }
@@ -445,6 +471,23 @@ function renderIteration(it: IterationView): string {
       )}</button></form>\n`
     : ''
 
+  /**
+   * THE HEADLINE ([[REQ-277]] behaviours 1, 2 and 3).
+   *
+   * Above the links rather than beside the verdict, which is the whole of
+   * behaviour 2: the delta count is not removed, it is demoted. The reading
+   * sentence is rendered in full rather than as a marker, because the operator
+   * this is written for is the one who has never read [[REQ-277]] and is about
+   * to conclude that an iteration which measured more of the page got worse.
+   */
+  const measure = it.measurement
+    ? `  <p class="measure"><strong>${escapeHtml(it.measurement.headline)}</strong>` +
+      `${it.measurement.unmeasuredMove ? ` <span class="move">${escapeHtml(it.measurement.unmeasuredMove)}</span>` : ''}` +
+      `<br><span class="breakdown">${escapeHtml(it.measurement.breakdown)}</span></p>\n` +
+      `  <p class="deltas">${escapeHtml(it.measurement.deltas)}</p>\n` +
+      (it.measurement.reading ? `  <p class="reading">${escapeHtml(it.measurement.reading)}</p>\n` : '')
+    : ''
+
   const verdict = it.verdict ? `  <p class="verdict">gate: <strong>${escapeHtml(it.verdict)}</strong></p>\n` : ''
   // A <pre>, not a <p>: the rail reports one finding per line, and a paragraph
   // collapses them into one run-on sentence (REQ-256 behavior 8).
@@ -477,7 +520,7 @@ function renderIteration(it: IterationView): string {
 
   return `<section>
   <h2>Iteration ${it.n}</h2>
-  <ul>
+${measure}  <ul>
 ${links}
   </ul>
 ${reference}${verdict}${rail}${decide}${ai}</section>`

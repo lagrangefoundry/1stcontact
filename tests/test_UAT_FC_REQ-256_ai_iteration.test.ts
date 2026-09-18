@@ -38,6 +38,7 @@ import {
   type AiRunOptions,
   type AiRunner,
 } from '../tools/repro-console/src/ai'
+import { unmeasuredOf } from '../tools/repro-console/src/unmeasured'
 import { readGaps } from '../tools/repro-console/src/gaps'
 import { parseTicketRef } from '../tools/repro-console/src/ticket'
 import { RAIL_ENV, ROUND_PHASES, runRailRound, summarise } from '../tools/repro-console/src/rail-round'
@@ -821,6 +822,13 @@ describe('REQ-256 the brief is a document', () => {
         regions: 3,
         valueDeltas: 7,
         unreferencedImages: ['hero.jpg'],
+        // REQ-277 — the prompt's headline. Carried by every real
+        // `readGateReport`; spelled out here because this context is built by
+        // hand, and a summary without it is one the round could not be told
+        // what to drive from.
+        unmeasured: unmeasuredOf({
+          values: { unmeasuredAxes: [], unpairedSections: 0, unpairedActualSections: 0, unmatched: 0, unpairedActual: 0 },
+        }),
       },
       rail: { available: true, pass: true, summary: 'bin/rail — no worse' },
       knownGaps: [
