@@ -5,9 +5,9 @@ type: bug
 title: 1c repro serves the absolute base while the gate certifies the recovered document
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:34.264842+00:00'
-updated_at: '2026-09-18T03:49:00.401435+00:00'
+updated_at: '2026-09-18T05:05:46.277633+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-9b245eb4
 ---
+
 
 # `1c repro` serves the absolute base while the gate certifies the recovered document
 
@@ -174,6 +175,20 @@ residual" is invalidated. Recovery closed it only on an artifact that was never
 written to disk. The gate now surfaces the residual and prices the recovery; it
 does not apply it.
 
+5. **The gate grades the bundle artifact `1c repro` actually serves.** `1c repro`
+   writes `localizeAssets(<the bundle's retained l1.json>)`, but `1c l1-gate` was
+   re-folding `multistate.json` and grading *that*. The two diverge the moment the
+   fold changes — including from this ticket's own point 4, which is how it was
+   found: on `gigabytealchemy.ai` the gate read 0 off-sample findings while the
+   document `repro` wrote read 3 at 500px, because the retained `l1.json` had been
+   folded before the per-window reflow hold existed. That is the same defect this
+   ticket closes, one level out, so it is closed here too: the gate reads the
+   retained `l1.json` + `forms.json` and grades those. The fresh fold is still
+   computed — `foldResiduals` is a question about *folder power* and needs it —
+   and where the two disagree the gate now says so and names `1c refold` as the
+   remedy, rather than silently certifying a document the operator will not be
+   served.
+
 ## Test plan
 
 UATs in `tests/test_UAT_FC_BUG-113_served_document_is_graded.test.ts`:
@@ -188,4 +203,7 @@ UATs in `tests/test_UAT_FC_BUG-113_served_document_is_graded.test.ts`:
 - a text leaf's envelope height at a captured width is the oracle's measurement,
   not the estimate;
 - a ladder window carrying any reflow holds for every node, and sample fidelity
-  is unchanged by that holding.
+  is unchanged by that holding;
+- `1c l1-gate` grades the bundle's retained `l1.json` — the artifact `1c repro`
+  serves — and reports the bundle as stale, naming `1c refold`, when that
+  artifact disagrees with a fresh fold of the same oracle.

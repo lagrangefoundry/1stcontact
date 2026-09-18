@@ -55,6 +55,20 @@ export interface RoundSession {
   sessionId: string
   /** The reference bundle the chain has been reproducing. */
   bundleDir: string
+  /**
+   * That bundle's `capturedAt` ([[REQ-272]] part 2).
+   *
+   * Reset rule 1 has always said "a different bundle, **or the same site
+   * re-captured**", and until [recapture] kept the chain there was no way to
+   * exercise the second half — a bundle's name is URL-derived and overwriting,
+   * so `bundleDir` is unchanged across a re-capture and the rule could not fire.
+   * This is what makes it fire: the reference moved, so the remembered numbers
+   * are about a page that no longer exists.
+   *
+   * Empty on a record written before this field existed — which resumes exactly
+   * as it did, because the comparison is then against an equally empty context.
+   */
+  capturedAt: string
   /** The brief the chain was started under — see reset rule 2. */
   briefHash: string
   /** How many rounds have run in this session. */
@@ -86,6 +100,7 @@ export function readSession(siteDir: string): RoundSession | null {
     return {
       sessionId: parsed.sessionId,
       bundleDir: typeof parsed.bundleDir === 'string' ? parsed.bundleDir : '',
+      capturedAt: typeof parsed.capturedAt === 'string' ? parsed.capturedAt : '',
       briefHash: typeof parsed.briefHash === 'string' ? parsed.briefHash : '',
       rounds: typeof parsed.rounds === 'number' ? parsed.rounds : 0,
     }
@@ -107,6 +122,8 @@ export function clearSession(siteDir: string): void {
 /** What this round is reproducing, judged against what the saved chain was. */
 export interface ResumeContext {
   bundleDir: string
+  /** The bundle's own capture time — see {@link RoundSession.capturedAt}. */
+  capturedAt: string
   briefHash: string
 }
 
@@ -119,6 +136,9 @@ export interface ResumeContext {
 export function resumableSession(saved: RoundSession | null, ctx: ResumeContext): string | null {
   if (!saved) return null
   if (saved.bundleDir !== ctx.bundleDir) return null
+  // Reset rule 1's second half: the same bundle, re-captured, is a different
+  // reference ([[REQ-272]] part 2).
+  if (saved.capturedAt !== ctx.capturedAt) return null
   if (saved.briefHash !== ctx.briefHash) return null
   if (saved.rounds >= RESUME_MAX_ROUNDS) return null
   return saved.sessionId
@@ -148,6 +168,7 @@ export function recordSession(
   writeSession(siteDir, {
     sessionId,
     bundleDir: ctx.bundleDir,
+    capturedAt: ctx.capturedAt,
     briefHash: ctx.briefHash,
     rounds: (saved?.rounds ?? 0) + 1,
   })

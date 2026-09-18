@@ -32,6 +32,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { provenanceOf } from './bundle'
 
 /** Where the digest is written, inside the round's own directory. */
 export const DIGEST_FILE = 'evidence-digest.md'
@@ -41,6 +42,7 @@ const MAX_DELTAS = 60
 const MAX_REGIONS = 20
 const MAX_KEYS = 50
 const MAX_PATHS_PER_ASSET = 12
+const MAX_LANDED = 30
 
 /** The parsed evidence, or `undefined` where a file was missing or unreadable. */
 export interface DigestInput {
@@ -51,6 +53,19 @@ export interface DigestInput {
   capture?: unknown
   manifest?: unknown
   page?: unknown
+  /** The reference bundle this iteration measured against. */
+  bundleDir?: string
+  /**
+   * The engine commits that landed AFTER this reference was captured
+   * ([[REQ-272]] part 2, item 3), newest first, one line each.
+   *
+   * Computed by the console because it is the console that has a shell. This is
+   * the arithmetic a round should never pay for: the question "had the fixes I
+   * am measuring already landed when this oracle was taken" cost one observed
+   * round $7.70 and 78 turns to answer, and every input to it — the bundle's own
+   * `capturedAt` and the engine's own log — was on this disk the whole time.
+   */
+  landedSince?: string[]
 }
 
 // ── generic JSON arithmetic ──────────────────────────────────────────────────
@@ -166,6 +181,58 @@ function leadPhrase(side: unknown): string {
   return `${what}${pct}`
 }
 
+/**
+ * WHEN THIS REFERENCE WAS TAKEN, AND WHAT LANDED SINCE ([[REQ-272]] part 2).
+ *
+ * First section of the digest, because it is the one that can invalidate every
+ * section under it. A residual measured against an oracle older than the fix for
+ * it is a fix waiting on a re-capture, not an outstanding gap — and a round that
+ * files it as a gap has filed a ticket for work that is already done.
+ *
+ * `refold` cannot close that window and never will: it re-derives the fold from
+ * the oracle the OLD extractor wrote, so an axis a capture fix added is absent
+ * from it by construction. Only [recapture] moves it, which is why this says so
+ * rather than leaving the round to work it out.
+ *
+ * SAID EVEN WHEN THERE IS NOTHING TO SAY. A bundle with no `capturedAt` gets a
+ * line stating that, because "this reference cannot say when it was taken" is
+ * itself a finding about the instrument and one worth a bug ticket.
+ */
+function referenceSection(input: DigestInput): string[] {
+  const { capturedAt, captureSchema } = provenanceOf(input.capture)
+  const landed = input.landedSince ?? []
+  const out = [
+    '## The reference this round measured against (`capture.json`)',
+    '',
+    input.bundleDir ? `- bundle: \`${input.bundleDir}\`` : '- bundle: _not recorded._',
+    capturedAt
+      ? `- captured at: \`${capturedAt}\``
+      : '- captured at: **this bundle carries no capture time** — it predates the stamp, so nothing can tell how old the oracle under every number below is.',
+    captureSchema === undefined
+      ? '- capture schema: **unstamped** ([[REQ-270]]) — read as schema 1, so any axis the extractor learned to record since is absent from this oracle whatever the fold now does with it.'
+      : `- capture schema: \`${captureSchema}\``,
+    '',
+  ]
+  if (!capturedAt) {
+    out.push('_No capture time, so what landed since it cannot be listed._', '')
+    return out
+  }
+  if (!landed.length) {
+    out.push(
+      'Nothing has landed in the engine since this reference was captured, so every residual below is measured by the instrument that is running now.',
+      '',
+    )
+    return out
+  }
+  out.push(
+    `**${landed.length} commit(s) have landed in the engine since this reference was captured.** A residual below may already be fixed and merely not re-captured: \`1c refold\` re-derives the fold from the oracle this bundle already holds and never re-runs the capture, so a CAPTURE-side fix is invisible here until the operator presses [recapture]. Check the ones that touch what you are about to file before you file it.`,
+    '',
+    bullets(landed, MAX_LANDED, 'read `git log` yourself if you need the tail'),
+    '',
+  )
+  return out
+}
+
 export function buildDigest(input: DigestInput): string {
   const out: string[] = [
     `# Derived facts — iteration ${input.n}`,
@@ -175,6 +242,9 @@ export function buildDigest(input: DigestInput): string {
     'file it came from — the one rule binds this page exactly as hard as it binds the rest of the round.',
     '',
   ]
+
+  // ── the reference's own provenance ─────────────────────────────────────────
+  out.push(...referenceSection(input))
 
   // ── value deltas ───────────────────────────────────────────────────────────
   const deltas = ((input.valuesDiff as { deltas?: unknown })?.deltas ?? []) as Array<Record<string, unknown>>
@@ -318,6 +388,8 @@ export interface WriteDigestOptions {
   n: number
   /** The reference bundle — `capture.json` and `multistate.json` live here. */
   bundleDir: string
+  /** What landed in the engine after this bundle was captured — see {@link DigestInput.landedSince}. */
+  landedSince?: string[]
   /** Where `1c gate` wrote its report, the value deltas and the regions. */
   evidenceDir: string
   /** This iteration's copy of the reproduction's L1 document. */
@@ -335,6 +407,8 @@ export interface WriteDigestOptions {
 export function digestFromDisk(opts: WriteDigestOptions): string {
   return buildDigest({
     n: opts.n,
+    bundleDir: opts.bundleDir,
+    ...(opts.landedSince ? { landedSince: opts.landedSince } : {}),
     gate: readJson(path.join(opts.evidenceDir, 'gate.json')),
     valuesDiff: readJson(path.join(opts.evidenceDir, 'values-diff.json')),
     regions: readJson(path.join(opts.evidenceDir, 'regions.json')),

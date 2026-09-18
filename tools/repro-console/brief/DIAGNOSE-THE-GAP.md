@@ -127,6 +127,27 @@ gate is as real as a defect in the fold and harder to see, because the
 instrument is what you would normally use to look. Check it against the files it
 derived from before you trust it.
 
+### The reference has an age, and it can be older than the fix
+
+`capture.json` carries a `capturedAt` and, since [[REQ-270]], a `captureSchema`.
+Your round's prompt and the digest both open with them, and with the engine
+commits that landed **after** that capture.
+
+Read that section before you file anything. A residual measured against an
+oracle older than the fix for it is **a landed fix waiting on a re-capture**, not
+an outstanding gap — and a ticket filed for it asks an implementer to do work
+that is already done. This is not hypothetical: it cost one round $7.70 and 78
+turns to work out from commit timestamps, which is why the facts are handed to
+you now.
+
+`1c refold` cannot close that window. It re-derives the fold from the oracle the
+bundle already holds, so it picks up a **fold** change and can never pick up a
+**capture** change: the axis a capture fix added is simply not in an oracle the
+old extractor wrote. Only the operator pressing **recapture** moves it. So when
+the evidence points at a capture-side residual and the commits say the fix has
+landed, **say so in your summary and recommend a re-capture** rather than filing
+the residual again.
+
 ---
 
 ## 5. The three classes — your primary mandate

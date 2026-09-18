@@ -229,10 +229,30 @@ const post = (f: Fixture, route: string, body = ''): Promise<Response> =>
 const get = (f: Fixture, route: string): Promise<Response> => fetch(new URL(route, f.handle.url))
 const page = async (f: Fixture): Promise<string> => (await get(f, '/')).text()
 
-/** Press [reproduce] and wait for the whole round — iteration AND diagnosis. */
+/**
+ * Press [reproduce], then press the round's own button, and wait for both.
+ *
+ * TWO PRESSES SINCE [[REQ-272]]. The round used to start from the iteration
+ * finishing; it starts from `[diagnose this]` now, so every test here that is
+ * about what the round DOES has to press it. What those tests assert is
+ * untouched — the round, its evidence, its filing and its checks are the same
+ * ones — which is the point: [[REQ-272]] moved the trigger and nothing else.
+ */
 async function reproduce(f: Fixture, url = 'joyfulculinarycreations.com'): Promise<void> {
   await post(f, '/run', new URLSearchParams({ url }).toString())
   await f.handle.console.settled()
+  await diagnose(f, 1)
+}
+
+/** Press [diagnose this] on one iteration and wait for the round ([[REQ-272]]). */
+async function diagnose(f: Fixture, n: number): Promise<void> {
+  await post(f, `/iteration/${n}/diagnose`)
+  await f.handle.console.settled()
+}
+
+/** Say the implementation landed, which is what lifts the hold ([[REQ-272]]). */
+async function release(f: Fixture): Promise<void> {
+  await post(f, '/release')
 }
 
 /** Poll until `predicate` holds, so a test can read the page mid-round. */
@@ -268,21 +288,27 @@ const FILED = {
 
 describe('REQ-256 the AI round', () => {
   it('test_UAT_FC_REQ_256_the_round_starts_with_the_links_and_streams_its_transcript', async () => {
-    // Behaviours 1 and 2 — the links appearing IS the trigger, and the round's
-    // transcript streams onto the page UNDER that iteration while it works.
-    // Held open so the page can be read mid-round, which is the only state in
-    // which either behaviour is observable.
-    let release = (): void => {}
-    const held = new Promise<void>((resolve) => (release = resolve))
+    // Behaviour 2 — the round's transcript streams onto the page UNDER its
+    // iteration while it works. Held open so the page can be read mid-round,
+    // which is the only state in which that is observable.
+    //
+    // BEHAVIOUR 1 IS [[REQ-272]]'S NOW. It used to read "the links appearing IS
+    // the trigger"; the trigger is `[diagnose this]` since, so the round is
+    // started here by pressing it. What behaviour 2 asserts is untouched, which
+    // is the whole of that change: the trigger moved and the round did not.
+    let finish = (): void => {}
+    const held = new Promise<void>((resolve) => (finish = resolve))
     const log: AiLog = { prompts: [], calls: 0 }
     const f = await startConsole({
       ai: fakeAi(log, FILED, ['reading gate.json', '→ Read values-diff.json'], () => held),
     })
 
     await post(f, '/run', new URLSearchParams({ url: 'joyfulculinarycreations.com' }).toString())
+    await f.handle.console.settled()
+    await post(f, '/iteration/1/diagnose')
 
     // The iteration is on the page — with its links — while the round is still
-    // talking. No button started it.
+    // talking.
     const live = await until(
       () => pollState(f),
       (state) => state.live !== null,
@@ -298,7 +324,7 @@ describe('REQ-256 the AI round', () => {
     expect(during).toContain('id="ai-transcript-1"')
     expect(during).toContain('diagnosing…')
 
-    release()
+    finish()
     await f.handle.console.settled()
 
     // …and the finished round's transcript is rendered from its own file, so it
@@ -400,8 +426,12 @@ describe('REQ-256 the AI round', () => {
     expect(log.prompts[0]).toContain('none yet')
 
     outcome = { ...FILED, status: 'appended' }
+    // Round 1 filed, so the loop is held until the operator says the fix landed
+    // ([[REQ-272]] part 1, behaviour 3).
+    await release(f)
     await post(f, '/run-again')
     await f.handle.console.settled()
+    await diagnose(f, 2)
 
     // Round 2 was handed the class and its ticket, and told to append to it.
     expect(log.prompts[1]).toContain('fold-drops-gradient-direction')
@@ -672,6 +702,7 @@ describe('REQ-256 the AI round', () => {
     await reproduce(f)
     await post(f, '/run-again')
     await handle.console.settled()
+    await diagnose(f, 2)
 
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 2</h2>')
