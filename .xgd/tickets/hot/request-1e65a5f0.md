@@ -6,10 +6,10 @@ title: 'values-diff: one projection over both sides — retire the asymmetric-ax
   as a category'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:18.860464+00:00'
-updated_at: '2026-09-18T23:40:46.580611+00:00'
+updated_at: '2026-09-18T23:41:19.546483+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
