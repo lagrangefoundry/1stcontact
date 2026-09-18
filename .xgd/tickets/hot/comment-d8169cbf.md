@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:09:26.628144+00:00'
+updated_at: '2026-09-18T23:12:19.949385+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -623,5 +623,56 @@ So the honest framing: **the turn is terminated, not completed. <-- terminated w
 <!-- xgd-chat role="user" ts="2026-09-18T23:09:24.704639+00:00" -->
 #### You
 So the honest framing: **the turn is terminated, not completed. <-- terminated would be one thing, my prompt and the partial response I saw were lost too - much more serious. **
+
+<!-- xgd-turn id="9111ac2a-c5ac-4dce-8e87-c9b9eb4d1b41-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:12:19.112159+00:00" -->
+#### Claude
+You're right, and that's a sharper and more serious claim than the one I made. Let me check it properly — because BUG-46's whole point was that the record survives the client walking away.
+
+You're right, and the evidence is worse than either of us said. I have the timeline.
+
+You're right. I understated it, and the store shows exactly how much.
+
+## The timeline
+
+| | |
+|---|---|
+| last message in the chat transcript | **22:18:34** |
+| last tool record | **22:24:12** |
+| both artifacts written | **22:24:46** |
+
+Nearly **six minutes** of turn ran in that gap. At 22:24:46 the `tool_transcript` grew to 350,925 bytes. The `chat_transcript` went from **version 20 to 21 and gained nothing** — no user turn, no partial reply.
+
+And the work wasn't trivial. The tail of the tool transcript is a `record_decision` against your engagement ledger, carrying a real decision about the site's recursion diagram, returning `{"entries": 6, "title": "Lagrange Foundry — initial website build"}`.
+
+**So your ledger now records a decision the transcript has no memory of anyone making.**
+
+## Why the halves behave differently
+
+They're written by two mechanisms with two durability properties, and nothing makes them agree:
+
+- **Tool records are append-only and land as they happen.** `_applyTools` says so: *"`append_body` rather than a read-modify-write: the artifact is append-only… there is no version to lose a race on."*
+- **The prose transcript is a read-modify-write folded from the junction**, and the junction is RAM. BUG-46's `ctx.waitUntil` drain *did* run — `ctx` is correctly supplied at the one call site — but it folded against a junction that no longer held the records. Version bump, no content. That's the signature.
+
+BUG-46 anticipated the hole. What it didn't anticipate is that losing the junction **doesn't lose the turn — it loses the half without consequences.**
+
+## Why this is the more serious claim
+
+Stopping work when the client leaves is a policy you can argue about. Committing the work and discarding the conversation isn't a policy, it's divergence:
+
+- **The assistant's memory is now wrong.** Next turn it loads the transcript and can't see the decision it recorded. It'll re-ask or contradict itself, in front of the client.
+- **You have no account of a change you can see.** The counter moved, the pane re-rendered, the transcript explains nothing.
+- **You lost your own words**, not just the reply.
+- **It's silent** — no error, no gap marker.
+
+Filed as **BUG-121**, with items ordered so the integrity fix doesn't wait on the big one:
+
+1. The prose record must be at least as durable as the tool record — both append-as-it-happens, or neither.
+2. Fold the user's message before calling the model.
+3. An interrupted turn must say it was interrupted.
+4. *Then* the policy question — running to completion — which needs the Durable Object and durable junction, with `tailSession` already built for the reattach.
+
+**1–3 should land before the DO work**, because the integrity defect doesn't go away once turns run to completion: a turn can still fail, and its two halves must still agree. EPIC-19's Finding 4 is corrected to match.
 
 <!-- xgd-chat-end -->
