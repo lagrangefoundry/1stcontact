@@ -235,11 +235,12 @@ xgd ticket create --type request \
 falls back to `git config user.email` — the operator's identity on the checkout
 you happen to be running in — so a ticket you wrote unattended arrives claiming
 a human wrote it. That is the one place this round's authority is invisible in
-the ticket store, and it is invisible in the direction that matters. Take
-`<slug>` and `<iteration>` from **This round** below: for iteration 3 of
-`joyfulculinarycreations` the value is `repro-console:joyfulculinarycreations#3`.
-The console reads every ticket you name back and reports a ticket that does not
-carry it.
+the ticket store, and it is invisible in the direction that matters. The form is
+`repro-console:<slug>#<iteration>` — for iteration 3 of
+`joyfulculinarycreations`, `repro-console:joyfulculinarycreations#3` — and **the
+literal value for this round is written out for you** under "The ticket store"
+below. Copy it; do not assemble it. The console reads every ticket you name back
+and reports a ticket that does not carry it.
 
 Use `--body-file`, not `--body`. The body is multi-line markdown quoting values
 out of JSON, and passing that as one argument makes its correctness a question

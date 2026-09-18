@@ -6,7 +6,7 @@ title: The reproduction engine and the loop-1 session — the diagnosing session
   base
 created_by: REQ-261
 created_at: '2026-09-16T20:55:42.661492+00:00'
-updated_at: '2026-09-17T01:19:54.651235+00:00'
+updated_at: '2026-09-18T00:50:34.219670+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -14,6 +14,7 @@ fields:
   doc_kind: architecture
   epic_parent: epic-bf282b3d
 ---
+
 
 **Audience: the loop-1 diagnosing session, not the builder AI.** This document
 carries `doc_kind: architecture`, so `exportCorpus` excludes it from the
@@ -210,10 +211,14 @@ network is still denied by name — [[REQ-256]] behaviour 3, as narrowed by
   rule of the form `Bash(xgd ticket get:*)` admits `Bash` wholesale and does not
   enforce the prefix. So the round holds a real shell: "it writes no code" is an
   instruction it is expected to keep, not a wall it cannot cross. Keep it.
-- **Never create a ticket at a `ready_*` status.** That is a dispatcher trigger
-  — it spawns an autonomous pipeline against the ticket within about thirty
-  seconds. Gap tickets are handed to the console, which files them at
-  `status: draft`, and that remains the route.
+- **The round files its own tickets, at `status: draft`, and never at a
+  `ready_*` status.** A `ready_*` status is a dispatcher trigger — it spawns an
+  autonomous pipeline against the ticket within about thirty seconds, before
+  anybody has read it. The console files nothing ([[REQ-262]] D10 deleted the
+  relay); it reads every ticket the round names back and reports one whose
+  status or `created_by` is wrong. Pass `--created-by
+  'repro-console:<slug>#<iteration>'` — the round's prompt writes the literal
+  value out for this round ([[BUG-108]]).
 - A 4,000-line `multistate.json` is far cheaper to grep than to read. Grep
   first, read only the region you need.
 - **The browser-backed verbs need one flag here.** `1c gate`, `1c diff`,
@@ -242,7 +247,8 @@ network is still denied by name — [[REQ-256]] behaviour 3, as narrowed by
 - **Bugs, separately, for anything else it trips over** — in L1, in this
   document or the standing brief, or anywhere in the broader `1c`
   implementation. These are not folded into the gap ticket. They are their own
-  tickets, filed by the console, at `status: draft`.
+  tickets, filed by the round itself at `status: draft`, and their ids go in
+  `bugTickets` in the closing block.
 
 **What a round must never do.** Diagnose the site rather than the engine. A
 residual is a serializer bug, a missing L1 axis, a missing capture hint, or a
@@ -314,8 +320,10 @@ grepping the store, which worked and should not be repeated: the on-disk layout
 is xgd's own business, and a round that reads it by path is coupled to an
 internal it does not own and will break silently when it moves.
 
-Writing stays the console's. A round hands back its gap ticket and the console
-files it at `status: draft`.
+Writing is the round's too. It runs `xgd ticket create` itself, at
+`status: draft`, carrying `--created-by 'repro-console:<slug>#<iteration>'`; the
+console reads the result back rather than filing on its behalf ([[REQ-262]] D10,
+[[BUG-108]]).
 
 ## 4. Related
 
