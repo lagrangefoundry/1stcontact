@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:07:14.845830+00:00'
+updated_at: '2026-09-18T03:13:47.054533+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -969,5 +969,21 @@ The key here should be that we separate configuration capture from action. This 
 I think the right user experience is that the user should configure everything once, before we make any changes. Then we tell them when everything has been done. How we implement everything under the covers and in what order is up to us.
 
 So it would go something like this:
+
+<!-- xgd-turn id="3939e467-66b1-4094-b53f-d0c18f3d5b7b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:13:46.642042+00:00" -->
+#### You
+ok so the question that I want to talk through next is a UX one - lets ignore the data structures underneith for a second and discuss the user experience of domain transfer - this is harrowing for a non-technical user and we want to make it simple.
+
+The key here should be that we separate configuration capture from action. This is inherently an asynchronous execution environment. We have DNS propagation to deal with so let's not get excited about what our data model can support it actually doesn't matter we can support all kinds of things what we're talking about is the user experience.
+
+I think the right user experience is that the user should configure everything once, before we make any changes. Then we tell them when everything has been done. How we implement everything under the covers and in what order is up to us.
+
+So it would go something like this:
+1. Web address to transfer: mysite.com
+2. AI checks it: I see you bought it on Godady but DreamHost is managing it I can walk you through that transfer, before I do lets check on a few details - I see you have email forwarding configured. I assume you want to keep that? You will need to configure it here [get user to configure email settings - provide instructions to help them look up the settings with the forwarder if they can't remember] - great we have everything we need to start...[transfer flow]...ok it could take some time for the change to propagate through the internet - we will send you an mail notification when everything is up and running...."
+3. Question/assumption: The email we send to confirm this should be a notification from 1st Contact so to their direct gmail address so that the DNS config cannot break it if it goes wrong
+4. Notification message should confirm that we have checked and all looks good and give them instructions to test the new forwarding
 
 <!-- xgd-chat-end -->
