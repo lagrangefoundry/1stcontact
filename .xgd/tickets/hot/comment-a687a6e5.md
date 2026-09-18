@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:22:07.368656+00:00'
+updated_at: '2026-09-18T03:23:24.355336+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1069,5 +1069,11 @@ Two document changes, no branch needed:
 - **EPIC-5** — the ordering amendment, since yours contradicts what's recorded there, plus RDAP and DNSSEC promoted out of the chat comment into the body with the `.co.uk` result.
 
 The second touches another epic and this session is scoped to EPIC-13 — do you want me to edit EPIC-5's body directly, or leave it as a comment there for its own session to absorb?
+
+<!-- xgd-turn id="725ca37c-4c32-4261-8d81-dabe2fa5d5a1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:23:24.078131+00:00" -->
+#### You
+It flagged `.co.uk` as *"likely your most common customer TLD"* <-- that's SO not ttrue and keeps coming up - could you find where is says that and fix it - it is a POSSIBLE domain to worry about unlikely to be the most common
 
 <!-- xgd-chat-end -->
