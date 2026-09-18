@@ -6,15 +6,16 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-18T23:42:27.052918+00:00'
+updated_at: '2026-09-18T23:58:40.518298+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
 ---
+
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18: *"the consultant and I are lacking a
 common frame of reference for assets."*
@@ -69,17 +70,40 @@ book. It is the wrong LABEL to put in front of anyone.
 `kind` is already a field on the row and already declared on the surface. The
 number is `human_id`'s, unchanged.
 
-**Why reuse the number rather than mint a per-kind sequence.** No second counter
-and no migration; the number stays globally unique across kinds, so `IMAGE-12` and
-`DOC-12` can never both exist and the prefix is a readability aid rather than
-load-bearing; `MATERIAL-12` stays recoverable for anyone debugging, because it is
-the same number; and a re-classified item is relabelled without being renumbered.
+**Dense per-kind numbering, decided 2026-09-18.** The operator's preference was
+`IMAGE-1, IMAGE-2` and the two objections that would have blocked it both fail on
+inspection, so it is the decision rather than the fallback.
 
-**The cost, stated so it is chosen rather than discovered.** Per-kind numbering is
-not dense — a Library holding 13 images and 9 documents shows `IMAGE-3`,
-`IMAGE-6`, `IMAGE-13`, not `IMAGE-1..13`. Catalogue and invoice numbers behave
-this way and it reads as normal; if dense numbering is wanted instead, that is a
-second counter and a migration, and it should be decided here rather than later.
+- **It needs no schema change.** `counters` is already
+  `PRIMARY KEY (tenant_id, type)`, so a per-kind counter is another key in the
+  same table (`material:image`) rather than a new mechanism.
+- **Reclassification cannot break a reference.** `kind` is assigned once at
+  ingest, from the classification of the uploaded bytes
+  (`apps/control-app/src/material.ts:660`), and no route mutates it afterwards.
+  So a label is never renumbered under a client who has already said it out loud.
+  This is the objection that would have forced the sparse scheme, and it does not
+  hold.
+
+**The accepted cost:** the client-facing number no longer matches the ticket's own
+`human_id` — `IMAGE-3` may be `MATERIAL-9`. That is a debugging inconvenience and
+nothing more: the catalogue item carries both, and the uid is still the machine
+handle every other surface takes. Anyone reading D1 directly can join them.
+
+**If that divergence later proves worse than the density is worth**, the fallback
+is to label with the kind over `human_id`'s existing number — sparse
+(`IMAGE-3, IMAGE-6, IMAGE-13`) but exactly recoverable. Recorded so the choice is
+legible rather than rediscovered.
+
+## The numbering is per tenant, and must stay that way
+
+`counters` keys on `(tenant_id, type)`, and three businesses in the local store
+each hold their own `MATERIAL-1`. Every client's catalogue therefore starts at 1.
+
+**That is load-bearing, not cosmetic.** A globally sequenced label would tell one
+client how much material every other client has uploaded — an information leak
+across the tenant barrier, in a string the consultant is now cleared to say out
+loud. The per-kind counter inherits this by staying in the same table with the
+same tenant-scoped key; a counter keyed on kind alone would break it.
 
 ## It has to land in three places, or it is not a shared frame
 
