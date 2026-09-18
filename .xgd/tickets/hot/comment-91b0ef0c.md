@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T02:27:47.240248+00:00'
+updated_at: '2026-09-18T21:11:50.674502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -769,5 +769,11 @@ Two notes on the state of things:
 **The rail still has no baseline.** `./bin/repro-rail record` is an operator action and I haven't run it — BUG-114 changes how the absence is *reported*, not the fact that it's unarmed. Worth doing before the next round either way.
 
 The probe script that produced the overlap evidence is at `.xgd/tmp/widthprobe2.mjs` — whoever picks up BUG-112 can re-run it to see the five collisions before and zero after.
+
+<!-- xgd-turn id="b415c41a-ba6e-43ce-a522-1440c0260205-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T21:11:50.417392+00:00" -->
+#### You
+Can you review the state of your children and remind me where we are - I would like to proceed with another iteration on Gigabyte Alchemy if we are ready...I am expecting that the overlap problem will be fixed this next time, right?
 
 <!-- xgd-chat-end -->
