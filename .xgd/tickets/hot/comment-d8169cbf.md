@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:23:25.787800+00:00'
+updated_at: '2026-09-18T23:25:08.149434+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -680,5 +680,51 @@ Filed as **BUG-121**, with items ordered so the integrity fix doesn't wait on th
 <!-- xgd-chat role="user" ts="2026-09-18T23:23:25.250855+00:00" -->
 #### You
 ok so the consultant (we should use that word instead of assistant) and I are lacking a common frame of reference for assets. I am thinking that if we just expose the ticket ID (human readable) on the library item list that would do it - I assume the AI has access to that?
+
+<!-- xgd-turn id="c357bba7-a478-497e-885e-dc64a063d6b0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:25:06.866583+00:00" -->
+#### Claude
+Noted — consultant from here on.
+
+**No — and that's the crux of it.** Neither of you can see it today.
+
+## What each of you actually sees
+
+**The consultant's handle is the uid.** `storedImageOf` (`material.ts:1396`) sets `name: row.uid`, so `list_library` returns `item: "material-bd70d8d9"`. The `catalogue_item` shape carries `item`, `title`, `filename`, `kind`, `role`, `rights`, `placed_on`… and no human id.
+
+**You never see the uid.** `library.js:527` renders `row.title || row.filename`, and the search filter is `${row.title} ${row.filename}`. The uid is used internally and never displayed.
+
+So the only thing you currently share is *title and filename* — which is precisely the ambiguous thing.
+
+## Your own Library proves the point
+
+```
+material-3328dff9 | MATERIAL-3 | A crucible of molten metal leaning forward to …
+material-de9ac4ed | MATERIAL-4 | A crucible of molten metal leaning forward to …
+material-bd70d8d9 | MATERIAL-5 | A crucible of molten metal leaning forward to …
+```
+
+Three generated variants with **identical titles**. You see three rows that read the same; the consultant sees three opaque uids. Neither of you can say "that one".
+
+## So the list alone won't do it
+
+It needs to land in three places to become a shared frame:
+
+1. **The catalogue item** — project `human_id` into `catalogueItem`/`itemView`, so the consultant reads it.
+2. **The Library row** — show it beside the title, so you read it.
+3. **As an input** — so you can type "MATERIAL-5" and the consultant resolves it. This is the cheap one: `StoredImage.aliases` already exists and `haystack` already searches `name`, `title`, `filename` and `aliases`, so adding the human id to aliases makes the consultant's own filter match it with almost no new code.
+
+(3) is what makes it a *common* frame rather than two parallel labels — the reference has to work in both directions.
+
+**One caution:** don't swap the uid out. `library.ts:55` is explicit that `name` is the single projection shared with `screenshot` and `edit_image` — *"Writing `name: row.uid` here instead would be the drift in miniature."* Changing the handle would mean migrating stored edit recipes and any persisted reference. Add a display id; keep the uid as the machine handle.
+
+## One decision I need from you
+
+Your priming tells the consultant: *"If you ever find yourself naming a framework concept in a message to your client, you have already lost them."* Is `MATERIAL-5` operator scaffolding, or may the consultant say it to a real client?
+
+I'd lean **client-facing** — a catalogue number is how a gallery or a print shop talks, and "the crucible, MATERIAL-5" is clearer than three identical titles. But it's a genuine call, and it decides whether this is a debug affordance or part of how consultations run.
+
+Tell me which and I'll file it — it's a small, well-bounded REQ.
 
 <!-- xgd-chat-end -->
