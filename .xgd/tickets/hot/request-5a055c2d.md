@@ -6,9 +6,9 @@ title: 'repro console: a round says what KIND of thing it found — instrument d
   or capability gap'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:26.883729+00:00'
-updated_at: '2026-09-18T23:41:58.387979+00:00'
+updated_at: '2026-09-18T23:42:03.733706+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
