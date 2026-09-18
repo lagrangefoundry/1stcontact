@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:39:50.021228+00:00'
+updated_at: '2026-09-18T02:40:26.692621+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -795,5 +795,24 @@ So the split is: **Resend generates and verifies, Cloudflare publishes.** Two cr
 <!-- xgd-chat role="user" ts="2026-09-18T02:39:49.844911+00:00" -->
 #### You
 I restarted the server - do I need to sign in again: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-37872'.
+
+<!-- xgd-turn id="9eb2c15b-5e39-4724-a3c6-bf7ac6f1692b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:40:25.699280+00:00" -->
+#### Claude
+Yes — sign in again at **http://127.0.0.1:8799/login**. This is expected after restarting the sim, not a broken state.
+
+I confirmed it directly: the running `access-sim` is publishing `kid: local-dev-48849`, and your cookie is signed by `local-dev-37872`. Different process.
+
+`bin/access-sim:149` sets `const KID = \`local-dev-${process.pid}\``, and the keypair is **generated at boot and held in memory only**. So when you restarted, pid 37872's private key ceased to exist — there is no key anywhere that can validate your old cookie. The Worker fetched the JWKS, found only the new key, and said so.
+
+The pid-in-the-kid is deliberate and does solve a real problem, just the mirror image of yours: `access.ts` caches the JWKS for an hour but force-refreshes on a `kid` it hasn't seen, so a **new** cookie against a **stale** cache works immediately instead of failing for up to an hour. It can't do anything for an old cookie against a new key — the key is simply gone.
+
+Two practical notes:
+
+- **Any restart of `access-sim` invalidates every existing session.** Restarting only `wrangler dev` does not — the sim keeps its pid and your cookie stays good. So if you're iterating on Worker code, restart wrangler alone and you'll stay signed in.
+- Your 30-day token lifetime is unrelated here. That's set long precisely so a session doesn't expire mid-sitting (BUG-52 was misdiagnosed through that confusion) — this is a key rotation, not an expiry.
+
+Signing in again gets you a cookie signed by 48849 and you're back. It won't change the Resend toggle, though — that's the separate credential question from before.
 
 <!-- xgd-chat-end -->
