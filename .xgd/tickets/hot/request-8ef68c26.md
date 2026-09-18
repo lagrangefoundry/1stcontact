@@ -6,10 +6,10 @@ title: 'The activity log: a raw server-side event store, and session summaries o
   the contact timeline'
 created_by: EPIC-10
 created_at: '2026-09-13T21:15:53.631580+00:00'
-updated_at: '2026-09-18T02:23:52.057297+00:00'
+updated_at: '2026-09-18T02:24:32.667990+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-0aefcf91
@@ -18,6 +18,17 @@ fields:
   chat_comment: comment-08a450b2
   depends_on:
   - request-042df82b
+  commits:
+  - working_sha: 36f33e2b47c64823a85965c57e3212526ff31d14
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 64a47dd620b3d44a212b38bc91f558078f1fd722
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8cc50f29d38109f7d4563b248c9dec7469306cab
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.253
 ---
 
 # The activity log
