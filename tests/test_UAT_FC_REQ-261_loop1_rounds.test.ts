@@ -394,7 +394,11 @@ describe('REQ-261 a round files bugs beside its gap ticket', () => {
     const prompt = log.prompts[0]
     expect(prompt).toContain('Deferring is losing')
     expect(prompt).toMatch(/not bounded|no size limit|no bound/i)
-    expect(prompt).toContain('`bugs`')
+    // [[BUG-108]]: this used to assert `` `bugs` ``, which was satisfied only by
+    // the round context's "hand it back in `bugs`" — naming a field the closing
+    // block has never had. The list the round really reports into is
+    // `bugTickets`, and it holds ids of tickets the round filed itself.
+    expect(prompt).toContain('`bugTickets`')
     // …and it is an artifact of the round, like everything else here.
     expect(readFileSync(path.join(roundDir(f), AI_PROMPT_FILE), 'utf8')).toContain('Deferring is losing')
   })

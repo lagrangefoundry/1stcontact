@@ -2,9 +2,9 @@
  * The AI round (REQ-256).
  *
  * One iteration of loop 1 ([[EPIC-12]] §7.1): an AI process reads the evidence
- * a reproduction left on disk, names what the ENGINE cannot yet do, and hands
- * back a gap ticket. It writes no code — the console files the ticket, the
- * operator free-codes it in the ordinary way, and [run again] re-runs the
+ * a reproduction left on disk, names what the ENGINE cannot yet do, and files a
+ * gap ticket. It writes no code — it files the ticket itself ([[REQ-262]] D10),
+ * the operator free-codes it in the ordinary way, and [run again] re-runs the
  * reproduction with whatever has landed since.
  *
  * THE ROUND READS, AND RUNS `xgd`. Everything that can write a file, reach the
@@ -24,10 +24,12 @@
  * there is no narrow version of that grant to make. So behaviour 3 is NARROWED
  * here, deliberately and by the operator, rather than upheld.
  *
- * THE DELIVERABLE IS STILL THE TICKET'S CONTENT, and the console is still what
- * files it. That is no longer forced by the round's
- * inability to run a command, so it is asserted instead: behaviour 4's "never at
- * a `ready_*` status" is checked after every round by
+ * THE DELIVERABLE IS STILL THE TICKET'S CONTENT — but the ROUND now files it
+ * and the console reads it back ([[REQ-262]] D10; the relay `fileTicket` and
+ * `appendGapEvidence` are gone, see `ticket.ts`). So `status: draft` stopped
+ * being structural: it used to be a field the console wrote, and is now an
+ * instruction a round can get wrong. It is asserted instead: behaviour 4's
+ * "never at a `ready_*` status" is checked after every round by
  * {@link readyStatusViolations} ([[REQ-262]] requirement 11), because a
  * `ready_*` status is a dispatcher trigger and the one mistake here that spends
  * real money while nobody is watching.
@@ -45,6 +47,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import type { GapEntry } from './gaps'
 import { INDEX_FILE, type SessionKbResult } from './session-kb'
+import { ROUND_CREATED_BY } from './ticket'
 import type { RailRoundResult } from './rail-round'
 
 /** How a round ended. `running` is the console's, never the AI's. */
@@ -375,7 +378,9 @@ You have \`Bash\`, and it is there so you can run \`xgd\`. Use it: \`xgd ticket 
 
 Read the store through \`xgd\`, never by path — \`.xgd/\`'s layout is xgd's own business and will move.
 
-**You still do not file.** You hand the ticket back and the console creates it at \`status: draft\`. Never create one yourself, and never at a \`ready_*\` status: that is a dispatcher trigger and it spawns an autonomous pipeline against your ticket within about thirty seconds.
+**You file. Nothing is handed back to be filed for you** — see the brief §6 for the command and §7 for how you report what you made. Create at \`status: draft\`, and **never at a \`ready_*\` status**: that is a dispatcher trigger and it spawns an autonomous pipeline against your ticket within about thirty seconds, before anybody has read it. The console checks every ticket you name after you finish.
+
+**The \`--created-by\` for this round is \`${ROUND_CREATED_BY}:${ctx.slug}#${ctx.n}\`.** Pass it to every \`xgd ticket create\` you run, verbatim. Without it \`xgd\` falls back to the operator's git identity and your ticket arrives claiming a human wrote it; the console reads it back and reports the ticket that does not carry it.
 
 ## The regression rail
 
@@ -389,11 +394,11 @@ ${gaps}
 
 ---
 
-## What you hand back
+## What you produce
 
 **One gap ticket, and it is not bounded.** If you found five related residuals, the ticket describes five. Do not defer a finding to "a later round": a later round starts from your absence and will never know you saw it. Deferring is losing.
 
-**Anything else you tripped over goes back as a bug.** A defect in L1, in your own brief, in this console, anywhere in \`1c\` that is not a gap in the reproduction engine — hand it back in \`bugs\`, to the same standard of evidence, and the console files each one separately at \`draft\`. That list is independent of your status: a round that found no engine gap may still have found a bug.
+**Anything else you tripped over is its own bug ticket.** A defect in L1, in your own brief, in this console, anywhere in \`1c\` that is not a gap in the reproduction engine — file it separately as a \`bug\`, at \`draft\`, with the same \`--created-by\` and to the same standard of evidence, and **name its id in \`bugTickets\`** in your closing block. Never fold one into the gap ticket. That list is independent of your status: a round that found no engine gap may still have found a bug.
 
 Now do the round. Finish with the JSON block described in §7 of the brief, and nothing after it.
 `
