@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:09:34.942331+00:00'
+updated_at: '2026-09-18T02:34:42.223543+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -757,5 +757,11 @@ There are exactly two ways to get there, and they're indistinguishable in the me
 **How to tell for certain on the deployed side:** `bin/deploy` now probes this and writes a capability row for `RESEND_API_KEY` — `works, but only for SENDING` is the exact line for cause 2. The report is per-run, so it's the next deploy's output rather than something I can read now. `npx wrangler secret list` from `apps/control-app` will tell you whether the secret is present, though not its scope.
 
 Nothing here is a defect and nothing needs changing — REQ-264 is `free_coded` and this is its intended behaviour. The only open question is which cause applies to the surface you're looking at.
+
+<!-- xgd-turn id="3da39539-1ad5-4f0f-a6f3-b103f3e1018c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:34:40.430663+00:00" -->
+#### You
+Surely the domain is owned by Cloudflare why dopes resend need credentials to change domain
 
 <!-- xgd-chat-end -->
