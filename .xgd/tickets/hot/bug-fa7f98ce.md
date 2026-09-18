@@ -6,9 +6,9 @@ title: 'repro console: the round prompt says both "you file the ticket yourself"
   "you never file"'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:30:26.217135+00:00'
-updated_at: '2026-09-18T00:46:15.617663+00:00'
+updated_at: '2026-09-18T00:46:16.143967+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -90,3 +90,85 @@ grep -n "file yourself\|still do not file\|the console creates it\|console files
 
 **Wrong result (now):** both instructions are present in one prompt.
 **Right result (fixed):** only one of them is.
+
+
+---
+
+## Decision: the round files. The console reads back.
+
+Resolved in favour of the standing brief, on three grounds — the first of which
+is decisive on its own:
+
+1. **It is what the code already does.** `tools/repro-console/src/ticket.ts`'s
+   header records the change outright: *"IT NO LONGER CREATES ANY … `fileTicket`,
+   `appendGapEvidence` and `parseTicketRef` went with that change: a relay with
+   nothing on the far end is worse than no relay, because it looks like it is
+   doing something."* `console.ts`'s `confirm` reads every reported id back and
+   records the status it really carries. There is no filing path left in the
+   console to route a hand-back into.
+2. **The console could not file even if told to.** §7's block is the round's only
+   channel and carries `status`, `residualClass`, `ticketId`, `summary`,
+   `bugTickets` — ids, not bodies. A hand-back has nowhere to put the ticket.
+3. **`--created-by` only works from the round.** `wrongProvenance` in
+   `console.ts` reports any ticket whose `created_by` does not start with
+   `repro-console:`; a console-filed ticket would carry the console's identity,
+   which is the check's own failure case.
+
+So the stale half is deleted, in all three sources.
+
+## Scope of the fix
+
+**`tools/repro-console/src/ai.ts` — the round context appended beneath the brief**
+
+- *The ticket store*: the "**You still do not file**" paragraph is replaced by
+  one that says the round files, at `status: draft`, never at `ready_*`. The
+  `ready_*` warning is the load-bearing half of that paragraph and is kept
+  verbatim in substance — it is the one mistake that spends money unattended.
+- The paragraph also now states **this round's literal `--created-by` value**
+  (`repro-console:<slug>#<n>`, interpolated), rather than leaving the round to
+  assemble it from the slug and iteration stated elsewhere in the context. This
+  is a technical consequence of choosing "the round files": `wrongProvenance`
+  checks a string the round types by hand, and a value handed over whole cannot
+  be mis-assembled. The brief §6 keeps the general form and the reason.
+- *What you hand back* → *What you produce*: bugs are tickets the round files
+  itself and **names** in `bugTickets`, not bodies it hands over. The heading
+  changes because "hand back" is the framing that carried the error.
+- The module header's two stale claims — line 6's "the console files the
+  ticket" and the "THE DELIVERABLE IS STILL THE TICKET'S CONTENT, and the
+  console is still what files it" paragraph — are corrected to match
+  `ticket.ts` and `console.ts`.
+
+**`tests/test_UAT_FC_REQ-262_session_priming.test.ts`**
+
+`test_UAT_FC_REQ_262_the_prompt_sends_the_round_to_xgd_and_warns_off_ready_statuses`
+asserts `/You still do not file/i`. That assertion is what kept the contradiction
+alive — it pinned the wrong half. It is replaced by an assertion of the corrected
+instruction, keeping every other assertion in that test untouched.
+
+**New UAT — `tests/test_UAT_FC_BUG-108_round_files_its_own_ticket.test.ts`**
+
+Asserts against the one string the round actually reads (brief + round context,
+as `buildPrompt` joins them):
+
+- the prompt tells the round to file, exactly once and in one direction;
+- no hand-back instruction survives anywhere in it — the phrases that made the
+  two halves contradict are absent;
+- the `ready_*` warning survives the edit;
+- the literal `--created-by` value for the round is present in the prompt.
+
+**DOC-53 §2 and §3.3** — the knowledge base the round is handed carries the same
+stale instruction, so a round that reads the KB meets the contradiction again
+from the other side. Corrected in the same cycle. (Doc-ticket change; no code.)
+
+## How to know it is fixed
+
+```
+cd /Users/martin/lagrangefoundry/1stcontact
+npm test -- tests/test_UAT_FC_BUG-108_round_files_its_own_ticket.test.ts \
+            tests/test_UAT_FC_REQ-262_session_priming.test.ts
+```
+
+**Wrong result (before):** the prompt contains both "Your deliverable is a ticket
+you file yourself" and "You still do not file".
+**Right result (after):** only the first, and `bugTickets` is described as a list
+of ids the round filed.
