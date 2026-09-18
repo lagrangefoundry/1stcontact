@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T21:42:45.318552+00:00'
+updated_at: '2026-09-18T22:27:42.537910+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -945,5 +945,13 @@ Its "2 genuine L1 capability gaps" now has a named third: BUG-113 measured the r
 3. Tell EPIC-19 not to file the ruler-first bundle — items 1–2 are done and the ticket would re-open closed work. The capture-completeness audit is the one worth filing, and it belongs under EPIC-12 with the rest of the instrument, not under EPIC-19.
 
 Want me to scope the capture-completeness audit onto EPIC-12 — you'd need to say so, since this session won't open a ticket otherwise — or reply to EPIC-19 first with the branch state so it can re-read against what's built?
+
+<!-- xgd-turn id="c6290945-e141-4f65-a697-2314a5c2001a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T22:27:42.382046+00:00" -->
+#### You
+This is your space EPIC-19 has plenty to do - can you pick up all the proposed improvements please and create new child tickets for all of them
+
+Your recapture vs reproduce is a little confusing - I have been hitting [Run Again] - the other two buttons are positioned at the top of the growing page and look like essentially restarts - [Run Again] looks like the continuation, no?
 
 <!-- xgd-chat-end -->
