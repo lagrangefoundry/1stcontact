@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T19:48:07.441524+00:00'
+updated_at: '2026-09-18T20:33:35.614107+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -200,5 +200,14 @@ It isn't just this site. `1stcontact` (`chat-5c9fd79b`, 3,666 B) and `xgd` are o
 Both are in the epic body.
 
 Two things I'd want from you before touching anything: this is your **local dev D1** — I haven't looked at production, and I can't reach it from here, so it's worth checking whether the deployed sites have the same orphaning. And the repair is a write to your data, so say the word and I'll do Lagrange Foundry first, one site, so you can eyeball the result before I touch the other three.
+
+<!-- xgd-turn id="092b5873-436c-4f07-a959-155a5e832f90-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T20:33:35.438202+00:00" -->
+#### You
+Keys should always be fixed independent and usually SHAs. Can you create a ticket to fix this please I think I need:
+(1) ensure that the data model has an immutable (non-data) key for business and sites
+(2) update the code to use that key rather than the site name
+(3) fix the any prod data that would be confused by this
 
 <!-- xgd-chat-end -->
