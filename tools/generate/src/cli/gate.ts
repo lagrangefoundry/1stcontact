@@ -48,7 +48,7 @@ import type {
 } from './capture'
 import { cmdDiff } from './perceptual'
 import type { PerceptualDiffReport } from './perceptual'
-import { cmdValuesDiff } from './fidelity'
+import { runValuesDiff } from './fidelity'
 import { cmdL1Gate } from './repro'
 import type { L1GateResult } from './repro'
 import type { GlobalOptions } from './commands'
@@ -194,14 +194,12 @@ export async function cmdGate(opts: GateOptions): Promise<GateReport> {
   const out = opts.out ? path.resolve(opts.out) : undefined
   if (out) ensureDir(out)
 
-  const perceptual = await cmdDiff({
-    ...opts,
-    ref: opts.ref,
-    actualImagePath: opts.actualImagePath,
-    out,
-    actualOut: out ? path.join(out, 'actual.png') : undefined,
-  })
-  const values = await cmdValuesDiff({
+  // BUG-99 — THE VALUE EYE RUNS FIRST, and the order is load-bearing now rather
+  // than incidental. Its two manifests are the only place per-element geometry
+  // exists, and they are what lets each perceptual region name the nodes under
+  // it instead of pointing at a crop. Nothing else about either eye changed:
+  // each still does its own render → serve → read, exactly as its own verb does.
+  const values = await runValuesDiff({
     ...opts,
     refBundleDir: opts.ref,
     actualManifestPath: opts.actualManifestPath,
@@ -209,8 +207,16 @@ export async function cmdGate(opts: GateOptions): Promise<GateReport> {
     actualOut: out ? path.join(out, 'actual-manifest.json') : undefined,
     expectedOut: out ? path.join(out, 'expected-manifest.json') : undefined,
   })
+  const perceptual = await cmdDiff({
+    ...opts,
+    ref: opts.ref,
+    actualImagePath: opts.actualImagePath,
+    out,
+    actualOut: out ? path.join(out, 'actual.png') : undefined,
+    nodeSources: { ref: values.expected, actual: values.actual },
+  })
 
-  const report = reconcileGates({ l1Gate, coverage, perceptual, values, floor: opts.floor })
+  const report = reconcileGates({ l1Gate, coverage, perceptual, values: values.report, floor: opts.floor })
   if (out) writeFileSync(path.join(out, 'gate.json'), JSON.stringify(report, null, 2))
   return report
 }

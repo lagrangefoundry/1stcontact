@@ -3336,3 +3336,158 @@ body {
   background: var(--shell-surface-2, transparent);
   border-radius: 6px;
 }
+
+/*
+ * ─── Inbound mail ([[REQ-267]]) ──────────────────────────────────────────────
+ */
+
+/*
+ * A RECEIVED BODY IS TEXT AND IS DRAWN AS TEXT. No frame, because nothing is
+ * being rendered — `receivedBody` sets `textContent`, so what this styles is a
+ * stranger's characters and never their markup ([[REQ-267]] §9). It scrolls
+ * rather than growing, on `__msgbody`'s reasoning, and it wraps because mail is
+ * line-broken and a horizontal scrollbar on a quoted reply is unreadable.
+ */
+.builder-people__rcvbody {
+  display: block;
+  max-height: 320px;
+  overflow: auto;
+  margin: 4px 8px 8px;
+  padding: 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: 4px;
+  background: var(--shell-raised, #fff);
+  font-family: var(--shell-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Who it came from, under the subject — the envelope sender, which is the only
+   thing about a sender that is a fact. */
+.builder-people__msgfrom {
+  display: block;
+  padding: 0 8px 3px;
+  font-size: 12px;
+  color: var(--shell-muted);
+}
+
+.builder-people__msgattachments {
+  display: block;
+  padding: 0 8px 3px;
+  font-size: 12px;
+  color: var(--shell-muted);
+}
+
+/*
+ * *WE CANNOT TELL YOU THIS IS WHO IT SAYS IT IS.* Accented rather than muted,
+ * because a caution drawn like a footnote is a caution nobody reads — and this
+ * one is the difference between a reply from a contact and a stranger wearing
+ * their address. Only `pass` omits it, so the badge means exactly *not proven*.
+ */
+.builder-people__msgunverified {
+  flex: none;
+  font-size: 0.72em;
+  line-height: 1.6;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--shell-warn, #b45309);
+  color: var(--shell-warn, #b45309);
+  white-space: nowrap;
+}
+
+/*
+ * The triage queue, above the contact list ([[REQ-267]] §6). Hidden entirely
+ * when empty — see `refreshPending` — so these rules only ever apply to a queue
+ * that has something in it.
+ */
+.builder-people__pending {
+  margin: 6px 0 0;
+  border: 1px solid var(--shell-border);
+  border-radius: 4px;
+  background: var(--shell-raised, transparent);
+}
+
+.builder-people__pendinghead {
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--shell-fg);
+}
+
+.builder-people__pendinglist {
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+}
+
+.builder-people__pendingrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.builder-people__pendingfrom {
+  flex: none;
+  color: var(--shell-fg);
+}
+
+.builder-people__pendingsubject {
+  flex: 1 1 8ch;
+  min-width: 4ch;
+  color: var(--shell-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-people__pendingwhen {
+  flex: none;
+  color: var(--shell-muted);
+  white-space: nowrap;
+}
+
+.builder-people__pendingpromote,
+.builder-people__pendingdiscard {
+  flex: none;
+  font: inherit;
+  padding: 1px 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--shell-fg);
+  cursor: pointer;
+}
+
+.builder-people__pendingpromote:disabled,
+.builder-people__pendingdiscard:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Said beside the control that failed, because that is the one the operator is
+   about to press again. */
+.builder-people__pendingerror {
+  flex: 1 1 100%;
+  color: var(--shell-danger, #b91c1c);
+}
+
+/* The rest of a history ([[REQ-267]] §8). Removed once the end is reached, so a
+   button that is present always has something behind it. */
+.builder-people__more {
+  display: block;
+  margin: 6px 0 0;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--shell-fg);
+  cursor: pointer;
+}

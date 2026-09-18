@@ -189,6 +189,8 @@ export {
   decodeImageBytes,
   cropRaster,
   extractRect,
+  nodeScaleFor,
+  resolveRegionNodes,
   writeRasterPng,
   formatDiffReport,
 } from './perceptual'
@@ -205,9 +207,13 @@ export type {
   DiffTuning,
   CoreDiffResult,
   DiffRegion,
+  NodeSource,
   PerceptualDiffReport,
   Raster,
   RegionBox,
+  RegionNode,
+  RegionNodeOptions,
+  RegionNodes,
   CropOptions,
 } from './perceptual'
 export {

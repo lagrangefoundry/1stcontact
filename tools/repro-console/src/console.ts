@@ -1041,11 +1041,7 @@ export class ReproConsole {
   private diffIndex(iteration: Iteration): ConsoleResponse {
     const reportFile = path.join(iteration.diffOut, 'regions.json')
     if (!existsSync(reportFile)) return text(404, 'No diff report for this iteration')
-    const report = JSON.parse(readFileSync(reportFile, 'utf8')) as {
-      meanDiff?: number
-      pctOverThreshold?: number
-      regions?: Array<{ id: number | string; crops?: { ref: string; actual: string; diff: string } }>
-    }
+    const report = JSON.parse(readFileSync(reportFile, 'utf8')) as RegionReportFile
     // `regions.json` records absolute paths, because `1c diff` wrote it for an
     // operator reading it on their own disk. The console serves the same files
     // by name out of the iteration's own directory.
@@ -1056,16 +1052,71 @@ export class ReproConsole {
         ref: path.basename(region.crops!.ref),
         actual: path.basename(region.crops!.actual),
         diff: path.basename(region.crops!.diff),
+        caption: regionCaption(region),
       }))
     return html(
       200,
       renderDiffPage(iteration.n, `/iteration/${iteration.n}/diff/`, {
         meanDiff: report.meanDiff,
         pctOverThreshold: report.pctOverThreshold,
+        rankedBy: report.rankedBy,
         regions,
       }),
     )
   }
+}
+
+/**
+ * BUG-99 — the part of `regions.json` this page reads.
+ *
+ * Every field is optional, because the console must render a report written by
+ * any version of `1c diff` it is pointed at. A missing `bbox` costs the caption,
+ * not the page.
+ */
+interface RegionReportFile {
+  meanDiff?: number
+  pctOverThreshold?: number
+  rankedBy?: string
+  regions?: Array<{
+    id: number | string
+    bbox?: { x: number; y: number; w: number; h: number }
+    score?: number
+    meanDiff?: number
+    crops?: { ref: string; actual: string; diff: string }
+    nodes?: { ref?: RegionLeadFile[]; actual?: RegionLeadFile[] }
+  }>
+}
+
+interface RegionLeadFile {
+  kind?: string
+  text?: string
+  role?: string
+  src?: string
+  overlap?: { ofRegion?: number }
+}
+
+/** One lead in one phrase, or `nothing` — which is itself the finding. */
+function leadPhrase(lead: RegionLeadFile | undefined): string {
+  if (!lead) return 'nothing'
+  const what = lead.text ? `“${lead.text}”` : (lead.src ?? lead.role ?? lead.kind ?? 'node')
+  const pct = lead.overlap?.ofRegion
+  return pct === undefined ? what : `${what} (${Math.round(pct * 100)}%)`
+}
+
+/**
+ * The caption above a triptych: where the region is, how hard it disagrees, and
+ * what each side has under it.
+ *
+ * Built from whatever the report carries — a pre-BUG-99 report with no `bbox`
+ * gets no caption, and the three images are exactly what they were.
+ */
+export function regionCaption(region: NonNullable<RegionReportFile['regions']>[number]): string | undefined {
+  const parts: string[] = []
+  if (region.bbox) parts.push(`${region.bbox.x},${region.bbox.y} ${region.bbox.w}×${region.bbox.h}`)
+  if (region.score !== undefined) parts.push(`score ${region.score}`)
+  if (region.meanDiff !== undefined) parts.push(`mean ${region.meanDiff}`)
+  if (region.nodes) parts.push(`ref: ${leadPhrase(region.nodes.ref?.[0])} · ours: ${leadPhrase(region.nodes.actual?.[0])}`)
+  return parts.length ? parts.join(' · ') : undefined
 }
 
 /** One field out of an `application/x-www-form-urlencoded` body. */

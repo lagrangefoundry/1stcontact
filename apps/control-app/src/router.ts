@@ -34,7 +34,7 @@ import {
   portalAcceptances,
   setPreference,
 } from './acceptances'
-import type { EventEnv } from './events'
+import { eventsOf, type EventEnv } from './events'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
 import type {
@@ -198,6 +198,15 @@ import {
   UnknownPersonError,
   windBack,
 } from './people'
+import {
+  discardSender,
+  inboundFor,
+  pendingInbound,
+  promotePending,
+  restoreSender,
+  suppressedAddresses,
+  UnknownMessageError,
+} from './inbound'
 import {
   inviteDraft,
   invitePeople,
@@ -1520,6 +1529,41 @@ export const PERSON_MESSAGES_PATH = '/api/people/messages'
  * re-presenting the last `id:` it saw as `Last-Event-ID`.
  */
 export const PERSON_CHANGES_PATH = '/api/people/changes'
+
+/**
+ * One contact's history, page by page ([[REQ-267]] §8).
+ *
+ * A ROUTE OF ITS OWN, AND THE DETAIL STILL CARRIES THE FIRST PAGE. The pane
+ * cannot render without the history, so making it a second round trip on FIRST
+ * paint would trade a whole paint for a control most contacts never need. What
+ * this answers is *the page after the one you have* — which by definition
+ * nobody needs until they have pressed something.
+ *
+ * THE CURSOR IS OPAQUE AND IS THE SERVER'S. A client that composed its own would
+ * be a second definition of the timeline's ordering, free to disagree with the
+ * query's.
+ */
+export const PERSON_EVENTS_PATH = '/api/people/events'
+
+/**
+ * Received mail nobody in this business could be matched to ([[REQ-267]] §6).
+ *
+ * UNDER `/api/people` BECAUSE IT IS THE CONTACT LIST'S OWN ANTECHAMBER. What is
+ * in it is not a population of people — no row was created for any of them — it
+ * is the messages that would have to become people before they could be listed.
+ * A noun of its own would invite a second surface that eventually disagrees with
+ * the first about who this business knows.
+ *
+ * `GET` LISTS, `POST /promote` MAKES ONE A CONTACT, `POST /discard` STOPS ASKING.
+ * Three verbs on two paths rather than one path with an `action` field, on
+ * `/api/people/add`'s reasoning: promoting a stranger and silencing them are
+ * opposite acts, and a client sending the wrong string must not be able to do
+ * the other one.
+ */
+export const PERSON_INBOUND_PATH = '/api/people/inbound'
+export const PERSON_INBOUND_PROMOTE_PATH = '/api/people/inbound/promote'
+export const PERSON_INBOUND_DISCARD_PATH = '/api/people/inbound/discard'
+export const PERSON_INBOUND_RESTORE_PATH = '/api/people/inbound/restore'
 /**
  * Where the business's own record is changed ([[REQ-237]], [[EPIC-4]]).
  *
@@ -2990,7 +3034,127 @@ async function routeUncached(
       // `openTickets` requires the scope and binds it into the handle, so there
       // is no separate scope check here that could disagree with the one the
       // read is actually performed under.
-      return json(200, { messages: await messagesFor(await openTickets(), id) })
+      const store = await openTickets()
+      // BOTH DIRECTIONS ON ONE ROUTE, AND AS TWO LISTS ([[REQ-267]] §5). The
+      // question is *what has passed between us and this person*, and answering
+      // half of it would leave the pane to discover the other half existed. They
+      // arrive unmerged because the two types carry different fields and only
+      // the surface knows how it wants to interleave them — merged here, that
+      // choice could not be undone.
+      return json(200, {
+        messages: await messagesFor(store, id),
+        received: await inboundFor(store, id),
+      })
+    }
+
+    /**
+     * GET /api/people/events?id=&before= — the rest of one contact's history
+     * ([[REQ-267]] §8).
+     *
+     * THE CAP STOPPED BEING SAFE. `TIMELINE_LIMIT` was a cap and not a page on a
+     * stated assumption — *data nobody has enough of* — that inbound mail
+     * falsifies: every message in both directions lands on the spine. Left as
+     * it was, the hundredth row is where a contact's history appears to BEGIN,
+     * and nothing anywhere says so.
+     *
+     * NO EXISTENCE CHECK ON THE CONTACT, deliberately, for the reason
+     * `/api/people/messages` gives: an unknown id answers with an empty page,
+     * which is what a real contact with no older history answers too.
+     */
+    if (p === PERSON_EVENTS_PATH && method === 'GET') {
+      const params = new URL(request.url).searchParams
+      const events = await eventsOf(identityEnv, requireScope(), params.get('id') ?? '', {
+        before: params.get('before'),
+      })
+      return json(200, { events })
+    }
+
+    /**
+     * GET /api/people/inbound — mail from senders this business does not know
+     * ([[REQ-267]] §6).
+     *
+     * PENDING IS A STATE OF THE MESSAGE AND NOT A NEW ENTITY. No `users` row was
+     * created for any of these and no timeline entry was written, which is
+     * exactly what [[DOC-54]] rests on: a forwarding test from an unmatched
+     * sender creates no contact, no timeline entry and no metric, so there is
+     * nothing for the notification rule to suppress and the rule never engages.
+     *
+     * DISCARDED SENDERS AND THE TEST GUTTER ARE BOTH ABSENT, and neither
+     * exclusion is this route's to remember — `pendingInbound` performs both,
+     * which is what keeps one answer to *what is waiting* rather than one per
+     * caller.
+     */
+    if (p === PERSON_INBOUND_PATH && method === 'GET') {
+      const scope = requireScope()
+      return json(200, {
+        pending: await pendingInbound(identityEnv, await openTickets(), scope),
+        suppressed: [...(await suppressedAddresses(identityEnv, scope))].sort(),
+      })
+    }
+
+    /**
+     * POST /api/people/inbound/promote — this stranger is a contact
+     * ([[REQ-267]] §6).
+     *
+     * IT RUNS `addContact` AND DOES NOT MINT A CONTACT BY A SECOND ROUTE. What
+     * it adds is the attachment: the message is already stored, so promotion is
+     * a contact plus a pointer and never a re-capture.
+     *
+     * THE SAME GATE `/api/people/add` CARRIES, because it performs that act. A
+     * route that could create a contact without meeting the gate the create
+     * route meets would be the gate's own bypass.
+     */
+    if (p === PERSON_INBOUND_PROMOTE_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner of this business may add contacts to it.' })
+      }
+      const body = await readJsonBody(request)
+      try {
+        return json(
+          200,
+          await promotePending(
+            identityEnv,
+            await openTickets(),
+            scope,
+            typeof body.uid === 'string' ? body.uid : '',
+          ),
+        )
+      } catch (err) {
+        // SCRUBBED LIKE EVERY OTHER ERROR VALUE OUT OF THIS TABLE. The message
+        // is ours and carries no secret today, and that is exactly the reasoning
+        // that makes an unscrubbed path a hole the next edit walks through.
+        if (err instanceof UnknownMessageError) return json(404, { error: scrub(err.message) })
+        throw err
+      }
+    }
+
+    /**
+     * POST /api/people/inbound/discard — stop asking about this sender, and
+     * POST /api/people/inbound/restore — start again ([[REQ-267]] §6).
+     *
+     * STICKY, AND REVERSIBLE, AND NEITHER IS ERASURE. A discard that did not
+     * persist would re-surface the same sender every day and teach the client to
+     * ignore the queue; a discard that could not be undone would make a
+     * mis-click permanent. The messages are untouched by both.
+     *
+     * LATER MAIL IS STILL RECORDED AND STILL FORWARDED. A triage decision may
+     * not break the business's mail — that promise is what the whole inbound
+     * path is built on, and a suppression is a preference about a QUEUE.
+     */
+    if (
+      (p === PERSON_INBOUND_DISCARD_PATH || p === PERSON_INBOUND_RESTORE_PATH) &&
+      method === 'POST'
+    ) {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner of this business may triage its mail.' })
+      }
+      const body = await readJsonBody(request)
+      const address = typeof body.address === 'string' ? body.address : ''
+      if (p === PERSON_INBOUND_DISCARD_PATH) await discardSender(identityEnv, scope, address)
+      else await restoreSender(identityEnv, scope, address)
+      return json(200, { address })
     }
 
     /**

@@ -6,9 +6,9 @@ title: 'Assistant DNS tools: reads, a closed set of guarded mutations, the chang
   card, and undo'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:59.036137+00:00'
-updated_at: '2026-09-17T23:11:11.632120+00:00'
+updated_at: '2026-09-17T23:55:41.077360+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -21,6 +21,7 @@ fields:
   needs_review: false
   chat_comment: comment-79754521
 ---
+
 
 ## What this is
 
@@ -197,6 +198,25 @@ most recent change to those records**, and the durable home is a **DNS change
 history** on the settings surface — which is also what makes the card's visibility
 claim survive the chat scrolling away.
 
+### Who may press it, and what a member sees instead
+
+**Undo is the account holder's.** Changing the domain is already theirs — a
+member who cannot attach a domain cannot un-attach one either, and the history is
+readable by anyone who can see the settings pane because *seeing what was done*
+is the visibility this ticket is for. A member therefore gets the list and no
+button, plus the sentence saying who to ask. **No control at all rather than one
+that refuses**, which is the shape the domain section above it already uses: a
+button that exists only to say no teaches the customer they did something wrong
+when they did not.
+
+**The empty state is a sentence too.** A business whose domain we have never
+changed reads *nothing has been changed yet* rather than an empty box, for the
+same reason every other refusal here is a sentence.
+
+**And the list is cleared before the next business's read.** One business's
+history drawn under another business's heading is the one thing this pane must
+never do, and a slow read during a switch is exactly how it would happen.
+
 ### Two rollbacks, and conflating them defers the easy one behind the hard one
 
 - **Per-operation undo, inside an active zone** — this ticket, as above.
@@ -205,6 +225,40 @@ claim survive the chat scrolling away.
   cutover leaves the customer resolving from their old nameservers with nothing
   lost. Only a completed-then-wrong cutover needs it. **Not this ticket, and not
   blocking it.**
+
+## How the card gets from the change to the conversation
+
+The card is drawn from a **signal the turn emits at the moment the change lands**,
+and it is a third kind beside the two the conversation already emits for site and
+business writes. The difference is what it carries:
+
+- Those two carry a **count** — *something moved, go and re-read* — because the
+  pane beside the conversation is an ordinary caller of the same routes and a
+  payload it rendered instead would make the assistant the pane's writer.
+- This one carries the **sentence**, because the sentence is the whole of what a
+  card is. A summary rebuilt later from a record diff is a sentence nobody wrote,
+  and it would be written in our nouns rather than theirs.
+
+**One signal per change**, which is where *six changes are six cards* is actually
+enforced. **A turn that only read the domain emits none** — the diagnostic half
+is free and silent, and a customer who asked a question is not shown a notice
+about a change that did not happen. **And the signal is machinery**: it leaves no
+trace in the prose, or the client would be told the same thing twice in two
+different voices.
+
+**The pane follows the card.** The history section six inches to the left re-reads
+when a change is announced and again when an undo is pressed, so the two halves of
+one screen never disagree about what has been done.
+
+**The surface is absent where there is nothing to manage.** A deployment with no
+DNS credential does not compose these tools at all, rather than composing them and
+refusing — the manual is projected from what is granted, so the assistant does not
+know they exist and cannot propose, apologise for, or probe for them.
+
+**A reading never carries key material.** A signing key is reported as whose it is
+— the selector and the provider, which is what a diagnosis is made of — and never
+as its value, which is a page of base64 that would spend the context window and
+could be read out to a client by mistake.
 
 ## Not in scope
 

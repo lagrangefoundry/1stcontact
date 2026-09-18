@@ -96,7 +96,7 @@ import {
   type NamePatch,
   type PersonName,
 } from './names'
-import type { Scope } from './scope'
+import { realOnly, type Scope } from './scope'
 import { endSessionsFor } from './sessions'
 
 /**
@@ -352,8 +352,14 @@ function toPerson(row: UserRecord, formerNames: string[] = []): Person {
  */
 export async function peopleOf(env: IdentityEnv, scope: Scope): Promise<Person[]> {
   const { results } = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? ` +
-      'ORDER BY u.created_at ASC, u.id ASC',
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ?` +
+      // THE TEST GUTTER IS EXCLUDED BY DEFAULT ([[DOC-54]] R3, [[REQ-267]]). A
+      // probe's contact is a real row in this table, and a customer must never
+      // meet one — in this list, in a count over it, or in anything derived from
+      // it. The exclusion rides `Scope` rather than being restated here, which
+      // is what keeps it a property of the handle rather than of who remembered.
+      realOnly(scope, 'u.') +
+      ' ORDER BY u.created_at ASC, u.id ASC',
   )
     .bind(scope.businessId)
     .all<UserRecord>()
@@ -386,7 +392,8 @@ export async function personOf(
 ): Promise<Person | null> {
   if (personId === '') return null
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, personId)
     .first<UserRecord>()
@@ -408,7 +415,8 @@ export async function personDetail(
   personId: string,
 ): Promise<PersonDetail | null> {
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, personId)
     .first<UserRecord>()
@@ -634,9 +642,16 @@ export async function addContact(
   const displayName = (spec.displayName ?? '').trim() || null
 
   const now = new Date().toISOString()
+  // THE LOOKUP CARRIES THE GUTTER TOO ([[REQ-268]] §2). A marked submission must
+  // never find a REAL contact who happens to hold the same address and attach its
+  // records to them — that is the one way manufactured traffic could pollute the
+  // record it exists to stay out of, and it would be silent. Under a run, this
+  // resolves that run's own contact and nothing else; under no run, it resolves
+  // the customer's own people and never a probe's.
   const existing = await env.DB.prepare(
     `SELECT ${USER_COLUMNS} ${USER_SOURCE} ` +
-      `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
+      `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, scope.businessId, email)
     .first<UserRecord>()
@@ -648,7 +663,8 @@ export async function addContact(
     if (displayName && !nameFromJoin(existing)) {
       await writeName(env, existing.id, { displayName })
       const named = await env.DB.prepare(
-        `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+        `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+          realOnly(scope, 'u.'),
       )
         .bind(scope.businessId, existing.id)
         .first<UserRecord>()
@@ -675,15 +691,35 @@ export async function addContact(
   // Every contact belongs to an account, including a lead nobody will ever bill,
   // because "belongs to an account" with exceptions is a nullable column and an
   // empty chair.
+  //
+  // AND THE GUTTER MARK COMES FROM THE SCOPE, NOT FROM AN ARGUMENT ([[REQ-268]]
+  // §2). This is the one write in the capture chain that cannot derive its mark
+  // from a parent, because the contact IS the parent every other record derives
+  // from — so it is taken from the request context the scope carries. There is
+  // no `synthetic` on {@link AddContactSpec} and there must not be: a flag a
+  // caller passes is a flag a caller omits, and the omission is silent and puts
+  // a bot lead in a customer's contact list.
   const id = newId('usr')
   const accountId = newId('acct')
+  const runId = (scope.runId ?? '').trim()
   await env.DB.batch([
     accountInsert(env, { id: accountId, tenantId: scope.businessId, name: displayName, now }),
     env.DB.prepare(
       'INSERT INTO users (id, tenant_id, account_id, status, platform_operator, ' +
-        'pipeline_stage, created_at, updated_at, fields) ' +
-        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)',
-    ).bind(id, scope.businessId, accountId, 'active', PIPELINE_LEAD, now, now, '{}'),
+        'pipeline_stage, created_at, updated_at, fields, synthetic, run_id) ' +
+        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)',
+    ).bind(
+      id,
+      scope.businessId,
+      accountId,
+      'active',
+      PIPELINE_LEAD,
+      now,
+      now,
+      '{}',
+      runId === '' ? 0 : 1,
+      runId === '' ? null : runId,
+    ),
     userEmailInsert(env, { userId: id, tenantId: scope.businessId, email, now }),
     contactEventInsert(env, {
       contactId: id,
@@ -696,7 +732,8 @@ export async function addContact(
   if (displayName) await writeName(env, id, { displayName })
 
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, id)
     .first<UserRecord>()
@@ -1253,7 +1290,9 @@ function partsOf(cursor: string): { at: string; id: string } {
  */
 export async function contactChangeHead(env: IdentityEnv, scope: Scope): Promise<string> {
   const row = await env.DB.prepare(
-    'SELECT updated_at, id FROM users WHERE tenant_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1',
+    'SELECT updated_at, id FROM users WHERE tenant_id = ?' +
+      realOnly(scope) +
+      ' ORDER BY updated_at DESC, id DESC LIMIT 1',
   )
     .bind(scope.businessId)
     .first<{ updated_at: string; id: string }>()
@@ -1303,8 +1342,9 @@ export async function contactsChangedSince(
   // it is deliberately not on {@link Person} either, because a stamp the pane
   // could render is a stamp somebody eventually renders.
   const { results } = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS}, u.updated_at AS updated_at ${USER_SOURCE} WHERE u.tenant_id = ? ` +
-      'AND (u.updated_at > ? OR (u.updated_at = ? AND u.id > ?)) ' +
+    `SELECT ${USER_COLUMNS}, u.updated_at AS updated_at ${USER_SOURCE} WHERE u.tenant_id = ?` +
+      realOnly(scope, 'u.') +
+      ' AND (u.updated_at > ? OR (u.updated_at = ? AND u.id > ?)) ' +
       'ORDER BY u.updated_at ASC, u.id ASC LIMIT ?',
   )
     .bind(scope.businessId, at, at, id, limit)

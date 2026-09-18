@@ -74,6 +74,27 @@ that actually loses a customer. The order to read in:
 is wrong. The regions say *where*, largest first, and only the regions are
 actionable. A ticket that quotes only a mean has not looked.
 
+**A region record is text, not a picture. Read it, do not open the crop.** Each
+entry carries:
+
+| field | what it is |
+|---|---|
+| `bbox` | `{x, y, w, h}` in the image coordinates `dims` names. Screenshots are shot at DPR 1, so these are also document CSS pixels. |
+| `score`, `meanDiff`, `area` | how hard the disagreement is. `rankedBy` on the report names which of them the order is by. |
+| `nodes.ref[]`, `nodes.actual[]` | **the manifest records under the region**, best-first: the verbatim run text, the role, the element's own box, and two overlap fractions — how much of the *region* this node explains, and how much of the *node* the region covers. `index` is that record's position in `expected-manifest.json` / `actual-manifest.json`. |
+| `crops` | the ref / ours / diff PNGs. For a human. Not your evidence. |
+
+**The asymmetry between the two `nodes` sides is usually the whole finding.** A
+lead on `ref` and nothing on `actual` is something the reference has that the
+reproduction did not draw. The reverse is something the reproduction invented.
+The same text on both sides with different boxes is that element moved; the same
+text and the same box is that element recoloured — and the value deltas will say
+which colour.
+
+A region with no leads on either side is not nothing: it is a region over
+whitespace, or over a band no manifest describes, and that is itself worth
+saying out loud rather than resolving by opening the PNG.
+
 **The knowledge base is cheaper than the source.** The round context below names
 an index of every project document. If a question has a documented answer,
 reading it beats deriving it from `tools/generate/` — and a ticket that cites a
@@ -254,9 +275,19 @@ Per issue, so the claim is checkable without re-deriving it:
 2. **The named residual class.**
 3. **Which stored reference(s) exhibit it** — by bundle name, and say plainly if
    you only have evidence from one.
-4. **The evidence** — the `gate.json` verdict, the `regions.json` entry, the
+4. **The evidence** — the `gate.json` verdict, the `regions.json` entry (its
+   `bbox`, its `score`/`meanDiff`/`area`, and its `nodes` from both sides), the
    `values-diff.json` lines, quoted with their actual numbers and their actual
    selectors. Nothing that could only be read off a screenshot.
+
+   **And check the instrument before you diagnose from it.** A gate finding, a
+   digest line and a region record are all claims the engine makes about itself.
+   Open the file each was derived from and confirm it says what the summary says
+   before you build a ticket on it — a false reading followed into a diagnosis is
+   the most expensive thing a round can produce, because it looks exactly like a
+   real one. BUG-99 is the worked example: a round filed a high-severity gap
+   against the differ for discarding region geometry, having read a region record
+   from a test fixture that carried less than the real artifact does.
 5. **The hypothesis** — which part of the engine is at fault, by file and
    function where you can.
 6. **The proposed change** — what you would have someone do.

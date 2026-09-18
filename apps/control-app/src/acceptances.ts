@@ -14,7 +14,7 @@ import {
   needsDocument,
 } from './builder/acceptances.js'
 import { contactEventInsert, type EventEnv } from './events'
-import type { Scope } from './scope'
+import { realOnly, type Scope } from './scope'
 import type { Ticket, TicketStore } from './tickets'
 import { newId } from '../../../tools/generate/src/store/ids'
 
@@ -198,7 +198,10 @@ const ACCEPTANCE_COLUMNS =
  *
  * `INSERT ... SELECT ... FROM users`, WHICH IS WHERE `business_id` COMES FROM.
  * The caller names a contact and the contact's own row decides which business
- * the record lands in, so the two can never disagree.
+ * the record lands in, so the two can never disagree. The gutter mark rides the
+ * same `SELECT` and is derived the same way ([[REQ-268]] §2) — deliberately
+ * ABSENT from the update list below, because a contact's realness is not a
+ * property a later press may change.
  *
  * AN UPSERT, BECAUSE THIS IS STATE. The unique index on (contact, key) is what
  * it conflicts on, so "set the newsletter" is one statement rather than a read
@@ -222,8 +225,8 @@ function acceptanceInsert(
   const where = scoped ? 'WHERE u.id = ? AND u.tenant_id = ?' : 'WHERE u.id = ?'
   const statement = env.DB.prepare(
     'INSERT INTO user_acceptances (id, contact_id, business_id, acceptance_key, ' +
-      'granted, document_uid, set_at, created_at, updated_at) ' +
-      `SELECT ?, u.id, u.tenant_id, ?, ?, ?, ?, ?, ? FROM users u ${where} ` +
+      'granted, document_uid, set_at, created_at, updated_at, synthetic, run_id) ' +
+      `SELECT ?, u.id, u.tenant_id, ?, ?, ?, ?, ?, ?, u.synthetic, u.run_id FROM users u ${where} ` +
       'ON CONFLICT (contact_id, acceptance_key) DO UPDATE SET ' +
       'granted = excluded.granted, document_uid = excluded.document_uid, ' +
       'set_at = excluded.set_at, updated_at = excluded.updated_at',
@@ -379,7 +382,8 @@ export async function acceptancesOf(
 ): Promise<AcceptanceRecord[]> {
   const { results } = await env.DB.prepare(
     `SELECT ${ACCEPTANCE_COLUMNS} FROM user_acceptances ` +
-      'WHERE business_id = ? AND contact_id = ?',
+      'WHERE business_id = ? AND contact_id = ?' +
+      realOnly(scope),
   )
     .bind(scope.businessId, contactId)
     .all<AcceptanceRow>()
@@ -403,7 +407,8 @@ export async function acceptanceOf(
 ): Promise<AcceptanceRecord | null> {
   const row = await env.DB.prepare(
     `SELECT ${ACCEPTANCE_COLUMNS} FROM user_acceptances ` +
-      'WHERE business_id = ? AND contact_id = ? AND acceptance_key = ?',
+      'WHERE business_id = ? AND contact_id = ? AND acceptance_key = ?' +
+      realOnly(scope),
   )
     .bind(scope.businessId, contactId, key)
     .first<AcceptanceRow>()
@@ -425,10 +430,16 @@ export async function contactsWith(
   key: string,
   granted = true,
 ): Promise<string[]> {
+  // THE MOST LOAD-BEARING EXCLUSION IN THIS FILE ([[REQ-268]] §3). This is the
+  // query that eventually sends a newsletter, so a marked contact appearing here
+  // is not a cosmetic leak — it is manufactured traffic receiving a customer's
+  // mail. `realOnly` is what keeps it out, structurally, rather than a predicate
+  // this one call site had to remember.
   const { results } = await env.DB.prepare(
     'SELECT contact_id FROM user_acceptances ' +
-      'WHERE business_id = ? AND acceptance_key = ? AND granted = ? ' +
-      'ORDER BY contact_id',
+      'WHERE business_id = ? AND acceptance_key = ? AND granted = ?' +
+      realOnly(scope) +
+      ' ORDER BY contact_id',
   )
     .bind(scope.businessId, key, granted ? 1 : 0)
     .all<{ contact_id: string }>()
@@ -687,8 +698,9 @@ async function requestsOf(
 ): Promise<Map<string, string>> {
   const { results } = await env.DB.prepare(
     'SELECT occurred_at, detail FROM contact_events ' +
-      'WHERE business_id = ? AND contact_id = ? AND kind = ? ' +
-      'ORDER BY occurred_at DESC, rowid DESC',
+      'WHERE business_id = ? AND contact_id = ? AND kind = ?' +
+      realOnly(scope) +
+      ' ORDER BY occurred_at DESC, rowid DESC',
   )
     .bind(scope.businessId, contactId, ACCEPTANCE_REQUESTED)
     .all<{ occurred_at: string; detail: string }>()

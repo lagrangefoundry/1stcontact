@@ -8,6 +8,7 @@ import {
   FIELD_TYPES,
   FORM_INSTANCE_FIELD,
   HONEYPOT_FIELD,
+  MARK_FIELD,
   RESERVED_FIELDS,
   TURNSTILE_FIELD,
 } from '../packages/framework/src/modules/contact-form/fields'
@@ -138,7 +139,17 @@ describe('REQ-223 — the public form surface', () => {
     )
     // …and the trap and the token are named once, in one module, for everybody.
     expect(html).toContain(`name="${HONEYPOT_FIELD}"`)
-    expect(RESERVED_FIELDS).toEqual([HONEYPOT_FIELD, TURNSTILE_FIELD, FORM_INSTANCE_FIELD])
+    // THE LIST IS CLOSED AND IT IS ASSERTED WHOLE, which is the point of naming
+    // it here: a machine artefact added to a form post has to be added to this
+    // list in the same breath, or `lead.ts` stores it in the contact's
+    // provenance beside the words a person typed. [[REQ-268]] added the fourth —
+    // the gutter's signed marker — and this assertion is what made it say so.
+    expect(RESERVED_FIELDS).toEqual([
+      HONEYPOT_FIELD,
+      TURNSTILE_FIELD,
+      FORM_INSTANCE_FIELD,
+      MARK_FIELD,
+    ])
   })
 
   it('test_UAT_FC_REQ-223_the_edit_render_still_cannot_post', () => {

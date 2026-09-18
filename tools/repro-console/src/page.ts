@@ -184,6 +184,8 @@ figure { margin: 1.5rem 0 }
 figure img { max-width: 100%; border: 1px solid #8884 }
 .triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem }
 .triptych figcaption { font-size: .8rem; opacity: .7 }
+/* BUG-99 — the caption spans the three cells rather than becoming a fourth. */
+.triptych .region-caption { grid-column: 1 / -1; font-size: .85rem; opacity: .9; font-family: ui-monospace, monospace }
 .verdict, .rail, .ai-status { margin: .25rem 0; font-size: .9rem }
 .verdict strong { font-family: ui-monospace, monospace }
 .rail { opacity: .75; white-space: pre-wrap }
@@ -329,11 +331,23 @@ export interface DiffRegionView {
   ref: string
   actual: string
   diff: string
+  /**
+   * BUG-99 — the region's own geometry and its best lead from each side, as a
+   * caption. Three unlabelled images say *that* something differs; the caption
+   * says where and what, which is the difference between a picture to interpret
+   * and a fact to quote.
+   *
+   * Optional because a report written before the leads existed still renders —
+   * the caption is simply absent rather than the page refusing.
+   */
+  caption?: string
 }
 
 export interface DiffReportView {
   meanDiff?: number
   pctOverThreshold?: number
+  /** BUG-99 — the key `regions` is ordered by, named on the page so the order is readable. */
+  rankedBy?: string
   regions: DiffRegionView[]
 }
 
@@ -348,11 +362,14 @@ export function renderDiffPage(n: number, base: string, report: DiffReportView):
   const headline =
     report.meanDiff === undefined
       ? ''
-      : `<p>mean difference <strong>${report.meanDiff}</strong>/255 · <strong>${report.pctOverThreshold ?? 0}%</strong> of pixels over threshold</p>`
+      : `<p>mean difference <strong>${report.meanDiff}</strong>/255 · <strong>${report.pctOverThreshold ?? 0}%</strong> of pixels over threshold${
+          report.rankedBy ? ` · regions ranked by <strong>${escapeHtml(report.rankedBy)}</strong>, highest first` : ''
+        }</p>`
 
   const triptychs = report.regions
     .map(
       (region) => `<figure class="triptych">
+  <figcaption class="region-caption">region ${escapeHtml(String(region.id))}${region.caption ? ` — ${escapeHtml(region.caption)}` : ''}</figcaption>
   <div><img src="${escapeHtml(base + region.ref)}" alt="reference, region ${region.id}"><figcaption>reference</figcaption></div>
   <div><img src="${escapeHtml(base + region.actual)}" alt="reproduction, region ${region.id}"><figcaption>reproduction</figcaption></div>
   <div><img src="${escapeHtml(base + region.diff)}" alt="difference, region ${region.id}"><figcaption>difference</figcaption></div>

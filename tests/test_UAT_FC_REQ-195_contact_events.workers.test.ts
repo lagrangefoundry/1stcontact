@@ -243,7 +243,11 @@ describe('REQ-195 — provenance is the earliest event', () => {
       })
     }
 
-    const capped = await eventsOf(identityEnv(), scope(), contact, 2)
+    // `{limit}` AND NOT A BARE NUMBER SINCE [[REQ-267]] §8. The fourth argument
+    // became the timeline WINDOW — a limit and a cursor — when the cap became a
+    // page; the claim this case makes is unchanged, and the cap it names is
+    // still the thing provenance must not be read off the end of.
+    const capped = await eventsOf(identityEnv(), scope(), contact, { limit: 2 })
     expect(capped).toHaveLength(2)
     expect(kinds(capped)).toEqual([EMAIL_SENT, EMAIL_SENT])
 

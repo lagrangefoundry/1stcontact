@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-17T22:03:02.100940+00:00'
+updated_at: '2026-09-17T23:46:34.445878+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2277,5 +2277,54 @@ Nothing here is code. In order:
 3. Leave REQ-268 where it is — it's correctly scoped and correctly gated.
 
 Which of those do you want, and where should delete-contact live?
+
+<!-- xgd-turn id="e833d02b-d794-4df8-8990-24ae2558343f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-17T23:42:45.449782+00:00" -->
+#### You
+Why did the reproduction console end its round with: round finished · $9.67 · 27m 21s · 112 turns · 178→89.9k tok
+
+This MUST be run against my subscription - not the API tokens???
+
+<!-- xgd-turn id="e833d02b-d794-4df8-8990-24ae2558343f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T23:46:33.331341+00:00" -->
+#### Claude
+Investigating how the console spawns its sessions.
+
+Traced it end to end. Short answer: **that dollar figure is not a charge, and the round did run on your subscription** — but there's a real hole underneath the question.
+
+## Where $9.67 comes from
+
+It's the CLI's own number, not the console's. `readCost` (`tools/generate/../repro-console/src/ai.ts:646`) pulls `total_cost_usd` straight off the `result` event and `describeCost` formats it — added deliberately by REQ-261 behaviour 6 because *"this loop is meant to run many times and its per-round cost is what tells you whether it can."*
+
+Claude Code emits `total_cost_usd` on **every** headless run. It's a token-value estimate computed from usage and model pricing, and it's present whether the session is billed to API credits or drawn against a subscription. So seeing a dollar amount there tells you nothing about which.
+
+I confirmed the round: `storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-1/ai/outcome.json` — `costUsd 9.6688`, 112 turns, 1641402 ms, 89872 output tokens, model `claude-opus-5[1m]`, session `cbdca06a…`. (Iteration 2 was $8.42 / 102 turns.)
+
+## It was on the subscription
+
+Two independent checks:
+
+- Every Claude Code config dir on this machine has an OAuth credential in the Keychain with `subscriptionType: max` and `user:inference` scope — including `.claude-2`, which is where that session's log landed.
+- `ANTHROPIC_API_KEY` is **not** exported by default. It sits behind a manual alias at `~/.zshrc:37` — `alias export-anthropic-key='export ANTHROPIC_API_KEY="$(< ~/Documents/secrets/ANTH_KEY)"'`. Unless you ran that in the terminal you launched the console from, the CLI used the OAuth credential.
+
+## The hole worth fixing
+
+`attempt()` (`ai.ts:890`) spawns the CLI as:
+
+```ts
+spawn(command, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+```
+
+No `env` option — so the child inherits your shell environment **wholesale**. If you ever run `export-anthropic-key` in a terminal (for `1c kb build`, say) and then start the console from that same shell, every round silently bills API credits. Nothing in the transcript, the outcome file or the console page would say so; the `$` line would look identical. Same exposure for `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_USE_BEDROCK` / `_VERTEX`.
+
+That's out of step with how the rest of that module works — the tool policy is enforced by denying things **by name** rather than trusting the environment (`AI_DISALLOWED_TOOLS`, `--setting-sources ''`). The billing route is the one thing left to inheritance.
+
+The fix is small: build the child env explicitly, deleting that set, so a round is structurally incapable of reaching the API. That's a code change and belongs to the repro-console line (REQ-261/262), not EPIC-10 — say the word and I'll file it there.
+
+## One aside on the size of the number
+
+Because the console passes no `--model` and `--setting-sources ''` loads nothing, the model came from the CLI's default and resolved to `claude-opus-5[1m]` — the 1M-context variant. `REPRO_CONSOLE_AI_MODEL` is the override if you want rounds on something cheaper; that's already an operator-facing knob (`ai.ts:518`), just undocumented outside the source.
 
 <!-- xgd-chat-end -->

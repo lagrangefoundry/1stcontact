@@ -128,6 +128,24 @@ async function extractDraftManifest(
  * rendered at that viewport. Absent → the single-width default below.
  */
 export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiffReport> {
+  return (await runValuesDiff(opts)).report
+}
+
+/**
+ * BUG-99 — the same run, with the two manifests it was computed from handed back.
+ *
+ * `cmdValuesDiff` returns the report alone, which is all a caller grading the
+ * values needs. `1c gate` needs more: the perceptual eye's regions can only name
+ * the nodes under them given element geometry, and these two manifests are where
+ * that geometry already is. Reading them back off `--expected-out` /
+ * `--actual-out` would work and would also make the leads conditional on an
+ * output flag, and silently absent without one; returning them makes the data
+ * flow visible and the dependency real.
+ *
+ * `cmdValuesDiff` is this function with the extra dropped, so there is one
+ * implementation and no second path to keep in step.
+ */
+export async function runValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiffRun> {
   if (opts.size) return valuesDiffAtSize(opts, opts.size)
 
   const expected = flattenCapture(await readCapture(fsReferenceBundle(opts.refBundleDir)))
@@ -146,7 +164,14 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
   const report = diffManifests(expected, actual, opts.diffOptions)
   writeManifests(opts, expected, actual)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
-  return report
+  return { report, expected, actual }
+}
+
+/** BUG-99 — a values-diff run: the verdict, and the two manifests it was computed from. */
+export interface ValuesDiffRun {
+  report: ValuesDiffReport
+  expected: ValueManifest
+  actual: ValueManifest
 }
 
 /**
@@ -173,7 +198,7 @@ function writeManifests(opts: ValuesDiffOptions, expected: ValueManifest, actual
  * fall back to a desktop comparison the caller did not ask for; a ladder that
  * never reached this width fails loudly with the widths it does carry.
  */
-async function valuesDiffAtSize(opts: ValuesDiffOptions, size: ViewportName): Promise<ValuesDiffReport> {
+async function valuesDiffAtSize(opts: ValuesDiffOptions, size: ViewportName): Promise<ValuesDiffRun> {
   const viewport = VIEWPORTS[size]
   const reference = await readMultiState(fsReferenceBundle(opts.refBundleDir))
   if (!reference || reference.projections.length === 0) {
@@ -207,7 +232,7 @@ async function valuesDiffAtSize(opts: ValuesDiffOptions, size: ViewportName): Pr
   const report = diffManifests(expected, actual, opts.diffOptions)
   writeManifests(opts, expected, actual)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
-  return report
+  return { report, expected, actual }
 }
 
 /**

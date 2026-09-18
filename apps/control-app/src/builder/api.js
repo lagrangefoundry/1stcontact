@@ -1041,6 +1041,71 @@ export async function fetchPersonMessages(id, fetchImpl = fetch) {
 }
 
 /**
+ * The rest of one contact's history ([[REQ-267]] §8).
+ *
+ * THE DETAIL CARRIES THE FIRST PAGE AND THIS CARRIES THE NEXT. Paging on first
+ * paint would cost a whole round trip for a control most contacts never need;
+ * what this answers is *the page after the one you have*, which nobody needs
+ * until they have pressed something.
+ *
+ * THE CURSOR IS THE SERVER'S AND IS PASSED BACK UNREAD. It encodes the
+ * timeline's own ordering; a client that parsed or composed one would be a
+ * second definition of that ordering, free to disagree with the query's.
+ */
+export async function fetchPersonEvents(id, before, fetchImpl = fetch) {
+  const url = scoped(
+    `/api/people/events?id=${encodeURIComponent(id)}&before=${encodeURIComponent(before ?? '')}`,
+  )
+  const res = await send(fetchImpl, url)
+  if (!res.ok) throw new Error(`GET /api/people/events → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Mail from senders this business does not know ([[REQ-267]] §6).
+ *
+ * NOT A LIST OF PEOPLE. Nothing was created for any of them — the whole point of
+ * the queue is that a stranger's message does not mint a contact — so what comes
+ * back is messages, and what the operator does with one is decide whether it
+ * should become a person at all.
+ */
+export async function fetchPendingInbound(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/people/inbound'))
+  if (!res.ok) throw new Error(`GET /api/people/inbound → ${res.status}`)
+  return res.json()
+}
+
+/** This stranger is a contact: create them, and give them their mail. */
+export async function promoteInbound(uid, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/people/inbound/promote'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ uid }),
+  })
+  if (!res.ok) throw new Error(`POST /api/people/inbound/promote → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Stop asking about this sender, or start again ([[REQ-267]] §6).
+ *
+ * ONE FUNCTION WITH A DIRECTION rather than two exports, because the caller is
+ * one control with two states and the pair would otherwise be kept in step by
+ * whoever remembered. The two PATHS stay separate — a client sending the wrong
+ * string must not be able to perform the opposite act.
+ */
+export async function setInboundSuppressed(address, suppressed, fetchImpl = fetch) {
+  const path = suppressed ? '/api/people/inbound/discard' : '/api/people/inbound/restore'
+  const res = await send(fetchImpl, scoped(path), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ address }),
+  })
+  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`)
+  return res.json()
+}
+
+/**
  * Correct who somebody is: the address, and every part of the name ([[BUG-54]],
  * [[REQ-193]]).
  *

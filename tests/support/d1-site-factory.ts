@@ -127,6 +127,23 @@ const MIGRATIONS = [
   // trigger is the thing the ticket's first UAT asserts, which cannot be
   // asserted against a database that does not carry it.
   () => import('../../db/migrations/0013_revision_immutability.sql?raw'),
+  // [[REQ-267]] / [[DOC-54]] §2.4 — the test gutter's `synthetic` / `run_id`
+  // columns on the four tables the capture chain writes, and the run registry
+  // the inbound marker is validated against. Applied here for the reason every
+  // file above is: `wrangler d1 migrations apply` will run it against every
+  // database this product has, and a fixture that skipped it would build a
+  // schema WITHOUT columns every people read and every timeline read now name —
+  // so every one of them would fail on an unknown column, which reads as a query
+  // bug and is not one.
+  () => import('../../db/migrations/0014_capture_gutter.sql?raw'),
+  // [[REQ-267]] — inbound mail's own two: where a business's mail is forwarded
+  // to, and the senders it has stopped wanting to triage.
+  () => import('../../db/migrations/0015_inbound_mail.sql?raw'),
+  // [[REQ-268]] — the two indexes collection reads. Applied here for every reason
+  // above; it is the cheapest entry in the list for the fixture (an index changes
+  // no result, only how it is found) and the most expensive one to omit from the
+  // LIST, because it is what a collection read plans against.
+  () => import('../../db/migrations/0016_gutter_collection.sql?raw'),
   // [[REQ-260]] — `dns_changes`, every DNS change and what it takes to undo one.
   // Applied here for every reason above, and one of its own: the undo is a
   // compare-and-swap over a set this table HOLDS, so a suite that skipped it
@@ -134,7 +151,7 @@ const MIGRATIONS = [
   // than in the one that reverts it — and the claim the ticket's UATs actually
   // make is about what the second one does with what the first one wrote.
   // LAST IN THE LIST, which is what `atHead` below asks about.
-  () => import('../../db/migrations/0014_dns_changes.sql?raw'),
+  () => import('../../db/migrations/0017_dns_changes.sql?raw'),
 ]
 
 /**
@@ -227,8 +244,8 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-260]]'s `idx_dns_changes_zone`. It used to ask for
- * `sites.kind`, which `0005` adds; once anything came after `0005`, a database
+ * [[REQ-260]]'s `idx_dns_changes_zone`, the change log's own index. It used to
+ * ask for `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
  * re-opens exactly that hole. `sqlite_master` answers on a database with no
@@ -236,11 +253,16 @@ export async function applySchema(): Promise<void> {
  * query serve both "already migrated" and "nothing here yet", exactly as
  * `PRAGMA table_info` did.
  *
- * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0014` creates a
+ * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0017` creates a
  * table and then two indexes; asking for the table would answer "at head" for a
  * database that got half way through the file, exactly as asking for the table
  * `0012`'s index guards would have. The marker has to move with the list — a
  * migration appended above without moving it re-opens that hole silently.
+ *
+ * AND `0014` MAKES THAT SHARPER THAN IT WAS ([[REQ-267]]). Every file up to it
+ * was re-runnable or merely wasteful to re-run; that one is `ALTER TABLE ADD
+ * COLUMN`, which is an ERROR the second time. So this check is now what stands
+ * between a suite calling `applySchema` twice and a hard failure in setup.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()

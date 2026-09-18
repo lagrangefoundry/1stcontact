@@ -166,6 +166,23 @@ export interface LeadSubmission {
    * submission without one composes no link rather than guessing an origin.
    */
   origin?: string
+  /**
+   * The run that manufactured this submission, when one did ([[REQ-268]] §1–2).
+   *
+   * IT ARRIVES ALREADY VERIFIED AND IS NEVER A CLAIM. The signed marker is
+   * checked at the edge that took the request — `public-site`'s `lead.ts`, which
+   * holds the platform secret — and what crosses this seam is the result of that
+   * check, not the token. [[REQ-223]] §3.2 made this an RPC entrypoint with no
+   * URL that reaches it, which is what makes that safe: there is no way to inject
+   * this field past the boundary that verifies it.
+   *
+   * ABSENT IS ORDINARY AND IS THE SAFE ANSWER. Every existing caller sends
+   * nothing and every record they produce stays real — including a submission
+   * whose marker failed verification, which is the deliberate direction of that
+   * failure ([[REQ-268]] §1): a signing fault must never become lost customer
+   * data.
+   */
+  runId?: string
 }
 
 /** Why a submission wrote nothing. Reaches a log; never a visitor. */
@@ -1497,7 +1514,16 @@ export async function captureLead(
     reportRefusal(spec, 'unknown_site')
     return { accepted: false, reason: 'unknown_site' }
   }
-  const scope: Scope = { businessId: site.businessId }
+  // THE RUN RIDES THE SCOPE AND IS NOT THREADED THROUGH EACH WRITE ([[REQ-268]]
+  // §2–3). Everything below — `addContact`, `recordEvent`, `recordAcceptances`,
+  // `grantFor` — already takes this scope, so the mark reaches all four without
+  // a single one of them growing a parameter for it, and the find-or-create
+  // lookup inside `addContact` is scoped to this run rather than to the
+  // business's real contacts.
+  const scope: Scope = {
+    businessId: site.businessId,
+    ...(spec.runId ? { runId: spec.runId } : {}),
+  }
 
   const definition = await formDefinitionOf(
     env,

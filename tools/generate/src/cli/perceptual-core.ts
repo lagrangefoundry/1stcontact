@@ -273,6 +273,203 @@ export function deriveRegions(
   })
 }
 
+// ── region → node leads (BUG-99) ──────────────────────────────────────────────
+
+/**
+ * WHAT A DIFF REGION IS MISSING, AND WHY IT IS RESOLVED HERE.
+ *
+ * A region says *where* the two sides disagree. On its own that is a pointer,
+ * and the only way to learn *what* is there is to open the crop and look — the
+ * reconstruction-from-a-picture DOC-19 forbids. The material that answers it is
+ * already computed beside the diff: both value manifests carry every element's
+ * rendered box in the same document coordinate space the screenshots were shot
+ * in. Intersecting the two is arithmetic, so it belongs in this module, beside
+ * the region derivation whose output it annotates, rather than in the command
+ * shell that happens to hold the files.
+ *
+ * STRUCTURAL INPUT, NOT AN IMPORT. {@link NodeSource} is the shape a
+ * `ValueManifest` already has, declared locally so this module keeps its
+ * defining property — no import of any kind, so the workerd surface can take
+ * the maths without taking the capture library with it.
+ */
+export interface NodeSourceBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** The subset of a value manifest the lead resolver reads. A `ValueManifest` satisfies it. */
+export interface NodeSource {
+  /** The viewport the manifest was projected at — the scale reference (see {@link resolveRegionNodes}). */
+  viewport?: { width: number; height: number }
+  elements?: ReadonlyArray<{
+    text?: string
+    role?: string
+    a11yRole?: string
+    src?: string | null
+    box?: NodeSourceBox
+  }>
+  sections?: ReadonlyArray<{ index?: number; box?: NodeSourceBox }>
+}
+
+/** One lead: a manifest record whose rendered box intersects a region's bbox. */
+export interface RegionNode {
+  /** Which list the `index` indexes — `elements` or `sections` of the manifest. */
+  kind: 'element' | 'section'
+  /** Index into that list. The stable key back to the full record. */
+  index: number
+  /** Verbatim run text, truncated. Absent for a section and for a textless element. */
+  text?: string
+  /** The manifest's own `role`, or the a11y role when it carries no other. */
+  role?: string
+  /** A media element's resolved source, when it has one. */
+  src?: string
+  /** The node's own box, in the region's coordinate space (scaled if the manifest's differs). */
+  box: RegionBox
+  overlap: {
+    /** Fraction of the REGION this node covers — how much of the disagreement it explains. */
+    ofRegion: number
+    /** Fraction of the NODE the region covers — a whole node moved vs a corner clipped. */
+    ofNode: number
+  }
+}
+
+/** Leads from both sides. Their asymmetry is the signal; see {@link resolveRegionNodes}. */
+export interface RegionNodes {
+  ref: RegionNode[]
+  actual: RegionNode[]
+}
+
+export interface RegionNodeOptions {
+  /** Leads kept per side, best-first (default 6). */
+  maxPerSide?: number
+  /** Leads below this `ofRegion` fraction are noise (default 0.02). */
+  minOverlap?: number
+  /** Longest `text` kept on a lead (default 80). */
+  maxTextChars?: number
+}
+
+const NODE_DEFAULTS: Required<RegionNodeOptions> = { maxPerSide: 6, minOverlap: 0.02, maxTextChars: 80 }
+
+/** Intersection area of two boxes in the same space; 0 when they do not meet. */
+function intersectionArea(a: RegionBox, b: RegionBox): number {
+  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
+  const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)
+  return w > 0 && h > 0 ? w * h : 0
+}
+
+/**
+ * The factor that takes manifest coordinates into image coordinates.
+ *
+ * Screenshots are shot at DPR 1, so the two spaces are normally identical and
+ * this is 1. It is derived rather than assumed because the diff crops both
+ * rasters to a COMMON rectangle before comparing, and a caller may hand in a
+ * manifest projected at a different width; a silent mis-registration there would
+ * put every lead under the wrong region, which is worse than no lead at all.
+ */
+export function nodeScaleFor(source: NodeSource | undefined, imageWidth: number): number {
+  const w = source?.viewport?.width
+  if (!w || w <= 0 || imageWidth <= 0) return 1
+  return imageWidth / w
+}
+
+/** Scale a manifest box into image space and express it in the contract's w/h shape. */
+function toRegionBox(box: NodeSourceBox, scale: number): RegionBox {
+  return { x: round(box.x * scale), y: round(box.y * scale), w: round(box.width * scale), h: round(box.height * scale) }
+}
+
+/**
+ * The leads for ONE region out of ONE manifest, best-first.
+ *
+ * Ordered by `ofRegion` descending — the node that explains most of the
+ * disagreement first — with `ofNode` as the tie-break, so between two nodes
+ * covering the region equally the one the region swallows whole ranks above the
+ * one it merely clips.
+ *
+ * The tie-break is what keeps a section band BELOW the run standing on it: both
+ * contain the region entirely (`ofRegion` 1), and the band is the larger of the
+ * two by orders of magnitude, so the run wins on `ofNode`. That is the right
+ * answer and it falls out of the rule rather than needing a special case for
+ * sections — they only surface first where there is no element to beat them,
+ * which is exactly the case they are carried for.
+ */
+export function regionNodeLeads(
+  bbox: RegionBox,
+  source: NodeSource | undefined,
+  scale: number,
+  options: RegionNodeOptions = {},
+): RegionNode[] {
+  if (!source) return []
+  const o = { ...NODE_DEFAULTS, ...stripUndefined(options) }
+  const regionArea = bbox.w * bbox.h
+  if (regionArea <= 0) return []
+
+  const leads: RegionNode[] = []
+  const consider = (kind: 'element' | 'section', index: number, raw: NodeSourceBox | undefined, rest: Partial<RegionNode>) => {
+    if (!raw) return
+    const box = toRegionBox(raw, scale)
+    const nodeArea = box.w * box.h
+    if (nodeArea <= 0) return
+    const inter = intersectionArea(bbox, box)
+    if (inter <= 0) return
+    const ofRegion = inter / regionArea
+    if (ofRegion < o.minOverlap) return
+    leads.push({ kind, index, ...rest, box, overlap: { ofRegion: round(ofRegion), ofNode: round(inter / nodeArea) } })
+  }
+
+  const elements = source.elements ?? []
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i]
+    const text = el.text?.trim()
+    consider('element', i, el.box, {
+      ...(text ? { text: text.length > o.maxTextChars ? `${text.slice(0, o.maxTextChars)}…` : text } : {}),
+      ...(el.role || el.a11yRole ? { role: el.role || el.a11yRole } : {}),
+      ...(el.src ? { src: el.src } : {}),
+    })
+  }
+
+  // Sections are carried because a band is what a region lands on when the
+  // disagreement is a background — a wrong fill or a missing hero image produces
+  // a large region with no text run anywhere near it, which would otherwise
+  // resolve to nothing at all and read as "we have no idea".
+  const sections = source.sections ?? []
+  for (let i = 0; i < sections.length; i++) {
+    consider('section', sections[i].index ?? i, sections[i].box, { role: 'section' })
+  }
+
+  leads.sort((a, b) => b.overlap.ofRegion - a.overlap.ofRegion || b.overlap.ofNode - a.overlap.ofNode)
+  return leads.slice(0, o.maxPerSide)
+}
+
+/**
+ * Annotate every region with the leads from both manifests.
+ *
+ * BOTH SIDES, BECAUSE THE ASYMMETRY IS THE SIGNAL. A region with a `ref` lead
+ * and no `actual` lead is something the reference has that the reproduction did
+ * not draw; the reverse is something the reproduction invented. A region with
+ * the same text on both sides is that element rendered differently, and the two
+ * boxes say whether it moved or merely recoloured.
+ *
+ * Returns a NEW array; the input regions are untouched.
+ */
+export function resolveRegionNodes<T extends { bbox: RegionBox }>(
+  regions: readonly T[],
+  sources: { ref?: NodeSource; actual?: NodeSource },
+  imageWidth: number,
+  options: RegionNodeOptions = {},
+): (T & { nodes: RegionNodes })[] {
+  const refScale = nodeScaleFor(sources.ref, imageWidth)
+  const actualScale = nodeScaleFor(sources.actual, imageWidth)
+  return regions.map((region) => ({
+    ...region,
+    nodes: {
+      ref: regionNodeLeads(region.bbox, sources.ref, refScale, options),
+      actual: regionNodeLeads(region.bbox, sources.actual, actualScale, options),
+    },
+  }))
+}
+
 // ── raster arithmetic ─────────────────────────────────────────────────────────
 
 /** Top-left-anchored crop of a decoded raster to (w×h) — returns a new Raster. */
