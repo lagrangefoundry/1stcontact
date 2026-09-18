@@ -6,10 +6,10 @@ title: 'repro console: the unmeasured set is the headline number; the delta coun
   is not progress'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:33.905493+00:00'
-updated_at: '2026-09-18T23:56:29.008584+00:00'
+updated_at: '2026-09-18T23:57:33.305251+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-8db729d9
+  commits:
+  - working_sha: a7d57961e68f11ed6b35168eb7a639c4ccf47545
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cfa0119e26bda8824b1cbb35c644524875e1f0e3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.275
 ---
 
 # The unmeasured set is the headline number; the delta count is not progress
