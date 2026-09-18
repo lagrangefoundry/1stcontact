@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T19:47:54.236420+00:00'
+updated_at: '2026-09-18T20:38:20.242027+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -236,4 +236,7 @@ operator can approve per site.
 
 ## Children
 
-(child tickets listed here as they are filed)
+- [[BUG-116]] — Chat sessions orphaned by the site-address migration. Finding 2's
+  repair: verify the opaque-key model has no stragglers, re-home the orphaned
+  conversations (three cases, only one of which is mechanical), survey and fix
+  production, and make an orphan discoverable instead of silent.
