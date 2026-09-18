@@ -602,10 +602,18 @@ describe('REQ-256 the AI round', () => {
     // round must never show is a green line nothing produced. A checkout with
     // no recorded bar cannot say "no worse" — it says so, and says what to do
     // about it, rather than passing by default.
+    //
+    // It does NOT say "REGRESSED", which is what this assertion used to pin and
+    // what BUG-109 supersedes: nothing was measured, so nothing can have got
+    // worse. "The rail could not run here" is the same answer the disabled and
+    // the thrown paths above give, and it is reported the same way — see
+    // `test_UAT_FC_BUG-109_*` for that claim in full.
     const bare = await runRailRound('/nowhere', async () => ({ code: 0, stdout: '', stderr: '' }), {})
-    expect(bare.pass).toBe(false)
+    expect(bare.available).toBe(false)
+    expect(bare.pass).toBeUndefined()
     expect(bare.summary).toContain('no baseline')
-    expect(bare.summary.split('\n')[0]).toContain('REGRESSED')
+    expect(bare.summary).toContain('repro-rail record')
+    expect(bare.summary).not.toContain('REGRESSED')
   })
 
   it('test_UAT_FC_REQ_256_the_rail_s_findings_are_what_the_page_and_the_round_are_told', () => {

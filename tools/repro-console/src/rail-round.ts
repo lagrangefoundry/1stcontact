@@ -23,6 +23,7 @@
  * never silent: the rail reports what it did not cover, and that carries onto
  * the page with everything else it said.
  */
+import { BASELINE_FILE } from './baseline'
 import { runRail, type RailReport, type PhaseName } from './rail'
 import { spawnCommand, type CommandRunner } from './run'
 
@@ -43,6 +44,15 @@ export interface RailRoundResult {
   summary: string
 }
 
+/**
+ * What the round is told when the checkout has never recorded a bar.
+ *
+ * Worded as a state of the checkout and an instruction, because that is what it
+ * is. A round that reads this must not go looking for a regression: there is no
+ * recorded number for anything to have moved away from.
+ */
+export const NO_BASELINE = `not available — no baseline at ${BASELINE_FILE}; record one with \`repro-rail record\``
+
 /** `off` / `0` / `false` — the operator who does not want to wait for it. */
 function disabled(env: NodeJS.ProcessEnv): boolean {
   const configured = env[RAIL_ENV]?.trim().toLowerCase()
@@ -57,6 +67,11 @@ function disabled(env: NodeJS.ProcessEnv): boolean {
  * exists as a separate answer from `pass`.
  */
 export function summarise(report: RailReport): string {
+  // A rail with nothing to compare against has said nothing, and saying nothing
+  // is not saying "worse". Reported before the phase loop because the phase the
+  // rail returns in that case carries the explanation as a *failure*, and every
+  // failure below renders with a `REGRESSED ·` prefix.
+  if (report.noBaseline) return `the regression rail — ${NO_BASELINE}`
   const lines: string[] = []
   for (const phase of report.phases) {
     for (const failure of phase.failures) lines.push(`REGRESSED · ${phase.name}: ${failure}`)
@@ -70,10 +85,11 @@ export function summarise(report: RailReport): string {
 /**
  * Run the rail for one round and report what it said.
  *
- * A rail that throws is reported as unavailable rather than as a regression.
- * The difference matters: "the rail could not run here" is a state of this
- * checkout, and "the rail says something is worse" is a state of the engine —
- * and only the second is a finding about the thing being diagnosed.
+ * A rail that throws — or that has no baseline to compare against — is reported
+ * as unavailable rather than as a regression. The difference matters: "the rail
+ * could not run here" is a state of this checkout, and "the rail says something
+ * is worse" is a state of the engine — and only the second is a finding about
+ * the thing being diagnosed.
  */
 export async function runRailRound(
   cwd: string,
@@ -85,6 +101,10 @@ export async function runRailRound(
   }
   try {
     const report = await runRail({ cwd, runCommand: run, only: ROUND_PHASES })
+    // Same shape as the throw path below, for the same reason: the rail could
+    // not run here. `pass` is left undefined rather than passed through as
+    // `false` — "unknown" is not "pass", and it is not "regressed" either.
+    if (report.noBaseline) return { available: false, summary: summarise(report) }
     return { available: true, pass: report.pass, partial: report.partial, summary: summarise(report) }
   } catch (err) {
     return {
