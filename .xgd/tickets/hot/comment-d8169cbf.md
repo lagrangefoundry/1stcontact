@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:57:36.463465+00:00'
+updated_at: '2026-09-18T23:58:50.825676+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -777,5 +777,55 @@ One thing I wrote down explicitly: your "not too technical" ruling makes this a 
 That's better than Material - would be nicer if we had IMAGE-1, IMAGE-2 but its probably ok.
 
 Are these numbers global or per tenant?
+
+<!-- xgd-turn id="429c199c-2ec8-4b3e-a520-c8124c668b26-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:58:50.025412+00:00" -->
+#### Claude
+**Per tenant.** Confirmed both ways:
+
+```sql
+CREATE TABLE counters (
+  tenant_id TEXT NOT NULL,
+  type      TEXT NOT NULL,
+  value     INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (tenant_id, type)
+);
+```
+
+and three different businesses each have their own `MATERIAL-1`:
+
+```
+biz_51a674… | MATERIAL-1 | material-e478df0e
+biz_5b1017… | MATERIAL-1 | material-20fa5f92   ← Lagrange Foundry
+biz_96fc32… | MATERIAL-1 | material-0c513381
+```
+
+That's the right property for a client-facing label — every client's catalogue starts at 1, and the number never hints at how many other clients exist. It's an information-barrier property too, not just cosmetics: a global sequence would leak volume across tenants.
+
+Let me check one thing, because it decides whether you can have the dense numbering you'd prefer.
+
+`kind` is set once at ingest (`kind: classification.kind`, from classifying the uploaded bytes) and nothing mutates it afterwards. That changes my recommendation — **you can have IMAGE-1, IMAGE-2.**
+
+**Per tenant**, and you can have the dense numbering after all.
+
+## The tenancy answer
+
+`counters` is `PRIMARY KEY (tenant_id, type)`, and three businesses in your local store each hold their own `MATERIAL-1`. Every client's catalogue starts at 1.
+
+That's load-bearing rather than cosmetic: a globally sequenced label would tell one client how much material every *other* client has uploaded — an information leak across the tenant barrier, in a string the consultant is now cleared to say out loud.
+
+## IMAGE-1, IMAGE-2 — both objections fail
+
+I'd hedged toward sparse numbering. Checking properly, neither reason survives:
+
+- **No schema change needed.** Since `counters` already keys on `(tenant_id, type)`, a per-kind counter is just another key in the same table (`material:image`). Same mechanism, and it inherits the per-tenant scoping for free.
+- **Reclassification can't break a reference.** `kind` is assigned once at ingest from classifying the uploaded bytes (`material.ts:660`), and nothing mutates it afterwards. That was the objection that would have forced sparse numbering — a client says "IMAGE-3" and the thing gets renumbered under them. It can't happen.
+
+**The cost you're accepting:** the client-facing number no longer matches the ticket's own `human_id` — `IMAGE-3` might be `MATERIAL-9`. That's a debugging inconvenience only; the catalogue item carries both and the uid is still the machine handle. Anyone in D1 can join them.
+
+I've recorded the fallback too — labelling with the kind over `human_id`'s existing number, sparse but exactly recoverable — so if the divergence ever proves more annoying than the density is worth, the alternative is written down rather than rediscovered.
+
+REQ-280 updated. One caution noted in it for whoever implements: the per-kind counter must stay keyed on `(tenant_id, …)`. A counter keyed on kind alone would silently break the per-tenant property, and that's the kind of thing that looks fine in dev where you're the only tenant.
 
 <!-- xgd-chat-end -->
