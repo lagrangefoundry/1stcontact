@@ -6,15 +6,23 @@ title: 'values-diff / gate: a reference section with no reproduction band is rep
   nowhere the gate reads'
 created_by: repro-console:repro-gigabytealchemy-ai#3
 created_at: '2026-09-18T02:09:05.808092+00:00'
-updated_at: '2026-09-18T03:46:00.064277+00:00'
+updated_at: '2026-09-18T03:46:46.238315+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-e0a7ae41
+  commits:
+  - working_sha: 6873817c340c92b080f2fcde8ec8172c23be1a05
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 84f9d3e45d6aae94ad2d02eccbe4dbaab44ac705
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.257
 ---
 
 Found by loop 1, iteration **3** of `repro-gigabytealchemy-ai` against
