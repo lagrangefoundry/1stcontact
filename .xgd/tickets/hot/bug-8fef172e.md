@@ -6,15 +6,23 @@ title: 'gate: the verdict is decided by the perceptual floor alone, so 13 HIGH s
   deltas still report pass'
 created_by: repro-console:repro-gigabytealchemy-ai#3
 created_at: '2026-09-18T02:08:33.305770+00:00'
-updated_at: '2026-09-18T03:50:08.314417+00:00'
+updated_at: '2026-09-18T03:56:52.217770+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-bfb31b12
+  commits:
+  - working_sha: db4402de04dd8c9d0abdb9391bc87b8292b64517
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0d322e88de182622a48af7f604fa73031ed082c1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.260
 ---
 
 Found by loop 1, iteration **3** of `repro-gigabytealchemy-ai` against
