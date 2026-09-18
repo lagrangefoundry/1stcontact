@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:14:58.043642+00:00'
+updated_at: '2026-09-18T03:20:17.507956+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1016,5 +1016,13 @@ The pair is the proof, and the fact that they travel different paths is the feat
 The per-provider "here's where GoDaddy hides your forwarding rules" guidance is genuinely good AI work and I'd name it as its own capability rather than letting it hide inside the flow — it's the difference between this being simple and being harrowing.
 
 Want me to write this into EPIC-13 as a UX section? It's a document change, so no branch needed — and it belongs beside the cutover ordering rather than in ticket 2, since it spans the EPIC-5 seam.
+
+<!-- xgd-turn id="e9ffcacd-cc4e-4381-9fe0-65eecd3ebb03-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:20:17.389171+00:00" -->
+#### You
+This is the right shape, and it's close to what the epic already records — your "configure once, then we act" is step 2 of the cutover window (`EPIC-5` creates the zone `pending` and populates it *before* the nameserver pair is ever shown, so there's a free interval where the zone is ours and nothing resolves from it yet). Your framing adds the thing that section doesn't have: that the whole capture phase should feel like one sitting, and the async part should be invisible. <-- I'm not sure that is right. In my model we read ONLY, capture ALL settings once and THEN walk the user through the transfer - pending should happen at the end
+
+RDAP/WHOIS, which I don't think we do today - its in the plan, we talked about it - LMK if we can't do it we should fix
 
 <!-- xgd-chat-end -->
