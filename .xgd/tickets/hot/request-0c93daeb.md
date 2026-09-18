@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-7919010c
 ---
 
 # Repro console: two operator decision points, and a re-capture that does not reset the site
