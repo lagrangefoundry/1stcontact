@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-bfb31b12
 ---
 
 Found by loop 1, iteration **3** of `repro-gigabytealchemy-ai` against
