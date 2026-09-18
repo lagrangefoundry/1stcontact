@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:42:48.576846+00:00'
+updated_at: '2026-09-18T23:57:36.463465+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -769,5 +769,13 @@ Filed as **REQ-280**, with three things it has to do or it isn't shared:
 The uid stays as the machine handle — `library.ts:55` warns that changing it is "the drift in miniature", and it's persisted in stored edit recipes.
 
 One thing I wrote down explicitly: your "not too technical" ruling makes this a **carve-out from the priming's no-framework-vocabulary rule**, so the consultant may say `IMAGE-5` to a client. Recorded as a deliberate exception, so a later pass over the priming doesn't read it as a violation to clean up.
+
+<!-- xgd-turn id="429c199c-2ec8-4b3e-a520-c8124c668b26-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:57:35.975843+00:00" -->
+#### You
+That's better than Material - would be nicer if we had IMAGE-1, IMAGE-2 but its probably ok.
+
+Are these numbers global or per tenant?
 
 <!-- xgd-chat-end -->
