@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:03:08.953184+00:00'
+updated_at: '2026-09-18T03:07:14.845830+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -957,5 +957,17 @@ So the UX is settled and has been. What's actually open for ticket 2:
 3. **Catch-all default** — epic says off steady-state, on through cutover.
 
 Want me to scope ticket 2 now, carrying the UX as you've described it and those three as decisions to record?
+
+<!-- xgd-turn id="a8ed6a1d-92ae-438d-bf78-018e878b3f18-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:07:14.491223+00:00" -->
+#### You
+ok so the question that I want to talk through next is a UX one - lets ignore the data structures underneith for a second and discuss the user experience of domain transfer - this is harrowing for a non-technical user and we want to make it simple.
+
+The key here should be that we separate configuration capture from action. This is inherently an asynchronous execution environment. We have DNS propagation to deal with so let's not get excited about what our data model can support it actually doesn't matter we can support all kinds of things what we're talking about is the user experience.
+
+I think the right user experience is that the user should configure everything once, before we make any changes. Then we tell them when everything has been done. How we implement everything under the covers and in what order is up to us.
+
+So it would go something like this:
 
 <!-- xgd-chat-end -->
