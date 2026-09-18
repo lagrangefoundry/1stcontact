@@ -6,15 +6,16 @@ title: A generated picture's result never says where it went, so the assistant r
   itself blind
 created_by: EPIC-19
 created_at: '2026-09-18T21:46:39.302408+00:00'
-updated_at: '2026-09-18T22:56:25.485476+00:00'
+updated_at: '2026-09-18T22:57:54.597654+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-1dcb78db
+  story_points: 3
 ---
 
 Parent: [[EPIC-19]]. Reported by the builder assistant in conversation on
