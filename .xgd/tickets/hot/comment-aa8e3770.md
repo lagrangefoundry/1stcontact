@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-18
 created_by: xgd
 created_at: '2026-09-18T02:34:28.344861+00:00'
-updated_at: '2026-09-18T02:45:27.126552+00:00'
+updated_at: '2026-09-18T02:54:45.494535+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -137,5 +137,11 @@ The consequence worth naming: REQ-235 built `log.ts` — raw store, D1 sink, ret
 That gives EPIC-18: the adopted raw tier and sink · the Tail Worker access log and `TraceItem` mapping · `public-site`, which has no `[observability]` block at all · the ladder and the R2 archive · the per-business debug switch with its `until` expiry · the operator/AI query surface · the 38 unconverted `console.*` sites · the practice doc.
 
 Shall I write that up as EPIC-18's body, titled **"Logging"**? The one thing I'd want your call on first: do you want §43 Q1 *decided in the epic* (my recommendation above, with route-normalisation pulled forward as its own early requirement), or stated as the open decision that blocks the ladder child?
+
+<!-- xgd-turn id="cf55f9ca-dde3-40fb-8f36-dca5cbe9672a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:54:44.510572+00:00" -->
+#### You
+OK I assume (1) the time periods are configurable - if we want to adjust how long we keep logs we can (2) what business model in cloud flare does this trigger? (3) what is the motivation for 400d?
 
 <!-- xgd-chat-end -->
