@@ -126,6 +126,30 @@ export const TURNSTILE_FIELD = 'cf-turnstile-response'
 export const FORM_INSTANCE_FIELD = 'fc_form'
 
 /**
+ * The gutter mark: a signed token saying this submission is manufactured
+ * ([[REQ-268]] §1, [[DOC-54]] §2.3).
+ *
+ * HERE FOR THE REASON THE HONEYPOT IS. It is a wire-level machine artefact, and
+ * this file is where the strings three parties have to agree on are written
+ * once. The parties are different from the other three names' — whatever mints a
+ * mark, and the `public-site` handler that verifies it — but the failure of a
+ * second spelling is the same and is silent in the same way: a marked
+ * submission the receiver looks for under the wrong name is a submission written
+ * REAL, into the customer's contact list, with nothing anywhere saying so.
+ *
+ * IT IS RESERVED, SO IT IS STRIPPED BEFORE ANYTHING IS STORED. The value is an
+ * HMAC and the fact it asserts is recorded as a column; putting the token itself
+ * in a contact's provenance would be a fourth machine artefact beside the words
+ * a person typed, and a replayable one.
+ *
+ * ASSERTING IT IS NOT ENOUGH, AND THAT IS THE POINT. The name is public — it is
+ * in this file — so the control is the signature `gutter/marker.ts` verifies,
+ * never the presence of the field. A caller who fills this in with anything
+ * they can compose is written real, exactly as if they had left it out.
+ */
+export const MARK_FIELD = 'fc_mark'
+
+/**
  * What separates the two halves of a handle ([[BUG-93]]).
  *
  * A COLON IS UNAVAILABLE TO A PAGE ID BY CONSTRUCTION. `isValidPageName`
@@ -178,6 +202,7 @@ export const RESERVED_FIELDS: readonly string[] = [
   HONEYPOT_FIELD,
   TURNSTILE_FIELD,
   FORM_INSTANCE_FIELD,
+  MARK_FIELD,
 ]
 
 /**

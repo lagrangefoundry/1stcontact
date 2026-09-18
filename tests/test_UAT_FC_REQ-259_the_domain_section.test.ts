@@ -474,7 +474,12 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-259 — on the Settings pane, beside the 
     const sections = [...pane.querySelectorAll('.builder-settings__subtitle')].map(
       (node) => node.textContent,
     )
-    expect(sections).toEqual(['Your free web address', 'Your domain'])
+    // STILL EXHAUSTIVE, so a stray fourth section would still be caught. The
+    // third is [[REQ-260]]'s record of what has been changed about the domain,
+    // which is a different question asked at a different moment and therefore
+    // sits BELOW the controls rather than inside them — the order above it is
+    // the claim this case is making and is unchanged.
+    expect(sections).toEqual(['Your free web address', 'Your domain', 'Changes to your domain'])
     expect(pane.querySelector('select.builder-domain__select')).toBeTruthy()
     expect(asked.domain).toBe(1)
     expect(app.shell.getPanel(CONFIG.SETTINGS_TAB.id).contains(pane)).toBe(true)

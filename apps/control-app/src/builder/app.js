@@ -1,6 +1,7 @@
 import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
+import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
 import {
   ACCOUNT_ACTION_ID,
@@ -59,6 +60,7 @@ import {
   saveMaterialRecipe,
   saveSubject,
   setBusinessScope,
+  undoDnsChange,
   uploadMaterial,
   writePalette,
 } from './api.js'
@@ -1008,6 +1010,35 @@ export function mountBuilder(root, options = {}) {
     // the pane — the distinction [[REQ-239]] draws and the one thing a payload
     // here would quietly undo.
     onBusinessChanged: () => void settings.reload(),
+    /**
+     * [[REQ-260]] — THE CARD. The assistant has just changed the client's
+     * domain, and this is where they are told, in the conversation, while it is
+     * happening.
+     *
+     * IT IS A NOTICE WITH AN UNDO AND NOT A QUESTION, which is the whole design
+     * decision: a confirmation a client cannot meaningfully perform is worse
+     * than none, because it launders our error into their approval. The safety
+     * is in the rules the origin enforces whether or not anybody clicks; what
+     * this delivers is visibility and the commit point the undo hangs off.
+     *
+     * AND THE PANE FOLLOWS. The same change appears in the history section on
+     * the settings pane six inches to the left, which is the card's durable home
+     * once this conversation has scrolled away — so the two halves of one screen
+     * never disagree about what has been done.
+     */
+    onDnsChanged: (meta) => {
+      const panel = settingsChat.getChat()
+      const host = panel?.element?.querySelector('.chat-widget-messages') ?? panel?.element
+      if (host) {
+        appendDnsCard(host, meta, {
+          onUndo: async (change) => {
+            await undoDnsChange(change)
+            await settings.dnsHistory.refresh()
+          },
+        })
+      }
+      void settings.dnsHistory.refresh()
+    },
   })
   const settingsSplitHost = document.createElement('div')
   settingsSplitHost.className = 'builder-split'

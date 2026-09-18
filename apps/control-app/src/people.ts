@@ -642,9 +642,16 @@ export async function addContact(
   const displayName = (spec.displayName ?? '').trim() || null
 
   const now = new Date().toISOString()
+  // THE LOOKUP CARRIES THE GUTTER TOO ([[REQ-268]] §2). A marked submission must
+  // never find a REAL contact who happens to hold the same address and attach its
+  // records to them — that is the one way manufactured traffic could pollute the
+  // record it exists to stay out of, and it would be silent. Under a run, this
+  // resolves that run's own contact and nothing else; under no run, it resolves
+  // the customer's own people and never a probe's.
   const existing = await env.DB.prepare(
     `SELECT ${USER_COLUMNS} ${USER_SOURCE} ` +
-      `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
+      `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, scope.businessId, email)
     .first<UserRecord>()
@@ -656,7 +663,8 @@ export async function addContact(
     if (displayName && !nameFromJoin(existing)) {
       await writeName(env, existing.id, { displayName })
       const named = await env.DB.prepare(
-        `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+        `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+          realOnly(scope, 'u.'),
       )
         .bind(scope.businessId, existing.id)
         .first<UserRecord>()
@@ -683,15 +691,35 @@ export async function addContact(
   // Every contact belongs to an account, including a lead nobody will ever bill,
   // because "belongs to an account" with exceptions is a nullable column and an
   // empty chair.
+  //
+  // AND THE GUTTER MARK COMES FROM THE SCOPE, NOT FROM AN ARGUMENT ([[REQ-268]]
+  // §2). This is the one write in the capture chain that cannot derive its mark
+  // from a parent, because the contact IS the parent every other record derives
+  // from — so it is taken from the request context the scope carries. There is
+  // no `synthetic` on {@link AddContactSpec} and there must not be: a flag a
+  // caller passes is a flag a caller omits, and the omission is silent and puts
+  // a bot lead in a customer's contact list.
   const id = newId('usr')
   const accountId = newId('acct')
+  const runId = (scope.runId ?? '').trim()
   await env.DB.batch([
     accountInsert(env, { id: accountId, tenantId: scope.businessId, name: displayName, now }),
     env.DB.prepare(
       'INSERT INTO users (id, tenant_id, account_id, status, platform_operator, ' +
-        'pipeline_stage, created_at, updated_at, fields) ' +
-        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)',
-    ).bind(id, scope.businessId, accountId, 'active', PIPELINE_LEAD, now, now, '{}'),
+        'pipeline_stage, created_at, updated_at, fields, synthetic, run_id) ' +
+        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)',
+    ).bind(
+      id,
+      scope.businessId,
+      accountId,
+      'active',
+      PIPELINE_LEAD,
+      now,
+      now,
+      '{}',
+      runId === '' ? 0 : 1,
+      runId === '' ? null : runId,
+    ),
     userEmailInsert(env, { userId: id, tenantId: scope.businessId, email, now }),
     contactEventInsert(env, {
       contactId: id,
@@ -704,7 +732,8 @@ export async function addContact(
   if (displayName) await writeName(env, id, { displayName })
 
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?` +
+      realOnly(scope, 'u.'),
   )
     .bind(scope.businessId, id)
     .first<UserRecord>()

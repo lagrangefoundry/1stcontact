@@ -54,6 +54,7 @@ import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchAddresses, fetchBusinessRecord, fetchDomain, saveBusinessName } from './api.js'
 import { createHostnameSection } from './hostname.js'
 import { createDomainSection } from './domain.js'
+import { createDnsHistorySection } from './dns-history.js'
 
 /**
  * The field, and the two sentences around it.
@@ -203,6 +204,25 @@ export function createSettingsPanel(options = {}) {
     },
   })
 
+  /**
+   * What we have changed about the domain, as its own section ([[REQ-260]]).
+   *
+   * UNDER THE DOMAIN SECTION AND NOT INSIDE IT. The section above is three
+   * controls about what the domain DOES; this is a record of what has been done
+   * to it, which is a different question asked at a different moment — usually
+   * *"what did it change, and can I put it back"* after a conversation the client
+   * half remembers.
+   *
+   * IT IS THE CARD'S DURABLE HOME. The card in the conversation carries the same
+   * sentence and the same undo, and the conversation scrolls away; this does not.
+   */
+  const dnsHistory = createDnsHistorySection({
+    transport: {
+      ...(transport?.loadDnsChanges ? { load: transport.loadDnsChanges } : {}),
+      ...(transport?.undoDnsChange ? { undo: transport.undoDnsChange } : {}),
+    },
+  })
+
   const loadAddresses = transport?.loadAddresses ?? fetchAddresses
   const loadBusiness = transport?.loadBusiness ?? fetchBusinessRecord
   const loadDomain = transport?.loadDomain ?? fetchDomain
@@ -250,16 +270,22 @@ export function createSettingsPanel(options = {}) {
     // business's heading, and the re-read is allowed to fail.
     hostname.clear()
     domain.clear()
+    dnsHistory.clear()
     const mine = ++addressGeneration
     if (!business) {
       section.remove()
       hostname.element.remove()
       domain.element.remove()
+      dnsHistory.element.remove()
       element.append(empty)
       return
     }
     empty.remove()
-    element.append(section, hostname.element, domain.element)
+    element.append(section, hostname.element, domain.element, dnsHistory.element)
+    // THE HISTORY IS READ ON OPEN, like the addresses and the domain above it,
+    // and its failure is silent for the same reason: it is a request the customer
+    // did not make.
+    void dnsHistory.refresh()
     void loadAddresses()
       .then((answer) => {
         if (mine !== addressGeneration) return
@@ -350,6 +376,11 @@ export function createSettingsPanel(options = {}) {
     // pushes it here; the section says it will come right on its own, and this
     // is what makes that sentence true rather than an invitation to reload.
     domain.refresh(domainAnswer)
+    // AND THE HISTORY, WHICH HAS A REASON OF ITS OWN TO BE RE-READ ([[REQ-260]]).
+    // The assistant six inches to the right can change the domain mid-conversation
+    // and the card it shows is in the chat, not here — so without this the two
+    // halves of one screen disagree about what has been done.
+    void dnsHistory.refresh()
     if (!record || record.id !== business.id) return
     const name = record.name ?? ''
     if (name === business.name) return
@@ -371,6 +402,8 @@ export function createSettingsPanel(options = {}) {
     getBusiness: () => business,
     /** The free web address section — for the host and for a suite. */
     hostname,
+    /** The record of what we have changed — for the host and for a suite. */
+    dnsHistory,
     /** The customer's own domain section — for the host and for a suite. */
     domain,
     clear: () => setBusiness(null),
@@ -379,6 +412,7 @@ export function createSettingsPanel(options = {}) {
       fields = null
       hostname.destroy()
       domain.destroy()
+      dnsHistory.destroy()
       element.remove()
     },
   }

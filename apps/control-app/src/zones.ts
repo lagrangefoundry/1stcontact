@@ -306,6 +306,23 @@ export async function recordZone(env: IdentityEnv, spec: ZoneSpec): Promise<Zone
   return zone
 }
 
+/**
+ * One zone by OUR id, whoever it belongs to and whatever its status
+ * ([[REQ-260]]).
+ *
+ * WHY BY ID RATHER THAN BY APEX. A recorded change names the zone it happened in
+ * by `zones.id`, because that is the key that survives a zone being deleted and
+ * re-added at Cloudflare — and an undo months later has to resolve that id back
+ * to the Cloudflare zone the records actually live in. Reaching it by apex would
+ * mean the change row held an apex, which is the attribute rather than the key.
+ */
+export async function zoneById(env: IdentityEnv, id: string): Promise<Zone | null> {
+  const row = await env.DB.prepare(`SELECT ${COLUMNS} FROM zones WHERE id = ?`)
+    .bind(id)
+    .first<ZoneRow>()
+  return row ? toZone(row) : null
+}
+
 /** One zone by apex, whoever it belongs to and whatever its status. */
 export async function zoneByApex(env: IdentityEnv, rawApex: string): Promise<Zone | null> {
   const row = await env.DB.prepare(`SELECT ${COLUMNS} FROM zones WHERE apex = ?`)

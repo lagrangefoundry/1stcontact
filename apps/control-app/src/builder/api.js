@@ -1436,6 +1436,40 @@ export async function releaseDomain(fetchImpl = fetch) {
   return res.json()
 }
 
+/**
+ * What we have changed about this domain, newest first ([[REQ-260]]).
+ *
+ * SENTENCES AND NOT RECORDS. The origin answers with the sentence each change
+ * was announced with; there is no record type, value or zone anywhere in it,
+ * which is what makes *"if a customer is being shown a record type, we have
+ * failed"* a property of the API rather than a discipline of the section.
+ */
+export async function fetchDnsChanges(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/domain/changes'), { method: 'GET' })
+  if (!res.ok) throw new Error(`GET /api/domain/changes -> ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Put one back ([[REQ-260]]).
+ *
+ * THE REFUSAL IS THE INTERESTING ANSWER and it arrives as a 409 carrying a
+ * sentence — the settings have moved since, so putting this back would undo the
+ * newer change as well. It is shown verbatim: it was written to be read out.
+ */
+export async function undoDnsChange(change, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/domain/changes/undo'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ change }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/domain/changes/undo -> ${res.status}`)
+  }
+  return res.json()
+}
+
 /** Send from it, or stop. Separately reversible from the attachment itself. */
 export async function setDomainEmail(enabled, fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/domain/email'), {

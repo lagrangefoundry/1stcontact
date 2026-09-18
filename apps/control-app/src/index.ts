@@ -24,6 +24,7 @@ import {
   type SignedIn,
 } from './sessions'
 import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
+import { sweepSynthetic } from './gutter'
 import { guardTerms } from './terms'
 import { ticketStoreFor } from './tickets'
 
@@ -548,7 +549,7 @@ export default {
   },
 
   /**
-   * The cron ([[REQ-231]]). It has one job and the job is `purgeSessions`.
+   * The cron ([[REQ-231]], [[REQ-268]]). Two sweeps now, on one schedule.
    *
    * WHY THERE IS A SCHEDULED HANDLER AT ALL NOW. `purgeExpired` is the only
    * sanctioned way to reap the component's two tables, and until this it was
@@ -571,6 +572,28 @@ export default {
   async scheduled(event: ScheduledController, env: Env): Promise<void> {
     const purged = await purgeSessions(env)
     console.log(JSON.stringify({ event: 'sessions_purged', cron: event.cron, ...purged }))
+
+    /*
+     * THE SYNTHETIC SWEEP ([[REQ-268]] §4, [[DOC-54]] §2.7), under the same two
+     * rules the sessions sweep above states and for the same reasons.
+     *
+     * IT REPORTS RATHER THAN RETURNS, and here that reporting is the FEATURE
+     * rather than a diagnostic. If collection-by-run works, this takes nothing,
+     * every time — so a non-zero count is a bug report saying a run leaked, and
+     * the invocation log is the only place that report can appear. A garbage
+     * collector that silently stopped looks exactly like a system with no
+     * garbage; a line that says `0` every day is what distinguishes them.
+     *
+     * IT DOES NOT SWALLOW A FAILURE, which is what makes an implausible harvest
+     * — the refusal `sweepSynthetic` raises rather than performing — visible as
+     * a failed invocation rather than as a log line nobody reads.
+     *
+     * IT RUNS AFTER THE SESSIONS SWEEP AND NOT IN PARALLEL. A throw here must
+     * not take down a purge that has nothing to do with the gutter, and the one
+     * that already ran has already reported.
+     */
+    const collected = await sweepSynthetic(env)
+    console.log(JSON.stringify({ event: 'synthetic_swept', cron: event.cron, ...collected }))
   },
 
   /**

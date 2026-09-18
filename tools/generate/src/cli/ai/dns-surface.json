@@ -1,0 +1,395 @@
+{
+  "surface": "dns",
+  "version": 1,
+  "surface_version": 1,
+  "title": "Your client's domain — what it currently does, and the few things you may change about it",
+  "call_type": "inproc",
+  "overview": "This is your client's own domain: the address people type, where their email goes, and who is allowed to send as them. You can READ all of it, freely and as often as you like — that is the half with the most support value and no risk at all, and *\"let me look at what your domain is doing\"* is usually the whole of what a confused client needs.\n\n**Changing it is a short, closed list.** There is no operation here that sets a record — you pick from the list below, and each one carries its own rule about what it will and will not do. If what your client wants is not on the list, say so and write down what they asked for; it is not something to improvise with, because the failure lands in somebody's inbox weeks later and nobody connects it to this conversation.\n\n## The one thing you must never do on this surface\n\n**Do not read a record type, a record value or a host name out to your client.** Not `TXT`, not `MX`, not SPF, not DKIM, not a zone. They are yours to reason with and they mean nothing to the person you are talking to — *\"your email is with Microsoft and I am keeping it working\"* is the same fact said usefully. If a client is being shown a record type, we have failed.\n\n## You are not asking permission, and you must not act as if you were\n\nWhen you make one of these changes, the conversation shows your client a card saying what is happening in their words, with an Undo. **That card is not a confirmation and you must not treat it as one.** Do not ask *\"shall I add a TXT record?\"* — they cannot meaningfully answer it, and a question they cannot answer only launders our mistake into their approval. Decide, do it, and say what you did in the present tense: *\"I'm setting up email sending on your domain — your existing email with Microsoft isn't affected.\"*\n\n**One change is one card.** Six changes are six cards, not one silent cascade — so make the change the client actually asked for, and ask before going on a tidying spree.\n\n## Undo\n\nEvery change here can be undone by your client, from the card or from their settings. Undo refuses if anything has moved those settings since — including things nobody here did, like an email provider rotating a key — and it says so in a sentence. That is a real answer, not a failure: read it out, and offer to look at what is different.",
+  "param_types": {
+    "dns_host": {
+      "base": "string",
+      "description": "A name inside your client's own domain — `alicesplumbing.com` itself, or something under it like `shop.alicesplumbing.com`. It must be part of the domain they hold with us; anything else is refused, because it is not ours to change."
+    },
+    "sender_include": {
+      "base": "string",
+      "description": "The sending domain the provider told your client to authorise — the thing after `include:` in whatever they were asked to paste, e.g. `servers.mcsv.net` for Mailchimp or `_spf.google.com` for Google Workspace. If your client has pasted a whole policy at you, take this value out of it; do not pass the policy."
+    },
+    "who": {
+      "base": "string",
+      "description": "Whoever this is for, in the words your client uses — `Mailchimp`, `their booking system`, `Google`. It goes straight into the sentence they read on the card, so write it as you would say it out loud and never as a domain or a record."
+    },
+    "verification_code": {
+      "base": "string",
+      "description": "The exact value the other company gave your client to prove the domain is theirs. Paste it verbatim — one wrong character and the check silently never passes. An email sending policy (anything starting `v=spf1`) is refused here; use `allow_sender` for that, because those have to be merged rather than added beside what is there."
+    },
+    "point_target": {
+      "base": "string",
+      "description": "The address the subdomain should reach — the host their other service gave them, e.g. `shops.myshopify.com`. A whole URL is not one; take the host out of it."
+    },
+    "dkim_selector": {
+      "base": "string",
+      "description": "The short name of the signing key, which the email provider shows beside the value — `google`, `selector1`, `k1`. It is not a guess: if your client cannot find it, that is a question for their provider rather than something to try."
+    },
+    "dkim_value": {
+      "base": "string",
+      "description": "The whole signing key value as the provider shows it, starting `v=DKIM1`. It is long and it is one string; a truncated one signs nothing and looks fine."
+    }
+  },
+  "shapes": {
+    "domain": {
+      "domain": "the domain this business holds with us, as your client knows it. Null when they have none — in which case there is nothing on this surface to read or change, and the thing to talk about is getting them a domain",
+      "serving": "true when this domain currently reaches the site we built for them"
+    },
+    "reading": {
+      "domain": "the domain this reading is of",
+      "web": "who serves the website here, as `{host, provider}`. `provider` is null where the host is one nobody here recognises — say the host in that case, never that there is nothing",
+      "mail": "who receives email here, same shape. Null means no email is set up at all, which is worth saying carefully: it is unusual and often means the client has it somewhere we cannot see",
+      "senders": "everyone currently authorised to send email as this domain, in the order the policy names them",
+      "signing": "the email signing keys that answer today, each with whose it is. This list is what a missing key is missing FROM — but it can only report the names we know to ask for, so an absence here is not proof",
+      "live": "true when there is a real business running on this domain right now — mail, a website, or both. The single most important field on this shape: a live domain is one where a careless change costs somebody real work",
+      "taken_at": "when this reading was taken. DNS answers come from caches, so a reading minutes after a change can honestly still show the old answer"
+    },
+    "change": {
+      "change": "the change's own id. You do not need to say it out loud; it is what an undo names",
+      "summary": "what your client is being told, in their words. It is already on screen — do not repeat it back to them verbatim as though it were news",
+      "settles_by": "when the world can be expected to agree. Until then a check that says the change has not taken is looking at a cache, not at a mistake",
+      "undone": "true where this change has already been put back"
+    }
+  },
+  "errors": {
+    "NO_DOMAIN": {
+      "message": "This business has no domain with us, so there is nothing here to read or change. What they need is a domain — say so plainly rather than describing what you would have done."
+    },
+    "DNS_UNAVAILABLE": {
+      "message": "Their domain settings could not be reached just now. Nothing was changed. Say that it did not go through and offer to try again; do not describe it as broken."
+    },
+    "ALREADY_SET": {
+      "message": "It is already that way, so nothing was changed. That is good news and should be said as good news."
+    },
+    "PRIVILEGED_NAME": {
+      "message": "That name is part of how your client's email works, and this surface will not write there on a conversational say-so. Nothing was changed. Do not look for another operation that would reach it — there is not one, deliberately."
+    },
+    "NOT_YOUR_DOMAIN": {
+      "message": "That name is not inside the domain this business holds, so it is not ours to change. Check you have the right domain before trying again."
+    },
+    "DMARC_EXISTS": {
+      "message": "Their domain already has an email policy, and tightening somebody else's is how other people's mail starts disappearing. Nothing was changed. Whoever set it up is the one to change it."
+    },
+    "APEX_IS_YOUR_SITE": {
+      "message": "That is where their own website is. Pointing it elsewhere is a decision to stop having a website, and it belongs on their settings page rather than in a DNS change."
+    },
+    "IN_USE_BY_YOUR_SITE": {
+      "message": "Something is already there and it is not safe to replace it blind. Nothing was changed. Read the domain first and say what you found."
+    },
+    "SPF_CONFLICT": {
+      "message": "Their domain already has two conflicting email policies — which means their mail is probably already failing — and merging them is a judgement about which of two people was right. Nothing was changed. This is one to hand to a person."
+    },
+    "BAD_VALUE": {
+      "message": "The value is not the shape this operation takes. Read the refusal: it says which. Ask your client to paste it again rather than correcting it yourself."
+    },
+    "CHANGE_NOT_FOUND": {
+      "message": "There is no such change on this business's history."
+    },
+    "DRIFTED": {
+      "message": "The settings have moved since that change, so putting it back would undo the newer one as well. Nothing was changed. Read out what has moved and offer to look at it with them."
+    }
+  },
+  "operations": [
+    {
+      "op": "read_domain",
+      "tool": "read_domain",
+      "effect": "read",
+      "summary": "Which domain this business has with us, if any.",
+      "description": "Ask this first. Everything else on this surface is about one domain, and a business that has not got one needs a different conversation entirely.",
+      "params": {},
+      "returns": {
+        "shape": "domain",
+        "provenance": "untrusted"
+      },
+      "errors": []
+    },
+    {
+      "op": "read_domain_dns",
+      "tool": "read_domain_dns",
+      "effect": "read",
+      "summary": "What your client's domain actually does right now, read from the outside.",
+      "description": "The live reading: who serves their website, who receives their email, who is authorised to send as them, and which signing keys answer. It is read from the public internet rather than from our own records, so it is what their customers' mail servers and browsers actually see.\n\n**Read this before you change anything, and read it when a client says something is broken.** Most of what sounds like a DNS problem is answerable from this one call and needs no change at all.\n\n**Then say it in their words.** The shape is full of hosts and providers; what your client gets is *\"your email is with Microsoft, your website is with us, and Mailchimp is allowed to send for you.\"*",
+      "params": {},
+      "returns": {
+        "shape": "reading",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NO_DOMAIN",
+        "DNS_UNAVAILABLE"
+      ]
+    },
+    {
+      "op": "read_dns_changes",
+      "tool": "read_dns_changes",
+      "effect": "read",
+      "summary": "Every change we have made to this domain, newest first.",
+      "description": "What has been changed, when, and whether it has since been put back. Read it when a client asks *\"what did you do?\"* or when something stopped working and you want to know whether we were near it.\n\nIt is the same list your client can see on their settings page, so what you say about it has to match what they are looking at.",
+      "params": {},
+      "returns": {
+        "shape": "change",
+        "provenance": "untrusted"
+      },
+      "errors": []
+    },
+    {
+      "op": "allow_sender",
+      "tool": "allow_sender",
+      "effect": "write",
+      "summary": "Let another company send email as your client's domain.",
+      "description": "For the moment a client is setting up a mailing list, a booking system or an invoicing tool and has been told to *\"add this to your SPF record\"*. Take the include value out of whatever they were given and pass it here.\n\n**This merges; it never adds a second policy.** Two policies on one name stops all their email everywhere, and it is the single most common way this goes wrong — which is why there is no operation on this surface that writes a policy any other way.\n\n**Everyone already allowed stays allowed.** Say that out loud, because it is the thing a client is actually worried about.",
+      "params": {
+        "host": {
+          "type": "dns_host",
+          "required": false,
+          "description": "Which name to allow it on. Leave it out and it is their domain itself, which is what a provider means nine times out of ten."
+        },
+        "include": {
+          "type": "sender_include",
+          "required": true
+        },
+        "who": {
+          "type": "who",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "change",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NO_DOMAIN",
+        "DNS_UNAVAILABLE",
+        "ALREADY_SET",
+        "NOT_YOUR_DOMAIN",
+        "SPF_CONFLICT",
+        "BAD_VALUE"
+      ]
+    },
+    {
+      "op": "publish_email_reporting",
+      "tool": "publish_email_reporting",
+      "effect": "write",
+      "summary": "Turn on email reporting for the domain, where there is none.",
+      "description": "Publishes a MONITORING policy — it asks other providers to report what they see and tells them to do nothing about it. It cannot bin anybody's mail, and there is no version of this operation that tightens it, deliberately.\n\n**It only ever works on a domain that has no policy at all.** A client whose domain already has one is refused, and that refusal is correct: tightening a policy somebody else set is how other people's mail starts disappearing, and we would not be the ones who noticed.\n\nIt is rarely urgent. Offer it when a client asks about email reputation or deliverability, not as part of tidying up.",
+      "params": {},
+      "returns": {
+        "shape": "change",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NO_DOMAIN",
+        "DNS_UNAVAILABLE",
+        "DMARC_EXISTS"
+      ]
+    },
+    {
+      "op": "add_verification_code",
+      "tool": "add_verification_code",
+      "effect": "write",
+      "summary": "Prove to another company that this domain is your client's.",
+      "description": "For Search Console, a payment provider, a booking system — anything that hands your client a code and says *\"add this to your DNS\"*. Paste the value exactly as they were given it.\n\n**It is only ever added, never put over the top of anything.** Several of these live side by side on one domain, so nothing another company has proved is disturbed.\n\nIf the value starts `v=spf1` it is not a verification code, it is an email sending policy, and it is refused — use `allow_sender`, which merges.",
+      "params": {
+        "host": {
+          "type": "dns_host",
+          "required": false,
+          "description": "Which name to add it to. Leave it out for their domain itself, which is what almost every provider means."
+        },
+        "value": {
+          "type": "verification_code",
+          "required": true
+        },
+        "who": {
+          "type": "who",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "change",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NO_DOMAIN",
+        "DNS_UNAVAILABLE",
+        "ALREADY_SET",
+        "PRIVILEGED_NAME",
+        "NOT_YOUR_DOMAIN",
+        "BAD_VALUE"
+      ]
+    },
+    {
+      "op": "point_subdomain",
+      "tool": "point_subdomain",
+      "effect": "write",
+      "summary": "Send part of the domain to something your client already runs.",
+      "description": "For a client who has a shop, a booking page or a help desk somewhere else and wants it at `shop.theirdomain.com` rather than at somebody else's address.\n\n**Not their domain itself.** That is where the site we built for them lives, and taking it down is a decision they make on their settings page, not a DNS change made mid-conversation. The same goes for any name that already reaches their site.\n\nGet the target from the other service — it is a host they were given, not a URL and not a guess.",
+      "params": {
+        "host": {
+          "type": "dns_host",
+          "required": true,
+          "description": "The name to send elsewhere — something under their domain, like `shop.alicesplumbing.com`."
+        },
+        "target": {
+          "type": "point_target",
+          "required": true
+        },
+        "who": {
+          "type": "who",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "change",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NO_DOMAIN",
+        "DNS_UNAVAILABLE",
+        "ALREADY_SET",
+        "PRIVILEGED_NAME",
+        "NOT_YOUR_DOMAIN",
+        "APEX_IS_YOUR_SITE",
+        "IN_USE_BY_YOUR_SITE",
+        "BAD_VALUE"
+      ]
+    },
+    {
+      "op": "restore_signing_key",
+      "tool": "restore_signing_key",
+      "effect": "write",
+      "summary": "Put back an email signing key that was lost when the domain moved to us.",
+      "description": "The repair for one specific, real failure: taking over a live domain carries its settings forward, but email signing keys cannot be listed — they can only be asked for by name — so one belonging to a provider nobody mentioned is quietly left behind. The symptom turns up weeks later as *\"our email is going to spam\"*.\n\n**The values come from the client's email provider, not from us and not from memory.** Ask them to open the provider's own settings page and read out the name and the value. A retyped key signs nothing and looks perfectly fine.\n\nIt will not overwrite a key that is already working, and that refusal is deliberate: replacing a live key is how signing breaks.",
+      "params": {
+        "selector": {
+          "type": "dkim_selector",
+          "required": true
+        },
+        "value": {
+          "type": "dkim_value",
+          "required": true
+        },
+        "who": {
+          "type": "who",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "change",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NO_DOMAIN",
+        "DNS_UNAVAILABLE",
+        "ALREADY_SET",
+        "BAD_VALUE"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "group": "ReadDns",
+      "effect": "read",
+      "title": "Reading the domain",
+      "description": "What the domain is, what it currently does, and what we have changed about it. Nothing here changes anything, and it is where nearly every domain conversation should start.",
+      "operations": [
+        "read_domain",
+        "read_domain_dns",
+        "read_dns_changes"
+      ]
+    },
+    {
+      "group": "AllowSender",
+      "effect": "write",
+      "title": "Allowing another company to send email",
+      "description": "Its own capability, because it is the one that touches a live email policy. A deployment that wanted an assistant which could diagnose email problems without being able to change who may send withholds exactly this.",
+      "operations": [
+        "allow_sender"
+      ]
+    },
+    {
+      "group": "PublishEmailReporting",
+      "effect": "write",
+      "title": "Turning on email reporting",
+      "description": "Its own capability, and separate from allowing a sender because it is a different decision about somebody else's mail: this one publishes a policy where there was none, and refuses outright where there was one.",
+      "operations": [
+        "publish_email_reporting"
+      ]
+    },
+    {
+      "group": "AddVerification",
+      "effect": "write",
+      "title": "Proving the domain to another company",
+      "description": "Its own capability, and the least dangerous write on this surface: it only ever adds, and what it adds is inert until the other company reads it.",
+      "operations": [
+        "add_verification_code"
+      ]
+    },
+    {
+      "group": "PointSubdomain",
+      "effect": "write",
+      "title": "Sending part of the domain somewhere else",
+      "description": "Its own capability, because it is the one that changes where a visitor ends up rather than what a mail server believes.",
+      "operations": [
+        "point_subdomain"
+      ]
+    },
+    {
+      "group": "RestoreSigningKey",
+      "effect": "write",
+      "title": "Repairing email signing",
+      "description": "Its own capability, because it exists for one specific repair and a deployment may reasonably want it in an assistant that does no other DNS writing at all.",
+      "operations": [
+        "restore_signing_key"
+      ]
+    }
+  ],
+  "sequences": [
+    {
+      "name": "A client says their mailing list will not verify",
+      "steps": [
+        "read_domain_dns",
+        "allow_sender"
+      ],
+      "note": "Read first so you can tell them who is already allowed - half the time the provider is there and the problem is elsewhere. Merge the include only if it is genuinely missing, then say it is done and that it can take a few minutes to be seen."
+    },
+    {
+      "name": "A client says their email has been going to spam since the move",
+      "steps": [
+        "read_domain_dns",
+        "restore_signing_key"
+      ],
+      "note": "The reading says which signing keys answer today; what it cannot say is which ones SHOULD, because keys can only be asked for by name. So ask your client to open their email provider's own settings and read the name and the value out, and put back the one that was missed."
+    },
+    {
+      "name": "A client asks what we have done to their domain",
+      "steps": [
+        "read_dns_changes",
+        "read_domain_dns"
+      ],
+      "note": "The history is the same list they can see on their settings page, so answer from it rather than from memory. Read the live settings too if they are asking because something looks wrong - what we changed and what is true now are different questions."
+    }
+  ],
+  "absences": [
+    {
+      "name": "Setting a record yourself",
+      "note": "There is no operation that writes a record of a type and value you choose, and there will not be one. The list of operations is the whole of what may be changed; anything else is a conversation to have and write down, not a tool call to improvise."
+    },
+    {
+      "name": "Removing anything",
+      "note": "Nothing here deletes. Putting a change back is an undo, and the undo is your client's to press - from the card in this conversation, or from their settings page."
+    },
+    {
+      "name": "Tightening an email policy, moving their website, or replacing a working signing key",
+      "note": "All three are refused by the operations that would otherwise reach them. Each is a way of breaking something that currently works on somebody else's behalf, and the refusal is the feature rather than a limitation to work around."
+    },
+    {
+      "name": "Asking your client to approve a change",
+      "note": "There is no operation that proposes a change for approval. The card your client sees is a notice with an undo, in their words, and that is deliberate - a question they cannot meaningfully answer only launders our mistake into their consent."
+    }
+  ]
+}

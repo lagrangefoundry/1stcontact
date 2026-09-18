@@ -27,7 +27,7 @@
  */
 
 import { newId } from '../../../tools/generate/src/store/ids'
-import type { Scope } from './scope'
+import { realOnly, type Scope } from './scope'
 
 /** What this module needs from the environment: a database, and nothing else. */
 export interface GrantEnv {
@@ -105,8 +105,9 @@ function toGrant(row: GrantRow): AssetGrant {
  * an ordinary thing and a guarantee only the application maintains is a guarantee
  * that eventually is not maintained ([[DOC-45]] §7).
  *
- * `INSERT ... SELECT ... FROM users`, WHICH IS WHERE `business_id` COMES FROM,
- * on `contactEventInsert`'s precedent. The caller names a contact and the
+ * `INSERT ... SELECT ... FROM users`, WHICH IS WHERE `business_id` COMES FROM —
+ * and where the gutter mark comes from ([[REQ-268]] §2) — on
+ * `contactEventInsert`'s precedent. The caller names a contact and the
  * contact's own row decides which business the grant is filed under, so the two
  * can never disagree — and supplying the scope narrows it further, to *write
  * nothing unless the contact is in THAT business*.
@@ -123,8 +124,10 @@ export async function grantFor(
 ): Promise<AssetGrant> {
   const now = spec.now ?? new Date().toISOString()
   await env.DB.prepare(
-    'INSERT INTO asset_grants (id, contact_id, business_id, site_id, form_handle, created_at) ' +
-      'SELECT ?, u.id, u.tenant_id, ?, ?, ? FROM users u WHERE u.id = ? AND u.tenant_id = ? ' +
+    'INSERT INTO asset_grants (id, contact_id, business_id, site_id, form_handle, ' +
+      'created_at, synthetic, run_id) ' +
+      'SELECT ?, u.id, u.tenant_id, ?, ?, ?, u.synthetic, u.run_id FROM users u ' +
+      'WHERE u.id = ? AND u.tenant_id = ? ' +
       'ON CONFLICT DO NOTHING',
   )
     .bind(newId('gate'), spec.siteId, spec.formHandle, now, spec.contactId, scope.businessId)
@@ -133,7 +136,8 @@ export async function grantFor(
   const row = await env.DB.prepare(
     `SELECT ${GRANT_COLUMNS} FROM asset_grants ` +
       'WHERE contact_id = ? AND business_id = ? AND site_id = ? AND form_handle = ? ' +
-      'AND revoked_at IS NULL',
+      'AND revoked_at IS NULL' +
+      realOnly(scope),
   )
     .bind(spec.contactId, scope.businessId, spec.siteId, spec.formHandle)
     .first<GrantRow>()

@@ -6,9 +6,9 @@ title: 'capture/fold: a form field loses its padding, line-height rounds to whol
   pixels, and three more residuals a passing gate cannot see'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:28:40.678988+00:00'
-updated_at: '2026-09-17T23:47:24.940160+00:00'
+updated_at: '2026-09-18T00:10:44.105015+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -643,3 +643,150 @@ Related: REQ-265 (the previous round's gap ticket, both residuals landed) ·
 BUG-102 (the section join; this ticket's issue 5 is its out-of-scope half) ·
 BUG-100 (the unreferenced-image false positive) · BUG-101 (`1c --json` truncated
 when piped) · AC-1626 (padding folds onto a leaf) · REQ-106 (the L1 link axis).
+
+
+---
+
+# What landed (free-coded, REQ-269)
+
+All five issues are implemented. Verified against a **real headless Chromium**
+(`CHROMIUM_LAUNCH_ARGS=--single-process`, REQ-262 D9) over two committed fixtures
+served from an ephemeral loopback server — no third-party site, and no claim here
+rests on a screenshot or on reasoning about what the browser would do.
+
+## Issue 1 — a form field records the inset its content sits in
+
+`fieldsUnder` now reads the four per-side paddings off the same computed style it
+already reads the border and the placeholder ink from, and they travel the
+established REQ-265 route: `RawField` → `Field` → `fieldToElement` → the fold.
+`paddingLeftPx` and the `href` below are carried through `copyGeometry`, the one
+shared copier the three projections (content run, raw run, text-free field) all
+call, so each value has a single definition site rather than three.
+
+The fold writes them onto the control leaf with **the same `foldPadding` and
+`responsivePaddingTracks`** a text, image or box leaf uses (AC-1626) — no parallel
+path. The renderer needed no change: its zero-look reset is pushed *before* the
+axes, so an authored inset now wins where previously there was nothing to win.
+
+**And the gate can see it now.** The four-side padding comparison was a closure
+inside the text pass; it is hoisted beside `compareGeometry` and called from the
+text-free pass too. A control whose padding the reproduction lost is a
+`paddingLeftPx` delta instead of silent agreement. Each side is compared only when
+*both* sides recorded one, so a pre-REQ-269 reference stays inert.
+
+## Issue 2 — line-height keeps its fraction
+
+Two decimals in both places that rounded it — `extract.ts` (beside
+`letterSpacingPx`, which already did exactly this on the next line) and `fold.ts`
+(the `textAxes` scalar **and** `RESPONSIVE_TEXT_AXES`, which must agree or the
+widest keyframe disagrees with the scalar next to it). Measured on the fixture:
+`leading-relaxed` at 18px reads **29.25**, and a whole-pixel `line-height: 32px`
+still reads exactly 32 — this is precision, not a blanket shift.
+
+**The sibling residual is deliberately NOT included.** `fold.ts`'s
+`x: Math.round(box.x), y: Math.round(box.y)` still rounds. The ticket says "do it
+after, and measure it separately", and there is a concrete reason to keep it
+separate: REQ-265's `test_UAT_FC_REQ-265_fold_pins_the_line_box_the_capture_recorded`
+pins `y === 83` for a captured top of 82.5. Unrounding geometry invalidates that
+UAT, which is matrix evidence about a different fix — it wants its own ticket and
+its own measurement, not a silent edit here.
+
+## Issue 3 — a captured link keeps its target
+
+`hrefOf(el)` reads the nearest enclosing anchor and is recorded beside `a11yRole`,
+which was already reading the same attribute and throwing the value away. It is
+**projected for a reproduction to consume rather than carried verbatim**, which is
+a decision worth stating:
+
+| the reference's anchor | recorded |
+|---|---|
+| same-origin path (`/blog`) | `/blog` — site-internal |
+| fragment on this page (`#about`) | `#about` |
+| cross-origin (`https://example.com/…`) | the absolute URL |
+| `mailto:` / `tel:` / anything else | **nothing** |
+
+Same-origin has to stay internal or a reproduction would send its own visitors
+back at the site it was captured from — the opposite of reproducing the link. The
+refused schemes are refused by L1's own `isSafeUrl` allowlist, so recording one
+would fold a document `validateL1` then rejects; `foldLink` re-checks the same
+allowlist, so an unfoldable target degrades to the un-linked leaf. Text and image
+leaves both carry it. Schema, validator and renderer needed no change.
+
+## Issue 4 — L1 can say that a run is a heading
+
+`l1HeadingSchema` — `{ level }` — on the text leaf, shaped like `link` (REQ-106)
+and `action` (REQ-212) because it is a **role the node takes**, not a node kind and
+not a paint axis. The level is bounded 1…6 by the envelope validator rather than by
+the shape, on the same terms as `link.href`'s allowlist: the shape says what the
+field is, the envelope says what a document may contain. `control` cannot carry it,
+enforced by `.strict()` rather than by a remembered rule.
+
+The renderer is the sole `<h1>`…`<h6>` sink. It sits **below** the link and the
+button in the retag precedence — a linked heading is an `<a>`, which is the
+reference's own precedence, since the capture reads the a11y role off the element
+bearing the href. `font-size: inherit; font-weight: inherit` are unshifted beneath
+the axes so a heading cannot inherit the UA's `2em bold` type scale.
+
+Capture learns the level (`headingLevelOf`), which `a11yRole` flattens to the
+single word `heading` and which appeared nowhere in a bundle: `aria-level` where
+an author declares one, the tag otherwise, ARIA's default of 2 for an undeclared
+`role="heading"`. Measured on the fixture: `<h1>` → 1, `<h3>` → 3,
+`role="heading" aria-level="4"` → 4, body copy → null.
+
+**This is the class-2 decision the ticket asked for, taken as the ticket argued
+it.** DOC-24's "an axis belongs in L1 iff it moves a pixel" does not admit it on
+its own; DOC-23 §7's `capture(render(L1)) ≈ L1` measured on the capture spine does,
+because `a11yRole` is on that spine — and a marketing page with no heading
+structure is what a search engine reads and what a screen reader navigates by.
+
+## Issue 5 — a flat render segments into the bands it paints
+
+`overlayOf` and `anchorRatioOf` answer their question by walking DOM **descendants**
+of a band root. That proxy holds for a conventional page and fails for an L1
+reproduction, whose bands, scrims and runs are absolutely-positioned **siblings** —
+which is why every reproduction of every site segmented into one body-spanning band
+and reported `overlay` / `contentAnchor` / `textAlign` as UNMEASURED.
+
+The truthful definition is geometric, which is the move BUG-22 already made for
+surfaces. When — and only when — the top-level `<body>`-children scan degenerates to
+a single band covering the whole document:
+
+- `bandSlices()` derives the full-bleed painted slices (outermost wins, so a
+  photograph over its own fill is one band and not two) and **fills the vertical
+  gaps**, because a stretch painting no backdrop of its own is still a section and
+  the copy standing on it has to belong somewhere;
+- `overlayInBox` / `anchorRatioInBox` are the geometric twins of the two DOM walks;
+- content and fields are collected **once** from the flat root and partitioned by
+  box centre, with a nearest-slice fallback so a run can never be dropped for
+  sitting in no slice — losing content would be far worse than filing it one band
+  off.
+
+A page whose top-level scan already found real bands never reaches any of this, and
+one that genuinely is a single band does not either: `bandSlices` returns `[]`
+rather than inventing a second band. Verified both ways — the flat fixture segments
+into its four slices with the sibling scrim resolved as the hero's overlay and each
+run in the band it is painted inside; the nested fixture still segments by its
+`<body>` children, with the cream band holding its own controls and none of the copy.
+
+The band **count is emergent from what the page paints**, not pinned at the
+reference's 8: pairing is by vertical IoU, so the acceptance that matters is that
+`sectionPairing` populates and `sectionsNotComparable` disappears.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-269_capture_and_fold_residuals.test.ts` — 14 UATs, all
+passing against real Chromium. Six are browser legs over two new committed
+fixtures (`tests/fixtures/capture/req269-residuals.html`, `req269-flat-render.html`);
+the other eight pin the downstream consequences — fold, schema, validator,
+renderer, values-diff — with no browser.
+
+Every one of the five issues is pinned at both ends: what the capture records, and
+what the reproduction then does with it. Three of them additionally pin the
+**inert** case — a pre-REQ-269 bundle carries no padding, no href and no heading
+level, and must fold exactly as it did rather than having a value invented for it.
+
+Regression scope: full `--project node` suite. 6 files fail, none of them this
+work — `req51-object-grouped-report` fails identically with `values-diff.ts`
+reverted to HEAD (it is REQ-265's `placeholderColor` param, never added to that
+test's expectation), and the other five are the worktree's own missing
+`dist-assets` / webui artifacts plus an unrelated `BUG-67` settings assertion.

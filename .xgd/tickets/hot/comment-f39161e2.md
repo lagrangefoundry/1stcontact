@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-268
 created_by: xgd
 created_at: '2026-09-17T23:06:08.757708+00:00'
-updated_at: '2026-09-17T23:40:43.844254+00:00'
+updated_at: '2026-09-17T23:59:26.001232+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -96,5 +96,36 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="689e8079-db28-46be-94de-feb3ffd9cc76-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-17T23:59:25.695275+00:00" -->
+#### Claude
+Making the instant an argument rather than a default — the framework's own established pattern, per the `intl.ts` precedent the REQ-152 guardrail names.
+
+Now the callers.
+
+Now the REQ-223 closed-list assertion, which must grow with the deliberate fourth reserved field.
+
+All green. Now the ticket body — several behaviours the UATs assert arrived as implementation consequences and need language before the commit.
+
+Fast-forwarded; my commit is the tip. Claiming now, before any ticket auto-commit can land on top.
+
+Done. REQ-268 is landed and at `free_coded`.
+
+**What changed in this session** (the prior one had the implementation built but mid-merge and untested):
+
+- **Reworked onto REQ-267**, which landed the gutter's columns and run registry on `xgd-working` while this was being built. My original `0014_test_gutter.sql` was dropped; what remains is `0016_gutter_collection.sql` — the two indexes collection reads.
+- **Fixed two real failures** the merged tree introduced, both caught by the node suite:
+  - `marker.ts` read the ambient clock via a `Date.now()` default argument, which violates REQ-152's rule that nothing under `packages/framework/src` does. Rather than carve an exemption into that guardrail, I made `now` a required argument on `signMark`/`verifyMark` — the same shape `intl.ts` already uses, and the reason the guardrail names it as needing no exemption. The Worker with a request supplies the instant.
+  - A `Uint8Array<ArrayBufferLike>` typecheck failure against `crypto.subtle`, fixed by copying through the `ArrayLike` constructor rather than asserting the buffer type.
+- **Updated REQ-223's closed reserved-field assertion** to include the marker as its fourth member — that assertion existing is what forced the new machine artefact to be declared rather than silently stored in a contact's provenance.
+- **Extended the ticket body** to cover behaviour the UATs assert that arrived as implementation consequences: the run-scoped find-or-create lookup and its loud refusal on address collision, the unchanged frozen acknowledgement, the unconfigured-deployment case, the parentless-account collection, the run-id-must-be-minted guard, and where the marker module lives and why it takes its clock as an argument.
+
+**Test results, run in the foreground:**
+- `workers` project: 124 files / 1113 tests, all passing.
+- `node` project: 3 failures remain — `bug32-webui-scope-rebrand`, `req51-object-grouped-report`, `test_UAT_FC_BUG-67_backend_settings`. I confirmed all three fail identically on the `xgd-working` baseline, so they are pre-existing and not from this work. The two that *were* mine are now green.
+
+Commit `7b68d0294a` (version `0.2.244`), fast-forwarded onto `xgd-working`, `story_points: 8`, branch cleaned. The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->

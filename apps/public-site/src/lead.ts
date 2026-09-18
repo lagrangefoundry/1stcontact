@@ -2,10 +2,12 @@ import {
   FORM_INSTANCE_FIELD,
   HONEYPOT_FIELD,
   LEAD_PATH,
+  MARK_FIELD,
   RESERVED_FIELDS,
   TURNSTILE_FIELD,
 } from '../../../packages/framework/src/modules/contact-form/fields'
 import { TURNSTILE_VERIFY_URL } from '../../../packages/framework/src/modules/contact-form/turnstile'
+import { verifyMark } from '../../../packages/framework/src/gutter/marker'
 
 /**
  * `POST /api/lead` — the one thing this Worker receives ([[REQ-223]]).
@@ -86,6 +88,16 @@ export interface LeadIntakeBinding {
     formHandle: string
     fields: Record<string, string>
     submittedAt?: string
+    /**
+     * The verified gutter run, when this submission carried one ([[REQ-268]]).
+     *
+     * THE VERIFICATION HAPPENED ON THIS SIDE AND WHAT CROSSES IS ITS RESULT.
+     * This Worker holds the platform secret and this is the edge the request
+     * actually arrived at; `control-app` never sees the token and has no way to
+     * check one. Absent means ordinary traffic, which includes every submission
+     * whose marker did not verify.
+     */
+    runId?: string
   }): Promise<unknown>
 }
 
@@ -127,6 +139,23 @@ export interface LeadEnv {
    * failure of guessing the second is an unmetered write endpoint.
    */
   LEAD_RATE_LIMIT?: RateLimit
+  /**
+   * The platform secret the gutter marker is signed with ([[REQ-268]] §1).
+   *
+   * A `wrangler secret` AND NEVER A VAR, for the obvious half — a caller holding
+   * it could mark real traffic as test, which is the attack this whole mechanism
+   * exists to close.
+   *
+   * ABSENT MEANS *NOTHING IS MARKED*, WHICH IS THE OPPOSITE OF THE RULE
+   * `TURNSTILE_SECRET` FOLLOWS ABOVE, and the asymmetry is deliberate rather
+   * than an inconsistency. A missing Turnstile secret means an unverified write,
+   * so that one fails CLOSED and refuses the submission. A missing gutter secret
+   * means no submission can be shown to be manufactured, so every one of them is
+   * written REAL — which is what a deployment with no probes does anyway, and is
+   * the only direction in which a configuration mistake cannot lose a visitor's
+   * message.
+   */
+  GUTTER_SECRET?: string
 }
 
 /**
@@ -460,11 +489,38 @@ export async function handleLead(
     if (!RESERVED_FIELDS.includes(name)) submitted[name] = value
   }
 
+  /*
+   * THE MARK IS VERIFIED HERE, AT THE EDGE THE REQUEST ARRIVED AT ([[REQ-268]]
+   * §1). It is checked AFTER every control above and BEFORE the write, which is
+   * the only position that satisfies both of this mechanism's rules:
+   *
+   *   - THE FULL REAL PATH RUNS. Nothing above branches on the mark, so a marked
+   *     submission is rate-limited, honeypotted and Turnstile-verified exactly as
+   *     a visitor's is. A probe that skipped those would be testing a path the
+   *     product does not have.
+   *   - IT NEVER REFUSES. `verifyMark` answers `null` for a forged signature, an
+   *     expired stamp, a malformed token and an unconfigured deployment alike,
+   *     and all four produce a REAL record rather than a refusal. A signing fault
+   *     must never become lost customer data, and the attack worth closing runs
+   *     the other way: marking real traffic as test would hide a business's leads
+   *     from their own dashboard.
+   *
+   * WHAT CROSSES THE SEAM IS THE RUN ID AND NOT THE TOKEN. The token is a
+   * reserved field and was stripped above with the honeypot and the Turnstile
+   * response, so it reaches no record; `control-app` is handed the verified fact.
+   *
+   * THE CLOCK IS READ HERE AND NOT INSIDE `verifyMark`. Nothing under
+   * `packages/framework/src` reads the ambient clock ([[REQ-152]]), so the
+   * instant is supplied by the Worker that has a request to supply it for.
+   */
+  const mark = await verifyMark(context.env.GUTTER_SECRET, fields[MARK_FIELD], Date.now())
+
   try {
     await LEAD_INTAKE.captureLead({
       siteKey: context.siteKey,
       formHandle: (fields[FORM_INSTANCE_FIELD] ?? '').trim(),
       fields: submitted,
+      ...(mark ? { runId: mark.runId } : {}),
     })
   } catch (err) {
     // A THROW IS A SYSTEM FAILURE AND NOT AN OUTCOME. Every outcome a submission
