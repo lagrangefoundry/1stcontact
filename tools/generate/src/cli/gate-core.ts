@@ -242,6 +242,17 @@ export interface ReconcileInput {
     unmatched: number
     /** REQ-51 — repro objects that paired with no reference object. */
     unpairedActual: readonly unknown[]
+    /**
+     * BUG-111 — reference sections no repro band overlapped, and the repro-side
+     * mirror. COUNTABLE ONLY, and REQUIRED rather than optional, for the same two
+     * reasons `unpairedActual` above is: a caller with no such type can still
+     * satisfy a `readonly unknown[]`, and the defect this fixes was a fact the
+     * type made impossible to carry — so the reconciliation asks for it instead
+     * of trusting a call site to remember. An unpaired band is not a delta, so
+     * without these the whole fact reached the gate as nothing at all.
+     */
+    unpairedSections: readonly unknown[]
+    unpairedActualSections: readonly unknown[]
     /** BUG-102 — why section-level values could not be compared at all, when they could not. */
     sectionsNotComparable?: string
   }
@@ -281,6 +292,13 @@ export interface GateReport {
      * what a page with fourteen slightly-off colours reads.
      */
     worstTier: SeverityTier | null
+    /**
+     * BUG-111 — how many bands went UNCOMPARED on each side. Read next to
+     * `coverage.sections`: that number counts the reference's bands, so a run
+     * reporting eight sections and one unpaired section has compared seven.
+     */
+    unpairedSections: number
+    unpairedActualSections: number
     sectionsNotComparable?: string
   }
   coverage: ReferenceCoverage
@@ -481,6 +499,8 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   const worstTier = worstTierOf(input.values.deltas)
   const valuesBreach = floor.valuesTier !== null && tierRank(worstTier) > tierRank(floor.valuesTier)
   const unpairedActual = input.values.unpairedActual.length
+  const unpairedSections = input.values.unpairedSections.length
+  const unpairedActualSections = input.values.unpairedActualSections.length
   const notComparable = input.values.sectionsNotComparable
   const coverage = input.coverage
 
@@ -527,6 +547,33 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       outstanding.push(
         `${unpairedActual} repro object(s) paired with NOTHING in the reference — \`unmatched\` above is the ` +
           `expected side only and does not see them (\`values.unpairedActual\`)`,
+      )
+    }
+    // BUG-111 — the fourth way the pass rung was silent about what it did not
+    // measure. A reference band with no repro counterpart produces no delta (BUG-102
+    // classified it correctly as a segmentation mismatch) and no coverage finding, so
+    // the only trace it left was a row in `values-diff.json`'s `sectionPairing` —
+    // which this report does not summarise and no reader of it opens. One rung, not
+    // two: the two counts are the same fact seen from either side (the pages segment
+    // differently), and splitting them would put two near-identical lines in a list
+    // whose whole value is that it is skimmable.
+    if (unpairedSections > 0 || unpairedActualSections > 0) {
+      const sides: string[] = []
+      if (unpairedSections > 0) {
+        sides.push(
+          `${unpairedSections} reference section(s) had no reproduction band to compare against ` +
+            `(\`values.unpairedSections\`)`,
+        )
+      }
+      if (unpairedActualSections > 0) {
+        sides.push(
+          `${unpairedActualSections} reproduction band(s) had no reference section ` +
+            `(\`values.unpairedActualSections\`)`,
+        )
+      }
+      outstanding.push(
+        `${sides.join(' and ')} — the two pages segment differently, so those bands' section-level values ` +
+          `(overlay, contentAnchor, textAlign) are UNMEASURED rather than clean`,
       )
     }
     if (notComparable) {
@@ -618,6 +665,8 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       unmatched: input.values.unmatched,
       unpairedActual,
       worstTier,
+      unpairedSections,
+      unpairedActualSections,
       ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
     },
     coverage,

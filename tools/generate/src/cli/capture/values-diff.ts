@@ -581,6 +581,32 @@ export interface ValuesDiffReport {
    */
   sectionPairing: SectionPairing[]
   /**
+   * BUG-111 — the reference sections {@link sectionPairing} left with no repro
+   * band, lifted out of that array so a consumer that only ever COUNTS them does
+   * not have to know its shape to find them. The fact existed only inside
+   * `sectionPairing`, which the gate does not read, so a whole reference band —
+   * with its own `contentAnchorRatio` and `textAlign` — went uncompared and was
+   * reported by nothing the gate's own readers see.
+   *
+   * Still not a delta: BUG-102's classification stands, and a segmentation
+   * mismatch is not a fidelity defect. What changes is that it is now COUNTED
+   * rather than only described.
+   *
+   * Empty when the sections could not be paired at all ({@link
+   * sectionsNotComparable}): that verdict stands in for the whole per-section
+   * pass, and eight "unpaired" rows underneath it would be louder noise than the
+   * single reason above them.
+   */
+  unpairedSections: UnpairedSection[]
+  /**
+   * BUG-111 — the repro-side mirror: bands no reference section paired to. The
+   * reference-side count alone would read as "the reproduction has fewer bands",
+   * which a page that segments DIFFERENTLY (rather than more coarsely) does not
+   * do — gigabytealchemy's reproduction has seven bands to the reference's eight
+   * and could equally have had nine.
+   */
+  unpairedActualSections: UnpairedSection[]
+  /**
    * BUG-102 — set when section-level values could not be compared AT ALL, with the
    * reason. A report fact, never a delta: a segmentation difference is not by itself
    * a fidelity defect, and a permanent diagnostic row would make `1c values-diff`
@@ -614,6 +640,19 @@ export interface SectionPairing {
   anchorComparable?: boolean
   /** Why the anchor was not comparable, when {@link anchorComparable} is false. */
   anchorReason?: string
+}
+
+/**
+ * BUG-111 — one band that had no counterpart on the other side. Carries the
+ * geometry as well as the label, so a reader can locate the band on the page
+ * without going back to `sectionPairing` to look it up — which is the trip this
+ * ticket exists to remove.
+ */
+export interface UnpairedSection {
+  /** `§n` on the side the band belongs to. */
+  label: string
+  /** The band's geometry, when that side's manifest carries it. */
+  box?: Box
 }
 
 /**
@@ -3207,6 +3246,31 @@ export function diffManifests(
     }
   })
 
+  // BUG-111 — lift the unpaired bands out of `sectionPairing` and count them on
+  // both sides. The pairing rows already said this, in the only place that said
+  // it: `values-diff.json`'s `sectionPairing` array, which `gate.json` does not
+  // summarise and no consumer of the gate reads. So a reference band that went
+  // entirely uncompared produced no count, no coverage finding and no rung on
+  // the pass report's `outstanding` list — the gate read `unmatched: 0` next to
+  // `coverage.sections: 8` and said all eight were accounted for when one was not.
+  //
+  // Derived from the SAME pass rather than recomputed: one pairing decision, one
+  // place it is made, and the counts cannot disagree with the rows they summarise.
+  const unpairedSections: UnpairedSection[] = sectionPairing
+    .filter((p) => p.actualLabel === null)
+    .map((p) => ({ label: p.label, ...(p.box ? { box: p.box } : {}) }))
+  // The repro side has no row of its own to filter, so it is the complement of the
+  // bands the join claimed. Identity, not index: `pairSectionsByGeometry` keys by
+  // POSITION in its input while `§n` is the manifest's own `index`, and a manifest
+  // with non-contiguous section indices would mismatch the two.
+  const claimedActual = new Set<SectionValues>()
+  for (const m of sectionMatches.values()) claimedActual.add(m.section)
+  const unpairedActualSections: UnpairedSection[] = flatRepro
+    ? []
+    : actSections
+        .filter((as) => !claimedActual.has(as))
+        .map((as) => ({ label: `§${as.index}`, ...(as.box ? { box: as.box } : {}) }))
+
   // REQ-48 (item 5) — viewport-match precondition. Layout recomposes per width,
   // so two sides shot at different viewports produce deltas that are artefacts of
   // the width mismatch, not real fidelity gaps — a false-positive trap. When both
@@ -3321,6 +3385,8 @@ export function diffManifests(
     objects: cards,
     unpairedActual,
     sectionPairing,
+    unpairedSections,
+    unpairedActualSections,
     ...(sectionsNotComparable ? { sectionsNotComparable } : {}),
   }
 }

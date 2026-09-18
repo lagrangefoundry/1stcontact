@@ -189,6 +189,11 @@ const report = (deltas: ValueDelta[]): ValuesDiffReport => ({
   unpairedActual: [],
   // BUG-102 — the section-pairing record every report now carries.
   sectionPairing: [],
+  // BUG-111 — the bands that went uncompared on each side. Empty here is a claim,
+  // not a filler: these cells are about the multi-viewport formatter, and none of
+  // them stands in for a page whose two sides segment differently.
+  unpairedSections: [],
+  unpairedActualSections: [],
 })
 
 describe('REQ-58 T2 — formatMultiViewportReport renders worst cell first', () => {

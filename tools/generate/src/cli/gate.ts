@@ -146,6 +146,19 @@ export function formatGateReport(report: GateReport, ref: string): string {
     ...(report.values.sectionsNotComparable
       ? [wrap(`⚠ section values NOT comparable: ${report.values.sectionsNotComparable}`, '               ')]
       : []),
+    // BUG-111 — bands that went uncompared, on the line an operator actually reads.
+    // The counts above are about ELEMENTS; a band with no counterpart is invisible in
+    // every one of them, and used to be visible only in `values-diff.json`.
+    ...(report.values.unpairedSections > 0 || report.values.unpairedActualSections > 0
+      ? [
+          wrap(
+            `⚠ ${report.values.unpairedSections} reference section(s) and ` +
+              `${report.values.unpairedActualSections} repro band(s) had no counterpart — ` +
+              `their section-level values are UNMEASURED, not clean`,
+            '               ',
+          ),
+        ]
+      : []),
     `  perceptual   mean ${report.perceptual.meanDiff.toFixed(2)} / 255 · ${report.perceptual.pctOverThreshold.toFixed(1)}% of pixels over threshold · ${report.perceptual.regions} region(s)`,
     floorMark,
     '',
