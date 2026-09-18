@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T23:12:05.283748+00:00'
+updated_at: '2026-09-18T23:42:34.379383+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -425,6 +425,12 @@ as the assistant ignoring them.
 
 ## Children
 
+- [[REQ-280]] — A shared name for a Library item (`IMAGE-5`, `DOC-7`). Today the
+  consultant's handle is the uid and the Library shows the title, so the two share
+  only the ambiguous pair — three generated variants in the operator's own
+  catalogue carry identical titles. Kind-derived prefix over the existing
+  `human_id` number, landed in the catalogue item, the Library row AND as an
+  accepted input, or it is not shared.
 - [[BUG-121]] — An interrupted turn commits its work and discards its
   conversation. The integrity half of Finding 4, with the store evidence; items
   1–3 (equal durability, fold the prompt first, mark an interrupted turn) are
