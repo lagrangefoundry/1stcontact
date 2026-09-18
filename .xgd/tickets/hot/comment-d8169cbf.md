@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T21:05:04.187708+00:00'
+updated_at: '2026-09-18T21:06:27.361749+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -353,5 +353,30 @@ My inclination is 2 — it costs one small file and removes every other thing yo
 <!-- xgd-chat role="user" ts="2026-09-18T21:05:03.047263+00:00" -->
 #### You
 ok do 2
+
+<!-- xgd-turn id="b3b268ac-2bc9-4376-92d7-bb6515200ab7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T21:06:26.193135+00:00" -->
+#### Claude
+Done.
+
+**Exported** → `storage/chat-archive/xgd-site-xgd-2026-09-10.md` (166,368 bytes): the summary, the verbatim session file with its header so it could be restored, and the full 153,901-byte tool record.
+
+**Deleted** → `chat-d53aa031` and the empty `chat-0e3f7263`, their comments and `ticket_changes` rows, and the 2.8MB backup at `.xgd/tmp/d1-backup-before-chat-repair.sqlite`.
+
+The store is now clean — every chat ticket sits at an opaque-key address:
+
+| tenant | session | transcript |
+|---|---|---|
+| 1st Contact | `site-site_62d3d00…` | 106,147 |
+| Lagrange Foundry | `site-site_936dd7c…` | 26,875 |
+| XGD | `site-site_bca807f…` | 22,635 |
+| Gigabyte Alchemy | `site-site_d669b15…` | 313 (new) |
+
+No dangling comments, and each business conversation is keyed on its `biz_` id. XGD's live conversation was not touched.
+
+Two things worth knowing: the archive file is **untracked** in git (`storage/` is only partly tracked), so it'll show in `git status` — commit it or move it wherever you'd rather it lived. And it's now the only copy of that conversation, since the backup is gone.
+
+BUG-116 records it, and I've noted that export-then-delete is a third outcome the production survey has to be able to produce — alongside re-home and retire — because what to do with a superseded conversation is a judgement about its worth, not something a rule can decide.
 
 <!-- xgd-chat-end -->
