@@ -6,10 +6,10 @@ title: 'repro console: a round says what KIND of thing it found — instrument d
   or capability gap'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:26.883729+00:00'
-updated_at: '2026-09-18T23:40:15.481802+00:00'
+updated_at: '2026-09-18T23:41:58.387979+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 3
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9df8a526
+  commits:
+  - working_sha: 5d55aa8c0333e9b5f4ce5e87965e70ce4677b16c
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 96108ce32a130b6d26d810fc093ca351eaea7b62
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.273
 ---
 
 # The round says what KIND of thing it found — instrument defect or capability gap
