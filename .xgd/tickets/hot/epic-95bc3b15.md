@@ -11,6 +11,7 @@ last_field_updated: status
 status: draft
 fields:
   priority: medium
+  chat_comment: comment-d8169cbf
 ---
 
 (new ticket)
