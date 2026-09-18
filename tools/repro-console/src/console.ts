@@ -21,11 +21,13 @@ import {
   renderDiffPage,
   renderTicketPage,
   type AiView,
+  type HeldView,
   type IterationView,
   type PageState,
   type PollState,
 } from './page'
 import {
+  bareHost,
   captureListStep,
   findStoredCapture,
   parseCaptureList,
@@ -52,6 +54,7 @@ import {
   type GateSummary,
   type ReadTicket,
 } from './ai'
+import { readBundleProvenance } from './bundle'
 import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
 import { parseJsonOutput, spawnCommand, type CommandRunner } from './run'
@@ -95,6 +98,31 @@ export const AI_OUTCOME_FILE = 'outcome.json'
 /** The derived facts the console computed for the round ([[REQ-261]] b7). */
 export const AI_DIGEST_FILE = DIGEST_FILE
 
+/**
+ * The operator's "the implementation has landed", written beside the round it
+ * releases ([[REQ-272]] part 1, behaviour 3).
+ *
+ * ON DISK RATHER THAN IN MEMORY, for the reason every other part of an iteration
+ * is: the hold exists so an operator who comes back to the page knows why the
+ * button is inert, and "comes back" includes coming back to a console that has
+ * been restarted since. A hold only this process remembered would evaporate at
+ * exactly the moment it was most needed, and the loop would advance past a
+ * ticket nobody had implemented.
+ */
+export const AI_RELEASE_FILE = 'implemented.json'
+
+/**
+ * How far back the console looks for what landed after a capture
+ * ([[REQ-272]] part 2, item 3).
+ *
+ * A bound, not a judgement: the list is evidence that fixes exist, not the fix
+ * list itself, and a round handed four hundred commits has been handed noise.
+ */
+const MAX_LANDED_COMMITS = 40
+
+/** The engine the console diagnoses — the tree whose commits could move a residual. */
+const ENGINE_PATH = path.join('tools', 'generate', 'src')
+
 /** One body file per bug, so a filed body is reviewable beside the round. */
 export function bugBodyFile(index: number): string {
   return `bug-${index + 1}-body.md`
@@ -109,6 +137,16 @@ interface Iteration extends IterationView {
   pageOut: string
   /** The bundle this round reproduced, so the AI round can be handed it. */
   bundleDir: string
+  /**
+   * That bundle's `capturedAt` AS THIS ITERATION SAW IT ([[REQ-272]] part 2).
+   *
+   * Held per iteration rather than read from the bundle on demand, because a
+   * bundle is overwritten in place by a re-capture: read later, it would answer
+   * for the reference the CHAIN has now, not the one this iteration measured.
+   */
+  bundleCapturedAt?: string
+  /** This iteration moved the reference rather than refolding the old one. */
+  recaptured?: boolean
   gate: GateSummary | null
   railResult: RailRoundResult | null
   outcome: AiOutcome | null
@@ -221,6 +259,7 @@ export class ReproConsole {
       url: this.url,
       iterations: this.iterations.map((it) => this.view(it)),
       stored: this.stored.map(({ name, url }) => ({ name, url })),
+      held: this.heldView(),
       ...(this.notice() ? { notice: this.notice() as string } : {}),
     }
   }
@@ -260,6 +299,48 @@ export class ReproConsole {
       message: this.message,
       failed: this.failed,
       live: this.live ? { n: this.live.n, text: tail(this.live.text) } : null,
+      // The hold rides on the poller as well as on the page ([[REQ-272]] part 1,
+      // behaviour 3): the poller is what keeps the buttons honest between
+      // reloads, and a poller that only knew about `running` would re-enable
+      // [run again] a second after the round that held it finished.
+      held: this.heldView() !== null,
+    }
+  }
+
+  /**
+   * THE ITERATION HOLDING THE LOOP, OR NONE ([[REQ-272]] part 1, behaviour 3).
+   *
+   * Derived, never stored. A round that filed a ticket has asked for an
+   * implementation, and the next iteration measures whether that implementation
+   * worked — so running one before the implementation lands measures the same
+   * thing twice and pays for it twice, which is the loop's whole cost. The hold
+   * lifts when the operator says it has landed, and the saying is a file beside
+   * the round ({@link AI_RELEASE_FILE}) so it survives a restart.
+   *
+   * Only the LAST iteration can hold: an earlier filing was either released or
+   * has already been answered by the iteration that followed it.
+   */
+  private heldBy(): Iteration | null {
+    const last = this.iterations[this.iterations.length - 1]
+    if (!last) return null
+    const filed = last.outcome?.status === 'filed' || last.outcome?.status === 'appended'
+    if (!filed) return null
+    return existsSync(path.join(last.dir, AI_DIR, AI_RELEASE_FILE)) ? null : last
+  }
+
+  /** What the page says about the hold — what it is waiting for, and how to lift it. */
+  private heldView(): HeldView | null {
+    const held = this.heldBy()
+    if (!held) return null
+    const what = held.outcome?.ticketId
+      ? `${held.outcome.ticketId}${held.outcome.status === 'appended' ? ' (appended to)' : ''}`
+      : 'the ticket it filed'
+    return {
+      n: held.n,
+      waitingFor:
+        `Iteration ${held.n} filed ${what}. [run again] is held until that implementation lands — ` +
+        `the next iteration exists to measure it, so running one before it lands measures nothing new.`,
+      releaseHref: '/release',
     }
   }
 
@@ -272,6 +353,32 @@ export class ReproConsole {
       reproHref: it.reproHref,
       diffHref: it.diffHref,
       pageHref: it.pageHref,
+      /**
+       * WHICH REFERENCE THIS ITERATION MEASURED AGAINST ([[REQ-272]] part 2).
+       *
+       * On every iteration, not only a re-captured one, because the fact is a
+       * comparison: `re-captured` means nothing to a reader who cannot see what
+       * the iterations either side of it used. A chain whose reference moved
+       * half way through then reads as one chain with a marked seam, rather than
+       * as a score that jumped for no reason anybody can see.
+       */
+      reference: {
+        bundle: bundleLabel(it.bundleDir),
+        ...(it.bundleCapturedAt ? { capturedAt: it.bundleCapturedAt } : {}),
+        ...(it.recaptured ? { recaptured: true } : {}),
+      },
+      /**
+       * THE BUTTON THAT STARTS THE ROUND ([[REQ-272]] part 1, behaviour 2).
+       *
+       * Offered while no round is in flight and this iteration has no round
+       * worth keeping — none yet, or one that failed. A round that reached an
+       * answer is not re-offered: `read it again` re-files from what it already
+       * said, for free, and is the cheaper of the two by the whole cost of a
+       * round.
+       */
+      ...(!this.running && (!it.outcome || it.outcome.status === 'failed')
+        ? { diagnoseHref: `/iteration/${it.n}/diagnose`, diagnoseLabel: it.outcome ? 'diagnose again' : 'diagnose this' }
+        : {}),
       // The fifth link exists only when a round really filed or appended
       // something (behavior 5) — a link to a ticket that does not exist would
       // be worse than the absence it is standing in for.
@@ -363,6 +470,11 @@ export class ReproConsole {
         diffOut,
         pageOut: path.join(dir, 'page.json'),
         bundleDir: manifest.bundleDir,
+        // [[REQ-272]] part 2 — which reference this iteration used, back from
+        // its own manifest. Absent on an iteration written before the field
+        // existed, which reads as a refold, which is what it was.
+        ...(manifest.bundleCapturedAt ? { bundleCapturedAt: manifest.bundleCapturedAt } : {}),
+        ...(manifest.recaptured ? { recaptured: true } : {}),
         // The verdict, the rail and the round are all read back from the
         // iteration's own artifacts, so a restart of the console shows the
         // rounds it already ran — requirement 33 extended to what [[REQ-256]]
@@ -406,6 +518,22 @@ export class ReproConsole {
         pathname === '/recapture',
       )
     }
+    /**
+     * THE FIRST DECISION POINT ([[REQ-272]] part 1, behaviour 2).
+     *
+     * The round used to start from the iteration finishing. It starts from here
+     * now, and from nowhere else in this file — which is the whole of part 1's
+     * first half: the operator sees the reproduction, the diff images and the L1
+     * document, and only then decides whether the gap in front of them is worth
+     * a round's money.
+     */
+    const diagnose = /^\/iteration\/(\d+)\/diagnose$/.exec(pathname)
+    if (method === 'POST' && diagnose) return this.startDiagnose(Number(diagnose[1]))
+    /**
+     * THE SECOND ([[REQ-272]] part 1, behaviour 3) — the operator saying the
+     * implementation has landed, which is what lifts the hold on [run again].
+     */
+    if (method === 'POST' && pathname === '/release') return this.release()
     // Behavior 5 — file from a finished round's artifacts, spawning nothing.
     const recover = /^\/iteration\/(\d+)\/recover$/.exec(pathname)
     if (method === 'POST' && recover) return this.recover(Number(recover[1]))
@@ -437,27 +565,73 @@ export class ReproConsole {
   }
 
   /**
-   * [reproduce] and [run again], which are different verbs.
+   * [reproduce], [recapture] and [run again], which are different verbs.
    *
-   * [reproduce] carries an address: it captures that site and starts the
-   * iteration list over at Iteration 1. [run again] carries none: it re-runs
-   * the site already loaded and appends the next iteration, so everything above
-   * it stays on the page with its own artifacts.
+   * [reproduce] carries an address: it reuses that site's stored capture if
+   * there is one and starts the iteration list over at Iteration 1.
+   * [recapture] re-hits the site and re-rolls the oracle — and when the site it
+   * names is the one already on the page, it APPENDS the next iteration rather
+   * than starting a new list ([[REQ-272]] part 2). [run again] carries no
+   * address: it refolds the reference already loaded and appends.
    *
    * A second press while a run is in flight starts nothing and says so. The
    * page disables its buttons from the poller, so this is the backstop for the
-   * press that lands in the gap rather than the thing a human normally meets.
+   * press that lands in the gap rather than the thing a human normally meets —
+   * and the same is true of the hold: {@link heldBy} is checked here because the
+   * disabled button is a courtesy and this is the rule.
    */
   private startRun(typedUrl: string | undefined, forceCapture: boolean): ConsoleResponse {
     if (this.running) return html(409, 'A run is already in progress. <a href="/">back</a>')
 
-    if (typedUrl !== undefined) {
-      const trimmed = typedUrl.trim()
-      if (!trimmed) {
-        this.message = 'Enter a site address first.'
-        this.failed = true
-        return seeOther('/')
-      }
+    const trimmed = typedUrl?.trim()
+    if (typedUrl !== undefined && !trimmed) {
+      this.message = 'Enter a site address first.'
+      this.failed = true
+      return seeOther('/')
+    }
+    if (typedUrl === undefined && this.url === null) {
+      this.message = 'Enter a site address first.'
+      this.failed = true
+      return seeOther('/')
+    }
+
+    /**
+     * IS THIS PRESS THE SAME CHAIN, OR A NEW ONE ([[REQ-272]] part 2)?
+     *
+     * The one question both of this ticket's halves turn on. A press with no
+     * address is the loaded site by definition; a press with one is the loaded
+     * site when the addresses name the same host, which is {@link bareHost}'s
+     * comparison and not a second spelling of it. Everything else — the hold,
+     * whether [recapture] appends or resets — follows from the answer.
+     */
+    const continuing = trimmed === undefined || (this.url !== null && bareHost(trimmed) === bareHost(this.url))
+
+    const held = continuing ? this.heldBy() : null
+    if (held) {
+      this.message = `${this.heldView()?.waitingFor ?? ''} Press [the implementation has landed] first.`
+      this.failed = true
+      return seeOther('/')
+    }
+
+    let recaptured = false
+    if (forceCapture && continuing) {
+      /**
+       * A RE-CAPTURE THAT KEEPS THE CHAIN ([[REQ-272]] part 2, item 1).
+       *
+       * The old [recapture] reset the list, which made it unusable for the one
+       * thing it is for: a capture-side fix landed, and the question is whether
+       * it moved the numbers. Answering that needs the iterations BEFORE the fix
+       * still on the page beside the one after it. So the list, the slug and the
+       * site are left exactly as they are, and only the bundle is dropped —
+       * which is what makes {@link execute} capture instead of refold.
+       *
+       * `recaptured` is false on a first iteration: there is nothing above it
+       * whose numbers this one is not comparable with, so marking it would be
+       * saying something about a comparison that does not exist.
+       */
+      recaptured = this.iterations.length > 0
+      this.bundleDir = undefined
+    } else if (trimmed !== undefined) {
       /**
        * A CAPTURE ALREADY ON DISK IS REUSED, NOT RE-TAKEN (requirement 29).
        *
@@ -465,10 +639,10 @@ export class ReproConsole {
        * than the second. Re-capturing re-rolls the acceptance oracle, so the
        * reference moves at the same instant the fold does and the two become
        * inseparable — which is the single comparison an iteration exists to
-       * make. Reusing is therefore the default; [recapture] (requirement 30) is
-       * how someone says they meant to move the reference, and it has to be a
-       * thing they CHOSE rather than something that happened because they
-       * pressed the ordinary button a second time.
+       * make. Reusing is therefore the default; [recapture] is how someone says
+       * they meant to move the reference, and it has to be a thing they CHOSE
+       * rather than something that happened because they pressed the ordinary
+       * button a second time.
        */
       const reuse = forceCapture ? undefined : findStoredCapture(this.stored, trimmed)
       if (reuse) {
@@ -480,10 +654,6 @@ export class ReproConsole {
         this.iterations.length = 0
         this.version += 1
       }
-    } else if (this.url === null) {
-      this.message = 'Enter a site address first.'
-      this.failed = true
-      return seeOther('/')
     }
 
     const n = this.iterations.length + 1
@@ -492,18 +662,76 @@ export class ReproConsole {
 
     this.running = true
     this.failed = false
-    this.message = `Running iteration ${n}…`
-    this.inFlight = this.execute(n, captureUrl)
+    this.message = `Running iteration ${n}${recaptured ? ' — re-capturing the reference' : ''}…`
+    this.inFlight = this.execute(n, captureUrl, recaptured)
     return seeOther('/')
   }
 
-  private async execute(n: number, captureUrl: string | undefined): Promise<void> {
+  /**
+   * THE HOLD LIFTED ([[REQ-272]] part 1, behaviour 3).
+   *
+   * The operator asserting a fact the console cannot check — that the ticket the
+   * last round filed has been implemented. Recorded beside that round rather
+   * than in memory, so the assertion survives a restart exactly as the round it
+   * answers does.
+   *
+   * A POST, like every other verb here, and for the same reason: it changes what
+   * the console will do next, and a GET that did would be a back-button away
+   * from doing it again.
+   */
+  private release(): ConsoleResponse {
+    const held = this.heldBy()
+    if (!held) {
+      this.message = 'Nothing is held.'
+      this.failed = false
+      return seeOther('/')
+    }
+    const aiDir = path.join(held.dir, AI_DIR)
+    mkdirSync(aiDir, { recursive: true })
+    writeFileSync(
+      path.join(aiDir, AI_RELEASE_FILE),
+      JSON.stringify({ releasedAt: new Date().toISOString(), ticketId: held.outcome?.ticketId ?? null }, null, 2),
+    )
+    this.message = `Iteration ${held.n}'s implementation is marked as landed — [run again] to measure it.`
+    this.failed = false
+    this.version += 1
+    return seeOther('/')
+  }
+
+  /**
+   * START THE ROUND UNDER ONE ITERATION ([[REQ-272]] part 1, behaviour 2).
+   *
+   * Everything the round then does is unchanged — {@link diagnose} is the same
+   * function it always was, with the same `capture-incomplete` stop, the same
+   * streaming transcript and the same filing checks. What changed is only who
+   * calls it, and the answer is now: the operator, once, having looked.
+   *
+   * `running` is held for the length of the round, which is what stops a second
+   * press starting a second one on top of it — the same interlock [run again]
+   * has always been under.
+   */
+  private startDiagnose(n: number): ConsoleResponse {
+    if (this.running) return html(409, 'A run is already in progress. <a href="/">back</a>')
+    const it = this.iterations.find((entry) => entry.n === n)
+    if (!it) return text(404, 'No such iteration')
+    this.running = true
+    this.failed = false
+    this.message = `Iteration ${n} — starting the round…`
+    this.version += 1
+    this.inFlight = this.diagnose(it).finally(() => {
+      this.running = false
+    })
+    return seeOther('/')
+  }
+
+  private async execute(n: number, captureUrl: string | undefined, recaptured = false): Promise<void> {
     const dir = path.join(this.cwd, CONSOLE_WORKSPACE, this.slug, `iteration-${n}`)
     try {
       const outcome = await runIteration({
         cwd: this.cwd,
         captureUrl,
         bundleDir: this.bundleDir,
+        recaptured,
         slug: this.slug,
         n,
         dir,
@@ -526,29 +754,34 @@ export class ReproConsole {
         diffOut: outcome.diffOut,
         pageOut: outcome.pageOut,
         bundleDir: outcome.bundleDir,
+        ...(outcome.bundleCapturedAt ? { bundleCapturedAt: outcome.bundleCapturedAt } : {}),
+        ...(recaptured ? { recaptured: true } : {}),
         gate: outcome.gate,
         railResult: outcome.rail,
         outcome: null,
       }
       this.iterations.push(iteration)
-      this.message = `Iteration ${n} finished.`
+      /**
+       * THE ITERATION ENDS HERE, AND NOTHING FOLLOWS IT ([[REQ-272]] part 1,
+       * behaviour 1).
+       *
+       * [[REQ-256]] behaviour 1 started the round from this line — "the links
+       * appearing IS the trigger" — which put the AI's budget on the far side of
+       * a decision nobody was asked to make. The operator needs to SEE the
+       * reproduction first: the original, the reproduction, the diff images and
+       * the L1 document are all live at this moment, and what they show is
+       * routinely enough to know a round is not worth running. So the console
+       * goes idle with the links up, and {@link startDiagnose} is the only way a
+       * round ever starts.
+       *
+       * What this does NOT change is the interlock: a round holds `running` for
+       * its whole length, so [run again] still cannot start an iteration on top
+       * of a diagnosis in flight ([[REQ-256]] behaviour 10, requirement 23).
+       */
+      this.message = `Iteration ${n} finished — read it, then press [diagnose this] if it is worth a round.`
       this.failed = false
       // The list changed, so the browser reloads and picks the new block up.
       this.version += 1
-      /**
-       * THE ROUND STARTS AS SOON AS THE LINKS APPEAR (behavior 1).
-       *
-       * Not on a button — the links appearing IS the trigger, which is what
-       * makes the diagnosis a part of the iteration rather than a second thing
-       * a human has to remember to do. The version bump above is what puts the
-       * iteration on the page first, so the operator watches the round work
-       * (behavior 2) rather than waiting at a blank status line for it.
-       *
-       * Awaited inside the try, so `running` stays true until the round ends
-       * and [run again] cannot start a second one on top of a diagnosis still
-       * in flight (behavior 10, requirement 23).
-       */
-      await this.diagnose(iteration)
     } catch (err) {
       // A failed run leaves NO iteration on the page — `runIteration` stops at
       // the first step that did not do its job, so there is nothing half-built
@@ -611,11 +844,29 @@ export class ReproConsole {
      * ADDITION to the evidence: every file it derives from is still handed over
      * below, and the prompt says the digest is not a source.
      */
+    /**
+     * HOW OLD THE ORACLE IS, AND WHAT LANDED SINCE ([[REQ-272]] part 2, item 3).
+     *
+     * Computed before the digest because the digest carries it, and computed by
+     * the CONSOLE because the console is the thing with a shell and a clock. The
+     * observed round that made this a ticket spent $7.70 and 78 turns arriving
+     * at "the reference was captured 70 minutes before the commit that fixed the
+     * residuals measured against it" — an answer that was two cheap reads away
+     * the whole time: the bundle's own `capturedAt` and the engine's own log.
+     */
+    const reference = await this.referenceProvenance(it)
+
     const digestFile = path.join(aiDir, AI_DIGEST_FILE)
     try {
       writeFileSync(
         digestFile,
-        digestFromDisk({ n: it.n, bundleDir: it.bundleDir, evidenceDir: it.diffOut, pageDocument: it.pageOut }),
+        digestFromDisk({
+          n: it.n,
+          bundleDir: it.bundleDir,
+          landedSince: reference.landedSince,
+          evidenceDir: it.diffOut,
+          pageDocument: it.pageOut,
+        }),
       )
     } catch {
       // A digest that could not be computed is a round that reads the files
@@ -644,7 +895,14 @@ export class ReproConsole {
     const kb = await buildSessionKb({ cwd: this.cwd, run: this.runCommand, workspace: this.workspace })
 
     const brief = readBrief()
-    const resumeCtx = { bundleDir: it.bundleDir, briefHash: briefFingerprint(brief) }
+    // The capture time is part of the resume key ([[REQ-272]] part 2): reset
+    // rule 1's "or the same site re-captured" half, which could not fire while
+    // a bundle's name was the only thing identifying the reference.
+    const resumeCtx = {
+      bundleDir: it.bundleDir,
+      capturedAt: reference.capturedAt ?? '',
+      briefHash: briefFingerprint(brief),
+    }
     const saved = readSession(this.siteDir)
     const resume = resumableSession(saved, resumeCtx)
 
@@ -657,6 +915,7 @@ export class ReproConsole {
       evidenceDir: it.diffOut,
       pageDocument: it.pageOut,
       siteDir: it.siteOut,
+      reference,
       digestFile,
       kb,
       gate: it.gate,
@@ -950,6 +1209,59 @@ export class ReproConsole {
   }
 
   /**
+   * WHEN THIS ITERATION'S REFERENCE WAS TAKEN, AND WHAT LANDED AFTER IT
+   * ([[REQ-272]] part 2, item 3).
+   *
+   * The timestamp is the iteration's own — recorded in its manifest when it ran
+   * — falling back to the bundle on disk for an iteration written before the
+   * field existed. It cannot simply be read from the bundle now: a bundle's name
+   * is URL-derived and overwriting, so a later [recapture] replaces it in place
+   * and a read today would answer for a reference this iteration never saw.
+   *
+   * The commit list is bounded and never fatal. A checkout with no git, a git
+   * that refuses, a bundle with no capture time: all produce an empty list,
+   * which reads on the page and in the prompt as "nothing is claimed" rather
+   * than as "nothing landed" — the digest and the prompt both say which of the
+   * two they have.
+   */
+  private async referenceProvenance(it: Iteration): Promise<{
+    capturedAt?: string
+    captureSchema?: number
+    landedSince: string[]
+  }> {
+    const onDisk = readBundleProvenance(it.bundleDir)
+    const capturedAt = it.bundleCapturedAt ?? onDisk.capturedAt
+    const landedSince = capturedAt ? await this.landedSince(capturedAt) : []
+    return {
+      ...(capturedAt ? { capturedAt } : {}),
+      ...(onDisk.captureSchema === undefined ? {} : { captureSchema: onDisk.captureSchema }),
+      landedSince,
+    }
+  }
+
+  /** The engine commits since an instant, newest first, one line each. */
+  private async landedSince(capturedAt: string): Promise<string[]> {
+    const result = await this.runCommand(
+      'git',
+      [
+        'log',
+        `--since=${capturedAt}`,
+        `--max-count=${MAX_LANDED_COMMITS}`,
+        '--date=short',
+        '--format=%h %ad %s',
+        '--',
+        ENGINE_PATH,
+      ],
+      this.cwd,
+    ).catch(() => null)
+    if (!result || result.code !== 0) return []
+    return result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+  }
+
+  /**
    * The working tree, as `git status --porcelain` sees it.
    *
    * Behavior 3's falsifier. A checkout with no git — a tarball, a test's
@@ -1177,6 +1489,18 @@ export function regionCaption(region: NonNullable<RegionReportFile['regions']>[n
   if (region.meanDiff !== undefined) parts.push(`mean ${region.meanDiff}`)
   if (region.nodes) parts.push(`ref: ${leadPhrase(region.nodes.ref?.[0])} · ours: ${leadPhrase(region.nodes.actual?.[0])}`)
   return parts.length ? parts.join(' · ') : undefined
+}
+
+/**
+ * A bundle directory as the page names it ([[REQ-272]] part 2, item 1).
+ *
+ * The last two segments — `<host>/<pathSlug>`, which is the bundle's own name
+ * and the tail an operator types after `--ref`. The absolute prefix is this
+ * machine's and says nothing about which reference was used.
+ */
+export function bundleLabel(bundleDir: string): string {
+  const parts = bundleDir.split(/[\\/]/).filter(Boolean)
+  return parts.slice(-2).join('/') || bundleDir
 }
 
 /** One field out of an `application/x-www-form-urlencoded` body. */

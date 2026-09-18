@@ -15,6 +15,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { readGateReport, type GateSummary } from './ai'
+import { readBundleProvenance } from './bundle'
 import { runRailRound, type RailRoundResult } from './rail-round'
 import { CLI_ENTRY, oneC, spawnCommand, tailOf, type CommandResult, type CommandRunner } from './run'
 
@@ -93,7 +94,7 @@ export function captureStep(url: string): IterationStep {
 }
 
 /**
- * Why a re-run refolds rather than re-captures.
+ * Why a re-run refolds rather than re-captures, and where that stops being true.
  *
  * `1c refold` re-derives the bundle's `l1.json` from its OWN retained
  * `multistate.json` oracle, offline. That is what picks up an engine change
@@ -101,8 +102,18 @@ export function captureStep(url: string): IterationStep {
  * the reference would move at the same moment the fold did and the two changes
  * would be inseparable — which is the one comparison an iteration exists to
  * make.
+ *
+ * THAT REASONING IS ABOUT THE **FOLD**, AND ONLY THE FOLD ([[REQ-272]] part 2).
+ * A fix to the CAPTURE is invisible to a refold by construction: the oracle a
+ * refold re-derives from is the one the old extractor wrote, so the axis the fix
+ * added is not in it and never will be. A chain that could only refold therefore
+ * measured landed capture fixes as outstanding residuals for as long as it ran —
+ * which is what it did, at $7.70 a round. So this stays the DEFAULT and stops
+ * being the only path: [recapture] moves the reference deliberately, keeps the
+ * chain, and marks the iteration where the reference moved so the numbers either
+ * side of it are not read as comparable.
  */
-export const REFOLD_NOTE = 'refold from the retained oracle; never re-capture on a re-run'
+export const REFOLD_NOTE = 'refold from the retained oracle; re-capture only when the operator says so'
 
 /**
  * The steps that turn a captured bundle into a rendered, diffed reproduction.
@@ -208,23 +219,29 @@ export function parseCaptureList(stdout: string): StoredCapture[] {
 /**
  * The stored capture for a typed address, if there is one (requirement 29).
  *
- * MATCHED ON HOST, AND ON THE `www.` PAIR. A capture is named after the host
+ * MATCHED ON HOST, AND ON THE `www.` PAIR, through {@link bareHost} — which is
+ * exported because the console asks the same question a second way ([[REQ-272]]
+ * part 2): whether the address in the box is the site already on the page, and
+ * therefore whether [recapture] continues that chain or starts a new one. Two
+ * spellings of one comparison would eventually disagree.
+ * A capture is named after the host
  * that answered, which may not be the one that was typed — that is requirement
  * 19's whole point, and it applies just as hard in reverse: someone who typed
  * `example.com` yesterday and `www.example.com` today means the same site and
  * must be offered the same bundle, or they silently re-capture and re-roll the
  * oracle they were trying to hold still.
  */
-export function findStoredCapture(stored: StoredCapture[], url: string): StoredCapture | undefined {
-  const bare = (value: string): string => {
-    try {
-      return new URL(value.includes('://') ? value : `https://${value}`).hostname.replace(/^www\./, '').toLowerCase()
-    } catch {
-      return value.replace(/^www\./, '').toLowerCase()
-    }
+export function bareHost(value: string): string {
+  try {
+    return new URL(value.includes('://') ? value : `https://${value}`).hostname.replace(/^www\./, '').toLowerCase()
+  } catch {
+    return value.replace(/^www\./, '').toLowerCase()
   }
-  const wanted = bare(url)
-  return stored.find((entry) => bare(entry.url) === wanted || bare(entry.name.split('/')[0]) === wanted)
+}
+
+export function findStoredCapture(stored: StoredCapture[], url: string): StoredCapture | undefined {
+  const wanted = bareHost(url)
+  return stored.find((entry) => bareHost(entry.url) === wanted || bareHost(entry.name.split('/')[0]) === wanted)
 }
 
 /** What `1c capture page --json` says about the bundle it wrote. */
@@ -267,6 +284,29 @@ export interface IterationManifest {
   originalUrl: string
   bundleDir: string
   slug: string
+  /**
+   * This iteration re-captured the site rather than refolding ([[REQ-272]]
+   * part 2, item 2).
+   *
+   * THE ONE FACT A LATER READER CANNOT DERIVE. A bundle's name is URL-derived
+   * and overwriting, so `bundleDir` is the same string either side of a
+   * re-capture and nothing about the directory says the reference moved. Without
+   * this flag a score that jumped because the oracle was re-rolled reads exactly
+   * like a score that jumped because the fold improved, which is the single
+   * comparison an iteration exists to make.
+   *
+   * Optional, so every manifest written before this existed still parses and
+   * reads as a refold — which is what those iterations were.
+   */
+  recaptured?: boolean
+  /**
+   * The bundle's own `capturedAt`, as it stood when THIS iteration ran.
+   *
+   * The durable half of the flag above: it says which reference this iteration
+   * measured against even after a later re-capture has overwritten the bundle in
+   * place, so a chain that changed reference mid-way reads as one on the page.
+   */
+  bundleCapturedAt?: string
 }
 
 /**
@@ -298,6 +338,8 @@ export function readIterations(siteDir: string): IterationManifest[] {
         originalUrl: typeof parsed.originalUrl === 'string' ? parsed.originalUrl : '',
         bundleDir: parsed.bundleDir,
         slug: typeof parsed.slug === 'string' ? parsed.slug : '',
+        ...(parsed.recaptured === true ? { recaptured: true } : {}),
+        ...(typeof parsed.bundleCapturedAt === 'string' ? { bundleCapturedAt: parsed.bundleCapturedAt } : {}),
       })
     } catch {
       // Unreadable manifest — same as none. Not a reason to hide its neighbours.
@@ -329,6 +371,12 @@ export interface RunIterationOptions {
   captureUrl?: string
   /** Present on a re-run; absent on the first iteration for a site. */
   bundleDir?: string
+  /**
+   * This run is a deliberate re-capture of a site that already has iterations
+   * ([[REQ-272]] part 2). Recorded in the manifest and nowhere else — it changes
+   * nothing about how the iteration runs, only how it must be READ.
+   */
+  recaptured?: boolean
   slug: string
   /** Which iteration this is — recorded in the manifest so disk can say so later. */
   n: number
@@ -346,6 +394,8 @@ export interface RunIterationOptions {
 export interface IterationOutcome {
   /** The bundle used — newly captured, or the one carried from the first iteration. */
   bundleDir: string
+  /** That bundle's own `capturedAt`, read at the moment this iteration ran. */
+  bundleCapturedAt?: string
   /** The URL the capture actually answered on (the host may have been corrected). */
   originalUrl: string
   siteOut: string
@@ -415,11 +465,20 @@ export async function runIteration(opts: RunIterationOptions): Promise<Iteration
    * cannot come back from disk as a half-built iteration on the page, which is
    * requirement 10 surviving a restart rather than holding only in memory.
    */
-  const manifest: IterationManifest = { n: opts.n, originalUrl, bundleDir, slug: opts.slug }
+  const provenance = readBundleProvenance(bundleDir)
+  const manifest: IterationManifest = {
+    n: opts.n,
+    originalUrl,
+    bundleDir,
+    slug: opts.slug,
+    ...(opts.recaptured ? { recaptured: true } : {}),
+    ...(provenance.capturedAt ? { bundleCapturedAt: provenance.capturedAt } : {}),
+  }
   writeFileSync(path.join(opts.dir, MANIFEST_FILE), JSON.stringify(manifest, null, 2))
 
   return {
     bundleDir,
+    ...(provenance.capturedAt ? { bundleCapturedAt: provenance.capturedAt } : {}),
     originalUrl,
     siteOut,
     diffOut,

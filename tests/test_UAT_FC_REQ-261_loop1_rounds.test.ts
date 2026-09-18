@@ -240,9 +240,28 @@ const page = async (f: Fixture): Promise<string> => (await get(f, '/')).text()
 
 const SITE = 'gigabytealchemy.ai'
 
+/**
+ * Press [reproduce], then press the round's own button, and wait for both.
+ *
+ * TWO PRESSES SINCE [[REQ-272]]. The round used to start from the iteration
+ * finishing; it starts from `[diagnose this]` now. Every assertion below is
+ * about what the round does once started, which that change does not touch.
+ */
 async function reproduce(f: Fixture): Promise<void> {
   await post(f, '/run', new URLSearchParams({ url: SITE }).toString())
   await f.handle.console.settled()
+  await diagnose(f, 1)
+}
+
+/** Press [diagnose this] on one iteration and wait for the round ([[REQ-272]]). */
+async function diagnose(f: Fixture, n: number): Promise<void> {
+  await post(f, `/iteration/${n}/diagnose`)
+  await f.handle.console.settled()
+}
+
+/** Say the implementation landed, which is what lifts the hold ([[REQ-272]]). */
+async function release(f: Fixture): Promise<void> {
+  await post(f, '/release')
 }
 
 const roundDir = (f: Fixture, n = 1): string =>
@@ -415,6 +434,7 @@ describe('REQ-261 rounds carry context forward', () => {
     await reproduce(f)
     await post(f, '/run-again')
     await f.handle.console.settled()
+    await diagnose(f, 2)
 
     expect(log.calls).toBe(2)
     expect(log.resumes[0]).toBeUndefined()
