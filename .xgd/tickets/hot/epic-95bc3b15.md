@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T23:01:12.275557+00:00'
+updated_at: '2026-09-18T23:12:05.283748+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -346,8 +346,19 @@ workflows — `main = "src/worker.ts"` and nothing else. So the turn is driven b
 the fetch request and the live record lives in the isolate. Both end when the
 client goes.
 
-**The turn is terminated, not completed.** That is the gap between what the
-system does and what the operator expects.
+**But "terminated, not completed" understates it, and the operator was right to
+push back** (2026-09-18: *"terminated would be one thing, my prompt and the
+partial response I saw were lost too — much more serious"*). The store shows why.
+
+The turn ran from 22:18:34 to 22:24:12 — nearly six minutes — and at 22:24:46
+BOTH artifacts were written. The `tool_transcript` grew to 350,925 bytes, ending
+on a `record_decision` that committed a substantive decision to the engagement
+ledger. The `chat_transcript` went from version 20 to 21 and **gained nothing**.
+
+So an interrupted turn does not merely stop: **it commits its work and discards
+its conversation.** The ledger records a decision the transcript has no memory of
+anyone making. That is the transcript and the world disagreeing, which is a
+different and worse thing than a turn that stopped early. Filed as [[BUG-121]].
 
 ### The operator's position (2026-09-18)
 
@@ -386,6 +397,19 @@ underneath it:
 - **A resume contract on load**: does this session have a turn in flight, and from
   what cursor. `tailSession` answers it once there is a durable producer.
 
+### The asymmetry is the defect, and it is separable
+
+The two halves of a turn have different durability because they are written by
+different mechanisms: `_applyTools` uses `append_body` and lands as it happens,
+while the prose transcript is a read-modify-write folded from a RAM junction. So
+losing the junction does not lose the turn — it loses only the half without
+consequences. BUG-46's note anticipated the hole but not that it would be
+one-sided.
+
+That integrity defect does not stop being one if turns later run to completion: a
+turn can still fail, and its two halves must still agree. So [[BUG-121]] items
+1–3 should land ahead of the Durable Object work rather than behind it.
+
 ### Cheaper intermediate, worth doing either way
 
 **Fold the user's message before the turn starts.** Today an interrupted turn
@@ -401,6 +425,10 @@ as the assistant ignoring them.
 
 ## Children
 
+- [[BUG-121]] — An interrupted turn commits its work and discards its
+  conversation. The integrity half of Finding 4, with the store evidence; items
+  1–3 (equal durability, fold the prompt first, mark an interrupted turn) are
+  separable from and should precede the durable-turn work.
 - [[REQ-217]] — *Chat: an image a turn produced appears in the conversation.* Already
   built and free-coded (2026-09-11, `215187d64c`, 0.2.169) — the display handle,
   the URL factory and both UATs are in. Revisited 2026-09-18 because the operator
