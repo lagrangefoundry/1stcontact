@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T22:58:57.364860+00:00'
+updated_at: '2026-09-18T23:01:28.442619+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -567,5 +567,49 @@ And more usefully: my `update` and `append` calls to REQ-217 both *looked* like 
 I just (accidentally) navigated away from the Lagrange Foundry business - when I returned I found I had lost my latest turn exchange which was in-progress with the AI - is it gone for good?
 
 Lets talk about this experience - I think the user will expect an open turn to run to completion even if the page is refreshed or navigated away from even if the browser is closed.
+
+<!-- xgd-turn id="83f1f645-9348-490b-b5f9-7757285b8673-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:01:27.877192+00:00" -->
+#### Claude
+Let me check your actual data first, then the machinery.
+
+**Gone for good, yes.** I checked your transcript directly: `chat-50932534` now holds 36 turns, 57,348 bytes, ending on a *complete* user/assistant pair. There's no orphaned user turn and no partial reply. The in-flight turn left no trace at all — including your own message.
+
+## The codebase already agrees with you, and says exactly where it stopped
+
+**BUG-46 solved half of this.** `router.ts:5326` is worth reading in full because it's the precise answer:
+
+> A reload aborts the SSE, the next `controller.enqueue` throws on the cancelled stream, that runs the generator's `finally` — where the library appends `turn_end` and awaits `sync()` […] Registering the stream's completion means the drain and this audit flush both outlive the client that walked away, which is what makes a **COMPLETED** turn durable under a reload race.
+
+And then it names the rest:
+
+> It does not make an in-flight turn durable — that is the junction's business, and in this Worker the junction is RAM (`ai.ts`), so an isolate evicted mid-turn still loses it. Rendering from the junction is what narrows the window; **only a Durable Object would close it.**
+
+Confirmed: `ai.ts:202` and `:598` pass `memoryJunctions()`, and `wrangler.toml` declares no durable objects and no workflows. The turn is driven by the fetch request; the live record lives in the isolate. Both die when you leave.
+
+So the honest framing: **the turn is terminated, not completed.** That's precisely the gap between the system and your expectation.
+
+## Why I think your expectation is right — and the lost text is the least of it
+
+1. **Turns have side effects.** A consultant turn writes pages, palettes, pictures. One killed after three of seven edits leaves the site half-changed — and the change signal still fires, so the pane re-renders and the client *watches their site move* with no reply explaining why. Nothing records that the turn was interrupted.
+2. **Turns cost money.** Same family as BUG-119: spend already made, artifact nobody receives.
+3. **Turns are long.** A tool loop against a browser and a store, not a two-second reply. The window where leaving hurts is most of the turn.
+
+## What closing it takes
+
+The good news: **the reattach half is already built.** `tailSession` is a cursor-based subscriber over the junction, explicitly *"safe to do on any page load"* and *"never a second producer"*. It was written for this. What's missing is underneath it:
+
+- **A driver that outlives the request** — a Durable Object per session is the natural shape. A session already has one identity, turns must be serialised per session anyway (the transcript's compare-and-set proves it), and the junction wants to live beside its driver. `ctx.waitUntil` won't do; BUG-46 already spent it on the drain.
+- **A durable junction**, so another isolate can read the live turn.
+- **A resume contract on load** — `tailSession` answers it once there's a durable producer.
+
+## One cheap thing worth doing regardless
+
+**Fold the user's message before the turn starts.** Right now an interrupted turn costs you your own words *and* the reply. Persist the user turn up front and a lost turn costs only the answer — your question survives, shows on reload, and re-sends with one click. Small, independent of the DO work, and it removes the most irritating half of what just happened to you.
+
+Related: **say that a turn was interrupted.** A turn ending without `turn_end` is knowable, and the transcript should show it rather than leaving a gap the client reads as the assistant ignoring them.
+
+All of this is Finding 4 in EPIC-19. Want me to file it — and if so, as one ticket for the durable turn, or split the cheap intermediate out so it can land this week?
 
 <!-- xgd-chat-end -->
