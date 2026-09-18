@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-269
 created_by: xgd
 created_at: '2026-09-17T23:42:12.724247+00:00'
-updated_at: '2026-09-18T00:14:48.059790+00:00'
+updated_at: '2026-09-18T00:30:44.558123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -76,5 +76,32 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a9c6908d-f33b-482a-90b4-74a0947df0b4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T00:30:43.807874+00:00" -->
+#### Claude
+Now claim `free_coded`:
+
+Now clean up the branch:
+
+REQ-269 is complete and at `free_coded`.
+
+**What I did this turn** — the prior session had committed the work and bumped on `free-REQ-269` but was cut off before merge-back, so I finished the protocol:
+
+**Verified before merging.** Ran the REQ-269 suite in the foreground: **14 passed / 0 skipped** with `CHROMIUM_LAUNCH_ARGS=--single-process` (8 passed / 6 skipped without it — the browser legs self-gate on `chromiumAvailable()`). Then the full `vitest run` suite: 566 files, 4919 tests.
+
+Six files failed across two full runs, and none is caused by this work — established by measurement, not inspection:
+
+- **Three fail identically on unmodified `xgd-working`**: `bug32-webui-scope-rebrand`, `req51-object-grouped-report` (REQ-265's `placeholderColor` param, never added to that test's expectation), `test_UAT_FC_BUG-67_backend_settings`. Pre-existing.
+- **Three fail only under parallel load**: `reconciliation-builder-workspace-origin`, `reconciliation-l1-navigation`, `test_UAT_FC_REQ-260_undo.workers`. All three pass in the branch worktree run on their own, and the failing set differed between two full runs of the same tree.
+
+I corrected the ticket's regression paragraph, which had asserted a different (and less accurate) account of those failures.
+
+**Then landed it.** Merged `free-REQ-269` into `xgd-working`, hit the known version-gate race — the ticket-body auto-commit landed after the 0.2.246 bump, so the version was at the tip on a commit not reachable from the claimed SHAs. Re-merged working into the branch, bumped to **0.2.247**, fast-forwarded and claimed in one shot.
+
+Final state: status `free_coded`, `story_points: 8`, three commits recorded (`c3c747fa`, `a394e85e`, `c264442b`) — all verified ancestors of `xgd-working` — branch and worktree torn down, lock released.
+
+Ready for you to promote to `ready_to_reconcile` when you're satisfied with the fix.
 
 <!-- xgd-chat-end -->
