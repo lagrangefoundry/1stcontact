@@ -1,0 +1,470 @@
+---
+uid: request-caa17b9d
+id: REQ-271
+type: request
+title: 'capture/fold/values-diff: a band background is fabricated when transparent,
+  compared by nothing, and wrong on the hero'
+created_by: repro-console:repro-gigabytealchemy-ai#3
+created_at: '2026-09-18T02:07:55.647301+00:00'
+updated_at: '2026-09-18T02:07:55.647301+00:00'
+completed_at: null
+last_field_updated: created_at
+status: draft
+fields:
+  auto_merge_back: true
+  needs_review: false
+  priority: medium
+---
+
+Loop 1, iteration **3** of `repro-gigabytealchemy-ai` against the stored bundle
+`storage/references/gigabytealchemy.ai/index`.
+
+`gate.json` verdict: **`pass`** — mean 0.31/255, 0.1% of pixels over threshold,
+10 ranked regions, `l1Pass: true`, **14 value deltas**, `unpairedActual: 7`,
+`coverage.findings: []`.
+
+## What moved since iteration 2, and what did not
+
+Two of the residuals filed last round have **landed** and this round confirms
+them fixed, from the artifacts:
+
+- REQ-270 issue 2 (`repro-band-paint-read-from-the-fill-box-not-the-image-layer`)
+  — the reproduction's hero image is now **in** its own manifest:
+  `$ITER/diff/actual-manifest.json` element `[5]` carries
+  `"backgroundImageUrl": "http://localhost:59880/assets/AlchemistLabWithTech.png"`.
+- REQ-269 issue 5 (an L1 render has no section bands) — the reproduction side now
+  segments into **7** bands carrying `overlay` / `contentAnchorRatio` /
+  `textAlign`, so `sectionsNotComparable` is absent from `gate.json` and the
+  section pass really ran.
+
+Two are **unchanged and cannot change**:
+
+- REQ-270 issue 1 (`reference-bundle-predates-its-own-extractor`) still holds.
+  `$REF/capture.json` `.capturedAt` is still `2026-09-17T23:01:30.421Z`
+  (16:01 −0700), while `$REF/forms.json` and `$REF/l1.json` are stamped
+  `Sep 17 18:56` — the fold re-ran, the capture did not. The ranked region score
+  is again **1051.13**, region for region.
+- REQ-269 issues 3 and 4 (no `href`, no heading level in the capture) are now
+  *visible* for the first time, because BUG-107's `a11yRole` comparison landed:
+  13 of this round's 14 deltas are `a11yRole` at tier **HIGH**, severity 3100 —
+  11 headings and 2 links reproducing as `generic`. **Those 13 are REQ-269's
+  residuals seen through a newly-sharpened instrument, and they are frozen by
+  REQ-270 issue 1.** They are not re-filed here.
+
+The 14th delta (`§1` `overlay` `#030717 @ 0.3` → `none`) is REQ-270 issue 3,
+still false, still the only delta the section pass produces.
+
+**So every delta and every ranked pixel on this run is already ticketed.** What
+follows is what this round found that is *not* on the board: a chain of three
+residuals about the one property the value gate has never been able to see —
+**the background colour of a band**.
+
+## Summary — three residual classes, in the order to work them
+
+| # | residual class | kind | what it costs |
+|---|---|---|---|
+| 1 | `capture-records-transparent-band-fill-as-body-background` | **class 1** — engine shortfall | the bundle asserts an opaque `#ffffff` fill for two bands the page paints nothing on; nothing marks the value as inferred |
+| 2 | `values-diff-has-no-band-surface-fill-axis` | **class 1** — engine shortfall (measurement) | a band's fill and background image are compared **nowhere**; the reproduction's 6 band fills land in `unpairedActual` with no geometry |
+| 3 | `fold-paints-opaque-scrim-colour-as-the-hero-band-base` | **class 1** — engine shortfall | L1 paints an opaque `#030717` plate under the hero where the reference paints nothing — and issue 2 is why no gate has ever reported it |
+
+**Order and dependencies.**
+
+- **Issue 1 must be fixed before issue 2.** If a band-fill axis is added while
+  the capture still fabricates `#ffffff` for a transparent band, the reference
+  side will assert white for the header band *and* for the hero band, and the
+  new axis fires two false deltas on this very bundle before it finds anything
+  real.
+- **Issue 3 is found by issue 2, not before it.** It is quoted here as the
+  proof that issue 2 is not hypothetical: a wrong band fill is sitting in L1
+  right now and the value gate reports `0` deltas for it.
+- Issue 3's root cause (alpha dropped from a translucent scrim) is already
+  **BUG-24**; what is new here is the *fold* consequence, which BUG-24 does not
+  describe.
+
+Landing 1 and 2 is a good outcome. 3 will still be visible to a later round.
+
+Two further findings this round are defects in how the gate *reports* what it
+already measured, rather than gaps in what the engine can do, and are filed
+separately as bugs to keep that line clean:
+**`gate-verdict-ignores-values-diff-severity`** and
+**`unpaired-reference-section-is-reported-nowhere-the-gate-reads`**.
+
+Everything below is quoted out of a file on disk or is the output of a command
+this round ran. Nothing is read off a screenshot.
+
+### Paths used throughout
+
+```
+REF=/Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index
+ITER=/Users/martin/lagrangefoundry/1stcontact/storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-3
+SLUG=repro-gigabytealchemy-ai
+```
+
+---
+
+## Issue 1 — a band with no background at all is recorded as an opaque fill of the body's background colour, and nothing says it was inferred
+
+**Residual class:** `capture-records-transparent-band-fill-as-body-background`
+
+**Class: 1 — engine shortfall.** The capture is the fold's input. It puts a
+colour into the bundle that the page does not paint, and the value is
+indistinguishable from a measured one.
+
+**Stored reference exhibiting it:** `storage/references/gigabytealchemy.ai/index`
+(evidence from this one bundle only).
+
+### The three questions, and what each returned
+
+1. **Can L1 express it?** Yes — `surfaceFill` is an existing box axis, and "no
+   fill" is expressible by omitting it (`section-bg-0` in this page's own L1
+   carries `backgroundImageUrl` + `overlay` and no `surfaceFill`). Not class 2.
+2. **Is the value in the L1 document, and is it right?** The value is in the
+   *capture*, which is upstream of L1, and it is wrong there. → **class 1, stop
+   here.**
+
+### Evidence
+
+**The page declares no background on either band.** From `$REF/raw.html`, the
+ground truth:
+
+```html
+<header class="absolute top-0 left-0 right-0 z-40">
+<section class="relative min-h-screen bg-cover bg-center bg-no-repeat" style="background-image: url('/images/AlchemistLabWithTech.png');">
+<body class="overflow-x-hidden">
+```
+
+The `<header>` has no `bg-*` class and no inline background. The hero
+`<section>` declares a `background-image` and no background-colour. The `<body>`
+declares neither.
+
+**The capture records both as opaque white.** From `$REF/capture.json`:
+
+```json
+{"box":{"x":0,"y":0,"width":1280,"height":192},"background":{"kind":"color","color":"#ffffff"}}
+{"box":{"x":0,"y":0,"width":1280,"height":800},"background":{"kind":"image","color":"#ffffff","image":"assets/AlchemistLabWithTech.png","overlay":{"color":"#030717","opacity":0.3}}}
+```
+
+`#ffffff` is not measured from anything. It is a two-step fallback.
+
+### Hypothesis — where it comes from, by file and line
+
+`tools/generate/src/cli/capture/extract.ts`:
+
+```js
+418:  function rgbToHex(str) {
+419:    var c = rgbaOf(str);
+420:    if (!c || c[3] === 0) return null;          // fully transparent -> null
+421:    return '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
+422:  }
+...
+1882:    var bodyBg = rgbToHex(getComputedStyle(document.body).backgroundColor) || '#ffffff';
+...
+1941:      var bg = rgbToHex(s.backgroundColor) || bodyBg;   // geometric-band path
+1962:    var bg = rgbToHex(s.backgroundColor) || bodyBg;     // band-root path
+```
+
+`rgbToHex` correctly returns `null` for `rgba(0,0,0,0)`. Both band paths then
+launder that `null` into `bodyBg`, and on this page `document.body` is itself
+transparent, so `bodyBg` is the literal `'#ffffff'` on line 1882. A band that
+paints nothing and a band that paints white produce byte-identical records.
+
+The same laundered value is then used for a second decision on the next line of
+each band record:
+
+```js
+1943/1964:  colorScheme: luminance(bg) < 0.5 ? 'dark' : 'light',
+```
+
+so the header band — whose only run sits over a dark hero photograph under a
+30 % navy scrim — is classified `light` on the strength of a fabricated white.
+
+### Proposed change
+
+Keep the `null` from `rgbToHex` distinguishable end to end:
+
+- emit `background: { kind: 'none' }` (or `{ kind: 'color', color: <fallback>,
+  colorInferred: true }`, matching the existing `colorInferred` convention on
+  content runs) when `rgbToHex(s.backgroundColor)` returned `null`;
+- derive `colorScheme` from what actually paints behind the band (the nearest
+  ancestor or underlying band with a real fill, or the resolved scrim), not from
+  the fallback.
+
+### How to see it, and how to know it is fixed
+
+```
+jq -c '.sections[0:2][] | {box, background}' \
+  /Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index/capture.json
+
+grep -o '<header class="[^"]*">' \
+  /Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index/raw.html
+```
+
+**Wrong (today):** the first command prints
+`"background":{"kind":"color","color":"#ffffff"}` for the 1280x192 band and
+`"color":"#ffffff"` inside the image band; the second prints
+`<header class="absolute top-0 left-0 right-0 z-40">` — a band with no
+background declaration at all.
+
+**Right (fixed):** the 1280x192 band's background is `{"kind":"none"}`, or
+carries an explicit inferred marker; the hero band's `color` is likewise marked
+inferred rather than asserted. A fresh capture is required to see it:
+
+```
+CHROMIUM_LAUNCH_ARGS=--single-process 1c capture page https://gigabytealchemy.ai --json
+```
+
+---
+
+## Issue 2 — a band's background colour and background image are compared by nothing, so a wrong band fill is a silent pass
+
+**Residual class:** `values-diff-has-no-band-surface-fill-axis`
+
+**Class: 1 — engine shortfall (measurement).** The value gate is the sharp
+instrument this loop is told to work in, and it has no axis at all for the
+single most visually dominant property of a page. This is the same shape as
+REQ-269 issue 5 (section values unmeasured), one level down: there the bands did
+not exist, here they exist and the property does not.
+
+**Stored reference exhibiting it:** `storage/references/gigabytealchemy.ai/index`
+(this is a property of the code, not of the bundle — it holds for every
+reference).
+
+### The three questions, and what each returned
+
+1. **Can L1 express it?** Yes — `surfaceFill` on a box; this page's L1 carries
+   six of them. Not class 2.
+2. **Is the value in the L1 document, and is it right?** For five of six bands,
+   yes (see the table below); for the hero band, no — that is issue 3. The
+   finding here is that **neither answer is reachable through the gate.**
+
+### Evidence
+
+**The reference side has no field for it.** `SectionValues`,
+`tools/generate/src/cli/capture/values-diff.ts:257–287`, is the whole
+reference-side section record:
+
+```ts
+export interface SectionValues {
+  index: number
+  overlay: { color: string; opacity: number } | null
+  contentAnchorRatio: number | null
+  paddingTopPx?: number
+  paddingBottomPx?: number
+  textAlign?: 'left' | 'center' | 'right'
+  backgroundImageUrl?: string
+  box?: Box
+}
+```
+
+No fill. Confirmed in the written artifact — every section record on the
+reference side of this run:
+
+```
+$ jq -c '[.sections[]|keys]|unique' $ITER/diff/expected-manifest.json
+[["backgroundImageUrl","box","contentAnchorRatio","index","overlay","textAlign"],
+ ["box","contentAnchorRatio","index","overlay","textAlign"]]
+```
+
+**The comparison pass reads exactly three properties.** `values-diff.ts:2973–3008`
+— per paired section it compares `overlay`, then `contentAnchorRatio`, then
+`textAlign`, and nothing else. `backgroundImageUrl` is *carried* (the type
+comment at :272–281 says it exists so the fold can place the image box) and is
+never compared, so an image folded onto the wrong band is not a delta either.
+
+**The reproduction side puts band paint somewhere the diff cannot pair it.** An
+L1 render paints bands as real boxes, so they arrive as `role: "generic"`
+elements in the actual manifest:
+
+```
+$ jq -c '[.elements[]|select(.role=="generic" and .surfaceFill!=null)|{y:.box.y,surfaceFill}]' \
+    $ITER/diff/actual-manifest.json
+[{"y":0,"surfaceFill":"#030717"},{"y":800,"surfaceFill":"#e8dfd3"},
+ {"y":1288,"surfaceFill":"#d9ccba"},{"y":1882,"surfaceFill":"#e8dfd3"},
+ {"y":3139,"surfaceFill":"#d9ccba"},{"y":4260,"surfaceFill":"#0f172b"}]
+```
+
+The reference side has **zero** textless/`generic` elements (same jq against
+`expected-manifest.json` returns `[]`), because its extractor keeps band paint
+on the band record. So all six, plus the hero image box, fall out as unpaired:
+
+```
+$ jq -c '{n:(.unpairedActual|length), first:.unpairedActual[0]}' $ITER/diff/values-diff.json
+{"n":7,"first":{"label":"(generic)","role":"generic","kind":"box"}}
+```
+
+`gate.json` reports this as `"unpairedActual": 7` and the pass rung's prose
+names the count — but an `UnpairedObject` is `{label, role, kind}` with **no
+box and no manifest index**, so the seven cannot be located, and the six colours
+they carry cannot be checked against anything.
+
+**The net effect, stated as a number:**
+
+```
+$ jq '[.deltas[]|select(.property=="surfaceFill" or .property=="backgroundImageUrl")]|length' \
+    $ITER/diff/values-diff.json
+0
+```
+
+Zero — on a run where one of the six band fills is demonstrably wrong (issue 3).
+
+### Hypothesis
+
+`tools/generate/src/cli/capture/values-diff.ts` — `SectionValues` (:257) has no
+fill member; the per-section comparison (:2973–3008) therefore cannot compare
+one; and `toUnpaired` / `UnpairedObject` discard the geometry that would let a
+reader find the seven repro-only boxes. The reference-side projection that
+builds `SectionValues` never reads `capture.json`'s `sections[].background`,
+which is where the reference's own fill already sits.
+
+### Proposed change
+
+1. Add `surfaceFill: string | null` to `SectionValues`, projected on the
+   reference side from `capture.json` `sections[].background.color` **once issue
+   1 makes "no fill" expressible** (a `kind: 'none'` band projects `null`), and
+   on the reproduction side from the band box the extractor already finds.
+2. Compare it in the per-section pass alongside `overlay`, and compare
+   `backgroundImageUrl` there too — a hero image on the wrong band is currently
+   undetectable by any gate.
+3. Reconcile the two shapes so an L1 render's band boxes are recognised as band
+   paint and stop arriving as `unpairedActual`; failing that, carry `box` and
+   `index` on `UnpairedObject` so the seven are at least locatable.
+
+### How to see it, and how to know it is fixed
+
+```
+ITER=/Users/martin/lagrangefoundry/1stcontact/storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-3
+
+jq '[.deltas[]|select(.property=="surfaceFill" or .property=="backgroundImageUrl")]|length' $ITER/diff/values-diff.json
+jq -c '[.sections[]|keys]|unique' $ITER/diff/expected-manifest.json
+jq -c '{n:(.unpairedActual|length), first:.unpairedActual[0]}' $ITER/diff/values-diff.json
+```
+
+**Wrong (today):** `0`; the reference section keys contain no fill member; and
+`{"n":7,"first":{"label":"(generic)","role":"generic","kind":"box"}}` — seven
+objects with no geometry.
+
+**Right (fixed):** the reference section keys include `surfaceFill`; the diff
+reports **one** `surfaceFill` delta on this bundle — `§1 surfaceFill` expected
+(no fill) vs actual `#030717`, which is issue 3 — and `unpairedActual` drops
+from 7 to 0 (or its records carry `box` and `index`).
+
+To regenerate the artifacts after a change:
+
+```
+CHROMIUM_LAUNCH_ARGS=--single-process 1c values-diff repro-gigabytealchemy-ai \
+  --ref /Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index --sandbox --json
+```
+
+---
+
+## Issue 3 — the fold paints the hero scrim's flattened colour as the hero band's base fill, where the reference paints nothing
+
+**Residual class:** `fold-paints-opaque-scrim-colour-as-the-hero-band-base`
+
+**Class: 1 — engine shortfall.** L1 carries a `surfaceFill` for the hero band
+and the value is wrong.
+
+**Stored reference exhibiting it:** `storage/references/gigabytealchemy.ai/index`
+(evidence from this one bundle only).
+
+**This issue is quoted here as the demonstration for issue 2.** Its own pixel
+cost on this bundle is **zero** — `section-bg-0`'s `bg-cover` image covers
+exactly the same box at every captured width (320/375/768/1024/1280/1440), so
+the plate never shows. It matters because (a) the base fill of the page's
+largest band is a value nobody chose, (b) an image that fails to load or a later
+change to band geometry turns the hero solid navy, and (c) **no gate in the
+project can currently report it** — which is issue 2's point, made with a live
+example rather than a hypothetical.
+
+### The three questions, and what each returned
+
+1. **Can L1 express it?** Yes — `surfaceFill`, and "no fill" by omission. Not
+   class 2.
+2. **Is the value in the L1 document, and is it right?** It is present and
+   **wrong**. → **class 1, stop here.**
+
+### Evidence
+
+**What L1 says:**
+
+```
+$ jq -c '.data.page.l1.root.children[] | select(.id=="section-band-0") | .axes' $ITER/page.json
+{"surfaceFill":"#030717"}
+```
+
+with geometry keyframes `(0,0,w,800)` at 1280 — the whole hero band.
+
+**What the reference paints there:** nothing. From `$REF/raw.html`:
+
+```html
+<section class="relative min-h-screen bg-cover bg-center bg-no-repeat" style="background-image: url('/images/AlchemistLabWithTech.png');">
+  <div class="absolute inset-0 bg-slate-950/30"></div>
+```
+
+The hero `<section>` has a background *image* and no background-colour.
+`#030717` is the **scrim** — `bg-slate-950/30`, a 30 %-alpha overlay — which
+`capture.json` correctly records as an overlay on the band:
+`"overlay":{"color":"#030717","opacity":0.3}`.
+
+**How the scrim colour became a band fill.** The capture flattens the
+translucent scrim into every run's opaque `surfaceFill`:
+
+```
+$ jq -c '.sections[1].content[]? | {t:(.text//""|.[0:24]), surfaceFill}' $REF/capture.json
+{"t":"Intentional Software","surfaceFill":"#030717"}
+{"t":"Tools for clarity, prese","surfaceFill":"#030717"}
+{"t":"We're a software studio ","surfaceFill":"#030717"}
+```
+
+(the alpha loss itself is **BUG-24**), and the fold's band builder takes each
+band's fill straight from the run group it was derived from —
+`tools/generate/src/l1/fold.ts:1707`:
+
+```ts
+const node: L1Box = { kind: 'box', id: `section-band-${oi}`, geometry, axes: { surfaceFill: entry.g.fill } }
+```
+
+So the scrim's flattened colour is promoted to the band's base, and the band is
+then emitted *under* `section-bg-0`, which re-applies the same scrim properly as
+an `overlay` axis. The page ends up painting `#030717` twice: once opaque as a
+plate, once at 0.3 as the overlay it actually is.
+
+### Proposed change
+
+In `fold.ts`'s band builder, do not adopt a run-group fill as a band's base
+`surfaceFill` when that fill is the band's own detected overlay colour —
+`capture.json` already carries `sections[].background.overlay` alongside
+`sections[].background.color`, so the two are distinguishable at fold time. For
+an image band, the base fill should come from `background.color` (once issue 1
+makes a transparent one expressible) or be omitted.
+
+Fixing BUG-24 (carrying alpha through the captured value set) would remove the
+ambiguity at the source and is the better order if both are worked.
+
+### How to see it, and how to know it is fixed
+
+```
+REF=/Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index
+ITER=/Users/martin/lagrangefoundry/1stcontact/storage/tmp/repro-console/repro-gigabytealchemy-ai/iteration-3
+
+jq -c '.data.page.l1.root.children[] | select(.id=="section-band-0") | .axes' $ITER/page.json
+jq -c '.sections[1].background' $REF/capture.json
+```
+
+**Wrong (today):** the first prints `{"surfaceFill":"#030717"}`; the second
+prints `{"kind":"image","color":"#ffffff","image":"assets/AlchemistLabWithTech.png","overlay":{"color":"#030717","opacity":0.3}}`
+— the `#030717` in L1 is the overlay colour, not any base the page declares.
+
+**Right (fixed):** `section-band-0` carries no `surfaceFill` (or carries the
+band's real, non-overlay base colour), while `section-bg-0` keeps
+`"overlay":{"color":"#030717","opacity":0.3}` unchanged. Re-fold to check
+without touching the capture:
+
+```
+1c refold --ref /Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index
+jq -c '.root.children[] | select(.id=="section-band-0") | .axes' \
+  /Users/martin/lagrangefoundry/1stcontact/storage/references/gigabytealchemy.ai/index/l1.json
+```
+
+The perceptual gate must not move: mean stays at 0.31/255 and the region count
+at 10, because the plate was never visible.
