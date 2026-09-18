@@ -141,15 +141,23 @@ describe('REQ-86 — end-to-end reproduction (3-probe gate)', () => {
     const recovered = promoteToFlow(base, { scale: 2.5 }).doc
 
     // The full gate: fidelity on the absolute base, envelope probes on the
-    // structure-recovered overlay. All three pass end-to-end.
-    const gate = threeProbeGate(base, cap, { recovered, contentScale: 2.5 })
+    // document being SERVED. All three pass end-to-end when the served document
+    // is the recovered one.
+    //
+    // BUG-113 — this option used to be `recovered`, and naming it that is what
+    // let the gate grade an artifact written nowhere: `1c repro` writes the base,
+    // so the probes were reporting a clean envelope for a page no browser would
+    // ever be given. The option now says what it is for, and a caller that serves
+    // the base gets a verdict about the base.
+    const gate = threeProbeGate(base, cap, { served: recovered, contentScale: 2.5 })
     expect(gate.sampleFidelity.pass).toBe(true)
     expect(gate.offSample.pass).toBe(true)
     expect(gate.contentRobustness.pass).toBe(true)
     expect(gate.pass).toBe(true)
 
-    // A gate run WITHOUT recovery fails content-robustness — proving the gate is
-    // not vacuous and that recovery is what closes it.
+    // A gate run over the pinned base — which is what `1c repro` actually serves
+    // — fails content-robustness, proving the gate is not vacuous and naming the
+    // fragility the served page really has.
     const ungated = threeProbeGate(base, cap, { contentScale: 2.5 })
     expect(ungated.pass).toBe(false)
     expect(ungated.contentRobustness.pass).toBe(false)

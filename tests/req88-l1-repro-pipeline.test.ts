@@ -149,12 +149,25 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     const ref = await bundleWith({ multistate: pinnedOracle() })
     const report = await cmdL1Gate(fsReferenceBundle(ref))
 
-    // The gate SURFACES the content-robustness residual (that is why promotion
-    // ran) and its demand-driven recovery CLOSES it — the discriminator behavior.
+    // The gate SURFACES the content-robustness residual — that is why recovery
+    // ran at all.
     expect(report.promoted.length).toBeGreaterThan(0)
-    expect(report.contentRobustness.pass).toBe(true)
     expect(report.sampleFidelity.pass).toBe(true)
-    expect(report.pass).toBe(true)
+
+    // BUG-113 — but the residual is reported about the document that is SERVED,
+    // and recovery is not applied to make it go away. `promoteToFlow`'s output is
+    // written nowhere, so grading it here answered the question with an artifact
+    // the operator cannot open: the gate read PASS while the served page carried
+    // the overlaps. The pinned stack is fragile under content growth, so it is
+    // reported fragile.
+    expect(report.contentRobustness.pass).toBe(false)
+    expect(report.pass).toBe(false)
+
+    // What recovery WOULD buy, and what it would cost, is reported as numbers
+    // beside the verdict — so declining it is an informed choice rather than an
+    // implicit one.
+    expect(report.recovery.recoveredFindings).toBeLessThan(report.recovery.servedFindings)
+    expect(report.recovery.fidelityMaxDeltaPx).toBeGreaterThan(0)
   })
 
   it('test_UAT_FC_REQ-88_l1_gate_requires_recaptured_bundle', async () => {

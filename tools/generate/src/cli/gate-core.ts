@@ -36,8 +36,15 @@ import { readCapture, readMultiState } from './capture/bundle'
 // functions this uses are pure and live in two modules.
 import { foldToL1 } from '../l1/fold'
 import type { FoldResidual } from '../l1/fold'
-import { promoteToFlow, threeProbeGate } from '../l1/probes'
+import {
+  contentRobustnessProbe,
+  measuredTextHeights,
+  promoteToFlow,
+  sampleFidelityProbe,
+  threeProbeGate,
+} from '../l1/probes'
 import type { ThreeProbeReport } from '../l1/probes'
+import { mountBehaviours } from '../l1/forms'
 import type { FoldedForm } from '../l1/forms'
 import type { ReferenceBundle } from '../store/reference-store'
 // BUG-100 — the coverage proxy compares image handles by mirrored-asset basename,
@@ -550,9 +557,39 @@ export function reconcileGates(input: ReconcileInput): GateReport {
 
 // ── the structural gate ──────────────────────────────────────────────────────
 
+/**
+ * BUG-113 — what structure recovery would buy, and what it would cost.
+ *
+ * `promoteToFlow` used to supply the document the envelope probes graded, which
+ * made its cost invisible: the gate reported the recovered overlay's clean
+ * envelope and never priced the fidelity it paid for it. Measured across the
+ * three retained bundles that price is not marginal — on `gigabytealchemy.ai`
+ * the recovered document misses the oracle by 1426px at its widest sample, which
+ * on a 1440px viewport is the whole page — because recovery clears the envelope
+ * by DROPPING each promoted member's geometry, so a 14px glyph in a grid becomes
+ * a full-bleed stacked row.
+ *
+ * So it is reported, not applied. The served document is graded as served, and
+ * this says what the only recovery we have would do to it.
+ */
+export interface RecoveryCost {
+  /** Paths of the pinned sibling groups `promoteToFlow` would flow. */
+  promoted: string[]
+  /** Envelope findings on the served document, across the captured ladder. */
+  servedFindings: number
+  /** Envelope findings the recovered document would have instead. */
+  recoveredFindings: number
+  /** Largest per-axis miss against the oracle, in px, if it were served. */
+  fidelityMaxDeltaPx: number
+  /** Oracle samples the recovered document would place out of tolerance. */
+  fidelityResiduals: number
+}
+
 export interface L1GateResult extends ThreeProbeReport {
   /** Paths of the pinned sibling groups `promoteToFlow` recovered into flow. */
   promoted: string[]
+  /** BUG-113 — the costed alternative to what was served. Graded by no probe. */
+  recovery: RecoveryCost
   /**
    * REQ-92 / BUG-6 (B2) — elements the fold could not yet express as L1 leaves
    * (text-free media/fields, pure-surface panels, geometry-less runs). Kept
@@ -571,10 +608,17 @@ export interface L1GateResult extends ThreeProbeReport {
 
 /**
  * Run the 3-probe acceptance gate against a capture bundle's oracle. Folds the
- * `multistate.json` to the absolute base, applies demand-driven `promoteToFlow`
- * for the envelope probes, and runs {@link threeProbeGate}. The returned report's
+ * `multistate.json` to the absolute base, composes the document that is actually
+ * served, and runs {@link threeProbeGate} against it. The returned report's
  * residuals each name a framework gap (a missing L1 axis, a capture-hint gap, or
  * a region needing promotion) to feed back per the DOC-21 growth loop.
+ *
+ * BUG-113 — the envelope probes grade `mountBehaviours(base, forms)`: the page
+ * body plus every behaviour's controls, which is the artifact `1c repro` writes
+ * and a browser paints. They used to grade `promoteToFlow(base).doc`, a
+ * structure-recovered overlay written nowhere, so the verdict and the page were
+ * about different documents. Recovery still runs — as {@link RecoveryCost}, a
+ * priced alternative beside the verdict rather than the subject of it.
  */
 export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> {
   const multiState = await readMultiState(bundle)
@@ -587,7 +631,28 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
   const foldResiduals: FoldResidual[] = []
   const forms: FoldedForm[] = []
   const base = foldToL1(multiState, { residuals: foldResiduals, forms })
-  const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE })
-  const report = threeProbeGate(base, multiState, { recovered, contentScale: CONTENT_SCALE })
-  return { ...report, promoted, foldResiduals, forms }
+  // The oracle's own text heights. A text leaf pins no height, so without these
+  // the envelope is drawn around an estimate — which is what reported five
+  // overlaps per width on a document whose boxes match the oracle to 0.89px.
+  const measured = measuredTextHeights(multiState)
+  const served = mountBehaviours(base, forms)
+  const report = threeProbeGate(base, multiState, {
+    served,
+    measured,
+    contentScale: CONTENT_SCALE,
+  })
+  const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE, measured })
+  const recoveredFidelity = sampleFidelityProbe(recovered, multiState, { measured })
+  const countFindings = (r: { byWidth: Array<{ findings: unknown[] }> }): number =>
+    r.byWidth.reduce((n, w) => n + w.findings.length, 0)
+  const recovery: RecoveryCost = {
+    promoted,
+    servedFindings: countFindings(report.contentRobustness),
+    recoveredFindings: countFindings(
+      contentRobustnessProbe(recovered, { scale: CONTENT_SCALE, measured }),
+    ),
+    fidelityMaxDeltaPx: recoveredFidelity.maxDelta,
+    fidelityResiduals: recoveredFidelity.residuals.length,
+  }
+  return { ...report, promoted, recovery, foldResiduals, forms }
 }

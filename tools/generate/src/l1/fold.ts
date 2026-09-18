@@ -1341,6 +1341,98 @@ function segmentKind(a: { at: number; x: number; width: number }, b: { at: numbe
 }
 
 /**
+ * BUG-113 — promote {@link segmentKind}'s per-node verdict to a per-window one:
+ * a ladder window in which ANY node reflows is a breakpoint, and across a
+ * breakpoint every node holds.
+ *
+ * `segmentKind` is right about each node in isolation and that is exactly the
+ * problem. A real page's media query moves some elements and leaves others
+ * alone, so across `gigabytealchemy.ai`'s 375→768 window 15 of 70 nodes were
+ * classified `snap` and correctly held, while the other 55 interpolated — each
+ * one travelling smoothly to a position the two layouts either side of the
+ * window agree it never occupies. Half a page holding while the other half
+ * slides through it is how the reproduction came to paint its first text field
+ * over the prose above it at 700px: a collision that exists at NO captured width
+ * and is nobody's individual fault.
+ *
+ * A held window is also the more faithful model. Between breakpoints a
+ * media-query page renders the lower layout unchanged; it does not glide toward
+ * the next one. Interpolation is right only where the page is genuinely fluid,
+ * and a window carrying a reflow has already said it is not.
+ *
+ * Fidelity cannot move: at a captured width `snap` and `interpolate` both
+ * resolve to that width's own keyframe, so this changes the reproduction only
+ * strictly between captured widths — which is the only place it was wrong.
+ *
+ * Every responsive track on a node is held, not just geometry. An inset track
+ * inherits its node's segments by construction (see `insetTrack`), and a scalar
+ * axis sliding its type size through a window whose geometry is holding would
+ * re-introduce the same disagreement one axis down.
+ *
+ * `roots` is plural for the same reason the window is document-wide: a recovered
+ * form's controls live in {@link FoldedForm.form}, OUTSIDE the document root, and
+ * a page whose body holds while its text fields glide through it is the same
+ * defect one seam over — it is literally how the field came to paint over the
+ * prose. The evidence and the hold both span every root the page is assembled
+ * from.
+ */
+function holdAcrossReflowWindows(roots: L1Node[], widths: number[]): void {
+  if (widths.length < 2) return
+  /** Windows `[widths[i], widths[i+1])`, true where some node already snaps. */
+  const reflow = new Array(widths.length - 1).fill(false)
+
+  type Track = { keyframes: Array<{ at: number }>; segments?: L1Segment[] }
+  /** Every responsive track a node carries, whatever axis it belongs to. */
+  const tracksOf = (node: L1Node): Track[] => {
+    const out: Track[] = []
+    const consider = (value: unknown): void => {
+      if (!value || typeof value !== 'object') return
+      const candidate = value as Partial<Track>
+      if (Array.isArray(candidate.keyframes) && candidate.keyframes.length > 1) {
+        out.push(candidate as Track)
+      }
+    }
+    for (const value of Object.values(node as unknown as Record<string, unknown>)) {
+      consider(value)
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        for (const nested of Object.values(value as Record<string, unknown>)) consider(nested)
+      }
+    }
+    return out
+  }
+
+  const walk = (node: L1Node, visit: (n: L1Node) => void): void => {
+    visit(node)
+    const children = node.kind === 'container' ? node.children : ((node as L1Box).children ?? [])
+    for (const child of children) walk(child, visit)
+  }
+
+  for (const root of roots) {
+    walk(root, (node) => {
+      for (const track of tracksOf(node)) {
+        track.segments?.forEach((seg, i) => {
+          const window = widths.indexOf(track.keyframes[i].at)
+          if (window >= 0 && window < reflow.length && seg === 'snap') reflow[window] = true
+        })
+      }
+    })
+  }
+  if (!reflow.some(Boolean)) return
+
+  const hold = (node: L1Node): void => {
+    for (const track of tracksOf(node)) {
+      const segments = track.keyframes.slice(1).map((_, i) => {
+        const own = track.segments?.[i] ?? 'interpolate'
+        const window = widths.indexOf(track.keyframes[i].at)
+        return window >= 0 && reflow[window] ? 'snap' : own
+      })
+      if (segments.some((seg) => seg === 'snap')) track.segments = segments
+    }
+  }
+  for (const root of roots) walk(root, hold)
+}
+
+/**
  * A visibility rule from the widths a node is present at, against the full ladder:
  * `fromPx` when the node is absent below its first present width, `untilPx` when it
  * is absent above its last present width. A node present at every width gets no
@@ -2564,6 +2656,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     const fonts = usedFontFaces(opts.fonts, children)
     if (fonts.length) doc.resources = { fonts }
   }
+
+  // BUG-113 — the last thing the fold decides, because it is the only decision
+  // that needs the WHOLE page: one node's reflow is evidence about the window
+  // every other node crosses too, including the controls inside a recovered form.
+  holdAcrossReflowWindows([root, ...(opts.forms ?? []).map((f) => f.form)], widths)
 
   const result = validateL1(doc)
   if (!result.ok) {

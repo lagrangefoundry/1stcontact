@@ -18,7 +18,7 @@
  * endpoint, an input type — the derivation records a residual and falls back to
  * an honest default rather than fabricating one.
  */
-import { isSafeUrl, type L1Node } from '@1stcontact/site-schema'
+import { isSafeUrl, type L1Document, type L1Node } from '@1stcontact/site-schema'
 // REQ-157 — the deep path, not the `capture` barrel. Even as an `import type`
 // this matters: the barrel re-exports `playwright-driver`, and REQ-154's bundle
 // check follows every local import regardless of whether TypeScript erases it,
@@ -258,4 +258,67 @@ export function foldedFormFor(slot: string, group: ControlRow[], form: L1Node): 
     )
   }
   return folded
+}
+
+/**
+ * BUG-113 — compose the document a browser is actually given: the page body with
+ * every behaviour's presentation mounted at the slot it binds to.
+ *
+ * The page written to disk is two artifacts — `pages/home.json` carries the L1
+ * body, and each module instance carries its own L1 subtree under `slots.form` —
+ * and the browser only ever sees them joined. Every probe, though, read the body
+ * alone, so a collision that exists only once the controls are on the page was
+ * invisible to the gate by construction. It is not hypothetical: on
+ * `gigabytealchemy.ai` at 700px the reproduction's first text field paints over
+ * the prose "Join our mailing list for updates", and nothing in the report said
+ * so.
+ *
+ * The join mirrors what the renderer does. A `slot` emits an absolutely
+ * positioned `<div>` at the slot's geometry, and the module's subtree — whose
+ * keyframes the fold REBASED to the seam, so they start at 0,0 — renders inside
+ * it, resolving against that box. Here the slot node is replaced by the subtree
+ * with each keyframe translated by the slot's own `x`/`y` at the same width,
+ * which resolves to the same page coordinates the browser computes.
+ *
+ * A slot with no binding, or with no geometry to translate against, is left
+ * exactly as it was: an unmounted seam is the inert placeholder the renderer
+ * emits for it, and inventing a position for one would be the same mistake in a
+ * new place.
+ */
+export function mountBehaviours(doc: L1Document, forms: readonly FoldedForm[]): L1Document {
+  if (!forms.length) return doc
+  const bySlot = new Map(forms.map((f) => [f.slot, f.form]))
+
+  /** Shift every keyframe in a subtree by the seam's offset at that same width. */
+  const translate = (node: L1Node, offsets: Map<number, { x: number; y: number }>): L1Node => {
+    const next = { ...node } as L1Node
+    if (next.geometry) {
+      next.geometry = {
+        ...next.geometry,
+        keyframes: next.geometry.keyframes.map((kf) => {
+          const at = offsets.get(kf.at)
+          return at ? { ...kf, x: kf.x + at.x, y: kf.y + at.y } : kf
+        }),
+      }
+    }
+    if (next.kind === 'container') next.children = next.children.map((c) => translate(c, offsets))
+    else if (next.kind === 'box' && next.children) {
+      next.children = next.children.map((c) => translate(c, offsets))
+    }
+    return next
+  }
+
+  const mount = (node: L1Node): L1Node => {
+    if (node.kind === 'slot') {
+      const form = bySlot.get(node.name)
+      if (!form || !node.geometry) return node
+      const offsets = new Map(node.geometry.keyframes.map((kf) => [kf.at, { x: kf.x, y: kf.y }]))
+      return translate(form, offsets)
+    }
+    if (node.kind === 'container') return { ...node, children: node.children.map(mount) }
+    if (node.kind === 'box' && node.children) return { ...node, children: node.children.map(mount) }
+    return node
+  }
+
+  return { ...doc, root: mount(doc.root) as L1Document['root'] }
 }

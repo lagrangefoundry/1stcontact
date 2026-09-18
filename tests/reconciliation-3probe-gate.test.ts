@@ -534,9 +534,17 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     expect(ungated.contentRobustness.pass).toBe(false)
     expect(ungated.sampleFidelity.pass).toBe(true)
 
-    // Non-vacuous #2: same base + a structure-recovered overlay → pass = true,
-    // with every sub-report passing.
-    const gated = threeProbeGate(base, cap, { recovered, contentScale: 2.5 })
+    // Non-vacuous #2: hand the gate a DIFFERENT document as the one being served
+    // — here the structure-recovered one — and the verdict follows it, with every
+    // sub-report passing.
+    //
+    // BUG-113 — the option is `served`, not `recovered`, and that is the whole
+    // repair. The envelope verdict is about whichever document a caller says is
+    // being served; the defect was that the document it named was written
+    // nowhere, so the gate reported a clean envelope for an artifact the operator
+    // could not open while the page on disk carried the overlaps. `1c repro`
+    // serves the absolute base and therefore passes the base here.
+    const gated = threeProbeGate(base, cap, { served: recovered, contentScale: 2.5 })
     expect(gated.pass).toBe(true)
     expect(gated.sampleFidelity.pass).toBe(true)
     expect(gated.offSample.pass).toBe(true)

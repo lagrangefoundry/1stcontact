@@ -91,6 +91,24 @@ export interface EvaluateOptions {
   contentScale?: number
   /** Overlap / overflow tolerance in px (default 2). */
   epsilonPx?: number
+  /**
+   * BUG-113 — the oracle's own text heights, from {@link measuredTextHeights}.
+   *
+   * A text leaf pins no height (the renderer lets the glyph box size itself), so
+   * without this the envelope is drawn around an ESTIMATE — and the estimate is
+   * what manufactured the findings. On `gigabytealchemy.ai` the oracle's element
+   * boxes have zero overlapping pairs at every captured width and the reproduced
+   * boxes match them to 0.89px, yet this evaluator reported five overlaps per
+   * width, because a 0.5em average glyph advance over-counted 14 of 53 runs by
+   * exactly one line. Every one of those five was the model arguing with itself.
+   *
+   * Supplied, a run's height at a captured width is the height the browser
+   * actually gave it, and between captured widths it is interpolated exactly as
+   * the renderer interpolates geometry. The estimate survives where no
+   * measurement does — an authored document, a leaf the oracle never saw — which
+   * is the only place a model belongs.
+   */
+  measured?: MeasuredTextHeights
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -154,6 +172,87 @@ export function evalScalarTrack(track: L1ScalarTrack, width: number): number {
     }
   }
   return f[f.length - 1].value
+}
+
+/**
+ * BUG-113 — the oracle's own text heights, keyed the way the fidelity probe
+ * pairs: normalised copy plus occurrence index, one measurement per captured
+ * width.
+ *
+ * Built by {@link measuredTextHeights} from the same {@link OracleSource} the
+ * fidelity probe reads, so a run the oracle carries is measured here and a run
+ * it does not carry is simply absent — there is no third state and no default.
+ */
+export interface MeasuredTextHeights {
+  /** `${normalisedText}#${occurrence}` → heights ascending by captured width. */
+  tracks: Map<string, Array<{ at: number; height: number }>>
+}
+
+/**
+ * Project an oracle into a per-run height track: what the browser gave each text
+ * run at each captured width.
+ *
+ * This is the one number the fold cannot put in the document. Geometry keyframes
+ * carry x / y / width for a text leaf and deliberately NOT height — the renderer
+ * lets the glyph box size itself, which is what makes the reproduction survive a
+ * different font stack — so the analytic evaluator had to estimate it. The
+ * measurement exists; it just lived only in the oracle. See
+ * {@link EvaluateOptions.measured} for what estimating it instead cost.
+ */
+export function measuredTextHeights(oracle: OracleSource): MeasuredTextHeights {
+  const tracks = new Map<string, Array<{ at: number; height: number }>>()
+  const byWidth = new Map<number, OracleBox[]>()
+  for (const row of oracleBoxes(oracle)) {
+    if (row.kind !== 'text') continue
+    const bucket = byWidth.get(row.width)
+    if (bucket) bucket.push(row)
+    else byWidth.set(row.width, [row])
+  }
+  // Ascending width, so each key's track is already a keyframe ladder.
+  for (const width of [...byWidth.keys()].sort((a, b) => a - b)) {
+    const cursor = new Map<string, number>()
+    for (const row of byWidth.get(width) ?? []) {
+      const key = normText(row.text)
+      const idx = cursor.get(key) ?? 0
+      cursor.set(key, idx + 1)
+      const id = `${key}#${idx}`
+      const track = tracks.get(id)
+      if (track) track.push({ at: width, height: row.box.height })
+      else tracks.set(id, [{ at: width, height: row.box.height }])
+    }
+  }
+  return { tracks }
+}
+
+/**
+ * Resolve a measured track at `width`, with the renderer's own cascade: hold the
+ * first measurement below the ladder, interpolate within a segment, hold the
+ * last above it. The same rule {@link evalGeometry} applies to position, applied
+ * to the height that travels with it — at a captured width it returns that
+ * width's measurement exactly, so a resting evaluation is the oracle.
+ */
+function measuredAt(track: Array<{ at: number; height: number }>, width: number): number | undefined {
+  if (!track.length) return undefined
+  if (width <= track[0].at) return track[0].height
+  for (let i = 0; i < track.length - 1; i++) {
+    const a = track[i]
+    const b = track[i + 1]
+    if (width >= a.at && width < b.at) {
+      const t = b.at === a.at ? 0 : (width - a.at) / (b.at - a.at)
+      return lerp(a.height, b.height, t)
+    }
+  }
+  return track[track.length - 1].height
+}
+
+/** Consume this text leaf's occurrence of its key, returning the measurement if any. */
+function takeMeasured(ctx: Ctx, node: L1Text, width: number): number | undefined {
+  const key = normText(l1PlainText(node.text))
+  const idx = ctx.textCursor.get(key) ?? 0
+  ctx.textCursor.set(key, idx + 1)
+  if (!ctx.measured) return undefined
+  const track = ctx.measured.tracks.get(`${key}#${idx}`)
+  return track ? measuredAt(track, width) : undefined
 }
 
 /**
@@ -297,10 +396,21 @@ function packRowLines(widths: number[], avail: number, gap: number, eps: number)
 
 interface Ctx {
   width: number
-  opts: Required<EvaluateOptions>
+  opts: Required<Omit<EvaluateOptions, 'measured'>>
   leaves: EvalLeaf[]
   /** Clip findings accumulated during the walk (pinned-box content overflow). */
   clips: LayoutFinding[]
+  /** BUG-113 — the oracle's text heights, if the caller has them. */
+  measured?: MeasuredTextHeights
+  /**
+   * Per-key occurrence cursor for {@link measured}. The k-th text leaf of a key
+   * in document order takes the k-th measurement of that key — the SAME pairing
+   * {@link sampleFidelityProbe} uses, for the same reason: repeated copy (a CTA
+   * label, a repeated caption) collides in a plain text→height map and only the
+   * last box survives. Advanced for every text leaf, measured or not, so one
+   * unmeasured run cannot shift every later occurrence onto the wrong row.
+   */
+  textCursor: Map<string, number>
 }
 
 /**
@@ -335,7 +445,26 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       )
       // A pinned text keyframe may pin a height; otherwise the height is natural.
       const pinnedH = pinned ? node.geometry!.keyframes[0].height : undefined
-      box.height = pinnedH !== undefined ? pinnedH * opts.contentScale : natural
+      // BUG-113 — where the oracle measured this run, the measurement IS the
+      // natural height. Under perturbation it is grown by the estimator's own
+      // line-count ratio rather than replaced by the estimate: the model is
+      // trusted for how much taller longer copy gets, never for how tall the
+      // copy already is. Below `contentScale` 1 that ratio is 1, so a resting
+      // evaluation is the measurement exactly.
+      const measured = takeMeasured(ctx, node, width)
+      const grown =
+        measured === undefined
+          ? undefined
+          : measured *
+            (opts.contentScale === 1
+              ? 1
+              : natural /
+                Math.max(
+                  1,
+                  estimateTextHeight(node.text, a.fontSizePx ?? 16, a.lineHeightPx, box.width, 1),
+                ))
+      box.height =
+        pinnedH !== undefined ? pinnedH * opts.contentScale : (grown ?? natural)
       // The WORDS, whatever shape the node holds them in. This is the fidelity
       // measure's join key (see `sampleFidelity`), and the oracle side joins the
       // same run group into the same string — so a node that emphasises a word
@@ -471,11 +600,18 @@ export function evaluateLayout(
   width: number,
   options: EvaluateOptions = {},
 ): LayoutResult {
-  const opts: Required<EvaluateOptions> = {
+  const opts: Required<Omit<EvaluateOptions, 'measured'>> = {
     contentScale: options.contentScale ?? 1,
     epsilonPx: options.epsilonPx ?? 2,
   }
-  const ctx: Ctx = { width, opts, leaves: [], clips: [] }
+  const ctx: Ctx = {
+    width,
+    opts,
+    leaves: [],
+    clips: [],
+    measured: options.measured,
+    textCursor: new Map(),
+  }
   const rootFrame: EvalBox = { x: 0, y: 0, width, height: 0 }
   layout(doc.root, rootFrame, '0', ctx)
 
@@ -641,6 +777,8 @@ export interface SampleFidelityOptions {
   widths?: number[]
   /** Per-axis tolerance in px (default 2). */
   tolerancePx?: number
+  /** BUG-113 — the oracle's text heights, so a slot's cover test uses real boxes. */
+  measured?: MeasuredTextHeights
 }
 
 /**
@@ -674,7 +812,7 @@ export function sampleFidelityProbe(
   let maxDelta = 0
 
   for (const width of widths) {
-    const { leaves } = evaluateLayout(doc, width)
+    const { leaves } = evaluateLayout(doc, width, { measured: options.measured })
     // REQ-88 — the rects a behavior module mounts into. Oracle text inside one is
     // the behaviour's markup, not L1's, so it is set aside rather than graded.
     const slotBoxes = leaves.filter((l) => l.kind === 'slot').map((l) => l.box)
@@ -778,10 +916,13 @@ export interface EnvelopeReport {
  */
 export function offSampleProbe(
   doc: L1Document,
-  options: { widths?: number[] } = {},
+  options: { widths?: number[]; measured?: MeasuredTextHeights } = {},
 ): EnvelopeReport {
   const widths = options.widths ?? [500, 900]
-  const byWidth = widths.map((width) => ({ width, findings: evaluateLayout(doc, width).findings }))
+  const byWidth = widths.map((width) => ({
+    width,
+    findings: evaluateLayout(doc, width, { measured: options.measured }).findings,
+  }))
   return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
 }
 
@@ -796,13 +937,14 @@ export function offSampleProbe(
  */
 export function contentRobustnessProbe(
   doc: L1Document,
-  options: { scale?: number; widths?: number[] } = {},
+  options: { scale?: number; widths?: number[]; measured?: MeasuredTextHeights } = {},
 ): EnvelopeReport {
   const scale = options.scale ?? 2.5
   const widths = options.widths ?? doc.widths
   const byWidth = widths.map((width) => ({
     width,
-    findings: evaluateLayout(doc, width, { contentScale: scale }).findings,
+    findings: evaluateLayout(doc, width, { contentScale: scale, measured: options.measured })
+      .findings,
   }))
   return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
 }
@@ -821,30 +963,53 @@ export interface ThreeProbeOptions {
   offSampleWidths?: number[]
   contentScale?: number
   /**
-   * The structure-recovered document for the envelope probes (off-sample +
-   * content-robustness). Defaults to `doc`. This is the **absolute-base /
-   * structure-overlay** split: fidelity is a property of the absolute base (it
-   * reproduces the oracle), while the envelope probes measure the recovered
-   * overlay — pass `promoteToFlow(base).doc` here when the base needed recovery.
+   * BUG-113 — the document the browser actually paints, for the envelope probes.
+   * Defaults to `doc`.
+   *
+   * This option USED to be `recovered`, and took `promoteToFlow(base).doc`: the
+   * envelope probes graded a structure-recovered overlay that nothing ever wrote
+   * to disk. The split it implemented was real — fidelity belongs to the
+   * absolute base — but the second half of it was answering the question with an
+   * artifact the operator could not open. The gate reported zero layout findings
+   * at every width while the served page carried 78 `position: absolute` rules
+   * and five overlaps per width, because the two sentences were about different
+   * documents.
+   *
+   * So what belongs here is the SERVED composition: the page body plus each
+   * behaviour module's presentation mounted at its slot ({@link mountBehaviours}),
+   * which is what a browser is given. Fidelity stays on `doc`, the base written
+   * to `pages/home.json`; inside a slot L1 is not the emitter, which is the fact
+   * {@link SampleFidelityReport.mounted} already existed to state.
    */
-  recovered?: L1Document
+  served?: L1Document
+  /** BUG-113 — the oracle's text heights, threaded into every probe. */
+  measured?: MeasuredTextHeights
 }
 
 /**
  * Run all three acceptance probes against a reproduced document + its oracle.
  * Fidelity is measured on the absolute base `doc`; the envelope probes are
- * measured on `options.recovered ?? doc`. The gate passes only when every probe
+ * measured on `options.served ?? doc`. The gate passes only when every probe
  * passes; each residual a sub-report carries names a framework gap to feed back.
+ *
+ * BUG-113 — both documents named here are written to disk. No probe grades a
+ * structure-recovered overlay: recovery is a costed alternative
+ * ({@link promoteToFlow}), reported beside the verdict, never the thing the
+ * verdict is about.
  */
 export function threeProbeGate(
   doc: L1Document,
   oracle: OracleSource,
   options: ThreeProbeOptions = {},
 ): ThreeProbeReport {
-  const recovered = options.recovered ?? doc
-  const sampleFidelity = sampleFidelityProbe(doc, oracle, options.fidelity)
-  const offSample = offSampleProbe(recovered, { widths: options.offSampleWidths })
-  const contentRobustness = contentRobustnessProbe(recovered, { scale: options.contentScale })
+  const served = options.served ?? doc
+  const measured = options.measured
+  const sampleFidelity = sampleFidelityProbe(doc, oracle, { measured, ...options.fidelity })
+  const offSample = offSampleProbe(served, { widths: options.offSampleWidths, measured })
+  const contentRobustness = contentRobustnessProbe(served, {
+    scale: options.contentScale,
+    measured,
+  })
   return {
     pass: sampleFidelity.pass && offSample.pass && contentRobustness.pass,
     sampleFidelity,
@@ -934,7 +1099,10 @@ export interface PromoteResult {
  * Fidelity is measured on the absolute base, never on this overlay, so recovery
  * never regrades `sampleFidelity`. Returns a validated document.
  */
-export function promoteToFlow(doc: L1Document, options: { scale?: number } = {}): PromoteResult {
+export function promoteToFlow(
+  doc: L1Document,
+  options: { scale?: number; measured?: MeasuredTextHeights } = {},
+): PromoteResult {
   const scale = options.scale ?? 2.5
   const promoted: string[] = []
   const widest = Math.max(...doc.widths)
@@ -943,7 +1111,8 @@ export function promoteToFlow(doc: L1Document, options: { scale?: number } = {})
   // is a (leafPathA, leafPathB) that collide when content grows by `scale`.
   const overlapPairs: Array<[string, string]> = []
   for (const width of doc.widths) {
-    for (const f of evaluateLayout(doc, width, { contentScale: scale }).findings) {
+    for (const f of evaluateLayout(doc, width, { contentScale: scale, measured: options.measured })
+      .findings) {
       if (f.kind === 'overlap' && f.paths.length >= 2) {
         overlapPairs.push([f.paths[0], f.paths[1]])
       }

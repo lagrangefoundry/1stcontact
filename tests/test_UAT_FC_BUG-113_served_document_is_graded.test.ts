@@ -1,0 +1,319 @@
+/**
+ * BUG-113 — `1c repro` served the absolute base while the gate certified the
+ * recovered document.
+ *
+ * `gate-core.ts` built two documents and graded the wrong one: fidelity on the
+ * absolute base, the envelope probes on `promoteToFlow(base).doc` — a
+ * structure-recovered overlay that nothing ever writes to disk. Meanwhile
+ * `repro.ts` imported `promoteToFlow` and never called it. So the probes reported
+ * zero layout findings at every width for a flowed document nobody serves, while
+ * the browser painted a pinned one nobody had checked.
+ *
+ * The invariant these UATs pin is the ticket's: **whatever document is served is
+ * the document the gate's verdict is about. No probe may grade an artifact that
+ * is not written to disk.** Promotion was measured before being declined — it
+ * clears the envelope by dropping each promoted member's geometry, missing the
+ * oracle by 1426px at 1440 on `gigabytealchemy.ai` — so the base is served, and
+ * what that costs and what the alternative would have cost are both reported as
+ * numbers.
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import {
+  evaluateLayout,
+  foldToL1,
+  measuredTextHeights,
+  mountBehaviours,
+  promoteToFlow,
+  sampleFidelityProbe,
+} from '../tools/generate/src/l1'
+import type { FoldedForm } from '../tools/generate/src/l1'
+import type { L1Document, L1Node } from '../packages/site-schema/src/index'
+import { cmdRepro, cmdL1Gate } from '../tools/generate/src/cli/repro'
+import { writeForms, writeL1, writeMultiState } from '../tools/generate/src/cli/capture/bundle'
+import { loadSite } from '../tools/generate/src/store'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
+import type {
+  MultiStateCapture,
+  StateProjection,
+  ValueElement,
+} from '../tools/generate/src/cli/capture'
+
+const LADDER = [320, 375, 768, 1024, 1280, 1440]
+
+// ── fixtures ─────────────────────────────────────────────────────────────────
+
+function textEl(
+  text: string,
+  box: ValueElement['box'],
+  over: Partial<ValueElement> = {},
+): ValueElement {
+  return {
+    text,
+    role: 'body',
+    color: '#111827',
+    fontFamily: 'Inter',
+    fontSizePx: 20,
+    fontWeight: 400,
+    lineHeightPx: 30,
+    box,
+    ...over,
+  }
+}
+
+/** A captured text-free control, named by the a11y tree (the fold's form seam). */
+function control(accessibleName: string, box: ValueElement['box']): ValueElement {
+  return {
+    text: '',
+    role: 'field',
+    color: '',
+    fontFamily: '',
+    fontSizePx: 0,
+    fontWeight: 0,
+    textless: true,
+    a11yRole: 'textbox',
+    nameSource: 'placeholder',
+    accessibleName,
+    box,
+  }
+}
+
+function captureOf(elementsAt: (width: number) => ValueElement[]): MultiStateCapture {
+  const projections: StateProjection[] = LADDER.map((width) => ({
+    engine: 'chromium',
+    viewport: { width, height: 900 },
+    state: 'rest',
+    manifest: {
+      source: `bug113@${width}`,
+      elements: elementsAt(width),
+      sections: [],
+      viewport: { width, height: 900 },
+    },
+  }))
+  return { url: 'http://fixture.test/', notes: [], projections }
+}
+
+/**
+ * The headline the estimate gets wrong. 20 characters at 40px in a 200px column
+ * is two lines to a 0.5em-advance model (80px tall) and one line to the browser
+ * that actually shaped it (the 40px the oracle records) — so the run below it,
+ * clear by 10px in reality, reads as a collision to the estimate alone.
+ */
+const OVERESTIMATED = 'Intentional Software'
+function overEstimatedHeadline(): ValueElement[] {
+  return [
+    textEl(OVERESTIMATED, { x: 20, y: 100, width: 200, height: 40 }, { fontSizePx: 40, lineHeightPx: 40 }),
+    textEl('Below it', { x: 20, y: 150, width: 200, height: 30 }),
+  ]
+}
+
+/**
+ * A page that REFLOWS at 768: below it the form stacks under the prose, above it
+ * the prose narrows and the form moves into a second column. Every captured width
+ * is clear; only a document that interpolates ACROSS the window puts the control
+ * on top of the prose, which is the 700px defect the operator saw in a browser.
+ */
+function reflowingCapture(): MultiStateCapture {
+  return captureOf((w) =>
+    w < 768
+      ? [
+          ...overEstimatedHeadline(),
+          textEl('Join our mailing list for updates on our work.', {
+            x: 20,
+            y: 400,
+            width: w - 40,
+            height: 60,
+          }),
+          control('Your email', { x: 20, y: 500, width: w - 40, height: 50 }),
+        ]
+      : [
+          ...overEstimatedHeadline(),
+          textEl('Join our mailing list for updates on our work.', {
+            x: 20,
+            y: 380,
+            width: 360,
+            height: 120,
+          }),
+          control('Your email', { x: 420, y: 360, width: 300, height: 50 }),
+        ],
+  )
+}
+
+/** A control that sits ON the prose at every captured width — visible only mounted. */
+function collidingFormCapture(): MultiStateCapture {
+  return captureOf((w) => [
+    textEl('Get in touch', { x: 20, y: 100, width: w - 40, height: 100 }),
+    control('Your email', { x: 20, y: 140, width: 240, height: 50 }),
+  ])
+}
+
+let cwd: string
+beforeEach(() => {
+  cwd = mkdtempSync(path.join(tmpdir(), 'bug113-'))
+})
+afterEach(() => {
+  rmSync(cwd, { recursive: true, force: true })
+})
+
+/** A bundle carrying the three members `1c repro` reads: l1 + forms + oracle. */
+async function bundleOf(capture: MultiStateCapture): Promise<{ dir: string; forms: FoldedForm[] }> {
+  const dir = path.join(cwd, 'bundle')
+  mkdirSync(dir, { recursive: true })
+  const forms: FoldedForm[] = []
+  const doc = foldToL1(capture, { forms })
+  const bundle = fsReferenceBundle(dir)
+  await writeL1(bundle, doc)
+  await writeForms(bundle, forms)
+  await writeMultiState(bundle, capture)
+  return { dir, forms }
+}
+
+/** Overlap findings only — a clip is a different envelope question. */
+function overlaps(doc: L1Document, width: number, oracle: MultiStateCapture): string[] {
+  return evaluateLayout(doc, width, { measured: measuredTextHeights(oracle) })
+    .findings.filter((f) => f.kind === 'overlap')
+    .map((f) => f.detail)
+}
+
+describe('BUG-113 — the gate grades the document that is served', () => {
+  it('test_UAT_FC_BUG-113_repro_writes_a_document_with_no_overlap_at_captured_widths', async () => {
+    const capture = reflowingCapture()
+    const { dir } = await bundleOf(capture)
+    const result = await cmdRepro('repro', { cwd, ref: dir })
+
+    // The command's own account of what it wrote: clear at every captured width,
+    // and clear at the off-sample widths between them.
+    expect(result.served).toBeDefined()
+    expect(result.served?.byWidth.map((w) => w.width)).toEqual(LADDER)
+    expect(result.served?.byWidth.filter((w) => w.findings > 0)).toEqual([])
+    expect(result.served?.offSample.filter((w) => w.findings > 0)).toEqual([])
+
+    // And the same read off the artifact on disk rather than off the report: the
+    // page body written to `pages/home.json`, with each behaviour's controls
+    // mounted at its seam, which is what a browser is handed.
+    const loaded = loadSite({ cwd, root: 'sites' }, 'repro', 'draft')
+    if (!loaded.ok) throw new Error('draft did not load')
+    const page = loaded.value.site.pages.find((p) => p.slug === 'home')
+    if (!page?.l1) throw new Error('written page carries no L1 document')
+    const served = mountBehaviours(page.l1, result.forms)
+    for (const width of LADDER) expect([width, overlaps(served, width, capture)]).toEqual([width, []])
+  })
+
+  it('test_UAT_FC_BUG-113_envelope_probes_grade_the_mounted_composition', async () => {
+    // The controls are half the page. A collision between a mounted control and
+    // the prose above it exists only once the two are composed — and the probes
+    // read the body alone, so this was invisible to the gate by construction.
+    const capture = collidingFormCapture()
+    const { dir, forms } = await bundleOf(capture)
+    const base = foldToL1(capture)
+    expect(forms.length).toBeGreaterThan(0)
+
+    // The body on its own is silent: a `slot` is an inert seam, so nothing in it
+    // can collide with anything.
+    expect(overlaps(base, 1280, capture)).toEqual([])
+    // Composed, the collision is reported.
+    expect(overlaps(mountBehaviours(base, forms), 1280, capture).length).toBeGreaterThan(0)
+
+    // And the gate says so, about the page rather than about an overlay.
+    const report = await cmdL1Gate(fsReferenceBundle(dir))
+    expect(report.offSample.pass).toBe(false)
+  })
+
+  it('test_UAT_FC_BUG-113_recovery_is_priced_never_served', async () => {
+    const capture = reflowingCapture()
+    const { dir } = await bundleOf(capture)
+    const result = await cmdRepro('repro', { cwd, ref: dir })
+
+    // What was written is the absolute base: every pinned node still carries the
+    // geometry the fold gave it. `promoteToFlow` clears the envelope by DROPPING
+    // that geometry, so a served recovery would be missing it.
+    const loaded = loadSite({ cwd, root: 'sites' }, 'repro', 'draft')
+    if (!loaded.ok) throw new Error('draft did not load')
+    const written = loaded.value.site.pages.find((p) => p.slug === 'home')?.l1
+    if (!written) throw new Error('written page carries no L1 document')
+    const pinned = (doc: L1Document): number => {
+      let n = 0
+      const walk = (node: L1Node): void => {
+        if (node.geometry) n += 1
+        const kids = node.kind === 'container' ? node.children : ((node as { children?: L1Node[] }).children ?? [])
+        kids.forEach(walk)
+      }
+      walk(doc.root)
+      return n
+    }
+    const recovered = promoteToFlow(foldToL1(capture), {
+      measured: measuredTextHeights(capture),
+    })
+    expect(recovered.promoted.length).toBeGreaterThan(0)
+    expect(pinned(written)).toBeGreaterThan(pinned(recovered.doc))
+
+    // The declined trade is stated as a number by both verbs, so choosing the
+    // base is an informed choice rather than an implicit one.
+    expect(result.served?.recovery.promoted).toBeGreaterThan(0)
+    expect(result.served?.recovery.fidelityMaxDeltaPx).toBeGreaterThan(
+      result.served?.fidelityMaxDeltaPx ?? 0,
+    )
+    const report = await cmdL1Gate(fsReferenceBundle(dir))
+    expect(report.recovery.fidelityResiduals).toBeGreaterThan(0)
+    expect(report.recovery.recoveredFindings).toBeLessThan(report.recovery.servedFindings)
+  })
+
+  it('test_UAT_FC_BUG-113_measured_height_replaces_the_estimate_at_a_captured_width', async () => {
+    const capture = reflowingCapture()
+    const doc = foldToL1(capture)
+
+    // Estimated, the headline is two lines tall and lands on the run below it.
+    const estimated = evaluateLayout(doc, 320).findings.filter((f) => f.kind === 'overlap')
+    expect(estimated.some((f) => f.detail.includes(OVERESTIMATED))).toBe(true)
+
+    // Measured, it is the 40px the browser gave it, and the collision was the
+    // model arguing with itself.
+    const measured = measuredTextHeights(capture)
+    const leaf = evaluateLayout(doc, 320, { measured }).leaves.find(
+      (l) => l.kind === 'text' && l.text === OVERESTIMATED,
+    )
+    expect(leaf?.box.height).toBe(40)
+    expect(overlaps(doc, 320, capture).some((d) => d.includes(OVERESTIMATED))).toBe(false)
+  })
+
+  it('test_UAT_FC_BUG-113_reflow_window_holds_every_node_at_no_fidelity_cost', async () => {
+    const capture = reflowingCapture()
+    const { forms } = await bundleOf(capture)
+    const doc = foldToL1(capture)
+
+    // The 375→768 window carries a reflow, so every track holds across it — not
+    // only the one node whose own numbers said `snap`.
+    const window = LADDER.indexOf(375)
+    const segments: string[] = []
+    const walk = (node: L1Node): void => {
+      const geo = node.geometry
+      if (geo?.segments && geo.keyframes[window]?.at === 375) segments.push(geo.segments[window])
+      const kids = node.kind === 'container' ? node.children : ((node as { children?: L1Node[] }).children ?? [])
+      kids.forEach(walk)
+    }
+    walk(doc.root)
+    expect(segments.length).toBeGreaterThan(1)
+    expect([...new Set(segments)]).toEqual(['snap'])
+
+    // Holding costs no fidelity: at a captured width `snap` and `interpolate`
+    // both resolve to that width's own keyframe.
+    const fidelity = sampleFidelityProbe(doc, capture, { measured: measuredTextHeights(capture) })
+    expect(fidelity.pass).toBe(true)
+    expect(fidelity.residuals).toEqual([])
+
+    // And it is what keeps the mounted control off the prose between the two
+    // captured widths: the same document interpolating collides at 500px.
+    const served = mountBehaviours(doc, forms)
+    expect(overlaps(served, 500, capture)).toEqual([])
+    const sliding = JSON.parse(JSON.stringify(served)) as L1Document
+    const unhold = (node: L1Node): void => {
+      if (node.geometry?.segments) node.geometry.segments = node.geometry.segments.map(() => 'interpolate')
+      const kids = node.kind === 'container' ? node.children : ((node as { children?: L1Node[] }).children ?? [])
+      kids.forEach(unhold)
+    }
+    unhold(sliding.root)
+    expect(overlaps(sliding, 500, capture).length).toBeGreaterThan(0)
+  })
+})

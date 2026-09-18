@@ -131,9 +131,29 @@ describe('REQ-83 — capture to L1 fold + structural hints', () => {
     const fluid = leaves.find((n) => n.kind === 'text' && n.text === 'Fluid Headline')
     const reflow = leaves.find((n) => n.kind === 'text' && n.text === 'Reflow Block')
 
-    // Fluid width across widths → interpolate; a column reflow → snap.
-    expect(fluid?.kind === 'text' && fluid.geometry?.segments).toEqual(['interpolate'])
+    // A column reflow → snap: the classification is unchanged and still read off
+    // the geometry alone.
     expect(reflow?.kind === 'text' && reflow.geometry?.segments).toEqual(['snap'])
+    // BUG-113 — and its NEIGHBOUR holds too, though on its own numbers it is
+    // fluid. A window carrying a reflow is a breakpoint, and half a page holding
+    // while the other half slides through it is how a reproduction comes to paint
+    // one element over another at a width it was never captured at.
+    expect(fluid?.kind === 'text' && fluid.geometry?.segments).toEqual(['snap'])
+
+    // With no reflow anywhere in the window, fluid stays fluid — the hold is
+    // demanded by evidence in the document, never applied by default.
+    const fluidOnly = foldToL1({
+      url: 'http://fixture.test/',
+      notes: [],
+      projections: [
+        proj(320, [elt('Fluid Headline', { x: 20, y: 100, width: 280, height: 40 })]),
+        proj(1280, [elt('Fluid Headline', { x: 20, y: 100, width: 1240, height: 40 })]),
+      ],
+    })
+    const onlyLeaf = (fluidOnly.root.kind === 'box' ? fluidOnly.root.children ?? [] : []).find(
+      (n) => n.kind === 'text' && n.text === 'Fluid Headline',
+    )
+    expect(onlyLeaf?.kind === 'text' && onlyLeaf.geometry?.segments).toEqual(['interpolate'])
   })
 
   it('test_UAT_FC_REQ-83_hints', async () => {

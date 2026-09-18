@@ -25,6 +25,7 @@ export {
 export {
   clusterControls,
   foldedFormFor,
+  mountBehaviours,
   type ControlRow,
   type ControlSample,
   type FoldedForm,
@@ -43,6 +44,7 @@ export {
   threeProbeGate,
   promoteToFlow,
   oracleBoxes,
+  measuredTextHeights,
   type EvalBox,
   type EvalLeaf,
   type LayoutFinding,
@@ -56,4 +58,5 @@ export {
   type ThreeProbeReport,
   type ThreeProbeOptions,
   type PromoteResult,
+  type MeasuredTextHeights,
 } from './probes'

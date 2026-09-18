@@ -311,8 +311,29 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     const fluid = leaves.find((n) => n.kind === 'text' && n.text === 'Fluid Headline')
     const reflow = leaves.find((n) => n.kind === 'text' && n.text === 'Reflow Block')
 
-    expect(fluid?.kind === 'text' && fluid.geometry?.segments).toEqual(['interpolate'])
     expect(reflow?.kind === 'text' && reflow.geometry?.segments).toEqual(['snap'])
+    // BUG-113 — the classification is still read per node off the geometry, but a
+    // window carrying a reflow is a BREAKPOINT, so the fluid neighbour holds
+    // across it too. Half a page holding while the other half interpolates
+    // through it is how a reproduction collides at a width it was never captured
+    // at; between breakpoints a media-query page renders the lower layout
+    // unchanged rather than gliding toward the next one.
+    expect(fluid?.kind === 'text' && fluid.geometry?.segments).toEqual(['snap'])
+
+    // With no reflow in the window, fluid stays fluid — the hold answers evidence
+    // in the document and is never a default.
+    const fluidOnly = foldToL1({
+      url: 'http://fixture.test/',
+      notes: [],
+      projections: [
+        proj(320, [elt('Fluid Headline', { x: 20, y: 100, width: 280, height: 40 })]),
+        proj(1280, [elt('Fluid Headline', { x: 20, y: 100, width: 1240, height: 40 })]),
+      ],
+    })
+    const onlyLeaf = (fluidOnly.root.kind === 'box' ? fluidOnly.root.children ?? [] : []).find(
+      (n) => n.kind === 'text' && n.text === 'Fluid Headline',
+    )
+    expect(onlyLeaf?.kind === 'text' && onlyLeaf.geometry?.segments).toEqual(['interpolate'])
   })
 
   it('test_UAT_AC693_subrange_node_carries_bounded_visibility_rule', () => {

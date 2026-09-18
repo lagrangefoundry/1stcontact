@@ -1159,7 +1159,7 @@ export async function run(argv: string[]): Promise<void> {
         process.exitCode = 1
         return
       }
-      const { draftDir, nodeCount, copiedAssets, localizedAssets, unreferencedAssets, forms } =
+      const { draftDir, nodeCount, copiedAssets, localizedAssets, unreferencedAssets, forms, served } =
         await cmdRepro(slug, { ...global, ref })
       // BUG-23 — an unreferenced mirrored asset is a fold gap (the bundle has the
       // bytes; no leaf points at them), so it is reported, not silently dropped.
@@ -1180,12 +1180,28 @@ export async function run(argv: string[]): Promise<void> {
             )
             .join('')
         : ''
+      // BUG-113 — what was WRITTEN, and the price of the alternative. `1c repro`
+      // chooses between the absolute base and its structure-recovered overlay;
+      // until now it made that choice silently and the gate graded the document
+      // it did not pick. The choice is the base, and this is the evidence for it.
+      const envelope = served
+        ? `\n  served document: base (absolute), fidelity maxΔ ${served.fidelityMaxDeltaPx.toFixed(1)}px, ` +
+          `${served.fidelityResiduals} residual(s)` +
+          `\n      envelope: ` +
+          served.byWidth.map((w) => `${w.width}:${w.findings}`).join(' ') +
+          `  ·  off-sample ` +
+          served.offSample.map((w) => `${w.width}:${w.findings}`).join(' ') +
+          `\n      recovery declined: ${served.recovery.promoted} region(s) would flow, at ` +
+          `maxΔ ${served.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
+          `${served.recovery.fidelityResiduals} residual(s) — a different page, not a repaired one`
+        : ''
       console.log(
         `Reproduced ${ref} → ${draftDir}\n` +
           `  L1 home page: ${nodeCount} node(s)${copiedAssets ? '; assets copied' : ''}` +
           `; ${localizedAssets} media handle(s) bound to local mirror` +
           gap +
           mounted +
+          envelope +
           `\n  next: 1c render ${slug}${global.sandbox ? ' --sandbox' : ''}  ·  1c l1-gate --ref ${ref}`,
       )
       return
@@ -1239,7 +1255,14 @@ export async function run(argv: string[]): Promise<void> {
             `)\n` +
             `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
-            `  promoted regions: ${report.promoted.length ? report.promoted.join(', ') : 'none'}\n` +
+            // BUG-113 — promotion is a PRICED ALTERNATIVE now, not the document
+            // the two envelope probes above just graded. Those graded the served
+            // page; this says what serving the recovered overlay instead would
+            // have cost against the oracle.
+            `  recovery (not served): ${report.recovery.promoted.length ? report.recovery.promoted.join(', ') : 'no region'} — ` +
+            `${report.recovery.servedFindings} finding(s) → ${report.recovery.recoveredFindings}, ` +
+            `at maxΔ ${report.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
+            `${report.recovery.fidelityResiduals} fidelity residual(s)\n` +
             // REQ-93 — behaviours recovered into slots. Reported beside the fold
             // residuals because it is the same completeness question from the
             // other side: what the page needs that raw L1 does not express.

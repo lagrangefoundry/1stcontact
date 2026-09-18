@@ -20,8 +20,17 @@
 import { defaultTokens, latestModuleVersion } from '@1stcontact/framework'
 import { l1DocumentSlotNames, validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
-import { foldToL1, localizeAssets, promoteToFlow, threeProbeGate } from '../l1'
-import type { FoldedForm, FoldResidual, ThreeProbeReport } from '../l1'
+import {
+  evaluateLayout,
+  foldToL1,
+  localizeAssets,
+  measuredTextHeights,
+  mountBehaviours,
+  offSampleProbe,
+  promoteToFlow,
+  sampleFidelityProbe,
+} from '../l1'
+import type { FoldedForm, FoldResidual, MeasuredTextHeights } from '../l1'
 import { draftDir, emptyDir, ensureDir, fsReferenceBundle, siteDir, writeDraftBase, writeJson } from '../store'
 import type { ReferenceBundle } from '../store'
 import { ctxOf } from './commands'
@@ -73,6 +82,42 @@ export interface ReproResult {
    * its own URL is honest, but the operator must know before it collects leads.
    */
   forms: FoldedForm[]
+  /**
+   * BUG-113 — what the document this command just wrote does to the envelope, and
+   * what the alternative would have cost. `undefined` for a bundle with no
+   * retained oracle, where neither number can be measured rather than guessed.
+   */
+  served?: ServedEnvelope
+}
+
+/**
+ * BUG-113 — the envelope of the document that was WRITTEN, plus the price of the
+ * one alternative to it.
+ *
+ * `1c repro` chooses which of two documents to serve, and until now made that
+ * choice silently: it imported `promoteToFlow` and never called it, so the page
+ * it wrote was the absolute base while the gate's envelope probes graded the
+ * recovered overlay. Both halves of that are now explicit — the base is served
+ * *for a measured reason*, and the reason is printed where the choice is made.
+ */
+export interface ServedEnvelope {
+  /** Envelope findings on the served document, per captured width. */
+  byWidth: Array<{ width: number; findings: number }>
+  /** The same at the off-sample widths the probe samples between captured ones. */
+  offSample: Array<{ width: number; findings: number }>
+  /** Largest per-axis miss against the oracle, in px, for the document served. */
+  fidelityMaxDeltaPx: number
+  /** Oracle samples the served document places out of tolerance. */
+  fidelityResiduals: number
+  /**
+   * What serving `promoteToFlow(base).doc` instead would cost, in the same two
+   * numbers — the trade this command declined, stated rather than assumed.
+   */
+  recovery: {
+    promoted: number
+    fidelityMaxDeltaPx: number
+    fidelityResiduals: number
+  }
 }
 
 /** Count leaves + containers in an L1 document (for the operator summary). */
@@ -85,6 +130,57 @@ function countNodes(doc: L1Document): number {
   }
   walk(doc.root)
   return n
+}
+
+/**
+ * BUG-113 — measure the document this command is about to write, and price the
+ * one alternative to it.
+ *
+ * WHY THE BASE IS SERVED. `promoteToFlow` converts colliding pinned sibling
+ * groups into flow, and it does clear the envelope — on every bundle we hold, at
+ * every perturbation scale, to zero findings. It clears it by DROPPING each
+ * promoted member's geometry, so the member fills its flow container: a 14px
+ * check glyph in a grid becomes a full-bleed stacked row. Measured against the
+ * oracle, the recovered `gigabytealchemy.ai` document misses by 1426px at its
+ * widest sample — the whole width of a 1440px viewport — with 318 samples out of
+ * tolerance and 12 the recovered tree no longer carries at all;
+ * `joyfulculinarycreations.com` reads 3958px and 413. That is not a repaired
+ * page, it is a different one, and shipping it is the 80%-faithful copy the
+ * epic's doctrine rules out. So the base is written, and this is the number that
+ * says why — printed on every run rather than asserted once in a comment.
+ *
+ * The envelope of what IS written is measured in the same breath, because the
+ * ticket this comes from is about exactly the gap between those two sentences.
+ */
+function measureServed(
+  base: L1Document,
+  forms: FoldedForm[],
+  oracle: Parameters<typeof measuredTextHeights>[0],
+): ServedEnvelope {
+  const measured: MeasuredTextHeights = measuredTextHeights(oracle)
+  // The browser is given the page body with every behaviour's controls mounted
+  // into their seams, so that is what gets measured — not the body alone.
+  const served = mountBehaviours(base, forms)
+  const fidelity = sampleFidelityProbe(base, oracle, { measured })
+  const { doc: recovered, promoted } = promoteToFlow(base, { measured })
+  const recoveredFidelity = sampleFidelityProbe(recovered, oracle, { measured })
+  return {
+    byWidth: base.widths.map((width) => ({
+      width,
+      findings: evaluateLayout(served, width, { measured }).findings.length,
+    })),
+    offSample: offSampleProbe(served, { measured }).byWidth.map((w) => ({
+      width: w.width,
+      findings: w.findings.length,
+    })),
+    fidelityMaxDeltaPx: fidelity.maxDelta,
+    fidelityResiduals: fidelity.residuals.length,
+    recovery: {
+      promoted: promoted.length,
+      fidelityMaxDeltaPx: recoveredFidelity.maxDelta,
+      fidelityResiduals: recoveredFidelity.residuals.length,
+    },
+  }
 }
 
 /**
@@ -220,6 +316,12 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
   }
   const copiedAssets = assetKeys.length > 0
 
+  // BUG-113 — the page has been written; now say what was written and at what
+  // price. Measured against the bundle's retained oracle, so a bundle without one
+  // reports nothing rather than a number it cannot stand behind.
+  const oracle = await readMultiState(bundle)
+  const served = oracle ? measureServed(localized.doc, forms, oracle) : undefined
+
   return {
     slug,
     draftDir: draft,
@@ -228,6 +330,7 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
     localizedAssets: localized.rewritten.length,
     unreferencedAssets: localized.unreferenced,
     forms,
+    served,
   }
 }
 
