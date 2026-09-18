@@ -70,6 +70,10 @@ import {
   checkSharedStore as checkSharedStoreImpl,
 } from './shared-store'
 import { startBuilder } from './builder'
+// [[REQ-273]] — the listener that lets the Worker's assistant file a defect
+// into the project that builds it. Started here because `1c builder` is the
+// one Node process that lives exactly as long as the dev server does.
+import { filingVars, startFilingService, type FilingService } from './filing'
 import {
   builderIsRunning,
   humanBytes,
@@ -299,7 +303,7 @@ Usage:
     store rather than resetting it. Stop the server first.
     --include-public extends it to apps/public-site/.wrangler/state.
 
-  1c builder [--port <n>] [--remote]
+  1c builder [--port <n>] [--remote] [--no-filing]
     Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
     routes, store and runtime as production. Serves what \`1c assets\` built, so run
     that first. The store is the LOCAL simulated D1/R2; seed it with \`bin/publish\`.
@@ -307,6 +311,11 @@ Usage:
     Refuses to start when the local database is behind db/migrations/, naming the
     pending files and the command that applies them; --remote skips that check,
     because the deployed database is \`bin/deploy\`'s to migrate.
+    It also starts a loopback FILING SERVICE (REQ-273), so the assistant can
+    report a defect in this software into THIS project's ticket store — never
+    into the client's. Its address and a per-run bearer are passed to wrangler
+    as vars; a deployed builder has neither and gets no filing tool at all.
+    --no-filing leaves it out.
 
 System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
   1c kb build
@@ -957,7 +966,35 @@ export async function run(argv: string[]): Promise<void> {
         if (check.kind === 'unreadable') console.warn(check.message)
       }
 
+      // THE FILING SERVICE ([[REQ-273]]), started before wrangler so its address
+      // can be handed over as a var. `filing.ts` states the whole argument; the
+      // part that belongs here is why it is THIS command's job: the service has
+      // to be a Node process, it has to live exactly as long as the dev server,
+      // and this is the process that starts the dev server and waits on it.
+      //
+      // A FAILURE TO START IS A WARNING AND NEVER A REFUSAL. Being able to file
+      // a defect is not a precondition for building a site, and a dev server
+      // that would not start because the shared store was not installed would
+      // be trading a whole product for a capability nobody was using yet — the
+      // same trade `host-core.ts` refuses when a knowledge base is missing.
+      let filing: FilingService | null = null
+      if (flags['no-filing'] !== true) {
+        try {
+          filing = await startFilingService({ root })
+        } catch (error) {
+          console.warn(
+            `The assistant will not be able to file development tickets: ${
+              (error as Error)?.message ?? String(error)
+            }`,
+          )
+        }
+      }
+
       const args = ['wrangler', 'dev', '--port', port, ...devEnv.args]
+      // THE VAR NAMES ARE `filing.ts`'S, not restated here: they are the only
+      // contract between this Node process and the Worker, and the failure mode
+      // of two copies drifting is silent — no var, no surface, no error.
+      if (filing) args.push(...filingVars(filing))
       // `--remote` edits the DEPLOYED database from a laptop. Local is the
       // default because a dev loop that writes to production by default is one
       // keystroke from losing a site; `bin/publish` seeds the local one.
@@ -966,6 +1003,9 @@ export async function run(argv: string[]): Promise<void> {
       console.log(
         `Builder (wrangler dev) on http://localhost:${port}\n` +
           `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
+          (filing
+            ? `  filing: on — the assistant can report a defect into this project (port ${filing.port})\n`
+            : '  filing: off — the assistant cannot report a defect\n') +
           '  seed it with `bin/publish`\n',
       )
       // AFTER the banner and BEFORE wrangler's own output, which is where an
@@ -975,17 +1015,24 @@ export async function run(argv: string[]): Promise<void> {
       for (const warning of devEnv.warnings) console.warn(warning)
       if (devEnv.warnings.length) console.warn('')
       const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
-      await new Promise<void>((resolve, reject) => {
-        child.on('error', reject)
-        child.on('exit', (code) => {
-          if (code === 0 || code === null) resolve()
-          else reject(new CommandError({
-            code: 'ENVIRONMENT',
-            message: `wrangler dev exited with ${code}.`,
-            hint: 'Run `1c assets` first — the Worker serves what it builds.',
-          }))
+      try {
+        await new Promise<void>((resolve, reject) => {
+          child.on('error', reject)
+          child.on('exit', (code) => {
+            if (code === 0 || code === null) resolve()
+            else reject(new CommandError({
+              code: 'ENVIRONMENT',
+              message: `wrangler dev exited with ${code}.`,
+              hint: 'Run `1c assets` first — the Worker serves what it builds.',
+            }))
+          })
         })
-      })
+      } finally {
+        // IN A `finally`, so a wrangler that failed to start does not leave a
+        // listener holding a port. It is `unref`'d as well, so this is belt and
+        // braces rather than the only thing keeping the process honest.
+        await filing?.close()
+      }
       return
     }
 

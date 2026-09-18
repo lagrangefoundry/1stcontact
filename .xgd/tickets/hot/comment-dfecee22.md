@@ -5,9 +5,9 @@ type: comment
 title: Comment on request REQ-275
 created_by: xgd
 created_at: '2026-09-18T22:38:58.064168+00:00'
-updated_at: '2026-09-18T22:38:58.064168+00:00'
+updated_at: '2026-09-18T23:23:50.798443+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: request-2a60571e
@@ -33,5 +33,42 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="b3e8fa6e-f158-44b2-987e-b2b39a19df55-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:10:16.340789+00:00" -->
+#### Claude
+Chromium works in this sandbox with `--single-process` (REQ-262's escape hatch), so I can run the probe over all three references rather than just shipping it. Starting the protocol.
+
+Now the prototype probe, to see what real reference pages actually surface.
+
+Design settled. Writing the probe module.
+
+Now the triage core and the runner.
+
+Now factor the loopback server out of `reextract.ts` so both callers share it.
+
+Now the CLI subcommand.
+
+Clean. Now run the audit for real across all three references.
+
+Now landing the four axes the audit surfaced.
+
+Now the raw→capture projection in `sections.ts`.
+
+Now register the four axes in `CAPTURE_SCHEMA_AXES`, bump the schema once, and record them in the coverage register.
+
+Now the fixture and UATs.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="ded44f65-c2c0-4c61-8972-1e65057ad76d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:23:50.081305+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->

@@ -72,6 +72,7 @@ import {
   type SessionKnowledge,
 } from './session-knowledge'
 import { turnDelta } from './session-delta'
+import type { DevelopmentSurface } from './development'
 import {
   DOCUMENT_DIGEST_SYSTEM,
   IMAGE_DIGEST_SYSTEM,
@@ -530,6 +531,26 @@ export function workerHost(
    * alternative to composing a surface that refuses every call.
    */
   dns: HostDeps['dns'] = null,
+  /**
+   * Where a defect in THIS software gets filed ([[REQ-273]]), or `null` where
+   * this deployment has no project to file into.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above it
+   * is — except that here the thing being resolved is an address and a bearer
+   * rather than a binding, and `development.ts` is what turns those into a
+   * surface. Assembling it there keeps this file from deciding whether a
+   * deployment can reach its own project.
+   *
+   * ITS GRANT TRAVELS WITH IT, like the ticket surface's beside it: the
+   * declaration is upstream's, and `instances.json` is validated against the
+   * declarations THIS repository holds.
+   *
+   * NULL IS ORDINARY, and here it is the DEPLOYED case rather than an edge:
+   * a builder talking to a real client has no xgd project on the other end of
+   * anything, so it gets an assistant that has never heard of filing and says
+   * so in words, instead of one that offers a tool and fails on it.
+   */
+  development: DevelopmentSurface | null = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -601,6 +622,15 @@ export function workerHost(
         // itself lives. A deployment of this Worker with no tickets is not a
         // reduced mode of it, it is not a deployment.
         sessionTicketSurface(tickets),
+        // FILING A DEFECT IN THIS SOFTWARE ([[REQ-273]]), where this deployment
+        // can reach the project that builds it.
+        //
+        // BESIDE THE LINE ABOVE AND NOTHING LIKE IT. That surface reads the
+        // CLIENT'S tickets and writes none of them; this one writes OURS and
+        // reads none of theirs. They share a package and a shape and no store
+        // at all — which is the whole reason this was worth building rather
+        // than widening the grant on the line above it.
+        ...(development ? [development] : []),
       ],
       // Passed straight through: `host-core.ts` composes the surface when this
       // is present and composes nothing when it is not, which is the one place

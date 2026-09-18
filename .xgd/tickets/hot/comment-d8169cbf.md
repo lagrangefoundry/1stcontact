@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T22:36:45.296623+00:00'
+updated_at: '2026-09-18T23:25:08.149434+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -559,5 +559,172 @@ That's on REQ-217 as **COMMENT-3142**, because its body is frozen at `ready_to_r
 I filed **REQ-279** as a duplicate before finding REQ-217 — archived it.
 
 And more usefully: my `update` and `append` calls to REQ-217 both *looked* like they succeeded and wrote nothing. The refusal — *"ticket is in the reconcile pipeline; body/title are frozen"* — was a log line my own output filter was cutting off. I've saved that to memory so I check writes properly rather than tailing filtered output.
+
+<!-- xgd-turn id="83f1f645-9348-490b-b5f9-7757285b8673-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T22:58:56.302667+00:00" -->
+#### You
+I just (accidentally) navigated away from the Lagrange Foundry business - when I returned I found I had lost my latest turn exchange which was in-progress with the AI - is it gone for good?
+
+Lets talk about this experience - I think the user will expect an open turn to run to completion even if the page is refreshed or navigated away from even if the browser is closed.
+
+<!-- xgd-turn id="83f1f645-9348-490b-b5f9-7757285b8673-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:01:27.877192+00:00" -->
+#### Claude
+Let me check your actual data first, then the machinery.
+
+**Gone for good, yes.** I checked your transcript directly: `chat-50932534` now holds 36 turns, 57,348 bytes, ending on a *complete* user/assistant pair. There's no orphaned user turn and no partial reply. The in-flight turn left no trace at all — including your own message.
+
+## The codebase already agrees with you, and says exactly where it stopped
+
+**BUG-46 solved half of this.** `router.ts:5326` is worth reading in full because it's the precise answer:
+
+> A reload aborts the SSE, the next `controller.enqueue` throws on the cancelled stream, that runs the generator's `finally` — where the library appends `turn_end` and awaits `sync()` […] Registering the stream's completion means the drain and this audit flush both outlive the client that walked away, which is what makes a **COMPLETED** turn durable under a reload race.
+
+And then it names the rest:
+
+> It does not make an in-flight turn durable — that is the junction's business, and in this Worker the junction is RAM (`ai.ts`), so an isolate evicted mid-turn still loses it. Rendering from the junction is what narrows the window; **only a Durable Object would close it.**
+
+Confirmed: `ai.ts:202` and `:598` pass `memoryJunctions()`, and `wrangler.toml` declares no durable objects and no workflows. The turn is driven by the fetch request; the live record lives in the isolate. Both die when you leave.
+
+So the honest framing: **the turn is terminated, not completed.** That's precisely the gap between the system and your expectation.
+
+## Why I think your expectation is right — and the lost text is the least of it
+
+1. **Turns have side effects.** A consultant turn writes pages, palettes, pictures. One killed after three of seven edits leaves the site half-changed — and the change signal still fires, so the pane re-renders and the client *watches their site move* with no reply explaining why. Nothing records that the turn was interrupted.
+2. **Turns cost money.** Same family as BUG-119: spend already made, artifact nobody receives.
+3. **Turns are long.** A tool loop against a browser and a store, not a two-second reply. The window where leaving hurts is most of the turn.
+
+## What closing it takes
+
+The good news: **the reattach half is already built.** `tailSession` is a cursor-based subscriber over the junction, explicitly *"safe to do on any page load"* and *"never a second producer"*. It was written for this. What's missing is underneath it:
+
+- **A driver that outlives the request** — a Durable Object per session is the natural shape. A session already has one identity, turns must be serialised per session anyway (the transcript's compare-and-set proves it), and the junction wants to live beside its driver. `ctx.waitUntil` won't do; BUG-46 already spent it on the drain.
+- **A durable junction**, so another isolate can read the live turn.
+- **A resume contract on load** — `tailSession` answers it once there's a durable producer.
+
+## One cheap thing worth doing regardless
+
+**Fold the user's message before the turn starts.** Right now an interrupted turn costs you your own words *and* the reply. Persist the user turn up front and a lost turn costs only the answer — your question survives, shows on reload, and re-sends with one click. Small, independent of the DO work, and it removes the most irritating half of what just happened to you.
+
+Related: **say that a turn was interrupted.** A turn ending without `turn_end` is knowable, and the transcript should show it rather than leaving a gap the client reads as the assistant ignoring them.
+
+All of this is Finding 4 in EPIC-19. Want me to file it — and if so, as one ticket for the durable turn, or split the cheap intermediate out so it can land this week?
+
+<!-- xgd-turn id="ec3a8ec4-0208-4a49-bd34-b76b1c272267-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:08:59.706057+00:00" -->
+#### You
+So the honest framing: **the turn is terminated, not completed. <-- terminated would be one thing, my prompt and the partial response I saw were lost too - much more serious. **
+
+<!-- xgd-turn id="9111ac2a-c5ac-4dce-8e87-c9b9eb4d1b41-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:09:24.704639+00:00" -->
+#### You
+So the honest framing: **the turn is terminated, not completed. <-- terminated would be one thing, my prompt and the partial response I saw were lost too - much more serious. **
+
+<!-- xgd-turn id="9111ac2a-c5ac-4dce-8e87-c9b9eb4d1b41-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:12:19.112159+00:00" -->
+#### Claude
+You're right, and that's a sharper and more serious claim than the one I made. Let me check it properly — because BUG-46's whole point was that the record survives the client walking away.
+
+You're right, and the evidence is worse than either of us said. I have the timeline.
+
+You're right. I understated it, and the store shows exactly how much.
+
+## The timeline
+
+| | |
+|---|---|
+| last message in the chat transcript | **22:18:34** |
+| last tool record | **22:24:12** |
+| both artifacts written | **22:24:46** |
+
+Nearly **six minutes** of turn ran in that gap. At 22:24:46 the `tool_transcript` grew to 350,925 bytes. The `chat_transcript` went from **version 20 to 21 and gained nothing** — no user turn, no partial reply.
+
+And the work wasn't trivial. The tail of the tool transcript is a `record_decision` against your engagement ledger, carrying a real decision about the site's recursion diagram, returning `{"entries": 6, "title": "Lagrange Foundry — initial website build"}`.
+
+**So your ledger now records a decision the transcript has no memory of anyone making.**
+
+## Why the halves behave differently
+
+They're written by two mechanisms with two durability properties, and nothing makes them agree:
+
+- **Tool records are append-only and land as they happen.** `_applyTools` says so: *"`append_body` rather than a read-modify-write: the artifact is append-only… there is no version to lose a race on."*
+- **The prose transcript is a read-modify-write folded from the junction**, and the junction is RAM. BUG-46's `ctx.waitUntil` drain *did* run — `ctx` is correctly supplied at the one call site — but it folded against a junction that no longer held the records. Version bump, no content. That's the signature.
+
+BUG-46 anticipated the hole. What it didn't anticipate is that losing the junction **doesn't lose the turn — it loses the half without consequences.**
+
+## Why this is the more serious claim
+
+Stopping work when the client leaves is a policy you can argue about. Committing the work and discarding the conversation isn't a policy, it's divergence:
+
+- **The assistant's memory is now wrong.** Next turn it loads the transcript and can't see the decision it recorded. It'll re-ask or contradict itself, in front of the client.
+- **You have no account of a change you can see.** The counter moved, the pane re-rendered, the transcript explains nothing.
+- **You lost your own words**, not just the reply.
+- **It's silent** — no error, no gap marker.
+
+Filed as **BUG-121**, with items ordered so the integrity fix doesn't wait on the big one:
+
+1. The prose record must be at least as durable as the tool record — both append-as-it-happens, or neither.
+2. Fold the user's message before calling the model.
+3. An interrupted turn must say it was interrupted.
+4. *Then* the policy question — running to completion — which needs the Durable Object and durable junction, with `tailSession` already built for the reattach.
+
+**1–3 should land before the DO work**, because the integrity defect doesn't go away once turns run to completion: a turn can still fail, and its two halves must still agree. EPIC-19's Finding 4 is corrected to match.
+
+<!-- xgd-turn id="c357bba7-a478-497e-885e-dc64a063d6b0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:23:25.250855+00:00" -->
+#### You
+ok so the consultant (we should use that word instead of assistant) and I are lacking a common frame of reference for assets. I am thinking that if we just expose the ticket ID (human readable) on the library item list that would do it - I assume the AI has access to that?
+
+<!-- xgd-turn id="c357bba7-a478-497e-885e-dc64a063d6b0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:25:06.866583+00:00" -->
+#### Claude
+Noted — consultant from here on.
+
+**No — and that's the crux of it.** Neither of you can see it today.
+
+## What each of you actually sees
+
+**The consultant's handle is the uid.** `storedImageOf` (`material.ts:1396`) sets `name: row.uid`, so `list_library` returns `item: "material-bd70d8d9"`. The `catalogue_item` shape carries `item`, `title`, `filename`, `kind`, `role`, `rights`, `placed_on`… and no human id.
+
+**You never see the uid.** `library.js:527` renders `row.title || row.filename`, and the search filter is `${row.title} ${row.filename}`. The uid is used internally and never displayed.
+
+So the only thing you currently share is *title and filename* — which is precisely the ambiguous thing.
+
+## Your own Library proves the point
+
+```
+material-3328dff9 | MATERIAL-3 | A crucible of molten metal leaning forward to …
+material-de9ac4ed | MATERIAL-4 | A crucible of molten metal leaning forward to …
+material-bd70d8d9 | MATERIAL-5 | A crucible of molten metal leaning forward to …
+```
+
+Three generated variants with **identical titles**. You see three rows that read the same; the consultant sees three opaque uids. Neither of you can say "that one".
+
+## So the list alone won't do it
+
+It needs to land in three places to become a shared frame:
+
+1. **The catalogue item** — project `human_id` into `catalogueItem`/`itemView`, so the consultant reads it.
+2. **The Library row** — show it beside the title, so you read it.
+3. **As an input** — so you can type "MATERIAL-5" and the consultant resolves it. This is the cheap one: `StoredImage.aliases` already exists and `haystack` already searches `name`, `title`, `filename` and `aliases`, so adding the human id to aliases makes the consultant's own filter match it with almost no new code.
+
+(3) is what makes it a *common* frame rather than two parallel labels — the reference has to work in both directions.
+
+**One caution:** don't swap the uid out. `library.ts:55` is explicit that `name` is the single projection shared with `screenshot` and `edit_image` — *"Writing `name: row.uid` here instead would be the drift in miniature."* Changing the handle would mean migrating stored edit recipes and any persisted reference. Add a display id; keep the uid as the machine handle.
+
+## One decision I need from you
+
+Your priming tells the consultant: *"If you ever find yourself naming a framework concept in a message to your client, you have already lost them."* Is `MATERIAL-5` operator scaffolding, or may the consultant say it to a real client?
+
+I'd lean **client-facing** — a catalogue number is how a gallery or a print shop talks, and "the crucible, MATERIAL-5" is clearer than three identical titles. But it's a genuine call, and it decides whether this is a debug affordance or part of how consultations run.
+
+Tell me which and I'll file it — it's a small, well-bounded REQ.
 
 <!-- xgd-chat-end -->

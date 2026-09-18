@@ -81,6 +81,10 @@ import {
   type WorkerHost,
 } from './ai'
 import { imageSurface } from './imagegen'
+// [[REQ-273]] — filing a defect in THIS software. The surface, the HTTP reach to
+// the project that builds it, and the one place a deployment's address becomes a
+// capability all live in one module; this router is its only caller.
+import { developmentFor, type DevelopmentEnv, type DevelopmentSurface } from './development'
 import { canEmbed, type EmbedderEnv } from './embedder'
 import { chatLibrary } from './library'
 // THE BUSINESS'S OWN RECORD ([[REQ-237]]) — one module owns the name rule, and
@@ -764,6 +768,17 @@ function chatHost(
             scope.businessId,
           )
         })(),
+        // FILING A DEFECT IN THIS SOFTWARE ([[REQ-273]]). Assembled here for the
+        // reason every wire above it is — the environment is in hand and this
+        // file is where a deployment's configuration becomes a capability — and
+        // `null` where there is no address, which composes no surface at all.
+        //
+        // IT TAKES NO SCOPE AND THAT IS THE POINT. Every other wire on this call
+        // is bound to `scope.businessId`, because everything else the assistant
+        // can do is done to one client's material. This one is bound to OUR
+        // project and to nothing of theirs, so there is no business to name and
+        // no argument anywhere on the path that could name one.
+        (deps.development ?? developmentFor)(env),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -881,7 +896,11 @@ export interface RouterEnv
     // scope, and declaring their account id in `wrangler.toml` so production
     // could see it would hand `transportFor` half a credential and take the
     // project knowledge base down with it.
-    CloudflareEnv {
+    CloudflareEnv,
+    // [[REQ-273]] — where a defect in this software gets filed. Two dev-server
+    // vars rather than a binding, and `development.ts` says why neither is
+    // written down in `wrangler.toml`: both are minted per `1c builder` run.
+    DevelopmentEnv {
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
   /**
@@ -1253,6 +1272,24 @@ export interface RouterDeps {
    * without it; what does not happen is the sending half.
    */
   resend?: (env: RouterEnv) => ResendClient | null
+  /**
+   * Where a defect in this software gets filed ([[REQ-273]]), or `null` where
+   * this deployment has no project to reach.
+   *
+   * INJECTABLE FOR THE RESOLVER'S REASON RATHER THAN THE CLIENT'S. The real one
+   * is an HTTP call to a listener in somebody's `1c builder`, so a suite that
+   * did not script it would either pass because nothing was running — proving
+   * only that an absent service is absent — or file a real ticket into this
+   * repository's own ticket store the first time it ran on a developer's
+   * machine. Neither is a test.
+   *
+   * ABSENT IS THE ORDINARY CASE and resolves to {@link developmentFor}, which
+   * answers `null` when the deployment carries no address. `null` composes no
+   * surface at all rather than one that refuses every call — the same shape
+   * {@link RouterDeps.cloudflare} already has, and the state every DEPLOYED
+   * builder is permanently in.
+   */
+  development?: (env: RouterEnv) => DevelopmentSurface | null
 }
 
 /**
@@ -1855,25 +1892,6 @@ export const NO_API_KEY_MESSAGE =
   'This builder has no Anthropic API key, so nothing that needs the assistant ' +
   'can run — no conversation, and no describing the material you upload. Set ' +
   'ANTHROPIC_API_KEY on the deployment and reload.'
-
-/**
- * Say, loudly, that an upload landed where nothing can find it.
- *
- * ONCE PER AFFECTED UPLOAD, naming the uid and the binding. [[DOC-39]] §4's
- * point is that the failure is INVISIBILITY rather than staleness: the request
- * succeeded, the Library shows the file, and search will never return it. A
- * silent skip would make that indistinguishable from a working deployment.
- * [[REQ-159]] should promote this to a construction-time requirement in the
- * manner of `ticketStoreFor`'s refusals; until then, a log is what there is.
- */
-function warnUnindexed(uid: string): void {
-  console.warn(
-    `[REQ-163] material ${uid} was stored but NOT indexed: no AI binding is ` +
-      'configured, so the project knowledge base cannot embed it and nothing ' +
-      'will find it by search. Declare [ai] in apps/control-app/wrangler.toml, ' +
-      'under [env.production.ai] as well — a named environment inherits neither.',
-  )
-}
 
 /**
  * What an ingestion answers with.
@@ -4387,7 +4405,6 @@ async function routeUncached(
         { uid: body.uid, body: body.body },
         (await ingestDeps()).index,
       )
-      if (!revised.indexed) warnUnindexed(body.uid)
       return json(200, revised.row)
     }
 
@@ -4598,7 +4615,6 @@ async function routeUncached(
         },
         await ingestDeps(),
       )
-      if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
       return json(200, {
         ...materialEnvelope(ingested),
         ...(await placeOnSite(
@@ -4632,7 +4648,6 @@ async function routeUncached(
         ...(await ingestDeps()),
         fetch: deps.fetch,
       })
-      if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
       return json(200, materialEnvelope(ingested))
     }
 

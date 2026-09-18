@@ -46,7 +46,7 @@
 import { displayLine } from '../../../tools/generate/src/cli/ai/toolbox-core'
 import * as imagegenLib from './generated/ai-imagegen'
 import * as aiLib from './generated/ai-workers.js'
-import type { IndexMaterial } from './material'
+import { indexAfterWrite, type IndexMaterial } from './material'
 import type { Ticket, TicketStore } from './tickets'
 
 /** The libraries are untyped JavaScript; the boundary is narrow and named here. */
@@ -258,15 +258,32 @@ export function generatedMaterialStore(
       // that the index, not the body, is what retrieval sees: a generated image
       // that was never embedded would sit in the Library while the assistant
       // that just made it could not find it.
-      if (index) await index(args.uid)
+      //
+      // AND IT CANNOT THROW FROM HERE, WHICH IS [[BUG-119]]. This handle is a
+      // TicketStore to the plugin, and the plugin reads any throw out of it as
+      // `store_unavailable` — *the image was generated but could not be stored,
+      // so there is no ticket to hand on. This is a deployment fault.* That
+      // sentence was reported twice for two pictures that were stored perfectly:
+      // the bytes, the record and this product's whole vocabulary were all
+      // written by the lines above, and then a broken embedder ([[BUG-117]])
+      // made the index refresh throw and took the uid down with it. The picture
+      // had been paid for; the only thing lost was the ability to name it.
+      //
+      // {@link indexAfterWrite} is therefore not a softening of the contract but
+      // the contract stated correctly: THIS HANDLE REPORTS ON THE STORE. Its
+      // throws mean the store refused, so `store_unavailable` means what it says
+      // and a retry is worth the model's while. An index refresh is not the
+      // store — it is a change-feed pass that the next write repeats for free —
+      // and it has no business speaking for it.
+      await indexAfterWrite(index, args.uid)
       return attached
     },
   }
 }
 
 /**
- * How this product says *"show this picture to the person you are talking to"*
- * ([[REQ-217]]).
+ * How this product says *"the picture is in the Library, here is how to look at
+ * it, and here is how to show it to your client"* ([[REQ-217]], [[BUG-118]]).
  *
  * THE SEAM IS THE PLUGIN'S AND THE SENTENCE IS OURS, which is this file's whole
  * job restated. lagrange-framework REQ-149 opened `display` precisely because the
@@ -275,6 +292,26 @@ export function generatedMaterialStore(
  * about the host's own surface. So supplying one is not the local workaround this
  * module's header forbids; it is another instance of *"this product's own
  * vocabulary"*, beside the material fields above.
+ *
+ * IT SAYS WHERE THE PICTURE WENT, AND THAT IS [[BUG-118]]. The plugin's
+ * `generated_image` names a ticket, an attachment and a filename and says of none
+ * of them which of this deployment's two stores now holds the bytes — so an
+ * assistant that went looking in the site's assets, found nothing, and told its
+ * client it could not see its own work was reasoning correctly from everything it
+ * had been given. Which store a generated picture lands in is not a fact the
+ * plugin can know: `store` is the host's, `origin: 'generated'` is the host's
+ * vocabulary, and the Library is the host's surface. So it is said here, in the
+ * one place the assistant is certain to be reading — the result of the call it
+ * just made — rather than left to a rule about when to go and fetch a fuller
+ * manual entry, which is a rule that has to fire to help.
+ *
+ * AND IT NAMES THE *UID* AS THE NAME TO LOOK WITH, not the filename. The
+ * catalogue's canonical name for a piece of material is its record's uid
+ * (`storedImageOf` in `material.ts`, and `resolveStoredImage` is the one rule),
+ * so the uid is the spelling that always means exactly one picture — a filename
+ * is an alias and two uploads may share one. It is also already in the record as
+ * `ticket`, so the sentence teaches that the handle the model is holding IS the
+ * name every way of looking at a picture takes.
  *
  * ONE COMPOSER FOR BOTH HALVES. The markdown is {@link displayLine}, the same
  * function `write_image` uses, because a picture in the conversation is one
@@ -293,8 +330,11 @@ function generatedDisplay(
     if (uid === '') return ''
     const name = String(record.filename ?? 'image')
     return (
-      'Show this picture to the person you are talking to by including this line ' +
-      `in your reply, exactly as written: ${displayLine(name, materialUrl(uid))}`
+      `This picture is in the client's Library now, catalogued as ${uid} — ` +
+      '`screenshot` takes that name unchanged, so you can look at what you made, ' +
+      'and it is on the site only once you place it there. Show this picture to ' +
+      'the person you are talking to by including this line in your reply, ' +
+      `exactly as written: ${displayLine(name, materialUrl(uid))}`
     )
   }
 }
@@ -320,6 +360,15 @@ export interface ImageSurfaceOptions {
    * Absent means this deployment has nowhere to show a generated picture, so the
    * result carries no display line and the id is the whole of what the model can
    * pass on — which is exactly what the plugin's own prose says absence means.
+   *
+   * WHICH IS WHY [[BUG-118]]'s SENTENCE RIDES ON THE SAME CONDITION. The one
+   * field a host may write into this result is `display`, and the plugin's
+   * declaration composes it in only where a handle was supplied — so a
+   * deployment with nowhere to show a picture is also told nothing about where
+   * the picture went. `router.ts` is the only caller and always supplies this,
+   * so no shipped session reads the poorer result; making the field
+   * unconditional would instead make the manual describe a display line that
+   * never arrives, which is the drift the plugin's composition exists to avoid.
    */
   materialUrl?: (uid: string) => string
 }
