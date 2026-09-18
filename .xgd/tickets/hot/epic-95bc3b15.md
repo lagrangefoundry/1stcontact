@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T19:45:58.227279+00:00'
+updated_at: '2026-09-18T19:47:54.236420+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -181,6 +181,58 @@ one of those.
 Open when we resume: the corpus-pollution question above (a `chat` ticket per
 delegation entering the project KB) may resolve itself if workers are cheap and
 short, but it still has to be answered before the first delegation ships.
+
+## Finding 2 — a site's conversation is orphaned when its address changes (2026-09-18)
+
+**Observed:** opening the Lagrange Foundry site in the builder shows an empty
+chat pane, though the site was built in a long conversation.
+
+**The conversation is not lost.** It is intact in the local D1 store, homed on a
+chat ticket the builder no longer looks for.
+
+**Mechanism.** `sessionIdFor(site)` is `site-${site}`, and `TicketSessionArchive`
+finds-or-creates a `chat` ticket by `fields.session_id`. So a session is keyed on
+the site's ADDRESS. When the address changes, the lookup misses, and a fresh
+empty session is created silently — there is no error, because "no ticket with
+this session_id" is indistinguishable from "a new site".
+
+Lagrange Foundry's address has changed twice, leaving three chat tickets in
+tenant `biz_5b101742d436573a04a2512fb7ecdbb5`:
+
+| chat ticket | session_id | transcript | when |
+|---|---|---|---|
+| `chat-d73a11e1` | `site-unnamed` | **26,815 bytes** (+ 224,813 of tool transcript) | 2026-09-11 |
+| `chat-b98f4eec` | `site-lagrangefoundry` | 269 bytes — header only | 2026-09-13 |
+| `chat-50932534` | `site-site_936dd7c92e5e14df694dd9a80433aa4f` | 313 bytes — header only | 2026-09-14 |
+
+The first is the real build conversation ("Please review the background document
+that I uploaded. I want to build an initial site for this company."). It was
+started while the site was still called `unnamed`; naming it moved the address to
+`lagrangefoundry`, and the later move of site addressing from name-slugs to
+opaque `site_<hash>` ids moved it again. The builder reads the third.
+
+**It is not one site.** Every site built before the id migration has the same
+shape — `1stcontact` (`chat-5c9fd79b`, 3,666 bytes) and `xgd` (`chat-d53aa031`)
+are orphaned the same way, and `gigabytealchemy` lost a `site-gigabytealchemy`
+session too.
+
+**Two distinct defects, and they want separate fixes.**
+
+1. *The migration miss.* When site addressing changed, the chat tickets keyed on
+   the old address were not re-keyed. This is data repair: set `fields.session_id`
+   on the surviving chat ticket to the new address, rewrite `id` and `backend` in
+   its `xgd-session` header, and remove the empty ticket that would otherwise
+   collide on the find-by-session_id lookup.
+2. *The design that made it silent.* Keying a conversation on a mutable address
+   means any future rename or re-addressing orphans it again, with no error and
+   no trace in the UI. The durable identity is the SITE, and the chat ticket
+   already knows it. Either the session id is derived from something immutable,
+   or the site row carries its chat ticket uid and the lookup goes through that
+   — `TicketSessionArchive` already supports addressing a session by ticket
+   (`_chatUids`), so the second is close to free.
+
+Defect 2 is the one worth fixing properly; defect 1 is a one-off repair the
+operator can approve per site.
 
 ## Children
 
