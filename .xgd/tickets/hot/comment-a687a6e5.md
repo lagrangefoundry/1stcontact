@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:07:50.181102+00:00'
+updated_at: '2026-09-18T02:09:34.942331+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -736,5 +736,26 @@ Also folded in: synthetic attachment blobs now take DOC-54 §2.5's **reserved ke
 ok lets talk about what we have. I am looking at Lagrange Foundry, Settings tab and I just clicked "Send email from this domain" and got this message: ✗ Sending from your own domain is not available on this deployment, so the toggle would change nothing. Your website is unaffected.
 
 What does that mean?
+
+<!-- xgd-turn id="33cd6494-addd-40cd-88d7-00e5f2de8e21-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:09:33.170645+00:00" -->
+#### Claude
+That message is REQ-264's runtime half working exactly as designed — it's the replacement for the raw Resend error you hit while scoping that ticket (`✗ Resend refused GET /domains (401). This API key is restricted to only send emails`).
+
+**What it literally means:** this deployment has no Resend credential that can *manage domains*, so turning the toggle on would fail. Rather than let you press it and get a provider error, the surface refuses up front and tells you the one thing you'd care about — your site is untouched.
+
+There are exactly two ways to get there, and they're indistinguishable in the message by deliberate design (`domains.ts:359` — "one sentence, in our words, for every way of getting there"):
+
+1. **No key at all** — `resendFor()` returns `null` when `RESEND_API_KEY` is empty (`resend.ts:311`).
+2. **A key Resend refuses for domain management** — `canManageDomains()` does a real `GET /domains` on every read of the domain state and returns false on 401/403 (`domains.ts:318`). That's the sending-access-key case.
+
+**Which one you're seeing depends on where you're looking.** If that's your local `bin/1c` dev server, it's cause 1 and it's certain: `apps/control-app/.dev.vars` has no `RESEND_API_KEY` line at all, and wrangler.toml deliberately doesn't carry it (`# THE CREDENTIAL IS NOT HERE. RESEND_API_KEY is a wrangler secret`). Locally that toggle can never be available unless you add the key to `.dev.vars`. If it's the deployed control app, it's cause 2 — the pushed secret is still a **Sending access** key, and you need a **Full access** one.
+
+**One thing the message rules out, which is useful:** it is never a transient. `canManageDomains()` returns `true` when Resend is merely unreachable — explicitly, so a slow provider doesn't take a working capability away from a customer. So seeing this means the credential really is absent or really is scoped wrong; it doesn't mean Resend was having a moment.
+
+**How to tell for certain on the deployed side:** `bin/deploy` now probes this and writes a capability row for `RESEND_API_KEY` — `works, but only for SENDING` is the exact line for cause 2. The report is per-run, so it's the next deploy's output rather than something I can read now. `npx wrangler secret list` from `apps/control-app` will tell you whether the secret is present, though not its scope.
+
+Nothing here is a defect and nothing needs changing — REQ-264 is `free_coded` and this is its intended behaviour. The only open question is which cause applies to the surface you're looking at.
 
 <!-- xgd-chat-end -->
