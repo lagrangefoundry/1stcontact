@@ -56,6 +56,8 @@ import {
   type ReadTicket,
 } from './ai'
 import { readBundleProvenance } from './bundle'
+// REQ-277 — the iteration's headline pair, ordered in one place.
+import { measurementView } from './unmeasured'
 import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
 import { parseJsonOutput, spawnCommand, type CommandRunner } from './run'
@@ -267,7 +269,10 @@ export class ReproConsole {
       message: this.message,
       failed: this.failed,
       url: this.url,
-      iterations: this.iterations.map((it) => this.view(it)),
+      // REQ-277 — each iteration is viewed WITH the one above it, because its
+      // headline is a movement: "unmeasured 7" alone says nothing about whether
+      // this loop is winning, and the direction is the whole finding.
+      iterations: this.iterations.map((it, i) => this.view(it, this.iterations[i - 1])),
       stored: this.stored.map(({ name, url }) => ({ name, url })),
       held: this.heldView(),
       ...(this.notice() ? { notice: this.notice() as string } : {}),
@@ -386,9 +391,39 @@ export class ReproConsole {
   }
 
   /** One iteration as the page shows it, including the round beneath it. */
-  private view(it: Iteration): IterationView {
+  private view(it: Iteration, previous?: Iteration): IterationView {
     const ai = this.aiView(it)
     return {
+      /**
+       * THE TWO NUMBERS, HEADLINE FIRST ([[REQ-277]]).
+       *
+       * The seam is read from the same two facts the reference line is rendered
+       * from ([[REQ-272]] part 2): an iteration that re-captured, or one whose
+       * bundle carries a different `capturedAt` from the iteration above it —
+       * the second catches a reference re-rolled outside the console, which
+       * moves the oracle just as completely and leaves no flag behind.
+       */
+      ...(it.gate
+        ? {
+            measurement: measurementView({
+              n: it.n,
+              unmeasured: it.gate.unmeasured,
+              deltas: it.gate.valueDeltas ?? null,
+              ...(previous?.gate
+                ? {
+                    previous: {
+                      n: previous.n,
+                      unmeasured: previous.gate.unmeasured,
+                      deltas: previous.gate.valueDeltas ?? null,
+                    },
+                  }
+                : {}),
+              ...(previous && (it.recaptured === true || it.bundleCapturedAt !== previous.bundleCapturedAt)
+                ? { seam: true }
+                : {}),
+            }),
+          }
+        : {}),
       n: it.n,
       originalUrl: it.originalUrl,
       reproHref: it.reproHref,

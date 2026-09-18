@@ -1,4 +1,4 @@
-# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261 / REQ-272, [[EPIC-12]] §8)
+# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261 / REQ-272 / REQ-277, [[EPIC-12]] §8)
 
 A localhost-only dev console that runs one reproduction round end to end —
 capture a site, reproduce its home page, diff the two — and puts the three
@@ -99,6 +99,24 @@ same site re-captured** — when the brief changes, or after `RESUME_MAX_ROUNDS`
 rounds — the scope and the reasoning are in
 `src/session.ts`. A resumed round is told, in as many words, that what it
 remembers is a pointer and never evidence.
+
+**The unmeasured set is the headline, not the delta count** ([[REQ-277]]). Every
+iteration leads with *how much this run did not measure* — compared axes only one
+side of the projection can read ([[REQ-274]]), bands with no counterpart
+([[BUG-111]]), elements that paired with nothing ([[BUG-106]]), probes that
+declared they could not run — as one number with its breakdown under it. The
+delta count stays, directly beneath, and the page says which way each moved since
+the iteration above. It does that because the delta count **rises when the
+instrument sharpens**: [[BUG-107]] added `role` comparison and took one
+reproduction from 1 delta to 14 with nothing about the page having changed, and a
+console that made that read as a 14× regression would be teaching the loop to
+avoid adding axes. A report that does not carry one of the four parts reads as
+`unmeasured ≥ N` with the missing parts named — silence is never counted as zero.
+Across a **re-capture** the delta count is marked *not comparable* on that axis
+specifically: the oracle moved, so it is a different measurement wearing the same
+name, while the unmeasured set falling is exactly what the re-capture was for.
+The same number and the same definition lead the digest and the round's prompt,
+and the brief (§3) tells the round to drive it.
 
 **The console counts what it can.** Beside the evidence it writes
 `ai/evidence-digest.md` (`src/digest.ts`): asset attribution, the key census of
