@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:01:28.442619+00:00'
+updated_at: '2026-09-18T23:09:00.112744+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -611,5 +611,11 @@ The good news: **the reattach half is already built.** `tailSession` is a cursor
 Related: **say that a turn was interrupted.** A turn ending without `turn_end` is knowable, and the transcript should show it rather than leaving a gap the client reads as the assistant ignoring them.
 
 All of this is Finding 4 in EPIC-19. Want me to file it — and if so, as one ticket for the durable turn, or split the cheap intermediate out so it can land this week?
+
+<!-- xgd-turn id="ec3a8ec4-0208-4a49-bd34-b76b1c272267-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:08:59.706057+00:00" -->
+#### You
+So the honest framing: **the turn is terminated, not completed. <-- terminated would be one thing, my prompt and the partial response I saw were lost too - much more serious. **
 
 <!-- xgd-chat-end -->
