@@ -6,9 +6,9 @@ title: 'capture/values-diff: the reference bundle predates the extractor measuri
   against it, and the reproduction''s own section paint is read from the wrong box'
 created_by: repro-console:repro-gigabytealchemy-ai#2
 created_at: '2026-09-18T00:55:41.446590+00:00'
-updated_at: '2026-09-18T02:37:51.301372+00:00'
+updated_at: '2026-09-18T02:37:56.126580+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.254
+  story_points: 5
 ---
 
 Loop 1, iteration **2** of `repro-gigabytealchemy-ai` against the stored bundle
