@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T20:36:03.554104+00:00'
+updated_at: '2026-09-18T20:38:40.959708+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -219,5 +219,40 @@ Keys should always be fixed independent and usually SHAs. Can you create a ticke
 Or am I misreading it looks like this was maybe fixed - your last chat sessiona appears to point to a proper key, yes? In which case I need the data fix `chat-d73a11e1`  transcript pointed at `chat-50932534`
 
 This also needs fixing for any other sites in this state
+
+<!-- xgd-turn id="1bbcc938-b581-43f1-9399-7a4c7bfc4485-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T20:38:39.503261+00:00" -->
+#### Claude
+You're reading it right — and the evidence is clear. Let me confirm the scope precisely before I write the ticket.
+
+**BUG-116** — *Chat sessions orphaned by the site-address migration*, filed and linked from EPIC-19.
+
+You're reading it right: **(1) and (2) are already done.** One refinement to your principle, though, because the codebase went further than it:
+
+> 128 BITS FROM A CSPRNG, NOT A DIGEST. A hash *of the row's data* is data-as-key wearing a disguise: `sha256(email)` still changes when the address changes and still says two addresses are two people.
+
+That's `tools/generate/src/store/ids.ts` (REQ-190). So not usually SHAs — a SHA *of the data* is still data-as-key. Every `sites.id` is `site_<32hex>`, every `tenants.id` is `biz_<32hex>` bar one legacy UAT fixture, and all four `sessionIdFor` call sites receive a site id. What you're seeing is pure residue: the migration re-addressed sites but didn't re-key the chat tickets left behind.
+
+## The repair isn't uniform — three cases
+
+**(a) Orphan has content, current is empty — mechanical.**
+
+| site | keep | orphan address | retire |
+|---|---|---|---|
+| Lagrange Foundry | `chat-d73a11e1` — 26,815 / 224,813 / 3,404 | `site-unnamed` | `chat-50932534`, `chat-b98f4eec` |
+| 1st Contact | `chat-5c9fd79b` — **106,129 / 589,882 / 3,666** | `site-1stcontact` | `chat-15df6ccb` |
+
+I'd re-key the orphan rather than move its transcript onto `chat-50932534` as you suggested — the orphan ticket carries its title, the AI-maintained summary body, the tool transcript and its `created_at`, and moving only the transcript loses all of that. Same visible outcome, less thrown away.
+
+**(b) Both have content — needs your decision.** XGD has a live session at the correct address (`chat-9d2dcca0`, 22,635 / 323,855) *and* an orphan at `site-xgd` (`chat-d53aa031`, 10,041 / 153,901). The orphan is earlier history, not a duplicate. No rule merges those; the ticket says leave it in place and make it reachable rather than silently re-key or delete.
+
+**(c) Nothing to recover.** Gigabyte Alchemy's pair are both empty; Felix Test has only an empty `site-unnamed`. Retire and move on.
+
+Two things worth knowing beyond the repair. `backend_ref` has to be **cleared** when re-homing — the header names a backend segment that no longer exists, and a stale one fails on the next turn rather than on first read, which would look like the restore didn't work. And the data shows the hazard you're guarding against: three tenants each hold a `site-unnamed` session, and `site-xgd` exists in *two* tenants — the real one plus an empty stray in the 1st Contact tenant. Tenant-scoping meant they never actually collided, but that's what a mutable human-meaningful key produces.
+
+Everything above is your **local dev** store. Prod isn't surveyed — I can't reach it from here — so the ticket scopes the fix as a survey-then-apply the operator runs, dry-run by default.
+
+Ready to cut the branch and start on it whenever you want. Given free-coding, I'd take (a) first: it's two sites, fully mechanical, and it gets your Lagrange Foundry conversation back in front of you.
 
 <!-- xgd-chat-end -->
