@@ -6,13 +6,13 @@ title: 'repro console: the unmeasured set is the headline number; the delta coun
   is not progress'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:33.905493+00:00'
-updated_at: '2026-09-18T23:57:33.305251+00:00'
+updated_at: '2026-09-18T23:57:39.322238+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
-  story_points: 5
+  story_points: 4
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
