@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:02:43.779759+00:00'
+updated_at: '2026-09-18T03:03:08.953184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -939,5 +939,23 @@ Neither of these is a blocker; both are decisions ticket 2 should record rather 
 <!-- xgd-chat role="user" ts="2026-09-18T03:02:43.624737+00:00" -->
 #### You
 **So: a new table, and your shape is the right one.** `(business_id, domain, local_part, destination)`, N rows, one per destination — your 1-address-to-6-destinations is six rows, exactly as you said, just not in that table. Plus a catch-all row or flag. That's ticket 2's migration, and it's small. <-- I actually don't care, maybe our data model should match cloudflares...what I am describing is the UX and my statement is that it is possible to do this with that datamodel
+
+<!-- xgd-turn id="048954be-e5f4-4dbd-a4a2-650bd10091bf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T03:03:08.640639+00:00" -->
+#### Claude
+Agreed — you're right, and I was answering a question you didn't ask.
+
+The UX you described is fully expressible in a flat rows model: one row per (address, destination) pair, the "1 address → 6 destinations" grouping being a presentation concern over six rows, plus a catch-all. That's Cloudflare's own shape — an Email Routing rule *is* address → destination — and mirroring it is a good default, with the bonus that our rows stay 1:1 with theirs for destination-verification state.
+
+The only fact worth keeping from what I said: `sending_domains` specifically can't host those rows (unique index on `domain`, no local-part column). Which table they live in is a detail for implementation, not a design question.
+
+So the UX is settled and has been. What's actually open for ticket 2:
+
+1. **Does `message.forward()` permit multiple calls per message?** Load-bearing for 1→N, and worth confirming against current Cloudflare docs before the ticket asserts it.
+2. **Recipient-domain resolution stops depending on the sending toggle** — otherwise inbound is rejected outright until someone enables Resend.
+3. **Catch-all default** — epic says off steady-state, on through cutover.
+
+Want me to scope ticket 2 now, carrying the UX as you've described it and those three as decisions to record?
 
 <!-- xgd-chat-end -->
