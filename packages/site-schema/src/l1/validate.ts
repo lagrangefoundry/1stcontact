@@ -703,6 +703,18 @@ function walk(
       message: `link href '${link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
     })
   }
+  // REQ-269 — a heading's level is the outline depth, and HTML has exactly six.
+  // Bounded here rather than in the shape, on the same terms as the href allowlist
+  // above: the shape says what the field is, the envelope says what a document may
+  // contain. An out-of-range level has no element to emit, so it is refused rather
+  // than clamped to a depth the author did not ask for.
+  const heading = (node as { heading?: { level: number } }).heading
+  if (heading !== undefined && !(Number.isInteger(heading.level) && inRange(heading.level, 1, 6))) {
+    errors.push({
+      path: `${path}/heading/level`,
+      message: `heading level ${heading.level} is out of range — an outline depth is a whole number 1…6`,
+    })
+  }
   if (node.kind === 'image' && !isSafeUrl(node.src)) {
     errors.push({
       path: `${path}/src`,

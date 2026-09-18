@@ -39,7 +39,9 @@ import {
   type L1LinearGradient,
   type L1Image,
   type L1ImageAxes,
+  type L1Heading,
   type L1Keyframe,
+  type L1Link,
   type L1Node,
   type L1ObjectPosition,
   type L1Padding,
@@ -583,6 +585,37 @@ function foldPadding(el: ValueElement): L1Padding | undefined {
   return Object.keys(pad).length ? pad : undefined
 }
 
+/**
+ * REQ-269 — a captured element's navigation target → the L1 `link` role (REQ-106).
+ *
+ * The axis has existed since REQ-106 and the renderer has been its sole `<a>` sink
+ * ever since, but the capture threw the `href` away after using it to decide an
+ * a11y role — so the fold had nothing to write and every reproduced link folded to
+ * dead text. The capture now projects the target for a reproduction to consume
+ * (site-internal when same-origin, absolute otherwise); this checks it against the
+ * same allowlist the validator applies, so an unfoldable target degrades to the
+ * un-linked leaf rather than producing a document `validateL1` then rejects.
+ */
+function foldLink(el: ValueElement): L1Link | undefined {
+  const href = el.href?.trim()
+  if (!href || !isSafeUrl(href)) return undefined
+  return { href }
+}
+
+/**
+ * REQ-269 — a captured run's outline depth → the L1 `heading` role.
+ *
+ * Bounded here as well as in the validator, for the same reason `foldLink` checks
+ * the URL allowlist: a fold that emitted an out-of-range level would produce a
+ * document `validateL1` then refuses, which turns a capture quirk into a failed
+ * reproduction of the whole page.
+ */
+function foldHeading(el: ValueElement): L1Heading | undefined {
+  const level = el.headingLevel
+  if (level == null || !Number.isInteger(level) || level < 1 || level > 6) return undefined
+  return { level }
+}
+
 /** Map a captured element's authored axes onto the typed L1 text-axis subset. */
 /**
  * REQ-211 — the baseline lift a captured run declares, in `em` of its own size.
@@ -647,7 +680,11 @@ function textAxes(el: ValueElement): L1TextAxes {
   if (el.fontFamily) axes.fontFamily = el.fontFamily
   if (Number.isFinite(el.fontSizePx)) axes.fontSizePx = clamp(Math.round(el.fontSizePx), FONT_SIZE.min, FONT_SIZE.max)
   if (Number.isFinite(el.fontWeight)) axes.fontWeight = clamp(Math.round(el.fontWeight), FONT_WEIGHT.min, FONT_WEIGHT.max)
-  if (el.lineHeightPx !== undefined && el.lineHeightPx !== null) axes.lineHeightPx = Math.round(el.lineHeightPx)
+  // REQ-269 — two decimals, exactly as letterSpacingPx on the next line. The axis
+  // is `finite`, not an integer, and rounding here would discard the fraction the
+  // capture now records (see `RESPONSIVE_TEXT_AXES.lineHeightPx`, which must agree).
+  if (el.lineHeightPx !== undefined && el.lineHeightPx !== null)
+    axes.lineHeightPx = Math.round(el.lineHeightPx * 100) / 100
   if (el.letterSpacingPx !== undefined) axes.letterSpacingPx = Math.round(el.letterSpacingPx * 100) / 100
   if (el.textAlign) axes.textAlign = el.textAlign
   const tt = el.textTransform
@@ -680,7 +717,7 @@ function textAxes(el: ValueElement): L1TextAxes {
  */
 const RESPONSIVE_TEXT_AXES = {
   fontSizePx: (v: number) => clamp(Math.round(v), FONT_SIZE.min, FONT_SIZE.max),
-  lineHeightPx: (v: number) => Math.round(v),
+  lineHeightPx: (v: number) => Math.round(v * 100) / 100,
   letterSpacingPx: (v: number) => Math.round(v * 100) / 100,
 } as const
 
@@ -1974,6 +2011,15 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const responsive = responsiveTextTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (responsive) node.responsive = responsive
       if (vis) node.visibility = vis
+      // REQ-269 — the navigation role the capture now carries. The renderer retags
+      // this very node as the `<a>`, so the run keeps every paint axis it folded.
+      const link = foldLink(widest)
+      if (link) node.link = link
+      // REQ-269 — and the heading role, from the outline depth beside it. A linked
+      // heading stays an `<a>`: the renderer's retag precedence is the reference's
+      // own, since the capture reads the a11y role off the element bearing the href.
+      const heading = foldHeading(widest)
+      if (heading) node.heading = heading
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
       // REQ-88 — a side that varies across the ladder gets its own track, so the
@@ -2102,6 +2148,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       }
       if (Object.keys(axes).length) node.axes = axes
       if (vis) node.visibility = vis
+      // REQ-269 — a linked image is a link like any other; the renderer WRAPS this
+      // one (a void element cannot be an anchor) rather than retagging it.
+      const imageLink = foldLink(widest)
+      if (imageLink) node.link = imageLink
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
       // REQ-88 — a side that varies across the ladder gets its own track, so the
@@ -2388,6 +2438,18 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const placeholder = widestEl.placeholderColor ? colorToHex(widestEl.placeholderColor) : null
       if (placeholder) axes.placeholderColor = placeholder
       if (Object.keys(axes).length) control.axes = axes
+      // REQ-269 — the control's content inset, folded exactly as it is onto a text
+      // leaf (AC-1626): same `foldPadding`, same per-side responsive tracks. The
+      // renderer's zero-look reset pushes `padding: 0` into every control's base
+      // rule BEFORE the axes, so an unauthored control has no inset at all and its
+      // placeholder paints against the field's edge; this is the axis that wins.
+      // A pre-REQ-269 bundle carries no padding sides, so nothing is emitted and
+      // that document renders exactly as it did.
+      const framedPad = row.samples.map((s2) => ({ width: s2.at, element: s2.element }))
+      const pad = foldPadding(widestEl)
+      if (pad) control.padding = pad
+      const padTracks = responsivePaddingTracks(framedPad)
+      if (padTracks) control.responsivePadding = padTracks
       return control
     })
     if (submit) {

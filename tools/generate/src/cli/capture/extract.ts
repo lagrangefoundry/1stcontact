@@ -59,6 +59,25 @@ export interface RawGeometry {
   /** ARIA role — the browser's framework-agnostic semantic label for this element. */
   a11yRole: string
   /**
+   * REQ-269 — the navigation target of the nearest enclosing anchor, else null.
+   *
+   * The extractor read `href` only to decide whether an `<a>` counted as a link
+   * and then discarded it, so `href` occurred ZERO times in a capture bundle and
+   * the fold had nothing to write onto L1's `link` axis (REQ-106) — no
+   * reproduction of any site could carry a working link, and a reference's
+   * navigation reproduced as dead text. Projected for a reproduction to consume:
+   * site-internal when same-origin, absolute when cross-origin, null for any
+   * scheme the L1 URL allowlist refuses.
+   */
+  href: string | null
+  /**
+   * REQ-269 — the outline depth (1…6) of the nearest enclosing heading, else null.
+   * `a11yRole` reports the single word `heading` for all six tags, and `aria-level`
+   * occurred nowhere in a capture bundle, so the level had to be recorded beside
+   * the role for L1's heading role to have anything to carry.
+   */
+  headingLevel: number | null
+  /**
    * How this element sits relative to the *previous* rendered element in its
    * section, derived purely from geometry: `row` (beside / right-of), `stack`
    * (below), or null (first element / indeterminate). Captures "button is
@@ -232,6 +251,23 @@ export interface RawField extends RawGeometry {
    * for a control with no placeholder, and for every non-control element.
    */
   placeholderColor?: string | null
+  /**
+   * REQ-269 — the element's own per-side padding, exactly as {@link RawRun}
+   * records it for a text run.
+   *
+   * A text-free element was captured with no padding at all, which for a form
+   * control is the whole inset its content sits in: the renderer's UA reset
+   * pushes `padding: 0` into every control's base rule (the zero-look baseline)
+   * and there was no axis to win against it, so every reproduced placeholder
+   * painted hard against its field's left edge. Measured on gigabytealchemy.ai
+   * as 16px horizontal / 12px vertical lost on four controls — 75% of that
+   * reproduction's ranked pixel residual, and invisible to `values-diff`, which
+   * compares no padding on a control so the two sides agreed by construction.
+   */
+  paddingTopPx?: number
+  paddingRightPx?: number
+  paddingBottomPx?: number
+  paddingLeftPx?: number
 }
 
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
@@ -1117,6 +1153,52 @@ export const EXTRACT_SCRIPT = `(() => {
     if (trans) return 'transition';
     return null;
   }
+  // REQ-269 -- the navigation TARGET of the nearest enclosing anchor. a11yRoleOf
+  // below reads the same attribute to decide whether an <a> is a link and then
+  // throws the value away, which is why no reproduction of any site could carry a
+  // working link: the L1 link axis has existed since REQ-106 and the fold has
+  // never had an href to write onto it.
+  //
+  // Projected the way a reproduction has to consume it, not verbatim:
+  //   - same-origin -> a SITE-INTERNAL reference (path+query+hash, or the bare
+  //     fragment when it points within this same page). A reproduction that
+  //     emitted the absolute URL would send its own visitors back to the site it
+  //     was captured from, which is the opposite of reproducing the link.
+  //   - cross-origin -> the absolute URL, which is what the reference means.
+  //   - anything but http/https -> null. mailto:/tel:/javascript: are all
+  //     refused by the L1 URL allowlist (isSafeUrl), so recording one would fold a
+  //     document the validator then rejects.
+  function hrefOf(el) {
+    var a = el.closest ? el.closest('a[href]') : null;
+    if (!a) return null;
+    var raw = a.getAttribute('href');
+    if (raw == null || raw.trim() === '') return null;
+    raw = raw.trim();
+    var u;
+    try { u = new URL(raw, location.href); } catch (e) { return null; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    if (u.origin !== location.origin) return u.href;
+    // A fragment on THIS page stays a bare fragment -- '#' included, which means
+    // the top of the document and would become a navigation if expanded.
+    if (u.pathname === location.pathname && u.search === location.search && raw.charAt(0) === '#') return raw;
+    return u.pathname + u.search + u.hash;
+  }
+  // REQ-269 -- the OUTLINE DEPTH of the nearest enclosing heading, else null.
+  //
+  // a11yRoleOf flattens h1..h6 to the single word 'heading' (the browser's own
+  // role vocabulary does), and aria-level appears nowhere in a capture bundle --
+  // so even once L1 grew a heading role there was no level to write onto it.
+  // Read from aria-level where the author states one (which is how a role=
+  // "heading" div declares its depth) and from the tag otherwise; ARIA's own
+  // default for an undeclared role="heading" is 2.
+  function headingLevelOf(el) {
+    var h = el.closest ? el.closest('h1,h2,h3,h4,h5,h6,[role="heading"]') : null;
+    if (!h) return null;
+    var declared = parseInt(h.getAttribute('aria-level'), 10);
+    if (declared >= 1 && declared <= 6) return declared;
+    var m = /^h([1-6])$/.exec(h.tagName.toLowerCase());
+    return m ? parseInt(m[1], 10) : 2;
+  }
   // The a11y role: an explicit role attr wins, else the implicit role for the tag
   // (the browser's own framework-agnostic semantic label — a <button>, an <a
   // href>, and a role="button" div all project to the same fact).
@@ -1230,8 +1312,8 @@ export const EXTRACT_SCRIPT = `(() => {
       var el = desc[i];
       if (!visible(el)) continue;
       // BUG-24 — resolve the scrim through rgbaOf (the REQ-52 canvas probe), not a
-      // raw rgba() regex. A Tailwind v4 veil (\`bg-slate-950/30\`) computes to
-      // \`color-mix(in oklab, …)\` / \`oklab(… / .3)\`, which the regex could not read,
+      // raw rgba() regex. A Tailwind v4 veil (\bg-slate-950/30\) computes to
+      // \color-mix(in oklab, …)\ / \oklab(… / .3)\, which the regex could not read,
       // so EVERY modern-syntax scrim was silently dropped and the hero rendered
       // unveiled. rgbaOf resolves any browser-understood colour and preserves alpha.
       var c = rgbaOf(getComputedStyle(el).backgroundColor);
@@ -1267,6 +1349,148 @@ export const EXTRACT_SCRIPT = `(() => {
     if (!any) return null;
     var ratio = ((top + bot) / 2 - bbox.y) / bbox.height;
     return Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100;
+  }
+
+  // REQ-269 -- the geometric twins of overlayOf / anchorRatioOf, and the slice
+  // derivation they serve.
+  //
+  // Both functions above answer their question by walking DOM DESCENDANTS of a
+  // band root. That proxy only holds when the band really is an ancestor of what
+  // it paints behind, which is true of a conventional page and false of an L1
+  // reproduction: render.ts emits ONE element into <body>, and every band, scrim
+  // and run inside it is an absolutely-positioned SIBLING. So the extractor's
+  // <body>-children scan found a single body-spanning band covering the whole
+  // page, and values-diff reported -- in its own words -- that the reference's
+  // sections had no bands to compare against and that overlay, contentAnchor and
+  // textAlign were UNMEASURED. Not on this reproduction: on EVERY reproduction of
+  // every site, which is a standing blind spot rather than one site's residual.
+  //
+  // The truthful definition is geometric, which is the same move BUG-22 made for
+  // surfaces: a band is a full-bleed painted slice of the page, and what belongs
+  // to it is what sits inside it. That answer is identical on a conventionally
+  // nested page (an ancestor contains its descendants), so nothing here changes
+  // what a reference capture reports -- the whole path is reached only when the
+  // top-level scan has already degenerated to one body-spanning band.
+
+  // The full-bleed painted slices of the document, in document order, with the
+  // vertical gaps between them filled so no painted content falls outside every
+  // slice. Returns [] when fewer than two slices can be found, which is the
+  // honest answer for a page that really is one band.
+  function bandSlices() {
+    var bgs = backdropBoxes();
+    var cand = [];
+    for (var i = 0; i < bgs.length; i++) {
+      var b = absBox(bgs[i].el);
+      if (b.height < BACKDROP_MIN_HEIGHT) continue;
+      if (!(b.x <= BACKDROP_EDGE_TOL && b.x + b.width >= docW - BACKDROP_EDGE_TOL)) continue;
+      cand.push({ el: bgs[i].el, box: b });
+    }
+    // Outermost wins: a backdrop whose vertical range sits inside one already kept
+    // is a layer OF that band (a hero photograph over its fill), not a band of its
+    // own -- emitting both would report the same slice twice.
+    cand.sort(function (a, b) {
+      if (a.box.y !== b.box.y) return a.box.y - b.box.y;
+      return b.box.height - a.box.height;
+    });
+    var kept = [];
+    for (var j = 0; j < cand.length; j++) {
+      var inside = false;
+      for (var k = 0; k < kept.length; k++) {
+        var pbox = kept[k].box;
+        if (cand[j].box.y >= pbox.y - 1 && cand[j].box.y + cand[j].box.height <= pbox.y + pbox.height + 1) {
+          inside = true;
+          break;
+        }
+      }
+      if (!inside) kept.push(cand[j]);
+    }
+    if (kept.length < 2) return [];
+    var out = [];
+    var cursor = 0;
+    for (var m = 0; m < kept.length; m++) {
+      var bx = kept[m].box;
+      var start = Math.max(bx.y, cursor);
+      var end = bx.y + bx.height;
+      if (end - start < BACKDROP_MIN_HEIGHT) continue;
+      // A stretch of page that paints no backdrop of its own is still a section --
+      // it is the body background showing through. Without it the content standing
+      // on that stretch would have to be assigned to a band it is not inside.
+      if (start - cursor >= BACKDROP_MIN_HEIGHT) {
+        out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: start - cursor } });
+      }
+      out.push({ el: kept[m].el, box: { x: 0, y: start, width: docW, height: end - start } });
+      cursor = end;
+    }
+    if (docH - cursor >= BACKDROP_MIN_HEIGHT) {
+      out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: docH - cursor } });
+    }
+    return out;
+  }
+
+  /** Does this box's centre fall inside that vertical slice? */
+  function centreInSlice(box, slice) {
+    if (!box) return false;
+    var cy = box.y + box.height / 2;
+    return cy >= slice.y && cy < slice.y + slice.height;
+  }
+
+  // overlayOf's geometric twin: the scrim is the translucent fill that blankets
+  // this slice, wherever it sits in the tree. Same 60% coverage rule, measured on
+  // the INTERSECTION with the slice rather than on the veil's whole area, because
+  // a sibling scrim is not bounded by the band the way a descendant is.
+  function overlayInBox(box) {
+    var area = box.width * box.height;
+    if (area <= 0) return null;
+    var surf = paintedSurfaces();
+    var best = null;
+    for (var i = 0; i < surf.length; i++) {
+      var c = rgbaOf(getComputedStyle(surf[i].el).backgroundColor);
+      if (!c) continue;
+      var a = c[3];
+      if (!(a > 0 && a < 1)) continue;
+      var r = surf[i].box;
+      var ix0 = Math.max(r.x, box.x), ix1 = Math.min(r.x + r.width, box.x + box.width);
+      var iy0 = Math.max(r.y, box.y), iy1 = Math.min(r.y + r.height, box.y + box.height);
+      if (ix1 <= ix0 || iy1 <= iy0) continue;
+      var cover = ((ix1 - ix0) * (iy1 - iy0)) / area;
+      if (cover < 0.6) continue;
+      if (!best || cover > best.cover) {
+        best = { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(a * 100) / 100, cover: cover };
+      }
+    }
+    return best ? { color: best.color, opacity: best.opacity } : null;
+  }
+
+  // anchorRatioOf's geometric twin: where the slice's own content sits inside it,
+  // measured from the runs already collected rather than from a descendant walk.
+  function anchorRatioInBox(box, runs) {
+    if (box.height <= 0) return null;
+    var top = Infinity, bot = -Infinity, any = false;
+    for (var i = 0; i < runs.length; i++) {
+      var r = runs[i].box;
+      if (!centreInSlice(r, box)) continue;
+      if (r.y < top) top = r.y;
+      if (r.y + r.height > bot) bot = r.y + r.height;
+      any = true;
+    }
+    if (!any) return null;
+    var ratio = ((top + bot) / 2 - box.y) / box.height;
+    return Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100;
+  }
+
+  // Which slice owns this box. Containment first; failing that the nearest slice
+  // by centre distance, so a run can never be dropped for sitting in no slice at
+  // all -- losing content would be a far worse failure than filing it one band off.
+  function sliceIndexFor(box, slices) {
+    for (var i = 0; i < slices.length; i++) if (centreInSlice(box, slices[i].box)) return i;
+    if (!box) return 0;
+    var cy = box.y + box.height / 2, bestI = 0, bestD = Infinity;
+    for (var j = 0; j < slices.length; j++) {
+      var sb = slices[j].box;
+      var d = Math.abs(cy - (sb.y + sb.height / 2));
+      if (d < bestD) { bestD = d; bestI = j; }
+    }
+    return bestI;
   }
 
   // REQ-211 -- a document-wide sequence for inline-flow ids. See flowIds.
@@ -1365,7 +1589,7 @@ export const EXTRACT_SCRIPT = `(() => {
       var glyphs = ownRun ? renderedTextBox(el) : textNodeBox(n);
       // REQ-265 -- a run's box is the LINE BOX it occupies. For a block element
       // the border box already is that; for an inline one the rect is the content
-      // area, so \`lineBoxOf\` converts it (and returns null for every other case,
+      // area, so \lineBoxOf\ converts it (and returns null for every other case,
       // leaving the rect exactly as it was).
       var runBox = ownRun ? (lineBoxOf(el, s) || absBox(el)) : (glyphs || absBox(el));
       // A text-fill gradient is a background-image gradient clipped to the text
@@ -1415,7 +1639,12 @@ export const EXTRACT_SCRIPT = `(() => {
         textTransform: paintedOrNull(s.textTransform),
         fontVariant: paintedOrNull(s.fontVariantCaps || s.fontVariant),
         listMarker: listMarkerOf(s),
-        lineHeightPx: isNaN(lh) ? null : Math.round(lh),
+        // REQ-269 -- two decimals, exactly as letterSpacingPx on the next line.
+        // A whole-pixel line-height is a per-line error: leading-relaxed at 18px
+        // is 29.25px, and rounding it to 29 walks every wrapped paragraph 0.25px
+        // per line off the reference. No gate can see it -- both sides of a diff
+        // run this same script, so the error is symmetric and reads as agreement.
+        lineHeightPx: isNaN(lh) ? null : Math.round(lh * 100) / 100,
         letterSpacingPx: (s.letterSpacing === 'normal') ? 0 : (Math.round(parseFloat(s.letterSpacing) * 100) / 100 || 0),
         gradientCss: gradientCss,
         borderLeftWidthPx: blW,
@@ -1454,6 +1683,11 @@ export const EXTRACT_SCRIPT = `(() => {
         borderStyle: runBorder.style,
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
+        // REQ-269 -- the navigation target (see hrefOf), next to the role the same
+        // attribute decides. Null when nothing encloses this element in a link.
+        href: hrefOf(el),
+        // REQ-269 -- the outline depth a11yRole's single word 'heading' flattens away.
+        headingLevel: headingLevelOf(el),
         arrangement: null,
         zIndex: zIndexOf(s),
         filter: paintedOrNull(s.filter),
@@ -1532,6 +1766,11 @@ export const EXTRACT_SCRIPT = `(() => {
         borderStyle: fieldBorder.style,
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
+        // REQ-269 -- the navigation target (see hrefOf), next to the role the same
+        // attribute decides. Null when nothing encloses this element in a link.
+        href: hrefOf(el),
+        // REQ-269 -- the outline depth a11yRole's single word 'heading' flattens away.
+        headingLevel: headingLevelOf(el),
         arrangement: null,
         zIndex: zIndexOf(s),
         filter: paintedOrNull(s.filter),
@@ -1574,6 +1813,14 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-265 -- the one painted value a control carries that no other axis
         // can hold (see placeholderColorOf). Null for anything without one.
         placeholderColor: placeholderColorOf(el),
+        // REQ-269 -- the per-side padding, read exactly as the text-run path 90
+        // lines above reads it. A control's padding IS its content inset; without
+        // it the renderer's zero-look reset governs and the placeholder paints
+        // against the field's edge.
+        paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
+        paddingRightPx: Math.round(parseFloat(s.paddingRight)) || 0,
+        paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
+        paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
       });
     }
     return out;
@@ -1661,6 +1908,54 @@ export const EXTRACT_SCRIPT = `(() => {
   if (bandRoots.length === 0) {
     bandRoots = [{ el: document.body, box: { x: 0, y: 0, width: docW, height: docH } }];
   }
+  // REQ-269 -- when the top-level scan degenerates to ONE band covering the whole
+  // page, segment geometrically instead (see bandSlices). This is the shape every
+  // L1 reproduction has, so until it landed no section-level value could be
+  // compared on any reproduction at all. A page whose top-level scan already found
+  // real bands never reaches this, and neither does one that genuinely is a single
+  // band -- bandSlices returns [] rather than inventing a second one.
+  var geometricBands =
+    bandRoots.length === 1 &&
+    bandRoots[0].box.height >= docH - 2 &&
+    bandRoots[0].box.width >= docW - 2
+      ? bandSlices()
+      : [];
+
+  if (geometricBands.length > 1) {
+    // Collected ONCE from the flat root and partitioned by geometry, rather than
+    // per band: every run is a sibling of every other, so a per-band DOM walk
+    // would collect the whole page into each slice.
+    var flatRoot = bandRoots[0].el;
+    var flatGrp = itemGroup(flatRoot);
+    var flatContent = runsUnder(flatRoot, flatGrp.roots);
+    var flatFields = fieldsUnder(flatRoot, flatGrp.roots);
+    assignArrangement(flatContent.concat(flatFields));
+    var perSlice = geometricBands.map(function () { return { content: [], fields: [], items: [] }; });
+    flatContent.forEach(function (r) { perSlice[sliceIndexFor(r.box, geometricBands)].content.push(r); });
+    flatFields.forEach(function (f) { perSlice[sliceIndexFor(f.box, geometricBands)].fields.push(f); });
+    flatGrp.roots.forEach(function (rootEl, ri) {
+      perSlice[sliceIndexFor(absBox(rootEl), geometricBands)].items.push(flatGrp.items[ri]);
+    });
+    geometricBands.forEach(function (br, bi) {
+      var s = getComputedStyle(br.el);
+      var bg = rgbToHex(s.backgroundColor) || bodyBg;
+      bands.push({
+        box: br.box,
+        backgroundColor: bg,
+        backgroundImage: s.backgroundImage || 'none',
+        colorScheme: luminance(bg) < 0.5 ? 'dark' : 'light',
+        fontFamily: familyStack(s.fontFamily),
+        textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',
+        paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
+        paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
+        overlay: overlayInBox(br.box),
+        contentAnchorRatio: anchorRatioInBox(br.box, perSlice[bi].content),
+        content: perSlice[bi].content,
+        items: perSlice[bi].items,
+        fields: perSlice[bi].fields,
+      });
+    });
+  } else {
   bandRoots.forEach(function (br) {
     var band = br.el;
     var s = getComputedStyle(band);
@@ -1689,6 +1984,7 @@ export const EXTRACT_SCRIPT = `(() => {
       fields: fields,
     });
   });
+  }
 
   // ── type scale & spacing ───────────────────────────────────────────────────
   var sizes = {};

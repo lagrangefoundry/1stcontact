@@ -164,6 +164,23 @@ export interface ValueElement {
   surface?: SurfaceShape | null
   /** ARIA role — the browser's framework-agnostic semantic label. */
   a11yRole?: string
+  /**
+   * REQ-269 — the navigation target of the nearest enclosing anchor, else absent.
+   * Behavioural rather than painted — it moves no pixel — so it is carried for the
+   * fold's `link` derivation (REQ-106) and, like `controlType`/`formAction`, is
+   * deliberately not diffed as a value axis. Its CONSEQUENCE is compared: an `<a>`
+   * the reproduction emits reads back as `a11yRole: link`.
+   */
+  href?: string | null
+  /**
+   * REQ-269 — the outline depth of the nearest enclosing heading, else absent.
+   * Carried for the same reason and on the same terms as {@link href}: `a11yRole`
+   * flattens all six heading tags to one word, so this is the half of the heading
+   * role nothing else on this element holds, and the fold needs it to author L1's
+   * `heading`. Its consequence is what the diff sees — a reproduction that emits
+   * an `<h2>` reads back as `a11yRole: heading` where it used to read `generic`.
+   */
+  headingLevel?: number | null
   /** Rendered arrangement relative to the previous element in the section. */
   arrangement?: Arrangement | null
   /** REQ-48 (item 2) — effective paint order (computed `z-index`, `auto` → 0). */
@@ -790,16 +807,28 @@ function copyGeometry(
     transformScale?: number
     motion?: 'animation' | 'transition' | 'both' | null
     // REQ-64 — Type-A padding sides + text-align (present on runs; absent on
-    // text-free fields and pre-REQ-64 bundles, so each is guarded below).
+    // pre-REQ-64 bundles, so each is guarded below).
+    // REQ-269 — and on a text-free FIELD too, where the inset is the content box
+    // a control's placeholder and typed text sit in.
     paddingTopPx?: number
     paddingRightPx?: number
     paddingBottomPx?: number
+    paddingLeftPx?: number
     textAlign?: 'left' | 'center' | 'right' | 'justify'
+    /** REQ-269 — the navigation target of the nearest enclosing anchor. */
+    href?: string | null
+    /** REQ-269 — the outline depth of the nearest enclosing heading. */
+    headingLevel?: number | null
   },
 ): void {
   if (src.paddingTopPx !== undefined) el.paddingTopPx = src.paddingTopPx
   if (src.paddingRightPx !== undefined) el.paddingRightPx = src.paddingRightPx
   if (src.paddingBottomPx !== undefined) el.paddingBottomPx = src.paddingBottomPx
+  if (src.paddingLeftPx !== undefined) el.paddingLeftPx = src.paddingLeftPx
+  // REQ-269 — carried through the one shared copier, so a run, a raw run and a
+  // text-free field all reach the fold with it from a single definition site.
+  if (src.href != null) el.href = src.href
+  if (src.headingLevel != null) el.headingLevel = src.headingLevel
   if (src.textAlign !== undefined) el.textAlign = src.textAlign
   if (src.box !== undefined) el.box = src.box
   if (src.renderedTextBox != null) el.renderedTextBox = src.renderedTextBox
@@ -2254,6 +2283,33 @@ export function diffManifests(
   // REQ-47 — geometry / shape / arrangement, shared by text runs and fields.
   // Every comparison is guarded on the field being present on *both* sides, so
   // a synthetic manifest (or a pre-REQ-47 bundle) that carries none is inert.
+  // REQ-64 — the four padding sides on the same integer-px tolerance. Only
+  // paddingLeft was compared at first, so a card's internal top/right/bottom pad
+  // (a box that reads narrower/taller) was invisible.
+  //
+  // REQ-269 — and it is shared with the TEXT-FREE pass rather than living inside
+  // the text one, because a form control's padding is the inset its placeholder
+  // and typed text sit in. Until the capture recorded it neither side carried it,
+  // so the two agreed by construction and `deltas: 0` was reported over four
+  // controls holding 75% of the reproduction's ranked pixel residual. Each side is
+  // compared only when BOTH sides recorded one, so a pre-REQ-269 reference stays
+  // inert rather than reporting every reproduction's control padding as wrong.
+  const comparePadding = (exp: ValueElement, act: ValueElement): void => {
+    const side = (
+      prop: 'paddingTopPx' | 'paddingRightPx' | 'paddingBottomPx' | 'paddingLeftPx',
+      e?: number,
+      a?: number,
+    ): void => {
+      if (e !== undefined && a !== undefined && Math.abs(e - a) > paddingTol) {
+        push(exp, prop, `${e}`, `${a}`, Math.abs(e - a))
+      }
+    }
+    side('paddingTopPx', exp.paddingTopPx, act.paddingTopPx)
+    side('paddingRightPx', exp.paddingRightPx, act.paddingRightPx)
+    side('paddingBottomPx', exp.paddingBottomPx, act.paddingBottomPx)
+    side('paddingLeftPx', exp.paddingLeftPx, act.paddingLeftPx)
+  }
+
   const compareGeometry = (exp: ValueElement, act: ValueElement): void => {
     if (exp.box && act.box) {
       const dpos = Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y))
@@ -2541,6 +2597,7 @@ export function diffManifests(
     if (expBg !== actBg) {
       push(exp, 'backgroundImage', expBg ?? '(none)', actBg ?? '(none)')
     }
+    comparePadding(exp, act)
     compareGeometry(exp, act)
     if (exp.box && act.box) gapPairs.push({ exp, act })
     cards.push(buildObjectCard(exp, act, objectDeltas(start)))
@@ -2668,26 +2725,7 @@ export function diffManifests(
         push(exp, 'letterSpacingPx', `${exp.letterSpacingPx}`, `${act.letterSpacingPx}`)
       }
     }
-    if (exp.paddingLeftPx !== undefined && act.paddingLeftPx !== undefined) {
-      if (Math.abs(exp.paddingLeftPx - act.paddingLeftPx) > paddingTol) {
-        push(exp, 'paddingLeftPx', `${exp.paddingLeftPx}`, `${act.paddingLeftPx}`)
-      }
-    }
-    // REQ-64 — the other three padding sides (Type-A). Only paddingLeft was
-    // compared, so a card's internal top/right/bottom pad (a box that reads
-    // narrower/taller) was invisible. Same integer-px tolerance as paddingLeft.
-    const comparePadSide = (
-      prop: 'paddingTopPx' | 'paddingRightPx' | 'paddingBottomPx',
-      e?: number,
-      a?: number,
-    ): void => {
-      if (e !== undefined && a !== undefined && Math.abs(e - a) > paddingTol) {
-        push(exp, prop, `${e}`, `${a}`, Math.abs(e - a))
-      }
-    }
-    comparePadSide('paddingTopPx', exp.paddingTopPx, act.paddingTopPx)
-    comparePadSide('paddingRightPx', exp.paddingRightPx, act.paddingRightPx)
-    comparePadSide('paddingBottomPx', exp.paddingBottomPx, act.paddingBottomPx)
+    comparePadding(exp, act)
     // REQ-64 — text-align (Type-A). A centred-vs-left run was only visible
     // indirectly as a position/box shift; compare the authored value directly.
     if (exp.textAlign !== undefined && act.textAlign !== undefined && exp.textAlign !== act.textAlign) {

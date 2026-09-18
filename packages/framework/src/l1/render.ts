@@ -58,6 +58,7 @@ import type {
   L1Document,
   L1Filter,
   L1FocusRing,
+  L1Heading,
   L1FocusState,
   L1Geometry,
   L1Gradient,
@@ -2910,8 +2911,21 @@ function emitNode(
     : ' role="dialog" aria-modal="true" tabindex="-1"' +
       (nodeDialog?.ariaLabel ? ` aria-label="${escapeHtml(nodeDialog.ariaLabel)}"` : '')
 
-  /** The element name to emit — the anchor when linked, the button when it acts, else the node's own. */
-  const tag = (own: string): string => (href ? 'a' : acts ? 'button' : own)
+  // REQ-269 — the heading role. The renderer is the sole `<h1>`…`<h6>` sink, on
+  // exactly the terms it is the sole `<a>` sink: the node's OWN element becomes the
+  // heading, so its class and every paint axis stay where the author put them.
+  //
+  // It sits BELOW the link and the button in `tag` below, not above: a linked
+  // heading is an `<a>` — which is the precedence the reference itself has, since
+  // the capture reads the a11y role off the element that carries the href.
+  const nodeHeading: L1Heading | undefined = (node as { heading?: L1Heading }).heading
+  const headingTag =
+    nodeHeading && Number.isInteger(nodeHeading.level) && nodeHeading.level >= 1 && nodeHeading.level <= 6
+      ? `h${nodeHeading.level}`
+      : undefined
+
+  /** The element name to emit — the anchor when linked, the button when it acts, the heading when it is one, else the node's own. */
+  const tag = (own: string): string => (href ? 'a' : acts ? 'button' : (headingTag ?? own))
   const base: string[] = []
 
   if (node.geometry) {
@@ -3013,6 +3027,11 @@ function emitNode(
       // REQ-106 — a retagged run needs the block behaviour `<p>` had, and must not
       // inherit UA link chrome. Unshifted so any authored colour/decoration wins.
       if (href) base.unshift('display: block', 'text-decoration: none', 'color: inherit')
+      // REQ-269 — and a heading must not inherit the UA's own type scale. `<h1>`
+      // arrives at `2em bold`, which would paint a run whose document authored no
+      // size axis at a size the reference never specified. Unshifted for the same
+      // reason as the link chrome above: any authored axis is pushed later and wins.
+      if (headingTag) base.unshift('font-size: inherit', 'font-weight: inherit')
       const words = textRunsHtml(node.text, name, state)
       html = `<${tag('p')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}${actionAttrs}>${words}</${tag('p')}>`
       break
