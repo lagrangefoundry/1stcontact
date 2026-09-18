@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-17T22:13:20.673210+00:00'
+updated_at: '2026-09-18T02:07:50.181102+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -728,5 +728,13 @@ Also folded in: synthetic attachment blobs now take DOC-54 §2.5's **reserved ke
 3. **`apps/control-app/.dev.vars~`** — still untracked and still not matched by `.gitignore`'s `.dev.vars` / `.dev.vars.*`. EPIC-17 F8. Want me to widen the pattern and delete the backup, or is that file yours?
 
 **Nothing to install or migrate yet** — no code exists. When REQ-267's session writes `0013` it'll hand you the `wrangler d1 migrations apply` line; `@lagrangefoundry/logging` needs no install at all.
+
+<!-- xgd-turn id="33cd6494-addd-40cd-88d7-00e5f2de8e21-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T02:07:50.108554+00:00" -->
+#### You
+ok lets talk about what we have. I am looking at Lagrange Foundry, Settings tab and I just clicked "Send email from this domain" and got this message: ✗ Sending from your own domain is not available on this deployment, so the toggle would change nothing. Your website is unaffected.
+
+What does that mean?
 
 <!-- xgd-chat-end -->
