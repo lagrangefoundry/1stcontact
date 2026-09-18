@@ -6,10 +6,10 @@ title: 'Assistant DNS tools: reads, a closed set of guarded mutations, the chang
   card, and undo'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:59.036137+00:00'
-updated_at: '2026-09-17T23:55:41.077360+00:00'
+updated_at: '2026-09-18T00:07:16.668588+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 8
@@ -20,8 +20,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-79754521
+  commits:
+  - working_sha: ebed8798158890038eab2d9b41f389a2ea74872d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 07de4ed60803296442a0f066054f18ae127984c1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.245
 ---
-
 
 ## What this is
 
