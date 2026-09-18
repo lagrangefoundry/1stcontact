@@ -6,18 +6,24 @@ title: 'capture/fold/values-diff: a band background is fabricated when transpare
   compared by nothing, and wrong on the hero'
 created_by: repro-console:repro-gigabytealchemy-ai#3
 created_at: '2026-09-18T02:07:55.647301+00:00'
-updated_at: '2026-09-18T03:07:31.436023+00:00'
+updated_at: '2026-09-18T03:25:30.362235+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-307fc4a8
+  commits:
+  - working_sha: a1b45167c9be9ec8969266ee4bfc3514352d364b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 21553f57c7535821b6ecca356a8af257f616d458
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.256
 ---
-
-
 
 Loop 1, iteration **3** of `repro-gigabytealchemy-ai` against the stored bundle
 `storage/references/gigabytealchemy.ai/index`.
