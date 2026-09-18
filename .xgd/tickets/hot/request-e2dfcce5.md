@@ -6,10 +6,10 @@ title: 'capture/values-diff: the reference bundle predates the extractor measuri
   against it, and the reproduction''s own section paint is read from the wrong box'
 created_by: repro-console:repro-gigabytealchemy-ai#2
 created_at: '2026-09-18T00:55:41.446590+00:00'
-updated_at: '2026-09-18T00:55:41.446590+00:00'
+updated_at: '2026-09-18T02:15:01.334752+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   auto_merge_back: true
