@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T19:10:32.501168+00:00'
+updated_at: '2026-09-18T19:31:34.114374+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,11 @@ A child ticket, not this one. Shape:
 - compose `DelegationToolbox` over a `DelegationRuntime({ manager, workers: { [workerRole]: { backend, build, surfaces } }, caller })`, merge `delegationInstanceConfig([workerRole])` into the consultant's grant, and give the worker `ReportDelegatedWork`.
 
 Want me to file that as a child ticket now, or start with the cheaper describer fix and come back to delegation once you've been building for a while and can say which work actually wants handing off?
+
+<!-- xgd-turn id="2faf49cb-49e2-4f42-8c94-77be0f8d6eaa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T19:31:33.901547+00:00" -->
+#### You
+So the framework is in place, we just need to adopt it?
 
 <!-- xgd-chat-end -->
