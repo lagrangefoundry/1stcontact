@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:24:31.756612+00:00'
+updated_at: '2026-09-18T03:27:27.443367+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1083,5 +1083,36 @@ It flagged `.co.uk` as *"likely your most common customer TLD"* <-- that's SO no
 It flagged `.co.uk` as *"likely your most common customer TLD"* <-- that's SO not ttrue and keeps coming up - could you find where is says that and fix it - it is a POSSIBLE domain to worry about unlikely to be the most common
 
 Yes please fix EPIC 5 - I know this is a change but I was deliberately NOT designing the UX at EPIC 5 so - this is now the design - anything EPIC 5 has is it filling in the gaps I was trying to deliberately leave
+
+<!-- xgd-turn id="81353a58-53b4-4bda-8c23-0c8ba21a2445-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T03:27:26.999401+00:00" -->
+#### Claude
+Found it. The claim is at `comment-e8891c59.md:940` (COMMENT-3001 on EPIC-5) — and you already corrected it in that same thread at line 974, with me conceding at 986 that I'd inferred it from "UK small business" and shouldn't have asserted it. So the correction exists; it just sits 46 lines below the claim, and a fresh session reading the comment picks up the assertion and not the retraction. That's why it keeps coming back. The durable fix is to put the right statement in EPIC-5's body, which is what a session should be reading anyway.
+
+Writing both amendments now.
+
+Both landed.
+
+**EPIC-5 — §"Design session, 2026-09-17: the cutover UX, and the ordering that changes"** (line 665). It opens by saying plainly that the nameserver experience was left undesigned on purpose, that this is that design, and that where it contradicts what the epic already records, **this supersedes it**. Then:
+
+- **The ordering replaced.** Read → check → capture → *then* claim, write and show the pair. The argument is made in the epic's own terms: creating a `pending` zone is an action at a third party, and it's the action that produces the squat the epic already concedes needs an operator release path. Claiming only for people who finished configuring makes a squat cost a whole configuration sitting.
+- **The check moves to the front**, as REQ-238's `check`/`claim` split in a third place — which the epic already reads as evidence the shape is right when it appeared twice.
+- **RDAP promoted out of chat into the body**, with what it returns and why DNS can't supply any of it.
+- **DNSSEC**, with the part that changes the flow: turn it off, wait for the DS to leave the parent, *then* move the nameservers. Two sittings, known at step 1 rather than after the paste.
+
+**The `.co.uk` fix is in there as its own paragraph**, worded so it can't be re-derived:
+
+> **`.co.uk` is a TLD this flow must handle. It is not, and was never established to be, the most common one our customers hold.** COMMENT-3001 asserted it was *"likely your most common customer TLD"*; the operator corrected it in the same thread and the claim was withdrawn as an inference from *"UK small business"* rather than from any survey. It is recorded here because the withdrawal sat below the assertion and the assertion kept being read on its own.
+
+I left the chat transcript alone — it's a record of what was said, and it already contains your correction. The body is what a session should be reading, and now it carries the right statement.
+
+I also verified `.co.uk` has RDAP while I was at it (Nominet, 200, with registrar, nameservers and `secureDNS`), so the coverage question that comment left open is closed in the body: `.com`/`.ai`/`.site`/`.dev`/`.co.uk` work, `.io` and `.me` 404.
+
+**EPIC-13 — §"Design session, 2026-09-17: the cutover UX, and what capture actually is"** (line 778): the mail half. What the capture conversation may claim and what it may not (we can see mail is handled by GoDaddy; we cannot see whether that's forwarding), per-provider lookup guidance named as a capability so it doesn't get built as static text, capture durability, destination verification as a third-party round trip that must gate the paste, the two notification rails as a table, and completion triggered by observed delegation rather than a timer.
+
+Neither touched the frontmatter — both went in via `--append-body-file`, so the existing bodies are intact.
+
+The open item from before still stands: ticket 2 isn't cut. The design for it is now in both bodies rather than in this conversation.
 
 <!-- xgd-chat-end -->
