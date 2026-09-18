@@ -61,6 +61,12 @@ import type { ReferenceBundle } from '../store/reference-store'
 // of the severity taxonomy that could drift from it.
 import { assetBasename, TIER_RANK } from './capture/values-diff'
 import { staleCaptureDetail } from './capture/schema'
+// REQ-274 — an axis the diff COMPARES but only one side of the projection can
+// supply. Reported here for the same reason BUG-111's unpaired bands are: it is
+// a fact about what the run did NOT measure, and a pass that does not name it is
+// a pass claiming to have measured it.
+import type { UnmeasuredAxis } from './capture/value-axes'
+import { unmeasuredAxisLabel } from './capture/value-axes'
 import type {
   MultiStateCapture,
   SeverityTier,
@@ -315,6 +321,21 @@ export interface ReconcileInput {
      */
     unpairedSections: readonly unknown[]
     unpairedActualSections: readonly unknown[]
+    /**
+     * REQ-274 — the compared axes only one side of the projection could supply,
+     * which this run actually ran into. Named rather than counted, because
+     * "one axis was unmeasured" is not actionable and "the reference records no
+     * text-run padding" is.
+     *
+     * OPTIONAL, where BUG-111's counts above are required, and the difference is
+     * the point: those were a per-run measurement the type made impossible to
+     * carry, so asking for them is how a call site cannot forget. This is a
+     * property of the projection TABLE that every real {@link ValuesDiffReport}
+     * carries automatically — a hand-built input omitting it is saying "not
+     * asked about", which is a different fact from "asked, and there were none",
+     * and is the same optionality `sectionsNotComparable` has.
+     */
+    unmeasuredAxes?: readonly UnmeasuredAxis[]
     /** BUG-102 — why section-level values could not be compared at all, when they could not. */
     sectionsNotComparable?: string
   }
@@ -361,6 +382,13 @@ export interface GateReport {
      */
     unpairedSections: number
     unpairedActualSections: number
+    /**
+     * REQ-274 — the compared axes this run could not evaluate because only one
+     * side of the projection can read them. Read next to `deltas`: that number
+     * counts what the gate DID compare, and a zero beside a non-empty list here
+     * means the silence covers less of the page than it looks like it does.
+     */
+    unmeasuredAxes: UnmeasuredAxis[]
     sectionsNotComparable?: string
   }
   coverage: ReferenceCoverage
@@ -571,6 +599,10 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   const unpairedSections = input.values.unpairedSections.length
   const unpairedActualSections = input.values.unpairedActualSections.length
   const notComparable = input.values.sectionsNotComparable
+  // REQ-274 — the compared axes only one side of the projection can supply, and
+  // that this run actually ran into. A count is useless here (one axis is not a
+  // severity) so the rows travel whole and the pass rung names them.
+  const unmeasuredAxes = [...(input.values.unmeasuredAxes ?? [])]
   const coverage = input.coverage
   const collisions = layoutCollisions(input.l1Gate.onSample)
 
@@ -665,6 +697,22 @@ export function reconcileGates(input: ReconcileInput): GateReport {
           `(overlay, contentAnchor, textAlign) are UNMEASURED rather than clean`,
       )
     }
+    // REQ-274 — the fifth way the pass rung could be silent about what it did not
+    // measure, and the only one that is a property of the INSTRUMENT rather than
+    // of the page. An axis the diff compares but only one side of the projection
+    // can read produces no delta and no count: the comparator's both-sides guard
+    // skips it, which is correct, and then nothing said it had been skipped. That
+    // is how REQ-64's four Type-A text-run axes read clean on every reproduction
+    // of every site from the day they were added to the comparator. Named, not
+    // counted — "1 axis unmeasured" tells an operator nothing they can act on,
+    // and "the reference records no text-run padding" tells them where to look.
+    if (unmeasuredAxes.length > 0) {
+      outstanding.push(
+        `${unmeasuredAxes.length} compared axis/axes could only be read on ONE side of the projection, so they were ` +
+          `not evaluated on this run — ${unmeasuredAxes.map(unmeasuredAxisLabel).join('; ')} ` +
+          `(\`values.unmeasuredAxes\`)`,
+      )
+    }
     if (notComparable) {
       outstanding.push(
         'section-level values were NOT compared at all on this run, so the delta count above says nothing ' +
@@ -756,6 +804,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       worstTier,
       unpairedSections,
       unpairedActualSections,
+      unmeasuredAxes,
       ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
     },
     coverage,

@@ -16,6 +16,13 @@
  *      section for treatments a text run can't hold (a hero scrim, where the
  *      content sits vertically). Text is captured verbatim (DOC-13 §5), so the
  *      run text is the natural join key; sections join by ordinal index.
+ *
+ *      REQ-274 — neither of them reads either input any more. Every axis they
+ *      carry is a row in `value-axes.ts`, declared once with BOTH sides stated,
+ *      so an axis is projected on both sides or on neither and a side that
+ *      cannot supply one says so where the axis is defined. The two independent
+ *      ~90-line bodies these used to be were the mechanism by which an axis
+ *      could be recorded on one side only with nothing able to notice.
  *   2. {@link diffManifests} — align expected↔actual by case-folded text and
  *      diff each field, including the *verbatim* text (casing is normalized away
  *      in the join key but is itself a captured value, so "Gigabyte Alchemy" vs
@@ -43,8 +50,21 @@ import type {
 } from './types'
 import type { RawRun, RawSignals } from './extract'
 import { captureSchemaOf } from './schema'
-import { subScalesFromSignals } from './theme'
-import { isSafeUrl } from '@1stcontact/site-schema'
+import { colorDistance } from './color-values'
+// REQ-274 — the single declaration site for every value axis, and the only thing
+// that reads either side's input. See `value-axes.ts` for why this module no
+// longer projects anything itself.
+import {
+  observedUnmeasuredAxes,
+  projectCaptureManifestAxes,
+  projectCaptureSection,
+  projectContentRun,
+  projectField,
+  projectRawRun,
+  projectSignalsBand,
+  projectSignalsManifestAxes,
+  type UnmeasuredAxis,
+} from './value-axes'
 
 // ── manifest model ───────────────────────────────────────────────────────────
 
@@ -69,9 +89,20 @@ export interface ValueElement {
    */
   accentBox?: Box | null
   paddingLeftPx?: number
-  /** REQ-64 — the other three padding sides + normalized text-align. Type-A
-   *  (authored) axes that were invisible: a wrong card top/right/bottom pad or a
-   *  centred-vs-left run only showed up indirectly as `size`/`position` drift. */
+  /**
+   * REQ-64 — the other three padding sides + normalized text-align. Type-A
+   * (authored) axes that were invisible: a wrong card top/right/bottom pad or a
+   * centred-vs-left run only showed up indirectly as `size`/`position` drift.
+   *
+   * REQ-274 — on a TEXT RUN these four are UNMEASURED, and the fact is now
+   * reported rather than silent. REQ-64 added them to the live extraction and to
+   * the comparator; `ContentRun` never grew them, so the reference side supplies
+   * nothing, the comparator's both-sides guard skips every run, and four
+   * compared axes have read clean by construction ever since. Declared as a
+   * reference-side gap in `value-axes.ts`, which is what puts them on
+   * {@link ValuesDiffReport.unmeasuredAxes} and on the gate's pass rung. A
+   * text-FREE element records all four on both sides (REQ-269 #1).
+   */
   paddingTopPx?: number
   paddingRightPx?: number
   paddingBottomPx?: number
@@ -607,6 +638,28 @@ export interface ValuesDiffReport {
    */
   unpairedActualSections: UnpairedSection[]
   /**
+   * REQ-274 — the axes this diff COMPARES but only one side of the projection
+   * can supply, so they were not evaluated on this run — or on any run.
+   *
+   * The comparator has always skipped an axis absent on one side; what it could
+   * not do is say so, because nothing distinguished "both sides agree" from "one
+   * side never had a value to disagree with". That silence is how REQ-64's four
+   * Type-A text-run axes (`paddingTopPx`/`paddingRightPx`/`paddingBottomPx`/
+   * `textAlign`) read clean on every reproduction of every site from the day
+   * they were added to the comparator: they were added to the live extraction
+   * and to the diff, never to `ContentRun`, so the reference had nothing to
+   * compare and the both-sides guard skipped every run in silence.
+   *
+   * Never a delta — an axis nobody measured is not a defect found — but never
+   * silence either: BUG-106 / BUG-111's discipline is that an unmeasured axis is
+   * not a clean one, and the gate's pass rung enumerates these for exactly that
+   * reason. Derived from the axis declaration, so a new half-projected axis
+   * appears here the moment its row is written; narrowed to the axes this run
+   * actually ran into, so a page that carries no value on the axis is not told
+   * about a hole it never reached.
+   */
+  unmeasuredAxes: UnmeasuredAxis[]
+  /**
    * BUG-102 — set when section-level values could not be compared AT ALL, with the
    * reason. A report fact, never a delta: a segmentation difference is not by itself
    * a fidelity defect, and a permanent diagnostic row would make `1c values-diff`
@@ -725,137 +778,12 @@ export interface UnpairedObject {
 }
 
 // ── gradient normalization ───────────────────────────────────────────────────
-
-/** `to <side[ side]>` → CSS angle in degrees (direction the gradient points). */
-const SIDE_ANGLES: Record<string, number> = {
-  top: 0,
-  right: 90,
-  bottom: 180,
-  left: 270,
-  'top right': 45,
-  'right top': 45,
-  'bottom right': 135,
-  'right bottom': 135,
-  'bottom left': 225,
-  'left bottom': 225,
-  'top left': 315,
-  'left top': 315,
-}
-
-/** Any `rgb()/rgba()/#hex` colour token → `#rrggbb` (drops alpha). */
-export function colorToHex(token: string): string | null {
-  const t = token.trim()
-  const hex = t.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
-  if (hex) {
-    const h = hex[1]
-    return (h.length === 3 ? `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}` : `#${h}`).toLowerCase()
-  }
-  const rgb = t.match(/rgba?\(([^)]+)\)/)
-  if (rgb) {
-    const p = rgb[1].split(',').map((s) => parseFloat(s.trim()))
-    if (p.length < 3 || p.some((n) => Number.isNaN(n))) return null
-    const h = (n: number) => ('0' + Math.round(n).toString(16)).slice(-2)
-    return `#${h(p[0])}${h(p[1])}${h(p[2])}`
-  }
-  return null
-}
-
-/** `#rrggbb`/`rgb()` → `[r, g, b]` (0–255), or null if unparseable. */
-function toRgb(token: string): [number, number, number] | null {
-  const hex = colorToHex(token)
-  if (!hex) return null
-  return [
-    parseInt(hex.slice(1, 3), 16),
-    parseInt(hex.slice(3, 5), 16),
-    parseInt(hex.slice(5, 7), 16),
-  ]
-}
-
-/** sRGB channel (0–255) → linear-light [0,1] (inverse companding). */
-function srgbToLinear(c: number): number {
-  const n = c / 255
-  return n <= 0.04045 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4)
-}
-
-/**
- * sRGB `[r,g,b]` (0–255) → OKLab `[L, a, b]` (Björn Ottosson's OKLab, the
- * perceptually-uniform space CSS `oklch()` is built on). Euclidean distance in
- * this space is ΔEOK — see {@link colorDistance}.
- */
-function toOklab([r, g, b]: [number, number, number]): [number, number, number] {
-  const lr = srgbToLinear(r)
-  const lg = srgbToLinear(g)
-  const lb = srgbToLinear(b)
-  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
-  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
-  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
-  return [
-    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
-    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
-    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
-  ]
-}
-
-/**
- * Perceptual distance between two colours (REQ-48 item 8b), as ΔEOK — Euclidean
- * distance in **OKLab** (the space `oklch()` builds on), replacing the earlier
- * redmean RGB approximation. OKLab is perceptually uniform, so one threshold
- * holds across the gamut: raw RGB over/under-weights greens and darks, so a
- * single RGB tolerance is simultaneously too loose in one region and too tight
- * in another. Two identical colours score 0; `#000` vs `#fff` is ≈1.0. A tiny
- * threshold (~0.02, the ΔEOK just-noticeable band) suppresses the imperceptible
- * per-channel rounding between a re-render and its capture (`#808080` vs
- * `#818080` ≈ 0.0015) while leaving real near-neighbour deltas — the flagship
- * gold-vs-gold (`#f5e6a3` vs `#fbba72` ≈ 0.105), and the near-black-vs-slate body
- * tone (`#111` vs `#334155` ≈ 0.198) — well above the line. Unparseable input
- * scores `Infinity` so an unknown colour is never silently treated as a match.
- */
-export function colorDistance(a: string, b: string): number {
-  const ca = toRgb(a)
-  const cb = toRgb(b)
-  if (!ca || !cb) return Infinity
-  const [la, aa, ba] = toOklab(ca)
-  const [lb, ab, bb] = toOklab(cb)
-  return Math.hypot(la - lb, aa - ab, ba - bb)
-}
-
-/**
- * Normalize a computed `linear-gradient(...)` string to {@link TextGradient}.
- * Non-linear (radial/conic) or unparseable input yields `{ angleDeg: null }` so
- * a gradient's *presence* is still comparable even when its direction is not.
- */
-export function normalizeGradient(css: string | null | undefined): TextGradient | null {
-  if (!css || !/gradient\(/.test(css)) return null
-
-  const stops: GradientStop[] = []
-  // Each stop is a colour optionally followed by its offset (`… 60%`). The
-  // offset is captured (REQ-59) so position drift is a comparable delta; a stop
-  // with no explicit offset records `position: null`.
-  const stopRe = /(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))(?:\s+(-?\d+(?:\.\d+)?)%)?/g
-  let m: RegExpExecArray | null
-  while ((m = stopRe.exec(css))) {
-    const hex = colorToHex(m[1])
-    if (hex) stops.push({ color: hex, position: m[2] !== undefined ? parseFloat(m[2]) : null })
-  }
-
-  if (!/linear-gradient\(/.test(css)) return { angleDeg: null, stops }
-
-  const inner = css.slice(css.indexOf('linear-gradient(') + 'linear-gradient('.length)
-  const firstArg = inner.split(',')[0].trim()
-  let angleDeg: number | null = 180 // CSS default direction is `to bottom`
-  const deg = firstArg.match(/^(-?\d+(?:\.\d+)?)deg$/)
-  const isColorFirst = /^(#|rgb)/.test(firstArg)
-  if (deg) {
-    angleDeg = ((parseFloat(deg[1]) % 360) + 360) % 360
-  } else if (/^to\s+/.test(firstArg)) {
-    const side = firstArg.replace(/^to\s+/, '').replace(/\s+/g, ' ').trim().toLowerCase()
-    angleDeg = side in SIDE_ANGLES ? SIDE_ANGLES[side] : null
-  } else if (!isColorFirst) {
-    // First arg is neither an angle, a side, nor a colour — unknown direction.
-    angleDeg = null
-  }
-  return { angleDeg, stops }
-}
+//
+// REQ-274 — the normalization itself now lives in `color-values.ts`, so the axis
+// declaration can read a raw `background-image` into the same `TextGradient` the
+// bundle stores without importing this module back. Re-exported here because
+// this is where every caller has always found it.
+export { colorToHex, colorDistance, normalizeGradient } from './color-values'
 
 // ── projection: runs → elements ──────────────────────────────────────────────
 
@@ -864,289 +792,55 @@ const collapse = (text: string): string => text.replace(/\s+/g, ' ').trim()
 /** Case-insensitive join key: the collapsed text lowercased. */
 const norm = (text: string): string => collapse(text).toLowerCase()
 
-/** Copy the REQ-47 geometry / shape / structure fields present on `src` onto `el`. */
-function copyGeometry(
-  el: ValueElement,
-  src: {
-    box?: Box
-    renderedTextBox?: Box | null
-    borderRadiusPx?: number
-    borderWidthPx?: number
-    borderColor?: string | null
-    borderStyle?: string | null
-    boxShadow?: string | null
-    surface?: SurfaceShape | null
-    a11yRole?: string
-    arrangement?: Arrangement | null
-    zIndex?: number
-    filter?: string | null
-    textShadow?: string | null
-    maskEdge?: string | null
-    backdropFilter?: string | null
-    blendMode?: string | null
-    opacity?: number
-    outline?: string | null
-    pseudo?: 'before' | 'after' | 'both' | null
-    transformRotateDeg?: number
-    transformScale?: number
-    motion?: 'animation' | 'transition' | 'both' | null
-    // REQ-64 — Type-A padding sides + text-align (present on runs; absent on
-    // pre-REQ-64 bundles, so each is guarded below).
-    // REQ-269 — and on a text-free FIELD too, where the inset is the content box
-    // a control's placeholder and typed text sit in.
-    paddingTopPx?: number
-    paddingRightPx?: number
-    paddingBottomPx?: number
-    paddingLeftPx?: number
-    textAlign?: 'left' | 'center' | 'right' | 'justify'
-    /** REQ-269 — the navigation target of the nearest enclosing anchor. */
-    href?: string | null
-    /** REQ-269 — the outline depth of the nearest enclosing heading. */
-    headingLevel?: number | null
-  },
-): void {
-  if (src.paddingTopPx !== undefined) el.paddingTopPx = src.paddingTopPx
-  if (src.paddingRightPx !== undefined) el.paddingRightPx = src.paddingRightPx
-  if (src.paddingBottomPx !== undefined) el.paddingBottomPx = src.paddingBottomPx
-  if (src.paddingLeftPx !== undefined) el.paddingLeftPx = src.paddingLeftPx
-  // REQ-269 — carried through the one shared copier, so a run, a raw run and a
-  // text-free field all reach the fold with it from a single definition site.
-  if (src.href != null) el.href = src.href
-  if (src.headingLevel != null) el.headingLevel = src.headingLevel
-  if (src.textAlign !== undefined) el.textAlign = src.textAlign
-  if (src.box !== undefined) el.box = src.box
-  if (src.renderedTextBox != null) el.renderedTextBox = src.renderedTextBox
-  if (src.borderRadiusPx !== undefined) el.borderRadiusPx = src.borderRadiusPx
-  // Uniform box border → BorderTreatment (or null when unpainted). Present only
-  // once the capture records it; pre-blind-spot manifests omit it. REQ-63 folds
-  // the captured line style (dashed/solid) into the treatment so it is comparable.
-  if (src.borderWidthPx !== undefined) {
-    el.border =
-      src.borderWidthPx > 0 && src.borderColor
-        ? { widthPx: src.borderWidthPx, color: src.borderColor, ...(src.borderStyle ? { style: src.borderStyle } : {}) }
-        : null
-  }
-  if (src.boxShadow !== undefined) el.boxShadow = src.boxShadow
-  // BUG-22 — the surface-bearing box behind the run (see {@link ValueElement.surface}).
-  if (src.surface !== undefined) el.surface = src.surface
-  if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
-  if (src.arrangement !== undefined) el.arrangement = src.arrangement
-  if (src.zIndex !== undefined) el.zIndex = src.zIndex
-  if (src.filter !== undefined) el.filter = src.filter
-  if (src.textShadow !== undefined) el.textShadow = src.textShadow
-  if (src.maskEdge !== undefined) el.maskEdge = src.maskEdge
-  // REQ-63 — effects (frosted-glass, blend, opacity, outline, pseudo-content).
-  if (src.backdropFilter !== undefined) el.backdropFilter = src.backdropFilter
-  if (src.blendMode !== undefined) el.blendMode = src.blendMode
-  if (src.opacity !== undefined) el.opacity = src.opacity
-  if (src.outline !== undefined) el.outline = src.outline
-  if (src.pseudo !== undefined) el.pseudo = src.pseudo
-  if (src.transformRotateDeg !== undefined) el.transformRotateDeg = src.transformRotateDeg
-  if (src.transformScale !== undefined) el.transformScale = src.transformScale
-  if (src.motion !== undefined) el.motion = src.motion
-}
-
 /**
- * REQ-63 — copy the typography treatment axes + list marker present on a run
- * (shared by the bundle and raw projections; both carry identical field names).
- * Each is set only when the capture recorded a painted value, so a pre-REQ-63
- * bundle (fields absent) stays inert and never fabricates a delta.
+ * REQ-274 — the projections below read NOTHING directly off either input. Every
+ * axis they carry is a row in `value-axes.ts`, and each row names both sides, so
+ * an axis is present on both projections or on neither. The two ~90-line
+ * hand-written bodies that used to live here (`flattenCapture` / `flattenSignals`,
+ * plus `copyGeometry` / `copyTypography` beside them) are gone: they were the
+ * mechanism by which an axis could be recorded on one side and not the other with
+ * nothing in the type system able to notice.
+ *
+ * What is left here is the SHAPE of a manifest — which elements it holds, in what
+ * order, under what source — which is genuinely per-side and is not an axis.
  */
-function copyTypography(
-  el: ValueElement,
-  run: {
-    fontStyle?: string | null
-    textDecoration?: string | null
-    textTransform?: string | null
-    fontVariant?: string | null
-    listMarker?: string | null
-  },
-): void {
-  if (run.fontStyle !== undefined) el.fontStyle = run.fontStyle
-  if (run.textDecoration !== undefined) el.textDecoration = run.textDecoration
-  if (run.textTransform !== undefined) el.textTransform = run.textTransform
-  if (run.fontVariant !== undefined) el.fontVariant = run.fontVariant
-  if (run.listMarker !== undefined) el.listMarker = run.listMarker
-}
 
 /** Project a {@link ContentRun} (from a capture bundle) to a {@link ValueElement}. */
 export function contentRunToElement(run: ContentRun): ValueElement {
-  const el: ValueElement = {
-    text: run.text,
-    role: run.role,
-    color: run.color,
-    fontFamily: run.fontFamily,
-    fontSizePx: run.fontSizePx,
-    fontWeight: run.fontWeight,
-  }
-  if (run.lineHeightPx !== undefined) el.lineHeightPx = run.lineHeightPx
-  if (run.letterSpacingPx !== undefined) el.letterSpacingPx = run.letterSpacingPx
-  if (run.gradient !== undefined) el.gradient = run.gradient
-  if (run.borderLeft !== undefined) el.borderLeft = run.borderLeft
-  if (run.accentBox !== undefined) el.accentBox = run.accentBox
-  if (run.paddingLeftPx !== undefined) el.paddingLeftPx = run.paddingLeftPx
-  if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
-  if (run.surfaceGradient !== undefined) el.surfaceGradient = run.surfaceGradient
-  if (run.colorInferred) el.colorInferred = true
-  if (run.fontLoaded === false) el.fontLoaded = false
-  // REQ-211 — the inline flow, carried onto the element so `inlineFlows` can
-  // group them. Both projections carry it, because the fold reads the raw path
-  // and the responsive table reads the persisted one, and a flow visible on only
-  // one of them is a fold that rejoins what the oracle still counts separately.
-  if (run.inlineGroup !== undefined) el.inlineGroup = run.inlineGroup
-  if (run.inlineIndex !== undefined) el.inlineIndex = run.inlineIndex
-  if (run.inlineBox) el.inlineBox = run.inlineBox
-  if (run.textFlow !== undefined) el.textFlow = run.textFlow
-  if (run.verticalAlign !== undefined) el.verticalAlign = run.verticalAlign
-  copyTypography(el, run)
-  copyGeometry(el, run)
-  return el
+  return projectContentRun(run)
 }
 
 /**
  * Project a text-free {@link Field} to a {@link ValueElement} (REQ-47). Its
  * accessible name doubles as the display text; `textless` routes it to the
  * role+order pairing path. Accepts the raw extracted field too (structurally
- * identical), so both sides of the diff project through one function.
+ * identical), so both sides of the diff project through one function — the one
+ * place in the table where that is literally true.
  */
 export function fieldToElement(field: Field): ValueElement {
-  const el: ValueElement = {
-    text: field.accessibleName || `(${field.a11yRole})`,
-    role: field.a11yRole,
-    color: '',
-    fontFamily: '',
-    fontSizePx: 0,
-    fontWeight: 0,
-    textless: true,
-    a11yRole: field.a11yRole,
-    accessibleName: field.accessibleName,
-    nameSource: field.nameSource,
-  }
-  copyGeometry(el, field)
-  el.a11yRole = field.a11yRole
-  if (field.objectFit !== undefined) el.objectFit = field.objectFit
-  if (field.objectPosition !== undefined) el.objectPosition = field.objectPosition
-  if (field.intrinsicAspect !== undefined) el.intrinsicAspect = field.intrinsicAspect
-  // REQ-92 — carry the media substance so the fold can emit a real `image` leaf.
-  if (field.src != null) el.src = field.src
-  if (field.alt != null) el.alt = field.alt
-  // BUG-27 — carry the painted background image so the fold can emit a `box` leaf,
-  // and the fill beneath it so the backdrop composites the way the reference does.
-  if (field.backgroundImageUrl != null) el.backgroundImageUrl = field.backgroundImageUrl
-  if (field.surfaceFill != null) el.surfaceFill = field.surfaceFill
-  // REQ-93 — carry the behavioural substance so the fold can bind a real behavior
-  // module (input type + submission endpoint), rather than stranding the control.
-  if (field.controlType != null) el.controlType = field.controlType
-  if (field.formAction != null) el.formAction = field.formAction
-  // REQ-265 — the placeholder's rendered ink, so the fold can author it and the
-  // diff can compare it. Absent on pre-REQ-265 bundles, which keeps both inert.
-  if (field.placeholderColor != null) el.placeholderColor = field.placeholderColor
-  return el
+  return projectField(field)
 }
 
 /** Project a raw extracted run (our live reproduction) to a {@link ValueElement}. */
 export function rawRunToElement(run: RawRun): ValueElement {
-  const border: BorderTreatment | null =
-    run.borderLeftWidthPx > 0 && run.borderLeftColor
-      ? { widthPx: run.borderLeftWidthPx, color: run.borderLeftColor }
-      : null
-  const el: ValueElement = {
-    text: run.text,
-    role: run.role,
-    color: run.color,
-    fontFamily: run.fontFamily,
-    fontSizePx: run.fontSizePx,
-    fontWeight: run.fontWeight,
-    letterSpacingPx: run.letterSpacingPx,
-    gradient: normalizeGradient(run.gradientCss),
-    surfaceGradient: normalizeGradient(run.surfaceGradientCss),
-    borderLeft: border,
-    paddingLeftPx: run.paddingLeftPx,
-  }
-  // REQ-88 — the rect of the element that PAINTS the accent, when a wrapper does.
-  // This is the projection that builds the multi-state manifest, so the fold reads
-  // it from here; carrying it only on the ContentRun path left it stranded.
-  if (border && run.accentBox) el.accentBox = run.accentBox
-  if (run.lineHeightPx !== null) el.lineHeightPx = run.lineHeightPx
-  if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
-  if (run.colorInferred) el.colorInferred = true
-  if (run.fontLoaded === false) el.fontLoaded = false
-  // REQ-211 — the inline flow, carried onto the element so `inlineFlows` can
-  // group them. Both projections carry it, because the fold reads the raw path
-  // and the responsive table reads the persisted one, and a flow visible on only
-  // one of them is a fold that rejoins what the oracle still counts separately.
-  if (run.inlineGroup !== undefined) el.inlineGroup = run.inlineGroup
-  if (run.inlineIndex !== undefined) el.inlineIndex = run.inlineIndex
-  if (run.inlineBox) el.inlineBox = run.inlineBox
-  if (run.textFlow !== undefined) el.textFlow = run.textFlow
-  if (run.verticalAlign !== undefined) el.verticalAlign = run.verticalAlign
-  copyTypography(el, run)
-  copyGeometry(el, run)
-  return el
+  return projectRawRun(run)
 }
 
 /**
- * BUG-13 — the first `url(...)` in a computed `background-image`, or undefined
- * when the band paints no image (a solid, a gradient, or `none`). Unsafe schemes
- * (`data:`, `javascript:`, …) are dropped so a section-background box the fold
- * emits from this always passes the L1 URL-scheme allowlist.
+ * Flatten a capture bundle's sections (+ repeated items, + text-free fields) into
+ * a value manifest — the REFERENCE side.
+ *
+ * Its `sections` are the bundle's own, coalesced by style signature at capture
+ * time. The band's `captureSchema` travels with it because an axis added at a
+ * later schema (REQ-271's `surfaceFill`) is UNMEASURED on an older bundle rather
+ * than defaulted, and that decision belongs at the axis, not here.
  */
-function bandBackgroundImageUrl(css: string | null | undefined): string | undefined {
-  if (!css) return undefined
-  const m = css.match(/url\((['"]?)([^'")]+)\1\)/)
-  if (!m) return undefined
-  const url = m[2]
-  return isSafeUrl(url) ? url : undefined
-}
-
-/**
- * BUG-27 — a bundle's page base fill: the background colour of the section that
- * covers the most of the document. A bundle's sections are style-scope bands, so
- * the one spanning the page carries the fill everything else is painted onto.
- */
-function pageBaseOf(sections: readonly Capture['sections'][number][]): string | undefined {
-  let best: string | undefined
-  let bestArea = 0
-  for (const s of sections) {
-    const area = (s.box?.width ?? 0) * (s.box?.height ?? 0)
-    if (area > bestArea && s.background.color) {
-      bestArea = area
-      best = s.background.color
-    }
-  }
-  return best
-}
-
-/** Flatten a capture bundle's sections (+ repeated items, + text-free fields) into a value manifest. */
 export function flattenCapture(capture: Capture): ValueManifest {
+  const schema = captureSchemaOf(capture)
+  const sections: SectionValues[] = capture.sections.map((section, index) =>
+    projectCaptureSection({ section, schema }, index),
+  )
   const elements: ValueElement[] = []
-  const sections: SectionValues[] = capture.sections.map((section, index) => {
-    const sv: SectionValues = {
-      index,
-      overlay: section.background.overlay ?? null,
-      contentAnchorRatio: section.layout.contentAnchorRatio ?? null,
-      // REQ-64 — the single-width bundle records `contentAlign` (not per-side padding),
-      // so text-align is comparable here; section padding stays undefined (ladder only).
-      textAlign: section.layout.contentAlign,
-    }
-    // REQ-88 — the section box is geometry every section has; carry it always so
-    // the fold can bound a band at a real section edge (see `flattenSignals`).
-    sv.box = section.box
-    // BUG-13 — a band background image is mirrored-local (`background.image`) when
-    // the band paints one; carry it so the fold can place it.
-    if (section.background.kind === 'image' && section.background.image && isSafeUrl(section.background.image)) {
-      sv.backgroundImageUrl = section.background.image
-    }
-    // REQ-271 — the band's own base fill, and the schema gate that makes it
-    // readable as a measurement. Before capture schema 3 a band that painted
-    // nothing was recorded as an opaque `#ffffff` (the body's own fabricated
-    // fill), so projecting a pre-3 bundle's colour would assert white for every
-    // transparent band and fire a false delta on this axis's very first run.
-    // An older bundle leaves the axis UNMEASURED instead of asserting a value it
-    // never took; `staleCaptureDetail` already tells the operator to re-capture.
-    if (captureSchemaOf(capture) >= 3) sv.surfaceFill = section.background.color ?? null
-    return sv
-  })
   for (const section of capture.sections) {
     for (const run of section.content) elements.push(contentRunToElement(run))
     for (const item of section.items) {
@@ -1159,69 +853,37 @@ export function flattenCapture(capture: Capture): ValueManifest {
     source: `${capture.host}${capture.path}`,
     elements,
     sections,
-    viewport: capture.viewport,
-    subScales: capture.theme.subScales,
-    // BUG-27 — the page base fill. A bundle records it as the background of the
-    // section that spans the document; the widest section is that one.
-    bodyBackground: pageBaseOf(capture.sections),
+    ...projectCaptureManifestAxes(capture),
   }
 }
 
 /**
- * Flatten a live extraction (our reproduction) into a value manifest. Section
- * values are read from the *raw* bands (uncoalesced), so the two sides' section
- * indices do NOT correspond — the capture's are coalesced by style signature,
- * and an L1 reproduction has a single body-spanning band whatever the reference
- * did. BUG-102: the diff therefore joins sections by band geometry, not by the
- * index this assigns, which is a position in document order and nothing more.
+ * Flatten a live extraction (our reproduction) into a value manifest.
+ *
+ * Section values are read from the *raw* bands (uncoalesced), so the two sides'
+ * section indices do NOT correspond — the capture's are coalesced by style
+ * signature, and an L1 reproduction has a single body-spanning band whatever the
+ * reference did. BUG-102: the diff therefore joins sections by band geometry, not
+ * by the index this assigns, which is a position in document order and nothing
+ * more. REQ-274 changes who reads an axis, never how two bands are paired: that
+ * asymmetry is real and stays.
  */
 export function flattenSignals(signals: RawSignals, source: string): ValueManifest {
+  const sections: SectionValues[] = signals.bands.map((band, index) => projectSignalsBand(band, index))
   const elements: ValueElement[] = []
-  const sections: SectionValues[] = signals.bands.map((band, index) => {
-    const sv: SectionValues = {
-      index,
-      overlay: band.overlay ?? null,
-      contentAnchorRatio: band.contentAnchorRatio ?? null,
-      // REQ-64 — band vertical padding + text-align were captured all along (RawBand)
-      // but never projected/compared; a taller or re-aligned section is now direct.
-      paddingTopPx: band.paddingTopPx,
-      paddingBottomPx: band.paddingBottomPx,
-      textAlign: band.textAlign,
-    }
-    // REQ-88 — the band's own box is section GEOMETRY, not image metadata. It was
-    // only carried when the band painted a background image, so the fold had
-    // boundaries for image sections alone and had to guess every other one from
-    // where the next paragraph started — tiling bands over the section below.
-    // Carry it always; the image URL below stays independently gated.
-    sv.box = band.box
-    // BUG-13 — a band's CSS `background-image` (the page's hero/section imagery,
-    // never an `<img>`) → foldable section-background box. The raw absolute URL is
-    // carried through exactly like a media `src` (REQ-92); downstream asset
-    // mirroring localizes it. Unsafe schemes are dropped by `bandBackgroundImageUrl`.
-    const bgUrl = bandBackgroundImageUrl(band.backgroundImage)
-    if (bgUrl) sv.backgroundImageUrl = bgUrl
-    // REQ-271 — the band's own base fill, `null` when it paints none. The live
-    // extractor has measured this all along (`RawBand.backgroundColor`); it was
-    // simply never projected, so nothing downstream could compare it.
-    sv.surfaceFill = band.backgroundColor ?? null
-    return sv
-  })
   for (const band of signals.bands) {
     for (const run of band.content) elements.push(rawRunToElement(run))
     for (const item of band.items) {
       for (const run of item) elements.push(rawRunToElement(run))
     }
     // REQ-47 — text-free elements (form controls, dividers).
-    for (const field of band.fields ?? []) elements.push(fieldToElement(field))
+    for (const field of band.fields ?? []) elements.push(projectField(field, 'reproduction'))
   }
   return {
     source,
     elements,
     sections,
-    viewport: signals.viewport,
-    subScales: subScalesFromSignals(signals),
-    // BUG-27 — the page base fill, read straight off `<body>`.
-    bodyBackground: signals.bodyBackground,
+    ...projectSignalsManifestAxes(signals),
   }
 }
 
@@ -3387,6 +3049,11 @@ export function diffManifests(
     sectionPairing,
     unpairedSections,
     unpairedActualSections,
+    // REQ-274 — the declared one-sided axes this pair of manifests actually ran
+    // into: the side that CAN read the axis carried a value and the other side
+    // had nothing to compare it with. Not the whole declaration, which is true
+    // of every comparison and would put a permanent row on every report.
+    unmeasuredAxes: observedUnmeasuredAxes(expected, actual),
     ...(sectionsNotComparable ? { sectionsNotComparable } : {}),
   }
 }
