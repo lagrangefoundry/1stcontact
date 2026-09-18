@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:25:08.149434+00:00'
+updated_at: '2026-09-18T23:41:13.725156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -726,5 +726,11 @@ Your priming tells the consultant: *"If you ever find yourself naming a framewor
 I'd lean **client-facing** — a catalogue number is how a gallery or a print shop talks, and "the crucible, MATERIAL-5" is clearer than three identical titles. But it's a genuine call, and it decides whether this is a debug affordance or part of how consultations run.
 
 Tell me which and I'll file it — it's a small, well-bounded REQ.
+
+<!-- xgd-turn id="136f3b90-7863-4bc0-ab7d-8add96b2252b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:41:13.111498+00:00" -->
+#### You
+Yeah I agree MATERIAL is a bit vague is that really what we called the tickets? I mean I would like to say IMAGE-5, DOC-7 but yes this is not too technical
 
 <!-- xgd-chat-end -->
