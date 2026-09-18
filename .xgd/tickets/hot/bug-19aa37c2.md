@@ -6,15 +6,23 @@ title: 'values-diff: role and a11yRole are never compared, so 11 lost headings r
   as zero deltas'
 created_by: repro-console:repro-gigabytealchemy-ai#1
 created_at: '2026-09-17T23:29:41.453973+00:00'
-updated_at: '2026-09-18T00:51:58.184966+00:00'
+updated_at: '2026-09-18T00:53:54.843886+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-55b8ebfd
+  commits:
+  - working_sha: 5b7f6c5882d4a4445fbe1f9967a6d4fb774589cc
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3fac6aaa80f3a37f6159d215714e8b326c9ce2db
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.249
 ---
 
 `values-diff` compares a fixed parameter table per object kind, and no kind's
