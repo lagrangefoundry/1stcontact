@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T19:31:34.114374+00:00'
+updated_at: '2026-09-18T19:32:46.593330+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,29 @@ Want me to file that as a child ticket now, or start with the cheaper describer 
 <!-- xgd-chat role="user" ts="2026-09-18T19:31:33.901547+00:00" -->
 #### You
 So the framework is in place, we just need to adopt it?
+
+<!-- xgd-turn id="2faf49cb-49e2-4f42-8c94-77be0f8d6eaa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T19:32:46.191916+00:00" -->
+#### Claude
+Yes — the framework half is done and installed. But adoption isn't a config flip; it's a small ticket's worth of real wiring plus two decisions.
+
+**The cheap half.** A `claude_worker` entry in `backends.json` naming Haiku, and a `delegation` entry in `instances.json`.
+
+**The half that's actually code.** `WorkerConfig` requires `{backend, build}` — `build` is a function the host supplies that constructs the adapter around the *worker's own* toolbox (`delegation_toolbox.js:126-133`). So it's a second `createL1Toolbox` call with a narrower grant and a second registered backend name, not a reuse of the consultant's. Then a `DelegationRuntime({manager, workers, caller})`, `DelegationToolbox` composed into the consultant's surface list, and `delegationInstanceConfig([workerRole])` merged into its grant.
+
+The worker needs priming of its own too. `priming_without_corpus` is the nearest existing shape — role, product-system, `site.manual`, cache boundary. A worker needs the page vocabulary and its tool manual; it doesn't need the consultation method.
+
+**Two consequences to settle before adopting, not after:**
+
+1. **A session record per delegation.** The worker is a whole session, and this host's archive is `TicketSessionArchive` (REQ-160) — so every delegation creates a `chat` ticket in the tenant's store. `kb/knowledge_bases.json` filters the project corpus on `type: [chat, material, reference, brief]`, so worker transcripts would join the *client's* knowledge base, and their growth would ride the `corpus.delta` reminder back into the consultant's turn. The framework flags this in its own header as the host's configuration to change. Either the corpus filter excludes worker sessions, or the client's KB fills with machine chatter.
+
+2. **The live re-render survives** — worth knowing because it's the thing that would most obviously break. `SITE_CHANGED` comes from `store.counter(slug)` polled after each `TOOL_ACTIVITY` event on the caller's stream (`host-core.ts:1605-1613`). A `Delegate` call *is* tool activity, so the worker's writes land in the counter jump and the pane re-renders with them. No extra wiring.
+
+Both are now in the epic body under Finding 1.
+
+My recommendation on ordering: don't adopt this first. Build with the consultant for a while — you'll find out which work is genuinely mechanical-and-bulky (my guess: whole-page L1 writes and image-heavy passes), and that shapes the worker's grant and its `accept` checks far better than deciding now. The describer fix is independent and cheap, if you want the cost win today.
+
+Say the word and I'll file the child ticket.
 
 <!-- xgd-chat-end -->
