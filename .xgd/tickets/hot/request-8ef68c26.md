@@ -6,9 +6,9 @@ title: 'The activity log: a raw server-side event store, and session summaries o
   the contact timeline'
 created_by: EPIC-10
 created_at: '2026-09-13T21:15:53.631580+00:00'
-updated_at: '2026-09-18T02:24:32.667990+00:00'
+updated_at: '2026-09-18T02:24:38.482536+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -29,6 +29,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.253
+  story_points: 13
 ---
 
 # The activity log
