@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T19:32:34.125341+00:00'
+updated_at: '2026-09-18T19:37:30.581200+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -109,6 +109,50 @@ Two consequences to decide before adopting, not after:
   the caller's stream. A `Delegate` call is tool activity, so the worker's writes
   are absorbed into the counter jump and the client's pane re-renders with them.
   No extra wiring needed for the site conversation.
+
+### How a worker is prompted (and what this costs us)
+
+Two channels, and only one of them comes from the parent.
+
+**The system channel is the host's.** `_openWorker` calls
+`manager.createSession(role, ...)`, so the worker's system prompt is its ROLE's
+priming, assembled by the normal path. The parent contributes nothing to it and
+cannot: that is what makes "the brief carries intent, the role carries
+authority" true rather than aspirational.
+
+**The user channel is the parent's, and it is exactly one turn.** `_runWorker`
+calls `manager.promptStream(workerSid, brief(goal, checks))`, where `brief()` is
+the parent's `goal` prose verbatim, then the `accept` checks quoted one per line
+under an instruction to report each as passed or failed, then one sentence
+telling the worker that what it reports is the whole of what the caller
+receives. That is the entire crossing. Not the parent's transcript, not the
+parent's priming, not the client's words.
+
+**One turn, not a conversation.** The turn contains the worker's whole tool loop,
+so it can make many calls — but it never gets a second user message. The parent
+cannot iterate with a worker; an underspecified brief comes back thin and the
+parent re-delegates.
+
+The consequence for us: **a worker knows only what its role's priming teaches it,
+what its surfaces let it read, and what the parent wrote in the goal.** It does
+not know what the client said, what was decided earlier, or why. Three things
+follow, and each is a decision this adoption has to make:
+
+1. The worker's site binding is host configuration — `config.surfaces` are built
+   per delegation, so the L1 surface arrives already bound to the slug. That part
+   is free.
+2. Whether a worker can search the project corpus is a grant decision. Without
+   it, everything the worker needs about the client's brand has to be in the goal
+   prose; with it, a Haiku session is reading the client's knowledge base.
+3. **The consultant does not currently know how to brief a worker.** Nothing in
+   `priming.json` teaches it what a good goal or a good `accept` check looks
+   like, and the whole value of the split rests on that skill — the surface's own
+   overview warns that re-inspecting everything the worker did moves the tokens
+   to the expensive side rather than saving them. Adopting delegation therefore
+   includes authoring new priming, not just wiring.
+
+Worker spend is rolled into the caller's ledger, attributed to the delegation, on
+every exit path including failure and stop.
 
 ## Children
 
