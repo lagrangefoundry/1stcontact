@@ -227,13 +227,73 @@ to the existing ticket rather than filing a second one. The classes that already
 have tickets are listed in the round context below. If your diagnosis is one of
 them, **append to that ticket** and report `"status": "appended"`.
 
+### Where the defect sits — the class every ticket carries
+
+The residual class above names *what* the gap is. This names **where it sits**,
+and it is a **closed set**: one of these nine values and no other.
+
+| class | queue | it means |
+|---|---|---|
+| `instrument-blind` | ruler | the instrument reported pass or clean when it measured nothing, or measured the wrong thing — the score is not wrong, it is empty |
+| `instrument-asymmetric` | ruler | the two sides were measured by different procedures, so the difference it reports is partly its own |
+| `instrument-no-axis` | ruler | the comparator has no axis for the property, so a real difference is invisible to the score rather than reported as small |
+| `capture-loses-it` | ruler | the capture does not carry something the page had, so nothing downstream can recover it — the fold and the renderer are innocent |
+| `fold-wrong` | ruler | the capture carries it and L1 can express it, and the fold writes the wrong value |
+| `renderer-wrong` | ruler | L1 carries the right value and the render disagrees with it |
+| `l1-cannot-express` | **ceiling** | there is no way to author the thing in L1 as it stands |
+| `harness` | process | this console, this brief, the CLI, your own process — real, worth filing, not the engine |
+| `cannot-tell` | unknown | the evidence in hand does not separate the instrument from the engine |
+
+It composes with the three classes above rather than replacing them: class 1
+(engine shortfall) is `capture-loses-it` or `fold-wrong` depending on which side
+put the wrong value in, class 2 is `l1-cannot-express`, class 3 is
+`renderer-wrong`. The three instrument classes have no equivalent above at all —
+they are findings about the ruler, and they usually arrive as the secondary `1c`
+bugs of the next subsection rather than as the gap ticket.
+
+**Why you are asked and not a later reader.** Two queues come out of this loop
+and they are not the same work. `ceiling` raises what the product can do;
+`ruler` makes the instrument trustworthy enough to believe. Of the twenty-two
+defects the first three rounds filed, two were ceiling and twenty were ruler —
+and working that out took a human reading ten ticket bodies after the fact,
+reconstructing evidence each round already had in front of it. You have it now.
+Answer now.
+
+**`cannot-tell` is a real answer.** A forced choice between the instrument and
+the engine, made without the evidence to separate them, is confident noise that
+costs more to unpick than the absence would. When you pick it, say in the body
+what you would need in order to tell — that sentence is the next round's
+starting point.
+
+**It goes in a field, not in prose**, because the point is to be able to filter
+for it. Every ticket you file carries it — the gap ticket and every secondary
+bug alike — in `defect_class`, beside the status:
+
+```
+--fields '{"status":"draft","defect_class":["fold-wrong"]}'
+```
+
+A list, because one gap ticket carries every residual you found. Name a second
+class when an issue in the ticket genuinely sits somewhere else, leading class
+first; most tickets carry one.
+
+**And defend each class in one line in the body**, from the evidence you already
+have — the test you ran and what came back. The field is what a filter reads;
+the line is what makes it checkable by whoever picks the ticket up.
+
+The console reads every ticket you name back and reports one that carries no
+class, or a class outside the set.
+
 ### Defects in `1c` are secondary
 
 If you trip over a defect in the console, in this brief, in the CLI — file it as
 a `bug`, separately, to the same standard of evidence. It is worth having and it
 must never be folded into a gap ticket. It is a ticket you file, so it carries
-`--created-by 'repro-console:<slug>#<iteration>'` exactly as the gap ticket does
-(§6) — the console reads these back to the same standard.
+`--created-by 'repro-console:<slug>#<iteration>'` and a `defect_class` exactly as
+the gap ticket does (§6) — the console reads these back to the same standard. An
+instrument defect almost always arrives here rather than as the gap ticket, and
+it is one of the three `instrument-*` classes, not `harness`: `harness` is the
+console and this brief, and a blind or asymmetric comparator is the ruler.
 
 But it is not what you are for. A round that files three `1c` bugs and names no
 residual class has missed.
@@ -248,7 +308,7 @@ Run `xgd ticket create` yourself:
 xgd ticket create --type request \
   --created-by 'repro-console:<slug>#<iteration>' \
   --title 'fold: background gradient direction is dropped' \
-  --fields '{"status":"draft"}' \
+  --fields '{"status":"draft","defect_class":["fold-wrong"]}' \
   --body-file <a file you wrote>
 ```
 
@@ -294,7 +354,11 @@ Per issue, so the claim is checkable without re-deriving it:
 
 1. **Which of the three classes it is** (§5), and **the test you ran** to decide
    — the question you asked, the command or file, and what came back.
-2. **The named residual class.**
+2. **The named residual class**, and **where the defect sits** — the
+   `defect_class` value this issue carries, defended in one line from the test
+   you just quoted. When the ticket's field names more than one class, every one
+   of them gets its line, under the issue it belongs to.
+
 3. **Which stored reference(s) exhibit it** — by bundle name, and say plainly if
    you only have evidence from one.
 4. **The evidence** — the `gate.json` verdict, the `regions.json` entry (its

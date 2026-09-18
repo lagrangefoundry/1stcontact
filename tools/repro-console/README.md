@@ -60,6 +60,19 @@ Anything it tripped over that is *not* a gap in the reproduction engine — a
 defect in L1, in the brief, anywhere in `1c` — comes back in a separate `bugs`
 list and the console files each as its own `draft` ticket, on every status.
 
+**Every ticket says where the defect sits.** A round classifies each ticket it
+files into a closed set of nine — three instrument classes, capture, fold,
+renderer, `l1-cannot-express`, `harness`, and `cannot-tell` — in the
+`defect_class` field, and defends it in one line in the body. The set is declared
+once in `src/defect-class.ts`; the brief (§5) says what each one means and the
+prompt carries the list generated from the code. Each class belongs to a queue,
+and the two that matter are `ruler` (make the instrument trustworthy) and
+`ceiling` (raise what the product can do): the round's status line and a panel
+above the iteration list both show the split, so "did that round buy ruler repair
+or ceiling" is a glance rather than an audit. A ticket read back carrying no
+class, or one outside the set, is a violation beside the status and provenance
+checks.
+
 **The reference can move, deliberately.** **run again** *refolds*: it re-derives
 the fold from the oracle the bundle already holds, so a FOLD change shows up and
 the reference stays still, which is the comparison an iteration exists to make. A

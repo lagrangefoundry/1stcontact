@@ -46,6 +46,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { DEFECT_CLASS_FIELD, defectClassTable } from './defect-class'
 import type { GapEntry } from './gaps'
 import { INDEX_FILE, type SessionKbResult } from './session-kb'
 import { ROUND_CREATED_BY } from './ticket'
@@ -73,6 +74,19 @@ export interface ReadTicket {
    * which is `found: false`, a different outcome from wrong provenance.
    */
   createdBy: string
+  /**
+   * Where the round said the defect sits ([[REQ-276]]).
+   *
+   * READ BACK, NOT REPORTED. Every other thing a round claims arrives in its
+   * outcome block; this one is read out of the ticket itself in the same
+   * `xgd ticket get --json` that already fetches the status and the provenance,
+   * because the field is the deliverable. A class the round mentioned only in
+   * its closing block would be a class no filter could ever find.
+   *
+   * Empty when the ticket carries none — which is a violation, and distinct
+   * from `found: false`, which is the console not having been able to look.
+   */
+  defectClasses: string[]
   /** Absent when `xgd` would not answer about it at all. */
   found: boolean
 }
@@ -473,6 +487,26 @@ Read the store through \`xgd\`, never by path — \`.xgd/\`'s layout is xgd's ow
 **You file. Nothing is handed back to be filed for you** — see the brief §6 for the command and §7 for how you report what you made. Create at \`status: draft\`, and **never at a \`ready_*\` status**: that is a dispatcher trigger and it spawns an autonomous pipeline against your ticket within about thirty seconds, before anybody has read it. The console checks every ticket you name after you finish.
 
 **The \`--created-by\` for this round is \`${ROUND_CREATED_BY}:${ctx.slug}#${ctx.n}\`.** Pass it to every \`xgd ticket create\` you run, verbatim. Without it \`xgd\` falls back to the operator's git identity and your ticket arrives claiming a human wrote it; the console reads it back and reports the ticket that does not carry it.
+
+## Where the defect sits — the class every ticket you file carries
+
+**Every ticket you file names where the defect sits**, in the \`${DEFECT_CLASS_FIELD}\` field, from this closed set and no other value. The gap ticket and every secondary \`1c\` bug alike — "every ticket" means every ticket.
+
+${defectClassTable()}
+
+Pass it beside the status:
+
+\`\`\`
+--fields '{"status":"draft","${DEFECT_CLASS_FIELD}":["fold-wrong"]}'
+\`\`\`
+
+A list, because one gap ticket carries every residual you found: name a second class when an issue in the ticket genuinely sits somewhere else, and put the leading issue's class first. Most tickets carry one.
+
+**And defend each class in one line in the body**, from the evidence you already have — the test you ran and what came back. The field is what a filter reads; the line is what makes it checkable.
+
+\`cannot-tell\` is a real answer and not a failure. A forced choice between the instrument and the engine, made without the evidence to separate them, is confident noise that costs more to unpick than saying so would. If you pick it, say what you would need in order to tell.
+
+The console reads every ticket you name back and reports one that carries no class, or a class that is not in the set. See the brief §5 for what the classes mean and §6 for the command.
 
 ## The regression rail
 

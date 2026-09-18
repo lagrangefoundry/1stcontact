@@ -115,6 +115,16 @@ export interface AiView {
   /** What ran the round and what it cost ([[REQ-261]] behavior 6), pre-formatted. */
   cost?: string
   /**
+   * WHERE THIS ROUND'S FILINGS SIT ([[REQ-276]] behaviour 3), pre-formatted.
+   *
+   * `2 ruler (fold-wrong, instrument-blind), 1 ceiling (l1-cannot-express)` —
+   * the same clause the status line carries, kept under the round so it is
+   * still readable once the status line has moved on. Absent when nothing the
+   * round filed carried a class, which is a violation and says so there rather
+   * than pretending to a split it does not have.
+   */
+  classSplit?: string
+  /**
    * Where to post to file from this round's transcript ([[REQ-261]] b5).
    *
    * Present only on a failed round that left one — which is exactly the round
@@ -172,6 +182,31 @@ export interface PageState {
    * list of standing notices is a list nobody reads.
    */
   notice?: string
+  /**
+   * What this loop has filed, by queue ([[REQ-276]] behaviour 4).
+   *
+   * Above the iterations because it is about all of them. The per-round split
+   * answers "what did that round buy"; this answers the question [[EPIC-19]]
+   * needed a human-directed audit of ten ticket bodies to answer — how much of
+   * this loop has been making the ruler trustworthy and how much has raised the
+   * product's ceiling. Absent until a round has filed something carrying a
+   * class.
+   */
+  filings?: FilingsView
+}
+
+/** The loop's filings, grouped by queue and then by class ([[REQ-276]]). */
+export interface FilingsView {
+  /** The one-line split, as the status line says it. */
+  split: string
+  groups: QueueGroupView[]
+}
+
+export interface QueueGroupView {
+  queue: string
+  /** How many distinct tickets landed in this queue. */
+  tickets: number
+  classes: Array<{ id: string; tickets: string[] }>
 }
 
 /**
@@ -295,6 +330,17 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 .notice { border-left: 3px solid #d08b18; padding: .4rem .7rem; margin: 1rem 0; font-size: .9rem }
 .notice code { font-family: ui-monospace, monospace }
 .ai-cost { margin: .1rem 0; font-size: .8rem; opacity: .6; font-family: ui-monospace, monospace }
+/* REQ-276 — what the round bought, beside what it cost. Same weight as the cost
+   line because the two are read together. */
+.ai-classes { margin: .1rem 0; font-size: .8rem; opacity: .75; font-family: ui-monospace, monospace }
+/* REQ-276 — the loop's own split, above the iterations. The ceiling queue is the
+   only one with a colour: it is the one the operator is looking for. */
+.filings { margin: 1.5rem 0; padding: .6rem .8rem; border: 1px solid #8884; border-radius: 4px }
+.filings h2 { margin: 0 0 .4rem; font-size: .9rem }
+.filings .queue { margin: .5rem 0 .15rem; font-size: .85rem; opacity: .8 }
+.filings .queue.ceiling { color: #1e7a3c; opacity: 1 }
+.filings ul { font-size: .85rem }
+.filings code { font-family: ui-monospace, monospace }
 pre.transcript {
   white-space: pre-wrap; max-height: 22rem; overflow: auto; margin: .5rem 0 0;
   padding: .6rem .7rem; border: 1px solid #8884; border-radius: 4px;
@@ -378,6 +424,10 @@ function renderIteration(it: IterationView): string {
         it.ai.residualClass ? ` <code>${escapeHtml(it.ai.residualClass)}</code>` : ''
       }${it.ai.summary ? `: ${escapeHtml(it.ai.summary)}` : ''}</p>\n` +
       (it.ai.cost ? `  <p class="ai-cost">${escapeHtml(it.ai.cost)}</p>\n` : '') +
+      // WHAT IT BOUGHT ([[REQ-276]] behaviour 3) — under the cost line, and
+      // deliberately beside it: "$7.70" and "1 ceiling" are one fact read
+      // together and two facts read apart.
+      (it.ai.classSplit ? `  <p class="ai-classes">filed: ${escapeHtml(it.ai.classSplit)}</p>\n` : '') +
       (it.ai.violations.length
         ? `  <ul class="violations">${it.ai.violations.map((v) => `<li>${escapeHtml(v)}</li>`).join('')}</ul>\n`
         : '') +
@@ -473,6 +523,31 @@ export function renderConsolePage(state: PageState): string {
    */
   const notice = state.notice ? `<p class="notice">${inlineCode(state.notice)}</p>\n` : ''
 
+  /**
+   * WHAT THIS LOOP HAS FILED, BY QUEUE ([[REQ-276]] behaviour 4).
+   *
+   * Above the iteration list and below the notice, because it is a fact about
+   * the whole loop rather than about the round that just ran. Ticket ids under
+   * each class rather than counts alone: "show me the capability queue" has to
+   * end in ids somebody can open, or it is a number that still needs an audit
+   * behind it.
+   */
+  const filings = state.filings
+    ? `<section class="filings">
+  <h2>what this loop has filed — ${escapeHtml(state.filings.split)}</h2>
+${state.filings.groups
+  .map(
+    (group) =>
+      `  <p class="queue ${escapeHtml(group.queue)}"><strong>${escapeHtml(group.queue)}</strong> · ${group.tickets} ticket${
+        group.tickets === 1 ? '' : 's'
+      }</p>\n  <ul>${group.classes
+        .map((cls) => `<li><code>${escapeHtml(cls.id)}</code> — ${cls.tickets.map((id) => escapeHtml(id)).join(', ')}</li>`)
+        .join('')}</ul>`,
+  )
+  .join('\n')}
+</section>\n`
+    : ''
+
   // [recapture] re-hits the site and re-rolls the oracle, which is occasionally
   // exactly right and never what [reproduce] should quietly do — so it is its
   // own button, offered beside the box rather than in place of anything. On the
@@ -492,6 +567,7 @@ export function renderConsolePage(state: PageState): string {
 </form>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
 ${notice}${stored}
+${filings}
 ${rows}
 ${held}
 ${again}
