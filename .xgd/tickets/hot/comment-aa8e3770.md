@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-18
 created_by: xgd
 created_at: '2026-09-18T02:34:28.344861+00:00'
-updated_at: '2026-09-18T03:16:26.056334+00:00'
+updated_at: '2026-09-18T03:19:31.462400+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -200,5 +200,46 @@ Given all three: I'd add **"retention is configuration, not constants"** to EPIC
 <!-- xgd-chat role="user" ts="2026-09-18T03:16:25.523175+00:00" -->
 #### You
 Yeah can you put an addendum on EPIC-1 and I will follow up to get that implemented as config. On our side lets understand the cost profile - not a short term issue but worth knowing - what will it cost me for a few thousand hits a month how will that ramp?
+
+<!-- xgd-turn id="fe3674b7-5ba2-4070-9275-be2f2402c7e9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T03:19:31.104772+00:00" -->
+#### Claude
+Two things: the addendum on framework EPIC-1, and the cost profile. Let me ground the numbers first.
+
+All numbers verified against current Cloudflare docs. Writing the addendum first.
+
+Addendum appended to EPIC-1 as §47–§50 (retention-as-config, D1 as §16's missing number, and §43 Q1 answered via route normalisation). It's in the framework store — ticket only, no code touched there.
+
+## Cost profile
+
+Verified against the docs today. Workers Paid: **$5/mo base**, 10M requests then $0.30/M, 30M CPU-ms then $0.02/M. Workers Logs: 20M events then $0.60/M. **D1: 50M rows written then $1.00/M, 5 GB storage then $0.75/GB-mo**, 25B rows read then $0.001/M.
+
+Assumptions, so you can move them: ~2 log records per request (one from the per-invocation wrapper, ~one from call sites at `info`); ~500 B/row including the three indexes; ~2% of records at warn/error (180d band), the rest `info` (30d); both sinks fire per record, so each record costs one Workers Logs event *and* one D1 row; debug off.
+
+| Hits / month | D1 rows written | Log events | D1 storage | **Monthly** |
+|---|---|---|---|---|
+| **5,000** | 10k | 10k | ~6 MB | **$5** — base only |
+| 100,000 | 200k | 200k | ~110 MB | $5 |
+| 1,000,000 | 2M | 2M | ~1.1 GB | $5 |
+| 5,000,000 | 10M | 10M | ~5.5 GB | $5.38 |
+| 10,000,000 | 20M | 20M | ~11 GB | $9.50 |
+| 50,000,000 | 100M | 100M | ~55 GB | **$152** |
+
+**At a few thousand hits a month it costs you $5, and logging's marginal contribution is zero** — every meter is three to four orders of magnitude inside its allowance. You'd need roughly a thousand times the traffic before logging costs its first dollar. The $5 is the platform, not the log; the one thing that genuinely *requires* Paid is the Tail Worker in EPIC-18.
+
+**The ramp, in the order the ceilings actually bite:**
+
+1. **D1 storage (5 GB) — first, at ~4.5M hits/month.** This is the non-obvious one, and it's why I put D1 in the EPIC-1 addendum. Writes are a *rate* against a monthly allowance that resets; storage is a *stock* — rate × retention horizon — against a fixed 5 GB. The 30-day `info` band dominates it.
+2. **Workers requests (10M) and Workers Logs events (20M) — together, at ~10M hits/month.** They coincide exactly because of the 2-records-per-request assumption.
+3. **D1 rows written (50M) — last, at ~25M hits/month.**
+
+**The shape worth knowing:** at 50M hits, of that $152 bill about **$135 is logging** — it costs roughly nine times the platform it observes. And the two dominant terms are rows written ($50) and log events ($48), both linear in **records, not requests**. So the number to hold isn't traffic, it's records-per-request — which is also the one the Tail Worker moves, since it adds an `access` record per invocation on top of whatever call sites emit.
+
+**Levers, by effect:** records per request (doubles or halves every headroom at once) → the `info` horizon, which is the storage lever and currently a hardcoded constant → `head_sampling_rate`, currently 1, which cuts the Workers Logs line only → gating the console sink to warn+ at volume, same line but keeps the store complete. The rollup ladder is *not* a cost lever at any of these scales — it buys answerability over time and it adds rows written.
+
+Caveat: these are the observability lines only. The $5 base and the D1 allowances are shared with the rest of the app — `contact_events`, sites, sessions — so the headroom above is what logging leaves, not what logging gets.
+
+Want me to write EPIC-18's body now? I'd fold this in as a cost section, since it's the argument for retention-as-config and for watching records-per-request when the Tail Worker lands.
 
 <!-- xgd-chat-end -->
