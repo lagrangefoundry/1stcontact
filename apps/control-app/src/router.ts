@@ -1894,25 +1894,6 @@ export const NO_API_KEY_MESSAGE =
   'ANTHROPIC_API_KEY on the deployment and reload.'
 
 /**
- * Say, loudly, that an upload landed where nothing can find it.
- *
- * ONCE PER AFFECTED UPLOAD, naming the uid and the binding. [[DOC-39]] §4's
- * point is that the failure is INVISIBILITY rather than staleness: the request
- * succeeded, the Library shows the file, and search will never return it. A
- * silent skip would make that indistinguishable from a working deployment.
- * [[REQ-159]] should promote this to a construction-time requirement in the
- * manner of `ticketStoreFor`'s refusals; until then, a log is what there is.
- */
-function warnUnindexed(uid: string): void {
-  console.warn(
-    `[REQ-163] material ${uid} was stored but NOT indexed: no AI binding is ` +
-      'configured, so the project knowledge base cannot embed it and nothing ' +
-      'will find it by search. Declare [ai] in apps/control-app/wrangler.toml, ' +
-      'under [env.production.ai] as well — a named environment inherits neither.',
-  )
-}
-
-/**
  * What an ingestion answers with.
  *
  * THE DESCRIPTION STATUS AND `indexed` ARE IN THE ENVELOPE, not just in the log.
@@ -4424,7 +4405,6 @@ async function routeUncached(
         { uid: body.uid, body: body.body },
         (await ingestDeps()).index,
       )
-      if (!revised.indexed) warnUnindexed(body.uid)
       return json(200, revised.row)
     }
 
@@ -4635,7 +4615,6 @@ async function routeUncached(
         },
         await ingestDeps(),
       )
-      if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
       return json(200, {
         ...materialEnvelope(ingested),
         ...(await placeOnSite(
@@ -4669,7 +4648,6 @@ async function routeUncached(
         ...(await ingestDeps()),
         fetch: deps.fetch,
       })
-      if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
       return json(200, materialEnvelope(ingested))
     }
 

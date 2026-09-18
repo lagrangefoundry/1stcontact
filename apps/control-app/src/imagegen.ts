@@ -46,7 +46,7 @@
 import { displayLine } from '../../../tools/generate/src/cli/ai/toolbox-core'
 import * as imagegenLib from './generated/ai-imagegen'
 import * as aiLib from './generated/ai-workers.js'
-import type { IndexMaterial } from './material'
+import { indexAfterWrite, type IndexMaterial } from './material'
 import type { Ticket, TicketStore } from './tickets'
 
 /** The libraries are untyped JavaScript; the boundary is narrow and named here. */
@@ -258,7 +258,24 @@ export function generatedMaterialStore(
       // that the index, not the body, is what retrieval sees: a generated image
       // that was never embedded would sit in the Library while the assistant
       // that just made it could not find it.
-      if (index) await index(args.uid)
+      //
+      // AND IT CANNOT THROW FROM HERE, WHICH IS [[BUG-119]]. This handle is a
+      // TicketStore to the plugin, and the plugin reads any throw out of it as
+      // `store_unavailable` — *the image was generated but could not be stored,
+      // so there is no ticket to hand on. This is a deployment fault.* That
+      // sentence was reported twice for two pictures that were stored perfectly:
+      // the bytes, the record and this product's whole vocabulary were all
+      // written by the lines above, and then a broken embedder ([[BUG-117]])
+      // made the index refresh throw and took the uid down with it. The picture
+      // had been paid for; the only thing lost was the ability to name it.
+      //
+      // {@link indexAfterWrite} is therefore not a softening of the contract but
+      // the contract stated correctly: THIS HANDLE REPORTS ON THE STORE. Its
+      // throws mean the store refused, so `store_unavailable` means what it says
+      // and a retry is worth the model's while. An index refresh is not the
+      // store — it is a change-feed pass that the next write repeats for free —
+      // and it has no business speaking for it.
+      await indexAfterWrite(index, args.uid)
       return attached
     },
   }
