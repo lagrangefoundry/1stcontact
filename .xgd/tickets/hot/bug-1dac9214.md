@@ -6,9 +6,9 @@ title: 'knowledge search: corpus_unreadable is a catch-all that reports a transi
   failure as a permanent deployment fault'
 created_by: EPIC-19
 created_at: '2026-09-18T21:46:07.949789+00:00'
-updated_at: '2026-09-18T22:41:31.706379+00:00'
+updated_at: '2026-09-18T22:41:31.883142+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -107,3 +107,99 @@ The classification lives in `@lagrangefoundry/ai-knowledge`, so 1–3 are a
 lagrange-framework ticket rather than a change in this repository. File it there
 and consume the result. If the root cause in 4 is in this project's indexing
 (the concurrent-write theory), that half is ours.
+
+
+---
+
+## Root cause (item 4) — established, and it is ours
+
+**The Worker's REST embedder never worked.** Every knowledge `search` and
+`chunk_search` over the REST transport has failed since the transport was first
+selected; `get`, `outline` and `changes` kept working because none of them
+embeds anything. That is exactly the "it had been working earlier in the same
+session" shape the report describes — the assistant read the brand document with
+`get`, then tried to `search`.
+
+**The evidence is in our own audit.** `renderHostError` redacts the detail for a
+`host_detail: false` code but `_record` keeps it (upstream BUG-50), so the four
+failed calls are in R2 under `audit/<tenant>/<session>/` with the host's own
+account attached:
+
+> `Embedding for the project knowledge base failed over the REST transport:
+> Illegal invocation: function called with incorrect `this` reference.`
+
+**The mechanism.** `WorkersAiEmbedder` stores a fetch on the instance and calls
+it as a method:
+
+```js
+this._fetch = fetchImpl || (typeof fetch === 'function' ? fetch : null)
+...
+const response = await this._fetch(url, init)   // `this` === the embedder
+```
+
+In workerd a native global invoked with a `this` that is not the global scope
+throws `TypeError: Illegal invocation`. The distinction is narrow and worth
+recording, because it is why nothing else in this repository is affected: a
+*bare* detached call (`const f = btoa; f(x)`) is accepted — workerd resolves the
+undefined receiver to the global — while a *method* call (`obj.f = btoa;
+obj.f(x)`) is refused. Our own `fetch` seams (`fetch-guard.ts`, `mail.ts`,
+`resend.ts`, `cloudflare.ts`, `resolver.ts`) all use the bare form and are
+unaffected; upstream's `WorkersAiEmbedder` uses the method form and is not.
+
+**Why it started when it did.** `embedderFor` prefers REST whenever both
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are present. The pair was
+completed in the local dev secrets file on 2026-09-17; before that the Worker
+used the `AI` binding, which has no fetch in its path. The audit shows every
+knowledge search succeeding up to 2026-09-15 and every one failing from
+2026-09-18.
+
+**Why no test caught it.** `@cloudflare/vitest-pool-workers` replaces
+`globalThis.fetch` with a JavaScript wrapper (`(input, init) =>
+originalFetch.call(globalThis, input, init)`), which is not `this`-sensitive. No
+test in the workers project can observe a detached-fetch fault through `fetch`.
+The rule is still observable in the same runtime through an unwrapped native
+global, which is what the UAT below uses to establish it.
+
+## What this ticket changes here
+
+`embedderFor` hands the REST `WorkersAiEmbedder` an explicitly global-bound
+fetch through the constructor's own `fetch` option — documented upstream as
+"injected for tests and **for hosts that wrap it**", so this is the seam being
+used as intended rather than a workaround. The binding transport is untouched.
+
+A REST-configured deployment can search its knowledge again: both knowledge
+bases, since `embedderFor` is the single place either one resolves a transport.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-117_rest_embedder.workers.test.ts`, in the workers
+project because the claim is about workerd's receiver check and nothing else
+can hold it:
+
+1. **The rule is real.** A native global (`btoa`) invoked as a method of a
+   foreign object throws `Illegal invocation` in this runtime, with the message
+   the audit recorded; invoked bare or bound it does not. This is what makes the
+   stand-in endpoint's receiver check a statement about workerd rather than an
+   invention of the test.
+2. **A REST-configured project KB indexes a material and finds it by search** —
+   through `projectKnowledgeFor`, real D1, real R2, the real shared knowledge
+   component, and a stand-in Workers AI endpoint that enforces the receiver rule
+   the way the runtime does. This is the failing call from the report, passing.
+3. **The request reached Workers AI over REST** — the account id in the path and
+   the bearer token in the header — so the pass is not a silent fall back to the
+   binding.
+
+## Items 1–3 go upstream
+
+Filed against `lagrange-framework` as directed, and consumed from there:
+
+- the `corpus_unreadable` catch-all and its "not something to retry differently"
+  message (items 1–3), in `@lagrangefoundry/ai-knowledge`;
+- the detached-fetch defect itself, in `@lagrangefoundry/knowledge`
+  (`WorkersAiEmbedder`) and `@lagrangefoundry/ai` (`HttpSurface._send`, same
+  shape, not reached from this repository today).
+
+Item 3's diagnostic half turns out to be already satisfied on our side: the
+audit record carries the host's unredacted account even where the model's
+message does not, which is how this root cause was found at all. What is missing
+is what the *model* is told, and that is upstream.
