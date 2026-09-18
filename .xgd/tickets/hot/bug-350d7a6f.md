@@ -13,6 +13,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-10d48ce1
 ---
 
 Parent: [[EPIC-19]]. Hit by the operator on 2026-09-18 on the Lagrange Foundry
