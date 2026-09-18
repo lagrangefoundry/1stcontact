@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T20:54:35.177342+00:00'
+updated_at: '2026-09-18T20:57:51.631981+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -260,5 +260,36 @@ Ready to cut the branch and start on it whenever you want. Given free-coding, I'
 <!-- xgd-chat role="user" ts="2026-09-18T20:54:35.124134+00:00" -->
 #### You
 Fine lets copy the transcripts and delete the old chats. Can you do this or is it worth a ticket
+
+<!-- xgd-turn id="9dd68164-7981-4255-899f-cd9daf8cdebd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T20:57:51.286482+00:00" -->
+#### Claude
+Data repair, not a code change — so no branch and no UATs needed for the local part. I can do it now. BUG-116 stays for the prod survey and the make-it-legible work, which *are* code.
+
+Let me check a few things first so I don't corrupt anything.
+
+Everything checks out. Backing up first, then the repair.
+
+Done — no ticket needed for this part. It's data, not code, so the free-coding protocol doesn't apply; BUG-116 keeps the code-side work.
+
+**Your Lagrange Foundry conversation is back.** 28 turns, 26,875 bytes of transcript, 224,813 bytes of tool record, plus the summary and the proper title — all now on `chat-50932534`, the ticket at the site's current opaque-key address.
+
+| site | survivor | transcript | tools | summary |
+|---|---|---|---|---|
+| Lagrange Foundry | `chat-50932534` | 26,875 | 224,813 | 3,404 |
+| 1st Contact | `chat-15df6ccb` | **106,147** (113 turns) | 589,882 | 3,666 |
+
+I moved the comments by re-pointing `subject_uid` and copied the title and summary body across, so nothing was dropped in the move. Deleted: `chat-d73a11e1`, `chat-b98f4eec`, `chat-5c9fd79b`, `chat-bff48a7f`, plus the empty orphans for Gigabyte Alchemy and Felix Test, and their leftover comments and `ticket_changes` rows.
+
+One thing I did beyond the literal instruction: **cleared `backend_ref`** in both headers. It named a backend segment that no longer exists, and a stale one doesn't fail on read — it fails on the session's *next turn*, which would have looked like the restore itself hadn't worked.
+
+Verified after writing: both session files still parse, each header's `id`/`chat_ticket_uid` agree with its ticket's `session_id`/uid, both transcripts end cleanly on `xgd-chat-end`, exactly one `chat_transcript` comment per chat ticket, and no comment points at a deleted subject.
+
+**I left XGD alone**, and I'd want your call before touching it. It's the case where both sides have real content: `chat-9d2dcca0` is live at the correct address (22,635 / 323,855) *and* `chat-d53aa031` is a genuine earlier conversation orphaned at `site-xgd` (10,041 / 153,901). Applying the same rule there would overwrite live history with older history. Options are to leave it, or to append the older transcript ahead of the newer one — but that's a merge, and merges of a session file want more care than a repair script.
+
+Backup is at `.xgd/tmp/d1-backup-before-chat-repair.sqlite` if anything looks wrong. **Restart the builder** to pick it up — the archive caches session-uid lookups in memory.
+
+Still open on BUG-116: the production survey and repair, the key-model assertions, and making an orphan discoverable instead of silent. Those are code and go through the normal branch-and-UAT route.
 
 <!-- xgd-chat-end -->
