@@ -63,7 +63,7 @@
       "op": "list_library",
       "tool": "list_library",
       "effect": "read",
-      "summary": "See what the client has given you — their files and your generated pictures.",
+      "summary": "The client's whole catalogue — every file they have given you and every picture you have generated, whether it is on the site or not. Not the same list as `list_assets`, which is only what the site itself can reference.",
       "description": "The catalogue, newest first. Everything with no filter, or narrow it.\n\nThis is a **bounded** listing, because an engagement's Library can hold every file of the whole engagement and sending you all of it would spend the context you need for the work. It tells you how many matched and whether any were held back, so you always know whether you are looking at all of it.\n\nFilter by what you are actually after. `kind: 'image'` when you want pictures. `placed: false` when you want what the client has given you that is not yet on the site — which is usually the interesting question. `matching` searches what the describer wrote about each item as well as its name, so you can ask for 'the bakery photographs' rather than guessing filenames.",
       "params": {
         "kind": {
