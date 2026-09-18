@@ -24,7 +24,9 @@ import {
   type SignedIn,
 } from './sessions'
 import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
+import { ACTIVITY_CRON, closeSessions } from './activity'
 import { sweepSynthetic } from './gutter'
+import { beginRequest, pruneRecords, type RequestLog } from './log'
 import { guardTerms } from './terms'
 import { ticketStoreFor } from './tickets'
 
@@ -354,197 +356,256 @@ function noBusiness(admission: Admission | null): Response {
  * the distinction worth keeping visible, rather than burying it in ceremony at
  * three dozen call sites that do not.
  */
+async function handleFetch(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext | undefined,
+  log: RequestLog,
+): Promise<Response> {
+  // DECLARED OUTSIDE THE `try` SO THE CATCH CAN READ IT. `NoBusinessError` is
+  // thrown from inside the router, several frames down, and the one thing its
+  // log line needs is who it happened to — which only exists here.
+  let admission: Admission | null = null
+  // AND THE SAME, FOR THE SAME REASON ([[REQ-231]]). The rotation is known
+  // where the session is read; the response is built several branches later,
+  // and one of those branches is the `catch` below. See
+  // {@link withRotatedCookie}.
+  let rotated: string | null = null
+  try {
+    /**
+     * THE ONE ROUTE AHEAD OF THE GATE ([[REQ-198]]).
+     *
+     * Everything below this line is ordered so that no route can be reached
+     * without a verified identity, and this is the single deliberate
+     * exception: an email provider posting a bounce cannot present an Access
+     * token, so a delivery webhook behind the gate is a delivery webhook that
+     * never fires.
+     *
+     * WHAT REPLACES THE GATE IS THE SIGNATURE, and it is not weaker for being
+     * different. `handleEmailWebhook` refuses before it parses, before it
+     * looks anything up and before a store handle exists — the same shape as
+     * the three checks below — and it fails closed when the secret is
+     * unconfigured, so a deployment that forgot it is refused rather than
+     * open.
+     *
+     * IT IS MATCHED ON PATH AND METHOD, EXACTLY. A prefix match here would be
+     * a way to reach anything under `/api/email/` unauthenticated, which is
+     * the kind of hole that is written once and found years later.
+     *
+     * THE HANDLER OWNS ITS OWN FRESHNESS HEADER, the same division `route`
+     * keeps: every response it makes carries `no-store`, so wrapping it here
+     * would be a second place the same header is decided.
+     */
+    if (
+      new URL(request.url).pathname === EMAIL_WEBHOOK_PATH &&
+      request.method === 'POST'
+    ) {
+      return (await handleEmailWebhook(request, env)).response
+    }
+
+    /**
+     * THE SECOND SET AHEAD OF THE GATE ([[REQ-202]]), and the argument is the
+     * webhook's argument for a different caller.
+     *
+     * These four routes are what an ANONYMOUS person calls in order to become
+     * authenticated: a sign-in endpoint behind a gate is a sign-in endpoint
+     * nobody who needs it can reach, and an invite link that lands behind
+     * Cloudflare Access is an invite that challenges the invitee with a SECOND
+     * one-time-PIN email before they have finished reading the first.
+     *
+     * WHAT REPLACES THE GATE IS THE TOKEN. Holding a link is the whole
+     * credential ([[REQ-134]]): 256 bits used as a primary key, single-use,
+     * enforced by a conditional UPDATE in the database rather than by code.
+     * Nothing behind these paths reads a store handle, resolves a scope or
+     * touches a site — the most a caller reaches is a session for a person the
+     * database already knows.
+     *
+     * `handleSignIn` MATCHES ITS OWN PATHS AND ANSWERS `undefined` OTHERWISE,
+     * so the exemption is exactly the four routes and cannot widen by a route
+     * being added elsewhere. It owns its freshness headers, the same division
+     * the webhook and the router keep.
+     */
+    const signIn = await handleSignIn(request, env, {})
+    if (signIn) return signIn
+
+    // The business the caller is ASKING for. Whether they may have it is
+    // `resolveScope`'s question, and asking it here rather than in the router
+    // is what keeps authorisation ahead of routing.
+    const requested = splitBusinessPrefix(new URL(request.url).pathname).businessId
+
+    // `admit`, OR NOTHING — gated on the SAME predicate that skips the gate,
+    // not on a second condition that happens to agree with it today. Two
+    // predicates that can drift is how a deployment ends up resolving a
+    // loopback scope while enforcing a production gate, or the reverse.
+    if (!isUnconfiguredLocalDev(env)) {
+      /**
+       * TWO PRODUCERS OF ONE FACT ([[REQ-202]]).
+       *
+       * `admit` consumes a verified email and nothing else, so a second way of
+       * arriving at one is purely additive: a live session cookie and a valid
+       * Access JWT produce the same value, and nothing downstream — `admit`,
+       * scope, the terms gate, the portal — can tell which answered.
+       *
+       * THE SESSION IS TRIED FIRST, and Access is the fallback rather than the
+       * legacy path. Access STAYS ([[CHAT-39]]): it is the operator's own route
+       * in and the way back if this one breaks, so it is a second SUPPORTED
+       * producer and not a mode being retired. Trying it second means a person
+       * holding both is admitted by the cheaper of the two — one indexed row
+       * against a signature check and a JWKS fetch.
+       *
+       * A COOKIE THAT RESOLVES TO NOBODY IS NOT AN ADMISSION AND NOT A
+       * REFUSAL. `sessionIdentity` answers null for an expired session, a
+       * withdrawn person and a deployment that issues no sessions alike, and
+       * the request then meets the gate exactly as it did before this ticket.
+       * Refusing here instead would make a stale cookie in some browser a
+       * lockout from a builder Access would have let its holder into.
+       */
+      const signedIn: SignedIn | null = await sessionIdentityFor(env, request)
+      let email: string | null
+      if (signedIn) {
+        // THE OBLIGATION, TAKEN BEFORE ANYTHING ELSE CAN RETURN ([[REQ-231]]).
+        // Every exit below carries it from here, including the refusals and
+        // the `catch` — because the rotation has already happened in the
+        // database whatever this request goes on to answer, and a refusal that
+        // dropped the header would retire the credential of the person it
+        // refused.
+        rotated = signedIn.setCookie ?? null
+        // THE PRE-EMPTION, AND IT IS AHEAD OF `admit` DELIBERATELY. What it
+        // offers is a fresh sign-in, which is worth offering to somebody whose
+        // admission is about to be re-checked anyway — and running it after
+        // `admit` would put a redirect behind a denial for the one person it
+        // cannot help.
+        if (expiringWithinPreemption(signedIn) && isNavigation(request)) {
+          return preemptSignIn(rotated)
+        }
+        email = signedIn.email
+      } else {
+        const gate = await guardAccess(request, env)
+        if (!gate.ok) return gate.response
+        // `actingEmail` AND NOT `gate.email` ([[BUG-59]]). A human's own
+        // address is returned unchanged, so this is the same call for
+        // everyone who arrives at the gate; what it adds is that a SERVICE
+        // TOKEN — which authenticates as a `common_name` and carries no
+        // email — is resolved to the person whose automation it is, if the
+        // deployment has said which. Unmapped, it comes back null and is
+        // refused `no_email` exactly as before, so this widens nothing by
+        // itself.
+        //
+        // ON THIS BRANCH AND NOT AFTER THE `if`, because a session is a
+        // person by construction: `sessionIdentity` reads a row somebody
+        // signed in to create, and a service token has no way to hold one.
+        // Resolving above the join would ask a question that can only be
+        // answered `null` there, and would imply a token might arrive
+        // carrying a session cookie.
+        //
+        // AND HERE RATHER THAN INSIDE `admit`, which is the one place
+        // admission is already decided: `admit`'s question is "may this
+        // address in", and giving it a second question about tokens would put
+        // two authorisations in one function.
+        email = actingEmail(env, gate)
+      }
+
+      admission = await admit(env, email)
+      if (!admission.ok) return withRotatedCookie(denied(), rotated)
+
+      // Terms LAST of the identity checks, and inside this block rather than
+      // after it: the dev-open branch has no admission at all, so there is no
+      // person to have accepted anything and nothing to check.
+      const terms = await guardTerms(request, env, admission)
+      if (terms) return withRotatedCookie(terms, rotated)
+    }
+
+    const scope = await resolveScope(env, admission, requested)
+    /*
+     * WHAT THIS INVOCATION TURNED OUT TO BE ABOUT ([[REQ-235]] §2).
+     *
+     * BOUND HERE AND NOT PASSED AT CALL SITES, which is the whole of [[EPIC-1]]
+     * REQ-157 B2: bind the tenant once, where the request is understood, and no
+     * call site downstream is given the opportunity to omit it. Everything this
+     * request goes on to log carries both, including the records it already
+     * wrote — the log re-binds rather than freezing a base at construction,
+     * because the gate, the session lookup and the resolver all run first.
+     *
+     * `actor` IS THE PERSON'S OWN KEY AND NOT THEIR ADDRESS. It is what session
+     * inference folds on and what `contact_events` files a summary against, so
+     * an email here would be a second name for a row that already has one — and
+     * an address changes while a key does not.
+     */
+    log.bind({
+      business: scope?.businessId ?? null,
+      actor: admission?.ok ? admission.user.id : null,
+    })
+    // THE ADMISSION TRAVELS WITH THE SCOPE, and only one route reads it
+    // ([[REQ-179]]). `/api/businesses` answers a question about the ACCOUNT —
+    // which businesses may be operated — and that is the question `admit`
+    // already answered here, ahead of routing. Handing the answer down is what
+    // keeps it a single answer; asking again inside the router would need the
+    // verified email the router is deliberately never given.
+    return withRotatedCookie(await route(request, env, scope, { admission, log }, ctx), rotated)
+  } catch (err) {
+    // A REFUSED TARGET IS A 403, NOT THE 503 BELOW. The caller named a business
+    // they may not operate: an answer about them, not a configuration failure
+    // an operator can act on. Dressing it as one would invite a retry that
+    // fails identically forever, and would put someone else's business id in
+    // front of an operator as though it were theirs to fix.
+    if (err instanceof ScopeRefusedError) return withRotatedCookie(refused(err), rotated)
+    // THE SAME REASONING, ONE STEP EARLIER. The caller named no business and
+    // holds none they may open — an answer about their account, not a
+    // configuration failure. Before [[DOC-42]] §10.1 this was unreachable: the
+    // account was refused at the door instead, which is the refusal that took
+    // away the remedy along with the access.
+    if (err instanceof NoBusinessError) return withRotatedCookie(noBusiness(admission), rotated)
+    // Anything reaching here escaped the router's own handler, or the
+    // admission check ahead of it — a store that could not be constructed, an
+    // identity table that is not migrated, most likely a missing binding or an
+    // unknown tenant. It is a configuration failure rather than a bad request,
+    // and it says so in prose an operator can act on.
+    const message = err instanceof Error ? err.message : String(err)
+    return withRotatedCookie(
+      uncacheable(
+        new Response(message, {
+          status: 503,
+          headers: { 'content-type': 'text/plain; charset=utf-8' },
+        }),
+      ),
+      rotated,
+    )
+  }
+}
+
+/**
+ * The Worker.
+ *
+ * `fetch` IS A WRAPPER NOW AND {@link handleFetch} IS THE HANDLER ([[REQ-235]]).
+ * The split exists so that one record per invocation is written whichever way
+ * the request leaves — the 403s, the terms interstitial, the refusals and the
+ * outer `catch` included. Logging from inside the handler would have meant a
+ * line at each of a dozen exits, and the exits that matter most to an operator
+ * are exactly the ones somebody would forget.
+ */
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
-    // DECLARED OUTSIDE THE `try` SO THE CATCH CAN READ IT. `NoBusinessError` is
-    // thrown from inside the router, several frames down, and the one thing its
-    // log line needs is who it happened to — which only exists here.
-    let admission: Admission | null = null
-    // AND THE SAME, FOR THE SAME REASON ([[REQ-231]]). The rotation is known
-    // where the session is read; the response is built several branches later,
-    // and one of those branches is the `catch` below. See
-    // {@link withRotatedCookie}.
-    let rotated: string | null = null
+    /*
+     * THE LOG IS OPENED BEFORE ANYTHING ELSE AND CLOSED AFTER EVERYTHING
+     * ([[REQ-235]] §2). It mints the `trace_id` every record of this
+     * invocation carries — which is the session linkage [[EPIC-1]] §41.5 asks
+     * of this store — and it is what the handler binds the business and the
+     * actor onto once those have been resolved.
+     *
+     * THE DRAIN IS IN A `finally`. A record buffered and never written is a
+     * record that may as well not have been emitted, and the paths most worth
+     * having one are the ones that threw.
+     */
+    const log = beginRequest(env, request)
     try {
-      /**
-       * THE ONE ROUTE AHEAD OF THE GATE ([[REQ-198]]).
-       *
-       * Everything below this line is ordered so that no route can be reached
-       * without a verified identity, and this is the single deliberate
-       * exception: an email provider posting a bounce cannot present an Access
-       * token, so a delivery webhook behind the gate is a delivery webhook that
-       * never fires.
-       *
-       * WHAT REPLACES THE GATE IS THE SIGNATURE, and it is not weaker for being
-       * different. `handleEmailWebhook` refuses before it parses, before it
-       * looks anything up and before a store handle exists — the same shape as
-       * the three checks below — and it fails closed when the secret is
-       * unconfigured, so a deployment that forgot it is refused rather than
-       * open.
-       *
-       * IT IS MATCHED ON PATH AND METHOD, EXACTLY. A prefix match here would be
-       * a way to reach anything under `/api/email/` unauthenticated, which is
-       * the kind of hole that is written once and found years later.
-       *
-       * THE HANDLER OWNS ITS OWN FRESHNESS HEADER, the same division `route`
-       * keeps: every response it makes carries `no-store`, so wrapping it here
-       * would be a second place the same header is decided.
-       */
-      if (
-        new URL(request.url).pathname === EMAIL_WEBHOOK_PATH &&
-        request.method === 'POST'
-      ) {
-        return (await handleEmailWebhook(request, env)).response
-      }
-
-      /**
-       * THE SECOND SET AHEAD OF THE GATE ([[REQ-202]]), and the argument is the
-       * webhook's argument for a different caller.
-       *
-       * These four routes are what an ANONYMOUS person calls in order to become
-       * authenticated: a sign-in endpoint behind a gate is a sign-in endpoint
-       * nobody who needs it can reach, and an invite link that lands behind
-       * Cloudflare Access is an invite that challenges the invitee with a SECOND
-       * one-time-PIN email before they have finished reading the first.
-       *
-       * WHAT REPLACES THE GATE IS THE TOKEN. Holding a link is the whole
-       * credential ([[REQ-134]]): 256 bits used as a primary key, single-use,
-       * enforced by a conditional UPDATE in the database rather than by code.
-       * Nothing behind these paths reads a store handle, resolves a scope or
-       * touches a site — the most a caller reaches is a session for a person the
-       * database already knows.
-       *
-       * `handleSignIn` MATCHES ITS OWN PATHS AND ANSWERS `undefined` OTHERWISE,
-       * so the exemption is exactly the four routes and cannot widen by a route
-       * being added elsewhere. It owns its freshness headers, the same division
-       * the webhook and the router keep.
-       */
-      const signIn = await handleSignIn(request, env, {})
-      if (signIn) return signIn
-
-      // The business the caller is ASKING for. Whether they may have it is
-      // `resolveScope`'s question, and asking it here rather than in the router
-      // is what keeps authorisation ahead of routing.
-      const requested = splitBusinessPrefix(new URL(request.url).pathname).businessId
-
-      // `admit`, OR NOTHING — gated on the SAME predicate that skips the gate,
-      // not on a second condition that happens to agree with it today. Two
-      // predicates that can drift is how a deployment ends up resolving a
-      // loopback scope while enforcing a production gate, or the reverse.
-      if (!isUnconfiguredLocalDev(env)) {
-        /**
-         * TWO PRODUCERS OF ONE FACT ([[REQ-202]]).
-         *
-         * `admit` consumes a verified email and nothing else, so a second way of
-         * arriving at one is purely additive: a live session cookie and a valid
-         * Access JWT produce the same value, and nothing downstream — `admit`,
-         * scope, the terms gate, the portal — can tell which answered.
-         *
-         * THE SESSION IS TRIED FIRST, and Access is the fallback rather than the
-         * legacy path. Access STAYS ([[CHAT-39]]): it is the operator's own route
-         * in and the way back if this one breaks, so it is a second SUPPORTED
-         * producer and not a mode being retired. Trying it second means a person
-         * holding both is admitted by the cheaper of the two — one indexed row
-         * against a signature check and a JWKS fetch.
-         *
-         * A COOKIE THAT RESOLVES TO NOBODY IS NOT AN ADMISSION AND NOT A
-         * REFUSAL. `sessionIdentity` answers null for an expired session, a
-         * withdrawn person and a deployment that issues no sessions alike, and
-         * the request then meets the gate exactly as it did before this ticket.
-         * Refusing here instead would make a stale cookie in some browser a
-         * lockout from a builder Access would have let its holder into.
-         */
-        const signedIn: SignedIn | null = await sessionIdentityFor(env, request)
-        let email: string | null
-        if (signedIn) {
-          // THE OBLIGATION, TAKEN BEFORE ANYTHING ELSE CAN RETURN ([[REQ-231]]).
-          // Every exit below carries it from here, including the refusals and
-          // the `catch` — because the rotation has already happened in the
-          // database whatever this request goes on to answer, and a refusal that
-          // dropped the header would retire the credential of the person it
-          // refused.
-          rotated = signedIn.setCookie ?? null
-          // THE PRE-EMPTION, AND IT IS AHEAD OF `admit` DELIBERATELY. What it
-          // offers is a fresh sign-in, which is worth offering to somebody whose
-          // admission is about to be re-checked anyway — and running it after
-          // `admit` would put a redirect behind a denial for the one person it
-          // cannot help.
-          if (expiringWithinPreemption(signedIn) && isNavigation(request)) {
-            return preemptSignIn(rotated)
-          }
-          email = signedIn.email
-        } else {
-          const gate = await guardAccess(request, env)
-          if (!gate.ok) return gate.response
-          // `actingEmail` AND NOT `gate.email` ([[BUG-59]]). A human's own
-          // address is returned unchanged, so this is the same call for
-          // everyone who arrives at the gate; what it adds is that a SERVICE
-          // TOKEN — which authenticates as a `common_name` and carries no
-          // email — is resolved to the person whose automation it is, if the
-          // deployment has said which. Unmapped, it comes back null and is
-          // refused `no_email` exactly as before, so this widens nothing by
-          // itself.
-          //
-          // ON THIS BRANCH AND NOT AFTER THE `if`, because a session is a
-          // person by construction: `sessionIdentity` reads a row somebody
-          // signed in to create, and a service token has no way to hold one.
-          // Resolving above the join would ask a question that can only be
-          // answered `null` there, and would imply a token might arrive
-          // carrying a session cookie.
-          //
-          // AND HERE RATHER THAN INSIDE `admit`, which is the one place
-          // admission is already decided: `admit`'s question is "may this
-          // address in", and giving it a second question about tokens would put
-          // two authorisations in one function.
-          email = actingEmail(env, gate)
-        }
-
-        admission = await admit(env, email)
-        if (!admission.ok) return withRotatedCookie(denied(), rotated)
-
-        // Terms LAST of the identity checks, and inside this block rather than
-        // after it: the dev-open branch has no admission at all, so there is no
-        // person to have accepted anything and nothing to check.
-        const terms = await guardTerms(request, env, admission)
-        if (terms) return withRotatedCookie(terms, rotated)
-      }
-
-      const scope = await resolveScope(env, admission, requested)
-      // THE ADMISSION TRAVELS WITH THE SCOPE, and only one route reads it
-      // ([[REQ-179]]). `/api/businesses` answers a question about the ACCOUNT —
-      // which businesses may be operated — and that is the question `admit`
-      // already answered here, ahead of routing. Handing the answer down is what
-      // keeps it a single answer; asking again inside the router would need the
-      // verified email the router is deliberately never given.
-      return withRotatedCookie(await route(request, env, scope, { admission }, ctx), rotated)
-    } catch (err) {
-      // A REFUSED TARGET IS A 403, NOT THE 503 BELOW. The caller named a business
-      // they may not operate: an answer about them, not a configuration failure
-      // an operator can act on. Dressing it as one would invite a retry that
-      // fails identically forever, and would put someone else's business id in
-      // front of an operator as though it were theirs to fix.
-      if (err instanceof ScopeRefusedError) return withRotatedCookie(refused(err), rotated)
-      // THE SAME REASONING, ONE STEP EARLIER. The caller named no business and
-      // holds none they may open — an answer about their account, not a
-      // configuration failure. Before [[DOC-42]] §10.1 this was unreachable: the
-      // account was refused at the door instead, which is the refusal that took
-      // away the remedy along with the access.
-      if (err instanceof NoBusinessError) return withRotatedCookie(noBusiness(admission), rotated)
-      // Anything reaching here escaped the router's own handler, or the
-      // admission check ahead of it — a store that could not be constructed, an
-      // identity table that is not migrated, most likely a missing binding or an
-      // unknown tenant. It is a configuration failure rather than a bad request,
-      // and it says so in prose an operator can act on.
-      const message = err instanceof Error ? err.message : String(err)
-      return withRotatedCookie(
-        uncacheable(
-          new Response(message, {
-            status: 503,
-            headers: { 'content-type': 'text/plain; charset=utf-8' },
-          }),
-        ),
-        rotated,
-      )
+      const response = await handleFetch(request, env, ctx, log)
+      log.finish(response.status)
+      return response
+    } finally {
+      // AWAITED, NOT REGISTERED WITH `ctx`. See `log.ts`'s `drain`: a record
+      // written only when the platform keeps the isolate alive is a log with
+      // holes in the invocations somebody is reading it to understand.
+      await log.drain()
     }
   },
 
@@ -570,6 +631,39 @@ export default {
    * only in a log line nobody reads.
    */
   async scheduled(event: ScheduledController, env: Env): Promise<void> {
+    /*
+     * THE SESSION CLOSER ([[REQ-235]] §3), AND IT RUNS ON EVERY TICK.
+     *
+     * IT IS WHY THERE IS A SECOND CRON EXPRESSION AT ALL. The daily one is the
+     * right cadence for a sweep of dead credentials and leaked test rows;
+     * it is the wrong cadence for a timeline, because a session ending at ten in
+     * the morning would not appear on it until the following morning — eighteen
+     * hours behind, which is not the feature that was asked for. So
+     * {@link ACTIVITY_CRON} fires every ten minutes and this is what it is for.
+     *
+     * IT RUNS ON THE DAILY TICK TOO, deliberately. A closer that only ran on one
+     * of two expressions would be a closer that stops the day somebody changes
+     * which expression the platform delivers — and running it twice inside ten
+     * minutes costs one query and writes nothing, because a session whose last
+     * record is inside the timeout is left open by construction.
+     */
+    const closed = await closeSessions(env)
+    console.log(JSON.stringify({ event: 'sessions_closed', cron: event.cron, ...closed }))
+
+    /*
+     * AND THE DAILY WORK IS SKIPPED ON THE FREQUENT TICK. Purging expired
+     * credentials, sweeping the gutter and pruning the log are all sweeps over
+     * whole tables whose horizons are measured in days; running them every ten
+     * minutes would be 143 scans a day that can each take nothing.
+     *
+     * THE TEST IS FOR THE FREQUENT EXPRESSION RATHER THAN FOR THE DAILY ONE, so
+     * that an invocation carrying neither — a platform that renamed the field, a
+     * suite that constructed a controller — does the MORE complete thing rather
+     * than the less. A sweep that ran when it need not have costs a scan; one
+     * that silently stopped running looks exactly like a system with no garbage.
+     */
+    if (event.cron === ACTIVITY_CRON) return
+
     const purged = await purgeSessions(env)
     console.log(JSON.stringify({ event: 'sessions_purged', cron: event.cron, ...purged }))
 
@@ -594,6 +688,21 @@ export default {
      */
     const collected = await sweepSynthetic(env)
     console.log(JSON.stringify({ event: 'synthetic_swept', cron: event.cron, ...collected }))
+
+    /*
+     * THE LOG'S OWN RETENTION ([[REQ-235]] §2, [[EPIC-1]] §40). A log that
+     * accumulates without bound is a cost that arrives silently and later, which
+     * is why the limit ships with the first commit rather than being added once
+     * somebody notices the bill.
+     *
+     * IT REPORTS HOW FAR IT REACHED AS WELL AS WHAT IT TOOK. `pruned_through` is
+     * what tells a reader whose cursor predates the window to start again rather
+     * than be served a partial history it cannot tell from a complete one — so
+     * the number is worth having in the invocation log when somebody is asking
+     * why a reader reset.
+     */
+    const pruned = await pruneRecords(env)
+    console.log(JSON.stringify({ event: 'log_pruned', cron: event.cron, ...pruned }))
   },
 
   /**
