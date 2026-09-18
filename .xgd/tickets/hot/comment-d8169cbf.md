@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T21:02:16.053966+00:00'
+updated_at: '2026-09-18T21:02:42.933954+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -299,5 +299,23 @@ Still open on BUG-116: the production survey and repair, the key-model assertion
 Sure leave xgd.
 
 Thank you I see my conversation again
+
+<!-- xgd-turn id="f73bc645-e225-4581-8748-1bf699d77c55-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T21:02:42.564962+00:00" -->
+#### Claude
+Good to hear. Let me record the XGD decision so it doesn't sit as an open question.
+
+Recorded — XGD is now a decision on BUG-116, not an open item. The earlier conversation stays intact in the store, just unreachable from the builder, and I noted that the production survey must report that case separately rather than folding it into the repairable set.
+
+Where EPIC-19 stands:
+
+- **Finding 1** — model routing. Opus 5 confirmed on the conversation; Haiku delegation available in the framework but not adopted here, parked with your reasoning captured.
+- **Finding 2** — the orphaning. Diagnosed, local data repaired, BUG-116 filed for the rest.
+- **BUG-116 open work**, all code and all through the normal branch-and-UAT route: the production survey and repair, assertions pinning the opaque-key model so a name-keyed path can't land unnoticed, and making an orphaned conversation discoverable instead of silent.
+
+Worth a flag while it's fresh: your **production** store likely has the same shape, and the sites there have had real client conversations. Nothing is at risk — the transcripts survive, they're just invisible — but the longer it runs the more sessions accumulate at stale addresses. Whenever you want, the survey half of BUG-116 is small and read-only, so we can find out what's actually there before deciding on a repair.
+
+Otherwise — carry on building with the consultant. That's what this epic is for, and the friction you hit is what I want to see.
 
 <!-- xgd-chat-end -->
