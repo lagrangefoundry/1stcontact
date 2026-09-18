@@ -6,10 +6,10 @@ title: 'repro console: [recapture] is a continuation verb rendered in the restar
   position'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:36.606254+00:00'
-updated_at: '2026-09-18T23:53:33.468798+00:00'
+updated_at: '2026-09-18T23:54:22.193531+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d7d3f665
+  commits:
+  - working_sha: 5653de893110491864d21ed8afc461c55bca12f9
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ad4ee02fc255b36584085f08ebfaf39e8ac80699
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.274
 ---
 
 # [recapture] is a continuation verb rendered in the restart position
