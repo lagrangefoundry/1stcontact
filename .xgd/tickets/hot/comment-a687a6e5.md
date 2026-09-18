@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T03:13:47.054533+00:00'
+updated_at: '2026-09-18T03:14:58.043642+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -985,5 +985,36 @@ So it would go something like this:
 2. AI checks it: I see you bought it on Godady but DreamHost is managing it I can walk you through that transfer, before I do lets check on a few details - I see you have email forwarding configured. I assume you want to keep that? You will need to configure it here [get user to configure email settings - provide instructions to help them look up the settings with the forwarder if they can't remember] - great we have everything we need to start...[transfer flow]...ok it could take some time for the change to propagate through the internet - we will send you an mail notification when everything is up and running...."
 3. Question/assumption: The email we send to confirm this should be a notification from 1st Contact so to their direct gmail address so that the DNS config cannot break it if it goes wrong
 4. Notification message should confirm that we have checked and all looks good and give them instructions to test the new forwarding
+
+<!-- xgd-turn id="3939e467-66b1-4094-b53f-d0c18f3d5b7b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T03:14:57.452572+00:00" -->
+#### Claude
+This is the right shape, and it's close to what the epic already records — your "configure once, then we act" is step 2 of the cutover window (`EPIC-5` creates the zone `pending` and populates it *before* the nameserver pair is ever shown, so there's a free interval where the zone is ours and nothing resolves from it yet). Your framing adds the thing that section doesn't have: that the whole capture phase should feel like one sitting, and the async part should be invisible.
+
+**Point 3 is right and I'd go further on the why.** The notification must go to the account holder's own address — the one they signed up to 1st Contact with — and the reason isn't only that DNS could break it. It's that the entire purpose of the message is to report on a system that, if it's broken, is exactly the system that would have delivered it. A confirmation routed through the thing it's confirming can only ever arrive when it isn't needed.
+
+**Point 4 I'd change, because we already designed something stronger.** The epic has §"The forwarding test: a real message, on the test rails, confirmed by a human" — *send* a test to the address under test, let it travel the entire real path, and put a confirm button in the message itself. Instructing them to test is weaker: a `email.delivered` event proves the message reached a mail server, not a human, and "did you get it?" asked in a notification gets a shrug.
+
+So I'd make it two messages with two different jobs on two different rails:
+
+- **To their personal address:** "your domain is live, mail is flowing" — our report.
+- **Into their forwarded inbox, via the real pipeline:** the test, with the button.
+
+The pair is the proof, and the fact that they travel different paths is the feature — if the first arrives and the second doesn't, that's precisely diagnostic.
+
+**Three things that complicate "configure everything once", all worth deciding now:**
+
+**Destination verification is a third-party round trip inside your capture phase.** Cloudflare requires each destination to confirm by clicking a link. If Alice says "forward to sarah@ and bob@", then Sarah and Bob each have to act — people who aren't in the room and may not be at a computer. That's async work *inside* the phase you want to feel synchronous. My view: capture the destinations, fire verification immediately (it doesn't depend on the zone at all, so it can run the whole time she's doing everything else), and **let unverified destinations block the nameserver paste**. Cutting over with an unverified destination means mail arrives, gets recorded, and is silently swallowed — which is the one failure a business can't forgive, and it's the exact failure mode the pipeline currently has with a null destination.
+
+**"We'll tell you when it's up" should be triggered by observation, not elapsed time.** We already have the machinery: `resolver.ts` reads DNS from outside, following current delegation rather than reading our own zone back — built for exactly this question. So we poll for the delegation flipping and our MX answering, and the notification fires on an observed fact. A timer would send "all good" into a delegation that hadn't moved.
+
+**The AI's opening line claims more than we can see.** Nameservers tell us who manages DNS — certain. Registrar ("you bought it on GoDaddy") needs RDAP/WHOIS, which I don't think we do today; worth checking before the script promises it. And *forwarding configuration* is not visible at all — the epic is blunt that destinations are "not discoverable from DNS at any price". We can see mail is handled by GoDaddy; we can't see whether that's forwarding or real mailboxes. So the line wants to be "I can see your mail is handled by X — where should it go after the move?" rather than "I see you have forwarding configured". That also keeps `EPIC-5`'s rule intact: we may ask what she knows, never ask her to validate what we found.
+
+**One thing your flow implies that isn't written down anywhere:** capture must be resumable. The most likely stall is "I can't remember my forwarding rules and I'll have to dig them out of GoDaddy" — and the epic already says someone choosing to schedule the move rather than finish now is the *correct* outcome. So the captured configuration has to persist with nothing acted on, and she has to be able to walk back in and pick up. That's your separation of capture from action stated as a durability requirement, and it's the part that most needs to be true before any of it is built.
+
+The per-provider "here's where GoDaddy hides your forwarding rules" guidance is genuinely good AI work and I'd name it as its own capability rather than letting it hide inside the flow — it's the difference between this being simple and being harrowing.
+
+Want me to write this into EPIC-13 as a UX section? It's a document change, so no branch needed — and it belongs beside the cutover ordering rather than in ticket 2, since it spans the EPIC-5 seam.
 
 <!-- xgd-chat-end -->
