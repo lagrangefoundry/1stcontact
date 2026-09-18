@@ -6,9 +6,9 @@ title: 'repro console: two checks that cry wolf — the ready_* assertion and th
   rail'
 created_by: EPIC-12
 created_at: '2026-09-18T02:25:43.950444+00:00'
-updated_at: '2026-09-18T03:40:00.702449+00:00'
+updated_at: '2026-09-18T03:40:00.957551+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -75,3 +75,72 @@ Three rounds have run with the safety rail inert while the page said **REGRESSED
 - Run an iteration with no `storage/rail/baseline.json`: the rail reports "not recorded" and names the command, and the word `REGRESSED` does not appear.
 
 - Record a baseline, break a serializer, re-run: `REGRESSED` appears and names the reference that moved.
+
+
+---
+
+## How this is being built (session notes, BUG-114)
+
+### Part 1 — attribution replaces difference
+
+`readyStatusViolations(before, after)` is replaced, not extended, by two
+functions in `tools/repro-console/src/ticket.ts`:
+
+- `readyStatusArrivals(before, after)` — the tickets that were not at a trigger
+  status when the round started and are now. The difference is still how an
+  arrival is *found*; it is no longer how it is *charged*.
+- `readyStatusFindings(arrivals, attribution)` — splits those arrivals into
+  `violations` and `observations`.
+
+An arrival is attributable to the round, and so a **violation**, when either
+holds:
+
+1. its `created_by` passes `filedByRound()` — the marker BUG-104 added; or
+2. its uid or its id appears among the tickets the round named in its own
+   outcome (`ticketId`, `bugTickets`) — which is how a round PROMOTING a ticket
+   it filed is caught.
+
+The violation keeps its current sentence verbatim and gains a trailing clause
+naming which of the two ties it to the round, so an operator reading it knows
+why the round is being charged with it.
+
+Everything else is an **observation**: one line, in language that states the
+coincidence and says plainly that nothing ties it to the round. It renders on
+the page beside the round in neutral styling, not in the red violations list,
+and it does not contribute to the "See the violations under it" message.
+
+Consequences of this design that the code states as deliberate:
+
+- The console reads each arrival back with `xgd ticket get <uid> --json` to
+  reach `created_by`, because `xgd ticket list --json` does not carry that
+  field. The cost is bounded by the number of arrivals, which is zero in the
+  ordinary round.
+- An arrival the console **cannot read back** is not attributable, so it is an
+  observation. Same principle as BUG-104's read-back: "the console could not
+  look" must never render as "the round did this."
+- A round that promotes a ticket it never filed and never names is
+  indistinguishable from the operator doing the same thing, and is reported as
+  an observation. That residual is accepted here: it is the cost of not
+  accusing the operator of a violation, and the hazard the check exists for —
+  a round filing at `ready_*`, or promoting what it filed — is still charged.
+
+This supersedes REQ-262 requirement 11's difference-only reading; the REQ-262
+UATs that pin the old behaviour are updated to the new one in the same commit.
+
+### Part 2 — the wording, and the banner
+
+BUG-109 already landed the half that matters most: `runRail` returns
+`noBaseline`, and neither `summarise` nor `formatRailReport` says `REGRESSED`
+when there is no bar. What this ticket adds:
+
+- the phrase becomes **"not yet recorded"** rather than "not available", which
+  is what the state is: a setup step nobody has done. BUG-109's assertions on
+  the old phrase are updated with it.
+- `RailRoundResult` carries `noBaseline` so the console can tell an unrecorded
+  rail from every other reason a rail did not run.
+- while the most recent iteration's rail has no baseline, the console page
+  carries a **notice at the top** — above the iteration list, distinct from
+  both the red failure line and the dimmed per-iteration rail line — saying the
+  rail is checking nothing and naming `repro-rail record`. That is the answer
+  to "three rounds ran without the operator noticing": it is no longer a line
+  folded into an iteration, it is a standing banner on the console itself.
