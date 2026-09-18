@@ -61,6 +61,7 @@ import {
 } from './colors'
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
+import type { SeverityTier } from './capture/values-diff'
 import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
 import {
@@ -223,6 +224,7 @@ export {
   formatGateReport,
   PERCEPTUAL_MEAN_FLOOR,
   PERCEPTUAL_PCT_FLOOR,
+  VALUES_TIER_FLOOR,
   SECTION_DENSITY_PX,
 } from './gate'
 export type {
@@ -231,7 +233,7 @@ export type {
   GateVerdict,
   ReferenceCoverage,
   CoverageFinding,
-  PerceptualFloor,
+  GateFloor,
   ReconcileInput,
 } from './gate'
 export { parseArgs } from './args'
@@ -379,6 +381,7 @@ L1 reproduction pipeline (REQ-88) — turn a capture bundle into a servable, gat
 Cross-gate reconciliation (REQ-94) — run l1-gate + values-diff + perceptual diff and COMPARE them:
   1c gate <slug> --ref <captureBundleDir> [--source draft|published] [--size mobile|tablet|desktop]
           [--out <dir>] [--json] [--sandbox] [--mean-floor <0-255>] [--pct-floor <0-100>]
+          [--values-tier <CRITICAL|HIGH|MEDIUM|LOW|none>]
   1c gate --ref <captureBundleDir> --actual-image <png> --actual-manifest <manifest.json> [--out <dir>] [--json]
     (BUG-103) with --out, writes actual-manifest.json, expected-manifest.json and actual.png beside
     values-diff.json / regions.json / gate.json — the artifacts that describe the REPRODUCTION rather than
@@ -387,10 +390,15 @@ Cross-gate reconciliation (REQ-94) — run l1-gate + values-diff + perceptual di
     l1-gate is blind to colour/font/media BY DESIGN and values-diff can only compare elements present in
     BOTH manifests — so a page whose capture missed its imagery passes both while the perceptual eye reads
     80% of pixels wrong. This verb makes that DISAGREEMENT the finding. A perceptual FLOOR fails the run
-    regardless of the value gates, and the verdict names the likely cause:
+    regardless of the value gates, and a value-gate TIER floor fails it regardless of the pixels — a lost
+    heading, or a link that is no longer a link, moves no pixel at all, so the eye is structurally unable
+    to see it and only the value gate can. Default: no delta above MEDIUM (so tone and treatment drift
+    still passes, as it always did); --values-tier none holds the value gate to nothing.
+    The verdict names the likely cause:
       capture-incomplete       the reference manifest is impoverished vs the reference screenshot —
                                fix the CAPTURE; value deltas against it are not yet evidence
-      reproduction-wrong       coverage is clean and both eyes agree — work the values-diff deltas
+      reproduction-wrong       both eyes agree (coverage clean), OR the eye is within its floor and a
+                               delta above the value floor failed it — work the values-diff deltas
       unexplained-disagreement nothing but pixels sees it — a pixel-moving axis the manifest lacks
     Reference coverage (mirrored-vs-referenced images, page height per section) is reported every run.
 
@@ -1305,6 +1313,17 @@ export async function run(argv: string[]): Promise<void> {
         if (Number.isNaN(n)) throw new Error(`--${name} expects a number, got '${v}'.`)
         return n
       }
+      // BUG-110 — the value gate's bound is a per-run dial for the same reason
+      // the perceptual one is: `none` restores the pre-BUG-110 behaviour where
+      // no delta of any severity could decide the verdict.
+      const valuesTierFlag = (): SeverityTier | null | undefined => {
+        const v = flags['values-tier']
+        if (typeof v !== 'string') return undefined
+        const upper = v.toUpperCase()
+        if (upper === 'NONE') return null
+        if (upper === 'CRITICAL' || upper === 'HIGH' || upper === 'MEDIUM' || upper === 'LOW') return upper
+        throw new Error(`--values-tier expects one of CRITICAL|HIGH|MEDIUM|LOW|none, got '${v}'.`)
+      }
       const report = await withCleanStdout(() =>
         cmdGate({
           ...global,
@@ -1315,7 +1334,11 @@ export async function run(argv: string[]): Promise<void> {
           actualImagePath,
           actualManifestPath,
           out: typeof flags.out === 'string' ? flags.out : undefined,
-          floor: { mean: floorFlag('mean-floor'), pct: floorFlag('pct-floor') },
+          floor: {
+            mean: floorFlag('mean-floor'),
+            pct: floorFlag('pct-floor'),
+            valuesTier: valuesTierFlag(),
+          },
         }),
       )
       if (flags.json === true) {

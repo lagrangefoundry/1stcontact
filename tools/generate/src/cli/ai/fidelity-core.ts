@@ -538,7 +538,7 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
       await captureOf(name) // refuses by name before any browser is leased
       const actual = p.actual as PictureSource
 
-      // The three gates, and then the reconciliation. Run in this order because
+      // The three eyes, and then the reconciliation. Run in this order because
       // the structural one is the cheapest and the browser work is the most
       // expensive; a bundle with no L1 fold fails here without leasing anything.
       const l1Gate = await cmdL1Gate(bundle)
@@ -572,6 +572,10 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
         floor: report.floor,
         perceptual: report.perceptual,
         values: report.values,
+        // BUG-112 — the collisions on the SERVED document, beside the coverage
+        // findings and in the same `{kind, detail}` shape, so a round that
+        // already knows how to read one reads the other with no new format.
+        layout: report.layout,
         coverage: {
           mirroredImages: report.coverage.mirroredImages,
           referencedImages: report.coverage.referencedImages,

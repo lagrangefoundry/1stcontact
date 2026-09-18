@@ -9,7 +9,7 @@ import { PNG_CORPUS, corpusBytes } from './fixtures/png/corpus'
 // distinction is the finding rather than an inconvenience.
 import { diffManifests } from '../tools/generate/src/cli/capture/values-diff'
 import { buildResponsiveTable, classifyResponsiveTable } from '../tools/generate/src/cli/responsive-diff'
-import { threeProbeGate } from '../tools/generate/src/l1/probes'
+import { acceptanceGate } from '../tools/generate/src/l1/probes'
 import { foldToL1 } from '../tools/generate/src/l1/fold'
 import type { MultiStateCapture, StateProjection, ValueElement, ValueManifest } from '../tools/generate/src/cli/capture'
 
@@ -209,7 +209,7 @@ describe('REQ-156 AC4 — the rest of the fidelity path is workerd-clean at its 
     // THE ONE PORTING FINDING, and it is an import path rather than a rewrite.
     // `cmdL1Gate` lives in `repro.ts`, which reads and writes files, and the `l1`
     // BARREL re-exports `roundtrip.ts`, which imports `node:http`. The gate's
-    // arithmetic — `foldToL1` + `threeProbeGate` — is clean, and reaching it here
+    // arithmetic — `foldToL1` + `acceptanceGate` — is clean, and reaching it here
     // means importing `l1/fold` and `l1/probes` directly instead of through
     // `../l1`. Recorded as a UAT so the next caller does not rediscover it.
     const ladder = [320, 375, 768, 1024, 1280, 1440]
@@ -237,7 +237,7 @@ describe('REQ-156 AC4 — the rest of the fidelity path is workerd-clean at its 
     const oracle: MultiStateCapture = { projections }
 
     const base = foldToL1(oracle)
-    const report = threeProbeGate(base, oracle)
+    const report = acceptanceGate(base, oracle)
 
     // Not asserting pass/fail — the fixture is a stand-in and the verdict is the
     // gate's business, not this ticket's. What AC4 needs is that all three probes

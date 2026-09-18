@@ -154,14 +154,25 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     expect(report.promoted.length).toBeGreaterThan(0)
     expect(report.sampleFidelity.pass).toBe(true)
 
-    // BUG-113 — but the residual is reported about the document that is SERVED,
-    // and recovery is not applied to make it go away. `promoteToFlow`'s output is
-    // written nowhere, so grading it here answered the question with an artifact
-    // the operator cannot open: the gate read PASS while the served page carried
-    // the overlaps. The pinned stack is fragile under content growth, so it is
-    // reported fragile.
+    // BUG-112 — and the gate still does not pass, because recovery closes the
+    // residual on an overlay `1c repro` never writes.
+    //
+    // REQ-88's acceptance that recovery closing the residual makes the run pass
+    // is superseded: recovery is a property of the overlay, and a verdict is a
+    // claim about the page the operator loads. What fails on the SERVED document
+    // is content-robustness — an absolutely-positioned page is fragile under
+    // content growth by construction, and saying so about the page on disk is the
+    // whole point.
     expect(report.contentRobustness.pass).toBe(false)
     expect(report.pass).toBe(false)
+
+    // BUG-113 — the unperturbed envelope at the captured widths, though, is
+    // CLEAN. BUG-112 read this fixture's heading as overrunning the body copy at
+    // 320 / 375, and it does not: the oracle gives the heading 48px at every
+    // width and the run below it starts 70px lower. The collision was the
+    // evaluator's own 0.5em-advance estimate wrapping a heading that the browser
+    // did not wrap, and the oracle has held the real number all along.
+    expect(report.onSample.pass).toBe(true)
 
     // What recovery WOULD buy, and what it would cost, is reported as numbers
     // beside the verdict — so declining it is an informed choice rather than an

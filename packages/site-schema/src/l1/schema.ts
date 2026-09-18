@@ -1222,6 +1222,34 @@ const nodeAxisGroupsShape = {
   interaction: l1InteractionSchema.optional(),
   /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
   reveal: l1RevealSchema.optional(),
+  /**
+   * BUG-112 — **this node is deliberately stacked over what it overlaps.**
+   *
+   * Two boxes that intersect are, by default, a defect: the renderer paints in
+   * document order with no z-index, so a run that lands on its neighbour is the
+   * reader losing a sentence. The envelope evaluator therefore reports every
+   * intersection it finds, and the gate fails on it.
+   *
+   * A deliberate stacked composition — a headline over a hero photograph, a badge
+   * on a card's corner — is the SAME geometry with a different intent, and no
+   * measurement can tell the two apart. So the intent is declared here rather
+   * than inferred: a node carrying `stacked` says its overlap is the design, and
+   * the evaluator exempts every pair it takes part in.
+   *
+   * `true` is the only legal value. `false` would be a second spelling of absent,
+   * which is the drift this schema refuses everywhere else — and, more to the
+   * point, the absence has to keep meaning "nobody has chosen", so that an
+   * unmarked overlap stays a finding rather than a silent default.
+   *
+   * NOT A PAINT AXIS: it moves no pixel and the renderer emits nothing for it
+   * (DOC-24's rule is about what L1 must be able to *express*; this is what the
+   * document must be able to *declare*, alongside `heading` / `link` / `action`,
+   * which paint nothing either). A capture cannot recover it — the browser shows
+   * the stack, not the reason for it — so a folded document never carries one,
+   * and the gate's finding is the fold gap that has to be closed by whoever
+   * decides the overlap was meant.
+   */
+  stacked: z.literal(true).optional(),
 } as const
 
 /**

@@ -202,6 +202,11 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
       responsivePadding: { topPx: { keyframes: [{ at: 320, value: 8 }] } },
       interaction: { hover: { opacity: 0.9 } },
       reveal: { yPx: 22, durationMs: 640 },
+      // BUG-112 — the declared stacking intent, carried by every kind for the
+      // same reason as the rest: an overlap can be deliberate on any node that
+      // renders a box, so a kind that could not say so would be a kind whose
+      // compositions the gate refuses.
+      stacked: true,
     }
     const groups = Object.keys(l1NodeAxisGroupsSchema.shape)
     expect(groups.sort()).toEqual(Object.keys(sample).sort())

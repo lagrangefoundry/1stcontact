@@ -15,7 +15,7 @@
  *                        pinned base (probe FAILS), and `promoteToFlow` — applied
  *                        only where the probe fails — restores the envelope
  *                        (probe PASSES). Promotion is demand-driven.
- *   - gate               `threeProbeGate` on the absolute base + recovered
+ *   - gate               `acceptanceGate` on the absolute base + recovered
  *                        overlay passes on every probe.
  */
 import { describe, expect, it } from 'vitest'
@@ -25,7 +25,7 @@ import {
   offSampleProbe,
   promoteToFlow,
   sampleFidelityProbe,
-  threeProbeGate,
+  acceptanceGate,
 } from '../tools/generate/src'
 import type {
   MultiStateCapture,
@@ -141,15 +141,15 @@ describe('REQ-86 — end-to-end reproduction (3-probe gate)', () => {
     const recovered = promoteToFlow(base, { scale: 2.5 }).doc
 
     // The full gate: fidelity on the absolute base, envelope probes on the
-    // document being SERVED. All three pass end-to-end when the served document
-    // is the recovered one.
+    // document being SERVED. Every probe passes end-to-end when the served
+    // document is the recovered one.
     //
-    // BUG-113 — this option used to be `recovered`, and naming it that is what
-    // let the gate grade an artifact written nowhere: `1c repro` writes the base,
-    // so the probes were reporting a clean envelope for a page no browser would
-    // ever be given. The option now says what it is for, and a caller that serves
-    // the base gets a verdict about the base.
-    const gate = threeProbeGate(base, cap, { served: recovered, contentScale: 2.5 })
+    // BUG-113 — the envelope probes used to read a `recovered` option instead,
+    // which is what let the gate grade an artifact written nowhere: `1c repro`
+    // writes the base, so the probes reported a clean envelope for a page no
+    // browser would ever be given. A caller that serves the base now gets a
+    // verdict about the base.
+    const gate = acceptanceGate(base, cap, { served: recovered, contentScale: 2.5 })
     expect(gate.sampleFidelity.pass).toBe(true)
     expect(gate.offSample.pass).toBe(true)
     expect(gate.contentRobustness.pass).toBe(true)
@@ -158,7 +158,7 @@ describe('REQ-86 — end-to-end reproduction (3-probe gate)', () => {
     // A gate run over the pinned base — which is what `1c repro` actually serves
     // — fails content-robustness, proving the gate is not vacuous and naming the
     // fragility the served page really has.
-    const ungated = threeProbeGate(base, cap, { contentScale: 2.5 })
+    const ungated = acceptanceGate(base, cap, { contentScale: 2.5 })
     expect(ungated.pass).toBe(false)
     expect(ungated.contentRobustness.pass).toBe(false)
   })

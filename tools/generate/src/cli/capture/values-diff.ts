@@ -1378,7 +1378,14 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   opacity: 'LOW',
 }
 
-const TIER_RANK: Record<SeverityTier, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
+/**
+ * The tier ordering, and the ONE definition of it. Exported for BUG-110: the
+ * gate's value floor is a tier bound, so `reconcileGates` has to ask "is this
+ * delta worse than the floor?" — and a second copy of this table over there
+ * would be a severity taxonomy that could silently disagree with the one the
+ * deltas were ranked by.
+ */
+export const TIER_RANK: Record<SeverityTier, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
 
 /**
  * Within-tier ordering (higher sorts first) — the coarse tiebreak *before*

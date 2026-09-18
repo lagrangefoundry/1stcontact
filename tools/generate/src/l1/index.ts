@@ -33,7 +33,7 @@ export {
 } from './forms'
 // BUG-23 — bind media handles to the bundle's mirrored assets (never the origin).
 export { localizeAssets, type LocalizedAssets } from './assets'
-// End-to-end reproduction gate (REQ-86) — the 3-probe acceptance + demand-driven
+// End-to-end reproduction gate (REQ-86) — the acceptance probes + demand-driven
 // flow promotion (structure recovery applied only where the pinned form fails).
 export {
   evaluateLayout,
@@ -41,7 +41,8 @@ export {
   sampleFidelityProbe,
   offSampleProbe,
   contentRobustnessProbe,
-  threeProbeGate,
+  onSampleProbe,
+  acceptanceGate,
   promoteToFlow,
   oracleBoxes,
   measuredTextHeights,
@@ -55,8 +56,8 @@ export {
   type SampleFidelityReport,
   type SampleFidelityOptions,
   type EnvelopeReport,
-  type ThreeProbeReport,
-  type ThreeProbeOptions,
+  type AcceptanceReport,
+  type AcceptanceOptions,
   type PromoteResult,
   type MeasuredTextHeights,
 } from './probes'

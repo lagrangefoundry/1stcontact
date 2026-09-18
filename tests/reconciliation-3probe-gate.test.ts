@@ -26,7 +26,7 @@ import {
   offSampleProbe,
   promoteToFlow,
   sampleFidelityProbe,
-  threeProbeGate,
+  acceptanceGate,
 } from '../tools/generate/src'
 import type {
   MultiStateCapture,
@@ -529,7 +529,7 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     // Non-vacuous #1: run against the purely-pinned base with NO recovery
     // overlay → pass = false, driven by content-robustness failing. Fidelity is
     // still measured on the absolute base and passes.
-    const ungated = threeProbeGate(base, cap, { contentScale: 2.5 })
+    const ungated = acceptanceGate(base, cap, { contentScale: 2.5 })
     expect(ungated.pass).toBe(false)
     expect(ungated.contentRobustness.pass).toBe(false)
     expect(ungated.sampleFidelity.pass).toBe(true)
@@ -538,13 +538,14 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     // — here the structure-recovered one — and the verdict follows it, with every
     // sub-report passing.
     //
-    // BUG-113 — the option is `served`, not `recovered`, and that is the whole
-    // repair. The envelope verdict is about whichever document a caller says is
-    // being served; the defect was that the document it named was written
-    // nowhere, so the gate reported a clean envelope for an artifact the operator
-    // could not open while the page on disk carried the overlaps. `1c repro`
-    // serves the absolute base and therefore passes the base here.
-    const gated = threeProbeGate(base, cap, { served: recovered, contentScale: 2.5 })
+    // BUG-113 — the option `recovered` is gone and every envelope probe reads
+    // `served`, which is the whole repair. A verdict is about whichever document
+    // a caller says is being served, and the defect was that the document it
+    // named was written nowhere: the gate reported a clean envelope for an
+    // artifact the operator could not open while the page on disk carried the
+    // overlaps. `1c repro` serves the absolute base, so it gets a verdict about
+    // the base.
+    const gated = acceptanceGate(base, cap, { served: recovered, contentScale: 2.5 })
     expect(gated.pass).toBe(true)
     expect(gated.sampleFidelity.pass).toBe(true)
     expect(gated.offSample.pass).toBe(true)
