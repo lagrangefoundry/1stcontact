@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T20:38:20.242027+00:00'
+updated_at: '2026-09-18T21:12:01.759646+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -233,6 +233,87 @@ session too.
 
 Defect 2 is the one worth fixing properly; defect 1 is a one-off repair the
 operator can approve per site.
+
+## Finding 3 — the repro console's 22 findings, and what they have in common (2026-09-18)
+
+Three logged AI rounds against `gigabytealchemy.ai` (plus one earlier) have filed
+[[REQ-265]], [[REQ-269]], [[REQ-270]], [[REQ-271]] and [[BUG-106]]–[[BUG-111]],
+and appended evidence to [[BUG-100]] and [[BUG-24]]. $22.28 and 246 turns on
+`claude-opus-5[1m]` for the three logged rounds. The tickets themselves are good
+— dependency-ordered, every claim quoted from a file or a command the round ran.
+
+**22 distinct defects, classified by where in the pipeline they sit:**
+
+| where | n | what |
+|---|---|---|
+| the instrument reports pass/clean when it measured nothing or measured wrong | 5 | BUG-106, BUG-100, BUG-109, BUG-110, BUG-111 |
+| the two sides are measured by different procedures | 4 | REQ-269 #5, REQ-270 #2/#3/#4 |
+| the capture loses information the page had | 5 | padding, line-height fraction, href, transparent band fill, alpha (BUG-24) |
+| the comparator has no axis for it | 2 | role/a11yRole (BUG-107), band surface fill (REQ-271 #2) |
+| the fold is wrong | 2 | half-leading (REQ-265 #1), scrim as band base (REQ-271 #3) |
+| **L1 genuinely cannot express it** | **2** | placeholder colour (REQ-265 #2), heading role (REQ-269 #4) |
+| process / harness | 2 | stale bundle (REQ-270 #1), self-contradicting prompt (BUG-108) |
+
+**The headline: 2 of 22 are L1 capability gaps.** Eleven are defects in the
+instrument that measures fidelity. The loop is working exactly as designed and
+what it is telling us is that the ruler is not yet trustworthy — so it keeps
+finding ruler bugs instead of L1 bugs. Fixing them one at a time means paying an
+Opus round to rediscover the next one.
+
+### The four patterns
+
+1. **A false pass is the norm.** REQ-269 opens "a pass verdict at mean 0.31 hides
+   five residuals"; REQ-271 "a pass at mean 0.31 with 14 deltas". BUG-106 reports
+   `0 deltas, 0 unmatched` having measured nothing; BUG-107's missing comparison
+   made 11 lost headings read as zero deltas; BUG-110's verdict ladder ignores
+   the value gate's severity entirely; BUG-111's unpaired section is "reported
+   nowhere the gate reads". One design choice generates all of them: **when the
+   instrument cannot see something it answers pass rather than unknown.**
+
+2. **The reference side and the reproduction side are read by different code.**
+   REQ-270 #3 states it outright — "the two sides are read by two different
+   procedures". Different populations (#4), a band's paint read from the fill box
+   on one side only (#2), bands on one side and none on the other (REQ-269 #5).
+   Every one of these is unauthorable if a single extractor runs over both sides
+   and the comparison is field-for-field over one schema.
+
+3. **The capture is a lossy bottleneck and everything downstream inherits it.**
+   Padding, the line-height fraction, `href`, alpha, transparent-vs-white are one
+   defect shape: the extractor stores a rounded or defaulted value instead of the
+   true one. No fold fix and no L1 axis can recover what the capture discarded.
+
+4. **A frozen bundle makes landed fixes invisible, so rounds re-diagnose them.**
+   REQ-271 confirms the ranked region score is "again 1051.13, region for region"
+   and that 13 of its 14 deltas are REQ-269's already-ticketed residuals seen
+   through a newly-sharpened instrument. Round 3 spent $4.91 and 56 turns largely
+   re-confirming frozen items.
+
+### Getting ahead of it — in this order
+
+1. **Unfreeze the loop (REQ-270 #1).** A bundle that records which extractor took
+   it, and a console that re-captures when the extractor has moved. Until this
+   lands every capture-side fix is silently inert and every round pays to
+   rediscover it. This is the rate limiter, and it is not a fidelity defect at
+   all.
+2. **Make `unmeasured` a verdict rather than a pass.** A gate carrying an explicit
+   unmeasured set, which cannot return pass while that set is non-empty, converts
+   six of the 22 from silent to loud and prevents the next six.
+3. **Make the two sides symmetric by construction.** One extractor over both
+   sides, one schema, field-for-field. Retires pattern 2 as a category rather
+   than as four tickets.
+4. **Audit the capture's completeness once.** Mechanically enumerate, per
+   reference bundle, the CSS properties the page uses against the properties
+   `capture.json` records. One pass over two or three references converts five
+   rounds of discovery into one list.
+5. **Split the queues.** Instrument repair restores trust in the ruler; L1 axis
+   work raises the product's ceiling. Only the two class-2 items do the latter,
+   and they are the ones that make client sites better. They should not queue
+   behind ruler repair.
+
+**Stop using delta count as the progress metric.** Landing BUG-107 took the
+reported deltas from 1 to 14. That is the instrument getting sharper, not the
+reproduction getting worse. The metric that means something is the unmeasured set
+shrinking.
 
 ## Children
 
