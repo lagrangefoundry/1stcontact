@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T02:23:29.361004+00:00'
+updated_at: '2026-09-18T02:27:47.240248+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -733,5 +733,41 @@ Say the word and I'll create them. Nothing committed — investigation only.
 <!-- xgd-chat role="user" ts="2026-09-18T02:23:28.940265+00:00" -->
 #### You
 Yes please
+
+<!-- xgd-turn id="5cc3a1dd-af6d-4991-876d-81273943e60f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T02:27:46.512840+00:00" -->
+#### Claude
+Reading done. Writing the four child tickets now.
+
+All four filed and linked to EPIC-12. Saving the two operational traps that cost the most to find.
+
+Four children filed and linked to EPIC-12, in the order they should be worked:
+
+| | | |
+|---|---|---|
+| **BUG-112** | `bug-84ed4e40` | gate: a reproduction that paints text over text passes — on-sample layout collisions are computed and discarded |
+| **BUG-113** | `bug-54eee0e0` | `1c repro` serves the absolute base while the gate certifies the recovered document |
+| **REQ-272** | `request-0c93daeb` | repro console: two operator decision points, and a re-capture that does not reset the site |
+| **BUG-114** | `bug-ef327f84` | repro console: two checks that cry wolf — the `ready_*` assertion and the empty rail |
+
+All at `draft`. BUG-112/113 high priority, REQ-272 high, BUG-114 medium.
+
+**BUG-112 before BUG-113** — the alarm is the test for the defect, which is the same argument §10 already makes for filing the rail before the loop it protects. Each ticket ends with a testable section, and each names both directions where a check is involved.
+
+Two things I scoped differently from my summary, both deliberate:
+
+- **BUG-113 is written as a question, not a foregone fix.** Serving the absolute base may be correct — REQ-88's base/overlay split exists on purpose and doctrine §2.1 ("80% faithful is worse than no copy") argues for maximum fidelity. So the ticket admits two outcomes: serve the recovered document and report the fidelity cost as a number, or keep serving the base and additionally envelope-check it. The invariant either way is that no probe grades an artifact that isn't written to disk.
+- **BUG-114 absorbed the rail baseline.** It's the same class as the `ready_*` false positive — a check reporting an alarming word for a non-event — and an operator who learns to discount one will discount the other.
+
+I also appended **§12** to EPIC-12 recording what the three live iterations showed and linking the four children. Append-only via `--append-body-file`; no existing section touched, all 13 top-level sections still present.
+
+Two notes on the state of things:
+
+**Iteration 3's round is still running** — its transcript was last written at 19:08, about twelve minutes in. It's working the values-diff path the `pass` verdict pointed it at, so I'd expect it to file something in the same vein as iterations 1 and 2. That's not its fault; BUG-112 is why.
+
+**The rail still has no baseline.** `./bin/repro-rail record` is an operator action and I haven't run it — BUG-114 changes how the absence is *reported*, not the fact that it's unarmed. Worth doing before the next round either way.
+
+The probe script that produced the overlap evidence is at `.xgd/tmp/widthprobe2.mjs` — whoever picks up BUG-112 can re-run it to see the five collisions before and zero after.
 
 <!-- xgd-chat-end -->
