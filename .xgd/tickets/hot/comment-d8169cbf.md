@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T19:32:46.593330+00:00'
+updated_at: '2026-09-18T19:36:46.647975+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -109,5 +109,11 @@ Both are now in the epic body under Finding 1.
 My recommendation on ordering: don't adopt this first. Build with the consultant for a while — you'll find out which work is genuinely mechanical-and-bulky (my guess: whole-page L1 writes and image-heavy passes), and that shapes the worker's grant and its `accept` checks far better than deciding now. The describer fix is independent and cheap, if you want the cost win today.
 
 Say the word and I'll file the child ticket.
+
+<!-- xgd-turn id="9de78e62-f118-447f-b2d7-487adeadc417-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T19:36:46.359699+00:00" -->
+#### You
+Hmm...how is the delegate prompted - it has to get the prompt from the parent, right?
 
 <!-- xgd-chat-end -->
