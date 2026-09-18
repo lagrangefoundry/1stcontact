@@ -42,6 +42,16 @@ export interface RailRoundResult {
   partial?: boolean
   /** What the page shows: the rail's own findings, or why there are none. */
   summary: string
+  /**
+   * The rail has no bar to measure against ([[BUG-114]]).
+   *
+   * ONE PARTICULAR KIND OF UNAVAILABLE, NAMED. `available: false` covers a rail
+   * the operator turned off, a rail that threw, and a rail with nothing
+   * recorded — three states with three different responses. Only this one is
+   * fixed by a command the operator can run, which is why the console can raise
+   * it to a standing notice rather than a line under an iteration.
+   */
+  noBaseline?: boolean
 }
 
 /**
@@ -50,8 +60,28 @@ export interface RailRoundResult {
  * Worded as a state of the checkout and an instruction, because that is what it
  * is. A round that reads this must not go looking for a regression: there is no
  * recorded number for anything to have moved away from.
+ *
+ * "NOT YET RECORDED", NOT "NOT AVAILABLE" ([[BUG-114]]). Unavailable is what a
+ * rail that threw is; this one is a setup step nobody has done, and the words
+ * that say so are the words that get it done.
  */
-export const NO_BASELINE = `not available — no baseline at ${BASELINE_FILE}; record one with \`repro-rail record\``
+export const NO_BASELINE = `not yet recorded — no baseline at ${BASELINE_FILE}; record one with \`repro-rail record\``
+
+/**
+ * The standing notice a console shows while the rail has never been recorded
+ * ([[BUG-114]]).
+ *
+ * WHY IT IS NOT THE SUMMARY. {@link NO_BASELINE} answers "what did the rail say
+ * this round" and lives under the iteration with everything else the round
+ * produced. Three rounds ran on one site with that line showing and nobody
+ * noticed the rail was inert, because a line under an iteration is a result and
+ * results are skimmed. This one says what it COSTS to leave it unrecorded, and
+ * the console puts it above the iteration list where a result never goes.
+ */
+export const NO_BASELINE_NOTICE =
+  'the regression rail has no recorded baseline, so nothing is checking that a change made here has not ' +
+  'made another site worse. Record one with `repro-rail record` — until then every round runs with the ' +
+  'rail inert.'
 
 /** `off` / `0` / `false` — the operator who does not want to wait for it. */
 function disabled(env: NodeJS.ProcessEnv): boolean {
@@ -104,7 +134,7 @@ export async function runRailRound(
     // Same shape as the throw path below, for the same reason: the rail could
     // not run here. `pass` is left undefined rather than passed through as
     // `false` — "unknown" is not "pass", and it is not "regressed" either.
-    if (report.noBaseline) return { available: false, summary: summarise(report) }
+    if (report.noBaseline) return { available: false, noBaseline: true, summary: summarise(report) }
     return { available: true, pass: report.pass, partial: report.partial, summary: summarise(report) }
   } catch (err) {
     return {

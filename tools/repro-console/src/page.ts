@@ -83,6 +83,15 @@ export interface AiView {
    * these two are the whole reason a diagnose-only AI is safe to run at all.
    */
   violations: string[]
+  /**
+   * What happened alongside the round and is charged to nobody ([[BUG-114]]).
+   *
+   * Rendered under the violations and deliberately unlike them: no red, no
+   * accusation, and absent altogether in the ordinary round. A reader has to be
+   * able to tell "the round did this" from "this happened" at a glance, or the
+   * violations stop being read as violations.
+   */
+  observations?: string[]
   /** What the round did, as it did it. Empty until the first line arrives. */
   transcript: string
 }
@@ -106,6 +115,16 @@ export interface PageState {
   iterations: IterationView[]
   /** The captures on disk, so a site can be revisited without re-hitting it. */
   stored: StoredCaptureView[]
+  /**
+   * A standing condition of the checkout, above the iteration list ([[BUG-114]]).
+   *
+   * NOT A RESULT AND NOT A MESSAGE. {@link message} is what is happening right
+   * now and is replaced by the next thing that happens; an iteration's own lines
+   * are what one round produced. This is neither: it is true until somebody runs
+   * a command, and it stays on the page until they do. One at a time, because a
+   * list of standing notices is a list nobody reads.
+   */
+  notice?: string
 }
 
 /**
@@ -123,6 +142,17 @@ export interface PollState {
   failed: boolean
   /** The round in flight and what it has said so far (behavior 2). */
   live: { n: number; text: string } | null
+}
+
+/**
+ * Escaped, with `backticked` spans rendered as code.
+ *
+ * The notices name commands, and a command an operator is meant to type reads
+ * as one when it looks like one. Escaping happens FIRST, so the markup this
+ * adds is the only markup in the result.
+ */
+function inlineCode(value: string): string {
+  return escapeHtml(value).replace(/`([^`]+)`/g, '<code>$1</code>')
 }
 
 function escapeHtml(value: string): string {
@@ -192,6 +222,13 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 .ai-status.filed, .ai-status.appended { color: #1e7a3c }
 .ai-status.stopped, .ai-status.failed { color: #c0392b }
 .violations { color: #c0392b; font-size: .9rem; margin: .25rem 0 }
+/* BUG-114 — noticed, not charged. Dimmed and uncoloured, so it cannot be
+   mistaken for the red list above it at a glance. */
+.observations { opacity: .7; font-size: .85rem; margin: .25rem 0 }
+/* BUG-114 — the rail with no recorded baseline. Its own colour because it is
+   neither progress nor a failure: it is a setup step nobody has done. */
+.notice { border-left: 3px solid #d08b18; padding: .4rem .7rem; margin: 1rem 0; font-size: .9rem }
+.notice code { font-family: ui-monospace, monospace }
 .ai-cost { margin: .1rem 0; font-size: .8rem; opacity: .6; font-family: ui-monospace, monospace }
 pre.transcript {
   white-space: pre-wrap; max-height: 22rem; overflow: auto; margin: .5rem 0 0;
@@ -246,6 +283,10 @@ function renderIteration(it: IterationView): string {
       (it.ai.cost ? `  <p class="ai-cost">${escapeHtml(it.ai.cost)}</p>\n` : '') +
       (it.ai.violations.length
         ? `  <ul class="violations">${it.ai.violations.map((v) => `<li>${escapeHtml(v)}</li>`).join('')}</ul>\n`
+        : '') +
+      // BUG-114 — below the violations and visibly not one of them.
+      (it.ai.observations?.length
+        ? `  <ul class="observations">${it.ai.observations.map((o) => `<li>${escapeHtml(o)}</li>`).join('')}</ul>\n`
         : '') +
       // The way back into a round that already ran ([[REQ-261]] behavior 5).
       // A plain form post, like every other verb here: no client script starts
@@ -304,6 +345,15 @@ export function renderConsolePage(state: PageState): string {
 </ul>`
       : ''
 
+  /**
+   * The standing notice (BUG-114), above the iteration list rather than in it.
+   *
+   * Between the status line and the history, which is where the eye already
+   * goes, and styled as neither — a red failure line is about the run that just
+   * happened, and this is about the checkout.
+   */
+  const notice = state.notice ? `<p class="notice">${inlineCode(state.notice)}</p>\n` : ''
+
   // [recapture] re-hits the site and re-rolls the oracle, which is occasionally
   // exactly right and never what [reproduce] should quietly do — so it is its
   // own button, offered beside the box rather than in place of anything.
@@ -317,7 +367,7 @@ export function renderConsolePage(state: PageState): string {
   <button${state.running ? ' disabled' : ''} formaction="/recapture" title="re-hit the site and re-roll the reference">recapture</button>
 </form>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
-${stored}
+${notice}${stored}
 ${rows}
 ${again}
 <script>${POLL_SCRIPT}</script>

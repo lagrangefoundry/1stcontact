@@ -95,17 +95,13 @@ export interface ReadyTicket {
  * A CHECK THAT REPORTS, NEVER ONE THAT PROMPTS. The console runs unattended by
  * design; an operator who has to answer a question mid-round is an operator
  * babysitting a loop built so they would not have to. What this produces is a
- * line in the round's violations, which is already how the page says a round
+ * line in the round's report, which is already how the page says a round
  * misbehaved.
  *
- * MEASURED BY DIFFERENCE, NOT BY AUTHORSHIP. The ticket store does not record
- * which process moved a status, so this compares before with after: any ticket
- * at a trigger status now that was not at one when the round started. That
- * catches a ticket the round CREATED at `ready_*` and a ticket it PROMOTED,
- * which are the same hazard wearing different clothes. It also means an
- * operator promoting a ticket in another window during a round shows up here —
- * a false positive that costs one line of report and is strictly the safer way
- * to be wrong.
+ * FOUND BY DIFFERENCE, CHARGED BY ATTRIBUTION ([[BUG-114]]). The snapshot is
+ * still how an arrival is FOUND — the store records no process against a status
+ * change, so there is no other way to notice one. It is no longer how an
+ * arrival is CHARGED: see {@link readyStatusFindings}.
  */
 export async function readyStatusSnapshot(cwd: string, run: CommandRunner): Promise<Map<string, ReadyTicket>> {
   const args = ['ticket', 'list', '--json', '--no-limit']
@@ -125,25 +121,99 @@ export async function readyStatusSnapshot(cwd: string, run: CommandRunner): Prom
 }
 
 /**
- * What arrived at a trigger status during the round.
+ * What arrived at a trigger status while the round was running.
  *
- * Returns the violation lines the round's report carries — empty when the round
- * behaved, which is the ordinary case and says nothing.
+ * The difference between the two snapshots, and nothing else — who moved it is
+ * {@link readyStatusFindings}'s question. A ticket that was already at a
+ * trigger status before the round started is not an arrival: nothing happened
+ * to it here.
  */
-export function readyStatusViolations(
+export function readyStatusArrivals(
   before: Map<string, ReadyTicket>,
   after: Map<string, ReadyTicket>,
-): string[] {
-  const lines: string[] = []
-  for (const [uid, ticket] of after) {
-    if (before.has(uid)) continue
-    lines.push(
-      `a ticket reached a dispatcher-trigger status during this round: ${ticket.id} (\`${uid}\`) is at ` +
-        `\`${ticket.status}\`. The round files through the console at \`draft\` and must never set a ` +
-        `\`ready_*\` status — see REQ-256 behaviour 4.`,
+): ReadyTicket[] {
+  return [...after.values()].filter((ticket) => !before.has(ticket.uid))
+}
+
+/**
+ * What ties an arrival to the round that was running when it arrived.
+ *
+ * `named` holds every ticket the round reported in its own outcome — its gap
+ * ticket and the `1c` defects beside it — by BOTH id and uid, because the round
+ * reports ids and the snapshot carries uids and neither side should have to
+ * know which the other used.
+ *
+ * `createdBy` holds the provenance of the arrivals the console could read back.
+ * An arrival missing from it is one the console could not look at, which is a
+ * different fact from one it looked at and found innocent — see
+ * {@link readyStatusFindings}.
+ */
+export interface ReadyAttribution {
+  named: ReadonlySet<string>
+  createdBy: ReadonlyMap<string, string>
+}
+
+/** What the round's report says about the arrivals, split by who is answerable. */
+export interface ReadyFindings {
+  /** Charged to the round. Empty when it behaved, which is the ordinary case. */
+  violations: string[]
+  /** Noticed, charged to nobody. Never phrased as a thing the round did. */
+  observations: string[]
+}
+
+/**
+ * Split the arrivals into what the round did and what merely happened.
+ *
+ * WHY THIS IS NOT THE DIFFERENCE ANY MORE ([[BUG-114]]). The check was written
+ * when the console could not tell a round-filed ticket from a human-filed one,
+ * so it charged the round with every arrival and accepted the false positives:
+ * "a false positive that costs one line of report and is strictly the safer way
+ * to be wrong." It was not. It fired on a ticket an operator promoted in
+ * another window and accused the round of it in the language of a violation,
+ * and a report that cries wolf is one an operator learns to discount — which
+ * costs exactly the real report this check exists to deliver.
+ *
+ * [[BUG-104]] supplied what was missing: a round's ticket now names the round in
+ * `created_by`. So an arrival is charged to the round when either the store says
+ * the round filed it, or the round itself named it in its outcome — which is the
+ * promoting case, where the ticket predates the round and only the round's own
+ * words connect the two.
+ *
+ * WHAT IS DELIBERATELY NOT CAUGHT. A round that promotes a ticket it neither
+ * filed nor named is indistinguishable, from here, from an operator doing the
+ * same thing. It is reported as an observation. That is the price of not
+ * accusing the operator, and the hazard this check was built for — a round
+ * filing at `ready_*`, or promoting what it filed — is charged in full.
+ */
+export function readyStatusFindings(
+  arrivals: readonly ReadyTicket[],
+  attribution: ReadyAttribution,
+): ReadyFindings {
+  const findings: ReadyFindings = { violations: [], observations: [] }
+  for (const ticket of arrivals) {
+    // Read back and found to carry the marker: the store itself says a round
+    // made this. Absent from the map means the console could not read it, which
+    // is not evidence of anything and must not read as evidence of this.
+    const filed = filedByRound(attribution.createdBy.get(ticket.uid) ?? '')
+    const named = attribution.named.has(ticket.uid) || attribution.named.has(ticket.id)
+    if (filed || named) {
+      findings.violations.push(
+        `a ticket reached a dispatcher-trigger status during this round: ${ticket.id} (\`${ticket.uid}\`) is at ` +
+          `\`${ticket.status}\`. The round files through the console at \`draft\` and must never set a ` +
+          `\`ready_*\` status — see REQ-256 behaviour 4. ` +
+          (filed
+            ? `It is charged to the round because it was filed by one (\`created_by\`).`
+            : `It is charged to the round because the round named it in its own outcome.`),
+      )
+      continue
+    }
+    findings.observations.push(
+      `${ticket.id} (\`${ticket.uid}\`) reached \`${ticket.status}\` while this round was running. ` +
+        `Nothing ties it to the round — it carries no round marker and the round did not name it — so it is ` +
+        `noted here rather than charged to the round. If nobody promoted it on purpose, it is worth a look.`,
     )
   }
-  return lines
+  return findings
 }
 
 /** The last few informative lines a refusal left behind. */

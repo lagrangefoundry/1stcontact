@@ -748,9 +748,13 @@ export function formatRailReport(report: RailReport): string {
   // Nothing was measured, so nothing is worse: printing this under FAIL and
   // "what is worse than the recorded bar" would report the empty checkout as a
   // regression. The exit code stays 1 — the rail still could not do its job.
+  //
+  // NOT YET RECORDED, in the same words the console uses ([[BUG-114]]): one
+  // state of the checkout, fixed by one command, and an operator who meets it
+  // in two places should not have to work out that they are the same thing.
   if (report.noBaseline) {
     return [
-      `regression rail: NOT AVAILABLE  (${seconds(report.ms)})`,
+      `regression rail: NOT YET RECORDED  (${seconds(report.ms)})`,
       '',
       `  no baseline at ${BASELINE_FILE} — the rail has nothing to compare against.`,
       '  Record one with `repro-rail record`.',

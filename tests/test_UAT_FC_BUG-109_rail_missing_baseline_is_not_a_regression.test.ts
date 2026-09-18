@@ -131,7 +131,7 @@ describe('BUG-109 — the rail reports a missing baseline as unavailable, not as
     expect(Object.keys(JSON.parse(JSON.stringify(round)))).not.toContain('pass')
 
     // What it says instead: a state, and the command that changes it.
-    expect(round.summary).toContain('not available')
+    expect(round.summary).toContain('not yet recorded')
     expect(round.summary).toContain(BASELINE_FILE)
     expect(round.summary).toContain('repro-rail record')
 
@@ -149,7 +149,7 @@ describe('BUG-109 — the rail reports a missing baseline as unavailable, not as
 
     expect(prompt).not.toContain('REGRESSED')
     expect(prompt).toContain('## The regression rail')
-    expect(prompt).toContain(`not available — no baseline at ${BASELINE_FILE}`)
+    expect(prompt).toContain(`not yet recorded — no baseline at ${BASELINE_FILE}`)
   })
 
   it('test_UAT_FC_BUG-109_a_recorded_metric_that_got_worse_is_still_a_regression', async () => {
@@ -166,7 +166,7 @@ describe('BUG-109 — the rail reports a missing baseline as unavailable, not as
     expect(round.summary).toContain(REFERENCE)
   })
 
-  it('test_UAT_FC_BUG-109_the_terminal_report_says_not_available_and_still_exits_non_zero', async () => {
+  it('test_UAT_FC_BUG-109_the_terminal_report_says_not_yet_recorded_and_still_exits_non_zero', async () => {
     // The same distinction in the report a person reads. `repro-rail` must
     // still exit non-zero — it could not do its job — so `pass` stays `false`
     // and only the prose changes.
@@ -176,7 +176,7 @@ describe('BUG-109 — the rail reports a missing baseline as unavailable, not as
     expect(report.pass).toBe(false)
 
     const printed = formatRailReport(report)
-    expect(printed).toContain('NOT AVAILABLE')
+    expect(printed).toContain('NOT YET RECORDED')
     expect(printed).toContain('repro-rail record')
     // Not filed under the heading that asserts a comparison was made.
     expect(printed).not.toContain('what is worse than the recorded bar')
@@ -189,7 +189,7 @@ describe('BUG-109 — the rail reports a missing baseline as unavailable, not as
     // one call site that happens to exist today.
     const report = await runRail({ cwd: fakeRepo(), ...ROUND, runCommand: fakeRunner([]) })
     expect(summarise(report)).toBe(
-      `the regression rail — not available — no baseline at ${BASELINE_FILE}; record one with \`repro-rail record\``,
+      `the regression rail — not yet recorded — no baseline at ${BASELINE_FILE}; record one with \`repro-rail record\``,
     )
   })
 })
