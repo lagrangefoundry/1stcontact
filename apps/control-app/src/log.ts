@@ -3,9 +3,10 @@
  * behind it ([[REQ-235]] §2, [[EPIC-1]] §15).
  *
  * WHAT THIS IS. A sink, a store, a retention band and two readers. The RECORD is
- * not invented here: `@lagrangefoundry/logging` owns severity, bound context,
- * redaction, bounds and the dimension set, and exports `RECORD_FIELDS` as data
- * precisely so a store can be built against it without re-deriving it.
+ * not invented here: the shared logging package reached through
+ * `./generated/logging` owns severity, bound context, redaction, bounds and the
+ * dimension set, and exports `RECORD_FIELDS` as data precisely so a store can be
+ * built against it without re-deriving it.
  * [[EPIC-1]] §15's division is adopted verbatim — *"EPIC-1 owns the record;
  * REQ-235 owns the store and its retention; EPIC-8 and REQ-235 own their own
  * readers"* — and this module is the second and third of those three.

@@ -94,7 +94,12 @@ export interface SurfaceInterval {
   surface: string
   /** The first record we have from this stretch, ISO. */
   from: string
-  /** The last one, ISO. The gap between the two is the reader's arithmetic. */
+  /**
+   * When the stretch ended, ISO — the moment the NEXT surface began, or the end
+   * of the session for the last one. Not this stretch's own last signal, which
+   * for a tab somebody sat on is the moment they opened it. The gap between the
+   * two stamps is the reader's arithmetic.
+   */
   to: string
 }
 

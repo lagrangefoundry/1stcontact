@@ -35,7 +35,7 @@
 -- ---------------------------------------------------------------------------
 --
 -- THE COLUMNS ARE `RECORD_FIELDS`, AND THE RECORD IS NOT INVENTED HERE.
--- `@lagrangefoundry/logging` exports `IDENTIFIERS`, `DIMENSIONS` and `MEASURES`
+-- The shared logging package exports `IDENTIFIERS`, `DIMENSIONS` and `MEASURES`
 -- as data precisely so a store can be built against the dimension set without
 -- re-deriving it ([[EPIC-1]] §15: *"EPIC-1 owns the record; REQ-235 owns the
 -- store and its retention"*). `log.ts` maps each exported field onto one column
