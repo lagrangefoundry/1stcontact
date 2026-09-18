@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T19:45:34.303987+00:00'
+updated_at: '2026-09-18T19:48:07.441524+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -166,5 +166,39 @@ My feeling is the delegate does not need access to the broader kb. It needs info
 Let park this for now, as you said I don't think we are ready for it. We will come back Please record our thinking in your ticket so we can recover it easily.
 
 Now one quick question - I am looking at my Lagrange Foundry site - I built it with a chat session but I do not see that chat context in the window. Is that a bug? Is the chat session lost?
+
+<!-- xgd-turn id="836f9cb2-07cd-4c5f-b2ae-8bf5af11545e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T19:48:06.946722+00:00" -->
+#### Claude
+Parked and recorded — including your call that the worker gets tools + the parent's instructions and nothing else, with the reasoning for why, so we can pick it up cold.
+
+On the chat: **it's a bug, and no, the conversation is not lost.** It's intact — 26,815 bytes of transcript plus 224,813 bytes of tool record — sitting on a chat ticket the builder no longer looks for.
+
+## What happened
+
+`sessionIdFor(site)` is `site-${site}`, and `TicketSessionArchive` finds-or-creates a chat ticket by `fields.session_id`. So a conversation is keyed on the site's **address**. Change the address and the lookup misses — and because "no ticket with this session_id" is indistinguishable from "a brand new site", it silently creates a fresh empty session instead of erroring.
+
+Lagrange Foundry's address has moved twice, so there are now three chat tickets in your tenant:
+
+| chat ticket | session_id | transcript | when |
+|---|---|---|---|
+| `chat-d73a11e1` | `site-unnamed` | **26,815 bytes** | 2026-09-11 |
+| `chat-b98f4eec` | `site-lagrangefoundry` | 269 B — header only | 2026-09-13 |
+| `chat-50932534` | `site-site_936dd7c92e…` | 313 B — header only | 2026-09-14 |
+
+The first is your real build conversation — it opens *"Please review the background document that I uploaded. I want to build an initial site for this company."* You started it while the site was still `unnamed`; naming it moved the address, and the later migration of site addressing from name-slugs to opaque `site_<hash>` ids moved it again.
+
+It isn't just this site. `1stcontact` (`chat-5c9fd79b`, 3,666 B) and `xgd` are orphaned the same way, and `gigabytealchemy` lost one too.
+
+## Two defects, not one
+
+1. **The migration miss** — when site addressing changed, the existing chat tickets weren't re-keyed. That's data repair: re-point `fields.session_id` on the surviving ticket, rewrite `id`/`backend` in its `xgd-session` header, and remove the empty ticket that would otherwise win the lookup.
+
+2. **The design that made it silent** — keying a conversation on a *mutable* address means any future rename orphans it again, with no error and nothing in the UI. The durable identity is the site. Either derive the session id from something immutable, or have the site row carry its chat ticket uid — `TicketSessionArchive` already supports addressing a session by ticket, so that route is close to free.
+
+Both are in the epic body.
+
+Two things I'd want from you before touching anything: this is your **local dev D1** — I haven't looked at production, and I can't reach it from here, so it's worth checking whether the deployed sites have the same orphaning. And the repair is a write to your data, so say the word and I'll do Lagrange Foundry first, one site, so you can eyeball the result before I touch the other three.
 
 <!-- xgd-chat-end -->
