@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-13
 created_by: xgd
 created_at: '2026-09-17T03:15:49.406040+00:00'
-updated_at: '2026-09-18T02:59:33.867369+00:00'
+updated_at: '2026-09-18T03:02:43.779759+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -933,5 +933,11 @@ Your instinct is right — more rows is the answer. Two corrections on the speci
 The fix belongs in ticket 2: resolve the recipient domain from something that exists independently of sending. `site_domains` already maps host → `site_id` → business, and exists as soon as a domain is attached — which is the right precondition. Or the new inbound table carries the domain itself. Either way it stops being a consequence of the sending toggle.
 
 Neither of these is a blocker; both are decisions ticket 2 should record rather than discover. Shall I scope it? The design is already settled in the epic, so it's mostly transcription plus nailing those two and the `forward()` fan-out question.
+
+<!-- xgd-turn id="048954be-e5f4-4dbd-a4a2-650bd10091bf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T03:02:43.624737+00:00" -->
+#### You
+**So: a new table, and your shape is the right one.** `(business_id, domain, local_part, destination)`, N rows, one per destination — your 1-address-to-6-destinations is six rows, exactly as you said, just not in that table. Plus a catch-all row or flag. That's ticket 2's migration, and it's small. <-- I actually don't care, maybe our data model should match cloudflares...what I am describing is the UX and my statement is that it is possible to do this with that datamodel
 
 <!-- xgd-chat-end -->
