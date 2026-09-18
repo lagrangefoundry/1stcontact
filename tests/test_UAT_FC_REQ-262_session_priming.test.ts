@@ -35,8 +35,10 @@ import {
 } from '../tools/repro-console/src/session-kb'
 import {
   READY_STATUSES,
+  ROUND_CREATED_BY,
+  readyStatusArrivals,
+  readyStatusFindings,
   readyStatusSnapshot,
-  readyStatusViolations,
   type ReadyTicket,
 } from '../tools/repro-console/src/ticket'
 import {
@@ -379,10 +381,10 @@ describe('REQ-262 the round may run xgd, and nothing that writes or spawns', () 
 describe('REQ-262 a dispatcher trigger set during a round is reported', () => {
   it('test_UAT_FC_REQ_262_a_ticket_that_reached_a_ready_status_is_a_violation', () => {
     // Requirement 11. [[REQ-256]] made this structural by denying the round a
-    // shell; D7 granted one, so it is checked instead. Measured by DIFFERENCE,
-    // because the store does not record which process moved a status — which
-    // catches a ticket the round created at `ready_*` and one it promoted, the
-    // same hazard in different clothes.
+    // shell; D7 granted one, so it is checked instead. Found by DIFFERENCE,
+    // because the store does not record which process moved a status — and, as
+    // of [[BUG-114]], charged to the round only when something attributes it to
+    // one. A round that filed the ticket is the plainest such thing.
     const before = new Map<string, ReadyTicket>([
       ['request-aaaa', { uid: 'request-aaaa', id: 'REQ-100', status: 'ready_to_reconcile' }],
     ])
@@ -391,7 +393,10 @@ describe('REQ-262 a dispatcher trigger set during a round is reported', () => {
       ['bug-bbbb', { uid: 'bug-bbbb', id: 'BUG-99', status: 'ready_to_implement' }],
     ])
 
-    const violations = readyStatusViolations(before, after)
+    const { violations } = readyStatusFindings(readyStatusArrivals(before, after), {
+      named: new Set<string>(),
+      createdBy: new Map([['bug-bbbb', `${ROUND_CREATED_BY}:gigabytealchemy-ai#1`]]),
+    })
     expect(violations).toHaveLength(1)
     expect(violations[0]).toContain('BUG-99')
     expect(violations[0]).toContain('ready_to_implement')
@@ -407,7 +412,7 @@ describe('REQ-262 a dispatcher trigger set during a round is reported', () => {
     const same = new Map<string, ReadyTicket>([
       ['request-aaaa', { uid: 'request-aaaa', id: 'REQ-100', status: 'ready_to_reconcile' }],
     ])
-    expect(readyStatusViolations(same, new Map(same))).toEqual([])
+    expect(readyStatusArrivals(same, new Map(same))).toEqual([])
   })
 
   it('test_UAT_FC_REQ_262_the_snapshot_asks_only_for_the_trigger_statuses', async () => {
