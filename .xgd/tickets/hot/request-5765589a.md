@@ -6,9 +6,9 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T01:33:01.776738+00:00'
+updated_at: '2026-09-19T01:51:18.034186+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -254,3 +254,137 @@ pictures are.
 Part 2 is larger than Part 1 and touches the write path. If it will not sit on one
 branch, split it — but keep the vocabulary decision (accent/grey, and the words)
 in whichever lands first, so the two surfaces never disagree in flight.
+
+
+---
+
+## What was built (both parts, one branch)
+
+Part 2 did sit on one branch, so the split the scope note allows for was not
+needed and the two surfaces landed together with one vocabulary between them.
+
+### Part 1 — the pill
+
+`builder/library.js`. `UNPLACED_LABEL`, `UNPLACED_HINT`, `WARN_GLYPH` and the
+`unplaced()` predicate are deleted outright; the badge and its
+`.builder-library__badge--unplaced` danger rule are gone from the stylesheet.
+What replaces them is **a modifier on the role pill that was already there** —
+`inUse(row)` is `placedList(row).length > 0`, and `is-placed` paints the pill in
+`--shell-accent` at `font-weight: 700`. Unused keeps the muted colour and weight
+`.builder-library__badge` already gave it, so the quiet state costs no rule at
+all. No second badge, no extra row, no extra width.
+
+The `aria-label` was taken: `Site asset — in use` / `Site asset — not yet used`,
+on the pill, in both states. Zero pixels, no layout change, and the visible pill
+still reads one word.
+
+**The role pill is reused rather than joined** because the role IS the sentence
+the ticket says to keep — "for the site" vs "for you to read" — and the state is
+a treatment of that sentence rather than a second fact needing its own space.
+
+### Part 2 — the picker
+
+**The catalogue is computed in `material.ts`, beside `listMaterial`**, because
+that is the one definition of "the client's material" and a second reading of it
+assembled in the router would be a second answer to a question the Library tab
+already answers. The site's half comes through `listSiteAssets` — the same
+listing `imageHandles` reads — so the picker and the write side cannot disagree
+about what the site holds.
+
+- `pictureChoices(tickets, sites, slug)` → `PictureChoice[]`:
+  `{ value, label, placed, place?, reason? }`. Library first (newest first, which
+  is where a just-uploaded picture wants to be), then any site asset no material
+  accounts for.
+- A Library picture **already on this site offers its site handle**, marked
+  placed, asking for no placement — one entry, not two. That needed the recorded
+  name, so `MaterialRow` gained `placed_as` beside `placed_on`: the first says
+  *is it on a site*, the second says *which file is it there*, and only the
+  second can name the handle a page already references.
+- **Not republishable → shown with the reason**, never filtered out.
+  `NOT_REPUBLISHABLE_SHORT` sits beside `NotRepublishableError` so the tile's
+  width and the full sentence cannot drift.
+
+**The list widened and the value did not.** `copyFieldsOf` is untouched: the
+descriptor's `enum` is still the site's handles, which is what an L1 `src` may
+hold and what the write side validates. The catalogue rides beside it on the
+`/api/copy` envelope as `pictures`, the way `palette` already does — two
+genuinely different questions, asked in one response.
+
+**Place on SAVE, at the single flush point.** A pick of something not yet on the
+site stages `library:<uid>`; the modal's Save posts `place: { src: <uid> }` in
+the same body as `values`, and the router turns each one into a handle through
+`placePicture` → `promoteToSiteAsset` before `editCopySet` runs. So:
+
+- a cancelled modal leaves no asset behind;
+- the rights gate, the byte copy across the bucket boundary, the recipe applied
+  on the way, the first-vs-re-placement rule and the `placed_on` record are all
+  inherited from `promoteToSiteAsset` rather than restated;
+- a refusal is a 403 carrying its own sentence, and the draft is byte-unchanged
+  because the placement runs before the write;
+- re-picking a picture that is already placed costs no write at all.
+
+`place` is a separate key rather than a magic value inside `values` so that a
+`library:` token never has to be told apart from a client's own alt text. Two
+guards keep the failure mode loud if the resolution is ever skipped: the enum,
+and the envelope validator's URL-scheme allowlist, which refuses a `library:`
+scheme outright.
+
+**An origin with no Library still works.** The `1c` dev builder is a site store
+with no ticket store, and `BlobsNotConfiguredError` is its named way of saying
+so — that one refusal is absorbed and `pictures` is omitted, so the picker draws
+the descriptor's own `enum`, which is genuinely every picture such a deployment
+has. Any other failure travels out as itself rather than quietly handing back the
+narrow list this ticket exists to widen.
+
+**The tiles use Part 1's vocabulary**: the name is accent + bold when the picture
+is in use, ordinary when it is not, with a clipped `— in use` / `— not yet used`
+for a screen reader. A blocked tile is dimmed, its radio disabled, and its reason
+drawn under the name.
+
+### What was deliberately not done
+
+- **No "Use on site" button was added to the Library tab.** The picker collapses
+  that round trip into the pick, which is the workflow the report is about.
+- **The CLI's `1c copy get` is unchanged.** It answers for what a node may hold;
+  the AI reaches the Library through `place_on_site` and its own catalogue.
+- **No recorded placement-attempt.** The ticket's own conclusion stands: a
+  genuine placement failure needs something to hang off, and that is its own
+  ticket.
+
+### Test plan
+
+New:
+
+- `tests/test_UAT_FC_REQ-282_a_state_not_an_error.test.ts` (jsdom, real Library
+  panel) — one pill and one word in both states with no second badge; the
+  emphasis on the used one, asserted against the stylesheet (accent + weight, not
+  danger); nothing marking an error in any register, including that the strings
+  and the predicate are gone from the source; the state in words for a screen
+  reader and explicitly not a second visible word; background information never
+  marked in use.
+- `tests/test_UAT_FC_REQ-282_the_picker_offers_the_library.workers.test.ts`
+  (workerd, real D1 + two real R2 buckets + the real route table) — an unused
+  Library picture is offered and carries the material a Save must place; a placed
+  one offers its site handle once; a non-republishable one is offered with the
+  reason; a site asset no material accounts for survives; the envelope carries
+  the catalogue while the descriptor's `enum` does not widen; a Save places the
+  bytes, records `placed_on` and writes `/assets/<name>`; a refusal is a 403 and
+  the draft is untouched; placing twice replaces rather than mints.
+- `tests/test_UAT_FC_REQ-282_the_picker_stages_a_placement.test.ts` (jsdom) —
+  every catalogue entry gets a tile; an unplaced one draws its thumbnail from the
+  Library; the mark is Part 1's vocabulary; blocked tiles are shown, unpickable,
+  with the reason; a pick is staged and names the material to place; the node's
+  current handle is always among the tiles; an origin with no catalogue marks
+  nothing; the transport sends `place` in the same body as `values`.
+
+Updated, because REQ-282 supersedes the predicate they were written against:
+
+- `test_UAT_FC_REQ-181_library_badges_the_exception` — the two warning cases are
+  removed and the header records the split; what survives (no placement pill, no
+  "used on this site" filter, the Library cannot ask which site is open) is
+  unchanged.
+- `test_UAT_FC_BUG-47_library_agrees` — "which rows are warned" becomes "which
+  rows are marked in use", which is the same fact read the right way round.
+- `test_UAT_FC_REQ-213_library_role_field` — a role correction that places now
+  shows the pill turning accented; one that could not place shows a quiet pill
+  and no error, rather than a warning.

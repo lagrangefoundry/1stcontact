@@ -5,10 +5,10 @@ type: request
 title: Delete a Library item from its detail pane
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:10.541560+00:00'
-updated_at: '2026-09-19T01:26:13.092243+00:00'
+updated_at: '2026-09-19T15:00:36.596702+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
