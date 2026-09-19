@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-09-19T14:59:02.056165+00:00'
+updated_at: '2026-09-19T15:00:08.013342+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-e59210c5
