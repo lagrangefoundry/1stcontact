@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:34:33.873574+00:00'
+updated_at: '2026-09-19T20:34:51.086488+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1884,5 +1884,13 @@ The lever, if that block starts costing, is **brevity rather than caching**. Rep
 <!-- xgd-chat role="user" ts="2026-09-19T20:34:33.665759+00:00" -->
 #### You
 ok not worth fussing over
+
+<!-- xgd-turn id="2274630b-2eb5-4a72-92ac-6bbad930c3ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T20:34:49.515214+00:00" -->
+#### Claude
+Agreed — 863 characters is noise against a 1M window.
+
+Where the context work stands: REQ-283, 284 and 285 have landed; LF REQ-168 is in progress and carries the note about revising 1c's "pays forever" prose when it lands. **REQ-169 (the gauge) is still in draft and unstarted** — that's the only one waiting on anything.
 
 <!-- xgd-chat-end -->
