@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T00:58:58.285319+00:00'
+updated_at: '2026-09-19T01:04:25.570080+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -873,5 +873,13 @@ REQ-181's predicate lost its meaning when BUG-47 removed the placement it was de
 Your proposal adopted: accent pill when placed, grey when not, no glyph, no hint. I kept two things from REQ-181 that survive the predicate being wrong — **colour must never be the only carrier** (its own note: *"a screen reader and a monochrome display each get the whole fact"*), so the pill still says its meaning in words; and `role` is the client's own statement of intent and is worth showing.
 
 And flagged explicitly: **don't treat this as cosmetic.** Recolouring while leaving the predicate meaning "failure" leaves a false claim in the code and the hint text for the next reader.
+
+<!-- xgd-turn id="6da2d957-c6af-4d53-b556-b81538191ee5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:04:25.393079+00:00" -->
+#### You
+Actually there is more to 282 - when I open the asset selector from the editor mode on the site tab, I am given a selection of images that selector ONLY shows me images that are shown in the Library as being "On the site" or rather they do not have the error pill. This is wrong in two ways:
+1. The images without the error include images that are not on the site
+2. The selector needs to show all images - I am far more likely to want to select an image that is not yet used than one that is - there are usecases for both of course.
 
 <!-- xgd-chat-end -->
