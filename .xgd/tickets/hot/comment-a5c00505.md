@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-278
 created_by: xgd
 created_at: '2026-09-18T23:42:33.279743+00:00'
-updated_at: '2026-09-19T00:46:06.357311+00:00'
+updated_at: '2026-09-19T00:46:30.683711+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,14 @@ All eight pass, including the real-reference leg. Now the full suite.
 While that runs, let me update the ticket body with the measured results.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="eaca4d44-7f74-464b-b467-4e2a165a6123-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T00:46:28.481616+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
