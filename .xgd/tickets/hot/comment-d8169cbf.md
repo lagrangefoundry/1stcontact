@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:44:06.745103+00:00'
+updated_at: '2026-09-19T19:47:07.075049+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1579,5 +1579,13 @@ Two coherent answers, and REQ-283 now asks rather than assumes: extend the ledge
 I think the first is right — the indexing argument is concrete and the framework made its placement choice without it — but it should be decided, not defaulted.
 
 **REQ-284 is unaffected**: the recovery-instruction rewrite and naming the screenshot's cost on the fidelity surface. No storage, no summary.
+
+<!-- xgd-turn id="be432761-bced-4155-aeb0-b88dbcb5fda5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T19:47:06.848794+00:00" -->
+#### You
+283 is in process.
+
+Tell me what the SummaryStore is and where it is  physically located
 
 <!-- xgd-chat-end -->
