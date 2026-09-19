@@ -59,6 +59,17 @@ fields:
   priority: medium
   skipped_commits:
   - 5c7cc72acc4de8678e746ed7dda56c49b8872e25
+  orphan_commits:
+  - old_sha: 876811161c93c70b11e0d4258b52983725f9fde5
+    new_sha: 24c27169e398abe9f83b8d7078598b3ccbdd5e01
+  - old_sha: 5a68fc8db7f64271fd4bb2068eef3775e138cf0d
+    new_sha: 4735fdc1a795fd072ad67c4b882f0eaed9a50e8c
+  - old_sha: 60dd71c0533f493ff8a9dee945f5201af056d393
+    new_sha: 6c9d3189f92b56a5d9486a08a387c1e173a36246
+  - old_sha: 3b9156ae89cee27c1fd61bca451b67e4e75b6f0b
+    new_sha: a19e9b8f180278005c5fd627bf34a593cd736a29
+  - old_sha: 53374730fa37ddba48fa2c04e33fe6814052af85
+    new_sha: 58caf73f39356bdc8dd69b8b28752fc0f67a5e03
 result: pass
 ---
 
