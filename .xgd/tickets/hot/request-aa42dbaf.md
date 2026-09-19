@@ -6,7 +6,7 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:38:31.277490+00:00'
+updated_at: '2026-09-19T00:40:14.104059+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -265,3 +265,23 @@ suppress. What it also means is that a fixture creating material with no label i
 modelling a PRE-LABEL record, and any case reading the feed frame-by-frame after
 such a fixture sees the catch-up's frame first. The change-feed suite's fixture
 now writes a label, because the state it means to model is the ordinary one.
+
+
+### Details settled during implementation
+
+- **The row draws nothing where there is no label yet**, rather than an empty
+  cell. The first listing allocates one, so the gap closes itself; an empty box
+  would be the only lasting trace of a state that is about to stop existing.
+- **The number is `flex: none` and never wraps.** The Library row is one line and
+  its one shrinkable element is the title ([[REQ-176]]) — a number that ellipsed
+  to `IMA…` would not be something anybody could say.
+- **The detail pane's record block gains `Refer to it as`, read-only**, first in
+  the block. It is the answer to the question somebody opened that pane to ask,
+  and a number the client could type over would stop being a reference the moment
+  they did.
+- **`TicketStore.accessor` grows `nextCounter`**, named on the typed boundary the
+  way `changeHead` and `blobs` already are rather than reached for with a cast.
+  It is the component's own `human_id` allocator addressed by a second key.
+- **`imagegen` gains `GENERATED_KIND`**, because two lines now read it — the
+  record's `kind` and the sequence its label draws from — and they must be the
+  same word.
