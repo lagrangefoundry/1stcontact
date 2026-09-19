@@ -6,9 +6,9 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T15:07:21.344593+00:00'
+updated_at: '2026-09-19T15:07:26.450917+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.282
+  story_points: 8
 ---
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18:
