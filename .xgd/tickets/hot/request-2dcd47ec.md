@@ -6,10 +6,10 @@ title: The consultant can see its own context pressure, and the recovery advice 
   making it worse
 created_by: EPIC-19
 created_at: '2026-09-19T18:55:09.022310+00:00'
-updated_at: '2026-09-19T19:45:41.151748+00:00'
+updated_at: '2026-09-19T19:52:03.638936+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
