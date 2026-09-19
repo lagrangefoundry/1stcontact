@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:45:24.674068+00:00'
+updated_at: '2026-09-19T18:47:14.061407+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1386,5 +1386,60 @@ BUG-45 in LF? that has landed?
 Is the summary generation implemented?...but not wired in 1c? Are all the mechanisms available for searching and chunk-level access?
 
 Does LF need to implement truncation?
+
+<!-- xgd-turn id="a5bd9303-896e-4eab-b7f3-e35609b25c6e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T18:47:13.462428+00:00" -->
+#### Claude
+Four questions, four checks.
+
+**BUG-45 is fixed in the code you're running** — `offsets` now filters volatile sections out before computing. Let me check the rest.
+
+## 1. BUG-45 — yes, it's landed in the code you're running
+
+Status is `ready_to_reconcile` (free-coded on `xgd-working`, not reconciled to main), but the installed store is byte-identical to that tree, so **the fix is live here**:
+
+```js
+get offsets() {
+  const volatile = new Set(this.volatileNames)
+  return this.boundaries.map((k) => this.sections.slice(0, k)
+    .filter(({ name }) => !volatile.has(name)) …)
+}
+```
+
+Volatile sections are now filtered before the offsets are computed — exactly the defect.
+
+**So `priming.json`'s note that "`session.summary` waits on lagrange-framework BUG-45" is stale.** The blocker cleared and nothing on this side noticed.
+
+## 2. Summary generation — implemented, model-driven, unwired here
+
+All four pieces exist:
+
+- **Storage** — `SummaryStore`: frame in the `framing` field (4,000-byte cap), log in the body (append-only).
+- **Writing** — `agent` surface, `MaintainSummary`: `summary_frame`, `summary_log`.
+- **Delivery** — the product tier's `session-summary` entry, placed *after* the cache boundary so rewriting it can't invalidate the cached prefix.
+- **The nudge** — `summary_trigger` prose, delivered per turn: *"Keep your summary current as you work… The frame is what survives when the recent exchanges do not, so anything you would need after losing them belongs in it."*
+
+That's "updated as appropriate" rather than a batch job — the session maintains its own. 1c wires none of the four.
+
+## 3. Search and chunk access — yes, over three stores, and you already have one
+
+- **The corpus** — knowledge surface `ReadKnowledge`: `search`, **`chunk_search`** (*"a hit names where in a document the answer is"*), **`outline`** (*"sections, with the offsets to read each one"*), **`get`** (*"whole or one span of it"*), `changes`. **1c grants this today** — and since the project KB corpus includes `type: chat`, past conversations are *already* searchable at chunk granularity.
+- **Its own history** — `agent.history` by position or turn id, plus `history_full`. **Not granted.**
+- **The work log** — tool calls recorded separately, with truncation markers acting as pointers. **Not granted.**
+
+So the gap is **self-inspection, not retrieval.** The consultant can search the client's corpus but cannot read its own past turns or its own work log — which is precisely why it re-screenshots instead of recalling.
+
+## 4. Truncation — no, LF doesn't need to implement it
+
+`window()` already is positional truncation: `recentTurnPairs` + `truncateTurns`, 40 pairs with a per-turn byte cap. The only framework gap is that **it's applied at seeding and never again**, so a warm API conversation is unbounded.
+
+That's one narrow change — apply the existing `window()` and `redactContent()` to `state.messages` in flight — not a new mechanism.
+
+---
+
+**So the split is much smaller than it looked an hour ago.** LF's genuine remaining item is bounding the warm conversation. Everything else — summary store, agent surface, product tier, the stale BUG-45 note — is 1c adoption of things already built.
+
+Worth flagging: that's now **four** upstream capabilities built and unconsumed here (delegation, development surface, agent/summary, product tier). I'd treat the adoption gap itself as the finding, not each instance.
 
 <!-- xgd-chat-end -->
