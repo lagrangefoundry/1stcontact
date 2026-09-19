@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:09:48.348196+00:00'
+updated_at: '2026-09-19T01:10:30.772116+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -926,5 +926,27 @@ I did note a scope caveat — Part 2 touches the write path and is bigger than P
 <!-- xgd-chat role="user" ts="2026-09-19T01:09:48.121720+00:00" -->
 #### You
 Ok the picker needs to offer me what is in the library that is the primary purpose of the library
+
+<!-- xgd-turn id="67dfe3fe-9be9-4d8f-8c6d-fb5ae40f74ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:10:30.007902+00:00" -->
+#### Claude
+That's a stronger statement than I wrote it as, and the codebase already agrees with you — for the consultant, just not for you.
+
+Recorded as the governing principle for Part 2, not as a feature request — and there's a good piece of evidence behind it.
+
+**`library-surface.json` already says exactly what you just said**, in the consultant's own manual:
+
+> **Being on the site is a field on a catalogue item, not a different place to look.** An item that is on the site says so, in `placed_on`. An item that is not is still theirs, still described, still here — it simply has not been placed yet. **Do not think of these as two stores; think of one catalogue with a mark on some of its entries.**
+
+So the consultant is taught *one catalogue with a mark*. The builder shows you *two stores* and lets you pick from the smaller one. The same sentence that's priming for the AI is the specification for this UI — and only one of the two surfaces implements it.
+
+That reframes Part 2 usefully:
+
+- **The picker's list is the Library's image set, full stop.** Not the site's assets, not the Library filtered by something the client didn't ask for. The site's asset copy is bookkeeping — it shouldn't be a list anybody picks from.
+- **Everything else in that section is about *how a pick becomes a valid `src`***, not about which items appear. Place-on-Save, the `/assets/<name>` handle, the rights refusals — all mechanics downstream of a list that's already decided.
+- **"On the site" becomes a mark on an entry, not a membership test** — which is Part 1's accent/grey pill finally doing the job it should have had: telling you which of your pictures are in use, on the one list where all of them are.
+
+One consequence worth being explicit about: this makes Part 1 and Part 2 genuinely inseparable. If the picker shows everything, the mark is the *only* thing distinguishing used from unused — so getting the pill's semantics right stops being cosmetic and becomes load-bearing.
 
 <!-- xgd-chat-end -->
