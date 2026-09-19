@@ -6,9 +6,9 @@ title: 'The consultant keeps and consults its own memory: the summary store, the
   surface, and the product tier'
 created_by: EPIC-19
 created_at: '2026-09-19T18:54:44.485419+00:00'
-updated_at: '2026-09-19T19:46:54.586522+00:00'
+updated_at: '2026-09-19T19:52:43.232524+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-074bab15
 ---
+
 
 Parent: [[EPIC-19]] (Finding 5).
 
@@ -61,29 +62,70 @@ not.
 **3. Self-inspection.** No `agent` surface, so the consultant cannot read its own
 past turns (`history`, `history_full`) or its own work log.
 
-## The design question this ticket must answer, not presume
+## DECIDED: the frame is a field on the chat ticket (operator, 2026-09-19)
 
-The framework's `SummaryStore` puts its log in a `chat_summary` COMMENT body and
-its frame in that comment's `framing` FIELD. **This host already put its log in the
-ticket body, for the indexing reason above.** Adopting `SummaryStore` wholesale
-would either duplicate the log or move it somewhere the KB cannot see.
+> It makes more sense to me that it would be in the frontmatter of the chat
+> ticket.
 
-Two coherent answers; pick one deliberately:
+**Agreed, and it is a better fit than either framework placement.** The reason is
+the framework's own structural argument, applied to the objects THIS host actually
+has.
 
-- **Extend the ledger.** Keep the log where it is and where it is searchable, add a
-  bounded frame beside it (a ticket field, or the `framing` field of a
-  `chat_summary` comment used for the frame alone), and write a host provider that
-  delivers frame + recent ledger tail per turn. Keeps REQ-171's indexing property;
-  costs a provider this repository writes and maintains.
-- **Adopt `SummaryStore` and make the ledger its log.** Uses the framework's
-  provider, its cap enforcement and its `MaintainSummary` operations unchanged —
-  but only works if the indexing concern can be met another way, and that has to
-  be established rather than assumed.
+`summary.js` splits its two zones across a field and a body so that *"rewriting
+the frame and appending to the log are then structurally different writes that
+cannot clobber each other — a frame rewrite patches one field and never touches
+the body, and an append goes through `append_body` and never reads-then-writes the
+frame."* That property is what matters, and it is the placement that is
+incidental.
 
-**The first looks right**, because the indexing argument is concrete and the
-framework's placement choice was made without it. But the second should be
-disproved rather than skipped, and whichever is chosen, `agent`'s
-`InspectContext` is wanted either way.
+**This host already has the log in the chat ticket body.** So putting the frame in
+that same ticket's frontmatter reproduces the invariant exactly — a field patch
+merges and never touches the body; the ledger appends and never reads the frame —
+while collapsing the session's whole memory into **one object**:
+
+| | chat ticket | |
+|---|---|---|
+| frontmatter | `fields.frame` | the standing frame, rewritten in place, bounded |
+| body | `### Decision N` entries | the ledger — append-only, unbounded, **KB-indexed** |
+
+Three further advantages, none of them cosmetic:
+
+1. **It removes a full comment scan.** `SummaryStore` caches comment uids
+   precisely because *"`comments` is a full scan of the subject's comments"*.
+   `findChat` already fetches this ticket for the ledger, so the frame arrives in a
+   read we are already doing — zero additional cost per turn.
+2. **Compare-and-set is already there.** `update` takes `expected_version` on the
+   ticket, so two sessions rewriting one frame still conflict loudly, which is the
+   one place the framework insisted on CAS.
+3. **The schema extension is the pattern already in use.** `tickets.ts:611`
+   already spreads `chatSchemas().chat.fields` and adds this repository's own
+   entries. A declared `frame` field is one more line in a list that exists.
+
+**And keeping the frame OUT of the KB is correct, not a compromise.** `ticketText`
+indexes title and body. The ledger is the durable record and belongs in the index;
+the frame is a working note rewritten many times a session, and indexing it would
+feed the corpus a stream of churn that supersedes itself. The split falls exactly
+where searchability should fall.
+
+### What this means we are not using
+
+`SummaryStore` itself. That is a real cost and should be paid deliberately:
+
+- **Its cap enforcement.** `checkFrame` raises rather than truncates, for a stated
+  reason — a silently shortened frame *"loses the rejections first, which are the
+  whole reason the zone exists."* Whatever writes `fields.frame` must keep that
+  rule: **an error, never a truncation.**
+- **`MaintainSummary`'s operations.** `summary_frame` / `summary_log` write through
+  `SummaryStore`, so they do not apply. The frame needs a narrow verb on the
+  LEDGER surface instead — beside `record_decision` and `name_engagement`, which is
+  the pattern `ledger-core.ts` already argues for over granting generic write
+  groups.
+- **The `session.summary` provider.** A host provider delivers frame plus recent
+  ledger tail instead. This is the piece that makes the memory readable at all, and
+  it was going to be ours under either option.
+
+`agent`'s `InspectContext` is still wanted, unchanged — reading past turns and the
+work log is independent of where the frame is stored.
 
 ## What to do
 
