@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:10:30.772116+00:00'
+updated_at: '2026-09-19T01:13:04.333197+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -948,5 +948,11 @@ That reframes Part 2 usefully:
 - **"On the site" becomes a mark on an entry, not a membership test** — which is Part 1's accent/grey pill finally doing the job it should have had: telling you which of your pictures are in use, on the one list where all of them are.
 
 One consequence worth being explicit about: this makes Part 1 and Part 2 genuinely inseparable. If the picker shows everything, the mark is the *only* thing distinguishing used from unused — so getting the pill's semantics right stops being cosmetic and becomes load-bearing.
+
+<!-- xgd-turn id="c0c39d30-d066-4fbd-be8d-8419d822b56e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:13:03.983853+00:00" -->
+#### You
+That's fine but it should not be an error mark - just showing the assets as unused - can you update 282 please
 
 <!-- xgd-chat-end -->
