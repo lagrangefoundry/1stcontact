@@ -5,10 +5,10 @@ type: bug
 title: An interrupted turn commits its work and discards its conversation
 created_by: EPIC-19
 created_at: '2026-09-18T23:11:24.573446+00:00'
-updated_at: '2026-09-19T00:11:26.129478+00:00'
+updated_at: '2026-09-19T00:15:22.833236+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
