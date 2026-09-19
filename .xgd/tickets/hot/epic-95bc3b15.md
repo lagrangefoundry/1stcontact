@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T18:47:00.248866+00:00'
+updated_at: '2026-09-19T18:55:46.666492+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -768,6 +768,17 @@ accumulation alone.
 
 ## Children
 
+- [[REQ-283]] — The consultant keeps and consults its own memory: wire the
+  `SummaryStore`, compose the `agent` surface (`InspectContext` +
+  `MaintainSummary`), adopt the product tier, and delete the stale "waits on
+  BUG-45" note. **The precondition for any bounding being safe.**
+- [[REQ-284]] — The consultant can see its own context pressure (surface the spend
+  REQ-143 already reports) and the `interrupted-turn` reminder stops naming the
+  most expensive instrument. Small, independent, landable on its own.
+- lagrange-framework **REQ-168** — bound a warm API conversation: apply `window()`
+  in flight, age images out to pointers after ~3 turns, and give the pointer a
+  host-supplied way back (the REQ-149 `display` pattern). Filed upstream; no code
+  here.
 - [[REQ-281]] — Delete a Library item from its detail pane. `archive` is already
   the declared erasure path; placement COPIES the bytes, so deleting a placed item
   does not take it off the site — which is the one thing the wording has to get
