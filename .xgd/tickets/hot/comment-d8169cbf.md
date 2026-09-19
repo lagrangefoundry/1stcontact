@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:15:14.715765+00:00'
+updated_at: '2026-09-19T20:17:54.413929+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1769,5 +1769,58 @@ I've also saved your preference to memory, so I stop reaching for the split by d
 <!-- xgd-chat role="user" ts="2026-09-19T20:15:14.104928+00:00" -->
 #### You
 Can you review 284 (landed) and 283 (landed but under discussion)
+
+<!-- xgd-turn id="a359764f-4fd5-4a7a-9614-81e64f3d667a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T20:17:54.141121+00:00" -->
+#### Claude
+REQ-284's prose is strong. Let me check one risk in it.
+
+Found a real coupling. Now REQ-283's code.
+
+Let me check two risk areas before I write this up.
+
+Both are well built. One real coupling to record.
+
+Both are good work. Two findings, one of them real.
+
+## REQ-284 — landed well
+
+The rewrite does what was asked and one thing that wasn't: it **split the template in two**. The settings assistant has no site, no journal and no camera, so telling it to call `list_changes` would name a tool it doesn't have — and `interruptedSignal` now takes which role it's for. That's the "never told about a capability it was not granted" rule applied without being asked. Good catch by the implementer.
+
+The pricing reaches the manual, not just the surface docs: `screenshot`'s one-line summary now says it's the most expensive call *and* names `list_changes`, so it lands where the choice is made rather than in prose the model may never fetch.
+
+**The finding: REQ-284 hard-codes a fact that LF REQ-168 exists to make false.**
+
+The prose says, in five places, that an image *"is carried into the next turn, and the one after that, **for as long as this conversation lasts**"* and *"you pay for it again on every turn"*. True today. Untrue the moment 2-turn ageing lands.
+
+Worse, two UATs pin the wording:
+
+```
+:193  expect(line).toMatch(/every turn after this one/i)
+:223  expect(manual).toMatch(/pay for it again on every turn/i)
+```
+
+So the tests keep passing while the statement under them becomes false. **And the error runs the expensive way**: a session still told it pays forever will avoid looking once looking has become cheap — REQ-284's own failure mode, inverted.
+
+I've written that into REQ-168 as part of its blast radius, with the wording to be settled there and adopted here rather than guessed at twice.
+
+## REQ-283 — landed, and it took the port approach
+
+It reuses upstream's provider name (`session.summary`) backed by our storage, adopts the product tier whole, and gates each entry by having its provider render `null` — so the tier loads identically on the CLI and the Worker, and the CLI is simply told none of it.
+
+Three details I'd single out:
+
+- **`tool-transcript-note` is declined on its merits**, by binding no reader, rather than by omitting the entry. That's the right shape — the entry exists, the fact isn't true here, so it renders nothing.
+- **Delivery is a provider, not a tool**, with the reasoning stated: *"a tool is a capability a model may skip, and the turns it would skip it on are the long ones."* That's the correct read of the failure.
+- **The note is CAS'd and capped through upstream's own `checkFrame`**, raising `NOTE_TOO_LONG` rather than truncating.
+
+And REQ-285 has landed alongside it — the page digest is there, bounded at `MAX_DIGEST_CHARS = 2_000`, shedding detail through `full → focus-assets → focus-bands → bare` before it drops pages. Exactly the "sheds detail rather than pages" rule.
+
+## One thing to watch, not a defect
+
+The per-turn volatile block has grown substantially: site line, page digest (≤2,000), memory trigger (481), the standing note (≤4,000), the decisions tail, change signal, corpus delta, interrupted-turn. All of it sits past the message history per REQ-144, so **none of it is cached** — it's re-sent in full every turn.
+
+That's the right trade, because it replaces expensive reads. But it's now the largest fixed per-turn cost in the system and nobody has measured it. REQ-169's gauge is what will make it visible for the first time — worth looking at that number early rather than assuming the trade is winning.
 
 <!-- xgd-chat-end -->
