@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-283
 created_by: xgd
 created_at: '2026-09-19T19:34:01.151420+00:00'
-updated_at: '2026-09-19T19:54:37.641070+00:00'
+updated_at: '2026-09-19T20:16:23.713178+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -83,5 +83,11 @@ Now let me write the UAT files.
 <!-- xgd-chat role="user" ts="2026-09-19T19:54:36.764886+00:00" -->
 #### You
 Sorry there were some last minute changes to the ticket, please re-read them
+
+<!-- xgd-turn id="d803a954-0015-4e56-a177-d3c6fb72ee7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T20:16:22.102530+00:00" -->
+#### You
+That's fine
 
 <!-- xgd-chat-end -->
