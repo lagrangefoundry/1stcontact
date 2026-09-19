@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T17:25:03.971533+00:00'
+updated_at: '2026-09-19T17:28:36.645740+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1050,5 +1050,66 @@ Both have the filename: a-renaissance-notebook-study-in-graphite-and-red.png
 I just refreshed and I have identities now - these are IMAGE-9 and IMAGE-10
 
 I have been trying for many turns to get the AI to use IMAGE-9 and it consistently re-adds IMAGE-10. Now that I have references I will tell it IMAGE-9 and see what happens...
+
+<!-- xgd-turn id="6473be19-4572-4fe8-bae0-51534e1cd531-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T17:28:36.272602+00:00" -->
+#### Claude
+Let me read the consultant's own analysis from the transcript first, then check the mechanisms.
+
+That's a strong self-diagnosis. Let me verify each claim against the code rather than take it at face value.
+
+Two things confirmed already. Let me check what the AI is actually choosing between.
+
+The repo has moved under me — both the `IMAGE-n` labels and a `placed_as` mapping have landed since I last read this. So:
+
+- **IMAGE-9** = `material-90ee7e31` → placed as **`plate-i-loop.png`**
+- **IMAGE-10** = `material-365f481c` → placed as **`plate-i-hands.png`**
+
+Let me check whether saying "IMAGE-9" will actually resolve, since that's what you're about to try.
+
+**The page already references `plate-i-loop.png` — that's IMAGE-9.** It's correct as of now. Let me verify the context mechanism, which is the part you want to understand.
+
+Verified. Here's the mechanism — and it explains the doom loop structurally, not just as a bad prompt.
+
+## 1. Yes — we really are resupplying the images
+
+The Messages API is stateless. There's no server-side conversation, so **every request carries the whole `messages` array**. `claude_api.js:313` appends with `state.messages.push(...)`, and `toAnthropicContent` renders an image block as a real Anthropic image block. No cap, no slice, no pruning anywhere in that file. Every screenshot goes over the wire again on every later turn of the session.
+
+**The design did assume a bound — and it was removed elsewhere.** `content.js:232` says:
+
+> an image is visible to the model for the remainder of the segment that sent it and not beyond it.
+
+That was true when sessions recycled. REQ-126 deleted recycling (`session.js:13`: *"nothing recycles, and a session that never recycles has exactly one conversation"*). One conversation per session means "the remainder of the segment" is now **the rest of the session**. The comment describes a limit that no longer exists, and nothing replaced it.
+
+**What *is* bounded, and why this is confusing.** The durable record is fine — `redactContent` writes `[image: image/png, 48231 bytes, fp:1a2b3c4d]`, so transcripts never carry base64. And `seedDialogue(state, window, …)` bounds what's carried when a conversation is *rebuilt*. But that applies at seed time and never again:
+
+- **Long-lived isolate** → every image accumulates, resent every turn.
+- **Evicted isolate** → rebuilt from the durable record, where images are already placeholders, so they all vanish at once.
+
+Context cost depends on isolate lifetime, which nothing models or reports.
+
+**This is why the recovery loop is structural, not just a bad prompt.** After truncation the conversation is rebuilt — so the images are genuinely gone and the model *cannot* see the site. Then `priming.json:80` tells it: *"Look at the site before you answer."* The redaction removes the evidence and the reminder mandates re-acquiring it. The consultant walked into that four or five times and correctly identified it as a doom loop.
+
+One correction to its account: it said images "never leave". True in flight; on a rebuild they leave *all at once*. **That asymmetry is the defect**, not the accumulation alone.
+
+**What I'd do first**, ahead of its four (which are all sound): **redact in flight the way the durable record already does.** Keep the last N images live, rewrite older ones to the same `[image: …, fp:…]` placeholder inside `state.messages`. It makes in-flight match the rebuild behaviour the design already chose, bounds cost independently of isolate lifetime, and the fingerprint lets the model know it already looked and at what — which is the thing that otherwise drives it to look again.
+
+Its backpressure point is the other one I'd prioritise: *"I do not experience the cutoff… I am driving with no fuel gauge."*
+
+## 2. IMAGE-9 is already on the page
+
+Good news, and the repo moved under me while we were talking — both REQ-280's labels and a `placed_as` mapping have landed:
+
+- **IMAGE-9** = `material-90ee7e31` → placed as **`plate-i-loop.png`**
+- **IMAGE-10** = `material-365f481c` → placed as **`plate-i-hands.png`**
+
+And the page currently references `/assets/plate-i-loop.png` — **IMAGE-9**. It's right.
+
+Saying "IMAGE-9" will also work now: `storedImageOf` puts the label in `aliases`, and `resolveStoredImage` does exact-match-before-loose, so the label resolves everywhere the uid does — catalogue, `screenshot` and `edit_image` alike.
+
+Why it kept picking wrong before: the only spellings were uid, title and filename, and those two share *both* title and filename. Any name-based reference was genuinely ambiguous, and the site-asset names (`plate-i-hands` / `plate-i-loop`) carry no trace of which Library item they came from — `placed_as` is what fixed that, and it wasn't there.
+
+Want me to file Finding 5? I'd suggest two tickets — in-flight redaction plus backpressure as one (they're the same seam), and the `interrupted-turn` prompt rewrite as a separate small one, since that's a one-line change you could have today.
 
 <!-- xgd-chat-end -->
