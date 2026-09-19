@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T17:43:41.173612+00:00'
+updated_at: '2026-09-19T18:08:55.484126+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -516,6 +516,63 @@ nothing bounds what it becomes.
 
 That is the existential half, and it is not specific to images — images are just
 the heaviest thing flowing through an unbounded channel. Tool results do it too.
+
+### Upstream audit (2026-09-19) — the installed copy IS the latest
+
+Checked properly rather than assumed. A recursive hash comparison of
+`node_modules/@lagrangefoundry/ai/src` against
+`lagrange-framework/components/ai/js/src` reports **zero files unique to either
+side and zero differing files** — byte-identical. The framework tree is on
+`xgd-working`, 162 ahead of origin, so it is the newest work that exists.
+
+**And the framework HAS done the context work.** It is a coherent design and all
+of it is installed:
+
+| | |
+|---|---|
+| REQ-124 | session summary store — standing frame + append-only log |
+| REQ-125 | transcript turn addressing, so a turn can be fetched by id |
+| REQ-126 | turn-bounded history window; summary / pointer / window providers |
+| REQ-128 | priming moves to the system channel |
+| REQ-129 | compaction integration — observe `compact_boundary`, steer with `/compact` |
+| REQ-143 | cache the message history; **make token spend observable** |
+| REQ-144 | deliver per-turn tiers past the message history |
+
+**The hole is precise, and it is upstream.** REQ-126's window and REQ-129's
+compaction are the two mechanisms that bound a conversation, and **neither binds a
+warm API conversation**:
+
+- the window is applied at SEED only;
+- `compaction: true` is declared by `claude_code.js` and
+  `claude_code_interactive.js` and by nothing else. It was designed for "a backend
+  that keeps its own conversation" — and `ClaudeAPIBackend` keeps its conversation
+  too, in `_state`, but never got an implementation.
+
+So the API path has neither mechanism. That is a **lagrange-framework ticket**, not
+a 1c one: the gap is in the component, and every adopter of the API backend has
+it.
+
+### The fuel gauge already exists and we simply do not show it
+
+REQ-143 landed per-request token accounting: `ClaudeAPIBackend.usage(ref)` returns
+one record per request, and `usage.js` exposes `usageRecord`, `turnUsage`,
+`turnSpend` and `sessionUsage`. **The host already knows what every turn cost in
+input tokens** — which is the context size. The consultant's *"I am driving with no
+fuel gauge"* is therefore a SURFACING gap in this repository, not missing framework
+capability, and is much cheaper than it sounded.
+
+### Priming ("stuffing") is still the current upstream design
+
+DOC-22 — *Session Priming Configuration: three tiers, static text and providers* —
+is current, and nothing supersedes it. REQ-128 (system channel) and REQ-144 (tiers
+past the message history) REFINE it; they do not replace it. So the assembly in
+`priming.json` is not legacy, and moving off it would be new framework design.
+
+**It is also not this problem.** The priming is ~21KB of prose against a
+140,000-character ceiling and a 1M-token model window, it is stable, and it sits
+in the cached prefix by construction (the `cache_boundary` entry is last). It is a
+fixed, cached cost dwarfed by one screenshot. Worth its own ticket if we want to
+move to retrieval-shaped priming; it will not move this needle.
 
 ### The seams needed for a fix already exist
 
