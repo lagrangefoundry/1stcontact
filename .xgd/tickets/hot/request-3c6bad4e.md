@@ -5,16 +5,24 @@ type: request
 title: Delete a Library item from its detail pane
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:10.541560+00:00'
-updated_at: '2026-09-19T01:24:49.032931+00:00'
+updated_at: '2026-09-19T01:26:13.092243+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-d7a7e8f3
   story_points: 5
+  commits:
+  - working_sha: 0c06d07b91a7ea3b2cfca35ed7062dc0f8c27797
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5ff0717cd3c4f8e5b25ceac05887d131e5686bbb
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.281
 ---
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18.
