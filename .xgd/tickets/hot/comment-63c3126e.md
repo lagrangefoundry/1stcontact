@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-280
 created_by: xgd
 created_at: '2026-09-19T00:17:19.944630+00:00'
-updated_at: '2026-09-19T00:45:20.900951+00:00'
+updated_at: '2026-09-19T00:59:29.316622+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -100,5 +100,28 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="ba88b724-6c05-4736-bca1-0bfc9163d22d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T00:59:27.502753+00:00" -->
+#### Claude
+All 19 REQ-280 UATs green. Now the version bump and commit:
+
+Merge clean. Re-running the affected suites after the merge, in the foreground:
+
+Merged back. Now the free_coded gate — letting it allocate the version under its own lock:
+
+Free-coding of REQ-280 is complete.
+
+**Landed** — `03cf1403` `[FREE-CODED] REQ-280 — IMAGE-5 and DOC-7: one name both halves can say`, merged into `xgd-working` (tip `a861d93e`), version bumped to `0.2.278` (`ca12107e`), ticket at `status: free_coded` with both SHAs in `fields.commits`.
+
+**The change:** a material now carries a label — `IMAGE-5`, `DOC-7` — drawn from that kind's own per-tenant counter through the store's atomic `nextCounter`, so every client's numbering starts at 1 and a label can carry no fact about anyone else's Library. It is assigned where a record is born (upload/fetch, capture adoption on *create* only so a recapture never renumbers, generated pictures) and back-filled once, oldest-first, by `listMaterial` for the Libraries that were already full. It is read on the catalogue item, on the Library row and detail pane, and — via `storedImageOf`'s aliases, the single projection from record to name — accepted as an *input*, so `IMAGE-5` resolves in `get_library_item`, `place_on_site`, `screenshot` and `edit_image` alike. The uid is untouched.
+
+**Tests, all run in the foreground:** 19 new UATs across three suites (real D1 + counters; the surface over a doubled host; jsdom for the row) — 19/19 green. Full suite after the merge-back: **5044 passed, 6 failed**. Five are the pre-existing set I verified fails identically in the clean main checkout (`BUG-112` ×2, `AC960`, `BUG-50`, `BUG-67`). The sixth, `AC1293`, is the known KB parallel-load artifact — it passes on its own, which I confirmed. Typecheck clean on both projects before and after the merge.
+
+**Two things I decided and recorded on the ticket rather than asking:**
+
+- **`DOC-n` collides with the corpus's own document ids.** I kept your prefix — a catalogue label is always read beside its item, and a corpus document is never said to a client — but the priming carve-out spells only `IMAGE-5`, because `BUG-65` forbids authored priming from naming anything in that namespace and its guard fires on exactly that shape. The surface prose carries both examples. If it ever bites, the fix is one entry in `LABEL_PREFIX`; labels already written stay valid because they're stored strings.
+- **Two existing fixtures changed as consequences, not accommodations:** `REQ-221`'s recording store grew the counter ingestion now calls, and `REQ-201`'s change-feed fixture grew a label — a catch-up write is a change event like any other, so a fixture without a label was modelling a pre-label record without meaning to.
 
 <!-- xgd-chat-end -->
