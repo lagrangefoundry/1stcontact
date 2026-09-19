@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:54:59.436306+00:00'
+updated_at: '2026-09-19T19:57:26.057370+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1686,5 +1686,43 @@ Since 283 is in flight, that last bullet is the one worth passing on quickly: th
 ok good - perhaps we get rid of the summary store then?
 
 REQ-168 has questions can you review its chat script and answer anything you can with confidence in-line bring anything you are not sure about up here to me
+
+<!-- xgd-turn id="01928d45-609e-492b-8cb1-7731d1461fb5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T19:57:25.755877+00:00" -->
+#### Claude
+Let me check one thing before answering, since it bears on both your questions.
+
+Both questions have the same answer, and it's a good one. Let me record it.
+
+## Don't get rid of it — but we don't have to use its storage either
+
+`SummaryStore` is load-bearing upstream: `AgentToolbox`'s `summary`, `summary_frame` and `summary_log` all route through it, and so does the shipped `session.summary` provider.
+
+**But it's a port, not a dependency.** `AgentToolbox` takes it as an injected option — *"`options.summary` — the REQ-124 store; `null` leaves the summary operations unanswerable"* — and calls exactly three methods: `read`, `frame`, `log`. The provider is equally narrow: `read(...)`, then `.framing` and `.tail(n)`.
+
+So we implement those three over **our** storage — frame in the chat ticket's frontmatter, log from the existing REQ-171 ledger body — and get the provider *and* all three agent operations unchanged. **We take the interface and decline the layout.**
+
+That also corrects something I told you earlier: I said the frontmatter decision meant writing our own provider and a narrow ledger verb. It doesn't — that's work removed, not added. REQ-283 is at `free_coding`, so I've put it there as COMMENT-3274 rather than editing the body underneath whoever has it.
+
+## REQ-168 — five answered, one pushed back on
+
+Answers are in the ticket body. Summary:
+
+**1. Split #4 out.** Not because of size — because it changes the shipped `product.json`, so **every adopter's priming moves.** That blast radius must not ride along with a trim to one backend's internals. Do #1–3 first; the trim is what's costing money, the gauge only informs.
+
+**2. Both languages + fixtures.** The trim rule is a pure function over messages — exactly what the conformance corpus is for. JS-only would put the peers into silent disagreement about what a bounded conversation *is*.
+
+**3. Agreed, all four clauses.** The third is load-bearing: same `windowTurns` as the cold seed, so warm and cold agree by construction. I added one case they hadn't covered — **a single exchange that exceeds the bound alone** (one turn, many tool calls). Keep at least one whole exchange whatever its size, and let the image ceiling do the work there.
+
+**6. Count, not bytes — and only one ceiling.** Their reasoning was right. I added: don't ship bytes as well. Two ceilings that can disagree is a rule nobody can hold in their head.
+
+**4 + 5 — this is the one I changed rather than confirmed.** They're one question. Answer #4 with an optional **`label` on `imageBlock`** and #5 dissolves: the block carries its own name, so `redactContent` composes the pointer alone and **no `display` handle is needed at either call site** — which removes the two-seams-for-one-concept smell instead of accepting it.
+
+Why not the fingerprint: it identifies *bytes*, not a catalogue entry. Two screenshots of the same page collide to one fingerprint while being different observations; one picture placed twice shares a fingerprint while having two names. And the host knows the name *when it builds the block* — requiring an `fp → name` side table is reconstruction in place of not discarding.
+
+I also specified the label is a **name, not a sentence** — `IMAGE-9 (plate-i-loop.png)`, not "…call screenshot IMAGE-9". How to look again is the tool manual's job, which the session already reads.
+
+That's the one worth your eye, since I'm overruling a proposal rather than confirming it.
 
 <!-- xgd-chat-end -->
