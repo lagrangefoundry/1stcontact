@@ -6,15 +6,23 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:40:47.649830+00:00'
+updated_at: '2026-09-19T00:58:58.331374+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-63c3126e
+  commits:
+  - working_sha: 03cf14038f03efa2f0d6feaad79f0bbefba23408
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ca12107ebe9115aeb04e86e47ab0128392d25aef
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.278
 ---
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18: *"the consultant and I are lacking a
