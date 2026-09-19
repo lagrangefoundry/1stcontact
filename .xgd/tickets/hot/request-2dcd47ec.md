@@ -6,16 +6,17 @@ title: The consultant can see its own context pressure, and the recovery advice 
   making it worse
 created_by: EPIC-19
 created_at: '2026-09-19T18:55:09.022310+00:00'
-updated_at: '2026-09-19T19:02:11.636944+00:00'
+updated_at: '2026-09-19T19:39:17.774897+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-29042f9e
 ---
+
 
 Parent: [[EPIC-19]] (Finding 5). Small, independent of [[REQ-283]], and landable
 on its own.
@@ -90,3 +91,59 @@ knowing why it matters.
 Anything that changes what is IN the context. Bounding the conversation is
 upstream; the summary is REQ-283. This ticket only changes what the session knows
 about its own position.
+## What this lands, concretely
+
+Four prose surfaces and one small seam in the code that selects between two of
+them. Nothing here is a mechanism: no new operation, no new state, no change to
+what any call does.
+
+### The two lines read at the moment of choosing
+
+The summary manual a session is primed with renders one line per tool — the
+operation's `summary` — beside each group's prose and each surface's overview.
+That line is the whole of what is in front of a session deciding which
+instrument to reach for, so the pricing goes there and not only in the detail a
+session would have to ask for.
+
+- `screenshot`'s summary says it is the most expensive call available, that the
+  image stays in every turn after this one, and — for the specific question a
+  session most often takes a picture to answer — names `list_changes` as the
+  thing that answers it for almost nothing.
+- `list_changes`'s summary says it is the cheap one, and says it is what to
+  reach for before taking a picture.
+
+The fidelity surface's overview and its group prose carry the same pricing at
+length, including the fact that `compare` measures two pictures and hands back
+numbers rather than images — the cheapest way to ask *do these match* without
+either picture entering the conversation.
+
+### The interrupted-turn reminder names the cheap instrument
+
+`interrupted-turn` stops saying *"Look at the site before you answer"* and says
+to call `list_changes` first — it reports what landed and who landed it — and to
+take a picture only if that is genuinely not enough.
+
+**The settings assistant gets its own template.** `interrupted-turn` is rendered
+for both roles today, and a session is never told about a capability it was not
+granted: the settings assistant has no site, no `list_changes` and no camera, so
+a rewrite that names `list_changes` would name a tool it does not have. The
+template splits in two — `interrupted-turn` for the consultant and
+`interrupted-turn-settings` for the settings assistant, which names the cheap
+reads that role does have (`read_business`, `read_addresses`). The provider
+registration chooses which; that is the only .ts change in the ticket, and it is
+one argument.
+
+## Test plan
+
+UATs assert on what the configuration and the declarations actually ship, not on
+a constant holding a copy of the words:
+
+- the interrupted-turn reminder a consultant session renders names
+  `list_changes` and no longer instructs the session to look at the site first;
+- the settings session's interrupted reminder names neither `list_changes` nor
+  the site, and names a read that role is granted;
+- both roles still render nothing at all on an uninterrupted turn;
+- `screenshot`'s one-line summary prices the call and points at the cheap
+  alternative; `list_changes`'s one-line summary says it is the cheap one;
+- the pricing survives into the summary manual a session is actually primed
+  with, which is the only place it does any good.
