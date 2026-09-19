@@ -154,17 +154,22 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     expect(report.promoted.length).toBeGreaterThan(0)
     expect(report.sampleFidelity.pass).toBe(true)
 
-    // BUG-112 — and the gate still does not pass, because recovery closes the
-    // residual on an overlay `1c repro` never writes.
+    // BUG-113's invariant, kept and now exercised in the other direction: THE
+    // GATE GRADES WHAT IS SERVED. BUG-112 made the verdict a claim about the page
+    // the operator loads rather than about an overlay `1c repro` never wrote, and
+    // on the only recovery that existed then — one that cleared the envelope by
+    // discarding geometry — that meant the base was served and content-robustness
+    // failed on it.
     //
-    // REQ-88's acceptance that recovery closing the residual makes the run pass
-    // is superseded: recovery is a property of the overlay, and a verdict is a
-    // claim about the page the operator loads. What fails on the SERVED document
-    // is content-robustness — an absolutely-positioned page is fragile under
-    // content growth by construction, and saying so about the page on disk is the
-    // whole point.
-    expect(report.contentRobustness.pass).toBe(false)
-    expect(report.pass).toBe(false)
+    // REQ-278 made the recovery keep its geometry, so on this fixture it wins:
+    // it reproduces the oracle exactly and holds the envelope, `1c repro` writes
+    // it, and the gate therefore grades it. The residual the gate surfaced is
+    // closed on the SERVED document — not on an overlay — which is why the run
+    // passes. The invariant is not that a residual must survive; it is that the
+    // verdict and the page can never be about two different documents.
+    expect(report.recovery.served).toBe(true)
+    expect(report.contentRobustness.pass).toBe(true)
+    expect(report.pass).toBe(true)
 
     // BUG-113 — the unperturbed envelope at the captured widths, though, is
     // CLEAN. BUG-112 read this fixture's heading as overrunning the body copy at
@@ -178,7 +183,14 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     // beside the verdict — so declining it is an informed choice rather than an
     // implicit one.
     expect(report.recovery.recoveredFindings).toBeLessThan(report.recovery.servedFindings)
-    expect(report.recovery.fidelityMaxDeltaPx).toBeGreaterThan(0)
+    // REQ-278 — and what it costs against the oracle is nothing: the recovery
+    // reads the captured geometry as leading offsets, which reproduce the capture
+    // exactly at rest. That is the whole difference from the recovery BUG-113
+    // priced and declined at maxΔ 1426px.
+    expect(report.recovery.fidelityMaxDeltaPx).toBeLessThanOrEqual(
+      report.sampleFidelity.tolerancePx,
+    )
+    expect(report.recovery.fidelityResiduals).toBe(0)
   })
 
   it('test_UAT_FC_REQ-88_l1_gate_requires_recaptured_bundle', async () => {

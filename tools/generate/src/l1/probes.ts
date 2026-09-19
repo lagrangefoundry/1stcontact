@@ -316,9 +316,52 @@ function runCharCost(content: L1Text['text']): number {
   return content.reduce((n, run) => n + run.text.length * (run.axes?.sizeScale ?? 1), 0)
 }
 
-/** Whether a node is out of flow (positioned by its own absolute geometry). */
+/** A node's geometry track, whichever placement frame it declares. */
+function geometryOf(node: L1Node): L1Geometry | undefined {
+  return 'geometry' in node ? node.geometry : undefined
+}
+
+/**
+ * Whether a node is out of flow (positioned by its own absolute geometry).
+ *
+ * REQ-278 — a track that declares `place: 'flow'` is NOT out of flow: it reads
+ * the same keyframes as leading offsets from the flow cursor, so the node stacks
+ * with its siblings and is pushed down when one of them grows. That is the whole
+ * distinction the axis exists to draw, and it is drawn here once.
+ */
 function isPinned(node: L1Node): boolean {
-  return 'geometry' in node && node.geometry !== undefined
+  const geo = geometryOf(node)
+  return geo !== undefined && geo.place !== 'flow'
+}
+
+/**
+ * REQ-278 — an in-flow node's leading offset at `width`: the `margin-left` /
+ * `margin-top` its keyframes resolve to, or `undefined` for every other node.
+ */
+function leadingOffset(node: L1Node, width: number): { x: number; y: number } | undefined {
+  const geo = geometryOf(node)
+  if (!geo || geo.place !== 'flow') return undefined
+  const box = evalGeometry(geo, width)
+  return { x: box.x, y: box.y }
+}
+
+/** REQ-278 — an in-flow node's own declared width at `width` (its keyframe extent). */
+function flowWidth(node: L1Node, width: number): number | undefined {
+  const geo = geometryOf(node)
+  if (!geo || geo.place !== 'flow') return undefined
+  return evalGeometry(geo, width).width
+}
+
+/**
+ * The height a node declares for itself at `width`, from whichever placement
+ * frame it uses — `undefined` when its keyframes pin none, which is the signal
+ * that the height belongs to the content (every text run, and every node the
+ * recovery put in flow precisely so its content could size it).
+ */
+function declaredHeight(node: L1Node, width: number): number | undefined {
+  const geo = geometryOf(node)
+  if (!geo || geo.keyframes[0].height === undefined) return undefined
+  return evalGeometry(geo, width).height
 }
 
 /** Whether a node is hidden at `width` by its visibility rule. */
@@ -369,13 +412,17 @@ function constrainWidth(node: L1Node, avail: number): number {
  * the available extent the flexible children collapse to 0 (and the fixed ones
  * surface as a genuine clip, not a false one).
  */
-function rowChildWidths(children: L1Node[], avail: number, gap: number): number[] {
+function rowChildWidths(children: L1Node[], avail: number, gap: number, vw: number): number[] {
   const n = children.length
   if (n === 0) return []
-  const fixed = children.map(fixedWidth)
+  // REQ-278 — an in-flow child's keyframe width is a declared width exactly as
+  // `sizing.width: fixed` is, so a recovered row of them tiles by its captured
+  // geometry rather than by an equal share of whatever is left.
+  const fixed = children.map((c) => fixedWidth(c) ?? flowWidth(c, vw))
   const fixedSum = fixed.reduce((s: number, w) => s + (w ?? 0), 0)
+  const leadSum = children.reduce((t: number, c) => t + (leadingOffset(c, vw)?.x ?? 0), 0)
   const flexCount = fixed.filter((w) => w === undefined).length
-  const remaining = Math.max(0, avail - gap * (n - 1) - fixedSum)
+  const remaining = Math.max(0, avail - gap * (n - 1) - leadSum - fixedSum)
   const share = flexCount > 0 ? remaining / flexCount : 0
   return fixed.map((w) => (w === undefined ? share : w))
 }
@@ -411,6 +458,13 @@ interface Ctx {
   width: number
   opts: Required<Omit<EvaluateOptions, 'measured'>>
   leaves: EvalLeaf[]
+  /**
+   * REQ-278 — the corner an absolutely-placed node is absolute TO: the nearest
+   * in-flow ancestor's own box, or the page (0,0) when there is none. The fold's
+   * flat document has none, so this is 0,0 for every node of an un-recovered
+   * page and the model is unchanged for it.
+   */
+  origin: { x: number; y: number }
   /** Clip findings accumulated during the walk (pinned-box content overflow). */
   clips: LayoutFinding[]
   /** BUG-113 — the oracle's text heights, if the caller has them. */
@@ -437,8 +491,39 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
   if (hidden(node, width)) return 0
 
   // A pinned node resolves its own box from geometry, ignoring the parent frame.
+  // REQ-278 — an in-flow track resolves against the frame instead: its `x`/`y`
+  // are the leading offsets the renderer emits as margins, so the node sits where
+  // the flow put it plus its own lead, at its own declared width.
+  //
+  // `ctx.origin` is what an absolute box is absolute TO. The fold writes page
+  // coordinates and the document it writes is flat, so the origin is 0,0 and a
+  // pinned box reads exactly as folded. Recovery nests, and a node it put in flow
+  // renders `position: relative` — which is a containing block, so every absolute
+  // descendant of it is placed from ITS corner, not the page's. That is the CSS
+  // the renderer already emits; the model has to read the same frame or it
+  // reports collisions a browser would never paint (a contact form mounted into a
+  // seam 182px into its section appearing 182px down the PAGE, over the header).
   const pinned = isPinned(node)
-  const box: EvalBox = pinned ? evalGeometry(node.geometry!, width) : { ...frame }
+  const lead = leadingOffset(node, width)
+  const box: EvalBox = pinned
+    ? (() => {
+        const g = evalGeometry(node.geometry!, width)
+        return { ...g, x: g.x + ctx.origin.x, y: g.y + ctx.origin.y }
+      })()
+    : lead
+      ? { x: frame.x + lead.x, y: frame.y + lead.y, width: flowWidth(node, width)!, height: 0 }
+      : { ...frame }
+  // A node the recovery put in flow becomes the origin for its own subtree; every
+  // other node passes its parent's along unchanged.
+  const inner: Ctx = lead ? { ...ctx, origin: { x: box.x, y: box.y } } : ctx
+  /**
+   * REQ-278 — what this node consumes of its parent's flow: its own height plus
+   * the leading offset it was placed by. A stack's cursor and a row's line height
+   * both advance by this, so a node with a 40px `margin-top` pushes what follows
+   * it down by 40px more than its own box — which is what the browser does and
+   * what makes a leading offset able to reproduce a captured gap exactly.
+   */
+  const adv = (h: number): number => (lead ? lead.y + h : h)
   // REQ-97 — the node's own `sizing.width` narrows whatever extent it was given,
   // for every kind alike (the renderer emits the same width/min/max CSS for all
   // of them). It reads loudest on `text`, whose *height* is a function of its
@@ -457,7 +542,7 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
         opts.contentScale,
       )
       // A pinned text keyframe may pin a height; otherwise the height is natural.
-      const pinnedH = pinned ? node.geometry!.keyframes[0].height : undefined
+      const pinnedH = declaredHeight(node, width)
       // BUG-113 — where the oracle measured this run, the measurement IS the
       // natural height. Under perturbation it is grown by the estimator's own
       // line-count ratio rather than replaced by the estimate: the model is
@@ -483,28 +568,30 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // same run group into the same string — so a node that emphasises a word
       // still pairs with the element it was folded from.
       ctx.leaves.push({ path, kind: 'text', text: l1PlainText(node.text), id: node.id, box, pinned, ...stackedOf(node) })
-      return box.height
+      return adv(box.height)
     }
     case 'image': {
-      if (pinned && node.geometry!.keyframes[0].height !== undefined) {
-        box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
-      }
+      const own = declaredHeight(node, width)
+      if (own !== undefined) box.height = own * opts.contentScale
       ctx.leaves.push({ path, kind: 'image', id: node.id, box, pinned, ...stackedOf(node) })
-      return box.height
+      return adv(box.height)
     }
     case 'slot': {
+      // A slot's extent is the seam the module mounts into — a pinned frame read
+      // it off `evalGeometry` for free, an in-flow one has to ask for it.
+      const own = declaredHeight(node, width)
+      if (own !== undefined) box.height = own
       ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned, ...stackedOf(node) })
-      return box.height
+      return adv(box.height)
     }
     case 'control': {
       // REQ-96 — a control is a leaf like any other: the module contributes its
       // element, L1 contributes the box, so the geometry model is unchanged. A
       // pinned keyframe height wins; otherwise the parent's frame stands.
-      if (pinned && node.geometry!.keyframes[0].height !== undefined) {
-        box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
-      }
+      const own = declaredHeight(node, width)
+      if (own !== undefined) box.height = own * opts.contentScale
       ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned, ...stackedOf(node) })
-      return box.height
+      return adv(box.height)
     }
     case 'box':
     case 'container': {
@@ -512,11 +599,10 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // A childless `box` is a leaf surface (a divider / painted panel) — REQ-92:
       // it has its own geometry box, so push it as a leaf the fidelity probe pairs.
       if (node.kind === 'box' && children.length === 0) {
-        if (pinned && node.geometry!.keyframes[0].height !== undefined) {
-          box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
-        }
+        const own = declaredHeight(node, width)
+        if (own !== undefined) box.height = own * opts.contentScale
         ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned, ...stackedOf(node) })
-        return box.height
+        return adv(box.height)
       }
       const gap = node.kind === 'container' ? (node.gapPx ?? 0) : 0
       // A `row` container flows horizontally along the main axis; a `box` and a
@@ -532,11 +618,22 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       const wrapping = row && node.kind === 'container' && node.wrap === true
 
       // Out-of-flow (pinned) children float independently; in-flow children flow.
-      const flowChildren: L1Node[] = []
-      children.forEach((child, i) => {
-        if (isPinned(child)) layout(child, { ...box }, `${path}.${i}`, ctx)
-        else flowChildren.push(child)
-      })
+      //
+      // REQ-278 — THE WALK IS IN DOCUMENT ORDER, pinned and flowing alike. It
+      // used to lay every pinned child out first and the flow afterwards, which
+      // is arithmetically identical (an out-of-flow child neither reads nor moves
+      // the cursor) but pushes the leaves in the wrong order — and leaf order is
+      // not decoration. Both the fidelity pairing and the oracle's measured-height
+      // queue take the k-th leaf of a key IN DOCUMENT ORDER, so a document that
+      // mixes the two kinds under one parent — which is exactly what a recovery
+      // produces, flow where the flow runs forwards and the base's absolute
+      // placement everywhere else — had every repeated run re-paired against
+      // another occurrence's box. On `gigabytealchemy.ai` that read 742px and 36
+      // residuals: six identical check glyphs, each measured against a different
+      // one of themselves.
+      const flowChildren: L1Node[] = children.filter((c) => !isPinned(c))
+      const flowIndex = new Map<L1Node, number>()
+      flowChildren.forEach((c, k) => flowIndex.set(c, k))
 
       let maxChildBottom = box.y
       if (row) {
@@ -548,42 +645,72 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
         // instead of squeezing, and the row's height is the sum of its lines. A
         // row whose children DO fit packs into exactly one line, so the model is
         // unchanged wherever wrapping never happens.
-        const widths = rowChildWidths(flowChildren, box.width, gap)
+        const widths = rowChildWidths(flowChildren, box.width, gap, width)
         const lines = wrapping
           ? packRowLines(widths, box.width, gap, opts.epsilonPx)
           : [flowChildren.map((_, k) => k)]
+        // The line each flow child belongs to, so the document-order walk below
+        // knows when one line has ended and the next begins.
+        const lineOf = new Map<number, number>()
+        lines.forEach((line, li) => line.forEach((k) => lineOf.set(k, li)))
         let cursorY = box.y
-        for (const line of lines) {
-          let cursorX = box.x
-          let lineHeight = 0
-          for (const k of line) {
-            const child = flowChildren[k]
-            const idx = children.indexOf(child)
-            const childFrame: EvalBox = { x: cursorX, y: cursorY, width: widths[k], height: 0 }
-            const h = layout(child, childFrame, `${path}.${idx}`, ctx)
-            lineHeight = Math.max(lineHeight, h)
-            cursorX += widths[k] + gap
-          }
+        let cursorX = box.x
+        let lineHeight = 0
+        let openLine = -1
+        const closeLine = (): void => {
+          if (openLine < 0) return
           cursorY += lineHeight + gap
           maxChildBottom = Math.max(maxChildBottom, cursorY - gap)
+          cursorX = box.x
+          lineHeight = 0
         }
+        children.forEach((child, i) => {
+          if (isPinned(child)) {
+            layout(child, { ...box }, `${path}.${i}`, inner)
+            return
+          }
+          const k = flowIndex.get(child)!
+          const li = lineOf.get(k) ?? 0
+          if (li !== openLine) {
+            closeLine()
+            openLine = li
+          }
+          const childFrame: EvalBox = { x: cursorX, y: cursorY, width: widths[k], height: 0 }
+          const h = layout(child, childFrame, `${path}.${i}`, inner)
+          lineHeight = Math.max(lineHeight, h)
+          // REQ-278 — a row's cursor advances past the child's own leading
+          // offset as well as its width, exactly as a flex `margin-left` does.
+          cursorX += (leadingOffset(child, width)?.x ?? 0) + widths[k] + gap
+        })
+        closeLine()
       } else {
         // Stack: each child fills the width and stacks vertically.
         let cursorY = box.y
-        flowChildren.forEach((child) => {
-          const idx = children.indexOf(child)
+        children.forEach((child, i) => {
+          if (isPinned(child)) {
+            layout(child, { ...box }, `${path}.${i}`, inner)
+            return
+          }
           const childFrame: EvalBox = { x: box.x, y: cursorY, width: box.width, height: 0 }
-          const h = layout(child, childFrame, `${path}.${idx}`, ctx)
+          const h = layout(child, childFrame, `${path}.${i}`, inner)
           cursorY += h + gap
-          maxChildBottom = Math.max(maxChildBottom, cursorY - gap)
         })
+        // REQ-278 — a column's content height is where its CURSOR ends, not the
+        // lowest point any child reached. The two agree for as long as every
+        // child advances the cursor forward, which was the whole world before an
+        // in-flow leading offset could be negative; they part company the moment
+        // one is, and flexbox sums the outer sizes (a negative margin genuinely
+        // shortens the column) rather than taking a running maximum. Taking the
+        // max here made a recovered region read 476px taller than the browser
+        // makes it, and every sibling below it inherited the error.
+        if (flowChildren.length) maxChildBottom = cursorY - gap
       }
 
       // Natural content height of the flow interior.
       const contentHeight = flowChildren.length ? maxChildBottom - box.y : 0
       // A pinned box/container with a fixed keyframe height that the content
       // overflows is a clip.
-      const pinnedH = pinned ? node.geometry!.keyframes[0].height : undefined
+      const pinnedH = declaredHeight(node, width)
       if (pinnedH !== undefined && contentHeight > pinnedH + opts.epsilonPx) {
         ctx.clips.push({
           kind: 'clip',
@@ -591,7 +718,7 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
           paths: [path],
         })
       }
-      return pinnedH !== undefined ? pinnedH : contentHeight
+      return adv(pinnedH !== undefined ? pinnedH : contentHeight)
     }
   }
 }
@@ -631,6 +758,7 @@ export function evaluateLayout(
     opts,
     leaves: [],
     clips: [],
+    origin: { x: 0, y: 0 },
     measured: options.measured,
     textCursor: new Map(),
   }
@@ -1106,21 +1234,6 @@ export function acceptanceGate(
 
 // ── demand-driven structure recovery ──────────────────────────────────────────
 
-/** Median vertical gap between consecutive pinned children at the widest sample. */
-function medianGap(children: L1Node[], width: number): number {
-  const boxes = children
-    .filter(isPinned)
-    .map((c) => evalGeometry(c.geometry!, width))
-    .sort((a, b) => a.y - b.y)
-  const gaps: number[] = []
-  for (let i = 1; i < boxes.length; i++) {
-    gaps.push(boxes[i].y - (boxes[i - 1].y + boxes[i - 1].height))
-  }
-  if (gaps.length === 0) return 0
-  gaps.sort((a, b) => a - b)
-  return Math.max(0, Math.round(gaps[Math.floor(gaps.length / 2)]))
-}
-
 /** The direct-child index of `path` under `parentPath`, or null if not a descendant. */
 function directChildIndex(parentPath: string, path: string): number | null {
   if (!path.startsWith(parentPath + '.')) return null
@@ -1150,13 +1263,6 @@ function overlapComponents(childCount: number, links: Array<[number, number]>): 
   return [...groups.values()].filter((g) => g.length >= 2)
 }
 
-/** Drop a node's absolute geometry so it flows (fills its flow container's width). */
-function dropGeometry(node: L1Node): L1Node {
-  if (!('geometry' in node) || node.geometry === undefined) return node
-  const { geometry: _drop, ...rest } = node as L1Node & { geometry?: L1Geometry }
-  return rest as L1Node
-}
-
 export interface PromoteResult {
   doc: L1Document
   /** Paths of the flow regions recovered — a whole-node region reports the node's
@@ -1165,38 +1271,586 @@ export interface PromoteResult {
 }
 
 /**
- * Demand-driven, **region-aware** structure recovery. The single-flat-pile
- * predecessor promoted the whole failing node into one flow stack — too coarse:
- * it kept one median gap for the entire page and, promoting only some siblings,
- * left the rest pinned for the grown pile to overrun (BUG-9). This walks the tree
- * and, at each node, promotes the **smallest** pinned sibling groups that actually
- * collide under perturbation:
+ * REQ-278 — the node kinds recovery deliberately leaves absolutely positioned.
  *
- *   - Direct children that overlap under content growth are grouped by connected
- *     component (`overlapComponents`) — the distinct nested regions (hero / grid /
- *     footer), each its own flow `stack` with its own interior gap.
- *   - A node that needs recovery flows **all** its children (regions as sub-stacks,
- *     survivors as flowed items), so no pinned sibling is left behind to be
- *     overrun. Under CSS flow, stacked items never overlap and never clip — the
- *     envelope holds under both off-sample and content-robustness probes.
- *   - A node with no colliding group is left **absolute** — recovery is applied
- *     where the probe demands it, per DOC-27's absolute-base / flow-overlay split.
+ * A backing surface (BUG-14's `section-band-*` / `section-bg-*` / `card-*`) and a
+ * node that declares `stacked: true` are the two things on a page that are
+ * SUPPOSED to be underneath their neighbours. Flowing them would give each one a
+ * band of vertical space of its own and push the content it backs out from
+ * behind it — an 800px-tall section fill becoming an 800px-tall empty panel. They
+ * are also, for exactly the same reason, the two classes the envelope scan
+ * already exempts, so they never demand recovery and nothing is lost by leaving
+ * them where the capture put them: at rest the recovered flow reproduces the
+ * captured positions, so the fill still lands behind the runs it was painted for.
+ */
+function keepsAbsolute(node: L1Node): boolean {
+  if (node.stacked) return true
+  return node.kind === 'box' && isSynthesizedSurfaceId(node.id)
+}
+
+/**
+ * REQ-278 — the resting box of every node in `doc`, at every captured width.
  *
- * Fidelity is measured on the absolute base, never on this overlay, so recovery
- * never regrades `sampleFidelity`. Returns a validated document.
+ * Recovery rewrites absolute coordinates into leading offsets, and an offset is
+ * only exact if it is measured from where the previous sibling actually ENDS —
+ * which for a text run is the height the browser gave it, not a number any
+ * keyframe carries. The analytic evaluator already resolves exactly that (with
+ * {@link EvaluateOptions.measured} it resolves the oracle's own heights), so the
+ * recovery reads its resting evaluation rather than keeping a second, weaker
+ * model of the same thing.
+ */
+function restingBoxes(doc: L1Document, measured?: MeasuredTextHeights): Map<number, Map<string, EvalBox>> {
+  const out = new Map<number, Map<string, EvalBox>>()
+  for (const width of doc.widths) {
+    const byPath = new Map<string, EvalBox>()
+    for (const leaf of evaluateLayout(doc, width, { measured }).leaves) byPath.set(leaf.path, leaf.box)
+    out.set(width, byPath)
+  }
+  return out
+}
+
+/**
+ * The resting box of the node at `path`, falling back to its own geometry plus
+ * the extent of its subtree for a structural node the leaf scan never pushed.
+ */
+function restOf(
+  rest: Map<string, EvalBox>,
+  node: L1Node,
+  path: string,
+  width: number,
+): EvalBox {
+  const own = rest.get(path)
+  if (own) return own
+  const geo = geometryOf(node)
+  const frame = geo ? evalGeometry(geo, width) : { x: 0, y: 0, width: 0, height: 0 }
+  if (geo?.keyframes[0].height !== undefined) return frame
+  // A structural node with no pinned height is as tall as the deepest leaf under it.
+  let bottom = frame.y
+  for (const [p, box] of rest) {
+    if (p === path || p.startsWith(path + '.')) bottom = Math.max(bottom, box.y + box.height)
+  }
+  return { ...frame, height: Math.max(0, bottom - frame.y) }
+}
+
+/**
+ * REQ-278 — split a set of sibling boxes into horizontal BANDS.
+ *
+ * A band is a maximal run of siblings that share vertical space: the row of a
+ * grid, a check glyph and the line of copy beside it, a label and its value. The
+ * members of one band must stay side by side or the recovery has destroyed the
+ * horizontal geometry it exists to keep; members of different bands are what the
+ * recovery makes flow, so that when one grows the next moves down instead of
+ * being landed on.
+ *
+ * Found by the standard sweep — sort by top edge, start a new band wherever a
+ * sibling begins at or below everything seen so far. Decided once, at the widest
+ * captured width, because a tree has one shape: what varies across the ladder is
+ * whether a band is laid out as a row or as a stack, which is a per-width layout
+ * mode ([[REQ-104]]) rather than a per-width grouping.
+ */
+function bandsOf(indices: number[], boxAt: (i: number) => EvalBox, eps: number): number[][] {
+  const sorted = [...indices].sort((a, b) => {
+    const ba = boxAt(a)
+    const bb = boxAt(b)
+    return ba.y - bb.y || ba.x - bb.x
+  })
+  const bands: number[][] = []
+  let current: number[] = []
+  let runningBottom = -Infinity
+  for (const i of sorted) {
+    const box = boxAt(i)
+    if (current.length > 0 && box.y >= runningBottom - eps) {
+      bands.push(current)
+      current = []
+      runningBottom = -Infinity
+    }
+    current.push(i)
+    runningBottom = Math.max(runningBottom, box.y + box.height)
+  }
+  if (current.length) bands.push(current)
+  // DOCUMENT ORDER, restored — the sweep above needs the siblings sorted by top
+  // edge to find the bands at all, but the tree it produces must keep the order
+  // the fold wrote, both inside a band and between bands.
+  //
+  // This is not tidiness. The fidelity measure pairs the k-th oracle element of a
+  // text key with the k-th reproduced leaf of that key IN DOCUMENT ORDER (see
+  // {@link sampleFidelityProbe}), and non-text leaves pair the same way by kind.
+  // A page whose DOM order is not its visual order — a grid whose second card is
+  // written first, a collage — therefore re-pairs every repeated run the moment a
+  // recovery sorts it visually, and reports the *distance between two different
+  // check glyphs* as a fidelity miss. On `gigabytealchemy.ai` that alone read
+  // 742px and 60 residuals on a recovery whose every box matched the base's
+  // exactly. A leading offset reproduces its captured position from wherever flow
+  // put it, negative where the document runs backwards, so keeping the fold's
+  // order costs the recovery nothing and keeps the ruler measuring geometry
+  // rather than ordering.
+  for (const band of bands) band.sort((a, b) => a - b)
+  bands.sort((a, b) => a[0] - b[0])
+  return bands
+}
+
+/**
+ * REQ-278 — recover the COLUMN CELLS of a responsive grid from flat bands.
+ *
+ * A band alone is a one-dimensional reading of a two-dimensional page, and a
+ * responsive grid is the case where that shows. Take a three-card grid of
+ * title-over-copy: at the widest width the three titles share a band and the
+ * three bodies share the next one, and as two bands they flow perfectly well
+ * there. But the SAME six runs are one vertical column at a mobile width, and a
+ * tree has only one shape — so at that width the two bands become "all three
+ * titles, then all three bodies", which reproduces at rest only through negative
+ * offsets and collides the moment a title grows.
+ *
+ * The cell is the missing axis: the card, as a column of its own. Emitted as
+ * three cells the grid is a row of three cards at the desktop widths and a stack
+ * of the same three cards at the mobile ones, with each title still directly
+ * above its own body in both. That is the structure the page had before it was
+ * flattened into absolute coordinates, recovered from the geometry rather than
+ * guessed at.
+ *
+ * The trigger is deliberately narrow: a band whose layout mode is a row at some
+ * widths and a stack at others, followed by bands that match it column for
+ * column. A band that is a row at EVERY width — a check glyph beside its line of
+ * copy, repeated down a list — is left as bands, because there the flat reading
+ * is the better one: the glyph stays beside its own line, and a line that grows
+ * pushes the next PAIR down rather than sliding one column out of step with the
+ * other. Cells are what a mode change needs, not a general-purpose grouping, and
+ * grouping wherever the geometry merely allows it costs more than it buys.
+ */
+function gridCells(
+  bands: number[][],
+  boxAt: (i: number, width: number) => EvalBox | null,
+  widths: number[],
+  widest: number,
+  eps: number,
+): number[][] {
+  const modesOf = (band: number[]): boolean[] =>
+    widths.map((w) =>
+      bandIsRow(band.map((i) => boxAt(i, w)).filter((b): b is EvalBox => b !== null), eps),
+    )
+  /** Assign each member of `next` to the cell it sits directly below, or null. */
+  const columnMatch = (group: number[][], next: number[]): number[] | null => {
+    if (next.length !== group.length) return null
+    const taken = new Set<number>()
+    const assignment: number[] = []
+    for (const member of next) {
+      const box = boxAt(member, widest)
+      if (!box) return null
+      let found = -1
+      for (let c = 0; c < group.length; c++) {
+        if (taken.has(c)) continue
+        const above = boxAt(group[c][group[c].length - 1], widest)
+        if (!above) continue
+        const ix = Math.min(above.x + above.width, box.x + box.width) - Math.max(above.x, box.x)
+        if (ix > eps && box.y + eps >= above.y + above.height) {
+          found = c
+          break
+        }
+      }
+      if (found < 0) return null
+      taken.add(found)
+      assignment.push(found)
+    }
+    return assignment
+  }
+
+  const cells: number[][] = []
+  let i = 0
+  while (i < bands.length) {
+    const band = bands[i]
+    const modes = modesOf(band)
+    if (band.length >= 2 && modes.some((m) => m) && modes.some((m) => !m)) {
+      const group = band.map((m) => [m])
+      let j = i + 1
+      for (; j < bands.length; j++) {
+        const assignment = columnMatch(group, bands[j])
+        if (!assignment) break
+        bands[j].forEach((m, k) => group[assignment[k]].push(m))
+      }
+      if (j > i + 1) {
+        for (const cell of group) cell.sort((a, b) => a - b)
+        group.sort((a, b) => a[0] - b[0])
+        cells.push(...group)
+        i = j
+        continue
+      }
+    }
+    cells.push(...band.map((m) => [m]))
+    i++
+  }
+  return cells
+}
+
+/**
+ * REQ-278 — lay a sequence of boxes out as a flow row or column from `top` /
+ * `left`, returning each one's leading offset and where the sequence ends.
+ *
+ * This is the whole arithmetic of the recovery, in one place: an offset is the
+ * distance from where flow would have put the node to where the capture did, so
+ * a row measures from the previous item's right edge and a column from its
+ * bottom. A `null` box is a member the viewport hides at this width — it takes no
+ * offset and moves no pen, because the browser does not lay it out at all.
+ */
+function placeFlow(
+  boxes: Array<EvalBox | null>,
+  row: boolean,
+  top: number,
+  left: number,
+): { leads: Array<{ x: number; y: number } | null>; bottom: number } {
+  const leads: Array<{ x: number; y: number } | null> = []
+  let penX = left
+  let penY = top
+  let bottom = top
+  for (const box of boxes) {
+    if (!box) {
+      leads.push(null)
+      continue
+    }
+    if (row) {
+      leads.push({ x: box.x - penX, y: box.y - top })
+      penX = box.x + box.width
+      bottom = Math.max(bottom, box.y + box.height)
+    } else {
+      leads.push({ x: box.x - left, y: box.y - penY })
+      penY = box.y + box.height
+      bottom = penY
+    }
+  }
+  return { leads, bottom }
+}
+
+/**
+ * Whether a band's members can be laid out as a ROW at `width`: taken in their
+ * tree order, each one starts at or after the previous one's right edge.
+ *
+ * A row is what preserves the horizontal geometry — each member keeps its own
+ * width and its own place along the line — and it is what survives content
+ * growth, because flex items sit beside each other however tall they get. Where
+ * the members are NOT horizontally disjoint (the same grid at a mobile width,
+ * where the three cards are stacked one above the other) a row would need
+ * negative leading offsets to reproduce them, so the band is a stack there
+ * instead and the layout mode says so at that width.
+ */
+function bandIsRow(members: EvalBox[], eps: number): boolean {
+  if (members.length < 2) return false
+  const byX = [...members].sort((a, b) => a.x - b.x)
+  for (let i = 1; i < byX.length; i++) {
+    if (byX[i].x + eps < byX[i - 1].x + byX[i - 1].width) return false
+  }
+  return true
+}
+
+/**
+ * REQ-278 — rewrite a node's geometry track into the in-flow placement frame,
+ * keyframe by keyframe, from leading offsets already computed per captured width.
+ *
+ * The horizontal half of the track survives intact: `width` is the captured
+ * width and `x` is the captured position expressed as an offset from wherever
+ * flow put the node. The vertical half is given back to the flow — `y` becomes
+ * the leading gap and a height the node does not declare for itself is dropped,
+ * because a node whose height comes from its content is precisely the node that
+ * must grow when the content does.
+ */
+function toFlowPlacement(
+  node: L1Node,
+  leads: Array<{ at: number; x: number; y: number; width: number }>,
+  keepHeight: boolean,
+  snapSegments: ReadonlySet<number> = new Set(),
+): L1Node {
+  const geo = geometryOf(node)!
+  const hasHeight = keepHeight && geo.keyframes[0].height !== undefined
+  const keyframes = leads.map((lead) => {
+    const atHeight = atHeightAt(geo, lead.at)
+    return {
+      at: lead.at,
+      x: round(lead.x),
+      y: round(lead.y),
+      width: round(lead.width),
+      ...(hasHeight ? { height: round(evalGeometry(geo, lead.at).height) } : {}),
+      ...(atHeight !== undefined ? { atHeight } : {}),
+    }
+  })
+  // A height response still applies to a height the node keeps; a `y` response
+  // does not, because `y` is no longer a position (the validator refuses the pair).
+  const heightFactor = hasHeight ? geo.viewportResponse?.heightFactor : undefined
+  // The track is re-sampled onto the document's whole ladder (a leading offset is
+  // a fact about a specific width and cannot be interpolated from a coarser
+  // track), so its per-segment interpolate/snap flags are re-derived from
+  // whichever of the ORIGINAL segments covers each new one. A reflow the capture
+  // recorded as a snap stays a snap; interpolating across it is the defect
+  // [[REQ-92]] names, where a held pre-reflow box is read as the live one.
+  const segments = keyframes
+    .slice(0, -1)
+    .map((kf, i) => (snapSegments.has(i) ? ('snap' as const) : originalSegmentAt(geo, kf.at)))
+  const next = {
+    ...node,
+    geometry: {
+      keyframes,
+      ...(segments.length > 0 ? { segments } : {}),
+      ...(heightFactor !== undefined ? { viewportResponse: { heightFactor } } : {}),
+      place: 'flow' as const,
+    },
+  }
+  return next as L1Node
+}
+
+/**
+ * REQ-278 — give an INVENTED container (a recovered cell) its in-flow placement.
+ *
+ * The recovery authors exactly one kind of node the fold never wrote: the column
+ * a grid's cards are made of. It has no captured track of its own, so its
+ * keyframes are the leads computed for it plus the width of the column it holds,
+ * and it declares no height at all — a cell is as tall as its cards.
+ */
+function withFlowGeometry(
+  node: L1Node,
+  leads: Array<{ at: number; x: number; y: number; width: number }>,
+  snapSegments: ReadonlySet<number> = new Set(),
+): L1Node {
+  const segments = leads
+    .slice(0, -1)
+    .map((_, i) => (snapSegments.has(i) ? ('snap' as const) : ('interpolate' as const)))
+  return {
+    ...node,
+    geometry: {
+      keyframes: leads.map((lead) => ({
+        at: lead.at,
+        x: round(lead.x),
+        y: round(lead.y),
+        width: round(lead.width),
+      })),
+      ...(segments.some((seg) => seg === 'snap') ? { segments } : {}),
+      place: 'flow' as const,
+    },
+  } as L1Node
+}
+
+/**
+ * The interpolate/snap behaviour the ORIGINAL track declares across the segment
+ * that begins at `at` — the segment of the original that covers it, or `snap`
+ * above the original's last keyframe (where the renderer holds the final rung).
+ */
+function originalSegmentAt(geo: L1Geometry, at: number): 'interpolate' | 'snap' {
+  const f = geo.keyframes
+  for (let i = 0; i < f.length - 1; i++) {
+    if (at >= f[i].at && at < f[i + 1].at) return geo.segments?.[i] ?? 'interpolate'
+  }
+  return 'snap'
+}
+
+/**
+ * The viewport HEIGHT a track was captured at, at `at` — resolved through the
+ * same cascade as the geometry it travels with, so a re-sampled keyframe still
+ * measures its height response from the right origin.
+ */
+function atHeightAt(geo: L1Geometry, at: number): number | undefined {
+  const f = geo.keyframes.filter((kf) => kf.atHeight !== undefined)
+  if (f.length === 0) return undefined
+  if (at <= f[0].at) return f[0].atHeight
+  for (let i = 0; i < f.length - 1; i++) {
+    if (at >= f[i].at && at < f[i + 1].at) {
+      const t = f[i + 1].at === f[i].at ? 0 : (at - f[i].at) / (f[i + 1].at - f[i].at)
+      return round(lerp(f[i].atHeight!, f[i + 1].atHeight!, t))
+    }
+  }
+  return f[f.length - 1].atHeight
+}
+
+/** Round to a tenth of a pixel — the offsets are derived, not captured. */
+function round(n: number): number {
+  return Math.round(n * 10) / 10
+}
+
+/** A node whose own height is its content's, so recovery gives it back to flow. */
+function heightBelongsToContent(node: L1Node): boolean {
+  if (node.kind === 'text') return true
+  const kids = node.kind === 'container' ? node.children : node.kind === 'box' ? (node.children ?? []) : []
+  return kids.length > 0
+}
+
+/**
+ * REQ-278 — how a candidate document measures, in the two currencies the choice
+ * between them is made in: how faithfully it reproduces the oracle, and how well
+ * its envelope holds.
+ */
+export interface RecoveryScore {
+  /** Envelope findings across on-sample, off-sample and content-robustness. */
+  findings: number
+  /** Envelope findings at the CAPTURED widths — the contract the page was made from. */
+  onSample: number
+  /** Envelope findings under the two perturbations: width between rungs, and grown content. */
+  envelope: number
+  /** Largest per-axis miss against the oracle, in px. */
+  maxDelta: number
+  /** Oracle samples placed out of tolerance. */
+  residuals: number
+  /** Oracle samples the document carries no leaf for at all. */
+  unmatched: number
+}
+
+/** REQ-278 — the choice `1c repro` makes, with both sides of it measured. */
+export interface RecoveryVerdict {
+  /** The document to serve — the base, or the recovery, whichever won. */
+  doc: L1Document
+  /** True when the recovery won and is what will be written to disk. */
+  served: boolean
+  /** Paths of the pinned sibling groups the recovery flowed. */
+  promoted: string[]
+  base: RecoveryScore
+  recovery: RecoveryScore
+}
+
+export interface RecoveryChoiceOptions {
+  scale?: number
+  measured?: MeasuredTextHeights
+  offSampleWidths?: number[]
+  /**
+   * The composition a browser is actually handed — the page body with each
+   * behaviour's presentation mounted at its slot. The envelope is a property of
+   * THAT, not of the body alone (BUG-113), and the caller owns the mounting.
+   */
+  compose?: (doc: L1Document) => L1Document
+}
+
+/** Score one candidate: its envelope as composed, its fidelity as written. */
+function scoreCandidate(
+  doc: L1Document,
+  oracle: OracleSource,
+  options: RecoveryChoiceOptions,
+): RecoveryScore {
+  const measured = options.measured
+  const served = options.compose ? options.compose(doc) : doc
+  const count = (r: EnvelopeReport): number =>
+    r.byWidth.reduce((n, w) => n + w.findings.length, 0)
+  const fidelity = sampleFidelityProbe(doc, oracle, { measured })
+  const onSample = count(onSampleProbe(served, { measured }))
+  const envelope =
+    count(offSampleProbe(served, { widths: options.offSampleWidths, measured })) +
+    count(contentRobustnessProbe(served, { scale: options.scale, measured }))
+  return {
+    findings: onSample + envelope,
+    onSample,
+    envelope,
+    maxDelta: fidelity.maxDelta,
+    residuals: fidelity.residuals.length,
+    unmatched: fidelity.unmatched.length,
+  }
+}
+
+/**
+ * REQ-278 — decide which document to serve, and price both.
+ *
+ * BUG-113 asked this question and answered it by hand, in a comment, because the
+ * only recovery available cleared the envelope by discarding geometry and there
+ * was nothing to weigh: 1426px of miss buys no amount of resilience. A recovery
+ * that keeps the geometry makes it a real comparison, so it is made here — ONCE,
+ * by both `1c repro` (which writes the winner) and `1c l1-gate` (which grades
+ * it), so the page that is served and the verdict that is reported can never
+ * again be about two different documents.
+ *
+ * THE RULE, in three parts, in the order they bind:
+ *
+ *   1. FIDELITY IS NOT FOR SALE. The recovery must give up nothing against the
+ *      oracle — no extra residual, no unmatched sample, not one pixel of
+ *      worst-case miss beyond the rounding the offsets are written at. This is
+ *      the epic's doctrine: resilience bought with fidelity is the 80%-faithful
+ *      copy, and a page that reproduces the capture is the product.
+ *   2. NEITHER ARE THE CAPTURED WIDTHS. On-sample findings must not go up. Those
+ *      are the widths the page was measured at, so a collision there is a defect
+ *      in the recovery and not a judgement call.
+ *   3. THEN, AND ONLY THEN, THE ENVELOPE MUST STRICTLY IMPROVE — the off-sample
+ *      and content-robustness findings taken together, because both ask the same
+ *      question (does the page hold when the conditions are not the captured
+ *      ones?) and differ only in which condition they move. Taken together, not
+ *      probe by probe: a flow trades a little width-interpolation accuracy
+ *      between rungs for a great deal of resilience to content that grows, and
+ *      refusing that trade at any margin would refuse flow itself. The split is
+ *      in {@link RecoveryScore} and printed by the gate, so what the trade cost
+ *      is never hidden inside the verdict.
+ *
+ * Anything short of all three leaves the absolute base in place. It is the same
+ * judgement BUG-113 made, expressed as a computation over the current
+ * measurement rather than as a conclusion about the recovery that existed then.
+ */
+export function chooseRecovery(
+  base: L1Document,
+  oracle: OracleSource,
+  options: RecoveryChoiceOptions = {},
+): RecoveryVerdict {
+  const { doc: recovered, promoted } = promoteToFlow(base, {
+    scale: options.scale,
+    measured: options.measured,
+  })
+  const baseScore = scoreCandidate(base, oracle, options)
+  const recoveryScore = scoreCandidate(recovered, oracle, options)
+  // A tenth of a pixel: the recovery's leading offsets are rounded to that, so a
+  // difference at or below it is the rounding and not a regression.
+  const wins =
+    recoveryScore.residuals <= baseScore.residuals &&
+    recoveryScore.unmatched <= baseScore.unmatched &&
+    recoveryScore.maxDelta <= baseScore.maxDelta + 0.1 &&
+    recoveryScore.onSample <= baseScore.onSample &&
+    recoveryScore.envelope < baseScore.envelope
+  return {
+    doc: wins ? recovered : base,
+    served: wins,
+    promoted,
+    base: baseScore,
+    recovery: recoveryScore,
+  }
+}
+
+/**
+ * Demand-driven, **region-aware, geometry-preserving** structure recovery.
+ *
+ * Two predecessors stand behind this. The first promoted a failing node into one
+ * flat pile, keeping a single median gap for the whole page and leaving the
+ * un-promoted siblings pinned for that pile to overrun (BUG-9). The second fixed
+ * the regions but still cleared the envelope the only way it knew — by DROPPING
+ * each promoted member's geometry, so a 14px check glyph in a grid became a
+ * full-bleed stacked row. BUG-113 measured what that cost and declined to serve
+ * it: 1426px of miss on a 1440px viewport is not a repaired page, it is a
+ * different one.
+ *
+ * So this recovery keeps the geometry and changes only the FRAME it is read in:
+ *
+ *   - Colliding pinned siblings are grouped into {@link bandsOf} bands — the rows
+ *     of a grid, a glyph and the copy beside it. A band's members stay side by
+ *     side in a `row` (each with its own captured width and its own place along
+ *     the line), at every width where they are horizontally disjoint; where they
+ *     are not — the same grid at a mobile width — the band is a `stack` there,
+ *     carried by a per-width layout track ([[REQ-104]]).
+ *   - Every member is placed by {@link L1Geometry.place} `'flow'`: the same
+ *     keyframes, read as leading offsets from the flow cursor. An offset measured
+ *     from the previous sibling's captured bottom reproduces the captured
+ *     position EXACTLY at every sampled width — so recovery costs no fidelity at
+ *     rest — while leaving the page free to push its own content down when a run
+ *     wraps one line more than the capture did.
+ *   - Backing surfaces and declared-`stacked` nodes stay absolute
+ *     ({@link keepsAbsolute}), because a fill that joins the flow stops being
+ *     behind the thing it fills.
+ *   - A node with no colliding group is left absolute entirely — recovery is
+ *     applied where the probe demands it, per DOC-27's absolute-base / flow-
+ *     overlay split.
+ *
+ * Fidelity is still measured on the absolute base, so recovery never regrades
+ * `sampleFidelity`. Returns a validated document.
  */
 export function promoteToFlow(
   doc: L1Document,
   options: { scale?: number; measured?: MeasuredTextHeights } = {},
 ): PromoteResult {
   const scale = options.scale ?? 2.5
+  const eps = 2
   const promoted: string[] = []
-  const widest = Math.max(...doc.widths)
+  const widths = doc.widths
+  const widest = Math.max(...widths)
+  const rest = restingBoxes(doc, options.measured)
 
   // Perturbed overlap pairs across every captured width, computed once. Each pair
   // is a (leafPathA, leafPathB) that collide when content grows by `scale`.
   const overlapPairs: Array<[string, string]> = []
-  for (const width of doc.widths) {
+  for (const width of widths) {
     for (const f of evaluateLayout(doc, width, { contentScale: scale, measured: options.measured })
       .findings) {
       if (f.kind === 'overlap' && f.paths.length >= 2) {
@@ -1205,10 +1859,31 @@ export function promoteToFlow(
     }
   }
 
-  function rewrite(node: L1Node, path: string): L1Node {
+  /**
+   * Rewrite `node`, whose content box starts at `lefts[w]` / `tops[w]` at each
+   * captured width. The two frames are what every leading offset is measured
+   * against, threaded down rather than re-derived: a node's own geometry says
+   * where IT is, never where its parent's content begins.
+   */
+  function rewrite(
+    node: L1Node,
+    path: string,
+    lefts: Map<number, number>,
+    tops: Map<number, number>,
+  ): L1Node {
     if (node.kind !== 'box' && node.kind !== 'container') return node
-    const children: L1Node[] = (node.kind === 'container' ? node.children : node.children ?? []).map(
-      (c, i) => rewrite(c, `${path}.${i}`),
+    const originalChildren: L1Node[] = node.kind === 'container' ? node.children : (node.children ?? [])
+    const childFrame = (child: L1Node, i: number, axis: 'x' | 'y'): Map<number, number> => {
+      const geo = geometryOf(child)
+      const map = new Map<number, number>()
+      for (const w of widths) {
+        const outer = (axis === 'x' ? lefts : tops).get(w) ?? 0
+        map.set(w, geo && geo.place !== 'flow' ? evalGeometry(geo, w)[axis] : outer)
+      }
+      return map
+    }
+    const children: L1Node[] = originalChildren.map((c, i) =>
+      rewrite(c, `${path}.${i}`, childFrame(c, i, 'x'), childFrame(c, i, 'y')),
     )
 
     // Links between THIS node's direct children whose subtrees collide under
@@ -1230,58 +1905,292 @@ export function promoteToFlow(
       return node.kind === 'container' ? { ...node, children } : { ...node, children }
     }
 
-    // A recovered node is forced to `stack`, *including* a container the fold
-    // authored as `row` or `grid`. This is deliberate, not an oversight: the
-    // recovery overlay's whole guarantee is that promoted children survive
-    // perturbation, and only vertical stacking is unconditionally overlap-free
-    // and clip-free under growth — a row re-flows sideways and overflows its
-    // parent exactly where the pinned version overlapped. The absolute base
-    // (which keeps the authored layout) is what fidelity is measured on; this
-    // rewrite only ever applies to a node whose children *already* collide.
-    //
-    // REQ-104 — that forcing has to take any per-width layout track with it: the
-    // track OWNS the mode at render time, and a leftover one would quietly
-    // re-row the region the probe just flowed.
-    const rebuilt = (kids: L1Node[]): L1Node =>
-      node.kind === 'container'
-        ? { ...node, layout: 'stack', responsiveLayout: undefined, children: kids }
-        : { ...node, children: kids }
+    const boxOf = (i: number, w: number): EvalBox =>
+      restOf(rest.get(w)!, children[i], `${path}.${i}`, w)
 
-    // One region covering every child → flow the node's children directly (the
-    // node *is* the region). Keeps the historical single-region path reporting.
-    if (components.length === 1 && components[0].length === children.length) {
-      promoted.push(path)
-      return rebuilt(children.map(dropGeometry))
+    // The children that join the flow, and the ones the composition needs left
+    // behind it. A non-pinned child is already in flow and stays where it is.
+    const visibleBox = (i: number, w: number): EvalBox | null =>
+      hidden(children[i], w) ? null : boxOf(i, w)
+    const cellBox = (cell: number[], w: number): EvalBox | null => {
+      let out: EvalBox | null = null
+      for (const i of cell) {
+        const box = visibleBox(i, w)
+        if (!box) continue
+        if (!out) out = { ...box }
+        else {
+          const right = Math.max(out.x + out.width, box.x + box.width)
+          const bottom = Math.max(out.y + out.height, box.y + box.height)
+          out.x = Math.min(out.x, box.x)
+          out.y = Math.min(out.y, box.y)
+          out.width = right - out.x
+          out.height = bottom - out.y
+        }
+      }
+      return out
     }
 
-    // Multiple regions (or a region plus survivors): wrap each colliding group in
-    // its own flow sub-stack; flow the survivors alongside so nothing stays pinned.
-    const memberComponent = new Map<number, number>()
-    components.forEach((cl, ci) => cl.forEach((i) => memberComponent.set(i, ci)))
-    const items: L1Node[] = []
-    children.forEach((c, i) => {
-      const ci = memberComponent.get(i)
-      if (ci === undefined) {
-        items.push(dropGeometry(c))
-        return
+    type Lead = { at: number; x: number; y: number; width: number }
+    type Item = { region: number; bands: number[][] }
+    interface Plan {
+      absolute: number[]
+      cells: number[][]
+      bands: number[][]
+      items: Item[]
+      rowAt: Map<number, Map<number, boolean>>
+      cellLeads: Map<number, Lead[]>
+      memberLeads: Map<number, Lead[]>
+    }
+
+    /**
+     * Read this node's children as a flow: the grouping into cells and bands,
+     * the region each band belongs to, and every member's leading offset at every
+     * captured width. Pure — it constructs no nodes, so the emission below reads
+     * one consistent plan rather than re-deriving it band by band.
+     */
+    const plan = (): Plan => {
+      const flowing: number[] = []
+      const absolute: number[] = []
+      children.forEach((c, i) => {
+        if (!isPinned(c)) return
+        if (keepsAbsolute(c)) absolute.push(i)
+        else flowing.push(i)
+      })
+      // The two-dimensional read of the node's flow children: columns first
+      // (`gridCells`), then the bands those cells fall into. A cell that is alone
+      // in its band is inlined — a wrapper around one column of a one-column band
+      // is a node that says nothing.
+      const memberBands = bandsOf(flowing, (i) => boxOf(i, widest), eps)
+      const cells = gridCells(memberBands, visibleBox, widths, widest, eps)
+      const cellIndices = cells.map((_, ci) => ci)
+      const bands = bandsOf(
+        cellIndices,
+        (ci) => cellBox(cells[ci], widest) ?? { x: 0, y: 0, width: 0, height: 0 },
+        eps,
+      )
+
+      // Which region each band belongs to: the component of any member it holds.
+      // Bands that hold members of two components merge them — one band is one
+      // line of layout, so it cannot be split between two flow regions.
+      const regionOf = new Map<number, number>()
+      components.forEach((cl, ci) => cl.forEach((i) => regionOf.set(i, ci)))
+      const bandRegion = bands.map((band) => {
+        for (const ci of band) {
+          for (const i of cells[ci]) {
+            const r = regionOf.get(i)
+            if (r !== undefined) return r
+          }
+        }
+        return -1
+      })
+
+      // Group consecutive bands of the same region into one flow region
+      // container; a band belonging to no component is a survivor and flows alone.
+      const items: Item[] = []
+      bands.forEach((band, bi) => {
+        const region = bandRegion[bi]
+        const last = items[items.length - 1]
+        if (region >= 0 && last && last.region === region) last.bands.push(band)
+        else items.push({ region, bands: [band] })
+      })
+
+      // The running flow cursor, per width: where the next band's leading offset
+      // is measured from. It starts at the parent's own content top.
+      const cursor = new Map<number, number>(widths.map((w) => [w, tops.get(w) ?? 0]))
+      const rowAt = new Map<number, Map<number, boolean>>()
+      const cellLeads = new Map<number, Lead[]>()
+      const memberLeads = new Map<number, Lead[]>()
+
+      for (const band of bands) {
+        const single = band.length === 1
+        const modes = new Map<number, boolean>(
+          widths.map((w) => [
+            w,
+            bandIsRow(
+              band.map((ci) => cellBox(cells[ci], w)).filter((b): b is EvalBox => b !== null),
+              eps,
+            ),
+          ]),
+        )
+        band.forEach((ci) => {
+          rowAt.set(ci, modes)
+          cellLeads.set(ci, [])
+          cells[ci].forEach((i) => memberLeads.set(i, []))
+        })
+        for (const w of widths) {
+          const top = cursor.get(w)!
+          const left = lefts.get(w) ?? 0
+          if (single) {
+            const cell = cells[band[0]]
+            const placed = placeFlow(cell.map((i) => visibleBox(i, w)), false, top, left)
+            cell.forEach((i, k) => {
+              const lead = placed.leads[k]
+              const box = visibleBox(i, w)
+              memberLeads.get(i)!.push({ at: w, x: lead?.x ?? 0, y: lead?.y ?? 0, width: box?.width ?? 0 })
+            })
+            cursor.set(w, placed.bottom)
+            continue
+          }
+          const boxes = band.map((ci) => cellBox(cells[ci], w))
+          const placed = placeFlow(boxes, modes.get(w)!, top, left)
+          band.forEach((ci, k) => {
+            const lead = placed.leads[k]
+            const box = boxes[k]
+            cellLeads.get(ci)!.push({ at: w, x: lead?.x ?? 0, y: lead?.y ?? 0, width: box?.width ?? 0 })
+            // A cell's own members stack inside it, measured from where the cell
+            // itself landed — which, by construction, is where it was captured.
+            const inner = placeFlow(
+              cells[ci].map((i) => visibleBox(i, w)),
+              false,
+              box?.y ?? top,
+              box?.x ?? left,
+            )
+            cells[ci].forEach((i, m) => {
+              const memberBox = visibleBox(i, w)
+              const innerLead = inner.leads[m]
+              memberLeads.get(i)!.push({
+                at: w,
+                x: innerLead?.x ?? 0,
+                y: innerLead?.y ?? 0,
+                width: memberBox?.width ?? 0,
+              })
+            })
+          })
+          cursor.set(w, placed.bottom)
+        }
       }
-      if (components[ci][0] !== i) return // absorbed into its region's sub-stack
-      const members = components[ci]
-        .map((k) => children[k])
-        .sort((a, b) => evalGeometry(a.geometry!, widest).y - evalGeometry(b.geometry!, widest).y)
-      const region: L1Node = {
-        kind: 'container',
-        layout: 'stack',
-        gapPx: medianGap(members, widest),
-        children: members.map(dropGeometry),
+      return { absolute, cells, bands, items, rowAt, cellLeads, memberLeads }
+    }
+
+    const { absolute, cells, bands, items, rowAt, cellLeads, memberLeads } = plan()
+
+    /**
+     * REQ-278 — the segments of the ladder the flow is DISCONTINUOUS across.
+     *
+     * A leading offset is a fact about a specific width: the distance from where
+     * flow put the node to where the capture did. Between two captured widths the
+     * renderer interpolates it, which tracks the cursor closely enough while the
+     * flow between them is the same flow — the cursor drifts as text reflows, and
+     * a linearly-drifting offset drifts with it. Two things break that, and both
+     * make a segment SNAP instead: hold the lower rung's offsets until the layout
+     * that made them true has actually changed.
+     *
+     * A BAND THAT CHANGES LAYOUT MODE. A band that is a row at one captured width
+     * and a stack at the next moves the cursor by the whole height of the stacked
+     * band, while `responsiveLayout` holds the mode until the upper rung — so an
+     * interpolated offset is measured against a flow that has not happened yet
+     * and every node after it lands short.
+     *
+     * A RUN THAT GOES BACKWARDS. A page whose DOM order is not its visual order —
+     * a grid whose cards are written out of sequence, a footer run declared above
+     * the body it sits under — needs NEGATIVE offsets to reproduce. Those are
+     * real CSS and reproduce the capture exactly at every sampled width, so the
+     * recovery keeps them rather than abandoning the region (measured: holding
+     * those members out of the flow instead left 193 findings where flowing them
+     * leaves 116, and cost six off-sample collisions rather than two, because a
+     * held-back member stays put while its flowed neighbours drift). What cannot
+     * be trusted is INTERPOLATING one: blending two "how far back to go" numbers
+     * against a cursor that moved by real reflow lands the node on its neighbour
+     * at a width the capture never saw.
+     */
+    const discontinuous = new Set<number>()
+    for (const band of bands) {
+      const modes = rowAt.get(band[0])!
+      for (let i = 0; i < widths.length - 1; i++) {
+        if (modes.get(widths[i]) !== modes.get(widths[i + 1])) discontinuous.add(i)
       }
-      promoted.push(`${path}.${items.length}`)
-      items.push(region)
-    })
-    return rebuilt(items)
+    }
+
+    /** A member, or a whole cell, rewritten into the in-flow placement frame. */
+    const flowNode = (node: L1Node, leads: Lead[], keepHeight: boolean): L1Node =>
+      toFlowPlacement(node, leads, keepHeight, discontinuous)
+
+    /** Build one band's nodes from the leads the plan computed for it. */
+    const buildBand = (band: number[]): L1Node[] => {
+      const single = band.length === 1
+      const cellNode = (ci: number): L1Node => {
+        const members = cells[ci].map((i) =>
+          flowNode(children[i], memberLeads.get(i)!, !heightBelongsToContent(children[i])),
+        )
+        if (members.length === 1 && single) return members[0]
+        if (members.length === 1) {
+          // One member: it IS the cell, so it takes the cell's own offset rather
+          // than being wrapped in a container that carries nothing but that offset.
+          const only = children[cells[ci][0]]
+          return flowNode(only, cellLeads.get(ci)!, !heightBelongsToContent(only))
+        }
+        const container: L1Node = { kind: 'container', layout: 'stack', children: members }
+        return single ? container : withFlowGeometry(container, cellLeads.get(ci)!, discontinuous)
+      }
+
+      if (single) {
+        return cells[band[0]].map((i) =>
+          flowNode(children[i], memberLeads.get(i)!, !heightBelongsToContent(children[i])),
+        )
+      }
+
+      // The band's own layout mode, per width, and the representative (widest)
+      // value beside it — REQ-104's shape, so the renderer and the evaluator read
+      // the same cascade rather than two approximations of it.
+      const modes = rowAt.get(band[0])!
+      const keyframes: Array<{ at: number; value: 'row' | 'stack' }> = []
+      for (const w of widths) {
+        const value = modes.get(w)! ? ('row' as const) : ('stack' as const)
+        if (keyframes.length === 0 || keyframes[keyframes.length - 1].value !== value) {
+          keyframes.push({ at: w, value })
+        }
+      }
+      return [
+        {
+          kind: 'container',
+          layout: keyframes[keyframes.length - 1].value,
+          ...(keyframes.length > 1 ? { responsiveLayout: { keyframes } } : {}),
+          // A row's cells carry their own cross-axis offsets, so they must keep
+          // their own heights rather than being stretched to the tallest of them.
+          align: 'start' as const,
+          children: band.map(cellNode),
+        },
+      ]
+    }
+
+    const emitted: L1Node[] = []
+    // The fills are re-attached AHEAD of the flow (see below), so every recovered
+    // region's reported path counts from after them.
+    const flowBase = absolute.length
+    // BUG-9's reporting contract, kept: one region covering every child means the
+    // NODE is the region, and its bare path is what the report names. A region
+    // that shares the node with survivors or with a fill is named by its own
+    // index among them, because there the node is not the thing that was flowed.
+    const wholeNode = components.length === 1 && components[0].length === children.length
+    for (const item of items) {
+      const nodes = item.bands.flatMap(buildBand)
+      const name = (): void => {
+        if (item.region < 0) return
+        promoted.push(wholeNode ? path : `${path}.${flowBase + emitted.length}`)
+      }
+      if (item.region < 0 || nodes.length === 1) {
+        // A survivor band, or a region that turned out to be one band: no wrapper
+        // is needed, and inventing one would be a node with no content of its own.
+        name()
+        emitted.push(...nodes)
+        continue
+      }
+      name()
+      emitted.push({ kind: 'container', layout: 'stack', children: nodes })
+    }
+
+    // The absolutely-kept children (the fills) are re-attached ahead of the flow,
+    // exactly where they were: they are out of flow, so their position in the
+    // child list decides only paint order, and painting them first is what makes
+    // them backgrounds.
+    const rebuiltChildren = [...absolute.map((i) => children[i]), ...emitted]
+    return node.kind === 'container'
+      ? { ...node, layout: 'stack' as const, responsiveLayout: undefined, gapPx: 0, children: rebuiltChildren }
+      : { ...node, children: rebuiltChildren }
   }
 
-  const root = rewrite(doc.root, '0')
+  const zero = new Map<number, number>(widths.map((w) => [w, 0]))
+  const root = rewrite(doc.root, '0', zero, zero)
   const next: L1Document = { ...doc, root }
   const result = validateL1(next)
   if (!result.ok) {

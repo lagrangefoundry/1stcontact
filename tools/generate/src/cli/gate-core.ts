@@ -46,6 +46,7 @@ import {
   contentRobustnessProbe,
   measuredTextHeights,
   promoteToFlow,
+  chooseRecovery,
   sampleFidelityProbe,
 } from '../l1/probes'
 import type { AcceptanceReport, EnvelopeReport } from '../l1/probes'
@@ -832,6 +833,12 @@ export function reconcileGates(input: ReconcileInput): GateReport {
 export interface RecoveryCost {
   /** Paths of the pinned sibling groups `promoteToFlow` would flow. */
   promoted: string[]
+  /**
+   * REQ-278 — whether the recovery WON and is therefore the document this gate
+   * graded. False means the absolute base is still what is served and this block
+   * is still the priced alternative BUG-113 made it.
+   */
+  served: boolean
   /** Envelope findings on the served document, across the captured ladder. */
   servedFindings: number
   /** Envelope findings the recovered document would have instead. */
@@ -963,24 +970,42 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
   // document: the browser is handed the page body with each behaviour's controls
   // mounted at its seam, and a control colliding with the prose above it is
   // exactly the defect an operator reported seeing.
-  const served = mountBehaviours(base, forms)
-  const report = acceptanceGate(base, multiState, {
-    served,
+  // REQ-278 — WHICH document is served is now a measurement, not a comment. The
+  // recovery keeps every promoted member's geometry and reads it as leading
+  // offsets in flow, so it reproduces the capture exactly at rest; where that
+  // costs no fidelity AND holds the envelope better, it is what `1c repro`
+  // writes, and therefore what this gate must grade. `chooseRecovery` is the one
+  // definition of that comparison, shared with `repro` so the two can never
+  // disagree about which page the verdict is about.
+  const choice = chooseRecovery(base, multiState, {
+    scale: CONTENT_SCALE,
+    measured,
+    compose: (doc) => mountBehaviours(doc, forms),
+  })
+  const graded = choice.doc
+  const report = acceptanceGate(graded, multiState, {
+    served: mountBehaviours(graded, forms),
     measured,
     contentScale: CONTENT_SCALE,
   })
-  const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE, measured })
-  const recoveredFidelity = sampleFidelityProbe(recovered, multiState, { measured })
   const countFindings = (r: { byWidth: Array<{ findings: unknown[] }> }): number =>
     r.byWidth.reduce((n, w) => n + w.findings.length, 0)
+  // The arrow always reads base → recovery, whichever of the two is being
+  // served: it is the trade itself, not a statement about the winner.
   const recovery: RecoveryCost = {
-    promoted,
-    servedFindings: countFindings(report.contentRobustness),
-    recoveredFindings: countFindings(
-      contentRobustnessProbe(recovered, { scale: CONTENT_SCALE, measured }),
+    promoted: choice.promoted,
+    served: choice.served,
+    servedFindings: countFindings(
+      contentRobustnessProbe(mountBehaviours(base, forms), { scale: CONTENT_SCALE, measured }),
     ),
-    fidelityMaxDeltaPx: recoveredFidelity.maxDelta,
-    fidelityResiduals: recoveredFidelity.residuals.length,
+    recoveredFindings: countFindings(
+      contentRobustnessProbe(
+        mountBehaviours(promoteToFlow(base, { scale: CONTENT_SCALE, measured }).doc, forms),
+        { scale: CONTENT_SCALE, measured },
+      ),
+    ),
+    fidelityMaxDeltaPx: choice.recovery.maxDelta,
+    fidelityResiduals: choice.recovery.residuals,
   }
-  return { ...report, promoted, recovery, foldResiduals, forms, staleFold }
+  return { ...report, promoted: choice.promoted, recovery, foldResiduals, forms, staleFold }
 }

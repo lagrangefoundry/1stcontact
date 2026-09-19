@@ -129,6 +129,10 @@ export const L1_STRUCTURAL_RULES = {
   declaredPaletteEntry: 'a palette reference must name an entry the palette declares',
   /** A column anchor is meaningless without the column it is measured against, so a document that uses one must declare a `column`. */
   anchorNeedsColumn: 'geometry.anchor requires the document to declare a `column`',
+  /** REQ-278 — an in-flow track's `x` is a leading offset from the flow cursor and a column anchor is an absolute origin, so the two cannot both govern the same axis. */
+  flowPlacementHasNoAnchor: "geometry.place 'flow' cannot carry a column anchor",
+  /** REQ-278 — an in-flow track takes its vertical position from the flow, so a `yFactor` response against the viewport height has nothing to apply to. */
+  flowPlacementHasNoYResponse: "geometry.place 'flow' cannot carry a viewportResponse.yFactor",
   /** A node `id` becomes a real DOM id, so it must be unique across the page: a duplicate breaks `#anchor` navigation and the `for`/`id` association a control's accessible name is built from. */
   uniqueNodeIds: 'a node id must be unique',
   /** Every URL a page paints from must be a served asset or an http(s) address, because the value is emitted into markup and into a stylesheet where a smuggled scheme would be live. */
@@ -235,6 +239,21 @@ function checkGeometry(
         })
       }
     })
+  }
+  // REQ-278 — the two placement frames are exclusive per axis. An in-flow track
+  // measures `x`/`y` from the flow cursor, which an absolute column origin and a
+  // viewport-height `y` response both contradict; letting either through would
+  // emit two rules for one axis and leave the winner to media-query sort order.
+  if (geo.place === 'flow') {
+    if (geo.anchor) {
+      errors.push({ path: `${path}/anchor`, message: L1_STRUCTURAL_RULES.flowPlacementHasNoAnchor })
+    }
+    if (geo.viewportResponse?.yFactor !== undefined) {
+      errors.push({
+        path: `${path}/viewportResponse/yFactor`,
+        message: L1_STRUCTURAL_RULES.flowPlacementHasNoYResponse,
+      })
+    }
   }
   if (geo.anchor) {
     if (!geo.anchor.x && !geo.anchor.width) {

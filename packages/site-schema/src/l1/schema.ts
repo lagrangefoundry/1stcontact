@@ -228,6 +228,35 @@ export const l1ColumnAnchorSchema = z
   .strict()
 
 /**
+ * REQ-278 — which frame a geometry track's keyframes are measured against.
+ *
+ * `absolute` (the default, and what every document written before this axis
+ * existed means): the node is taken OUT of its parent's flow and placed by its
+ * own coordinates — `x`/`y` are `left`/`top` against the nearest positioned
+ * ancestor, `width`/`height` its extent. This is the transcription face: it
+ * reproduces a capture exactly and is fragile by construction, because a run
+ * that wraps one line more than the capture did lands on its neighbour.
+ *
+ * `flow` keeps the node IN its parent's flow and reads the same four numbers as
+ * **leading offsets from the flow cursor** — `x`/`y` are `margin-left`/
+ * `margin-top`, `width` is still the node's width, and `height` is emitted only
+ * where the keyframe carries one (a leaf image or box); a node whose height is
+ * its content's takes it from the content, which is the entire point. The CSS
+ * distinction is exactly the one the two names carry: `left`/`top` place a box
+ * that has left the flow, margins place one that has not.
+ *
+ * Both modes reproduce the capture at the sampled widths — a leading offset
+ * measured from the previous sibling's captured bottom puts the node exactly
+ * where it was captured. They differ in what happens when the content is NOT the
+ * captured content: an `absolute` sibling stays put and is overrun, a `flow`
+ * sibling is pushed down. So `flow` is what {@link module:probes.promoteToFlow}
+ * writes when it recovers a colliding region, and it is what lets that recovery
+ * keep the horizontal geometry — the width and the position within the row —
+ * that made the region a grid rather than a pile of full-bleed stacked rows.
+ */
+export const l1PlacementSchema = z.enum(['absolute', 'flow'])
+
+/**
  * A geometry track: keyframes sorted ascending by `at`, plus an optional
  * per-segment interpolation flag (length `keyframes.length - 1`). Absent segment
  * flags default to `interpolate` for every segment.
@@ -236,6 +265,11 @@ export const l1GeometrySchema = z
   .object({
     keyframes: z.array(l1KeyframeSchema).min(1),
     segments: z.array(l1SegmentSchema).optional(),
+    /**
+     * REQ-278 — the frame the keyframes are measured against. Absent means
+     * `absolute`, so every document folded before this axis existed is unchanged.
+     */
+    place: l1PlacementSchema.optional(),
     /** REQ-88 — how `y` / `height` track the viewport height (the `100vh` axis). */
     viewportResponse: l1ViewportResponseSchema.optional(),
     /**

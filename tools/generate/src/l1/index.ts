@@ -44,6 +44,8 @@ export {
   onSampleProbe,
   acceptanceGate,
   promoteToFlow,
+  // REQ-278 — the served-document choice, made once for `repro` and the gate.
+  chooseRecovery,
   oracleBoxes,
   measuredTextHeights,
   type EvalBox,
@@ -59,5 +61,8 @@ export {
   type AcceptanceReport,
   type AcceptanceOptions,
   type PromoteResult,
+  type RecoveryScore,
+  type RecoveryVerdict,
+  type RecoveryChoiceOptions,
   type MeasuredTextHeights,
 } from './probes'

@@ -22,11 +22,11 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
+  chooseRecovery,
   evaluateLayout,
   foldToL1,
   measuredTextHeights,
   mountBehaviours,
-  promoteToFlow,
   sampleFidelityProbe,
 } from '../tools/generate/src/l1'
 import type { FoldedForm } from '../tools/generate/src/l1'
@@ -221,19 +221,40 @@ describe('BUG-113 — the gate grades the document that is served', () => {
     expect(report.offSample.pass).toBe(false)
   })
 
-  it('test_UAT_FC_BUG-113_recovery_is_priced_never_served', async () => {
+  it('test_UAT_FC_BUG-113_recovery_is_priced_and_the_price_decides', async () => {
     const capture = reflowingCapture()
     const { dir } = await bundleOf(capture)
     const result = await cmdRepro('repro', { cwd, ref: dir })
 
-    // What was written is the absolute base: every pinned node still carries the
-    // geometry the fold gave it. `promoteToFlow` clears the envelope by DROPPING
-    // that geometry, so a served recovery would be missing it.
+    // BUG-113's invariant is that the choice between the absolute base and the
+    // flow recovery is MADE, stated as numbers, and made in ONE place so the page
+    // that is written and the page that is graded are the same page. What it is
+    // NOT is a constant. The recovery BUG-113 priced cleared the envelope by
+    // dropping each promoted member's geometry — 1426px of miss against the
+    // oracle on the reference — so the price decided for the base every time, and
+    // the ticket recorded that decision. REQ-278 gave the recovery its geometry
+    // back; the price now decides on the merits, and this fixture is one where
+    // the recovery wins.
     const loaded = loadSite({ cwd, root: 'sites' }, 'repro', 'draft')
     if (!loaded.ok) throw new Error('draft did not load')
     const written = loaded.value.site.pages.find((p) => p.slug === 'home')?.l1
     if (!written) throw new Error('written page carries no L1 document')
-    const pinned = (doc: L1Document): number => {
+
+    const measured = measuredTextHeights(capture)
+    const choice = chooseRecovery(foldToL1(capture), capture, { measured })
+    expect(choice.promoted.length).toBeGreaterThan(0)
+    expect(choice.served).toBe(true)
+
+    // ONE definition of the choice: what `1c repro` wrote is what `chooseRecovery`
+    // picked, node for node — not a second implementation that happens to agree.
+    expect(JSON.stringify(written)).toBe(JSON.stringify(choice.doc))
+    expect(result.served?.document).toBe('recovery')
+
+    // GEOMETRY IS KEPT, NOT DROPPED. Every node the recovery flowed still carries
+    // its track; what changed is the frame the track is read in. That is the
+    // difference this fixture exists to hold: a recovery that drops geometry has
+    // strictly fewer tracks than the base, and this one has exactly as many.
+    const tracks = (doc: L1Document): number => {
       let n = 0
       const walk = (node: L1Node): void => {
         if (node.geometry) n += 1
@@ -243,20 +264,31 @@ describe('BUG-113 — the gate grades the document that is served', () => {
       walk(doc.root)
       return n
     }
-    const recovered = promoteToFlow(foldToL1(capture), {
-      measured: measuredTextHeights(capture),
-    })
-    expect(recovered.promoted.length).toBeGreaterThan(0)
-    expect(pinned(written)).toBeGreaterThan(pinned(recovered.doc))
+    const base = foldToL1(capture)
+    expect(tracks(written)).toBeGreaterThanOrEqual(tracks(base))
+    const flowed = (doc: L1Document): number => {
+      let n = 0
+      const walk = (node: L1Node): void => {
+        if (node.geometry?.place === 'flow') n += 1
+        const kids = node.kind === 'container' ? node.children : ((node as { children?: L1Node[] }).children ?? [])
+        kids.forEach(walk)
+      }
+      walk(doc.root)
+      return n
+    }
+    expect(flowed(base)).toBe(0)
+    expect(flowed(written)).toBeGreaterThan(0)
 
-    // The declined trade is stated as a number by both verbs, so choosing the
-    // base is an informed choice rather than an implicit one.
+    // The trade is stated as a number by both verbs, so serving the recovery is
+    // an informed choice rather than an implicit one — and here the number that
+    // decided it is zero: the recovery costs no fidelity at all.
     expect(result.served?.recovery.promoted).toBeGreaterThan(0)
-    expect(result.served?.recovery.fidelityMaxDeltaPx).toBeGreaterThan(
+    expect(result.served?.recovery.fidelityMaxDeltaPx).toBeLessThanOrEqual(
       result.served?.fidelityMaxDeltaPx ?? 0,
     )
     const report = await cmdL1Gate(fsReferenceBundle(dir))
-    expect(report.recovery.fidelityResiduals).toBeGreaterThan(0)
+    expect(report.recovery.served).toBe(true)
+    expect(report.recovery.fidelityResiduals).toBe(0)
     expect(report.recovery.recoveredFindings).toBeLessThan(report.recovery.servedFindings)
   })
 
@@ -344,6 +376,18 @@ describe('BUG-113 — the gate grades the document that is served', () => {
       kids.forEach(unhold)
     }
     unhold(stale.root)
+    // REQ-278 — and a defect the recovery cannot absorb, so the verdict has to
+    // come from the RETAINED document to report it at all. A recovery that keeps
+    // the captured geometry repairs fragility (a page that breaks between sampled
+    // widths, or when the copy grows); it cannot repair a document that already
+    // paints one run on top of another at a width the reference was measured at,
+    // because reproducing that position faithfully is the whole contract. So the
+    // stale artifact is given exactly that: its second run moved onto its first.
+    // Re-folding would produce neither the interpolation slide nor this collision.
+    const staleKids = (stale.root as { children: L1Node[] }).children
+    const first = staleKids[0].geometry!
+    const second = staleKids[1].geometry!
+    second.keyframes = second.keyframes.map((kf, i) => ({ ...kf, y: first.keyframes[i].y + 5 }))
     // The controls are half the page, and their presentation is retained beside
     // the body in `forms.json` — so an older fold means an older BOTH.
     const staleMounts = JSON.parse(JSON.stringify(staleForms)) as FoldedForm[]
@@ -355,17 +399,24 @@ describe('BUG-113 — the gate grades the document that is served', () => {
 
     // The verdict is about the RETAINED document — the one `1c repro` will serve.
     // Re-folding would have reported this page clean, which is precisely the
-    // false PASS this ticket exists to stop.
-    expect(report.offSample.pass).toBe(false)
+    // false PASS this ticket exists to stop. The retained document collides at a
+    // CAPTURED width, so the collision reaches the verdict itself and no recovery
+    // can talk it away.
     expect(overlaps(mountBehaviours(stale, staleMounts), 500, capture).length).toBeGreaterThan(0)
+    expect(report.onSample.pass).toBe(false)
+    expect(current.onSample.pass).toBe(true)
 
     // And the divergence is named, with the remedy, rather than silently absorbed.
     expect(report.staleFold).toContain('1c refold')
 
     // Staleness is a fact about the bundle, not a quality judgement: it says the
     // subject of the verdict would change, not that the subject is bad. So the
-    // document that IS retained is still the one every probe read.
+    // document that IS retained is still the one every probe read — and both
+    // verbs read the same one, so what `1c repro` measures about the page it just
+    // wrote is what the gate reports about the page it just graded.
     const servedNow = await cmdRepro('repro-stale', { cwd, ref: dir })
-    expect(servedNow.served?.offSample.filter((w) => w.findings > 0).length).toBeGreaterThan(0)
+    expect(servedNow.served?.byWidth.filter((w) => w.findings > 0).length).toBeGreaterThan(0)
+    expect(servedNow.served?.document).toBe(report.recovery.served ? 'recovery' : 'base')
+    expect(servedNow.served?.recovery.promoted).toBe(report.recovery.promoted.length)
   })
 })

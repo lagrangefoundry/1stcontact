@@ -286,10 +286,20 @@ const GRID_AND_FOOTER = [
   [1500],
 ]
 
-/** Every node beneath `node` that still carries absolute geometry (is pinned). */
+/**
+ * Every node beneath `node` that still carries ABSOLUTE geometry (is pinned).
+ *
+ * REQ-278 — a recovered node keeps its geometry; what changes is the frame it is
+ * read in (`place: 'flow'`, so the same four numbers are leading offsets from the
+ * flow cursor rather than page coordinates). So "still pinned" is a question about
+ * the placement axis, not about whether a track is present at all — the recovery
+ * that preserves horizontal geometry would read as "nothing recovered" to a check
+ * that only asked whether `geometry` existed.
+ */
 function pinnedDescendants(node: L1Node, path = '0'): string[] {
   const out: string[] = []
-  if ((node as { geometry?: unknown }).geometry !== undefined) out.push(path)
+  const geo = (node as { geometry?: { place?: string } }).geometry
+  if (geo !== undefined && geo.place !== 'flow') out.push(path)
   const kids = (node as { children?: L1Node[] }).children ?? []
   kids.forEach((c, i) => out.push(...pinnedDescendants(c, `${path}.${i}`)))
   return out
@@ -590,22 +600,43 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     expect(new Set(regionResult.promoted).size).toBe(3)
     for (const p of regionResult.promoted) expect(p).toMatch(/^0\.\d+$/)
 
-    // Each promoted path names a flow `stack` container carrying its OWN interior
-    // gap, derived from its members' absolute measurements. The fixture's grid
-    // band is pitched 90px apart against the hero's and footer's 60px, so the
-    // recovered gaps differ where the absolute spacing differed — one shared
-    // median gap across the page could not reproduce all three.
+    // Each promoted path names a flow `stack` container whose members carry their
+    // OWN interior spacing. The fixture's grid band is pitched 90px apart against
+    // the hero's and footer's 60px, and the recovered spacing differs where the
+    // absolute spacing did — one shared gap across the page could not reproduce
+    // all three.
+    //
+    // REQ-278 — the spacing lives in each member's leading offset, not in the
+    // container's `gapPx`. That is the difference between reproducing the capture
+    // and approximating it: a median gap is one number for a whole region, so it
+    // is right only where every member happened to be evenly pitched, whereas a
+    // per-member offset is the captured distance itself and reproduces ANY
+    // spacing exactly. The assertion therefore reads the offsets.
     const regionNodes = regionResult.promoted.map((p) => {
       const idx = Number(p.split('.')[1])
       return ((regionResult.doc.root as { children?: L1Node[] }).children ?? [])[idx]
     })
+    const leadOf = (n: L1Node): number | undefined => {
+      const geo = (n as { geometry?: { place?: string; keyframes: Array<{ y: number }> } }).geometry
+      return geo?.place === 'flow' ? geo.keyframes[0].y : undefined
+    }
+    const regionGaps: number[] = []
     for (const n of regionNodes) {
       expect(n.kind).toBe('container')
       expect((n as { layout?: string }).layout).toBe('stack')
-      expect((n as { gapPx?: number }).gapPx).toBeGreaterThan(0)
+      // Every member is in flow, and the gap between one member and the next is
+      // that member's own leading offset.
+      const members = (n as { children?: L1Node[] }).children ?? []
+      expect(members.length).toBeGreaterThan(1)
+      for (const m of members) expect(leadOf(m)).toBeDefined()
+      regionGaps.push(leadOf(members[1])!)
     }
-    const regionGaps = regionNodes.map((n) => (n as { gapPx?: number }).gapPx)
-    expect(regionGaps).toEqual([60, 90, 60])
+    // The fixture's runs are 48px tall, pitched 60 / 90 / 60 apart, so the gap
+    // between one and the next is 12 / 42 / 12 — the distance a browser has to
+    // leave, which is what a leading offset means. (The predecessor stored the
+    // PITCH as a flex `gap`, which renders as pitch + height and reproduces the
+    // capture nowhere; REQ-278 is the ticket that stopped approximating it.)
+    expect(regionGaps).toEqual([12, 42, 12])
     expect(new Set(regionGaps).size).toBeGreaterThan(1)
 
     // Nothing is left pinned behind: a recovering node flows ALL of its children

@@ -44,6 +44,7 @@ import type {
   l1PaddingResponsiveSchema,
   l1PaddingSchema,
   l1PatternSchema,
+  l1PlacementSchema,
   l1PointerAccentSchema,
   l1ResourcesSchema,
   l1ResponsiveLayoutSchema,
@@ -70,6 +71,8 @@ import type {
 export type L1Keyframe = z.infer<typeof l1KeyframeSchema>
 export type L1Segment = z.infer<typeof l1SegmentSchema>
 export type L1Geometry = z.infer<typeof l1GeometrySchema>
+// REQ-278 — absolute placement vs in-flow leading offsets.
+export type L1Placement = z.infer<typeof l1PlacementSchema>
 // REQ-88 — viewport-relative extent: the `100vh` hero and the centred column.
 export type L1ViewportResponse = z.infer<typeof l1ViewportResponseSchema>
 export type L1Column = z.infer<typeof l1ColumnSchema>

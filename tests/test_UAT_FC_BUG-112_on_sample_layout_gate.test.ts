@@ -22,7 +22,14 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { acceptanceGate, evaluateLayout, foldToL1, onSampleProbe, promoteToFlow } from '../tools/generate/src'
+import {
+  acceptanceGate,
+  chooseRecovery,
+  evaluateLayout,
+  foldToL1,
+  onSampleProbe,
+  promoteToFlow,
+} from '../tools/generate/src'
 import { formatGateReport, reconcileGates } from '../tools/generate/src/cli/gate'
 import type { ReferenceCoverage } from '../tools/generate/src/cli/gate'
 import type { EnvelopeReport } from '../tools/generate/src/l1/probes'
@@ -122,19 +129,26 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
   it('test_UAT_FC_BUG-112_on_sample_overlap_at_a_captured_width_fails_the_gate', () => {
     const oracle = collidingCapture()
     const base = foldToL1(oracle)
-    const { doc: recovered } = promoteToFlow(base, { scale: 2.5 })
 
-    // The premise: recovery repairs the collision, so the probes that grade the
-    // recovered overlay see nothing. This is exactly the blind spot — the
-    // document `1c repro` writes is `base`, and `base` collides.
+    // The served document collides at every captured width, unperturbed.
     for (const width of base.widths) {
-      expect(evaluateLayout(recovered, width).findings, `recovered @${width}`).toEqual([])
+      expect(evaluateLayout(base, width).findings, `base @${width}`).not.toEqual([])
     }
 
-    const report = acceptanceGate(base, oracle, { recovered, served: base, contentScale: 2.5 })
-    expect(report.offSample.pass, 'off-sample grades the recovered overlay').toBe(true)
-    expect(report.contentRobustness.pass, 'content-robustness grades the recovered overlay').toBe(true)
-    // ...and the gate fails anyway, because the SERVED document collides.
+    // REQ-278 — AND NO RECOVERY TALKS IT AWAY. A recovery that keeps the captured
+    // geometry repairs FRAGILITY: a page that breaks between sampled widths, or
+    // when its copy grows. It cannot repair a page that already paints one run
+    // over another AT a sampled width, because reproducing that position
+    // faithfully is the contract it is built on — so the collision survives into
+    // the recovery and the verdict has nowhere to hide it. (The predecessor did
+    // "repair" this, by dropping the geometry and stacking everything; that is
+    // the blind spot BUG-112 named and the miss BUG-113 measured.)
+    const { doc: recovered } = promoteToFlow(base, { scale: 2.5 })
+    for (const width of base.widths) {
+      expect(evaluateLayout(recovered, width).findings, `recovered @${width}`).not.toEqual([])
+    }
+
+    const report = acceptanceGate(base, oracle, { served: base, contentScale: 2.5 })
     expect(report.onSample.pass).toBe(false)
     expect(report.pass).toBe(false)
 
@@ -160,10 +174,15 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     expect(probe.pass).toBe(true)
     expect(probe.byWidth.flatMap((w) => w.findings)).toEqual([])
 
-    // Assembled exactly as `cmdL1Gate` assembles it — same three documents, same
+    // Assembled exactly as `cmdL1Gate` assembles it — same documents, same
     // perturbation — so "still passes" is a claim about the real gate.
-    const { doc: recovered } = promoteToFlow(base, { scale: 2.5 })
-    const report = acceptanceGate(base, oracle, { recovered, served: base, contentScale: 2.5 })
+    //
+    // REQ-278 — and the document it is handed is the one `chooseRecovery` picks,
+    // because that is the one `1c repro` writes. Grading the base here while the
+    // operator is served the recovery would put the verdict back on a page nobody
+    // loads, which is the defect BUG-113 closed.
+    const choice = chooseRecovery(base, oracle, { scale: 2.5 })
+    const report = acceptanceGate(choice.doc, oracle, { served: choice.doc, contentScale: 2.5 })
     expect(report.onSample.pass).toBe(true)
     expect(report.pass).toBe(true)
 

@@ -280,6 +280,17 @@ export function foldedFormFor(slot: string, group: ControlRow[], form: L1Node): 
  * with each keyframe translated by the slot's own `x`/`y` at the same width,
  * which resolves to the same page coordinates the browser computes.
  *
+ * REQ-278 — A SLOT THAT HAS JOINED THE FLOW IS NOT TRANSLATED. Its `x`/`y` are
+ * leading offsets from the flow cursor, not page coordinates, so adding them to
+ * the subtree's keyframes would read a margin as a `top` and land the controls
+ * at the offset's own distance from the top of the page — which is exactly what
+ * happened: the contact form's fields, mounted into a recovered seam whose lead
+ * was 182px, painted 182px down the page, over the header. The seam is kept
+ * instead, as a box carrying the slot's own flow geometry with the subtree
+ * inside it untranslated. That mirrors the renderer just as faithfully: an
+ * in-flow slot emits `position: relative`, which keeps it in the flow AND makes
+ * it the containing block its absolutely-placed controls resolve against.
+ *
  * A slot with no binding, or with no geometry to translate against, is left
  * exactly as it was: an unmounted seam is the inert placeholder the renderer
  * emits for it, and inventing a position for one would be the same mistake in a
@@ -312,6 +323,15 @@ export function mountBehaviours(doc: L1Document, forms: readonly FoldedForm[]): 
     if (node.kind === 'slot') {
       const form = bySlot.get(node.name)
       if (!form || !node.geometry) return node
+      // REQ-278 — an in-flow seam keeps its frame rather than donating an origin.
+      if (node.geometry.place === 'flow') {
+        return {
+          kind: 'box',
+          geometry: node.geometry,
+          ...(node.sizing ? { sizing: node.sizing } : {}),
+          children: [form],
+        } as L1Node
+      }
       const offsets = new Map(node.geometry.keyframes.map((kf) => [kf.at, { x: kf.x, y: kf.y }]))
       return translate(form, offsets)
     }

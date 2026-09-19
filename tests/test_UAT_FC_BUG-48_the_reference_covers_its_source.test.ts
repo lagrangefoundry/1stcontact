@@ -185,6 +185,37 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
+      // REQ-278 — the two placement frames are exclusive per axis. An in-flow
+      // track measures `x`/`y` from the flow cursor; a column anchor is an
+      // absolute origin and a `yFactor` is a response against the viewport's
+      // height, so each of the two contradicts the frame it is written beside.
+      flowPlacementHasNoAnchor: refusals(
+        page({
+          column: { containerPx: 1200, insetPx: 24 },
+          root: {
+            kind: 'text',
+            text: 'x',
+            geometry: {
+              place: 'flow',
+              keyframes: [{ at: 360, x: 0, y: 0, width: 10 }],
+              anchor: { x: { px: 0 } },
+            },
+          },
+        } as Partial<L1Document>),
+      ),
+      flowPlacementHasNoYResponse: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            geometry: {
+              place: 'flow',
+              keyframes: [{ at: 360, x: 0, y: 0, width: 10 }],
+              viewportResponse: { yFactor: 1 },
+            },
+          },
+        } as Partial<L1Document>),
+      ),
       uniqueNodeIds: refusals(
         page({
           root: {

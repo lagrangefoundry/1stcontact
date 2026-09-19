@@ -1310,17 +1310,24 @@ export async function run(argv: string[]): Promise<void> {
       // BUG-113 — what was WRITTEN, and the price of the alternative. `1c repro`
       // chooses between the absolute base and its structure-recovered overlay;
       // until now it made that choice silently and the gate graded the document
-      // it did not pick. The choice is the base, and this is the evidence for it.
+      // it did not pick. REQ-278 made the choice a measurement, so the line names
+      // which of the two won and prints the recovery's numbers either way.
       const envelope = served
-        ? `\n  served document: base (absolute), fidelity maxΔ ${served.fidelityMaxDeltaPx.toFixed(1)}px, ` +
+        ? `\n  served document: ${
+            served.document === 'recovery' ? 'recovery (flow)' : 'base (absolute)'
+          }, fidelity maxΔ ${served.fidelityMaxDeltaPx.toFixed(1)}px, ` +
           `${served.fidelityResiduals} residual(s)` +
           `\n      envelope: ` +
           served.byWidth.map((w) => `${w.width}:${w.findings}`).join(' ') +
           `  ·  off-sample ` +
           served.offSample.map((w) => `${w.width}:${w.findings}`).join(' ') +
-          `\n      recovery declined: ${served.recovery.promoted} region(s) would flow, at ` +
+          `\n      recovery ${served.document === 'recovery' ? 'served' : 'declined'}: ` +
+          `${served.recovery.promoted} region(s) flow, at ` +
           `maxΔ ${served.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
-          `${served.recovery.fidelityResiduals} residual(s) — a different page, not a repaired one`
+          `${served.recovery.fidelityResiduals} residual(s)` +
+          (served.document === 'recovery'
+            ? ' — the capture reproduced, and resilient to content that grows'
+            : ' — a different page, not a repaired one')
         : ''
       console.log(
         `Reproduced ${ref} → ${draftDir}\n` +
@@ -1387,11 +1394,14 @@ export async function run(argv: string[]): Promise<void> {
             `  on-sample           ${mark(report.onSample.pass)}  (${findings(report.onSample)} envelope finding(s) at the captured widths)\n` +
             `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
-            // BUG-113 — promotion is a PRICED ALTERNATIVE now, not the document
-            // the envelope probes above just graded. Those graded the served
-            // page; this says what serving the recovered overlay instead would
-            // have cost against the oracle.
-            `  recovery (not served): ${report.recovery.promoted.length ? report.recovery.promoted.join(', ') : 'no region'} — ` +
+            // BUG-113 made promotion a PRICED ALTERNATIVE rather than the
+            // document the envelope probes graded; REQ-278 made which of the two
+            // is served a measurement. Either way the line says the same thing —
+            // what the recovery does to the envelope and what it costs against
+            // the oracle — and names which document the probes above graded, so
+            // the verdict and the page can never drift apart unannounced.
+            `  recovery (${report.recovery.served ? 'SERVED, graded above' : 'not served'}): ` +
+            `${report.recovery.promoted.length ? report.recovery.promoted.join(', ') : 'no region'} — ` +
             `${report.recovery.servedFindings} finding(s) → ${report.recovery.recoveredFindings}, ` +
             `at maxΔ ${report.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
             `${report.recovery.fidelityResiduals} fidelity residual(s)\n` +

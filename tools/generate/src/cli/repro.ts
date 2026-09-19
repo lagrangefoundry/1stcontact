@@ -21,16 +21,15 @@ import { defaultTokens, latestModuleVersion } from '@1stcontact/framework'
 import { l1DocumentSlotNames, validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
 import {
+  chooseRecovery,
   evaluateLayout,
   foldToL1,
   localizeAssets,
   measuredTextHeights,
   mountBehaviours,
   offSampleProbe,
-  promoteToFlow,
-  sampleFidelityProbe,
 } from '../l1'
-import type { FoldedForm, FoldResidual, MeasuredTextHeights } from '../l1'
+import type { FoldedForm, FoldResidual, MeasuredTextHeights, RecoveryVerdict } from '../l1'
 import { draftDir, emptyDir, ensureDir, fsReferenceBundle, siteDir, writeDraftBase, writeJson } from '../store'
 import type { ReferenceBundle } from '../store'
 import { ctxOf } from './commands'
@@ -101,6 +100,13 @@ export interface ReproResult {
  * *for a measured reason*, and the reason is printed where the choice is made.
  */
 export interface ServedEnvelope {
+  /**
+   * REQ-278 — which of the two documents was written: the absolute base, or the
+   * flow recovery. No longer a constant: the recovery keeps every promoted
+   * member's geometry, so whether it costs fidelity is a measurement, and this
+   * field is that measurement's answer for THIS bundle.
+   */
+  document: 'base' | 'recovery'
   /** Envelope findings on the served document, per captured width. */
   byWidth: Array<{ width: number; findings: number }>
   /** The same at the off-sample widths the probe samples between captured ones. */
@@ -110,8 +116,10 @@ export interface ServedEnvelope {
   /** Oracle samples the served document places out of tolerance. */
   fidelityResiduals: number
   /**
-   * What serving `promoteToFlow(base).doc` instead would cost, in the same two
-   * numbers — the trade this command declined, stated rather than assumed.
+   * The recovery's own numbers, whichever document won — the arrow always reads
+   * base → recovery, because it is the trade itself and not a claim about the
+   * winner. When `document` is `'base'` these are what serving the recovery
+   * instead would have cost; when it is `'recovery'` they are what was served.
    */
   recovery: {
     promoted: number
@@ -133,39 +141,38 @@ function countNodes(doc: L1Document): number {
 }
 
 /**
- * BUG-113 — measure the document this command is about to write, and price the
- * one alternative to it.
+ * BUG-113 / REQ-278 — measure the document this command is about to write, and
+ * price the one alternative to it.
  *
- * WHY THE BASE IS SERVED. `promoteToFlow` converts colliding pinned sibling
- * groups into flow, and it does clear the envelope — on every bundle we hold, at
- * every perturbation scale, to zero findings. It clears it by DROPPING each
- * promoted member's geometry, so the member fills its flow container: a 14px
- * check glyph in a grid becomes a full-bleed stacked row. Measured against the
- * oracle, the recovered `gigabytealchemy.ai` document misses by 1426px at its
- * widest sample — the whole width of a 1440px viewport — with 318 samples out of
- * tolerance and 12 the recovered tree no longer carries at all;
- * `joyfulculinarycreations.com` reads 3958px and 413. That is not a repaired
- * page, it is a different one, and shipping it is the 80%-faithful copy the
- * epic's doctrine rules out. So the base is written, and this is the number that
- * says why — printed on every run rather than asserted once in a comment.
+ * WHICH DOCUMENT IS SERVED IS A MEASUREMENT. BUG-113 answered that question by
+ * hand, in a comment, because the recovery available then cleared the envelope
+ * the only way it knew — by DROPPING each promoted member's geometry, so a 14px
+ * check glyph in a grid became a full-bleed stacked row, and
+ * `gigabytealchemy.ai` missed the oracle by 1426px at its widest sample. There
+ * was nothing to weigh: no amount of resilience is worth the whole width of the
+ * viewport, so the base was written and the comment said why.
  *
- * The envelope of what IS written is measured in the same breath, because the
- * ticket this comes from is about exactly the gap between those two sentences.
+ * REQ-278's recovery keeps the geometry and changes only the frame it is read
+ * in, so it reproduces the capture exactly at rest — which makes the choice a
+ * real comparison, and a comparison belongs in code. {@link chooseRecovery} is
+ * the single definition of it, shared with `1c l1-gate`, so the page that is
+ * served and the verdict that grades it can never be about two different
+ * documents. This function reports what that choice produced: the envelope and
+ * fidelity of what was actually written, and the recovery's own numbers beside
+ * them whichever way the choice went.
  */
 function measureServed(
-  base: L1Document,
+  choice: RecoveryVerdict,
   forms: FoldedForm[],
-  oracle: Parameters<typeof measuredTextHeights>[0],
+  measured: MeasuredTextHeights,
 ): ServedEnvelope {
-  const measured: MeasuredTextHeights = measuredTextHeights(oracle)
   // The browser is given the page body with every behaviour's controls mounted
   // into their seams, so that is what gets measured — not the body alone.
-  const served = mountBehaviours(base, forms)
-  const fidelity = sampleFidelityProbe(base, oracle, { measured })
-  const { doc: recovered, promoted } = promoteToFlow(base, { measured })
-  const recoveredFidelity = sampleFidelityProbe(recovered, oracle, { measured })
+  const served = mountBehaviours(choice.doc, forms)
+  const scored = choice.served ? choice.recovery : choice.base
   return {
-    byWidth: base.widths.map((width) => ({
+    document: choice.served ? 'recovery' : 'base',
+    byWidth: choice.doc.widths.map((width) => ({
       width,
       findings: evaluateLayout(served, width, { measured }).findings.length,
     })),
@@ -173,12 +180,12 @@ function measureServed(
       width: w.width,
       findings: w.findings.length,
     })),
-    fidelityMaxDeltaPx: fidelity.maxDelta,
-    fidelityResiduals: fidelity.residuals.length,
+    fidelityMaxDeltaPx: scored.maxDelta,
+    fidelityResiduals: scored.residuals,
     recovery: {
-      promoted: promoted.length,
-      fidelityMaxDeltaPx: recoveredFidelity.maxDelta,
-      fidelityResiduals: recoveredFidelity.residuals.length,
+      promoted: choice.promoted.length,
+      fidelityMaxDeltaPx: choice.recovery.maxDelta,
+      fidelityResiduals: choice.recovery.residuals,
     },
   }
 }
@@ -251,6 +258,25 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
     )
   }
 
+  // REQ-278 — choose WHICH document to serve before assembling the page around
+  // it. The flow recovery keeps every promoted member's width and its place
+  // along the row and re-reads the same keyframes as leading offsets, so it
+  // reproduces the capture at rest; where it also holds the envelope better it
+  // is strictly the better page and is what gets written. The comparison is
+  // `chooseRecovery`, the same call `1c l1-gate` makes, so the served document
+  // and the graded one are one document by construction. A bundle with no
+  // retained oracle cannot be measured, so it keeps the absolute base — the
+  // choice is never guessed.
+  const oracle = await readMultiState(bundle)
+  const measured = oracle ? measuredTextHeights(oracle) : undefined
+  const choice = oracle
+    ? chooseRecovery(localized.doc, oracle, {
+        measured,
+        compose: (doc) => mountBehaviours(doc, forms),
+      })
+    : undefined
+  const servedDoc = choice?.doc ?? localized.doc
+
   const site = {
     id: slug,
     config: { businessName: slug, tagline: '' },
@@ -277,7 +303,7 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
     // box pinned at the seam the module mounts into.
     slots: { form: form.form },
   }))
-  const page = { id: 'home', slug: 'home', title: slug, l1: localized.doc, modules }
+  const page = { id: 'home', slug: 'home', title: slug, l1: servedDoc, modules }
 
   // Validate the assembled definition before touching disk — a fold that does not
   // satisfy the page schema is a serializer bug, surfaced here not at render time.
@@ -319,13 +345,12 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
   // BUG-113 — the page has been written; now say what was written and at what
   // price. Measured against the bundle's retained oracle, so a bundle without one
   // reports nothing rather than a number it cannot stand behind.
-  const oracle = await readMultiState(bundle)
-  const served = oracle ? measureServed(localized.doc, forms, oracle) : undefined
+  const served = choice ? measureServed(choice, forms, measured!) : undefined
 
   return {
     slug,
     draftDir: draft,
-    nodeCount: countNodes(localized.doc),
+    nodeCount: countNodes(servedDoc),
     copiedAssets,
     localizedAssets: localized.rewritten.length,
     unreferencedAssets: localized.unreferenced,

@@ -2266,6 +2266,70 @@ function geometryRules(
   // An anchored width owns the axis alone (keyframe widths are suppressed), so
   // there is no earlier `width` to reset — the prop is all that is needed.
   const anchorWidthProp: 'width' | 'min-width' = relaxed(frames[0].at) ? 'min-width' : 'width'
+
+  /**
+   * REQ-278 — the in-flow placement frame.
+   *
+   * Same four numbers, same ladder, same interpolation — read against the flow
+   * cursor instead of the positioned ancestor. `left`/`top` become
+   * `margin-left`/`margin-top`, and `position` becomes `relative`, which keeps
+   * the node in flow while still making it the containing block for any absolute
+   * descendant (a backing surface recovery deliberately left pinned).
+   *
+   * `top` is not emitted at all, and neither is a keyframe height the node does
+   * not declare: a node in flow takes its vertical extent from its content, and
+   * that is the whole reason to put it there. A keyframe that DOES carry a height
+   * (an image, a leaf box) still gets it — that height is the node's own extent,
+   * not its position.
+   */
+  if (geo.place === 'flow') {
+    const flowDecls = (kf: L1Geometry['keyframes'][number]): string[] => {
+      const d: string[] = [`margin-left: ${kf.x}px`, `margin-top: ${kf.y}px`]
+      d.push(...widthDecls(kf.at, `${kf.width}px`))
+      if (kf.height !== undefined) {
+        const h = kf.atHeight
+        d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hF, h) : `${kf.height}px`}`)
+      }
+      return d
+    }
+    rules.push({ selector, decls: ['position: relative', ...flowDecls(frames[0])] })
+    if (frames.length === 1) return rules
+    for (let i = 0; i < frames.length - 1; i++) {
+      const a = frames[i]
+      const b = frames[i + 1]
+      if ((geo.segments?.[i] ?? 'interpolate') === 'snap') {
+        rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: flowDecls(a) })
+        continue
+      }
+      const d = [
+        `margin-left: ${lerpCalc(a.x, a.at, b.x, b.at)}`,
+        `margin-top: ${lerpCalc(a.y, a.at, b.y, b.at)}`,
+        ...widthDecls(a.at, lerpCalc(a.width, a.at, b.width, b.at)),
+      ]
+      if (a.height !== undefined && b.height !== undefined) {
+        const atH =
+          a.atHeight !== undefined && b.atHeight !== undefined
+            ? lerpCalc(a.atHeight, a.at, b.atHeight, b.at)
+            : undefined
+        const base = lerpCalc(a.height, a.at, b.height, b.at)
+        d.push(
+          `height: ${
+            hF === 0 || atH === undefined
+              ? base
+              : `calc(${base} + ${hF === 1 ? `(100vh - ${atH})` : `${num(hF)} * (100vh - ${atH})`})`
+          }`,
+        )
+      }
+      rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: d })
+    }
+    rules.push({
+      media: `(min-width: ${frames[frames.length - 1].at}px)`,
+      selector,
+      decls: flowDecls(frames[frames.length - 1]),
+    })
+    return rules
+  }
+
   const staticDecls: string[] = ['position: absolute']
   if (anchor) staticDecls.push(...anchorDecls(anchor, column!, anchorWidthProp))
   if (anchor?.x?.pxTrack) rules.push(...anchorTrackRules(selector, 'left', anchor.x, column!))
