@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:56:01.637274+00:00'
+updated_at: '2026-09-19T19:00:49.246711+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1485,5 +1485,14 @@ Three refinements I've written into the ticket:
 That third one is the one I'd argue hardest for, because it's the difference between your aggressive policy being safe and being merely cheap. And the framework can't compose that string — it doesn't know our catalogue. But **REQ-149 already solved this exact shape** for `create_image`: a `display` construction option the host supplies, called with the record, answering one sentence. Same pattern, second use.
 
 It also only became possible last week: REQ-280's labels are what give a picture a durable, speakable name. Without them the best pointer available was a fingerprint.
+
+<!-- xgd-turn id="7c8d9aae-20b1-4b07-8883-57ddf835448e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T19:00:48.997686+00:00" -->
+#### You
+Go with 2 turns. Yes agree with your points.
+
+Question: Are we addressing all the needs expressed by the consultant? The one that is top of mind is the gas-meter - we could add that in the system prompt, but I'd like it to be a framework level capability - do you agree? The consultant had 4 ideas
+have we addressed them?
 
 <!-- xgd-chat-end -->
