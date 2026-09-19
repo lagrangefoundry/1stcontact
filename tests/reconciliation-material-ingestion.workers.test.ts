@@ -95,6 +95,31 @@ async function upload(
   )
 }
 
+/**
+ * `onMaterialWritten`, keeping only the half these criteria are about.
+ *
+ * The component's own decomposition ([[DOC-39]] §5.2) is an AWAITED index refresh
+ * — which is what makes the material searchable the instant the upload returns,
+ * and the thing AC-1680 and AC-1686 assert — followed by a DEFERRED landscape
+ * rebuild, which needs a `describe` seam that is Node-only because it needs the
+ * provider backends. miniflare has no local model to hand it, so once the corpus
+ * outgrows the listing budget that deferred half rejects with
+ * `DescriberNotConfiguredError`. The production deferral would report it; the
+ * test's `defer: () => {}` drops the promise, which surfaces as an unhandled
+ * rejection that fails the run while every assertion passes.
+ *
+ * So the rebuild's rejection is absorbed HERE, explicitly and narrowly: no
+ * criterion in this story is about the awareness map, and swallowing it in the
+ * one place that creates it is honest about that — where widening `defer` or
+ * stubbing a describer would quietly imply the map was exercised.
+ */
+async function indexOnly(kb: {
+  onMaterialWritten(): Promise<{ rebuild: Promise<unknown> }>
+}): Promise<void> {
+  const { rebuild } = await kb.onMaterialWritten()
+  rebuild.catch(() => {})
+}
+
 /** Every R2 key under a prefix, so residency is ENUMERATED rather than assumed. */
 async function keysUnder(bucket: R2Bucket, prefix: string): Promise<string[]> {
   const out: string[] = []
@@ -208,7 +233,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
       bytesOf('Oxblood and bone are the palette chosen for the bakery.'),
       'palette.txt',
       'text/plain',
-      deps({ index: async () => async () => void (await mine.onMaterialWritten()) }),
+      deps({ index: async () => async () => void (await indexOnly(mine)) }),
     )
     expect(response.status).toBe(200)
     const uid = String(((await response.json()) as Record<string, unknown>).uid)
@@ -275,28 +300,59 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     // same bytes each time, so the only thing varying is what the request DECLARES
     // about them — which is exactly the input the criterion is about.
     const bytes = bytesOf('the same bytes, declared five different ways')
-    const cases: Array<{ contentType: string; filename: string; kind: string; why: string }> = [
-      // The declared content type LEADS.
-      { contentType: 'image/png', filename: 'logo.png', kind: 'image', why: 'a picture type' },
-      { contentType: 'font/woff2', filename: 'display.woff2', kind: 'font', why: 'a font type' },
-      // The filename is consulted only where the content type SAYS NOTHING.
+    const cases: Array<{
+      contentType: string
+      filename: string
+      kind: string
+      /**
+       * The type the STORED BYTES must end up recorded with. For the two repaired
+       * cases this is the resolved one rather than the generic one: consulting
+       * the filename repairs the content type ITSELF, not the kind alone, so a
+       * file delivered without a usable type is not merely filed correctly but
+       * recorded correctly.
+       */
+      recorded: string
+      why: string
+    }> = [
+      // The declared content type LEADS, and is carried through untouched.
+      {
+        contentType: 'image/png',
+        filename: 'logo.png',
+        kind: 'image',
+        recorded: 'image/png',
+        why: 'a picture type',
+      },
+      {
+        contentType: 'font/woff2',
+        filename: 'display.woff2',
+        kind: 'font',
+        recorded: 'font/woff2',
+        why: 'a font type',
+      },
+      // The filename is consulted only where the content type SAYS NOTHING —
+      // and what it yields is what the record of the bytes then holds.
       {
         contentType: 'application/octet-stream',
         filename: 'display.woff2',
         kind: 'font',
+        recorded: 'font/woff2',
         why: 'generic binary, font extension',
       },
       {
         contentType: 'application/octet-stream',
         filename: 'logo.png',
         kind: 'image',
+        recorded: 'image/png',
         why: 'generic binary, image extension',
       },
-      // Anything unrecognised is FILED AS A DOCUMENT and KEPT, never refused.
+      // Anything unrecognised is FILED AS A DOCUMENT and KEPT, never refused —
+      // and keeps the generic type, because the repair widens what can be read
+      // without changing what happens to what cannot.
       {
         contentType: 'application/octet-stream',
         filename: 'mystery.zzz',
         kind: 'document',
+        recorded: 'application/octet-stream',
         why: 'generic binary, extension matching nothing',
       },
     ]
@@ -309,10 +365,18 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
       expect(body.kind, scenario.why).toBe(scenario.kind)
       // The recorded kind is one of the closed vocabulary — there is no "other".
       expect(closed).toContain(String(body.kind))
+      // THE RECORD OF THE STORED BYTES, not only the routing. `kindOf` alone
+      // would file the two repaired cases correctly while leaving the attachment
+      // saying `application/octet-stream` — the half-repair this excludes.
+      expect(
+        (body.attachment as Record<string, unknown>).content_type,
+        scenario.why,
+      ).toBe(scenario.recorded)
 
       const store = await ticketStoreFor(routerEnv())
       const { ticket } = await store.get({ uid: String(body.uid) })
       expect(ticket.fields.kind, scenario.why).toBe(scenario.kind)
+      expect(ticket.fields.content_type, scenario.why).toBe(scenario.recorded)
     }
   })
 
@@ -424,7 +488,7 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
       bytesOf('The kitchen opens at six and the bread is baked overnight.'),
       'note.txt',
       'text/plain',
-      deps({ index: async () => async () => void (await kb.onMaterialWritten()) }),
+      deps({ index: async () => async () => void (await indexOnly(kb)) }),
     )
     expect(response.status).toBe(200)
     const uid = String(((await response.json()) as Record<string, unknown>).uid)
