@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:29:18.214411+00:00'
+updated_at: '2026-09-19T18:31:13.070046+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1265,5 +1265,52 @@ You said our context for this session consumed nearly 200,000 characters that so
 We should have mechanisms for maintaining core decisions from a chat in the chat ticket body - but my focus was mainly on claude-code based chats which have auto-compacting. 
 
 Note that this use-case is a particular problem - most xgd chats have a lifetime they exist to implement a feature or a set of features. This chat context lives for the lifetime of the website. The question that I want to ask you before I go back to LF - are we accumulating sufficient summary context that we can jump straight to truncation?
+
+<!-- xgd-turn id="11ae560a-31dc-41ce-beb4-c68683876e1d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T18:31:12.827981+00:00" -->
+#### Claude
+Let me get you facts on both, starting with the correction I owe you.
+
+## First, a correction I owe you
+
+I quoted `maxPrimingChars = 140,000` as though it were consumption. **It's a ceiling.** Measured actuals:
+
+| part | chars |
+|---|---|
+| static priming entries (role, product-system, purpose) | 5,870 |
+| reminders | 293 |
+| `km.landscape` source (`kb/system/awareness.md`) | 5,621 |
+| projected tool manual — granted groups, one line per tool | ~18,900 |
+
+≈31k characters, ≈8k tokens, fixed and fully cached.
+
+**So we are not stuffing — you did move it, and 1c is on the new mechanism.** The priming says *"Your method is written down […] Read it before you start rather than improvise from these few lines"*, with `km.landscape` giving the map and `km.mechanism` the retrieval instructions. No design document is inlined. Your ~4k figure is about right for the instruction half; the rest is the landscape and the tool manual.
+
+The one block worth your eye is the **tool manual at ~19k**. That isn't stuffed prose — it's the surface projection, already in its frugal form (one line per tool, full entries on demand). But it's the largest fixed item if the seed ever needs to shrink.
+
+## Your actual question: no, and it's worse than "not enough"
+
+**We accumulate no summary context at all.**
+
+- **No `SummaryStore` is constructed anywhere in this repo.** `SessionManager` accepts `opts.summary`; nothing in `host-core.ts` or `ai.ts` passes one.
+- **Zero `chat_summary` comments in the entire store.** Only `chat_transcript` (8), `material_text` (9), `tool_transcript` (4).
+- The priming omits the summary tier deliberately, and says why: *"`session.summary` waits on lagrange-framework BUG-45."*
+
+**And we don't have the other escape hatch either.** REQ-126's design says what falls outside the window is *"reachable two ways: the summary the session maintains, and the transcript it can address by turn id."* `priming.json` records that this host grants **no operation that reads a turn by id**.
+
+So 1c has **neither** of the two recovery paths the window design assumes. The window isn't a window onto a larger recoverable context — **it's a cliff.** Truncating today would silently and permanently drop everything past it.
+
+That's the thing to take to LF: the framework's window is sound *given* its two recovery paths, and this adopter has implemented neither.
+
+**BUG-45 is the blocker and it's narrower than it sounds** — cache offsets are computed over the full assembly while the backend is handed only the stable priming, so a breakpoint lands mid-section once anything is volatile. It's `ready_to_reconcile`: fixed on working, not yet released.
+
+## Where that leaves the ordering
+
+Your instinct that this use case is special is the crux — an XGD chat dies with its feature, this one lives as long as the website. That argues for the **summary** rather than the transcript-pointer, because the pointer only helps a model that already knows which turn to ask for, and after a rebuild it doesn't.
+
+So: unblock BUG-45 → wire the `SummaryStore` → *then* truncation becomes safe, and the in-flight window and image redaction become a tuning question rather than a data-loss one.
+
+Worth asking LF while you're there: should `ClaudeAPIBackend` grow a compaction implementation, or is the summary-plus-window the intended answer for API backends? Right now `compaction: true` is CLI-only, and that asymmetry looks unintentional rather than designed.
 
 <!-- xgd-chat-end -->
