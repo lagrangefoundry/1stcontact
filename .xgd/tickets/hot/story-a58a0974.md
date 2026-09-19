@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-09-19T14:18:14.340206+00:00'
+updated_at: '2026-09-19T14:59:02.056165+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -326,20 +326,17 @@ Out of scope:
   the page unfold matters most. Deriving the announcement from the count is the
   same argument the per-turn change reminder already makes for pushing rather
   than leaving the model to ask.
-- **CODE ISSUE — the turn stream does not currently compile, so the announcement
-  cannot run.** `streamPrompt` reads `let seen = at` where nothing named `at` is
-  in scope (`tools/generate/src/cli/ai/host-core.ts:774`); `tsc --noEmit` over
-  `tools/generate` reports `TS2304: Cannot find name 'at'`. The free-coded BUG-43
-  commit was correct — it read the counter into `at` at the top of the turn — and
-  that binding was removed when REQ-160 moved the reminder comparison out into a
-  provider, leaving its one surviving use behind. The intent is unambiguous, so
-  the criteria are written to it and the code is what is wrong. The same module
-  fails to compile for two further REQ-160-owned reasons (`CARETAKER_PURPOSE` is
-  both imported and declared locally; `session-knowledge.ts` imports
-  `SHIPPED_SOURCE` from `system-knowledge.ts`, which does not export it), so all
-  three have to be repaired together before any turn-stream verification in this
-  bundle can run. Raised for `fix_uat_coverage`; not fixed here, because
-  reconciliation does not change runtime code.
+- **The compile break that once blocked the announcement is repaired, and the note
+  raising it is withdrawn (re-checked 2026-09-19).** These criteria were written
+  while the module that serves a turn would not compile, so the announcement they
+  describe could not run: the turn's baseline was read from a binding REQ-160 had
+  removed, the caretaker's purpose was both imported and declared locally, and one
+  knowledge module imported a name the other did not export. All three were
+  repaired on this branch before the bundle closed, and the code now reads the
+  turn's baseline from the site's own change count before the loop and advances it
+  past every write it announces. Nothing in the criteria moved: they were written
+  to the intent rather than to the broken code, and the code has since caught up
+  with them. Recorded so the repair is not re-raised as an outstanding code issue.
 
 ## Reconciliation Decisions
 
