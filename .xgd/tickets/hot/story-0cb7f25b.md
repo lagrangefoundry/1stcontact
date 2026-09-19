@@ -6,7 +6,7 @@ title: 'Reference bundle storage: a capture bundle is addressed through a storag
   contract, on the laptop or in the cloud'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T04:47:56.716212+00:00'
-updated_at: '2026-09-14T05:00:54.359362+00:00'
+updated_at: '2026-09-19T13:43:06.597933+00:00'
 completed_at: null
 last_field_updated: status
 status: completed
