@@ -5,15 +5,23 @@ type: bug
 title: An interrupted turn commits its work and discards its conversation
 created_by: EPIC-19
 created_at: '2026-09-18T23:11:24.573446+00:00'
-updated_at: '2026-09-19T00:10:12.331293+00:00'
+updated_at: '2026-09-19T00:11:22.414521+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-10d48ce1
+  commits:
+  - working_sha: 0ff31ce19e930529b890a1d5947462296a50dff9
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0a25bb80c04d9d2d34087dc85a56b516ffe26a7c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.276
 ---
 
 Parent: [[EPIC-19]]. Hit by the operator on 2026-09-18 on the Lagrange Foundry
