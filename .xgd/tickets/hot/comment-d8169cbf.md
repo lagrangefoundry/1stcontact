@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:58:14.715188+00:00'
+updated_at: '2026-09-19T19:58:32.433530+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1730,5 +1730,13 @@ That's the one worth your eye, since I'm overruling a proposal rather than confi
 <!-- xgd-chat role="user" ts="2026-09-19T19:58:14.425800+00:00" -->
 #### You
 Good call
+
+<!-- xgd-turn id="ec6c75eb-1833-4119-9ea9-ca30c3889d0c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T19:58:31.951918+00:00" -->
+#### Claude
+One loose end from that decision: **the gauge (#4) is now decided-but-unfiled.** REQ-168's answer says to split it out, so the dev session will land #1–3 and the occupancy gauge currently has no home.
+
+Want me to file it in lagrange-framework? It's well-specified already — `context_window` in `defaults/backends.json`, `occupancy_tokens` on the API adapter's `done`, manager plumbing into `SessionContext`, a `session.budget` provider, prose, and the `product.json` change — plus the constraint that it must arrive unasked.
 
 <!-- xgd-chat-end -->
