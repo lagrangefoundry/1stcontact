@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T18:30:57.936251+00:00'
+updated_at: '2026-09-19T18:40:45.411382+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -585,6 +585,56 @@ The largest single block is the **tool manual at ~19k**, and that is already the
 frugal form — one line per tool, full entries fetched on demand. It is a surface
 projection rather than stuffed prose, but it is the thing to look at if the seed
 ever needs to shrink.
+
+### The intended design is BUILT UPSTREAM, in both halves — and unadopted here
+
+The operator described the intent (2026-09-19): *"rather than a stop-the-world
+compacting moment — (1) an ongoing summary consisting of a fixed-length
+conversation summary updated as appropriate and an unbounded log of conversation
+decisions; (2) give the session tools to read chunks of these and its old history
+on demand."*
+
+**Both halves exist in the installed framework, and match that description almost
+word for word.**
+
+**(1) Storage — `summary.js`, REQ-124.** *"Two zones, because the polarity
+differs."*
+
+- **Standing frame** — the `framing` FIELD on the comment, rewritten in place,
+  `DEFAULT_FRAME_MAX_BYTES = 4000`, always delivered in full. Its cap is an error
+  and never a truncation, because *"a frame silently losing its last sentence
+  loses the rejections first, which are the whole reason the zone exists."*
+- **Log** — the comment BODY, append-only, `ENTRY_MARKER`-delimited, written
+  through `append_body` so a frame rewrite and a log append cannot clobber each
+  other.
+
+Stored as a `chat_summary` comment on the ticket that homes the session. The
+module states the stake plainly: *"if the summary is good the rest is plumbing,
+and if it is thin nothing downstream recovers."*
+
+**(2) The tools — the `agent` surface, three groups:**
+
+| group | operations |
+|---|---|
+| `InspectContext` | `priming`, `reminder`, `context`, `history`, `summary` |
+| `OperateContext` | + `history_full`, `role_priming` |
+| `MaintainSummary` | `summary_frame`, `summary_log` |
+
+`history` reads turns *"by position or by turn id"*; `summary` reads the frame and
+the log; `summary_frame` replaces the frame and `summary_log` appends one entry —
+so the session maintains its own summary rather than a batch job doing it. The
+surface's own overview says what it is for: *"the summary is the part of this that
+survives when the verbatim conversation does not."*
+
+**1stcontact composes none of it.** `createL1Toolbox` pushes the L1 surface, the
+extra surfaces the router supplies, and `ManualToolbox`. There is no
+`AgentToolbox`, no `agent` entry in `instances.json`, and no occurrence of
+`InspectContext` or `MaintainSummary` anywhere in this repository.
+
+**This is the third upstream capability built and never adopted here**, beside
+delegation ([[REQ-148]] → EPIC-19 Finding 1) and the development surface
+([[REQ-147]] → [[REQ-273]]). The pattern is worth naming on its own: the framework
+is ahead of its adopter, and the gap is consumption rather than capability.
 
 ### THE ANSWER TO "can we jump straight to truncation?" — NO
 
