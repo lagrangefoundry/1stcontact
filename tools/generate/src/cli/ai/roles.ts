@@ -343,6 +343,29 @@ export function changeSignal(signal?: TurnSignal): string | null {
 }
 
 /**
+ * That the previous turn did not finish, or `null` ([[BUG-121]]).
+ *
+ * WHY THE ASSISTANT IS TOLD AT ALL, rather than this being only the client's
+ * business. An interrupted turn leaves the assistant's own memory wrong in a
+ * particular way: it may have written pages, drawn pictures or recorded a
+ * decision, and none of that is described in the transcript it reads back — so
+ * without this it re-does work, re-asks a settled question, or contradicts the
+ * site it is looking at. One line is enough, because every tool it needs to
+ * check for itself is already in its hand.
+ *
+ * ONE LINE FOR BOTH OUTCOMES. `aborted` and `error` differ in whose fault the
+ * turn's end was and not at all in what the assistant should now do, so a second
+ * sentence would be a distinction the reader cannot act on.
+ *
+ * ABSENT ON EVERY ORDINARY TURN, and free when absent: the previous turn
+ * completed, the record was forgotten, this answers `null`, and the framework
+ * drops the entry and its separator.
+ */
+export function interruptedSignal(signal?: TurnSignal): string | null {
+  return signal?.interrupted === true ? template('interrupted-turn') : null
+}
+
+/**
  * What a site's next turn has to be told (REQ-131, REQ-160).
  *
  * The facts, never the sentences. Which words carry them is the configuration's
@@ -353,6 +376,8 @@ export interface TurnSignal {
   since?: { at: number; changes: number }
   /** What entered the corpus since this session was last told, rendered and capped. */
   delta?: string | null
+  /** Whether the PREVIOUS turn of this conversation failed to finish ([[BUG-121]]). */
+  interrupted?: boolean
 }
 
 /**
@@ -377,6 +402,17 @@ export const SITE_CHANGES_PROVIDER = 'site.changes'
 
 /** The name the REQ-160 corpus delta is reached under (REQ-182). */
 export const CORPUS_DELTA_PROVIDER = 'corpus.delta'
+
+/**
+ * The name the [[BUG-121]] interrupted-turn signal is reached under.
+ *
+ * ONE NAME FOR BOTH ROLES, unlike the manual and the framing line beside it. Those
+ * are split because a settings session has no site and the configuration would
+ * otherwise read `site.manual` in a tier that has no site; this signal is about
+ * the CONVERSATION, which both roles have in exactly the same shape, so one name
+ * naming one fact is the honest declaration.
+ */
+export const TURN_INTERRUPTED_PROVIDER = 'turn.interrupted'
 
 /**
  * The settings session's two provider names ([[REQ-239]]).
@@ -427,6 +463,7 @@ export function registerSiteProviders(
   providers.register(SITE_LINE_PROVIDER, async () => siteLine(binding.slug))
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
   providers.register(CORPUS_DELTA_PROVIDER, async () => binding.signal()?.delta ?? null)
+  providers.register(TURN_INTERRUPTED_PROVIDER, async () => interruptedSignal(binding.signal()))
 }
 
 /**
@@ -450,13 +487,23 @@ export function registerSiteProviders(
  */
 export function registerSettingsProviders(
   providers: Untyped,
-  binding: { box: Untyped; name: () => Promise<string | null> },
+  binding: {
+    box: Untyped
+    name: () => Promise<string | null>
+    /** Read late, like the site half's, for the same reason ([[BUG-121]]). */
+    signal: () => TurnSignal | undefined
+  },
 ): void {
   providers.register(BUSINESS_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
   providers.register(BUSINESS_LINE_PROVIDER, async () => {
     const name = await binding.name()
     return name ? businessLine(name) : null
   })
+  // THE SAME NAME THE CONSULTANT REACHES IT UNDER ([[BUG-121]]). A settings turn
+  // can be interrupted exactly as a site turn can — the customer closes the tab
+  // mid-rename — and what the assistant should do about it does not depend on
+  // which conversation it was.
+  providers.register(TURN_INTERRUPTED_PROVIDER, async () => interruptedSignal(binding.signal()))
 }
 
 /**

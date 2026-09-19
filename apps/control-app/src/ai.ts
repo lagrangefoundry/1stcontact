@@ -72,6 +72,7 @@ import {
   type SessionKnowledge,
 } from './session-knowledge'
 import { turnDelta } from './session-delta'
+import { pendingTurns } from './session-pending'
 import type { DevelopmentSurface } from './development'
 import {
   DOCUMENT_DIGEST_SYSTEM,
@@ -595,6 +596,16 @@ export function workerHost(
       // mid-turn still loses that turn. DOC-21 §15.4 names a Durable Object as
       // the route back — single writer per session, synchronous SQLite, and it
       // fits this `Junctions` port with no library change.
+      //
+      // AND WHAT THAT LOSS IS, EXACTLY, because it was mis-stated once and cost a
+      // diagnosis ([[BUG-121]]). It is SYMMETRIC: the turn's prose and its tool
+      // records are the same records on the same junction, drained by one `apply`
+      // when the turn closes, so an eviction mid-turn loses both together and
+      // leaves the transcript internally consistent. It is not the case that the
+      // work survives while the conversation is discarded. What [[BUG-121]]
+      // changes is the ONE record that need not wait for the drain: `pending`
+      // below writes the client's words before the model is called, so the
+      // question outlives an interruption even though the answer does not.
       junctions: lib.memoryJunctions(),
       audit: audit.sink,
       // Absent is fine and must stay fine: the backend's factory is lazy, so a
@@ -683,6 +694,12 @@ export function workerHost(
         ? (sessionId: string) =>
             turnDelta(knowledge, tickets, sessionId, new Date().toISOString())
         : null,
+      // WHAT THE CLIENT TYPED, DURABLE BEFORE THE MODEL ANSWERS ([[BUG-121]]).
+      // Unconditional, like the ledger above and unlike the three knowledge
+      // wires: it depends on a ticket store and on nothing else, and the one
+      // thing this Worker always has is a ticket store — the transcript itself
+      // lives there.
+      pending: pendingTurns(tickets),
     },
     flush: (sessionId: string) =>
       flushAudit(env.SITES, tenantId, sessionId, audit.drain()),

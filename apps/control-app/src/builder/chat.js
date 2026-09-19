@@ -249,6 +249,53 @@ export function createChatPanel(options = {}) {
   }
 
   /**
+   * A turn of this conversation that did not finish ([[BUG-121]]).
+   *
+   * THE FAILURE THIS IS FOR. The operator typed a long message, watched a reply
+   * begin, and went to look at something else. Nothing about that turn reached the
+   * transcript — not the reply, not their own words — so the conversation they came
+   * back to was byte-identical to the one they left, and the honest reading of that
+   * screen is that the assistant ignored them.
+   *
+   * TWO CASES, AND THE ORIGIN HAS ALREADY DECIDED WHICH — see `host-core.ts`'s
+   * `InterruptedTurn`. `recorded` false means this text is in no transcript and
+   * this is the only copy of it; true means the turn's records did land and what is
+   * painted above is a fragment of a reply rather than a short one.
+   *
+   * THE WORDS GO BACK IN THE COMPOSER, not just on the screen. What the operator
+   * lost that they could not reconstruct is the PROMPT — a long one, typed once —
+   * so painting it as history and leaving them to re-type it would answer the
+   * smaller half of the complaint. One keystroke from re-sent is the point.
+   *
+   * AND ONLY INTO AN EMPTY COMPOSER. `mountChat` restores its own per-conversation
+   * draft, and a draft is something the operator typed more recently than this;
+   * overwriting it to hand back an older message would lose the newer one. When
+   * there is a draft the message is still on screen to copy from.
+   */
+  function paintInterrupted(interrupted) {
+    if (!interrupted || !chat) return
+    if (interrupted.recorded) {
+      // The prompt and the fragment are both above already. What is missing is
+      // the fact that the reply stopped rather than ended.
+      note('That turn was interrupted — the reply above is not all of it. Ask again to pick it up.')
+      return
+    }
+    chat.appendMessage('user', interrupted.text)
+    note(
+      'That turn was interrupted and nothing of it was recorded — not even your message, ' +
+        'until now. It is back in the box below, ready to send again.',
+    )
+    // NOT AWAITED, like the rejoin below it: the composer's rich editor loads
+    // asynchronously and this function is part of a synchronous swap. A failure
+    // costs the restore and nothing else — the text is painted either way.
+    Promise.resolve(chat.inputReady)
+      .then(() => {
+        if ((chat?.getInputMarkdown() ?? '').trim() === '') chat?.setInputMarkdown(interrupted.text)
+      })
+      .catch(() => {})
+  }
+
+  /**
    * Show a conversation.
    *
    * Takes an OPEN session — `{sessionId, turns, ready, error}`, exactly what
@@ -285,9 +332,13 @@ export function createChatPanel(options = {}) {
    * removes that collision; `key` stays, because this pane still may not be the
    * thing that knows what makes a conversation distinct.
    *
+   * `interrupted` is the turn that did not finish ([[BUG-121]]) — see
+   * {@link paintInterrupted}, which is where the two cases are told apart.
+   *
    * @param {{sessionId: string, turns?: {role: string, markdown: string}[],
    *          cursor?: number, live?: boolean,
-   *          ready?: boolean, error?: string} | null} session
+   *          ready?: boolean, error?: string,
+   *          interrupted?: {text: string, at: string, recorded: boolean}} | null} session
    * @param {string} [key] identity of the conversation to the caller; defaults
    *   to the session id, which is what it means where nothing wider is in scope.
    */
@@ -332,6 +383,7 @@ export function createChatPanel(options = {}) {
     // has every earlier conversation, and the operator is owed both the history
     // and the reason it is frozen.
     if (session.ready === false) note(session.error || 'The assistant is not available.')
+    paintInterrupted(session.interrupted)
     if (!resuming) return
 
     // NOT AWAITED, and this function stays synchronous. `resume` runs for as

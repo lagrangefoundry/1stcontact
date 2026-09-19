@@ -40,9 +40,11 @@
     "waits on lagrange-framework BUG-45. A session is never told about a capability it was",
     "not granted, and that rule does not stop applying because the claim shipped upstream.",
     "",
-    "TEMPLATES ARE PROSE TOO. Two reminder entries interpolate runtime state \u2014 which",
-    "site this is, and how many changes landed \u2014 so their words cannot be an entry's",
-    "`text`. They are here instead, with `{placeholder}` slots a provider fills, which",
+    "TEMPLATES ARE PROSE TOO. Three reminder entries cannot carry their words in an",
+    "entry's `text`: two interpolate runtime state \u2014 which site this is, and how many",
+    "changes landed \u2014 and the third ([[BUG-121]]) is rendered on the turns that follow",
+    "an interrupted one and on no others. They are here instead, some with",
+    "`{placeholder}` slots a provider fills, which",
     "is the same shape the framework uses for its own defaults: prose in a data file,",
     "bound into the provider that renders it. Nothing about what the assistant reads",
     "is written in TypeScript.",
@@ -74,7 +76,8 @@
   "templates": {
     "site-line": "You are working on the site \"{slug}\". Every tool you have acts on that site and no other.",
     "change-signal": "Your client has changed this site since your last turn \u2014 {changes} change{plural}. Call list_changes with since: {at} to see what moved BEFORE you touch anything, and never write over a change you have not read.",
-    "business-line": "You are helping with the business \"{name}\". Everything you can read or change here belongs to that business and to no other."
+    "business-line": "You are helping with the business \"{name}\". Everything you can read or change here belongs to that business and to no other.",
+    "interrupted-turn": "Your previous turn in this conversation did not finish \u2014 it was stopped, or it failed part-way. Your client may not have seen all of your reply, and anything you had already done is NOT described in the transcript you have just read. Look at the site before you answer, and pick up from what you find rather than from what the conversation says."
   },
   "priming": [
     {
@@ -321,6 +324,10 @@
     {
       "name": "corpus-delta",
       "provider": "corpus.delta"
+    },
+    {
+      "name": "turn-interrupted",
+      "provider": "turn.interrupted"
     }
   ],
   "settings_priming": [
@@ -386,6 +393,10 @@
     {
       "name": "consequences-first",
       "text": "Say what a change cannot undo before you make it, never after."
+    },
+    {
+      "name": "turn-interrupted",
+      "provider": "turn.interrupted"
     }
   ]
 }

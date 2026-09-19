@@ -552,7 +552,8 @@ export function productTypePack(): ProductTypePack {
     ...chatSchemas(),
 
     /**
-     * The session's change-feed cursor, added to the imported chat type ([[REQ-160]]).
+     * Two fields added to the imported chat type: the session's change-feed cursor
+     * ([[REQ-160]]) and its unaccounted-for turn ([[BUG-121]]).
      *
      * MERGED ONTO THE COMPONENT'S SHAPE, NOT A RESTATEMENT OF IT. The note above
      * is that a local copy of the chat schema would be free to drift from the
@@ -570,12 +571,22 @@ export function productTypePack(): ProductTypePack {
      * A STRING HOLDING JSON rather than two fields, because the timestamp and the
      * uids that sit exactly on it are one fact — a boundary in an inclusive feed
      * — and splitting them would let a store update move one without the other.
+     *
+     * `pending_turn` IS HERE FOR THE SAME REASON, ONE LAYER MORE URGENT
+     * ([[BUG-121]]). It holds what a turn was asked while that turn is still
+     * unaccounted for — written before the model is called, forgotten when the
+     * turn completes, kept carrying the outcome when it does not — so it is a
+     * property of the conversation exactly as the cursor is, and it is JSON in one
+     * field for the same reason: the text, when it was asked and what became of it
+     * are one fact about one turn. `session-pending.ts` says why it is not written
+     * into the transcript instead.
      */
     chat: {
       ...chatSchemas().chat,
       fields: {
         ...chatSchemas().chat.fields,
         kb_cursor: { type: 'string' },
+        pending_turn: { type: 'string' },
       },
     },
 
