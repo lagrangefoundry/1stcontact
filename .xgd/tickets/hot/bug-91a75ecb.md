@@ -6,16 +6,24 @@ title: 'Builder chat: submitting destroys the only recoverable copy of a prompt,
   the reload a stranded turn invites can lose the operator''s text outright'
 created_by: martin-claude-4@westhead.me
 created_at: '2026-09-18T23:46:22.277614+00:00'
-updated_at: '2026-09-19T00:33:46.811835+00:00'
+updated_at: '2026-09-19T00:34:37.134601+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   severity: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f04618f3
+  commits:
+  - working_sha: 48b97fe0f992beea782bcac9d5910f8740db1965
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 308c17c8ba519d84b58777998d3aa972079450c8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.277
 ---
 
 ## Symptom
