@@ -6,9 +6,9 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-09-14T05:28:12.962953+00:00'
+updated_at: '2026-09-19T13:57:18.052078+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -255,11 +255,12 @@ reports and names the remedy, it never runs it.
   reopening of the hole.
 - **Guarantee 6's membership re-pinned from bundle-8e1807f6 (BUNDLE-27), plan
   item 3 (REQ-156), commit `f5807330`.** `sharp` is gone from
-  `tools/generate/package.json` and from every source file under
+  `tools/generate/package.json` and from every `import` under
   `tools/generate/src`; the per-command dependency map is now seven verbs all
   naming `playwright` alone, and `crop` carries no entry at all. `1c preflight`'s
-  declared list is derived from that same map, so it no longer names an imaging
-  package either. The gating *rule* did not change — only the set it ranges over.
+  declared list is derived from that same map — the flattened set of its values —
+  so it no longer names an imaging package either. The gating *rule* did not
+  change — only the set it ranges over.
   Evidence re-pinned in the same commit:
   `tests/req44-install-preflight.test.ts` and
   `tests/reconciliation-1c-install-preflight.test.ts`, both of which now assert
@@ -271,6 +272,15 @@ reports and names the remedy, it never runs it.
   the test harness, not for the tool. The claim this story makes is the narrower
   and accurate one: nothing the tool declares or loads names it, and no `1c` verb
   can fail because it is absent.
+- **A grep for the name is not the check.** `sharp` is still written in
+  `tools/generate/src` — in the comments that explain its own removal
+  (`png.ts`, `perceptual.ts`, `perceptual-core.ts`, `aligned-crops.ts`; `gate.ts`
+  uses the ordinary English word) and as a deliberately asserted-absent string in
+  both preflight suites. The falsifiable form of the guarantee is the one the
+  criteria state: the tool's declared runtime dependency set is the browser
+  automation package alone, and no refusal can name an imaging package. Anyone
+  re-verifying this should read the manifest and the dependency map, not the
+  prose.
 - **Code issue for `fix_uat_coverage` — do NOT encode this as an AC.** The CLI's
   own `USAGE` text still lists `crop` among the commands that "check the installed
   tree before doing any work" (`tools/generate/src/cli/index.ts`, the *Install
