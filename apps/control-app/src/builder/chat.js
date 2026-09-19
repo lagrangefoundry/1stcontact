@@ -32,6 +32,13 @@
  * answer using context the operator cannot see, which reads as spooky rather than
  * clever.
  *
+ * A TURN IS NOT OVER BECAUSE ITS STREAM STOPPED ([[BUG-123]]). The two endings
+ * are indistinguishable from in here — a reply that finished and a socket that
+ * died both arrive as silence — so when `webui-chat` reports one without its
+ * terminal marker, this pane goes back to the origin and asks. That is the only
+ * place the difference is known, and it is a question the operator used to have
+ * to ask by reloading the page. See {@link chaseLostTurn}.
+ *
  * AND IT IS REPLAYED EXACTLY ONCE, which is why the markdown engines are waited
  * for BEFORE a session reaches this pane rather than inside it (BUG-42).
  * `mountChat` renders each message as it is appended and offers no way to redraw
@@ -130,6 +137,43 @@ export const CHAT_ID_PREFIX = 'builder-chat:'
 const EMPTY_TEXT = 'Ask for a change to your site.'
 
 /**
+ * How long to wait before each attempt at finding out what became of a lost
+ * turn, and — by its length — how many attempts there are ([[BUG-123]]).
+ *
+ * THE FIRST WAIT IS NOT ZERO, and that is the one that matters. The commonest
+ * reason a stream stops is that the origin's turn ENDED badly — the isolate went
+ * away mid-drain, an enqueue threw — and the record of that ending is written in
+ * a `finally` which is still running when the client notices the silence. Asking
+ * immediately would read the conversation as it was a moment BEFORE the answer
+ * landed, and repaint a turn that is about to be complete as a turn that is not.
+ *
+ * THEY GROW, because the second and third attempts are for a different failure:
+ * an origin that is genuinely unreachable. Asking a struggling origin three
+ * times in a second is a way of making sure it stays struggling.
+ *
+ * THREE, because the pane is standing in front of an operator watching a reply
+ * that has stopped. A longer ladder is a longer stall, and beyond a few seconds
+ * a sentence saying what happened is worth more than another silent attempt.
+ */
+const RECOVERY_BACKOFF_MS = [400, 1500, 4000]
+
+/**
+ * How many separate losses of ONE conversation's turns are chased before the
+ * pane stops chasing ([[BUG-123]]).
+ *
+ * A SECOND BOUND BECAUSE IT BOUNDS A SECOND THING. {@link RECOVERY_BACKOFF_MS}
+ * is how hard one chase tries to reach an origin that is not answering. This is
+ * how many times a chase that DID reach it, rejoined, and then lost the rejoined
+ * stream too, is allowed to go round again — the ping-pong the ladder above
+ * cannot see, because each leg of it looks like a fresh first failure.
+ *
+ * SPENT PER CONVERSATION AND REFILLED BY A PROMPT. An exhausted budget describes
+ * a connection that was failing a minute ago, and the operator pressing Send is
+ * them asking for it to be tried again.
+ */
+const RECOVERY_CHASES = 3
+
+/**
  * Mount the pane.
  *
  * @param {object} [options]
@@ -139,6 +183,27 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  * @param {object}  [options.transport] `{streamPrompt, streamReattach}` — injected
  *   by tests. A transport with no `streamReattach` simply never rejoins, which
  *   is what keeps every existing caller working unchanged.
+ * @param {() => Promise<object>} [options.reopen]
+ *   RE-READ THIS CONVERSATION, answering the same shape {@link setSession} takes
+ *   ([[BUG-123]]). Called when a turn's stream stops without ending the turn, to
+ *   find out from the origin what actually became of it.
+ *
+ *   IT IS THE HOST'S HALF AND NOT THIS PANE'S TRANSPORT, on exactly the split
+ *   (REQ-127) that put `openSession` in `app.js` in the first place: opening a
+ *   conversation names a SITE, or the business scope, and this pane knows
+ *   neither — it knows a session id, which `/api/ai/session` does not take.
+ *   Running a turn is the pane's because only the pane knows when one started;
+ *   asking what became of one is the host's for the same reason the first open
+ *   was.
+ *
+ *   A HOST THAT PASSES NONE keeps every behaviour it had. It simply cannot be
+ *   told what became of a lost turn — and the panel says so in the conversation
+ *   rather than stalling silently, which is the half of this that is an
+ *   improvement even with no seam wired.
+ * @param {(ms: number) => Promise<void>} [options.wait] how a recovery pauses
+ *   between attempts ([[BUG-123]]). A seam for tests only: real time is the
+ *   default, and a suite that had to spend {@link RECOVERY_BACKOFF_MS} of it per
+ *   assertion would be a suite nobody runs.
  * @param {(meta: {at?: number, changes?: number}) => void} [options.onSiteChanged]
  *   Called each time the turn reports a write to the SITE — see
  *   {@link watchForWrites}.
@@ -205,6 +270,8 @@ export function createChatPanel(options = {}) {
     onDnsChanged = () => {},
     expandPrompt = (markdown) => markdown,
     onImageClick = null,
+    reopen = null,
+    wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = options
 
   /**
@@ -245,6 +312,20 @@ export function createChatPanel(options = {}) {
   let chat = null
   let sessionId = null
   let sessionKey = null
+
+  /**
+   * Whether a lost turn is currently being chased, and how many times this
+   * conversation has chased one ([[BUG-123]]).
+   *
+   * TWO VALUES AND NOT ONE, because they bound different things. `chasing` stops
+   * two chases running at once — a recovery that loses its own stream fires
+   * `onTurnLost` again, and a second chase started underneath the first would
+   * ask the origin twice and hand two tails to one bubble. `chases` is the
+   * budget: each loss costs one, and an origin that keeps dropping the turn runs
+   * out rather than being asked forever.
+   */
+  let chasing = false
+  let chases = 0
 
   /** Say something in the panel's own voice — a failure, or why it is frozen. */
   function note(text) {
@@ -398,12 +479,36 @@ export function createChatPanel(options = {}) {
     if (next === sessionKey) return
     sessionKey = next
     sessionId = session?.sessionId ?? null
+    // A NEW CONVERSATION GETS THE WHOLE BUDGET ([[BUG-123]]). The chases a
+    // previous conversation spent are a fact about that conversation's origin,
+    // not about this one's.
+    chases = 0
+    paint(session)
+  }
 
+  /**
+   * Draw a conversation into a freshly-mounted panel.
+   *
+   * SPLIT OUT OF {@link setSession} RATHER THAN COPIED ([[BUG-123]]), because a
+   * turn whose stream died has to be REDRAWN from a transcript the origin has
+   * just re-read — and a second painting path is how the rejoin, the unsent
+   * rescue and the interrupted notice come to disagree about what a conversation
+   * looks like. The caller decides WHICH conversation is on screen; this decides
+   * what is on it.
+   *
+   * IT IS A REMOUNT, which is this file's answer to "repaint" everywhere else
+   * (see the header): `mountChat` renders each message as it is appended and
+   * offers no way to empty itself. A remount is also why a redraw costs the
+   * operator nothing they typed — the composer persists its draft under the
+   * panel id on every keystroke, and the id is the conversation's, unchanged.
+   */
+  function paint(session) {
     chat?.destroy()
     chat = null
     element.replaceChildren()
     if (!session) return
 
+    const next = sessionKey
     const id = session.sessionId
     // KEYED LIKE THE DRAFT IT TAKES OVER FROM ([[BUG-122]]) — the conversation,
     // not the wire id, so a submission that never landed comes back under the
@@ -423,8 +528,19 @@ export function createChatPanel(options = {}) {
         // a moment ago, on submit; this is the copy that outlives a fetch which
         // never resolves, and it has to be written before anything can fail.
         sent.remember(text, wire)
+        // A TURN THE OPERATOR STARTED IS A FRESH BUDGET ([[BUG-123]]). The
+        // chases spent on an earlier turn describe an origin that was
+        // unreachable then; a new prompt is the operator asking again, and
+        // answering it with an exhausted budget would make one bad minute
+        // permanent for the life of the page.
+        chases = 0
         return watchForWrites(transport.streamPrompt(id, wire), told)
       },
+      // THE STREAM STOPPED WITHOUT ENDING THE TURN ([[BUG-123]]). `webui-chat`
+      // has kept the bubble, marked it, and declined to offer a resend, because
+      // from where it stands the turn's fate is UNKNOWN. This pane is the half
+      // that can find out — it has an origin to ask.
+      onTurnLost: (lost) => void chaseLostTurn(lost),
       // THE OTHER TWO SUBMIT INTENTS ([[BUG-122]]). `webui-chat` routes a submit
       // made WHILE THE ASSISTANT IS STREAMING to its queue, and this pane passes
       // no queue transport — so that text is echoed as pending and then dropped,
@@ -480,7 +596,157 @@ export function createChatPanel(options = {}) {
       // is painted, the turn is unaffected — `watch` is a reader — and it lands
       // in the archive either way. Reporting it would be telling the operator
       // about a request they did not make.
+      //
+      // AND SINCE [[BUG-123]] IT OFTEN COSTS NOTHING AT ALL: a tail that stops
+      // without ending the turn reaches `onTurnLost`, and the chase started
+      // there asks the origin and either rejoins again or repaints. This catch
+      // is now only for a `streamReattach` that rejects before yielding
+      // anything, which the widget never sees and therefore never reports.
     })
+  }
+
+  /**
+   * Go and find out what became of a turn whose stream stopped ([[BUG-123]]).
+   *
+   * THE FAILURE THIS IS FOR. A reply was arriving and then it was not. The
+   * socket died, the tab slept, an intermediary reaped an idle connection — and
+   * until now the panel simply stopped painting, with no sign that anything was
+   * wrong beyond a reply that trails off mid-sentence. The operator's only move
+   * was to reload, which is itself destructive ([[BUG-122]]) and is how they came
+   * to lose a long prompt. This is the pane doing by itself the thing they were
+   * reloading to do.
+   *
+   * IT IS THE MISSING HALF OF [[BUG-46]], NOT A SECOND MECHANISM. That ticket
+   * taught the pane to rejoin a turn AT MOUNT, from the `live` + `cursor` a
+   * freshly-opened session hands out. Everything it needs is already here; what
+   * was absent is anybody asking a SECOND time. So this asks — through the same
+   * `reopen`, into the same `paint`, onto the same `streamReattach`.
+   *
+   * WHY THE ORIGIN IS ASKED RATHER THAN ASSUMED. The two endings look identical
+   * from here: a stream that stopped because the turn finished and one that
+   * stopped because the connection did produce the same silence. Only the origin
+   * knows which, and it already answers the question — `/api/ai/session` returns
+   * `live`, and has since [[BUG-46]].
+   *
+   * WHAT IT DOES WITH EACH ANSWER.
+   *
+   *   - `live` — the turn is still being written. Rejoin from the cursor and
+   *     hand the tail to `resume`, which ADOPTS the lost bubble: the half
+   *     already painted and the half still coming are one message, wearing no
+   *     notice, rather than a reply broken across two with an apology between
+   *     them.
+   *   - not `live` — the turn is over, and the transcript in hand is the honest
+   *     account of it. Repaint from that. A text-offset partition is NOT
+   *     available as an alternative: the cursor is a junction offset, not a byte
+   *     offset into the reply, so there is no way to say "the reply from here
+   *     on" — which is why the whole conversation is redrawn rather than the
+   *     bubble patched.
+   *
+   * AND IT SAYS NOTHING ON THE WAY PAST. A repaint that succeeded needs no
+   * narration: either the reply is now whole, or the origin's own `interrupted`
+   * notice is in the transcript being painted ([[BUG-121]]) and says the true
+   * thing — *the reply above is not all of it* — better than a second sentence
+   * from here would. The panel speaks only when it has genuinely failed, which
+   * is the one outcome the operator cannot see for themselves.
+   *
+   * BOUNDED, because the origin may be the thing that is broken. A few attempts,
+   * spaced, and then a sentence in the conversation rather than a pane that
+   * retries forever behind a reply that stopped.
+   */
+  async function chaseLostTurn(lost) {
+    if (chasing || !chat) return
+    if (typeof reopen !== 'function') {
+      // A HOST THAT SUPPLIED NO SEAM CANNOT BE RECOVERED FOR, and saying so is
+      // better than the silence this ticket exists to end. Only this pane's own
+      // hosts pass `reopen`; a caller that predates it behaves exactly as it did
+      // before, minus the stall being unexplained.
+      note('The connection to that reply was lost. Reload the builder to see where the turn got to.')
+      return
+    }
+    if (chases >= RECOVERY_CHASES) {
+      note(
+        'The connection to that reply keeps dropping and the conversation could not be ' +
+          're-read. Reload the builder to see where the turn got to.',
+      )
+      return
+    }
+    chases += 1
+    chasing = true
+    // CAPTURED, NOT READ LATER — the same guard `setSession` is built around and
+    // `app.js` spells out as a generation token. Every await below is a window in
+    // which the operator can switch site, and an answer for the conversation they
+    // left must not be painted into the one they are looking at.
+    const key = sessionKey
+
+    /**
+     * Whether the answer about to arrive is still about what is on screen.
+     *
+     * TWO WAYS TO BE TOO LATE, and both are ordinary. The operator can switch
+     * site, which swaps the conversation out from under an in-flight re-read;
+     * and — because [[BUG-58]] RELEASES THE COMPOSER on a lost turn rather than
+     * holding it — they can simply send the next prompt while this is still
+     * asking. The second is the more dangerous: a repaint would destroy the
+     * bubble of a turn that is streaming right now, and a rejoin would be
+     * `resume` silently declining behind a turn already in flight. Either way
+     * the operator has moved on, and recovery of the turn they left is no longer
+     * something they are waiting for.
+     */
+    const overtaken = () => sessionKey !== key || !chat || chat.isStreaming()
+
+    try {
+      let failure = null
+      for (const pause of RECOVERY_BACKOFF_MS) {
+        await wait(pause)
+        if (overtaken()) return
+        let session
+        try {
+          session = await reopen()
+        } catch (err) {
+          // KEPT AND RETRIED. One refusal is a bad moment, not an answer; the
+          // last one is what the operator is told about if every attempt fails.
+          failure = err
+          continue
+        }
+        if (overtaken()) return
+        // THE ORIGIN'S OWN ID WINS. It is derived from the site and has been
+        // stable across every re-open so far, but the value a reattach is
+        // addressed to belongs to the conversation the origin just described, not
+        // to this pane's memory of an earlier answer.
+        const id = session?.sessionId ?? sessionId
+        sessionId = id
+        if (session?.live === true && typeof transport.streamReattach === 'function') {
+          // RELEASED BEFORE THE REJOIN, not after. `resume` runs for as long as
+          // the turn does, and a tail that dies too loses the turn again — which
+          // has to be able to start the next chase rather than finding the door
+          // held by the one that set it up.
+          chasing = false
+          Promise.resolve(
+            chat.resume(watchForWrites(transport.streamReattach(id, session.cursor), told), {
+              // THE PANEL'S OWN PARTIAL, not the transcript's. What `resume`
+              // continues is the bubble on screen, and the origin's fold stops at
+              // the cursor the tail is about to resume FROM — so seeding from the
+              // transcript would repaint text the tail is not going to resend and
+              // drop everything painted after the fold.
+              markdown: lost?.markdown ?? '',
+            }),
+          ).catch(() => {
+            // The loss is reported through `onTurnLost`, which is where the next
+            // chase starts. Nothing to add here.
+          })
+          return
+        }
+        // OVER. The transcript just read is what the turn amounted to.
+        paint(session)
+        return
+      }
+      note(
+        'The connection to that reply was lost and the conversation could not be re-read' +
+          `${failure?.message ? ` (${failure.message})` : ''}. ` +
+          'Reload the builder to see where the turn got to.',
+      )
+    } finally {
+      chasing = false
+    }
   }
 
   return {

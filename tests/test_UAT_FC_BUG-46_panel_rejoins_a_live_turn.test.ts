@@ -214,11 +214,17 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-46 the pane rejoins a turn in flight', ()
     ])
   })
 
-  it('test_UAT_FC_BUG-46_a_failed_rejoin_costs_the_tail_and_nothing_else', async () => {
-    // The rejoin is a request the operator did not make, so its failure is not
-    // theirs to be told about: the transcript is painted, and the turn itself is
-    // untouched because a tail is a reader. What must NOT happen is an unhandled
-    // rejection or a pane that fails to mount.
+  it('test_UAT_FC_BUG-46_a_failed_rejoin_leaves_the_turn_and_the_pane_intact', async () => {
+    // The transcript is painted and the turn itself is untouched, because a tail
+    // is a reader. What must NOT happen is an unhandled rejection or a pane that
+    // fails to mount.
+    //
+    // THIS USED TO ASSERT THAT NOTHING WAS SAID, and [[BUG-123]] supersedes that
+    // deliberately. A rejoin that fails is a turn whose fate is now UNKNOWN, not
+    // a rejoin the operator did not ask for and need not hear about — the reply
+    // in front of them has stopped either way, and silence is what used to leave
+    // reloading as their only move. This panel is given no `reopen`, so it cannot
+    // find out; saying so is the whole of what it can honestly do.
     const transport = {
       streamPrompt: async function* () {
         yield { kind: 'done' }
@@ -233,7 +239,11 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-46 the pane rejoins a turn in flight', ()
     expect(() => panel.setSession(midTurn())).not.toThrow()
     await settle()
 
-    expect(painted(panel)).toEqual(['Change the heading.', 'I have started editing. '])
+    expect(painted(panel)).toEqual([
+      'Change the heading.',
+      'I have started editing. ',
+      '_The connection to that reply was lost. Reload the builder to see where the turn got to._',
+    ])
   })
 
   it('test_UAT_FC_BUG-46_a_transport_with_no_reattach_still_mounts', async () => {

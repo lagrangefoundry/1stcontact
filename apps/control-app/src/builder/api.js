@@ -654,10 +654,20 @@ async function* postEventStream(path, body, failure, fetchImpl) {
  *
  * IT IS SILENT ABOUT THE END OF THE STREAM, deliberately. Whether a stream that
  * finished without saying so is a success or a failure is the CALLER's question
- * and has different answers: a chat turn that stops is a turn that stopped, and a
- * publish that stops is a publish whose outcome is unknown — which must be read
- * as a failure, because the alternative is telling a client their site is live
- * when it may not be.
+ * and has different answers: a publish that stops is a publish whose outcome is
+ * unknown — which must be read as a failure, because the alternative is telling a
+ * client their site is live when it may not be.
+ *
+ * THIS USED TO SAY "a chat turn that stops is a turn that stopped", AND IT WAS
+ * WRONG ([[BUG-123]], `lagrange-framework` BUG-58). A chat stream that ends
+ * without the library's terminal `done` did not end the turn — it lost it, and
+ * the turn may still be running. That distinction is drawn ABOVE this seam,
+ * where it belongs: `webui-chat` already knows what a terminal frame is and
+ * reports the difference on `onTurnLost`, and `chat.js` is the only layer with
+ * an origin to ask what actually happened. Teaching the parse to re-derive the
+ * same predicate would be a second definition of "a turn ended" for the two to
+ * drift apart on — which is the failure BUG-64 is already named for, arrived at
+ * from the other side.
  */
 async function* readEventStream(res) {
   const reader = res.body.getReader()
