@@ -13,6 +13,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-d7a7e8f3
 ---
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18.
