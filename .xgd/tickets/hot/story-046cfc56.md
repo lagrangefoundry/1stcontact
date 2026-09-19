@@ -6,7 +6,7 @@ title: 'The image layer belongs to the toolchain: PNG decoded and encoded in-rep
   with the fidelity arithmetic running in the cloud runtime'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:04:28.160135+00:00'
-updated_at: '2026-09-14T05:16:31.189809+00:00'
+updated_at: '2026-09-19T13:54:28.603010+00:00'
 completed_at: null
 last_field_updated: status
 status: completed
