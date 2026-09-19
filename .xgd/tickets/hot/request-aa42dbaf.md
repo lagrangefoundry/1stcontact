@@ -6,7 +6,7 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:24:41.465523+00:00'
+updated_at: '2026-09-19T00:34:47.974103+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -229,3 +229,27 @@ UATs named `test_UAT_FC_REQ-280_*`:
   describes the label and says the consultant may use it in conversation.
 - **Over the Library tab** (jsdom): the row shows the label beside the title, and
   the filter matches on it.
+
+
+### One thing the operator should know: `DOC-n` is already a namespace
+
+The prefix table is the operator's own (*"IMAGE-5, DOC-7"*), and `DOC-7` is what
+a client's uploaded brand book is now called. `DOC-33` is also how the product's
+OWN knowledge corpus addresses one of its method documents — the same session can
+reach both, through different tools.
+
+**The prefix stays `DOC`.** The two never meet where either is used: a catalogue
+label is always read beside the item it is on, and a corpus document is reached
+by search and is never said to a client at all. Renaming the client-facing thing
+to avoid an internal id would be paying for the internal one.
+
+**But the priming carve-out spells only `IMAGE-5`.** [[BUG-65]] is explicit that
+no authored priming text may name anything in the corpus's id namespace, and its
+guard fires on `DOC-\d+` exactly — correctly, because the priming is the one
+document in a session where such a string is read with no item beside it to say
+which kind of thing it is. The surface prose, where a label is always read in the
+catalogue's own context, carries both examples. Both halves are asserted.
+
+If the collision ever does bite in practice the cheap fix is the prefix table: it
+is one entry in one map (`LABEL_PREFIX`), and every label already written stays
+valid, because a label is a stored string rather than one recomposed on read.
