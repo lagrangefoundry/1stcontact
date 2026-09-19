@@ -6,10 +6,10 @@ title: 'The consultant keeps and consults its own memory: the summary store, the
   surface, and the product tier'
 created_by: EPIC-19
 created_at: '2026-09-19T18:54:44.485419+00:00'
-updated_at: '2026-09-19T20:12:30.696614+00:00'
+updated_at: '2026-09-19T20:58:03.133874+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
