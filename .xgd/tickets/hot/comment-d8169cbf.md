@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:52:55.217303+00:00'
+updated_at: '2026-09-19T19:54:59.436306+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1678,5 +1678,13 @@ We don't use `SummaryStore` at all. Three consequences now written into REQ-283:
 `agent`'s `InspectContext` is unaffected — reading past turns and the work log is independent of where the frame lives.
 
 Since 283 is in flight, that last bullet is the one worth passing on quickly: the provider is the fix, the storage decision just makes it cheaper.
+
+<!-- xgd-turn id="01928d45-609e-492b-8cb1-7731d1461fb5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T19:54:59.374496+00:00" -->
+#### You
+ok good - perhaps we get rid of the summary store then?
+
+REQ-168 has questions can you review its chat script and answer anything you can with confidence in-line bring anything you are not sure about up here to me
 
 <!-- xgd-chat-end -->
