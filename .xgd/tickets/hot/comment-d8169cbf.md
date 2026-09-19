@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T22:07:25.484297+00:00'
+updated_at: '2026-09-19T23:28:27.714278+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2033,5 +2033,11 @@ Two things in that correction worth your eye:
 **Only the "forever" claim goes.** A screenshot is still the most expensive single call, `list_changes` is still right for *what landed?*, and recovery is still the worst moment to spend context. The ranking survives; the permanence doesn't.
 
 **The actual prose fix is still outstanding** — it's a code change to `fidelity-surface.json` and `priming.json`, plus the two UATs at `:193` and `:223` that pin the old wording. That needs its own free-coded ticket. Want me to file it?
+
+<!-- xgd-turn id="fe3ceccd-cd7d-4f7a-a492-d42f861b6310-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T23:28:27.530569+00:00" -->
+#### You
+ok with all our changes for context management all I am getting out of the consultant is: *Assembled priming exceeds the 60000-character budget at entry "km-mechanism" (65925 characters so far). Shorten that entry, or raise 'maxPrimingChars' for this host.*
 
 <!-- xgd-chat-end -->
