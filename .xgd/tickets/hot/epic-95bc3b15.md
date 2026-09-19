@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T18:08:55.484126+00:00'
+updated_at: '2026-09-19T18:30:57.936251+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -560,6 +560,61 @@ one record per request, and `usage.js` exposes `usageRecord`, `turnUsage`,
 input tokens** — which is the context size. The consultant's *"I am driving with no
 fuel gauge"* is therefore a SURFACING gap in this repository, not missing framework
 capability, and is much cheaper than it sounded.
+
+### Correction: we are NOT stuffing, and I quoted a ceiling as a cost
+
+`maxPrimingChars = 140,000` is a CEILING, not consumption, and citing it as though
+it were the seed's size was wrong. Measured:
+
+| part | chars |
+|---|---|
+| static priming entries (role, product-system, purpose) | 5,870 |
+| reminders (static parts) | 293 |
+| `km.landscape` source — `kb/system/awareness.md` | 5,621 |
+| projected tool manual — granted groups, one line per tool | ~18,900 |
+
+≈31k characters, ≈8k tokens, fixed and fully cached (the `cache_boundary` entry is
+last, so everything above it is in the cached prefix).
+
+**That is the KB-shaped priming, not the old document-stuffing.** The priming's own
+words are *"Your method is written down […] Read it before you start rather than
+improvise from these few lines"*, with `km.landscape` and `km.mechanism` supplying
+the map and the retrieval instructions. No design document is inlined.
+
+The largest single block is the **tool manual at ~19k**, and that is already the
+frugal form — one line per tool, full entries fetched on demand. It is a surface
+projection rather than stuffed prose, but it is the thing to look at if the seed
+ever needs to shrink.
+
+### THE ANSWER TO "can we jump straight to truncation?" — NO
+
+Asked by the operator, 2026-09-19. We accumulate **no summary context at all**:
+
+- **No `SummaryStore` is constructed anywhere in this repository.** `SessionManager`
+  takes `opts.summary`; nothing in `host-core.ts` or `ai.ts` passes one.
+- **Zero `chat_summary` comments exist in the whole store.** The only comment kinds
+  present are `chat_transcript` (8), `material_text` (9), `tool_transcript` (4).
+- **The priming deliberately omits the summary tier**, and says why:
+  *"`session.summary` waits on lagrange-framework BUG-45."*
+
+**And we do not have the other escape hatch either.** REQ-126 says what falls
+outside the window is *"reachable two ways: the summary the session maintains, and
+the transcript it can address by turn id."* `priming.json` records that this host
+grants no operation that reads a turn by id — so **1c has neither of the two
+recovery paths the window design assumes.**
+
+The window is therefore not a window onto a larger recoverable context. **It is a
+cliff.** Truncating today would silently and permanently drop everything past it.
+
+**Ordering consequence:** a recovery path has to exist before truncation can be
+turned on. For a conversation that lives as long as the website — rather than as
+long as a feature — the summary is the right one, because the transcript-by-id
+path only helps a model that knows which turn to ask for.
+
+**[[BUG-45]] (lagrange-framework) is the blocker**, and it is narrower than it
+sounds: cache offsets are computed over the full assembly while the backend is
+handed only the stable priming, so a breakpoint lands mid-section once anything is
+volatile. Status `ready_to_reconcile` — fixed on working, not yet released.
 
 ### Priming ("stuffing") is still the current upstream design
 
