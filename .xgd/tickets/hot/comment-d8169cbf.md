@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:06:29.299819+00:00'
+updated_at: '2026-09-19T01:09:48.348196+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -920,5 +920,11 @@ Four things I flagged for whoever implements it:
 That last one is why I kept it as one ticket rather than filing a third: both parts are the same confusion between *what the client has* and *what the site is using*, and fixing either alone leaves the other still teaching it.
 
 I did note a scope caveat — Part 2 touches the write path and is bigger than Part 1. If it won't sit on one branch, split it, but keep the vocabulary decision in whichever lands first so the two surfaces never disagree mid-flight.
+
+<!-- xgd-turn id="67dfe3fe-9be9-4d8f-8c6d-fb5ae40f74ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:09:48.121720+00:00" -->
+#### You
+Ok the picker needs to offer me what is in the library that is the primary purpose of the library
 
 <!-- xgd-chat-end -->
