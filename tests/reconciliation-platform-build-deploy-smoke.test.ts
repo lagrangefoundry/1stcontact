@@ -1014,17 +1014,17 @@ describe('story-d5167ced — deploy targets come from what is discovered', () =>
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-// AC-1336 — the nine checks against a correctly serving origin
+// AC-1336 — every APPLICABLE check passes against a correctly serving origin
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('story-d5167ced — the smoke check against an origin that serves correctly', () => {
-  it('test_UAT_AC1336_every_check_passes_with_nothing_skipped_and_the_command_exits_zero', () => {
-    // EVERY input the script takes is supplied, because "nothing skipped" is
-    // only a claim about a complete run — a check that skipped for want of an
-    // argument would satisfy "no failures" while proving nothing. The control
-    // app's two origins are among them (REQ-147): they are a different
-    // deployment from the public site, so they are named separately rather than
-    // inferred.
+  it('test_UAT_AC1336_every_applicable_check_passes_and_each_skip_is_named_rather_than_forbidden', () => {
+    // ── leg one: every input supplied, so every check in the set is applicable ──
+    //
+    // The complete run is what evidences "every applicable check passes" at its
+    // widest — with both axes pointed somewhere, APPLICABLE means ALL of them.
+    // The control app's two origins are named separately rather than inferred
+    // (REQ-147): they are a different deployment from the public site.
     const run = runSmokeCli(
       [
         '--origin', FAKE_ORIGIN,
@@ -1050,6 +1050,42 @@ describe('story-d5167ced — the smoke check against an origin that serves corre
     const assets = /(\d+) assets, all 200 with the expected type/.exec(run.out)
     expect(assets, 'the asset check did not report how many assets it verified').not.toBeNull()
     expect(Number(assets![1])).toBeGreaterThan(0)
+
+    // ── leg two: the criterion's own case — a PUBLIC-SERVING origin ──────────
+    //
+    // A passing run is NOT required to have skipped nothing. The two
+    // control-surface checks sit on an independent axis selected by their own
+    // options, so a run pointed at a public-serving origin has nothing to point
+    // them at — and forbidding a skip here would make a correct run unachievable
+    // rather than make it stricter. What the run must do instead is NAME what it
+    // skipped, so "everything applicable passed" and "nothing was left untested"
+    // stay two distinguishable sentences rather than one conflated green.
+    const publicOnly = runSmokeCli(
+      ['--origin', FAKE_ORIGIN, '--slug', SLUG, '--draft', DRAFT],
+      correctOrigin(),
+    )
+
+    expect(publicOnly.code, publicOnly.all).toBe(0)
+    // All nine public-serving checks pass…
+    for (const name of PUBLIC_CHECKS) {
+      expect(publicOnly.out, `${name} did not pass`).toContain(`PASS  ${name}`)
+    }
+    expect(publicOnly.out).not.toContain('FAIL  ')
+    // …and exactly the two control-surface checks are skipped, each LISTED
+    // INDIVIDUALLY by name rather than merely counted. A skip that must be named
+    // cannot hide, which is why this is a sharpening of "nothing skipped" and
+    // not a relaxation of it.
+    for (const name of CONTROL_CHECKS) {
+      expect(publicOnly.out, `${name} was not reported skipped by name`).toContain(`skip  ${name}`)
+    }
+    expect(
+      publicOnly.out.match(/^\s*skip {2}(\S+)/gm)?.map((l) => l.trim().slice('skip  '.length)).sort(),
+      'checks other than the two control-surface ones were skipped',
+    ).toEqual([...CONTROL_CHECKS].sort())
+    // A skip is never counted as a pass: the summary keeps the two apart.
+    expect(publicOnly.out).toContain(
+      `Smoke passed against ${FAKE_ORIGIN}: ${PUBLIC_CHECKS.length} passed, ${CONTROL_CHECKS.length} skipped.`,
+    )
   })
 })
 
