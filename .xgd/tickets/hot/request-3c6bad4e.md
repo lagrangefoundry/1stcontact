@@ -5,9 +5,9 @@ type: request
 title: Delete a Library item from its detail pane
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:10.541560+00:00'
-updated_at: '2026-09-19T01:08:11.173170+00:00'
+updated_at: '2026-09-19T01:08:11.375181+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -84,3 +84,86 @@ emptied is a second surface. Archive keeps the row, so nothing here forecloses i
 
 **Deleting the site's copy.** Taking a picture off a page is an editing operation
 on the page, and it already has one.
+
+
+---
+
+## Implementation (Claude, 2026-09-18)
+
+### The shape
+
+`archive({uid})` on the material ticket, reached from a new erasure route, with
+the component's own trash semantics doing the work: it **cascades to the
+attachment records and moves their bytes**, so the old blob position 404s and an
+outstanding URL finds out at the moment of deletion. Deletion that still serves
+is not deletion, and nothing here re-implements that — it is inherited.
+
+### Why the row leaves every list for free
+
+The component's read slice scans live records only (`archived: false`), and its
+change classifier states that *"an archived ticket is never in a set … which is
+what gives `archive` an `exit` and `unarchive` an `enter` for nothing"*. So one
+`archive` call removes the item from `listMaterial` (the Library tab's list and
+the assistant's `list_library`, which are the same read), from
+`materialImageLibrary` (so `screenshot` and `edit_image` stop naming it), and
+from the KB corpus predicate — and raises the `exit` the Library tab already
+knows how to apply.
+
+### Retrieval has to forget it too
+
+The catalogue is not the only thing that answers about a file: the material's
+description and extracted text are embedded in the project knowledge base, and
+the chunk index drops every parent no longer in the corpus on its next refresh.
+Left to the next upload, a deleted brand document would keep answering searches
+until something unrelated happened to write. So the erasure runs the same index
+seam the description correction runs, and a failure there is logged and never
+allowed to undo the deletion — the material is gone whatever the index does.
+
+### The consultant is told it was deleted, not that it never existed
+
+`itemNamed` resolves over the live catalogue; on a miss it now re-resolves over
+the deleted one and refuses with a distinct, declared `DELETED` code. A session
+holding `IMAGE-5` from earlier in the conversation is told the client deleted it,
+which is actionable, rather than being handed the *"there is no catalogue item
+called IMAGE-5, the ones there are: …"* refusal, which invites it to argue with
+the client about a name they both saw. This costs one extra read, on the miss
+path only. The host supplies the deleted catalogue through the same projection
+(`storedImageOf`) the live one uses, so a deleted item answers to exactly the
+spellings it answered to while it was there.
+
+The surface declaration gains the `DELETED` error, names it on the two
+operations that resolve a name, and its `surface_version` moves. The *"Removing
+anything"* absence stays — deleting is still not something the assistant may do —
+and now says who can.
+
+### The control, and what it says
+
+At the **foot of the detail pane**, below the description: reachable, and as far
+from the name field and the picture as the pane allows. Not on the row.
+
+Confirming opens the builder's ordinary modal shell with Cancel focused (a return
+press aimed at something else must not delete a client's file), and the copy says
+what is actually lost — the file, what the describer wrote about it, the edit
+recipe, and any reference to it by number — and, **for a placed item, that it
+stays on the site**: the page holds the site's own copy, so this does not take
+the picture down, and taking it down is an edit to the page. A placed item is
+deletable, per the ticket's recommendation.
+
+On success the row goes and the pane clears. A delete performed elsewhere
+arrives as the change feed's `exit`, which already dropped the row and now also
+closes the detail when it is that item's — a pane left open over a deleted file
+is the same stale assertion the business-switch case already rules out.
+
+### Surfaces touched
+
+- `apps/control-app/src/material.ts` — `archiveMaterial`, `listDeletedMaterial`.
+- `apps/control-app/src/tickets.ts` — the accessor's archived listing, named in
+  the type rather than reached for with a cast.
+- `apps/control-app/src/router.ts` — `DELETE /api/material?uid=`.
+- `apps/control-app/src/library.ts` — the `deleted` port.
+- `tools/generate/src/cli/ai/library-core.ts`, `library-surface.json`.
+- `apps/control-app/src/builder/{api,library}.js`, `builder.css`.
+
+### Not done
+
+Un-deleting, and taking the site's copy off the page — both out of scope above.
