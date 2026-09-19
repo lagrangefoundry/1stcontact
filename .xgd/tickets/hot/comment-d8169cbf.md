@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:04:25.570080+00:00'
+updated_at: '2026-09-19T01:06:29.299819+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -881,5 +881,44 @@ And flagged explicitly: **don't treat this as cosmetic.** Recolouring while leav
 Actually there is more to 282 - when I open the asset selector from the editor mode on the site tab, I am given a selection of images that selector ONLY shows me images that are shown in the Library as being "On the site" or rather they do not have the error pill. This is wrong in two ways:
 1. The images without the error include images that are not on the site
 2. The selector needs to show all images - I am far more likely to want to select an image that is not yet used than one that is - there are usecases for both of course.
+
+<!-- xgd-turn id="6da2d957-c6af-4d53-b556-b81538191ee5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:06:28.949098+00:00" -->
+#### Claude
+Found it — and the picker isn't reading the pill at all, which makes your point sharper.
+
+Added to REQ-282 as Part 2 — and the investigation sharpens your first point rather than confirming it as stated.
+
+## The picker isn't reading the pill at all
+
+`edit.ts:803` builds the field's enum from:
+
+```ts
+async function imageHandles(slug, opts) {
+  return (await listSiteAssets(slug, opts)).filter(a => a.kind === 'image').map(a => a.src)
+}
+```
+
+So it offers **the site's own assets** — bytes already copied under the draft's `assets/`. The Library is a different list, and the picker has never read it.
+
+Which means the no-pill set and the picker set were never computed from each other. They agree *by accident*, for `site`-role items — which is most of what a client uploads, and exactly why they read as one thing. A `reference`-role image carries no pill and isn't in the picker either, which is the case where the illusion breaks.
+
+So the pill has two faults, not one: it's mis-worded (Part 1), **and** it's being taken as a prediction of what the editor will offer, which it isn't.
+
+## The capability already exists — it's just in the wrong place
+
+`promoteToSiteAsset` is what the Library's own **Use on site** button calls. Your workflow today is: leave the editor → find the item → place it → come back to the picker. Part 2 collapses that into the pick.
+
+Four things I flagged for whoever implements it:
+
+1. **Place on Save, not on pick.** The modal is *"staged, never committed"* — copying bytes at pick time would leave an asset behind when you cancel. The pick stages an intent; Save performs the placement.
+2. **The value stays a site handle.** `/assets/<name>` is what L1 `src` must be; a Library uid isn't one. Only the *list* widens — nothing the write side validates changes.
+3. **Rights refusals must be visible, not silent.** `promoteToSiteAsset` refuses anything not `republishable`. Those should appear as unpickable *with the reason* rather than filtered out — a client who can't find their own photograph has been told nothing, which is Part 1's mistake in the other direction.
+4. **Mark what's already placed** using Part 1's accent/grey vocabulary.
+
+That last one is why I kept it as one ticket rather than filing a third: both parts are the same confusion between *what the client has* and *what the site is using*, and fixing either alone leaves the other still teaching it.
+
+I did note a scope caveat — Part 2 touches the write path and is bigger than Part 1. If it won't sit on one branch, split it, but keep the vocabulary decision in whichever lands first so the two surfaces never disagree mid-flight.
 
 <!-- xgd-chat-end -->
