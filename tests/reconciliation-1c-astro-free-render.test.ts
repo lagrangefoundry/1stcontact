@@ -5,12 +5,19 @@
  * Two guarantees reconciled from bundle-cceaba25 (BUNDLE-8), plan item 4,
  * commit 5dc46d0f (REQ-89):
  *
- *   • AC-738 — every `1c` command boots quietly: the bootstrap no longer emits
- *     "Missing pages directory" on *either* stream. REQ-89 achieved that by
- *     gating Astro's logger with the inline Astro config's `logLevel: 'error'`;
- *     REQ-150 replaced the Astro-backed Vite server with a plain one, so the
- *     plugin that scanned for `src/pages` is gone and there is no logger left to
- *     gate. The AC is a claim about the streams, so the assertion is unchanged.
+ *   • AC-738 — every `1c` command boots with clean streams: no boot chatter from
+ *     ANY source, on either stream, and for a non-rendering command stderr is
+ *     entirely empty. REQ-89 achieved the original, narrower form by gating
+ *     Astro's logger with the inline Astro config's `logLevel: 'error'`; REQ-150
+ *     replaced the Astro-backed Vite server with a plain one, so the plugin that
+ *     scanned for `src/pages` is gone and there is no logger left to gate.
+ *     The criterion was sharpened from "one named warning is on neither stream"
+ *     to "stderr is empty", because the launcher diverts stdout to stderr for the
+ *     whole of the server's startup: anything the bootstrap emitted, on either
+ *     stream and from any source, would arrive on stderr. An empty stderr
+ *     therefore says the boot produced no output at all, rather than saying one
+ *     named warning was suppressed — which is the strongest observable form of
+ *     the claim and the one asserted below.
  *   • AC-739 — the render path is Astro-free unless a page needs Astro: the
  *     container is constructed only when a page carries behavior modules.
  *     SUPERSEDED BY REQ-148, which makes the stronger claim true: no page needs
@@ -116,20 +123,19 @@ afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
-// ── AC-738: every 1c command boots quietly, on both streams ──────────────────
+// ── AC-738: every 1c command boots with clean streams, and stderr is empty ────
 
-describe('story-e15a19ef — the 1c bootstrap is quiet on both streams', () => {
-  it('test_UAT_AC738_commands_boot_without_missing_pages_warning', () => {
+describe('story-e15a19ef — the 1c bootstrap leaves both streams clean', () => {
+  it('test_UAT_AC738_every_command_boots_with_clean_streams_and_empty_stderr', () => {
     // Drive the real `1c` binary as a subprocess so the launcher's Vite bootstrap
     // runs for real. Under Astro that bootstrap scanned the working root for a
     // pages directory before any CLI code loaded, and logged
     // "[WARN] Missing pages directory: src/pages" on every invocation; REQ-150
-    // removed the plugin that scanned, so the noise has no source rather than a
+    // removed the plugin that scanned, so that noise has no source rather than a
     // muted one.
     //
     // Both commands here are non-rendering (they never build a site), which is
-    // exactly the case the AC calls out: the warning must be absent because it is
-    // gone at its source, not merely diverted between streams.
+    // exactly the case the AC calls out.
     //
     // Run from the repo root — the launcher roots its Vite server at the repo;
     // the operator always invokes `1c` in-repo.
@@ -142,15 +148,29 @@ describe('story-e15a19ef — the 1c bootstrap is quiet on both streams', () => {
       expect(res.status, command).toBe(0)
       // Its own output came out on stdout …
       expect(res.stdout.trim().length, command).toBeGreaterThan(0)
-      // … and the bootstrap warning appears on NEITHER stream.
-      expect(res.stdout, command).not.toContain('Missing pages directory')
-      expect(res.stderr, command).not.toContain('Missing pages directory')
+
+      // … and stderr is ENTIRELY empty. This is the strong form of the claim, and
+      // the reason it is stated over bytes rather than over a list of forbidden
+      // strings: the launcher diverts stdout to stderr for the whole of the
+      // server's startup, so anything the bootstrap emitted — on either stream,
+      // from any source, including an emitter that does not exist yet — would
+      // land here. Zero bytes says the boot produced no output at all.
+      expect(res.stderr, `${command} stderr`).toBe('')
+
+      // Nor did any of it come out on stdout instead. Named explicitly because
+      // these are the three shapes the AC calls out: a bundler notice, a generic
+      // warning line, and the specific warning whose emitter left the repository.
+      for (const chatter of ['[vite]', '[WARN]', 'Missing pages directory']) {
+        expect(res.stdout, `${command} stdout / ${chatter}`).not.toContain(chatter)
+      }
     }
 
     // Spot-check that `help` really produced the usage text (not just any bytes),
-    // proving the quiet boot did not come at the cost of the command's output.
+    // proving the clean streams were not bought by a command that printed nothing
+    // — the one way an all-empty run could pass every assertion above vacuously.
     const help = spawnSync('node', [bin, 'help'], { cwd: repoRoot, encoding: 'utf8' })
     expect(help.stdout).toContain('1c —')
+    expect(help.stdout).toContain('values-diff')
   }, 120_000)
 })
 
