@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-283
 created_by: xgd
 created_at: '2026-09-19T19:34:01.151420+00:00'
-updated_at: '2026-09-19T19:54:21.805296+00:00'
+updated_at: '2026-09-19T19:54:37.641070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -77,5 +77,11 @@ Now let's typecheck:
 Now the new UAT. Let me check the workers-test harness for D1 + the scripted model client:
 
 Now let me write the UAT files.
+
+<!-- xgd-turn id="ea9391ba-56a8-488b-9bfe-57f35b5f0631-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T19:54:36.764886+00:00" -->
+#### You
+Sorry there were some last minute changes to the ticket, please re-read them
 
 <!-- xgd-chat-end -->
