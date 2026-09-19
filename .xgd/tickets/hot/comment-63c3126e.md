@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-280
 created_by: xgd
 created_at: '2026-09-19T00:17:19.944630+00:00'
-updated_at: '2026-09-19T00:59:29.316622+00:00'
+updated_at: '2026-09-19T01:04:46.176606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -123,5 +123,15 @@ Free-coding of REQ-280 is complete.
 
 - **`DOC-n` collides with the corpus's own document ids.** I kept your prefix — a catalogue label is always read beside its item, and a corpus document is never said to a client — but the priming carve-out spells only `IMAGE-5`, because `BUG-65` forbids authored priming from naming anything in that namespace and its guard fires on exactly that shape. The surface prose carries both examples. If it ever bites, the fix is one entry in `LABEL_PREFIX`; labels already written stay valid because they're stored strings.
 - **Two existing fixtures changed as consequences, not accommodations:** `REQ-221`'s recording store grew the counter ingestion now calls, and `REQ-201`'s change-feed fixture grew a label — a catch-up write is a change event like any other, so a fixture without a label was modelling a pre-label record without meaning to.
+
+<!-- xgd-turn id="42d1d478-c010-41fa-b3f2-6a056afab20f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:04:45.634593+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
