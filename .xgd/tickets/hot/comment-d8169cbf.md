@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:21:07.819933+00:00'
+updated_at: '2026-09-19T01:24:09.221651+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -993,5 +993,11 @@ I dropped my In use / Unused invention and quoted your reasoning in the ticket, 
 Also noted: `UNPLACED_LABEL` and `UNPLACED_HINT` (`library.js:170-172`) both go. One label, two colours, no second string to maintain.
 
 **One free addition, flagged as recommended rather than required.** REQ-181's accessibility argument was sound — colour alone reaches neither a screen reader nor a monochrome display. Your judgement that this is minor information does mean it can be ambient, so it doesn't overturn your design. But an `aria-label` or `title` on the pill ("Site Asset — in use" / "Site Asset — not yet used") costs **zero pixels and no layout**, and stops it being colour-only for anyone who can't use colour. The ticket says to drop it if it complicates the pill — but knowingly, rather than by omission.
+
+<!-- xgd-turn id="044def1a-d44f-43cf-b5d6-b2bcdb51d5ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:24:06.872280+00:00" -->
+#### You
+NO - please use bold face for in use as well as color
 
 <!-- xgd-chat-end -->
