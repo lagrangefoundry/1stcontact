@@ -6,7 +6,7 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T01:10:20.749127+00:00'
+updated_at: '2026-09-19T01:13:35.481444+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-d2727e7d
 ---
+
 
 
 
@@ -65,16 +66,34 @@ detecting.** The badge has had no failure to find since.
 
 ## What it should be instead
 
-**A state, not an exception** (operator's proposal, adopted): whether an item is on
-the site is a fact about the item, and both values are ordinary.
+**A state, not an exception** (operator's proposal, adopted): whether an item is in
+use is a fact about the item, and both values are ordinary.
 
-- **On the site** — the pill carries the theme accent.
-- **Not on the site** — the pill is grey.
+- **In use** — the pill carries the theme accent.
+- **Unused** — the pill is grey.
 
-No warning glyph, no red, no hint text telling the client to try again. The words
-stay: "Not on the site" is accurate and worth saying, it is only the framing that
-was wrong. A client who gave us twelve photographs and used four has eight grey
-pills and nothing has gone wrong.
+**"Unused", not "Not on the site"** (operator, 2026-09-18: *"it should not be an
+error mark — just showing the assets as unused"*). The old phrasing names an
+absence and reads as a deficiency: *not* on the site, where it was supposed to
+go. "Unused" names an ordinary condition of a catalogue. Most of a client's
+Library will be unused most of the time and that is the normal, healthy state of
+having given us plenty to work with.
+
+**It is never an error mark, in any register.** No warning glyph. No red, amber,
+or any colour the rest of the builder uses for something wrong. No hint text
+telling the client to try again, to fix it, or to do anything at all. No badge
+shape that differs from the in-use one. The two states differ in colour and in
+word, and in nothing else — an unused item must not be more visually prominent
+than a used one, because it is not more important.
+
+A client who gave us twelve photographs and used four has eight grey pills, and
+nothing has gone wrong.
+
+**On "load-bearing".** Part 2 makes the picker list the whole Library, which makes
+this mark the only thing distinguishing used from unused. That raises the bar on
+the mark being CORRECT AND PRESENT. It does not raise the bar on it being LOUD,
+and it must not be read as licence to make it so. Quiet and accurate is the whole
+requirement.
 
 ## Two things to keep from REQ-181
 
