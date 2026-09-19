@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-280
 created_by: xgd
 created_at: '2026-09-19T00:17:19.944630+00:00'
-updated_at: '2026-09-19T01:05:24.856831+00:00'
+updated_at: '2026-09-19T01:22:41.447507+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -146,5 +146,51 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="d4a81c54-eb0d-4ac7-951c-57de5d589977-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:22:40.217378+00:00" -->
+#### Claude
+The worktree is clean and both commits are reachable from `xgd-working`. Tearing down the branch:
+
+The one earlier failure was real, not noise — I found the cause. Let me confirm it before fixing:
+
+Confirmed. `created_at` is millisecond-granularity ISO, and my comparator returns 0 on a tie — so two rows created in the same millisecond are numbered in whatever order the store happened to list them. That's a defect in the implementation, not just the test. Cutting a branch to fix it:
+
+Session lock held. First, the ticket-body language the fix's UAT must trace to:
+
+Now the UAT — proving the property at both ends instead of depending on the tie not happening:
+
+All three creates land on the identical millisecond — the tie is deterministic here, not incidental. Asserting it as the case's premise:
+
+The tie isn't guaranteed — that run produced two distinct timestamps. Asserting it would reintroduce exactly the flake I'm removing. Reverting to the rule-based assertion, which holds either way:
+
+Now proving the UAT has teeth — temporarily reverting the fix to confirm the new case goes red:
+
+The UAT didn't reliably catch it — that run had no tie. A regression test that only sometimes fires isn't one. Naming the rule so it can be tested directly:
+
+Now verifying these new UATs actually catch the defect:
+
+Both mutations are caught. Restoring the real rule:
+
+23 UATs green. Full suite in the foreground:
+
+All remaining failures are environmental or other agents' in-flight work (a carousel module version floor, a stray `.claude` dir causing EISDIR, and the known staging-dir scan artifacts) — none touch REQ-280's files. Committing:
+
+All four commits recorded, version 0.2.280. Releasing the session lock and doing a final verification:
+
+REQ-280 free-coding is complete.
+
+**Final state:** `status: free_coded`, version `0.2.280`, four commits recorded, everything on `xgd-working`, working tree clean, branch and worktree gone, session lock released.
+
+**What the second round was.** Verifying the first cut, one UAT failed once and then passed on re-runs. Chasing it rather than shrugging found a real defect in the implementation: the catch-up labelled "oldest first" by comparing `created_at` alone, but the store stamps ISO timestamps at *millisecond* granularity. Records written in immediate succession — a client dropping a folder of photographs — routinely share one. On a tie the comparison returned 0, the sort fell through to whatever order the store happened to list the rows in, and which picture was `IMAGE-1` was luck. Nothing was corrupted (each row still took a distinct number from the atomic counter), but it cost the one property the order exists for: that the sequence reads the way the client filled their Library, the same way every run.
+
+The order is now `(created_at, uid)` — the uid is unique, stable, and already the store's own tiebreak on every sorted read.
+
+**Why it became a named rule.** I first tried to prove the fix through the real store and couldn't: reverting the tiebreak left the end-to-end test *green*, because that run had no tie. Probing showed three concurrent creates sometimes share a millisecond and sometimes don't — so a suite that could only reach this through a store would exercise the tiebreak or not depending on the clock, which is the same intermittent failure in a new place. So `labelOrder` is exported and asserted directly at three points: oldest-first, ties broken the same way from any starting order, and the timestamp deciding before the uid does. I checked each against a mutated rule — dropping the tiebreak reddens the second, dropping the timestamp reddens the third — so these have teeth. The end-to-end case was renamed to claim only what it can guarantee.
+
+**Tests, all foreground.** 23 REQ-280 UATs green (up from 19). Full suite: 5057 passed, 11 failed — every one environmental or another agent's in-flight work, none touching REQ-280's files: a carousel module version floor from work that landed on `xgd-working` at 18:15, a stray `.claude` directory inside `packages/framework/src/modules/` making a `readdirSync` scan throw `EISDIR`, and the known staging-dir scan artifacts (those suites pass in isolation). Typecheck clean on both projects.
+
+One note for your awareness: `xgd branch cut REQ-280` could not re-create its worktree — the sandbox denies `.git/worktrees/free-REQ-280` specifically, even though creating a differently-named directory there works. I used the sanctioned unbranched fast path (`xgd branch session start/end`) instead. If that denial persists it will block re-cutting any previously-cleaned branch name.
 
 <!-- xgd-chat-end -->
