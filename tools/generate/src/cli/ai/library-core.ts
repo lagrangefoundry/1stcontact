@@ -112,6 +112,25 @@ export interface CatalogueItem extends StoredImage {
   origin: string
   /** The sites this item's bytes are ON — [[BUG-47]]'s mark, and the point. */
   placed_on: string[]
+  /**
+   * The same placements WITH the file each landed under ([[REQ-282]]), carried
+   * here for [[REQ-285]].
+   *
+   * `placed_on` answers *is it on this site*; this answers *which file is it
+   * there*, and the per-turn page digest needs the second question answered to
+   * do its job. A page holds a site handle (`/assets/hero.png`); the client
+   * reads a Library label (`IMAGE-5`); the recorded name is the only thing that
+   * joins them, and without it the digest would have to name pictures in a
+   * spelling the client never sees — which defeats the point of there being a
+   * shared name at all ([[REQ-280]]).
+   *
+   * OPTIONAL, AND ABSENCE IS THE EMPTY LIST — the reading `placed_on` already
+   * takes. Material placed before the names were recorded has slugs there and no
+   * entry here, which reads as *placed, under no recorded name*; a digest
+   * naming that picture by its handle is exactly right, because no shared name
+   * for it exists yet.
+   */
+  placed_as?: { slug: string; name: string }[]
   source_url: string | null
   edits: unknown[]
   description_status: string | null

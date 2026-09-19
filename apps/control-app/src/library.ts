@@ -77,6 +77,11 @@ function catalogueItem(row: MaterialRow): CatalogueItem {
     exportable: row.exportable,
     origin: row.origin,
     placed_on: row.placed_on,
+    // [[REQ-285]] — the join between a site handle and the name the client
+    // reads. Taken off the row like everything else here, for the reason the
+    // note above `label` gives: a second idea of where a material went is how
+    // two records of the same placement come to disagree.
+    placed_as: row.placed_as,
     source_url: row.source_url,
     edits: row.edits,
     description_status: row.description_status,

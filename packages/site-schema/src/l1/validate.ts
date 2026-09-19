@@ -983,15 +983,49 @@ export function danglingAssetReferences(
     ? `The site has: [${[...have].sort().map((k) => `/assets/${k}`).join(', ')}].`
     : 'The site holds no assets yet.'
   const out: L1DanglingReference[] = []
-  const note = (path: string, value: string): void => {
+  for (const { path, value } of l1AssetReferences(input)) {
     const key = assetKey(value)
-    if (key === null || have.has(key)) return
+    if (key === null || have.has(key)) continue
     out.push({
       path,
       value,
       message: `${L1_STRUCTURAL_RULES.heldAssetReference}. '${value}' is not one, so it would render as a broken image. ${catalogue}`,
     })
   }
+  return out
+}
+
+/** One place a subtree names a file, with the address that reaches it. */
+export interface L1AssetReference {
+  /** The structural path, in the same form {@link danglingAssetReferences} reports. */
+  path: string
+  /** The reference exactly as written — never normalised. */
+  value: string
+}
+
+/**
+ * Every asset a subtree references, dangling or not ([[REQ-285]]).
+ *
+ * ONE WALK, TWO CONSUMERS, and the second is what made it worth extracting.
+ * {@link danglingAssetReferences} asks which of these the site does not hold;
+ * the per-turn page digest asks what a page references AT ALL, so it can name
+ * each one by the Library label the client reads. Two walks would be two ideas
+ * of where a reference can hide — and the two places it hides are exactly the
+ * non-obvious ones this function already knew about: a `slots` subtree that no
+ * L1 type describes, and a painted `backgroundImageUrl` on any node's axes.
+ *
+ * STRUCTURAL RATHER THAN TYPED, unchanged from what it was extracted out of. A
+ * behavior module's slots hold L1 the schema has no name for, and a handle that
+ * lives there is as real as one in the page's own document.
+ *
+ * IT REPORTS WHAT IS WRITTEN, not what is held: duplicates, external URLs and
+ * cache-busted spellings all come back as they appear. Deciding which of those
+ * mean anything is the caller's — {@link l1AssetKey} is the rule they share for
+ * asking, and neither caller is served by this answering a narrower question
+ * than it was asked.
+ */
+export function l1AssetReferences(input: unknown): L1AssetReference[] {
+  const out: L1AssetReference[] = []
   const walk = (v: unknown, path: string): void => {
     if (Array.isArray(v)) {
       v.forEach((item, i) => walk(item, `${path}/${i}`))
@@ -999,17 +1033,32 @@ export function danglingAssetReferences(
     }
     if (typeof v !== 'object' || v === null) return
     const node = v as Record<string, unknown>
-    if (node.kind === 'image' && typeof node.src === 'string') note(`${path}/src`, node.src)
+    if (node.kind === 'image' && typeof node.src === 'string') {
+      out.push({ path: `${path}/src`, value: node.src })
+    }
     const axes = node.axes
     if (axes !== null && typeof axes === 'object') {
       const painted = (axes as { backgroundImageUrl?: unknown }).backgroundImageUrl
-      if (typeof painted === 'string') note(`${path}/axes/backgroundImageUrl`, painted)
+      if (typeof painted === 'string') {
+        out.push({ path: `${path}/axes/backgroundImageUrl`, value: painted })
+      }
     }
     for (const [key, item] of Object.entries(node)) walk(item, `${path}/${key}`)
   }
   walk(input, '')
   return out
 }
+
+/**
+ * The site-relative name a reference resolves to, or `null` ([[REQ-285]]).
+ *
+ * EXPORTED BECAUSE THE DIGEST HAS TO ASK THE SAME QUESTION. A page holds
+ * `/assets/hero.png?v=3` and the store holds `hero.png`; a consumer matching
+ * those by string would drop the reference and report a page as referencing
+ * nothing. The rule for reconciling them is {@link assetKey}'s, and the way to
+ * keep one rule is to export it rather than to describe it.
+ */
+export const l1AssetKey = assetKey
 
 /**
  * Validate an L1 document against the schema **and** the envelope. Returns the

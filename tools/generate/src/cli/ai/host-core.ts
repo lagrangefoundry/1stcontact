@@ -87,6 +87,7 @@ import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import type { LibraryDeps } from './library-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
+import { siteDigestSource } from './digest-core'
 import { configureProjectBackends } from './backends'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
@@ -1374,7 +1375,41 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // because `Role` is frozen (DOC-22 §S) and the whole point of the providers is
   // that they see the state as it stands when the manager assembles the turn.
   const key = managerKey(slug, deps)
-  registerSiteProviders(providers, { slug, box, signal: () => signals.get(key) })
+  registerSiteProviders(providers, {
+    slug,
+    box,
+    signal: () => signals.get(key),
+    // [[REQ-285]] — THE PAGE ARRIVES WITH THE TURN. Built once per manager and
+    // read per turn, so it is created and discarded with the conversation it
+    // serves and {@link resetAiHost} clears it with everything else. What it
+    // costs on a turn that changed nothing is one `version` read; see
+    // `digest-core.ts` for why that is the key and not the change counter.
+    digest: siteDigestSource(
+      slug,
+      { ...opts, store: deps.store },
+      {
+        // THE SHARED NAME, WHERE THIS DEPLOYMENT HAS ONE ([[REQ-280]]). The
+        // client reads `IMAGE-5` on their own Library row and says it out loud;
+        // a digest naming the same picture `/assets/hero.png` would make the
+        // session translate, and translating is where it goes wrong. `null` on
+        // the `1c` CLI, which has no catalogue and no client to share a name
+        // with — the pictures are named by their handles there, which is the
+        // only name that exists.
+        labels: deps.library
+          ? async () => {
+              const named = new Map<string, string>()
+              for (const item of await deps.library!(slug).list()) {
+                if (!item.label) continue
+                for (const placed of item.placed_as ?? []) {
+                  if (placed.slug === slug) named.set(placed.name, item.label)
+                }
+              }
+              return named
+            }
+          : null,
+      },
+    ),
+  })
 
   // KM's two providers, when this host has a corpus. The seam registers and
   // returns nothing; which entries name it is the configuration's business, and

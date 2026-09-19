@@ -33,12 +33,20 @@ export {
   validateL1,
   checkPaletteRefs,
   danglingAssetReferences,
+  // [[REQ-285]] — the same walk, asked the other question: what a page
+  // references at all, so the per-turn digest can name each one.
+  l1AssetReferences,
+  l1AssetKey,
   danglingFontFamilies,
   isSafeUrl,
   L1_ENVELOPE,
   L1_STRUCTURAL_RULES,
 } from './validate'
-export type { L1DanglingReference, ValidateL1Options } from './validate'
+export type {
+  L1AssetReference,
+  L1DanglingReference,
+  ValidateL1Options,
+} from './validate'
 // REQ-93 — the slot inventory a page's behavior modules bind against.
 export { l1SlotNames, l1DocumentSlotNames, l1ControlNames } from './slots'
 // REQ-104 — the one place the renderer and the analytic evaluator agree on which

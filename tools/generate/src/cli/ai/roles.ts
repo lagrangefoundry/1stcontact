@@ -44,6 +44,7 @@
  */
 
 import primingDocument from './priming.json'
+import type { SiteDigest, DigestPage } from './digest-core'
 
 /** The AI library and the bridge are untyped JavaScript; the boundary is here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -427,6 +428,18 @@ export const SITE_CHANGES_PROVIDER = 'site.changes'
 export const CORPUS_DELTA_PROVIDER = 'corpus.delta'
 
 /**
+ * The name the [[REQ-285]] page digest is reached under.
+ *
+ * A SITE NAME AND NOT A SESSION ONE, which is why it sits with `site.line` and
+ * `site.changes` rather than with the session-memory pair below. Those are about
+ * the CONVERSATION — what was decided — and this is about the SITE — what was
+ * built. They are complements and not alternatives: a standing note that tried to
+ * track the page would be stale the moment an edit landed, and a page digest
+ * cannot record why a choice was made.
+ */
+export const PAGE_DIGEST_PROVIDER = 'site.digest'
+
+/**
  * The name the [[BUG-121]] interrupted-turn signal is reached under.
  *
  * ONE NAME FOR BOTH ROLES, unlike the manual and the framing line beside it. Those
@@ -535,13 +548,189 @@ export const TRANSCRIPT_POINTER_PROVIDER = 'session.transcript_pointer'
  */
 export function registerSiteProviders(
   providers: Untyped,
-  binding: { slug: string; box: Untyped; signal: () => TurnSignal | undefined },
+  binding: {
+    slug: string
+    box: Untyped
+    signal: () => TurnSignal | undefined
+    /**
+     * The site as it now stands, read late like the signal beside it
+     * ([[REQ-285]]).
+     *
+     * A CALLBACK AND NOT A VALUE, for the reason every binding in this file takes
+     * one: a provider must see the state as it stands when the manager assembles
+     * THIS turn, and a digest captured at build would be the site as it was when
+     * the manager was first constructed — which, on a long conversation in one
+     * isolate, is the empty one. That is precisely the staleness this entry
+     * exists to remove, so capturing it would invert the whole point.
+     *
+     * Optional, and absent is silence: a host with no digest to give renders no
+     * entry rather than a heading over nothing.
+     */
+    digest?: (() => Promise<SiteDigest | null>) | null
+  },
 ): void {
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
   providers.register(SITE_LINE_PROVIDER, async () => siteLine(binding.slug))
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
   providers.register(CORPUS_DELTA_PROVIDER, async () => binding.signal()?.delta ?? null)
   providers.register(TURN_INTERRUPTED_PROVIDER, async () => interruptedSignal(binding.signal()))
+  // [[REQ-285]] — REGISTERED EITHER WAY, and rendering `null` without a source,
+  // for the reason the memory providers below are: the configuration names this
+  // entry unconditionally, so a registry that omitted it could not load the
+  // mapping at all. A host with no digest to give renders nothing and the
+  // framework drops the entry and its separator.
+  providers.register(PAGE_DIGEST_PROVIDER, async () =>
+    binding.digest ? pageDigest(await binding.digest()) : null,
+  )
+}
+
+/**
+ * The ceiling the digest is written against ([[REQ-285]]).
+ *
+ * THE BOUND IS THE DESIGN CONSTRAINT AND NOT A SAFEGUARD ON IT. This entry is
+ * volatile: it is re-assembled and re-sent on every turn for the life of an
+ * engagement, so a digest that grew with the site would become the very problem
+ * the epic is about. Measured against what it replaces — one page map plus two
+ * element reads is already several thousand tokens — a few hundred a turn pays
+ * for itself within a handful of turns and removes a whole class of
+ * confabulation. If it could not be made small enough to win that trade it
+ * should not ship, and this number is where that judgement is recorded.
+ *
+ * CHARACTERS AND NOT TOKENS, for {@link MAX_PRIMING_CHARS}'s reason: this module
+ * has no tokeniser and acquiring one to bound a reminder would be a dependency
+ * bought for an estimate. Two thousand is on the order of five hundred tokens.
+ */
+export const MAX_DIGEST_CHARS = 2_000
+
+/**
+ * What the digest sheds as a site outgrows the ceiling, in the order it sheds it
+ * ([[REQ-285]]).
+ *
+ * DETAIL PER PAGE, NEVER A PAGE. A ten-page site lists ten pages with less about
+ * each rather than five pages in full — because a page the session is not told
+ * about is a page it will build a second time, which is a worse failure than a
+ * page it has to call `describe_page` on. The page it is working on keeps its
+ * detail longest, because that is the one the next turn is most likely about.
+ *
+ * THE FOUR RUNGS, in the order what they shed is worth least: everything; then
+ * the PICTURES on the pages nobody is working on; then the BANDS on those pages;
+ * then every page as one line.
+ *
+ * THE LAST RUNG STILL BOUNDS. A site with more pages than fit as bare lines has
+ * its list cut with a sentence saying so and naming `list_pages`, which is the
+ * cheap instrument ([[REQ-284]]) — a silent truncation would read exactly like a
+ * complete listing, and this entry's whole value is that it can be trusted.
+ */
+const DIGEST_RUNGS = ['full', 'focus-assets', 'focus-bands', 'bare'] as const
+type DigestRung = (typeof DIGEST_RUNGS)[number]
+
+/**
+ * The state line: where the counter stands, and what the public can see.
+ *
+ * THE COUNTER IS THE POINT OF THE WHOLE ENTRY. `list_changes` takes a `since`
+ * and the session had no source for one, so on the turn it needed one it
+ * produced one — `since: 120` against a true count of 76. A number it was given
+ * is a number it cannot invent.
+ */
+function digestState(digest: SiteDigest): string {
+  const publication =
+    digest.live === null
+      ? template('page-digest-never-published')
+      : digest.pending === 0
+        ? fill(template('page-digest-clean'), { live: digest.live })
+        : fill(template('page-digest-pending'), {
+            live: digest.live,
+            pending: digest.pending,
+            plural: digest.pending === 1 ? '' : 's',
+            verb: digest.pending === 1 ? 'is' : 'are',
+          })
+  return fill(template('page-digest-state'), { at: digest.counter, publication })
+}
+
+/** One page's heading — what it is called, where it is, and whether it is the live one. */
+function digestHeading(page: DigestPage, focused: boolean): string {
+  const where = page.kind === 'email' ? template('page-digest-message') : page.address
+  const marked = focused ? `, ${template('page-digest-focus')}` : ''
+  return `### ${page.id} — "${page.title}" (${where})${marked}`
+}
+
+/**
+ * One page at a given rung: its heading, then as much of it as that rung keeps.
+ *
+ * THE HEADING IS NEVER SHED — that is what "detail per page, never a page"
+ * means. Below it the two kinds of detail go in the order they are worth least:
+ * the pictures on the pages nobody is working on, then the bands on those pages,
+ * then the working page's own detail.
+ */
+function digestPage(page: DigestPage, focused: boolean, rung: DigestRung): string {
+  const bands =
+    rung === 'full' || rung === 'focus-assets' || (focused && rung === 'focus-bands')
+  const assets =
+    rung === 'full' || (focused && (rung === 'focus-assets' || rung === 'focus-bands'))
+  const lines = [digestHeading(page, focused)]
+  if (bands) for (const band of page.bands) lines.push(`- ${band.path}  ${band.label}`)
+  if (assets && page.assets.length > 0) {
+    lines.push(fill(template('page-digest-assets'), { assets: page.assets.join(', ') }))
+  }
+  return lines.join('\n')
+}
+
+/** The whole digest at one rung, with the page list cut to `keep`. */
+function digestAt(digest: SiteDigest, rung: DigestRung, keep: number): string {
+  const shown = digest.pages.slice(0, keep)
+  const parts = [template('page-digest'), digestState(digest)]
+  if (digest.pages.length === 0) {
+    parts.push(template('page-digest-no-pages'))
+  } else {
+    for (const page of shown) parts.push(digestPage(page, page.id === digest.focus, rung))
+  }
+  const more = digest.pages.length - shown.length
+  if (more > 0) {
+    parts.push(fill(template('page-digest-more'), { more, plural: more === 1 ? '' : 's' }))
+  }
+  return parts.join('\n\n')
+}
+
+/**
+ * The site as it now stands, or `null` ([[REQ-285]]).
+ *
+ * WHAT IT REPLACES IS THE MEASURE OF IT. Most of the consultant's re-reading
+ * exists because it does not trust its memory of the page across a failure — and
+ * it is right not to. This is the page arriving WITH the turn instead: the pages
+ * that exist and which one was last worked on, each page's bands in order, what
+ * each references by the name the client reads, where the counter stands, and
+ * whether anything is unpublished. None of it needs a tool call to establish, so
+ * there is nothing left for the recovery ritual to do.
+ *
+ * IT SHEDS DETAIL RATHER THAN PAGES — see {@link DIGEST_RUNGS} — and it does so
+ * by MEASURING rather than by estimating: each rung is rendered and its length
+ * taken, which is exact and costs a few string joins on a document this size.
+ * The alternative, budgeting characters per page ahead of rendering, is an
+ * arithmetic that has to be kept in step with the prose and silently is not.
+ *
+ * `null` WHEN THERE IS NOTHING TRUE TO SAY, which drops the entry and its
+ * separator. A host with no digest source is the `1c` CLI, and a `null` digest is
+ * a store that could not be read; neither is a reason to put a heading over
+ * nothing, and neither is a reason to fail the turn.
+ */
+export function pageDigest(digest: SiteDigest | null): string | null {
+  if (digest === null) return null
+  for (const rung of DIGEST_RUNGS) {
+    const rendered = digestAt(digest, rung, digest.pages.length)
+    if (rendered.length <= MAX_DIGEST_CHARS) return rendered
+  }
+  // THE LAST RUNG, CUT. Every page as one line is the floor; a site with more
+  // pages than fit even so is cut with a sentence that SAYS it was cut and names
+  // the call that completes it, because a silent truncation reads exactly like a
+  // complete listing. One page is the minimum — a digest listing none would be a
+  // heading over nothing, which is what `null` is for.
+  let keep = digest.pages.length
+  let rendered = digestAt(digest, 'bare', keep)
+  while (rendered.length > MAX_DIGEST_CHARS && keep > 1) {
+    keep -= 1
+    rendered = digestAt(digest, 'bare', keep)
+  }
+  return rendered
 }
 
 /**

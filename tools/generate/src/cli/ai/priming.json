@@ -57,8 +57,28 @@
     "knowledge base. So the note is the framework's and the log is the ledger, and the",
     "entry is bound to a provider of ours that renders both.",
     "",
+    "A THIRD VOLATILE ENTRY IS THE PAGE ITSELF ([[REQ-285]]). `site.line` names the site",
+    "and `site.changes` says how many changes landed; `site.digest` says what the site now",
+    "IS \u2014 its pages, each page's bands in order, what each references by the name the",
+    "client reads, where the change counter stands and whether anything is unpublished. A",
+    "third provider of the same kind in the same tier, no new mechanism, and after the",
+    "cache boundary so re-assembling it every turn cannot invalidate the prefix in front",
+    "of it. It is here for the reason the other two are: the failure it prevents is a",
+    "session inventing a state marker and believing it, which is exactly what produced a",
+    "`since: 120` against a true count of 76. It carries no L1 subtree, no copy and no",
+    "paint axes \u2014 those are what `get_l1` is for, and putting them here would recreate",
+    "the cost this removes.",
+    "",
+    "AND IT IS BOUNDED, WHICH IS ITS DESIGN CONSTRAINT rather than a safeguard on it. It",
+    "is re-sent on every turn, so a digest that grew with the site would become the very",
+    "problem it was written to solve. The ceiling is stated in code and what is shed first",
+    "is DETAIL PER PAGE, never a page: a ten-page site lists ten pages with less about",
+    "each rather than five pages in full, because a page a session is not told about is a",
+    "page it will build a second time.",
+    "",
     "TEMPLATES ARE PROSE TOO. Some entries cannot carry their words in an entry's `text`.",
-    "Two interpolate runtime state \u2014 which site this is, and how many changes landed;",
+    "Three interpolate runtime state \u2014 which site this is, how many changes landed, and",
+    "what the site now holds ([[REQ-285]]);",
     "two ([[REQ-284]]) are rendered on the turns that follow an interrupted one and on no",
     "others; and the session-memory ones ([[REQ-283]]) are assembled per turn out of a",
     "record that is not in this file at all. They are here instead, some with",
@@ -109,7 +129,17 @@
     "session-memory": "## Your record of this engagement\n\nWhat you have kept about this conversation, and what you and your client have settled. It is your own record \u2014 not a transcript, and not someone else's summary of you. Read it before you conclude you have lost the thread, and before you go looking at the site to work out what you already did.",
     "session-memory-note": "### Your standing note\n\nComplete, and yours to rewrite whenever the shape of the work changes.",
     "session-memory-decisions": "### What you have recorded\n\n{entries} decision{plural} in this engagement's ledger; the last {shown} follow. Earlier ones are in the ledger itself, which is this engagement's own record and is searchable \u2014 they are not lost, and re-deciding something already there in front of the same client is worse than looking it up.",
-    "memory-trigger": "Keep your record current as you work. Rewrite your standing note when the shape of the work changes \u2014 what you are doing, what is settled, what is out of scope, and what was rejected and why; it is bounded, it is delivered to you whole on every turn, and it is what survives when the recent exchanges do not, so anything you would need after losing them belongs in it. Record a decision the moment it is settled rather than saving them up, and record what lost as well as what won."
+    "memory-trigger": "Keep your record current as you work. Rewrite your standing note when the shape of the work changes \u2014 what you are doing, what is settled, what is out of scope, and what was rejected and why; it is bounded, it is delivered to you whole on every turn, and it is what survives when the recent exchanges do not, so anything you would need after losing them belongs in it. Record a decision the moment it is settled rather than saving them up, and record what lost as well as what won.",
+    "page-digest": "## The site as it stands\n\nRead off the site a moment ago, not remembered: use it instead of looking, and quote its numbers rather than any you have in mind. What it leaves out \u2014 the words on a page, how anything is laid out, how anything is painted \u2014 is what get_l1 is for, one element at a time.",
+    "page-digest-state": "The draft stands at change {at}. {publication}",
+    "page-digest-never-published": "Nothing has been published yet, so all of this is your client's private draft.",
+    "page-digest-pending": "Revision r{live} is what the public sees; {pending} file{plural} here {verb} not in it yet.",
+    "page-digest-clean": "Revision r{live} is what the public sees, and nothing here differs from it.",
+    "page-digest-focus": "last changed",
+    "page-digest-assets": "Pictures: {assets}.",
+    "page-digest-no-pages": "This site has no pages yet.",
+    "page-digest-more": "\u2026and {more} more page{plural}. Call list_pages for the rest \u2014 it is cheap.",
+    "page-digest-message": "a message your client's forms send, not a page anyone visits"
   },
   "priming": [
     {
@@ -346,6 +376,10 @@
     {
       "name": "site",
       "provider": "site.line"
+    },
+    {
+      "name": "page-digest",
+      "provider": "site.digest"
     },
     {
       "name": "no-framework-vocabulary",
