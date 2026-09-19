@@ -6,15 +6,16 @@ title: The consultant can see its own context pressure, and the recovery advice 
   making it worse
 created_by: EPIC-19
 created_at: '2026-09-19T18:55:09.022310+00:00'
-updated_at: '2026-09-19T18:55:09.022310+00:00'
+updated_at: '2026-09-19T19:02:11.636944+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
 ---
+
 
 Parent: [[EPIC-19]] (Finding 5). Small, independent of [[REQ-283]], and landable
 on its own.
@@ -31,21 +32,26 @@ The consultant's own account, from the Lagrange Foundry transcript (2026-09-19):
 >
 > Right now I am driving with no fuel gauge.
 
-## 1. Show it the gauge — which we already have
+## 1. The gauge itself is upstream — but name the cost where the choice is made
 
-lagrange-framework REQ-143 landed per-request token accounting.
-`ClaudeAPIBackend.usage(ref)` returns one record per request, and `usage.js`
-exposes `usageRecord`, `turnUsage`, `turnSpend` and `sessionUsage`. **The host
-already knows what every turn cost in input tokens, which is the context size.**
-Nothing reports it to the session.
+The occupancy figure is **lagrange-framework REQ-168 §4**, deliberately: only the
+adapter knows the input-token count it just sent and the model's window, the
+delivery mechanism (a volatile entry after the cache boundary) already exists
+there, and every adopter of a long-lived session needs it. A gauge assembled in
+this repository would be us re-deriving what the backend already holds.
 
-Deliver it where the session will act on it — the per-turn reminder is the
-natural home, since that is the tier re-delivered every invocation and the one
-that already carries the change signal. What matters is that it is a figure the
-model can budget against, not prose about being careful.
+**What IS ours is naming the cost at the point of the call.** The consultant's
+third recommendation was *"make screenshots visibly costly, or make them
+expire"* — REQ-168 does the expiring; this does the visibility:
 
-**Do not make this a tool it has to call.** A gauge you must ask for is not a
-gauge; the whole failure is that the cost is invisible at the moment of choosing.
+> If an image could be dropped from context after N turns, or if the tool said
+> what it costs, I would take a quarter as many. I have been treating looking as
+> free. **It is the most expensive thing I do.**
+
+The fidelity surface's own prose is ours to write. A session choosing between
+`list_changes` and a screenshot should be able to read, in the one line it sees at
+the moment of choosing, that one of them is roughly free and the other is not.
+That is a prose change to a declared surface, not a mechanism.
 
 ## 2. Stop steering it into the wall
 
@@ -72,11 +78,12 @@ written down.
 
 ## Why these are one ticket
 
-Both change what the session is told about its own situation, both are edits to
-prose and one small piece of plumbing, and neither needs [[REQ-283]] or the
-upstream work. Together they let a session behave well under pressure; separately
-each is half an answer — a gauge with no cheap recovery, or a cheap recovery with
-no idea when to use it.
+Both are prose on surfaces this repository owns, both are about what the session
+knows at the moment it chooses an instrument, and neither needs [[REQ-283]] or the
+upstream work to land. Together they make the cheap path visible and the expensive
+path honestly priced; separately each is half an answer — a session told what
+things cost but not what to reach for instead, or told what to reach for without
+knowing why it matters.
 
 ## Out of scope
 
