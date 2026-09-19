@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:51:42.788195+00:00'
+updated_at: '2026-09-19T19:52:55.217303+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1641,5 +1641,42 @@ Worth telling whoever has REQ-283 in flight, since it's the one decision in that
 <!-- xgd-chat role="user" ts="2026-09-19T19:51:42.380772+00:00" -->
 #### You
 It makes more sense to me that it would be in the frontmater of the chat ticket?
+
+<!-- xgd-turn id="46efe333-25a8-4a5a-beef-f2880ed9f37b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T19:52:54.433263+00:00" -->
+#### Claude
+Let me check the chat ticket's declared fields before agreeing.
+
+Yes — and it's better than either framework option. Let me record it as the decision.
+
+Agreed — and the reason it's better is the framework's *own* argument, applied to the objects this host actually has.
+
+`summary.js` splits its zones across a field and a body so that *"rewriting the frame and appending to the log are structurally different writes that cannot clobber each other."* **That property is what matters; the placement is incidental.** Since our log is already the chat ticket body, putting the frame in that ticket's frontmatter reproduces the invariant exactly — and collapses the session's whole memory into **one object**:
+
+| chat ticket | |
+|---|---|
+| `fields.frame` | standing frame — rewritten in place, bounded |
+| body | `### Decision N` entries — append-only, unbounded, **KB-indexed** |
+
+Three further advantages:
+
+1. **It removes a full comment scan.** `SummaryStore` caches comment uids precisely because *"`comments` is a full scan of the subject's comments."* `findChat` already fetches this ticket for the ledger — so the frame arrives in a read we're already doing, at zero additional per-turn cost.
+2. **CAS is already there.** `update` takes `expected_version` on the ticket, so two sessions rewriting one frame still conflict loudly — the one place the framework insisted on it.
+3. **The schema extension is the pattern already in use.** `tickets.ts:611` already spreads `chatSchemas().chat.fields` and adds this repo's own entries. A declared `frame` field is one more line in an existing list.
+
+And **keeping the frame out of the KB is correct, not a compromise.** `ticketText` indexes title and body. The ledger is the durable record and belongs in the index; the frame is a working note rewritten many times per session, and indexing it would feed the corpus a stream of churn that supersedes itself. The split falls exactly where searchability should fall.
+
+## What we give up, so it's paid deliberately
+
+We don't use `SummaryStore` at all. Three consequences now written into REQ-283:
+
+- **Its cap enforcement.** `checkFrame` raises rather than truncates, because a silently shortened frame *"loses the rejections first, which are the whole reason the zone exists."* Whatever writes `fields.frame` must keep that: **an error, never a truncation.**
+- **`MaintainSummary`'s ops** write through `SummaryStore`, so they don't apply. The frame wants a narrow verb on the **ledger** surface instead — beside `record_decision` and `name_engagement`, which is the pattern `ledger-core.ts` already argues for over generic write groups.
+- **The `session.summary` provider.** We write our own, delivering frame + recent ledger tail. That was ours under either option — and it's the piece that actually makes the memory readable, which is the write-only problem.
+
+`agent`'s `InspectContext` is unaffected — reading past turns and the work log is independent of where the frame lives.
+
+Since 283 is in flight, that last bullet is the one worth passing on quickly: the provider is the fix, the storage decision just makes it cheaper.
 
 <!-- xgd-chat-end -->
