@@ -5,56 +5,15 @@ type: bundle
 title: REQ-155 + BUG-40 + REQ-160 + BUG-41 + BUG-42 + 3 more
 created_by: xgd
 created_at: '2026-09-11T18:53:53.741845+00:00'
-updated_at: '2026-09-19T15:03:49.130526+00:00'
+updated_at: '2026-09-19T15:15:27.828041+00:00'
 completed_at: '2026-09-14T10:28:58.377424+00:00'
-last_field_updated: regression_anchor_uid
-status: ready_to_reconcile
+last_field_updated: status
+status: free_and_reconciled
 fields:
   commits:
-  - working_sha: 835230e1bd60b8c2dbd2d681962a4a9ac78abdb7
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 8b484d5832c65b1095c96a20c2fbe2c8aeeed8bf
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 6d345f3303440547e67b80441958352c27e80244
-    reconcile_sha: 4550dc55a270bd515da8cb8fc6149e281f2ba852
-    main_sha: null
-    working_sha_history: []
-  - working_sha: d019bab77200d88dd613c94e0bbaa93b300ed526
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 32366f9e2dc6205a0de9c8b07be2b1c306133828
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: eb6655c337e3b3644a59ee2c3daf6df6a423c810
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: a34527e3c793e213d159eced5dc9d13e5e55905d
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: f5807330c6481181505558bbed71cdce53c95e08
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 92e927e79f5da377f6258588a4fc7b896ec9cff9
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: d612c1aa20530e2b0c1aacea9a33a07a16fbf991
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 5c7cc72acc4de8678e746ed7dda56c49b8872e25
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 734a93bc8505fd39ec3118f814ecc3f0683cb8df
   auto_merge_back: true
   priority: medium
   skipped_commits:
@@ -71,6 +30,7 @@ fields:
   - old_sha: 53374730fa37ddba48fa2c04e33fe6814052af85
     new_sha: 58caf73f39356bdc8dd69b8b28752fc0f67a5e03
   regression_anchor_uid: report-3b8d3d7e
+  merged_at_commit: 734a93bc8505fd39ec3118f814ecc3f0683cb8df
 result: pass
 ---
 
