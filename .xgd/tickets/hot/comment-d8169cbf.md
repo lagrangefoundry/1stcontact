@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:45:20.001978+00:00'
+updated_at: '2026-09-19T21:57:30.994408+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1958,5 +1958,11 @@ On the CLI backends I said leave them proportion-less — and it isn't perverse.
 **What `claude-opus-5`'s context window actually is on this wire without a beta header.** Your `backends.json` comment asserts 1M for opus-5; their question asserts 200k for sonnet-5, reasoned from the missing header. Both can be true — different models — but whether a 1M default *needs* that header is a fact about the API, not about this code, and I can't confirm it from here.
 
 I told them not to guess: the table is only worth having if the values are right, and this is the value your only current consumer will use. Confirm each model's window against the API docs, and omit any that aren't confirmed so the honest "proportion unavailable" path carries them.
+
+<!-- xgd-turn id="a1d37714-184a-48a2-9c0a-c673fe09cb2f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T21:57:30.794410+00:00" -->
+#### You
+Pleas confirm and can you check all your child tickets I believe I am ready to resume working with the consultant
 
 <!-- xgd-chat-end -->
