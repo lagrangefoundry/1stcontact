@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-278
 created_by: xgd
 created_at: '2026-09-18T23:42:33.279743+00:00'
-updated_at: '2026-09-19T00:46:30.683711+00:00'
+updated_at: '2026-09-19T01:04:10.065315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,72 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="eaca4d44-7f74-464b-b467-4e2a165a6123-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:04:09.805111+00:00" -->
+#### Claude
+I'll re-establish the current state before doing anything.
+
+The implementation and UATs are in place from the prior session. Let me verify by running the tests.
+
+All three references are present, so the real-reference leg genuinely ran. Now let me produce the measured table for the ticket body.
+
+Now let me measure both candidates on all three references, in BUG-113's units, for the ticket table.
+
+Clean numbers. Now let me clean up scratch artifacts and run the affected suites.
+
+All green. Now the full suite.
+
+Two of the seven are mine to answer for. Let me restore and investigate.
+
+Now I'll add the two provocation cases the new rules require.
+
+BUG-48 green. Now lint and typecheck.
+
+Now let me update the ticket body with the measured results before committing.
+
+Clean. Committing the code.
+
+Now the merge lock and merge-back.
+
+Merge is clean. Re-verifying my suites against the merged tree before bumping.
+
+Now fast-forward xgd-working.
+
+Fast-forwarded. Now claiming `free_coded`.
+
+Branch landed and cleaned. Final verification on `xgd-working`:
+
+REQ-278 is complete and at `free_coded`.
+
+## What landed
+
+**A new L1 axis, `geometry.place`.** `'absolute'` (the default, so every pre-existing document is untouched) reads a keyframe's `x`/`y` as `left`/`top`. `'flow'` reads the *same* `x`/`y` as leading offsets from the flow cursor — `margin-left`/`margin-top` on a box that stays in the flow, emitted `position: relative` so it also remains the containing block for absolute descendants. The validator refuses an in-flow track that also carries a column anchor or a `viewportResponse.yFactor`; both would emit two rules for one axis.
+
+**The recovery keeps geometry instead of dropping it.** `promoteToFlow` groups colliding pinned siblings into bands, keeps members side by side in a `row` where they're horizontally disjoint and stacks them per-width where they aren't, and places each with the same keyframes read as offsets from the previous sibling's captured bottom — which reproduces the capture exactly at every sampled width.
+
+**One decision, shared by both verbs.** `chooseRecovery` prices both candidates for `1c repro` (writes the winner) and `1c l1-gate` (grades the winner), so BUG-113's invariant holds in the new direction. The rule binds in order: fidelity isn't for sale, neither are the captured widths, and only then must the envelope strictly improve.
+
+## Measured — it wins on all three references
+
+| reference | regions | on-sample | envelope | maxΔ px | residuals | unmatched |
+|---|---|---|---|---|---|---|
+| `gigabytealchemy.ai` | 5 | 0 → 0 | **287 → 118** | 0.89 → 0.89 | 0 → 0 | 0 → 0 |
+| `faelan.com` | 1 | 38 → 38 | **105 → 21** | 0.95 → 0.95 | 0 → 0 | 0 → 0 |
+| `joyfulculinarycreations.com` | 4 | 11 → 11 | **490 → 95** | 0.98 → 0.98 | 0 → 0 | 0 → 0 |
+
+Against BUG-113's cost column on `gigabytealchemy.ai`: **maxΔ 1426px → 0.89px, 318 residuals → 0, 12 unmatched → 0**. The recovery gives up nothing against the oracle, and is served on all three.
+
+Two things I want to flag rather than bury, both written into the ticket body:
+
+- **Content-robustness is not clear.** 116 findings remain on the epic's reference. This raised the ceiling; it didn't reach it.
+- **Off-sample trades slightly upward on two references** (gigabyte 0→2, joyful 18→25) in exchange for the large robustness drop. That's rule 3 working as designed — the envelope is scored as one number. What's protected separately is on-sample, and that doesn't move anywhere.
+
+## Tests
+
+8 UATs in `test_UAT_FC_REQ-278_flow_recovery_preserves_geometry.test.ts`, all through real entry points; the eighth is the leg that produced the table above. Full suite: **5011 passing, 7 failing**. Five of those seven are red on the same branch with my changes stashed (I verified by stashing), and the sixth (`req115-builder-shell`) passes in isolation and fails only under full-suite parallel load. The seventh, `BUG-48`, *was* mine — adding two structural rules broke its reference-covers-its-source contract, so I added provocations for both; it's green.
+
+Ticket is at `free_coded` with both SHAs recorded and confirmed as ancestors of `xgd-working`. Promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
