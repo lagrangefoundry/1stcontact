@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:34:51.086488+00:00'
+updated_at: '2026-09-19T20:40:43.692938+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1892,5 +1892,11 @@ ok not worth fussing over
 Agreed — 863 characters is noise against a 1M window.
 
 Where the context work stands: REQ-283, 284 and 285 have landed; LF REQ-168 is in progress and carries the note about revising 1c's "pays forever" prose when it lands. **REQ-169 (the gauge) is still in draft and unstarted** — that's the only one waiting on anything.
+
+<!-- xgd-turn id="c4aee433-f822-4958-b85f-a7a6a4cc9c7b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T20:40:43.519043+00:00" -->
+#### You
+BUG-117 (one of yours, created lf:BUG-60 it has some questions can you answer them in the ticket and breing anything you don't know to me please
 
 <!-- xgd-chat-end -->
