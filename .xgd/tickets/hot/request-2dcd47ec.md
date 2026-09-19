@@ -6,9 +6,9 @@ title: The consultant can see its own context pressure, and the recovery advice 
   making it worse
 created_by: EPIC-19
 created_at: '2026-09-19T18:55:09.022310+00:00'
-updated_at: '2026-09-19T19:45:15.025078+00:00'
+updated_at: '2026-09-19T19:45:19.539482+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.283
+  story_points: 2
 ---
 
 Parent: [[EPIC-19]] (Finding 5). Small, independent of [[REQ-283]], and landable
