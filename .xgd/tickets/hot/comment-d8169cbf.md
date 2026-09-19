@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:58:50.825676+00:00'
+updated_at: '2026-09-19T00:56:40.734739+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -827,5 +827,15 @@ I'd hedged toward sparse numbering. Checking properly, neither reason survives:
 I've recorded the fallback too — labelling with the kind over `human_id`'s existing number, sparse but exactly recoverable — so if the divergence ever proves more annoying than the density is worth, the alternative is written down rather than rediscovered.
 
 REQ-280 updated. One caution noted in it for whoever implements: the per-kind counter must stay keyed on `(tenant_id, …)`. A counter keyed on kind alone would silently break the per-tenant property, and that's the kind of thing that looks fine in dev where you're the only tenant.
+
+<!-- xgd-turn id="f5c7104a-9ab5-410b-8116-6711b731b463-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T00:56:40.394672+00:00" -->
+#### You
+Can you create a delete CTA on the asset/material detail pages.
+
+Also I see the big red error messages "Not on the site" with a warning triangle - that is nonsense a Site asset has to be a POTENTIAL asset - its not an error if I choose not to use all the photos. Perhaps assets that are used the Site asset pill is Colored with the theme accent and otherwise is gray?
+
+Can you give me two REQs please?
 
 <!-- xgd-chat-end -->
