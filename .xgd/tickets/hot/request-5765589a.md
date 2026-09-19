@@ -6,9 +6,9 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T00:58:36.186954+00:00'
+updated_at: '2026-09-19T01:06:17.158491+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-d2727e7d
 ---
+
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18:
 
@@ -101,3 +102,78 @@ cannot tell the two apart.
 **Do not treat this as cosmetic.** Recolouring while leaving the predicate meaning
 "failure" would leave a false claim in the code and in the hint text, waiting for
 the next reader.
+
+---
+
+## Part 2 — the asset selector offers the wrong set (operator, 2026-09-18)
+
+> When I open the asset selector from the editor mode on the site tab, that
+> selector ONLY shows me images that are shown in the Library as being "On the
+> site". This is wrong in two ways: the images without the error include images
+> that are not on the site, and the selector needs to show all images — I am far
+> more likely to want to select an image that is not yet used than one that is.
+
+### What the picker actually lists
+
+Not the pill, and not the Library. `edit.ts:803` builds the field's enum from
+`imageHandles(slug)`:
+
+```ts
+async function imageHandles(slug, opts) {
+  return (await listSiteAssets(slug, opts)).filter((a) => a.kind === 'image').map((a) => a.src)
+}
+```
+
+So the picker offers **the site's own assets** — bytes already copied under the
+draft's `assets/`, addressed as `/assets/<name>`. The Library is a different list
+and the picker has never read it.
+
+**That confirms the first half of the report, by a different route than expected.**
+The no-pill set and the picker set are not the same set and were never computed
+from each other: a `reference`-role image carries no pill and is not in the picker
+either. They agree only by accident, for `site`-role items, which is most of what
+a client uploads — which is exactly why the two read as one thing.
+
+So the pill is not merely mis-worded (Part 1); it is also being taken as a
+prediction of what the editor will offer, and it is not one.
+
+### The second half is the substantive change
+
+The picker should offer the catalogue, not the site's copy of it. A client
+choosing a picture for a page is choosing from *what they have*, and what they
+have is the Library — with the ones already in use marked, not the ones not yet
+used omitted.
+
+**The capability already exists; it is in the wrong place.** `promoteToSiteAsset`
+is what the Library's own **Use on site** button calls (`library.ts:13`), and
+`place_on_site` is the consultant's equivalent. The operator's workflow today is
+to leave the editor, find the item in the Library, place it, and come back to the
+picker for it to appear. This collapses that into the pick.
+
+### What the implementation has to get right
+
+1. **Place on SAVE, not on pick.** The modal is *"staged, never committed"* —
+   picking changes what `getValue()` reports and the modal's Save is the single
+   flush point. Copying bytes onto the site at pick time would leave an asset
+   behind when the client cancels. The pick stages an intent; Save performs the
+   placement and writes the resulting `/assets/<name>` handle.
+2. **An L1 `src` must stay a site-local handle.** `edit.ts:2530` composes
+   `/assets/<name>`, and a Library uid is not one. The picker's VALUE is still the
+   site handle; only its LIST widens. Nothing the write side validates changes.
+3. **Rights refusals must be visible, not silent.** `promoteToSiteAsset` refuses
+   anything not `republishable` — which is how `reference`-role and third-party
+   material is kept off a published page. Those items should appear in the picker
+   as unpickable WITH THE REASON, rather than being filtered out: a client who
+   cannot find their own photograph has been told nothing, and this is the same
+   mistake Part 1 makes in the other direction.
+4. **Mark what is already on the site**, using Part 1's vocabulary — accent for
+   placed, grey for not — so one set of words means one thing on both surfaces.
+   This is why the two parts are one ticket: they are the same confusion between
+   *what the client has* and *what the site is using*, and fixing either alone
+   leaves the other still teaching it.
+
+### Scope note
+
+Part 2 is larger than Part 1 and touches the write path. If it will not sit on one
+branch, split it — but keep the vocabulary decision (accent/grey, and the words)
+in whichever lands first, so the two surfaces never disagree in flight.
