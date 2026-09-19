@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:47:58.148589+00:00'
+updated_at: '2026-09-19T19:51:42.788195+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1635,5 +1635,11 @@ The split is structural, not conventional: a field patch merges so it never touc
 Which is exactly why REQ-171 put the engagement ledger in the chat ticket **body** instead, and why adopting `SummaryStore` wholesale would trade searchability for framework machinery. The frame half has no such conflict — nothing currently occupies a `framing` field — so the likely shape is: keep the ledger where it is, take the frame from here.
 
 Worth telling whoever has REQ-283 in flight, since it's the one decision in that ticket that's hard to reverse later.
+
+<!-- xgd-turn id="46efe333-25a8-4a5a-beef-f2880ed9f37b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T19:51:42.380772+00:00" -->
+#### You
+It makes more sense to me that it would be in the frontmater of the chat ticket?
 
 <!-- xgd-chat-end -->
