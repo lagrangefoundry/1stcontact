@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:20:10.510121+00:00'
+updated_at: '2026-09-19T01:21:07.819933+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -974,5 +974,24 @@ Updated. Three changes:
 **The vocabulary follows your word.** You said "unused", and that's better than what I had — so the pill now reads **In use** / **Unused** rather than "On the site" / "Not on the site". The old phrasing names an *absence* and reads as a deficiency: *not* on the site, where it was supposed to go. "Unused" names an ordinary condition of a catalogue. Most of a client's Library will be unused most of the time, and that's the healthy state of having given us plenty to work with. <-- can we go with my original US suggestion - TBH this is NOT a very valuable thing for the user to know I do not want to use a lot of realestate on it.
 
 Here is what I would like - there is one pill is says (Site Asset) I would like to change the color of the outline and the word depending on the state: used - color it using the theme's accent color, unused - color it gray. Please.
+
+<!-- xgd-turn id="712e1acf-f940-46e3-ba15-e9e550179e3b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:21:05.759856+00:00" -->
+#### Claude
+Understood — your design, one pill, colour only. Let me correct it.
+
+Done — your design, as you specified it:
+
+- **One pill reading "Site Asset"** in both states. The label never changes.
+- **Used** — outline and word in the theme's accent colour.
+- **Unused** — outline and word in grey.
+- No second badge, no extra row, no more space than the pill already takes.
+
+I dropped my In use / Unused invention and quoted your reasoning in the ticket, because it's the constraint an implementer needs: *"this is NOT a very valuable thing for the user to know. I do not want to use a lot of real estate on it."* That settles what weight it gets — minor ambient information gets a colour and nothing else.
+
+Also noted: `UNPLACED_LABEL` and `UNPLACED_HINT` (`library.js:170-172`) both go. One label, two colours, no second string to maintain.
+
+**One free addition, flagged as recommended rather than required.** REQ-181's accessibility argument was sound — colour alone reaches neither a screen reader nor a monochrome display. Your judgement that this is minor information does mean it can be ambient, so it doesn't overturn your design. But an `aria-label` or `title` on the pill ("Site Asset — in use" / "Site Asset — not yet used") costs **zero pixels and no layout**, and stops it being colour-only for anyone who can't use colour. The ticket says to drop it if it complicates the pill — but knowingly, rather than by omission.
 
 <!-- xgd-chat-end -->
