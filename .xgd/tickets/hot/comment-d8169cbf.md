@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:02:56.380595+00:00'
+updated_at: '2026-09-19T19:42:19.455241+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1533,5 +1533,13 @@ The evidence for it is the consultant's own `since: 120` slip, where the true co
 The seam already exists — `site.line` and `site.changes` are per-turn volatile providers; a page digest is a third of the same kind. The design constraint is that it's volatile and never cached, so it needs a stated ceiling and a drop-first rule. I wrote in the test: one page map plus two element reads is already several thousand tokens, so a digest at a few hundred per turn pays for itself within a handful of turns. If it can't be made small enough to win that trade, it shouldn't ship.
 
 **2 turns** is set in REQ-168, with the reasoning recorded: the model looks, forms a judgement, and states that judgement in its own text *in the same turn* — from the next turn the text carries the conclusion and the pixels are redundant.
+
+<!-- xgd-turn id="cc81c73f-391a-49ae-b1fd-4f32eab96e49-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T19:42:19.401413+00:00" -->
+#### You
+Sorry which state are you talking about, the turn number?
+
+Can you summarise what 283 and 284 are wiring up? This is the summary text going into the chat ticket body?
 
 <!-- xgd-chat-end -->
