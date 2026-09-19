@@ -145,6 +145,9 @@ async function frames(
 }
 
 /** A material ticket, written straight through the component, as ingestion does. */
+/** Counts the fixture's own labels — see the field in {@link writeMaterial}. */
+let labelled = 0
+
 async function writeMaterial(
   store: TicketStore,
   title: string,
@@ -163,6 +166,13 @@ async function writeMaterial(
       exportable: true,
       origin: 'uploaded',
       description_status: 'no_describer',
+      // LABELLED AT CREATION, as every material written by the product is
+      // ([[REQ-280]]). Material with no label is given one by the next listing,
+      // and that write is a change like any other — so a fixture without one
+      // would put an extra frame in front of the event each case here is about.
+      // Which of the two states this fixture models is a decision, and it should
+      // be the ordinary one.
+      label: `IMAGE-${(labelled += 1)}`,
       ...fields,
     },
   })

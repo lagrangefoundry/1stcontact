@@ -39,7 +39,7 @@ import {
   type DescribeImage,
   type Description,
 } from './describe'
-import type { IndexMaterial } from './material'
+import { nextMaterialLabel, type IndexMaterial } from './material'
 import type { Ticket, TicketStore } from './tickets'
 import {
   ASSETS_PREFIX,
@@ -213,7 +213,14 @@ export async function adoptCapture(
           type: REFERENCE_TYPE,
           title: captureTitle(capture),
           body: description.body,
-          fields,
+          // THE LABEL IS ALLOCATED ON THE CREATE AND ONLY ON THE CREATE
+          // ([[REQ-280]]). A recapture is the same capture as it is now — the
+          // title and the body move with it, deliberately — but `CAPTURE-2` is
+          // what somebody has already said out loud about it, and a name that
+          // changed under them every time the page was re-read would be the one
+          // thing a shared reference may not do. The update branch below patches
+          // `fields`, which merges, so the label it already has survives.
+          fields: { ...fields, label: await nextMaterialLabel(store, String(fields.kind)) },
         })
       ).ticket
     : (

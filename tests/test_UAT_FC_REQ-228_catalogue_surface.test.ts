@@ -92,11 +92,13 @@ function item(over: Partial<CatalogueItem> & { name: string }): CatalogueItem {
     description_status: over.description_status ?? 'ok',
     description_model: over.description_model ?? 'stub/vision-1',
     edits: [],
+    label: over.label ?? null,
     updated_at: over.updated_at ?? '2026-09-11T00:00:00Z',
   })
   return {
     ...named,
     filename,
+    label: over.label ?? null,
     kind: over.kind ?? 'image',
     role: over.role === undefined ? 'site' : over.role,
     rights: over.rights ?? 'owned',

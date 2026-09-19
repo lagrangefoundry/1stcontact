@@ -671,6 +671,13 @@ async function ingest(
     body: description.body,
     fields: {
       ...classification,
+      // THE NAME THE CLIENT AND THE CONSULTANT WILL BOTH USE ([[REQ-280]]),
+      // allocated from this kind's own sequence and written in the SAME create
+      // as the classification it is derived from. A patch afterwards would leave
+      // a window in which the Library could list a row that has no label — and
+      // the row would then only get one on a later listing, which is the
+      // catch-up path and not the ordinary one.
+      label: await nextMaterialLabel(store, classification.kind),
       // NO PLACEMENT HERE (BUG-47). Which site was open when the file arrived is
       // not where its bytes ended up, and writing it as though it were is what
       // badged a file dropped on *"just for you to read"* as being on the site.
@@ -1253,7 +1260,70 @@ export interface MaterialRow {
    * gets a third state.
    */
   edits: EditOp[]
+  /**
+   * What the client and the consultant both call this item — [[REQ-280]].
+   *
+   * `IMAGE-5`. The one string both halves of the engagement can say: the
+   * operator reads it on the Library row, the assistant reads it on the
+   * catalogue item and accepts it back as a name. See {@link labelOfMaterial}
+   * for how it is composed and `tickets.ts`'s `label` for why it is stored.
+   *
+   * `null` ON MATERIAL THAT PREDATES THE FIELD, and that is a real state rather
+   * than a defect: every Library in existence was filled before labels were.
+   * {@link listMaterial} closes it, once, on the next listing.
+   */
+  label: string | null
   updated_at: string
+}
+
+/**
+ * The prefix a label opens with, by `kind` — [[REQ-280]].
+ *
+ * ONLY THE EXCEPTION IS NAMED, and that is the point of the fallback below.
+ * `IMAGE-5`, `FONT-3` and `CAPTURE-2` are each the kind's own word in capitals,
+ * so a table restating them would be a second place to edit when [[DOC-38]] §9
+ * grows a fifth kind — and a kind that arrived before this map heard about it
+ * would otherwise have no label at all. `document` is the one kind whose word
+ * nobody would say — *"DOCUMENT-7"* is not what a person types or reads out —
+ * so it is the one entry.
+ */
+const LABEL_PREFIX: Record<string, string> = { document: 'DOC' }
+
+/** The sequence a kind's numbers come from, namespaced — see `nextCounter`. */
+function labelCounter(kind: string): string {
+  return `material:${kind}`
+}
+
+/**
+ * The label a material of this kind, holding this number, is called.
+ *
+ * THE ONE COMPOSER, so the string the counter allocates at ingest and the string
+ * the catch-up pass allocates for older material are spelled identically. Two
+ * places that each knew how to write `IMAGE-5` is how a Library ends up holding
+ * `IMAGE-5` and `Image 5`.
+ */
+export function labelOfMaterial(kind: string, n: number): string {
+  return `${LABEL_PREFIX[kind] ?? kind.toUpperCase()}-${n}`
+}
+
+/**
+ * Allocate the next label for a kind — [[REQ-280]].
+ *
+ * ATOMIC, AND PER TENANT, BECAUSE THE COUNTER IS. The store's accessor arrives
+ * already bound to one business, and `nextCounter` is a single
+ * `INSERT … ON CONFLICT … RETURNING` — so two uploads landing in the same second
+ * take two numbers, and neither can see how much material any other client
+ * holds. Both properties are the ticket's, and both are inherited rather than
+ * rebuilt: this function chooses a key and composes a string.
+ *
+ * DENSE, BY CONSTRUCTION AND NOT BY INVARIANT. A client's first picture is
+ * `IMAGE-1` and their first document is `DOC-1`, because each kind draws on its
+ * own sequence. A number allocated for a write that then fails is simply spent —
+ * a gap is a cosmetic disappointment, where a REUSED number would be two
+ * pictures answering to one name.
+ */
+export async function nextMaterialLabel(store: TicketStore, kind: string): Promise<string> {
+  return labelOfMaterial(kind, await store.accessor.nextCounter(labelCounter(kind)))
 }
 
 function rowOf(ticket: Ticket): MaterialRow {
@@ -1288,6 +1358,11 @@ function rowOf(ticket: Ticket): MaterialRow {
     // the Library, and one bad record must not be able to empty the list. The
     // refusal still happens at the write, which is where it changes an outcome.
     edits: safeRecipe(f.edits),
+    // READ AND NEVER COMPOSED HERE ([[REQ-280]]). Unlike `content_type` above,
+    // this is not a cache of something recomputable: the number came from a
+    // counter, so a row that has none has none, and the repair is an allocation
+    // rather than a resolution. {@link listMaterial} is where that happens.
+    label: str(f.label),
     updated_at: ticket.updated_at,
   }
 }
@@ -1328,15 +1403,82 @@ function safeRecipe(value: unknown): EditOp[] {
  * TWO LISTS RATHER THAN ONE PREDICATE, because `list` takes a type and the
  * predicate language is the component's rather than ours; two calls that cannot
  * be mis-spelled beat one string that can.
+ *
+ * AND IT IS WHERE OLDER MATERIAL GETS ITS LABEL ([[REQ-280]]) — see
+ * {@link labelUnlabelled} for why the one read both halves go through is the
+ * right place for that and the only one.
  */
 export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
   const pages = await Promise.all(
     MATERIAL_TYPES.map((type) => store.list({ type, limit: 'all' })),
   )
-  return pages
-    .flatMap((page) => page.tickets)
+  return (await labelUnlabelled(store, pages.flatMap((page) => page.tickets)))
     .map(rowOf)
     .sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0))
+}
+
+/**
+ * Give a label to every listed material that has none — [[REQ-280]].
+ *
+ * THE ONE-TIME CATCH-UP, AND IT IS NOT A SECOND WAY OF LABELLING. Every record
+ * born after this ticket is labelled where it is created, by
+ * {@link nextMaterialLabel}; this allocates through the same function, by the
+ * same rule, for the material that was already in a client's Library when the
+ * label was invented. That material is the whole reason the ticket exists — the
+ * three identically-titled crucibles the operator could not point at are in it.
+ *
+ * HERE, BECAUSE THIS IS THE READ BOTH HALVES GO THROUGH. The Library tab's list
+ * and the assistant's catalogue are the same call ([[REQ-228]]), so labelling
+ * here is labelling for both, once, with no third path to keep in step. A
+ * migration would have been the alternative and this product has no mechanism
+ * for one; a label that appeared only on the tab or only on the catalogue would
+ * be precisely the half-fix this ticket is about.
+ *
+ * OLDEST FIRST, so a client's earliest photograph is `IMAGE-1` and the sequence
+ * reads the way they filled the Library. Sequential rather than concurrent for
+ * the same reason: the numbers are the order.
+ *
+ * A FAILED LABEL MUST NOT COST THE LISTING. This runs on the path that draws the
+ * Library and answers the assistant, so a write that is refused — a version race
+ * with a describer landing at the same moment, a store that is momentarily
+ * unhappy — leaves the row listed exactly as it was, unlabelled, and the next
+ * listing tries again. The number it spent is simply gone: a gap is cosmetic
+ * where a reused number would be two pictures answering to one name.
+ *
+ * AFTER CONVERGENCE IT WRITES NOTHING. The common case is that every row is
+ * already labelled, which is one `filter` over a list the caller had anyway.
+ */
+async function labelUnlabelled(store: TicketStore, tickets: Ticket[]): Promise<Ticket[]> {
+  const unlabelled = tickets.filter((ticket) => {
+    const label = ticket.fields.label
+    return typeof label !== 'string' || label === ''
+  })
+  if (unlabelled.length === 0) return tickets
+
+  const labelled = new Map<string, Ticket>()
+  const oldestFirst = [...unlabelled].sort((a, b) =>
+    a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0,
+  )
+  for (const ticket of oldestFirst) {
+    try {
+      const label = await nextMaterialLabel(store, String(ticket.fields.kind ?? 'document'))
+      const { ticket: saved } = await store.update({
+        uid: ticket.uid,
+        patch: { fields: { label } },
+        // THE RACE IS DECLARED RATHER THAN WON. Without this the component
+        // re-reads and retries last-writer-wins, which here would mean a second
+        // listing running concurrently overwriting the label the first just
+        // allocated — two numbers spent and the row silently renamed under
+        // whoever already read it. Losing the race is the correct outcome: the
+        // other pass labelled the row, and this one's number is spent.
+        expected_version: ticket.version,
+      })
+      labelled.set(saved.uid, saved)
+    } catch {
+      // Listed unlabelled rather than not listed. See the note above.
+    }
+  }
+  return tickets.map((ticket) => labelled.get(ticket.uid) ?? ticket)
 }
 
 /**
@@ -1399,7 +1541,19 @@ export function storedImageOf(row: MaterialRow): StoredImage {
     title: row.title,
     // The filename is what a client says out loud about their own upload, and it
     // is what the row shows beside the title.
-    aliases: row.filename === row.title ? [] : [row.filename],
+    //
+    // AND THE LABEL, WHICH IS THE OTHER HALF OF [[REQ-280]]. A shared reference
+    // has to work in both directions: the operator reads `IMAGE-5` on their own
+    // row and says *"use IMAGE-5"*, and the assistant has to reach the picture
+    // under that spelling without translating it. An alias here is what does
+    // that, because this is the single projection from a record to a name — so
+    // `resolveStoredImage` accepts the label everywhere it accepts the uid, on
+    // the catalogue and in `screenshot` and `edit_image` alike, by construction
+    // rather than by three separate lookups.
+    aliases: [
+      ...(row.filename === row.title ? [] : [row.filename]),
+      ...(row.label ? [row.label] : []),
+    ],
   }
 }
 

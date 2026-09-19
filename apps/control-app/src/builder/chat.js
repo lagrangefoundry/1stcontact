@@ -44,6 +44,7 @@
 
 import { mountChat } from '@lagrangefoundry/webui-chat'
 import { streamChatPrompt, streamChatReattach } from './api.js'
+import { sentPrompts } from './sent-prompts.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
 // (BUG-42), so a pane mounted on its own still gets them. WAITING for them is
 // `app.js`'s job, not this file's — see the header on why this pane is synchronous.
@@ -132,7 +133,9 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  * Mount the pane.
  *
  * @param {object} [options]
- * @param {Storage} [options.storage]   per-instance draft persistence
+ * @param {Storage} [options.storage]   per-instance draft persistence, and the
+ *   submissions no transcript has accounted for yet ([[BUG-122]]) — one store,
+ *   because the second is what the first stops holding at the moment of submit
  * @param {object}  [options.transport] `{streamPrompt, streamReattach}` — injected
  *   by tests. A transport with no `streamReattach` simply never rejoins, which
  *   is what keeps every existing caller working unchanged.
@@ -249,6 +252,101 @@ export function createChatPanel(options = {}) {
   }
 
   /**
+   * A turn of this conversation that did not finish ([[BUG-121]]).
+   *
+   * THE FAILURE THIS IS FOR. The operator typed a long message, watched a reply
+   * begin, and went to look at something else. Nothing about that turn reached the
+   * transcript — not the reply, not their own words — so the conversation they came
+   * back to was byte-identical to the one they left, and the honest reading of that
+   * screen is that the assistant ignored them.
+   *
+   * TWO CASES, AND THE ORIGIN HAS ALREADY DECIDED WHICH — see `host-core.ts`'s
+   * `InterruptedTurn`. `recorded` false means this text is in no transcript and
+   * this is the only copy of it; true means the turn's records did land and what is
+   * painted above is a fragment of a reply rather than a short one.
+   *
+   * THE WORDS GO BACK IN THE COMPOSER, not just on the screen. What the operator
+   * lost that they could not reconstruct is the PROMPT — a long one, typed once —
+   * so painting it as history and leaving them to re-type it would answer the
+   * smaller half of the complaint. One keystroke from re-sent is the point.
+   *
+   * AND ONLY INTO AN EMPTY COMPOSER. `mountChat` restores its own per-conversation
+   * draft, and a draft is something the operator typed more recently than this;
+   * overwriting it to hand back an older message would lose the newer one. When
+   * there is a draft the message is still on screen to copy from.
+   */
+  function paintInterrupted(interrupted) {
+    if (!interrupted || !chat) return
+    if (interrupted.recorded) {
+      // The prompt and the fragment are both above already. What is missing is
+      // the fact that the reply stopped rather than ended.
+      note('That turn was interrupted — the reply above is not all of it. Ask again to pick it up.')
+      return
+    }
+    chat.appendMessage('user', interrupted.text)
+    note(
+      'That turn was interrupted and nothing of it was recorded — not even your message, ' +
+        'until now. It is back in the box below, ready to send again.',
+    )
+    // NOT AWAITED, like the rejoin below it: the composer's rich editor loads
+    // asynchronously and this function is part of a synchronous swap. A failure
+    // costs the restore and nothing else — the text is painted either way.
+    Promise.resolve(chat.inputReady)
+      .then(() => {
+        if ((chat?.getInputMarkdown() ?? '').trim() === '') chat?.setInputMarkdown(interrupted.text)
+      })
+      .catch(() => {})
+  }
+
+  /**
+   * Hand back everything this browser submitted that no transcript accounts for
+   * ([[BUG-122]]).
+   *
+   * THE HALF `paintInterrupted` CANNOT REACH. The origin's record is written
+   * before the model is called, so it covers every turn the origin got to start;
+   * what is left over is a submission it never heard of — a request that failed
+   * in the network or was refused, a turn whose record a later turn replaced, or
+   * a message the panel QUEUED, which this builder has no transport for and
+   * therefore drops. In all of them the composer has already deleted the draft,
+   * so the only surviving copy is the one {@link sentPrompts} kept.
+   *
+   * THE SAME TWO MOVES, FOR THE SAME REASON. The words go on screen, as the
+   * operator's, so the conversation accounts for the gap rather than denying it;
+   * and the most recent goes back in the box, because what cannot be
+   * reconstructed is the typing. Painted oldest first, so the thread reads in the
+   * order it was written.
+   *
+   * ONLY INTO AN EMPTY COMPOSER, and forgotten only once it is in one. A draft is
+   * something the operator typed more recently, so overwriting it would turn a
+   * rescue into a second loss; and the restored text is then held by the
+   * composer's OWN draft persistence, which is durable across the next reload —
+   * which is what makes dropping our copy at that moment safe rather than merely
+   * tidy. An entry that could not be restored is kept, and offered again.
+   */
+  function paintUnsent(entries, sent) {
+    if (entries.length === 0 || !chat) return
+    for (const entry of entries) chat.appendMessage('user', entry.text)
+    note(
+      entries.length === 1
+        ? 'That message is in no transcript — nothing of the turn it was sent to survived, ' +
+            'not even your words, until now. It is back in the box below, ready to send again.'
+        : `Those ${entries.length} messages are in no transcript — nothing of the turns they ` +
+            'were sent to survived, not even your words, until now. The last of them is back ' +
+            'in the box below.',
+    )
+    const latest = entries.at(-1)
+    // NOT AWAITED, exactly as above: the composer's rich editor loads
+    // asynchronously and this runs inside a synchronous swap.
+    Promise.resolve(chat.inputReady)
+      .then(() => {
+        if ((chat?.getInputMarkdown() ?? '').trim() !== '') return
+        chat.setInputMarkdown(latest.text)
+        sent.forget(latest)
+      })
+      .catch(() => {})
+  }
+
+  /**
    * Show a conversation.
    *
    * Takes an OPEN session — `{sessionId, turns, ready, error}`, exactly what
@@ -285,9 +383,13 @@ export function createChatPanel(options = {}) {
    * removes that collision; `key` stays, because this pane still may not be the
    * thing that knows what makes a conversation distinct.
    *
+   * `interrupted` is the turn that did not finish ([[BUG-121]]) — see
+   * {@link paintInterrupted}, which is where the two cases are told apart.
+   *
    * @param {{sessionId: string, turns?: {role: string, markdown: string}[],
    *          cursor?: number, live?: boolean,
-   *          ready?: boolean, error?: string} | null} session
+   *          ready?: boolean, error?: string,
+   *          interrupted?: {text: string, at: string, recorded: boolean}} | null} session
    * @param {string} [key] identity of the conversation to the caller; defaults
    *   to the session id, which is what it means where nothing wider is in scope.
    */
@@ -303,6 +405,10 @@ export function createChatPanel(options = {}) {
     if (!session) return
 
     const id = session.sessionId
+    // KEYED LIKE THE DRAFT IT TAKES OVER FROM ([[BUG-122]]) — the conversation,
+    // not the wire id, so a submission that never landed comes back under the
+    // business it was written for.
+    const sent = sentPrompts(storage, next)
     chat = mountChat(element, {
       // KEYED ON THE CONVERSATION, NOT THE WIRE ID. This is also the composer's
       // draft key, so a half-typed message stays with the business it was typed
@@ -311,8 +417,22 @@ export function createChatPanel(options = {}) {
       emptyText: EMPTY_TEXT,
       toolPane: true,
       ...(storage ? { storage } : {}),
-      sendPrompt: (text) =>
-        watchForWrites(transport.streamPrompt(id, expandPrompt(text)), told),
+      sendPrompt: (text) => {
+        const wire = expandPrompt(text)
+        // BEFORE THE REQUEST EXISTS ([[BUG-122]]). The composer deleted its draft
+        // a moment ago, on submit; this is the copy that outlives a fetch which
+        // never resolves, and it has to be written before anything can fail.
+        sent.remember(text, wire)
+        return watchForWrites(transport.streamPrompt(id, wire), told)
+      },
+      // THE OTHER TWO SUBMIT INTENTS ([[BUG-122]]). `webui-chat` routes a submit
+      // made WHILE THE ASSISTANT IS STREAMING to its queue, and this pane passes
+      // no queue transport — so that text is echoed as pending and then dropped,
+      // with the draft already gone. Remembering it is the whole of what this
+      // pane can honestly do about that today: the words are recoverable on the
+      // next load even though the turn never ran.
+      onQueue: (text) => sent.remember(text, expandPrompt(text)),
+      onInterject: (text) => sent.remember(text, expandPrompt(text)),
     })
 
     // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`
@@ -332,6 +452,11 @@ export function createChatPanel(options = {}) {
     // has every earlier conversation, and the operator is owed both the history
     // and the reason it is frozen.
     if (session.ready === false) note(session.error || 'The assistant is not available.')
+    paintInterrupted(session.interrupted)
+    // AFTER IT, AND RECONCILED AGAINST THE SAME TWO THINGS ([[BUG-122]]): the
+    // transcript just painted, and the record the origin is already handing back.
+    // A submission either of them accounts for is dropped rather than repeated.
+    paintUnsent(sent.reconcile(turns, session.interrupted), sent)
     if (!resuming) return
 
     // NOT AWAITED, and this function stays synchronous. `resume` runs for as

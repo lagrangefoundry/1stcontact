@@ -16,6 +16,13 @@ import path from 'node:path'
 // the convention `apps/control-app` already follows for the same tree.
 import { resolveStaticFile } from '../../generate/src/cli/static-file'
 import { contentTypeOf } from '../../generate/src/store/content-type'
+// REUSED, NOT RESTATED, for the same reason ([[BUG-120]] behaviour 4). The
+// sentence a bundle behind the extractor deserves is already written, once, in
+// the file that owns `CAPTURE_SCHEMA` and the axis registry — and it is the
+// sentence that goes stale the day the extractor learns an axis. A second
+// spelling of it here would be a second thing to bump.
+import { staleCaptureDetail } from '../../generate/src/cli/capture/schema'
+import type { Capture } from '../../generate/src/cli/capture/types'
 import {
   renderConsolePage,
   renderDiffPage,
@@ -56,6 +63,8 @@ import {
   type ReadTicket,
 } from './ai'
 import { readBundleProvenance } from './bundle'
+// REQ-277 — the iteration's headline pair, ordered in one place.
+import { measurementView } from './unmeasured'
 import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
 import { parseJsonOutput, spawnCommand, type CommandRunner } from './run'
@@ -267,9 +276,13 @@ export class ReproConsole {
       message: this.message,
       failed: this.failed,
       url: this.url,
-      iterations: this.iterations.map((it) => this.view(it)),
+      // REQ-277 — each iteration is viewed WITH the one above it, because its
+      // headline is a movement: "unmeasured 7" alone says nothing about whether
+      // this loop is winning, and the direction is the whole finding.
+      iterations: this.iterations.map((it, i) => this.view(it, this.iterations[i - 1])),
       stored: this.stored.map(({ name, url }) => ({ name, url })),
       held: this.heldView(),
+      ...(this.staleReference() ? { staleReference: this.staleReference() as string } : {}),
       ...(this.notice() ? { notice: this.notice() as string } : {}),
       ...(this.filingsView() ? { filings: this.filingsView() as FilingsView } : {}),
     }
@@ -303,6 +316,36 @@ export class ReproConsole {
     const filings = [...byTicket.values()]
     if (!filings.length) return null
     return { split: describeSplit(filings), groups: groupByQueue(filings) }
+  }
+
+  /**
+   * THE LOADED REFERENCE, WHEN IT IS BEHIND THE EXTRACTOR ([[BUG-120]] b4).
+   *
+   * READ FROM THE BUNDLE ON EVERY PAGE BUILD, not remembered: a re-capture
+   * overwrites the bundle in place, so a remembered answer would still be
+   * warning about a reference that has since been re-taken — which is the one
+   * moment the warning is wrong and the operator has just paid to make it wrong.
+   *
+   * It is a fact about the CHOICE, not about a round. `1c gate` already reports
+   * it as a coverage finding, but that is downstream of a press: the finding
+   * explains an iteration that has already been paid for, and this is the same
+   * sentence put where the operator decides whether to pay. Against a bundle
+   * this far back, [run again] re-measures a residual whose fix cannot reach it
+   * however many times it runs, and only [recapture] can.
+   */
+  private staleReference(): string | undefined {
+    if (this.bundleDir === undefined) return undefined
+    const file = path.join(this.bundleDir, 'capture.json')
+    if (!existsSync(file)) return undefined
+    try {
+      return staleCaptureDetail(JSON.parse(readFileSync(file, 'utf8')) as Capture) ?? undefined
+    } catch {
+      // A bundle that cannot be parsed or cannot be walked axis by axis says
+      // nothing here. The page is not the place that reports a broken bundle —
+      // the run that reads it fails loudly and says which step — and a console
+      // that refused to render over one would have hidden the history too.
+      return undefined
+    }
   }
 
   /**
@@ -386,9 +429,39 @@ export class ReproConsole {
   }
 
   /** One iteration as the page shows it, including the round beneath it. */
-  private view(it: Iteration): IterationView {
+  private view(it: Iteration, previous?: Iteration): IterationView {
     const ai = this.aiView(it)
     return {
+      /**
+       * THE TWO NUMBERS, HEADLINE FIRST ([[REQ-277]]).
+       *
+       * The seam is read from the same two facts the reference line is rendered
+       * from ([[REQ-272]] part 2): an iteration that re-captured, or one whose
+       * bundle carries a different `capturedAt` from the iteration above it —
+       * the second catches a reference re-rolled outside the console, which
+       * moves the oracle just as completely and leaves no flag behind.
+       */
+      ...(it.gate
+        ? {
+            measurement: measurementView({
+              n: it.n,
+              unmeasured: it.gate.unmeasured,
+              deltas: it.gate.valueDeltas ?? null,
+              ...(previous?.gate
+                ? {
+                    previous: {
+                      n: previous.n,
+                      unmeasured: previous.gate.unmeasured,
+                      deltas: previous.gate.valueDeltas ?? null,
+                    },
+                  }
+                : {}),
+              ...(previous && (it.recaptured === true || it.bundleCapturedAt !== previous.bundleCapturedAt)
+                ? { seam: true }
+                : {}),
+            }),
+          }
+        : {}),
       n: it.n,
       originalUrl: it.originalUrl,
       reproHref: it.reproHref,

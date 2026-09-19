@@ -9,6 +9,8 @@
  * {@link POLL_SCRIPT}.
  */
 
+import type { MeasurementView } from './unmeasured'
+
 /** One finished iteration, as the page shows it. */
 export interface IterationView {
   n: number
@@ -43,6 +45,18 @@ export interface IterationView {
    * differs is which of the round's two deliverables they came from.
    */
   extraTickets?: Array<{ href: string; label: string }>
+  /**
+   * THIS ITERATION'S TWO NUMBERS, IN THE ORDER THEY MUST BE READ ([[REQ-277]]).
+   *
+   * The unmeasured set is the headline and the delta count sits under it. The
+   * delta count is not removed — it is exact, it is the strongest evidence a
+   * ticket can carry, and it is what the round reads — it is simply no longer
+   * the thing the eye lands on first, because it can only RISE when the
+   * instrument sharpens. [[EPIC-19]] measured that inversion: [[BUG-107]] added
+   * `role` comparison and took a reproduction from 1 delta to 14 with nothing
+   * about the page having changed.
+   */
+  measurement?: MeasurementView
   /** `1c gate`'s verdict for this round, shown beside the links. */
   verdict?: string
   /** What the regression rail said this round (behavior 8). */
@@ -193,6 +207,18 @@ export interface PageState {
    * class.
    */
   filings?: FilingsView
+  /**
+   * THE LOADED REFERENCE IS BEHIND THE EXTRACTOR ([[BUG-120]] behaviour 4).
+   *
+   * `staleCaptureDetail`'s own sentence, reused rather than restated, and
+   * rendered BESIDE the two continuations rather than under the round that
+   * discovered it. It is the one fact that decides which of them is worth
+   * pressing: a refold cannot recover an axis the stored oracle never had, so
+   * against a bundle this far back [run again] re-measures a residual that may
+   * already be fixed, however many times it runs. Absent when the bundle is
+   * current, because then the choice is a free one.
+   */
+  staleReference?: string
 }
 
 /** The loop's filings, grouped by queue and then by class ([[REQ-276]]). */
@@ -312,6 +338,18 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 /* BUG-99 — the caption spans the three cells rather than becoming a fourth. */
 .triptych .region-caption { grid-column: 1 / -1; font-size: .85rem; opacity: .9; font-family: ui-monospace, monospace }
 .verdict, .rail, .ai-status, .reference { margin: .25rem 0; font-size: .9rem }
+/* REQ-277 — the headline of an iteration. Bigger than the verdict and above
+   every link, because it is the number the operator's glance has to land on:
+   the delta count under it rises whenever the instrument sharpens, and a loop
+   that reads THAT as the score reads its own improvements as regressions. */
+.measure { margin: .4rem 0 .1rem; font-size: 1.05rem }
+.measure strong { font-variant-numeric: tabular-nums }
+.measure .breakdown { font-size: .8rem; opacity: .7 }
+.measure .move { font-size: .85rem; opacity: .85 }
+.deltas { margin: .1rem 0; font-size: .85rem; opacity: .75 }
+/* The sentence that stops the pair being misread. Not dimmed: an operator who
+   has never heard of REQ-277 has to be able to read the page correctly. */
+.reading { margin: .25rem 0 .5rem; font-size: .85rem; border-left: 3px solid #8888; padding-left: .6rem }
 .reference { opacity: .7; font-size: .8rem }
 .reference .moved { opacity: 1; color: #b8860b; font-weight: 600 }
 .held { margin: 1rem 0; padding: .6rem .8rem; border: 1px solid #b8860b; border-radius: 4px; font-size: .9rem }
@@ -341,6 +379,25 @@ figure img { max-width: 100%; border: 1px solid #8884 }
 .filings .queue.ceiling { color: #1e7a3c; opacity: 1 }
 .filings ul { font-size: .85rem }
 .filings code { font-family: ui-monospace, monospace }
+/* BUG-120 — the two continuations, together and labelled.
+   The flex rule on form above is the address row's; the continuation form is
+   rows of its own, one control per row with what it does beside it. */
+.continue { margin: 1.5rem 0 }
+.continue h2 { margin: 0 0 .3rem }
+.continue form { display: block }
+.choice { display: flex; gap: .6rem; align-items: baseline; margin: .5rem 0 }
+.choice button { flex: none }
+/* What a control will do to the iteration list, in text rather than a title
+   attribute: a tooltip is invisible on a touch device and to anyone not
+   hovering, which is the wrong channel for the fact that decides whether a
+   round measures anything. */
+.effect { font-size: .85rem; opacity: .75 }
+p.restart { margin: .4rem 0 0 }
+/* The stale reference, at the point of choosing. Same bar as .notice, because
+   it is the same kind of thing — a standing condition of what is loaded — and a
+   second colour for it would be a second thing to learn. */
+.stale-reference { border-left: 3px solid #d08b18; padding: .4rem .7rem; margin: .5rem 0; font-size: .85rem }
+.stale-reference code { font-family: ui-monospace, monospace }
 pre.transcript {
   white-space: pre-wrap; max-height: 22rem; overflow: auto; margin: .5rem 0 0;
   padding: .6rem .7rem; border: 1px solid #8884; border-radius: 4px;
@@ -414,6 +471,23 @@ function renderIteration(it: IterationView): string {
       )}</button></form>\n`
     : ''
 
+  /**
+   * THE HEADLINE ([[REQ-277]] behaviours 1, 2 and 3).
+   *
+   * Above the links rather than beside the verdict, which is the whole of
+   * behaviour 2: the delta count is not removed, it is demoted. The reading
+   * sentence is rendered in full rather than as a marker, because the operator
+   * this is written for is the one who has never read [[REQ-277]] and is about
+   * to conclude that an iteration which measured more of the page got worse.
+   */
+  const measure = it.measurement
+    ? `  <p class="measure"><strong>${escapeHtml(it.measurement.headline)}</strong>` +
+      `${it.measurement.unmeasuredMove ? ` <span class="move">${escapeHtml(it.measurement.unmeasuredMove)}</span>` : ''}` +
+      `<br><span class="breakdown">${escapeHtml(it.measurement.breakdown)}</span></p>\n` +
+      `  <p class="deltas">${escapeHtml(it.measurement.deltas)}</p>\n` +
+      (it.measurement.reading ? `  <p class="reading">${escapeHtml(it.measurement.reading)}</p>\n` : '')
+    : ''
+
   const verdict = it.verdict ? `  <p class="verdict">gate: <strong>${escapeHtml(it.verdict)}</strong></p>\n` : ''
   // A <pre>, not a <p>: the rail reports one finding per line, and a paragraph
   // collapses them into one run-on sentence (REQ-256 behavior 8).
@@ -446,7 +520,7 @@ function renderIteration(it: IterationView): string {
 
   return `<section>
   <h2>Iteration ${it.n}</h2>
-  <ul>
+${measure}  <ul>
 ${links}
   </ul>
 ${reference}${verdict}${rail}${decide}${ai}</section>`
@@ -463,17 +537,49 @@ ${reference}${verdict}${rail}${decide}${ai}</section>`
 export function renderConsolePage(state: PageState): string {
   const rows = state.iterations.map(renderIteration).join('\n')
 
-  // [run again] appears only once there is something to re-run. It takes no
-  // address: [reproduce] captures and starts a new list at Iteration 1, this
-  // re-runs the site already loaded and appends the next one.
-  //
-  // `data-held` is what the poller keys on ([[REQ-272]] part 1, behaviour 3):
-  // this button advances the loop, and the loop does not advance until the
-  // operator says the implementation the last round asked for has landed.
+  /**
+   * THE TWO CONTINUATIONS, TOGETHER AND LABELLED ([[BUG-120]]).
+   *
+   * [run again] and [recapture] are the same KIND of act — both append the next
+   * iteration to the list above and neither throws it away — and the console
+   * has always known it: both carry `data-held="1"` and both go inert under the
+   * hold, while [reproduce] does not. The page used to render them at opposite
+   * ends anyway, [recapture] pinned beside the address box where position reads
+   * "start over" and [run again] alone under the history where it reads
+   * "continue". An operator arriving at a page several iterations tall saw only
+   * the top pair, read both as restarts, and never pressed the one that would
+   * have shown them which of their landed fixes had moved the numbers.
+   *
+   * So they are one group, in the place the continuation already was — under
+   * the iteration list — and what separates them is stated rather than
+   * positional: one re-folds the reference we have, the other re-rolls it.
+   *
+   * ONE FORM, TWO SUBMIT BUTTONS. The grouping is structural rather than
+   * decorative: these post to different paths because they are different verbs,
+   * and `formaction` is how one form says that — the same mechanism the address
+   * row used for [recapture] before, kept so the POST targets are untouched.
+   * The hidden address is the site already loaded, which is what the address box
+   * held when [recapture] sat in it, so the request the console receives is
+   * byte-for-byte the one it received before.
+   *
+   * `data-held` is what the poller keys on ([[REQ-272]] part 1, behaviour 3):
+   * both advance the loop, and the loop does not advance until the operator says
+   * the implementation the last round asked for has landed.
+   */
+  const inert = state.running || state.held ? ' disabled' : ''
+  const next = state.iterations.length + 1
+  const last = state.iterations.length
   const again = state.iterations.length
-    ? `<form method="post" action="/run-again"><button data-held="1"${
-        state.running || state.held ? ' disabled' : ''
-      }>run again</button></form>`
+    ? `<section class="continue">
+  <h2>continue this chain — both of these append iteration ${next}</h2>
+${
+  state.staleReference ? `  <p class="stale-reference">⚠ ${inlineCode(state.staleReference)}</p>\n` : ''
+}  <form method="post" action="/run-again">
+    <input type="hidden" name="url" value="${escapeHtml(state.url ?? '')}">
+    <p class="choice"><button data-held="1"${inert}>run again</button> <span class="effect">keeps the reference this chain already has and re-folds it — appends iteration ${next}, whose numbers are comparable with iteration ${last}'s.</span></p>
+    <p class="choice"><button data-held="1"${inert} formaction="/recapture">recapture</button> <span class="effect">re-hits the site and re-rolls the reference first — also appends iteration ${next}, but its numbers are not comparable with iteration ${last}'s and the page marks the seam.</span></p>
+  </form>
+</section>`
     : ''
 
   /**
@@ -548,12 +654,19 @@ ${state.filings.groups
 </section>\n`
     : ''
 
-  // [recapture] re-hits the site and re-rolls the oracle, which is occasionally
-  // exactly right and never what [reproduce] should quietly do — so it is its
-  // own button, offered beside the box rather than in place of anything. On the
-  // site already loaded it APPENDS the next iteration rather than starting a new
-  // list ([[REQ-272]] part 2), which is what makes "did the capture fix move the
-  // numbers" a question the page can answer.
+  /**
+   * THE RESTART, ALONE IN THE RESTART POSITION ([[BUG-120]] behaviour 2).
+   *
+   * [reproduce] is the only one of the three that can begin a list, so the
+   * address row holds it and nothing else — [recapture] used to sit here, and
+   * the company was the whole defect: a continuation rendered above the history
+   * reads as a restart, whatever its tooltip says.
+   *
+   * What it does is under it in text rather than in a `title=`, on the same
+   * terms as the two continuations: it is not one fact but two — a new address
+   * begins a list, and the address already loaded reuses the bundle on disk —
+   * and neither is guessable from the word "reproduce".
+   */
   return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>reproduction console</title><style>${STYLE}</style></head>
@@ -561,10 +674,8 @@ ${state.filings.groups
 <form method="post" action="/run">
   <input name="url" value="${escapeHtml(state.url ?? '')}" placeholder="site address" autocomplete="off" autofocus>
   <button${state.running ? ' disabled' : ''}>reproduce</button>
-  <button data-held="1"${
-    state.running || state.held ? ' disabled' : ''
-  } formaction="/recapture" title="re-hit the site and re-roll the reference — on the site already loaded this keeps the iteration chain and marks the seam">recapture</button>
 </form>
+<p class="effect restart">starts a list rather than continuing one: a new address is captured and numbered from 1, and the site already loaded reuses the capture on disk.</p>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
 ${notice}${stored}
 ${filings}

@@ -258,6 +258,86 @@ export interface ChatSession {
   ready: boolean
   /** Why, when `ready` is false. Written for an operator, not a developer. */
   error?: string
+  /**
+   * A turn of this conversation that did not finish, or absent ([[BUG-121]]).
+   *
+   * WHY THE CLIENT CANNOT WORK THIS OUT EITHER. An interrupted turn's defining
+   * property is that it left nothing behind: the transcript after it is
+   * byte-identical to the transcript before it, so silence is indistinguishable
+   * from the assistant having been asked nothing. The fact lives in the record
+   * {@link HostDeps.pending} kept BEFORE the model was called, which is the only
+   * thing that survives an isolate going away mid-turn.
+   *
+   * ABSENT IS THE ORDINARY STATE — every turn of the conversation finished — so a
+   * pane that has not been taught about this field renders exactly what it did.
+   */
+  interrupted?: InterruptedTurn
+}
+
+/**
+ * The turn that did not finish, as the panel needs it ([[BUG-121]]).
+ *
+ * `recorded` IS THE WHOLE OF WHAT THE PANEL HAS TO DECIDE BETWEEN, and the two
+ * cases are genuinely different losses:
+ *
+ *   - **false** — the turn left no trace: this prompt is in no transcript
+ *     anywhere, and this record is the ONLY surviving copy of what the client
+ *     typed. The pane owes them their words back.
+ *   - **true** — the turn's records did land ([[BUG-46]]'s drain ran) and the
+ *     reply in the transcript is a fragment of one. The words are safe; what the
+ *     client is owed is being told that what they are reading stopped early
+ *     rather than ended.
+ *
+ * Computed by comparing this record against the transcript answered alongside it,
+ * because that comparison can only be made where both are in hand.
+ */
+export interface InterruptedTurn {
+  /** What the client typed, verbatim. */
+  text: string
+  /** When the turn was opened, ISO-8601. Empty from a record written before this field. */
+  at: string
+  /** Whether the prompt reached the transcript — see above. */
+  recorded: boolean
+}
+
+/**
+ * What a session remembers about a turn that has not accounted for itself
+ * ([[BUG-121]]).
+ *
+ * `status` IS THE TURN'S OWN VERDICT WHERE IT MANAGED TO GIVE ONE. `open` means
+ * nothing closed the turn — the ordinary reading of which is that the isolate
+ * driving it went away, because a turn that ends by any route this host can see
+ * closes its record. `aborted` and `error` are the library's own outcomes,
+ * recorded by a turn that did end and did not complete.
+ */
+export interface PendingPrompt {
+  text: string
+  at: string
+  status: 'open' | 'aborted' | 'error'
+}
+
+/**
+ * Where a turn's prompt is remembered while the turn is unaccounted for
+ * ([[BUG-121]]).
+ *
+ * THE HOST OWNS THE TIMING AND NOTHING ELSE. `open` before the model is called is
+ * the whole guarantee — it is what puts the client's words on disk ahead of the
+ * first token and ahead of any tool write — and `close` when the turn ends is
+ * what distinguishes an interruption from a conversation. Where the record lives
+ * and what it is written with belongs to the runtime, exactly like
+ * {@link HostDeps.delta} beside it.
+ */
+export interface PendingPrompts {
+  /** Remember this prompt. Called before the turn's first token exists. */
+  open(sessionId: string, text: string): Promise<void>
+  /**
+   * The turn ended. `complete` forgets the record; anything else KEEPS it,
+   * carrying the outcome — which is what makes an interrupted turn visible to the
+   * next page load and to the next turn.
+   */
+  close(sessionId: string, outcome: 'complete' | 'aborted' | 'error'): Promise<void>
+  /** What this session remembers, or `null`. A pure read. */
+  read(sessionId: string): Promise<PendingPrompt | null>
 }
 
 /**
@@ -463,6 +543,23 @@ export interface HostDeps {
    * delta contributes no tokens (DOC-39 §6.4).
    */
   delta?: ((sessionId: string) => Promise<string | null>) | null
+
+  /**
+   * Where a turn's prompt is kept while the turn is unaccounted for
+   * ([[BUG-121]]).
+   *
+   * A SEAM FOR {@link HostDeps.delta}'s REASON, and it is the same store: a write
+   * to a `chat` ticket, over a ticket type this file knows nothing about. What is
+   * decided HERE is the only part that matters — that the record is written
+   * BEFORE `promptStream`, so the client's words are durable ahead of the first
+   * token and ahead of anything a tool does to their site.
+   *
+   * ABSENT IS ORDINARY, and it is the `1c` CLI: a local builder has no ticket
+   * store, and a host with nowhere to keep the record simply does not keep one
+   * rather than failing a turn over a safety net. The same shape `ledger` and
+   * `library` already have.
+   */
+  pending?: PendingPrompts | null
 
   /** Operations only the host's runtime can implement (`add_asset`, `publish`). */
   extraOps?: Partial<L1Operations>
@@ -1244,6 +1341,9 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
   registerSettingsProviders(providers, {
     box,
     name: async () => (await settings.deps.read())?.name ?? null,
+    // Under the settings manager's own key, so the conversation's signal and the
+    // conversation are created and discarded together ([[BUG-121]]).
+    signal: () => signals.get(businessManagerKey(businessId, deps)),
   })
 
   return new lib.SessionManager({ [SETTINGS_ROLE]: settingsRole(lib, providers) }, deps.archive, {
@@ -1357,6 +1457,113 @@ async function attach(
   }
 }
 
+/** What became of a turn, as {@link PendingPrompts.close} takes it ([[BUG-121]]). */
+type TurnOutcome = 'complete' | 'aborted' | 'error'
+
+/**
+ * What the library's terminal event says became of the turn ([[BUG-121]]).
+ *
+ * A QUEUED TURN IS REPORTED COMPLETE, and it is the one case that reads oddly:
+ * nothing ran, so nothing was interrupted. The text is a control record on the
+ * junction and whoever holds the session will drain it, so keeping a record of it
+ * would offer the client a re-send of a message that is still going to be
+ * answered — a duplicate rather than a rescue.
+ *
+ * A TERMINAL EVENT WITH NO STATUS IS COMPLETE TOO. The library stamps one on
+ * every real turn; reading its absence as an interruption would mark ordinary
+ * turns on the day it stops, which is the failure direction that costs the
+ * client trust in the notice.
+ */
+function turnOutcome(meta?: Record<string, unknown>): TurnOutcome {
+  if (meta?.queued === true) return 'complete'
+  const status = typeof meta?.status === 'string' ? meta.status : ''
+  if (status === '' || status === 'complete') return 'complete'
+  return status === 'error' ? 'error' : 'aborted'
+}
+
+/**
+ * What the previous turn left unaccounted for, or `null` ([[BUG-121]]).
+ *
+ * NEVER THROWS, like both calls below it. This is a safety net, and a net that
+ * fails the turn it was there to protect has made things worse than having none:
+ * every one of these is a ticket-store round trip, and a store that cannot answer
+ * must cost the conversation a notice rather than the turn.
+ */
+async function previousTurn(deps: HostDeps, sessionId: string): Promise<PendingPrompt | null> {
+  if (!deps.pending) return null
+  try {
+    return await deps.pending.read(sessionId)
+  } catch {
+    return null
+  }
+}
+
+/** Remember this turn's prompt, before the model is called ([[BUG-121]]). */
+async function openPending(deps: HostDeps, sessionId: string, text: string): Promise<void> {
+  if (!deps.pending) return
+  try {
+    await deps.pending.open(sessionId, text)
+  } catch {
+    // See {@link previousTurn}.
+  }
+}
+
+/** Record what became of the turn ([[BUG-121]]). */
+async function closePending(
+  deps: HostDeps,
+  sessionId: string,
+  outcome: TurnOutcome,
+): Promise<void> {
+  if (!deps.pending) return
+  try {
+    await deps.pending.close(sessionId, outcome)
+  } catch {
+    // See {@link previousTurn}. This one runs in a `finally`, so a throw here
+    // would also REPLACE whatever error the turn was already carrying.
+  }
+}
+
+/**
+ * The turn of this conversation that did not finish, or `null` ([[BUG-121]]).
+ *
+ * THE RECONCILIATION, and it is why this is computed where the transcript is
+ * already in hand. The record is advisory and the transcript is authoritative, so
+ * whether the client's words survived is decided by looking for them: the last
+ * user turn of what is about to be painted, against what the record kept. A match
+ * means the turn's records landed and only the reply is a fragment; no match means
+ * this record is the only copy of the prompt in existence.
+ *
+ * A LIVE TURN IS NOT AN INTERRUPTED ONE. `live` says a turn is open at the cursor
+ * this fold stopped at — the panel is about to reattach to it — so reporting it
+ * would be telling the operator that the reply arriving in front of them was
+ * lost. That check is the only thing that keeps this quiet during an ordinary
+ * reload mid-turn.
+ *
+ * WHAT IT CANNOT SEE, stated because it decides the one false positive left. A
+ * turn being driven by ANOTHER isolate is invisible here — the junction is RAM,
+ * so `live` is false and the transcript has nothing — and it is reported as
+ * interrupted even though it may yet finish. The client is then shown their own
+ * words back and told the turn did not survive, which is what this host can
+ * honestly say from where it is standing; a shared junction is what would let it
+ * say better ([[EPIC-19]] Finding 4).
+ */
+async function interruptedTurn(
+  deps: HostDeps,
+  sessionId: string,
+  turns: ChatTurn[],
+  live: boolean,
+): Promise<InterruptedTurn | null> {
+  const pending = await previousTurn(deps, sessionId)
+  if (pending === null) return null
+  if (live && pending.status === 'open') return null
+  const asked = turns.filter((turn) => turn.role === 'user').at(-1)
+  return {
+    text: pending.text,
+    at: pending.at,
+    recorded: (asked?.markdown ?? '').trim() === pending.text.trim(),
+  }
+}
+
 /** How a backend failure should read to an operator who is not a developer. */
 function operatorMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err)
@@ -1411,12 +1618,18 @@ export async function openSession(
   const turns = read?.turns ?? []
   const cursor = read?.cursor ?? 0
   const live = read?.live ?? false
+  // BESIDE THE TRANSCRIPT, NEVER INSTEAD OF IT ([[BUG-121]]). A turn that did not
+  // finish is reported alongside the conversation it belongs to and reconciled
+  // against it — see {@link interruptedTurn}, which is also why this is read here
+  // rather than by the route.
+  const cut = await interruptedTurn(deps, sessionId, turns, live)
+  const lost = cut ? { interrupted: cut } : {}
   try {
     await attach(manager, sessionId, CONSULTANT_ROLE, siteBackendName(slug))
   } catch (err) {
-    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err) }
+    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err), ...lost }
   }
-  return { sessionId, turns, cursor, live, ready: true }
+  return { sessionId, turns, cursor, live, ready: true, ...lost }
 }
 
 /**
@@ -1463,12 +1676,19 @@ export async function openBusinessSession(
   const turns = read?.turns ?? []
   const cursor = read?.cursor ?? 0
   const live = read?.live ?? false
+  // THE SETTINGS CONVERSATION LOSES A TURN THE SAME WAY ([[BUG-121]]): the
+  // customer closes the tab mid-rename, and the words they typed are on the same
+  // junction in the same RAM. Reported identically, for the reason `tailSession`
+  // gives — a reload during a turn is a reload during a turn whatever it was
+  // about.
+  const cut = await interruptedTurn(deps, sessionId, turns, live)
+  const lost = cut ? { interrupted: cut } : {}
   try {
     await attach(manager, sessionId, SETTINGS_ROLE, businessBackendName(businessId))
   } catch (err) {
-    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err) }
+    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err), ...lost }
   }
-  return { sessionId, turns, cursor, live, ready: true }
+  return { sessionId, turns, cursor, live, ready: true, ...lost }
 }
 
 /**
@@ -1523,39 +1743,59 @@ export async function* streamPrompt(
      * assistant works, rather than once when it stops talking.
      */
     const key = businessManagerKey(business, deps)
+    // [[BUG-121]] — read BEFORE this turn's own record replaces it, so what it
+    // reports is the PREVIOUS turn's fate. A surviving record means that turn
+    // never closed cleanly, because a turn that completes forgets it.
+    signals.set(key, { interrupted: (await previousTurn(deps, sessionId)) !== null })
+    // AND BEFORE THE MODEL. This is the whole of the guarantee: the customer's
+    // words are on disk before the first token exists and before any tool can
+    // change their business.
+    await openPending(deps, sessionId, text)
+    let outcome: TurnOutcome = 'aborted'
     let seen = businessWrites.get(key) ?? 0
-    for await (const event of settingsManager.promptStream(sessionId, text)) {
-      yield withoutImageData(event)
-      // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
-      // write — and a Map read rather than the site half's store round trip, so
-      // a turn that only answers a question costs nothing at all.
-      if (event.kind !== TOOL_ACTIVITY) continue
-      /**
-       * THE CARDS FIRST ([[REQ-260]]), and the order is deliberate: the change to
-       * the client's DNS has already landed, so the notice about it belongs in
-       * the conversation at the point it happened rather than after whatever the
-       * pane does about it.
-       *
-       * ONE EVENT PER CHANGE, drained rather than counted, so six changes are six
-       * cards. A turn that made none drains an empty queue and costs one Map
-       * read.
-       */
-      const cards = businessDnsChanges.get(key)
-      if (cards && cards.length > 0) {
-        businessDnsChanges.set(key, [])
-        for (const card of cards) {
-          yield {
-            kind: DNS_CHANGED,
-            content: card.summary,
-            meta: { change: card.id, summary: card.summary, settles_by: card.settlesBy },
+    try {
+      for await (const event of settingsManager.promptStream(sessionId, text)) {
+        yield withoutImageData(event)
+        if (event.kind === DONE) outcome = turnOutcome(event.meta)
+        // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
+        // write — and a Map read rather than the site half's store round trip, so
+        // a turn that only answers a question costs nothing at all.
+        if (event.kind !== TOOL_ACTIVITY) continue
+        /**
+         * THE CARDS FIRST ([[REQ-260]]), and the order is deliberate: the change to
+         * the client's DNS has already landed, so the notice about it belongs in
+         * the conversation at the point it happened rather than after whatever the
+         * pane does about it.
+         *
+         * ONE EVENT PER CHANGE, drained rather than counted, so six changes are six
+         * cards. A turn that made none drains an empty queue and costs one Map
+         * read.
+         */
+        const cards = businessDnsChanges.get(key)
+        if (cards && cards.length > 0) {
+          businessDnsChanges.set(key, [])
+          for (const card of cards) {
+            yield {
+              kind: DNS_CHANGED,
+              content: card.summary,
+              meta: { change: card.id, summary: card.summary, settles_by: card.settlesBy },
+            }
           }
         }
+        const now = businessWrites.get(key) ?? 0
+        if (now <= seen) continue
+        const changes = now - seen
+        seen = now
+        yield { kind: BUSINESS_CHANGED, content: '', meta: { at: now, changes } }
       }
-      const now = businessWrites.get(key) ?? 0
-      if (now <= seen) continue
-      const changes = now - seen
-      seen = now
-      yield { kind: BUSINESS_CHANGED, content: '', meta: { at: now, changes } }
+    } catch (err) {
+      outcome = 'error'
+      throw err
+    } finally {
+      // IN A `finally`, so the one exit that matters reaches it: a consumer that
+      // walks away mid-turn returns the generator, which runs this and never
+      // `catch`. That is the interruption this ticket is about ([[BUG-121]]).
+      await closePending(deps, sessionId, outcome)
     }
     return
   }
@@ -1590,10 +1830,26 @@ export async function* streamPrompt(
   // assembles the turn's system channel, which is the same moment the old
   // `role.reminder` read happened.
   const delta = deps.delta ? await deps.delta(sessionId) : null
+  // [[BUG-121]] — the third signal, and the only one about the CONVERSATION
+  // rather than about the world. Read BEFORE this turn's own record replaces it,
+  // so what it reports is the previous turn's fate: a surviving record means that
+  // turn never closed cleanly, because a turn that completes forgets it.
+  const interrupted = (await previousTurn(deps, sessionId)) !== null
   signals.set(key, {
     since: before === undefined ? undefined : { at: before, changes: at - before },
     delta,
+    interrupted,
   })
+
+  // BEFORE THE MODEL, AND THAT IS THE WHOLE OF THE GUARANTEE ([[BUG-121]]). An
+  // in-flight turn is durable nowhere — the junction is RAM and the archive lags
+  // by a whole open turn on purpose — so this is the point at which the client's
+  // words stop being recoverable only from the isolate that happens to be
+  // holding them. It is deliberately ahead of any tool write: what the client
+  // asked for can never again be the half that is missing while the work it
+  // caused survives.
+  await openPending(deps, sessionId, text)
+  let outcome: TurnOutcome = 'aborted'
 
   // BUG-43 — the counter as it stands right now, carried down the loop below so
   // each write is compared against the one before it rather than against the
@@ -1602,6 +1858,11 @@ export async function* streamPrompt(
   try {
     for await (const event of manager.promptStream(sessionId, text)) {
       yield withoutImageData(event)
+      // WHAT BECAME OF THE TURN, taken off the library's terminal event
+      // ([[BUG-121]]). Seeing no terminal event at all is itself the answer —
+      // `outcome` starts at `aborted` — because the consumer walking away is
+      // exactly how a turn ends without one.
+      if (event.kind === DONE) outcome = turnOutcome(event.meta)
       // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
       // write. A turn that answers a question makes no extra read at all, and a
       // turn that writes makes one primary-key lookup per call it made.
@@ -1612,11 +1873,20 @@ export async function* streamPrompt(
       seen = now
       yield { kind: SITE_CHANGED, content: '', meta: { at: now, changes } }
     }
+  } catch (err) {
+    outcome = 'error'
+    throw err
   } finally {
     // AFTER the turn, and in a `finally` so an abandoned turn does not leave the
     // baseline behind: the assistant's own writes have landed by now, so they
     // are absorbed rather than reported back to it next turn.
     baselines.set(key, await store.counter(slug))
+    // AND THE TURN'S OWN VERDICT, in the same `finally` and for a sharper
+    // version of the same reason ([[BUG-121]]). A consumer that walks away
+    // mid-turn returns this generator, which runs this block and never reaches
+    // `catch` — so this is the one place that can tell an interruption from a
+    // conversation.
+    await closePending(deps, sessionId, outcome)
   }
 }
 

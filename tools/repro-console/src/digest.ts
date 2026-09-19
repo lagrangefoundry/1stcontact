@@ -33,6 +33,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { provenanceOf } from './bundle'
+// REQ-277 — the one definition of the unmeasured set.
+import { breakdownOf, headlineOf, unmeasuredOf } from './unmeasured'
 
 /** Where the digest is written, inside the round's own directory. */
 export const DIGEST_FILE = 'evidence-digest.md'
@@ -233,6 +235,34 @@ function referenceSection(input: DigestInput): string[] {
   return out
 }
 
+/**
+ * THE UNMEASURED SET, ABOVE THE DELTA COUNT ([[REQ-277]] behaviours 1 and 5).
+ *
+ * Above it in the digest for the same reason it is above it on the page: the
+ * delta count only counts comparisons that HAPPENED, so it rises whenever the
+ * instrument learns to see something new. A round that reads the delta count as
+ * its score will avoid adding an axis, which is exactly backwards — and the
+ * console has both numbers already, so the ordering is free.
+ *
+ * Computed by the same {@link unmeasuredOf} the page and the prompt use, so
+ * three surfaces cannot quote three totals.
+ */
+function unmeasuredSection(input: DigestInput): string[] {
+  const set = unmeasuredOf(input.gate)
+  const deltas = (input.gate as { values?: { deltas?: unknown } })?.values?.deltas
+  return [
+    `## ${headlineOf(set)} — what this run did not compare (\`gate.json\`)`,
+    '',
+    breakdownOf(set),
+    '',
+    `**This is the number to drive down.** \`values.deltas\` is ${String(deltas ?? '?')}, and it counts what the gate DID`,
+    'compare — so it rises when an axis the instrument used to skip becomes measurable. A delta count that',
+    'goes up while this number goes down is the instrument sharpening, and it is progress. Do not avoid',
+    'naming a gap because closing it would add deltas.',
+    '',
+  ]
+}
+
 export function buildDigest(input: DigestInput): string {
   const out: string[] = [
     `# Derived facts — iteration ${input.n}`,
@@ -245,6 +275,9 @@ export function buildDigest(input: DigestInput): string {
 
   // ── the reference's own provenance ─────────────────────────────────────────
   out.push(...referenceSection(input))
+
+  // ── what this run did NOT measure ──────────────────────────────────────────
+  out.push(...unmeasuredSection(input))
 
   // ── value deltas ───────────────────────────────────────────────────────────
   const deltas = ((input.valuesDiff as { deltas?: unknown })?.deltas ?? []) as Array<Record<string, unknown>>

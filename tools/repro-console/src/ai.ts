@@ -51,6 +51,10 @@ import type { GapEntry } from './gaps'
 import { INDEX_FILE, type SessionKbResult } from './session-kb'
 import { ROUND_CREATED_BY } from './ticket'
 import type { RailRoundResult } from './rail-round'
+// REQ-277 — one definition of the unmeasured set, shared by every surface that
+// shows it. The console must never have two answers to "how much did this run
+// not measure".
+import { breakdownOf, headlineOf, unmeasuredOf, type UnmeasuredSet } from './unmeasured'
 
 /** How a round ended. `running` is the console's, never the AI's. */
 export type AiStatus = 'running' | 'filed' | 'appended' | 'no-gap' | 'stopped' | 'failed'
@@ -190,6 +194,17 @@ export interface GateSummary {
    * same as being in the round's hands.
    */
   coverageFindings?: { kind: string; detail: string }[]
+  /**
+   * REQ-277 — what this run did NOT measure, as one number plus its breakdown.
+   *
+   * Beside `valueDeltas` and, on every surface that shows the pair, ABOVE it.
+   * The delta count can only rise when the instrument sharpens, so a loop that
+   * reads it as a score reads a pure improvement as a 14× regression — which is
+   * what [[EPIC-19]] found it doing. This is the quantity that moves the right
+   * way, and it is carried here so the page, the digest and the prompt all take
+   * it from one place.
+   */
+  unmeasured: UnmeasuredSet
 }
 
 /** The verdict that means the reference is wrong, not the engine (behavior 7). */
@@ -229,6 +244,11 @@ export function readGateReport(file: string): GateSummary | null {
       coverageFindings: (report.coverage?.findings ?? [])
         .filter((f): f is { kind: string; detail: string } => typeof f?.kind === 'string' && typeof f?.detail === 'string')
         .map((f) => ({ kind: f.kind, detail: f.detail })),
+      // REQ-277 — derived from the WHOLE report rather than from the fields
+      // picked out above, because the parts of the unmeasured set are spread
+      // across `values` and a second hand-maintained pick list here would be
+      // the next place a quantity goes silently missing.
+      unmeasured: unmeasuredOf(report),
     }
   } catch {
     return null
@@ -368,7 +388,18 @@ export function buildPrompt(brief: string, ctx: RoundContext): string {
     ? [
         `- verdict: **${ctx.gate.verdict}**${ctx.gate.pass ? ' (pass)' : ''}`,
         `- perceptual: mean ${ctx.gate.meanDiff ?? '?'}/255 · ${ctx.gate.pctOverThreshold ?? '?'}% of pixels over threshold · ${ctx.gate.regions ?? '?'} region(s)`,
-        `- values-diff: ${ctx.gate.valueDeltas ?? '?'} delta(s)`,
+        /**
+         * THE UNMEASURED SET, ABOVE THE DELTA COUNT ([[REQ-277]] behaviour 5).
+         *
+         * Order is the whole point. A round optimising for fewer deltas will
+         * avoid adding an axis, which is exactly backwards: every axis the
+         * instrument gains can only RAISE the delta count, and [[EPIC-19]]
+         * measured that inversion at 1 delta → 14 on a pure improvement. So the
+         * number the round is asked to drive is named first, and the sentence
+         * under the pair says what a rise in the second one means.
+         */
+        `- **${headlineOf(ctx.gate.unmeasured)}** — ${breakdownOf(ctx.gate.unmeasured)}. **This is the number to drive down.**`,
+        `- values-diff: ${ctx.gate.valueDeltas ?? '?'} delta(s) — a count of what the gate DID compare, so it rises when the instrument sharpens. It is not a score.`,
         ...(ctx.gate.unreferencedImages?.length
           ? [`- mirrored images no manifest element references: ${ctx.gate.unreferencedImages.join(', ')}`]
           : []),
