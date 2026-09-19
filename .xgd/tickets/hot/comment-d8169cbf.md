@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T17:42:28.800109+00:00'
+updated_at: '2026-09-19T17:43:56.216997+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1119,5 +1119,65 @@ Want me to file Finding 5? I'd suggest two tickets — in-flight redaction plus 
 ok so I think the second problem is largely resolved now that the library has identifiers - when i asked for IMAGE-9, I got image -9
 
 Lets focus on the context problem, it is existential. Can you remind me how we manage context with the chat framework components for a API model call like this?
+
+<!-- xgd-turn id="40d1a862-05e6-448e-8feb-44491c47b4a1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T17:43:56.161247+00:00" -->
+#### Claude
+Here's the whole mechanism, end to end.
+
+## What one API request carries
+
+1. **`system`** — the assembled priming. Bounded by `maxPrimingChars` = 140,000, described as *"roughly 70% of a 200k window"*. You run Opus 5 at 1M, so priming is not where the pressure is.
+2. **`messages`** — the conversation.
+3. **`tools`** — the projected schemas.
+4. **The reminder** — appended to the *last user message* by `turnTail` (REQ-144, so the cache prefix stays stable).
+
+## How `messages` gets populated — two paths, one bounded
+
+**Cold start** (no in-memory state for this backend ref):
+
+```js
+seedDialogue(state, window, BASE_MESSAGES)
+```
+
+The window is `DEFAULT_WINDOW_TURNS = 40` user/assistant **pairs**, each capped at `turnMaxBytes`, computed by `window()` in `transcript.js` from `session.turns` — that is, **from the durable record, where images are already `[image: …, fp:…]` placeholders**.
+
+**Warm** (state exists for that ref):
+
+```js
+state.messages.push({ role: 'user', content: toAnthropicContent(checked) })
+```
+
+…and the whole array goes over the wire. No window. No cap. No compaction.
+
+## And compaction doesn't exist on this path
+
+The manager says *"the one mechanism left is compaction, and it is the backend's rather than ours: a backend that keeps its own conversation reports how full it is in tokens and can be asked to compact semantically."*
+
+`compaction: true` is declared by exactly two backends — `claude_code.js` and `claude_code_interactive.js`. `ClaudeAPIBackend` declares `streaming, interrupt, vision, promptCache`, and contains **zero** occurrences of `compact` or `occupancy`.
+
+So that sentence is true of the CLI adapters and **vacuous for the API one**. The API backend is the thing keeping the conversation, and it's the one with no mechanism for cutting it.
+
+## The conclusion, which I think is the existential part
+
+**"Context is constant, not grown-then-cut" (REQ-126) is a property of the *seed*, not of the live conversation.**
+
+The window bounds what a conversation **starts with**. Nothing bounds what it **becomes**. On the API path a warm conversation is precisely grown-and-never-cut — and the only thing that ever trims it is an isolate eviction, which is invisible, unpredictable, and drops *everything* at once rather than the oldest things first.
+
+That's also why this isn't really an images problem. Images are the heaviest thing flowing through an unbounded channel, but every tool result does the same — and the consultant's report mentioned reading whole page subtrees repeatedly, which is the same leak in cheaper units.
+
+## The encouraging part
+
+Both seams you need already exist and are in production use:
+
+- **`window()`** bounds a turn list to N pairs with a per-turn byte cap.
+- **`redactContent()`** replaces image bytes with a fingerprinted placeholder.
+
+They're applied on the cold-start path. Applying them to `state.messages` in flight is **reuse of tested machinery, not new invention** — and it makes warm behaviour match the behaviour the design already chose for a rebuild, which removes the isolate-lifetime dependency entirely.
+
+The fingerprint matters for the doom loop specifically: a model that sees `[image: image/png, 48231 bytes, fp:1a2b3c4d]` knows it already looked and at what. A model that sees nothing goes and looks again.
+
+Recorded in EPIC-19 Finding 5. Shall I file it — one ticket for in-flight windowing and redaction, given they're the same change to the same array?
 
 <!-- xgd-chat-end -->
