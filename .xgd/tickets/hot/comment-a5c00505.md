@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-278
 created_by: xgd
 created_at: '2026-09-18T23:42:33.279743+00:00'
-updated_at: '2026-09-19T00:14:03.454802+00:00'
+updated_at: '2026-09-19T00:15:27.591139+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,14 @@ The recovery is now fidelity-free. Let me wire the serving decision:
 Now `1c repro` — serve the winner:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="798dae42-f009-47bd-a974-386b4611d795-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T00:15:26.620819+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
