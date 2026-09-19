@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:01:51.316415+00:00'
+updated_at: '2026-09-19T20:15:14.715765+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1763,5 +1763,11 @@ Two things from the dev session's investigation made it into the ticket that wer
 And I kept the two properties that decide whether it's useful at all: it must **arrive unasked** (a gauge you have to call for isn't a gauge), and it must be **a figure, not an adjective** — "you are at 340k of 1M" changes what a session does next; "be careful" doesn't.
 
 I've also saved your preference to memory, so I stop reaching for the split by default. The rule I've written for myself: propose one ticket and name the tension inside it; split only when an item genuinely can't land in the same branch — a different repo, or a dependency that would block the rest — and say which.
+
+<!-- xgd-turn id="a359764f-4fd5-4a7a-9614-81e64f3d667a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T20:15:14.104928+00:00" -->
+#### You
+Can you review 284 (landed) and 283 (landed but under discussion)
 
 <!-- xgd-chat-end -->
