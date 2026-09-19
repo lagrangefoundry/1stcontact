@@ -6,9 +6,9 @@ title: 'The page arrives with the turn: an authoritative, bounded state digest s
   the consultant never has to go and look'
 created_by: EPIC-19
 created_at: '2026-09-19T19:02:33.177544+00:00'
-updated_at: '2026-09-19T20:17:58.369514+00:00'
+updated_at: '2026-09-19T20:18:04.175403+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -26,6 +26,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.287
+  story_points: 6
 ---
 
 Parent: [[EPIC-19]] (Finding 5). The fourth of the consultant's own
