@@ -64,6 +64,18 @@ function recordingStore() {
       void a
       return { comment: ticket('comment-1') }
     },
+    // THE CATALOGUE LABEL'S SEQUENCE ([[REQ-280]]). Ingestion allocates one per
+    // created material, so a recorder that could not answer this would be
+    // recording a pipeline that cannot run — counted here, for the same reason
+    // everything else on this double is counted.
+    accessor: {
+      counters: new Map<string, number>(),
+      async nextCounter(type: string) {
+        const next = (this.counters.get(type) ?? 0) + 1
+        this.counters.set(type, next)
+        return next
+      },
+    },
   } as unknown as TicketStore
   return { store, created, attached }
 }

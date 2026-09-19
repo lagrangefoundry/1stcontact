@@ -195,6 +195,13 @@ const ROLE_ID = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.label, a.id]))
  * for the one row that was never inferred ([[REQ-213]], see `roleIsTheirs`).
  */
 const RIGHTS_FIELDS = [
+  // WHAT TO CALL IT WHEN YOU TALK ABOUT IT ([[REQ-280]]). First, because it is
+  // the answer to the question somebody opened this pane to ask — *which one is
+  // this?* — and because it is the one field here the client will read out to
+  // somebody else. Read-only like the rest of the block: it is allocated once,
+  // from the client's own sequence, and a number they could edit would stop
+  // being a reference the moment they did.
+  { name: 'label', label: 'Refer to it as' },
   { name: 'filename', label: 'File' },
   { name: 'kind', label: 'Kind' },
   // AN ENUM RATHER THAN A STRING, AND THAT IS THE WHOLE OF THE CONTROL. The
@@ -503,7 +510,12 @@ export function createLibraryPanel(options = {}) {
       if (filter.role && row.role !== filter.role) return false
       if (filter.kind && row.kind !== filter.kind) return false
       if (!filter.text) return true
-      return `${row.title} ${row.filename}`.toLowerCase().includes(filter.text)
+      // THE LABEL IS IN THE HAYSTACK ([[REQ-280]]) — typing `IMAGE-5` has to find
+      // the row the number is on. The assistant's own catalogue filter already
+      // searches it (`library-core.js`'s `haystack`), and a search box that found
+      // a picture for one of them and not the other would be a shared reference
+      // in name only.
+      return `${row.label ?? ''} ${row.title} ${row.filename}`.toLowerCase().includes(filter.text)
     })
   }
 
@@ -523,6 +535,17 @@ export function createLibraryPanel(options = {}) {
     icon.setAttribute('aria-label', row.kind ?? 'file')
     icon.title = row.kind ?? ''
     wrap.append(icon)
+
+    // THE NUMBER, BEFORE THE TITLE ([[REQ-280]]). It is what the client and the
+    // assistant can both say — so it reads first, where the eye lands when
+    // somebody is scanning for the row somebody just named. Three generated
+    // variants of one prompt carry one title between them, which is the case
+    // this row could not distinguish at all before the label existed.
+    //
+    // ABSENT ON MATERIAL THAT PREDATES THE LABEL, and then nothing is drawn
+    // rather than an empty cell: the first listing allocates one, so the gap
+    // closes itself and an empty box would be the only lasting trace of it.
+    if (row.label) wrap.append(el('span', 'builder-library__row-label', row.label))
 
     wrap.append(el('span', 'builder-library__row-title', row.title || row.filename))
 
@@ -560,6 +583,7 @@ export function createLibraryPanel(options = {}) {
    */
   function rightsValues(row) {
     return {
+      label: row.label ?? '',
       filename: row.filename,
       kind: row.kind,
       role: ROLE_LABEL[row.role] ?? row.role ?? '',

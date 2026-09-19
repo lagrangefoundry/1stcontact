@@ -46,7 +46,7 @@
 import { displayLine } from '../../../tools/generate/src/cli/ai/toolbox-core'
 import * as imagegenLib from './generated/ai-imagegen'
 import * as aiLib from './generated/ai-workers.js'
-import { indexAfterWrite, type IndexMaterial } from './material'
+import { indexAfterWrite, nextMaterialLabel, type IndexMaterial } from './material'
 import type { Ticket, TicketStore } from './tickets'
 
 /** The libraries are untyped JavaScript; the boundary is narrow and named here. */
@@ -123,16 +123,32 @@ export const IMAGE_MATERIAL_TYPE = 'material'
 export const GENERATED_ORIGIN = 'generated'
 
 /**
+ * What [[DOC-38]] §9 files a generated picture as.
+ *
+ * NAMED BECAUSE TWO LINES NOW READ IT — the record's own `kind`, and the
+ * sequence [[REQ-280]]'s label draws its number from. Those must be the same
+ * word or a generated picture is labelled out of a sequence nothing else uses.
+ */
+export const GENERATED_KIND = 'image'
+
+/**
  * Everything a generated material carries that the plugin cannot know.
  *
  * `filename` and `content_type` are absent here and only here, because they do
  * not exist until the bytes do — see {@link generatedMaterialStore}.
+ *
+ * `label` IS ABSENT FOR A DIFFERENT REASON ([[REQ-280]]): it needs the store, to
+ * take a number from this client's own sequence, and this function has none. It
+ * is composed in {@link generatedMaterialStore}'s `create` and merged in beside
+ * these — in the SAME write, which is what [[REQ-208]]'s note about a
+ * write-through rather than a patch requires of every field this product adds to
+ * a plugin's record.
  */
 function generatedFields(describer: string): Record<string, unknown> {
   return {
     // THE VOCABULARY [[DOC-38]] §9 ALREADY DECLARES, so a generated image files
     // beside an uploaded one rather than beside nothing.
-    kind: 'image',
+    kind: GENERATED_KIND,
     origin: GENERATED_ORIGIN,
     // OURS, AND PLACEABLE. `promoteToSiteAsset` reads `republishable` off the
     // record and refuses anything we do not hold the right to publish; an image
@@ -225,7 +241,15 @@ export function generatedMaterialStore(
       }
       const created = await tickets.create({
         ...args,
-        fields: { ...(args.fields ?? {}), ...generatedFields(describer()) },
+        fields: {
+          ...(args.fields ?? {}),
+          ...generatedFields(describer()),
+          // THE NAME THE CLIENT AND THE CONSULTANT WILL BOTH USE ([[REQ-280]]).
+          // This path is the one the ticket opens with: three generated variants
+          // of one prompt arrive titled identically, and until they each carried
+          // a label neither half of the engagement could point at one of them.
+          label: await nextMaterialLabel(tickets, GENERATED_KIND),
+        },
       })
       ours.add(created.ticket.uid)
       return created

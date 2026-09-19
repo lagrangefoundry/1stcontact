@@ -64,6 +64,12 @@ function catalogueItem(row: MaterialRow): CatalogueItem {
     ...storedImageOf(row),
     filename: row.filename,
     kind: String(row.kind),
+    // THE SHARED NAME ([[REQ-280]]), carried from the row the client's own
+    // Library draws. Like the name above it is taken rather than composed: the
+    // label is allocated once, where the record is created, and a second idea of
+    // how to spell one would be this file's own warning about `name: row.uid`
+    // repeated a line further down.
+    label: row.label,
     role: row.role,
     rights: row.rights,
     republishable: row.republishable,

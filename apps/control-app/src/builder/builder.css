@@ -1246,6 +1246,26 @@ body {
 }
 
 /*
+ * THE SHARED NUMBER (REQ-280) — `IMAGE-5`, beside the title it disambiguates.
+ *
+ * `flex: none`, LIKE THE ICON AND THE PILLS AND FOR THE SAME REASON. The row's
+ * one shrinkable thing is the title (see above); a number that ellipsed to
+ * `IMA…` would not be a reference anybody could say, and it is short enough that
+ * it never needs to.
+ *
+ * TABULAR AND MUTED. It is a catalogue number, so digits line up from row to row
+ * and it reads as an index rather than competing with the name beside it — the
+ * title is still what the eye reads first on a row nobody has named.
+ */
+.builder-library__row-label {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--shell-fg-muted);
+  white-space: nowrap;
+}
+
+/*
  * 13px MATCHES `.list-detail-row-title`, the component's own rows. `renderRow`
  * owns the whole content cell and builds its own title span, so it inherited the
  * shell's body size and made the Library the one list in the builder with a

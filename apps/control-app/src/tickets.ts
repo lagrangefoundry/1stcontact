@@ -290,6 +290,33 @@ const MATERIAL_FIELDS = {
    * third state distinct from "edited to nothing".
    */
   edits: { type: 'list' },
+
+  /**
+   * What the client and the consultant BOTH call this item — [[REQ-280]].
+   *
+   * `IMAGE-5`, `DOC-7`, `FONT-3`. A catalogue number, in the sense a gallery or
+   * a print shop means one: the operator reads it on their own Library row, the
+   * assistant reads it on the catalogue item, and either may say it to the other
+   * and be understood. Before it there was no such string — the assistant held
+   * the uid and the Library showed the title, and a client with three generated
+   * variants under one title could not point at any of them.
+   *
+   * STORED, NOT DERIVED, WHICH IS THE WHOLE OF WHY IT IS A FIELD. Its number
+   * comes from a counter (`material.ts`'s {@link nextMaterialLabel}), so it
+   * cannot be recomputed from the row the way `content_type` can — and a shared
+   * reference that moved when the catalogue was re-sorted, or when an item was
+   * archived, would be worse than no shared reference at all.
+   *
+   * A `string` RATHER THAN THE PARTS IT IS MADE OF. The prefix is a function of
+   * `kind` and the number is the counter's, but what is load-bearing is the
+   * SPELLING somebody said out loud — so the spelling is what is kept, and
+   * nothing downstream re-composes it from two fields that might later disagree.
+   *
+   * NOT REQUIRED. Every material in every Library predates this field, and
+   * `listMaterial` labels what it finds unlabelled rather than the store
+   * refusing to read it — see {@link labelUnlabelled}.
+   */
+  label: { type: 'string' },
 }
 
 /**
@@ -994,7 +1021,26 @@ export interface TicketStore {
    * row twice and is idempotent — where the other order would leave it in
    * neither.
    */
-  accessor: { changeHead(): Promise<number> }
+  accessor: {
+    changeHead(): Promise<number>
+    /**
+     * The next number in a per-(tenant, sequence) counter — [[REQ-280]].
+     *
+     * THE COMPONENT'S OWN `human_id` ALLOCATOR, ADDRESSED BY A SECOND KEY. It is
+     * one `INSERT … ON CONFLICT … RETURNING`, so two uploads landing together
+     * can never take the same number, and the `counters` table it writes is
+     * keyed `(tenant_id, type)` — the tenant half coming from the handle and
+     * only from the handle. That is exactly what makes a catalogue label safe to
+     * say out loud: every client's numbering starts at 1 and a label can carry
+     * no fact about anybody else's Library. A counter keyed on the sequence
+     * alone would have leaked that across the tenant barrier.
+     *
+     * `material:image` AND NOT `image`. The key shares a table with the ticket
+     * types' own sequences, so the namespace is spelled into the key — which is
+     * what stops a kind ever colliding with a type of the same name.
+     */
+    nextCounter(type: string): Promise<number>
+  }
   /**
    * The tenant-bound blob handle, for reading an attachment's bytes back.
    *

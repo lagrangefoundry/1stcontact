@@ -85,6 +85,26 @@ export const LIBRARY_PAGE = 20
 export interface CatalogueItem extends StoredImage {
   filename: string
   kind: string
+  /**
+   * What the client and the consultant BOTH call this item — [[REQ-280]].
+   *
+   * `IMAGE-5`, `DOC-7`. The one name that is the same string on both sides of
+   * the engagement: it is on the row the client reads in their own Library, it
+   * is here, and it is a name this surface accepts back. Before it, the two
+   * halves shared only the title and the filename — which is exactly the
+   * ambiguous pair, because three generated variants of one prompt carry one
+   * title between them.
+   *
+   * NOT THE IDENTITY, WHICH REMAINS `name` (the uid). This is the spelling a
+   * PERSON uses, and it is carried beside the handle rather than replacing it —
+   * see `library.ts`'s note on why the uid is what `screenshot` and `edit_image`
+   * take. It is also in `aliases`, which is what makes it resolve.
+   *
+   * `null` on material that predates the label. The host closes that on its next
+   * listing; nothing here has to treat it as a third state beyond not printing
+   * an empty name.
+   */
+  label: string | null
   role: string | null
   rights: string
   republishable: boolean
@@ -217,6 +237,13 @@ function itemView(item: CatalogueItem): Record<string, unknown> {
     // `image`, and this surface's own two named parameters. Calling the field
     // what the parameter is called is what stops the model translating.
     item: item.name,
+    // THE NAME TO SAY, BESIDE THE NAME TO CALL WITH ([[REQ-280]]). `item` is the
+    // handle every operation on every surface takes and is unspeakable; this is
+    // what the client sees on their own Library row, so it is the one string
+    // that means the same thing to both of you. It is carried on every item in
+    // the listing and not only on the one that was read, because the moment it
+    // is useful is the moment three of them come back titled the same.
+    label: item.label,
     title: item.title ?? item.filename,
     filename: item.filename,
     kind: item.kind,
