@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T18:40:45.411382+00:00'
+updated_at: '2026-09-19T18:47:00.248866+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -636,7 +636,65 @@ delegation ([[REQ-148]] → EPIC-19 Finding 1) and the development surface
 ([[REQ-147]] → [[REQ-273]]). The pattern is worth naming on its own: the framework
 is ahead of its adopter, and the gap is consumption rather than capability.
 
-### THE ANSWER TO "can we jump straight to truncation?" — NO
+### Four questions answered against the code (2026-09-19)
+
+**1. Has BUG-45 landed? YES, in the code 1c runs.** Its status is
+`ready_to_reconcile` — free-coded on `xgd-working`, not yet reconciled to main —
+but the installed store is byte-identical to that tree, so the fix is live here.
+`PrimingAssembly.offsets` now filters volatile sections before computing:
+
+```js
+get offsets() {
+  const volatile = new Set(this.volatileNames)
+  return this.boundaries.map((k) => this.sections.slice(0, k)
+    .filter(({ name }) => !volatile.has(name)) …)
+}
+```
+
+**So `priming.json`'s note — *"`session.summary` waits on lagrange-framework
+BUG-45"* — is STALE.** The blocker cleared and nothing here noticed.
+
+**2. Is summary generation implemented but unwired? YES — and it is
+model-driven with a per-turn nudge**, which is what "updated as appropriate"
+requires:
+
+- storage — `SummaryStore`: frame in the `framing` field (4,000-byte cap), log in
+  the body (append-only);
+- writing — `agent` surface, `MaintainSummary`: `summary_frame`, `summary_log`;
+- delivery — the shipped product tier's `session-summary` entry, placed AFTER the
+  cache boundary so rewriting it cannot invalidate the cached prefix;
+- the nudge — `summary_trigger` prose: *"Keep your summary current as you work […]
+  The frame is what survives when the recent exchanges do not, so anything you
+  would need after losing them belongs in it."*
+
+1c wires none of the four.
+
+**3. Are search and chunk-level access available? YES, over three stores** — and
+one of them 1c already has:
+
+- **the corpus** — knowledge surface `ReadKnowledge`: `search`, `chunk_search`
+  (*"Search at section granularity, so a hit names where in a document the answer
+  is"*), `outline` (*"List a document's sections, with the offsets to read each
+  one"*), `get` (*"whole or one span of it"*), `changes`. **1c grants this
+  today**, and because the project KB corpus filter includes `type: chat`, past
+  conversations are already searchable at chunk granularity;
+- **this session's own history** — `agent.history` by position or turn id, plus
+  `history_full`, framed by the `transcript_pointer` prose. **Not granted;**
+- **the work log** — tool calls recorded separately, described by
+  `tool_transcript_note`, with truncation markers that act as pointers to the
+  full record. **Not granted.**
+
+So the gap is SELF-inspection, not retrieval. The consultant can search the
+client's corpus but cannot read its own past turns or its own work log.
+
+**4. Does LF need to implement truncation? NO.** Positional truncation already
+exists — `window()` over `recentTurnPairs` + `truncateTurns`, 40 pairs with a
+per-turn byte cap. The only framework gap is that **it is applied at seeding and
+never again**, so a warm API conversation is unbounded. That is one narrow change
+(apply the existing window and `redactContent` to `state.messages` in flight), not
+a new mechanism.
+
+### THE ANSWER TO "can we jump straight to truncation?" — NO (today)
 
 Asked by the operator, 2026-09-19. We accumulate **no summary context at all**:
 
