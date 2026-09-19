@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T00:58:44.260486+00:00'
+updated_at: '2026-09-19T17:28:19.471100+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -422,6 +422,90 @@ half of the loss.
 **And say that a turn was interrupted.** A turn that ends without `turn_end` is
 knowable; the transcript should show it rather than leaving a gap the client reads
 as the assistant ignoring them.
+
+## Finding 5 — images accumulate in flight because the bound they had was removed (2026-09-19)
+
+The consultant reported this itself, accurately, in the Lagrange Foundry
+transcript. Its claims check out against the code, with one correction.
+
+### Yes, the images really are resent
+
+The Messages API is stateless: there is no server-side conversation, so every
+request carries the whole `messages` array. `claude_api.js:313` appends
+(`state.messages.push(...)`) and `toAnthropicContent` renders an image block as a
+real Anthropic image block. There is no cap, no slice and no pruning anywhere in
+that file. **So every screenshot taken in a session goes over the wire again on
+every subsequent turn of that session.**
+
+### The bound the design assumed no longer exists
+
+`content.js:232` states the intended behaviour:
+
+> an image is visible to the model for the remainder of the segment that sent it
+> and not beyond it.
+
+That was true when sessions recycled. [[REQ-126]] removed recycling —
+`session.js:13`:
+
+> Context is constant now […] so nothing recycles, and a session that never
+> recycles has exactly one conversation.
+
+One conversation per session means "the remainder of the segment" is **the rest of
+the session**. The sentence in `content.js` describes a bound that was deleted
+elsewhere, and nothing replaced it.
+
+### What IS bounded, and why that makes the behaviour confusing
+
+The DURABLE record is fine. `redactContent` writes
+`[image: image/png, 48231 bytes, fp:1a2b3c4d]` instead of bytes, so the transcript
+and the ticket never carry base64. And `seedDialogue(state, window, ...)` bounds
+what is carried when a conversation is REBUILT.
+
+So the window applies at seed time and never again:
+
+- **Long-lived isolate** — every image accumulates and is resent every turn.
+- **Evicted isolate** — the conversation is rebuilt from the durable record, where
+  every image is already a text placeholder, so they all vanish at once.
+
+Context cost therefore depends on isolate lifetime, which nothing in the product
+models or reports.
+
+### This is what makes the recovery loop structural
+
+The `interrupted-turn` reminder is verbatim (`priming.json:80`):
+
+> Your previous turn in this conversation did not finish […] **Look at the site
+> before you answer**, and pick up from what you find rather than from what the
+> conversation says.
+
+After a truncation the conversation is rebuilt, so the images are genuinely gone —
+the model *cannot* see the site, and is then told to go and look. It screenshots;
+the new images accumulate in flight; the next turn truncates sooner. **The loop is
+not merely a badly-worded prompt: the redaction removes the evidence and the
+reminder mandates re-acquiring it.**
+
+### The consultant's own recommendations, which are sound
+
+1. **Backpressure.** *"I do not experience the cutoff […] I am driving with no fuel
+   gauge."* Nothing reports remaining budget on a tool result.
+2. **Name the cheap instrument in the recovery text.** Replace "look at the site"
+   with `list_changes`, which answers "did it land?" for almost nothing.
+3. **Make images expire, or price them.**
+4. **Let something else hold the state** — a compact authoritative page summary
+   arriving with the turn, removing the re-read ritual.
+
+### The one I would add, and would do first
+
+**Redact in flight the way the durable record already does.** Keep the last N
+image blocks live and rewrite older ones to the same `[image: …, fp:…]` placeholder
+inside `state.messages`. It makes in-flight behaviour match the rebuild behaviour
+the design already chose, it bounds session cost independently of isolate
+lifetime, and the fingerprint means the model can still tell that it looked and at
+what — which is the part that would otherwise drive it to look again.
+
+**Correction to the consultant's account:** it said images "never leave". True in
+flight; on a rebuild they leave all at once. That asymmetry is the defect, not the
+accumulation alone.
 
 ## Children
 
