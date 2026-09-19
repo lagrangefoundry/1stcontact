@@ -71,13 +71,24 @@
     "with no signal to wait for. A settings session is about a BUSINESS, so the",
     "framing it needs is which business it is in \u2014 `business-line`, rendered from the",
     "record itself rather than from an id, because the name is the thing the customer",
-    "would recognise and the thing that is about to change."
+    "would recognise and the thing that is about to change.",
+    "",
+    "AND IT HAS ITS OWN INTERRUPTED-TURN LINE ([[REQ-284]]). One template used to serve",
+    "both roles, on the reasoning that what an assistant should do about an interrupted",
+    "turn does not depend on which conversation it was. That held only while the advice",
+    "was \u201clook at the site\u201d \u2014 which the consultant could act on and the settings",
+    "assistant could not, and which was in any case the most expensive instrument in the",
+    "box. Now that the advice NAMES the cheap instrument, it names a tool, and a session",
+    "is never told about a capability it was not granted. So there are two: the",
+    "consultant's names `list_changes`, and the settings assistant's names the two reads",
+    "that role actually has."
   ],
   "templates": {
     "site-line": "You are working on the site \"{slug}\". Every tool you have acts on that site and no other.",
     "change-signal": "Your client has changed this site since your last turn \u2014 {changes} change{plural}. Call list_changes with since: {at} to see what moved BEFORE you touch anything, and never write over a change you have not read.",
     "business-line": "You are helping with the business \"{name}\". Everything you can read or change here belongs to that business and to no other.",
-    "interrupted-turn": "Your previous turn in this conversation did not finish \u2014 it was stopped, or it failed part-way. Your client may not have seen all of your reply, and anything you had already done is NOT described in the transcript you have just read. Look at the site before you answer, and pick up from what you find rather than from what the conversation says."
+    "interrupted-turn": "Your previous turn in this conversation did not finish \u2014 it was stopped, or it failed part-way. Your client may not have seen all of your reply, and anything you had already done is NOT described in the transcript you have just read. Call list_changes before you answer: it says what landed on the site and who landed it, it costs almost nothing, and it is the whole answer to \"what did I already do?\". Pick up from what it tells you rather than from what the conversation says. Take a picture only if what it tells you is genuinely not enough \u2014 recovery is the moment you can least afford it, and looking is the most expensive thing you can do.",
+    "interrupted-turn-settings": "Your previous turn in this conversation did not finish \u2014 it was stopped, or it failed part-way. Your client may not have seen all of your reply, and anything you had already done is NOT described in the transcript you have just read. Read the record back before you answer \u2014 read_business and read_addresses both cost almost nothing \u2014 and pick up from what they say rather than from what the conversation says."
   },
   "priming": [
     {
