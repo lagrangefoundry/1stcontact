@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:09:10.816353+00:00'
+updated_at: '2026-09-19T18:29:18.214411+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1247,5 +1247,23 @@ And confirming your own instinct: it won't solve this. The priming is ~21KB of p
 - **1stcontact**: surface the spend REQ-143 already reports, and rewrite the `interrupted-turn` reminder to name `list_changes` instead of "look at the site".
 
 Want me to file the framework one as a cross-repo ticket? Per my standing note that's a ticket in lagrange-framework and nothing else — no branch, no code there.
+
+<!-- xgd-turn id="11ae560a-31dc-41ce-beb4-c68683876e1d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T18:29:18.059363+00:00" -->
+#### You
+## On "stuffing" — it hasn't been abandoned
+
+DOC-22 *"Session Priming Configuration: three tiers, static text and providers"* is still current upstream, and nothing supersedes it. REQ-128 and REQ-144 *refine* it — system channel, tiers delivered past the message history for cache stability — they don't replace it. So `priming.json` isn't legacy; moving off it would be **new framework design**, not adoption. <-- let's take a moment to get our vocabulary aligned and talk this through. I spent a lot of time working through this.
+
+Stuffing is the term that I use for the old way of priming a session context. In XGD which is still using it it involves forcing multiple large documents into the context. Consuming hundreds thousands of characters of that context.
+
+The alternative that we now have in place which uses around 4k characters is that we prime it with instructions to use the local knowledge base and an indication of what knowledge in the is irrelevant to the role. This gives the session the flexibility to read the documents that it needs when it needs them.
+
+You said our context for this session consumed nearly 200,000 characters that sounds like the old mechanism to me.
+
+We should have mechanisms for maintaining core decisions from a chat in the chat ticket body - but my focus was mainly on claude-code based chats which have auto-compacting. 
+
+Note that this use-case is a particular problem - most xgd chats have a lifetime they exist to implement a feature or a set of features. This chat context lives for the lifetime of the website. The question that I want to ask you before I go back to LF - are we accumulating sufficient summary context that we can jump straight to truncation?
 
 <!-- xgd-chat-end -->
