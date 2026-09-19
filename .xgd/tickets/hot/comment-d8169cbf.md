@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:53:46.682668+00:00'
+updated_at: '2026-09-19T18:56:01.637274+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1449,5 +1449,41 @@ Worth flagging: that's now **four** upstream capabilities built and unconsumed h
 Cool - please create the smallest reasonable number of REQs to implement those.
 
 Plus I want to talk about images in the context. Everything in the context becomes less valuable over time. An image that we talked about 3 days ago is still stuck in the context. Once the conversation has moved on we should drop the image content and leave a pointer to it - the AI can read the image again if it comes up and it needs to. Do you agree? If we leave a clear pointer I think this is fairly safe so we could be reasonably aggressive - say 3 turns back we turn the image to a pointer?
+
+<!-- xgd-turn id="635c3bc5-f498-42ee-9c49-c7bd6edb9e94-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T18:56:00.425305+00:00" -->
+#### Claude
+Agreed on images — with three refinements. Let me file first, then make the case.
+
+Three tickets — two here, one upstream.
+
+**REQ-283** — *The consultant keeps and consults its own memory.* Wire the `SummaryStore`, compose the `agent` surface with `InspectContext` + `MaintainSummary`, adopt the product tier, delete the stale BUG-45 note. This is the precondition: until it lands, bounding anything is data loss rather than context management.
+
+**REQ-284** — *See its own context pressure, and stop steering it into the wall.* Surface the spend REQ-143 already reports, and rewrite `interrupted-turn` to name `list_changes`. I kept this separate from 283 deliberately — it's prose plus a small piece of plumbing, depends on nothing, and could land today while 283 is still being built.
+
+**lagrange-framework REQ-168** — *Bound a warm API conversation.* Apply `window()` in flight, age images out to pointers, and give the pointer a way back. Filed there, no code here.
+
+---
+
+## On images — yes, and your instinct on aggression is right
+
+The strongest argument is that **the framework already agrees with you**. `redactContent` does exactly this on the durable side, and `content.js` states the intent outright: *"an image is visible to the model for the remainder of the segment that sent it and not beyond it."* That bound was deleted by REQ-126 removing segments, not by anyone deciding images should live forever. So this isn't new policy — it's restoring one that was lost by accident.
+
+And the economics are brutal: an image is ~1–2k tokens minimum, a pointer is ~15, and the difference is multiplied by every subsequent turn. A screenshot from day one is still being billed on day three.
+
+**Three turns is right, maybe even generous.** Think about what an image is *for*: the model looks, forms a judgement, and states that judgement in its own text *in the same turn* — "the heading sits too low". After that the text carries the conclusion and the pixels are redundant. Two would probably do.
+
+Three refinements I've written into the ticket:
+
+1. **Never redact the most recent image**, whatever the count says. An interrupted-and-resumed turn can make the count arrive sooner than the conversation did, and the newest image is usually the current subject.
+
+2. **A ceiling as well as an age.** Turns are the right primary rule — predictable, and explainable to the model in one sentence. But one turn can carry six screenshots. A live-image count or byte ceiling, redacting oldest-first, covers that without making the rule hard to reason about.
+
+3. **The pointer must carry a way back, and that needs a host seam.** Today's placeholder is `[image: image/png, 48231 bytes, fp:1a2b3c4d]` — that tells the model it *looked*, not how to look *again*. What it should say is something like *"IMAGE-9 (plate-i-loop.png) — call screenshot IMAGE-9 to see it again"*.
+
+That third one is the one I'd argue hardest for, because it's the difference between your aggressive policy being safe and being merely cheap. And the framework can't compose that string — it doesn't know our catalogue. But **REQ-149 already solved this exact shape** for `create_image`: a `display` construction option the host supplies, called with the record, answering one sentence. Same pattern, second use.
+
+It also only became possible last week: REQ-280's labels are what give a picture a durable, speakable name. Without them the best pointer available was a fingerprint.
 
 <!-- xgd-chat-end -->
