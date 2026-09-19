@@ -6,7 +6,7 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T01:13:35.481444+00:00'
+updated_at: '2026-09-19T01:20:52.973612+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-d2727e7d
 ---
+
 
 
 
@@ -66,34 +67,50 @@ detecting.** The badge has had no failure to find since.
 
 ## What it should be instead
 
-**A state, not an exception** (operator's proposal, adopted): whether an item is in
-use is a fact about the item, and both values are ordinary.
+**One pill, one word, colour carries the state** (operator, 2026-09-18):
 
-- **In use** — the pill carries the theme accent.
-- **Unused** — the pill is grey.
+> there is one pill, it says (Site Asset). I would like to change the colour of
+> the outline and the word depending on the state: used — colour it using the
+> theme's accent colour; unused — colour it gray.
 
-**"Unused", not "Not on the site"** (operator, 2026-09-18: *"it should not be an
-error mark — just showing the assets as unused"*). The old phrasing names an
-absence and reads as a deficiency: *not* on the site, where it was supposed to
-go. "Unused" names an ordinary condition of a catalogue. Most of a client's
-Library will be unused most of the time and that is the normal, healthy state of
-having given us plenty to work with.
+- The pill reads **Site Asset** in both states. The label does not change.
+- **Used** — outline and word in the theme's accent colour.
+- **Unused** — outline and word in grey.
 
-**It is never an error mark, in any register.** No warning glyph. No red, amber,
-or any colour the rest of the builder uses for something wrong. No hint text
-telling the client to try again, to fix it, or to do anything at all. No badge
-shape that differs from the in-use one. The two states differ in colour and in
-word, and in nothing else — an unused item must not be more visually prominent
-than a used one, because it is not more important.
+**No second badge, no extra row, no more space than the pill already occupies.**
+The operator's reason is the design constraint and is worth stating plainly:
 
-A client who gave us twelve photographs and used four has eight grey pills, and
-nothing has gone wrong.
+> TBH this is NOT a very valuable thing for the user to know. I do not want to use
+> a lot of real estate on it.
 
-**On "load-bearing".** Part 2 makes the picker list the whole Library, which makes
-this mark the only thing distinguishing used from unused. That raises the bar on
-the mark being CORRECT AND PRESENT. It does not raise the bar on it being LOUD,
-and it must not be read as licence to make it so. Quiet and accurate is the whole
-requirement.
+That settles it. Whether a photograph is currently in use is minor, ambient
+information — the kind a client glances at, not the kind they are told. It gets a
+colour, and nothing else.
+
+**And it is never an error mark, in any register.** No warning glyph. No red,
+amber, or any colour the rest of the builder uses for something wrong — grey is
+the unused colour precisely because it is the absence of emphasis. No hint text
+telling the client to try again or to fix anything. No difference in badge shape,
+size or weight between the two states. A client who gave us twelve photographs and
+used four has eight grey pills, and nothing has gone wrong.
+
+**Drop `UNPLACED_LABEL` and `UNPLACED_HINT` entirely** (`library.js:170-172`).
+There is no second string to maintain: one label, two colours.
+
+### The accessibility point, and how to keep it for free
+
+[[REQ-181]] was right that *"colour and shape are both redundant, so a screen
+reader and a monochrome display each get the whole fact."* Colour alone does not
+survive either reader.
+
+**That does not overturn the design above**, because the operator has judged the
+information minor — and minor information may be ambient. But it costs nothing to
+keep it reachable: put the state on the pill as an `aria-label` or `title`
+("Site Asset — in use" / "Site Asset — not yet used"). **Zero pixels, no layout,
+and the fact stops being colour-only** for anyone who cannot use colour.
+
+Recommended, not required. If it complicates the pill, drop it — but drop it
+knowingly rather than by omission.
 
 ## Two things to keep from REQ-181
 
