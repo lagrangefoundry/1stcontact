@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T21:57:30.994408+00:00'
+updated_at: '2026-09-19T21:59:31.528037+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1964,5 +1964,38 @@ I told them not to guess: the table is only worth having if the values are right
 <!-- xgd-chat role="user" ts="2026-09-19T21:57:30.794410+00:00" -->
 #### You
 Pleas confirm and can you check all your child tickets I believe I am ready to resume working with the consultant
+
+<!-- xgd-turn id="a1d37714-184a-48a2-9c0a-c673fe09cb2f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T21:59:30.989529+00:00" -->
+#### Claude
+Let me confirm the window values properly rather than from memory.Confirmed, and the answer changes the design. Let me record it.
+
+REQ-169 landed while I was checking — and possibly with the wrong value. Let me look.
+
+The implementer checked and got it right — but there's one entry to query.
+
+**Everything has landed.** All 16 tickets are at `ready_to_reconcile` — one exception, noted below.
+
+| | |
+|---|---|
+| **1stcontact** | REQ-217, 273, 280, 281, 282, 283, 284, 285 · BUG-117, 118, 119, 121 |
+| **lagrange-framework** | REQ-168 (image ageing + warm trim), REQ-169 (gauge), BUG-60 (error taxonomy) |
+| **`wont_fix`** | BUG-116 — the orphaned chat sessions. We repaired the data by hand, so the ticket outlived its purpose. Worth knowing the *design* half went with it: sessions are still keyed on a mutable address, so a future re-addressing orphans them again silently. Fine to leave, but that's the residue. |
+
+## Confirmed — and the implementer beat me to it
+
+The context windows are **1M for both `claude-opus-5` and `claude-sonnet-5`**, and 1M is **not** beta-gated. The missing `anthropic-beta` header is real but doesn't imply 200K, so the `200000` floated in REQ-169's question would have been five times too small. `defaults/models.json` shipped `1000000` for both — someone verified rather than taking the proposal, which is the right outcome.
+
+Two things I left as a comment on REQ-169:
+
+- **`claude-fable-5-1` is in the table; `claude-fable-5` is not.** The published ID takes no suffix, so a host configuring the plain ID resolves no window and silently falls to the proportion-less path. Either a typo or a variant — worth a look.
+- **The Models API answers this live**: `GET /v1/models/{id}` returns `max_input_tokens` (and there's no `context_window` field upstream at all). Not a change to make now, but it's the shape to take the second time the table is wrong — and `claude-fable-5` is that drift arriving within one ticket of the table being written.
+
+## You're clear to resume
+
+Everything the consultant needs has landed: it can read back its own decisions (283), sees the page each turn without looking (285), knows what looking costs and reaches for `list_changes` on recovery (284), has stable `IMAGE-n` names you can both say (280), and images now age out of context (168) with a gauge to see the pressure (169).
+
+One caveat when you start: **REQ-284's prose still says an image "is carried into every turn for as long as this conversation lasts."** REQ-168 has now made that false. The consultant will under-use a screenshot that's become much cheaper — the inverse of the problem 284 fixed. Both are frozen at `ready_to_reconcile`, so that's a new ticket when you want it; it's a prose-only change and small.
 
 <!-- xgd-chat-end -->
