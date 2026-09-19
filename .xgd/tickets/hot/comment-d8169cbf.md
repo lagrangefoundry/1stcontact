@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:47:14.061407+00:00'
+updated_at: '2026-09-19T18:53:46.682668+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1441,5 +1441,13 @@ That's one narrow change — apply the existing `window()` and `redactContent()`
 **So the split is much smaller than it looked an hour ago.** LF's genuine remaining item is bounding the warm conversation. Everything else — summary store, agent surface, product tier, the stale BUG-45 note — is 1c adoption of things already built.
 
 Worth flagging: that's now **four** upstream capabilities built and unconsumed here (delegation, development surface, agent/summary, product tier). I'd treat the adoption gap itself as the finding, not each instance.
+
+<!-- xgd-turn id="635c3bc5-f498-42ee-9c49-c7bd6edb9e94-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T18:53:46.546965+00:00" -->
+#### You
+Cool - please create the smallest reasonable number of REQs to implement those.
+
+Plus I want to talk about images in the context. Everything in the context becomes less valuable over time. An image that we talked about 3 days ago is still stuck in the context. Once the conversation has moved on we should drop the image content and leave a pointer to it - the AI can read the image again if it comes up and it needs to. Do you agree? If we leave a clear pointer I think this is fairly safe so we could be reasonably aggressive - say 3 turns back we turn the image to a pointer?
 
 <!-- xgd-chat-end -->
