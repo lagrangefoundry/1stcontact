@@ -6,7 +6,7 @@ title: 'The consultant keeps and consults its own memory: the summary store, the
   surface, and the product tier'
 created_by: EPIC-19
 created_at: '2026-09-19T18:54:44.485419+00:00'
-updated_at: '2026-09-19T19:52:43.232524+00:00'
+updated_at: '2026-09-19T20:11:51.633390+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-074bab15
 ---
+
 
 
 Parent: [[EPIC-19]] (Finding 5).
@@ -129,12 +130,72 @@ work log is independent of where the frame is stored.
 
 ## What to do
 
-- Construct a `SummaryStore` over the tenant's ticket store and pass it to
-  `SessionManager` as `opts.summary`. The archive already homes sessions on chat
-  tickets, so the summary comment lands beside the transcript with no new storage.
-- Compose `AgentToolbox` into the consultant, granted `InspectContext` and
-  `MaintainSummary`.
-- Adopt the product tier rather than declining it.
+**This list replaces the one written before the decision above.** That one said to
+construct a `SummaryStore`, pass it as `opts.summary`, and grant `MaintainSummary`.
+The decision to put the note in the chat ticket's frontmatter rules all three of
+those out — the store is not used, so its operations cannot be granted and its seed
+provider cannot be delivered.
+
+1. **Deliver the record, every turn.** A host provider renders the standing note in
+   full, then the most recent decisions from the ledger, into the entry the shipped
+   product tier already places after the cache boundary. A conversation that has
+   decided nothing is told nothing — no heading over an empty record.
+   - The decisions are delivered as a **tail** and the note **whole**, because their
+     polarity differs: the note is bounded and rewritten in place, the ledger is not.
+   - Earlier decisions are not lost, and the prose says so: the ledger is this
+     engagement's own ticket body, which is indexed and searchable.
+   - The ledger gains a **read on its port**, not a declared operation. What the
+     session needs is the record pushed, not a tool it may skip — and the turns it
+     would skip it on are the long ones, which are the turns that need it most.
+     That is REQ-131's argument for the change signal, applied again.
+
+2. **A narrow verb for the note, on the ledger surface.** `set_standing_note`, beside
+   `record_decision` and `name_engagement`, in `KeepLedger`. It writes `fields.frame`
+   on the chat ticket with compare-and-set. Bump the surface version.
+   - **An error, never a truncation**, at the framework's own 4,000-byte cap —
+     reusing upstream's `checkFrame`, which is pure, rather than restating it. The
+     refusal names both sizes so the model can shorten by a known amount.
+   - Rewriting the note must leave every recorded decision byte-identical, and the
+     note must not appear in the body. That is the invariant the placement was
+     chosen for, and it is what the two zones being a field and a body buys.
+
+3. **Compose `AgentToolbox`, granted the reads it can actually answer.** `priming`,
+   `reminder`, `context` and `history` — `InspectContext` minus `summary`.
+   - `summary`, `summary_frame` and `summary_log` all read or write a `SummaryStore`
+     this host does not have, and upstream's handler refuses without one. A granted
+     operation that always refuses is the same failure as a hand-written claim about
+     a tool that does not exist, so they are withheld together.
+   - `history_full` and `role_priming` belong to somebody working *on* a session
+     rather than in one, per upstream, and are not granted.
+   - **No session scope.** The axis is left unset, which is upstream's supported
+     "open" configuration. The barrier is the store: it is bound to one business by
+     `forTenant`, so every ticket that could name a session here is this client's
+     own — which is also the reach REQ-228 already decided on and asserted. An
+     allow-set could not be computed before the first turn archives a ticket.
+
+4. **Adopt the product tier**, and let each entry be gated by its own provider rather
+   than by a branch, so one tier loads on both hosts.
+   - `session.transcript_pointer` is now true, because `AgentHistory` is the reader
+     it names. Its **condition** is rebound to a host-level one: the framework's
+     asks whether the session has a home ticket, which the archive stamps on the
+     first drain — after the priming is assembled. Left alone, a session would
+     never be told where its transcript was until it was resumed in a fresh isolate.
+   - `session.tool_transcript_note` stays declined **on its own merits**, by binding
+     no reader. Nothing granted here reads the persisted tool record stream.
+   - `session.summary` is rebound to the provider in (1). The shipped binding reads
+     a store this host does not have.
+   - `opts.summary` is **not** passed to `SessionManager`. Its only use there is the
+     `/compact` hint, which only a compaction-capable backend asks for and this
+     host's does not — a shim would be a reader with no caller.
+   - The per-turn nudge is this host's own words, not the framework's: upstream's
+     says to append to a log, and both verbs here are the ledger surface's.
+
+5. **A host with nowhere to keep a record is told none of it and offered none of it.**
+   The `1c` CLI archives to a file and has no ticket store: no ledger surface, no
+   agent surface, no note, no nudge, and every product-tier entry rendering nothing.
+   That is an honest capability difference, not a degraded mode — the consultant
+   edits sites exactly as it did before. One reminder tier serves both hosts, with
+   the provider registered on each and rendering nothing where there is no record.
 
 ## The stale note that has to go
 
@@ -147,9 +208,10 @@ rather than leaving a resolved blocker documented as live.
 Re-check the tier's other two entries on their own merits while adopting it, since
 the same note declined them for different reasons: `session.transcript_pointer`
 and `session.tool_transcript_note` were declined because *"this host grants no
-operation that reads them"* — which `InspectContext` changes. A session must still
-never be told about a capability it was not granted, so the tier and the grant
-land together or not at all.
+operation that reads them"* — which the `agent` surface changes for the transcript
+pointer and does not change for the tool transcript. A session must still never be
+told about a capability it was not granted, so the tier and the grant land together
+or not at all — entry by entry, not as a block.
 
 ## Why this is the one that matters
 
