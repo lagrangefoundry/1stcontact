@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:17:54.413929+00:00'
+updated_at: '2026-09-19T20:21:13.634946+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1822,5 +1822,13 @@ And REQ-285 has landed alongside it — the page digest is there, bounded at `MA
 The per-turn volatile block has grown substantially: site line, page digest (≤2,000), memory trigger (481), the standing note (≤4,000), the decisions tail, change signal, corpus delta, interrupted-turn. All of it sits past the message history per REQ-144, so **none of it is cached** — it's re-sent in full every turn.
 
 That's the right trade, because it replaces expensive reads. But it's now the largest fixed per-turn cost in the system and nobody has measured it. REQ-169's gauge is what will make it visible for the first time — worth looking at that number early rather than assuming the trade is winning.
+
+<!-- xgd-turn id="91c72c19-e9c0-4e86-878d-b8a7607cba0c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T20:21:13.197722+00:00" -->
+#### You
+REQ-168 already landed - do I need to reopen it?
+
+The per-turn volatile block has grown substantially: site line, page digest (≤2,000), memory trigger (481), the standing note (≤4,000), the decisions tail, change signal, corpus delta, interrupted-turn. All of it sits past the message history per REQ-144, so **none of it is cached** — it's re-sent in full every turn. <-- if we are resending it why can't we cache it?
 
 <!-- xgd-chat-end -->
