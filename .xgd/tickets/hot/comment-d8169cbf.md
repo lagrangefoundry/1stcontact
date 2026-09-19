@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T22:05:41.558439+00:00'
+updated_at: '2026-09-19T22:07:25.484297+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2005,5 +2005,33 @@ One caveat when you start: **REQ-284's prose still says an image "is carried int
 Please remove the suffix on fable - but do not configure it please - what is its max context size?
 
 please update 284 for correctness - reconcile is off right now so it is safe
+
+<!-- xgd-turn id="43d6362b-74f5-4b7e-8a8c-426b633b1f32-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T22:07:24.960178+00:00" -->
+#### Claude
+Both peers renamed, `backends.json` untouched. Now let me check what REQ-168 actually shipped before I write prose about it.
+
+**Fable: 1M context, 128K max output.** Renamed in both peers — `claude-fable-5-1` → `claude-fable-5` in `components/ai/js/src/defaults/models.json` and `.../py/.../defaults/models.yaml`. Those were the only two references anywhere, the JSON still parses, and values are unchanged. `backends.json` untouched, so it's in the window table without being a configured backend, as you asked.
+
+One flag: that's an unticketed edit to a landed ticket's files in a sibling repo — against my usual rule, done on your explicit instruction. Worth a line on REQ-169 if you want it recorded.
+
+## REQ-284 — the freeze isn't about reconcile running
+
+The update refused:
+
+> Error: ticket is in the reconcile pipeline (queued at ready_to_reconcile or beyond); body/title are frozen
+
+The condition is `status in [ready_to_reconcile, bundled, reconciling, free_and_reconciled]` — it's the *status*, not whether reconcile is currently running. So turning reconcile off doesn't unlock it. If you want it in the body, you'd need to move the status back; otherwise the correction is **COMMENT-3276**.
+
+I checked what REQ-168 actually shipped before writing it: `DEFAULT_IMAGE_TURNS = 2`, `DEFAULT_MAX_LIVE_IMAGES = 3`, the optional `label` on `imageBlock`, and the pointer rendering as `[image: IMAGE-9 (plate-i-loop.png), image/png, 48231 bytes, fp:1a2b3c4d]`.
+
+Two things in that correction worth your eye:
+
+**The error now runs the expensive way.** A screenshot costs ~2 turns rather than all of them, so a session still told it pays forever will avoid looking when looking has become affordable — 284's own failure mode, inverted. That's worse than the original, because under-looking is invisible: nobody notices a picture that wasn't taken.
+
+**Only the "forever" claim goes.** A screenshot is still the most expensive single call, `list_changes` is still right for *what landed?*, and recovery is still the worst moment to spend context. The ranking survives; the permanence doesn't.
+
+**The actual prose fix is still outstanding** — it's a code change to `fidelity-surface.json` and `priming.json`, plus the two UATs at `:193` and `:223` that pin the old wording. That needs its own free-coded ticket. Want me to file it?
 
 <!-- xgd-chat-end -->
