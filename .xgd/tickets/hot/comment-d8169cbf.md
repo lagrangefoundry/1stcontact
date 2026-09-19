@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T17:43:56.216997+00:00'
+updated_at: '2026-09-19T18:06:51.577206+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1179,5 +1179,15 @@ They're applied on the cold-start path. Applying them to `state.messages` in fli
 The fingerprint matters for the doom loop specifically: a model that sees `[image: image/png, 48231 bytes, fp:1a2b3c4d]` knows it already looked and at what. A model that sees nothing goes and looks again.
 
 Recorded in EPIC-19 Finding 5. Shall I file it — one ticket for in-flight windowing and redaction, given they're the same change to the same array?
+
+<!-- xgd-turn id="c0beadd2-6965-4d9c-9b43-17f8426998dc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T18:06:51.263738+00:00" -->
+#### You
+So lets start at the top - the priming system that you are describing is our legacy "stuffing" methodology - I thought we had abandoned that. If not we need to put that on the list (though it will not solve our problem).
+
+On context management this is a framework level problem and it applies directly to this type of call - this particular use-case is particularly.
+
+I believe we did a lot of lf work on that too - can you take a look upstream at what lf provides already, I don't think you are using the latest
 
 <!-- xgd-chat-end -->
