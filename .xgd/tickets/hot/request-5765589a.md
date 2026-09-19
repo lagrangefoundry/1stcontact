@@ -6,7 +6,7 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T01:06:17.158491+00:00'
+updated_at: '2026-09-19T01:10:20.749127+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-d2727e7d
 ---
+
 
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18:
@@ -137,6 +138,32 @@ a client uploads — which is exactly why the two read as one thing.
 So the pill is not merely mis-worded (Part 1); it is also being taken as a
 prediction of what the editor will offer, and it is not one.
 
+### The principle (operator, 2026-09-18)
+
+> **The picker needs to offer me what is in the Library. That is the primary
+> purpose of the Library.**
+
+This is not "also show the unplaced ones". It is a statement about what the
+Library IS: the catalogue of everything this engagement has to work with, and the
+list you choose from. **The site's own asset copy is an implementation detail and
+should not be a list anybody picks from.** A client choosing a picture is choosing
+from what they have; whether we have already copied the bytes under the draft is
+our bookkeeping, not their category.
+
+**The product already decided this — for the consultant.** `library-surface.json`
+tells it, in these words:
+
+> **Being on the site is a field on a catalogue item, not a different place to
+> look.** An item that is on the site says so, in `placed_on`. An item that is not
+> is still theirs, still described, still here — it simply has not been placed
+> yet. **Do not think of these as two stores; think of one catalogue with a mark
+> on some of its entries.**
+
+The consultant is taught one catalogue with a mark. The builder shows the operator
+two stores and lets them pick from the smaller one. **The same sentence that is
+priming for the AI is the specification for this UI, and only one of the two
+surfaces implements it.**
+
 ### The second half is the substantive change
 
 The picker should offer the catalogue, not the site's copy of it. A client
@@ -171,6 +198,18 @@ picker for it to appear. This collapses that into the pick.
    This is why the two parts are one ticket: they are the same confusion between
    *what the client has* and *what the site is using*, and fixing either alone
    leaves the other still teaching it.
+
+### What follows from the principle
+
+**The picker's list is the Library's image set, full stop** — not the site's
+assets, and not the Library filtered by anything the client did not ask for.
+Everything in "What the implementation has to get right" above is about HOW a pick
+becomes a valid `src`, not about which items appear. The list is decided here.
+
+**"On the site" becomes a mark on an entry, not a membership test.** That is Part
+1's accent/grey pill, now doing the job it should always have had: telling the
+client which of their pictures are in use, on the one list where all of their
+pictures are.
 
 ### Scope note
 
