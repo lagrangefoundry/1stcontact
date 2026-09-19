@@ -6,9 +6,9 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:24:41.308253+00:00'
+updated_at: '2026-09-19T00:24:41.465523+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -146,3 +146,86 @@ consultant may use it in conversation.
 
 That is a carve-out from the no-vocabulary rule and should be written down as one,
 so a later reading of the priming does not treat it as a violation to clean up.
+
+
+---
+
+## What is being built (implementation scope, 2026-09-18)
+
+### The label itself
+
+A material's label is `<PREFIX>-<n>`, where the prefix is derived from `kind` and
+`n` comes from that kind's own per-tenant counter. `document` is the one kind
+whose word is not what anybody says out loud, so it is the one entry in the
+prefix table (`DOC`); every other kind is its own name in capitals (`IMAGE`,
+`FONT`, `CAPTURE`, and whatever [[DOC-38]] §9 adds next). The number is allocated
+from `counters` under the key `material:<kind>` — the same table `human_id` uses,
+keyed `(tenant_id, type)`, so the per-tenant guarantee the ticket calls
+load-bearing is inherited rather than re-implemented. The allocation goes through
+the store's own `accessor.nextCounter`, which is atomic.
+
+The label is **stored on the record** (`fields.label`) rather than derived at
+read time. It has to be: a counter cannot be recomputed from a row, and a label
+that moved when the catalogue was re-sorted or an item archived would be the one
+thing a shared reference may not do.
+
+### Where a label is assigned
+
+At every one of the three places a material record is born:
+
+- an upload or a fetch (`ingest`),
+- a capture being adopted (`adoptCapture`) — on **create** only, so a recapture
+  keeps the label the client already has,
+- a generated picture (`generatedMaterialStore`), which is the path that produced
+  the three identical crucibles this ticket opens with.
+
+**And once, late, for material that predates the field.** Everything already in a
+client's Library was created before labels existed, and that material is exactly
+what the operator was looking at when they said they had no common frame of
+reference. So `listMaterial` — the one read both halves go through — labels any
+row it finds without one, oldest first, so the earliest upload is `IMAGE-1`. This
+is a one-time convergence and not a per-read write: once a row carries a label
+nothing writes again. A failed label write leaves the listing intact and
+unlabelled; the next listing retries. A label write that loses a version race is
+abandoned rather than retried, which can leave a gap in the sequence — density is
+the intent, not an invariant a reference depends on.
+
+### Where a label is read
+
+1. **The catalogue item the consultant reads** — `label` on `CatalogueItem` and
+   on the declaration's `catalogue_item` shape, described as the name to use when
+   speaking about a picture.
+2. **The Library row the operator reads** — beside the title, and in the row
+   filter's haystack, so typing `IMAGE-5` finds it. It is also shown in the
+   detail pane's record block, because that is where somebody goes to read what
+   one item actually is.
+3. **As an input the consultant accepts** — the label joins `aliases` in
+   `storedImageOf`, which is the single projection from a record to a name. That
+   makes `IMAGE-5` resolve through `resolveStoredImage` — so it is accepted by
+   `get_library_item` and `place_on_site` and, because the same projection feeds
+   the merged image library, by `screenshot` and `edit_image` too. The operator
+   says "use IMAGE-5" and the consultant needs no translation.
+
+`name` stays `row.uid`. Nothing about the machine handle changes.
+
+### The carve-out, written down
+
+The priming's *"never name a framework concept to your client"* paragraph gains
+one sentence saying a catalogue label is not one of those concepts and may be
+said out loud, and the library surface's own prose says the same where the
+consultant reads it. The surface version moves with the surface.
+
+## Test plan
+
+UATs named `test_UAT_FC_REQ-280_*`:
+
+- **Over the real stores** (workers suite, real D1 counters): two uploads of the
+  same kind take `IMAGE-1` and `IMAGE-2`; a document takes `DOC-1` from its own
+  sequence; a second tenant's first upload is also `IMAGE-1`, which is the
+  cross-tenant leak the ticket names; material created before the field is
+  labelled by the first listing and keeps that label on every listing after.
+- **Over the surface** (node suite, doubled host): the catalogue item carries the
+  label; `get_library_item` resolves an item by its label; the declaration
+  describes the label and says the consultant may use it in conversation.
+- **Over the Library tab** (jsdom): the row shows the label beside the title, and
+  the filter matches on it.
