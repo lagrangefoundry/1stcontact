@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:21:13.634946+00:00'
+updated_at: '2026-09-19T20:22:40.564316+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1830,5 +1830,53 @@ That's the right trade, because it replaces expensive reads. But it's now the la
 REQ-168 already landed - do I need to reopen it?
 
 The per-turn volatile block has grown substantially: site line, page digest (≤2,000), memory trigger (481), the standing note (≤4,000), the decisions tail, change signal, corpus delta, interrupted-turn. All of it sits past the message history per REQ-144, so **none of it is cached** — it's re-sent in full every turn. <-- if we are resending it why can't we cache it?
+
+<!-- xgd-turn id="91c72c19-e9c0-4e86-878d-b8a7607cba0c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T20:22:40.378618+00:00" -->
+#### Claude
+Let me check REQ-168's actual state first.
+
+## REQ-168 — no, it hasn't landed
+
+Status is **`free_coding`** — branch cut, coding in progress. And the code confirms it:
+
+- `imageBlock({ mediaType, data })` in the framework tree still has no `label`
+- no ageing code anywhere in `content.js` or the backends
+- no commits mentioning REQ-168
+- no `commits:` field on the ticket
+
+So my note landed while it's in flight, which is the right time. **Nothing to reopen** — the developer session will pick it up. (If something told you it landed, that's worth chasing; the tree says otherwise.)
+
+## Why we can't cache it
+
+Anthropic's prompt cache is **prefix-only**. A breakpoint marks a position; everything *before* it is reused, and only on a byte-for-byte match. Two things follow:
+
+**Position.** REQ-144 deliberately moved the per-turn tiers to *after* the message history — `turnTail` appends them to the last user message. That's the end of the request. Nothing after the last breakpoint is cached, by construction.
+
+**And that placement is the reason everything else *is* cached.** If the volatile block sat in the `system` prefix, it would change every turn and invalidate the entire prefix behind it — ~31KB of priming *and*, since REQ-143 caches the message history too, the whole conversation. **We re-send ~7KB uncached to keep ~31KB plus the entire message history cached.** Caching it would uncache everything else. That's REQ-144's trade and it's a good one.
+
+## But your instinct is pointing at something real
+
+Not all of that block is volatile. Measured:
+
+| static, re-sent verbatim every turn | chars |
+|---|---|
+| `memory-trigger` | 481 |
+| `method` | 150 |
+| `site-line` | 89 |
+| `no-framework-vocabulary` | 80 |
+| `act-rather-than-narrate` | 63 |
+| **total** | **863** |
+
+Genuinely volatile: the page digest (≤2,000), change signal, corpus delta, interrupted-turn, and the standing note (≤4,000).
+
+So ~863 characters never change and are paid for on every turn. **Could they be cached? Only by moving them into the prefix — and that would defeat their purpose.**
+
+A reminder's value *is* its position. It's re-delivered late, after the conversation, because guidance stated once at the top decays over a long conversation — that's the tier's entire reason for existing. Put `act-rather-than-narrate` in the cached prefix and it's said once, thirty turns and 50k tokens ago, which is exactly the decay it exists to prevent.
+
+**So the static reminders are uncacheable not because they change, but because their position is their function.** We're paying for placement, not content — and with a prefix-only cache there's no way to have both.
+
+The lever, if that block starts costing, is **brevity rather than caching**. Repetition works on short strings; 481 characters for the memory trigger is more than repetition needs. That's a tuning question best answered once REQ-169's gauge makes the per-turn number visible — which is another reason to get that one moving.
 
 <!-- xgd-chat-end -->
