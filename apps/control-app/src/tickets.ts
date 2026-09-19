@@ -1040,6 +1040,34 @@ export interface TicketStore {
      * what stops a kind ever colliding with a type of the same name.
      */
     nextCounter(type: string): Promise<number>
+    /**
+     * The storage layer's own listing, WHICH IS THE ONLY ONE THAT CAN SEE THE
+     * TRASH — [[REQ-281]].
+     *
+     * NAMED HERE BECAUSE NOTHING ABOVE CAN REACH AN ARCHIVED RECORD AT ALL.
+     * `list` and `query` on the store are built over a scan hardcoded to
+     * `archived: false`, and that is right: *"a filter that matched an archived
+     * ticket would describe a set no read could reproduce"*, which is precisely
+     * what makes `archive` remove a Library row from every list for nothing.
+     * But a surface that has to say *"your client deleted that"* rather than
+     * *"there is no such thing"* needs to look at what was deleted, and this is
+     * the one primitive that answers.
+     *
+     * A READ, SO IT IS THE TENANT'S ([[DOC-8]] §6.6). The accessor arrives bound
+     * by `forTenant` and refuses to run unscoped, so there is no argument here
+     * that could reach another business's trash — the same guarantee the two
+     * primitives above inherit, stated once for all three.
+     *
+     * PAGED, AND THE CURSOR IS A UID. The storage layer orders by uid and
+     * returns `nextCursor` when more remain; `material.ts`'s
+     * `listDeletedMaterial` is what walks it, so no caller above pages by hand.
+     */
+    list(a: {
+      type?: string
+      archived?: boolean
+      limit?: number
+      cursor?: string
+    }): Promise<{ records: Ticket[]; nextCursor: string | null }>
   }
   /**
    * The tenant-bound blob handle, for reading an attachment's bytes back.

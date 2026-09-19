@@ -124,12 +124,15 @@ function hostOver(
     slug?: string
     place?: (name: string, as: string | null) => Promise<PlacedItem>
     descriptions?: Record<string, string>
+    /** What the client has deleted ([[REQ-281]]) — empty on a case that is not about it. */
+    deleted?: CatalogueItem[]
   } = {},
 ): { deps: LibraryDeps; log: HostLog } {
   const log: HostLog = { placed: [] }
   const deps: LibraryDeps = {
     slug: opts.slug ?? 'acme',
     list: async () => items,
+    deleted: async () => opts.deleted ?? [],
     read: async (name) => {
       const found = items.find((i) => i.name === name)
       if (!found) throw new Error(`the double was asked for '${name}', which it does not hold`)

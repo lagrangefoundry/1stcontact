@@ -1414,7 +1414,178 @@ export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
   )
   return (await labelUnlabelled(store, pages.flatMap((page) => page.tickets)))
     .map(rowOf)
-    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0))
+    .sort(newestFirst)
+}
+
+/** The Library's order, in one place so the trash below is filed the same way. */
+function newestFirst(a: MaterialRow, b: MaterialRow): number {
+  return a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0
+}
+
+/**
+ * How many trashed records one page of the storage layer's listing holds.
+ *
+ * THE COMPONENT'S OWN SCAN USES 200 and this matches it rather than picking a
+ * number: the two walks read the same table through the same primitive, and a
+ * page size that disagreed would be a second answer to a question already
+ * settled.
+ */
+const DELETED_PAGE = 200
+
+/**
+ * Everything the business has DELETED — [[REQ-281]].
+ *
+ * WHY THIS EXISTS AT ALL, GIVEN THAT DELETION IS SUPPOSED TO BE THE END OF IT.
+ * There is exactly one question a deleted material still has to answer, and it
+ * is a question about a NAME rather than about a file: a consultation that said
+ * *"use IMAGE-5"* holds a name the client has since deleted, and the difference
+ * between *"your client deleted that"* and *"there is no such thing"* is the
+ * difference between a session that can say something useful and one that
+ * argues with the client about a number they both saw. See `library-core.ts`'s
+ * `itemNamed`. Nothing else reads this, and nothing here serves bytes — the
+ * component moved those to the trash when the record was archived, which is what
+ * makes the deletion real.
+ *
+ * IT IS THE ONE PRIMITIVE THAT CAN SEE THE TRASH, and that is why it is written
+ * against the accessor rather than against `store.list`. The store's own read
+ * slice scans live records only — deliberately, because *"a filter that matched
+ * an archived ticket would describe a set no read could reproduce"* — and that
+ * is precisely what makes {@link listMaterial} drop a deleted row for nothing.
+ * Widening THAT would undo the feature; this is a second, narrower question
+ * asked of the same table.
+ *
+ * NOT LABELLED ON THE WAY OUT, which is the difference from {@link listMaterial}.
+ * That read allocates a catalogue number for anything that has none, because the
+ * row is about to be shown to somebody who may want to say its name. A deleted
+ * record has no such future, and allocating a number for one would be a write on
+ * the erasure path and a number spent on a thing nobody can reach. An unlabelled
+ * deleted item is simply one that cannot be asked for by number — which is the
+ * state it was in before it was deleted.
+ */
+export async function listDeletedMaterial(store: TicketStore): Promise<MaterialRow[]> {
+  const pages = await Promise.all(
+    MATERIAL_TYPES.map(async (type) => {
+      const tickets: Ticket[] = []
+      let cursor: string | undefined
+      do {
+        const page = await store.accessor.list({
+          type,
+          archived: true,
+          limit: DELETED_PAGE,
+          ...(cursor === undefined ? {} : { cursor }),
+        })
+        tickets.push(...page.records)
+        cursor = page.nextCursor ?? undefined
+      } while (cursor !== undefined)
+      return tickets
+    }),
+  )
+  return pages.flat().map(rowOf).sort(newestFirst)
+}
+
+/**
+ * The client deletes one piece of their material — [[REQ-281]].
+ *
+ * **IT IS THE COMPONENT'S `archive`, WHICH IS THIS SYSTEM'S DECLARED ERASURE
+ * PATH** ([[DOC-37]], and `tickets.ts` on why no lock may ever reach it). Not a
+ * status, not a field, and not a row delete: a column the storage layer already
+ * owns, so nothing in the lifecycle has to learn a new state and nothing here
+ * invents a second way for a thing to be gone.
+ *
+ * WHAT MAKES IT A DELETION RATHER THAN A HIDING IS THE COMPONENT'S, NOT OURS.
+ * `archive` cascades to the material's attachment records and MOVES THEIR
+ * BYTES — *"hiding the record logically would leave every outstanding URL
+ * serving the file, and 'deleted' that still serves is not deleted"*. After it,
+ * the old blob position 404s. Re-implementing any of that here would be a second
+ * set of trash rules to keep correct.
+ *
+ * AND THE ROW LEAVES EVERY LIST FOR NOTHING. The read slice scans live records
+ * only, so one call removes the item from {@link listMaterial} — which is the
+ * client's Library tab AND the assistant's catalogue, because [[REQ-228]] made
+ * them one read — from {@link materialImageLibrary}, so `screenshot` and
+ * `edit_image` stop naming it, and from the knowledge base's corpus predicate.
+ * It also raises the change feed's `exit`, because *"an archived ticket is never
+ * in a set"*, which is what the Library tab redraws from. Not one of those is
+ * coded here, and that is the argument for archive being the verb.
+ *
+ * IT CHECKS THE UID IS MATERIAL FIRST, through the same {@link materialTicket}
+ * every other write on this surface goes through. Without it a uid off the wire
+ * could archive a `chat`, a `brief` or an awareness report through a route that
+ * is supposed to reach the client's files and nothing else.
+ *
+ * **THE SITE'S COPY IS NOT TOUCHED, AND THAT IS THE FACT THE WHOLE FEATURE
+ * RESTS ON.** `promoteToSiteAsset` COPIES the bytes into the site's own asset
+ * store and then records `placed_on`, so a picture that is on a page is the
+ * site's copy and the Library row is the catalogue entry. Deleting the entry
+ * therefore cannot take the picture off the page — taking it off the page is an
+ * edit to the page, which already has one. The confirmation the client reads
+ * says exactly this, because the opposite assumption is the natural one.
+ */
+export async function archiveMaterial(
+  store: TicketStore,
+  uid: string,
+  index?: IndexMaterial | null,
+): Promise<{ uid: string; forgotten: boolean }> {
+  await materialTicket(store, uid)
+  await store.archive({ uid })
+  return { uid, forgotten: await forgetFromIndex(index, uid) }
+}
+
+/**
+ * Run the index seam after an erasure, and never let it undo one — [[REQ-281]].
+ *
+ * WHY THE INDEX HAS TO BE TOLD AT ALL. The catalogue is not the only thing that
+ * answers about a file: [[DOC-39]] §4 is explicit that retrieval reads the
+ * INDEX, not the body, and a material's description and extracted text are
+ * embedded there. The chunk index drops every parent that is no longer in the
+ * corpus on its next refresh — and the corpus is a `query`, which cannot see an
+ * archived record — so the deletion does reach retrieval eventually. *Eventually*
+ * is the problem: left to the next upload, a deleted brand document keeps
+ * answering searches until something unrelated happens to write. A client who
+ * deleted a file and is then quoted from it has not had it deleted.
+ *
+ * THE SIBLING OF {@link indexAfterWrite}, AND NOT THE SAME FUNCTION, because the
+ * two report opposite facts and their logs are read by somebody trying to
+ * understand a system. That one answers *is this material in the index now* and
+ * its failure message says the material was STORED but not indexed; here the
+ * material is gone and the risk is the reverse — that something can still be
+ * found by searching for it. One function answering both would have to carry a
+ * sentence that was wrong half the time, which is worse than eight lines.
+ *
+ * IT NEVER THROWS, for {@link indexAfterWrite}'s reason read the other way
+ * round: by the time this runs the record is archived and its bytes have moved,
+ * so reporting a failure would report a deletion that happened as one that did
+ * not — and would invite a caller to retry an operation whose second attempt has
+ * nothing left to delete.
+ *
+ * @returns whether the index has been refreshed since the erasure.
+ */
+async function forgetFromIndex(
+  index: IndexMaterial | null | undefined,
+  uid: string,
+): Promise<boolean> {
+  if (!index) {
+    console.warn(
+      `[REQ-281] material ${uid} was deleted but the search index was NOT ` +
+        'refreshed: no AI binding is configured, so nothing here can re-embed ' +
+        'this corpus and the deleted file may still be found by search until ' +
+        'something else writes. Declare [ai] in apps/control-app/wrangler.toml.',
+    )
+    return false
+  }
+  try {
+    await index(uid)
+    return true
+  } catch (error) {
+    console.warn(
+      `[REQ-281] material ${uid} was deleted but the search index refresh ` +
+        `failed (${String((error as { message?: unknown })?.message ?? error)}). ` +
+        'The deletion itself stands — the record is archived and its bytes have ' +
+        'moved — but the file may still be found by search until the next ' +
+        'successful pass over this corpus.',
+    )
+    return false
+  }
 }
 
 /**

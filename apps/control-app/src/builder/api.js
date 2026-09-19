@@ -874,6 +874,28 @@ export async function uploadMaterial({ file, role, site }, fetchImpl = fetch) {
 }
 
 /**
+ * Delete one piece of the client's material ([[REQ-281]]).
+ *
+ * `DELETE` ON THE LIST'S OWN PATH, which is the route's shape and not a choice
+ * made here — see `router.ts`. The uid travels in the query string because a
+ * `DELETE` body is the one request shape browsers and intermediaries disagree
+ * about, and there is nothing else to send.
+ *
+ * THROUGH `copyEnvelope`, like every other material write, so a refusal arrives
+ * as a `CopyError` carrying the origin's own sentence. The pane has somewhere to
+ * put that: this is the one action on the Library that cannot be rolled back by
+ * simply re-rendering, so a silent failure would leave a client believing a file
+ * is gone when it is not.
+ */
+export async function deleteMaterial(uid, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped(`/api/material?uid=${encodeURIComponent(uid)}`), {
+      method: 'DELETE',
+    }),
+  )
+}
+
+/**
  * Correct what we said a piece of material is (REQ-161).
  *
  * The body is the description (DOC-38 §6), and the origin re-indexes it — which

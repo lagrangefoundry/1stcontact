@@ -130,6 +130,31 @@ export interface LibraryDeps {
    * there would be two places that know what `placed` means.
    */
   list(): Promise<CatalogueItem[]>
+  /**
+   * Every item the client has DELETED — [[REQ-281]].
+   *
+   * FOR ONE QUESTION ONLY, AND NO OPERATION EXPOSES IT. A session holds names
+   * from earlier in the conversation, and the client can now delete the thing
+   * one of them refers to. What this answers is *was there once an IMAGE-5* —
+   * see {@link itemNamed}, which is its only caller and calls it only when a
+   * name has already failed to resolve against the live catalogue. A listing of
+   * the trash is emphatically not a capability: the ticket rules out a
+   * client-facing bin that has to be browsed, and giving the assistant one the
+   * client does not have would be worse.
+   *
+   * IT IS A SEPARATE CALL AND NOT A FLAG ON {@link LibraryDeps.list}, because
+   * the two are read on different paths and must never merge: every listing the
+   * model sees is live material, and one deleted item leaking into
+   * `list_library` would be the catalogue lying about what the client has.
+   * Separate functions cannot be conflated by a caller passing the wrong
+   * argument.
+   *
+   * THE HOST PROJECTS IT THROUGH THE SAME RULE IT PROJECTS THE LIVE CATALOGUE
+   * WITH, so a deleted item answers to exactly the spellings it answered to
+   * while it was there — its number above all. A trash that named its contents
+   * differently could not recognise the name the session is actually holding.
+   */
+  deleted(): Promise<CatalogueItem[]>
   /** One item in full: the row, plus what the describer wrote about it. */
   read(name: string): Promise<CatalogueItem & { description: string }>
   /**
@@ -167,7 +192,7 @@ export interface PlacedItem {
 export class LibraryRefusedError extends Error {
   readonly name = 'LibraryRefusedError'
   constructor(
-    readonly code: 'NOT_FOUND' | 'AMBIGUOUS' | 'NOT_REPUBLISHABLE' | 'NO_SITE',
+    readonly code: 'NOT_FOUND' | 'DELETED' | 'AMBIGUOUS' | 'NOT_REPUBLISHABLE' | 'NO_SITE',
     message: string,
   ) {
     super(message)
@@ -199,15 +224,39 @@ export function libraryInstanceConfig(): Record<string, unknown> {
 }
 
 /**
- * The item a name means, refusing both ways a name can fail to mean one.
+ * The item a name means, refusing every way a name can fail to mean one.
  *
  * THE ONE RULE, OVER THE WHOLE CATALOGUE. See this file's header: the candidate
  * set widens, the rule does not change. Ambiguity is refused rather than
  * resolved, and the refusal names the unambiguous spellings — a picture handed
  * back as though it were the one that was asked for is a wrong answer that looks
  * like a right one, and nothing downstream can tell.
+ *
+ * AND SINCE [[REQ-281]] A NAME CAN FAIL A THIRD WAY: THE CLIENT DELETED IT. A
+ * conversation that said *"use IMAGE-5"* holds a name that was real when it was
+ * said, and the client can now get rid of what they do not want to keep. Told
+ * *"there is no catalogue item called IMAGE-5"* — followed by a list of the ones
+ * there are — a session is being invited to argue with the client about a number
+ * they both read off the same row. Told it was deleted, it can say the one
+ * useful thing there is to say. The refusal is its own declared code for exactly
+ * that reason: the Toolbox renders the DECLARATION's sentence, so the difference
+ * has to exist there and not only in this message.
+ *
+ * THE TRASH IS CONSULTED ONLY ON THE MISS PATH, which is what keeps it from
+ * being a cost. A name that resolves never reaches it, and a name that does not
+ * was about to produce a refusal anyway — one extra read to make that refusal
+ * true is the cheapest thing in this function.
+ *
+ * AMBIGUITY AMONG DELETED ITEMS IS NOT A CASE. Two deleted items answering to
+ * one name are both deleted, which is the whole of what the caller is told; the
+ * question *which one* has no answer worth computing because neither can be
+ * reached.
  */
-function itemNamed(name: string, items: readonly CatalogueItem[]): CatalogueItem {
+async function itemNamed(
+  name: string,
+  items: readonly CatalogueItem[],
+  deleted: () => Promise<CatalogueItem[]>,
+): Promise<CatalogueItem> {
   const { match, candidates } = resolveStoredImage(name, items)
   if (match) return match as CatalogueItem
   if (candidates.length > 1) {
@@ -215,6 +264,16 @@ function itemNamed(name: string, items: readonly CatalogueItem[]): CatalogueItem
       'AMBIGUOUS',
       `'${name}' is the name of ${candidates.length} catalogue items: ` +
         `${candidates.map((c) => `'${c.name}'`).join(', ')}. Ask again with one of those.`,
+    )
+  }
+  const gone = resolveStoredImage(name, await deleted())
+  if (gone.match || gone.candidates.length > 0) {
+    throw new LibraryRefusedError(
+      'DELETED',
+      `'${name}' was in your client's Library and they have deleted it. The file, ` +
+        'what it was described as, and any edits made to it are gone, and only ' +
+        'they can put it back by uploading it again. Anything already on the ' +
+        'site is unaffected — the site holds its own copy.',
     )
   }
   throw new LibraryRefusedError(
@@ -308,7 +367,7 @@ export function libraryOperations(
     },
 
     get_library_item: async (p: Params) => {
-      const item = itemNamed(String(p.item ?? ''), await deps.list())
+      const item = await itemNamed(String(p.item ?? ''), await deps.list(), () => deps.deleted())
       const full = await deps.read(item.name)
       return {
         ...itemView(full),
@@ -321,7 +380,7 @@ export function libraryOperations(
     },
 
     place_on_site: async (p: Params) => {
-      const item = itemNamed(String(p.item ?? ''), await deps.list())
+      const item = await itemNamed(String(p.item ?? ''), await deps.list(), () => deps.deleted())
       const as = p.as === undefined || p.as === null ? null : String(p.as)
       const placed = await deps.place(item.name, as)
       return {

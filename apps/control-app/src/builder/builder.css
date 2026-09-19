@@ -1534,6 +1534,79 @@ body {
   margin-bottom: 0;
 }
 
+/* --- getting rid of one item ([[REQ-281]]) -----------------------------------
+ *
+ * REACHABLE, NOT PROMINENT. The control sits at the foot of the pane, under a
+ * rule that separates it from the description rather than beside anything the
+ * client uses often — deleting is rare and, to them, irreversible. The border
+ * belongs to the block and not to the button, so the separation survives the
+ * button being restyled.
+ *
+ * IT IS SET IN THE DANGER COLOUR AND NOT AS A DANGER BUTTON. A filled red button
+ * on a filing screen reads as the primary thing to do on it, which is the
+ * opposite of true; the word carries the warning and the box arrives with the
+ * dialog.
+ */
+.builder-library__danger {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--shell-border);
+}
+
+.builder-library__delete {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--shell-danger);
+  font: inherit;
+  font-size: 0.85em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.builder-library__delete:focus-visible {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 2px;
+}
+
+/* The dialog's sentences are the content, so they are set at reading size and
+   reading rhythm — the publish-address dialog's argument, for the same reason:
+   this is where a client learns that deleting a placed picture does not take it
+   off their site, and a caption-sized paragraph is one nobody finishes. */
+.builder-library__confirm {
+  margin: 0 0 10px;
+  font-size: 0.95em;
+  line-height: 1.45;
+}
+
+.builder-library__confirm-failed {
+  margin: 0;
+  color: var(--shell-danger);
+  font-size: 0.85em;
+}
+
+.builder-library__confirm-failed:empty {
+  display: none;
+}
+
+/* THE AFFIRMATIVE BUTTON IS THE DESTRUCTIVE ONE, and the dialog is the one place
+   in this feature where a filled warning colour is right: the decision is being
+   taken here, not browsed past. It still wears `--primary`, so it is marked as
+   the affirmative action the way every other builder dialog marks its own
+   ([[BUG-53]]); the two-class selector only repaints it. */
+.builder-modal__btn.builder-library__confirm-delete {
+  border-color: var(--shell-danger);
+  background: var(--shell-danger);
+  color: var(--shell-bg);
+}
+
+.builder-modal__btn.builder-library__confirm-delete:hover {
+  background: color-mix(in srgb, var(--shell-danger) 86%, var(--shell-fg));
+  border-color: color-mix(in srgb, var(--shell-danger) 86%, var(--shell-fg));
+}
+
 /* --- the User tab (REQ-170, REQ-189) ------------------------------------------
  *
  * NOTHING HERE EXISTED UNTIL REQ-189. The tab emitted correct DOM and no rule

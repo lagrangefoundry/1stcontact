@@ -1,7 +1,7 @@
 {
   "surface": "library",
   "version": 1,
-  "surface_version": 2,
+  "surface_version": 3,
   "title": "The client's Library — everything they have given you",
   "call_type": "inproc",
   "overview": "Your client has a Library, and this is it. Every file they have dropped on a conversation is here — their logo, their photographs, their brand guidelines, the font their signwriter used — along with every picture you have generated for them. It is the same list they see on their own Library tab, and it is the catalogue of what this engagement has to work with.\n\n**Being on the site is a field on a catalogue item, not a different place to look.** An item that is on the site says so, in `placed_on`. An item that is not is still theirs, still described, still here — it simply has not been placed yet. Do not think of these as two stores; think of one catalogue with a mark on some of its entries.\n\n**This is not the same list as `list_assets`, and the difference is real.** `list_assets` answers *what can this site reference today* — every file the site holds, including drawings you made yourself. This answers *what has the client given us*. The two overlap exactly where `placed_on` says they do. When you want to put a picture on a page that is already on the site, `list_assets` is your list; when you want to know what the client actually has, this one is.\n\n**Say the number, not the name you call it by.** Every item here has a number your client can see on their own Library row — `IMAGE-5`, `DOC-7`. It is the only name the two of you share: the catalogue name is a handle nobody says out loud, and a title is not unique — three pictures made from one request arrive titled the same, which is the whole reason the number exists. So say *\"the crucible, IMAGE-5\"* when you talk to your client about a picture, and expect them to say it back to you. This is not internal vocabulary and it is not a thing to hide from them: it is a catalogue number, the way a gallery or a print shop gives one, and it is theirs as much as yours.\n\n**Look before you ask.** You can see every picture in here — `screenshot` takes the name this catalogue gives you, unchanged. A client who has given you three photographs and been asked which one is best, by someone who never looked at them, has been given nothing. Read the catalogue, look at the pictures, form a view, and say it.",
@@ -45,6 +45,9 @@
   "errors": {
     "NOT_FOUND": {
       "message": "there is no catalogue item by that name. The refusal names the ones there are — ask again with one of those."
+    },
+    "DELETED": {
+      "message": "there WAS an item by that name and your client has deleted it. It is not a name you mistyped and not one you can reach another way: the file, its description and any edits made to it are gone, and only your client can put it back by uploading it again. Say so plainly if it comes up — do not argue that it exists. Anything already placed on the site is unaffected, because the site holds its own copy of what was placed."
     },
     "AMBIGUOUS": {
       "message": "that name fits more than one item, and guessing which would be a wrong answer that looks like a right one. Ask again with one of the names the refusal lists."
@@ -114,6 +117,7 @@
       },
       "errors": [
         "NOT_FOUND",
+        "DELETED",
         "AMBIGUOUS",
         "SCHEMA_INVALID"
       ]
@@ -139,6 +143,7 @@
       },
       "errors": [
         "NOT_FOUND",
+        "DELETED",
         "AMBIGUOUS",
         "NOT_REPUBLISHABLE",
         "NO_SITE",
@@ -185,7 +190,7 @@
     },
     {
       "name": "Removing anything",
-      "note": "There is no way to delete a catalogue item or take one back off the site. Removing a file the client gave you is theirs to decide, and a catalogue you could quietly prune would stop being an account of what they handed over."
+      "note": "There is no way for YOU to delete a catalogue item or take one back off the site. Removing a file the client gave you is theirs to decide, and a catalogue you could quietly prune would stop being an account of what they handed over.\n\nThey can do it, on their own Library tab, and you will see the item simply cease to be in the catalogue. A name you were given earlier that has since been deleted is refused as DELETED rather than as unknown, so you can tell \"they got rid of that\" apart from \"I misheard the name\"."
     },
     {
       "name": "Putting a picture in front of anybody",

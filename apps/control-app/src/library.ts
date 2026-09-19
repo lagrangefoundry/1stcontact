@@ -35,6 +35,7 @@ import { LibraryRefusedError } from '../../../tools/generate/src/cli/ai/library-
 import type { ImageRenderer } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
+  listDeletedMaterial,
   listMaterial,
   readMaterial,
   promoteToSiteAsset,
@@ -124,6 +125,25 @@ export function chatLibrary(
       // the client sees, and the one failure worth designing against is that the
       // two stop describing the same set.
       return (await listMaterial(tickets)).map(catalogueItem)
+    },
+
+    /**
+     * The trash, through the SAME projection as the catalogue above ([[REQ-281]]).
+     *
+     * ONE LINE, AND THE ONE LINE IS THE POINT. `listDeletedMaterial` asks the
+     * storage layer the one question no ordinary read can — *what has been
+     * archived* — and `catalogueItem` is the identical mapping the live listing
+     * goes through. So a deleted item is spelled exactly as it was spelled while
+     * it was there: same uid, same title, same filename, same number. A trash
+     * that named its contents any other way could not recognise `IMAGE-5`, which
+     * is the only name a session is ever holding when this gets called.
+     *
+     * NOTHING ELSE READS IT. `list`, `read` and `place` each back an operation
+     * the model can call; this one backs a REFUSAL, and `library-core.ts` is
+     * where the argument for why that refusal is worth a read lives.
+     */
+    async deleted(): Promise<CatalogueItem[]> {
+      return (await listDeletedMaterial(tickets)).map(catalogueItem)
     },
 
     async read(name: string): Promise<CatalogueItem & { description: string }> {

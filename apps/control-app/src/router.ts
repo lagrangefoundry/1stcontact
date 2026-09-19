@@ -258,6 +258,7 @@ import { type ConvertHeic, imagesHeicConverter, type ImagesLike } from './heic'
 import { TemplateRefusedError } from './templates'
 import {
   AlreadyOnSiteError,
+  archiveMaterial,
   ingestFetch,
   ingestUpload,
   listMaterial,
@@ -4325,6 +4326,40 @@ async function routeUncached(
         }),
         since,
       )
+    }
+
+    /**
+     * The client deletes one of their own files ([[REQ-281]]).
+     *
+     * `DELETE` ON THE LIST'S OWN PATH, and not a `POST /api/material/delete`.
+     * The three POST routes above are each a NARROW WRITE OF ONE FIELD — a
+     * description, a name, a role — and naming the field in the path is what
+     * keeps a reader from having to read the handler to learn a route's reach.
+     * This is not one of those: it is the removal of the resource `GET
+     * /api/material` lists and `POST /api/material` adds to, which is what the
+     * method already says. `/api/domain` spells its own erasure the same way.
+     *
+     * A THIN TRANSPORT OVER `archiveMaterial`, which is the component's
+     * `archive` — the declared erasure path ([[DOC-37]]). So the cascade onto
+     * the attachment bytes, the row leaving every list, and the change feed's
+     * `exit` are all inherited rather than arranged here.
+     *
+     * IT HANDS DOWN THE INDEX SEAM, exactly as the description route does and
+     * for the mirror of its reason: retrieval reads the index rather than the
+     * body, so a deletion that never reached the index would leave the assistant
+     * quoting a file the client has deleted. The answer travels in the envelope
+     * because the erasure stands whether or not that refresh worked, and a
+     * caller is entitled to know which.
+     *
+     * A UID THAT IS NOT THIS TENANT'S MATERIAL IS A 404, mapped at the foot of
+     * this file with every other material refusal — the same answer the read
+     * routes give, for the same reason: distinguishing "not material" from "not
+     * here" would turn this into an oracle for which uids exist in the tenant.
+     */
+    if (p === '/api/material' && method === 'DELETE') {
+      const uid = url.searchParams.get('uid')
+      if (!uid) return json(400, { error: 'uid is required' })
+      return json(200, await archiveMaterial(await openTickets(), uid, (await ingestDeps()).index))
     }
 
     if (p === '/api/material/item' && method === 'GET') {
