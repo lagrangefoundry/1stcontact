@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T23:28:27.714278+00:00'
+updated_at: '2026-09-19T23:31:21.481519+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2039,5 +2039,55 @@ Two things in that correction worth your eye:
 <!-- xgd-chat role="user" ts="2026-09-19T23:28:27.530569+00:00" -->
 #### You
 ok with all our changes for context management all I am getting out of the consultant is: *Assembled priming exceeds the 60000-character budget at entry "km-mechanism" (65925 characters so far). Shorten that entry, or raise 'maxPrimingChars' for this host.*
+
+<!-- xgd-turn id="fe3ceccd-cd7d-4f7a-a492-d42f861b6310-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T23:31:21.150294+00:00" -->
+#### Claude
+The consultant is down — let me find what ballooned.
+
+`MAX_PRIMING_CHARS = 60_000` is 1c's own constant. Static entries are only ~5,870 — so the landscape is ~60k. Let me find why.
+
+Found the mechanism — `km.mechanism` is the tool manual. Let me measure what's in it now.
+
+That's our own changes hitting a ceiling we set. Here's the diagnosis and the unblock.
+
+## What the number is
+
+`MAX_PRIMING_CHARS = 60_000` is **1stcontact's own constant** (`host-core.ts:723`) — the framework's default is 140,000. We overrode it downward.
+
+## What filled it
+
+`km-mechanism` isn't prose — **it's the tool manual**. `roles.ts:990` binds it to `box.manual({ level: 'summary' })`, and its own comment records the sizing:
+
+> The full manual is 43k characters of one site's surface and was 98% of the priming document; **the summary is 11k.**
+
+I measured it now: the consultant's granted surfaces contribute **~30,000 characters** to that summary. It has roughly tripled since that comment was written.
+
+**And here's the mechanism that let it happen quietly.** `summary` keeps overviews and group prose *whole* — it only drops the per-operation reference. So **every word added to a surface overview lands in every session's priming, in full, forever.** There's no budget check on surface prose; the cost only appears when it hits the wall.
+
+Our recent tickets are part of it:
+
+| | |
+|---|---|
+| REQ-283's `agent` surface | **+2,555** (entirely new) |
+| REQ-284's fidelity prose | **+1,242** (overview 3,362 → 4,048, group 170 → 559) |
+| REQ-280/281/282 | library and image prose |
+
+So REQ-284 — the ticket whose whole purpose was making the consultant spend context wisely — added 1,242 characters to every turn. That's worth sitting with.
+
+The static entries are only 5,870 and the system awareness map is unchanged at 5,621, so the remainder (~30k) is `km-landscape`. I haven't pinned that split precisely — the arithmetic says landscape + manual ≈ 60,000 and I've measured the manual at ~30,000.
+
+## The unblock
+
+**Raise `MAX_PRIMING_CHARS` to 140,000** — the framework's own default. The justification is clean: 1c overrode it down to 60,000 when the manual was 11k, and that reason has expired. For scale, 66,000 characters is ~17k tokens — **1.7% of Opus 5's 1M window.** The constant is throttling something that isn't scarce.
+
+That's a one-line change, so it needs a ticket and branch under free-coding. Say go and I'll scope it.
+
+## The real fix, separately
+
+Raising the ceiling buys room; it doesn't address that surface prose is an unbudgeted per-session cost that nobody sees until it fails. That's the same class of problem as this whole epic — and the honest version is either a budget per surface, or the summary manual dropping overviews too and letting `DescribeTools` carry them.
+
+Worth a ticket once you're unblocked. Want both, or just the unblock for now?
 
 <!-- xgd-chat-end -->
