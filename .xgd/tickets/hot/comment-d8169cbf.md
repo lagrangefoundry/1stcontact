@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T21:59:31.528037+00:00'
+updated_at: '2026-09-19T22:05:41.558439+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1997,5 +1997,13 @@ Two things I left as a comment on REQ-169:
 Everything the consultant needs has landed: it can read back its own decisions (283), sees the page each turn without looking (285), knows what looking costs and reaches for `list_changes` on recovery (284), has stable `IMAGE-n` names you can both say (280), and images now age out of context (168) with a gauge to see the pressure (169).
 
 One caveat when you start: **REQ-284's prose still says an image "is carried into every turn for as long as this conversation lasts."** REQ-168 has now made that false. The consultant will under-use a screenshot that's become much cheaper — the inverse of the problem 284 fixed. Both are frozen at `ready_to_reconcile`, so that's a new ticket when you want it; it's a prose-only change and small.
+
+<!-- xgd-turn id="43d6362b-74f5-4b7e-8a8c-426b633b1f32-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T22:05:40.844246+00:00" -->
+#### You
+Please remove the suffix on fable - but do not configure it please - what is its max context size?
+
+please update 284 for correctness - reconcile is off right now so it is safe
 
 <!-- xgd-chat-end -->
