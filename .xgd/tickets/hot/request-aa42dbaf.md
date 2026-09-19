@@ -6,10 +6,10 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:58:58.331374+00:00'
+updated_at: '2026-09-19T01:24:27.760451+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
@@ -19,10 +19,18 @@ fields:
   - working_sha: 03cf14038f03efa2f0d6feaad79f0bbefba23408
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: ca12107ebe9115aeb04e86e47ab0128392d25aef
     reconcile_sha: null
     main_sha: null
-  version: 0.2.278
+    working_sha_history: []
+  - working_sha: dfa9b20e26343a272a2cf03ab8df9f0e2c8502fb
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 963d3f36d6509eaa26f1eadc315bc4c03dfe8cbe
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.280
 ---
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18: *"the consultant and I are lacking a
@@ -301,3 +309,30 @@ now writes a label, because the state it means to model is the ordinary one.
   Capping the pass was considered and rejected: a cap is a knob, and it makes
   *partly labelled* a state that persists rather than one that is over by the
   time anybody reads the list.
+
+
+### The catch-up's order has to be total, not merely stated
+
+*Found while verifying the first cut, 2026-09-18.* The catch-up labels oldest
+first, which was written as a comparison on `created_at` alone. That is not a
+total order: `created_at` is an ISO timestamp at MILLISECOND granularity, and two
+records written in immediate succession — which is exactly what a client dropping
+a folder of photographs produces — routinely share one. On a tie the comparison
+returns 0, the sort falls back to whatever order the store happened to list the
+rows in, and which of the two is `IMAGE-1` is then undefined.
+
+Nothing is corrupted by this: every row still takes a distinct number from the
+same atomic counter. What is lost is the one property the order was there for —
+that the sequence reads the way the client filled their Library, the same way on
+every run and on every machine.
+
+**So the order is `(created_at, uid)`.** The uid is the store's own tiebreak on
+every sorted read, it is unique by construction, and it is stable — so the catch-up
+now has a total order and two rows sharing a millisecond are numbered the same way
+every time rather than by luck.
+
+This surfaced as an intermittent UAT: the case asserting *oldest first* passed
+whenever the two fixtures landed in different milliseconds and failed when they
+did not. The UAT now proves the property at both ends — that a gap in creation
+time is honoured, and that rows sharing a millisecond are still ordered, and
+ordered the same way twice.

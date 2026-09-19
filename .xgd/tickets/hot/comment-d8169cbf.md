@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:06:29.299819+00:00'
+updated_at: '2026-09-19T01:24:59.887528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -920,5 +920,100 @@ Four things I flagged for whoever implements it:
 That last one is why I kept it as one ticket rather than filing a third: both parts are the same confusion between *what the client has* and *what the site is using*, and fixing either alone leaves the other still teaching it.
 
 I did note a scope caveat — Part 2 touches the write path and is bigger than Part 1. If it won't sit on one branch, split it, but keep the vocabulary decision in whichever lands first so the two surfaces never disagree mid-flight.
+
+<!-- xgd-turn id="67dfe3fe-9be9-4d8f-8c6d-fb5ae40f74ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:09:48.121720+00:00" -->
+#### You
+Ok the picker needs to offer me what is in the library that is the primary purpose of the library
+
+<!-- xgd-turn id="67dfe3fe-9be9-4d8f-8c6d-fb5ae40f74ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:10:30.007902+00:00" -->
+#### Claude
+That's a stronger statement than I wrote it as, and the codebase already agrees with you — for the consultant, just not for you.
+
+Recorded as the governing principle for Part 2, not as a feature request — and there's a good piece of evidence behind it.
+
+**`library-surface.json` already says exactly what you just said**, in the consultant's own manual:
+
+> **Being on the site is a field on a catalogue item, not a different place to look.** An item that is on the site says so, in `placed_on`. An item that is not is still theirs, still described, still here — it simply has not been placed yet. **Do not think of these as two stores; think of one catalogue with a mark on some of its entries.**
+
+So the consultant is taught *one catalogue with a mark*. The builder shows you *two stores* and lets you pick from the smaller one. The same sentence that's priming for the AI is the specification for this UI — and only one of the two surfaces implements it.
+
+That reframes Part 2 usefully:
+
+- **The picker's list is the Library's image set, full stop.** Not the site's assets, not the Library filtered by something the client didn't ask for. The site's asset copy is bookkeeping — it shouldn't be a list anybody picks from.
+- **Everything else in that section is about *how a pick becomes a valid `src`***, not about which items appear. Place-on-Save, the `/assets/<name>` handle, the rights refusals — all mechanics downstream of a list that's already decided.
+- **"On the site" becomes a mark on an entry, not a membership test** — which is Part 1's accent/grey pill finally doing the job it should have had: telling you which of your pictures are in use, on the one list where all of them are.
+
+One consequence worth being explicit about: this makes Part 1 and Part 2 genuinely inseparable. If the picker shows everything, the mark is the *only* thing distinguishing used from unused — so getting the pill's semantics right stops being cosmetic and becomes load-bearing.
+
+<!-- xgd-turn id="c0c39d30-d066-4fbd-be8d-8419d822b56e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:13:03.983853+00:00" -->
+#### You
+That's fine but it should not be an error mark - just showing the assets as unused - can you update 282 please
+
+<!-- xgd-turn id="c0c39d30-d066-4fbd-be8d-8419d822b56e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:13:42.624515+00:00" -->
+#### Claude
+Updated. Three changes:
+
+**The vocabulary follows your word.** You said "unused", and that's better than what I had — so the pill now reads **In use** / **Unused** rather than "On the site" / "Not on the site". The old phrasing names an *absence* and reads as a deficiency: *not* on the site, where it was supposed to go. "Unused" names an ordinary condition of a catalogue. Most of a client's Library will be unused most of the time, and that's the healthy state of having given us plenty to work with.
+
+**Never an error mark, in any register.** Spelled out so it can't be re-introduced in a softer form: no warning glyph, no red or amber or any colour the builder uses for something wrong, no hint text telling the client to try again or fix anything, and no badge shape that differs from the in-use one. The two states differ in colour and in word and in nothing else — **an unused item must not be more visually prominent than a used one, because it is not more important.**
+
+**And I've walked back my "load-bearing" phrasing**, because it could be read as arguing for emphasis. What Part 2 actually raises is the bar on the mark being *correct and present* — not on it being *loud*. That's now written into the ticket explicitly, so an implementer doesn't read the two parts together and conclude the pill should shout.
+
+<!-- xgd-turn id="712e1acf-f940-46e3-ba15-e9e550179e3b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:20:08.949826+00:00" -->
+#### You
+**The vocabulary follows your word.** You said "unused", and that's better than what I had — so the pill now reads **In use** / **Unused** rather than "On the site" / "Not on the site". The old phrasing names an *absence* and reads as a deficiency: *not* on the site, where it was supposed to go. "Unused" names an ordinary condition of a catalogue. Most of a client's Library will be unused most of the time, and that's the healthy state of having given us plenty to work with. <-- can we go with my original US suggestion - TBH this is NOT a very valuable thing for the user to know I do not want to use a lot of realestate on it.
+
+Here is what I would like - there is one pill is says (Site Asset) I would like to change the color of the outline and the word depending on the state: used - color it using the theme's accent color, unused - color it gray. Please.
+
+<!-- xgd-turn id="712e1acf-f940-46e3-ba15-e9e550179e3b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:21:05.759856+00:00" -->
+#### Claude
+Understood — your design, one pill, colour only. Let me correct it.
+
+Done — your design, as you specified it:
+
+- **One pill reading "Site Asset"** in both states. The label never changes.
+- **Used** — outline and word in the theme's accent colour.
+- **Unused** — outline and word in grey.
+- No second badge, no extra row, no more space than the pill already takes.
+
+I dropped my In use / Unused invention and quoted your reasoning in the ticket, because it's the constraint an implementer needs: *"this is NOT a very valuable thing for the user to know. I do not want to use a lot of real estate on it."* That settles what weight it gets — minor ambient information gets a colour and nothing else.
+
+Also noted: `UNPLACED_LABEL` and `UNPLACED_HINT` (`library.js:170-172`) both go. One label, two colours, no second string to maintain.
+
+**One free addition, flagged as recommended rather than required.** REQ-181's accessibility argument was sound — colour alone reaches neither a screen reader nor a monochrome display. Your judgement that this is minor information does mean it can be ambient, so it doesn't overturn your design. But an `aria-label` or `title` on the pill ("Site Asset — in use" / "Site Asset — not yet used") costs **zero pixels and no layout**, and stops it being colour-only for anyone who can't use colour. The ticket says to drop it if it complicates the pill — but knowingly, rather than by omission.
+
+<!-- xgd-turn id="044def1a-d44f-43cf-b5d6-b2bcdb51d5ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:24:06.872280+00:00" -->
+#### You
+NO - please use bold face for in use as well as color
+
+<!-- xgd-turn id="044def1a-d44f-43cf-b5d6-b2bcdb51d5ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:24:58.344238+00:00" -->
+#### Claude
+Updated:
+
+- **Site Asset** in both states — label unchanged.
+- **Used** — outline and word in the theme's accent colour, **word in bold**.
+- **Unused** — outline and word in grey, normal weight.
+
+Your bold does the job my extra word was trying to do, and better: weight is a second channel, so the state survives a monochrome display or a colour-blind reader without costing any space. That's REQ-181's "colour must not be the only carrier" satisfied on the display side — and I removed my earlier line saying the two states shouldn't differ in weight, which your instruction contradicts.
+
+I also called out which way the emphasis runs, because it's the correction in miniature: **used is the emphasised state, unused is the quiet one.** Today it's exactly backwards — the unplaced item is the one that shouts.
+
+The only residue is the screen reader: bold isn't announced, so it'd hear "Site Asset" in both states. An `aria-label` closes that for zero pixels. Still marked recommended-not-required, and explicitly *not* a second visible word.
 
 <!-- xgd-chat-end -->

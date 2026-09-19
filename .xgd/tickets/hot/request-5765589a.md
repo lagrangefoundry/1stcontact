@@ -6,7 +6,7 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T01:06:17.158491+00:00'
+updated_at: '2026-09-19T01:24:51.948180+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,10 @@ fields:
   priority: medium
   chat_comment: comment-d2727e7d
 ---
+
+
+
+
 
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18:
@@ -64,16 +68,56 @@ detecting.** The badge has had no failure to find since.
 
 ## What it should be instead
 
-**A state, not an exception** (operator's proposal, adopted): whether an item is on
-the site is a fact about the item, and both values are ordinary.
+**One pill, one word; colour and weight carry the state** (operator, 2026-09-18):
 
-- **On the site** — the pill carries the theme accent.
-- **Not on the site** — the pill is grey.
+> there is one pill, it says (Site Asset). I would like to change the colour of
+> the outline and the word depending on the state: used — colour it using the
+> theme's accent colour; unused — colour it gray.
 
-No warning glyph, no red, no hint text telling the client to try again. The words
-stay: "Not on the site" is accurate and worth saying, it is only the framing that
-was wrong. A client who gave us twelve photographs and used four has eight grey
-pills and nothing has gone wrong.
+> please use bold face for in use as well as colour.
+
+- The pill reads **Site Asset** in both states. The label does not change.
+- **Used** — outline and word in the theme's accent colour, **and the word in
+  bold**.
+- **Unused** — outline and word in grey, at normal weight.
+
+**Weight is the second channel, and it is the operator's own call.** The state is
+therefore never carried by colour alone: it survives a monochrome display, a
+colour-blind reader and a screen filter, because bold is still bold. That answers
+[[REQ-181]]'s rule — *"colour and shape are both redundant, so a screen reader and
+a monochrome display each get the whole fact"* — on the display half, at no cost
+in space, which is what makes it a better answer than adding a second word.
+
+**No second badge, no extra row, no more space than the pill already occupies.**
+The operator's reason is the design constraint and is worth stating plainly:
+
+> TBH this is NOT a very valuable thing for the user to know. I do not want to use
+> a lot of real estate on it.
+
+That settles the weight this gets. Whether a photograph is currently in use is
+minor, ambient information — the kind a client glances at, not the kind they are
+told. Colour and boldness, and nothing else.
+
+**And it is never an error mark, in any register.** No warning glyph. No red,
+amber, or any colour the rest of the builder uses for something wrong — grey is
+the unused colour precisely because it is the absence of emphasis. No hint text
+telling the client to try again or to fix anything. **Note which way the emphasis
+runs:** the USED state is the emphasised one (accent, bold) and unused is the
+quiet one. That is the opposite of today, where the unplaced item is the one that
+shouts, and it is the whole correction in one detail.
+
+**Drop `UNPLACED_LABEL` and `UNPLACED_HINT` entirely** (`library.js:170-172`).
+There is no second string to maintain: one label, two treatments.
+
+### One thing left for a screen reader
+
+Bold covers a monochrome or colour-blind reader; it is not announced, so a screen
+reader still gets one pill reading "Site Asset" in both states. An `aria-label`
+carrying the state ("Site Asset — in use" / "Site Asset — not yet used") closes
+that for zero pixels and no layout change.
+
+Recommended, not required — and explicitly NOT a second visible word. If it
+complicates the pill, drop it knowingly rather than by omission.
 
 ## Two things to keep from REQ-181
 
@@ -137,6 +181,32 @@ a client uploads — which is exactly why the two read as one thing.
 So the pill is not merely mis-worded (Part 1); it is also being taken as a
 prediction of what the editor will offer, and it is not one.
 
+### The principle (operator, 2026-09-18)
+
+> **The picker needs to offer me what is in the Library. That is the primary
+> purpose of the Library.**
+
+This is not "also show the unplaced ones". It is a statement about what the
+Library IS: the catalogue of everything this engagement has to work with, and the
+list you choose from. **The site's own asset copy is an implementation detail and
+should not be a list anybody picks from.** A client choosing a picture is choosing
+from what they have; whether we have already copied the bytes under the draft is
+our bookkeeping, not their category.
+
+**The product already decided this — for the consultant.** `library-surface.json`
+tells it, in these words:
+
+> **Being on the site is a field on a catalogue item, not a different place to
+> look.** An item that is on the site says so, in `placed_on`. An item that is not
+> is still theirs, still described, still here — it simply has not been placed
+> yet. **Do not think of these as two stores; think of one catalogue with a mark
+> on some of its entries.**
+
+The consultant is taught one catalogue with a mark. The builder shows the operator
+two stores and lets them pick from the smaller one. **The same sentence that is
+priming for the AI is the specification for this UI, and only one of the two
+surfaces implements it.**
+
 ### The second half is the substantive change
 
 The picker should offer the catalogue, not the site's copy of it. A client
@@ -171,6 +241,18 @@ picker for it to appear. This collapses that into the pick.
    This is why the two parts are one ticket: they are the same confusion between
    *what the client has* and *what the site is using*, and fixing either alone
    leaves the other still teaching it.
+
+### What follows from the principle
+
+**The picker's list is the Library's image set, full stop** — not the site's
+assets, and not the Library filtered by anything the client did not ask for.
+Everything in "What the implementation has to get right" above is about HOW a pick
+becomes a valid `src`, not about which items appear. The list is decided here.
+
+**"On the site" becomes a mark on an entry, not a membership test.** That is Part
+1's accent/grey pill, now doing the job it should always have had: telling the
+client which of their pictures are in use, on the one list where all of their
+pictures are.
 
 ### Scope note
 

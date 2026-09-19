@@ -6,7 +6,7 @@ import {
   type LibraryDeps,
   type PlacedItem,
 } from '../tools/generate/src/cli/ai/library-core'
-import { labelOfMaterial, storedImageOf } from '../apps/control-app/src/material'
+import { labelOfMaterial, labelOrder, storedImageOf } from '../apps/control-app/src/material'
 import { PRODUCT_ENTRY, primingText } from '../tools/generate/src/cli/ai/roles'
 
 /**
@@ -116,6 +116,67 @@ describe('REQ-280 — the prefix is the kind, said the way a person says it', ()
     // the exception and nothing else, so a fifth kind arrives labelled rather
     // than arriving unnameable and waiting for this table to hear about it.
     expect(labelOfMaterial('hologram', 1)).toBe('HOLOGRAM-1')
+  })
+})
+
+// ── the order the catch-up numbers in ────────────────────────────────────────
+
+describe('REQ-280 — the order older material is numbered in is total', () => {
+  /** A ticket, as the catch-up's order reads one. */
+  const at = (created_at: string, uid: string) => ({ created_at, uid })
+
+  it('test_UAT_FC_REQ-280_older_material_is_numbered_oldest_first', () => {
+    // WHAT THE ORDER IS FOR. `IMAGE-1` should be the first picture the client
+    // gave us, not whichever row a listing happened to return first.
+    const rows = [
+      at('2026-09-18T10:00:02.000Z', 'material-c'),
+      at('2026-09-18T10:00:00.000Z', 'material-a'),
+      at('2026-09-18T10:00:01.000Z', 'material-b'),
+    ]
+    expect([...rows].sort(labelOrder).map((r) => r.uid)).toEqual([
+      'material-a',
+      'material-b',
+      'material-c',
+    ])
+  })
+
+  it('test_UAT_FC_REQ-280_rows_written_in_the_same_millisecond_are_still_ordered', () => {
+    // THE CASE A REAL STORE CANNOT BE MADE TO PRODUCE ON DEMAND. `created_at` is
+    // an ISO timestamp at millisecond granularity, so a client dropping a folder
+    // of photographs writes records that share one — commonly, but never
+    // predictably, which is why this is asserted against the rule rather than
+    // through a store whose clock may or may not tick between two writes.
+    //
+    // WITHOUT THE TIEBREAK these compare equal, the sort falls back to whatever
+    // order the store listed them in, and which of them is `IMAGE-1` is luck.
+    const instant = '2026-09-18T10:00:00.000Z'
+    const rows = [at(instant, 'material-c'), at(instant, 'material-a'), at(instant, 'material-b')]
+    expect([...rows].sort(labelOrder).map((r) => r.uid)).toEqual([
+      'material-a',
+      'material-b',
+      'material-c',
+    ])
+
+    // AND THE SAME WAY FROM ANY STARTING ORDER, which is what "reproducible"
+    // actually means here: the store's listing order must not be able to reach
+    // the answer. A comparator that returned 0 for these would leave the input
+    // order showing through, and these two inputs differ.
+    const shuffled = [at(instant, 'material-b'), at(instant, 'material-c'), at(instant, 'material-a')]
+    expect([...shuffled].sort(labelOrder).map((r) => r.uid)).toEqual(
+      [...rows].sort(labelOrder).map((r) => r.uid),
+    )
+  })
+
+  it('test_UAT_FC_REQ-280_the_timestamp_decides_before_the_uid_does', () => {
+    // THE PRECEDENCE, NOT JUST THE PAIR OF FIELDS. A uid that sorts first must
+    // not pull a later upload to the front of the client's own sequence — the
+    // tiebreak exists to settle a tie, and it may only ever be reached at one.
+    const earlyButLateUid = at('2026-09-18T10:00:00.000Z', 'material-z')
+    const lateButEarlyUid = at('2026-09-18T10:00:01.000Z', 'material-a')
+    expect([lateButEarlyUid, earlyButLateUid].sort(labelOrder).map((r) => r.uid)).toEqual([
+      'material-z',
+      'material-a',
+    ])
   })
 })
 

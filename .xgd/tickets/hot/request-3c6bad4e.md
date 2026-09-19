@@ -5,7 +5,7 @@ type: request
 title: Delete a Library item from its detail pane
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:10.541560+00:00'
-updated_at: '2026-09-19T01:08:11.375181+00:00'
+updated_at: '2026-09-19T01:24:49.032931+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -167,3 +167,46 @@ is the same stale assertion the business-switch case already rules out.
 ### Not done
 
 Un-deleting, and taking the site's copy off the page — both out of scope above.
+
+
+### As landed — deviations and additions
+
+- **The route is `DELETE /api/material?uid=`**, on the list's own path rather
+  than a `POST …/delete`: the three POST routes beside it are each a narrow
+  write of one named field, and this is the removal of the resource the list
+  route lists. `/api/domain` already spells its own erasure this way.
+- **The envelope carries `forgotten`** — whether the search index was refreshed.
+  The erasure stands either way, and a caller is entitled to know which; the
+  upload route's own `indexed` sets the precedent.
+- **`forgetFromIndex` is a sibling of `indexAfterWrite`, not the same function.**
+  The two report opposite facts and their warnings are read by somebody trying
+  to understand a system: one says *stored but not indexed*, this one says
+  *deleted but possibly still findable*. One function answering both would carry
+  a sentence that was wrong half the time.
+- **The confirm button carries a declared class.** [[BUG-53]]'s static sweep
+  requires every class literal handed to `modalButton` to have a rule, so
+  `.builder-library__confirm-delete` is declared — as the danger repaint of the
+  `--primary` affirmative, which is the one place in this feature a filled
+  warning colour is right.
+- **The delete control is a text button in the danger colour, not a danger
+  button.** On a filing screen a filled red box reads as the primary thing to do
+  there, which is the opposite of true.
+
+### Evidence
+
+- `tests/test_UAT_FC_REQ-281_deleting_a_library_item.workers.test.ts` — the
+  erasure over real D1 and R2: the record archived and out of every list, the
+  bytes no longer served, the index seam run, the non-material uid refused, and
+  **the site's own copy of a placed picture surviving**.
+- `tests/test_UAT_FC_REQ-281_the_library_offers_deletion.test.ts` — the pane:
+  where the control is, what the dialog says for a placed and an unplaced item,
+  cancel, refusal, and the row and pane both going (by the button and by the
+  change feed's `exit`).
+- `tests/test_UAT_FC_REQ-281_the_deleted_name_is_declared.test.ts` — the
+  surface: DELETED over NOT_FOUND, the trash never listed and never read on the
+  path that works, and the declaration validating with its travelling grant.
+
+Full `workers` project green (134 files / 1209 tests). The `node` project's
+remaining failures are pre-existing or worktree artifacts (browser-gated
+suites, webui serving, the system-KB suite), confirmed against the main
+checkout.

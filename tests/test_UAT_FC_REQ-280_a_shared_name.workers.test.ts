@@ -6,7 +6,7 @@ import { ticketStoreFor, type TicketStore } from '../apps/control-app/src/ticket
 import { storeFor } from '../apps/control-app/src/store'
 import { chatLibrary } from '../apps/control-app/src/library'
 import { generatedMaterialStore } from '../apps/control-app/src/imagegen'
-import { listMaterial, materialImageLibrary } from '../apps/control-app/src/material'
+import { labelOrder, listMaterial, materialImageLibrary } from '../apps/control-app/src/material'
 import { libraryOperations } from '../tools/generate/src/cli/ai/library-core'
 import { resolveStoredImage } from '../tools/generate/src/cli/image-library'
 import { adoptCapture } from '../apps/control-app/src/capture-material'
@@ -392,6 +392,12 @@ describe('REQ-280 — a Library filled before labels existed still gets them', (
         content_type: 'image/png',
       },
     })
+    // A REAL GAP, SO *OLDEST* IS A FACT AND NOT A COINCIDENCE. `created_at` is an
+    // ISO timestamp at millisecond granularity, and two creates in immediate
+    // succession routinely share one — which is the case the assertion below
+    // this one is about. Here the claim is that a genuine difference in creation
+    // time is honoured, so the fixture has to produce one.
+    await new Promise((resolve) => setTimeout(resolve, 5))
     const newer = await store.create({
       type: 'material',
       title: 'A crucible of molten metal leaning forward to pour',
@@ -407,6 +413,9 @@ describe('REQ-280 — a Library filled before labels existed still gets them', (
       },
     })
     expect(older.ticket.fields.label).toBeUndefined()
+    // THE GAP IS ASSERTED, so this case cannot pass by landing in one
+    // millisecond and agreeing with the tiebreak by luck.
+    expect(newer.ticket.created_at > older.ticket.created_at).toBe(true)
 
     const first = await listMaterial(store)
     // OLDEST FIRST, so the sequence reads the way the client filled the Library
@@ -432,5 +441,57 @@ describe('REQ-280 — a Library filled before labels existed still gets them', (
       type: 'image/png',
     })
     expect(await labelInLibrary(store, String(uploaded.uid))).toBe('IMAGE-3')
+  })
+
+  it('test_UAT_FC_REQ-280_a_folder_dropped_at_once_is_numbered_by_the_stated_rule', async () => {
+    // A CLIENT DROPPING A FOLDER OF PHOTOGRAPHS, over the real store. The
+    // ordering RULE is asserted exactly in the node suite beside this one,
+    // because whether a batch of concurrent writes shares a millisecond is not
+    // something a suite can make happen on demand — observed runs give these
+    // three either one `created_at` between them or two. What is proved HERE is
+    // that real records written together come out numbered by that same rule,
+    // densely and reproducibly, whichever way the clock fell.
+    const tenant = 'req280-same-instant'
+    await ensureTenant(tenant)
+    const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
+
+    const material = (filename: string) => ({
+      type: 'material',
+      title: 'A crucible of molten metal leaning forward to pour',
+      body: 'described',
+      fields: {
+        kind: 'image',
+        origin: 'uploaded',
+        rights: 'owned',
+        republishable: true,
+        exportable: false,
+        filename,
+        content_type: 'image/png',
+      },
+    })
+
+    // CREATED TOGETHER, the way a dropped folder arrives. The expectation below
+    // is computed through the SAME rule the catch-up sorts by, so it holds
+    // whether or not the clock ticked between these three — the claim is the
+    // rule, not one of the two ways the timing can fall.
+    const [a, b, c] = await Promise.all([
+      store.create(material('together-a.png')),
+      store.create(material('together-b.png')),
+      store.create(material('together-c.png')),
+    ])
+
+    const expected = [a, b, c]
+      .sort((x, y) => labelOrder(x.ticket, y.ticket))
+      .map((t) => t.ticket.uid)
+
+    const rows = await listMaterial(store)
+    const labelOf = (uid: string) => rows.find((row) => row.uid === uid)?.label
+    expect(expected.map(labelOf)).toEqual(['IMAGE-1', 'IMAGE-2', 'IMAGE-3'])
+
+    // AND THE SAME WAY TWICE. The labels are on the records now, so a second
+    // listing must report the identical assignment rather than a fresh one.
+    const again = await listMaterial(store)
+    const againLabelOf = (uid: string) => again.find((row) => row.uid === uid)?.label
+    expect(expected.map(againLabelOf)).toEqual(['IMAGE-1', 'IMAGE-2', 'IMAGE-3'])
   })
 })
