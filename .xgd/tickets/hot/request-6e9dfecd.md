@@ -6,10 +6,10 @@ title: 'The page arrives with the turn: an authoritative, bounded state digest s
   the consultant never has to go and look'
 created_by: EPIC-19
 created_at: '2026-09-19T19:02:33.177544+00:00'
-updated_at: '2026-09-19T20:18:04.175403+00:00'
+updated_at: '2026-09-19T20:21:22.099119+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
