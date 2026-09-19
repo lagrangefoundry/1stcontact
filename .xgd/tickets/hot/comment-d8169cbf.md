@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T17:24:29.786232+00:00'
+updated_at: '2026-09-19T17:25:03.971533+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1025,6 +1025,23 @@ Ok so two problems that are occurring in the production Agent:
 1) context is getting full of images - even with our new and improved context management images are large and apparently do not move - lets talk this one through, I'm not sure that I understand it - I thought we resupplied the context on every turn are we really resupplying the images? Related to this problem, when a turn is truncated and then resumed, our prompts drive the AI to "look at the site again" which rapidly fills an over full context, often unnecessarily
 
 2) There's a couple of issues relating to images that need to be resolved. Because of the bug (now fixed) that left the AI confused about where an image had landed we got two images built with the prompt starting: 
+
+A Renaissance notebook study in graphite and red chalk on aged parchment
+
+Both have the filename: a-renaissance-notebook-study-in-graphite-and-red.png
+
+I just refreshed and I have identities now - these are IMAGE-9 and IMAGE-10
+
+I have been trying for many turns to get the AI to use IMAGE-9 and it consistently re-adds IMAGE-10. Now that I have references I will tell it IMAGE-9 and see what happens...
+
+<!-- xgd-turn id="6473be19-4572-4fe8-bae0-51534e1cd531-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T17:25:03.667436+00:00" -->
+#### You
+Ok so two problems that are occurring in the production Agent:
+
+1. context is getting full of images - even with our new and improved context management images are large and apparently do not move - lets talk this one through, I'm not sure that I understand it - I thought we resupplied the context on every turn are we really resupplying the images? Related to this problem, when a turn is truncated and then resumed, our prompts drive the AI to "look at the site again" which rapidly fills an over full context, often unnecessarily - please read the last turn for more details and the AI's recommendations 
+2. There's a couple of issues relating to images that need to be resolved. Because of the bug (now fixed) that left the AI confused about where an image had landed we got two images built with the prompt starting:
 
 A Renaissance notebook study in graphite and red chalk on aged parchment
 
