@@ -58,7 +58,7 @@ fields:
   auto_merge_back: true
   priority: medium
   skipped_commits:
-  - 8b6541d4b13686d35982b71ca7b688dcc2857cc8
+  - 76cd837f383bddc490cb33eba89fa98ccfb6769f
 result: pass
 ---
 
