@@ -6,7 +6,7 @@ title: 'The consultant keeps and consults its own memory: the summary store, the
   surface, and the product tier'
 created_by: EPIC-19
 created_at: '2026-09-19T18:54:44.485419+00:00'
-updated_at: '2026-09-19T18:55:45.676409+00:00'
+updated_at: '2026-09-19T19:43:52.979781+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -17,40 +17,74 @@ fields:
   chat_comment: comment-074bab15
 ---
 
+
 Parent: [[EPIC-19]] (Finding 5).
 
-## What this gives the consultant
+## Correction to this ticket's premise (2026-09-19)
 
-A memory of its own conversation that survives the conversation falling out of
-context, and the tools to keep it and consult it.
+An earlier draft said this host has no session memory at all. **That was wrong,
+and the correction changes the shape of the work.**
 
-Today it has neither. There is no `SummaryStore` in this repository, there are
-**zero `chat_summary` comments in the whole store**, and the consultant cannot
-read its own past turns or its own work log. What it can do is search the
-client's corpus — which is why, having lost the thread, it re-screenshots the
-site instead of recalling what it already decided.
+**The decision log already exists and is working.** [[REQ-171]] built the
+*engagement ledger* — `record_decision` on the ledger surface, writing
+`### Decision N` entries into the CHAT TICKET BODY. On the Lagrange Foundry
+session it currently holds **7,507 bytes** of real decisions. `DOC-33` §3.1
+defines what the body is for, in words that match the intent exactly: *"not a
+summary of the conversation but a **ledger** — what was decided, why, and what was
+rejected."*
 
-## All of it is built upstream and simply not consumed
+**And its placement is deliberate and well-argued** (`ledger.ts:9`):
 
-Nothing here needs designing. Four pieces, all installed:
+> WHY THE BODY AND NOT ANOTHER COMMENT. The knowledge component indexes `title`
+> and `body` (`ticketText`); comments are not indexed. A chat ticket whose body is
+> empty contributes a content-free vector to the project KB, so every conversation
+> this client has ever had is unfindable.
 
-1. **`SummaryStore`** (`summary.js`, lagrange-framework REQ-124) — two zones,
-   because the polarity differs. The **standing frame** is the `framing` field,
-   rewritten in place, capped at 4,000 bytes, always delivered whole. The **log**
-   is the body, append-only through `append_body`. They are different writes and
-   cannot clobber each other. Stored as a `chat_summary` comment on the ticket
-   that homes the session — beside the `chat_transcript` this host already writes.
-2. **The `agent` surface** — `InspectContext` (`priming`, `reminder`, `context`,
-   `history`, `summary`), `OperateContext` (adds `history_full`, `role_priming`)
-   and `MaintainSummary` (`summary_frame`, `summary_log`).
-3. **The shipped product tier** — `transcript-pointer`, `tool-transcript-note`,
-   the cache-boundary marker, and `session-summary`. The ordering is load-bearing:
-   the summary sits AFTER the boundary, so rewriting it every turn cannot
-   invalidate the cached prefix in front of it.
-4. **`summary_trigger`** — the per-turn nudge that makes the summary get written:
-   *"Keep your summary current as you work […] The frame is what survives when the
-   recent exchanges do not, so anything you would need after losing them belongs
-   in it."*
+That reason is sound and must survive this ticket.
+
+## So what is actually missing
+
+**1. Delivery. The ledger is WRITE-ONLY.** Nothing in `priming.json` carries it,
+and the ledger surface's only group is `KeepLedger` — `record_decision` and
+`name_engagement`. There is no read operation and no provider. **The consultant
+records a decision and cannot see it on the next turn.** That is the single
+highest-value fix here and it explains the observed behaviour better than
+anything else: a session that cannot read its own decisions has no choice but to
+re-derive them, and re-deriving state is what the screenshots were for.
+
+**2. The standing frame.** The ledger is append-only and unbounded. There is no
+bounded, rewritten-in-place paragraph — *what we are doing, what is settled, what
+is out of scope, what was rejected and why* — that can be delivered whole on every
+turn regardless of how long the engagement runs. That is the zone the framework
+calls the standing frame, and it is the part that survives when the window does
+not.
+
+**3. Self-inspection.** No `agent` surface, so the consultant cannot read its own
+past turns (`history`, `history_full`) or its own work log.
+
+## The design question this ticket must answer, not presume
+
+The framework's `SummaryStore` puts its log in a `chat_summary` COMMENT body and
+its frame in that comment's `framing` FIELD. **This host already put its log in the
+ticket body, for the indexing reason above.** Adopting `SummaryStore` wholesale
+would either duplicate the log or move it somewhere the KB cannot see.
+
+Two coherent answers; pick one deliberately:
+
+- **Extend the ledger.** Keep the log where it is and where it is searchable, add a
+  bounded frame beside it (a ticket field, or the `framing` field of a
+  `chat_summary` comment used for the frame alone), and write a host provider that
+  delivers frame + recent ledger tail per turn. Keeps REQ-171's indexing property;
+  costs a provider this repository writes and maintains.
+- **Adopt `SummaryStore` and make the ledger its log.** Uses the framework's
+  provider, its cap enforcement and its `MaintainSummary` operations unchanged —
+  but only works if the indexing concern can be met another way, and that has to
+  be established rather than assumed.
+
+**The first looks right**, because the indexing argument is concrete and the
+framework's placement choice was made without it. But the second should be
+disproved rather than skipped, and whichever is chosen, `agent`'s
+`InspectContext` is wanted either way.
 
 ## What to do
 
