@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:13:43.035365+00:00'
+updated_at: '2026-09-19T01:20:10.510121+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -966,5 +966,13 @@ Updated. Three changes:
 **Never an error mark, in any register.** Spelled out so it can't be re-introduced in a softer form: no warning glyph, no red or amber or any colour the builder uses for something wrong, no hint text telling the client to try again or fix anything, and no badge shape that differs from the in-use one. The two states differ in colour and in word and in nothing else — **an unused item must not be more visually prominent than a used one, because it is not more important.**
 
 **And I've walked back my "load-bearing" phrasing**, because it could be read as arguing for emphasis. What Part 2 actually raises is the bar on the mark being *correct and present* — not on it being *loud*. That's now written into the ticket explicitly, so an implementer doesn't read the two parts together and conclude the pill should shout.
+
+<!-- xgd-turn id="712e1acf-f940-46e3-ba15-e9e550179e3b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T01:20:08.949826+00:00" -->
+#### You
+**The vocabulary follows your word.** You said "unused", and that's better than what I had — so the pill now reads **In use** / **Unused** rather than "On the site" / "Not on the site". The old phrasing names an *absence* and reads as a deficiency: *not* on the site, where it was supposed to go. "Unused" names an ordinary condition of a catalogue. Most of a client's Library will be unused most of the time, and that's the healthy state of having given us plenty to work with. <-- can we go with my original US suggestion - TBH this is NOT a very valuable thing for the user to know I do not want to use a lot of realestate on it.
+
+Here is what I would like - there is one pill is says (Site Asset) I would like to change the color of the outline and the word depending on the state: used - color it using the theme's accent color, unused - color it gray. Please.
 
 <!-- xgd-chat-end -->
