@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T17:28:19.471100+00:00'
+updated_at: '2026-09-19T17:43:41.173612+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -483,6 +483,45 @@ the model *cannot* see the site, and is then told to go and look. It screenshots
 the new images accumulate in flight; the next turn truncates sooner. **The loop is
 not merely a badly-worded prompt: the redaction removes the evidence and the
 reminder mandates re-acquiring it.**
+
+### The architecture, stated exactly (2026-09-19)
+
+One API request carries four things: the assembled **priming** as `system`
+(bounded by `maxPrimingChars`, 140,000 — *"roughly 70% of a 200k window"*, while
+this project runs Opus 5 at 1M, so priming is not the pressure); the **messages**;
+the projected **tools**; and the **reminder**, appended to the last user message
+by `turnTail` (REQ-144, for cache-prefix stability).
+
+`messages` is populated by two different paths, and only one of them is bounded:
+
+- **Cold start** — `seedDialogue(state, window, BASE_MESSAGES)`. The window is
+  `DEFAULT_WINDOW_TURNS = 40` user/assistant PAIRS, each capped at
+  `turnMaxBytes`, computed by `window()` in `transcript.js` from `session.turns`
+  — i.e. from the durable record, **where images are already `[image: …]`
+  placeholders**.
+- **Warm** — `state.messages.push(...)` and send the lot. No window, no cap, no
+  compaction.
+
+**Compaction does not exist on this path.** `compaction: true` is declared only by
+`claude_code.js` and `claude_code_interactive.js`; `ClaudeAPIBackend` declares
+`streaming, interrupt, vision, promptCache` and contains no occurrence of
+`compact` or `occupancy`. The manager's *"the one mechanism left is compaction, and
+it is the backend's rather than ours"* is therefore true of the CLI backends and
+vacuous for the API one.
+
+**So "context is constant, not grown-then-cut" (REQ-126) is a property of the
+SEED, not of the live conversation.** On the API path a warm conversation is
+precisely grown-and-never-cut. The window bounds what a conversation STARTS with;
+nothing bounds what it becomes.
+
+That is the existential half, and it is not specific to images — images are just
+the heaviest thing flowing through an unbounded channel. Tool results do it too.
+
+### The seams needed for a fix already exist
+
+`window()` bounds a turn list and `redactContent()` replaces image bytes with a
+fingerprinted placeholder. Both are written, tested and in use — on the cold-start
+path. Applying them to `state.messages` in flight is reuse, not new machinery.
 
 ### The consultant's own recommendations, which are sound
 
