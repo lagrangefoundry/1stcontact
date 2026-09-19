@@ -6,9 +6,9 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T15:07:26.450917+00:00'
+updated_at: '2026-09-19T15:07:47.102784+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -397,3 +397,16 @@ Updated, because REQ-282 supersedes the predicate they were written against:
 - `test_UAT_FC_REQ-213_library_role_field` — a role correction that places now
   shows the pill turning accented; one that could not place shows a quiet pill
   and no error, rather than a warning.
+
+
+### Verification
+
+Run on the branch before merge-back, all in the foreground:
+
+- The three new suites — 19 tests, all passing (12 jsdom, 7 workerd).
+- The three superseded suites as updated — 16 tests, all passing.
+- Full suite: **5101 passed, 103 skipped, 3 failed.** The three failures
+  (`BUG-67_backend_settings`, `BUG-50_builder_env_files`,
+  `bug32-webui-scope-rebrand`) are pre-existing: they fail identically on
+  `xgd-working` at the merge base, in files this ticket does not touch.
+- `tsc --noEmit` clean on both `apps/control-app` and `tools/generate`.
