@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T18:55:46.666492+00:00'
+updated_at: '2026-09-19T19:02:43.516733+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -775,10 +775,27 @@ accumulation alone.
 - [[REQ-284]] — The consultant can see its own context pressure (surface the spend
   REQ-143 already reports) and the `interrupted-turn` reminder stops naming the
   most expensive instrument. Small, independent, landable on its own.
+- [[REQ-285]] — The page arrives with the turn: a bounded, authoritative state
+  digest, so the consultant never has to look to orient. The consultant's fourth
+  recommendation, and the only one that removes the NEED to re-read rather than
+  reducing its cost.
 - lagrange-framework **REQ-168** — bound a warm API conversation: apply `window()`
-  in flight, age images out to pointers after ~3 turns, and give the pointer a
-  host-supplied way back (the REQ-149 `display` pattern). Filed upstream; no code
+  in flight, age images out to pointers after **2** turns, give the pointer a
+  host-supplied way back (the REQ-149 `display` pattern), **and ship the occupancy
+  gauge** as a `session.budget`-shaped volatile provider. Filed upstream; no code
   here.
+
+### The consultant's four recommendations, and where each landed
+
+| its words | where |
+|---|---|
+| "Give me backpressure […] I am driving with no fuel gauge" | LF REQ-168 §4 — framework, because only the adapter has the numbers |
+| "Rewrite the recovery instruction" — name `list_changes` | [[REQ-284]] §2 |
+| "Make screenshots visibly costly, **or** make them expire" | both halves: expiry in LF REQ-168 §2, cost-at-point-of-call in [[REQ-284]] §1 |
+| "Let something else hold the state" | [[REQ-285]] |
+
+All four are covered, and [[REQ-283]] underwrites them by making what falls out of
+the window recoverable.
 - [[REQ-281]] — Delete a Library item from its detail pane. `archive` is already
   the declared erasure path; placement COPIES the bytes, so deleting a placed item
   does not take it off the site — which is the one thing the wording has to get
