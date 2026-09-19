@@ -5,9 +5,9 @@ type: bug
 title: An interrupted turn commits its work and discards its conversation
 created_by: EPIC-19
 created_at: '2026-09-18T23:11:24.573446+00:00'
-updated_at: '2026-09-19T00:11:22.414521+00:00'
+updated_at: '2026-09-19T00:11:26.129478+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -22,6 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.276
+  story_points: 5
 ---
 
 Parent: [[EPIC-19]]. Hit by the operator on 2026-09-18 on the Lagrange Foundry
