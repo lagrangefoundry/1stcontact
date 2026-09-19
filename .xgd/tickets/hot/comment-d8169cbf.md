@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:42:19.455241+00:00'
+updated_at: '2026-09-19T19:44:06.745103+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1541,5 +1541,43 @@ The seam already exists — `site.line` and `site.changes` are per-turn volatile
 Sorry which state are you talking about, the turn number?
 
 Can you summarise what 283 and 284 are wiring up? This is the summary text going into the chat ticket body?
+
+<!-- xgd-turn id="cc81c73f-391a-49ae-b1fd-4f32eab96e49-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T19:44:05.975279+00:00" -->
+#### Claude
+Two good catches. Let me check both — the second one especially.
+
+This changes REQ-283 materially. Let me confirm.
+
+## Q1: not the turn number — the *site's* change counter
+
+`list_changes` takes `since: integer` — *"The change count to look back to."* The consultant asked for changes since **120** when the site's counter was **76**. It invented a site revision marker, not a conversation position.
+
+So REQ-285 is about **the site's current shape** — which pages exist, their structure, which assets they use, the current change count — not about where we are in the conversation. Sorry for the loose wording.
+
+## Q2: no — and checking this found something that changes REQ-283
+
+**The chat ticket body is already taken, and by exactly the right thing.**
+
+REQ-171 built the **engagement ledger**: `record_decision` writes `### Decision N` entries into the chat ticket body. On Lagrange Foundry it holds **7,507 bytes of real decisions right now**. DOC-33 §3.1 defines it in words that match your design almost exactly: *"not a summary of the conversation but a ledger — what was decided, why, and what was rejected."*
+
+And the placement is deliberate, with a reason that must survive:
+
+> **WHY THE BODY AND NOT ANOTHER COMMENT.** The knowledge component indexes `title` and `body` (`ticketText`); comments are not indexed. A chat ticket whose body is empty contributes a content-free vector to the project KB, so every conversation this client has ever had is unfindable.
+
+So **you already have the unbounded decision log.** What's missing is narrower than I said:
+
+1. **Delivery — the ledger is write-only.** Nothing in `priming.json` carries it, and the ledger surface's only group is `KeepLedger` (`record_decision`, `name_engagement`). No read op, no provider. **The consultant records a decision and cannot see it next turn.** That's the highest-value fix, and it explains the behaviour better than anything else: a session that can't read its own decisions has to re-derive them, and re-deriving state is what the screenshots were for.
+2. **No standing frame** — the ledger is append-only, so there's no bounded paragraph deliverable whole on every turn however long the engagement runs.
+3. **No self-inspection** — no `agent` surface.
+
+**And there's a real conflict I've now posed in the ticket rather than presumed away.** The framework's `SummaryStore` puts its log in a `chat_summary` *comment* body. 1c put its log in the *ticket* body for the indexing reason above. Adopting `SummaryStore` wholesale would either duplicate the log or move it somewhere the KB can't see.
+
+Two coherent answers, and REQ-283 now asks rather than assumes: extend the ledger with a frame and write our own provider (keeps searchability), or adopt `SummaryStore` and make the ledger its log (uses the framework's cap enforcement and `MaintainSummary` unchanged, but only if the indexing concern can be met another way).
+
+I think the first is right — the indexing argument is concrete and the framework made its placement choice without it — but it should be decided, not defaulted.
+
+**REQ-284 is unaffected**: the recovery-instruction rewrite and naming the screenshot's cost on the fidelity surface. No storage, no summary.
 
 <!-- xgd-chat-end -->
