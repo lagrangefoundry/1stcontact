@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:00:49.246711+00:00'
+updated_at: '2026-09-19T19:02:56.380595+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1494,5 +1494,44 @@ Go with 2 turns. Yes agree with your points.
 
 Question: Are we addressing all the needs expressed by the consultant? The one that is top of mind is the gas-meter - we could add that in the system prompt, but I'd like it to be a framework level capability - do you agree? The consultant had 4 ideas
 have we addressed them?
+
+<!-- xgd-turn id="7c8d9aae-20b1-4b07-8883-57ddf835448e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T19:02:55.789558+00:00" -->
+#### Claude
+Let me check the four against what I filed.
+
+Good question — checking properly found **one gap and one misplacement**.
+
+## The four, and where each now sits
+
+| the consultant's words | where |
+|---|---|
+| *"Give me backpressure… I am driving with no fuel gauge"* | **moved to LF REQ-168 §4** |
+| *"Rewrite the recovery instruction"* — name `list_changes` | REQ-284 §2 ✓ |
+| *"Make screenshots visibly costly, **or** make them expire"* | **both halves** — expiry in REQ-168 §2, cost-at-point-of-call in REQ-284 §1 |
+| *"Let something else hold the state"* | **was missing → REQ-285** |
+
+## Yes, the gauge belongs in the framework
+
+Three reasons, now written into REQ-168:
+
+1. **Only the backend has the numbers.** REQ-143 already records one usage entry per request; the adapter knows the input-token count it just sent and the model's window. A host would be re-deriving what the adapter holds — and every host would derive it slightly differently.
+2. **The delivery mechanism already exists there.** A volatile entry after the cache boundary, exactly where `session-summary` sits, re-assembled each turn without invalidating the cached prefix. A `session.budget` provider beside `session.summary` needs no new tier.
+3. **Every adopter of a long-lived session has this.** It isn't a property of one product.
+
+One thing I made explicit: **it must arrive unasked.** A gauge you have to call a tool for isn't a gauge — the failure is that cost is invisible at the moment of *choosing*, and a session that thought to check wouldn't have needed to.
+
+I also split the third recommendation, which I'd previously only half-covered. Expiry is upstream; but *"if the tool said what it costs"* is prose on the fidelity surface, which is ours. A session choosing between `list_changes` and a screenshot should be able to read, in the one line it sees, that one is roughly free.
+
+## The gap: REQ-285
+
+*"Let something else hold the state."* I'd missed it, and it's arguably the most valuable of the four, because **the other three reduce the cost of re-establishing state — this one removes the need.**
+
+The evidence for it is the consultant's own `since: 120` slip, where the true count was 76. It hadn't misread anything; it *invented* a state marker and believed it. Its verdict: *"I am confabulating a state marker, and it is a symptom of the thing you are asking about."* A session handed the page every turn has nothing to confabulate.
+
+The seam already exists — `site.line` and `site.changes` are per-turn volatile providers; a page digest is a third of the same kind. The design constraint is that it's volatile and never cached, so it needs a stated ceiling and a drop-first rule. I wrote in the test: one page map plus two element reads is already several thousand tokens, so a digest at a few hundred per turn pays for itself within a handful of turns. If it can't be made small enough to win that trade, it shouldn't ship.
+
+**2 turns** is set in REQ-168, with the reasoning recorded: the model looks, forms a judgement, and states that judgement in its own text *in the same turn* — from the next turn the text carries the conclusion and the pixels are redundant.
 
 <!-- xgd-chat-end -->
