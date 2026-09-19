@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T00:56:40.734739+00:00'
+updated_at: '2026-09-19T00:58:58.285319+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -837,5 +837,41 @@ Can you create a delete CTA on the asset/material detail pages.
 Also I see the big red error messages "Not on the site" with a warning triangle - that is nonsense a Site asset has to be a POTENTIAL asset - its not an error if I choose not to use all the photos. Perhaps assets that are used the Site asset pill is Colored with the theme accent and otherwise is gray?
 
 Can you give me two REQs please?
+
+<!-- xgd-turn id="f5c7104a-9ab5-410b-8116-6711b731b463-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T00:58:57.009583+00:00" -->
+#### Claude
+Both investigated. Filing them now.
+
+Two REQs filed. The second one turned out to be more than a styling fix.
+
+## REQ-281 — Delete a Library item from its detail pane
+
+`archive` is already the declared erasure path — `tickets.ts:928`: *"archive is the erasure path (DOC-37)… a lock that reached it would be a retention policy nobody asked for."* So it's `archive({uid})`, not a new mechanism. There's no route for it yet; `/api/material` has no DELETE and the pane has no affordance.
+
+The fact that makes it safe, and which the wording must get right: **placement copies the bytes.** `place_on_site` reports *"how many bytes were copied"*, and `promoteToSiteAsset` writes `placed_on` *"after the copy it records"*. So **deleting a placed item does not take it off the site** — the page keeps its own asset. That's the opposite of the natural assumption, which is why the confirmation has to say it plainly.
+
+## REQ-282 — "Not on the site" is firing on a failure that can't happen
+
+You're right, and the cause is sharper than styling:
+
+```js
+function unplaced(row) {
+  return row.role === 'site' && placedList(row).length === 0
+}
+```
+
+REQ-181 added that on the reasoning that *"an empty `placed_on` on a site-role row is a failure rather than a category"* — and that was true when upload attempted placement. **It hasn't been true since BUG-47**, which states in the ingest path:
+
+> **NO PLACEMENT HERE (BUG-47).** … `promoteToSiteAsset` writes `placed_on`, after the copy it records.
+
+Nothing is attempted at upload. So `role === 'site' && placed_on === []` isn't a failed placement — it's **the ordinary initial state of every site-role upload**, from the moment it lands until someone chooses to use it. The badge then tells the client *"You asked for this to go on your site and it did not get there… try adding it again"*, which is false on all three counts.
+
+REQ-181's predicate lost its meaning when BUG-47 removed the placement it was detecting.
+
+Your proposal adopted: accent pill when placed, grey when not, no glyph, no hint. I kept two things from REQ-181 that survive the predicate being wrong — **colour must never be the only carrier** (its own note: *"a screen reader and a monochrome display each get the whole fact"*), so the pill still says its meaning in words; and `role` is the client's own statement of intent and is worth showing.
+
+And flagged explicitly: **don't treat this as cosmetic.** Recolouring while leaving the predicate meaning "failure" leaves a false claim in the code and the hint text for the next reader.
 
 <!-- xgd-chat-end -->
