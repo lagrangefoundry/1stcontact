@@ -5,16 +5,17 @@ type: request
 title: 'L1 capability: a flow recovery that preserves horizontal geometry'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:35.276566+00:00'
-updated_at: '2026-09-18T22:31:35.276566+00:00'
+updated_at: '2026-09-18T23:49:50.015586+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 13
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a5c00505
 ---
 
 # L1 capability: a flow recovery that preserves horizontal geometry

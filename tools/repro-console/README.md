@@ -1,4 +1,4 @@
-# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261 / REQ-272, [[EPIC-12]] §8)
+# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261 / REQ-272 / REQ-277, [[EPIC-12]] §8)
 
 A localhost-only dev console that runs one reproduction round end to end —
 capture a site, reproduce its home page, diff the two — and puts the three
@@ -60,6 +60,19 @@ Anything it tripped over that is *not* a gap in the reproduction engine — a
 defect in L1, in the brief, anywhere in `1c` — comes back in a separate `bugs`
 list and the console files each as its own `draft` ticket, on every status.
 
+**Every ticket says where the defect sits.** A round classifies each ticket it
+files into a closed set of nine — three instrument classes, capture, fold,
+renderer, `l1-cannot-express`, `harness`, and `cannot-tell` — in the
+`defect_class` field, and defends it in one line in the body. The set is declared
+once in `src/defect-class.ts`; the brief (§5) says what each one means and the
+prompt carries the list generated from the code. Each class belongs to a queue,
+and the two that matter are `ruler` (make the instrument trustworthy) and
+`ceiling` (raise what the product can do): the round's status line and a panel
+above the iteration list both show the split, so "did that round buy ruler repair
+or ceiling" is a glance rather than an audit. A ticket read back carrying no
+class, or one outside the set, is a violation beside the status and provenance
+checks.
+
 **The reference can move, deliberately.** **run again** *refolds*: it re-derives
 the fold from the oracle the bundle already holds, so a FOLD change shows up and
 the reference stays still, which is the comparison an iteration exists to make. A
@@ -86,6 +99,24 @@ same site re-captured** — when the brief changes, or after `RESUME_MAX_ROUNDS`
 rounds — the scope and the reasoning are in
 `src/session.ts`. A resumed round is told, in as many words, that what it
 remembers is a pointer and never evidence.
+
+**The unmeasured set is the headline, not the delta count** ([[REQ-277]]). Every
+iteration leads with *how much this run did not measure* — compared axes only one
+side of the projection can read ([[REQ-274]]), bands with no counterpart
+([[BUG-111]]), elements that paired with nothing ([[BUG-106]]), probes that
+declared they could not run — as one number with its breakdown under it. The
+delta count stays, directly beneath, and the page says which way each moved since
+the iteration above. It does that because the delta count **rises when the
+instrument sharpens**: [[BUG-107]] added `role` comparison and took one
+reproduction from 1 delta to 14 with nothing about the page having changed, and a
+console that made that read as a 14× regression would be teaching the loop to
+avoid adding axes. A report that does not carry one of the four parts reads as
+`unmeasured ≥ N` with the missing parts named — silence is never counted as zero.
+Across a **re-capture** the delta count is marked *not comparable* on that axis
+specifically: the oracle moved, so it is a different measurement wearing the same
+name, while the unmeasured set falling is exactly what the re-capture was for.
+The same number and the same definition lead the digest and the round's prompt,
+and the brief (§3) tells the round to drive it.
 
 **The console counts what it can.** Beside the evidence it writes
 `ai/evidence-digest.md` (`src/digest.ts`): asset attribution, the key census of

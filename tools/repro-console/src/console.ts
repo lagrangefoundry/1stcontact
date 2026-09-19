@@ -16,6 +16,13 @@ import path from 'node:path'
 // the convention `apps/control-app` already follows for the same tree.
 import { resolveStaticFile } from '../../generate/src/cli/static-file'
 import { contentTypeOf } from '../../generate/src/store/content-type'
+// REUSED, NOT RESTATED, for the same reason ([[BUG-120]] behaviour 4). The
+// sentence a bundle behind the extractor deserves is already written, once, in
+// the file that owns `CAPTURE_SCHEMA` and the axis registry — and it is the
+// sentence that goes stale the day the extractor learns an axis. A second
+// spelling of it here would be a second thing to bump.
+import { staleCaptureDetail } from '../../generate/src/cli/capture/schema'
+import type { Capture } from '../../generate/src/cli/capture/types'
 import {
   renderConsolePage,
   renderDiffPage,
@@ -23,6 +30,7 @@ import {
   type AiView,
   type HeldView,
   type IterationView,
+  type FilingsView,
   type PageState,
   type PollState,
 } from './page'
@@ -55,10 +63,21 @@ import {
   type ReadTicket,
 } from './ai'
 import { readBundleProvenance } from './bundle'
+// REQ-277 — the iteration's headline pair, ordered in one place.
+import { measurementView } from './unmeasured'
 import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
 import { parseJsonOutput, spawnCommand, type CommandRunner } from './run'
 import { gapForClass, readGaps, recordGap } from './gaps'
+import {
+  DEFECT_CLASSES,
+  DEFECT_CLASS_FIELD,
+  describeSplit,
+  groupByQueue,
+  parseDefectClasses,
+  unknownDefectClasses,
+  type ClassifiedFiling,
+} from './defect-class'
 import {
   ROUND_CREATED_BY,
   TICKET_STATUS,
@@ -257,10 +276,75 @@ export class ReproConsole {
       message: this.message,
       failed: this.failed,
       url: this.url,
-      iterations: this.iterations.map((it) => this.view(it)),
+      // REQ-277 — each iteration is viewed WITH the one above it, because its
+      // headline is a movement: "unmeasured 7" alone says nothing about whether
+      // this loop is winning, and the direction is the whole finding.
+      iterations: this.iterations.map((it, i) => this.view(it, this.iterations[i - 1])),
       stored: this.stored.map(({ name, url }) => ({ name, url })),
       held: this.heldView(),
+      ...(this.staleReference() ? { staleReference: this.staleReference() as string } : {}),
       ...(this.notice() ? { notice: this.notice() as string } : {}),
+      ...(this.filingsView() ? { filings: this.filingsView() as FilingsView } : {}),
+    }
+  }
+
+  /**
+   * WHAT THIS LOOP HAS FILED, BY QUEUE ([[REQ-276]] behaviour 4).
+   *
+   * The per-round split answers "what did this round buy"; this answers the
+   * question [[EPIC-19]] had to run an audit to answer — over every round on the
+   * loaded site, how much of this was ruler repair and how much raised the
+   * ceiling. It is the same grouping as the status line's, so the two can never
+   * disagree, and it is derived rather than stored: the tickets are already in
+   * each round's read-back, and a second record of them would be a second thing
+   * to keep true.
+   *
+   * ONE ENTRY PER TICKET, NOT PER ROUND. A class a later round appended to is
+   * the same ticket, and counting it twice would make a recurring gap look like
+   * two findings — the opposite of what the frequency signal is for.
+   */
+  private filingsView(): FilingsView | null {
+    const byTicket = new Map<string, ClassifiedFiling>()
+    for (const it of this.iterations) {
+      if (!it.outcome) continue
+      for (const filing of filingsOf(it.outcome)) {
+        const seen = byTicket.get(filing.id)
+        if (!seen) byTicket.set(filing.id, { id: filing.id, classes: [...filing.classes] })
+        else for (const cls of filing.classes) if (!seen.classes.includes(cls)) seen.classes.push(cls)
+      }
+    }
+    const filings = [...byTicket.values()]
+    if (!filings.length) return null
+    return { split: describeSplit(filings), groups: groupByQueue(filings) }
+  }
+
+  /**
+   * THE LOADED REFERENCE, WHEN IT IS BEHIND THE EXTRACTOR ([[BUG-120]] b4).
+   *
+   * READ FROM THE BUNDLE ON EVERY PAGE BUILD, not remembered: a re-capture
+   * overwrites the bundle in place, so a remembered answer would still be
+   * warning about a reference that has since been re-taken — which is the one
+   * moment the warning is wrong and the operator has just paid to make it wrong.
+   *
+   * It is a fact about the CHOICE, not about a round. `1c gate` already reports
+   * it as a coverage finding, but that is downstream of a press: the finding
+   * explains an iteration that has already been paid for, and this is the same
+   * sentence put where the operator decides whether to pay. Against a bundle
+   * this far back, [run again] re-measures a residual whose fix cannot reach it
+   * however many times it runs, and only [recapture] can.
+   */
+  private staleReference(): string | undefined {
+    if (this.bundleDir === undefined) return undefined
+    const file = path.join(this.bundleDir, 'capture.json')
+    if (!existsSync(file)) return undefined
+    try {
+      return staleCaptureDetail(JSON.parse(readFileSync(file, 'utf8')) as Capture) ?? undefined
+    } catch {
+      // A bundle that cannot be parsed or cannot be walked axis by axis says
+      // nothing here. The page is not the place that reports a broken bundle —
+      // the run that reads it fails loudly and says which step — and a console
+      // that refused to render over one would have hidden the history too.
+      return undefined
     }
   }
 
@@ -345,9 +429,39 @@ export class ReproConsole {
   }
 
   /** One iteration as the page shows it, including the round beneath it. */
-  private view(it: Iteration): IterationView {
+  private view(it: Iteration, previous?: Iteration): IterationView {
     const ai = this.aiView(it)
     return {
+      /**
+       * THE TWO NUMBERS, HEADLINE FIRST ([[REQ-277]]).
+       *
+       * The seam is read from the same two facts the reference line is rendered
+       * from ([[REQ-272]] part 2): an iteration that re-captured, or one whose
+       * bundle carries a different `capturedAt` from the iteration above it —
+       * the second catches a reference re-rolled outside the console, which
+       * moves the oracle just as completely and leaves no flag behind.
+       */
+      ...(it.gate
+        ? {
+            measurement: measurementView({
+              n: it.n,
+              unmeasured: it.gate.unmeasured,
+              deltas: it.gate.valueDeltas ?? null,
+              ...(previous?.gate
+                ? {
+                    previous: {
+                      n: previous.n,
+                      unmeasured: previous.gate.unmeasured,
+                      deltas: previous.gate.valueDeltas ?? null,
+                    },
+                  }
+                : {}),
+              ...(previous && (it.recaptured === true || it.bundleCapturedAt !== previous.bundleCapturedAt)
+                ? { seam: true }
+                : {}),
+            }),
+          }
+        : {}),
       n: it.n,
       originalUrl: it.originalUrl,
       reproHref: it.reproHref,
@@ -417,6 +531,10 @@ export class ReproConsole {
       : readIfPresent(path.join(it.dir, AI_DIR, AI_TRANSCRIPT_FILE))
     const outcome = it.outcome
     const cost = live ? '' : describeCost(outcome?.cost)
+    // The same split as the status line ([[REQ-276]] behaviour 3), kept under
+    // the round it belongs to so it is still there once the status line has
+    // moved on to the next iteration.
+    const classSplit = live || !outcome ? '' : describeSplit(filingsOf(outcome))
     return {
       status: live ? 'running' : (outcome?.status ?? 'failed'),
       summary: live ? '' : (outcome?.summary ?? outcome?.reason ?? ''),
@@ -426,6 +544,10 @@ export class ReproConsole {
       // rather than only in the artifact, because "can we afford to run this
       // often" is a question the operator asks while looking at it.
       ...(cost ? { cost } : {}),
+      // The same split as the status line ([[REQ-276]] behaviour 3), kept under
+      // the round it belongs to so it is still there when the status line has
+      // moved on to the next iteration.
+      ...(classSplit ? { classSplit } : {}),
       /**
        * THE WAY BACK INTO A ROUND THAT ALREADY RAN ([[REQ-261]] behavior 5).
        *
@@ -1066,6 +1188,7 @@ export class ReproConsole {
     else {
       if (gap.status !== TICKET_STATUS) problems.push(wrongStatus(gap))
       problems.push(...wrongProvenance(gap))
+      problems.push(...wrongDefectClass(gap))
     }
 
     // Secondary `1c` defects, read back the same way and to the same standard —
@@ -1077,6 +1200,12 @@ export class ReproConsole {
       else {
         if (bug.status !== TICKET_STATUS) problems.push(wrongStatus(bug))
         problems.push(...wrongProvenance(bug))
+        // EVERY TICKET, NOT ONLY THE GAP ONE ([[REQ-276]]). Nine of the
+        // twenty-two defects EPIC-19 classified were instrument defects, and an
+        // instrument defect arrives here — as a secondary `1c` bug — not as the
+        // gap ticket. Checking only the gap ticket would leave the largest
+        // block of findings sorted by nothing, which is the state this fixes.
+        problems.push(...wrongDefectClass(bug))
       }
     }
     outcome.ticketsRead = read
@@ -1110,6 +1239,10 @@ export class ReproConsole {
       ticketId: outcome.ticketId ?? '',
       ticketUid: outcome.ticketId ?? '',
       summary: outcome.summary ?? '',
+      // The class travels with the class registry as well as with the ticket
+      // ([[REQ-276]]): a later round is handed the known classes in its prompt,
+      // and where a class sits is part of knowing it.
+      defectClasses: gap.defectClasses,
       reference: it.bundleDir,
       iteration: `${this.slug}#${it.n}`,
     })
@@ -1133,17 +1266,32 @@ export class ReproConsole {
    * apart.
    */
   private async readTicket(id: string): Promise<ReadTicket> {
-    const unread: ReadTicket = { id, status: '', createdBy: '', found: false }
+    const unread: ReadTicket = { id, status: '', createdBy: '', defectClasses: [], found: false }
     const result = await this.runCommand('xgd', ['ticket', 'get', id, '--json'], this.cwd).catch(() => null)
     if (!result || result.code !== 0) return unread
     try {
-      const doc = parseJsonOutput<{ frontmatter?: { status?: string; created_by?: string } }>(
-        result.stdout,
-        'xgd ticket get --json',
-      )
+      const doc = parseJsonOutput<{
+        frontmatter?: { status?: string; created_by?: string; fields?: Record<string, unknown> }
+        fields?: Record<string, unknown>
+      }>(result.stdout, 'xgd ticket get --json')
       const status = doc.frontmatter?.status
       if (!status) return unread
-      return { id, status, createdBy: doc.frontmatter?.created_by ?? '', found: true }
+      /**
+       * WHERE THE DEFECT SITS, READ OFF THE TICKET ([[REQ-276]]).
+       *
+       * `xgd` prints the fields twice — once inside `frontmatter` and once
+       * beside it — and either is the same document. Both are read so that the
+       * check is about what the round wrote rather than about which of the two
+       * shapes this version of the CLI happens to lead with.
+       */
+      const fields = doc.fields ?? doc.frontmatter?.fields
+      return {
+        id,
+        status,
+        createdBy: doc.frontmatter?.created_by ?? '',
+        defectClasses: parseDefectClasses(fields?.[DEFECT_CLASS_FIELD]),
+        found: true,
+      }
     } catch {
       return unread
     }
@@ -1202,7 +1350,19 @@ export class ReproConsole {
       outcome.status === 'filed' || outcome.status === 'appended'
         ? `${outcome.status} ${outcome.ticketId ?? 'a ticket'}`
         : outcome.status
-    this.message = `Iteration ${it.n} finished — AI ${what}.${outcome.violations?.length ? ' See the violations under it.' : ''}`
+    /**
+     * WHAT THE ROUND BOUGHT, ON THE LINE THE OPERATOR ALREADY READS
+     * ([[REQ-276]] behaviour 3).
+     *
+     * A round costs several dollars and the question after it is not "did it
+     * file" — the line already answered that — but "did that buy ruler repair
+     * or ceiling". The split is the answer, and it is one clause rather than a
+     * panel because it has to survive being read at a glance.
+     */
+    const split = describeSplit(filingsOf(outcome))
+    this.message =
+      `Iteration ${it.n} finished — AI ${what}${split ? ` — ${split}` : ''}.` +
+      `${outcome.violations?.length ? ' See the violations under it.' : ''}`
     this.failed = false
     this.live = null
     this.version += 1
@@ -1590,6 +1750,49 @@ function wrongProvenance(ticket: ReadTicket): string[] {
     `${ticket.id} was filed as '${ticket.createdBy || '(nothing)'}', not as '${ROUND_CREATED_BY}:<slug>#<n>'. ` +
       `A round's ticket that carries the operator's identity is an unreviewed machine diagnosis wearing a ` +
       `human's name — pass \`--created-by\` to \`xgd ticket create\`, see the brief §6.`,
+  ]
+}
+
+/**
+ * The tickets a round filed, each with where it said the defect sits
+ * ([[REQ-276]]).
+ *
+ * Off the READ-BACK rather than off the outcome block, because the read-back is
+ * what the store actually holds — and a class that is only in the block is a
+ * class no filter will ever find. Tickets the console could not read at all are
+ * dropped: they are already reported as unverified, and counting them in the
+ * split would put a queue on the page that nothing in the store backs.
+ */
+export function filingsOf(outcome: AiOutcome): ClassifiedFiling[] {
+  return (outcome.ticketsRead ?? [])
+    .filter((ticket) => ticket.found && ticket.defectClasses.length)
+    .map((ticket) => ({ id: ticket.id, classes: ticket.defectClasses }))
+}
+
+/**
+ * A read-back carrying no class, or one that is not in the set ([[REQ-276]]).
+ *
+ * A VIOLATION, PEER OF THE STATUS AND THE PROVENANCE CHECKS. The class is the
+ * deliverable of this behaviour in the same way the ticket is the deliverable
+ * of the round: an unclassified ticket is one somebody has to audit later, and
+ * "later" was measured at ten ticket bodies read by hand. Reported rather than
+ * corrected — the console cannot know where the defect sits, which is the whole
+ * reason the round is asked.
+ */
+function wrongDefectClass(ticket: ReadTicket): string[] {
+  if (!ticket.defectClasses.length) {
+    return [
+      `${ticket.id} carries no \`${DEFECT_CLASS_FIELD}\`, so it cannot be read as ruler repair or as ceiling ` +
+        `without somebody re-deriving the diagnosis from its body. Pass it in \`--fields\` — one of ` +
+        `${DEFECT_CLASSES.map((entry) => `\`${entry.id}\``).join(', ')}, and \`cannot-tell\` is a real answer.`,
+    ]
+  }
+  const unknown = unknownDefectClasses(ticket.defectClasses)
+  if (!unknown.length) return []
+  return [
+    `${ticket.id} carries ${DEFECT_CLASS_FIELD} ${unknown.map((id) => `'${id}'`).join(', ')}, which ` +
+      `${unknown.length === 1 ? 'is not one' : 'are not'} of the set. A class outside it filters as nothing at all — ` +
+      `use one of ${DEFECT_CLASSES.map((entry) => `\`${entry.id}\``).join(', ')}.`,
   ]
 }
 

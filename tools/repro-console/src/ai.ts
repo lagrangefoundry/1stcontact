@@ -46,10 +46,15 @@ import { readFileSync, existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { DEFECT_CLASS_FIELD, defectClassTable } from './defect-class'
 import type { GapEntry } from './gaps'
 import { INDEX_FILE, type SessionKbResult } from './session-kb'
 import { ROUND_CREATED_BY } from './ticket'
 import type { RailRoundResult } from './rail-round'
+// REQ-277 — one definition of the unmeasured set, shared by every surface that
+// shows it. The console must never have two answers to "how much did this run
+// not measure".
+import { breakdownOf, headlineOf, unmeasuredOf, type UnmeasuredSet } from './unmeasured'
 
 /** How a round ended. `running` is the console's, never the AI's. */
 export type AiStatus = 'running' | 'filed' | 'appended' | 'no-gap' | 'stopped' | 'failed'
@@ -73,6 +78,19 @@ export interface ReadTicket {
    * which is `found: false`, a different outcome from wrong provenance.
    */
   createdBy: string
+  /**
+   * Where the round said the defect sits ([[REQ-276]]).
+   *
+   * READ BACK, NOT REPORTED. Every other thing a round claims arrives in its
+   * outcome block; this one is read out of the ticket itself in the same
+   * `xgd ticket get --json` that already fetches the status and the provenance,
+   * because the field is the deliverable. A class the round mentioned only in
+   * its closing block would be a class no filter could ever find.
+   *
+   * Empty when the ticket carries none — which is a violation, and distinct
+   * from `found: false`, which is the console not having been able to look.
+   */
+  defectClasses: string[]
   /** Absent when `xgd` would not answer about it at all. */
   found: boolean
 }
@@ -176,6 +194,17 @@ export interface GateSummary {
    * same as being in the round's hands.
    */
   coverageFindings?: { kind: string; detail: string }[]
+  /**
+   * REQ-277 — what this run did NOT measure, as one number plus its breakdown.
+   *
+   * Beside `valueDeltas` and, on every surface that shows the pair, ABOVE it.
+   * The delta count can only rise when the instrument sharpens, so a loop that
+   * reads it as a score reads a pure improvement as a 14× regression — which is
+   * what [[EPIC-19]] found it doing. This is the quantity that moves the right
+   * way, and it is carried here so the page, the digest and the prompt all take
+   * it from one place.
+   */
+  unmeasured: UnmeasuredSet
 }
 
 /** The verdict that means the reference is wrong, not the engine (behavior 7). */
@@ -215,6 +244,11 @@ export function readGateReport(file: string): GateSummary | null {
       coverageFindings: (report.coverage?.findings ?? [])
         .filter((f): f is { kind: string; detail: string } => typeof f?.kind === 'string' && typeof f?.detail === 'string')
         .map((f) => ({ kind: f.kind, detail: f.detail })),
+      // REQ-277 — derived from the WHOLE report rather than from the fields
+      // picked out above, because the parts of the unmeasured set are spread
+      // across `values` and a second hand-maintained pick list here would be
+      // the next place a quantity goes silently missing.
+      unmeasured: unmeasuredOf(report),
     }
   } catch {
     return null
@@ -354,7 +388,18 @@ export function buildPrompt(brief: string, ctx: RoundContext): string {
     ? [
         `- verdict: **${ctx.gate.verdict}**${ctx.gate.pass ? ' (pass)' : ''}`,
         `- perceptual: mean ${ctx.gate.meanDiff ?? '?'}/255 · ${ctx.gate.pctOverThreshold ?? '?'}% of pixels over threshold · ${ctx.gate.regions ?? '?'} region(s)`,
-        `- values-diff: ${ctx.gate.valueDeltas ?? '?'} delta(s)`,
+        /**
+         * THE UNMEASURED SET, ABOVE THE DELTA COUNT ([[REQ-277]] behaviour 5).
+         *
+         * Order is the whole point. A round optimising for fewer deltas will
+         * avoid adding an axis, which is exactly backwards: every axis the
+         * instrument gains can only RAISE the delta count, and [[EPIC-19]]
+         * measured that inversion at 1 delta → 14 on a pure improvement. So the
+         * number the round is asked to drive is named first, and the sentence
+         * under the pair says what a rise in the second one means.
+         */
+        `- **${headlineOf(ctx.gate.unmeasured)}** — ${breakdownOf(ctx.gate.unmeasured)}. **This is the number to drive down.**`,
+        `- values-diff: ${ctx.gate.valueDeltas ?? '?'} delta(s) — a count of what the gate DID compare, so it rises when the instrument sharpens. It is not a score.`,
         ...(ctx.gate.unreferencedImages?.length
           ? [`- mirrored images no manifest element references: ${ctx.gate.unreferencedImages.join(', ')}`]
           : []),
@@ -473,6 +518,26 @@ Read the store through \`xgd\`, never by path — \`.xgd/\`'s layout is xgd's ow
 **You file. Nothing is handed back to be filed for you** — see the brief §6 for the command and §7 for how you report what you made. Create at \`status: draft\`, and **never at a \`ready_*\` status**: that is a dispatcher trigger and it spawns an autonomous pipeline against your ticket within about thirty seconds, before anybody has read it. The console checks every ticket you name after you finish.
 
 **The \`--created-by\` for this round is \`${ROUND_CREATED_BY}:${ctx.slug}#${ctx.n}\`.** Pass it to every \`xgd ticket create\` you run, verbatim. Without it \`xgd\` falls back to the operator's git identity and your ticket arrives claiming a human wrote it; the console reads it back and reports the ticket that does not carry it.
+
+## Where the defect sits — the class every ticket you file carries
+
+**Every ticket you file names where the defect sits**, in the \`${DEFECT_CLASS_FIELD}\` field, from this closed set and no other value. The gap ticket and every secondary \`1c\` bug alike — "every ticket" means every ticket.
+
+${defectClassTable()}
+
+Pass it beside the status:
+
+\`\`\`
+--fields '{"status":"draft","${DEFECT_CLASS_FIELD}":["fold-wrong"]}'
+\`\`\`
+
+A list, because one gap ticket carries every residual you found: name a second class when an issue in the ticket genuinely sits somewhere else, and put the leading issue's class first. Most tickets carry one.
+
+**And defend each class in one line in the body**, from the evidence you already have — the test you ran and what came back. The field is what a filter reads; the line is what makes it checkable.
+
+\`cannot-tell\` is a real answer and not a failure. A forced choice between the instrument and the engine, made without the evidence to separate them, is confident noise that costs more to unpick than saying so would. If you pick it, say what you would need in order to tell.
+
+The console reads every ticket you name back and reports one that carries no class, or a class that is not in the set. See the brief §5 for what the classes mean and §6 for the command.
 
 ## The regression rail
 

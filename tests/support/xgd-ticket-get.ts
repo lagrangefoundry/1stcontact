@@ -21,6 +21,16 @@ export interface XgdTicketGetOptions {
   title?: string
   /** `frontmatter.created_by`. Defaults to a round's own provenance. */
   createdBy?: string
+  /**
+   * `fields.defect_class` — where the round said the defect sits ([[REQ-276]]).
+   *
+   * Defaults to a well-behaved round's single valid class, because that is what
+   * every suite that is not ABOUT this check needs: a ticket missing the field
+   * is a violation now, and a default of absent would make every unrelated
+   * assertion about violations fail for a reason that has nothing to do with
+   * what it is testing. Pass `[]` to model a round that did not classify.
+   */
+  defectClass?: string[]
 }
 
 export function xgdTicketGetJson(opts: XgdTicketGetOptions = {}): string {
@@ -34,7 +44,7 @@ export function xgdTicketGetJson(opts: XgdTicketGetOptions = {}): string {
       created_by: opts.createdBy ?? 'repro-console:joyfulculinarycreations#1',
       status: opts.status ?? 'draft',
     },
-    fields: {},
+    fields: { defect_class: opts.defectClass ?? ['fold-wrong'] },
     body: 'the round wrote this',
     links: [],
   }

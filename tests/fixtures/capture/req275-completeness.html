@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-275 completeness fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; color: #111827; background: #ffffff; }
+      section { padding: 40px; }
+      h1 { font-size: 40px; font-weight: 700; line-height: 48px; margin: 0 0 16px; }
+      /* An UNREGISTERED property, deliberately. The audit's whole output is the
+         set of properties nothing has decided about, and a fixture with none of
+         them could not show that the bucket works. If `tab-size` is ever given a
+         coverage row, the fix is to swap this for another unregistered property
+         — not to weaken the assertion. */
+      pre { tab-size: 8; }
+      .out { color: #2563eb; text-decoration-line: underline; }
+      form { display: grid; gap: 12px; max-width: 420px; }
+      input, textarea { padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 6px; }
+      button { padding: 12px 24px; background: #111827; color: #ffffff; border: 0; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <section>
+      <h1>Completeness</h1>
+      <pre>a	tabbed	line</pre>
+      <p>
+        <a class="out" href="https://elsewhere.test/profile" target="_blank" rel="noopener">Opens a new tab</a>
+        and <a class="out" href="/about">stays in this one</a>.
+      </p>
+      <form method="post" action="/subscribe">
+        <input type="email" name="email" placeholder="Email address" required />
+        <textarea name="message" rows="4" placeholder="Message"></textarea>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+  </body>
+</html>

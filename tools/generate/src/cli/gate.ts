@@ -91,6 +91,9 @@ import {
   reconcileGates,
 } from './gate-core'
 import type { GateReport, GateVerdict, GateFloor } from './gate-core'
+// REQ-274 — one formatter for an unmeasured axis, beside the declaration it
+// comes from, so the terminal row and the JSON row cannot describe it differently.
+import { unmeasuredAxisLabel } from './capture/value-axes'
 
 const VERDICT_LABEL: Record<GateVerdict, string> = {
   pass: 'PASS',
@@ -167,6 +170,19 @@ export function formatGateReport(report: GateReport, ref: string): string {
             `⚠ ${report.values.unpairedSections} reference section(s) and ` +
               `${report.values.unpairedActualSections} repro band(s) had no counterpart — ` +
               `their section-level values are UNMEASURED, not clean`,
+            '               ',
+          ),
+        ]
+      : []),
+    // REQ-274 — the axes the values line above did NOT speak for. Only one side
+    // of the projection can read them, so the comparator skipped them in silence
+    // and `0 delta(s)` covers less of the page than it reads as. Silent when the
+    // run ran into none, for the same reason the collision row is.
+    ...(report.values.unmeasuredAxes.length
+      ? [
+          wrap(
+            `⚠ ${report.values.unmeasuredAxes.length} compared axis/axes readable on ONE side only — ` +
+              `${report.values.unmeasuredAxes.map(unmeasuredAxisLabel).join('; ')}`,
             '               ',
           ),
         ]

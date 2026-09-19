@@ -64,18 +64,27 @@ export function rewriteMirroredRefs(text: string, mirrored: Set<string>): string
 }
 
 /**
- * Re-extract a capture from a stored bundle with no access to the live site.
- * The bundle's `rendered.html` carries root-relative asset references (as
- * authored), so we serve `/` as the rendered DOM and resolve every other path
- * to a mirrored asset by basename.
+ * Serve a stored bundle over an ephemeral loopback origin, run `work` against
+ * it, and tear the server down.
+ *
+ * FACTORED OUT FOR REQ-275, and the reason is that a second reader appeared
+ * rather than that it looked reusable. `1c capture audit` has to walk the
+ * bundle's own rendered DOM in a real browser to see which CSS properties the
+ * page uses — the same navigation of the same mirrored bytes this module was
+ * already performing, differing only in what is asked of the page once it is up.
+ * A second `createServer` beside this one would be a second answer to "what is
+ * this bundle's origin", wrong the first time a member resolves differently.
+ *
+ * The member resolution, the URL rewriting and the content-type sniff below are
+ * unchanged; only the last step — run the pipeline — moved out to the caller.
  */
-export async function reextractFromBundle(
+export async function serveBundle<T>(
   bundle: ReferenceBundle,
-  opts: CapturePipelineOptions = {},
-): Promise<CaptureResult> {
+  work: (origin: string) => Promise<T>,
+): Promise<T> {
   const rendered = await bundle.read(RENDERED_MEMBER)
   if (!rendered) {
-    throw new Error(`Bundle '${bundle.name}' has no ${RENDERED_MEMBER} to re-extract from.`)
+    throw new Error(`Bundle '${bundle.name}' has no ${RENDERED_MEMBER} to serve.`)
   }
 
   // BUG-16 — the mirrored asset basenames. `rendered.html` (and any mirrored CSS,
@@ -132,8 +141,21 @@ export async function reextractFromBundle(
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   try {
     const port = (server.address() as AddressInfo).port
-    return await runCapturePipeline(`http://127.0.0.1:${port}/`, opts)
+    return await work(`http://127.0.0.1:${port}/`)
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
+}
+
+/**
+ * Re-extract a capture from a stored bundle with no access to the live site.
+ * The bundle's `rendered.html` carries root-relative asset references (as
+ * authored), so {@link serveBundle} serves `/` as the rendered DOM and resolves
+ * every other path to a mirrored asset by basename.
+ */
+export function reextractFromBundle(
+  bundle: ReferenceBundle,
+  opts: CapturePipelineOptions = {},
+): Promise<CaptureResult> {
+  return serveBundle(bundle, (origin) => runCapturePipeline(origin, opts))
 }

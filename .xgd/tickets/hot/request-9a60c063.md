@@ -6,16 +6,25 @@ title: 'repro console: the unmeasured set is the headline number; the delta coun
   is not progress'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:33.905493+00:00'
-updated_at: '2026-09-18T22:31:33.905493+00:00'
+updated_at: '2026-09-18T23:58:18.211946+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
-  story_points: 5
+  story_points: 4
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-8db729d9
+  commits:
+  - working_sha: a7d57961e68f11ed6b35168eb7a639c4ccf47545
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cfa0119e26bda8824b1cbb35c644524875e1f0e3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.275
 ---
 
 # The unmeasured set is the headline number; the delta count is not progress
@@ -81,3 +90,79 @@ the operator's glance all still land on the delta count.
 
 Changing what the gate measures. This is about which of the numbers it already
 produces is treated as the score.
+
+
+## As built
+
+**One definition, three surfaces.** `tools/repro-console/src/unmeasured.ts` is
+the console's only definition of the set. The page, the evidence digest and the
+round's prompt all take their headline from it, so the three can never quote
+different totals. Nothing about what the gate measures changed — this is
+arithmetic over `gate.json` fields that already existed.
+
+**The four parts**, mapped onto what the gate already writes:
+
+| part | `gate.json` | what it means |
+|---|---|---|
+| axes | `values.unmeasuredAxes` | a compared axis only one side of the projection can read (REQ-274) |
+| bands | `values.unpairedSections` + `values.unpairedActualSections` | a section with no counterpart, so its section-level values were never compared (BUG-111) |
+| populations | `values.unmatched` + `values.unpairedActual` | an element on either side that paired with nothing (BUG-106) |
+| probes | `values.sectionsNotComparable` | a measurement the run declared it could not make at all (BUG-102) |
+
+**A quantity the report does not carry is not zero.** A gate report written
+before REQ-274 says nothing about unmeasured axes, and reading that silence as
+"none" would manufacture exactly the clean bill this ticket exists to refuse. A
+partial report reads as `unmeasured ≥ N` and the breakdown names what it could
+not say. An iteration with no readable report says so instead of showing a zero.
+
+**Iteration-to-iteration movement is compared over the parts both reports
+carry**, and the page says what the basis was whenever that is not the whole
+set. Differencing a part one side is silent about would report the ARRIVAL of a
+quantity as a movement in the thing it measures — the same false-progress shape,
+inverted.
+
+**On the page**: the headline sits directly under the `Iteration N` heading,
+above the links, with the delta count beneath it and — when there is an
+iteration above to compare against — one plain-English sentence saying what the
+pair of movements means. An operator who has never read this ticket has to be
+able to read the page correctly, so the sentence is rendered in full rather than
+as a marker.
+
+**The seam** (behaviour 4) is detected from the two facts REQ-272 already
+records: the iteration's own `recaptured` flag, or a `bundleCapturedAt`
+different from the iteration above it — the second catches a reference re-rolled
+outside the console, which moves the oracle just as completely and leaves no
+flag behind. At a seam the DELTA line alone is marked not comparable; the
+unmeasured movement is still shown, because a re-capture is the main way that
+number falls.
+
+**What the round is told**: the prompt's gate block leads with the unmeasured
+set and names it as the number to drive, and says of the delta count that it
+counts what the gate DID compare and is not a score. The digest carries the same
+section above its value-delta section. The brief gains §3's *"The score is the
+unmeasured set, not the delta count"*, which tells a round that a gap whose fix
+raises the delta count is still a good gap to file, that a delta count falling
+over a rising unmeasured set is the instrument going blind, and never to report a
+rising delta count as a regression without reading what the unmeasured set did.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-277_unmeasured_is_the_headline.test.ts` — five UATs
+against the real console over HTTP, with `1c`, `claude`, `git` and `xgd`
+substituted at the seams the console already had:
+
+1. the count and its breakdown appear per iteration, and the delta count is
+   rendered below the headline;
+2. an added axis moves the unmeasured count down and the delta count up, and the
+   page renders that as the instrument sharpening rather than as a regression;
+3. a re-captured iteration is marked not comparable on the delta axis
+   specifically, while the unmeasured movement crosses the seam;
+4. a report that does not carry a part reads as `≥` with the missing parts
+   named, not as zero;
+5. the prompt, the digest and the brief all name the unmeasured set as the
+   number to drive, each with the headline above the delta count.
+
+Regression scope: every repro-console suite (BUG-99, BUG-103, BUG-104, BUG-105,
+BUG-108, BUG-109, BUG-114, REQ-254 ×2, REQ-255, REQ-256, REQ-261, REQ-262,
+REQ-270, REQ-272, REQ-276). REQ-256's hand-built `GateSummary` fixture gained the
+new field, which is the only change to an existing test.

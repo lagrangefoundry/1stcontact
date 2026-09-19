@@ -6,16 +6,25 @@ title: 'repro console: [recapture] is a continuation verb rendered in the restar
   position'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:36.606254+00:00'
-updated_at: '2026-09-18T22:31:36.606254+00:00'
+updated_at: '2026-09-18T23:58:27.414353+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 3
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d7d3f665
+  commits:
+  - working_sha: 5653de893110491864d21ed8afc461c55bca12f9
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ad4ee02fc255b36584085f08ebfaf39e8ac80699
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.274
 ---
 
 # [recapture] is a continuation verb rendered in the restart position
@@ -116,3 +125,91 @@ looked like it would destroy the history.
   continuation controls.
 - The POST targets, the hold gating and the `recaptured` seam are unchanged, and
   REQ-272's existing UATs still pass.
+
+
+## How it was done
+
+### The grouping is one form with two submit buttons
+
+`<section class="continue">` sits where [run again] already was — under the
+iteration list it continues — and holds both continuations. Inside it is a
+single `<form method="post" action="/run-again">` whose second button carries
+`formaction="/recapture"`, which is the same mechanism the address row used for
+[recapture] before it moved. The POST targets are therefore untouched: [run
+again] still posts to `/run-again` and [recapture] still posts to `/recapture`.
+
+The form carries `<input type="hidden" name="url">` holding the site already
+loaded — which is what the address box held when [recapture] sat in it, since
+the box is pre-filled with the loaded address. So the request the console
+receives from a press is the one it received before, and `continuing` answers
+the same way.
+
+**Consequence, accepted deliberately:** [recapture] against a *different* typed
+address is no longer reachable from the page. The endpoint still does it if
+posted, and the operator still reaches the same measurement by pressing
+[reproduce] on the new address and then [recapture] on it. Keeping a second
+[recapture] beside the address box to preserve that path would have reinstated
+the defect this ticket exists to remove.
+
+### The address row is the restart and says so
+
+The address row holds [reproduce] alone, with a `<p class="effect restart">`
+under it naming both of its cases in visible text: a new address is captured
+and numbered from 1, and the address already loaded reuses the capture on disk.
+
+### Each continuation names its effect, in text, not a tooltip
+
+The `title=` on [recapture] is gone rather than doubled. The group's heading
+states the shared effect on the list ("both of these append iteration N"), and
+a `<span class="effect">` beside each button states what separates them — one
+keeps the reference this chain already has and re-folds it, the other re-hits
+the site and re-rolls the reference first — together with the consequence that
+follows: the first is comparable with the iteration above it, the second is not,
+and the page marks the seam.
+
+### The stale reference is `staleCaptureDetail`'s own sentence, reused
+
+`ReproConsole.staleReference()` reads `capture.json` from the loaded
+`bundleDir` on every page build and returns `staleCaptureDetail`'s sentence
+verbatim, or nothing. Reused rather than restated: that function owns
+`CAPTURE_SCHEMA` and the axis registry, and it is the sentence that goes stale
+the day the extractor learns an axis — a second spelling here would be a second
+thing to bump.
+
+Read on every build rather than remembered, because a re-capture overwrites the
+bundle in place: a remembered answer would still be warning about a reference
+the operator has just paid to replace.
+
+It renders inside the continuation group, above the two choices, because it is
+the fact the choice turns on. **A current bundle says nothing** — a warning
+that is always on the page is the next thing an operator learns to ignore, and
+this one has to still be readable on the round where it matters.
+
+A bundle that cannot be parsed, or that is too thin to walk axis by axis, is
+passed over silently. The page is not where a broken bundle is reported — the
+run that reads it fails loudly and names the step — and a console that refused
+to render over one would have hidden the history too.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-120_continuation_affordance.test.ts`, driving the real
+console over HTTP with `1c` and the machine commands substituted, as REQ-254's
+and REQ-272's suites do:
+
+- the two continuations share `<section class="continue">`, [reproduce] is
+  outside it in the address row, and the group renders *after* Iteration 1 while
+  [reproduce] renders before it — the grouping asserted from markup, not a
+  screenshot;
+- each control's effect on the list and on the reference is in visible text, and
+  the group carries no `title=` at all;
+- a bundle at schema 1 renders `staleCaptureDetail`'s exact sentence inside the
+  group; a bundle at `CAPTURE_SCHEMA` renders no `.stale-reference` element;
+- [recapture] pressed **as the group's own rendered form would send it** (action
+  and body read out of the markup) still appends iteration 2, leaves iteration 1
+  standing, and marks `recaptured` in the manifest;
+- the hold still gates exactly the two continuations (`data-held="1" disabled`
+  twice inside the group) and not the address row.
+
+Regression scope: REQ-254, REQ-254 isolation, REQ-272, REQ-256, REQ-261,
+REQ-262, REQ-270, REQ-275, REQ-276, BUG-104, BUG-105, BUG-108, BUG-109, BUG-114,
+REQ-255, plus `pnpm -r typecheck`. All pass.

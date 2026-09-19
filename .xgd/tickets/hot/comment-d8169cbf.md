@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-18T23:25:08.149434+00:00'
+updated_at: '2026-09-18T23:58:50.825676+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -726,5 +726,106 @@ Your priming tells the consultant: *"If you ever find yourself naming a framewor
 I'd lean **client-facing** — a catalogue number is how a gallery or a print shop talks, and "the crucible, MATERIAL-5" is clearer than three identical titles. But it's a genuine call, and it decides whether this is a debug affordance or part of how consultations run.
 
 Tell me which and I'll file it — it's a small, well-bounded REQ.
+
+<!-- xgd-turn id="136f3b90-7863-4bc0-ab7d-8add96b2252b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:41:13.111498+00:00" -->
+#### You
+Yeah I agree MATERIAL is a bit vague is that really what we called the tickets? I mean I would like to say IMAGE-5, DOC-7 but yes this is not too technical
+
+<!-- xgd-turn id="136f3b90-7863-4bc0-ab7d-8add96b2252b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:42:47.303368+00:00" -->
+#### Claude
+**Yes, that's really the ticket type** — but it's the *type*, not the kind. There's one ticket type `material` covering everything the client gives you, and `kind` (`image` / `font` / `document` / `capture`) is a field on it. `human_id` is minted per ticket type, so you get MATERIAL-n.
+
+And `material` is the right type name — it genuinely is "what the client gave us", whether that's a photograph or a brand book. It's just the wrong thing to put in front of a person.
+
+## So: keep the number, change the prefix
+
+Derive the label from `kind`, over the number the ticket already has:
+
+| kind | label |
+|---|---|
+| `image` | `IMAGE-12` |
+| `document` | `DOC-7` |
+| `font` | `FONT-3` |
+| `capture` | `CAPTURE-2` |
+
+Your Library is currently 13 images and 9 documents, so those two are what you'd actually see.
+
+**Why reuse the existing number rather than mint a per-kind sequence:** no second counter, no migration; the number stays globally unique across kinds, so `IMAGE-12` and `DOC-12` can never both exist; `MATERIAL-12` stays recoverable for debugging because it's the same number; and reclassifying an item relabels it without renumbering.
+
+**The cost, so you're choosing it rather than discovering it:** per-kind numbering won't be dense. You'll see `IMAGE-3`, `IMAGE-6`, `IMAGE-13` — not 1, 2, 3. Catalogue and invoice numbers behave that way and it reads as normal, but if you want dense per-kind numbering that's a second counter and a migration, and better decided now.
+
+Filed as **REQ-280**, with three things it has to do or it isn't shared:
+
+1. the catalogue item the consultant reads
+2. the Library row you read — and matchable by the row filter
+3. **as an input the consultant accepts**, so you can say "use IMAGE-5" and it resolves without translation
+
+(3) is the one that's easy to drop and is the whole point. It's also nearly free: `aliases` already exists and `haystack` already searches it.
+
+The uid stays as the machine handle — `library.ts:55` warns that changing it is "the drift in miniature", and it's persisted in stored edit recipes.
+
+One thing I wrote down explicitly: your "not too technical" ruling makes this a **carve-out from the priming's no-framework-vocabulary rule**, so the consultant may say `IMAGE-5` to a client. Recorded as a deliberate exception, so a later pass over the priming doesn't read it as a violation to clean up.
+
+<!-- xgd-turn id="429c199c-2ec8-4b3e-a520-c8124c668b26-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-18T23:57:35.975843+00:00" -->
+#### You
+That's better than Material - would be nicer if we had IMAGE-1, IMAGE-2 but its probably ok.
+
+Are these numbers global or per tenant?
+
+<!-- xgd-turn id="429c199c-2ec8-4b3e-a520-c8124c668b26-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-18T23:58:50.025412+00:00" -->
+#### Claude
+**Per tenant.** Confirmed both ways:
+
+```sql
+CREATE TABLE counters (
+  tenant_id TEXT NOT NULL,
+  type      TEXT NOT NULL,
+  value     INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (tenant_id, type)
+);
+```
+
+and three different businesses each have their own `MATERIAL-1`:
+
+```
+biz_51a674… | MATERIAL-1 | material-e478df0e
+biz_5b1017… | MATERIAL-1 | material-20fa5f92   ← Lagrange Foundry
+biz_96fc32… | MATERIAL-1 | material-0c513381
+```
+
+That's the right property for a client-facing label — every client's catalogue starts at 1, and the number never hints at how many other clients exist. It's an information-barrier property too, not just cosmetics: a global sequence would leak volume across tenants.
+
+Let me check one thing, because it decides whether you can have the dense numbering you'd prefer.
+
+`kind` is set once at ingest (`kind: classification.kind`, from classifying the uploaded bytes) and nothing mutates it afterwards. That changes my recommendation — **you can have IMAGE-1, IMAGE-2.**
+
+**Per tenant**, and you can have the dense numbering after all.
+
+## The tenancy answer
+
+`counters` is `PRIMARY KEY (tenant_id, type)`, and three businesses in your local store each hold their own `MATERIAL-1`. Every client's catalogue starts at 1.
+
+That's load-bearing rather than cosmetic: a globally sequenced label would tell one client how much material every *other* client has uploaded — an information leak across the tenant barrier, in a string the consultant is now cleared to say out loud.
+
+## IMAGE-1, IMAGE-2 — both objections fail
+
+I'd hedged toward sparse numbering. Checking properly, neither reason survives:
+
+- **No schema change needed.** Since `counters` already keys on `(tenant_id, type)`, a per-kind counter is just another key in the same table (`material:image`). Same mechanism, and it inherits the per-tenant scoping for free.
+- **Reclassification can't break a reference.** `kind` is assigned once at ingest from classifying the uploaded bytes (`material.ts:660`), and nothing mutates it afterwards. That was the objection that would have forced sparse numbering — a client says "IMAGE-3" and the thing gets renumbered under them. It can't happen.
+
+**The cost you're accepting:** the client-facing number no longer matches the ticket's own `human_id` — `IMAGE-3` might be `MATERIAL-9`. That's a debugging inconvenience only; the catalogue item carries both and the uid is still the machine handle. Anyone in D1 can join them.
+
+I've recorded the fallback too — labelling with the kind over `human_id`'s existing number, sparse but exactly recoverable — so if the divergence ever proves more annoying than the density is worth, the alternative is written down rather than rediscovered.
+
+REQ-280 updated. One caution noted in it for whoever implements: the per-kind counter must stay keyed on `(tenant_id, …)`. A counter keyed on kind alone would silently break the per-tenant property, and that's the kind of thing that looks fine in dev where you're the only tenant.
 
 <!-- xgd-chat-end -->

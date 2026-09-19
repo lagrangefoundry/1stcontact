@@ -35,6 +35,18 @@ export interface GapEntry {
   references: string[]
   /** Which rounds found it, as `<slug>#<n>`. */
   iterations: string[]
+  /**
+   * Where the defect sits, off the ticket itself ([[REQ-276]]).
+   *
+   * UNIONED ACROSS ROUNDS, like the references and the iterations above it. A
+   * later round appending to a class can discover that what looked like a fold
+   * bug also cannot be authored in L1; dropping that because the class already
+   * had an entry would lose exactly the finding worth keeping.
+   *
+   * Optional because a registry written before this existed is still a valid
+   * registry — an absent list reads as "nobody recorded it", which is true.
+   */
+  defectClasses?: string[]
 }
 
 /** The registry file, inside the console's own workspace. */
@@ -84,6 +96,10 @@ export function recordGap(
   if (existing) {
     if (!existing.references.includes(entry.reference)) existing.references.push(entry.reference)
     if (!existing.iterations.includes(entry.iteration)) existing.iterations.push(entry.iteration)
+    existing.defectClasses ??= []
+    for (const cls of entry.defectClasses ?? []) {
+      if (!existing.defectClasses.includes(cls)) existing.defectClasses.push(cls)
+    }
     // The ticket a round appended to wins over a blank, but never over a
     // different ticket already recorded: a class has one ticket by definition,
     // and a second id arriving is a fact for a human rather than a merge.
@@ -99,6 +115,7 @@ export function recordGap(
       summary: entry.summary,
       references: [entry.reference],
       iterations: [entry.iteration],
+      defectClasses: [...(entry.defectClasses ?? [])],
     })
   }
   mkdirSync(workspace, { recursive: true })

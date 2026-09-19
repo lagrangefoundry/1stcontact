@@ -127,6 +127,9 @@ function toContentRun(r: RawRun): ContentRun {
   // REQ-269 — the navigation target, carried verbatim; the fold writes it onto
   // the leaf's `link` axis and the renderer is the sole `<a>` sink.
   if (r.href != null) run.href = r.href
+  // REQ-275 — and whether it opens a new browsing context. Carried only when the
+  // run is inside a link, so a page of unlinked prose records nothing about it.
+  if (r.newTab != null) run.newTab = r.newTab
   // REQ-269 — and the outline depth, which the fold writes onto the leaf's
   // `heading` role. Carried only when the run is inside a heading.
   if (r.headingLevel != null) run.headingLevel = r.headingLevel
@@ -156,6 +159,8 @@ function toField(f: RawField): Field {
     a11yRole: f.a11yRole,
     // REQ-269 — the navigation target: a linked image is a link like any other.
     href: f.href,
+    // REQ-275 — a linked image opens in a new tab or it does not, like any link.
+    newTab: f.newTab,
     box: f.box,
     borderRadiusPx: f.borderRadiusPx,
     borderWidthPx: f.borderWidthPx,
@@ -192,6 +197,12 @@ function toField(f: RawField): Field {
     // REQ-93 — the behavioural facts a mounted behavior module needs.
     controlType: f.controlType,
     formAction: f.formAction,
+    // REQ-275 — the rest of the submission contract, found by `1c capture audit`:
+    // the key the control posts under, the verb the form posts with, and whether
+    // the browser insists on it at all. None of the three has a painted trace.
+    controlName: f.controlName,
+    formMethod: f.formMethod,
+    required: f.required,
     // REQ-265 — the placeholder's rendered ink. Carried verbatim; the fold writes
     // it onto the control's axes and the renderer paints the pseudo-element with it.
     placeholderColor: f.placeholderColor,

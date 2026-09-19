@@ -5,9 +5,9 @@ type: bug
 title: An interrupted turn commits its work and discards its conversation
 created_by: EPIC-19
 created_at: '2026-09-18T23:11:24.573446+00:00'
-updated_at: '2026-09-18T23:35:59.007008+00:00'
+updated_at: '2026-09-19T00:10:12.331293+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -15,7 +15,6 @@ fields:
   priority: medium
   chat_comment: comment-10d48ce1
 ---
-
 
 Parent: [[EPIC-19]]. Hit by the operator on 2026-09-18 on the Lagrange Foundry
 site (`site_936dd7c92e5e14df694dd9a80433aa4f`, session
@@ -250,3 +249,41 @@ double (`pacedClient`, so a test can stand inside an open turn):
 the installed `webui-chat`) — the pane paints the unanswered prompt, says the
 turn was interrupted, and restores it to the composer only when the composer is
 empty.
+
+
+## Details settled during implementation
+
+Behaviour that follows from the above rather than being asked for separately,
+recorded here because each one is asserted by a UAT.
+
+**A turn that is still running is not an interrupted one.** A reload in the
+middle of a turn is the ordinary case [[BUG-46]] exists for — the pane paints the
+fold and reattaches to the rest — so a session whose transcript reports a live
+turn at the cursor is answered with no `interrupted` at all. Reporting it would
+tell the operator that the reply arriving in front of them had been lost. The
+one false positive this cannot rule out is a turn being driven by *another*
+isolate, which this host cannot see; a shared junction is what would let it.
+
+**The composer is only filled when it is empty.** The chat component restores its
+own per-conversation draft, and a draft is something the operator typed more
+recently than the lost message. Overwriting it to hand back the older text would
+turn a rescue into a second loss, so the restore stands down and the message stays
+on screen to copy from.
+
+**The settings conversation is treated identically.** A customer can close the tab
+mid-rename exactly as an operator can navigate away mid-build; the words are on the
+same junction in the same RAM. `openBusinessSession` reports `interrupted` the same
+way, and the settings role reaches the reminder under the same provider name — the
+signal is about the conversation, which both roles have in the same shape.
+
+**A safety net never fails the turn it protects.** Every read and write of the
+record is a ticket-store round trip, and every one of them is swallowed: a store
+that cannot answer costs the conversation a notice, not the turn. A corrupt value
+reads as no value, for the same reason. The write carries no `expected_version`,
+so two turns racing to replace the record both succeed rather than one being
+refused.
+
+**The record is a declared field.** `pending_turn` is added to the `chat` ticket
+type beside `kb_cursor` ([[REQ-160]]), merged onto the imported schema rather than
+restating it, and holds JSON in one field for the cursor's reason: the text, when
+it was asked and what became of it are one fact about one turn.
