@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-280
 created_by: xgd
 created_at: '2026-09-19T00:17:19.944630+00:00'
-updated_at: '2026-09-19T00:41:21.803959+00:00'
+updated_at: '2026-09-19T00:45:20.900951+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,14 @@ The implementation is complete and the targeted suites are green; I'm waiting on
 2. **The catch-up write is a change event**, so an open Library tab redraws those rows once with their new numbers. Correct behaviour, but it meant `REQ-201`'s change-feed fixture had to write a label — it was modelling a pre-label record without meaning to.
 
 **Tests:** 19 new UATs across three suites (real D1 + counters; the surface over a doubled host; the Library tab in jsdom), all passing. Two pre-existing suites needed fixture updates (`REQ-221`'s recording store grew a counter; `REQ-201`'s fixture grew a label) — both were genuine consequences, not test massaging. Typecheck clean on both projects. The 13 other full-suite failures I've verified are pre-existing: 7 fail identically in the clean main checkout, and 6 more are the known worktree webui/dist-assets artifacts.
+
+<!-- xgd-turn id="ba88b724-6c05-4736-bca1-0bfc9163d22d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T00:45:17.060667+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
