@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:00:40.806024+00:00'
+updated_at: '2026-09-19T20:01:51.316415+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1744,5 +1744,24 @@ Want me to file it in lagrange-framework? It's well-specified already — `conte
 <!-- xgd-chat role="user" ts="2026-09-19T20:00:40.521435+00:00" -->
 #### You
 oh that was not a good call - I like to minimise tickets where reasonable - please create another ticket for that
+
+<!-- xgd-turn id="fbcf818d-c05e-4982-ac06-0ea2d217f5d1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T20:01:51.262329+00:00" -->
+#### Claude
+Noted — and that's worth me remembering, not just for this one.
+
+**lagrange-framework REQ-169** — *the occupancy gauge: tell a session how full its context is, unasked.*
+
+I put a ticket-economy note at the top recording your preference and the one reason I split it, so that if the product-tier change turns out not to block REQ-168, folding it back is the stated better outcome rather than something nobody revisits.
+
+Two things from the dev session's investigation made it into the ticket that weren't in my earlier answer:
+
+- **`occupancyTokens()` already exists** in `claude_code/compaction.js` — this is the same figure for the CLI backends. So it's closing an asymmetry, not inventing a concept, and that's the name to match.
+- **Nothing anywhere knows a model's context window size** — no such key in `defaults/backends.json`. So occupancy can't be a proportion without adding `context_window` first. I specified that where it's unknown, report the absolute figure and say the proportion is unavailable rather than inventing a denominator.
+
+And I kept the two properties that decide whether it's useful at all: it must **arrive unasked** (a gauge you have to call for isn't a gauge), and it must be **a figure, not an adjective** — "you are at 340k of 1M" changes what a session does next; "be careful" doesn't.
+
+I've also saved your preference to memory, so I stop reaching for the split by default. The rule I've written for myself: propose one ticket and name the tension inside it; split only when an item genuinely can't land in the same branch — a different repo, or a dependency that would block the rest — and say which.
 
 <!-- xgd-chat-end -->
