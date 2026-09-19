@@ -6,7 +6,7 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:40:14.104059+00:00'
+updated_at: '2026-09-19T00:40:47.649830+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -285,3 +285,11 @@ now writes a label, because the state it means to model is the ordinary one.
 - **`imagegen` gains `GENERATED_KIND`**, because two lines now read it — the
   record's `kind` and the sequence its label draws from — and they must be the
   same word.
+
+- **The catch-up's cost is one write per unlabelled row, once, on whichever
+  listing gets there first.** A Library is tens to low hundreds of rows, so the
+  first listing after this lands pays a few hundred milliseconds to a few
+  seconds and every listing after it pays a `filter` over a list it already had.
+  Capping the pass was considered and rejected: a cap is a knob, and it makes
+  *partly labelled* a state that persists rather than one that is over by the
+  time anybody reads the list.
