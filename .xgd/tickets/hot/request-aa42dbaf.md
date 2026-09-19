@@ -6,7 +6,7 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:34:47.974103+00:00'
+updated_at: '2026-09-19T00:38:31.277490+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -253,3 +253,15 @@ catalogue's own context, carries both examples. Both halves are asserted.
 If the collision ever does bite in practice the cheap fix is the prefix table: it
 is one entry in one map (`LABEL_PREFIX`), and every label already written stays
 valid, because a label is a stored string rather than one recomposed on read.
+
+
+### One consequence of the catch-up worth stating
+
+A label written by the catch-up pass is an ordinary write, so it appears in the
+material change feed ([[REQ-201]]) as an `update` on that row. A Library tab open
+while the first listing runs therefore redraws those rows, once, with their new
+numbers on them — which is the correct behaviour and not a side effect to
+suppress. What it also means is that a fixture creating material with no label is
+modelling a PRE-LABEL record, and any case reading the feed frame-by-frame after
+such a fixture sees the catch-up's frame first. The change-feed suite's fixture
+now writes a label, because the state it means to model is the ordinary one.
