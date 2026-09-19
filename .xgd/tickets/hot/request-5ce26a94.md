@@ -5,7 +5,7 @@ type: request
 title: 'L1 capability: a flow recovery that preserves horizontal geometry'
 created_by: EPIC-12
 created_at: '2026-09-18T22:31:35.276566+00:00'
-updated_at: '2026-09-19T01:04:32.899825+00:00'
+updated_at: '2026-09-19T01:04:56.156760+00:00'
 completed_at: null
 last_field_updated: status
 status: ready_to_reconcile
