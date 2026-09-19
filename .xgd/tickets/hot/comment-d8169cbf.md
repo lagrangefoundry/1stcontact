@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:41:00.538802+00:00'
+updated_at: '2026-09-19T18:44:36.184814+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1368,5 +1368,13 @@ Before you go to LF — most of what I'd have asked them for, you already have:
 - **What's genuinely left for LF** is narrower: BUG-45 (the cache-offset defect blocking a volatile summary tier in the priming), and the in-flight image/message growth on the API path — which is real but becomes a tuning problem rather than a data-loss one once the summary exists.
 
 The 1c-side work is now the bigger half: wire the `SummaryStore`, compose the `agent` surface, grant `InspectContext` + `MaintainSummary`, and add the summary tier to the priming once BUG-45 clears. Want me to file that?
+
+<!-- xgd-turn id="344ab627-5bc7-46ce-bfe1-ec63a661d861-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T18:44:35.899843+00:00" -->
+#### You
+BUG-45 in LF? that has landed?
+
+Is the summary generation implemented?...but not wired in 1c?
 
 <!-- xgd-chat-end -->
