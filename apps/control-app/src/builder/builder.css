@@ -734,6 +734,64 @@ body {
   overflow: hidden;
 }
 
+/*
+ * ALREADY ON THE SITE (REQ-282) — the Library pill's vocabulary, on the picker.
+ *
+ * ONE SET OF WORDS MEANS ONE THING ON BOTH SURFACES: accent and bold for a
+ * picture in use, the ordinary colour and weight for one that is not yet. The
+ * two halves of this ticket are the same confusion between what the client HAS
+ * and what the site is USING, so they resolve into the same two treatments.
+ *
+ * THE MARK, NEVER A FILTER. Every picture in the catalogue is offered; this only
+ * decides how its name is drawn.
+ */
+.builder-modal__tile-name.is-placed {
+  /* BARE, with no stand-in hex. The shell declares `accent`, so a fallback here
+     would be a hardcoded colour standing in for a theme value — see AC-1037,
+     whose one principled exception is `--shell-danger`, which has no token. */
+  color: var(--shell-accent);
+  font-weight: 700;
+}
+
+/*
+ * THE STATE IN WORDS, FOR A READER THAT GETS NEITHER CHANNEL. Clipped rather
+ * than `display: none`, which would take it out of the accessibility tree and
+ * with it the accessible name it is part of. Deliberately not a second visible
+ * word: whether a photograph is in use is ambient information and is worth no
+ * pixels at all.
+ */
+.builder-modal__tile-state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+
+/*
+ * A PICTURE WE HOLD NO RIGHT TO PUBLISH (REQ-282). It is SHOWN and unpickable
+ * rather than filtered out: a client hunting for their own photograph and
+ * finding nothing has been told nothing, which is the mistake the old warning
+ * badge made in the other direction. So the tile stays, dimmed, and says why.
+ */
+.builder-modal__tile.is-blocked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.builder-modal__tile.is-blocked:hover,
+.builder-modal__tile.is-blocked:focus-within {
+  border-color: var(--shell-border);
+  outline: none;
+  box-shadow: none;
+}
+
+.builder-modal__tile-reason {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--shell-muted);
+}
+
 .builder-modal__message {
   margin: 0;
   color: var(--shell-muted);
@@ -1298,29 +1356,26 @@ body {
 }
 
 /*
- * THE ACCENT IS SPENT ON THE EXCEPTION (REQ-181). The badge this replaced said
- * "on this site" — which, under one site per business, was true of nearly every
- * site-role row and therefore coloured the majority to say nothing. This one
- * fires on the case the client would actually want to be told about: a file they
- * asked us to put on their site whose bytes never got there.
+ * THE ACCENT IS SPENT ON WHAT IS IN USE (REQ-282). The rule this replaced
+ * coloured an unplaced site asset in the DANGER colour, on the reading that an
+ * empty `placed_on` was a failed promotion — which stopped being true when
+ * BUG-47 removed the placement it was detecting. It therefore marked every
+ * photograph a client had ever given us as an error.
  *
- * NOT COLOUR ALONE. The badge carries its meaning in words and the glyph is
- * decoration, so this rule can be ignored entirely — by a monochrome display, a
- * forced-colours mode, or a screen reader — without the fact being lost.
+ * SO THE EMPHASIS RUNS THE OTHER WAY NOW. The pill is the same pill in both
+ * states, at the same size, in the same place: what changes is that a picture in
+ * use takes the accent and bold, and one that is not yet used stays at the
+ * muted colour and weight `.builder-library__badge` already gives it. Nothing
+ * here is a warning colour, because nothing here is a failure.
  *
- * `--shell-danger` with a literal fallback, matching `.builder-modal__error`:
- * the shell does not declare the token yet and `fields.css` already asks for it.
+ * NOT COLOUR ALONE. Weight is the second channel — bold survives a monochrome
+ * display, a forced-colours mode and a colour-blind reader — and the pill's
+ * `aria-label` carries the state in words for a reader that gets neither.
  */
-.builder-library__badge--unplaced {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 3px;
-  color: var(--shell-danger, #b91c1c);
-  border-color: var(--shell-danger, #b91c1c);
-}
-
-.builder-library__warn-glyph {
-  line-height: 1;
+.builder-library__badge--role.is-placed {
+  color: var(--shell-accent);
+  border-color: var(--shell-accent);
+  font-weight: 700;
 }
 
 .builder-library__detail {

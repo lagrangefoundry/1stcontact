@@ -235,6 +235,7 @@ import {
   type IdentityEnv,
 } from './identity'
 import {
+  BlobsNotConfiguredError,
   ticketStoreFor,
   type TicketStore,
   type TicketStoreEnv,
@@ -269,6 +270,9 @@ import {
   NotAPictureError,
   NotMaterialError,
   NotRepublishableError,
+  pictureChoices,
+  placePicture,
+  type PictureChoice,
   promoteToSiteAsset,
   readMaterial,
   reviseDescription,
@@ -2510,6 +2514,29 @@ async function routeUncached(
   const openTickets = (): Promise<TicketStore> => {
     tickets ??= (deps.tickets ?? ticketStoreFor)(env, requireScope())
     return tickets
+  }
+
+  /**
+   * Every picture the editor's image picker may offer — [[REQ-282]] Part 2.
+   *
+   * `null` WHERE THIS DEPLOYMENT HOLDS NO LIBRARY, and that is not a degraded
+   * mode: the `1c` dev builder is a site store with no ticket store at all, and
+   * {@link BlobsNotConfiguredError} is the named way it says so. The picker then
+   * draws the descriptor's own `enum` — the site's assets — which is genuinely
+   * every picture such a deployment has.
+   *
+   * ONLY THAT ONE REFUSAL IS ABSORBED. Any other failure is a deployment that
+   * DOES hold a Library and could not read it, and quietly handing back the
+   * narrow list would reproduce exactly the bug this ticket closes with no way
+   * to tell. It travels out as itself.
+   */
+  const pickerCatalogue = async (site: string): Promise<PictureChoice[] | null> => {
+    try {
+      return await pictureChoices(await openTickets(), await openStore(), site)
+    } catch (err) {
+      if (err instanceof BlobsNotConfiguredError) return null
+      throw err
+    }
   }
 
   /**
@@ -4863,7 +4890,31 @@ async function routeUncached(
       if (!site || !page || !addr) {
           return json(400, { error: 'site, page and path are required' })
       }
-      return json(200, (await editCopyGet(site, page, addr, await scoped(get))).data)
+      const got = (await editCopyGet(site, page, addr, await scoped(get))).data as Record<
+          string,
+          unknown
+      >
+      // THE PICKER'S LIST IS THE LIBRARY'S ([[REQ-282]] Part 2), and it travels
+      // WITH the descriptors that consume it — the same rule `palette` follows
+      // above, for the same reason: a client fetching the catalogue separately
+      // could draw a tile from one reading of it and commit against another.
+      //
+      // IT IS ADDED HERE AND NOT IN `copyFieldsOf` BECAUSE ONLY THIS SIDE HOLDS
+      // THE LIBRARY. A material is a ticket and the ticket store is the
+      // Worker's; the derivation is served to the browser type-stripped and
+      // reads no files at all. So the descriptor keeps saying what an L1 node
+      // may hold — the site's own handles, which is what the write side
+      // validates — and the catalogue rides beside it as what a person may
+      // choose from. The two lists are genuinely different questions and the
+      // envelope now asks both.
+      //
+      // ABSENT WHERE THERE IS NO PICKER, so a text segment pays nothing for a
+      // listing it cannot use.
+      const pickable = Array.isArray(got.fields)
+          ? (got.fields as Array<Record<string, unknown>>).some((f) => f.format === 'image')
+          : false
+      const pictures = pickable ? await pickerCatalogue(site) : null
+      return json(200, pictures ? { ...got, pictures } : got)
       }
 
       if (method === 'POST') {
@@ -4880,18 +4931,57 @@ async function routeUncached(
       if (values === null || typeof values !== 'object' || Array.isArray(values)) {
           return json(400, { error: 'values must be an object of field → string' })
       }
+      /**
+       * PLACE ON SAVE, NOT ON PICK ([[REQ-282]] Part 2).
+       *
+       * `place` names, per field, the Library material whose bytes this Save has
+       * to put on the site before the value it produces can be written. The
+       * modal stages a pick and commits nothing; this is the single flush point,
+       * so a client who opens the picker, chooses a photograph and then cancels
+       * leaves no asset behind.
+       *
+       * IT IS A SEPARATE KEY AND NOT A MAGIC VALUE, deliberately. `values` is
+       * always L1 values and stays readable as such; a `library:` token hidden
+       * inside one would have to be told apart from a client's own alt text,
+       * which is a guess this does not have to make. The token is still sent in
+       * `values` alongside it — so a `place` that was ignored fails loudly at the
+       * validator rather than quietly writing the image back as it was.
+       *
+       * A REFUSAL IS REPORTED AND NOTHING IS WRITTEN. `promoteToSiteAsset`
+       * refuses material we hold no right to republish, and that refusal is the
+       * answer the client needs to read on the modal — so it travels out as a
+       * 4xx rather than being swallowed into a save that silently kept the old
+       * picture. The write below has not happened yet, so the draft is untouched.
+       */
+      const place = body.place
+      if (place !== undefined && (place === null || typeof place !== 'object' || Array.isArray(place))) {
+          return json(400, { error: 'place must be an object of field → material uid' })
+      }
+      const placed: Record<string, unknown> = { ...(values as Record<string, unknown>) }
+      const picks = Object.entries((place ?? {}) as Record<string, unknown>)
+      if (picks.length) {
+          // NULL IS ORDINARY AND IS NOT A FAILURE — a deployment with no
+          // `[images]` binding places the bytes it was given, which is what
+          // promotion meant before recipes existed.
+          const renderer = imageRendererFor(env, requireScope().businessId)
+          for (const [field, uid] of picks) {
+          if (typeof uid !== 'string' || uid === '') {
+              return json(400, { error: `place.${field} must be a material uid` })
+          }
+          placed[field] = await placePicture(
+              await openTickets(),
+              await openStore(),
+              { uid, slug: site },
+              { ...(renderer ? { renderer } : {}) },
+          )
+          }
+      }
       // `editCopySet` throws on an invalid edit before writing anything, so a
       // failure here leaves the draft exactly as the user left it — the iframe
       // they are looking at is still accurate, which is what makes surfacing
       // the error safe. No re-render follows (REQ-119): the next fetch of
       // either channel renders the definition this write just produced.
-      const out = await editCopySet(
-          site,
-          page,
-          addr,
-          values as Record<string, unknown>,
-          await scoped(get),
-      )
+      const out = await editCopySet(site, page, addr, placed, await scoped(get))
       return json(200, out.data)
       }
     }

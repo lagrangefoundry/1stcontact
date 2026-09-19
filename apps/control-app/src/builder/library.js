@@ -42,15 +42,18 @@
  *
  * `placed_on` IS WHERE THE BYTES WENT (BUG-47), and it replaced `site_slug`,
  * which held WHICH SITE WAS OPEN WHEN THE FILE ARRIVED. Two things read it and
- * cannot disagree: the `Placed on` row in the rights record, and the warning
- * below. It is never read to hide anything.
+ * cannot disagree: the `Placed on` row in the rights record, and the pill's
+ * treatment below. It is never read to hide anything.
  *
- * THE ACCENT IS SPENT ON THE EXCEPTION, NOT THE RULE (REQ-181). A pill saying
- * "on this site" fired on nearly every site-role row and said nothing, because
- * placement is what the role already promised. What a client actually needs to
- * be told is the case that pill was silent about: they asked for a file to go on
- * their site and the bytes never got there. `placeOnSite` fails softly and keeps
- * the material, so without this the row looks exactly like one that worked.
+ * ONE PILL, TWO TREATMENTS — AND NOT AN ERROR MARK IN ANY REGISTER ([[REQ-282]]).
+ * The pill says what the client said the file was for and says it in both
+ * states; accent and bold mean the picture is in use, quiet grey means it is
+ * not. REQ-181 spent a WARNING here instead, on the reading that an unplaced
+ * site-role row was a failed promotion — which stopped being true when BUG-47
+ * removed the placement it was detecting, so the badge fired on every photograph
+ * a client ever gave us and told them to try again at something nobody had
+ * attempted. A site asset is a POTENTIAL asset; not using all of your
+ * photographs is not a thing that went wrong. See {@link inUse}.
  *
  * THE DETAIL REUSES THE EDITORS WE ALREADY HAVE. Both halves are `mountFields`:
  * the §9 rights block read-only, and the description as one editable field. A
@@ -232,12 +235,6 @@ const KIND_ICON = { document: '\u{1F4C4}', image: '\u{1F5BC}', font: '\u{1F524}'
 /** Everything the map does not name, including `capture`. */
 const KIND_ICON_FALLBACK = '\u{1F4CE}'
 
-/** The warning badge (REQ-181) — its glyph, its words, and the full sentence. */
-const WARN_GLYPH = '\u26A0'
-const UNPLACED_LABEL = 'Not on the site'
-const UNPLACED_HINT =
-  "You asked for this to go on your site and it did not get there. It is still here — try adding it again."
-
 /** The role labels, taken from the overlay so the two surfaces cannot disagree. */
 const ROLE_LABEL = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.id, a.label]))
 
@@ -381,17 +378,23 @@ function placedList(row) {
 }
 
 /**
- * A file the client asked us to put on their site, that never got there.
+ * Whether this material's bytes are on a site — [[REQ-282]].
  *
- * THE TWO FACTS ARE ALREADY CORRELATED BY CONSTRUCTION, which is what makes this
- * one predicate rather than two. `classify` writes `republishable: role !==
- * 'reference'`, `promoteToSiteAsset` refuses anything not republishable, and
- * `placeOnSite` returns early unless the role is `site` — so background
- * information can never be placed, and an empty `placed_on` on a site-role row
- * is a failure rather than a category.
+ * A STATE, NOT AN ERROR, and that correction is the whole of Part 1. [[REQ-181]]
+ * read the same two facts as a failed placement and badged them: *"you asked for
+ * this to go on your site and it did not get there"*. That was true while
+ * placement was attempted at upload; [[BUG-47]] removed it. Nothing attempts a
+ * placement now — `promoteToSiteAsset` writes `placed_on` when somebody chooses
+ * to use the picture and never before — so an empty `placed_on` on a site-role
+ * row is not a failure at all. It is the ORDINARY INITIAL STATE of every site
+ * upload, from the moment it lands until someone places it, and the badge fired
+ * on every photograph a client ever gave us for their site.
+ *
+ * A site asset is a POTENTIAL asset. Choosing not to use all of your photographs
+ * is not a thing that went wrong.
  */
-function unplaced(row) {
-  return row.role === 'site' && placedList(row).length === 0
+function inUse(row) {
+  return placedList(row).length > 0
 }
 
 /**
@@ -645,23 +648,38 @@ export function createLibraryPanel(options = {}) {
     wrap.append(el('span', 'builder-library__row-title', row.title || row.filename))
 
     const meta = el('div', 'builder-library__row-meta')
+    // ONE PILL, ONE WORD; COLOUR AND WEIGHT CARRY THE STATE ([[REQ-282]]). The
+    // pill says what the client said this file was for — *Site asset*, or
+    // *Background information* — and it says the same thing whether or not the
+    // picture is currently in use. What changes is the treatment: accent and
+    // bold when it is on the site, quiet grey when it is not.
+    //
+    // NOTE WHICH WAY THE EMPHASIS RUNS. The USED state is the emphasised one.
+    // That is the inversion of what was here before, where the unplaced item was
+    // the one that shouted — and it is the whole correction in one detail.
+    //
+    // NO SECOND BADGE AND NO EXTRA ROW. Whether a photograph is currently in use
+    // is minor, ambient information — the kind a client glances at, not the kind
+    // they are told — so it is worth exactly the pixels the pill already
+    // occupies and not one more.
     if (row.role) {
-      meta.append(
-        el('span', 'builder-library__badge builder-library__badge--role', ROLE_LABEL[row.role] ?? row.role),
+      const used = inUse(row)
+      const pill = el(
+        'span',
+        `builder-library__badge builder-library__badge--role${used ? ' is-placed' : ''}`,
+        ROLE_LABEL[row.role] ?? row.role,
       )
-    }
-    // THE EXCEPTION, BADGED (REQ-181). Not a recoloured pill: this is rare, it is
-    // actionable, and it is the only thing on the row a client would want to be
-    // told. It says its meaning IN WORDS and carries the glyph as decoration —
-    // colour and shape are both redundant, so a screen reader and a monochrome
-    // display each get the whole fact.
-    if (unplaced(row)) {
-      const warn = el('span', 'builder-library__badge builder-library__badge--unplaced')
-      const glyph = el('span', 'builder-library__warn-glyph', WARN_GLYPH)
-      glyph.setAttribute('aria-hidden', 'true')
-      warn.append(glyph, el('span', null, UNPLACED_LABEL))
-      warn.title = UNPLACED_HINT
-      meta.append(warn)
+      // WEIGHT IS THE SECOND CHANNEL AND WORDS ARE THE THIRD. Bold survives a
+      // monochrome display, a colour filter and a colour-blind reader, so the
+      // state is never carried by colour alone; bold is not ANNOUNCED, so the
+      // label carries it for a screen reader at no cost in pixels. That answers
+      // [[REQ-181]]'s own rule — the whole fact reaches every reader — without
+      // spending a second visible word on it.
+      pill.setAttribute(
+        'aria-label',
+        `${ROLE_LABEL[row.role] ?? row.role} — ${used ? 'in use' : 'not yet used'}`,
+      )
+      meta.append(pill)
     }
     wrap.append(meta)
     return wrap

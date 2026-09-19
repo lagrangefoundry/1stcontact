@@ -453,12 +453,22 @@ export async function fetchCopy(target, fetchImpl = fetch) {
  * answers, so a resolved promise means the bytes on disk are already current and
  * the caller only has to refresh the frame.
  */
-export async function saveCopy(target, values, fetchImpl = fetch) {
+export async function saveCopy(target, values, place, fetchImpl = fetch) {
   return copyEnvelope(
     await send(fetchImpl, scoped('/api/copy'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...target, values }),
+      // `place` IS PART OF THE SAME BODY ([[REQ-282]]), never a call before it.
+      // It names the Library material a staged pick has to put on the site
+      // first, and the origin resolves each one into the handle it writes — so
+      // a Save that both placed a picture and retitled it is still one post,
+      // one diff and one re-render. Omitted when nothing was staged, which is
+      // every Save that did not pick something new.
+      body: JSON.stringify({
+        ...target,
+        values,
+        ...(place && Object.keys(place).length ? { place } : {}),
+      }),
     }),
   )
 }

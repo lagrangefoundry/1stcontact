@@ -2523,7 +2523,7 @@ const COMPLETE_REFERENCE = /^([a-z][a-z0-9+.-]*:|\/\/)/i
  * envelope validator's call: its URL-scheme allowlist is the security boundary
  * (DOC-2), and normalising here must not quietly stand in for it.
  */
-function assetHandle(src: string): string {
+export function assetHandle(src: string): string {
   const trimmed = src.trim()
   if (COMPLETE_REFERENCE.test(trimmed)) return trimmed
   const local = trimmed.replace(/^\.?\//, '')

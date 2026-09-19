@@ -157,6 +157,9 @@ export function mountEditor(doc, options = {}) {
       // fetch so a swatch and the descriptor that names it can never be reading
       // two different palettes.
       palette: loaded.palette,
+      // REQ-282 — every picture the client can choose from, marked with which
+      // of them are already on the site. Absent from an origin with no Library.
+      pictures: loaded.pictures,
       shadeHex: colors.shadeHex,
       openPicker: (value) => (colors.open ? colors.open(value) : Promise.resolve(null)),
       // The panel behind a run, and the route to it. The origin resolves which
@@ -172,8 +175,8 @@ export function mountEditor(doc, options = {}) {
       },
       // The modal's Save is the flush point, so this runs once per Save with
       // the whole change map — one modal, one diff.
-      onSave: async (values) => {
-        const result = await saveCopy(target, values)
+      onSave: async (values, place) => {
+        const result = await saveCopy(target, values, place)
         onSaved(result)
       },
     })
@@ -305,8 +308,18 @@ function defaultModal(spec) {
   const formFields = spec.schema.filter(
     (field) => !isImagePicker(field) && !isColorField(field),
   )
+  // THE CATALOGUE TRAVELS WITH THE DESCRIPTORS ([[REQ-282]]), from the same
+  // response, for the reason the palette does: a client that fetched the
+  // Library separately could draw a tile from one reading of it and commit
+  // against another. Absent where the origin holds no Library — the `1c` dev
+  // builder — and the picker then draws the descriptor's own `enum`.
   const pickers = pickerFields.map((field) =>
-    mountImagePicker(panel, { field, value: spec.values[field.name], site: spec.site }),
+    mountImagePicker(panel, {
+      field,
+      value: spec.values[field.name],
+      site: spec.site,
+      pictures: spec.pictures,
+    }),
   )
 
   // WORDS IN THE BOX, PARAMETERS UNDER IT (REQ-135). The box exists to mirror
@@ -458,6 +471,21 @@ function defaultModal(spec) {
     ...(properties?.getValues() ?? {}),
     ...Object.fromEntries(owned.map((control) => [control.name, control.getValue()])),
   })
+  /**
+   * The Library pictures this Save has to place, by field — [[REQ-282]].
+   *
+   * Only the pickers can produce one, and only for a pick whose bytes are not
+   * on the site yet: a tile for a picture already under `assets/` commits its
+   * handle and reports nothing here, so re-picking what is already there costs
+   * no write.
+   */
+  const stagedPlacements = () =>
+    Object.fromEntries(
+      pickers
+        .map((picker) => [picker.name, picker.getPlacement()])
+        .filter(([, uid]) => typeof uid === 'string' && uid !== ''),
+    )
+
   const isDirty = () =>
     owned.some((control) => control.isDirty()) ||
     (fields?.isDirty() ?? false) ||
@@ -497,7 +525,12 @@ function defaultModal(spec) {
       // The picked handle travels in the SAME map, so a modal that changed both
       // the image and its alt text is still one diff and one re-render.
       const values = stagedValues()
-      await spec.onSave(values)
+      // AND THE PLACEMENTS THE SAME SAVE HAS TO PERFORM FIRST ([[REQ-282]]). A
+      // picker offering the Library can stage a picture the site does not hold
+      // yet; the origin puts its bytes on the site and writes the handle that
+      // produced. Still one post and one diff — `place` is part of the same
+      // body, so "the modal's Save is the single flush point" is unchanged.
+      await spec.onSave(values, stagedPlacements())
       close()
       return true
     } catch (err) {

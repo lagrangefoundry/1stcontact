@@ -40,7 +40,12 @@
  */
 
 import { MAX_BLOB_BYTES } from './generated/ticketing'
-import { editAssetAdd, editAssetReplace } from '../../../tools/generate/src/cli/edit'
+import {
+  assetHandle,
+  editAssetAdd,
+  editAssetReplace,
+  listSiteAssets,
+} from '../../../tools/generate/src/cli/edit'
 import type {
   ImageLibrary,
   StoredImage,
@@ -750,6 +755,17 @@ function filenameFromUrl(url: string): string {
  * Raised when promotion is refused. Its own class, because it is not a bad
  * request and not a server failure — it is a rule.
  */
+/**
+ * The same refusal in the width a picker tile has — [[REQ-282]].
+ *
+ * BESIDE THE SENTENCE IT SHORTENS, so the two cannot drift. The picker shows
+ * blocked pictures rather than hiding them ([[REQ-282]] Part 2): a client who
+ * cannot find their own photograph has been told nothing, which is the same
+ * mistake the warning badge made in the other direction. A tile is ~132px wide,
+ * so the full sentence travels as the tooltip and this is what is drawn.
+ */
+export const NOT_REPUBLISHABLE_SHORT = 'Not ours to publish'
+
 export class NotRepublishableError extends Error {
   readonly name = 'NotRepublishableError'
   constructor(readonly uid: string) {
@@ -1244,6 +1260,21 @@ export interface MaterialRow {
    * a guard in front of each of those.
    */
   placed_on: string[]
+  /**
+   * The same placements WITH the name the bytes landed under — [[REQ-282]].
+   *
+   * `placed_on` answers *is it on a site*; this answers *which file is it there*,
+   * which is the question the editor's picker has to ask. A Library picture that
+   * is already on the open site must offer the site handle its pages already
+   * reference rather than a second placement of the same bytes, and the recorded
+   * name is the only thing that can say which handle that is.
+   *
+   * ALWAYS AN ARRAY and a SUPERSET OF NOTHING: material placed before the names
+   * were recorded has slugs in `placed_on` and no entry here, which reads as
+   * "placed, under no recorded name" — the state {@link promoteToSiteAsset}
+   * already has a reading for.
+   */
+  placed_as: Placement[]
   source_url: string | null
   description_status: string | null
   description_model: string | null
@@ -1349,6 +1380,7 @@ function rowOf(ticket: Ticket): MaterialRow {
     exportable: f.exportable === true,
     origin: String(f.origin ?? 'uploaded'),
     placed_on: placedOn(f),
+    placed_as: placedAs(f),
     source_url: str(f.source_url),
     description_status: str(f.description_status),
     description_model: str(f.description_model),
@@ -2340,4 +2372,163 @@ export async function reviseRecipe(
       ? await republishMaterial(store, deps.sites, args.uid, { renderer: deps.renderer })
       : []
   return { ...(await readMaterial(store, args.uid)), rendered, republished }
+}
+
+// --- the editor's picture picker (REQ-282) ------------------------------------
+//
+// WHY THIS LIVES IN THIS FILE. The picker's list is the LIBRARY, which is what
+// this file is: `listMaterial` is the one definition of "the client's material",
+// and a second reading of that set assembled in the router would be a second
+// answer to the question the Library tab already answers. The site's own assets
+// are the OTHER half, and they arrive through `listSiteAssets` — the same
+// listing `imageHandles` reads, so the picker and the write side cannot disagree
+// about what the site holds.
+//
+// THE PRINCIPLE THIS IMPLEMENTS, in the operator's words ([[REQ-282]]): *"the
+// picker needs to offer me what is in the Library. That is the primary purpose
+// of the Library."* The site's asset copy is bookkeeping — bytes we happen to
+// have copied under the draft — and it was never a category a client chooses
+// from. `library-surface.json` already teaches the consultant exactly this:
+// *"Being on the site is a field on a catalogue item, not a different place to
+// look."* This is the builder's half of that same sentence.
+
+/**
+ * The prefix a staged Library pick carries while it is not yet a handle.
+ *
+ * IT IS NOT AN L1 VALUE AND MUST NEVER BECOME ONE. An `image.src` is a
+ * site-local handle (`/assets/<name>`) and nothing else; a Library uid is not
+ * one. So a pick of something the site does not hold travels under this prefix,
+ * the flush point turns it into a handle by actually placing the bytes, and the
+ * handle is what the write side sees. Two guards make the failure mode loud
+ * rather than silent if that ever stops happening: the field's `enum` is still
+ * the site's handles, and the envelope validator's URL-scheme allowlist
+ * ([[DOC-2]]) refuses a `library:` scheme outright.
+ */
+export const LIBRARY_PICK = 'library:'
+
+/** One picture the editor's image picker may offer — [[REQ-282]]. */
+export interface PictureChoice {
+  /**
+   * What the radio commits: a site handle, or {@link LIBRARY_PICK} + uid for a
+   * picture whose bytes are not on the site yet.
+   */
+  value: string
+  /** What to call it — the file's own name, on both halves. */
+  label: string
+  /**
+   * The bytes are already under this site's `assets/`.
+   *
+   * THE MARK, NOT A FILTER ([[REQ-282]] Part 1's vocabulary, on Part 2's
+   * surface): accent for placed, quiet for not. It decides how a tile is drawn
+   * and never whether it is drawn.
+   */
+  placed: boolean
+  /**
+   * The material this pick has to place on Save, absent when there is nothing
+   * to place.
+   *
+   * PLACE ON SAVE, NOT ON PICK. The modal is staged and its Save is the single
+   * flush point ([[DOC-28]] §11); copying bytes onto the site at pick time would
+   * leave an asset behind every time a client changed their mind and cancelled.
+   */
+  place?: string
+  /** Why this one cannot be picked at all. Present means unpickable. */
+  reason?: string
+}
+
+/**
+ * Every picture the editor may offer for one site — [[REQ-282]] Part 2.
+ *
+ * ONE CATALOGUE WITH A MARK ON SOME OF ITS ENTRIES, which is the whole change.
+ * The list used to be `listSiteAssets` alone, so a client could only choose a
+ * picture we had already copied onto the draft — and the way to get one copied
+ * was to leave the editor, find it in the Library, place it, and come back. The
+ * Library is what they HAVE; the site's assets are what we have copied. Only the
+ * first is a category anybody chooses from.
+ *
+ * A LIBRARY PICTURE ALREADY ON THIS SITE OFFERS ITS SITE HANDLE, not a second
+ * placement of the same bytes. `placed_as` is what makes that possible: it
+ * records the name the bytes landed under, so the tile can commit the handle the
+ * client's pages already reference. Picking it is then free and idempotent
+ * rather than a re-promotion the client never asked for.
+ *
+ * A SITE ASSET NO MATERIAL ACCOUNTS FOR IS STILL OFFERED — a picture the
+ * assistant drew, or one an import brought in, is on the site and usable, and
+ * dropping it from the list would take away an image a page may already hold.
+ *
+ * WHAT CANNOT BE PUBLISHED IS SHOWN, WITH THE REASON. `promoteToSiteAsset`
+ * refuses anything not `republishable`, which is how third-party material is
+ * kept off a published page. Filtering those out would leave a client hunting
+ * for their own photograph with nothing to read; the refusal is the answer they
+ * need, so the tile carries it.
+ *
+ * NEWEST FIRST, THEN THE REST, because {@link listMaterial} is newest-first and
+ * the operator's own reason is that *"I am far more likely to want to select an
+ * image that is not yet used than one that is"* — the picture somebody just
+ * uploaded is the one they are looking for.
+ */
+export async function pictureChoices(
+  tickets: TicketStore,
+  sites: TenantSiteStore,
+  slug: string,
+): Promise<PictureChoice[]> {
+  const assets = (await listSiteAssets(slug, { store: sites })).filter((a) => a.kind === 'image')
+  const held = new Set(assets.map((a) => a.src))
+  const claimed = new Set<string>()
+  const catalogue: PictureChoice[] = []
+  for (const row of await listMaterial(tickets)) {
+    if (row.kind !== 'image') continue
+    const here = row.placed_as.find((p) => p.slug === slug)
+    const handle = here ? assetHandle(here.name) : null
+    // RECORDED AND STILL THERE, which are two questions. A record naming an
+    // asset the site no longer holds is stale — an operator deleted it, a push
+    // overwrote the site — and offering that handle would commit a reference to
+    // bytes that are gone. Such a row falls through to the library branch and
+    // re-places on Save, which is exactly what it needs.
+    if (handle !== null && held.has(handle)) {
+      claimed.add(handle)
+      catalogue.push({ value: handle, label: row.filename, placed: true })
+      continue
+    }
+    catalogue.push({
+      value: LIBRARY_PICK + row.uid,
+      label: row.filename,
+      placed: false,
+      place: row.uid,
+      ...(row.republishable ? {} : { reason: NOT_REPUBLISHABLE_SHORT }),
+    })
+  }
+  const unclaimed = assets
+    .filter((a) => !claimed.has(a.src))
+    .map((a) => ({ value: a.src, label: a.id, placed: true }))
+  return [...catalogue, ...unclaimed]
+}
+
+/**
+ * Turn one staged Library pick into the handle a node may hold — [[REQ-282]].
+ *
+ * THIS IS THE FLUSH POINT DOING THE PLACEMENT. It runs from the modal's Save and
+ * from nowhere else, which is what keeps a cancelled edit from leaving an asset
+ * on the site.
+ *
+ * THROUGH `promoteToSiteAsset`, NEVER AROUND IT. The rights gate, the byte copy
+ * across the bucket boundary, the recipe applied on the way, the first-vs-re-
+ * placement decision and the `placed_on` record are all that function's and are
+ * inherited here rather than restated. A refusal travels out as itself: the
+ * caller reports it on the modal, where the client can read why.
+ *
+ * THE NAME COMES OFF THE RECORD, which is what the Library shows and what the
+ * upload path passes for the same material — so a picture placed from the editor
+ * lands under the same name it would have landed under from anywhere else.
+ */
+export async function placePicture(
+  tickets: TicketStore,
+  sites: TenantSiteStore,
+  args: { uid: string; slug: string },
+  deps: { renderer?: ImageRenderer } = {},
+): Promise<string> {
+  const { ticket } = await tickets.get({ uid: args.uid })
+  const name = String(ticket.fields.filename ?? ticket.title)
+  const placed = await promoteToSiteAsset(tickets, sites, { ...args, name }, deps)
+  return assetHandle(placed.name)
 }

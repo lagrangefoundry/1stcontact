@@ -10,19 +10,25 @@
  * promotion that failed and left the file behind, was rendered identically to
  * one that worked. This suite is that inversion.
  *
- * WHAT IS ASSERTED, in the order the ticket claims it:
+ * SUPERSEDED IN PART BY [[REQ-282]], AND THE SPLIT IS WORTH STATING. This
+ * ticket made two arguments and only one of them survived. The PREDICATE —
+ * that an unplaced site-role row is a failed promotion — was already false when
+ * it was written: [[BUG-47]] had removed the placement it was detecting, so the
+ * warning fired on every photograph a client had ever given us. Its cases live
+ * in `test_UAT_FC_REQ-282_a_state_not_an_error`, inverted. What SURVIVES is
+ * everything below: the placement pill is still gone, the filter axis is still
+ * gone, and the Library still cannot ask which site is open.
  *
- *   1. NO ROW SHOWS A PLACEMENT PILL, and exactly the site-role rows with no
- *      placement show a WARNING instead.
- *   2. THE WARNING IS PERCEIVABLE WITHOUT COLOUR — it says what it means in
- *      words, so a screen reader and a monochrome display get the whole fact.
- *   3. THERE IS NO "used on this site" FILTER, and text, role and kind still
+ * WHAT IS ASSERTED here now:
+ *
+ *   1. NO ROW SHOWS A "on this site" PLACEMENT PILL.
+ *   2. THERE IS NO "used on this site" FILTER, and text, role and kind still
  *      narrow the list.
- *   4. THE LIBRARY NEVER READS WHICH SITE IS OPEN. This is the correctness check
+ *   3. THE LIBRARY NEVER READS WHICH SITE IS OPEN. This is the correctness check
  *      on the whole change rather than a style rule: under one site per business
  *      there is nothing for it to ask, so a module that still asks has kept a
  *      dimension the model removed.
- *   5. A BUSINESS SWITCH LEAVES NO ROW FROM THE PREVIOUS BUSINESS ON SCREEN —
+ *   4. A BUSINESS SWITCH LEAVES NO ROW FROM THE PREVIOUS BUSINESS ON SCREEN —
  *      including when the re-read fails, which is the path the host is allowed
  *      to swallow.
  *
@@ -153,12 +159,6 @@ async function library(rows = MATERIAL) {
 const rowsIn = (el: Element) => [...el.querySelectorAll('.list-detail-row')]
 const titlesIn = (el: Element) => rowsIn(el).map((r) => r.textContent ?? '')
 
-function warnedTitles(el: Element): string[] {
-  return [...el.querySelectorAll('.builder-library__badge--unplaced')].map(
-    (b) => b.closest('.list-detail-row')!.textContent ?? '',
-  )
-}
-
 /** Comments stripped, so a rule about the code is not satisfied by prose. */
 function codeOf(file: string): string {
   return fs
@@ -167,71 +167,19 @@ function codeOf(file: string): string {
     .replace(/(^|[^:])\/\/.*$/gm, '$1')
 }
 
-describe.skipIf(!WEBUI_INSTALLED)('REQ-181 — the row badges what went wrong', () => {
-  it('test_UAT_FC_REQ-181_no_row_claims_to_be_on_this_site_and_the_failed_promotion_is_marked', async () => {
+describe.skipIf(!WEBUI_INSTALLED)('REQ-181 — the row stops restating the rule', () => {
+  it('test_UAT_FC_REQ-181_no_row_claims_to_be_on_this_site', async () => {
     const panel = await library()
     expect(rowsIn(panel.element)).toHaveLength(3)
 
     // THE PILL IS GONE. Under one site per business it was true of the normal
-    // case and therefore said nothing — including on the row where it was
-    // ABSENT for the one reason a client would care about.
+    // case and therefore said nothing — a separate badge restating what the role
+    // already promised. What replaced it is not a second pill either: [[REQ-282]]
+    // puts the state on the ROLE pill as colour and weight, at no extra width.
     expect(panel.element.querySelectorAll('.builder-library__badge--here')).toHaveLength(0)
     expect(panel.element.textContent).not.toContain('On this site')
-
-    // AND EXACTLY ONE ROW IS MARKED: the file the client asked us to put on
-    // their site, whose bytes never got there. `placeOnSite` fails softly and
-    // keeps the material, so the row exists and looked like a success.
-    const warned = warnedTitles(panel.element)
-    expect(warned).toHaveLength(1)
-    expect(warned[0]).toContain('The shopfront')
   })
 
-  it('test_UAT_FC_REQ-181_background_information_is_never_marked_however_unplaced_it_is', async () => {
-    // THE PREDICATE IS TWO FACTS, NOT ONE. A reference document's `placed_on` is
-    // empty and always will be — `placeOnSite` returns early unless the role is
-    // `site` — so a warning keyed on placement alone would fire on every note the
-    // client ever asked us only to read.
-    const panel = await library()
-    const note = panel.element.querySelector('.list-detail-row[data-key="just-to-read"]')!
-    expect(note).toBeTruthy()
-    expect(note.querySelector('.builder-library__badge--unplaced')).toBeNull()
-
-    // …and the one that DID land is not marked either, which is the other half.
-    const landed = panel.element.querySelector('.list-detail-row[data-key="landed"]')!
-    expect(landed.querySelector('.builder-library__badge--unplaced')).toBeNull()
-  })
-
-  it('test_UAT_FC_REQ-181_the_warning_says_what_it_means_without_relying_on_colour', async () => {
-    const panel = await library()
-    const warn = panel.element.querySelector('.builder-library__badge--unplaced')!
-
-    // IN WORDS. Strip the decorative glyph and there is still a sentence — which
-    // is what a screen reader reads and what a forced-colours mode leaves behind.
-    const glyph = warn.querySelector('.builder-library__warn-glyph')!
-    expect(glyph.getAttribute('aria-hidden')).toBe('true')
-    const spoken = [...warn.childNodes]
-      .filter((n) => n !== glyph)
-      .map((n) => n.textContent ?? '')
-      .join('')
-      .trim()
-    expect(spoken.length).toBeGreaterThan(0)
-    expect(spoken.toLowerCase()).toContain('site')
-
-    // AND THE FULL SENTENCE IS AVAILABLE, because the badge has to fit on a row
-    // that must stay one line — so what it cannot say, it hovers.
-    expect(warn.getAttribute('title')).toMatch(/did not get there/i)
-
-    // THE COLOUR IS THE WARNING COLOUR AND NOT THE ACCENT — the accent used to
-    // be spent on the common case, which is the inversion this ticket is.
-    const css = fs.readFileSync(path.join(BUILDER, 'builder.css'), 'utf8')
-    const at = css.indexOf('.builder-library__badge--unplaced {')
-    expect(at).toBeGreaterThan(-1)
-    const rule = css.slice(at, css.indexOf('}', at))
-    expect(rule).toContain('--shell-danger')
-    expect(rule).not.toContain('--shell-accent')
-    // And the rule it replaced is gone rather than left beside it.
-    expect(css).not.toContain('.builder-library__badge--here')
-  })
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-181 — the filter loses the axis that degenerated', () => {

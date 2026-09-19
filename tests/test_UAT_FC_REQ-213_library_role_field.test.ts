@@ -308,30 +308,31 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-213 — a change repaints everything it c
     expect(fieldRow(rights, 'placed_on').textContent).toContain('alpha')
   })
 
-  it('test_UAT_FC_REQ-213_the_list_redraws_because_the_badge_and_the_warning_read_what_changed', async () => {
+  it('test_UAT_FC_REQ-213_the_list_redraws_because_the_badge_reads_what_changed', async () => {
     const { panel, rights } = await opened('mis-drop')
     const listRow = () => panel.element.querySelector('.list-detail-row[data-key="mis-drop"]')!
-    expect(listRow().querySelector('.builder-library__badge--role')!.textContent).toBe(
-      'Background information',
-    )
-    // NOT WARNED WHILE IT IS BACKGROUND INFORMATION — REQ-181's predicate is two
-    // facts, and a reference row's `placed_on` is empty by construction.
-    expect(listRow().querySelector('.builder-library__badge--unplaced')).toBeNull()
+    const pill = () => listRow().querySelector('.builder-library__badge--role')!
+    expect(pill().textContent).toBe('Background information')
+    // QUIET WHILE IT IS BACKGROUND INFORMATION — a reference row's `placed_on` is
+    // empty by construction, and under [[REQ-282]] an empty one is simply the
+    // unemphasised state rather than anything to be told about.
+    expect(pill().classList.contains('is-placed')).toBe(false)
 
     await pick(openRoleEditor(rights), 'Site asset')
 
-    expect(listRow().querySelector('.builder-library__badge--role')!.textContent).toBe('Site asset')
-    // AND STILL NOT WARNED, because the bytes actually landed. That is the whole
-    // reason the correction places rather than only relabelling: without it the
-    // row would flip straight to "Not on the site", which would be true and
-    // useless.
-    expect(listRow().querySelector('.builder-library__badge--unplaced')).toBeNull()
+    expect(pill().textContent).toBe('Site asset')
+    // AND NOW IT IS IN USE, because the bytes actually landed. That is the whole
+    // reason the correction PLACES rather than only relabelling: the pill reads
+    // `placed_on`, so a relabel alone would leave a site asset the site does not
+    // have.
+    expect(pill().classList.contains('is-placed')).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-213_a_correction_that_could_not_be_placed_is_warned_about_by_the_row', async () => {
+  it('test_UAT_FC_REQ-213_a_correction_that_could_not_be_placed_is_not_shown_as_in_use', async () => {
     // THE SOFT FAILURE, SEEN FROM THE SURFACE. The origin keeps the role change
-    // and reports that the bytes did not get there; REQ-181's badge is what says
-    // so, and it fires here for exactly the reason it was built.
+    // and the bytes do not get there. Under [[REQ-282]] that is NOT badged as an
+    // error — nothing is — but the row must not claim the picture is in use
+    // either: the pill reads `placed_on` and `placed_on` is empty.
     const rows = [material({ uid: 'homeless', title: 'A logo', filename: 'logo.svg', role: 'reference', republishable: false })]
     const transport = transportOver(rows)
     // No site to place on: the role lands, `placed_on` stays empty.
@@ -352,11 +353,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-213 — a change repaints everything it c
     const rights = panel.element.querySelector('.builder-library__rights')!
     await pick(openRoleEditor(rights), 'Site asset')
 
-    const warn = panel.element.querySelector(
-      '.list-detail-row[data-key="homeless"] .builder-library__badge--unplaced',
+    const pill = panel.element.querySelector(
+      '.list-detail-row[data-key="homeless"] .builder-library__badge--role',
     )!
-    expect(warn).toBeTruthy()
-    expect(warn.textContent).toContain('Not on the site')
+    expect(pill.textContent).toBe('Site asset')
+    expect(pill.classList.contains('is-placed')).toBe(false)
+    // AND NOT AS A FAILURE, IN ANY REGISTER ([[REQ-282]]).
+    expect(panel.element.textContent).not.toContain('Not on the site')
   })
 })
 

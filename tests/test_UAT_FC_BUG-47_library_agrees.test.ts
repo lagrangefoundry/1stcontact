@@ -160,9 +160,9 @@ async function library() {
 const rowsIn = (el: Element) => [...el.querySelectorAll('.list-detail-row')]
 const titles = (el: Element) => rowsIn(el).map((r) => r.textContent)
 
-/** The rows carrying the "never got there" warning ([[REQ-181]]). */
-function warned(el: Element): string[] {
-  return [...el.querySelectorAll('.builder-library__badge--unplaced')].map(
+/** The rows whose pill says the bytes are on a site ([[REQ-282]]). */
+function inUse(el: Element): string[] {
+  return [...el.querySelectorAll('.builder-library__badge--role.is-placed')].map(
     (b) => b.closest('.list-detail-row')!.textContent ?? '',
   )
 }
@@ -177,14 +177,20 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-47 — the surface reads placement, not u
 
     // THE NOTE SAYS NOTHING ABOUT THE SITE, in either direction. Under the old
     // field it claimed to be ON the site because the upload named one; it must
-    // not now swing to claiming it FAILED to get there — it was never going.
+    // not now swing to claiming it FAILED to get there — it was never going,
+    // and under [[REQ-282]] there is no failing to claim.
     expect(titles(panel.element).join(' ')).toContain('Positioning note')
-    expect(warned(panel.element).join(' ')).not.toContain('Positioning note')
+    expect(inUse(panel.element).join(' ')).not.toContain('Positioning note')
 
-    // AND THE ONE THAT WAS GOING, AND DID NOT ARRIVE, IS THE ONE MARKED.
-    const warnings = warned(panel.element)
-    expect(warnings).toHaveLength(1)
-    expect(warnings[0]).toContain('The old shopfront')
+    // AND EXACTLY THE ROWS WHOSE BYTES LANDED ARE MARKED IN USE. The one that
+    // was going and did not arrive is not marked — not because it failed, but
+    // because the picture is simply not on the site yet, which is the ordinary
+    // state of a site upload until somebody uses it.
+    const used = inUse(panel.element)
+    expect(used).toHaveLength(2)
+    expect(used.join(' ')).toContain('The wordmark')
+    expect(used.join(' ')).toContain('The logo')
+    expect(used.join(' ')).not.toContain('The old shopfront')
   })
 
   it('test_UAT_FC_BUG-47_the_placed_on_field_agrees_with_the_warning', async () => {
