@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T01:24:09.221651+00:00'
+updated_at: '2026-09-19T01:24:59.887528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -999,5 +999,21 @@ Also noted: `UNPLACED_LABEL` and `UNPLACED_HINT` (`library.js:170-172`) both go.
 <!-- xgd-chat role="user" ts="2026-09-19T01:24:06.872280+00:00" -->
 #### You
 NO - please use bold face for in use as well as color
+
+<!-- xgd-turn id="044def1a-d44f-43cf-b5d6-b2bcdb51d5ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T01:24:58.344238+00:00" -->
+#### Claude
+Updated:
+
+- **Site Asset** in both states — label unchanged.
+- **Used** — outline and word in the theme's accent colour, **word in bold**.
+- **Unused** — outline and word in grey, normal weight.
+
+Your bold does the job my extra word was trying to do, and better: weight is a second channel, so the state survives a monochrome display or a colour-blind reader without costing any space. That's REQ-181's "colour must not be the only carrier" satisfied on the display side — and I removed my earlier line saying the two states shouldn't differ in weight, which your instruction contradicts.
+
+I also called out which way the emphasis runs, because it's the correction in miniature: **used is the emphasised state, unused is the quiet one.** Today it's exactly backwards — the unplaced item is the one that shouts.
+
+The only residue is the screen reader: bold isn't announced, so it'd hear "Site Asset" in both states. An `aria-label` closes that for zero pixels. Still marked recommended-not-required, and explicitly *not* a second visible word.
 
 <!-- xgd-chat-end -->
