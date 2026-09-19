@@ -775,6 +775,13 @@ export function mountBuilder(root, options = {}) {
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
+    // WHAT BECAME OF A TURN WHOSE STREAM DIED ([[BUG-123]]). The pane notices the
+    // loss; only this module can ask, because the question is "re-open the
+    // conversation for THIS SITE" and the pane knows nothing about sites
+    // (REQ-127) — which is the SAME split `openSession` above is already the
+    // other half of. It is that call, against the same closure-held selection, so
+    // the answer describes the conversation on screen or it is not asked for.
+    reopen: () => openSession(currentSite),
     // BUG-43 — the same reload the palette popup and the segment editor perform,
     // for the same reason and by the same means: `draft` and `edit` render at
     // request time, so the bytes the next fetch produces already carry the
@@ -1033,6 +1040,12 @@ export function mountBuilder(root, options = {}) {
   const settingsChat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.settingsChat),
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
+    // THE SETTINGS CONVERSATION'S OWN ([[BUG-123]]), and it NAMES NOTHING for the
+    // reason `openSettings` does ([[REQ-239]]): the business is already in the
+    // request's path prefix, so a re-read that passed an id would be this client
+    // asserting a scope the origin has already resolved. One seam either side,
+    // and a conversation is a conversation once it is open.
+    reopen: () => openSettings(),
     // [[REQ-251]] — THE SAME LINE, AND THE SAME SHAPE, AS THE SITE CHAT'S
     // `onSiteChanged` above. Fired per write rather than at the end of the turn,
     // so an answer that renames the business and then takes its address moves
