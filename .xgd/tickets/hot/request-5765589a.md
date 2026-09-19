@@ -6,15 +6,23 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T01:51:18.034186+00:00'
+updated_at: '2026-09-19T15:07:21.344593+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-d2727e7d
+  commits:
+  - working_sha: 858ad99f72c785e721e63f4a2527c69231f11c6d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a9609cf82940297c3ba203bc3a0ff1c9a14e0a46
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.282
 ---
 
 Parent: [[EPIC-19]]. Operator, 2026-09-18:
