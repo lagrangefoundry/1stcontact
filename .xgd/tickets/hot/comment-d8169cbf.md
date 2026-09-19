@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:43:22.330630+00:00'
+updated_at: '2026-09-19T20:45:20.001978+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1932,5 +1932,31 @@ Nothing I'm unsure about on these four. The only judgement call I'd flag as genu
 <!-- xgd-chat role="user" ts="2026-09-19T20:43:21.915536+00:00" -->
 #### You
 Also can you also answer the questions from lf:REQ-169
+
+<!-- xgd-turn id="34be0083-e5e6-44fb-b657-4ed55ed083df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T20:45:19.834277+00:00" -->
+#### Claude
+Let me verify the window claim before answering — it's the one that could be wrong.
+
+Answered. Their four standing decisions are all right — especially moving `occupancyTokens` into `usage.js` rather than importing `claude_code.compaction` from the API path, which is REQ-145's cycle argument applied correctly.
+
+**Q1 needed changing, and it's the important one.** Their finding is sound — I verified there's no `anthropic-beta` or `context-1m` anywhere in `claude_api.js`. But **the window is a property of the model, not the backend.**
+
+`defaults/backends.json` says it itself: *"A model ID is the fastest-moving fact in the system… a consumer changes one value without forking and without a release."* So a `context_window` declared beside `claude` would be sonnet-5's — while **1stcontact runs `claude-opus-5`** and would be handed a denominator for a model it isn't running, silently and forever.
+
+And a wrong denominator is worse than none: a session told it's at 60% when it's at 12% budgets conservatively for nothing; the reverse gets truncated believing it has room. So: ship a **model → window table**, resolve from the configured `model`, keep `context_window` as an override. The consumers who customise the model are the ones running long sessions.
+
+On the CLI backends I said leave them proportion-less — and it isn't perverse. They have `compaction: true`, so they manage their own context; the proportion is the backend's business. The API path has no compaction, which is exactly why the gauge exists there.
+
+**Q2** — agreed in-memory, with a stronger reason than they gave: a restored figure would be **wrong**. After a rebuild the conversation is re-seeded and genuinely costs less, so a stamped occupancy would describe a conversation that no longer exists, as fuller than it is. Absent beats false.
+
+**Q3** — the draft prose has an arithmetic error: *"342,118 tokens of this backend's 200,000-token window — 34%"* is 171%. Also flagged that the ticket asked for room *remaining*, which the draft omits, and that "sent again every turn" must stay about the conversation as a whole so it doesn't contradict REQ-168's image ageing.
+
+## The one I couldn't settle — for you
+
+**What `claude-opus-5`'s context window actually is on this wire without a beta header.** Your `backends.json` comment asserts 1M for opus-5; their question asserts 200k for sonnet-5, reasoned from the missing header. Both can be true — different models — but whether a 1M default *needs* that header is a fact about the API, not about this code, and I can't confirm it from here.
+
+I told them not to guess: the table is only worth having if the values are right, and this is the value your only current consumer will use. Confirm each model's window against the API docs, and omit any that aren't confirmed so the honest "proportion unavailable" path carries them.
 
 <!-- xgd-chat-end -->
