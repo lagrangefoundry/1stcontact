@@ -6,9 +6,9 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:58:58.331374+00:00'
+updated_at: '2026-09-19T01:10:25.668200+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -301,3 +301,30 @@ now writes a label, because the state it means to model is the ordinary one.
   Capping the pass was considered and rejected: a cap is a knob, and it makes
   *partly labelled* a state that persists rather than one that is over by the
   time anybody reads the list.
+
+
+### The catch-up's order has to be total, not merely stated
+
+*Found while verifying the first cut, 2026-09-18.* The catch-up labels oldest
+first, which was written as a comparison on `created_at` alone. That is not a
+total order: `created_at` is an ISO timestamp at MILLISECOND granularity, and two
+records written in immediate succession — which is exactly what a client dropping
+a folder of photographs produces — routinely share one. On a tie the comparison
+returns 0, the sort falls back to whatever order the store happened to list the
+rows in, and which of the two is `IMAGE-1` is then undefined.
+
+Nothing is corrupted by this: every row still takes a distinct number from the
+same atomic counter. What is lost is the one property the order was there for —
+that the sequence reads the way the client filled their Library, the same way on
+every run and on every machine.
+
+**So the order is `(created_at, uid)`.** The uid is the store's own tiebreak on
+every sorted read, it is unique by construction, and it is stable — so the catch-up
+now has a total order and two rows sharing a millisecond are numbered the same way
+every time rather than by luck.
+
+This surfaced as an intermittent UAT: the case asserting *oldest first* passed
+whenever the two fixtures landed in different milliseconds and failed when they
+did not. The UAT now proves the property at both ends — that a gap in creation
+time is honoured, and that rows sharing a millisecond are still ordered, and
+ordered the same way twice.
