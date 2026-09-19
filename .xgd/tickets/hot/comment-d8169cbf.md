@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:31:13.070046+00:00'
+updated_at: '2026-09-19T18:39:41.870696+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1312,5 +1312,11 @@ Your instinct that this use case is special is the crux — an XGD chat dies wit
 So: unblock BUG-45 → wire the `SummaryStore` → *then* truncation becomes safe, and the in-flight window and image redaction become a tuning question rather than a data-loss one.
 
 Worth asking LF while you're there: should `ClaudeAPIBackend` grow a compaction implementation, or is the summary-plus-window the intended answer for API backends? Right now `compaction: true` is CLI-only, and that asymmetry looks unintentional rather than designed.
+
+<!-- xgd-turn id="d5a09835-17ea-4a7c-8898-57c1bc5a9518-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T18:39:41.499105+00:00" -->
+#### You
+Well, the idea was that rather than have a "stop the world" compacting moment, we would have (1) an ongoing summary generation consisting of two parts - a fixed length conversation summary - updated as appropriate and an unbounded log of conversation decisions. (2) give the session access to tools that allow it to read chunks of these and its old history on demand.
 
 <!-- xgd-chat-end -->
