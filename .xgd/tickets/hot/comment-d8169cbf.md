@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T17:28:36.645740+00:00'
+updated_at: '2026-09-19T17:42:28.800109+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1111,5 +1111,13 @@ Saying "IMAGE-9" will also work now: `storedImageOf` puts the label in `aliases`
 Why it kept picking wrong before: the only spellings were uid, title and filename, and those two share *both* title and filename. Any name-based reference was genuinely ambiguous, and the site-asset names (`plate-i-hands` / `plate-i-loop`) carry no trace of which Library item they came from — `placed_as` is what fixed that, and it wasn't there.
 
 Want me to file Finding 5? I'd suggest two tickets — in-flight redaction plus backpressure as one (they're the same seam), and the `interrupted-turn` prompt rewrite as a separate small one, since that's a one-line change you could have today.
+
+<!-- xgd-turn id="40d1a862-05e6-448e-8feb-44491c47b4a1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T17:42:28.317679+00:00" -->
+#### You
+ok so I think the second problem is largely resolved now that the library has identifiers - when i asked for IMAGE-9, I got image -9
+
+Lets focus on the context problem, it is existential. Can you remind me how we manage context with the chat framework components for a API model call like this?
 
 <!-- xgd-chat-end -->
