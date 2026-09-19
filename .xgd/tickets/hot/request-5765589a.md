@@ -6,7 +6,7 @@ title: '"Not on the site" is a state, not an error: an accent pill when placed, 
   when not'
 created_by: EPIC-19
 created_at: '2026-09-19T00:58:36.186954+00:00'
-updated_at: '2026-09-19T01:20:52.973612+00:00'
+updated_at: '2026-09-19T01:24:51.948180+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-d2727e7d
 ---
+
 
 
 
@@ -67,15 +68,25 @@ detecting.** The badge has had no failure to find since.
 
 ## What it should be instead
 
-**One pill, one word, colour carries the state** (operator, 2026-09-18):
+**One pill, one word; colour and weight carry the state** (operator, 2026-09-18):
 
 > there is one pill, it says (Site Asset). I would like to change the colour of
 > the outline and the word depending on the state: used — colour it using the
 > theme's accent colour; unused — colour it gray.
 
+> please use bold face for in use as well as colour.
+
 - The pill reads **Site Asset** in both states. The label does not change.
-- **Used** — outline and word in the theme's accent colour.
-- **Unused** — outline and word in grey.
+- **Used** — outline and word in the theme's accent colour, **and the word in
+  bold**.
+- **Unused** — outline and word in grey, at normal weight.
+
+**Weight is the second channel, and it is the operator's own call.** The state is
+therefore never carried by colour alone: it survives a monochrome display, a
+colour-blind reader and a screen filter, because bold is still bold. That answers
+[[REQ-181]]'s rule — *"colour and shape are both redundant, so a screen reader and
+a monochrome display each get the whole fact"* — on the display half, at no cost
+in space, which is what makes it a better answer than adding a second word.
 
 **No second badge, no extra row, no more space than the pill already occupies.**
 The operator's reason is the design constraint and is worth stating plainly:
@@ -83,34 +94,30 @@ The operator's reason is the design constraint and is worth stating plainly:
 > TBH this is NOT a very valuable thing for the user to know. I do not want to use
 > a lot of real estate on it.
 
-That settles it. Whether a photograph is currently in use is minor, ambient
-information — the kind a client glances at, not the kind they are told. It gets a
-colour, and nothing else.
+That settles the weight this gets. Whether a photograph is currently in use is
+minor, ambient information — the kind a client glances at, not the kind they are
+told. Colour and boldness, and nothing else.
 
 **And it is never an error mark, in any register.** No warning glyph. No red,
 amber, or any colour the rest of the builder uses for something wrong — grey is
 the unused colour precisely because it is the absence of emphasis. No hint text
-telling the client to try again or to fix anything. No difference in badge shape,
-size or weight between the two states. A client who gave us twelve photographs and
-used four has eight grey pills, and nothing has gone wrong.
+telling the client to try again or to fix anything. **Note which way the emphasis
+runs:** the USED state is the emphasised one (accent, bold) and unused is the
+quiet one. That is the opposite of today, where the unplaced item is the one that
+shouts, and it is the whole correction in one detail.
 
 **Drop `UNPLACED_LABEL` and `UNPLACED_HINT` entirely** (`library.js:170-172`).
-There is no second string to maintain: one label, two colours.
+There is no second string to maintain: one label, two treatments.
 
-### The accessibility point, and how to keep it for free
+### One thing left for a screen reader
 
-[[REQ-181]] was right that *"colour and shape are both redundant, so a screen
-reader and a monochrome display each get the whole fact."* Colour alone does not
-survive either reader.
+Bold covers a monochrome or colour-blind reader; it is not announced, so a screen
+reader still gets one pill reading "Site Asset" in both states. An `aria-label`
+carrying the state ("Site Asset — in use" / "Site Asset — not yet used") closes
+that for zero pixels and no layout change.
 
-**That does not overturn the design above**, because the operator has judged the
-information minor — and minor information may be ambient. But it costs nothing to
-keep it reachable: put the state on the pill as an `aria-label` or `title`
-("Site Asset — in use" / "Site Asset — not yet used"). **Zero pixels, no layout,
-and the fact stops being colour-only** for anyone who cannot use colour.
-
-Recommended, not required. If it complicates the pill, drop it — but drop it
-knowingly rather than by omission.
+Recommended, not required — and explicitly NOT a second visible word. If it
+complicates the pill, drop it knowingly rather than by omission.
 
 ## Two things to keep from REQ-181
 
