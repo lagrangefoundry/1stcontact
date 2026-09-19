@@ -342,6 +342,12 @@ export function changeSignal(signal?: TurnSignal): string | null {
   })
 }
 
+/** The interrupted-turn advice a session with a site and a camera needs ([[REQ-284]]). */
+export const INTERRUPTED_TEMPLATE = 'interrupted-turn'
+
+/** The same situation for a session with neither ([[REQ-284]]). */
+export const INTERRUPTED_TEMPLATE_SETTINGS = 'interrupted-turn-settings'
+
 /**
  * That the previous turn did not finish, or `null` ([[BUG-121]]).
  *
@@ -357,12 +363,29 @@ export function changeSignal(signal?: TurnSignal): string | null {
  * turn's end was and not at all in what the assistant should now do, so a second
  * sentence would be a distinction the reader cannot act on.
  *
+ * BUT NOT ONE LINE FOR BOTH ROLES ([[REQ-284]]), which is what `name` is for. The
+ * advice used to be "look at the site", which is role-independent in the way that
+ * matters least: the consultant could act on it, the settings assistant could not,
+ * and for the consultant it was the single most expensive instrument in the box —
+ * spending context to recover from a turn that may well have ended because context
+ * ran out. The rewrite names the CHEAP instrument instead, and naming an instrument
+ * means naming a tool. A session is never told about a capability it was not
+ * granted, so the consultant is pointed at `list_changes` and the settings
+ * assistant at the reads it actually has. What does not vary — that the previous
+ * turn did not finish, and that what it did is not in the transcript — is written
+ * the same way in both.
+ *
  * ABSENT ON EVERY ORDINARY TURN, and free when absent: the previous turn
  * completed, the record was forgotten, this answers `null`, and the framework
  * drops the entry and its separator.
+ *
+ * @param name which template to render, defaulting to the consultant's.
  */
-export function interruptedSignal(signal?: TurnSignal): string | null {
-  return signal?.interrupted === true ? template('interrupted-turn') : null
+export function interruptedSignal(
+  signal?: TurnSignal,
+  name: string = INTERRUPTED_TEMPLATE,
+): string | null {
+  return signal?.interrupted === true ? template(name) : null
 }
 
 /**
@@ -499,11 +522,15 @@ export function registerSettingsProviders(
     const name = await binding.name()
     return name ? businessLine(name) : null
   })
-  // THE SAME NAME THE CONSULTANT REACHES IT UNDER ([[BUG-121]]). A settings turn
-  // can be interrupted exactly as a site turn can — the customer closes the tab
-  // mid-rename — and what the assistant should do about it does not depend on
-  // which conversation it was.
-  providers.register(TURN_INTERRUPTED_PROVIDER, async () => interruptedSignal(binding.signal()))
+  // THE SAME NAME THE CONSULTANT REACHES IT UNDER ([[BUG-121]]), AND NOT THE SAME
+  // WORDS ([[REQ-284]]). A settings turn can be interrupted exactly as a site turn
+  // can — the customer closes the tab mid-rename — and the SITUATION does not depend
+  // on which conversation it was. What to do about it does: the consultant's line
+  // names `list_changes`, which this session has never been granted and has no site
+  // to call it on, so this one names the reads it does have.
+  providers.register(TURN_INTERRUPTED_PROVIDER, async () =>
+    interruptedSignal(binding.signal(), INTERRUPTED_TEMPLATE_SETTINGS),
+  )
 }
 
 /**
