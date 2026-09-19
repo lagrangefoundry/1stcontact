@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:39:41.870696+00:00'
+updated_at: '2026-09-19T18:41:00.538802+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1318,5 +1318,55 @@ Worth asking LF while you're there: should `ClaudeAPIBackend` grow a compaction 
 <!-- xgd-chat role="user" ts="2026-09-19T18:39:41.499105+00:00" -->
 #### You
 Well, the idea was that rather than have a "stop the world" compacting moment, we would have (1) an ongoing summary generation consisting of two parts - a fixed length conversation summary - updated as appropriate and an unbounded log of conversation decisions. (2) give the session access to tools that allow it to read chunks of these and its old history on demand.
+
+<!-- xgd-turn id="d5a09835-17ea-4a7c-8898-57c1bc5a9518-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T18:40:59.894840+00:00" -->
+#### Claude
+That maps onto REQ-124 almost exactly. Let me check which halves actually exist.
+
+**Both halves are built.** Let me get the detail right.
+
+Good news: **you built both halves, and they're sitting in the installed framework unused.**
+
+## (1) The two-zone summary — `summary.js`, REQ-124
+
+Almost your words back:
+
+> **Two zones, because the polarity differs.**
+> • **Standing frame** — a short paragraph, *rewritten* in place. What we are doing, what is settled, what is out of scope, and what was rejected and why. Bounded, always delivered in full.
+> • **Log** — append-only. The running record; a seed delivers its tail plus a pointer to the rest.
+
+`DEFAULT_FRAME_MAX_BYTES = 4000`. The frame is the comment's `framing` **field**, the log is its **body** — so a frame rewrite and a log append are structurally different writes that can't clobber each other. The frame's cap raises an **error, never a truncation**, because *"a frame silently losing its last sentence loses the rejections first, which are the whole reason the zone exists."*
+
+And it knows what's at stake: *"if the summary is good the rest is plumbing, and if it is thin nothing downstream recovers."*
+
+## (2) The on-demand tools — the `agent` surface
+
+| group | operations |
+|---|---|
+| `InspectContext` | `priming`, `reminder`, `context`, `history`, `summary` |
+| `OperateContext` | + `history_full`, `role_priming` |
+| `MaintainSummary` | `summary_frame`, `summary_log` |
+
+`history` reads turns *"by position or by turn id"*. `summary` reads frame and log. `summary_frame` replaces the frame, `summary_log` appends an entry — so **the session maintains its own summary**, which is the "updated as appropriate" part rather than a batch job.
+
+## And 1stcontact composes none of it
+
+`createL1Toolbox` pushes the L1 surface, the router's extras, and `ManualToolbox`. No `AgentToolbox`, no `agent` entry in `instances.json`, zero occurrences of `InspectContext` or `MaintainSummary` in the repo.
+
+So my "moving off stuffing would be new framework design" was wrong in the direction that matters: **the design is finished, shipped, and the adopter never picked it up.**
+
+That's now the third one — delegation (REQ-148), the development surface (REQ-147), and this. The pattern is worth naming in its own right: the framework is consistently ahead of this product, and the gap is *consumption*, not capability.
+
+## What this changes about the plan
+
+Before you go to LF — most of what I'd have asked them for, you already have:
+
+- **Truncation becomes safe** once the summary is wired *and* `MaintainSummary` is granted. The cliff becomes a window with a recovery path.
+- **No stop-the-world compaction needed**, which answers my earlier question about `ClaudeAPIBackend` growing a compaction implementation — it shouldn't. That was me reasoning from the CLI backends' shape instead of from your design.
+- **What's genuinely left for LF** is narrower: BUG-45 (the cache-offset defect blocking a volatile summary tier in the priming), and the in-flight image/message growth on the API path — which is real but becomes a tuning problem rather than a data-loss one once the summary exists.
+
+The 1c-side work is now the bigger half: wire the `SummaryStore`, compose the `agent` surface, grant `InspectContext` + `MaintainSummary`, and add the summary tier to the priming once BUG-45 clears. Want me to file that?
 
 <!-- xgd-chat-end -->
