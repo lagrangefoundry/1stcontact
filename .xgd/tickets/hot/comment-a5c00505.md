@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-278
 created_by: xgd
 created_at: '2026-09-18T23:42:33.279743+00:00'
-updated_at: '2026-09-19T00:15:27.591139+00:00'
+updated_at: '2026-09-19T00:46:30.683711+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,6 +69,63 @@ Now `1c repro` — serve the winner:
 <!-- xgd-turn id="798dae42-f009-47bd-a974-386b4611d795-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-19T00:15:26.620819+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="798dae42-f009-47bd-a974-386b4611d795-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T00:46:04.809120+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me first establish the current state.
+
+Now let me review the core of the work — `chooseRecovery` and the rewritten `promoteToFlow`.
+
+Now let me wire `repro` to serve the winner.
+
+Now restructure `cmdRepro` so the oracle is read before the page is assembled and the winner is what gets written.
+
+Now the CLI output for `repro`:
+
+Now let's measure on the three references. First, build the CLI.
+
+The recovery now costs zero fidelity, but it regresses on-sample/off-sample from PASS to FAIL. Let me refold first and then look at those findings.
+
+Now the evaluator: an absolute node must resolve against its nearest in-flow ancestor.
+
+Now add `origin` to `Ctx` and its construction sites.
+
+Now compute the discontinuous segments in `rewrite` and thread them through.
+
+Now fold `backwards` into the discontinuity set and rewrite the stale doc comment.
+
+Now set the serving rule in `chooseRecovery` to be per-dimension and explicit.
+
+Now measure all three references, as the ticket requires.
+
+Now verify `1c repro` serves the winner end-to-end.
+
+Now the regression suite.
+
+Now the rest of the affected suites.
+
+Stale-fold test repaired. Now the "never served" test, which REQ-278 supersedes directly.
+
+Now the two pre-existing BUG-112 failures (red at HEAD too, in the area I'm changing).
+
+Now write the REQ-278 UATs, then run the full suite.
+
+All eight pass, including the real-reference leg. Now the full suite.
+
+While that runs, let me update the ticket body with the measured results.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="eaca4d44-7f74-464b-b467-4e2a165a6123-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T00:46:28.481616+00:00" -->
 #### You
 please complete the free-coding of this ticket
 

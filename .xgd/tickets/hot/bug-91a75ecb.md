@@ -6,16 +6,25 @@ title: 'Builder chat: submitting destroys the only recoverable copy of a prompt,
   the reload a stranded turn invites can lose the operator''s text outright'
 created_by: martin-claude-4@westhead.me
 created_at: '2026-09-18T23:46:22.277614+00:00'
-updated_at: '2026-09-18T23:46:22.277614+00:00'
+updated_at: '2026-09-19T00:45:48.193987+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   severity: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f04618f3
+  commits:
+  - working_sha: 48b97fe0f992beea782bcac9d5910f8740db1965
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 308c17c8ba519d84b58777998d3aa972079450c8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.277
+  story_points: 3
 ---
 
 ## Symptom
@@ -110,3 +119,102 @@ building as part of the fix rather than before it.
 
 Two incidents, two recoveries offered, both lossy. Worth treating the pairing
 itself as the defect: whichever way the operator turned, they lost something.
+
+
+---
+
+## What was built
+
+The first sketch above, host-side: **the browser keeps its own copy of every
+submission from the moment it is submitted until a transcript accounts for it**,
+and hands back whatever is left over the next time the conversation is opened.
+
+`webui-chat` is reached through its public API and is not patched (DOC-8 §9.4.1)
+— the pane already receives the `storage` the composer files its drafts under,
+and the thing that knows whether a turn ever reached a transcript is the pane
+that replays one. New module `apps/control-app/src/builder/sent-prompts.js`,
+wired into `apps/control-app/src/builder/chat.js`.
+
+### Why this and not one of the other two
+
+- **BUG-121 landed twenty minutes after this ticket was filed** and covers the
+  turns the ORIGIN got to start: the prompt is written to the session's `chat`
+  ticket before the model is called, and `/api/ai/session` hands it back as
+  `interrupted`. That is the larger half of the reload case and it is done.
+- What it structurally **cannot** cover is a submission the origin never heard
+  of — a request that failed in the network or was refused before that write —
+  a record a later turn replaced (it keeps one per session), or a message the
+  panel **queued**: `webui-chat` routes a submit made while the assistant is
+  streaming to its queue, this pane passes no queue transport, so that text is
+  echoed as pending and then dropped with the draft already deleted. Same loss,
+  quieter route.
+- The durable junction (a Durable Object per session) is unchanged and still the
+  real fix; it is costed separately, as this ticket said it should be.
+
+### Behaviour
+
+- **A submission is remembered before the request exists.** `sendPrompt` writes
+  the copy before `streamPrompt` is called, so it is durable before anything can
+  fail. Queued and interjected submits are remembered too, through the
+  `onQueue` / `onInterject` seams the panel already offers.
+- **Two forms are kept: what was typed and what went on the wire.** A prompt is
+  expanded on the way out ([[REQ-210]]) and the transcript records the
+  expansion, so that is what the reconciliation compares against. What goes back
+  in the box is the short form the operator wrote — the one they would otherwise
+  have to re-type.
+- **On mount the list is reconciled against the conversation, and the remainder
+  is handed back.** A submission whose words are in the replayed transcript is
+  dropped; so is one the origin is already handing back as `interrupted`, which
+  must not be painted twice. A live turn needs no special case — its
+  `turn_start` is inside the fold the transcript was cut at, so it matches an
+  ordinary user turn.
+- **What is left is painted as the operator's own message and the most recent
+  goes back in the composer**, with a note saying it is in no transcript. Same
+  two moves as BUG-121, for the same reason: what cannot be reconstructed is the
+  typing. Oldest first, so the thread reads in the order it was written.
+- **Only into an empty composer, and forgotten only once it is in one.** A draft
+  is newer than the lost message, so overwriting it would turn a rescue into a
+  second loss; the restored text is then held by the composer's own draft
+  persistence, which survives the next reload — which is what makes dropping our
+  copy at that moment safe rather than merely tidy. An entry that could not be
+  restored is kept and offered again.
+- **Keyed on the conversation, not the wire id** ([[BUG-69]]) — the same key the
+  composer's draft is filed under, so a submission that never landed comes back
+  under the business it was written for.
+- **Bounded and unfailing.** Ten submissions per conversation (an ordinary
+  conversation drops each of them on the next load; the cap bounds the browser
+  that never reloads, where the oldest entries are also the most certainly
+  recorded). A corrupt value reads as absent and a full or blocked store costs
+  the safety net, never the turn — the judgement `session-pending.ts` makes about
+  the record on the other side of the wire.
+
+### Test plan
+
+`tests/test_UAT_FC_BUG-122_submitted_prompt_survives_a_reload.test.ts`, mounted
+against the actually-installed `webui-chat` like BUG-121's suite beside it,
+staging a reload as a fresh panel over the same storage:
+
+1. a prompt the origin never recorded comes back on screen and in the composer;
+2. a prompt the replayed transcript accounts for is not handed back;
+3. a prompt the origin is already handing back is not painted twice;
+4. a restored message is not offered a second time — the composer's own draft
+   has it from then on;
+5. a newer draft is not overwritten, and the words are still shown to copy from;
+6. what goes back in the box is the typed form, while the wire form is what the
+   transcript is compared against;
+7. a message queued during a turn is not lost.
+
+Four existing panel suites (BUG-43, REQ-127, REQ-251, REQ-260) now clear
+`localStorage` between cases. The pane persists what it submits, so a prompt
+sent by one case was being handed back by the next one that mounted the same
+conversation — exactly as it would be after a reload. One browser per case; no
+assertion changed.
+
+### Not done here
+
+- The queued message is remembered but still not **delivered**: this pane has no
+  queue transport, so `webui-chat` renders it pending and nothing runs it. The
+  words are now recoverable on the next load, which is the whole of what this
+  pane can honestly do about it without a queue route.
+- `lagrange-framework` BUG-58 (a dropped stream reading as a dead turn, so the
+  resend on offer duplicates) is untouched and upstream.

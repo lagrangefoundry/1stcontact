@@ -140,6 +140,11 @@ beforeAll(async () => {
 let root: HTMLElement
 beforeEach(() => {
   document.body.replaceChildren()
+  // THE PANE PERSISTS WHAT IT SUBMITS, keyed by conversation, until a
+  // transcript accounts for it ([[BUG-122]]) — so a prompt sent by one case
+  // here is handed back by the next one that mounts the same conversation,
+  // exactly as it would be after a reload. One browser per case.
+  globalThis.localStorage?.clear()
   root = document.createElement('div')
   document.body.append(root)
 })

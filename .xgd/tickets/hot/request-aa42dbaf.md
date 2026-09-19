@@ -6,7 +6,7 @@ title: 'A shared name for a Library item: IMAGE-5 and DOC-7, readable by the cli
   and the consultant'
 created_by: EPIC-19
 created_at: '2026-09-18T23:42:27.052918+00:00'
-updated_at: '2026-09-19T00:24:41.465523+00:00'
+updated_at: '2026-09-19T00:40:47.649830+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -229,3 +229,67 @@ UATs named `test_UAT_FC_REQ-280_*`:
   describes the label and says the consultant may use it in conversation.
 - **Over the Library tab** (jsdom): the row shows the label beside the title, and
   the filter matches on it.
+
+
+### One thing the operator should know: `DOC-n` is already a namespace
+
+The prefix table is the operator's own (*"IMAGE-5, DOC-7"*), and `DOC-7` is what
+a client's uploaded brand book is now called. `DOC-33` is also how the product's
+OWN knowledge corpus addresses one of its method documents — the same session can
+reach both, through different tools.
+
+**The prefix stays `DOC`.** The two never meet where either is used: a catalogue
+label is always read beside the item it is on, and a corpus document is reached
+by search and is never said to a client at all. Renaming the client-facing thing
+to avoid an internal id would be paying for the internal one.
+
+**But the priming carve-out spells only `IMAGE-5`.** [[BUG-65]] is explicit that
+no authored priming text may name anything in the corpus's id namespace, and its
+guard fires on `DOC-\d+` exactly — correctly, because the priming is the one
+document in a session where such a string is read with no item beside it to say
+which kind of thing it is. The surface prose, where a label is always read in the
+catalogue's own context, carries both examples. Both halves are asserted.
+
+If the collision ever does bite in practice the cheap fix is the prefix table: it
+is one entry in one map (`LABEL_PREFIX`), and every label already written stays
+valid, because a label is a stored string rather than one recomposed on read.
+
+
+### One consequence of the catch-up worth stating
+
+A label written by the catch-up pass is an ordinary write, so it appears in the
+material change feed ([[REQ-201]]) as an `update` on that row. A Library tab open
+while the first listing runs therefore redraws those rows, once, with their new
+numbers on them — which is the correct behaviour and not a side effect to
+suppress. What it also means is that a fixture creating material with no label is
+modelling a PRE-LABEL record, and any case reading the feed frame-by-frame after
+such a fixture sees the catch-up's frame first. The change-feed suite's fixture
+now writes a label, because the state it means to model is the ordinary one.
+
+
+### Details settled during implementation
+
+- **The row draws nothing where there is no label yet**, rather than an empty
+  cell. The first listing allocates one, so the gap closes itself; an empty box
+  would be the only lasting trace of a state that is about to stop existing.
+- **The number is `flex: none` and never wraps.** The Library row is one line and
+  its one shrinkable element is the title ([[REQ-176]]) — a number that ellipsed
+  to `IMA…` would not be something anybody could say.
+- **The detail pane's record block gains `Refer to it as`, read-only**, first in
+  the block. It is the answer to the question somebody opened that pane to ask,
+  and a number the client could type over would stop being a reference the moment
+  they did.
+- **`TicketStore.accessor` grows `nextCounter`**, named on the typed boundary the
+  way `changeHead` and `blobs` already are rather than reached for with a cast.
+  It is the component's own `human_id` allocator addressed by a second key.
+- **`imagegen` gains `GENERATED_KIND`**, because two lines now read it — the
+  record's `kind` and the sequence its label draws from — and they must be the
+  same word.
+
+- **The catch-up's cost is one write per unlabelled row, once, on whichever
+  listing gets there first.** A Library is tens to low hundreds of rows, so the
+  first listing after this lands pays a few hundred milliseconds to a few
+  seconds and every listing after it pays a `filter` over a list it already had.
+  Capping the pass was considered and rejected: a cap is a knob, and it makes
+  *partly labelled* a state that persists rather than one that is over by the
+  time anybody reads the list.
