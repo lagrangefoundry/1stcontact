@@ -6,15 +6,26 @@ title: 'The page arrives with the turn: an authoritative, bounded state digest s
   the consultant never has to go and look'
 created_by: EPIC-19
 created_at: '2026-09-19T19:02:33.177544+00:00'
-updated_at: '2026-09-19T20:12:01.815276+00:00'
+updated_at: '2026-09-19T20:17:58.369514+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-d038d6de
+  commits:
+  - working_sha: 0cf86324949072643e7b9cdc4b20f623e8da074e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: aafb2101b5162c8231480a6d19270582f06fac3b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3b5074715c0532510d911818c35bf3855ed815db
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.287
 ---
 
 Parent: [[EPIC-19]] (Finding 5). The fourth of the consultant's own
