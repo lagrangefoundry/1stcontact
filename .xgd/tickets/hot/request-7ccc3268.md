@@ -6,15 +6,16 @@ title: 'The consultant keeps and consults its own memory: the summary store, the
   surface, and the product tier'
 created_by: EPIC-19
 created_at: '2026-09-19T18:54:44.485419+00:00'
-updated_at: '2026-09-19T18:54:44.485419+00:00'
+updated_at: '2026-09-19T18:55:45.676409+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
 ---
+
 
 Parent: [[EPIC-19]] (Finding 5).
 
@@ -81,7 +82,7 @@ REQ-126's window is only safe because what falls outside it is *"reachable two
 ways: the summary the session maintains, and the transcript it can address by turn
 id."* **This host has neither, so its window is a cliff.** Until this lands,
 bounding the conversation — in flight or anywhere else — is data loss rather than
-context management. It is the precondition for [[REQ-286]] being safe.
+context management. It is the precondition for lagrange-framework REQ-168 being safe.
 
 ## Out of scope
 
