@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:22:40.564316+00:00'
+updated_at: '2026-09-19T20:34:33.873574+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1878,5 +1878,11 @@ A reminder's value *is* its position. It's re-delivered late, after the conversa
 **So the static reminders are uncacheable not because they change, but because their position is their function.** We're paying for placement, not content — and with a prefix-only cache there's no way to have both.
 
 The lever, if that block starts costing, is **brevity rather than caching**. Repetition works on short strings; 481 characters for the memory trigger is more than repetition needs. That's a tuning question best answered once REQ-169's gauge makes the per-turn number visible — which is another reason to get that one moving.
+
+<!-- xgd-turn id="2274630b-2eb5-4a72-92ac-6bbad930c3ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T20:34:33.665759+00:00" -->
+#### You
+ok not worth fussing over
 
 <!-- xgd-chat-end -->
