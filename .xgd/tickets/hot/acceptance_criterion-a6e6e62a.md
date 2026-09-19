@@ -6,7 +6,7 @@ title: The generated asset tree is swapped in whole, so no reader sees a partial
   and a failed build leaves the previous one serving
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:31:01.665530+00:00'
-updated_at: '2026-09-14T08:25:31.290084+00:00'
+updated_at: '2026-09-19T14:04:36.757548+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -43,11 +43,12 @@ With a complete asset tree already at the served path, run the build while readi
 concurrently: every read that is answered sees a complete tree — there is no moment at which a
 component present both before and after the build is absent — and exactly two trees answer, the
 previous one and then the new one, with no return to the previous once the new one has taken the
-path. Taking the path is a rename onto an occupied name, so the path is unoccupied for the single
-syscall between the two renames: confirm the reads answered not-found are bounded to that instant —
-a handful out of a thousand, every one of them falling between the last read of the previous tree
-and the first read of the new one — rather than the sustained run of unanswered reads that emptying
-and refilling the served path would produce. Then run the build
+path. A directory cannot be moved onto a path an existing tree still occupies, so the previous tree
+is moved aside first and the served path is unoccupied for the single operation between the two
+moves: confirm the reads answered not-found are bounded to that instant — a handful out of a
+thousand, every one of them falling between the last read of the previous tree and the first read of
+the new one — rather than the sustained run of unanswered reads that emptying and refilling the
+served path would produce. Then run the build
 with a shared component hidden so the asset stage fails: the run exits non-zero, and the tree at the
 served path is still the previous one, complete and with the same components it had before. Confirm
 in both cases that nothing partial is left occupying the served path when the run ends.
