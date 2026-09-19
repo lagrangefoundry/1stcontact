@@ -15,6 +15,7 @@ fields:
   severity: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-f04618f3
 ---
 
 ## Symptom
