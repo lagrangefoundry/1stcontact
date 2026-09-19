@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:06:51.577206+00:00'
+updated_at: '2026-09-19T18:09:10.816353+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1189,5 +1189,63 @@ So lets start at the top - the priming system that you are describing is our leg
 On context management this is a framework level problem and it applies directly to this type of call - this particular use-case is particularly.
 
 I believe we did a lot of lf work on that too - can you take a look upstream at what lf provides already, I don't think you are using the latest
+
+<!-- xgd-turn id="c0beadd2-6965-4d9c-9b43-17f8426998dc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T18:09:10.532004+00:00" -->
+#### Claude
+You're right to push me there — I've been reading the installed shared store, which my own notes say drifts. Let me compare.
+
+The installed copy is byte-identical to the framework working tree. Let me check whether that tree is itself current.
+
+I checked properly rather than assuming, and the answer is not what either of us expected.
+
+## I *was* on the latest
+
+Recursive hash comparison of `node_modules/@lagrangefoundry/ai/src` against `lagrange-framework/components/ai/js/src`: **zero files unique to either side, zero differing files.** Byte-identical. The framework tree is on `xgd-working`, 162 ahead of origin — the newest work that exists.
+
+## And LF *did* do the context work — you're right about that
+
+It's a coherent design, and all of it is installed:
+
+| | |
+|---|---|
+| REQ-124 | session summary store — standing frame + append-only log |
+| REQ-125 | transcript turn addressing, so a turn can be fetched by id |
+| REQ-126 | turn-bounded history window; summary / pointer / window providers |
+| REQ-128 | priming moves to the system channel |
+| REQ-129 | compaction integration — observe `compact_boundary`, steer with `/compact` |
+| REQ-143 | cache the message history; **make token spend observable** |
+| REQ-144 | deliver per-turn tiers past the message history |
+
+## The hole is precise, and it's upstream
+
+REQ-126's window and REQ-129's compaction are the two mechanisms that bound a conversation. **Neither binds a warm API conversation:**
+
+- The **window** is applied at *seed* only.
+- **`compaction: true`** is declared by `claude_code.js` and `claude_code_interactive.js` — and by nothing else.
+
+Compaction was designed for *"a backend that keeps its own conversation"*. `ClaudeAPIBackend` **does** keep its conversation, in `_state` — it just never got an implementation. So REQ-129 integrated compaction for the two backends that had it natively, and the API path, which is the one that actually needs the framework to do the cutting, got neither mechanism.
+
+That's a **lagrange-framework ticket**, exactly as you said. Every adopter of the API backend has this, not just us.
+
+## The fuel gauge already exists — we just don't show it
+
+This is the cheerful part. REQ-143 landed per-request token accounting: `ClaudeAPIBackend.usage(ref)` returns one record per request, and `usage.js` exposes `usageRecord`, `turnUsage`, `turnSpend`, `sessionUsage`. **The host already knows what every turn cost in input tokens** — which *is* the context size.
+
+So the consultant's *"I am driving with no fuel gauge"* is a **surfacing gap in this repo**, not missing framework capability. Much cheaper than it sounded.
+
+## On "stuffing" — it hasn't been abandoned
+
+DOC-22 *"Session Priming Configuration: three tiers, static text and providers"* is still current upstream, and nothing supersedes it. REQ-128 and REQ-144 *refine* it — system channel, tiers delivered past the message history for cache stability — they don't replace it. So `priming.json` isn't legacy; moving off it would be **new framework design**, not adoption.
+
+And confirming your own instinct: it won't solve this. The priming is ~21KB of prose against a 140,000-char ceiling and a 1M-token model, it's stable, and the `cache_boundary` entry is last so the whole thing sits in the cached prefix. It's a fixed cached cost dwarfed by a single screenshot.
+
+## So the split is
+
+- **lagrange-framework**: bound a warm API conversation — apply `window()` in flight and `redactContent()` to ageing image blocks, or implement compaction for `ClaudeAPIBackend`. Both seams are written and tested; neither is wired to this path.
+- **1stcontact**: surface the spend REQ-143 already reports, and rewrite the `interrupted-turn` reminder to name `list_changes` instead of "look at the site".
+
+Want me to file the framework one as a cross-repo ticket? Per my standing note that's a ticket in lagrange-framework and nothing else — no branch, no code there.
 
 <!-- xgd-chat-end -->
