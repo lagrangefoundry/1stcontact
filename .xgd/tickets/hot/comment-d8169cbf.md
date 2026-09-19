@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T18:44:36.184814+00:00'
+updated_at: '2026-09-19T18:45:24.674068+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1376,5 +1376,15 @@ The 1c-side work is now the bigger half: wire the `SummaryStore`, compose the `a
 BUG-45 in LF? that has landed?
 
 Is the summary generation implemented?...but not wired in 1c?
+
+<!-- xgd-turn id="a5bd9303-896e-4eab-b7f3-e35609b25c6e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T18:45:24.525291+00:00" -->
+#### You
+BUG-45 in LF? that has landed?
+
+Is the summary generation implemented?...but not wired in 1c? Are all the mechanisms available for searching and chunk-level access?
+
+Does LF need to implement truncation?
 
 <!-- xgd-chat-end -->
