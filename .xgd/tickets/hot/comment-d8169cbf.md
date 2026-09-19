@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T20:40:43.692938+00:00'
+updated_at: '2026-09-19T20:42:50.681820+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1898,5 +1898,33 @@ Where the context work stands: REQ-283, 284 and 285 have landed; LF REQ-168 is i
 <!-- xgd-chat role="user" ts="2026-09-19T20:40:43.519043+00:00" -->
 #### You
 BUG-117 (one of yours, created lf:BUG-60 it has some questions can you answer them in the ticket and breing anything you don't know to me please
+
+<!-- xgd-turn id="c4aee433-f822-4958-b85f-a7a6a4cc9c7b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T20:42:50.199632+00:00" -->
+#### Claude
+Good questions, and one of them changed my mind. Let me answer in the ticket.
+
+Answered in the ticket. Three confirmations, one reversal.
+
+**1. Names — keep both.** `corpus_unavailable` matches `generator_unavailable`, the house word for a passing fault. The collision with `corpus_unreadable` is a real cost, accepted: a model that's met `generator_unavailable` reads it correctly, where `corpus_busy` would have to be learned from scratch. And `unclassified_failure` shouldn't be made to name a subject — that would be exactly the assertion the ticket removes.
+
+**2. `host_detail` — I reversed myself here.** I'd have said yes to both; their own precedent says otherwise and it's right. `generator_unavailable` declares `host_detail: false` *and* gives useful advice, and that's the correct pattern, because **the transient's advice is the same whichever transient it was.** "A single retry, not a third" doesn't change if the model learns it was a 429 rather than a reset — detail that can't change behaviour is decoration. Meanwhile BUG-50's split means the operator gets the text regardless.
+
+The catch-all is genuinely different, which is why point (3) singled it out: it has *no* advice to give, so the host's text is the only signal that exists. So — `false`, `false`, `true`.
+
+**3. Mirror Python.** Not scope creep. The parity test forces the declaration either way, and a declaration naming three codes on a peer that can emit one is **the same defect this ticket is about, relocated**.
+
+**4. Narrow the passthrough — in scope.** An `ENOENT` on the index *is* "an index or a store is missing" — `corpus_unreadable` is its correct home, and the passthrough routes around it into an undeclared string.
+
+I added one thing they didn't ask: **bound the retry in the message**, matching the imagegen register, and **don't retry silently inside the surface** — a model's retry is visible and costs a turn someone can see; a silent one hides latency and spend.
+
+## For you, not the ticket
+
+**The root cause of the incident that started this is already fixed.** BUG-59 (`ready_to_reconcile`) — `WorkersAiEmbedder` and `HttpSurface` call `fetch` as a method, which workerd refuses with *"Illegal invocation: function called with incorrect `this` reference."* That's the text BUG-50's audit split preserved, and it's why your corpus went down mid-session.
+
+So BUG-60 isn't blocking anything live — it's making the *next* failure legible. I noted that in the ticket as a reason not to let it grow.
+
+Nothing I'm unsure about on these four. The only judgement call I'd flag as genuinely aesthetic is the name collision — I've endorsed house consistency over visual distinctness, and that's reversible if you'd rather have the clearer pair.
 
 <!-- xgd-chat-end -->
