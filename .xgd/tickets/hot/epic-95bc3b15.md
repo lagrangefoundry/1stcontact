@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-18T23:42:34.379383+00:00'
+updated_at: '2026-09-19T00:58:44.260486+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -425,6 +425,15 @@ as the assistant ignoring them.
 
 ## Children
 
+- [[REQ-281]] — Delete a Library item from its detail pane. `archive` is already
+  the declared erasure path; placement COPIES the bytes, so deleting a placed item
+  does not take it off the site — which is the one thing the wording has to get
+  right.
+- [[REQ-282]] — "Not on the site" is a state, not an error. The warning predicate
+  detects a placement failure that [[BUG-47]] made impossible: nothing is attempted
+  at upload, so the badge fires on every site-role photo from the moment it lands.
+  Accent pill when placed, grey when not — keeping REQ-181's rule that colour is
+  never the only carrier.
 - [[REQ-280]] — A shared name for a Library item (`IMAGE-5`, `DOC-7`). Today the
   consultant's handle is the uid and the Library shows the title, so the two share
   only the ambiguous pair — three generated variants in the operator's own
