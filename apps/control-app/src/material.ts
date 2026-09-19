@@ -1418,6 +1418,40 @@ export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
 }
 
 /**
+ * The order the catch-up hands out numbers in — [[REQ-280]].
+ *
+ * OLDEST FIRST, SO THE SEQUENCE READS THE WAY THE CLIENT FILLED THE LIBRARY.
+ * That is the whole of what the order is for: `IMAGE-1` should be the first
+ * picture they gave us, not whichever row a listing happened to return first.
+ *
+ * AND TOTAL, WHICH `created_at` ALONE IS NOT. The store stamps an ISO timestamp
+ * at MILLISECOND granularity, so records written in immediate succession — a
+ * client dropping a folder of photographs — routinely share one. A comparison
+ * over that field alone returns 0 for those, the sort falls back to whatever
+ * order the store listed them in, and which of them is `IMAGE-1` becomes luck:
+ * the same Library labelled twice could label it two ways. Nothing is corrupted
+ * by that — each row still takes a distinct number from the same atomic
+ * counter — but it costs the one property the order exists for.
+ *
+ * THE UID BREAKS THE TIE, because it is unique by construction, stable, and
+ * already the store's own tiebreak on every sorted read. There is no third case:
+ * two rows cannot share both.
+ *
+ * NAMED AND EXPORTED BECAUSE IT IS A RULE AND NOT A DETAIL OF ONE LOOP. A tie
+ * is common but never guaranteed, so a suite that could only reach this through
+ * a real store would exercise it or not depending on whether the clock happened
+ * to tick — which is precisely the intermittent failure this rule was written to
+ * end. Stated here, it can be asserted exactly.
+ */
+export function labelOrder(
+  a: { created_at: string; uid: string },
+  b: { created_at: string; uid: string },
+): number {
+  if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1
+  return a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0
+}
+
+/**
  * Give a label to every listed material that has none — [[REQ-280]].
  *
  * THE ONE-TIME CATCH-UP, AND IT IS NOT A SECOND WAY OF LABELLING. Every record
@@ -1434,9 +1468,8 @@ export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
  * for one; a label that appeared only on the tab or only on the catalogue would
  * be precisely the half-fix this ticket is about.
  *
- * OLDEST FIRST, so a client's earliest photograph is `IMAGE-1` and the sequence
- * reads the way they filled the Library. Sequential rather than concurrent for
- * the same reason: the numbers are the order.
+ * IN {@link labelOrder}, which is where the sequence's order is stated and why.
+ * Sequential rather than concurrent, because the numbers ARE the order.
  *
  * A FAILED LABEL MUST NOT COST THE LISTING. This runs on the path that draws the
  * Library and answers the assistant, so a write that is refused — a version race
@@ -1456,9 +1489,7 @@ async function labelUnlabelled(store: TicketStore, tickets: Ticket[]): Promise<T
   if (unlabelled.length === 0) return tickets
 
   const labelled = new Map<string, Ticket>()
-  const oldestFirst = [...unlabelled].sort((a, b) =>
-    a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0,
-  )
+  const oldestFirst = [...unlabelled].sort(labelOrder)
   for (const ticket of oldestFirst) {
     try {
       const label = await nextMaterialLabel(store, String(ticket.fields.kind ?? 'document'))
