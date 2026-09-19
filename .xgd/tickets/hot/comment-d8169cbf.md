@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T19:47:07.075049+00:00'
+updated_at: '2026-09-19T19:47:58.148589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1587,5 +1587,53 @@ I think the first is right — the indexing argument is concrete and the framewo
 283 is in process.
 
 Tell me what the SummaryStore is and where it is  physically located
+
+<!-- xgd-turn id="be432761-bced-4155-aeb0-b88dbcb5fda5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T19:47:57.338489+00:00" -->
+#### Claude
+## What it is
+
+A small host-side class that maintains a session's summary of itself in **two zones with different write semantics** — because, as the module puts it, *"the polarity differs."*
+
+```js
+new SummaryStore(client, { frameMaxBytes = 4000 })
+  .frame(subject, text)   // replace the standing frame
+  .log(subject, text)     // append one entry
+  .read(subject)          // both zones back
+  .commentUid(subject)
+```
+
+- **Standing frame** — a short paragraph, *rewritten in place*, capped at 4,000 UTF-8 bytes, always delivered whole. Over-cap is an **error, never a truncation**: *"a frame silently losing its last sentence loses the rejections first, which are the whole reason the zone exists."*
+- **Log** — append-only, unbounded, entries delimited by `ENTRY_MARKER`.
+
+## Where the code lives
+
+| | |
+|---|---|
+| source | `lagrange-framework/components/ai/js/src/summary.js` (+ a Python peer at parity) |
+| installed | `node_modules/@lagrangefoundry/ai/src/summary.js` — **byte-identical** |
+| exported via | `core.js`, so it reaches both `index.js` (Node) and `workers.js` (workerd) |
+
+## Where the bytes live — it has no storage of its own
+
+`SummaryStore` writes through a duck-typed `SummaryClient` (the same ticket-client shape the archive uses). So the data lands wherever the host's ticket store is.
+
+Concretely, **one comment of kind `chat_summary`** hanging off the ticket that homes the session:
+
+- **frame → the comment's `framing` FIELD**, written by `update({patch: {fields: {framing}}})` with compare-and-set on the version just read
+- **log → the comment's BODY**, appended via `append_body`
+
+The split is structural, not conventional: a field patch merges so it never touches the body; an append never reads-then-writes the frame. They cannot clobber each other. And the CAS is only on the frame, deliberately — *"two sessions rewriting one frame is a genuine conflict, unlike two appends, and must not resolve silently."*
+
+**In 1stcontact, if wired**, that means a row in D1's `tickets` table: `type='comment'`, `fields.kind='chat_summary'`, `fields.subject_uid='chat-50932534'`, `fields.framing` holding the frame, `body` holding the log — sitting beside the `chat_transcript` and `tool_transcript` comments already on that chat ticket.
+
+## The consequence that matters for REQ-283
+
+**That location is a comment, and comments are not indexed by the knowledge component** — `ticketText` indexes a ticket's title and body. So a `chat_summary` comment is invisible to KB search.
+
+Which is exactly why REQ-171 put the engagement ledger in the chat ticket **body** instead, and why adopting `SummaryStore` wholesale would trade searchability for framework machinery. The frame half has no such conflict — nothing currently occupies a `framing` field — so the likely shape is: keep the ledger where it is, take the frame from here.
+
+Worth telling whoever has REQ-283 in flight, since it's the one decision in that ticket that's hard to reverse later.
 
 <!-- xgd-chat-end -->
