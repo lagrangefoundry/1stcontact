@@ -249,12 +249,14 @@ describe('AC-1776 — decoded pixels are byte-identical to the recorded witness'
       expect(`${name}:${sha256(got.data)}`).toBe(`${name}:${want.sha256}`)
     }
 
-    // The other runtime asserts the SAME SET OF DIGESTS. workerd has no
-    // filesystem, so it reads the corpus from `fixtures/png/corpus.ts` — this
-    // pins that module to be the same bytes and the same recorded numbers as the
-    // files on disk, so "byte-identical in both runtimes" is one witness, not
-    // two that could drift apart. The workerd decode itself runs in the sibling
-    // `*.workers.test.ts`.
+    // The other runtime asserts the SAME SET OF DIGESTS, in the sibling
+    // `*.workers.test.ts` — `test_UAT_AC1776_..._in_the_deployed_runtime`, which
+    // decodes this corpus inside workerd off the platform's own decompression
+    // primitive. workerd has no filesystem, so it reads the corpus from
+    // `fixtures/png/corpus.ts` instead; what follows pins that module to be the
+    // same bytes and the same recorded numbers as the files on disk, so
+    // "byte-identical in both runtimes" is one witness checked twice, not two
+    // witnesses that could drift apart.
     expect(Object.keys(PNG_CORPUS).sort()).toEqual(names.sort())
     for (const name of names) {
       const want = baseline.cases[name]
@@ -857,14 +859,67 @@ describe('AC-1789 — the toolchain declares and loads no native imaging module'
     }
     expect(offenders).toEqual([])
 
-    // (3) This checkout IS a tree where none is installed...
-    const resolveFrom = createRequire(__filename)
-    for (const name of NATIVE_IMAGING) {
-      expect(() => resolveFrom.resolve(name)).toThrow()
+    // (3) The claim is deliberately the NARROW one. An imaging module may still
+    // be reachable in a developer's install, because the harness that runs the
+    // serverless-runtime test project pulls one in transitively — so asserting
+    // "nothing resolves anywhere in this checkout" would be asserting something
+    // this story does not promise and cannot keep. What it does promise is that
+    // whatever is present is the HARNESS's and never the tool's: every path to
+    // one in the lockfile runs through miniflare, which is what
+    // `@cloudflare/vitest-pool-workers` runs workerd with.
+    //
+    // Only blocks that mean an INSTALL count. `jsdom` and `unpdf` both name a
+    // canvas under `peerDependencies` with `optional: true`, which is a slot
+    // they would use if something else installed one — nothing here does, and
+    // neither resolves below.
+    const lock = readFileSync(path.join(__dirname, '../pnpm-lock.yaml'), 'utf8').split('\n')
+    const importersOfImaging = new Set<string>()
+    let lockPkg = ''
+    let lockBlock = ''
+    for (const line of lock) {
+      const header = /^ {2}(\S.*?):\s*(\{\})?\s*$/.exec(line)
+      if (header) {
+        lockPkg = header[1].replace(/^'|'$/g, '')
+        lockBlock = ''
+        continue
+      }
+      const block = /^ {4}(\w+):\s*$/.exec(line)
+      if (block) {
+        lockBlock = block[1]
+        continue
+      }
+      const dep = /^ {6}'?([^':]+)'?:\s/.exec(line)
+      if (!dep || !NATIVE_IMAGING.includes(dep[1])) continue
+      if (lockBlock === 'dependencies' || lockBlock === 'optionalDependencies') importersOfImaging.add(lockPkg)
     }
+    expect([...importersOfImaging].filter((p) => !p.startsWith('miniflare@'))).toEqual([])
+    expect(importersOfImaging.size).toBeGreaterThan(0) // the parser found the block it is judging
+    // ...and the workspace root does not declare one either, so nothing a
+    // developer typed asks for it directly.
+    const rootPkg = JSON.parse(readFileSync(path.join(__dirname, '../package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
+    }
+    const rootDeclared = [...Object.keys(rootPkg.dependencies ?? {}), ...Object.keys(rootPkg.devDependencies ?? {})]
+    expect(rootDeclared.filter((d) => NATIVE_IMAGING.includes(d))).toEqual([])
+    expect(rootDeclared).toContain('@cloudflare/vitest-pool-workers')
 
-    // ...and the pixel verbs run on it. No `1c` verb can fail because a native
-    // imaging module is absent, because none is ever reached for.
+    // ...and the pixel verbs run without one. No `1c` verb can fail because a
+    // native imaging module is absent, because none is ever reached for: after
+    // the verbs below have run, the module registry holds no entry for any of
+    // them. Reachable and yet never loaded is the whole claim — an eager import
+    // or a deferred `import()` would both have put an entry here.
+    const resolveFrom = createRequire(__filename)
+    const loaded = (): string[] =>
+      NATIVE_IMAGING.filter((name) => {
+        try {
+          return resolveFrom.resolve(name) in resolveFrom.cache
+        } catch {
+          return false // not installed at all, which is also not loaded
+        }
+      })
+    expect(loaded()).toEqual([])
+
     const dir = freshDir()
     const refPng = await writeRasterPng(raster(64, 64, BLACK), path.join(dir, 'ref.png'))
     const actualPng = await writeRasterPng(
@@ -882,5 +937,8 @@ describe('AC-1789 — the toolchain declares and loads no native imaging module'
     const { outFile, box } = await cmdCrop({ input: actualPng, box: { x: 0, y: 0, w: 16, h: 16 } })
     expect(box).toEqual({ x: 0, y: 0, w: 16, h: 16 })
     expect((await decodeImage(outFile)).width).toBe(16)
+
+    // Still nothing loaded, having run `1c diff` and `1c crop` end to end.
+    expect(loaded()).toEqual([])
   })
 })

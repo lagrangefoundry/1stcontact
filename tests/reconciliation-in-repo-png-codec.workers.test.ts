@@ -12,6 +12,7 @@ import { diffManifests } from '../tools/generate/src/cli/capture/values-diff'
 import { buildResponsiveTable, classifyResponsiveTable } from '../tools/generate/src/cli/responsive-diff'
 import { foldToL1 } from '../tools/generate/src/l1/fold'
 import { threeProbeGate } from '../tools/generate/src/l1/probes'
+import { PNG_CORPUS, corpusBytes } from './fixtures/png/corpus'
 import type { MultiStateCapture, StateProjection, ValueElement, ValueManifest } from '../tools/generate/src/cli/capture'
 
 /**
@@ -27,9 +28,17 @@ import type { MultiStateCapture, StateProjection, ValueElement, ValueManifest } 
  * verbatim: "the same code runs in the serverless runtime" is a statement about
  * the same code.
  *
- * The node-runtime half — the recorded-witness decode, the refusals, the crop
- * verb, the measurement — lives in the sibling `*.test.ts`.
+ * The refusals, the crop verb and the measurement live in the sibling
+ * `*.test.ts`; the recorded-witness decode is asserted on BOTH sides, because
+ * "byte-identical in both runtimes" is the half of AC-1776 that only this file
+ * can carry.
  */
+
+/** sha256 of a buffer, via the platform's own subtle crypto — workerd has no `node:crypto`. */
+const sha256 = async (bytes: Uint8Array): Promise<string> => {
+  const digest = await crypto.subtle.digest('SHA-256', bytes as unknown as ArrayBufferView<ArrayBuffer>)
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
 
 /** Build an RGB raster from a per-pixel fill — the node diff UATs' helper. */
 function raster(w: number, h: number, fill: (x: number, y: number) => [number, number, number]): Raster {
@@ -45,6 +54,45 @@ function raster(w: number, h: number, fill: (x: number, y: number) => [number, n
   }
   return { data, width: w, height: h, channels: 3 }
 }
+
+// ── AC-1776 (the serverless-runtime half) ─────────────────────────────────────
+
+describe('AC-1776 — the recorded witness holds in the deployed runtime too', () => {
+  it('test_UAT_AC1776_corpus_decodes_to_the_recorded_witness_in_the_deployed_runtime', async () => {
+    // The same corpus, the same recorded numbers, the OTHER runtime — which is
+    // the half of the AC the node suite cannot reach. DEFLATE comes from
+    // `DecompressionStream` here rather than from the host language's zlib, so
+    // this is the assertion that the platform primitive the whole design rests
+    // on behaves identically on both sides. The node sibling pins
+    // `fixtures/png/corpus.ts` to the same bytes and the same recorded values as
+    // `sharp-baseline.json`, so the two runtimes are checked against ONE witness
+    // rather than two that could drift apart.
+    const names = Object.keys(PNG_CORPUS)
+    expect(names.length).toBeGreaterThan(8) // the corpus is not silently empty
+
+    const digests: Record<string, string> = {}
+    for (const name of names) {
+      const want = PNG_CORPUS[name]
+      const got = await decodePng(corpusBytes(name), name)
+      expect({ name, w: got.width, h: got.height, ch: got.channels, bytes: got.data.length }).toEqual({
+        name,
+        w: want.width,
+        h: want.height,
+        ch: want.channels,
+        bytes: want.bytes,
+      })
+      // Exact equality, deliberately not a tolerance band: a band would hide
+      // precisely the drift it exists to catch. The witness was recorded while
+      // the native decoder was still installed and may not be regenerated to
+      // make this pass.
+      digests[name] = await sha256(got.data)
+      expect(`${name}:${digests[name]}`).toBe(`${name}:${want.sha256}`)
+    }
+
+    // The same SET of digests, not merely the same count.
+    expect(digests).toEqual(Object.fromEntries(names.map((n) => [n, PNG_CORPUS[n].sha256])))
+  })
+})
 
 // ── AC-1786 ───────────────────────────────────────────────────────────────────
 
