@@ -30,6 +30,7 @@ import {
   PRODUCT_ENTRY,
   PURPOSE_ENTRY,
   registerCorpusProviders,
+  registerMemoryProviders,
   registerSiteProviders,
   ROLE_ENTRY,
 } from '../tools/generate/src/cli/ai/roles'
@@ -388,6 +389,11 @@ describe('REQ-182 — the budget is declared, and the session is told of nothing
     const box = { manual: () => 'MANUAL' }
     await registerCorpusProviders(bridge, () => knowledge)(box, providers)
     registerSiteProviders(providers, { slug: SLUG, box, signal: () => undefined })
+    // EVERY NAME THE CONFIGURATION USES, OR THE ROLE WILL NOT LOAD ([[REQ-283]]).
+    // The reminder tier names the memory trigger, so a registry without it is a
+    // `PrimingConfigError` at `consultantRole` rather than the budget failure this
+    // case is about. `null` is the `1c` host's wiring: registered, rendering nothing.
+    registerMemoryProviders(providers, null)
 
     await expect(
       lib.assemble(
@@ -400,12 +406,14 @@ describe('REQ-182 — the budget is declared, and the session is told of nothing
   })
 
   it('test_UAT_FC_REQ-182_the_session_is_told_of_no_transcript_it_cannot_read', async () => {
-    // The framework ships a product tier naming `session.transcript_pointer`,
-    // which tells a session its turns are addressable by id. This host grants no
-    // operation that reads them, so the entry would be a hand-written claim about
-    // a tool that does not exist — the one thing the projected manual exists to
-    // prevent. The product tier is left empty deliberately, and this is what
-    // "deliberately" has to mean to be worth anything.
+    // The framework's product tier tells a session where the rest of its
+    // conversation is and what it is keeping about it. [[REQ-283]] adopts that
+    // tier — but adoption is not the claim this case tests, and the claim it does
+    // test did not weaken: THIS host has no ticket store, no summary and no agent
+    // surface, so every entry in that tier renders `null` and the session is told
+    // none of it. A hand-written claim about a tool that does not exist is the one
+    // thing the projected manual exists to prevent, and it stays prevented for a
+    // host that shipped the tier rather than declining it.
     const client = await turns(await deps(), ['Hello'])
     const system = systemText(client.seen[0])
     expect(system).not.toMatch(/Reaching the rest of this conversation/)

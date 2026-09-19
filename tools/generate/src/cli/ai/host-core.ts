@@ -64,6 +64,7 @@ import {
   CONSULTANT_ROLE,
   consultantRole,
   LEGACY_ROLE_NAMES,
+  registerMemoryProviders,
   registerSettingsProviders,
   registerSiteProviders,
   SETTINGS_ROLE,
@@ -81,7 +82,7 @@ import {
   type DnsChangeView,
   type DnsDeps,
 } from './dns-core'
-import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
+import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import type { LibraryDeps } from './library-core'
@@ -973,6 +974,83 @@ async function runTool(box: Untyped, name: string, input: Record<string, unknown
   return contentBlocksFrom(payload) ?? payload
 }
 
+/**
+ * The reads a session gets on ITSELF ([[REQ-283]]).
+ *
+ * THE DECLARATION IS UPSTREAM'S AND NOTHING HERE RESTATES IT. `agent_surface.json`
+ * declares what a session may know about its own priming, its own reminder and
+ * its own turns; this composes it and says what this product grants of it. That
+ * is the whole of the change — no operation, no parameter and no scope axis is
+ * added anywhere.
+ *
+ * WHAT IS GRANTED IS `InspectContext` MINUS ONE OPERATION, expressed as an
+ * operation list because that is the one thing a group name cannot say:
+ *
+ *   - `priming`, `reminder`, `context` — what this session was actually sent.
+ *     A consultant that has lost the thread can read its own instructions back
+ *     instead of guessing at them.
+ *   - `history` — the turns, by position or by turn id. This is the reader the
+ *     product tier's transcript pointer names, and it is what makes "everything
+ *     outside the recent window is reachable" true rather than aspirational.
+ *
+ * `summary` IS WITHHELD BECAUSE IT CANNOT BE ANSWERED. It reads a `SummaryStore`,
+ * and this host has none: its standing note is a field on the chat ticket and its
+ * log is that ticket's body, which is the placement the record's own indexing
+ * argument settles. Upstream's own handler says so — with no store it raises
+ * `not_found`, *"this host keeps no session summaries"* — and a granted operation
+ * that always refuses is precisely the shape this repository keeps refusing to
+ * ship. The same fact withholds the whole `MaintainSummary` group: the standing
+ * note is written through `set_standing_note` on the ledger surface, beside the
+ * decisions it summarises.
+ *
+ * `history_full` AND `role_priming` ARE NOT GRANTED EITHER: upstream says plainly
+ * they belong to somebody working ON a session rather than in one, and an
+ * unbounded paste read back into a live conversation displaces everything else in
+ * it.
+ *
+ * NO SESSION SCOPE, DELIBERATELY. The axis exists and `when_unset: allow` is
+ * upstream's supported configuration for leaving it open (lagrange-framework
+ * REQ-158 §3). The barrier here is the STORE: the ticket store this runtime was
+ * built over is bound to one business by `forTenant`, so every ticket that could
+ * home a session on this path is already this client's own. It is also the
+ * decision [[REQ-228]] already took and asserted, in as many words — *"the reach
+ * into past conversations is the intention"* — for the same client's `chat`
+ * tickets through the ticket surface. An allow-set here would be a second, weaker
+ * barrier that has to be recomputed every time a ticket is minted, and it could
+ * not be computed at all before the first turn archives one.
+ */
+export function sessionContextSurface(
+  lib: AiLibrary,
+  runtime: {
+    archive: Untyped
+    junctions: Untyped
+    roles: Record<string, Untyped>
+    product: Untyped
+    providers: Untyped
+  },
+): { surface: Untyped; granted: Record<string, unknown> } {
+  const box = lib as Untyped
+  // READ OFF THE PARSED DECLARATION rather than listed, so an operation renamed
+  // or regrouped upstream fails here at start-up instead of silently narrowing
+  // what a session can do. `INSPECT_GROUP`'s members minus the one withheld
+  // above. `groups` is a Map keyed by group name, which is upstream's shape after
+  // `Declaration.parse` and not the raw JSON's list.
+  const inspect = box.AGENT_DECLARATION.groups.get(box.INSPECT_GROUP)
+  if (inspect === undefined) {
+    throw new Error(
+      `The agent surface declares no ${String(box.INSPECT_GROUP)} group ` +
+        `(declared: ${[...box.AGENT_DECLARATION.groups.keys()].sort().join(', ')}).`,
+    )
+  }
+  const granted: string[] = (inspect.operations as string[]).filter(
+    (op: string) => op !== 'summary',
+  )
+  return {
+    surface: new box.AgentToolbox(new box.AgentRuntime({ ...runtime, summary: null })),
+    granted: box.agentInstanceConfig(null, { operations: granted }),
+  }
+}
+
 async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise<Untyped> {
   const lib = await ai(deps)
 
@@ -1005,6 +1083,143 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // drawing but not measure one is a shape nobody asked for. So the deps are
   // built once here and both consumers read them.
   const fidelity = deps.fidelity ? deps.fidelity(slug) : null
+
+  // -- the session's own memory ([[REQ-283]]) --------------------------------
+  //
+  // THREE THINGS THAT ONLY MEAN ANYTHING TOGETHER, so they are decided here in
+  // one place rather than three times further down: the provider registry, the
+  // role map the registry's product tier and the agent surface both read, and
+  // whether this host keeps a record of its own conversation at all.
+  //
+  // THE REGISTRY AND THE ROLE MAP MOVE UP the function because the agent surface
+  // needs both and is composed into the Toolbox, while the role that fills the
+  // map is built FROM the Toolbox's manual. That is a genuine cycle, and the
+  // resolution is that both are mutable containers handed over empty and filled
+  // below — not a second registry and not a second role map, which is what would
+  // actually break: the surface would then re-render a session's priming from a
+  // registry nobody registered anything in.
+  const providers = new lib.PrimingProviders()
+  const named: Record<string, Untyped> = {}
+
+  // WHETHER THIS HOST REMEMBERS. The record lives on the chat ticket that homes
+  // the session — the standing note in its frontmatter, the decisions in its body
+  // — so it exists exactly where a ticket store does, which is the Worker. The
+  // `1c` CLI archives to a file, has no ticket store, passes no ledger, and gets
+  // none of this: no record, no agent surface, and the product tier's entries
+  // rendering nothing. That is the same honest absence the catalogue already has.
+  //
+  // ONE WIRE AND NOT TWO. Both zones are on one object, so one port reaches both
+  // and there is no configuration in which this host has half a memory.
+  const ledger = deps.ledger ? deps.ledger(slug) : null
+
+  // -- the product tier, adopted ([[REQ-283]]) -------------------------------
+  //
+  // THIS HOST USED TO DECLINE IT, and the reason it gave has expired. The note
+  // said `session.transcript_pointer` and `session.tool_transcript_note` name
+  // readers this host does not grant and that `session.summary` waited on
+  // lagrange-framework BUG-45. BUG-45 is fixed in the installed code
+  // (`PrimingAssembly.offsets` filters volatile sections before computing), and
+  // the agent surface below IS the reader the transcript pointer wanted.
+  //
+  // ADOPTED WHOLE AND GATED BY THE PROVIDERS, not by a branch here. Every entry
+  // in the shipped mapping renders `null` — dropping the entry and its separator
+  // — when the fact it states is not true of this session: the pointer when the
+  // session has no home ticket, the seed when there is no record, and the tool
+  // transcript when no reader was bound. So the tier loads identically on both
+  // hosts and the CLI is told none of it, which is what "a session is never told
+  // about a capability it was not granted" has to mean once the claim ships
+  // upstream.
+  //
+  // `tool-transcript-note` IS DECLINED ON ITS OWN MERITS, by binding no reader.
+  // The agent surface reads the CONVERSATION; nothing this host grants reads the
+  // persisted TOOL record stream, so pointing a session at one is still a
+  // hand-written claim about a tool it does not have. Upstream's own answer to
+  // that is the conditional provider — "registered with no reader, it renders
+  // nothing" — so the mapping stays loadable and the entry stays silent.
+  lib.registerDefaults(providers, {})
+
+  // -- the memory is ONE OBJECT ([[REQ-283]]) --------------------------------
+  //
+  // The framework's summary has two zones with opposite polarity — a bounded
+  // standing note rewritten in place, and an append-only log — and it splits them
+  // across a comment's FIELD and that comment's BODY so that the two writes
+  // cannot clobber each other. That invariant is what matters; the comment is
+  // incidental.
+  //
+  // THIS HOST ALREADY HAD THE LOG, and somewhere better. [[REQ-171]]'s engagement
+  // ledger is it: `record_decision` writes what was settled, why, and what was
+  // rejected into the chat ticket's BODY, which is what the knowledge component
+  // indexes — a comment body is not. So the note goes in that same ticket's
+  // FRONTMATTER, which reproduces the invariant exactly (a field patch merges and
+  // never touches the body; an append never reads the field) and collapses the
+  // whole of a session's memory into one object.
+  //
+  // THREE THINGS FALL OUT OF THAT, none cosmetic. It removes a full comment scan,
+  // because the ticket is already being fetched for the ledger. Compare-and-set is
+  // already there, on `update`'s `expected_version`. And the note stays OUT of the
+  // index, which is right rather than a compromise: the ledger is the durable
+  // record and belongs in the corpus, the note is rewritten many times a session
+  // and would feed it a stream of churn that supersedes itself.
+  //
+  // SO `SummaryStore` IS NOT USED, and what it would have supplied is supplied
+  // deliberately: its cap rule is kept verbatim (`ledger-core.ts` raises rather
+  // than truncating, through upstream's own `checkFrame`), its two operations are
+  // replaced by one narrow verb on the ledger surface, and its seed provider is
+  // replaced by the one registered here.
+  //
+  // THE SEED IS THIS HOST'S, which is the whole of what that choice costs. The
+  // shipped `session.summary` provider renders a frame plus a tail of the STORE's
+  // log; ours renders the standing note plus a tail of the LEDGER. Registered
+  // over the framework's binding rather than beside it, so the shipped product
+  // mapping still names exactly one provider for that entry and there is no
+  // second seed to fall out of step.
+  //
+  // DELIVERY IS THE POINT. Until this, `record_decision` was write-only: the
+  // consultant recorded a decision and could not see it on the next turn, so it
+  // re-derived state it had already settled — expensively, by looking at the site.
+  // Nothing else here matters as much.
+  //
+  // READ LATE, PER TURN, because a manager outlives many turns and a record
+  // captured at build is the empty one for the rest of the conversation.
+  registerMemoryProviders(
+    providers,
+    ledger
+      ? {
+          record: async () => {
+            const record = await ledger.read()
+            return { note: record.note, decisions: ledgerEntries(record.body) }
+          },
+        }
+      : null,
+    // THE SHIPPED PROSE, BOUND TO THIS HOST'S CONDITION ([[REQ-283]]). It names
+    // where the rest of the conversation is and how to reach it — which is true
+    // here exactly when the agent surface below is composed, and the two are
+    // composed on the same question.
+    String(lib.DEFAULT_PROSE.transcript_pointer).trim(),
+  )
+  const product = lib.defaultProduct(providers)
+
+  // The agent surface's runtime: long-term storage and the live junction, which
+  // between them are the whole of what a session's own turns are recorded on. It
+  // reads the role map and the registry ABOVE — the same objects the manager is
+  // built with — so a closed session whose recorded priming has gone is
+  // re-rendered from this host's real configuration rather than from a second
+  // copy of it.
+  //
+  // COMPOSED ON THE SAME QUESTION THE RECORD IS. A session addressed by ticket
+  // needs an archive that homes sessions on tickets, and the host that has one is
+  // the host that has a ledger — so one condition serves both rather than two
+  // that could disagree.
+  const context = ledger
+    ? sessionContextSurface(lib, {
+        archive: deps.archive,
+        junctions: deps.junctions,
+        roles: named,
+        product,
+        providers,
+      })
+    : null
+
   const box = await createL1Toolbox(
     slug,
     { ...opts, actor: 'ai' },
@@ -1029,6 +1244,13 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
         ...(deps.extraSurfaces ?? []),
+        // THE SESSION'S OWN CONTEXT ([[REQ-283]]), where this host keeps one.
+        // Its grant travels with it, like the ledger's and the catalogue's and
+        // unlike fidelity's, for the reason `image-core.ts` states: the
+        // declaration is UPSTREAM'S, and `instances.json` is validated in CI
+        // against the declarations this repository hands the validator, so a key
+        // there would be a grant nothing can check.
+        ...(context ? [context] : []),
         // The fidelity surface, when this deployment has the browser and the
         // store it needs. No grant travels with it — see `fidelity-core.ts`.
         ...(fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : []),
@@ -1129,25 +1351,19 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // stray cache marker or a `provider:` naming something nobody registered is a
   // `PrimingConfigError` at start-up naming the entry.
   //
-  // ONE TIER, NOT TWO, and deliberately. DOC-22 distinguishes the product tier
-  // from the role tier by variation scope, never by topic; here there is one
-  // role and one manager per site, so everything below varies together and
-  // splitting it across tiers would only fix the order wrong — product entries
-  // are concatenated BEFORE role entries, which would put the product facts in
-  // front of "you are a design consultant" and lose the register REQ-171 chose.
+  // WHAT IS IN EACH TIER IS SETTLED BY VARIATION SCOPE, never by topic (DOC-22).
+  // Everything this project writes is role-tier: there is one role and one
+  // manager per site, so it all varies together, and product entries are
+  // concatenated BEFORE role entries — splitting the prose across tiers would
+  // put product facts in front of "you are a design consultant" and lose the
+  // register REQ-171 chose.
   //
-  // The product tier is left empty rather than defaulted, and this host means it.
-  // `SessionManager` populates both halves with framework defaults only when it
-  // is handed NEITHER, so supplying a registry keeps the shipped product entries
-  // off — which is the right answer for all three of them:
-  // `session.transcript_pointer` tells a session its turns are addressable by id
-  // and this host grants no operation that reads them, `session.tool_transcript_note`
-  // needs a reader it does not have, and `session.summary` waits on
-  // lagrange-framework BUG-45. A session is never told about a capability it was
-  // not granted, and that rule does not stop applying because the claim ships
-  // upstream.
-  const providers = new lib.PrimingProviders()
-
+  // THE PRODUCT TIER IS THE FRAMEWORK'S, adopted whole ([[REQ-283]]) — see the
+  // block at the top of this function for what it carries and why each entry is
+  // honest here. It is loaded above rather than below because the agent surface
+  // is composed with it, and it is passed to the manager below so the "both
+  // halves or neither" default is never reached.
+  //
   // EVERY NAME THE CONFIGURATION MAY USE, BOUND IN ONE PLACE. `roles.ts` owns both
   // halves of that bargain — the file that names the providers and the function
   // that says what each name reaches — so a name can only be added to the
@@ -1207,18 +1423,30 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // It is a read path only: `createSession` records {@link CONSULTANT_ROLE} and
   // {@link aiStatus} reports it alone, so nothing is ever written under a legacy
   // name and the alias ages out with the sessions that need it.
-  const named: Record<string, Untyped> = { [CONSULTANT_ROLE]: role }
+  //
+  // FILLED RATHER THAN CONSTRUCTED ([[REQ-283]]). The map is declared empty at
+  // the top of this function because the agent surface holds it and is composed
+  // into the Toolbox the role's manual is projected from. Assigning into the
+  // same object is what keeps one role map in the system; handing the surface a
+  // copy would leave it re-rendering closed sessions against an empty registry.
+  named[CONSULTANT_ROLE] = role
   for (const legacy of LEGACY_ROLE_NAMES) named[legacy] = role
 
   return new lib.SessionManager(named, deps.archive, {
     ...(deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir }),
-    // BOTH HALVES OR NEITHER (DOC-22 §10). The manager defaults the registry and
+    // BOTH HALVES, EXPLICITLY (DOC-22 §10). The manager defaults the registry and
     // the product tier *together*, because a product mapping names providers and
     // a registry without them could not load it — so a host passing only one is
-    // taken to mean it, and the other is left empty rather than half-populated
-    // with framework defaults it did not ask for. This host means it: its
-    // priming is entirely role-tier, and the product tier is empty.
+    // taken to mean it, and the other is left empty. This host passes both: the
+    // registry it bound every one of its own names in, and the framework's
+    // shipped product tier loaded against it ([[REQ-283]]).
     providers,
+    product,
+    // NO `summary` OPTION, and the omission is deliberate ([[REQ-283]]). The
+    // manager's one use for it is the `/compact` hint, which only a
+    // compaction-capable backend ever asks for and this host's does not — so a
+    // shim over the standing note would be a reader with no caller. The note is
+    // delivered where it is actually read: in the seed, every turn.
     maxPrimingChars: MAX_PRIMING_CHARS,
   })
 }

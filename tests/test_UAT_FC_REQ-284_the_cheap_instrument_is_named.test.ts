@@ -11,6 +11,7 @@ import { makeMemorySite } from './support/site-factory'
 import {
   consultantRole,
   registerSettingsProviders,
+  registerMemoryProviders,
   registerSiteProviders,
   settingsRole,
 } from '../tools/generate/src/cli/ai/roles'
@@ -68,6 +69,11 @@ async function reminderFor(
   // The box is the one double: what it stands in for — a projected manual — is
   // the subject of claims 4 and 5, against the real Toolbox, below.
   const box = { manual: async () => '## Your tools\n\n- `list_changes`' }
+  // EVERY NAME THE CONSULTANT'S CONFIGURATION USES, OR THE ROLE WILL NOT LOAD
+  // ([[REQ-283]]). `null` is the wiring of a host with nowhere to keep a record:
+  // the trigger is registered and renders nothing, which is what keeps the two
+  // cases below asserting an ABSENCE of advice rather than a failure to build.
+  registerMemoryProviders(providers, null)
   const built =
     role === 'consultant'
       ? (registerSiteProviders(providers, { slug: SLUG, box, signal: () => signal }),

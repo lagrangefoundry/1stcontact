@@ -451,6 +451,61 @@ export const BUSINESS_MANUAL_PROVIDER = 'business.manual'
 export const BUSINESS_LINE_PROVIDER = 'business.line'
 
 /**
+ * The seed entry in the framework's product tier, rebound to this host's record
+ * ([[REQ-283]]).
+ *
+ * UPSTREAM'S NAME, NOT ONE OF OURS, and that is deliberate. The shipped product
+ * mapping (`defaults/product.json`) names this entry, and the entry's PLACE —
+ * after the cache boundary, so rewriting it every turn cannot invalidate the
+ * cached prefix in front of it — is the part of that mapping worth adopting. What
+ * it is bound to is the host's decision, and here neither zone is where the
+ * framework puts it: the standing note is a field on the chat ticket and the log
+ * is that ticket's body, [[REQ-171]]'s ledger. The default binding reads a
+ * `SummaryStore` this host does not have, so it would render nothing at all.
+ *
+ * Registering over it is the ordinary use of `register`, which is documented as
+ * "replacing any previous binding"; the alternative — a second entry under a
+ * second name — would put two seeds in the tier, only one of which is after the
+ * boundary.
+ */
+export const SESSION_MEMORY_PROVIDER = 'session.summary'
+
+/**
+ * The name the per-turn nudge to keep the record current is reached under
+ * ([[REQ-283]]).
+ *
+ * THIS HOST'S NAME AND NOT UPSTREAM'S `session.summary_trigger`, because the
+ * words differ and the difference is the whole design: the framework's trigger
+ * says to rewrite the frame and APPEND TO THE LOG, and both verbs here belong to
+ * the ledger surface — `set_standing_note` and `record_decision` — rather than to
+ * a summary store this host does not use. A session told to append to a log it
+ * has no operation for is told about a capability it was not granted, which is
+ * the one rule this file exists to keep.
+ *
+ * It renders `null` where there is no record to keep — the `1c` CLI — and a
+ * `null` drops the entry and its separator.
+ */
+export const MEMORY_TRIGGER_PROVIDER = 'memory.trigger'
+
+/**
+ * The product tier's pointer at the rest of the conversation, rebound to a
+ * host-level condition ([[REQ-283]]).
+ *
+ * UPSTREAM'S NAME AGAIN, for {@link SESSION_MEMORY_PROVIDER}'s reason. What is
+ * rebound is the CONDITION and not the words. The framework's binding renders
+ * only when `ctx.chatTicketUid` is set, which is conservative and right for a host
+ * that cannot know — but that field is stamped by the archive on the first DRAIN,
+ * and the priming is assembled once, before it. This entry sits BEFORE the cache
+ * boundary, so it is assembled once and re-delivered: a session would therefore
+ * never be told where its transcript is until it was resumed in a fresh isolate,
+ * which is the one case that does not need telling.
+ *
+ * The question it is really asking is whether this host homes sessions on tickets
+ * at all, and that is answered once, here, by whether there is a record to keep.
+ */
+export const TRANSCRIPT_POINTER_PROVIDER = 'session.transcript_pointer'
+
+/**
  * Bind every provider name this project's configuration may use (REQ-182).
  *
  * ONE PLACE FOR BOTH HALVES. The file that names a provider and the function that
@@ -487,6 +542,135 @@ export function registerSiteProviders(
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
   providers.register(CORPUS_DELTA_PROVIDER, async () => binding.signal()?.delta ?? null)
   providers.register(TURN_INTERRUPTED_PROVIDER, async () => interruptedSignal(binding.signal()))
+}
+
+/**
+ * How many recorded decisions the seed carries ([[REQ-283]]).
+ *
+ * A TAIL, because the ledger is append-only and unbounded while the seed is not,
+ * and the seed is re-assembled on EVERY turn — so this number is a per-turn cost
+ * for the life of an engagement. Whole entries rather than a byte budget: a byte
+ * tail cuts an entry after its decision and before its reasoning, which keeps the
+ * half a reader can guess and drops the half they cannot.
+ *
+ * Eight rather than the framework's twelve because an entry here is a decision
+ * with its reasoning and what it rejected — several hundred characters — where a
+ * summary-log entry is a line. What falls off the end is not lost: the ledger is
+ * this engagement's own ticket body, which is indexed, searchable, and readable.
+ */
+export const DECISION_TAIL = 8
+
+/**
+ * What this session has kept about its own engagement, or `null` ([[REQ-283]]).
+ *
+ * TWO ZONES WITH OPPOSITE POLARITY, which is why they render as two blocks and
+ * not one. The STANDING NOTE is bounded and rewritten in place, so it is
+ * delivered whole — for a note the earliest content is usually the most
+ * load-bearing, which is the reverse of a transcript. The DECISIONS are
+ * append-only and unbounded, so they are delivered as a tail.
+ *
+ * NEITHER ZONE IS A TRANSCRIPT and the prose says so: a session that reads this
+ * as "the conversation, abridged" will distrust it, and a session that trusts it
+ * as the record it is will stop re-deriving what it already settled — which is
+ * the behaviour this whole entry exists to buy.
+ *
+ * `null` WHEN THERE IS NOTHING TRUE TO SAY — no note written and no decision
+ * recorded — which drops the entry and its separator rather than delivering a
+ * heading over nothing. A brand-new conversation is exactly that case.
+ */
+export function sessionMemory(
+  standingNote: string,
+  decisions: string[],
+  tail: number = DECISION_TAIL,
+): string | null {
+  const note = (standingNote ?? '').trim()
+  if (note === '' && decisions.length === 0) return null
+  const parts = [template('session-memory')]
+  if (note !== '') parts.push(template('session-memory-note'), note)
+  if (decisions.length > 0) {
+    const shown = decisions.slice(-tail)
+    parts.push(
+      fill(template('session-memory-decisions'), {
+        entries: decisions.length,
+        shown: shown.length,
+        plural: decisions.length === 1 ? '' : 's',
+      }),
+      ...shown,
+    )
+  }
+  return parts.join('\n\n')
+}
+
+/**
+ * Where this session's own record lives, as the seed needs to read it
+ * ([[REQ-283]]).
+ *
+ * ONE CALLBACK AND ONE READ. Both zones are on one object — the standing note in
+ * the chat ticket's frontmatter, the decisions in its body — so asking for them
+ * separately would be two fetches of the same ticket on every turn. It is a
+ * callback rather than a value for the reason every other binding in this file is
+ * one: the provider must see the record as it stands when the manager assembles
+ * THIS turn, and a value captured at build is the record as it was when the
+ * site's manager was first constructed, which on a long conversation in one
+ * isolate is the empty one.
+ *
+ * `decisions` ANSWERS WHOLE ENTRIES rather than a body, so this module never
+ * learns the ledger's format. `ledger-core.ts` owns that, says so, and exports
+ * the split.
+ */
+export interface SessionMemorySource {
+  record(): Promise<{
+    /** The standing note as stored, or `''` when nothing has written one. */
+    note: string
+    /** Every recorded decision, whole and oldest first. Empty is ordinary. */
+    decisions: string[]
+  }>
+}
+
+/**
+ * Bind the two names this host's session memory is reached under ([[REQ-283]]).
+ *
+ * THE SAME BARGAIN {@link registerSiteProviders} KEEPS — the file that names a
+ * provider and the function that says what the name reaches sit together — and
+ * separate from it because the question they answer is different: those are about
+ * the SITE, these are about the CONVERSATION, and a host can have one without the
+ * other. The `1c` CLI is exactly that host, and passes `null`.
+ *
+ * REGISTERED EITHER WAY, and rendering `null` without a source. The shipped
+ * product tier names {@link SESSION_MEMORY_PROVIDER} unconditionally, so a
+ * registry that omitted it could not load the mapping at all — the same reason
+ * upstream gives for registering its own summary provider with no store. The
+ * trigger is this host's own name and could have been omitted, but is bound on
+ * the same terms so that one call answers the whole question.
+ *
+ * A FAILED READ IS SILENCE, NOT A FAILED TURN. The record is what makes a turn
+ * good, not what makes one possible, and a store that cannot be read is a reason
+ * not to claim a record rather than a reason to refuse the client an answer.
+ */
+export function registerMemoryProviders(
+  providers: Untyped,
+  source: SessionMemorySource | null,
+  transcriptPointer: string | null = null,
+): void {
+  // THE WORDS ARE THE FRAMEWORK'S AND THE CONDITION IS OURS — see
+  // {@link TRANSCRIPT_POINTER_PROVIDER}. Passed in rather than read here because
+  // this module knows no AI library; it is the same shape every other template in
+  // this file has, with the data file one rung further out.
+  providers.register(TRANSCRIPT_POINTER_PROVIDER, async () =>
+    source !== null && transcriptPointer ? transcriptPointer : null,
+  )
+  providers.register(SESSION_MEMORY_PROVIDER, async () => {
+    if (source === null) return null
+    try {
+      const { note, decisions } = await source.record()
+      return sessionMemory(note, decisions)
+    } catch {
+      return null
+    }
+  })
+  providers.register(MEMORY_TRIGGER_PROVIDER, async () =>
+    source === null ? null : template('memory-trigger'),
+  )
 }
 
 /**

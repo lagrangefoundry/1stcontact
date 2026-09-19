@@ -11,6 +11,7 @@ import {
   primingText,
   PURPOSE_ENTRY,
   registerCorpusProviders,
+  registerMemoryProviders,
   registerSiteProviders,
 } from '../tools/generate/src/cli/ai/roles'
 import primingDocument from '../tools/generate/src/cli/ai/priming.json'
@@ -187,6 +188,10 @@ async function assembledPriming(root: string): Promise<string> {
   const box = { manual: () => 'MANUAL' }
   await registerCorpusProviders(bridge, () => knowledge)(box, providers)
   registerSiteProviders(providers, { slug: 'bug65', box, signal: () => undefined })
+  // EVERY NAME THE CONFIGURATION USES, OR THE ROLE WILL NOT LOAD ([[REQ-283]]).
+  // The reminder tier names the memory trigger on every host, and `null` is the
+  // wiring of a host with nowhere to keep a record: registered, rendering nothing.
+  registerMemoryProviders(providers, null)
 
   return ai.assemble(
     new ai.ProductConfig(),

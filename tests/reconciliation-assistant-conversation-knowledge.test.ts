@@ -36,6 +36,7 @@ import { cmdNew } from '../tools/generate/src/cli/commands'
 import {
   consultantRole,
   primingText,
+  registerMemoryProviders,
   registerSiteProviders,
   PURPOSE_ENTRY,
   registerCorpusProviders,
@@ -433,6 +434,10 @@ describe('a conversation is primed with the map and the manual, not the document
     const providers = new lib.PrimingProviders()
     await registerCorpusProviders(kmBridge, () => runtime)(box, providers)
     registerSiteProviders(providers, { slug: SLUG, box, signal: () => undefined })
+    // EVERY NAME THE CONFIGURATION USES, OR THE ROLE WILL NOT LOAD ([[REQ-283]]).
+    // The reminder tier names the memory trigger on every host, and `null` is the
+    // wiring of a host with nowhere to keep a record: registered, rendering nothing.
+    registerMemoryProviders(providers, null)
     const priming: string = await lib.assemble(
       new lib.ProductConfig(),
       consultantRole(lib, providers, true),

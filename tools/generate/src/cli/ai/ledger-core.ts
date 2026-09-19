@@ -39,12 +39,21 @@ export function ledgerInstanceConfig(): Record<string, unknown> {
   return { [LEDGER_SURFACE]: { groups: ['KeepLedger'] } }
 }
 
-/** The ledger after a write — what both operations report back. */
+/** The record after a write — what every operation reports back. */
 export interface LedgerState {
   /** How many decisions the record now holds. */
   entries: number
   /** What the engagement is currently called. */
   title: string
+  /**
+   * The standing note as it now stands ([[REQ-283]]).
+   *
+   * REPORTED BY EVERY WRITE, not only by the one that sets it, because all three
+   * write to ONE object and a caller that just recorded a decision is entitled to
+   * see the record it landed in. It is also what makes `set_standing_note`
+   * verifiable without a read operation beside it.
+   */
+  note: string
 }
 
 /**
@@ -71,6 +80,62 @@ export interface LedgerDeps {
   append(render: (index: number) => string): Promise<LedgerState>
   /** Rename the engagement; report the record's state afterwards. */
   rename(name: string): Promise<LedgerState>
+  /**
+   * Replace the standing note; report the record's state afterwards
+   * ([[REQ-283]]).
+   *
+   * THE OTHER ZONE OF THE SAME RECORD, and the reason it is a third verb here
+   * rather than a second surface. The framework keeps a session's memory in two
+   * zones because their polarity differs — one bounded and rewritten in place,
+   * one unbounded and appended to — and splits them across a field and a body so
+   * that the two writes cannot clobber each other. This host has the log in the
+   * chat ticket's body already, where the knowledge base indexes it, so the note
+   * goes in that ticket's frontmatter: same invariant, one object, and the read
+   * that {@link LedgerDeps.read} already does serves both.
+   *
+   * THE TEXT ARRIVES CHECKED. {@link checkStandingNote} has already refused an
+   * oversized note, so an implementation stores what it is given.
+   */
+  setNote(note: string): Promise<LedgerState>
+  /**
+   * The record as it stands ([[REQ-283]]).
+   *
+   * THE LEDGER WAS WRITE-ONLY, and that was the defect. `record_decision` wrote
+   * what was settled into a body nothing ever read back, so the consultant
+   * recorded a decision and could not see it on its next turn — which leaves it
+   * re-deriving state it had already agreed, from the site, expensively.
+   *
+   * A READ ON THE PORT AND NOT A DECLARED OPERATION, deliberately. What the
+   * session needs is the record DELIVERED, in the seed, every turn: a tool is a
+   * capability a model may skip, and the turns it would skip it on are the long
+   * ones — which are exactly the turns where having lost the thread matters
+   * most. That is the same argument REQ-131 makes for pushing the change signal
+   * rather than leaving the model to ask for it. So this feeds a provider, and
+   * the surface gains no operation.
+   *
+   * ANSWERS THE BODY, NOT THE ENTRIES. The host knows where the record lives;
+   * the entry format is this module's ({@link renderEntry}), so splitting it is
+   * {@link ledgerEntries}' job and not a second parser in every host.
+   */
+  read(): Promise<LedgerRecord>
+}
+
+/** The engagement's record as stored — both zones, in one read. */
+export interface LedgerRecord {
+  /** The whole record, as {@link renderEntry} wrote it. Empty when nothing has. */
+  body: string
+  /** What the engagement is currently called. */
+  title: string
+  /**
+   * The standing note, or `''` when nothing has written one ([[REQ-283]]).
+   *
+   * STORED AS `frame` AND SPOKEN OF AS A NOTE, deliberately. The stored name is
+   * the framework's word for the zone, which is what a reader comparing this
+   * against `summary.js` needs; every word the MODEL reads calls it a standing
+   * note, because "frame" is framework vocabulary and the one rule this product's
+   * prose keeps is that a consultant never says one to a client.
+   */
+  note: string
 }
 
 type Params = Record<string, unknown>
@@ -101,8 +166,79 @@ export function renderEntry(
   return lines.join('\n')
 }
 
-/** The operations, bound to one host's ledger. */
-export function ledgerOperations(deps: LedgerDeps): Record<string, (p: Params) => Promise<Untyped>> {
+/**
+ * The entries in a ledger body, in order ([[REQ-283]]).
+ *
+ * SPLIT ON THE HEADING {@link renderEntry} WRITES, anchored to the start of a
+ * line, so a decision whose prose happens to contain the phrase cannot split
+ * itself in two. Anything before the first heading is dropped: the ledger is
+ * entries and nothing else, and the only way text gets in front of one is a hand
+ * edit.
+ *
+ * Each entry comes back WHOLE, heading included, because the consumer is a seed
+ * that delivers a tail of them — and a byte tail of an append-only record cuts an
+ * entry in half, losing the reasoning and keeping the sentence, which is the
+ * wrong half.
+ */
+export function ledgerEntries(body: string): string[] {
+  if (!body) return []
+  return body
+    .split(/^(?=### Decision \d+\s*$)/m)
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => /^### Decision \d+/.test(chunk))
+}
+
+/** The declared code an oversized standing note is refused under ([[REQ-283]]). */
+export const NOTE_TOO_LONG = 'NOTE_TOO_LONG'
+
+/**
+ * The standing note as it will be stored, or a refusal ([[REQ-283]]).
+ *
+ * THE CAP RULE IS UPSTREAM'S, REUSED RATHER THAN RESTATED. This host does not use
+ * `SummaryStore` — its two zones live on the chat ticket instead — but `checkFrame`
+ * is the one part of that module that is PURE: text in, text out or a throw, no
+ * store anywhere. So the bound, the byte accounting and the sentence naming both
+ * sizes come from the framework, and only the code is translated.
+ *
+ * AN ERROR, NEVER A TRUNCATION, which is the rule that had to survive not adopting
+ * the store. Upstream states the reason and it is the whole point of the zone: a
+ * silently shortened note *"loses the rejections first, which are the whole reason
+ * the zone exists"* — and a consultant whose record of what the client already
+ * turned down was quietly trimmed will re-propose it, in front of that client.
+ *
+ * BYTES AND NOT CHARACTERS, also upstream's: a JS `String.length` is UTF-16 code
+ * units, so a character cap would put this host and the framework's conformance
+ * corpus at different bounds for the same text.
+ *
+ * The thrown error carries {@link NOTE_TOO_LONG}, which the declaration declares
+ * with `host_detail` left at its default — so the model reads the declared meaning
+ * AND the two byte counts it needs in order to shorten by a known amount rather
+ * than by guesswork.
+ */
+export function checkStandingNote(text: string, lib: Untyped): string {
+  try {
+    return lib.checkFrame(text, lib.DEFAULT_FRAME_MAX_BYTES) as string
+  } catch (error) {
+    const coded = error as { code?: string; message?: string }
+    if (coded?.code !== 'frame_too_large') throw error
+    const refusal = new Error(coded.message ?? 'the standing note is over its size cap')
+    ;(refusal as Error & { code: string }).code = NOTE_TOO_LONG
+    throw refusal
+  }
+}
+
+/**
+ * The operations, bound to one host's ledger.
+ *
+ * `lib` IS HERE FOR THE CAP AND FOR NOTHING ELSE. The surface is bound with the
+ * host's AI library already ({@link ledgerSurfaceFor}), and threading it one level
+ * further is what lets {@link checkStandingNote} reuse upstream's rule instead of
+ * this file growing a second copy of a byte count and a sentence.
+ */
+export function ledgerOperations(
+  deps: LedgerDeps,
+  lib: Untyped,
+): Record<string, (p: Params) => Promise<Untyped>> {
   return {
     record_decision: (p: Params) =>
       deps.append((index) =>
@@ -114,6 +250,11 @@ export function ledgerOperations(deps: LedgerDeps): Record<string, (p: Params) =
         }),
       ),
     name_engagement: async (p: Params) => deps.rename(p.name as string),
+    // CHECKED BEFORE THE STORE IS TOUCHED, so an oversized note leaves the record
+    // byte-identical — which is what "nothing was stored" in the declared refusal
+    // has to mean to be worth saying.
+    set_standing_note: async (p: Params) =>
+      deps.setNote(checkStandingNote(p.note as string, lib)),
   }
 }
 
@@ -127,7 +268,7 @@ function ledgerToolboxClass(lib: Untyped): Promise<Untyped> {
       class LedgerToolbox extends mod.ToolboxSurface {
         constructor(deps: LedgerDeps) {
           super(LEDGER_DECLARATION)
-          for (const [op, run] of Object.entries(ledgerOperations(deps))) {
+          for (const [op, run] of Object.entries(ledgerOperations(deps, mod))) {
             ;(this as unknown as Params)[op] = run
           }
         }

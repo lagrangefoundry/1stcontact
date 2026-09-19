@@ -18,7 +18,11 @@
  * That is an honest capability difference, not a gap to paper over: there is
  * nowhere on a laptop for the record to go.
  */
-import type { LedgerDeps, LedgerState } from '../../../tools/generate/src/cli/ai/ledger-core'
+import type {
+  LedgerDeps,
+  LedgerRecord,
+  LedgerState,
+} from '../../../tools/generate/src/cli/ai/ledger-core'
 import { findChat } from './session-delta'
 import type { Ticket, TicketStore } from './tickets'
 
@@ -35,6 +39,43 @@ const ENTRY_HEADING = /^### Decision \d+$/gm
 /** How many decisions a ledger body holds. */
 export function countEntries(body: string): number {
   return (body.match(ENTRY_HEADING) ?? []).length
+}
+
+/**
+ * The chat ticket field holding the standing note ([[REQ-283]]).
+ *
+ * THE FRONTMATTER OF THE TICKET THE LEDGER IS ALREADY IN, which is the operator's
+ * decision and a better fit than either framework placement. `summary.js` splits
+ * its two zones across a comment's field and that comment's body so that
+ * *"rewriting the frame and appending to the log are then structurally different
+ * writes that cannot clobber each other"*. That INVARIANT is what matters; the
+ * comment is incidental. This host already has the log in the chat ticket's body
+ * — where the knowledge component indexes it, and a comment body is not — so the
+ * note goes in that ticket's own frontmatter and the invariant is reproduced
+ * exactly: a field patch merges and never touches the body, and the ledger's
+ * append never reads the field.
+ *
+ * AND IT REMOVES A READ RATHER THAN ADDING ONE. `SummaryStore` caches comment uids
+ * precisely because *"`comments` is a full scan of the subject's comments"*;
+ * {@link findChat} already fetches this ticket for the ledger, so the note arrives
+ * in a read this host was doing anyway.
+ *
+ * KEEPING IT OUT OF THE CORPUS IS CORRECT, not a compromise. `ticketText` indexes
+ * title and body: the ledger is the durable record and belongs in the index, and
+ * the note is a working paper rewritten many times in one session, which would
+ * feed the corpus a stream of vectors that supersede themselves.
+ *
+ * Named `frame` after the framework's word for the zone, so a reader comparing
+ * this against `summary.js` finds it; every word the MODEL reads calls it a
+ * standing note, because "frame" is framework vocabulary.
+ */
+export const FRAME_FIELD = 'frame'
+
+/** The standing note on a chat ticket, or `''`. */
+function noteOf(chat: Ticket | null): string {
+  const fields = (chat?.fields ?? {}) as Record<string, unknown>
+  const note = fields[FRAME_FIELD]
+  return typeof note === 'string' ? note : ''
 }
 
 /** An error carrying a code the ledger surface declares. */
@@ -82,7 +123,7 @@ export function chatLedger(tickets: TicketStore, sessionId: string): LedgerDeps 
       } catch (error) {
         throw conflictOrRethrow(error)
       }
-      return { entries: entries + 1, title: chat.title }
+      return { entries: entries + 1, title: chat.title, note: noteOf(chat) }
     },
 
     async rename(name: string): Promise<LedgerState> {
@@ -92,7 +133,46 @@ export function chatLedger(tickets: TicketStore, sessionId: string): LedgerDeps 
       // answer a later rename is asking for anyway. Refusing a rename to protect
       // a title would spend the client's turn on bookkeeping.
       await tickets.update({ uid: chat.uid, patch: { title: name } })
-      return { entries: countEntries(chat.body ?? ''), title: name }
+      return { entries: countEntries(chat.body ?? ''), title: name, note: noteOf(chat) }
+    },
+
+    async setNote(note: string): Promise<LedgerState> {
+      const chat = await ledgerTicket(tickets, sessionId)
+      // COMPARE-AND-SET, like the append above and unlike the rename. Two turns
+      // racing to rewrite one note is a genuine conflict — the loser's whole note
+      // is gone, not a sentence of it — which is the one place the framework
+      // insisted on it too. `update` already takes `expected_version` on the
+      // ticket, so this is the invariant the placement was chosen for rather than
+      // anything this file had to build.
+      //
+      // A FIELD PATCH AND NOT A BODY WRITE. `patch.fields` merges, so the ledger
+      // in the body is untouched and every other field on the ticket survives —
+      // which is what makes the two zones structurally unable to clobber each
+      // other rather than merely unlikely to.
+      try {
+        await tickets.update({
+          uid: chat.uid,
+          patch: { fields: { [FRAME_FIELD]: note } },
+          expected_version: chat.version,
+        })
+      } catch (error) {
+        throw conflictOrRethrow(error)
+      }
+      return { entries: countEntries(chat.body ?? ''), title: chat.title, note }
+    },
+
+    async read(): Promise<LedgerRecord> {
+      // AN UNWRITTEN RECORD IS EMPTY, NOT MISSING, which is the one place this
+      // differs from the two writes above. They raise `NO_LEDGER` because a
+      // decision that cannot be written is something the client must be told
+      // about; this one feeds the per-turn seed, and a conversation whose ticket
+      // does not exist yet — the first turn of every engagement — has simply not
+      // decided anything. Refusing here would fail the turn over its own
+      // newness.
+      const chat = await findChat(tickets, sessionId)
+      return chat === null
+        ? { body: '', title: '', note: '' }
+        : { body: chat.body ?? '', title: chat.title ?? '', note: noteOf(chat) }
     },
   }
 }

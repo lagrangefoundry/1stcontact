@@ -17,6 +17,7 @@ import {
   primingText,
   PURPOSE_ENTRY,
   registerCorpusProviders,
+  registerMemoryProviders,
   registerSiteProviders,
 } from '../tools/generate/src/cli/ai/roles'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
@@ -240,6 +241,10 @@ describe('REQ-123 — the KB reaches the session', () => {
     // registry fails at load rather than assembling a priming with a hole in it.
     await registerCorpusProviders(bridge, () => runtime)(box, providers)
     registerSiteProviders(providers, { slug: 'studio', box, signal: () => undefined })
+    // EVERY NAME THE CONFIGURATION USES, OR THE ROLE WILL NOT LOAD ([[REQ-283]]).
+    // The reminder tier names the memory trigger on every host, and `null` is the
+    // wiring of a host with nowhere to keep a record: registered, rendering nothing.
+    registerMemoryProviders(providers, null)
     const priming: string = await lib.assemble(
       new lib.ProductConfig(),
       consultantRole(lib, providers, true),

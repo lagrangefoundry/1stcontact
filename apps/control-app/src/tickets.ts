@@ -579,8 +579,9 @@ export function productTypePack(): ProductTypePack {
     ...chatSchemas(),
 
     /**
-     * Two fields added to the imported chat type: the session's change-feed cursor
-     * ([[REQ-160]]) and its unaccounted-for turn ([[BUG-121]]).
+     * Three fields added to the imported chat type: the session's change-feed
+     * cursor ([[REQ-160]]), its unaccounted-for turn ([[BUG-121]]) and the
+     * standing note it keeps about its own engagement ([[REQ-283]]).
      *
      * MERGED ONTO THE COMPONENT'S SHAPE, NOT A RESTATEMENT OF IT. The note above
      * is that a local copy of the chat schema would be free to drift from the
@@ -607,6 +608,21 @@ export function productTypePack(): ProductTypePack {
      * field for the same reason: the text, when it was asked and what became of it
      * are one fact about one turn. `session-pending.ts` says why it is not written
      * into the transcript instead.
+     *
+     * `frame` IS THE THIRD, AND IT IS HERE FOR THE SAME REASON ONE LAYER DOWN
+     * ([[REQ-283]]). It holds the short note the consultant rewrites as the shape
+     * of the work changes — what is being built, what is settled, what is out of
+     * scope, what was rejected and why — which is a property of the CONVERSATION
+     * in exactly the way the two above are, and the conversation is this ticket.
+     *
+     * A FIELD BESIDE A BODY, and the pairing is the whole design. The body is the
+     * ledger ([[REQ-171]]): append-only, unbounded, and indexed into the client's
+     * knowledge base. The note is bounded and rewritten in place, and it must not
+     * be indexed — it supersedes itself many times in one session. Splitting them
+     * across a field and a body is upstream `summary.js`'s own structural
+     * argument, applied to the one object this host already had: a field patch
+     * merges and never touches the body, and the ledger's append never reads the
+     * field, so the two writes cannot clobber each other.
      */
     chat: {
       ...chatSchemas().chat,
@@ -614,6 +630,7 @@ export function productTypePack(): ProductTypePack {
         ...chatSchemas().chat.fields,
         kb_cursor: { type: 'string' },
         pending_turn: { type: 'string' },
+        frame: { type: 'string' },
       },
     },
 

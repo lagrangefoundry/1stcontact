@@ -244,19 +244,42 @@ describe('REQ-171 — the purpose is short and names what to read', () => {
 // ── the engagement record ────────────────────────────────────────────────────
 
 /** A ledger that records what it was asked to do, and nothing else. */
-function fakeLedger(): LedgerDeps & { written: string[]; names: string[] } {
+function fakeLedger(): LedgerDeps & { written: string[]; names: string[]; notes: string[] } {
   const written: string[] = []
   const names: string[] = []
+  // THE SECOND ZONE OF THE SAME RECORD ([[REQ-283]]). The port grew a third verb
+  // and a read when the standing note landed beside the decisions on one ticket,
+  // so this double grew with it — kept in memory here for the same reason the
+  // other two are: what these cases assert is what the SURFACE does with what the
+  // model sent, and a store would only be a second thing to get right.
+  const notes: string[] = []
+  const state = (title: string): LedgerState => ({
+    entries: written.length,
+    title,
+    note: notes[notes.length - 1] ?? '',
+  })
   return {
     written,
     names,
+    notes,
     async append(render: (index: number) => string): Promise<LedgerState> {
       written.push(render(written.length + 1))
-      return { entries: written.length, title: names[names.length - 1] ?? 'session-id' }
+      return state(names[names.length - 1] ?? 'session-id')
     },
     async rename(name: string): Promise<LedgerState> {
       names.push(name)
-      return { entries: written.length, title: name }
+      return state(name)
+    },
+    async setNote(note: string): Promise<LedgerState> {
+      notes.push(note)
+      return state(names[names.length - 1] ?? 'session-id')
+    },
+    async read() {
+      return {
+        body: written.join('\n\n'),
+        title: names[names.length - 1] ?? 'session-id',
+        note: notes[notes.length - 1] ?? '',
+      }
     },
   }
 }
@@ -335,8 +358,16 @@ describe('REQ-171 — what was decided is written down', () => {
   it('test_UAT_FC_REQ-171_the_ledger_never_reaches_the_site', () => {
     // A third surface for the reason fidelity is a second: `l1-surface.json` is
     // the documented way to change a site, and nothing here changes one.
+    //
+    // THE THIRD OPERATION IS [[REQ-283]]'s AND IT CHANGES NOTHING ABOUT THIS
+    // CLAIM: the standing note lives on the same chat ticket the ledger does, so
+    // the surface still reaches one conversation's own record and no site.
     const decl = LEDGER_DECLARATION as unknown as { surface: string; operations: Array<{ op: string }> }
     expect(decl.surface).toBe('ledger')
-    expect(decl.operations.map((o) => o.op).sort()).toEqual(['name_engagement', 'record_decision'])
+    expect(decl.operations.map((o) => o.op).sort()).toEqual([
+      'name_engagement',
+      'record_decision',
+      'set_standing_note',
+    ])
   })
 })
