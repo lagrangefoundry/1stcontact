@@ -6,7 +6,7 @@ title: 'Ingestion: A File Handed To The Platform Becomes Stored, Classified, Fin
   Material'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:06:12.315229+00:00'
-updated_at: '2026-09-19T14:34:38.965818+00:00'
+updated_at: '2026-09-19T14:40:41.418002+00:00'
 completed_at: null
 last_field_updated: status
 status: updated
