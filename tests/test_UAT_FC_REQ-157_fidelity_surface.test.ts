@@ -619,14 +619,18 @@ describe('REQ-157 AC6 — capture_site refuses what it must, and says so', () =>
   })
 
   it('test_UAT_FC_REQ_157_the_guard_caps_redirects_and_size_and_records_both', () => {
-    // The caps are properties of a whole navigation, not of any one request,
-    // which is why the guard is stateful and why one belongs to one capture.
+    // The redirect cap counts HOPS ALONG ONE CHAIN (BUG-127). It once counted
+    // distinct origins seen over a whole capture, under the same name — which
+    // refused every real website, since a host plus a CDN plus two font hosts is
+    // already more origins than any sane redirect cap allows hops.
     const guard = egressGuard({ maxRedirects: 2, maxBytes: 100 })
-    expect(guard.allow('https://a.test/')).toBe(true)
-    expect(guard.allow('https://a.test/style.css')).toBe(true) // same origin: not a hop
-    expect(guard.allow('https://b.test/')).toBe(true)
-    expect(guard.allow('https://c.test/')).toBe(false)
-    expect(guard.tripped).toBe(true)
+    expect(guard.allow('https://a.test/', { kind: 'document' })).toBe(true)
+    expect(guard.allow('https://a.test/style.css', { kind: 'subresource' })).toBe(true)
+    expect(guard.allow('https://b.test/font.woff2', { kind: 'subresource' })).toBe(true)
+    expect(guard.allow('https://c.test/pixel.gif', { kind: 'subresource' })).toBe(true)
+    expect(guard.tripped).toBe(false)
+    // A chain that keeps hopping is the thing this is for, and is still caught.
+    expect(guard.allow('https://d.test/', { kind: 'document', redirectDepth: 3 })).toBe(false)
     expect(guard.refusals.map((r) => r.reason)).toContain('redirect-cap')
 
     const sized = egressGuard({ maxBytes: 100 })
@@ -635,8 +639,10 @@ describe('REQ-157 AC6 — capture_site refuses what it must, and says so', () =>
     sized.record(60)
     expect(sized.tripped).toBe(true)
     expect(sized.refusals.map((r) => r.reason)).toContain('response-cap')
-    // Once tripped it stays tripped: a capture that has blown its budget must
-    // not limp on and return a half-loaded page as though it were the page.
+    // The byte budget IS a whole-capture budget, so once spent it stays spent: a
+    // capture that has blown it must not limp on and return a half-loaded page
+    // as though it were the page. What it must also not do is return that
+    // silently — see BUG-127's verdict.
     expect(sized.allow('https://a.test/')).toBe(false)
   })
 

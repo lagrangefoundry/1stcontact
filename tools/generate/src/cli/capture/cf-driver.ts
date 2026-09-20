@@ -40,7 +40,7 @@
  * a crash. Reuse lives strictly *below* the driver.
  */
 import { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
-import type { EgressGuard } from './egress-guard'
+import type { EgressGuard, EgressRequest } from './egress-guard'
 import type {
   BrowserDriver,
   BrowserDriverFactory,
@@ -58,11 +58,24 @@ const DEFAULT_SESSION_TIMEOUT_MS = 120_000
 
 // ── the puppeteer-shaped surface, named rather than imported ─────────────────
 
-/** One intercepted request, as puppeteer presents it. */
+/**
+ * One intercepted request, as puppeteer presents it.
+ *
+ * The last three are optional because they are only needed to *classify* a
+ * request (BUG-127), and a fake that does not implement them still gets the URL
+ * rules — it just cannot say "this is the page", which is the reading that
+ * cannot wrongly condemn a capture.
+ */
 export interface PuppeteerRequest {
   url(): string
   respond(response: { status: number; contentType: string; body: string | Uint8Array }): Promise<void>
   continue(): Promise<void>
+  /** `'document'`, `'image'`, `'font'`, … */
+  resourceType?(): string
+  /** The frame this request belongs to — an iframe's is not the main one. */
+  frame?(): unknown
+  /** Every hop already followed to get here; its length is the chain's depth. */
+  redirectChain?(): readonly unknown[]
 }
 
 /** One response the page received, as puppeteer presents it. */
@@ -90,6 +103,8 @@ export interface PuppeteerPage {
   waitForNetworkIdle(options?: { idleTime?: number; timeout?: number }): Promise<void>
   screenshot(options: { fullPage: boolean; type: 'png' }): Promise<Uint8Array | string>
   content(): Promise<string>
+  /** Optional — used only to tell a top-level navigation from an iframe's. */
+  mainFrame?(): unknown
 }
 
 export interface PuppeteerContext {
@@ -217,6 +232,30 @@ class CfBrowserDriver implements BrowserDriver {
   }
 
   /**
+   * BUG-127 — what the guard cannot read off a URL: whether this request IS the
+   * page, and how many redirect hops led to it.
+   *
+   * The same two facts the Playwright driver supplies, from the same place, for
+   * the same reason: the main document's refusal replaces the page with the
+   * refusal text, and a redirect cap is a cap on hops along one chain — not on
+   * how many hosts a page happens to pull from, which is what it used to be and
+   * why every real site was refused. An iframe is a document too, so the frame
+   * is checked; a request whose library does not expose these is read as a
+   * subresource, which can be refused on its own merits but can never, alone,
+   * condemn the capture.
+   */
+  private classify(req: PuppeteerRequest): EgressRequest {
+    const redirectDepth = req.redirectChain?.()?.length ?? 0
+    if (req.resourceType?.() !== 'document') return { kind: 'subresource', redirectDepth }
+    const main = this.page?.mainFrame?.()
+    const frame = req.frame?.()
+    if (main !== undefined && frame !== undefined && frame !== main) {
+      return { kind: 'subresource', redirectDepth }
+    }
+    return { kind: 'document', redirectDepth }
+  }
+
+  /**
    * Fulfil in-process or let it go to the network, per {@link OriginResolver}'s
    * per-host rule. A resolver error is answered 500 rather than continued: a
    * silent fall-through would send the request to the gated origin, which is the
@@ -229,7 +268,7 @@ class CfBrowserDriver implements BrowserDriver {
     // on, which produces a screenshot with a visible hole and a journalled
     // reason, instead of a navigation that stalls until the timeout.
     const guard = this.opts.guard
-    if (guard && !guard.allow(req.url())) {
+    if (guard && !guard.allow(req.url(), this.classify(req))) {
       return void (await req
         .respond({
           status: 403,
