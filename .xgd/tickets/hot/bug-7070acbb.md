@@ -6,10 +6,10 @@ title: 'Local dev: Access identity and defect filing are mutually exclusive, so 
   consultant silently has no filing tools'
 created_by: EPIC-19
 created_at: '2026-09-20T18:54:46.840610+00:00'
-updated_at: '2026-09-20T19:00:32.482483+00:00'
+updated_at: '2026-09-20T19:09:41.700958+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: high
   auto_merge_back: true
