@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-20T18:55:06.033404+00:00'
+updated_at: '2026-09-20T19:00:57.196182+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -13,6 +13,7 @@ fields:
   priority: medium
   chat_comment: comment-d8169cbf
 ---
+
 
 ## What this epic is for
 
@@ -843,34 +844,41 @@ the window recoverable.
   production, and make an orphan discoverable instead of silent.
 
 
-### Finding 6 — the consultant cannot file a defect, because identity and filing cannot both be on (2026-09-20)
+### Finding 6 — the consultant cannot file a defect, because filing is a property of how the dev server was launched (2026-09-20)
 
 [[REQ-273]] landed and is wired correctly end to end. The consultant still holds
-only the client's five read operations, and told the operator so when asked to
-file a bug directly.
+only the client's five read operations, and said so when asked to file a bug
+directly.
 
-The cause is not the surface. `developmentFor` composes it only when
-`DEVELOPMENT_TICKETS_URL` is present; that var is set only by `1c builder`; and
-the only way to get a real identity locally — `bin/access-sim` — documents a
-recipe that launches `wrangler dev` by hand, which starts no filing service.
-`devEnvLayering` emits exactly two `--env-file` arguments and has no slot for the
-simulator's output, so the two cannot be combined. Identity or filing, never both.
+There is one real constraint here and the rest is an accident. The Worker runs in
+workerd, which has no `child_process`, so it cannot run `xgd` itself and some
+Node process must do it on its behalf. That is all that is genuinely hard —
+`xgd ticket create` needs no identity, no credential and no session.
 
-Confirmed empirically rather than reasoned: `.dev.vars.local` was written one
-minute before the wrangler tmp dirs, and a full loopback port sweep finds no
-filing listener anywhere on the machine.
+What we built on top of it is the defect: the Node process was hung off
+`1c builder`, given a random port and a bearer minted per run, and those values
+handed to wrangler as `--var` at launch. So filing is a property of HOW THE DEV
+SERVER WAS STARTED rather than of the deployment, and any launch that is not
+`1c builder` silently turns it off. `filing.ts` defends the per-run values by
+saying a committed one would be stale — which is circular, since a value is only
+stale because it was randomised, and the "developer running wrangler by hand gets
+no filing surface" it names as the safe outcome is the defect itself.
 
-Two behaviours that are each correct compose into a silence: the Worker composes
-no surface when it has no project, and the model is never told about a capability
-it was not granted — so the assistant reports, truthfully, that it cannot file,
-and nothing distinguishes that from a mis-launched dev server.
+`bin/access-sim` is what made that bite: getting a real identity locally means
+launching wrangler by hand with a third `--env-file`, and `devEnvLayering` has
+only two slots. Access is not the cause, only the thing that forced a hand
+launch; anything else that did would break filing identically.
 
-A workaround exists today and is undocumented: every value `access-sim
---print-env` emits is deterministic at defaults, so those lines can live in the
-secrets file, which `devEnvLayering` already layers last. [[BUG-124]] carries the
-real fix.
-- [[BUG-124]] — Local dev: Access identity and defect filing are mutually
-  exclusive, so the consultant silently has no filing tools. Let `1c builder`
-  layer an extra env file, fold the simulator into the one command that already
-  owns the dev server's lifetime, and make an absent filing surface legible
-  somewhere other than a banner printed by the command that was not run.
+The absence is silent. The Worker composing no surface where it has no project is
+correct, and the model never hearing about an ungranted capability is correct —
+but together they leave an operator unable to tell a missing capability from a
+mis-launched dev server.
+
+[[BUG-124]] carries the fix: make the address a SETTING rather than a launch
+artefact — fixed port, token in `.dev.vars`, service startable on its own — so no
+launch path can turn filing off and `1c builder` stops being load-bearing.
+- [[BUG-124]] — Filing is a property of how the dev server was launched, so the
+  consultant silently has no filing tools. Fixed loopback port and a token in
+  `.dev.vars` in place of a random port handed over as `--var`, a filing service
+  that can run independently of `1c builder`, and an absent filing surface made
+  legible somewhere other than a banner printed by the command that was not run.
