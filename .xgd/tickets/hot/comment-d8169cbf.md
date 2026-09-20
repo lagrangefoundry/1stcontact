@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:41:28.731156+00:00'
+updated_at: '2026-09-20T19:48:36.144801+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2768,5 +2768,13 @@ Can you create an REQ for this please?
 #### Claude
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message
+
+<!-- xgd-turn id="a89b7a04-bf80-42d1-8910-0050bdec8216-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T19:48:34.762363+00:00" -->
+#### You
+I think drop the browser quota until it becomes a problem - I don't think it will - we should focus on tokens that is our scarce resource to manage.
+
+Can you create an REQ for this please?
 
 <!-- xgd-chat-end -->
