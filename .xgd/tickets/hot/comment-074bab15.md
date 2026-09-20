@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-283
 created_by: xgd
 created_at: '2026-09-19T19:34:01.151420+00:00'
-updated_at: '2026-09-20T18:25:33.272046+00:00'
+updated_at: '2026-09-20T18:25:33.810977+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -156,5 +156,11 @@ I re-read the ticket mid-implementation and rebuilt against the operator's **DEC
 - The ticket's original "What to do" list is now superseded in the body, with the supersession stated explicitly.
 
 **Tests** — workers project 1230/1230 green; node project's 6 failures are pre-existing (verified against a stashed tree: repo-tree scans and an EISDIR from an untracked dir). Six existing suites needed `registerMemoryProviders(providers, null)` added to their hand-built registries — that's the role loader refusing an unregistered provider name, working as designed.
+
+<!-- xgd-turn id="043d6c13-2c01-4246-b1ef-83a368d86caf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-19T20:14:12.458674+00:00" -->
+#### You
+**No session scope** on the agent axis (open within the tenant). The barrier is `forTenant`, and it's the reach REQ-228 already decided on; an allow-set can't be computed before the first turn archives a ticket. <-- what does this mean?
 
 <!-- xgd-chat-end -->
