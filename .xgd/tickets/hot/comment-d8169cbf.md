@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T00:36:32.850573+00:00'
+updated_at: '2026-09-20T00:37:22.743111+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2135,5 +2135,23 @@ Want me to scope the constant change?
 <!-- xgd-chat role="user" ts="2026-09-20T00:36:32.661662+00:00" -->
 #### You
 PLease just change the constant now thanks
+
+<!-- xgd-turn id="7e6fba89-b098-4279-9ccc-3404068e147e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T00:37:22.458953+00:00" -->
+#### Claude
+**Done.** `MAX_PRIMING_CHARS` is now `200_000` in `tools/generate/src/cli/ai/host-core.ts:739`.
+
+The two tests that touch it import the constant rather than hardcoding `60000`, so both assertions (`toBeLessThan(MAX_PRIMING_CHARS)`) still hold and still mean what they meant.
+
+I rewrote the doc comment rather than just swapping the digits, because the old rationale was internally sound and had simply expired — it sized against an 11,000-character manual that's now ~30,000. The new comment records three things:
+
+- **What broke**: assembly reached 65,925 at `km-mechanism` and every session refused to open.
+- **Why the guarded thing isn't expensive**: the cache boundary is the last entry, so the whole seed is in the cached prefix and `_seedForTurn` only re-assembles past that marker — built once per session, then read from cache at a one-hour TTL. ~17k tokens, paid once, against a 1M window.
+- **Why the framework's own 200,000 rather than a fresh local guess**: the old comment declined the default because *"a limit nobody chose is a limit nobody notices being approached"* — and then nobody noticed this one being approached either, because a constant can't warn. Noticing belongs to REQ-169's gauge, which reports what a request actually costs.
+
+Overflow is still a loud failure naming the entry with no truncation path, which is what makes a backstop safe rather than negligent.
+
+Two notes: this is an unticketed change at your instruction, so it has no UAT of its own and won't have matrix coverage — worth a ticket later if you want it recorded. And the builder bundle doesn't need rebuilding for this one; it's host code, not `src/builder/*.js`.
 
 <!-- xgd-chat-end -->
