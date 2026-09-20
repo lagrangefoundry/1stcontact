@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T02:10:47.687456+00:00'
+updated_at: '2026-09-20T02:12:47.312420+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2488,5 +2488,16 @@ So put the sim's two values in the **secrets file**, not in your shell — an ex
 Check `bin/access-sim`'s Usage block at line 47 for its exact recipe; it may already tell you to do precisely this, in which case the sim just needs re-running to re-emit current values (the ISS carries its port, which changes per run).
 
 **Not a bug** — the empty-vars default is deliberate, and `dev-env.ts` even documents the consequence of losing `.dev.vars`. The gap is that this mode is silent: you get a plausible-looking builder scoped to the platform's own tenant rather than a refusal. That *is* arguably worth a ticket — "unconfigured local dev looks like a working signed-out session" — if it bites you again.
+
+<!-- xgd-turn id="8507ae40-b855-40bd-9dfb-f4955a5b8e1d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T02:12:47.159194+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % ./bin/access-sim:159
+zsh: no such file or directory: ./bin/access-sim:159
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
