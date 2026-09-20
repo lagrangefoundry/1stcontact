@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-20T19:26:24.530025+00:00'
+updated_at: '2026-09-20T19:54:09.096234+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -779,6 +779,11 @@ accumulation alone.
   digest, so the consultant never has to look to orient. The consultant's fourth
   recommendation, and the only one that removes the NEED to re-read rather than
   reducing its cost.
+- [[REQ-286]] — Drop the browser quota. It counts page loads, and what is scarce
+  is context: a capture costs ~0 tokens and is charged eight, while a picture is
+  free at the meter and rides in every turn after. Removal, not a smaller number —
+  it comes back as a rate limit only if evidence ever asks for one. Supersedes
+  [[REQ-206]]'s rate-limiting decision and its two budget UATs.
 - lagrange-framework **REQ-168** — bound a warm API conversation: apply `window()`
   in flight, age images out to pointers after **2** turns, give the pointer a
   host-supplied way back (the REQ-149 `display` pattern), **and ship the occupancy
@@ -926,7 +931,31 @@ the line before filing.
   the client with no reason attached. One shape — what the backend produced and
   what the caller was told come apart, and the caller pays for the difference.
 
-Still open and deliberately not filed: the **capture budget**. Forty page loads
-per conversation, no warning, hard stop mid-task, and — until [[BUG-127]] — spent
-on captures that produced nothing viewable. The cap has a real purpose; the way it
-arrives does not. Under discussion.
+### Finding 8 — the capture budget meters the wrong currency (2026-09-20)
+
+The exhaustion the consultant hit was real; the instrument that produced it is
+wrong in a way raising the number would not fix. Checked against what each
+operation actually returns:
+
+| | browser acquisitions | tokens into the conversation |
+|---|---|---|
+| `capture_site` | **8** | ~0 — a bundle name, a url and counts |
+| `screenshot` of an already-captured page | **0** | a whole image, **re-sent every turn after** |
+| `compare` | 0 | numbers only |
+
+So the most token-expensive operation in the system is exempt by design —
+`browserBudget`'s doc says so as a feature — and the cheapest one, going to a
+webpage, is charged eight. Three further problems compound it: [[REQ-126]] removed
+session recycling, so a per-session quota on a site's permanent builder
+conversation is a *lifetime* quota; the count is in-memory per isolate, which its
+own doc admits makes it a burst bound that resets on an unobservable event, so
+nothing about it is learnable; and the cost the header names — metering,
+concurrency cap, acquisition rate limit — is a rate, while the guard is a
+quantity. In the observed session sixteen of the forty went into [[BUG-127]]'s
+black rectangles.
+
+The decision is to remove it rather than redesign it: *drop the browser quota
+until it becomes a problem — we should focus on tokens, that is our scarce
+resource to manage.* If runaway browser spend ever appears, it returns as a rate
+limit with evidence attached. [[REQ-286]] carries the removal; the metering that
+matters is already in flight in [[REQ-284]], LF REQ-168 §2 and §4, and [[REQ-283]].
