@@ -5,10 +5,10 @@ type: request
 title: Published revisions are immutable by enforcement, not by convention
 created_by: EPIC-17
 created_at: '2026-09-17T21:34:35.066365+00:00'
-updated_at: '2026-09-17T22:09:04.446803+00:00'
+updated_at: '2026-09-20T18:41:18.053424+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-bed5a03b
