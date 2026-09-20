@@ -6,7 +6,7 @@ title: 'Capture budget: drop the browser quota — context, not page loads, is t
   resource'
 created_by: EPIC-19
 created_at: '2026-09-20T19:53:00.120338+00:00'
-updated_at: '2026-09-20T19:53:34.149913+00:00'
+updated_at: '2026-09-20T20:00:21.153727+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -91,10 +91,10 @@ evidence attached**, not as a session quota.
 - [[REQ-284]] — the cost of a picture is stated at the point of call, in tokens,
   in `fidelity-surface.json`: *"Looking is the most expensive thing you do, and
   you pay for it again on every turn after this one."* Already landed.
-- **lagrange-framework REQ-168 §4** — the occupancy gauge, so the consultant can
-  see context pressure as a number rather than infer it.
-- **lagrange-framework REQ-168 §2** — age images out to pointers after two turns,
-  which is the mechanism that actually bounds what a screenshot costs.
+- **lagrange-framework REQ-169** — the occupancy gauge, so the consultant can see
+  context pressure as a number rather than infer it.
+- **lagrange-framework REQ-168** — apply the window in flight and age images out to
+  pointers, which is the mechanism that actually bounds what a screenshot costs.
 - [[REQ-283]] — the summary store, which is what makes anything falling out of the
   window recoverable.
 
