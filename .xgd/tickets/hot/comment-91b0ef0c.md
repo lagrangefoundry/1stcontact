@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T22:03:55.252301+00:00'
+updated_at: '2026-09-20T22:14:38.052035+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1164,5 +1164,57 @@ Want me to file a child bug for the two UX defects — disabled-means-two-things
 <!-- xgd-chat role="user" ts="2026-09-20T22:03:55.178649+00:00" -->
 #### You
 yes please
+
+<!-- xgd-turn id="1dcbaad5-41a4-4542-8b52-b797ff40eed2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T22:14:37.143864+00:00" -->
+#### Claude
+Creating the ticket now.
+
+Now the implementation.
+
+All five fail without the fix and pass with it. Now the regression scope.
+
+Now the merge back.
+
+**BUG-130** — filed, free-coded, merged, at `free_coded`.
+
+```
+BUG-130   repro console: a held control and a working one are the same greyed button
+          EPIC-12 · free_coded · 2 points · v0.2.296
+          e563f3cb7a  (ancestor of xgd-working, verified)
+```
+
+## What changed
+
+**The reason a control is inert is now in the markup**, not inferred by the stylesheet. Every disabled button carries `data-inert="running"` or `data-inert="held"`, emitted through one helper, and the cursor is a rule keyed on it:
+
+```css
+button[disabled] { cursor: not-allowed; opacity: .5 }
+button[disabled][data-inert="running"] { cursor: progress }
+```
+
+`progress` is now reachable only from the state that is actually working. `running` wins when both apply — it's the one that's true about the machine. The release button is never greyed by the hold it lifts.
+
+**The poller re-computes the reason with the state.** It already re-computed `disabled` every tick; a reason set only at render time would be a lie one second after a round ends — exactly the moment you arrived at.
+
+**Attribute order is deliberate:** `disabled` before `data-inert`, so the `data-held="1" disabled` pair REQ-272 and BUG-120 match as contiguous text stays contiguous. Adding a fact to the markup doesn't get to invalidate the evidence standing on it.
+
+**The hold sentence** now reads *"Both continuations — [run again] and [recapture] — are held until that implementation lands"*. The clause REQ-272's UATs match is unchanged.
+
+## Tests
+
+`tests/test_UAT_FC_BUG-130_inert_reason.test.ts`, 5 UATs. The third one extracts the poll script **from the served HTML** and runs it against the console's real `/state` with a stale `running` reason planted on a held button — the DOM is the only stand-in.
+
+All five fail against the pre-fix source and pass after it (I checked both directions). Regression scope: all 19 suites importing the console, **212 passed**.
+
+One thing worth knowing: four of those suites initially failed in the fresh worktree with `Cannot find module './generated/ticketing'`. That's a gitignored build artifact absent from any new worktree, not my diff — I copied it in from the main checkout and all 19 went green. Noted in memory.
+
+## Two things for you
+
+1. **Your running console still has the old code.** The fix only reaches you on a restart — and restarting is free here, since the hold survives it via `implemented.json`.
+2. **Left out deliberately:** moving the ⏸ release block *inside* the continuation group so the explanation and the greyed buttons are one visual block. It's a plausible third fix, but it moves DOM placement BUG-120 just settled and wasn't what you agreed to. Say the word if you want it.
+
+The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
