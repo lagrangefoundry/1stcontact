@@ -423,9 +423,25 @@ export class ReproConsole {
       : 'the ticket it filed'
     return {
       n: held.n,
+      /**
+       * BOTH CONTINUATIONS, NAMED ([[BUG-130]] behaviour 3).
+       *
+       * This sentence used to name [run again] alone. [recapture] was held all
+       * the same — it carries `data-held="1"`, the poller keys on that, and
+       * [[BUG-120]] rendered the two as one group precisely because they are the
+       * same kind of act — and the wording simply predated the grouping.
+       *
+       * The omission is worst in the state that most needs the page to be
+       * straight with the operator: against a bundle behind `CAPTURE_SCHEMA`,
+       * [recapture] is the control that can move the numbers and [run again]
+       * provably cannot, so the page warned about a stale reference, offered two
+       * controls, and then explained the hold in terms of the one that is not
+       * the answer.
+       */
       waitingFor:
-        `Iteration ${held.n} filed ${what}. [run again] is held until that implementation lands — ` +
-        `the next iteration exists to measure it, so running one before it lands measures nothing new.`,
+        `Iteration ${held.n} filed ${what}. Both continuations — [run again] and [recapture] — are held ` +
+        `until that implementation lands: the next iteration exists to measure it, so running one before ` +
+        `it lands measures nothing new.`,
       releaseHref: '/release',
     }
   }
