@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:27:20.461641+00:00'
+updated_at: '2026-09-20T01:33:43.147087+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2268,5 +2268,11 @@ If deployed filing does turn out to matter, there's a route that needs no new in
 That keeps the information barrier the ticket cares about, keeps the client's project KB clean, and costs one tenant id rather than a service to run and secure.
 
 Worth noting on REQ-273 so the "hosted ticket server" line doesn't get read as the only path? It's frozen at `ready_to_reconcile`, so it'd be a comment.
+
+<!-- xgd-turn id="d2fca2ad-4e63-48e5-861b-bc59832cc33e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T01:33:42.994885+00:00" -->
+#### You
+Deployed filing is a problem for the deployed system. I critically need something on the dev system than can file tickets and we don't need to over design it
 
 <!-- xgd-chat-end -->
