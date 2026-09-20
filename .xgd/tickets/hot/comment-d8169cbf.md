@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T21:31:55.068936+00:00'
+updated_at: '2026-09-20T21:40:39.716193+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2860,5 +2860,60 @@ Error: You've hit your session limit · resets 3:50pm (America/Los_Angeles)
 <!-- xgd-chat role="user" ts="2026-09-20T21:31:52.671279+00:00" -->
 #### You
 ok help me out the LF chat has just stopped working - no error messages chat just returns immediately with no response - did all our context management changes land?
+
+<!-- xgd-turn id="fe008c7a-449c-4d2f-8014-9201ad0672f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T21:40:39.129819+00:00" -->
+#### Claude
+I'll check what landed and then trace the silent-return.
+
+Diagnosed. Two separate answers, and the second is not what you feared.
+
+## 1. Yes — everything landed
+
+| | |
+|---|---|
+| REQ-283 memory/summary | `181f744499` |
+| REQ-285 page digest | `0cf8632494` |
+| REQ-284 pricing prose | `5c5795e10b` |
+| BUG-129 priming ceiling → 200k | `f39a431275` |
+| BUG-127 capture redirects, BUG-128 digest, BUG-126 image store | `087bafe2f0`, `64fd8db5ae`, `2773c602b9` |
+| LF REQ-168 warm trim + image ageing | installed — `claude_api.js:332` binds `windowTurns`, `imageTurns`, `maxLiveImages` into `boundDialogue` |
+| LF REQ-169 occupancy gauge | installed; `claude-opus-5` resolves to 1,000,000 |
+
+The installed framework is byte-identical to the framework tree except the `claude-fable-5` rename. The live worker bundle is from 13:20, i.e. current.
+
+**And the machinery works.** I minted an Access token off the sim and ran a real turn against Gigabyte Alchemy: it answered in one round trip — `input 511, cache_read 28,953, cache_creation 16,842`. Priming is ~46k tokens, cached, well under the raised ceiling.
+
+## 2. The LF chat is jammed on a stuck turn lease
+
+I reproduced it exactly:
+
+```
+POST /b/biz_5b1017…/api/ai/prompt
+→ data: {"kind":"done","content":"","meta":{"queued":true,"message_id":"1885607b…"}}
+```
+
+1.9 seconds, no text. And `openSession` on that site reports **`live: true`**.
+
+The mechanism is `manager.js:772` — `claimTurn` returned `null`, so the library did the deliberate thing:
+
+> *Lost the race. Degrade into the Queue feature rather than refusing or — far worse — running a second concurrent turn (§4).*
+
+Your turn `dac34c0b…` never released its claim. The transcript's last assistant text is 21:33:01, then the tool record shows `list_changes` called **four times with the same `{"since":138}`** — 21:33:56, 21:34:01, 21:34:07, 21:34:14 — and then nothing. The lease times out after 30 s with a 5 s heartbeat, and it's been minutes, so the producer generator is still alive and heartbeating while making no progress: blocked, almost certainly on a model request that never returned.
+
+Two things then conspire to make it silent. The client handles `live` and rejoins a turn that will never speak; and nothing in `chat.js` reads `queued` at all, so a queued prompt renders as absolutely nothing.
+
+## Fix it now
+
+**Restart `1c builder`.** The junction is `memoryJunctions()` — RAM scoped to one isolate (`ai.ts:595`) — so the claim, the heartbeat and the queued message all die with the process, and the session re-seeds from the durable archive. No assets rebuild needed. You'll need the access-sim up as before.
+
+## Two disclosures
+
+I ran a diagnostic turn against **Gigabyte Alchemy** — it appended a real "pong" exchange to that conversation. And my LF probe is sitting as a queued control record; it's never drained to the archive, so the restart discards it rather than replaying "pong" into your Lagrange Foundry transcript.
+
+One thing I noticed while testing and am less sure about: `openSession` answered `ready: true` for a site in **another tenant** when I called it without the `/b/<id>` prefix, while `/api/ai/prompt` correctly refused the same id via `hasDraft`. The refusal is in the right place, so nothing leaks — but the two routes disagree about whether that id names anything.
+
+Want me to record this on EPIC-19 — the stuck-lease failure mode, the invisible `queued` frame, and that `openSession`/`streamPrompt` asymmetry?
 
 <!-- xgd-chat-end -->
