@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T19:11:30.241608+00:00'
+updated_at: '2026-09-20T19:13:28.476878+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1081,5 +1081,27 @@ Say the word and I'll file it and land the fix here — or file it only, if you'
 <!-- xgd-chat role="user" ts="2026-09-20T19:11:28.925239+00:00" -->
 #### You
 please create the bug
+
+<!-- xgd-turn id="3e83dc49-a440-4aaf-9b7b-4f0b75f763f3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T19:13:26.520881+00:00" -->
+#### Claude
+**BUG-125** (`bug-a1cafa46`) — *repro console: a stored round written before REQ-276 takes the whole page down on open*
+
+- parent `EPIC-12` (`epic_parent: epic-bf282b3d`), `created_by: EPIC-12`
+- `priority: high`, `story_points: 2`, `auto_merge_back: true`, `needs_review: false`
+- status `draft` — **it needs your flip to `ready_to_implement` from the dashboard**; the CLI refuses that status as operator-only (dispatcher trigger), which is correct.
+
+The body carries the reproduction (`GET / → POST /open → GET / → 500`), the stack down to `filingsOf`/`console.ts:1768`, the three `outcome.json` files with their four-key `ticketsRead` entries, and the `as AiOutcome` line that lets the compiler disagree with the disk.
+
+Two things I scoped deliberately wider than the crash, so the fix doesn't have to come back:
+
+**It's the read boundary, not one missing default.** `violations` and `observations` are already defaulted on that same line — each patched in as it broke. Behaviour 1 asks `readOutcome` to normalise everything it read, the way `readIterations` already does for the manifest, rather than adding a third `?? []`. I cited the console's own `RegionReportFile` comment in the ticket, because it states the rule the console applies to `1c`'s artifacts and not to its own: *"a missing `bbox` costs the caption, not the page."*
+
+**Old rounds must read as unclassified, not as checked.** Behaviour 2 pins that the class-split clause drops out for pre-REQ-276 rounds and no violation is manufactured against them — the unclassified-ticket check stays in `confirm()` on the live path. Without that in the body, a fix could defensibly default the missing field to a queue and silently file nine old tickets under a class nobody assigned.
+
+Acceptance is four checks: the stored run renders (page plus `/state`, `/iteration/<n>/page`, `/iteration/<n>/ticket`, `/iteration/<n>/diff/`), no split and no violation for those rounds, a current outcome still renders its split, and one malformed entry costs only itself.
+
+The verified patch is still at `.xgd/tmp/readOutcome-defectClasses.patch` if you want the console working before the ticket gets picked up — but note it's the crash fix only; the malformed-entry and normalise-every-field parts of behaviours 1 and 3 belong to the implementation, and it carries no UAT, so applying it without the ticket's branch is drift `test_fix` would eliminate. Working tree is clean apart from your pre-existing `host-core.ts` edit.
 
 <!-- xgd-chat-end -->
