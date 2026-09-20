@@ -5,10 +5,10 @@ type: request
 title: 'Rename the assistant role: caretaker -> consultant'
 created_by: xgd
 created_at: '2026-09-02T20:48:27.159106+00:00'
-updated_at: '2026-09-11T23:43:04.726712+00:00'
+updated_at: '2026-09-20T18:32:28.636972+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 5
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.46
+  bundled_in: bundle-2ae753f2
 ---
 
 # Rename the assistant role: caretaker -> consultant
