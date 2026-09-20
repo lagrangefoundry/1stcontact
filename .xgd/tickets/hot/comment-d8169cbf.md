@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:20:10.277930+00:00'
+updated_at: '2026-09-20T19:27:17.286325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2628,5 +2628,61 @@ Workaround if you want filing back this afternoon: the three lines from `access-
 While we are fixing the access bug, can you read the last few turns of the LF transcript - and help create (1) the bugs it has listed verbatim and (2) bugs for the recent issues with site capture
 
 Then we need to discuss the "capture budget" it is a bad UX for this to run out ( though I see the value.
+
+<!-- xgd-turn id="22bb698e-7599-4ce5-9b25-00298c835c80-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T19:27:17.213146+00:00" -->
+#### Claude
+Diagnosed all of them down to the line. Three are ours, one is upstream. Filing.
+
+Four filed. Now the budget.
+
+## What I filed
+
+| | |
+|---|---|
+| **BUG-126** | `edit_image` has never worked — the handle we give the plugin has two methods, the edit path needs five |
+| **BUG-127** | Capture unusable against real sites — the egress guard counts origins as redirects |
+| **BUG-128** | The per-turn state digest lags the session's own writes |
+| **lagrange-framework BUG-65** | Image generation: transparency requested, reported successful, unusable *(upstream code, so upstream ticket)* |
+
+Two were diagnosable to the line, and both are sharper than the consultant could know:
+
+**BUG-126** — `generatedMaterialStore` returns, by its own annotation, `Pick<TicketStore, 'create' | 'attach'>`. Upstream's `_source()` calls `get`, `attachments`, `read_attachment`. So `edit_image` has *never* worked here and couldn't have. Generation works because it only touches the two we supply. The `Untyped` plugin boundary is the one place TypeScript is off, and the derived grant then offers the operation automatically because the surface declares it — a capability we can never fulfil, offered every turn.
+
+**BUG-127** is the capture one, and it's worse than "burns budget":
+
+```js
+// Documents, not subresources: a page with forty images is not forty
+// redirects, and counting them as such would refuse ordinary sites.
+const documents = new Set<string>()
+...
+documents.add(new URL(url).origin)
+if (documents.size > maxRedirects) {   // MAX_REDIRECTS = 5
+```
+
+The comment states the rule; the code doesn't implement it. `allow()` runs on *every* request, so that set collects every font host, CDN and beacon. **Any real site is over five origins.** And once `tripped` is set, nothing is allowed for the rest of the capture — so later navigation passes get their *main document* fulfilled with `403 refused by egress policy`, which is the black rectangle. The SSRF control (`classifyUrl`) is a separate function and is untouched by any of this.
+
+---
+
+## The capture budget
+
+You're right that it's bad UX, and I think the diagnosis is narrower than "the cap is wrong."
+
+**The cap itself is well-judged.** `SESSION_BROWSER_BUDGET = 40`, counting *acquisitions* not operations — so listing references, describing one, screenshotting an already-captured one and comparing two are all free without any of them knowing a budget exists. That's a genuinely elegant piece of design. And the refusal message is one of the best in the codebase: it names what still works and tells the model not to retry.
+
+**What's wrong is the denomination.** Four things, in order of how much they hurt:
+
+**1. A third of the budget went into black rectangles.** Two captures × 8 = 16 of 40, spent on BUG-127's refusal pages. Fix that and this session probably never hits the wall. Worth doing first and re-measuring before changing the cap.
+
+**2. The unit of spend is wrong for the intent.** A capture costs 8 because a responsive ladder is 8 navigations. But "show me a style comp" needs *one viewport*, not eight. Three comps = 24 acquisitions = 60% of the budget in a single tool sequence. Give `capture_site` a depth: a look costs 1, the full ladder costs 8 and you spend it when you're going to *compare* against it. That alone turns three comps from 24 into 3.
+
+**3. No gauge.** REQ-284 prices screenshots in *prose* ("this is the most expensive call"), and the live-remaining-figure half went upstream to LF REQ-168 §4 — but both are about **context**, not browser acquisitions. Nothing tells the consultant it has 8 looks left. One integer on a result it already reads.
+
+**4. The wall arrives with no approach.** A warning at ~75% converts a hard stop into a conversation: *"I have two captures left — which two of these three sites matter most?"* That's the actual UX fix. A cap you can see coming and negotiate around is fine; one that lands mid-task is not.
+
+I'd leave the burst-vs-lifetime scope alone — per-isolate resets are unpredictable, but the defence is sound and a lifetime bound costs a durable read-modify-write per acquisition.
+
+**My recommendation:** fix BUG-127, then do (2) and (4) as one ticket — cheaper looks plus an approach to the wall — and leave the 40 as it is. Want me to scope that, or do you read the cap itself as too low?
 
 <!-- xgd-chat-end -->
