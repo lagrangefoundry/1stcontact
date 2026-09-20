@@ -5,10 +5,10 @@ type: bug
 title: 'Chat upload: a file dropped on "Put it on the site" is unusable to the assistant'
 created_by: xgd
 created_at: '2026-09-01T22:31:24.397792+00:00'
-updated_at: '2026-09-16T03:09:09.672843+00:00'
+updated_at: '2026-09-20T18:32:27.222196+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -21,6 +21,7 @@ fields:
     main_sha: null
   version: 0.2.41
   story_points: 3
+  bundled_in: bundle-2ae753f2
 ---
 
 ## Symptom
