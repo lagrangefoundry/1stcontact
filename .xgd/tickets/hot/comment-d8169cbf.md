@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T21:40:39.716193+00:00'
+updated_at: '2026-09-20T22:02:35.769369+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2915,5 +2915,15 @@ I ran a diagnostic turn against **Gigabyte Alchemy** — it appended a real "pon
 One thing I noticed while testing and am less sure about: `openSession` answered `ready: true` for a site in **another tenant** when I called it without the `/b/<id>` prefix, while `/api/ai/prompt` correctly refused the same id via `hasDraft`. The refusal is in the right place, so nothing leaks — but the two routes disagree about whether that id names anything.
 
 Want me to record this on EPIC-19 — the stuck-lease failure mode, the invisible `queued` frame, and that `openSession`/`streamPrompt` asymmetry?
+
+<!-- xgd-turn id="fd58916b-cc75-4215-9c80-784d7e3b07c1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T22:02:35.571494+00:00" -->
+#### You
+When I upload an asset to the Site tabe I get a message: 📎 **3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png**
+
+Added, and it's on your site as `3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png`.
+
+Can you create an REQ to change that last sentence to: Added, and it's on your site as IMAGE-23
 
 <!-- xgd-chat-end -->
