@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:36:00.582808+00:00'
+updated_at: '2026-09-20T01:53:20.161985+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2324,5 +2324,11 @@ That one restart picks up both outstanding things:
 - **`MAX_PRIMING_CHARS = 200_000`** — `host-core.ts` is Worker code, so wrangler reloads it
 
 **No `./bin/1c assets` needed.** That's only for `src/builder/*.js` browser code, and neither change touched it.
+
+<!-- xgd-turn id="3c722c5d-fea2-4f5d-874d-2c435266e236-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T01:53:19.691206+00:00" -->
+#### You
+When I restart the builder and reload the page I have lost my business selector. Bug ticket?
 
 <!-- xgd-chat-end -->
