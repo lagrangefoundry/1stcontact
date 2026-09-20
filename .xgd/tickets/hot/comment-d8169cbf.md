@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:34:14.094648+00:00'
+updated_at: '2026-09-20T19:41:23.083216+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2753,5 +2753,13 @@ Drop my earlier "keep the 40 as it is."
 One genuine fork, and it's your call: **drop the browser quota entirely** and rely on a rate limit plus the token meter, **or** keep a quota as a runaway-loop backstop set high enough never to bite a working session. I lean to the first — the loop it's guarding against is a rate phenomenon, and a second instrument for it is what produced this mess — but the second is the conservative option and I'd not argue hard against it.
 
 Say which, and I'll fold the whole thing into one ticket.
+
+<!-- xgd-turn id="a98d8f2a-0d0d-4111-8184-58e51c873ce1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T19:41:22.694696+00:00" -->
+#### You
+I think drop the browser quota until it becomes a problem - I don't think it will - we should focus on tokens that is our scarce resource to manage.
+
+Can you create an REQ for this please?
 
 <!-- xgd-chat-end -->
