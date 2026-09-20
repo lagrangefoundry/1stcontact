@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:53:20.161985+00:00'
+updated_at: '2026-09-20T01:54:34.476987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2330,5 +2330,34 @@ That one restart picks up both outstanding things:
 <!-- xgd-chat role="user" ts="2026-09-20T01:53:19.691206+00:00" -->
 #### You
 When I restart the builder and reload the page I have lost my business selector. Bug ticket?
+
+<!-- xgd-turn id="3c722c5d-fea2-4f5d-874d-2c435266e236-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T01:54:34.256122+00:00" -->
+#### Claude
+Let me look before filing — it could be a symptom rather than the bug.
+
+Data's fine — you own 4 businesses and all membership rows are intact. So it's not the list. Let me check the browser bundle.
+
+Found it — and this corrects my earlier advice.
+
+**Not a bug — a stale browser bundle.** And I gave you the wrong advice earlier; that's on me.
+
+The evidence:
+
+| | |
+|---|---|
+| `dist-assets/builder/` (what the browser gets) | **13:37** — `app.js` 86,263 |
+| `src/builder/` (source) | **13:42** — `app.js` **87,202**, plus `api.js` and `chat.js` |
+
+Commit `d8321b9d05` at **13:42:22** — *"chase a chat stream that stops without ending its turn"* — landed five minutes *after* your last assets build and touched `app.js` and `api.js`. `app.js` is where the chrome mounts, including the business switcher. You're running a Worker from 13:42 against browser JS from 13:37.
+
+**Run `./bin/1c assets`, then hard-reload.**
+
+I told you no assets rebuild was needed — true of the `MAX_PRIMING_CHARS` change I made, but wrong as advice for the restart, because that chat-stream fix had landed in between and does need it. I should have checked the bundle against the sources rather than reasoning only about my own edit.
+
+Your data is untouched, for the avoidance of doubt: `usr_e5753a297af367bf0c59c3ec1d137d77` still owns all four businesses — 1st Contact, Lagrange Foundry, XGD and Gigabyte Alchemy — with active owner memberships. The selector renders whenever `businesses.length > 1`, so it'll be back as soon as the bundle matches.
+
+If it's still missing after `./bin/1c assets` and a hard reload, then it *is* a bug and the browser console will say why — send me what it prints.
 
 <!-- xgd-chat-end -->
