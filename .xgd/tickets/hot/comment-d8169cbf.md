@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T02:10:00.554593+00:00'
+updated_at: '2026-09-20T02:10:47.687456+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2444,5 +2444,49 @@ So let me tell you what I see:
 I am in the builder looking at the 1st Contact site - which I should not see if I am not logged in
 The account avatar in the top right is showing  a ? and says Account not signed in
 Instead of a business selctor I see a title biz_51a67...
+
+<!-- xgd-turn id="d69c0819-fc08-4f83-8f28-53745c40b11e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T02:10:47.388510+00:00" -->
+#### Claude
+That's conclusive — and it's not a rejected token. Let me confirm the last piece.
+
+Every symptom matches one branch exactly. **Your token isn't being rejected — it's never being looked at.**
+
+```ts
+return {
+  person: null,                                              // → "Account not signed in", "?" avatar
+  businesses: [{ id: scope.businessId,
+                 name: scope.businessId, ... }]              // → title reads "biz_51a67…", not "1st Contact"
+}
+```
+
+`name: scope.businessId` is literally why you're seeing a raw id where a business name belongs. And `TENANT_ID = "biz_51a6746495c8057e886ff98d4208e6b9"` in `wrangler.toml:250` — that's 1st Contact, which is why you're looking at that site without signing in. As `access-sim`'s own header puts it: *"`admit` never runs, no person is resolved, and `resolveScope` answers from `TENANT_ID`."*
+
+So the builder is in **unconfigured-local-dev mode**: `isUnconfiguredLocalDev` is true, which requires **both** Access vars to be empty — and your `.dev.vars` sets exactly that:
+
+```
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
+```
+
+The Worker never reaches the verification code, so none of those reason strings could ever appear. That's why "reconnecting" the sim changed nothing — nothing is asking it anything.
+
+## The fix
+
+`bin/access-sim:159` prints the two lines you need:
+
+```
+ACCESS_TEAM_DOMAIN="${ISS}"
+ACCESS_AUD="${AUD}"
+```
+
+Those have to reach the Worker *and beat* `.dev.vars`, which is the bit that's biting you. `devEnvLayering` passes `--env-file .dev.vars` **first** and the secrets file **second**, and later files win — so `.dev.vars`'s empty strings will override anything layered before them, and only the secrets file (`$HOME/Documents/secrets/1c.dev.env`, or `$SECRETS_ENV_VAR`) wins after.
+
+So put the sim's two values in the **secrets file**, not in your shell — an exported shell var loses to `--env-file`. Then restart the builder.
+
+Check `bin/access-sim`'s Usage block at line 47 for its exact recipe; it may already tell you to do precisely this, in which case the sim just needs re-running to re-emit current values (the ISS carries its port, which changes per run).
+
+**Not a bug** — the empty-vars default is deliberate, and `dev-env.ts` even documents the consequence of losing `.dev.vars`. The gap is that this mode is silent: you get a plausible-looking builder scoped to the platform's own tenant rather than a refusal. That *is* arguably worth a ticket — "unconfigured local dev looks like a working signed-out session" — if it bites you again.
 
 <!-- xgd-chat-end -->
