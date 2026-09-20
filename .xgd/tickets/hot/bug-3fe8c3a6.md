@@ -6,10 +6,10 @@ title: A gated download link names a hardcoded host and the wrong channel, not t
   site's own address
 created_by: EPIC-10
 created_at: '2026-09-16T00:46:18.723054+00:00'
-updated_at: '2026-09-16T02:07:40.148232+00:00'
+updated_at: '2026-09-20T18:30:54.058701+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   severity: high
