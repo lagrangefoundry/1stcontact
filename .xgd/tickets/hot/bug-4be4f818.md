@@ -6,10 +6,10 @@ title: 'values-diff / gate: the reproduction-side value manifest is computed and
   with no flag to write it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T02:59:38.410536+00:00'
-updated_at: '2026-09-17T22:11:57.461719+00:00'
+updated_at: '2026-09-20T18:54:53.705336+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: medium
