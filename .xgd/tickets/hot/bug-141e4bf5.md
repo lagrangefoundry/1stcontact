@@ -6,9 +6,9 @@ title: 'Priming ceiling: the builder refuses to open because the cap was sized a
   a manual that has since trebled'
 created_by: EPIC-19
 created_at: '2026-09-20T20:00:55.786011+00:00'
-updated_at: '2026-09-20T20:06:52.946879+00:00'
+updated_at: '2026-09-20T20:07:06.282718+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -80,26 +80,35 @@ genuinely runs away is a message, not a priming quietly missing its last section
 
 ## Test plan
 
-**New UAT** —
-`test_UAT_FC_BUG-129_a_deployment_grant_primes_inside_the_ceiling`, in the
-workers suite, because that is the only place the real grant exists. It opens a
+**New UAT** — `test_UAT_FC_BUG-129_a_deployment_grant_primes_inside_the_ceiling`,
+in `tests/test_UAT_FC_BUG-129_priming_fits_the_deployment_grant.workers.test.ts`,
+because the workers suite is the only place the real grant exists. It opens a
 chat session through the Worker's own `fetch` against real D1 and R2 with the
 scripted model client, reads the system prompt off the request the backend
-actually built, and asserts:
+actually built, and asserts three things:
 
-1. the session opens at all — the failure under repair is a refusal to open, so
-   the first assertion is that it does not happen;
-2. the assembled priming is under `MAX_PRIMING_CHARS`;
-3. it is under it **with headroom** — the landscape tracks the client's knowledge
-   base and grows without anyone editing this repository, so a cap with no room
-   is a cap that fires on a working configuration.
+1. **the session opens at all** — the budget is enforced during assembly, so an
+   overflow is not a smaller priming, it is no session, and that is the symptom
+   the operator saw;
+2. **the grant is really in the manual** — `add_page`, `capture_site`,
+   `write_image` and `list_assets`, four surfaces from four plugins. Without
+   this the ceiling assertions pass on an empty manual, which is the exact way
+   the CLI-side test stayed green while production could not start. The test env
+   therefore binds `BROWSER` and `OPENAI_API_KEY` — a surface is composed only
+   where its binding exists, and nothing in the case calls either, so neither has
+   to work;
+3. **it fits, with headroom** — under `MAX_PRIMING_CHARS`, and under half of it.
 
-This is the assertion `test_UAT_FC_REQ-182_..._with_headroom` makes on the CLI
-side. The point of a second one is the grant, not the arithmetic: this one fails
-when a surface is added to the deployment and the ceiling is not revisited, which
-is precisely the event that produced the outage.
+**The headroom factor is what carries it, and the ticket should say so.** This
+runtime primes at about **41,700** characters where production reached 65,925 —
+the knowledge landscape here is a seeded tenant's, not a working client's. A
+case asserting only `< MAX_PRIMING_CHARS` would have gone green against the very
+constant that shut the builder down. Doubling is the margin that makes the
+assertion bite at this runtime's scale, and it is the same margin the CLI-side
+test uses for the same reason. Verified both ways: green at 200,000, red at
+60,000.
 
-**Regression scope**: `test_UAT_FC_REQ-182_priming_is_configuration` and
+**Regression**: `test_UAT_FC_REQ-182_priming_is_configuration` and
 `test_UAT_FC_BUG-65_priming_names_no_documents` — the two suites that import the
 constant. Both assert `toBeLessThan(MAX_PRIMING_CHARS)` rather than a literal
-60000, so both still hold and still mean what they meant.
+60000, so both still hold and still mean what they meant. 20 tests, green.
