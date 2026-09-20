@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T18:59:34.603774+00:00'
+updated_at: '2026-09-20T19:01:07.061446+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2579,5 +2579,46 @@ Fix is three items: let `1c builder` layer an extra env file (smallest thing tha
 <!-- xgd-chat role="user" ts="2026-09-20T18:59:30.748109+00:00" -->
 #### You
 I'm sorry could you approach this at a higher level I'm really confused why this is so complicated. There is no identity required to run  xgd ticket
+
+<!-- xgd-turn id="6521a4c4-5603-40d4-ab96-3b82201446b0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T19:01:05.848061+00:00" -->
+#### Claude
+You're right, and I over-engineered the diagnosis. Stepping back.
+
+## The actual shape of it
+
+`xgd ticket create` needs no identity — correct. Filing and Access have nothing to do with each other. There is exactly **one** hard constraint in the whole picture:
+
+**The Worker runs in workerd. workerd has no `child_process`. So the Worker cannot run `xgd` itself — some Node process has to do it on its behalf.**
+
+That's it. Everything else is a choice we made, and it's the wrong one:
+
+We hung that Node process off `1c builder`, gave it a **random port** and a **random bearer minted per run**, and handed both to wrangler as `--var` on the command line. That turns filing into a property of *how you launched the dev server*.
+
+And the access-sim recipe requires launching the dev server a different way. So it silently turns filing off. Access isn't the cause — it's just the thing that made you launch wrangler by hand. Anything else that did would break it identically.
+
+## The fix is to decouple, not to patch the launch
+
+Give the filing service a **fixed loopback port** and a **fixed token in `.dev.vars`**, like every other setting the Worker reads, and let it start independently of the dev server. Then no launch path can turn it off, `1c builder` stops being load-bearing, and the whole `--env-file` question disappears.
+
+The random port and per-run token were justified in `filing.ts` by "a committed value would be a stale one" — but a *fixed* value is never stale. That argument only holds because the port was random in the first place. It's circular.
+
+Let me rewrite the ticket at that altitude.
+
+BUG-124 and EPIC-19's Finding 6 both rewritten at that altitude.
+
+**The whole thing in four lines:**
+
+- Filing = running `xgd`, which needs nothing. No identity, no credential, no session.
+- The Worker is in workerd, which has no `child_process`, so a Node process must run it. **That is the only real constraint.**
+- We hung that Node process off `1c builder` with a random port and a per-run token, passed as `--var` at launch. So filing became a property of *how you started the dev server*.
+- Access-sim just happens to require starting it differently. Anything else that did would break filing the same way.
+
+**Fix:** fixed loopback port, token in `.dev.vars`, service startable on its own. Then it's a setting like every other setting, no launch path can turn it off, and `1c builder` stops being load-bearing.
+
+The one thing I'd keep from the longer version is the silence — the Worker composing no surface without a project is right, and the model never hearing about an ungranted capability is right, but together they leave you unable to tell "capability missing" from "dev server started wrong." That stays in the ticket as its own fix item.
+
+Workaround if you want filing back this afternoon: the three lines from `access-sim --print-env` are all deterministic at defaults, so paste them into `~/Documents/secrets/1c.dev.env` once and run `bin/access-sim &` plus `1c builder` normally, browsing at `127.0.0.1:8799`.
 
 <!-- xgd-chat-end -->
