@@ -12,7 +12,7 @@ import {
   type GlobalOptions,
 } from './commands'
 import { spawn } from 'node:child_process'
-import { devEnvLayering } from './dev-env'
+import { devEnvLayering, devVarsPath, readDevEnv, wranglerDevArgs } from './dev-env'
 import { localD1Check } from './d1-migrations'
 import { repoRoot } from './webui'
 import { cmdAssets, formatAssetReport } from './assets'
@@ -71,9 +71,16 @@ import {
 } from './shared-store'
 import { startBuilder } from './builder'
 // [[REQ-273]] — the listener that lets the Worker's assistant file a defect
-// into the project that builds it. Started here because `1c builder` is the
-// one Node process that lives exactly as long as the dev server does.
-import { filingVars, startFilingService, type FilingService } from './filing'
+// into the project that builds it. It has to be a Node process, because workerd
+// has no `node:child_process`; [[BUG-124]] is why nothing beyond that is true of
+// it any more — the address is a setting both `1c` and the Worker read, not a
+// value minted at launch and pushed at wrangler.
+import {
+  filingStatus,
+  provisionFilingVars,
+  startFilingService,
+  type FilingService,
+} from './filing'
 import {
   builderIsRunning,
   humanBytes,
@@ -311,11 +318,22 @@ Usage:
     Refuses to start when the local database is behind db/migrations/, naming the
     pending files and the command that applies them; --remote skips that check,
     because the deployed database is \`bin/deploy\`'s to migrate.
-    It also starts a loopback FILING SERVICE (REQ-273), so the assistant can
-    report a defect in this software into THIS project's ticket store — never
-    into the client's. Its address and a per-run bearer are passed to wrangler
-    as vars; a deployed builder has neither and gets no filing tool at all.
-    --no-filing leaves it out.
+    It also starts a loopback FILING SERVICE (REQ-273) unless one is already
+    answering, so the assistant can report a defect in this software into THIS
+    project's ticket store — never into the client's.
+    Filing no longer depends on this command: the address lives in .dev.vars, so
+    a dev server started any other way has it too (BUG-124). The banner reports
+    what is actually ANSWERING at that address rather than what this process did.
+    --no-filing starts no listener. It does not un-configure the address, which
+    this command does not own — the assistant is still offered the tool and is
+    told the project is unreachable when it uses it, which the banner also says.
+  1c filing [--port <n>] [--token <t>]
+    Starts the filing service on its own and waits. Use it when the dev server
+    is started some other way — by hand, from an editor, or alongside
+    \`bin/access-sim\`. The first run in a clone mints the bearer and writes both
+    DEVELOPMENT_TICKETS_* lines into apps/control-app/.dev.vars; after that the
+    address is a setting every launch path reads. A DEPLOYED builder has neither
+    var and gets no filing tool at all, which is correct — there is no project.
 
 System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
   1c kb build
@@ -966,21 +984,41 @@ export async function run(argv: string[]): Promise<void> {
         if (check.kind === 'unreadable') console.warn(check.message)
       }
 
-      // THE FILING SERVICE ([[REQ-273]]), started before wrangler so its address
-      // can be handed over as a var. `filing.ts` states the whole argument; the
-      // part that belongs here is why it is THIS command's job: the service has
-      // to be a Node process, it has to live exactly as long as the dev server,
-      // and this is the process that starts the dev server and waits on it.
+      // THE FILING SERVICE ([[REQ-273]]), started before wrangler — but no longer
+      // BECAUSE wrangler needs to be told about it ([[BUG-124]]). The address is
+      // in `.dev.vars` now, which wrangler reads by itself, so this command
+      // starts a listener as a CONVENIENCE and nothing depends on it doing so.
+      // Start one with `1c filing` instead and this is a no-op; start the dev
+      // server some other way and filing works anyway, which is the whole point.
       //
+      // PROVISIONED FIRST AND BEFORE WRANGLER IS SPAWNED, so a clone whose
+      // `.dev.vars` has never carried these lines gets them in time for the
+      // child to read them on this very run rather than the next one.
+      const provision = provisionFilingVars({ devVarsPath: devVarsPath(appDir), vars: readDevEnv({ appDir }) })
+      // A WRITE IS NEWS AND A FAILURE TO WRITE IS A WARNING, and they go to
+      // different streams for the reason `devEnv.warnings` does: one of them is
+      // something an operator has to act on.
+      if (provision.note) (provision.wrote ? console.log : console.warn)(provision.note)
+
       // A FAILURE TO START IS A WARNING AND NEVER A REFUSAL. Being able to file
       // a defect is not a precondition for building a site, and a dev server
       // that would not start because the shared store was not installed would
       // be trading a whole product for a capability nobody was using yet — the
       // same trade `host-core.ts` refuses when a knowledge base is missing.
+      //
+      // AN ADDRESS ALREADY IN USE IS THE SAME KIND OF WARNING. A fixed port is
+      // what makes `1c filing` and this command able to mean the same thing, and
+      // the cost of a fixed port is that they can collide; the collision is
+      // ordinary and the right answer is to leave the incumbent alone.
       let filing: FilingService | null = null
-      if (flags['no-filing'] !== true) {
+      const incumbent = await filingStatus(provision.address)
+      if (flags['no-filing'] !== true && incumbent.kind !== 'answering') {
         try {
-          filing = await startFilingService({ root })
+          filing = await startFilingService({
+            root,
+            port: provision.address.port,
+            token: provision.address.token || undefined,
+          })
         } catch (error) {
           console.warn(
             `The assistant will not be able to file development tickets: ${
@@ -990,22 +1028,19 @@ export async function run(argv: string[]): Promise<void> {
         }
       }
 
-      const args = ['wrangler', 'dev', '--port', port, ...devEnv.args]
-      // THE VAR NAMES ARE `filing.ts`'S, not restated here: they are the only
-      // contract between this Node process and the Worker, and the failure mode
-      // of two copies drifting is silent — no var, no surface, no error.
-      if (filing) args.push(...filingVars(filing))
-      // `--remote` edits the DEPLOYED database from a laptop. Local is the
-      // default because a dev loop that writes to production by default is one
-      // keystroke from losing a site; `bin/publish` seeds the local one.
-      if (flags.remote === true) args.push('--remote')
+      // NOT A SINGLE `--var` ANYWHERE ([[BUG-124]]). Everything the Worker reads
+      // comes from the env files, which a bare `wrangler dev` reads too — so the
+      // Worker's capabilities stop depending on which command launched it.
+      const args = wranglerDevArgs({ appDir, port, remote: flags.remote === true })
 
+      // WHAT IS ACTUALLY ANSWERING, not what this process did. The old line
+      // reported whether THIS command had started a listener, which is exactly
+      // the fact that is useless when the command was not the one that ran.
+      const status = await filingStatus(provision.address)
       console.log(
         `Builder (wrangler dev) on http://localhost:${port}\n` +
           `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
-          (filing
-            ? `  filing: on — the assistant can report a defect into this project (port ${filing.port})\n`
-            : '  filing: off — the assistant cannot report a defect\n') +
+          `${status.line}\n` +
           '  seed it with `bin/publish`\n',
       )
       // AFTER the banner and BEFORE wrangler's own output, which is where an
@@ -1033,6 +1068,74 @@ export async function run(argv: string[]): Promise<void> {
         // braces rather than the only thing keeping the process honest.
         await filing?.close()
       }
+      return
+    }
+
+    case 'filing': {
+      // THE FILING SERVICE ON ITS OWN ([[BUG-124]]).
+      //
+      // WHY THIS COMMAND EXISTS. The listener has to be a Node process — workerd
+      // has no `node:child_process` — and for a while the only Node process
+      // offering to be it was `1c builder`. That made being able to file a defect
+      // a property of HOW THE DEV SERVER WAS LAUNCHED: run wrangler by hand, or
+      // with `bin/access-sim`'s extra `--env-file`, and the assistant silently
+      // had no filing tool. The address is a setting now, so the last thing
+      // needed is a way to run the listener without running a dev server.
+      //
+      // IT WAITS. `1c builder` unrefs its listener because the dev server is what
+      // that process is waiting on; here the listener IS the thing being waited
+      // on, so it is ref'd and this returns only on Ctrl-C.
+      const root = repoRoot()
+      const appDir = path.join(root, 'apps', 'control-app')
+      // A `--port` THAT IS NOT A NUMBER IS A REFUSAL rather than a `NaN` in a
+      // URL, which would travel all the way into `.dev.vars` and be written down.
+      const asked = typeof flags.port === 'string' ? Number.parseInt(flags.port, 10) : undefined
+      if (asked !== undefined && !Number.isInteger(asked)) {
+        throw new CommandError({ code: 'SCHEMA_INVALID', message: `--port expects a number, got '${String(flags.port)}'.` })
+      }
+      const overrides = {
+        port: asked,
+        token: typeof flags.token === 'string' ? flags.token : undefined,
+      }
+      // PROVISION, THEN START. A clone whose `.dev.vars` has never carried these
+      // lines gets them here; one that has keeps the value it already had, so
+      // the bearer is stable across runs and the Worker does not have to be
+      // restarted every time this is.
+      const provision = provisionFilingVars({
+        devVarsPath: devVarsPath(appDir),
+        vars: readDevEnv({ appDir }),
+        overrides,
+      })
+      if (provision.note) console.log(provision.note)
+
+      const already = await filingStatus(provision.address)
+      if (already.kind === 'answering') {
+        // NOT AN ERROR. Two of these would fight over one port and the second
+        // would lose; the useful thing to say is that the first is doing the job.
+        console.log(`A filing service is already answering at ${provision.address.url}.`)
+        return
+      }
+
+      const service = await startFilingService({
+        root,
+        port: provision.address.port,
+        token: provision.address.token || undefined,
+        unref: false,
+      })
+      console.log(
+        `Filing service on ${service.url}\n` +
+          `  files into: ${root}\n` +
+          `  the assistant reads this address from apps/control-app/.dev.vars, so any\n` +
+          `  dev server started from this clone can report a defect into this project.\n` +
+          '  Ctrl-C to stop.\n',
+      )
+      await new Promise<void>((resolve) => {
+        const stop = (): void => {
+          void service.close().then(resolve)
+        }
+        process.once('SIGINT', stop)
+        process.once('SIGTERM', stop)
+      })
       return
     }
 

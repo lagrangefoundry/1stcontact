@@ -2,13 +2,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   FILING_OPS,
+  FILING_TOKEN_VAR,
+  FILING_URL_VAR,
   dispatchFiling,
-  filingVars,
   startFilingService,
   type FilingProject,
   type FilingService,
 } from '../tools/generate/src/cli/filing'
-import { httpProject } from '../apps/control-app/src/development'
+import { developmentFor, httpProject } from '../apps/control-app/src/development'
 
 /**
  * [[REQ-273]] — **how a Worker reaches the project that builds it**.
@@ -42,7 +43,12 @@ import { httpProject } from '../apps/control-app/src/development'
  *     than as a refusal.
  *  4. THE LISTENER IS LOOPBACK AND ITS VERBS ARE AN ALLOW LIST — three
  *     operations, no query, no way to name a project.
- *  5. THE ADDRESS REACHES THE WORKER under the names the Worker reads.
+ *  5. THE ADDRESS REACHES THE WORKER under the names the Worker reads. (HOW it
+ *     reaches the Worker changed in [[BUG-124]] — it was a `--var` composed by
+ *     `1c builder` and is now a line in `.dev.vars` — so the case below asks the
+ *     claim of the names themselves rather than of the composer that is gone.
+ *     `tests/test_UAT_FC_BUG-124_filing_is_a_setting.test.ts` is where the change
+ *     of mechanism is pinned.)
  */
 
 let running: FilingService | null = null
@@ -206,17 +212,22 @@ describe('REQ-273 AC4 — the listener is small on purpose', () => {
 
 // ── AC5 — the address reaches the Worker ───────────────────────────────────
 
-describe('REQ-273 AC5 — `1c builder` tells the Worker where the project is', () => {
+describe('REQ-273 AC5 — the Worker is told where the project is', () => {
   it('test_UAT_FC_REQ-273_the_vars_are_the_names_the_worker_reads', () => {
     // THE ONLY CONTRACT BETWEEN A NODE PROCESS AND A WORKERD ONE, and the
     // failure mode of the two halves drifting is silent: no var, no surface, no
-    // error anywhere. Composed once in `filing.ts` and asserted against the
-    // names `development.ts` reads.
-    expect(filingVars({ url: 'http://127.0.0.1:1234/', token: 'abc' })).toEqual([
-      '--var',
-      'DEVELOPMENT_TICKETS_URL:http://127.0.0.1:1234/',
-      '--var',
-      'DEVELOPMENT_TICKETS_TOKEN:abc',
-    ])
+    // error anywhere. The names are declared once in `filing.ts` — which is the
+    // side that writes them — and asserted here against the side that reads
+    // them, by composing the surface from an env built out of those names alone.
+    const composed = developmentFor({
+      [FILING_URL_VAR]: 'http://127.0.0.1:1234/',
+      [FILING_TOKEN_VAR]: 'abc',
+    })
+    expect(composed).not.toBeNull()
+
+    // AND A TYPO IN EITHER IS STILL SILENT, which is why the names are constants
+    // rather than literals at each site: an env carrying neither composes
+    // nothing at all, with no error anywhere to say why.
+    expect(developmentFor({ DEVELOPMENT_TICKET_URL: 'http://127.0.0.1:1234/' } as never)).toBeNull()
   })
 })

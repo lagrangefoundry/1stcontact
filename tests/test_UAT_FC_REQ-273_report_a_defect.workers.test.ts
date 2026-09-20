@@ -389,6 +389,54 @@ describe('REQ-273 AC6 — no project, no tool', () => {
   })
 })
 
+// ── BUG-124 — the address arrives as configuration, and the tool arrives with it
+
+describe('BUG-124 — a Worker reading .dev.vars is offered the filing tools', () => {
+  /**
+   * THE NAMES, SPELLED OUT ON THE READING SIDE ON PURPOSE.
+   *
+   * `filing.ts` declares them as constants because it is the side that WRITES
+   * them; this suite runs in workerd and cannot import that module (it opens a
+   * `node:http` listener), so here they are literals — which is also the honest
+   * shape, since a Worker reads whatever `.dev.vars` happened to say. The two
+   * sides are pinned together by
+   * `test_UAT_FC_REQ-273_the_vars_are_the_names_the_worker_reads`.
+   */
+  const DEV_VARS = {
+    DEVELOPMENT_TICKETS_URL: 'http://127.0.0.1:8790/',
+    DEVELOPMENT_TICKETS_TOKEN: 'minted-once',
+  }
+
+  it('test_UAT_FC_BUG-124_an_address_from_dev_vars_projects_report_bug_into_the_tool_list', () => {
+    // THE DEFECT, STATED AS THE CONSULTANT EXPERIENCED IT. Asked to file a bug it
+    // re-read its own tool definitions and found the CLIENT's five read
+    // operations and no create of any kind — because the address had been a
+    // `--var` minted by a command that was not the one that launched the dev
+    // server. A value in `.dev.vars` is read whatever launched it, so what is
+    // asserted here is the TOOL LIST rather than the composition: what the model
+    // can actually see is the thing that was missing.
+    const composed = developmentFor(
+      DEV_VARS,
+      (async () => new Response('{}', { status: 200 })) as unknown as typeof fetch,
+    )
+    expect(composed).not.toBeNull()
+    const tools = Object.keys(new lib.Toolbox([composed!.surface], composed!.granted).schemas())
+    expect(tools).toContain('ReportBug')
+    for (const tool of FILE_TOOLS) expect(tools).toContain(tool)
+  })
+
+  it('test_UAT_FC_BUG-124_with_the_address_absent_none_of_the_three_are_projected', async () => {
+    // AND THE OTHER HALF IS UNCHANGED AND MUST STAY SO. Making the address a
+    // setting must not make it a COMMITTED setting: `.dev.vars` is gitignored and
+    // per-clone, a deployed builder carries neither var, and an assistant that
+    // has never heard of filing is the correct thing for it to be.
+    expect(developmentFor({})).toBeNull()
+    const client = sessionTicketSurface(await ticketStoreFor(routerEnv(), scopeOf('bug124-absent')))
+    const tools = Object.keys(new lib.Toolbox([client.surface], client.granted).schemas())
+    for (const tool of FILE_TOOLS) expect(tools).not.toContain(tool)
+  })
+})
+
 // ── AC7 — "could not reach" and "refused" are different answers ─────────────
 
 describe('REQ-273 AC7 — a failure says whether anything was filed', () => {
