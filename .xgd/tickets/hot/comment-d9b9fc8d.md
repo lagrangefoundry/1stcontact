@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-20T22:50:37.731432+00:00'
+updated_at: '2026-09-20T22:59:28.223576+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -83,5 +83,53 @@ Ok I have changed the name of this epic to Deployment - that does not invalidate
 Specifically in the short term (i.e. now :-)) I want to do two things:
 (1) we seem to have a million build scripts and development servers - 1c <mumble>. I would like to catalog them all and discuss. I am particularly keen to understand asset and build - could we combine? Related I want to understand what kind of changes involve migrations? What changes require I run asset vs build vs server restart vs page reload....
 (2) I want to get our current system and my sites copied to Cloud Flare and I want to put LF live and 1st Live on their domains....I would like you to help me do this and discuss the flow for future changes to the sites and/or the builder?
+
+<!-- xgd-turn id="b9d586cf-f821-4d6c-899e-001e28e5ee27-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T22:59:27.479541+00:00" -->
+#### Claude
+Ticket updated (body appended, title and status untouched — still `draft`, no code changed).
+
+## (1) The catalog
+
+**Asset and build are already combined.** `bin/build` is the single path and `1c assets` is stage 2 of 4 inside it — preflight → assets → `pnpm -r build` (typecheck only, emits nothing) → per-app `wrangler deploy --dry-run --outdir dist`. There's no merge left to do in that direction.
+
+Everything divides by *what it acts on*:
+
+| Acts on | Commands |
+|---|---|
+| Code → artifacts | `bin/build`, `1c preflight`, `1c assets`, `bin/kb-release` |
+| Artifacts → cloud | `bin/deploy`, `.github/workflows/deploy.yml` (bypasses it) |
+| Content → store | `bin/publish`/`1c push` (draft → D1+R2), `1c publish` (mint a revision) |
+| Dev servers | `1c builder` :8788, `pnpm dev:public` :8787, `pnpm dev` (both), `bin/access-sim` :8799, `1c filing`, `bin/repro-console` :8710 |
+| Local store | `bin/seed`, `1c reset`, `wrangler d1 migrations apply --local` |
+| Gates | `bin/smoke`, `bin/repro-rail`, `1c gate`/`l1-gate`/`values-diff`/`diff`, `bin/access-token` |
+
+`startBuilder`/`startServe` look like servers in the tree but are test transports — a library function a test opens and closes. Not hosting.
+
+**The real gap is the dev loop.** `1c assets` copies `apps/control-app/src/builder/**` verbatim and type-strips the framework bridges. Nothing watches those inputs. `wrangler dev` watches the Worker's module graph *and* `dist-assets`, so it reloads fine — but only after you've remembered to re-run `1c assets`. The failure mode is a stale asset, which is indistinguishable from "my edit didn't work." That's the one item in the catalog that's a defect rather than a fact; the full what-requires-what table is in the ticket (§A).
+
+**Migrations happen for exactly one reason: a D1 schema change.** Sites, pages, palettes, assets, revisions, leads, zones, domains are all rows under a schema that already exists — authoring a site migrates nothing. And never edit an applied migration; always add a numbered file, because wrangler records what it ran and an edit reaches no database.
+
+## (2) Going live — what I found first
+
+I read the account directly rather than guessing, and the state is further back than the conversation has been assuming:
+
+- **Remote D1 has `0001_baseline.sql` and nothing else**, applied 2026-09-06. The repo is at 0018. Production is **17 migrations behind** — no `site_domains`, no `zones`, no `activity_log`.
+- **0 sites, 0 users, 0 revisions.** Both Workers last deployed 2026-09-06.
+- Production secrets are `ANTHROPIC_API_KEY` and `RESEND_API_KEY`. **`CLOUDFLARE_DNS_TOKEN` is absent** — which is precisely what attaching a custom domain needs (`serving.ts` writes DNS records + a runtime Worker route + the row, in that order).
+- `1stcontact.io` 404s because `APEX_SITE_KEY` is `""`. The apex is deployment *configuration*, not a `site_domains` mapping — deliberately, per `routes.ts`.
+
+Three things follow. **The empty database is the cheapest moment this will ever be** — 17 migrations against zero rows carries no data risk. **Custom domains are currently impossible**, not merely unconfigured. And **deploying from CI today would be worse than from your laptop**: `dist-assets` is gitignored and the workflow never runs `1c assets`, so it would upload an *empty* assets directory over a working builder. Child 1 in this epic isn't "incomplete", it's a loaded gun.
+
+The sequence (§C in the ticket) is nine checkable steps: `bin/build` → `bin/deploy --dry-run` → push the two missing secrets → `bin/deploy` (migrations + both Workers) → `bin/access-token` + `bin/publish --production` → mint revisions → set `APEX_SITE_KEY` and redeploy → attach any other domain via the builder → `bin/smoke`.
+
+Steady state afterwards is two lanes that must not blur: **content** (edit in the deployed builder, publish a revision, live — no deploy, no CI) and **code** (`bin/build` + `bin/deploy` today, this epic's pipeline eventually).
+
+## Two things before I touch anything
+
+**Which domain is "LF", and does the site exist?** There's no `lagrangefoundry` site in `storage/sites/` — only `1stcontact`, `gigabytealchemy`, `xgd` — and neither `lagrangefoundry.com` nor `.io` resolves. The apex path and the customer-domain path are different mechanisms, so the answer changes the work.
+
+**Say go before I deploy.** Steps 3–4 push secrets and run 17 migrations against production. I'd rather hear it from you than infer it from "help me do this."
 
 <!-- xgd-chat-end -->
