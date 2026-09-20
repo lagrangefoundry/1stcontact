@@ -6,9 +6,9 @@ title: 'edit_image has never worked: the store handed to the image plugin has tw
   methods and the edit path needs five'
 created_by: EPIC-19
 created_at: '2026-09-20T19:24:34.816301+00:00'
-updated_at: '2026-09-20T19:57:05.650859+00:00'
+updated_at: '2026-09-20T20:19:50.468808+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -70,3 +70,39 @@ Both halves are the same request from the client's side: **change a picture that
 - A read through the handle cannot reach another business's material.
 - `create` still refuses a type other than the configured one, and `attach` still refuses a ticket the handle did not create.
 - An operation the store cannot serve is not in the granted set.
+---
+
+## What was built
+
+Numbered against the Fix above. Two decisions inside it were taken here rather than in the ticket, and both are recorded because a later reader will otherwise read them as drift.
+
+**1 — the handle, widened.** `generatedMaterialStore` now returns `get`, `attachments` and `read_attachment` beside `create` and `attach`, each one resolving the name, checking the record, then asking the real store — so the scope is enforced in one place rather than three.
+
+- *The read scope is the Library's own definition of material*, `MATERIAL_TYPES` — `material` **and** `reference` — rather than the single type `create` is narrowed to. `listMaterial` reads both, so narrowing to the create type would have refused a client's own uploaded photograph filed as a reference, which is the exact request that opened this ticket (*"make my photo match the site's style"*). An attachment is readable exactly when the record it hangs off is, checked through `fields.subject_uid`.
+- *A picture answers to every name it answers to elsewhere.* The consultant spent five attempts — by document id, by the right Library id, and by filename — and a fix that took only the canonical uid would have left two of those three still failing. On a miss, the handle falls through to `resolveStoredImage`, which is [[REQ-218]]'s single rule for what a stored picture is called and already declares the catalogue label ([[REQ-280]]) and the filename as spellings of one. A second matcher here would be the drift REQ-218 exists to prevent.
+
+**2 — the gap, closed by the type rather than by an assertion.** `generatedMaterialStore` declares `ImagePluginStore` as its return type, so a handle one method short of what the surface calls is a compile error. A runtime check at composition was written and then removed: it restates what the compiler already refuses, and the one case the compiler cannot see — upstream growing a sixth call — is equally invisible at composition. That case is covered instead by a UAT that reads the shipped executor's own source for `this.store.<name>` and holds the set against `IMAGE_STORE_METHODS`. Failure lands in CI, which is earlier than composition and earlier still than a client's turn.
+
+**3 — the grant, derived from the handle as well as the declaration.** `imageGrantFor(store)` asks which capability groups the handle can actually serve and grants those. The group names are read from upstream's own `CREATE_GROUP` / `EDIT_GROUP` — added to the generated shim's export list — so no group name is spelled in this repository and a rename upstream stays a resolution error rather than a grant naming nothing. Editing subsumes generating, because an edit ends in one.
+
+**4 — the second half: the stated path, not a recipe on the copy.** Two alternatives were rejected. Giving the placed copy its own recipe makes two editable versions of one picture that drift apart, with the next republish overwriting whichever one the client last worked on. Silently redirecting the edit onto the Library original changes a picture the caller did not name and reports about a different one, which is how an assistant comes to tell a client it did something it did not do. So `NOT_EDITABLE` now **names the Library item the bytes were placed from** — read back out of `placed_as` ([[REQ-282]]), which `promoteToSiteAsset` already writes for exactly this purpose — with its title, and says the change is published back over the file on the page. That last clause is true because `republishingRecipes` already carries a Library edit to every placement: the path the sentence describes is the path that already works. Where nothing records an origin, the refusal says so and says what to do instead.
+
+### Files
+
+- `apps/control-app/src/imagegen.ts` — `ImagePluginStore`, `IMAGE_STORE_METHODS`, `imageGrantFor`, the three read methods and their scope rule.
+- `apps/control-app/src/tickets.ts` — `read_attachment` named on `TicketStore`. A call the type does not name is a call TypeScript cannot check, which was the bug's hiding place.
+- `apps/control-app/src/material.ts` — `placedOriginOf`, `placed_as` read in the other direction.
+- `tools/generate/src/cli/ai/image-core.ts` — the optional `originOf` dep and the refusal composed from it.
+- `apps/control-app/src/router.ts` — `originOf` bound to this session's site.
+- `tools/generate/src/cli/assets.ts` — the two group names added to the shim's export list.
+
+## Test plan
+
+Everything above, plus the original list:
+
+- The handle exposes exactly the method set the image surface calls, asserted directly against the calls the **shipped executor's own source** makes — so a new upstream call fails in this repository's suite.
+- `edit_image` against a Library picture by its picture id returns an edited image; against its ticket id it resolves through the attachment; **against its catalogue label or its filename it resolves through [[REQ-218]]'s one naming rule**; against an unknown id it refuses with `unknown_image` rather than crashing.
+- A read through the handle cannot reach what is not this client's material — the record, the listing of its files, and the bytes of one of them, all three refused for a `brief`, all three answered for a Library picture.
+- `create` still refuses a type other than the configured one, and `attach` still refuses a ticket the handle did not create.
+- An operation the store cannot serve is not in the granted set: the whole handle grants both groups, the old two-method handle grants generation only, and a handle that serves nothing grants nothing.
+- **A `list_image_edits` on a placed picture still refuses, and the refusal names the Library original, its title, and the fact that editing it republishes over the file on the page.**
