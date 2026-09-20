@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:58:41.787126+00:00'
+updated_at: '2026-09-20T02:00:39.364195+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2365,5 +2365,40 @@ If it's still missing after `./bin/1c assets` and a hard reload, then it *is* a 
 <!-- xgd-chat role="user" ts="2026-09-20T01:58:41.275178+00:00" -->
 #### You
 That did not fix it
+
+<!-- xgd-turn id="6dae90ab-c3f5-4b22-9cfe-0ffec6e103d9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T02:00:39.286475+00:00" -->
+#### Claude
+Migrations are in sync. Let me trace the actual data path.
+
+Found the difference. Let me confirm how the builder passes it.
+
+That's it — **not a bug.** The file says so in as many words:
+
+> `ACCESS_DEV_OPEN` skips the gate entirely — `isUnconfiguredLocalDev` returns true only when BOTH Access vars are empty — so `admit` never runs, no person is resolved… That is the right default for the suites and **useless for looking at the product, because every identity-shaped surface (the Users tab, the switcher, the portal, the terms gate) is exactly what it bypasses.**
+
+Your `.dev.vars` sets `ACCESS_TEAM_DOMAIN = ""` and `ACCESS_AUD = ""`, which is precisely that mode. And with no admission, `businessesPayload` returns a single entry:
+
+```ts
+return {
+  person: null,
+  businesses: scope
+    ? [{ id: scope.businessId, name: scope.businessId, selectable: true, lapse: null }]
+    : [],
+}
+```
+
+One business → `business.js:188` renders the single-business label, not the switcher at `length > 1`. **The switcher isn't broken; there's no identity for it to switch between.**
+
+## What you're missing is `bin/access-sim`
+
+It's a local stand-in that mints a real RS256 JWT and serves a JWKS from loopback, so `access.ts` runs every real check — `aud`, `iss`, `exp`, `nbf`, `iat` — against keys it published. Nothing in the Worker is stubbed. You point `ACCESS_TEAM_DOMAIN` at it instead of Cloudflare.
+
+So the sequence is: **start `bin/access-sim`, then the builder pointed at it** — not the builder alone. It's a second process, and restarting only the builder dropped it.
+
+Read the rest of `bin/access-sim`'s header for the exact invocation and which vars to override; it'll name them. I've deliberately not run it — that's your call, and it wants to be in your shell, not mine.
+
+Two corrections I owe you from this thread: the stale bundle was real but wasn't the cause, and my "no assets needed" was wrong for the restart generally. Sorry for the two misdirections — I should have traced the payload before offering a fix.
 
 <!-- xgd-chat-end -->
