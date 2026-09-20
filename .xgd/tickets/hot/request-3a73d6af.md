@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   story_points: 1
+  chat_comment: comment-d2af2014
 ---
 
 ## What changes
