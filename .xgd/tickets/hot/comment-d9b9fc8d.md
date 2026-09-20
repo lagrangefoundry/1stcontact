@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-17T21:57:06.397342+00:00'
+updated_at: '2026-09-20T22:50:37.731432+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -73,5 +73,15 @@ Checked. An [[EPIC-17]] pass appended a six-clause **Security notes** section to
 **One thing the appended section implies for staging but doesn't state.** `apps/public-site/wrangler.toml` sets `workers_dev = true` (EPIC-17 F8(c)), and `workers_dev` *is* inherited by a named environment — the control app's own comment says so. So `[env.staging]` that says nothing about it ships a `*.workers.dev` hostname no Access policy covers, serving the staging public site and `/api/lead` to anyone who guesses it. The Access application on the staging hostname would look correct and prove nothing. Added to §5. The production instance stays EPIC-17's item 12 and shouldn't wait on this epic.
 
 Also: §1 settles open question 9 (no production data + wipe-and-reseed is one policy, not two); §3 and §6 became children 6 and part of child 4's artifact; §5 was already the shipped behaviour of the secret hooks — restated as a control because the secrets are about to move to GitHub, which is precisely when "just put it in `[vars]` for staging" gets tempting.
+
+<!-- xgd-turn id="b9d586cf-f821-4d6c-899e-001e28e5ee27-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T22:50:37.499294+00:00" -->
+#### You
+Ok I have changed the name of this epic to Deployment - that does not invalidate anything we have discussed, it just broadens the intended scope of this ticket a little.
+
+Specifically in the short term (i.e. now :-)) I want to do two things:
+(1) we seem to have a million build scripts and development servers - 1c <mumble>. I would like to catalog them all and discuss. I am particularly keen to understand asset and build - could we combine? Related I want to understand what kind of changes involve migrations? What changes require I run asset vs build vs server restart vs page reload....
+(2) I want to get our current system and my sites copied to Cloud Flare and I want to put LF live and 1st Live on their domains....I would like you to help me do this and discuss the flow for future changes to the sites and/or the builder?
 
 <!-- xgd-chat-end -->
