@@ -6,9 +6,9 @@ title: 'Priming ceiling: the builder refuses to open because the cap was sized a
   a manual that has since trebled'
 created_by: EPIC-19
 created_at: '2026-09-20T20:00:55.786011+00:00'
-updated_at: '2026-09-20T20:06:36.398850+00:00'
+updated_at: '2026-09-20T20:06:52.946879+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.291
+  story_points: 2
 ---
 
 ## Symptom
