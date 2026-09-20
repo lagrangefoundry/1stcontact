@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T02:05:12.723063+00:00'
+updated_at: '2026-09-20T02:10:00.554593+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2435,5 +2435,14 @@ I'd be guessing from here, and the code will just tell us. Every rejection carri
 My prior, for what it's worth: the top of that list. Your `.dev.vars` sets both Access vars to `""`, and `devEnvLayering` passes it as the **first** `--env-file` with the secrets file second — later files win. So whatever normally supplies the sim's team domain and AUD has to be winning that layering, and this restart it may not be. The two mismatch reasons would confirm that instantly.
 
 Worth knowing either way: if the vars genuinely are empty, you wouldn't get a rejection at all — `isUnconfiguredLocalDev` short-circuits and `admit` never runs. So the fact that you *are* seeing a rejection means they're set to *something*, which narrows it to the mismatch or key rows.
+
+<!-- xgd-turn id="d69c0819-fc08-4f83-8f28-53745c40b11e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T02:10:00.389256+00:00" -->
+#### You
+So let me tell you what I see:
+I am in the builder looking at the 1st Contact site - which I should not see if I am not logged in
+The account avatar in the top right is showing  a ? and says Account not signed in
+Instead of a business selctor I see a title biz_51a67...
 
 <!-- xgd-chat-end -->
