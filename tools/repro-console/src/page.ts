@@ -271,6 +271,33 @@ function inlineCode(value: string): string {
   return escapeHtml(value).replace(/`([^`]+)`/g, '<code>$1</code>')
 }
 
+/**
+ * `disabled`, and WHY it is disabled ([[BUG-130]] behaviour 2).
+ *
+ * The console disables a control for two unrelated reasons and the `disabled`
+ * attribute records neither: a round is in flight and the machine is working, or
+ * the loop is held ([[REQ-272]] part 1, behaviour 3) and the machine is waiting
+ * on the operator. One says wait and the other says your turn, and an operator
+ * who cannot tell them apart presses nothing — which is the more expensive of
+ * the two mistakes, because the loop simply stalls.
+ *
+ * So the reason goes in the markup rather than in the stylesheet's guesswork.
+ * The cursor is then a rule keyed on it, and — the part a hover could not do — a
+ * test can read which state the page is in instead of a human reading a cursor.
+ *
+ * ATTRIBUTE ORDER IS LOAD-BEARING: `disabled` comes first so that the
+ * `data-held="1" disabled` pair [[REQ-272]] and [[BUG-120]] assert as contiguous
+ * text stays contiguous. This ticket adds a fact to the markup; it does not get
+ * to invalidate the evidence already standing on it.
+ *
+ * `running` wins when both apply. It is the one that is true about the machine,
+ * and the hold has not begun to be the operator's problem until the round that
+ * would have filed it has finished.
+ */
+function inertAttrs(reason: 'running' | 'held' | null): string {
+  return reason ? ` disabled data-inert="${reason}"` : ''
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -297,8 +324,18 @@ async function poll() {
     // A held button stays inert between reloads ([[REQ-272]] part 1, b3).
     // Keying on state.running alone would re-enable the held control a second
     // after the round that held it finished - the press the hold exists to stop.
+    //
+    // WHY IT IS INERT IS RE-COMPUTED WITH WHETHER IT IS ([[BUG-130]] b1). The
+    // reason is an attribute the stylesheet reads, so a reason set once at
+    // render time would be a lie one second after a round ends: the button that
+    // was busy becomes the button that is held, and would go on claiming the
+    // machine was working. Same argument as the line above, one field over.
     for (const button of document.querySelectorAll('button')) {
-      button.disabled = state.running || (state.held && button.dataset.held === '1');
+      const held = state.held && button.dataset.held === '1';
+      button.disabled = state.running || held;
+      if (state.running) button.dataset.inert = 'running';
+      else if (held) button.dataset.inert = 'held';
+      else delete button.dataset.inert;
     }
     // The AI round in flight (REQ-256 behavior 2). One element, replaced whole:
     // the transcript is short enough that diffing it would be more code than
@@ -323,7 +360,16 @@ body { font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; margin: 3rem auto; m
 form { display: flex; gap: .5rem }
 input { flex: 1; padding: .5rem .6rem; font: inherit }
 button { padding: .5rem 1rem; font: inherit; cursor: pointer }
-button[disabled] { cursor: progress; opacity: .5 }
+button[disabled] { cursor: not-allowed; opacity: .5 }
+/* WAIT AND YOUR-TURN ARE DIFFERENT INSTRUCTIONS ([[BUG-130]] behaviour 1). A
+   console disables a control for two unrelated reasons - a round is in flight,
+   or the loop is held on the operator - and a progress cursor is the idiom for
+   only the first. Rendered for the second it says the machine is working when
+   the machine is waiting, and an operator who reads the cursor stops reading:
+   the sentence explaining the hold, and the button that lifts it, sit one
+   element away. not-allowed is the default above because it is the honest
+   answer for every other way a control can be inert. */
+button[disabled][data-inert="running"] { cursor: progress }
 #status { min-height: 1.5em; margin: 1rem 0 }
 #status.failed { color: #c0392b; white-space: pre-wrap }
 #status.progress { opacity: .7 }
@@ -566,7 +612,7 @@ export function renderConsolePage(state: PageState): string {
    * both advance the loop, and the loop does not advance until the operator says
    * the implementation the last round asked for has landed.
    */
-  const inert = state.running || state.held ? ' disabled' : ''
+  const inert = inertAttrs(state.running ? 'running' : state.held ? 'held' : null)
   const next = state.iterations.length + 1
   const last = state.iterations.length
   const again = state.iterations.length
@@ -592,9 +638,9 @@ ${
    */
   const held = state.held
     ? `<p class="held">⏸ ${escapeHtml(state.held.waitingFor)}
-  <form method="post" action="${escapeHtml(state.held.releaseHref)}"><button${
-    state.running ? ' disabled' : ''
-  }>the implementation has landed</button></form>
+  <form method="post" action="${escapeHtml(state.held.releaseHref)}"><button${inertAttrs(
+    state.running ? 'running' : null,
+  )}>the implementation has landed</button></form>
 </p>`
     : ''
 
@@ -612,9 +658,9 @@ ${
 <ul>${state.stored
           .map(
             (site) => `
-  <li><form method="post" action="/open" class="inline"><input type="hidden" name="url" value="${escapeHtml(site.url)}"><button${
-      state.running ? ' disabled' : ''
-    } class="link">${escapeHtml(site.name)}</button></form></li>`,
+  <li><form method="post" action="/open" class="inline"><input type="hidden" name="url" value="${escapeHtml(site.url)}"><button${inertAttrs(
+      state.running ? 'running' : null,
+    )} class="link">${escapeHtml(site.name)}</button></form></li>`,
           )
           .join('')}
 </ul>`
@@ -673,7 +719,7 @@ ${state.filings.groups
 <body data-version="${state.version}">
 <form method="post" action="/run">
   <input name="url" value="${escapeHtml(state.url ?? '')}" placeholder="site address" autocomplete="off" autofocus>
-  <button${state.running ? ' disabled' : ''}>reproduce</button>
+  <button${inertAttrs(state.running ? 'running' : null)}>reproduce</button>
 </form>
 <p class="effect restart">starts a list rather than continuing one: a new address is captured and numbered from 1, and the site already loaded reuses the capture on disk.</p>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
