@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-18T22:32:01.281476+00:00'
+updated_at: '2026-09-20T19:02:06.403944+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1006,5 +1006,11 @@ That's BUG-120, and I gave it the price: your bundle is schema 1 against an extr
 So the concrete answer: **this once, press [recapture] instead of [run again].** It appends, same as always. You lose nothing on the page. What moves is the reference — which is the point, and why iteration 1 after it is a new baseline rather than a comparison.
 
 Record the rail first (`./bin/repro-rail record`), while the oracle is still the one all your existing numbers were measured against.
+
+<!-- xgd-turn id="613f2c48-d75c-4deb-ab9c-33c2d8a9ae6d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T19:02:04.310218+00:00" -->
+#### You
+I just fired up the reproduction server and I am seeing: Cannot read properties of undefined (reading 'length')
 
 <!-- xgd-chat-end -->
