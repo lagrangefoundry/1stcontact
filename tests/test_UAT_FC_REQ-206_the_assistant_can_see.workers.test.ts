@@ -10,12 +10,6 @@ import {
 import { storeFor } from '../apps/control-app/src/store'
 import { ticketStoreFor, type TicketStore } from '../apps/control-app/src/tickets'
 import type { Scope } from '../apps/control-app/src/scope'
-import {
-  browserBudget,
-  fidelityDeps,
-  SESSION_BROWSER_BUDGET,
-  type ShotEnv,
-} from '../apps/control-app/src/shot'
 import { previewRenderer } from '../apps/control-app/src/router'
 import { fidelityOperations } from '../tools/generate/src/cli/ai/fidelity-core'
 import { r2ReferenceStore } from '../tools/generate/src/store/r2-reference-store'
@@ -41,9 +35,9 @@ import type { ScriptedClient } from './support/scripted-model-client'
  * Worker's own route table — or through `sessionFidelity`, which is the
  * production assembly itself rather than a second one written here. The session,
  * the role, the tool loop, the manual projection, the picture resolution, the
- * in-process preview fulfilment, the reference store, the adoption and the
- * budget are all the shipped code, over a real D1 database and two real R2
- * buckets inside workerd.
+ * in-process preview fulfilment, the reference store and the adoption are all
+ * the shipped code, over a real D1 database and two real R2 buckets inside
+ * workerd.
  *
  * TWO DOUBLES, both at boundaries that are genuinely external. The Anthropic
  * client, which is the network and the seam the library's own backend is written
@@ -58,9 +52,18 @@ import type { ScriptedClient } from './support/scripted-model-client'
  *  3. REFERENCES ARE THE CLIENT'S OWN PRIVATE MATERIAL, held per business.
  *  4. A CAPTURE IS WRITTEN UP AS FINDABLE MATERIAL, because a bundle nothing can
  *     find is half a feature.
- *  5. THE SESSION'S LIVE-PAGE LOOKS ARE BOUNDED.
- *  6. A SPENT BUDGET REFUSES ONE OPERATION AND NO OTHERS.
  *  7. A DEPLOYMENT WITH NO BROWSER STILL OPENS THE CONVERSATION.
+ *
+ * TWO CLAIMS ARE GONE FROM HERE ([[REQ-286]]). This ticket also bounded a
+ * session's live-page looks at forty and proved both the ceiling and the shape
+ * of its refusal. The ceiling was removed on purpose — it metered browser
+ * acquisitions when what is scarce is the conversation's context — so those two
+ * UATs — 5 and 6 — went with it rather than being skipped, and the numbering
+ * above keeps the gap so the surviving claims still read against the acceptance
+ * criteria they were written for. What replaces them is
+ * `test_UAT_FC_REQ-286_a_conversation_can_look_as_often_as_the_work_needs`,
+ * which also carries forward the one assertion in them that was never about the
+ * budget: reading an already-captured reference asks for no browser at all.
  */
 
 const APPLIED = applySchema()
@@ -364,68 +367,6 @@ describe('REQ-206 — the builder assistant can see', () => {
     const { tickets: found } = await tickets.query({ type: 'reference' })
     expect(found.map((t) => t.uid)).toContain(adopted.uid)
     expect(found.find((t) => t.uid === adopted.uid)?.fields.bundle).toBe(bundle)
-  })
-
-  it('test_UAT_FC_REQ-206_the_session_has_a_bounded_number_of_live_page_looks', async () => {
-    // AC5. A responsive ladder is eight navigations, so a conversation that
-    // looks repeatedly turns a chat into a bill. The ceiling is the deployment's
-    // own — read from the production assembly, not chosen here.
-    const id = 'req206-budget'
-    const { slug } = await business(id)
-    const scope = scopeOf(id)
-    const { tickets } = await stores(id)
-    const browser = fakeBrowser({ png: await realPng() })
-
-    const factory = await sessionFidelity(
-      routerEnv(),
-      scope,
-      { launch: browser.launch },
-      await storeFor(routerEnv(), scope),
-      tickets,
-      ORIGIN,
-    )
-    const ops = fidelityOperations(factory!(slug))
-    const look = () => ops.screenshot({ of: { kind: 'url', url: 'https://example.com/' } })
-
-    for (let i = 0; i < SESSION_BROWSER_BUDGET; i++) await look()
-    expect(browser.launches()).toBe(SESSION_BROWSER_BUDGET)
-
-    await expect(look()).rejects.toThrow(/BUDGET/)
-    // The refusal cost nothing: a spent budget does not lease.
-    expect(browser.launches()).toBe(SESSION_BROWSER_BUDGET)
-  })
-
-  it('test_UAT_FC_REQ-206_a_spent_budget_refuses_one_operation_and_no_others', async () => {
-    // AC6. Exhausting the budget refuses THAT operation and names what ran out
-    // and what is still possible. Every other tool keeps working — a client must
-    // never lose their consultant because it looked at their page too often.
-    const id = 'req206-spent'
-    const { slug } = await business(id)
-    const { references } = await stores(id)
-    const bundle = await plantCapture(references, 'stillthere.test')
-    const store = await storeFor(routerEnv(), scopeOf(id))
-    const browser = fakeBrowser({ png: await realPng() })
-
-    const ops = fidelityOperations(
-      fidelityDeps(
-        {} as ShotEnv,
-        previewRenderer(store),
-        references,
-        ORIGIN,
-        slug,
-        { launch: browser.launch, budget: browserBudget(1) },
-      ),
-    )
-
-    await ops.screenshot({ of: { kind: 'draft' } })
-    await expect(ops.screenshot({ of: { kind: 'draft' } })).rejects.toThrow(
-      /BUDGET: this conversation has spent its 1 live-page looks/,
-    )
-    // Reading what is already captured spends nothing and still works.
-    const listed = (await ops.list_references({})) as { references: { bundle: string }[] }
-    expect(listed.references.map((r) => r.bundle)).toContain(bundle)
-    const picture = await ops.screenshot({ of: { kind: 'reference', bundle } })
-    expect(Array.isArray(picture)).toBe(true)
   })
 
   it('test_UAT_FC_REQ-206_a_deployment_with_no_browser_still_opens_the_conversation', async () => {

@@ -390,13 +390,15 @@ const CHATS = new Map<string, Promise<WorkerHost>>()
  * A FACTORY OF THE SLUG, because that is the shape `HostDeps` declares and the
  * reason it declares it: the surface is bound to one site at construction, so no
  * operation takes a site and no picture can name a site the session is not
- * about. Its budget is minted per call, which is per session — see
- * `browserBudget`.
+ * about. Nothing rations what it then does: the per-session browser quota that
+ * used to be minted here was removed on purpose ([[REQ-286]]) — what is scarce
+ * is the conversation's context, and that is metered in tokens at the point of
+ * call rather than in page loads here.
  *
  * EXPORTED for the reason {@link previewRenderer} is: a UAT that wants to prove
- * what this deployment actually hands the surface — its budget's ceiling, its
- * adoption, the bucket its references live in — must reach the production
- * assembly rather than build a second one that agrees with it today.
+ * what this deployment actually hands the surface — its adoption, the bucket its
+ * references live in, that it looks as often as the work needs — must reach the
+ * production assembly rather than build a second one that agrees with it today.
  */
 export async function sessionFidelity(
   env: RouterEnv,
