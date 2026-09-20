@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-20T20:00:31.177406+00:00'
+updated_at: '2026-09-20T20:07:15.815640+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -784,6 +784,13 @@ accumulation alone.
   free at the meter and rides in every turn after. Removal, not a smaller number —
   it comes back as a rate limit only if evidence ever asks for one. Supersedes
   [[REQ-206]]'s rate-limiting decision and its two budget UATs.
+- [[BUG-129]] — The builder refused to open: `MAX_PRIMING_CHARS` was 60,000, sized
+  when the projected manual was ~11,000, and the deployment's grant now assembles
+  to 65,925. Raised to the framework's own 200,000 — the seed is in the cached
+  prefix and paid once, so the ceiling was throttling something neither per-turn
+  nor scarce. The half that matters: the existing cap assertion runs against the
+  CLI grant and stayed green through the outage, so the new UAT is in the workers
+  suite where the real grant exists. Free-coded 2026-09-20, `f39a431275`.
 - lagrange-framework **REQ-168** — bound a warm API conversation: apply `window()`
   in flight, age images out to pointers after **2** turns, give the pointer a
   host-supplied way back (the REQ-149 `display` pattern), **and ship the occupancy
