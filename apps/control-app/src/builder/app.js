@@ -1853,12 +1853,34 @@ function refusalReason(failure) {
   return failure?.message ?? 'the upload failed'
 }
 
+/**
+ * What to call the material in the sentence that follows ([[REQ-287]]).
+ *
+ * THE LABEL IF THERE IS ONE. `IMAGE-25` is the name the client and the
+ * consultant share — the Library shows it and the assistant answers to it — so
+ * it is the one name here that is usable in the client's *next* sentence. The
+ * filename is not: it addresses the bytes under `site_assets`, and for anything
+ * off a phone or a design tool it is a uuid nobody can transcribe.
+ *
+ * THE FILENAME WHERE THERE IS NONE. Material ingested before [[REQ-280]] has no
+ * label, and that is a gap in an old Library rather than a defect. The filename
+ * is then the honest name for a thing that has no other one, and it stays in
+ * backticks because that is what it is — a storage key, not a name.
+ */
+function placedName(result) {
+  return result.label ? `**${result.label}**` : `\`${result.site_asset}\``
+}
+
 function uploadNote(file, result, failure) {
   if (failure || !result) {
     return `📎 **${file.name}** — that didn't upload: ${refusalReason(failure)}`
   }
   const lines = [`📎 **${file.name}**`]
-  if (result.site_asset) lines.push(`Added, and it's on your site as \`${result.site_asset}\`.`)
+  // THE FILENAME IS STILL THE FIRST LINE, and deliberately: it is the thing the
+  // client just dropped and the only name they already know. This sentence
+  // answers a different question — what to call it from here on — and the two
+  // names belong in the note together.
+  if (result.site_asset) lines.push(`Added, and it's on your site as ${placedName(result)}.`)
   else if (result.role === 'reference') {
     lines.push("Added. I'll read it — it won't appear on your site.")
   } else lines.push('Added.')
