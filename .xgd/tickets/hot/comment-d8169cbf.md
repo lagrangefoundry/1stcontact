@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:35:39.275339+00:00'
+updated_at: '2026-09-20T01:36:00.582808+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2305,5 +2305,24 @@ Deployed filing — dropped, per your call. I won't raise it again.
 <!-- xgd-chat role="user" ts="2026-09-20T01:35:39.090151+00:00" -->
 #### You
 So don't restart anything for me, tell me what I need to restart?
+
+<!-- xgd-turn id="8fef5441-8eeb-4a03-8bfb-ac83325dcd44-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T01:36:00.180874+00:00" -->
+#### Claude
+Just the builder:
+
+```
+./bin/1c builder
+```
+
+(or `pnpm dev:control`, same thing — kill the running one first, since the filing service binds a port and lives exactly as long as the dev server)
+
+That one restart picks up both outstanding things:
+
+- **the filing service** — started in the `1c` process, which then passes `DEVELOPMENT_TICKETS_URL` and `DEVELOPMENT_TICKETS_TOKEN` to wrangler as `--var`
+- **`MAX_PRIMING_CHARS = 200_000`** — `host-core.ts` is Worker code, so wrangler reloads it
+
+**No `./bin/1c assets` needed.** That's only for `src/builder/*.js` browser code, and neither change touched it.
 
 <!-- xgd-chat-end -->
