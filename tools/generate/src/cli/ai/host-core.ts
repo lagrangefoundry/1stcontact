@@ -1380,10 +1380,11 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     box,
     signal: () => signals.get(key),
     // [[REQ-285]] — THE PAGE ARRIVES WITH THE TURN. Built once per manager and
-    // read per turn, so it is created and discarded with the conversation it
-    // serves and {@link resetAiHost} clears it with everything else. What it
-    // costs on a turn that changed nothing is one `version` read; see
-    // `digest-core.ts` for why that is the key and not the change counter.
+    // DERIVED AFRESH on every turn it is delivered ([[BUG-128]]): it used to keep
+    // the derivation against the draft's write version, which does not move when
+    // a journal record or a publish does — so the entry whose whole job is to say
+    // *"your client edited something"* could quote a superseded number. See
+    // `digest-core.ts` for why the answer is no cache rather than a better key.
     digest: siteDigestSource(
       slug,
       { ...opts, store: deps.store },

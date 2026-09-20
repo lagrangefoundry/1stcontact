@@ -22,11 +22,25 @@
  * would be a second copy of the truth, and a second copy is the thing the
  * session was already confabulating.
  *
- * THE DERIVATION IS CACHED AGAINST `SiteStore.version`, NOT AGAINST TIME. The
- * version is bumped by every write, so a cache keyed on it cannot be stale by
- * construction: it is re-derived exactly when something changed and on no other
- * turn. That matters because this runs BEFORE the model on every turn — a turn
- * that only answers a question costs one `version` read.
+ * AND IT IS NOT CACHED EITHER, WHICH USED TO BE A CAVEAT ON THAT SENTENCE
+ * ([[BUG-128]]). The derivation was kept against `SiteStore.version`, defended as
+ * *"bumped by every write, so a cache keyed on it cannot be stale by
+ * construction"*. The version moves on a draft {@link SiteStore.write} and on
+ * nothing else, while this entry also reports the JOURNAL's counter, the page
+ * last worked on, the live revision and what is unpublished — so a journal record
+ * or a publish moved what the digest says while leaving its key still, and the
+ * digest went on quoting a superseded number for as long as nobody touched the
+ * draft. A caveat with exceptions the header did not list is worse than no
+ * caveat: the consultant read *"read off the site a moment ago"* and had no
+ * reason to check.
+ *
+ * THE COMPOSITE KEY THAT WOULD HAVE FIXED IT WAS THE WRONG SHAPE. Keying on
+ * version-and-counter-and-base-revision is correct until the next counter is
+ * added, and nothing would fail when it is. What must hold is that this entry is
+ * a fresh derivation, and the cheapest way to guarantee that is to derive it.
+ * The saving it bought — a handful of store reads on a turn that changed nothing
+ * — is paid immediately before a model call that costs seconds and cents, which
+ * is not the budget that was ever in question.
  */
 
 import { l1AssetKey, l1AssetReferences } from '@1stcontact/site-schema'
@@ -92,11 +106,19 @@ export interface SiteDigest {
    */
   focus: string | null
   /**
-   * The draft change counter as it stands.
+   * The draft change counter as it stood when this digest was derived.
    *
    * THE NUMBER IT QUOTES IS ONE IT WAS GIVEN. This is the entire answer to the
    * `since: 120` slip: `list_changes` takes a `since`, the session had no source
    * for one, and so it produced one. Now it has a source.
+   *
+   * IT IS ALSO THE DIGEST'S STAMP ([[BUG-128]]), and deliberately not a second
+   * field beside it. A digest is a snapshot taken when the turn began, so a
+   * session that writes during its turn will find `list_changes` ahead of this
+   * number — which is the passage of the turn and not a fault, but is
+   * indistinguishable from one unless the entry says what it is as of. It says
+   * so in `priming.json`'s prose, against THIS number: a separate stamp would be
+   * one more value that could disagree with the count it is meant to date.
    */
   counter: number
   /** The live revision, or `null` before the first publish. */
@@ -221,18 +243,18 @@ export async function collectSiteDigest(
 }
 
 /**
- * The digest as the per-turn provider reaches it — re-derived only when the
- * site has actually moved ([[REQ-285]]).
+ * The digest as the per-turn provider reaches it — derived afresh on every turn
+ * it is delivered ([[REQ-285]], [[BUG-128]]).
  *
- * KEYED ON `version` AND NOT ON `counter`. The counter is the JOURNAL's: it
- * moves only when a command chooses to record something, and a write that failed
- * to journal leaves it standing still. The version is bumped by every write,
- * which is precisely the question being asked — *could this digest have changed*
- * — so a cache keyed on it cannot serve a stale page shape.
+ * NOTHING IS KEPT BETWEEN TURNS, and the module header says why at length. The
+ * short version: this is the mechanism that tells a session *"your client edited
+ * something, go and look before you write"*, so it is the one place in this host
+ * where a number that is merely usually right is worth less than nothing.
  *
- * ONE PER MANAGER, which is one per site per store, so it is created and
- * discarded with the conversation it serves and `resetAiHost` clears it with
- * everything else.
+ * THE ONE STORE READ THAT IS NOT PART OF THE DERIVATION is the existence check.
+ * `version` answers `null` for a site this store does not hold, and a site that
+ * is not there is not an empty one — a digest listing no pages would tell the
+ * session the client's site had been emptied.
  *
  * A FAILED READ IS SILENCE, NOT A FAILED TURN. The digest is what makes a turn
  * cheap, not what makes one possible, and a store that cannot be read is a
@@ -244,16 +266,11 @@ export function siteDigestSource(
   opts: EditOptions,
   source: DigestSource = {},
 ): () => Promise<SiteDigest | null> {
-  let cached: { version: number; digest: SiteDigest } | null = null
   return async () => {
     try {
-      const version = await opts.store.version(slug)
       // `null` is a site this store does not hold, which is not an empty digest.
-      if (version === null) return null
-      if (cached && cached.version === version) return cached.digest
-      const digest = await collectSiteDigest(slug, opts, source)
-      cached = { version, digest }
-      return digest
+      if ((await opts.store.version(slug)) === null) return null
+      return await collectSiteDigest(slug, opts, source)
     } catch {
       return null
     }
