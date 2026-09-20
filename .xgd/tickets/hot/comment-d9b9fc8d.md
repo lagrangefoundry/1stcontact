@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-20T23:44:04.374048+00:00'
+updated_at: '2026-09-20T23:52:13.534635+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -183,5 +183,11 @@ That settles the name but not the mechanism, and two checks stand between here a
 - **There's still no site to serve.** `storage/sites/` holds `1stcontact`, `gigabytealchemy`, `xgd` — nothing for Lagrange Foundry.
 
 Note it's a **customer-shaped** domain, not the apex — `APEX_SITE_KEY` is `1stcontact.io`'s mechanism specifically. So LF going live exercises the `site_domains` path end to end, which has never run in production and needs `CLOUDFLARE_DNS_TOKEN`, which is absent from the account.
+
+<!-- xgd-turn id="1cabac85-911a-4dc0-8d23-5e722a54c42a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T23:52:12.333753+00:00" -->
+#### You
+You must be looking in the wrong place - I spent all day working on the LF site
 
 <!-- xgd-chat-end -->
