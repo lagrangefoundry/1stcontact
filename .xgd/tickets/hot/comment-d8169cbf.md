@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:01:07.061446+00:00'
+updated_at: '2026-09-20T19:20:10.277930+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2620,5 +2620,13 @@ BUG-124 and EPIC-19's Finding 6 both rewritten at that altitude.
 The one thing I'd keep from the longer version is the silence — the Worker composing no surface without a project is right, and the model never hearing about an ungranted capability is right, but together they leave you unable to tell "capability missing" from "dev server started wrong." That stays in the ticket as its own fix item.
 
 Workaround if you want filing back this afternoon: the three lines from `access-sim --print-env` are all deterministic at defaults, so paste them into `~/Documents/secrets/1c.dev.env` once and run `bin/access-sim &` plus `1c builder` normally, browsing at `127.0.0.1:8799`.
+
+<!-- xgd-turn id="22bb698e-7599-4ce5-9b25-00298c835c80-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T19:20:09.470033+00:00" -->
+#### You
+While we are fixing the access bug, can you read the last few turns of the LF transcript - and help create (1) the bugs it has listed verbatim and (2) bugs for the recent issues with site capture
+
+Then we need to discuss the "capture budget" it is a bad UX for this to run out ( though I see the value.
 
 <!-- xgd-chat-end -->
