@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-20T23:53:01.866344+00:00'
+updated_at: '2026-09-20T23:54:31.142202+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -199,5 +199,45 @@ You must be looking in the wrong place - I spent all day working on the LF site.
 http://127.0.0.1:8788/b/biz_5b101742d436573a04a2512fb7ecdbb5/preview/site_936dd7c92e5e14df694dd9a80433aa4f/draft/
 
 If that helps
+
+<!-- xgd-turn id="57eff440-acd5-4753-ae38-a3f710febdec-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T23:54:30.904853+00:00" -->
+#### Claude
+You're right — I was looking in `storage/sites/`, which is the git-tracked authoring tier. The site is in the **local D1**, built in the builder. I found it on my last query; let me confirm the details that matter for go-live.
+
+Found it — and it corrects §F5 of what I wrote, in a way that changes the go-live plan.
+
+Ticket corrected (§F5 rewritten). Here's what I got wrong and what it means.
+
+## Where it actually is
+
+I looked in `storage/sites/` — the git-tracked authoring tier. You built the site **in the builder**, so it lives in the local D1/R2 under `apps/control-app/.wrangler/state/`. Reading that store directly:
+
+- Business `biz_5b101742d436573a04a2512fb7ecdbb5` "Lagrange Foundry", site `site_936dd7c92e5e14df694dd9a80433aa4f`
+- Draft at `version` 192, **`counter` 190** — 190 changes authored in the builder
+- One page, `home.json`, 23.7 KB of L1; 17 assets (~50 MB); 220 material attachments
+- `lagrangefoundry.ai` and `www.lagrangefoundry.ai` already in `site_domains`, active, apex canonical
+- The zone **is** in the account: `cf_zone_id=36c6818172e7b61082bedd6416cb6dc2`, active
+- Last touched 2026-09-20T23:41Z
+
+So open questions 12 and 13 are both answered: the zone is there, and LF goes the **customer path** (`site_domains`), not the apex.
+
+## The part that changes the plan
+
+**§C step 5 doesn't work for this site.** It says `bin/publish --production <slug>` turns local drafts into cloud sites — but `bin/publish` reads `storage/sites/<slug>/`, and LF isn't there and never was. There is **no command today that moves this site to production**. The one content path that exists points the wrong way for the only site that needs to travel.
+
+**And the same gap is a live data-loss exposure.** `site_revisions` is empty — **zero revisions for every site in the store**, so there's no published fallback. Your day's work exists in exactly one place: a gitignored miniflare directory, with no export path. `1c reset` is documented as removing precisely that directory. No backup, and nothing in the system would notice.
+
+That's §F4 with the abstraction stripped out. The `/api/export` + `1c pull <slug>` pair I suggested as staging tooling is actually the thing standing between a day's work and one command — and simultaneously the only non-manual route to go-live. I've moved it in the ticket to be the **next child, ahead of the pipeline work**, with acceptance: pull LF into `storage/sites/lagrangefoundry/`, commit it, and have `bin/publish --production` take it unchanged.
+
+The alternatives all lose: rebuilding in the deployed builder is a day again plus the lost journal; raw `d1 export`/`r2 object put` means hand-mapping IDs and asset keys across two stores, which fails quietly as broken images; `1c builder --remote` is editing production from your laptop and still leaves the 190-change history single-copy.
+
+## Two things still block go-live after that
+
+1. **`CLOUDFLARE_DNS_TOKEN` is absent from production.** Attaching the domain writes DNS records + a Worker route + the row; the first two need it. Your `site_domains` rows are *local* — production has none.
+2. **Nothing has ever been published, anywhere.** `public-site` serves revisions, not drafts, so the first publish is also the first exercise of that path. Worth doing locally first — LF already has the addresses `/api/publish` requires.
+
+Want me to scope the `1c pull` child now? Given the backup angle I'd do that before anything else.
 
 <!-- xgd-chat-end -->
