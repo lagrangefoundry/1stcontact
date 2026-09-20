@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:54:26.980247+00:00'
+updated_at: '2026-09-20T19:55:56.864362+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2806,5 +2806,11 @@ Two notes:
 
 - I left `screenshot`'s pricing prose alone — REQ-284 already landed it in `fidelity-surface.json`, and it's already token-denominated and good (*"Looking is the most expensive thing you do, and you pay for it again on every turn after this one"*).
 - Unrelated, but it's sitting uncommitted in your tree: `tools/generate/src/cli/ai/host-core.ts` has `MAX_PRIMING_CHARS` raised 60,000 → 200,000 with a rewritten rationale. Not mine, not on any ticket I can see — worth deciding where it belongs before something sweeps it up.
+
+<!-- xgd-turn id="2f2a23dc-366c-44a2-9262-c60017aa1659-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T19:55:56.403856+00:00" -->
+#### You
+please commit it (I actually thought you made that change)
 
 <!-- xgd-chat-end -->
