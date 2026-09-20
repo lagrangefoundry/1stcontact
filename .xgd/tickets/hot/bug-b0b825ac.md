@@ -6,10 +6,10 @@ title: 'edit_image has never worked: the store handed to the image plugin has tw
   methods and the edit path needs five'
 created_by: EPIC-19
 created_at: '2026-09-20T19:24:34.816301+00:00'
-updated_at: '2026-09-20T19:24:34.816301+00:00'
+updated_at: '2026-09-20T19:57:05.650859+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: high
   auto_merge_back: true
