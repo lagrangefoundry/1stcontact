@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-20T19:00:57.196182+00:00'
+updated_at: '2026-09-20T19:26:24.530025+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -13,7 +13,6 @@ fields:
   priority: medium
   chat_comment: comment-d8169cbf
 ---
-
 
 ## What this epic is for
 
@@ -882,3 +881,52 @@ launch path can turn filing off and `1c builder` stops being load-bearing.
   `.dev.vars` in place of a random port handed over as `--var`, a filing service
   that can run independently of `1c builder`, and an absent filing surface made
   legible somewhere other than a banner printed by the command that was not run.
+
+
+### Finding 7 — the bugs the consultant wrote up but could not file (2026-09-20)
+
+Taken verbatim from the Lagrange Foundry session, now that [[BUG-124]] has
+established why none of them reached the tracker on their own. Each was traced to
+the line before filing.
+
+- [[BUG-126]] — `edit_image` has never worked in this deployment and cannot have.
+  `generatedMaterialStore` returns `Pick<TicketStore, 'create' | 'attach'>` and
+  upstream's edit path calls `get`, `attachments` and `read_attachment`. The
+  narrowing is correct and the `Untyped` plugin boundary is where a two-method
+  object meets a five-method expectation in silence. The derived grant makes it
+  worse: the surface declares the operation, so it is granted, so a capability we
+  can never fulfil is offered every turn. Five attempts spent proving it.
+  `list_image_edits` refusing site files is the second half of the same client
+  request — change a picture that already exists — and fixing the crash alone
+  leaves that wall standing.
+- [[BUG-127]] — capture is unusable against real sites. `egressGuard` counts
+  DISTINCT ORIGINS in a set named `documents`, against a cap named
+  `MAX_REDIRECTS = 5`, on every request including subresources — despite the
+  comment above it stating the opposite rule. Any site with a CDN and a font host
+  is over the cap, and once `tripped` is set nothing is allowed for the rest of
+  the capture, so later navigation passes have their MAIN DOCUMENT fulfilled with
+  `403 refused by egress policy` and screenshot as a black rectangle. Separately:
+  a refused capture returns the success shape with a `refusals` list rather than a
+  verdict, so the budget is spent before the truth arrives. The SSRF control
+  (`classifyUrl`) is untouched by any of this and must stay so.
+- [[BUG-128]] — the per-turn state digest lags the session's own writes. This is
+  [[REQ-285]]'s promise inverted: the digest exists because the session was
+  confabulating state, and a stale digest is that same failure carrying the
+  system's authority. One cause verified — `digest-core.ts` caches on
+  `SiteStore.version` and asserts it "cannot be stale by construction", but
+  `d1r2-store.ts:753` moves `counter` without touching `version`. One cause open —
+  the engagement ledger lagged by exactly one too, and it does not share that key.
+  The consultant named the consequence itself: this is the mechanism meant to say
+  *"your client edited something, go and look before you write."*
+- **lagrange-framework BUG-65** — image generation: `transparency: true` is
+  accepted, sent on the wire as `background: "transparent"`, and comes back as a
+  drawing of white paper with a drop shadow. Three generations burned. Filed
+  upstream because the backend is upstream's; no code here. Folded in with it: no
+  portrait aspect ratio in the declared set, and a content refusal that reaches
+  the client with no reason attached. One shape — what the backend produced and
+  what the caller was told come apart, and the caller pays for the difference.
+
+Still open and deliberately not filed: the **capture budget**. Forty page loads
+per conversation, no warning, hard stop mid-task, and — until [[BUG-127]] — spent
+on captures that produced nothing viewable. The cap has a real purpose; the way it
+arrives does not. Under discussion.
