@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T22:04:39.884459+00:00'
+updated_at: '2026-09-20T23:13:14.346366+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2957,5 +2957,11 @@ Three things I decided and wrote down, since they're the kind of thing reconcili
 I used `IMAGE-25` rather than your `IMAGE-23` throughout, since that's the label your actual upload was given; `IMAGE-23` belongs to MATERIAL-28.
 
 Want me to cut `free-REQ-287` and implement it? It's small — two edits plus a UAT — and the branch would be the first code to land since the chat jam, which is still unresolved unless you've restarted the builder.
+
+<!-- xgd-turn id="03ba2753-cb4b-4fd8-9c5e-4ab2acf9dc63-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T23:13:13.769695+00:00" -->
+#### You
+If I am in edit mode and I hit "Open in a new tab" the new tab shows the edit outline markers - can you please create a bug for this?
 
 <!-- xgd-chat-end -->
