@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:54:34.476987+00:00'
+updated_at: '2026-09-20T01:58:41.787126+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2359,5 +2359,11 @@ I told you no assets rebuild was needed — true of the `MAX_PRIMING_CHARS` chan
 Your data is untouched, for the avoidance of doubt: `usr_e5753a297af367bf0c59c3ec1d137d77` still owns all four businesses — 1st Contact, Lagrange Foundry, XGD and Gigabyte Alchemy — with active owner memberships. The selector renders whenever `businesses.length > 1`, so it'll be back as soon as the bundle matches.
 
 If it's still missing after `./bin/1c assets` and a hard reload, then it *is* a bug and the browser console will say why — send me what it prints.
+
+<!-- xgd-turn id="6dae90ab-c3f5-4b22-9cfe-0ffec6e103d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T01:58:41.275178+00:00" -->
+#### You
+That did not fix it
 
 <!-- xgd-chat-end -->
