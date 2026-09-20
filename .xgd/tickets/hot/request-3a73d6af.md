@@ -5,9 +5,9 @@ type: request
 title: The upload confirmation names the catalogue label, not the stored filename
 created_by: EPIC-19
 created_at: '2026-09-20T22:04:23.388789+00:00'
-updated_at: '2026-09-20T22:23:47.528310+00:00'
+updated_at: '2026-09-20T22:28:30.636744+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -16,6 +16,7 @@ fields:
   story_points: 1
   chat_comment: comment-d2af2014
 ---
+
 
 ## What changes
 
@@ -94,3 +95,37 @@ uses today, which is the honest name for a thing that has no other one.
 - **The filename is still shown**, on the first line, in bold, as the thing the
   client dropped. They recognise the file by that; they refer to it afterwards
   by the label. Both belong in the note and they answer different questions.
+
+## Two consequences of putting it in the envelope rather than beside it
+
+- **The fetch route is named the same way.** `POST /api/material/fetch` and the
+  upload route converge on `ingest` and compose the same `materialEnvelope`, so
+  material we pull on the client's behalf comes back carrying its label too.
+  That is a consequence of there being one envelope rather than a second
+  decision, and it is the right one: a fetched brief is catalogued as `DOC-1`
+  exactly as a dropped one is.
+- **`label` is on every envelope, `null` where there is none.** The key is
+  present rather than omitted, for the reason `description_model` is: a caller
+  deciding what to call the material then never has to tell absence from
+  emptiness. Nothing ingested through this path can lack a label — it is
+  allocated in the same `create` as the classification — but the row's field is
+  `string | null` and the envelope should not be the one place that claims
+  otherwise.
+
+## Test plan
+
+Two UAT files, one per half.
+
+- `tests/test_UAT_FC_REQ-287_the_envelope_carries_the_label.workers.test.ts` —
+  over real D1 and a real site store, through `route()`: a placed upload answers
+  with `IMAGE-1` and that is the same string `listMaterial` shows for the row; a
+  uuid-named drop is answered with a name the client could repeat while
+  `site_asset` still holds the uuid; an unplaced reference document is labelled
+  `DOC-1` just the same; and the fetch route's envelope carries a label too.
+- `tests/test_UAT_FC_REQ-287_the_note_names_the_label.test.ts` — through the real
+  builder and the real chat pane, with only the HTTP calls injected: the
+  placement sentence reads *"Added, and it's on your site as **IMAGE-25**."* and
+  not the uuid; the filename is still the note's first line in bold; a `null`
+  label keeps the backticked filename; and a material with a label but no
+  placement produces no placement sentence at all — the gate is unchanged, and
+  that is the way this change could have broken it.
