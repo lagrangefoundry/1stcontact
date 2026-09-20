@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T00:33:42.376585+00:00'
+updated_at: '2026-09-20T00:34:33.953843+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2095,5 +2095,39 @@ Worth a ticket once you're unblocked. Want both, or just the unblock for now?
 <!-- xgd-chat role="user" ts="2026-09-20T00:33:42.062978+00:00" -->
 #### You
 Why do we reload the manual on every turn?
+
+<!-- xgd-turn id="4dc2b457-f285-4ee0-8882-78614420dd3a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T00:34:33.290517+00:00" -->
+#### Claude
+Good question — and checking it corrects something I said.
+
+**We don't.** I mis-stated that, and the correction matters for what we do next.
+
+## The manual is assembled once and thereafter cached
+
+**Assembly is once per session.** `manager._seedForTurn` only re-assembles entries *past* the cache boundary — *"the stable sections come from the pass that opened the session, so a landscape provider is not re-read here."* The manual and the landscape are stable sections, held in `session.stableSections`.
+
+**Delivery is cached, not re-sent.** `priming.json` puts the `cache_boundary` marker **last**, and says why:
+
+> THE CACHE BOUNDARY IS LAST, which puts every entry in the cached prefix and leaves nothing volatile.
+
+So the whole seed — manual included — sits in the cached prefix. And the TTL is **`DEFAULT_CACHE_TTL = '1h'`**, not the API's 5-minute default. A session pays for it once and reads it at ~10% for the following hour.
+
+So when I said REQ-284 "added 1,242 characters to every turn" — **wrong.** It added 1,242 characters to the one-time seed, then ~124 characters' worth of cache reads per turn. Negligible.
+
+## Which reframes the failure entirely
+
+The 60,000 budget isn't protecting against a per-turn cost. It's a **guard on the assembled seed's size** — and it was calibrated when the manual was 11k.
+
+The actual cost profile today: ~66,000 characters ≈ 17k tokens, paid once per session at full rate, then cached at ~1.7k-token-equivalent per turn. Against Opus 5's 1M window that is nothing.
+
+**So the ceiling is the bug, not the manual.** The thing it's guarding is cheap, cached, and assembled once — and it's now refusing to open a session over a cost that barely exists.
+
+That also downgrades the "real fix" I proposed last turn. Surface prose is *not* an unbudgeted per-turn cost; it's a one-time cached cost. A budget per surface would be solving a problem the cache already solved. What's left is much smaller: the 60,000 constant is stale, and nothing told us it was being approached.
+
+My recommendation is now simpler and more confident: **raise it to the framework's 140,000 and don't build the budget machinery.** The one thing worth keeping from that idea is a warning before the wall — REQ-169's gauge is the natural place, since it already reports what a request costs.
+
+Want me to scope the constant change?
 
 <!-- xgd-chat-end -->
