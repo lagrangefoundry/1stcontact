@@ -36,11 +36,14 @@
  * does not change".
  *
  * {@link httpProject} is that HTTP client, written against the three methods the
- * surface calls. Today the thing answering is `1c builder`'s own filing service —
- * a loopback listener in the operator's `1c` process, which holds the real
- * `XgdProject` and is therefore the one place a subprocess is spawned. The day
- * there is a hosted ticket server, the answer is an address in `[vars]` rather
- * than a line of code here.
+ * surface calls. Today the thing answering is the local filing service — a
+ * loopback listener in a `1c` process (`1c filing`, or `1c builder` as a
+ * convenience), which holds the real `XgdProject` and is therefore the one place
+ * a subprocess is spawned. WHICH `1c` STARTED IT IS NOT THIS FILE'S BUSINESS AND
+ * NO LONGER ANYONE'S ([[BUG-124]]): the address is configuration, read from the
+ * same env files as every other var. The day there is a hosted ticket server, the
+ * answer is a different address in that same configuration rather than a line of
+ * code here.
  *
  * THREE CONSEQUENCES WORTH STATING PLAINLY:
  *
@@ -270,12 +273,20 @@ export interface DevelopmentEnv {
   /**
    * Where the filing service is listening, or absent.
    *
-   * SET BY `1c builder` FOR THE DEV SERVER, which starts the service in its own
-   * process and passes the address to `wrangler dev`. There is deliberately no
-   * `[vars]` entry and no `.dev.vars` line: the address carries a per-run port
-   * and a per-run token, so a committed value would be a stale one, and a
-   * developer running `wrangler dev` by hand gets an assistant with no filing
-   * surface rather than one pointed at a listener that is not there.
+   * A LINE IN `.dev.vars`, WHICH IS TO SAY A SETTING ([[BUG-124]]). It used to be
+   * a `--var` composed by `1c builder`, because the port was bound as 0 and the
+   * bearer minted per run — so only the process that had just minted them could
+   * say what they were. That made this var, and therefore this whole surface, a
+   * property of HOW THE DEV SERVER WAS LAUNCHED: started any other way, the
+   * Worker saw nothing here and the assistant silently had no filing tool. The
+   * defence offered for it — that a committed value would be a stale one — was
+   * circular, since the value was only unpredictable because it had been
+   * randomised. A fixed loopback port cannot go stale, so it lives in the file
+   * wrangler reads anyway and every launch path sees the same address.
+   *
+   * STILL NO `[vars]` ENTRY, and that part was always right: `.dev.vars` is
+   * gitignored and per-clone, and a DEPLOYED builder has no project on any disk
+   * to file into. Absent is the ordinary production state.
    */
   DEVELOPMENT_TICKETS_URL?: string
   /**
@@ -285,8 +296,14 @@ export interface DevelopmentEnv {
    * does not keep out a page in the operator's own browser, which can POST JSON
    * cross-origin without ever reading the answer. What that page could do is file
    * tickets into our project store, which is a nuisance rather than a breach —
-   * but the token costs one header and removes it, and the service mints a fresh
-   * one per run so there is nothing to leak between them.
+   * but the token costs one header and removes it.
+   *
+   * FIXED PER CLONE RATHER THAN PER RUN, AND STILL UNGUESSABLE. What closed that
+   * hole was never the freshness; it was that the page cannot read the value.
+   * `.dev.vars` is gitignored, so a token minted into it once is as unreadable to
+   * that page as a new one every run — and, unlike a new one every run, it is
+   * still correct after the listener restarts. A value in `wrangler.toml` would
+   * NOT be: that file is committed, and a well-known bearer is no bearer at all.
    */
   DEVELOPMENT_TICKETS_TOKEN?: string
 }

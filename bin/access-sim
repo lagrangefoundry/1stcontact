@@ -54,6 +54,17 @@
 //   cd apps/control-app && npx wrangler dev --port 8788 \
 //     --env-file .dev.vars --env-file ../../.dev.vars.local
 //
+// THE ASSISTANT CAN STILL FILE A DEFECT WHEN YOU LAUNCH IT THIS WAY ([[BUG-124]]).
+// It could not, once: the filing service was started by `1c builder` on a random
+// port with a per-run bearer, both handed to wrangler as `--var` — so launching
+// wrangler by hand, which this recipe has to do because `1c builder` has no slot
+// for the third `--env-file`, silently left the consultant with no filing tool at
+// all. The address is a line in `.dev.vars` now, which is the file named first
+// above, so it arrives whichever way the dev server was started. Run the listener
+// alongside this simulator:
+//
+//   ./bin/1c filing &
+//
 // Open http://127.0.0.1:8799/login and pick a person. The cookie it sets is sent
 // to the builder because cookies ignore the port. Signing out in the builder
 // lands on this process's /cdn-cgi/access/logout, which clears that cookie —
