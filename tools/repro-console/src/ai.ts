@@ -46,7 +46,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { DEFECT_CLASS_FIELD, defectClassTable } from './defect-class'
+import { DEFECT_CLASS_FIELD, defectClassTable, parseDefectClasses } from './defect-class'
 import type { GapEntry } from './gaps'
 import { INDEX_FILE, type SessionKbResult } from './session-kb'
 import { ROUND_CREATED_BY } from './ticket'
@@ -93,6 +93,20 @@ export interface ReadTicket {
   defectClasses: string[]
   /** Absent when `xgd` would not answer about it at all. */
   found: boolean
+}
+
+/**
+ * A ticket nothing could be learned about ([[BUG-125]]).
+ *
+ * ONE SHAPE FOR "THE CONSOLE COULD NOT LOOK", declared here beside the type it
+ * fills in rather than written out at each of the places that needs it. Two of
+ * them exist — the live read-back that `xgd` would not answer about, and an
+ * entry restored off disk that is too malformed to read — and they are the same
+ * finding: every field empty, `found: false`, which every caller already reports
+ * as unverified. A second spelling of it would be a second thing to keep true.
+ */
+export function unreadTicket(id: string): ReadTicket {
+  return { id, status: '', createdBy: '', defectClasses: [], found: false }
 }
 
 /**
@@ -973,6 +987,83 @@ export function parseOutcome(finalText: string): AiOutcome {
     return base
   }
   return { status: 'failed', reason: 'the round produced no outcome block.' }
+}
+
+/**
+ * AN OUTCOME COMING BACK OFF DISK, NORMALISED ([[BUG-125]]).
+ *
+ * THE RULE THE CONSOLE ALREADY HOLDS `1c` TO, APPLIED TO ITS OWN ARTIFACT.
+ * `readIterations` normalises the manifest field by field and `readGateReport`
+ * does the same for the verdict, both because the console must render an
+ * artifact written by any earlier version of itself. This boundary did not: it
+ * spread what `JSON.parse` returned and asserted it was an {@link AiOutcome},
+ * so the compiler agreed a field was there that the file on disk had never
+ * heard of. [[REQ-276]] then added `defectClasses` as required, and every round
+ * recorded before it took the whole page down on open — the iteration list, the
+ * verdict, the diff links and the reference line, lost because one ticket in
+ * one round could not be classified.
+ *
+ * So every field the code declares required is GIVEN A VALUE HERE, whatever the
+ * file carries, and a field the artifact does not have costs what it names
+ * rather than the page. `status` is the one exception: an outcome with no
+ * status is not a round that lost a field, it is not an outcome at all, and the
+ * caller already reads that as "this iteration has no round".
+ */
+export function normaliseOutcome(parsed: unknown): AiOutcome | null {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+  const raw = parsed as Record<string, unknown> & Partial<AiOutcome>
+  if (typeof raw.status !== 'string') return null
+  return {
+    ...raw,
+    status: raw.status as AiStatus,
+    violations: lines(raw.violations),
+    observations: lines(raw.observations),
+    // ABSENCE IS KEPT AS ABSENCE for the two lists that have it: a round that
+    // named no secondary bug and one that read none back are not the same as a
+    // round whose read-back came out empty, and only the file can say which.
+    ...(raw.bugTickets === undefined ? {} : { bugTickets: ticketIds(raw.bugTickets) }),
+    ...(raw.ticketsRead === undefined ? {} : { ticketsRead: readTickets(raw.ticketsRead) }),
+  }
+}
+
+/** The read-back list, each entry standing or falling on its own. */
+function readTickets(value: unknown): ReadTicket[] {
+  if (!Array.isArray(value)) return []
+  return value.map(normaliseReadTicket)
+}
+
+/**
+ * One restored read-back ([[BUG-125]] behaviour 3).
+ *
+ * A MALFORMED ENTRY COSTS ITSELF, NOT ITS NEIGHBOURS. An entry that is not an
+ * object, or whose `id` or `status` is the wrong type, comes back as
+ * {@link unreadTicket} — the shape a ticket the console could not read already
+ * has — so the rest of the round's filings still render. Dropping it instead
+ * would make a round look as though it had filed one ticket fewer than it did.
+ */
+export function normaliseReadTicket(value: unknown): ReadTicket {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return unreadTicket('')
+  const raw = value as Record<string, unknown>
+  const id = typeof raw.id === 'string' ? raw.id : ''
+  if (!id || typeof raw.status !== 'string') return unreadTicket(id)
+  return {
+    id,
+    status: raw.status,
+    createdBy: typeof raw.createdBy === 'string' ? raw.createdBy : '',
+    // Parsed rather than trusted, by the same function the live read-back uses
+    // on the field as `xgd` prints it. An entry written before [[REQ-276]] has
+    // no classes at all, which reads as a round that classified nothing — which
+    // is what it was — and NOT as a violation: the unclassified-ticket check
+    // belongs to the live path, where the console can still see the store.
+    defectClasses: parseDefectClasses(raw.defectClasses),
+    found: raw.found === true,
+  }
+}
+
+/** A restored list of prose lines, dropping anything that is not one. */
+function lines(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((entry): entry is string => typeof entry === 'string')
 }
 
 /**
