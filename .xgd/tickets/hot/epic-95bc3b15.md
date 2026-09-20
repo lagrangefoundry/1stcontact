@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-19T19:02:43.516733+00:00'
+updated_at: '2026-09-20T18:55:06.033404+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -841,3 +841,36 @@ the window recoverable.
   repair: verify the opaque-key model has no stragglers, re-home the orphaned
   conversations (three cases, only one of which is mechanical), survey and fix
   production, and make an orphan discoverable instead of silent.
+
+
+### Finding 6 — the consultant cannot file a defect, because identity and filing cannot both be on (2026-09-20)
+
+[[REQ-273]] landed and is wired correctly end to end. The consultant still holds
+only the client's five read operations, and told the operator so when asked to
+file a bug directly.
+
+The cause is not the surface. `developmentFor` composes it only when
+`DEVELOPMENT_TICKETS_URL` is present; that var is set only by `1c builder`; and
+the only way to get a real identity locally — `bin/access-sim` — documents a
+recipe that launches `wrangler dev` by hand, which starts no filing service.
+`devEnvLayering` emits exactly two `--env-file` arguments and has no slot for the
+simulator's output, so the two cannot be combined. Identity or filing, never both.
+
+Confirmed empirically rather than reasoned: `.dev.vars.local` was written one
+minute before the wrangler tmp dirs, and a full loopback port sweep finds no
+filing listener anywhere on the machine.
+
+Two behaviours that are each correct compose into a silence: the Worker composes
+no surface when it has no project, and the model is never told about a capability
+it was not granted — so the assistant reports, truthfully, that it cannot file,
+and nothing distinguishes that from a mis-launched dev server.
+
+A workaround exists today and is undocumented: every value `access-sim
+--print-env` emits is deterministic at defaults, so those lines can live in the
+secrets file, which `devEnvLayering` already layers last. [[BUG-124]] carries the
+real fix.
+- [[BUG-124]] — Local dev: Access identity and defect filing are mutually
+  exclusive, so the consultant silently has no filing tools. Let `1c builder`
+  layer an extra env file, fold the simulator into the one command that already
+  owns the dev server's lifetime, and make an absent filing surface legible
+  somewhere other than a banner printed by the command that was not run.
