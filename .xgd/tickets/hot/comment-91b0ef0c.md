@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T19:02:06.403944+00:00'
+updated_at: '2026-09-20T19:08:35.162288+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1012,5 +1012,68 @@ Record the rail first (`./bin/repro-rail record`), while the oracle is still the
 <!-- xgd-chat role="user" ts="2026-09-20T19:02:04.310218+00:00" -->
 #### You
 I just fired up the reproduction server and I am seeing: Cannot read properties of undefined (reading 'length')
+
+<!-- xgd-turn id="613f2c48-d75c-4deb-ab9c-33c2d8a9ae6d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T19:08:33.621822+00:00" -->
+#### Claude
+Reproduced it deterministically and found the cause. **It's a persisted-shape bug, not a live one — the console can't render a run written by an earlier version of itself.**
+
+## What happens
+
+```
+GET /            200   ← blank page is fine
+POST /open       303   ← click a stored site
+GET /            500   Cannot read properties of undefined (reading 'length')
+```
+
+Stack:
+
+```
+TypeError: Cannot read properties of undefined (reading 'length')
+    at filingsOf      (console.ts:1768)   ticket.defectClasses.length
+    at ReproConsole.aiView
+    at ReproConsole.view / .state / .handle
+```
+
+So the console looks alive until you open a site that has rounds on disk — then the whole page dies, including the parts that have nothing to do with tickets.
+
+## Cause
+
+`REQ-276` (`5d55aa8c03`, "a round classifies every ticket it files") added `defectClasses: string[]` to `ReadTicket` as a **required** field. `readOutcome()` restores `outcome.json` with a bare spread:
+
+```ts
+return { ...parsed, status, violations: parsed.violations ?? [], observations: parsed.observations ?? [] } as AiOutcome
+```
+
+Your three gigabytealchemy outcomes predate it — every `ticketsRead` entry on disk carries exactly `createdBy, found, id, status`:
+
+```
+iteration-1/ai/outcome.json   ticket keys: ['createdBy','found','id','status']   ×4
+iteration-2/ai/outcome.json   ×2
+iteration-3/ai/outcome.json   ×3
+```
+
+`as AiOutcome` makes the compiler agree the field is there; the disk disagrees. Note `violations` and `observations` are already defaulted on that same line — this is the third time this exact shape has bitten, and the nested list was the one the pattern didn't reach. `readIterations()` does it properly (field-by-field, every added field optional-on-read), and `readGateReport()` does too — REQ-277's `unmeasured` is recomputed from `gate.json`, so it's safe. It's only the console's own artifact that isn't held to the rule it holds `1c`'s to.
+
+## Fix, verified rather than proposed
+
+Normalize `ticketsRead` at the boundary, same discipline as `readIterations`. I applied it, ran it, and reverted:
+
+| | before | after |
+|---|---|---|
+| `GET /` (gigabytealchemy, 3 iterations) | **500** | **200**, 91,163 bytes |
+| `/state`, `/iteration/{1,2,3}/page`, `/iteration/1/ticket`, `/iteration/1/diff/` | unreachable | all **200** |
+| faelan (1 iteration, no round) | 200 | 200 |
+
+Two things I checked so the old data renders *honestly* rather than just renders: with no classes on those tickets the class-split clause drops out entirely (correct — they carry none), and no false "unclassified ticket" violation is manufactured, because `wrongDefectClass` only runs in `confirm()` on the live path.
+
+Patch is at `.xgd/tmp/readOutcome-defectClasses.patch` (12 lines). **The working tree is back to clean** — I didn't leave it applied, since an unticketed edit sitting in `tools/` is exactly what gets swept into someone else's `git add -A`.
+
+## What I'd like to do
+
+This needs a child bug on EPIC-12 before it can land, and the scope worth ticketing is slightly wider than the crash: **a field the console adds to its own persisted artifacts must be optional on read** — `readOutcome` is the last boundary that doesn't follow it, and REQ-276 is the second time a new required field has shipped through it. Testable both ways: a stored pre-REQ-276 `outcome.json` renders the page, and a current one still shows its class split.
+
+Say the word and I'll file it and land the fix here — or file it only, if you'd rather it go to its own session. Either way you're one command from working: `git apply .xgd/tmp/readOutcome-defectClasses.patch` and restart the console.
 
 <!-- xgd-chat-end -->
