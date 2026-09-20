@@ -6,10 +6,10 @@ title: 'repro console: a stored round written before REQ-276 takes the whole pag
   down on open'
 created_by: EPIC-12
 created_at: '2026-09-20T19:12:43.538142+00:00'
-updated_at: '2026-09-20T19:20:22.319754+00:00'
+updated_at: '2026-09-20T19:25:04.035253+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   story_points: 2
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   epic_parent: epic-bf282b3d
   chat_comment: comment-fa994b87
+  commits:
+  - working_sha: 897f0ea1348411e7d2c19be0a4345453f618b62c
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: da9eeb9ff3a18f7e467068065259bc293207d790
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.290
 ---
 
 # A stored round written before REQ-276 takes the whole page down on open
