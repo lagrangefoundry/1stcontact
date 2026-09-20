@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-20T23:43:41.066410+00:00'
+updated_at: '2026-09-20T23:54:15.792346+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -533,19 +533,62 @@ to the dev machine, where it matters more, not less.
    A second, larger version — pull a whole environment including contacts — should be refused by
    construction, not merely not built: the puller should take a site slug, never a tenant.
 
-#### F5. Lagrange Foundry — open question 12, answered in part
+#### F5. Lagrange Foundry — open question 12, answered, and §C step 5 invalidated
 
-The domain is **`lagrangefoundry.ai`**. That settles the name; it does not yet settle the
-mechanism. Two things still need checking before step 7/8 of §C:
+**Correction to the audit above.** Open question 12 said "there is no `lagrangefoundry` site under
+`storage/sites/`". That is true and it is the wrong place to have looked. `storage/sites/` is the
+**git-tracked authoring tier**; the LF site was built **in the builder**, so it lives in the local
+D1/R2 under `apps/control-app/.wrangler/state/`. Read off that store, 2026-09-20:
 
-- **is the zone in this Cloudflare account?** If yes, it is `zones`-recorded and the customer path
-  ([[REQ-257]]/[[REQ-258]]) applies. If it is registered elsewhere and merely delegated, the
-  nameservers have to move first — `serving.ts` writes DNS records through the account's own API.
-- **is there a site to serve?** There is still no `lagrangefoundry` site under `storage/sites/`
-  (only `1stcontact`, `gigabytealchemy`, `xgd`), so one has to be authored or built in the builder
-  before any domain work has a target.
+| Fact | Value |
+|---|---|
+| Business | `biz_5b101742d436573a04a2512fb7ecdbb5` "Lagrange Foundry", created 2026-09-09 |
+| Site | `site_936dd7c92e5e14df694dd9a80433aa4f`, `kind=site` |
+| Draft | `version` 192, **`counter` 190** — 190 changes authored in the builder |
+| Pages | one, `home.json`, 23.7 KB of L1 |
+| Assets | 17 (≈50 MB), plus 220 material attachments and 31 material items |
+| Revisions | **0 — and zero for every site in the store.** `base_revision` is empty |
+| Addresses | `site_domains`: `lagrangefoundry.ai` (custom, active, **canonical**) and `www.lagrangefoundry.ai` (custom, active, non-canonical), both 2026-09-16 |
+| Zone | `zones` holds `lagrangefoundry.ai`, `cf_zone_id=36c6818172e7b61082bedd6416cb6dc2`, status active, origin `operator` |
+| Last touched | 2026-09-20T23:41Z |
 
-Note this is a **customer-shaped** domain, not the apex: `APEX_SITE_KEY` in
-`apps/public-site/wrangler.toml` is `1stcontact.io`'s mechanism specifically. So Lagrange Foundry
-going live exercises the `site_domains` path end to end — which is useful, because that path has
-never run in production and needs `CLOUDFLARE_DNS_TOKEN`, which is absent (§B).
+Open question 12 is therefore **answered**: the domain is `lagrangefoundry.ai`, the zone *is* in
+the account, and the site exists. Open question 13 is answered too — LF goes the **customer path**
+(`site_domains`), not the apex, and the rows to prove it are already written locally.
+
+**But §C step 5 does not work for this site, and that is the finding.** Step 5 says
+`bin/publish --production <slug>` turns the local drafts into cloud sites. `bin/publish` reads
+`storage/sites/<slug>/`. **The LF site is not there and never was.** So there is, today, **no
+command that moves this site to production** — the one content path that exists points the wrong
+way for the only site that needs to travel.
+
+**And the same gap is a data-loss exposure right now.** The LF draft — a day's work, 190 authored
+changes, 23.7 KB of tuned L1, 50 MB of assets — exists in exactly one place: a **gitignored**
+miniflare directory, with **no published revision** to fall back to and **no export path**.
+`1c reset` is documented as removing precisely that directory. There is no backup and nothing in
+the system would notice.
+
+This is §F4 restated with the abstraction removed. The missing `/api/export` + `1c pull <slug>`
+pair is not staging-seed tooling; it is the only thing standing between a day of work and a single
+command, and it is simultaneously the only non-manual route to go-live for the LF site. **It should
+be the next child of this epic, ahead of the pipeline work**, and its acceptance should be:
+`1c pull` the LF site into `storage/sites/lagrangefoundry/`, commit it, and have
+`bin/publish --production` accept it unchanged.
+
+The three alternatives, for the record, and why they lose:
+
+| Option | Why not |
+|---|---|
+| Rebuild it in the deployed builder | A day's work again, and it discards 190 changes of journal and the chat transcript that produced them. |
+| Raw `wrangler d1 export --local` → transform → `d1 execute --remote`, plus 17 `r2 object put` | Hand-mapping site/tenant IDs and asset R2 keys across two stores. Gets the asset keys wrong quietly, which looks like a working site with broken images. |
+| `1c builder --remote` and build it against production | Editing production from a laptop, and it still leaves the local 190-change draft as the only copy of the history. |
+
+**Two things still block go-live even once the site can travel:**
+
+1. **`CLOUDFLARE_DNS_TOKEN` is absent from production** (§B). Attaching `lagrangefoundry.ai` writes
+   DNS records + a Worker route + the `site_domains` row, and the first two need that token. The
+   local `site_domains` rows describe the **local** store; production has none.
+2. **Nothing has ever been published — anywhere.** `site_revisions` is empty for every site in the
+   local store, so `/api/publish` has never minted a revision in this database. `public-site` serves
+   *revisions*, not drafts, so the first publish is also the first exercise of that path. Worth
+   doing locally first, where LF already has the addresses `/api/publish` requires.
