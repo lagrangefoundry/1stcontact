@@ -6,10 +6,10 @@ title: 'The deploy verifies credentials exist, not that they work: capability pr
   and a capability report'
 created_by: EPIC-5
 created_at: '2026-09-16T23:57:42.205741+00:00'
-updated_at: '2026-09-17T00:40:14.331606+00:00'
+updated_at: '2026-09-20T18:41:14.900872+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 5
