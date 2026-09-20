@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-20T23:52:13.534635+00:00'
+updated_at: '2026-09-20T23:53:01.866344+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -189,5 +189,15 @@ Note it's a **customer-shaped** domain, not the apex — `APEX_SITE_KEY` is `1st
 <!-- xgd-chat role="user" ts="2026-09-20T23:52:12.333753+00:00" -->
 #### You
 You must be looking in the wrong place - I spent all day working on the LF site
+
+<!-- xgd-turn id="57eff440-acd5-4753-ae38-a3f710febdec-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T23:53:00.682747+00:00" -->
+#### You
+You must be looking in the wrong place - I spent all day working on the LF site...its here: 
+
+http://127.0.0.1:8788/b/biz_5b101742d436573a04a2512fb7ecdbb5/preview/site_936dd7c92e5e14df694dd9a80433aa4f/draft/
+
+If that helps
 
 <!-- xgd-chat-end -->
