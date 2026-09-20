@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-103
 created_by: xgd
 created_at: '2026-09-17T21:36:04.696954+00:00'
-updated_at: '2026-09-17T22:12:15.666832+00:00'
+updated_at: '2026-09-20T18:47:20.257609+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -151,5 +151,18 @@ Full suite after merging `xgd-working`: 2 failures, both pre-existing on `main` 
 The reported symptom was wrong in a way that would have broken the acceptance check: there is no `error: unknown option --actual-out`. The parser accepts anything, so the old behaviour was exit 0, a clean report, and no file. I rewrote that section of the body along with the scope decisions before cutting the branch.
 
 Also folded in the perceptual half, since you didn't object — `regions.json` was persisting a path to a deleted temp file. Same defect, one artifact over.
+
+<!-- xgd-turn id="a748fa81-35c0-411f-8739-f00ad495df72-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T18:47:19.069173+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-103` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-103`
+- branch HEAD: `ceb78ba93701944ed858f40accf4ddfdead7f74c`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
