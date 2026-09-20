@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T23:13:14.346366+00:00'
+updated_at: '2026-09-20T23:15:18.697078+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2963,5 +2963,31 @@ Want me to cut `free-REQ-287` and implement it? It's small — two edits plus a 
 <!-- xgd-chat role="user" ts="2026-09-20T23:13:13.769695+00:00" -->
 #### You
 If I am in edit mode and I hit "Open in a new tab" the new tab shows the edit outline markers - can you please create a bug for this?
+
+<!-- xgd-turn id="03ba2753-cb4b-4fd8-9c5e-4ab2acf9dc63-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T23:15:17.694276+00:00" -->
+#### Claude
+Let me find both halves — the "Open in a new tab" action and the outline markers — before writing it up.
+
+Found the spec conflict. Let me check bug-ticket conventions, then write it.
+
+**BUG-131** — *Open in new tab opens the edit channel* (`bug-9ca5a8fc`, under EPIC-19, severity medium).
+
+You were right that this is a bug and not a design choice — the spec already says so, in the word:
+
+> **DOC-28 §10** — *Open in new tab | the same **draft** render URL the iframe loads — an iframe can distort layout, so a real tab is the honest view*
+
+The channel is named. It's `draft`, in both modes, and the rationale is why it has to be: the control exists so you can see the page *without* the builder's distortions. The edit channel is nothing but distortions.
+
+**Cause.** `openInNewTabAction` (`toolbar.js:192`) takes the href straight off `panel.getSrc()`, which returns whatever the iframe is showing — with an invariant stated in `panel.js:403` as *"the tab and the iframe can never disagree"*. In View that lands on `draft` by coincidence of the channels agreeing. In Edit the mode's `src` is `previewUrl(site, 'edit', …)` (`app.js:469`), so the tab gets `/preview/<siteKey>/edit/<page>`. The generalisation from *"the draft render URL"* to *"whatever the pane is showing"* was safe while there was one channel and became wrong when REQ-116 added the second — and that invariant is the thing that has to go, because in Edit the tab and the iframe **must** disagree.
+
+Worth knowing: that tab is worse than marked-up. The edit render is *"deliberately non-functional (no link target, no form action, no behaviour or motion script)"* (`render.ts:54`) and ships no client bundle (`render.ts:402`). So it's a dead page whose markers address a bridge that isn't there.
+
+The ticket calls for pointing Edit's action at the draft channel at the current page — `carry.pathFor(site)` already tracks it — and records the alternative I rejected (dropping `open-new-tab` from edit mode's actions: cheaper and self-enforcing, but it removes a working affordance to avoid fixing a one-line URL).
+
+One thing I found while checking the citation and noted as secondary: both DOC-28 §10 and `panel.js:403` attribute this to **DOC-8 §4.3**, which is *"Edits are diffs, not full replacements"* — nothing about previews or tabs. The section they mean is §3.3, *"Production-fidelity check"*. Worth correcting while those lines are open.
+
+You now have two unstarted tickets from this session — REQ-287 and BUG-131, both one-pointers in the same builder files. Want me to take them together on one branch, or keep them separate? And the LF chat jam is still live unless you've restarted the builder.
 
 <!-- xgd-chat-end -->
