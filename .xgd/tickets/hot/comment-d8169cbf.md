@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T00:34:33.953843+00:00'
+updated_at: '2026-09-20T00:36:32.850573+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2129,5 +2129,11 @@ That also downgrades the "real fix" I proposed last turn. Surface prose is *not*
 My recommendation is now simpler and more confident: **raise it to the framework's 140,000 and don't build the budget machinery.** The one thing worth keeping from that idea is a warning before the wall — REQ-169's gauge is the natural place, since it already reports what a request costs.
 
 Want me to scope the constant change?
+
+<!-- xgd-turn id="7e6fba89-b098-4279-9ccc-3404068e147e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T00:36:32.661662+00:00" -->
+#### You
+PLease just change the constant now thanks
 
 <!-- xgd-chat-end -->
