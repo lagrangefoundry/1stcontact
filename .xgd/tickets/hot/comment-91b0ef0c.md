@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T21:45:41.781577+00:00'
+updated_at: '2026-09-20T22:03:55.252301+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1158,5 +1158,11 @@ Expect iteration 4's numbers to be *worse*, not better — five previously-invis
 There are five stale console processes listening: **8733 is a pre-BUG-125 instance still returning `Cannot read properties of undefined (reading 'length')`**, and 8711/8719/8722/8723 are leftovers from test runs showing empty or failed pages. Worth killing so you don't end up reading the wrong tab.
 
 Want me to file a child bug for the two UX defects — disabled-means-two-things (`cursor: progress` for both running and held) and the hold naming only [run again]? Both are small and testable. Nothing committed; investigation only.
+
+<!-- xgd-turn id="1dcbaad5-41a4-4542-8b52-b797ff40eed2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T22:03:55.178649+00:00" -->
+#### You
+yes please
 
 <!-- xgd-chat-end -->
