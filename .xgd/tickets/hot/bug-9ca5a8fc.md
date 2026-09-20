@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   story_points: 1
+  chat_comment: comment-552601b3
 ---
 
 ## What happens
