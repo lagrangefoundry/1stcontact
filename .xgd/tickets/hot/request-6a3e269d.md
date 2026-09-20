@@ -6,10 +6,10 @@ title: 'Capture budget: drop the browser quota — context, not page loads, is t
   resource'
 created_by: EPIC-19
 created_at: '2026-09-20T19:53:00.120338+00:00'
-updated_at: '2026-09-20T21:36:03.997207+00:00'
+updated_at: '2026-09-20T21:38:35.277563+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   auto_merge_back: true
