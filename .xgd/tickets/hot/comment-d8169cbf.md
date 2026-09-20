@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T02:12:47.312420+00:00'
+updated_at: '2026-09-20T02:13:19.676175+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2499,5 +2499,32 @@ zsh: no such file or directory: ./bin/access-sim:159
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="8507ae40-b855-40bd-9dfb-f4955a5b8e1d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T02:13:19.358489+00:00" -->
+#### Claude
+Sorry — `bin/access-sim:159` was a file:line reference, not a command. Let me just read you the usage.
+
+Here's the documented recipe, verbatim from the file:
+
+```sh
+./bin/access-sim --print-env > .dev.vars.local
+./bin/access-sim &
+cd apps/control-app && npx wrangler dev --port 8788 \
+  --env-file .dev.vars --env-file ../../.dev.vars.local
+```
+
+Then open **http://127.0.0.1:8799/login** and pick a person. The cookie it sets reaches the builder because cookies ignore the port.
+
+Two things that explain your situation:
+
+**You're browsing the wrong port.** The sim proxies to the builder — *"Anything that is not one of this simulator's own routes is therefore forwarded to the builder, credential first, the way Cloudflare forwards it."* So work at **127.0.0.1:8799**, not 8788. Going straight to 8788 bypasses the edge entirely, which is exactly the signed-out view you're seeing.
+
+**`--print-env` must be re-run.** It emits the current `ACCESS_TEAM_DOMAIN` / `ACCESS_AUD`, and the team domain carries the sim's port — so a stale `.dev.vars.local` points at a dead sim.
+
+One wrinkle worth knowing: that recipe calls `wrangler dev` directly, whereas `1c builder` builds its own arg list via `devEnvLayering` — `.dev.vars` then `$HOME/Documents/secrets/1c.dev.env`. It doesn't know about `.dev.vars.local`. So either follow the documented path above (and lose the filing service, since that's started by `1c builder`), or put the sim's two values in your secrets file so `1c builder` picks them up and you keep both.
+
+Note there's already an empty `apps/control-app/.dev.vars.local` sitting there from Sep 6 — likely a first attempt at this that never got wired in.
 
 <!-- xgd-chat-end -->
