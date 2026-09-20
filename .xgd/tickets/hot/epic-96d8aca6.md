@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-20T22:59:05.616170+00:00'
+updated_at: '2026-09-20T23:43:41.066410+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -432,3 +432,120 @@ time different). Each step is checkable before the next:
     `site_domains` like a customer's?** The code supports the former for platform hosts and the
     comment in `routes.ts` is explicit that this is deliberate. Worth confirming it is still the
     intent before the first deploy pins it.
+
+### F. The doc ticket, and the two paths (2026-09-20)
+
+**The doc ticket is [[DOC-41]] "Build and Deployment".** It already answers question (1) in
+detail — one-time setup, the local simulation, the Cloudflare path, the credential table per
+environment, and the order of operations. It is the right home for this material and should stay
+so. Three things it does **not** say, which this epic owes it:
+
+- it does not mention `.github/workflows/deploy.yml` at all, so nothing in the repo warns that a
+  second, divergent deploy path exists (§B.3);
+- it documents no **staging** environment, because there isn't one;
+- it documents **no content-copy path in the prod → dev direction**, because there isn't one
+  (see below). DOC-41 §3 documents `bin/publish --production` and stops there.
+
+Updating DOC-41 is a deliverable of child 1 and of the staging children — the doc is derived from
+the scripts, so it changes when they do.
+
+#### F1. Code → dev
+
+**There is no deployed dev environment.** "Dev" is the *local Cloudflare simulation*: workerd via
+`wrangler dev`, with D1 and R2 on disk under `apps/*/.wrangler/state/`. Neither `wrangler.toml`
+declares any environment but `[env.production]`. So:
+
+```
+bin/build        # preflight → 1c assets → pnpm -r build (typecheck) → per-app bundle
+pnpm dev         # public :8787, control :8788
+bin/publish      # seed the local store from storage/sites/
+```
+
+After that, §A's table governs what each kind of edit needs. The only genuinely missing piece is a
+watcher on `1c assets`' inputs (open question 11).
+
+#### F2. Code → prod
+
+```
+bin/build
+bin/deploy --dry-run    # same code path, hooks run and change nothing, capability probes read
+bin/deploy              # migrate hook → secrets hooks → wrangler deploy --env production, per app
+bin/smoke               # prove the origin serves
+```
+
+From the laptop, today. `.github/workflows/deploy.yml` is a **second and divergent path**: it runs
+`pnpm -r build` (typecheck only, emits nothing) then two bare `wrangler deploy --env production`
+calls. It never runs `bin/deploy`, so no migration is applied, no secret is pushed or probed, and
+`1c assets` never runs — and because `dist-assets` is gitignored, a CI deploy of `control-app`
+would upload an **empty** assets directory over a working one. Child 1 replaces its body with
+`bin/build && bin/deploy`; until then the workflow should be treated as disabled.
+
+#### F3. Content → prod (exists, one direction, sites only)
+
+```
+bin/access-token                        # provision the Access service-token PAIR, once
+bin/publish --production <slug>         # 1c push → POST /api/import → Worker writes D1 + R2
+# then mint a revision (builder UI, or POST /api/publish) so public-site has something live
+```
+
+Properties worth stating because they are the ones that bite:
+
+- **`--production` has to be typed.** There is no push-everywhere and no default that reaches the
+  cloud.
+- **It copies a DRAFT, not a revision.** `bin/publish` moves *where the bytes live*; `1c publish`
+  / `/api/publish` decides *which version is live*. The names are uncomfortably close and this is
+  the single most likely confusion in the whole flow.
+- **It is 409-guarded** ([[BUG-51]]): a target with changes made in the builder is refused, and
+  `--force` is how you say you meant it. The guard counts *authored* changes (`counter`, moved only
+  by `appendChange`), not `version`, so re-running after a purely local edit still works.
+- **It is the import path, not the everyday path.** Steady state is §D's content lane: edit in the
+  deployed builder, publish a revision, live.
+
+#### F4. Content → dev (does not exist)
+
+There is no export route and no `1c pull`. `/api/import` has no mirror; `tools/generate/src/cli/`
+has `push.ts` and nothing opposite it. The three things that look like an answer and are not:
+
+| Looks like | What it actually is |
+|---|---|
+| `1c builder --remote` | points the local dev server's D1/R2 bindings at the **deployed** store. Not a copy — it is editing production from a laptop, and is off by default for that reason ([[DOC-41]] §2). |
+| `bin/seed` | writes `db/dev-seed.sql`, an **invented** fixture (`alice@plumbing.example`). It is the opposite of a copy: it exists so a fresh clone has people without anyone's real people. |
+| `wrangler d1 export --remote` + `wrangler r2 object get` | the raw primitives a real puller would be built on. Nobody has wired them up, and a site's bytes span D1 plus two R2 buckets (`1stcontact-sites`, `1stcontact-material`), so a hand-rolled version gets it half right. |
+
+**Contact data specifically: no path in either direction, and that is the correct default.**
+Contacts, leads, sessions, grants, messages and the activity log are D1 rows created in the cloud.
+Copying them down would put real people's data on a laptop and into a dev store with
+`ACCESS_DEV_OPEN=1` — which is security note 1 above ("staging holds no production data") applied
+to the dev machine, where it matters more, not less.
+
+**The recommendation this epic should carry.** Split the direction in two:
+
+1. **Structure down, data never.** The supported prod → dev refresh is: apply the same migrations
+   locally, then `bin/seed`. That is already true today and should be *stated* in DOC-41 as the
+   answer, so the absence reads as a decision rather than a gap.
+2. **One site's content down, on request.** The genuinely missing piece is an `/api/export` mirror
+   of `/api/import` plus a `1c pull <slug>` — draft definition, pages and assets, into
+   `storage/sites/<slug>/`, symmetric with push and behind the same Access token. Small, well
+   shaped, and it is what makes "reproduce the customer's bug locally" possible. It also makes the
+   staging seed (§4 above) a *copy of canary sites* rather than a second corpus authored by hand,
+   which is what open question 7 is really about.
+
+   A second, larger version — pull a whole environment including contacts — should be refused by
+   construction, not merely not built: the puller should take a site slug, never a tenant.
+
+#### F5. Lagrange Foundry — open question 12, answered in part
+
+The domain is **`lagrangefoundry.ai`**. That settles the name; it does not yet settle the
+mechanism. Two things still need checking before step 7/8 of §C:
+
+- **is the zone in this Cloudflare account?** If yes, it is `zones`-recorded and the customer path
+  ([[REQ-257]]/[[REQ-258]]) applies. If it is registered elsewhere and merely delegated, the
+  nameservers have to move first — `serving.ts` writes DNS records through the account's own API.
+- **is there a site to serve?** There is still no `lagrangefoundry` site under `storage/sites/`
+  (only `1stcontact`, `gigabytealchemy`, `xgd`), so one has to be authored or built in the builder
+  before any domain work has a target.
+
+Note this is a **customer-shaped** domain, not the apex: `APEX_SITE_KEY` in
+`apps/public-site/wrangler.toml` is `1stcontact.io`'s mechanism specifically. So Lagrange Foundry
+going live exercises the `site_domains` path end to end — which is useful, because that path has
+never run in production and needs `CLOUDFLARE_DNS_TOKEN`, which is absent (§B).
