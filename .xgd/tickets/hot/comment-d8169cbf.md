@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T02:13:19.676175+00:00'
+updated_at: '2026-09-20T18:49:17.150258+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2526,5 +2526,11 @@ Two things that explain your situation:
 One wrinkle worth knowing: that recipe calls `wrangler dev` directly, whereas `1c builder` builds its own arg list via `devEnvLayering` — `.dev.vars` then `$HOME/Documents/secrets/1c.dev.env`. It doesn't know about `.dev.vars.local`. So either follow the documented path above (and lose the filing service, since that's started by `1c builder`), or put the sim's two values in your secrets file so `1c builder` picks them up and you keep both.
 
 Note there's already an empty `apps/control-app/.dev.vars.local` sitting there from Sep 6 — likely a first attempt at this that never got wired in.
+
+<!-- xgd-turn id="74605190-6021-459c-81f9-2a1ea47aca46-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T18:49:15.433561+00:00" -->
+#### You
+Please read the end of the last turn of the LF Site builder transcript - I really want this tool to be able to create 1c bugs - it cannot - please can you figure out why and create a BUG to fix this
 
 <!-- xgd-chat-end -->
