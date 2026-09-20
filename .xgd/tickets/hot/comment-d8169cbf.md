@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-19T23:31:21.481519+00:00'
+updated_at: '2026-09-20T00:33:42.376585+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2089,5 +2089,11 @@ That's a one-line change, so it needs a ticket and branch under free-coding. Say
 Raising the ceiling buys room; it doesn't address that surface prose is an unbudgeted per-session cost that nobody sees until it fails. That's the same class of problem as this whole epic — and the honest version is either a budget per surface, or the summary manual dropping overviews too and letting `DescribeTools` carry them.
 
 Worth a ticket once you're unblocked. Want both, or just the unblock for now?
+
+<!-- xgd-turn id="4dc2b457-f285-4ee0-8882-78614420dd3a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T00:33:42.062978+00:00" -->
+#### You
+Why do we reload the manual on every turn?
 
 <!-- xgd-chat-end -->
