@@ -43,11 +43,33 @@ export type RefusalReason =
   | 'redirect-cap'
   | 'response-cap'
 
-/** One refused request, as it reaches the journal. */
-export interface EgressRefusal {
+/**
+ * What a request IS, as only the driver can know.
+ *
+ * BUG-127 — the guard cannot derive this from a URL. `https://cdn.example/x.woff2`
+ * is a font on one page and a navigation on another, and the difference decides
+ * whether a refusal leaves a hole in a screenshot or replaces the whole page with
+ * the words "refused by egress policy". Playwright and puppeteer both label the
+ * request at the seam the guard already runs at, so the answer is carried in
+ * rather than guessed.
+ */
+export type RequestKind = 'document' | 'subresource'
+
+/** A refusal derived from the URL alone — what {@link classifyUrl} can say. */
+export interface UrlRefusal {
   url: string
   reason: RefusalReason
   detail: string
+}
+
+/** One refused request, as it reaches the journal. */
+export interface EgressRefusal extends UrlRefusal {
+  /**
+   * BUG-127 — a refused font is a hole in a page; a refused *document* is not a
+   * page at all. Recorded so the caller can tell the two apart instead of
+   * handing back a bundle of refusal text with a list the reader must interpret.
+   */
+  kind: RequestKind
 }
 
 /** Raised for the typed URL, before a browser is leased. */
@@ -62,7 +84,17 @@ export class UrlRefusedError extends Error {
   }
 }
 
-/** Redirect hops one capture may follow before it is treated as a loop. */
+/**
+ * Redirect hops ONE navigation chain may follow before it is treated as a loop.
+ *
+ * BUG-127 — per chain, and hops, both of which this once only claimed. It used
+ * to count distinct origins seen over a whole capture, which is a different
+ * quantity with the same name: every real site pulls a CDN, two font hosts, an
+ * image host and a tag manager before anything unusual happens, so a cap of five
+ * origins refused `stripe.com` and every other comp anyone asked for. Five hops
+ * on one chain is loop detection; five origins on a page is a description of the
+ * modern web.
+ */
 export const MAX_REDIRECTS = 5
 
 /** Bytes one capture may pull in total before it is refused as over-large. */
@@ -162,7 +194,7 @@ export function isPrivateHost(host: string): boolean {
  * to every request the page makes afterwards without either caller re-deriving
  * it.
  */
-export function classifyUrl(raw: string): EgressRefusal | null {
+export function classifyUrl(raw: string): UrlRefusal | null {
   let url: URL
   try {
     url = new URL(raw)
@@ -209,20 +241,46 @@ export function assertPublicUrl(raw: string): URL {
  * The per-request rule the driver installs, plus the running totals the caps are
  * counted against.
  *
- * STATEFUL BY CONSTRUCTION, and one instance belongs to one capture. Redirect
- * and byte budgets are properties of a whole navigation, not of any single
- * request, so they cannot live in a pure function — and a guard shared across
- * two captures would let the first one's traffic refuse the second's.
+ * STATEFUL BY CONSTRUCTION, and one instance belongs to one capture. The byte
+ * budget is a property of the whole capture rather than of any single request,
+ * so it cannot live in a pure function — and a guard shared across two captures
+ * would let the first one's traffic refuse the second's. The redirect cap is
+ * per-chain and needs no state at all (BUG-127); it lives here because this is
+ * where the driver already asks, not because it accumulates.
  */
 export interface EgressGuard {
-  /** Whether this request may proceed; records the refusal when it may not. */
-  allow(url: string): boolean
+  /**
+   * Whether this request may proceed; records the refusal when it may not.
+   *
+   * `about` is what only the driver knows — whether this is the page or one of
+   * the forty things the page pulls, and how many redirect hops led here. It is
+   * optional so a caller that genuinely cannot tell (a test double, a driver
+   * whose library does not expose it) still gets the URL rules; such a request
+   * is treated as a subresource, which is the safe reading: it can be refused
+   * on its own merits but it can never, on its own, condemn the capture.
+   */
+  allow(url: string, about?: EgressRequest): boolean
   /** Count bytes a response delivered, refusing once the total is over cap. */
   record(bytes: number): void
   /** Every refusal, in order — what the operation journals. */
   readonly refusals: readonly EgressRefusal[]
-  /** Whether a cap has been tripped, so the caller can stop rather than limp. */
+  /** Whether the whole-capture byte budget has been spent. */
   readonly tripped: boolean
+  /**
+   * BUG-127 — whether a *navigation document* was refused, i.e. whether some
+   * page in this capture is the words "refused by egress policy" rather than a
+   * page. This is the capture's verdict: a caller that ignores it adopts a
+   * bundle of black rectangles and finds out at screenshot time.
+   */
+  readonly documentRefused: boolean
+}
+
+/** What the driver knows about one request that its URL does not say. */
+export interface EgressRequest {
+  /** Default `'subresource'` — see {@link EgressGuard.allow}. */
+  kind?: RequestKind
+  /** Redirect hops already followed on THIS request's own chain. Default 0. */
+  redirectDepth?: number
 }
 
 export function egressGuard(
@@ -231,33 +289,68 @@ export function egressGuard(
   const maxRedirects = limits.maxRedirects ?? MAX_REDIRECTS
   const maxBytes = limits.maxBytes ?? MAX_RESPONSE_BYTES
   const refusals: EgressRefusal[] = []
-  // Documents, not subresources: a page with forty images is not forty
-  // redirects, and counting them as such would refuse ordinary sites.
-  const documents = new Set<string>()
   let bytes = 0
   let tripped = false
+  let documentRefused = false
+
+  /** Record one refusal and answer `false`, so every refusal path is one line. */
+  function refuse(one: UrlRefusal, kind: RequestKind): false {
+    refusals.push({ ...one, kind })
+    if (kind === 'document') documentRefused = true
+    return false
+  }
 
   return {
     refusals,
     get tripped() {
       return tripped
     },
-    allow(url: string): boolean {
-      if (tripped) return false
-      const refusal = classifyUrl(url)
-      if (refusal) {
-        refusals.push(refusal)
+    get documentRefused() {
+      return documentRefused
+    },
+    allow(url: string, about: EgressRequest = {}): boolean {
+      const kind = about.kind ?? 'subresource'
+      // THE BYTE CAP IS THE ONE BUDGET THAT BELONGS TO THE WHOLE CAPTURE, so it
+      // alone latches: a capture that has pulled 32MB has spent its allowance
+      // and every later request is over it. Only the document is re-journalled
+      // — repeating the same sentence once per refused font would bury the
+      // finding under its own consequences — but recording it at all is the
+      // point: a later pass whose page is refused makes the capture unviewable,
+      // and BUG-127 is the account of what happens when that is not said.
+      if (tripped) {
+        if (kind === 'document') {
+          refuse(
+            {
+              url,
+              reason: 'response-cap',
+              detail:
+                `the capture had already delivered more than ${maxBytes} bytes when this ` +
+                `page was requested, so it was refused; the capture is incomplete.`,
+            },
+            kind,
+          )
+        }
         return false
       }
-      documents.add(new URL(url).origin)
-      if (documents.size > maxRedirects) {
-        tripped = true
-        refusals.push({
-          url,
-          reason: 'redirect-cap',
-          detail: `more than ${maxRedirects} distinct origins were followed; treating this as a redirect loop.`,
-        })
-        return false
+      const refusal = classifyUrl(url)
+      if (refusal) return refuse(refusal, kind)
+      // REDIRECTS COUNTED AS REDIRECTS (BUG-127). The depth is this request's
+      // own chain, so forty images are forty chains of depth zero rather than
+      // forty hops, and a genuine loop is still caught on the hop that closes
+      // it. Nothing latches: a refusal here is a refusal of THIS request, and
+      // the next navigation in the same capture starts its own chain at zero.
+      const depth = about.redirectDepth ?? 0
+      if (depth > maxRedirects) {
+        return refuse(
+          {
+            url,
+            reason: 'redirect-cap',
+            detail:
+              `this request arrived after ${depth} redirect hops, more than the ` +
+              `${maxRedirects} one navigation may follow; treating it as a redirect loop.`,
+          },
+          kind,
+        )
       }
       return true
     },
@@ -269,6 +362,7 @@ export function egressGuard(
           url: '(total)',
           reason: 'response-cap',
           detail: `the page delivered more than ${maxBytes} bytes; capture refused.`,
+          kind: 'subresource',
         })
       }
     },

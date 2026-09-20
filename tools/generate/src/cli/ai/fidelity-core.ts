@@ -419,6 +419,31 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
           driverFactoryFor: () => guarded,
         })
         refusals = guard.refusals
+        // THE CAPTURE'S VERDICT, BEFORE ANYTHING IS ADOPTED (BUG-127).
+        //
+        // A refused subresource is a hole in a page and the list below says so.
+        // A refused *document* is not a page: the driver answers 403 and the
+        // browser renders the words "refused by egress policy", so the bundle
+        // holds a black rectangle and every screenshot taken from it is
+        // unviewable. Until this existed, that capture had the identical result
+        // shape to a good one — success, a bundle name, a page count and a list
+        // the caller had to interpret — so it was adopted, screenshotted, and
+        // only then discovered to be nothing, with the page-load budget already
+        // spent. REFUSED is the code the surface already declares for a URL this
+        // must not fetch, and a page it did fetch and was refused is the same
+        // finding arriving one step later.
+        const lost = refusals.filter((r) => r.kind === 'document')
+        if (lost.length > 0) {
+          throw new UrlRefusedError(
+            lost[0].url,
+            lost[0].reason,
+            `the page itself was refused, so there is no capture to adopt — ` +
+              `${lost[0].url}: ${lost[0].detail}` +
+              (refusals.length > lost.length
+                ? ` (${refusals.length - lost.length} subresource refusals besides)`
+                : ''),
+          )
+        }
         // ADOPTED AFTER THE BUNDLE IS WHOLE, never before: the ticket describes
         // what was captured, so it cannot be written until there is a capture to
         // describe. A failure here is reported rather than raised — see below.

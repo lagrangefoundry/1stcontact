@@ -101,9 +101,36 @@ class PlaywrightDriver implements BrowserDriver {
     // operator typed keeps exactly the network behaviour it has today.
     if (this.guard) {
       const guard = this.guard
+      const page = this.page
       await this.page.route('**/*', async (route) => {
-        const url = route.request().url()
-        if (guard.allow(url)) return void (await route.continue().catch(() => undefined))
+        const request = route.request()
+        const url = request.url()
+        // BUG-127 — TELL THE GUARD WHAT THIS REQUEST IS. It cannot see either
+        // fact from the URL, and both decide the answer: the main document's
+        // refusal replaces the page with the refusal text (which is what a
+        // screenshot then shows), and the redirect cap is a cap on hops along
+        // one chain rather than on how many hosts a page happens to use.
+        //
+        // `resourceType()` alone is not enough for the first: an iframe is a
+        // document too, and a refused embed is a hole in a page, not the loss of
+        // the page. So the frame is checked as well, tolerantly — a request with
+        // no frame (a service worker's) is a subresource, which is the reading
+        // that cannot wrongly condemn the capture.
+        let kind: 'document' | 'subresource' = 'subresource'
+        if (request.resourceType() === 'document') {
+          let frame: unknown = null
+          try {
+            frame = request.frame()
+          } catch {
+            frame = null
+          }
+          if (frame === page.mainFrame()) kind = 'document'
+        }
+        let redirectDepth = 0
+        for (let prev = request.redirectedFrom(); prev; prev = prev.redirectedFrom()) redirectDepth++
+        if (guard.allow(url, { kind, redirectDepth })) {
+          return void (await route.continue().catch(() => undefined))
+        }
         await route
           .fulfill({ status: 403, contentType: 'text/plain; charset=utf-8', body: 'refused by egress policy' })
           .catch(() => undefined)
