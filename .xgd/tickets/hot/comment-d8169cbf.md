@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:27:17.286325+00:00'
+updated_at: '2026-09-20T19:32:11.054555+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2684,5 +2684,17 @@ You're right that it's bad UX, and I think the diagnosis is narrower than "the c
 I'd leave the burst-vs-lifetime scope alone — per-isolate resets are unpredictable, but the defence is sound and a lifetime bound costs a durable read-modify-write per acquisition.
 
 **My recommendation:** fix BUG-127, then do (2) and (4) as one ticket — cheaper looks plus an approach to the wall — and leave the 40 as it is. Want me to scope that, or do you read the cap itself as too low?
+
+<!-- xgd-turn id="48724422-5824-4e73-ba2a-fb02bebf53a5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T19:32:10.175332+00:00" -->
+#### You
+The other thing is that this is a single session - forever - putting a budget on the session is putting a budget on the total sites ever.
+
+I should be per hour or...something...also what is the real cost of a capture. The cost I am concerned about is tokens not web captures. I mean a "capture" is just the same as me going to a webpage, no? That's not expensive
+
+All that said - the consulant was probably wrong to try to capture these sites - unless it needed to to see them? I didn't want to look at screenshots I needed links.
+
+Aside:  There's a feature request - probably for the framework: rendering of links in the chat window: the should be rendered to open in new tabs by default
 
 <!-- xgd-chat-end -->
