@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   epic_parent: epic-bf282b3d
+  chat_comment: comment-fa994b87
 ---
 
 # A stored round written before REQ-276 takes the whole page down on open
