@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:33:43.147087+00:00'
+updated_at: '2026-09-20T01:34:34.696424+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2274,5 +2274,30 @@ Worth noting on REQ-273 so the "hosted ticket server" line doesn't get read as t
 <!-- xgd-chat role="user" ts="2026-09-20T01:33:42.994885+00:00" -->
 #### You
 Deployed filing is a problem for the deployed system. I critically need something on the dev system than can file tickets and we don't need to over design it
+
+<!-- xgd-turn id="d2fca2ad-4e63-48e5-861b-bc59832cc33e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T01:34:34.290881+00:00" -->
+#### Claude
+Right. Let me verify it'll actually work on restart rather than just assume.
+
+Agreed — no design needed. It's already built the way you'd want it, and I've verified every piece is in place:
+
+- `@lagrangefoundry/ai-ticketing` exports the `./node` subpath ✓
+- `XgdProject` is exported from it ✓
+- it spawns `xgd` with `cwd: root`, and `xgd` resolves (`0.17.61`) ✓
+- `1c builder` starts the service and passes `--var DEVELOPMENT_TICKETS_URL/_TOKEN` to wrangler ✓
+- the Worker composes the surface whenever that URL is present ✓
+
+**So: restart `1c builder`.** REQ-273 landed at 15:53 today; a builder started before that has no filing service in its process and passed no vars, so `developmentFor` returns `null` and the consultant is correctly never told about a tool it hasn't got.
+
+Two things to watch on restart, since failure is deliberately non-fatal:
+
+- **A warning, not a refusal.** *"A dev server that would not start because the shared store was not installed would be trading a whole product for a capability nobody was using yet."* So if the service fails to start you'll get a warning and a working builder with no filing tool. Check the startup output.
+- **`--no-filing`** turns it off, if that's in your launch line.
+
+And to confirm it's live: ask the consultant what tools it has, or just ask it to file something. It'll have `ReportBug`, `RequestCapability` and `AddTicketDetail`, and they write into this project's store via the same `xgd` CLI you've been using all session.
+
+Deployed filing — dropped, per your call. I won't raise it again.
 
 <!-- xgd-chat-end -->
