@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-103
 created_by: xgd
 created_at: '2026-09-17T21:36:04.696954+00:00'
-updated_at: '2026-09-20T18:47:20.257609+00:00'
+updated_at: '2026-09-20T18:52:14.925743+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -164,5 +164,31 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a748fa81-35c0-411f-8739-f00ad495df72-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T18:52:13.294185+00:00" -->
+#### Claude
+Everything but teardown is already done — both commits are ancestors of `xgd-working`, ticket is `free_coded` at 0.2.237 with the body current. The worktree is clean. Remaining step is the branch teardown.
+
+The sandbox exclusion is keyed on the literal command text `xgd branch clean *` — my `env -u XGD_LOG_SESSION` prefix defeated the match. Retrying unprefixed:
+
+Free-coding on BUG-103 is complete. No code changes were needed — the work had already landed; what remained was teardown.
+
+## State verified
+
+- **Both commits are ancestors of `xgd-working`**: `f5b819a8d3` (the fix) and `ceb78ba937` (the version bump to 0.2.237). Recorded in `fields.commits`.
+- **Status** `free_coded`, body current (it already carries the scope decisions and the corrected symptom).
+- **Code is on `xgd-working`**: `fidelity.ts` has the `--actual-out`/`--expected-out` seam, `perceptual.ts` has `--actual-out`. (A first grep read 0 matches — that's the known NUL-byte/binary-grep artifact in `fidelity.ts`, not missing code; `grep -a` shows 9 and 5 hits.)
+- **UATs re-run against the current tip** — a lot of other work has merged since 2026-09-17 — foreground, in the main checkout: `2 files, 7 tests passed` in 3.06s.
+- **Branch and worktree torn down**: `free-BUG-103` deleted, worktree gone, orphaned `.git/worktrees/` metadata cleared. `git worktree prune` is now silent and the branch no longer lists.
+
+## One snag worth knowing
+
+`xgd branch clean BUG-103` failed the first time with `failed to delete '.git/worktrees/free-BUG-103': Operation not permitted`. Cause: `.xgd/permissions.yaml`'s `sandbox.excluded_commands` matches the literal text `xgd branch clean *`, and I'd prefixed the call with `env -u XGD_LOG_SESSION` (a habit from a different CLI issue). The prefix broke the match, so the command ran sandboxed and hit the `.git/worktrees/**` protection that the exclusion exists to bypass — `rm`, `mv` and `git worktree prune` were all denied too. The bare `xgd branch clean --stale` cleared it immediately. Saved to memory.
+
+## Unrelated, but you may want to look
+
+`.xgd/merge.lock` in the main checkout is held by `{"pid": 51341, "acquired_at": "2026-07-10", "annotation": "ff_push reconcile-BUNDLE-4"}` — two months stale, on this host. I couldn't check whether that pid is alive (`ps` is denied in the sandbox) and it isn't BUG-103's lock, so I left it alone.
 
 <!-- xgd-chat-end -->
