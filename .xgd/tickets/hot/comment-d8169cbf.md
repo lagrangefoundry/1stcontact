@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T00:37:22.743111+00:00'
+updated_at: '2026-09-20T00:46:45.010520+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2153,5 +2153,11 @@ I rewrote the doc comment rather than just swapping the digits, because the old 
 Overflow is still a loud failure naming the entry with no truncation path, which is what makes a backstop safe rather than negligent.
 
 Two notes: this is an unticketed change at your instruction, so it has no UAT of its own and won't have matrix coverage — worth a ticket later if you want it recorded. And the builder bundle doesn't need rebuilding for this one; it's host code, not `src/builder/*.js`.
+
+<!-- xgd-turn id="4933765d-a858-44b2-8419-acc29765749d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T00:46:44.693797+00:00" -->
+#### You
+I think there is a philosophical question here 65k tokens is still more than I would like to "stuff" into the session - OTOH this session probably needs to be intimately familiar with that manual so maybe we suck it up - stuffing is only a problem if the content is irrelevant, I guess
 
 <!-- xgd-chat-end -->
