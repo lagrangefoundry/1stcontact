@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:48:36.144801+00:00'
+updated_at: '2026-09-20T19:54:26.980247+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2776,5 +2776,35 @@ Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usa
 I think drop the browser quota until it becomes a problem - I don't think it will - we should focus on tokens that is our scarce resource to manage.
 
 Can you create an REQ for this please?
+
+<!-- xgd-turn id="a89b7a04-bf80-42d1-8910-0050bdec8216-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T19:54:26.914581+00:00" -->
+#### Claude
+Now creating the ticket.
+
+**REQ-286** filed — *Capture budget: drop the browser quota — context, not page loads, is the scarce resource.* EPIC-19 updated: Finding 8 replaces the "still under discussion" paragraph, and the child bullet is in.
+
+## What the ticket says
+
+**Removal, not a smaller number.** `BUDGET: this conversation has spent its 40 live-page looks` stops existing, with nothing in its place — no rate limit, no threshold, no per-verb pricing. It comes back as a rate limit *only* if the Cloudflare bill or a concurrency-cap error ever asks for one.
+
+The four reasons raising the number wouldn't have helped:
+
+1. **Wrong currency** — `capture_site` costs 8 acquisitions and ~0 tokens; `screenshot` of an already-captured page costs 0 acquisitions and a whole image that rides in every turn after. `browserBudget`'s own doc states that exemption *as a feature*.
+2. **Wrong scope** — REQ-126 removed session recycling, so a site's builder conversation is permanent. A per-session quota on it is a lifetime quota.
+3. **Unlearnable** — in-memory per isolate, which its doc admits makes it a burst bound resetting on an event nobody can observe.
+4. **Wrong shape** — the header names metering, a concurrency cap and an acquisition rate limit. Those are rates; the guard is a quantity.
+
+Plus the observed cost: sixteen of the forty went into BUG-127's black rectangles.
+
+**Explicitly scoped** down to the deletions in `shot.ts` (`SESSION_BROWSER_BUDGET`, `BrowserBudgetSpentError`, `browserBudget`, `ShotDeps.budget`, the `meter` wrap in `fidelityDeps`) and the three prose sites that document the ceiling as the answer to a question. It **supersedes REQ-206's rate-limiting decision** by name and deletes its two budget UATs — everything else REQ-206 established stands.
+
+One thing added rather than removed: `capture_site` isn't priced in the manual at all today, so the consultant couldn't have known a capture was 8× a look. It now says a capture hands back a **name**, not pictures — the cheap way to keep a site around. That steers toward capture and away from `screenshot`, which is precisely the inverse of what the quota taught.
+
+Two notes:
+
+- I left `screenshot`'s pricing prose alone — REQ-284 already landed it in `fidelity-surface.json`, and it's already token-denominated and good (*"Looking is the most expensive thing you do, and you pay for it again on every turn after this one"*).
+- Unrelated, but it's sitting uncommitted in your tree: `tools/generate/src/cli/ai/host-core.ts` has `MAX_PRIMING_CHARS` raised 60,000 → 200,000 with a rewritten rationale. Not mine, not on any ticket I can see — worth deciding where it belongs before something sweeps it up.
 
 <!-- xgd-chat-end -->
