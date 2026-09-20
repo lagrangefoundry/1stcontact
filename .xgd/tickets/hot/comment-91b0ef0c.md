@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T19:08:35.162288+00:00'
+updated_at: '2026-09-20T19:11:30.241608+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1075,5 +1075,11 @@ Patch is at `.xgd/tmp/readOutcome-defectClasses.patch` (12 lines). **The working
 This needs a child bug on EPIC-12 before it can land, and the scope worth ticketing is slightly wider than the crash: **a field the console adds to its own persisted artifacts must be optional on read** — `readOutcome` is the last boundary that doesn't follow it, and REQ-276 is the second time a new required field has shipped through it. Testable both ways: a stored pre-REQ-276 `outcome.json` renders the page, and a current one still shows its class split.
 
 Say the word and I'll file it and land the fix here — or file it only, if you'd rather it go to its own session. Either way you're one command from working: `git apply .xgd/tmp/readOutcome-defectClasses.patch` and restart the console.
+
+<!-- xgd-turn id="3e83dc49-a440-4aaf-9b7b-4f0b75f763f3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T19:11:28.925239+00:00" -->
+#### You
+please create the bug
 
 <!-- xgd-chat-end -->
