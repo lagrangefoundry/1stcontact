@@ -6,9 +6,9 @@ title: 'repro console: a stored round written before REQ-276 takes the whole pag
   down on open'
 created_by: EPIC-12
 created_at: '2026-09-20T19:12:43.538142+00:00'
-updated_at: '2026-09-20T19:25:04.035253+00:00'
+updated_at: '2026-09-20T19:25:38.364625+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -152,3 +152,65 @@ this crash restores, worse — an error string instead of an empty page.
   exactly as it does now.
 - An `outcome.json` whose `ticketsRead` holds one malformed entry beside a good
   one renders the good one.
+
+
+## What landed
+
+`897f0ea134` (+ the auto version bump), on the read side of the boundary only.
+
+**`normaliseOutcome` in `ai.ts`, called by `readOutcome`.** The bare spread and
+the `as AiOutcome` are gone: what `JSON.parse` returned is handed to a
+normaliser that gives every field the code declares required a value, whatever
+the file carries — the same thing `readIterations` does for the manifest and
+`readGateReport` for the verdict. `status` stays the one exception: an outcome
+with no status is not an outcome, and the caller already reads that as "this
+iteration has no round".
+
+Two technical consequences of behaviour 1 worth naming, because they are what
+"every field the code declares required" means in practice beyond
+`defectClasses`:
+
+- **`violations`, `observations` and `bugTickets` are re-derived, not
+  defaulted.** They were defaulted with `?? []`, which only answers absence — a
+  file holding a non-list under one of those names would still have reached the
+  page and thrown there. Each is now filtered back to a list of strings,
+  `bugTickets` through the same `ticketIds` the live parse uses.
+- **Absence is kept as absence for `ticketsRead` and `bugTickets`.** A round
+  that named no secondary bug and one whose read-back came out empty are
+  different facts, and only the file can say which — so a missing key stays
+  missing rather than becoming `[]`.
+
+**`unreadTicket` in `ai.ts`, shared with the live read-back.** Behaviour 3 asks
+for "the same unread shape `readTicket` already uses", so that shape is now
+declared once beside `ReadTicket` and called from both places rather than
+written out twice.
+
+**Nothing on the write side moved.** `parseOutcome`, `confirm` and
+`wrongDefectClass` are untouched; the unclassified-ticket violation is still
+raised by the live confirmation path and by nothing else.
+
+## Evidence
+
+`tests/test_UAT_FC_BUG-125_stored_round_renders.test.ts` — five UATs against a
+real `node:http` console on loopback, driven with real `fetch`, reading real
+artifacts. The pre-REQ-276 fixture is made by RUNNING a round and then editing
+its `outcome.json` down to the four keys an earlier console wrote, rather than
+hand-writing a file this suite invented.
+
+| UAT | Pins |
+|---|---|
+| `…_a_round_recorded_before_the_class_field_still_renders` | acceptance 1 — the page, and `/state`, `/iteration/1/page`, `/iteration/1/ticket`, `/iteration/1/diff/` |
+| `…_a_round_with_no_classes_reads_as_having_none` | acceptance 2 — split clause absent, filings block absent, no violation |
+| `…_a_round_recorded_today_still_renders_its_split` | acceptance 3 |
+| `…_a_malformed_entry_costs_itself_not_its_neighbours` | acceptance 4 |
+| `…_the_unclassified_check_stays_on_the_live_path` | behaviour 4 |
+
+Before the fix the first, second and fourth fail with `expected 500 to be 200`
+and `TypeError: Cannot read properties of undefined (reading 'length')` — the
+operator's own error. The third and fifth pass on both sides, which is what
+makes them the guards they are.
+
+Regression scope: the eleven repro-console suites (131 tests) plus this one.
+Two `REQ-254` cases that spawn the real `1c` CLI fail in a `git worktree`
+checkout and pass in the main checkout — the known worktree artifact, unrelated
+to this change.
