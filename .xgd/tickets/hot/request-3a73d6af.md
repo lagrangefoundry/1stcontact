@@ -5,9 +5,9 @@ type: request
 title: The upload confirmation names the catalogue label, not the stored filename
 created_by: EPIC-19
 created_at: '2026-09-20T22:04:23.388789+00:00'
-updated_at: '2026-09-20T22:29:01.622516+00:00'
+updated_at: '2026-09-20T22:29:14.556395+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
