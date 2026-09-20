@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T18:55:31.093686+00:00'
+updated_at: '2026-09-20T18:59:34.603774+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2573,5 +2573,11 @@ Every value `access-sim --print-env` emits is deterministic at defaults — `ISS
 The part I'd argue matters most is the silence. Two correct behaviours compose into it — the Worker composes no surface when it has no project, and the model is never told about a capability it wasn't granted — so the assistant says truthfully "I cannot create tickets", and nothing distinguishes that from a mis-launched dev server. The `filing: on/off` banner exists, but only on the command that isn't being used.
 
 Fix is three items: let `1c builder` layer an extra env file (smallest thing that makes them composable); fold the simulator into that one command, which already owns the dev server's and the filing service's lifetime; and make an absent filing surface legible somewhere an operator or the consultant can actually see. Linked from EPIC-19 as Finding 6.
+
+<!-- xgd-turn id="6521a4c4-5603-40d4-ab96-3b82201446b0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T18:59:30.748109+00:00" -->
+#### You
+I'm sorry could you approach this at a higher level I'm really confused why this is so complicated. There is no identity required to run  xgd ticket
 
 <!-- xgd-chat-end -->
