@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T02:00:39.364195+00:00'
+updated_at: '2026-09-20T02:04:06.428732+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2400,5 +2400,11 @@ So the sequence is: **start `bin/access-sim`, then the builder pointed at it** �
 Read the rest of `bin/access-sim`'s header for the exact invocation and which vars to override; it'll name them. I've deliberately not run it — that's your call, and it wants to be in your shell, not mine.
 
 Two corrections I owe you from this thread: the stale bundle was real but wasn't the cause, and my "no assets needed" was wrong for the restart generally. Sorry for the two misdirections — I should have traced the payload before offering a fix.
+
+<!-- xgd-turn id="f0910047-4f32-4a9a-9bab-786b56677f9f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T02:04:06.287737+00:00" -->
+#### You
+Nope I have that, I just reconnected with it - but my token is not being accepted'
 
 <!-- xgd-chat-end -->
