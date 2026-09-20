@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-20T23:39:28.176424+00:00'
+updated_at: '2026-09-20T23:44:04.374048+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,44 @@ So this version of going live will be its own undertaking, no doubt. But I also 
 (2) what is the path to copy content (sites, contact data etc) from dev to prod or prod to dev
 
 I think we started a doc ticket but I have lost track
+
+<!-- xgd-turn id="cba17276-26e4-44c8-971e-a487a376183f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T23:44:03.845139+00:00" -->
+#### Claude
+Ticket appended (§F). Title and status untouched, no code changed.
+
+## The doc ticket you lost track of
+
+**[[DOC-41]] "Build and Deployment"** — last updated 2026-09-04, ~15k chars. It already answers question (1) properly: one-time setup, the local simulation, the Cloudflare path, a credential table per environment, and an order-of-operations summary. It's the right home and should stay so.
+
+Three things it doesn't say, which is most of why it feels incomplete: it never mentions `.github/workflows/deploy.yml`, it documents no staging, and it documents **no prod → dev content path** — because there isn't one.
+
+## (1) Launching code
+
+**(a) To dev — there is no deployed dev environment.** "Dev" is the local Cloudflare simulation: workerd under `wrangler dev`, D1 and R2 on disk. Neither `wrangler.toml` declares any environment but `[env.production]`. So it's `bin/build` → `pnpm dev` → `bin/publish` to seed the store, and thereafter the what-requires-what table in §A of the ticket. The only real defect in that loop is that nothing watches `1c assets`' inputs.
+
+**(b) To prod** — `bin/build` → `bin/deploy --dry-run` → `bin/deploy` → `bin/smoke`, from your laptop.
+
+The thing worth repeating: `.github/workflows/deploy.yml` is a **second, divergent path**, not the same one automated. It runs `pnpm -r build` (typecheck, emits nothing) then two bare `wrangler deploy` calls — no `bin/deploy`, so no migration, no secret push, no capability probe, and no `1c assets`. Since `dist-assets` is gitignored, a CI deploy of the control app uploads an *empty* assets directory over a working builder. Treat it as disabled until child 1 replaces its body with `bin/build && bin/deploy`.
+
+## (2) Copying content
+
+**Dev → prod exists, one direction, sites only.** `bin/access-token` once, then `bin/publish --production <slug>` (`1c push` → `POST /api/import` → the Worker writes D1 + R2 through the same store it serves from), then mint a revision so public-site has something live. `--production` has to be typed; it's 409-guarded against overwriting builder edits ([[BUG-51]]); and it copies a **draft** — `bin/publish` is *where the bytes live*, `1c publish` is *which version is live*. Those two names are the most likely confusion in the whole flow.
+
+**Prod → dev does not exist.** `/api/import` has no mirror, `push.ts` has nothing opposite it. Three things look like an answer and aren't: `1c builder --remote` points your local bindings at the *deployed* store (that's editing production, not copying it); `bin/seed` writes an invented fixture, which is the opposite of a copy; `wrangler d1 export` + `wrangler r2 object get` are the raw primitives nobody has wired up — and a site spans D1 plus *two* R2 buckets, so a hand-rolled version gets it half right.
+
+**Contact data: nothing in either direction — and that's the correct default.** Contacts, leads, sessions, grants and the activity log are cloud-created D1 rows. Pulling them down puts real people into a dev store running `ACCESS_DEV_OPEN=1`. That's your own security note 1 applied to the laptop, where it matters more, not less.
+
+So my recommendation splits the direction in two: **structure down, data never** (apply migrations locally, `bin/seed` — already true, just needs saying in DOC-41 so the absence reads as a decision), and **one site's content down, on request** — an `/api/export` mirror plus `1c pull <slug>`, symmetric with push, behind the same Access token, taking a *slug and never a tenant* so the whole-environment version is refused by construction. That's the genuinely missing piece, it's small, and it's also what turns the staging seed into a copy of the canary sites rather than a second hand-authored corpus.
+
+## On lagrangefoundry.ai
+
+That settles the name but not the mechanism, and two checks stand between here and step 7/8:
+
+- **Is the zone in this Cloudflare account?** If it's registered elsewhere and merely delegated, the nameservers move first — `serving.ts` writes records through the account's own API. (I couldn't resolve DNS from here; the sandbox blocks it.)
+- **There's still no site to serve.** `storage/sites/` holds `1stcontact`, `gigabytealchemy`, `xgd` — nothing for Lagrange Foundry.
+
+Note it's a **customer-shaped** domain, not the apex — `APEX_SITE_KEY` is `1stcontact.io`'s mechanism specifically. So LF going live exercises the `site_domains` path end to end, which has never run in production and needs `CLOUDFLARE_DNS_TOKEN`, which is absent from the account.
 
 <!-- xgd-chat-end -->
