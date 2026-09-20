@@ -6,9 +6,9 @@ title: 'Local dev: Access identity and defect filing are mutually exclusive, so 
   consultant silently has no filing tools'
 created_by: EPIC-19
 created_at: '2026-09-20T18:54:46.840610+00:00'
-updated_at: '2026-09-20T19:09:41.700958+00:00'
+updated_at: '2026-09-20T19:22:33.398897+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -73,3 +73,76 @@ Every value `bin/access-sim --print-env` emits is deterministic at defaults — 
 - A `ReportBug` call through the running service creates a ticket in this project's store.
 - Filing is on for a dev server started by `1c builder` AND for one started by a bare `wrangler dev` — the same assertion both ways round, which is the behaviour this ticket exists to create.
 - A wrong token is refused, and whatever surfaces the absence in item 3 is asserted on directly rather than inferred from the banner.
+
+
+## What was built
+
+The three numbered items above, and the decisions each one needed.
+
+**1 — a fixed default port, and a bearer minted once.** `DEFAULT_FILING_PORT` is
+**8790**: one clear step from `1c builder`'s 8788, in the control-app's own band,
+clear of public-site's 8787 and `bin/access-sim`'s 8799. (Not beside
+repro-console's 8710 — 8711 and 8712 are routinely taken on a working machine,
+which is the collision a fixed port has to avoid by choosing well rather than by
+re-randomising.) `--port` and `DEVELOPMENT_TICKETS_URL` override it; two
+checkouts running at once is the whole cost of a fixed port and is what the
+override is for. A `--port` that is not a number is refused rather than written
+down as `NaN`.
+
+**Who writes the token.** `.dev.vars` is gitignored and per-clone — which is
+exactly what keeps the bearer unreadable to a page in the operator's own browser,
+and also means no clone has these lines until something puts them there. A setup
+step nobody performs is this same silence one remove, so the first `1c filing` or
+`1c builder` in a clone **mints the bearer and appends both lines**, says that it
+did, and every launch after that reads them. It is append-only and idempotent: a
+second run keeps the token the first one minted, so the Worker does not have to
+be restarted every time the listener is. Where there is no `.dev.vars` at all it
+prints the two lines rather than conjuring a file — a clone without that file is
+already a broken local dev (Access refuses every request), and writing one
+holding only filing config would answer a question nobody asked.
+
+**2 — `1c filing`.** Starts the listener and waits; `1c builder` still starts one
+unless something is already answering there, and leaves an incumbent alone rather
+than fighting over the port. `--no-filing` now means *start no listener* — it
+cannot un-configure an address this command does not own, so the assistant is
+still offered the tool and is told the project is unreachable if it uses it,
+which the banner says too.
+
+**3 — the absence, as a value.** `filingStatus()` answers `unconfigured` /
+`unreachable` / `answering` and carries the line to print; the banner renders it
+and the UATs assert the state directly. It is backed by a credential-free probe:
+the listener already owed a GET a 405, and it now names itself in that body
+(`service: "filing"`), so a `1c` that has not read the file holding the bearer can
+still ask whether anything is there — and tell a filing service from whatever else
+might hold the port. This is why the banner can report *what is actually
+answering* rather than what the running process happened to do.
+
+**`bin/access-sim`.** Its usage block never carried a warning to remove; it now
+carries the positive statement instead — filing arrives on that hand-launched
+recipe because `.dev.vars` is the file it already names first — plus `1c filing &`
+beside `bin/access-sim &`.
+
+### Test plan, as delivered
+
+`tests/test_UAT_FC_BUG-124_filing_is_a_setting.test.ts` (13 cases) plus two cases
+added to `tests/test_UAT_FC_REQ-273_report_a_defect.workers.test.ts`. REQ-273's
+own AC5 asserted the `--var` composer that is gone; it now asks the same claim —
+*the address reaches the Worker under the names the Worker reads* — of the names
+themselves, by composing the surface from an env built out of them.
+
+One honest substitution. "A `ReportBug` call through the running service creates
+a ticket in this project's store" is tested as far as it can be without filing a
+real ticket on every run: a real `Toolbox` call on the real composed surface, over
+a real loopback socket, through the real listener, to a project handle that
+records. The remaining rung is upstream's `XgdProject` spawning `xgd`, which is
+upstream's own tested code and which a suite must not exercise — a test that
+filed a ticket every time it ran would be a defect rather than a test, which is
+the rule both existing REQ-273 suites already follow.
+
+### Not done, deliberately
+
+`devEnvLayering` still emits exactly two `--env-file` arguments, so `1c builder`
+still has no slot for `bin/access-sim`'s `.dev.vars.local`. That was the thing
+that forced the hand launch, but it is not what made filing break — this ticket
+removes the coupling rather than patching the one route that exposed it, and any
+other reason to launch wrangler differently is now equally safe.
