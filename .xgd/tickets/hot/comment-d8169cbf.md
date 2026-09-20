@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:34:34.696424+00:00'
+updated_at: '2026-09-20T01:35:39.275339+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2299,5 +2299,11 @@ Two things to watch on restart, since failure is deliberately non-fatal:
 And to confirm it's live: ask the consultant what tools it has, or just ask it to file something. It'll have `ReportBug`, `RequestCapability` and `AddTicketDetail`, and they write into this project's store via the same `xgd` CLI you've been using all session.
 
 Deployed filing — dropped, per your call. I won't raise it again.
+
+<!-- xgd-turn id="8fef5441-8eeb-4a03-8bfb-ac83325dcd44-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T01:35:39.090151+00:00" -->
+#### You
+So don't restart anything for me, tell me what I need to restart?
 
 <!-- xgd-chat-end -->
