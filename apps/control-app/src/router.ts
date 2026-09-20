@@ -271,6 +271,7 @@ import {
   NotMaterialError,
   NotRepublishableError,
   pictureChoices,
+  placedOriginOf,
   placePicture,
   type PictureChoice,
   promoteToSiteAsset,
@@ -589,6 +590,18 @@ export function sessionPicturesFor(
         renderer,
       }),
     },
+    // WHERE AN ADJUSTMENT TO A PLACED PICTURE ACTUALLY LANDS ([[BUG-126]]). The
+    // site's own files carry no recipe and never will, so the surface refuses
+    // them — and the client is looking at the page, not at the Library. This is
+    // the half that makes the refusal act on: it reads `placed_as` back the
+    // other way, so the sentence names the Library item whose recipe governs
+    // those bytes. The wrapper above is what then carries the edit to the page,
+    // so the path the refusal describes is the path that already works.
+    //
+    // BOUND TO THIS SESSION'S SITE, like `assetUrl` and the libraries above: a
+    // placement is recorded per slug, and an origin lookup that took one would
+    // be able to ask about a site the conversation is not about.
+    originOf: placedOriginOf(tickets, site),
     renderer,
   })
 }

@@ -1811,6 +1811,55 @@ export function materialImageLibrary(store: TicketStore, renderer?: ImageRendere
   }
 }
 
+/**
+ * The Library picture a file on the site was placed from, where one is recorded
+ * ([[BUG-126]]).
+ *
+ * **THE SECOND HALF OF "CHANGE A PICTURE THAT ALREADY EXISTS."** A recipe lives
+ * on a Library record and a site asset is bytes with nowhere to carry one, so
+ * `list_image_edits` and the recipe `edit_image` refuse a site file — coherently,
+ * and the refusal is right. But `promoteToSiteAsset` COPIES the bytes, so the
+ * moment a picture is on a page the only adjustable copy is the Library
+ * original, and the client is looking at the page. *"Make this one a bit
+ * warmer"* about the thing on screen had no path at all: one operation crashed
+ * and the other declined, and both are the same request from the client's side.
+ *
+ * **A PATH, NOT A SECOND RECIPE STORE.** The bytes on the site are a copy, and
+ * giving the copy its own recipe would be two editable versions of one picture
+ * drifting apart — with the next republish overwriting whichever one the client
+ * last worked on. What the copy needs is not a place to keep edits; it is a way
+ * to say where the edits GO. That place already exists and already works:
+ * `republishingRecipes` carries a Library edit back out to every placement, so
+ * editing the original is not a detour, it is the mechanism.
+ *
+ * **READ OFF `placed_as`, WHICH IS ALREADY THE ANSWER** ([[REQ-282]]).
+ * `placed_on` says a material reached a site; `placed_as` says what it is CALLED
+ * there, recorded by `promoteToSiteAsset` in the same patch precisely so a
+ * change can be carried back to the right file. This is that record read in the
+ * other direction. No new field, no migration: material placed before the names
+ * were recorded simply has no origin to report, which reads correctly as *"we do
+ * not know where these bytes came from"*.
+ *
+ * **A FULL LISTING, ON THE REFUSAL PATH ONLY.** It is one scan of the client's
+ * material to answer a question asked when an operation has already failed —
+ * against an index on the site file's name, which nothing else would ever use,
+ * kept in step forever. A listing that is already how every other consumer reads
+ * placements is the cheaper thing to maintain.
+ */
+export function placedOriginOf(
+  store: TicketStore,
+  slug: string,
+): (image: StoredImage) => Promise<StoredImage | null> {
+  return async (image) => {
+    if (image.where !== 'site') return null
+    const rows = await listMaterial(store)
+    const from = rows.find((row) =>
+      row.placed_as.some((entry) => entry.slug === slug && entry.name === image.name),
+    )
+    return from ? storedImageOf(from) : null
+  }
+}
+
 // --- the change feed the Library subscribes to (REQ-201, DOC-24) -------------
 //
 // WHY THIS LIVES BESIDE `listMaterial` AND NOT IN A MODULE OF ITS OWN. The
