@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-20T22:45:29.652968+00:00'
+updated_at: '2026-09-20T22:59:05.616170+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -296,3 +296,139 @@ Three of the six are already load-bearing in the plan above rather than addition
 - **§5 is already the shipped behaviour** of `bin/deploy.d/secrets/`. It is restated here as a control because the secrets are about to move to GitHub, and that is exactly the move during which "just put it in `[vars]` for staging" becomes tempting.
 
 One clause from [[EPIC-17]] that is _not_ restated above because it belongs elsewhere: F8(c)'s `workers_dev = true` on production's public site. Staging inherits the consequence (§5), but the production instance is [[EPIC-17]]'s item 12 and should not wait for this epic.
+
+
+---
+
+## Scope broadened to **Deployment** (2026-09-20)
+
+The epic was renamed from the staging-pipeline framing to **Deployment**. Nothing above is
+invalidated — staging, the gate, the seed and the security notes all still stand. What is added
+is the two things that come *before* a pipeline can be worth having:
+
+- **the local build and dev loop**, because the pipeline's job is to run the same steps the
+  operator runs, and "the same steps" has to be a list somebody can read; and
+- **the first production go-live**, because there is nothing for a pipeline to protect until
+  something is actually serving.
+
+### A. The build and dev loop — the catalog
+
+There is no "million scripts" problem in the *build* direction: `bin/build` is already the single
+path and `1c assets` is already a stage inside it (stage 2 of 4 — preflight, assets, `pnpm -r build`
+typecheck, per-app wrangler bundle). Asset and build are combined and have been since [[REQ-144]].
+
+The scripts divide cleanly by what they act on:
+
+| Acts on | Commands |
+|---|---|
+| **Code → artifacts** | `bin/build` (preflight → `1c assets` → `pnpm -r build` → bundle), `1c preflight`, `1c assets`, `bin/kb-release` (kb build, *then* assets — [[BUG-48]]'s ordering) |
+| **Artifacts → cloud** | `bin/deploy` (migrate hook → secrets hooks → `wrangler deploy` → capability report), `.github/workflows/deploy.yml` (bypasses all of it — child 1) |
+| **Content → store** | `bin/publish` / `1c push` (local draft → D1+R2), `1c publish` (mint a revision) — two different operations with confusingly similar names |
+| **Dev servers** | `1c builder` (`wrangler dev`, control app, :8788), `pnpm dev:public` (`wrangler dev`, public site, :8787), `pnpm dev` (both), `bin/access-sim` (:8799, local Access IdP), `1c filing` (loopback defect filing), `bin/repro-console` (:8710) |
+| **Local store** | `bin/seed`, `1c reset`, `wrangler d1 migrations apply … --local` |
+| **Gates / evidence** | `bin/smoke`, `bin/repro-rail`, `1c gate` / `l1-gate` / `values-diff` / `diff`, `bin/access-token` |
+
+`startBuilder` and `startServe` are **test transports, not hosting** — they are library functions a
+test opens and closes. The only supported way to serve a site is a Worker ([[REQ-177]]).
+
+**The real gap is the dev loop, not the build.** `1c assets` copies
+`apps/control-app/src/builder/**` verbatim, type-strips the framework bridges, and writes
+`src/generated/importmap.json`. None of that is watched. So every edit to builder browser source or
+to a framework bridge needs a manual `1c assets` before a reload shows it, and *nothing says so* —
+the failure is a stale asset, which looks like the edit not working. `wrangler dev` watches the
+Worker's own module graph and the `dist-assets` directory and reloads on both; the missing half is
+a watcher on the *inputs* to `1c assets`.
+
+**What requires what** — the table this epic should own, and the pipeline should mirror:
+
+| Changed | Run | Server | Browser |
+|---|---|---|---|
+| Worker source, or a `packages/*` module the Worker imports | — | auto-reload | reload |
+| `apps/control-app/src/builder/**` (browser source) | `1c assets` | auto (asset watcher) | reload |
+| `packages/framework/src/l1/*` bridges (`/framework/*.js`) | `1c assets` | auto | hard reload |
+| a webui component in the shared store | reinstall store, `1c preflight`, `1c assets` | restart | reload |
+| KB docs / opted-in doc tickets | `bin/kb-release` | restart | reload |
+| site content under `storage/sites/**` | `bin/publish [slug]` | — | reload |
+| want a frozen revision of a site | `1c publish <slug>` | — | — |
+| **D1 schema** | new `db/migrations/NNNN_*.sql`, then `(cd apps/control-app && npx wrangler d1 migrations apply 1stcontact --local)` | restart (`1c builder` **refuses** while behind — [[REQ-253]]) | reload |
+| `wrangler.toml` — bindings, vars, routes, crons | — | restart | reload |
+| `.dev.vars` / `.dev.vars.local` | — | restart | — |
+| dependencies (`package.json`, lockfile) | `pnpm install` | restart | — |
+
+**Only D1 schema changes involve a migration.** Sites, pages, palettes, assets, revisions, leads,
+zones and domains are all *rows and objects* under a schema that already exists — authoring a site
+never migrates anything. A migration is needed exactly when a feature needs a new table or column,
+and the rule every file in `db/migrations/` states is: **never edit an applied migration**, always
+add a numbered file, because `wrangler d1 migrations apply` records what it has run and an edit
+reaches no database.
+
+### B. Production state, audited 2026-09-20
+
+Read directly off the account, not inferred:
+
+| Fact | Value |
+|---|---|
+| Remote D1 `d1_migrations` | **`0001_baseline.sql` only**, applied 2026-09-06 |
+| Migrations in `db/migrations/` | 0001 … 0018 — so production is **17 behind** |
+| Remote D1 contents | 0 sites, 0 users, 0 revisions, 0 pages, 1 tenant |
+| Workers last deployed | both 2026-09-06 (repo is at 0.2.297 with a fortnight of changes since) |
+| Production secrets (control-app) | `ANTHROPIC_API_KEY`, `RESEND_API_KEY` — **`OPENAI_API_KEY` and `CLOUDFLARE_DNS_TOKEN` absent** |
+| `app.1stcontact.io` | live, behind Access (302 to the team login) |
+| `1stcontact.io` | Worker answers, **404** — `APEX_SITE_KEY` is `""` in `[env.production.vars]` |
+| R2 | `1stcontact-sites`, `1stcontact-material` both present |
+
+Three consequences worth stating plainly:
+
+1. **The empty database is the cheapest moment this will ever be.** Seventeen migrations against a
+   database with no rows carries no data risk. Every day production holds real customers, the
+   expand/contract policy in §6 above stops being a policy and starts being a constraint.
+2. **`CLOUDFLARE_DNS_TOKEN` absent means custom domains cannot be attached at all.**
+   `serving.ts` composes DNS records + a runtime Worker route + the `site_domains` row; the first
+   two need that token (`Zone:DNS:Edit`, `Workers Routes:Edit`). And `site_domains` does not exist
+   in the remote schema yet — it arrives with migration 0008.
+3. **Deploying from CI today would be actively worse than from the laptop.** `dist-assets` is
+   gitignored and the workflow never runs `1c assets`, so a CI deploy of `control-app` uploads an
+   *empty* assets directory over a working one. This is child 1 restated with a sharper edge: the
+   workflow is not merely incomplete, it is a loaded gun.
+
+### C. First go-live — the sequence
+
+Laptop-driven, once, because the cloud path cannot do it yet (child 1 is what makes the second
+time different). Each step is checkable before the next:
+
+1. `bin/build` — catches preflight, assets, typecheck and both bundles locally.
+2. `bin/deploy --dry-run` — lists the pending migrations and runs every capability probe as a read.
+3. Push the two missing secrets (`OPENAI_API_KEY`; `CLOUDFLARE_DNS_TOKEN` scoped
+   `Zone:DNS:Edit` + `Workers Routes:Edit`) — the hooks do this and probe what the key can do.
+4. `bin/deploy` — migrations 0002…0018 land, both Workers upload, capability report prints.
+5. `bin/access-token`, then `bin/publish --production <slug>` — the local drafts become cloud sites.
+6. Mint a revision for each site, so `public-site` has something live to serve.
+7. **The apex** is deployment configuration, not a mapping: set `APEX_SITE_KEY` in
+   `[env.production.vars]` of `apps/public-site/wrangler.toml` to the published site's key and
+   redeploy. (`TURNSTILE_SITEKEY` is `""` too — forms on the apex render no widget until it is set.)
+8. **Any other domain** goes the customer path: the zone in the account and recorded in `zones`
+   with its `origin` ([[REQ-257]]), then attach from the builder, which writes records, route and
+   row in that order ([[REQ-258]]).
+9. `bin/smoke --site-key <key>` — prove it serves.
+
+### D. Steady state — two lanes, and they must not be confused
+
+- **Content lane.** Edit in the deployed builder → publish a revision → live. No deploy, no
+  migration, no CI. `bin/publish --production` is the *import* path for a locally-authored site and
+  is 409-guarded against overwriting builder edits ([[BUG-51]]) — it is not the everyday path.
+- **Code lane.** Today: `bin/build` + `bin/deploy` from the laptop. Target: this epic's pipeline.
+  The first step is child 1, and its value does not depend on staging existing.
+
+### E. Open questions added by the broadened scope
+
+11. **Is `1c assets --watch` (or a watching `1c builder`) in scope here, or its own ticket?** It is
+    a dev-loop change, not a deployment one — but it is the same "one list of steps" property the
+    pipeline needs, and it is the only thing in section A that is a defect rather than a catalog.
+12. **Which domain is the Lagrange Foundry site, and does the site exist?** There is no
+    `lagrangefoundry` site under `storage/sites/` (only `1stcontact`, `gigabytealchemy`, `xgd`), and
+    neither `lagrangefoundry.com` nor `lagrangefoundry.io` resolves. The apex path (step 7) and the
+    customer-domain path (step 8) are different mechanisms; which one applies depends on the answer.
+13. **Does the platform's own marketing site go on the apex via `APEX_SITE_KEY`, or through
+    `site_domains` like a customer's?** The code supports the former for platform hosts and the
+    comment in `routes.ts` is explicit that this is deliberate. Worth confirming it is still the
+    intent before the first deploy pins it.
