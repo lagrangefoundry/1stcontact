@@ -6,9 +6,9 @@ title: 'Local dev: Access identity and defect filing are mutually exclusive, so 
   consultant silently has no filing tools'
 created_by: EPIC-19
 created_at: '2026-09-20T18:54:46.840610+00:00'
-updated_at: '2026-09-20T18:54:46.840610+00:00'
+updated_at: '2026-09-20T19:00:32.482483+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -19,71 +19,56 @@ fields:
 
 ## Symptom
 
-The consultant cannot file a defect against this product. Asked directly — *"Now see if you can create that bug please?"* — it re-read its own tool definitions and reported:
+The consultant cannot file a defect against this product. Asked to do it directly, it re-read its own tool definitions and reported that it holds `TicketQuery`, `TicketGet`, `TicketComments`, `TicketBacklinks`, `TicketHistory` — the CLIENT's five read operations ([[REQ-228]]) — and no create of any kind. [[REQ-273]]'s `ReportBug` / `RequestCapability` / `AddTicketDetail` are absent entirely.
 
-> I tried properly rather than going from memory — pulled the full definitions of every ticket tool I have. The answer is unchanged: **there is no create.** What I hold is `TicketQuery`, `TicketGet`, `TicketComments`, `TicketBacklinks`, `TicketHistory` — five read operations and nothing else.
+REQ-273 is built and wired correctly. The surface simply was not composed, because the service it needs was never started.
 
-Those five are the *client's* ticket surface ([[REQ-228]]). The `development` surface's `ReportBug` / `RequestCapability` / `AddTicketDetail` ([[REQ-273]]) are absent entirely.
+## The one real constraint, and the accident built on top of it
 
-The cost is the point: every defect found in that session — `create_image` silently ignoring `transparency: true`, `edit_image` failing with `this.store.get is not a function`, the per-turn state summary lagging its own writes by a turn — reached us only because the operator happened to be reading. A session where the client is not also the author loses all of it.
+The Worker runs in workerd. workerd has no `node:child_process`. So the Worker cannot run `xgd` itself, and some Node process has to do it on the Worker's behalf. That is the whole of the genuine difficulty.
 
-## Root cause — the two local-dev capabilities are mutually exclusive by construction
+`xgd ticket create` needs no identity, no credential and no session. Filing is a local subprocess call. Everything beyond "a Node process must make it" is a choice we made, and the choice was wrong:
 
-Each link verified against the running tree:
+- the Node process was hung off **`1c builder`**, so it exists only when that command is the thing running the dev server;
+- it listens on a **random port** (`port 0`) and mints a **fresh bearer per run**;
+- both values are therefore only knowable at launch, so they are handed to wrangler as `--var` on the command line.
 
-1. `developmentFor` (`apps/control-app/src/development.ts:305`) composes the surface **only** when `DEVELOPMENT_TICKETS_URL` is set. Absent → `null` → no surface → the model is correctly never told the tools exist.
-2. That var is set in exactly one place: `filingVars()` (`tools/generate/src/cli/filing.ts:90`), pushed onto the wrangler argv by `1c builder` (`tools/generate/src/cli/index.ts:997`). It is deliberately never in `[vars]` or `.dev.vars`, because port and bearer are minted per run.
-3. Getting a real identity locally — the business switcher, the Users tab, the portal, the terms gate — requires `bin/access-sim`, and its documented recipe (`bin/access-sim:52-55`) launches wrangler **by hand**:
+The consequence is that **filing is a property of how the dev server was launched**, not a property of the deployment. Launch wrangler any other way and filing is silently off.
 
-   ```
-   ./bin/access-sim --print-env > .dev.vars.local
-   ./bin/access-sim &
-   cd apps/control-app && npx wrangler dev --port 8788 \
-     --env-file .dev.vars --env-file ../../.dev.vars.local
-   ```
+`filing.ts` justifies the per-run values with *"a committed value would be a stale one, and a developer running `wrangler dev` by hand gets an assistant with no filing surface rather than one pointed at a listener that is not there."* That argument is circular: a value is only stale because it was randomised in the first place, and "a developer running wrangler by hand gets no filing" is stated as the safe outcome when it is in fact the defect.
 
-   That path never starts a filing service and passes no `--var`.
-4. `1c builder` cannot be used instead, because `devEnvLayering` (`tools/generate/src/cli/dev-env.ts:86-110`) emits exactly two `--env-file` arguments — `.dev.vars` and the secrets file — with no third slot, no flag, and no knowledge of `.dev.vars.local`.
+## How it actually bit
 
-So an operator gets **identity or filing, never both**. The operator has identity, so the consultant has no filing tools.
+`bin/access-sim` is the only way to get a real identity locally, and its documented recipe (`bin/access-sim:52`) launches `npx wrangler dev` by hand with a third `--env-file`. `1c builder` cannot be used instead, because `devEnvLayering` (`dev-env.ts:86`) emits exactly two `--env-file` arguments and has no slot for the simulator's output.
 
-## Evidence this is what happened, not a theory
+So the operator had to choose between a signed-in session and a consultant that can file, and Access is not the cause — it is just the thing that forced a hand launch. Any other reason to launch wrangler differently would break filing identically.
 
-- `/.dev.vars.local` written **2026-09-20 11:43** (the `--print-env` output); `apps/control-app/.wrangler/tmp/dev-*` created **11:44–11:45**. The hand-launched recipe, in order.
-- A full loopback port sweep (1024–65535) finds **no filing listener**. The service answers `405 {"ok":false,"error":"POST only"}` to a GET; nothing on the machine does. Port 8788 answers `401 Cloudflare Access rejected this request`, 8799 answers `302` — both dev processes are up; the filing one was never started.
-- Not an install fault: importing `@lagrangefoundry/ai-ticketing/node` by file URL and constructing `XgdProject` both succeed, so `startFilingService` would not have thrown had it been called.
+Verified rather than reasoned: `.dev.vars.local` was written at 11:43 and the wrangler tmp dirs at 11:44–11:45, and a full loopback port sweep (1024–65535) finds no filing listener anywhere on the machine. Not an install fault — importing `@lagrangefoundry/ai-ticketing/node` and constructing `XgdProject` both succeed, so `startFilingService` would not have thrown had it been called.
 
-## Why it is silent, which is the part that needs fixing
+## What it costs
 
-`1c builder` prints `filing: on` / `filing: off` in its banner — good, but only on the path that is not being used. On the hand-launched path nothing anywhere says filing is off:
+Every defect the consultant found that session — `create_image` silently ignoring `transparency: true`, `edit_image` failing with `this.store.get is not a function`, the per-turn state summary lagging its own writes by a turn — reached us only because the operator happened to be reading. A session where the client is not also the author loses all of it.
 
-- the Worker composes no surface, which is correct and by design;
-- the model is never told about a capability it was not granted, which is also correct and by design;
-- so the assistant concludes, truthfully and unhelpfully, *"I cannot create tickets of any kind."*
+## Fix — make the address a setting, not a launch artefact
 
-Two correct behaviours compose into an operator who cannot tell a missing capability from a mis-launched dev server. Absence must be legible somewhere the operator or the consultant can see it.
+**Fixed port, token in `.dev.vars`, started independently of the dev server.** A fixed loopback address is never stale, so it can live in configuration like every other value the Worker reads, and the Worker stops caring how wrangler was started. The security argument survives intact: loopback still keeps other machines out, and a fixed token in `.dev.vars` closes the browser-CSRF hole exactly as well as a random one — the threat is a page in the operator's own browser POSTing blind, which cannot read a token either way.
 
-## Immediate workaround (no code change)
+That removes the coupling rather than patching it:
 
-Every value `--print-env` emits is deterministic at defaults — `ISS` is `http://127.0.0.1:8799`, `AUD` is `local-dev-aud`, the service-token pair is the fixed `local-dev.access` / `local-dev-secret` — so the three lines can be pasted once into the secrets file (`$HOME/Documents/secrets/1c.dev.env`, or `$SECRETS_ENV_VAR`), which `devEnvLayering` already layers **after** `.dev.vars` and therefore wins. Then run `bin/access-sim &` and `1c builder` as normal, and browse at `127.0.0.1:8799`. Identity and filing together, today.
+1. **The service gets a fixed default port and a token read from `.dev.vars`**, both overridable. `filingVars()` and the `--var` handoff go away.
+2. **It can be started on its own** — `1c filing` — and `1c builder` may still start one for convenience, but nothing depends on it doing so. Two checkouts wanting different ports is what the override is for.
+3. **An absent filing surface is legible.** Today the only signal is a `filing: on/off` banner printed by the command that was not run. The Worker composing no surface is correct, and the model never hearing about an ungranted capability is correct — but the two compose into an operator who cannot tell a missing capability from a mis-launched dev server. Surface it where it can be seen: the builder's UI, or a line the consultant itself can read.
 
-That this workaround exists and is undocumented is itself part of the defect.
+`bin/access-sim`'s usage block stops needing a warning, because there is no longer a launch path that disables filing.
 
-## Fix
+## Workaround until then
 
-1. **Let `1c builder` layer an extra env file.** A repeatable `--env-file <path>` appended after the two `devEnvLayering` already emits, so the sim's output can be layered in without abandoning the command that owns the filing service's lifetime. Smallest change that makes the two capabilities composable at all.
-2. **Make the recipe one command.** `1c builder --access-sim` starts the simulator in the same Node process that already owns the filing service and the dev server — same lifetime, same argument for why it belongs there — mints its env, layers it, and prints the address to browse. The three-command dance is what made these mutually exclusive in the first place; removing it is what stops them drifting apart again.
-3. **Never silent again.** Absence of the filing surface must be visible without reading source: `bin/access-sim`'s usage block must stop recommending a launch that disables filing, and a deployment with no filing surface should say so where it can be seen — the builder's own UI, or a line the consultant can read, rather than only in a banner printed by the command that was not run.
-
-Items 1 and 3 are the ones that unblock; 2 is the one that keeps it unblocked.
+Every value `bin/access-sim --print-env` emits is deterministic at defaults — `ISS` is `http://127.0.0.1:8799`, `AUD` is `local-dev-aud`, the service pair is the fixed `local-dev.access` / `local-dev-secret`. Those three lines can be pasted once into the secrets file (`$HOME/Documents/secrets/1c.dev.env`, or `$SECRETS_ENV_VAR`), which `devEnvLayering` already layers after `.dev.vars` and which therefore wins. Then `bin/access-sim &` plus `1c builder` as normal, browsing at `127.0.0.1:8799`, gives identity and filing together.
 
 ## Test plan
 
-- `1c builder --env-file <path>` lands the file's values in the Worker's env, after `.dev.vars` and the secrets file, and the two existing arguments are unchanged when the flag is absent.
-- A Worker built with `DEVELOPMENT_TICKETS_URL` present composes the `development` surface and projects `ReportBug` into the consultant's tool list; absent, it projects none. (Extends the composition assertions in `tests/test_UAT_FC_REQ-273_report_a_defect.workers.test.ts`.)
-- The filing service started by `1c builder` is reachable at the address handed to wrangler, and a `ReportBug` call through it creates a ticket in this project's store.
-- Whatever surfaces the absence in item 3 is asserted on directly — a UI assertion or a rendered line — not inferred from the banner.
-
-## Why free-coded
-
-Small, diagnosed, and blocking a capability the operator has called critical. No design work outstanding beyond the choice between items 1 and 2, which the ticket states rather than defers.
+- The filing service binds its fixed default port, and an override changes it.
+- A Worker reading the filing address and token from `.dev.vars` composes the `development` surface and projects `ReportBug` into the consultant's tool list; with the address absent, it projects none. (Extends `tests/test_UAT_FC_REQ-273_report_a_defect.workers.test.ts`.)
+- A `ReportBug` call through the running service creates a ticket in this project's store.
+- Filing is on for a dev server started by `1c builder` AND for one started by a bare `wrangler dev` — the same assertion both ways round, which is the behaviour this ticket exists to create.
+- A wrong token is refused, and whatever surfaces the absence in item 3 is asserted on directly rather than inferred from the banner.
