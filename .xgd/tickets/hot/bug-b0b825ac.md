@@ -6,16 +6,21 @@ title: 'edit_image has never worked: the store handed to the image plugin has tw
   methods and the edit path needs five'
 created_by: EPIC-19
 created_at: '2026-09-20T19:24:34.816301+00:00'
-updated_at: '2026-09-20T20:19:50.468808+00:00'
+updated_at: '2026-09-20T20:20:56.422436+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c918bdc5
+  commits:
+  - working_sha: 2773c602b9f0047df4c7ef6a6215d766ccf521f6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.294
 ---
 
 ## What the consultant reported, verbatim
