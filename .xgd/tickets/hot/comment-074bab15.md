@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-283
 created_by: xgd
 created_at: '2026-09-19T19:34:01.151420+00:00'
-updated_at: '2026-09-20T18:25:33.810977+00:00'
+updated_at: '2026-09-20T18:25:34.569838+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -162,5 +162,21 @@ I re-read the ticket mid-implementation and rebuilt against the operator's **DEC
 <!-- xgd-chat role="user" ts="2026-09-19T20:14:12.458674+00:00" -->
 #### You
 **No session scope** on the agent axis (open within the tenant). The barrier is `forTenant`, and it's the reach REQ-228 already decided on; an allow-set can't be computed before the first turn archives a ticket. <-- what does this mean?
+
+<!-- xgd-turn id="043d6c13-2c01-4246-b1ef-83a368d86caf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-19T20:15:04.276887+00:00" -->
+#### Claude
+It's about one line in the grant, and what it would and wouldn't buy.
+
+**The mechanism.** Every operation on the `agent` surface takes a `session` parameter, which is *a ticket id* — `AgentHistory({session: "chat-9f2a1c", last: 5})`. The surface declares a scope axis over that parameter. If the grant says `scope: { session: ["chat-9f2a1c"] }`, the gate refuses any other ticket id. If the grant omits the axis, it isn't applied — upstream's declaration sets `when_unset: allow` — and the consultant may pass any ticket id that homes a session. I omitted it.
+
+**What that means in practice.** The consultant working on site A can pass the chat ticket of site B's conversation and read those turns back. It cannot reach another customer: the ticket store it was built over is bound to one business by `forTenant`, and there is no argument anywhere on that path that could name a different one. So "open" means open *across this one client's own conversations*.
+
+**Why not just scope it.** The grant is fixed when the Toolbox is constructed, which happens when the site's manager is built and cached. The chat ticket that homes the session doesn't exist yet at that moment — `TicketSessionArchive` creates it on the first drain, at the end of the first turn. So `homeRef()` returns `''` there, and an allow-set of `['']` would deny every call for the life of that cached manager. There's no per-turn re-grant to fall back on.
+
+**Why it isn't a widening.** REQ-228 already grants this consultant `ReadTickets` over the same store — `get`, `query`, `comments` — and that suite asserts reaching past conversations as a deliberate positive claim, naming chat tickets and their `chat_transcript` comments specifically. So it could already read another of this client's conversations verbatim. Scoping the agent axis would make the new surface narrower than a capability sitting beside it, which is a difference nobody could act on.
+
+**If you'd rather it were scoped**, the one route that works is creating the chat ticket eagerly at `openSession` instead of at first drain, then computing the allow-set from it. The cost is a chat ticket per opened session even for conversations nobody has a turn in — and REQ-171's own argument is that a chat ticket with an empty body is a content-free vector in the client's knowledge base, which is the thing that placement exists to avoid. Say the word and I'll do it; I didn't think that trade was worth taking unasked.
 
 <!-- xgd-chat-end -->
