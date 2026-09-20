@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-20T22:59:28.223576+00:00'
+updated_at: '2026-09-20T23:39:28.176424+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,18 @@ Steady state afterwards is two lanes that must not blur: **content** (edit in th
 **Which domain is "LF", and does the site exist?** There's no `lagrangefoundry` site in `storage/sites/` — only `1stcontact`, `gigabytealchemy`, `xgd` — and neither `lagrangefoundry.com` nor `.io` resolves. The apex path and the customer-domain path are different mechanisms, so the answer changes the work.
 
 **Say go before I deploy.** Steps 3–4 push secrets and run 17 migrations against production. I'd rather hear it from you than infer it from "help me do this."
+
+<!-- xgd-turn id="cba17276-26e4-44c8-971e-a487a376183f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T23:39:27.308221+00:00" -->
+#### You
+we own lagrangefoundry.ai
+
+So this version of going live will be its own undertaking, no doubt. But I also want to understand:
+
+(1) what is the path to launch new code (a) to dev and (b) to prod
+(2) what is the path to copy content (sites, contact data etc) from dev to prod or prod to dev
+
+I think we started a doc ticket but I have lost track
 
 <!-- xgd-chat-end -->
