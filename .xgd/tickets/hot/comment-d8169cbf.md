@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:24:03.003028+00:00'
+updated_at: '2026-09-20T01:25:19.529218+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2195,5 +2195,45 @@ Worth recording that as a principle in EPIC-19? It's the kind of thing that gets
 <!-- xgd-chat role="user" ts="2026-09-20T01:24:02.839971+00:00" -->
 #### You
 I thought we made a change to let the consultant file bugs, it can't
+
+<!-- xgd-turn id="c108172e-0d6a-48fb-940c-f13de6e9751b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T01:25:18.768021+00:00" -->
+#### Claude
+The code landed but composes conditionally. Let me find what gates it.
+
+It's all wired — both halves. Let me check the timing.
+
+Everything landed and is wired correctly on both sides — this is almost certainly a **stale builder process**.
+
+## How it's meant to work
+
+The surface is composed only when an address is present:
+
+```ts
+const url = (env.DEVELOPMENT_TICKETS_URL ?? '').trim()
+if (!url) return null
+```
+
+And that address is deliberately **never committed** — `development.ts:274`:
+
+> SET BY `1c builder` FOR THE DEV SERVER, which starts the service in its own process and passes the address to `wrangler dev`. There is deliberately no `[vars]` entry and no `.dev.vars` line: the address carries a per-run port and a per-run token, so a committed value would be a stale one.
+
+`1c builder` starts a loopback filing service (it has to be a Node process — it holds the real `XgdProject`, and `child_process` doesn't exist in workerd), then hands `DEVELOPMENT_TICKETS_URL` and `DEVELOPMENT_TICKETS_TOKEN` to wrangler as `--var`.
+
+## Why yours has no filing tool
+
+**REQ-273 landed at 2026-09-18 15:53.** If your builder has been running since before that, its process never started a filing service and passed no vars — so `developmentFor` returns `null`, no surface is composed, and the consultant is correctly never told about a tool it doesn't have.
+
+**Restart `1c builder`.** That's the fix.
+
+## If a restart doesn't do it
+
+Two things to look at, in order:
+
+1. **A warning on startup.** A failure to start the service is deliberately non-fatal — *"a dev server that would not start because the shared store was not installed would be trading a whole product for a capability nobody was using yet."* So it warns and carries on. Check the builder's output for that warning; it'll name the cause.
+2. **`--no-filing`.** If it's in your launch command or an alias, that's the switch.
+
+One design note worth knowing, since it'll come up: a **deployed** builder talking to a real client has no project to file into and gets no filing surface at all — by design. The consultant will say it can't file rather than failing at it. So this capability is local-development-only until there's a hosted ticket server, at which point it becomes an address in `[vars]`.
 
 <!-- xgd-chat-end -->
