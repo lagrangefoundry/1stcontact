@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T02:04:06.428732+00:00'
+updated_at: '2026-09-20T02:05:12.723063+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2406,5 +2406,34 @@ Two corrections I owe you from this thread: the stale bundle was real but wasn't
 <!-- xgd-chat role="user" ts="2026-09-20T02:04:06.287737+00:00" -->
 #### You
 Nope I have that, I just reconnected with it - but my token is not being accepted'
+
+<!-- xgd-turn id="f0910047-4f32-4a9a-9bab-786b56677f9f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T02:05:12.479632+00:00" -->
+#### Claude
+Two candidates, and one of them explains "I reconnected and it still fails". Let me check.
+
+That's the likely culprit. Let me check what `kid` the simulator uses.
+
+The `kid` carries the pid precisely so a restart is picked up — so that's handled, and my hypothesis is wrong.
+
+Rather than guess further: `access.ts` returns a **specific reason string** for every rejection. That's the fastest way to the answer.
+
+I'd be guessing from here, and the code will just tell us. Every rejection carries a specific reason — **send me the one you're getting** and it maps directly:
+
+| reason | what it means |
+|---|---|
+| `Access is not configured` | `ACCESS_TEAM_DOMAIN` or `ACCESS_AUD` is empty — the builder never saw the sim's values |
+| `no Access token was presented` | the cookie isn't reaching the Worker |
+| `the Access signing keys could not be fetched` | the Worker can't reach the sim's `/cdn-cgi/access/certs` |
+| `no Access signing key matches kid '…'` | JWKS fetched, but not from the sim you minted against |
+| `the token signature does not verify` | right kid, wrong key — two sims, or a stale JWKS |
+| `the token was issued for another Access application` | **`ACCESS_AUD` mismatch** |
+| `the token was issued by 'X', not Y` | **`ACCESS_TEAM_DOMAIN` mismatch** |
+| `the token has expired` | just mint a fresh one |
+
+My prior, for what it's worth: the top of that list. Your `.dev.vars` sets both Access vars to `""`, and `devEnvLayering` passes it as the **first** `--env-file` with the secrets file second — later files win. So whatever normally supplies the sim's team domain and AUD has to be winning that layering, and this restart it may not be. The two mismatch reasons would confirm that instantly.
+
+Worth knowing either way: if the vars genuinely are empty, you wouldn't get a rejection at all — `isUnconfiguredLocalDev` short-circuits and `admit` never runs. So the fact that you *are* seeing a rejection means they're set to *something*, which narrows it to the mismatch or key rows.
 
 <!-- xgd-chat-end -->
