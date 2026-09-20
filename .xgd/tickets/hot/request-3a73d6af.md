@@ -5,18 +5,22 @@ type: request
 title: The upload confirmation names the catalogue label, not the stored filename
 created_by: EPIC-19
 created_at: '2026-09-20T22:04:23.388789+00:00'
-updated_at: '2026-09-20T22:28:30.636744+00:00'
+updated_at: '2026-09-20T22:29:01.622516+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   story_points: 1
   chat_comment: comment-d2af2014
+  commits:
+  - working_sha: 5c6b767192b69fa4171ee79bc7b02b5d4f98e117
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.297
 ---
-
 
 ## What changes
 
