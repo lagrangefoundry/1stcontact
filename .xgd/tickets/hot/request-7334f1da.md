@@ -5,10 +5,10 @@ type: request
 title: 'The domain configuration surface: the selector, the sending toggle, and release'
 created_by: EPIC-5
 created_at: '2026-09-16T03:35:54.284753+00:00'
-updated_at: '2026-09-16T22:27:34.347902+00:00'
+updated_at: '2026-09-20T18:41:14.345414+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 5
