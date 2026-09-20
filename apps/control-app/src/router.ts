@@ -1931,6 +1931,24 @@ function materialEnvelope(ingested: {
   return {
     uid: ingested.ticket.uid,
     title: ingested.ticket.title,
+    // THE NAME THE CLIENT CAN SAY BACK ([[REQ-287]]). The uid addresses the row
+    // and the filename addresses the bytes; neither is a name a person could be
+    // expected to repeat, and a uuid off a phone camera is not even a name they
+    // could read. The label is — it is what the Library's rows show and what the
+    // assistant accepts as a handle ([[REQ-218]]) — so anything composing a
+    // sentence about this material needs it in the same answer that announced
+    // the material, rather than a second request to find out what to call it.
+    //
+    // NOT READ BACK. `ingest` allocates the label in the same `create` as the
+    // classification it is derived from, so by the time an envelope is composed
+    // the value is already on the ticket in hand.
+    //
+    // `?? null` FOR THE SAME REASON `description_model` IS NEVER OMITTED: the
+    // key is then present on every envelope, and a caller deciding what to call
+    // the material never has to tell absence from emptiness. Nothing ingested
+    // through this path can lack one, but the field is `string | null` on the
+    // row and the envelope should not be the one place that claims otherwise.
+    label: ingested.ticket.fields.label ?? null,
     kind: ingested.ticket.fields.kind,
     rights: ingested.ticket.fields.rights,
     republishable: ingested.ticket.fields.republishable,
