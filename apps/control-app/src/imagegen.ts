@@ -44,9 +44,16 @@
  */
 
 import { displayLine } from '../../../tools/generate/src/cli/ai/toolbox-core'
+import { resolveStoredImage } from '../../../tools/generate/src/cli/image-library'
 import * as imagegenLib from './generated/ai-imagegen'
 import * as aiLib from './generated/ai-workers.js'
-import { indexAfterWrite, nextMaterialLabel, type IndexMaterial } from './material'
+import {
+  MATERIAL_TYPES,
+  indexAfterWrite,
+  materialImageLibrary,
+  nextMaterialLabel,
+  type IndexMaterial,
+} from './material'
 import type { Ticket, TicketStore } from './tickets'
 
 /** The libraries are untyped JavaScript; the boundary is narrow and named here. */
@@ -130,6 +137,93 @@ export const GENERATED_ORIGIN = 'generated'
  * word or a generated picture is labelled out of a sequence nothing else uses.
  */
 export const GENERATED_KIND = 'image'
+
+/** The type the ticketing component mints an attachment record as. */
+const ATTACHMENT_TYPE = 'attachment'
+
+/** One call the image surface makes on the handle it is given. */
+type ImageStoreMethod = 'create' | 'attach' | 'get' | 'attachments' | 'read_attachment'
+
+/**
+ * The handle the image surface is given — **typed against what it calls, not
+ * against what generation happens to touch** ([[BUG-126]]).
+ *
+ * THIS TYPE IS THE BUG. What was here was `Pick<TicketStore, 'create' | 'attach'>`,
+ * and the narrowing was right in spirit and one operation short in fact: the
+ * surface's own edit path reads a picture back before it draws over it, so it
+ * calls `get`, `attachments` and `read_attachment` too. `edit_image` therefore
+ * crashed on its first line — `this.store.get is not a function` — on every
+ * picture, for every client, since the day it was granted, and it could not have
+ * done anything else. The handle crosses into the plugin through an `Untyped`
+ * boundary, so the one place a two-method object met a five-method expectation
+ * was the one place TypeScript was switched off.
+ *
+ * SO THE METHOD SET IS NAMED ONCE AND BOTH HALVES READ IT. This type and the
+ * grant {@link imageGrantFor} derives are two consumers of
+ * {@link IMAGE_STORE_METHODS} rather than two lists that can disagree, and a UAT
+ * holds that list against the calls upstream's executor actually makes. So a
+ * rung that grows a sixth call fails in this repository's own suite; adding it
+ * to {@link ImageStoreMethod} is then what makes a handle that does not supply
+ * it a COMPILE error. The failure moves from a client's turn to the build.
+ */
+export type ImagePluginStore = Pick<TicketStore, ImageStoreMethod>
+
+/**
+ * What each of the surface's two capability groups asks of the handle behind it.
+ *
+ * THE GROUP NAMES ARE UPSTREAM'S AND ARE NEVER SPELLED HERE, for the reason
+ * {@link IMAGE_SECRET} is derived rather than written: a second spelling is a
+ * grant that keeps naming a group after a rename has moved it.
+ *
+ * EDITING SUBSUMES GENERATING because an edit ENDS in a generation — it reads
+ * the source, draws over it, and stores the result as a new picture through the
+ * same `create`/`attach` pair. A deployment that could read but not write would
+ * be able to fetch a client's picture and produce nothing, which is not a
+ * capability anybody should be granted.
+ */
+const GROUP_METHODS: ReadonlyArray<{ group: string; methods: readonly ImageStoreMethod[] }> = [
+  { group: images.CREATE_GROUP, methods: ['create', 'attach'] },
+  {
+    group: images.EDIT_GROUP,
+    methods: ['create', 'attach', 'get', 'attachments', 'read_attachment'],
+  },
+]
+
+/**
+ * Every method the image surface calls on its store, in one list.
+ *
+ * DERIVED FROM {@link GROUP_METHODS} rather than written beside it, so the set
+ * the handle is checked against and the sets the grant is derived from cannot
+ * come apart.
+ */
+export const IMAGE_STORE_METHODS: readonly ImageStoreMethod[] = [
+  ...new Set(GROUP_METHODS.flatMap((entry) => entry.methods)),
+]
+
+/**
+ * The grant a given handle can actually honour ([[BUG-126]]).
+ *
+ * **DO NOT OFFER WHAT CANNOT BE SERVED.** `instanceConfig()` grants both groups
+ * by default, and that default is right upstream: the surface itself withholds
+ * `EditImages` on a provider that cannot edit, so one configuration is correct
+ * on every vendor. What it cannot know is the STORE, which is this host's — so
+ * for five months the grant said *"you may change a picture"* on every turn and
+ * the operation behind it could only crash. An offered-and-always-crashing
+ * capability is worse than an absent one: a model proposes it, apologises for
+ * it, and spends a client's turns establishing that it is broken, which is
+ * exactly what happened. Absence costs nothing, because a model is never told.
+ *
+ * It is the same shape {@link imageSurface} already takes when this deployment
+ * holds no image key, and the same shape `createL1Toolbox` takes for a surface
+ * that was not composed — narrow the grant to what exists rather than advertise
+ * what does not.
+ */
+export function imageGrantFor(store: Partial<ImagePluginStore>): Record<string, unknown> {
+  const groups = GROUP_METHODS.filter((entry) =>
+    entry.methods.every((method) => typeof store[method] === 'function'),
+  ).map((entry) => entry.group)
+  return images.instanceConfig({ groups }) as Record<string, unknown>
+}
 
 /**
  * Everything a generated material carries that the plugin cannot know.
@@ -217,6 +311,26 @@ function generatedFields(describer: string): Record<string, unknown> {
  * record this plugin can cause is one holding a picture it was allowed to
  * make"* is a property of the handle rather than of the plugin's good behaviour.
  *
+ * **READS HAVE THEIR OWN SCOPE RULE, AND IT IS A DIFFERENT SENTENCE**
+ * ([[BUG-126]]). The write rule is about what this plugin may CAUSE; the read
+ * rule is about what it may REACH, and the answer is *this client's own
+ * material and nothing else*. The store is already tenant-bound, so no barrier
+ * is being added here — what is being added is a TYPE check, because a business
+ * holds a great deal that is not material: its leads, its invoices, its
+ * conversations, and the files hanging off them. {@link MATERIAL_TYPES} is the
+ * Library's own definition of what the client's material is, so the rule is that
+ * definition rather than a second one, and an attachment is readable exactly
+ * when the record it hangs off is.
+ *
+ * **A PICTURE ANSWERS TO EVERY NAME IT ANSWERS TO ELSEWHERE.** The consultant
+ * that found this bug spent five attempts on it — by document id, by the right
+ * Library id, and by filename — and a fix that accepted only the canonical uid
+ * would have left two of those three still failing. `resolveStoredImage` is
+ * [[REQ-218]]'s single rule for what a stored picture is CALLED, and
+ * `storedImageOf` already declares the label and the filename as spellings of
+ * one; so the fallback here is that rule, reached only when a direct read finds
+ * nothing. A second matcher would be the drift REQ-218 exists to prevent.
+ *
  * @param tickets This business's real store, already tenant-bound.
  * @param describer What to write as `description_model` — read late, because the
  *   backend that answers it is constructed by the plugin after this store is.
@@ -229,8 +343,57 @@ export function generatedMaterialStore(
   describer: () => string,
   index: IndexMaterial | null,
   type: string = IMAGE_MATERIAL_TYPE,
-): Pick<TicketStore, 'create' | 'attach'> {
+): ImagePluginStore {
   const ours = new Set<string>()
+
+  /**
+   * The record a name means, by uid or by any other spelling of it.
+   *
+   * THE DIRECT READ FIRST, ALWAYS, because it is one indexed lookup and it is
+   * what every id this surface hands out actually is. The listing behind
+   * `resolveStoredImage` is a scan, and it runs only when the direct read found
+   * nothing — which is the miss path, not the ordinary one.
+   */
+  async function named(uid: string): Promise<Ticket> {
+    try {
+      return (await tickets.get({ uid })).ticket
+    } catch {
+      // Not a uid this store holds. It may still be a name a picture answers to.
+    }
+    const { match, candidates } = resolveStoredImage(uid, await materialImageLibrary(tickets).list())
+    if (match) return (await tickets.get({ uid: match.name })).ticket
+    if (candidates.length > 1) {
+      throw new Error(
+        `'${uid}' is the name of ${candidates.length} pictures: ` +
+          `${candidates.map((c) => `'${c.name}'`).join(', ')}. Ask again with one of those.`,
+      )
+    }
+    throw new Error(`there is no picture called '${uid}' in this client's material`)
+  }
+
+  /**
+   * The record this handle may read, or the refusal for one it may not.
+   *
+   * An attachment is reached through the record it hangs off, so the same
+   * sentence covers both: what is readable is the client's material, and the
+   * files on it.
+   */
+  async function readable(uid: string): Promise<Ticket> {
+    const ticket = await named(uid)
+    if (MATERIAL_TYPES.includes(ticket.type as (typeof MATERIAL_TYPES)[number])) return ticket
+    if (ticket.type === ATTACHMENT_TYPE) {
+      const subject = String(ticket.fields.subject_uid ?? '')
+      if (subject !== '') {
+        const owner = (await tickets.get({ uid: subject })).ticket
+        if (MATERIAL_TYPES.includes(owner.type as (typeof MATERIAL_TYPES)[number])) return ticket
+      }
+    }
+    throw new Error(
+      `${ticket.uid} is a ${ticket.type} rather than a piece of this client's material, ` +
+        `and the image tools may only read material`,
+    )
+  }
+
   return {
     async create(args): Promise<{ ticket: Ticket }> {
       if (args.type !== type) {
@@ -301,6 +464,36 @@ export function generatedMaterialStore(
       // and it has no business speaking for it.
       await indexAfterWrite(index, args.uid)
       return attached
+    },
+
+    // -- the read half, which is the edit path ([[BUG-126]]) -----------------
+    //
+    // THREE METHODS AND ONE RULE. Each of them resolves the name, checks the
+    // record is the client's material, and then asks the real store — so the
+    // scope is enforced once, in {@link readable}, rather than three times in
+    // three places that could come to disagree.
+    //
+    // THE *RESOLVED* UID IS WHAT REACHES THE STORE, never the string the caller
+    // passed. A caller that named a picture by its label gets the record; if
+    // this handed the label straight on to the next call, the listing would be
+    // asked for the attachments of a ticket that does not exist.
+
+    async get(args): Promise<{ ticket: Ticket }> {
+      return { ticket: await readable(args.uid) }
+    },
+
+    async attachments(args): Promise<{ attachments: Ticket[] }> {
+      const subject = await readable(args.uid)
+      return tickets.attachments({ ...args, uid: subject.uid })
+    },
+
+    async read_attachment(args): Promise<{
+      attachment: Ticket
+      bytes: Uint8Array
+      trashed: boolean
+    }> {
+      const record = await readable(args.uid)
+      return tickets.read_attachment({ ...args, uid: record.uid })
     },
   }
 }
@@ -438,6 +631,14 @@ export function imageSurface(
   let model: string | null = null
   const store = generatedMaterialStore(tickets, () => model ?? IMAGE_PROVIDER, index)
 
+  // BELOW THIS LINE THE HANDLE IS UNTYPED, WHICH IS WHY IT IS TYPED ABOVE IT
+  // ([[BUG-126]]). It passes into the plugin through `options`, and `options` is
+  // `any` on both sides of the seam — so nothing here can check it and nothing
+  // there will. {@link ImagePluginStore} is the check: `generatedMaterialStore`
+  // declares that return type, so a handle one method short of what the surface
+  // calls is a compile error in this repository rather than a crash on a
+  // client's turn. A runtime assertion here would be the same claim made
+  // second, later, and weaker.
   const { surfaces } = lib.resolvePlugins(
     [
       images.createImagePlugin({
@@ -485,5 +686,14 @@ export function imageSurface(
   // surface builds from its own declaration cannot name a capability the surface
   // has not got, so an upstream rename becomes a resolution error rather than a
   // deployment that quietly grants nothing.
-  return { surface, granted: images.instanceConfig() as Record<string, unknown> }
+  //
+  // DERIVED FROM THE HANDLE AS WELL AS FROM THE DECLARATION ([[BUG-126]]). The
+  // paragraph above is about the SURFACE's half — it cannot name a group the
+  // surface has not got. It was silent about the STORE's half, and that silence
+  // is the whole bug: the surface had `EditImages` and the handle behind it
+  // could not serve one call of it, so the grant offered the operation on every
+  // turn and the operation could only crash. {@link imageGrantFor} closes the
+  // second half the same way the first is closed — by asking rather than
+  // asserting.
+  return { surface, granted: imageGrantFor(store) }
 }

@@ -831,7 +831,7 @@ function writeAiImagegenShim(generatedDir: string): string {
  * What the Worker reaches for out of the image-generation plugin.
  *
  * Listed rather than wildcarded for the reason {@link AI_WORKER_EXPORTS} gives.
- * Four names, and each is a decision this repository would otherwise have to
+ * Each name is a decision this repository would otherwise have to
  * restate: `createImagePlugin` builds the plugin, `PROVIDERS` is where the
  * credential's NAME is read from so this repository never spells it a second
  * way, `DEFAULT_BUDGET` is the runaway-loop stop this deployment chose to keep
@@ -852,6 +852,15 @@ const AI_IMAGEGEN_EXPORTS = [
   'PROVIDERS',
   'createImagePlugin',
   'instanceConfig',
+  // THE TWO GROUP NAMES THE GRANT SELECTS BETWEEN ([[BUG-126]]). `instanceConfig`
+  // grants both by default, and this deployment has to be able to grant ONE —
+  // the store behind a surface can serve generation and not editing, which the
+  // surface itself cannot know. Reading the names from upstream rather than
+  // writing them keeps the property the paragraph above is about: a rename
+  // upstream becomes a resolution error here rather than a grant that quietly
+  // names a group nobody has.
+  'CREATE_GROUP',
+  'EDIT_GROUP',
 ] as const
 
 function writeAiKnowledgeShim(generatedDir: string): string {

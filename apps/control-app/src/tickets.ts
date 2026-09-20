@@ -988,6 +988,26 @@ export interface TicketStore {
   }): Promise<{ attachment: Ticket }>
   attachments(a: { uid: string }): Promise<{ attachments: Ticket[] }>
   /**
+   * One attachment's bytes, with the record describing them — [[BUG-126]].
+   *
+   * NAMED HERE BECAUSE SOMETHING FINALLY READS BYTES BACK. `attach` wrote them
+   * and `attachments` listed the records naming them, and until an image the
+   * assistant is asked to CHANGE had to be fetched, nothing above this layer
+   * needed one. The component has had the operation since its own REQ-150; this
+   * repository simply had no caller — which is exactly how the handle in
+   * `imagegen.ts` came to be two methods wide against a five-method expectation
+   * and nothing said so. A call the type does not name is a call TypeScript
+   * cannot check, so the omission was the bug's hiding place rather than an
+   * incidental gap.
+   *
+   * The record travels BESIDE the bytes rather than being a second call, because
+   * the filename, the content type and the size are what let a caller check what
+   * it was handed against what was recorded.
+   */
+  read_attachment(a: {
+    uid: string
+  }): Promise<{ attachment: Ticket; bytes: Uint8Array; trashed: boolean }>
+  /**
    * Move one attachment to the trash — [[REQ-166]].
    *
    * NAMED HERE because a recapture has to be able to supersede a member. It is

@@ -21,6 +21,12 @@
  * namespace simply has no {@link RecipeStore}, so `NOT_EDITABLE` falls out of
  * the deps rather than out of a condition somebody has to remember to write.
  *
+ * AND IT NAMES THE PICTURE TO EDIT INSTEAD, WHERE THE HOST KNOWS ONE
+ * ([[BUG-126]]). The refusal was coherent and it was a dead end: the bytes on a
+ * page are a copy of a Library item, so *"go and edit the original"* is a real
+ * instruction that nobody could act on without first working out which original.
+ * `originOf` answers that, and the sentence carries it.
+ *
  * THE RECIPE IS VALIDATED AGAINST REAL PIXELS BEFORE ANYTHING IS WRITTEN. A
  * refusal's whole promise is that the recipe is left as it was, which is only
  * true if the check happens first — so both operations measure the stored bytes
@@ -101,6 +107,22 @@ export interface ImageEditDeps {
   recipes: Partial<Record<StoredImageWhere, RecipeStore>>
   /** The renderer, for the one thing this surface asks of it: real dimensions. */
   renderer: ImageRenderer
+  /**
+   * The picture a file in a namespace that cannot carry a recipe was COPIED
+   * from, where that is recorded ([[BUG-126]]).
+   *
+   * WHAT MAKES THE REFUSAL ACTIONABLE. Without it, *"this one is a site file and
+   * has nowhere to keep edits"* is a true sentence with nothing after it — the
+   * consultant is holding the name the client just pointed at, and the only
+   * remedy is to go and find which Library item those bytes came from, which is
+   * a search this surface can do and they cannot. With it the refusal names the
+   * picture to edit instead, and editing it republishes to the page.
+   *
+   * OPTIONAL, AND ABSENT IS THE OLD SENTENCE. A deployment with one namespace
+   * has nothing to point at, and a picture the host has no record of copying
+   * answers `null` — both of which are *"no origin"*, not a degraded mode.
+   */
+  originOf?: (image: StoredImage) => Promise<StoredImage | null>
 }
 
 type Params = Record<string, unknown>
@@ -129,17 +151,34 @@ function pictureNamed(name: string, images: readonly StoredImage[]): StoredImage
   )
 }
 
-/** The recipe store for a picture's namespace, or the refusal for having none. */
-function recipesFor(image: StoredImage, deps: ImageEditDeps): RecipeStore {
+/**
+ * The recipe store for a picture's namespace, or the refusal for having none.
+ *
+ * THE REFUSAL CARRIES THE WAY OUT WHERE THERE IS ONE ([[BUG-126]]). A site file
+ * still cannot hold a recipe — that has not changed and is not a gap — but the
+ * bytes on the page are a COPY of something, and where the host can say what,
+ * naming it turns a dead end into one more call. The alternative considered and
+ * rejected was to silently redirect the edit onto the original: it would change
+ * a picture the caller did not name, and a report about a different picture from
+ * the one asked for is how an assistant comes to tell a client it did something
+ * it did not do.
+ */
+async function recipesFor(image: StoredImage, deps: ImageEditDeps): Promise<RecipeStore> {
   const store = deps.recipes[image.where]
-  if (!store) {
-    throw new PictureNameError(
-      'NOT_EDITABLE',
-      `'${image.name}' is a file on the site rather than an item in the Library, so there is ` +
-        `nowhere to keep a list of edits for it.`,
-    )
-  }
-  return store
+  if (store) return store
+  const origin = deps.originOf ? await deps.originOf(image) : null
+  throw new PictureNameError(
+    'NOT_EDITABLE',
+    origin
+      ? `'${image.name}' is a file on the site rather than an item in the Library, so there ` +
+        `is nowhere to keep a list of edits for it. It was placed from ` +
+        `'${origin.name}'${origin.title ? ` ("${origin.title}")` : ''}, which does carry one — ` +
+        `edit that one instead, and the change is published back over the file on the page.`
+      : `'${image.name}' is a file on the site rather than an item in the Library, so there ` +
+        `is nowhere to keep a list of edits for it, and nothing records which picture it was ` +
+        `copied from. Draw a replacement, or put a Library picture on the page in its place: ` +
+        `a placed picture stays adjustable through the Library item it came from.`,
+  )
 }
 
 /** The stored picture's real dimensions — what the fractions are fractions of. */
@@ -183,7 +222,7 @@ export function imageOperations(
 ): Record<string, (p: Params) => Promise<Untyped>> {
   async function locate(p: Params): Promise<{ image: StoredImage; store: RecipeStore }> {
     const image = pictureNamed(String(p.image ?? ''), await deps.images.list())
-    return { image, store: recipesFor(image, deps) }
+    return { image, store: await recipesFor(image, deps) }
   }
 
   return {
