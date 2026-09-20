@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T22:02:35.769369+00:00'
+updated_at: '2026-09-20T22:04:39.884459+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2925,5 +2925,37 @@ When I upload an asset to the Site tabe I get a message: 📎 **3d727c09-fe22-4b
 Added, and it's on your site as `3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png`.
 
 Can you create an REQ to change that last sentence to: Added, and it's on your site as IMAGE-23
+
+<!-- xgd-turn id="fd58916b-cc75-4215-9c80-784d7e3b07c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T22:04:38.956892+00:00" -->
+#### Claude
+I'll find the code that emits that sentence first, so the ticket names the right place.
+
+Found the real gap. Now let me check the ticket CLI shape.
+
+Now I'll write the REQ.
+
+**REQ-287** — *The upload confirmation names the catalogue label, not the stored filename* (`request-3a73d6af`, under EPIC-19, status `draft`).
+
+While scoping it I found the change isn't a one-line string edit, and the ticket says so:
+
+**The client doesn't have the label to print.** `uploadNote` (`apps/control-app/src/builder/app.js:1861`) can only say what the upload route answered with, and `materialEnvelope` (`apps/control-app/src/router.ts:1924`) doesn't carry `label` — it echoes `uid`, `title`, `kind`, `rights`, `role`, `origin`, `description_status` and the attachment, then stops.
+
+It's an omission rather than a decision, and the neighbouring route proves it: `POST /api/material/role` returns its row through `readMaterial`, whose `rowOf` *does* project `label` (`material.ts:1397`). So the same material is described with its label on one path and without it on the other. The envelope predates REQ-280 and was never revisited when labels arrived.
+
+I confirmed the label is genuinely there for your file — the material ticket for `3d727c09-…png` is **MATERIAL-30**, `fields.label = "IMAGE-25"`, allocated during ingest (`material.ts:685`, deliberately before the ticket is written so the Library can never list an unlabelled row). So nothing needs reading back; the value is in hand when the envelope is composed.
+
+So the ticket asks for two halves: put `label` in the envelope, and name it in the sentence.
+
+Three things I decided and wrote down, since they're the kind of thing reconciliation would otherwise have to guess at:
+
+- **Null labels keep the filename.** `MaterialRow.label` is `string | null` by design — material ingested before REQ-280 has none, recorded as a gap in an old Library rather than a defect.
+- **The gate stays.** That line is conditional on the material actually having been placed on the site; only the name inside it changes.
+- **The filename stays on the first line**, in bold. They recognise the file by that and refer to it afterwards by the label — different questions, both worth answering.
+
+I used `IMAGE-25` rather than your `IMAGE-23` throughout, since that's the label your actual upload was given; `IMAGE-23` belongs to MATERIAL-28.
+
+Want me to cut `free-REQ-287` and implement it? It's small — two edits plus a UAT — and the branch would be the first code to land since the chat jam, which is still unresolved unless you've restarted the builder.
 
 <!-- xgd-chat-end -->
