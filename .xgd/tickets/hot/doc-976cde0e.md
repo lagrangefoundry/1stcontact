@@ -5,14 +5,13 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-09-10T21:46:17.583916+00:00'
+updated_at: '2026-09-20T23:59:51.615555+00:00'
 completed_at: null
 last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
 ---
-
 
 # The Page Editor — direct manipulation on the live preview
 
@@ -428,7 +427,7 @@ Above the preview, in no fixed order:
 |---|---|
 | **Site selector** | choose which site's draft the iframe shows |
 | **Edit / View toggle** | swaps render channel (§5.1, §7.1) |
-| **Open in new tab** | the *same* draft render URL the iframe loads ([[DOC-8]] §4.3) — an iframe can distort layout, so a real tab is the honest view |
+| **Open in new tab** | the **draft** render URL for the page the iframe is on ([[DOC-8]] §3.3, the production-fidelity check) — an iframe can distort layout, so a real tab is the honest view. It is the draft channel in BOTH modes: the edit render is deliberately non-functional (§5.1), so opening *that* in a tab would invert the control's whole purpose ([[BUG-131]]). In View the two coincide; in Edit the tab and the iframe deliberately disagree. |
 | **Publish** | snapshot the draft into a new immutable revision and render it live — a thin call over [[DOC-12]] §5's existing `publish` machinery |
 
 ---
