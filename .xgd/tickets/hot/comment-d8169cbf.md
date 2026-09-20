@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T18:49:17.150258+00:00'
+updated_at: '2026-09-20T18:55:31.093686+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2532,5 +2532,46 @@ Note there's already an empty `apps/control-app/.dev.vars.local` sitting there f
 <!-- xgd-chat role="user" ts="2026-09-20T18:49:15.433561+00:00" -->
 #### You
 Please read the end of the last turn of the LF Site builder transcript - I really want this tool to be able to create 1c bugs - it cannot - please can you figure out why and create a BUG to fix this
+
+<!-- xgd-turn id="74605190-6021-459c-81f9-2a1ea47aca46-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T18:55:29.265895+00:00" -->
+#### Claude
+Read it, traced it, and it's decisive — the surface is wired correctly and the dev server it needs was never started.
+
+## What the consultant reported
+
+> I tried properly rather than going from memory — pulled the full definitions of every ticket tool I have. The answer is unchanged: **there is no create.** What I hold is `TicketQuery`, `TicketGet`, `TicketComments`, `TicketBacklinks`, `TicketHistory`.
+
+Those five are the *client's* ticket surface. REQ-273's `ReportBug` / `RequestCapability` / `AddTicketDetail` are absent entirely.
+
+## Why — identity and filing cannot both be on
+
+Every link checked against the running tree:
+
+1. `developmentFor` (`development.ts:305`) composes the surface **only** when `DEVELOPMENT_TICKETS_URL` is set.
+2. That var is set in exactly one place — `filingVars()` (`filing.ts:90`), pushed onto wrangler's argv by `1c builder` (`index.ts:997`).
+3. Getting a real identity locally needs `bin/access-sim`, and its documented recipe (`bin/access-sim:52`) launches `npx wrangler dev` **by hand** with a third `--env-file`. That path starts no filing service and passes no `--var`.
+4. `1c builder` can't be used instead: `devEnvLayering` (`dev-env.ts:86`) emits exactly two `--env-file` arguments and has no slot for `.dev.vars.local`, no flag, no knowledge of it.
+
+**So: identity or filing, never both.** You have identity, so the consultant has no filing tools.
+
+## Evidence, not inference
+
+- `.dev.vars.local` written **11:43**; `.wrangler/tmp/dev-*` created **11:44–11:45**. The hand-launched recipe, in order.
+- A full loopback sweep (1024–65535) finds **no filing listener**. The service answers `405 {"ok":false,"error":"POST only"}` to a GET; nothing on the machine does. 8788 answers `401 Access rejected`, 8799 answers `302` — both dev processes up, the filing one never started.
+- Not an install fault: importing `@lagrangefoundry/ai-ticketing/node` and constructing `XgdProject` both succeed, so `startFilingService` wouldn't have thrown had it been called.
+
+## You can unblock yourself right now
+
+Every value `access-sim --print-env` emits is deterministic at defaults — `ISS` is `http://127.0.0.1:8799`, `AUD` is `local-dev-aud`, the service pair is the fixed `local-dev.access` / `local-dev-secret`. Paste those three lines **once** into your secrets file (`$HOME/Documents/secrets/1c.dev.env`), which `devEnvLayering` already layers *after* `.dev.vars` and therefore wins. Then `bin/access-sim &` plus `1c builder` as normal, browsing at **127.0.0.1:8799**. Identity and filing together, today.
+
+## **BUG-124** filed, severity high
+
+*Local dev: Access identity and defect filing are mutually exclusive, so the consultant silently has no filing tools.*
+
+The part I'd argue matters most is the silence. Two correct behaviours compose into it — the Worker composes no surface when it has no project, and the model is never told about a capability it wasn't granted — so the assistant says truthfully "I cannot create tickets", and nothing distinguishes that from a mis-launched dev server. The `filing: on/off` banner exists, but only on the command that isn't being used.
+
+Fix is three items: let `1c builder` layer an extra env file (smallest thing that makes them composable); fold the simulator into that one command, which already owns the dev server's and the filing service's lifetime; and make an absent filing surface legible somewhere an operator or the consultant can actually see. Linked from EPIC-19 as Finding 6.
 
 <!-- xgd-chat-end -->
