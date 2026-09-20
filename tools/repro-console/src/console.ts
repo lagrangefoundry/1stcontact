@@ -52,11 +52,13 @@ import {
   buildPrompt,
   CAPTURE_INCOMPLETE,
   describeCost,
+  normaliseOutcome,
   parseOutcome,
   readBrief,
   readGateReport,
   resumePreamble,
   spawnAiRunner,
+  unreadTicket,
   type AiOutcome,
   type AiRunner,
   type GateSummary,
@@ -1266,7 +1268,7 @@ export class ReproConsole {
    * apart.
    */
   private async readTicket(id: string): Promise<ReadTicket> {
-    const unread: ReadTicket = { id, status: '', createdBy: '', defectClasses: [], found: false }
+    const unread = unreadTicket(id)
     const result = await this.runCommand('xgd', ['ticket', 'get', id, '--json'], this.cwd).catch(() => null)
     if (!result || result.code !== 0) return unread
     try {
@@ -1699,14 +1701,21 @@ function readIfPresent(file: string): string {
   return existsSync(file) ? readFileSync(file, 'utf8') : ''
 }
 
-/** The outcome an iteration's AI round recorded, or none. */
+/**
+ * The outcome an iteration's AI round recorded, or none.
+ *
+ * NORMALISED, NOT ASSERTED ([[BUG-125]]). What comes back here was written by
+ * whichever version of the console ran that round, which is not this one — so
+ * it is handed to {@link normaliseOutcome} rather than cast, in the same way
+ * {@link readIterations} normalises the manifest and {@link readGateReport} the
+ * verdict. A file that is not JSON at all, or holds no status, is the same
+ * answer as no file: this iteration has no round.
+ */
 function readOutcome(dir: string): AiOutcome | null {
   const file = path.join(dir, AI_DIR, AI_OUTCOME_FILE)
   if (!existsSync(file)) return null
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<AiOutcome>
-    if (typeof parsed.status !== 'string') return null
-    return { ...parsed, status: parsed.status, violations: parsed.violations ?? [], observations: parsed.observations ?? [] } as AiOutcome
+    return normaliseOutcome(JSON.parse(readFileSync(file, 'utf8')))
   } catch {
     return null
   }
