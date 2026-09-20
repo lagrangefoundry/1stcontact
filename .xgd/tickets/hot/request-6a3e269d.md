@@ -6,9 +6,9 @@ title: 'Capture budget: drop the browser quota — context, not page loads, is t
   resource'
 created_by: EPIC-19
 created_at: '2026-09-20T19:53:00.120338+00:00'
-updated_at: '2026-09-20T21:35:34.802062+00:00'
+updated_at: '2026-09-20T21:36:03.997207+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -130,7 +130,8 @@ One prose change, in `capture_site`'s manual entry in
 the currency that matters. A capture hands back a **name**, not pictures, so it
 is the cheap way to keep a site around and look at it later — the opposite steer
 from the one the quota gave, which taxed capture at eight and let pictures
-through free.
+through free. Changing what the manual says is a change to the surface the
+assistant is given, so `surface_version` goes 6 → 7 with it.
 
 ## Supersedes
 
@@ -146,7 +147,7 @@ Two of its UATs go with it, deleted rather than skipped:
 
 The second one also proves something that is not about the budget — that reading
 an already-captured reference needs no browser and keeps working. That assertion
-moves to a surviving fidelity UAT rather than being lost with the file it sat in.
+moves into the new REQ-286 UAT rather than being lost with the file it sat in.
 
 ## Test plan
 
@@ -156,7 +157,10 @@ moves to a surviving fidelity UAT rather than being lost with the file it sat in
   AC5 inverted, and it is the executable evidence that the ceiling is *gone*
   rather than merely raised.
 - The rest of `tests/test_UAT_FC_REQ-206_the_assistant_can_see.workers.test.ts`
-  is the regression scope and is untouched.
+  is the regression scope and its assertions are untouched. Its module
+  doc-comment is not: it enumerates that file's claims, so it records which two
+  went and why, and keeps the gap in the numbering so the surviving claims still
+  read against the acceptance criteria they were written for.
 
 ## Non-goals
 
