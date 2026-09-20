@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T00:47:37.666233+00:00'
+updated_at: '2026-09-20T01:24:03.003028+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2189,5 +2189,11 @@ Not the tool lines — the **overviews**. `summary` keeps them *whole*, and the 
 So: suck it up, but watch the overviews rather than the tool list. And if you ever want the attention question answered rather than assumed, the repro console is the instrument — same site, same brief, manual at two sizes, compare the work.
 
 Worth recording that as a principle in EPIC-19? It's the kind of thing that gets re-litigated in six months.
+
+<!-- xgd-turn id="c108172e-0d6a-48fb-940c-f13de6e9751b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T01:24:02.839971+00:00" -->
+#### You
+I thought we made a change to let the consultant file bugs, it can't
 
 <!-- xgd-chat-end -->
