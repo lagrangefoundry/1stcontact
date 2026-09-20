@@ -6,10 +6,10 @@ title: 'repro console: a stored round written before REQ-276 takes the whole pag
   down on open'
 created_by: EPIC-12
 created_at: '2026-09-20T19:12:43.538142+00:00'
-updated_at: '2026-09-20T19:12:43.538142+00:00'
+updated_at: '2026-09-20T19:20:22.319754+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 2
