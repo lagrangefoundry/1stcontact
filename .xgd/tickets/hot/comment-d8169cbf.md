@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T19:32:11.054555+00:00'
+updated_at: '2026-09-20T19:34:14.094648+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2696,5 +2696,62 @@ I should be per hour or...something...also what is the real cost of a capture. T
 All that said - the consulant was probably wrong to try to capture these sites - unless it needed to to see them? I didn't want to look at screenshots I needed links.
 
 Aside:  There's a feature request - probably for the framework: rendering of links in the chat window: the should be rendered to open in new tabs by default
+
+<!-- xgd-turn id="48724422-5824-4e73-ba2a-fb02bebf53a5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T19:34:12.498690+00:00" -->
+#### Claude
+Three things there, and the token point changes my recommendation substantially. Let me check the link rendering first.
+
+REQ-170 filed upstream for the links. Now — you've found the thing that matters, and it reverses my recommendation.
+
+## A capture costs almost nothing. A screenshot costs a fortune.
+
+I checked what each operation actually returns:
+
+| | browser acquisitions | tokens into the conversation |
+|---|---|---|
+| `capture_site` | **8** | ~0 — bundle name, url, page/asset counts |
+| `screenshot` | **0** if the page is already captured | **a whole image, re-sent on every turn after** |
+| `compare` | 0 | numbers only |
+
+`screenshot` returns raw image blocks straight onto the `tool_result` (`fidelity-core.ts:496-503`). That image then rides in the context of every subsequent turn — call it 1–2k tokens × however many turns remain. Over a long session, one screenshot is tens of thousands of tokens.
+
+And the budget's own doc says, explicitly and as a feature:
+
+> an operation that reads something already captured or already rendered never asks for a browser, so it never spends… **a picture of a `reference`** and a `compare` of two of them **are all free**
+
+So the single most token-expensive operation in the system is **exempt by design**, while the cheapest one — going to a webpage — is charged 8. The meter is exactly inverted relative to the currency you care about.
+
+You're right that a capture is just visiting a page. The cost the code names is Cloudflare's concurrency cap and acquisition rate limit — and those are *rate* constraints. A quota is the wrong instrument for a rate problem, which is exactly your "should be per hour" instinct.
+
+## "A budget on the session is a budget on all sites ever"
+
+Correct, and worse than you framed it. The constant is documented as *"how many live-page looks one conversation may spend"* and the refusal says *"this conversation has spent its 40."* A builder conversation for a site is permanent. As written, that's a lifetime cap on a permanent object.
+
+What saves it is an accident. The budget is in-memory per isolate, so an eviction mints a fresh one — the doc admits this makes it *"a BURST bound rather than a lifetime one."* So the real behaviour is: sometimes you have 40, sometimes you have 8, nothing tells you which, and it resets on an event you can't observe. That's arguably worse UX than either a real quota or no quota, because it isn't learnable.
+
+## Was the consultant wrong to capture?
+
+Partly, and the interesting part is which part.
+
+**Right instinct** — *"let me go and get real comps rather than describe them from memory"* is the correct reflex, and it's the one that separates a consultant from an autocomplete.
+
+**Wrong on two counts.** It never asked what form the answer should take; one sentence — *"links, or shall I look at them and report back?"* — would have saved 24 acquisitions and four turns. And it used the full responsive ladder (8 navigations) for what needed one viewport.
+
+**But it was flying blind on the number that would have changed the decision.** Nothing in the manual prices `capture_site` at all. REQ-284 prices `screenshot` in prose; nothing says a capture is 8× a look in browser terms. It couldn't have known three comps meant 60% of the budget.
+
+## What I'd now do
+
+Drop my earlier "keep the 40 as it is."
+
+1. **Meter tokens, not navigations.** The thing worth bounding is images entering the conversation — which is what actually degrades the session and what BUG-121/REQ-283 are already about. That's a *context* budget, and LF REQ-168 §4 is already the right home for the gauge.
+2. **Make the browser cap a rate limit, not a quota** — your instinct. It matches the risk the code actually names (concurrency, acquisition rate), it can't strand a permanent conversation, and a model looping inside one turn still hits it.
+3. **Cheap looks.** A single-viewport `capture_site` costs 1, the full ladder costs 8 and you spend it when you're going to *measure* against it.
+4. **Price it in the manual**, so the consultant can make the trade it was asked to make.
+
+One genuine fork, and it's your call: **drop the browser quota entirely** and rely on a rate limit plus the token meter, **or** keep a quota as a runaway-loop backstop set high enough never to bite a working session. I lean to the first — the loop it's guarding against is a rate phenomenon, and a second instrument for it is what produced this mess — but the second is the conservative option and I'd not argue hard against it.
+
+Say which, and I'll fold the whole thing into one ticket.
 
 <!-- xgd-chat-end -->
