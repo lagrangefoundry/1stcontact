@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:25:19.529218+00:00'
+updated_at: '2026-09-20T01:26:28.412312+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2235,5 +2235,11 @@ Two things to look at, in order:
 2. **`--no-filing`.** If it's in your launch command or an alias, that's the switch.
 
 One design note worth knowing, since it'll come up: a **deployed** builder talking to a real client has no project to file into and gets no filing surface at all — by design. The consultant will say it can't file rather than failing at it. So this capability is local-development-only until there's a hosted ticket server, at which point it becomes an address in `[vars]`.
+
+<!-- xgd-turn id="abbfc6a6-f3f2-4cb0-ae90-d4b64b6835fa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T01:26:28.346163+00:00" -->
+#### You
+Why do we need a hosted ticket server? the dev server can run xgd ticket create?
 
 <!-- xgd-chat-end -->
