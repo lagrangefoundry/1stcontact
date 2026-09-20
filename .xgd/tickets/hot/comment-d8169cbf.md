@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T00:46:45.010520+00:00'
+updated_at: '2026-09-20T00:47:37.666233+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2159,5 +2159,35 @@ Two notes: this is an unticketed change at your instruction, so it has no UAT of
 <!-- xgd-chat role="user" ts="2026-09-20T00:46:44.693797+00:00" -->
 #### You
 I think there is a philosophical question here 65k tokens is still more than I would like to "stuff" into the session - OTOH this session probably needs to be intimately familiar with that manual so maybe we suck it up - stuffing is only a problem if the content is irrelevant, I guess
+
+<!-- xgd-turn id="4933765d-a858-44b2-8419-acc29765749d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T00:47:36.698979+00:00" -->
+#### Claude
+One correction that changes the arithmetic: **65,925 is characters, not tokens** — roughly **17k tokens**. Against Opus 5's 1M window that's 1.7%, paid once per session and cached at a one-hour TTL thereafter.
+
+So the cost argument is genuinely weak here. Which means your instinct is doing real work, because what's left isn't cost — it's **attention**. 17k tokens of tool manual sits in front of every judgement the consultant makes about a client's brand. Cached or not, it's still in the context competing for focus. Nobody has measured whether that degrades its taste, and it's the only argument against stuffing that caching doesn't answer.
+
+## Where I'd sharpen your formulation
+
+"Stuffing is only a problem if the content is irrelevant" is close, but I think the operative test is **needed every turn vs needed some turns** — and the codebase already draws exactly that line:
+
+> the summary is 11k. What it drops — every parameter, return shape and error code — is what `DescribeTools` fetches for one tool **at the moment it is about to be called, which is the only moment it is needed.**
+
+The full manual is 43k and it is *entirely relevant*. It's excluded not for irrelevance but for frequency. So the principle already in force is yours, refined one notch.
+
+## Where the floor is
+
+You can't go below **one line per granted tool**, because a capability the model doesn't know exists is one it never calls. We have direct evidence: BUG-118 was the consultant declaring itself blind to a picture it had just made, because the disambiguation lived in an overview it never fetched. Terser is not free.
+
+Which means the manual's size is mostly a function of **how many surfaces we've granted** — l1, fidelity, image, library, agent, ledger, knowledge, tickets, imagegen. That's the honest price of a capable consultant, and the lever for shrinking it is granting less, not describing it more tightly.
+
+## Where the actual slack is
+
+Not the tool lines — the **overviews**. `summary` keeps them *whole*, and the fidelity overview alone is 4,048 characters of essay. REQ-284 added 686 to it. That's where the 11k→30k drift really lives, and it's the one place you could cut without touching discoverability.
+
+So: suck it up, but watch the overviews rather than the tool list. And if you ever want the attention question answered rather than assumed, the repro console is the instrument — same site, same brief, manual at two sizes, compare the work.
+
+Worth recording that as a principle in EPIC-19? It's the kind of thing that gets re-litigated in six months.
 
 <!-- xgd-chat-end -->
