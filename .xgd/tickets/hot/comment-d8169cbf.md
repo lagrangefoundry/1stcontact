@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T01:26:28.412312+00:00'
+updated_at: '2026-09-20T01:27:20.461641+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2241,5 +2241,32 @@ One design note worth knowing, since it'll come up: a **deployed** builder talki
 <!-- xgd-chat role="user" ts="2026-09-20T01:26:28.346163+00:00" -->
 #### You
 Why do we need a hosted ticket server? the dev server can run xgd ticket create?
+
+<!-- xgd-turn id="abbfc6a6-f3f2-4cb0-ae90-d4b64b6835fa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T01:27:20.206920+00:00" -->
+#### Claude
+Fair challenge — I repeated the module's framing without examining it. Let me check one thing.
+
+You're right, and I overstated it by repeating the module's own framing.
+
+**For local development nothing is needed** — the dev server already does exactly what you describe. `1c builder` starts a Node-side filing service holding a real `XgdProject`, which spawns the xgd CLI. That's `xgd ticket create`, running today. No server required, and none proposed.
+
+The "hosted ticket server" only concerns a **deployed Worker**, and the constraint is narrow: workerd has no `child_process` and no disk, so it cannot run the CLI at all. Its only way to reach a ticket store is an HTTP call to something that can.
+
+But the real question underneath is one the ticket never asked: **do we want a deployed session filing at all?** Two reasons to doubt it —
+
+- The surface's own discipline is *"Filing is not something to do on your own initiative. Someone asks for a ticket; your part is writing the good version of it."* A client asking their design consultant to file a bug against 1st Contact is a rare event.
+- Every defect we've found this way — BUG-117, 118, 119 — came from *your* session, where the filing service already exists.
+
+So the honest statement isn't "we need a hosted server"; it's **"a deployed Worker could only file over HTTP, and we haven't decided it should file."**
+
+## A third option worth considering
+
+If deployed filing does turn out to matter, there's a route that needs no new infrastructure: **the Worker already has a ticket store** — D1 — and there is already a **platform tenant** distinct from every client (`requirePlatformTenant`, with its own `PLATFORM_BUSINESS_NAME` row). A `development` ticket written into the platform tenant, swept into xgd out-of-band by you, would satisfy REQ-273's hard constraint — *"nothing filed here reaches them"* — because the platform tenant is not any client's store and is not in any client's corpus.
+
+That keeps the information barrier the ticket cares about, keeps the client's project KB clean, and costs one tenant id rather than a service to run and secure.
+
+Worth noting on REQ-273 so the "hosted ticket server" line doesn't get read as the only path? It's frozen at `ready_to_reconcile`, so it'd be a comment.
 
 <!-- xgd-chat-end -->
