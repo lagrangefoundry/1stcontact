@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T19:13:28.476878+00:00'
+updated_at: '2026-09-20T21:41:28.341917+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1103,5 +1103,15 @@ Two things I scoped deliberately wider than the crash, so the fix doesn't have t
 Acceptance is four checks: the stored run renders (page plus `/state`, `/iteration/<n>/page`, `/iteration/<n>/ticket`, `/iteration/<n>/diff/`), no split and no violation for those rounds, a current outcome still renders its split, and one malformed entry costs only itself.
 
 The verified patch is still at `.xgd/tmp/readOutcome-defectClasses.patch` if you want the console working before the ticket gets picked up — but note it's the crash fix only; the malformed-entry and normalise-every-field parts of behaviours 1 and 3 belong to the implementation, and it carries no UAT, so applying it without the ticket's branch is drift `test_fix` would eliminate. Working tree is clean apart from your pre-existing `host-core.ts` edit.
+
+<!-- xgd-turn id="623bd2a6-6bf1-4321-9a9c-084623c9470a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-20T21:41:27.948315+00:00" -->
+#### You
+Ok we are back up again.
+
+I see a warning at the bottom of the page: ⚠ this bundle was taken by an older capture (schema 1, unstamped vs 4 today) —... <-- this is telling me I should use the recapture button, right?
+
+The trouble is both buttons run again and recapture are both grayed out and beachball?
 
 <!-- xgd-chat-end -->
