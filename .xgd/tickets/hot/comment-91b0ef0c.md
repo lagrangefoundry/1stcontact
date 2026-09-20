@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T21:41:28.341917+00:00'
+updated_at: '2026-09-20T21:45:41.781577+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1113,5 +1113,50 @@ Ok we are back up again.
 I see a warning at the bottom of the page: ⚠ this bundle was taken by an older capture (schema 1, unstamped vs 4 today) —... <-- this is telling me I should use the recapture button, right?
 
 The trouble is both buttons run again and recapture are both grayed out and beachball?
+
+<!-- xgd-turn id="623bd2a6-6bf1-4321-9a9c-084623c9470a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-20T21:45:40.792667+00:00" -->
+#### Claude
+Both answered — and the greyed buttons aren't a hang.
+
+## (1) Yes, recapture — and it's not a close call
+
+All three references are unstamped (schema 1) against `CAPTURE_SCHEMA = 4` (`tools/generate/src/cli/capture/schema.ts:49`). [run again] re-folds *from the bundle you already have*, so a fix in the **extractor** cannot appear however many times you press it — the axes it added were never written to that bundle. The warning's own sentence says it: *"A fold fix that reads one of them cannot take effect against this bundle however many times it re-runs."*
+
+## (2) The buttons are held, deliberately — and the hold is stale
+
+`inert = state.running || state.held` (`page.ts:569`). It's the second one. On disk:
+
+```
+iteration-3/ai/outcome.json   status: "filed"   ticketId: "REQ-271"
+iteration-3/ai/implemented.json   ← absent
+```
+
+`heldBy()` holds on the last iteration if it filed and nothing beside it says the implementation landed. **REQ-271 did land** — `ready_to_reconcile`, v0.2.256, two commits. You just never told the console.
+
+So: the **⏸ line immediately above "continue this chain"** has a `[the implementation has landed]` button. Press that, and both continuations come back.
+
+**The beachball is CSS, not work.** `page.ts:326` — `button[disabled] { cursor: progress }`, the same cursor whether a round is running or you haven't released a hold. One state means "wait", the other means "your turn"; they look identical. That's why it read as a hang, and it's a real defect.
+
+Second smaller one: the hold text says *"[run again] is held"* — but [recapture] carries `data-held="1"` too and is equally held. That wording predates BUG-120 grouping them.
+
+## Order of operations — one correction to what I told you before
+
+I said record the rail baseline first. That's wrong now that I've checked what recapture writes: `bundleDir` for all three iterations is `storage/references/gigabytealchemy.ai/index` — **recapture overwrites one of the rail's own three references**. A bar recorded now would be stale for that reference the moment you press it.
+
+```
+1. press [the implementation has landed]      ← lifts the hold
+2. press [recapture]                          ← appends iteration 4, re-rolls the oracle
+3. ./bin/repro-rail record                    ← storage/rail/ still doesn't exist
+```
+
+Expect iteration 4's numbers to be *worse*, not better — five previously-invisible axes become countable. That's the instrument sharpening, per EPIC-19's metric warning.
+
+## One housekeeping thing
+
+There are five stale console processes listening: **8733 is a pre-BUG-125 instance still returning `Cannot read properties of undefined (reading 'length')`**, and 8711/8719/8722/8723 are leftovers from test runs showing empty or failed pages. Worth killing so you don't end up reading the wrong tab.
+
+Want me to file a child bug for the two UX defects — disabled-means-two-things (`cursor: progress` for both running and held) and the hold naming only [run again]? Both are small and testable. Nothing committed; investigation only.
 
 <!-- xgd-chat-end -->
