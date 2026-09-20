@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-20T19:54:09.096234+00:00'
+updated_at: '2026-09-20T20:00:31.177406+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -958,4 +958,4 @@ The decision is to remove it rather than redesign it: *drop the browser quota
 until it becomes a problem — we should focus on tokens, that is our scarce
 resource to manage.* If runaway browser spend ever appears, it returns as a rate
 limit with evidence attached. [[REQ-286]] carries the removal; the metering that
-matters is already in flight in [[REQ-284]], LF REQ-168 §2 and §4, and [[REQ-283]].
+matters is already in flight in [[REQ-284]], LF REQ-168, LF REQ-169 and [[REQ-283]].
