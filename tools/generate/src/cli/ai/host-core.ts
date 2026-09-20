@@ -711,16 +711,32 @@ export function businessSessionIdFor(businessId: string): string {
  * a backstop for any host, not a budget for this one — and a limit nobody chose is
  * a limit nobody notices being approached.
  *
- * The arithmetic: the three static entries are 4,851 characters together and the
- * projected manual summary is about 11,000, so a session with a corpus primes at
- * roughly 16,000 today. The one part that grows without anyone editing this
- * repository is the landscape, which tracks the client's knowledge base. 60,000
- * leaves that room to more than treble before the session refuses to start, and
- * refusing is the right outcome: overflow is a loud failure naming the entry, with
- * no truncation path, so a landscape that ran away is a message rather than a
- * priming quietly missing its last section.
+ * RAISED FROM 60,000, WHICH CLOSED THE BUILDER. The old arithmetic below it was
+ * sound and its inputs expired: the manual summary it sized against was about
+ * 11,000 characters, and the surfaces this session is granted now contribute
+ * roughly 30,000. Assembly reached 65,925 at `km-mechanism` and every session
+ * refused to open.
+ *
+ * WHAT THE OLD NUMBER WAS GUARDING IS NOT EXPENSIVE. The cache boundary is the
+ * LAST entry in `priming.json`, so the whole seed — manual and landscape included
+ * — sits in the cached prefix, and `_seedForTurn` re-assembles only the entries
+ * past that marker. So the seed is built once per session and read from cache at
+ * `DEFAULT_CACHE_TTL` (one hour) thereafter. 66,000 characters is ~17,000 tokens,
+ * paid once, against a 1M-token window. The ceiling was throttling something that
+ * is neither per-turn nor scarce.
+ *
+ * WHY THE FRAMEWORK'S OWN DEFAULT RATHER THAN A NEW LOCAL GUESS. The previous
+ * comment declined `DEFAULT_MAX_PRIMING_CHARS` on the grounds that "a limit nobody
+ * chose is a limit nobody notices being approached" — and then nobody noticed this
+ * one being approached either, because a constant cannot warn. The backstop is the
+ * right role for this value; noticing belongs to the occupancy gauge
+ * (lagrange-framework REQ-169), which reports what a request actually costs.
+ *
+ * Overflow is still a loud failure naming the entry, with no truncation path. That
+ * property is why a backstop is safe: a landscape that genuinely runs away is a
+ * message rather than a priming quietly missing its last section.
  */
-export const MAX_PRIMING_CHARS = 60_000
+export const MAX_PRIMING_CHARS = 200_000
 
 /** One `SessionManager` per site, keyed by the store it acts on. */
 const managers = new Map<string, Promise<Untyped>>()
