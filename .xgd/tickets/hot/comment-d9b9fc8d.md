@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:44:36.247194+00:00'
+updated_at: '2026-09-21T21:47:58.664399+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1677,5 +1677,11 @@ So the right move is to connect the real domains, which is your actual goal anyw
 1st Contact is the awkward one: it's served at the apex via `APEX_SITE_KEY`, but publish still demands an address row, and the honest one is `1stcontact.io` itself. Worth seeing whether the domain-connect flow accepts a hostname the deployment already owns — if it doesn't, that's a finding.
 
 I couldn't check whether `1stc.site` is delegated in your account; DNS lookups are blocked from my sandbox.
+
+<!-- xgd-turn id="41fa029a-1437-4fa4-942e-a2d4842cbc11-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T21:47:57.892923+00:00" -->
+#### You
+⚠️ **Don't burn a **`1stc.site`** name to test the pipeline. <-- but I DO NOT want anyone else to have lagrangefoundry.1stc.site there is no BURN a name**
 
 <!-- xgd-chat-end -->
