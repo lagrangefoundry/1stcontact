@@ -5,16 +5,21 @@ type: bug
 title: the boot guard reports a working builder as failed, and breaks its layout
 created_by: EPIC-16
 created_at: '2026-09-21T23:17:11.874416+00:00'
-updated_at: '2026-09-21T23:48:32.673612+00:00'
+updated_at: '2026-09-21T23:49:27.011164+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   epic_parent: epic-96d8aca6
   chat_comment: comment-bd86e73c
+  commits:
+  - working_sha: f1f7f87713742507431f698cc4a8c9536277b8ce
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.314
 ---
 
 The deployed builder shows **"The builder did not start."** across the top of a builder
