@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T19:20:47.691629+00:00'
+updated_at: '2026-09-21T18:01:22.284820+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,6 +13,16 @@ fields:
   subject_uid: chat-5011da11
   kind: chat_transcript
 ---
+
+<!-- xgd-session
+{
+  "id": "a32b9124-4f6e-4bf4-96ba-caf79a2da702",
+  "role": "chat",
+  "backend": "claude_code",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
 
 <!-- xgd-turn id="bd878745-b638-4c83-86de-5543e61917de-user" -->
 
@@ -814,5 +824,11 @@ Twelve acceptance criteria. The two that carry the design: a `goal` that explici
 I kept two things in the Notes deliberately: **`effort` should be tried first** — it's a fraction of the work, doesn't touch the cache prefix, and this ticket shouldn't be used to justify skipping it. And **the worker's model should be chosen from REQ-143/145 telemetry**, not from my estimate off an audit ledger. The ticket specifies mechanism; the tuning is a configuration question answered with numbers you can now actually collect.
 
 Priority `medium` rather than `high` — it's a design ticket behind a cheaper lever, and the sizing wants real data first. Say if you'd rather it were `high`.
+
+<!-- xgd-turn id="ec8d46e1-f459-46b7-b8b9-551209b66d75-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:01:20.620461+00:00" -->
+#### You
+Please summarize our best understanding and status into EPIC-20 and reference this transcript
 
 <!-- xgd-chat-end -->
