@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:19:15.089862+00:00'
+updated_at: '2026-09-21T22:19:32.212837+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1788,5 +1788,18 @@ Note `run_worker_first = true`, so every asset request goes through the Worker a
 <!-- xgd-chat role="user" ts="2026-09-21T22:19:14.457493+00:00" -->
 #### You
 I ahve been authoring in Firefox
+
+<!-- xgd-turn id="a9901c89-da5e-40a0-babc-1bc4e60e88cf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:19:31.145988+00:00" -->
+#### Claude
+Then that changes the odds considerably — the deployed builder may simply never have run in Safari before. Local authoring in Firefox wouldn't have exercised it.
+
+**Open `https://app.1stcontact.io/` in Firefox.** One step, and it splits the problem cleanly:
+
+- **Works in Firefox** → production is fine, and you've found a real Safari incompatibility in the builder client. Worth a ticket: the boot guard didn't capture it, which is its own finding — `hintFor` has no branch for "the browser couldn't resolve the module graph", so the one browser-compatibility failure mode produces the guard's most useless output.
+- **Fails in Firefox too** → production-specific, and the Network tab is next. My leading hypothesis there is `run_worker_first = true`: every `/webui/...` module fetch goes through the Worker and Access before reaching the assets binding, and a 302-to-login on a module request stalls the graph without throwing.
+
+Either way we'll know in about ten seconds, and the answer determines whether the next move is a compatibility ticket or a serving-path investigation.
 
 <!-- xgd-chat-end -->
