@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:15:35.247556+00:00'
+updated_at: '2026-09-21T23:18:36.291661+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2271,5 +2271,43 @@ Now that The builder did not start message - can I get a bug to change that time
 Then we need to talk about what was now a pretty painful experience. Mostly the issue, it seems, was credentials the scripts themselves mostly worked ok when the right things were in place. What I would like is for you to add specific recipies to the deployment documentation.
 
 How to copy content: sites, change contacts etc in either direction - not all the nuance - simple actionable instructions including all the credentials that need to be set up first and the accounts that have to be used.
+
+<!-- xgd-turn id="b9b18218-83d1-43ac-af8c-1b52c397864b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:18:35.620382+00:00" -->
+#### Claude
+Two things. Bug first, then the recipes — docs aren't a code change, so I'll write those directly.
+
+`apps/control-app/ACCESS.md:181` already has a section called **"Getting a site in, with the gate on"** — a recipe that exists and evidently didn't carry you through. Let me read it before deciding whether to extend it or write fresh.
+
+That existing recipe is good — and it's entirely about getting a site *into* a fresh local clone. Nothing covers the production direction, which is where every credential problem we hit lived. It also contains the exact trap I fell into: it shows `copy-to-cloud … --backup lf.json` under a heading that reads like a copy, when `--backup` touches the destination not at all.
+
+Bug first.
+
+**BUG-135** — *the boot guard reports a working builder as failed, and breaks its layout*.
+
+Now the recipes. Let me place them and fix the misleading example.
+
+One broken link — there's no "break glass" heading for the production side. Let me replace it with the actual steps.
+
+Done. Two tickets and the documentation.
+
+**BUG-135** — *the boot guard reports a working builder as failed, and breaks its layout*. I scoped it wider than the timeout because raising the deadline alone isn't a fix: it re-tunes a race against latency we don't control, and leaves the layout corruption in place for whenever it does fire. Three fixes — render outside `#app`, retract when the builder arrives, and distinguish "hasn't started" from "hasn't started *yet*". The last is the real defect: the guard treats a clock as evidence, so it reported a failure because it had no way to describe slowness.
+
+**REQ-294** — the chat transcript copy class, filed earlier.
+
+## The recipes
+
+Added to `apps/control-app/ACCESS.md` — a new **"Recipes: moving content between builders"** section (~150 lines), placed after the existing local-setup recipe and before the sign-in paths. That's where the credential story already lives; there's no root-level deployment doc, and `README.md` is still the 55-line "# Project Name" stub.
+
+It opens with **the four things that must be true** — the allow-list identity, the `PLATFORM_ADMINS` bootstrap, the cloud pair, the local pair — then a prominent warning that `SERVICE_TOKEN_IDENTITIES` is keyed on the **client id**, not the token's label, since that's what cost us the most time and is invisible locally (the simulator derives its `common_name` from its own client id, so the label works there and nowhere else).
+
+Then: shell setup, site laptop→cloud, site cloud→laptop, backups, contacts, chat transcripts, and a **"When a copy is refused"** table mapping each error you actually hit to what it means — including that a 403 carrying *"cannot open this for you"* is the application refusing, **not** a missing credential, whatever the advice printed underneath says.
+
+Three traps called out explicitly because they bit us: `--origin` must be `127.0.0.1:8799` or you can only ever reach *1st Contact*; the import mints a **new site key** so `APEX_SITE_KEY` must be read back from the destination; and `--backup` is a mode, not an extra.
+
+I also fixed a live trap in the existing doc — it showed `copy-to-cloud … --backup lf.json` under a heading reading like a copy. That example is exactly the mistake I made and you hit. It now shows both forms with the backup one marked as writing nothing.
+
+The docs and the `wrangler.toml` edits are uncommitted. Want me to commit them, or leave them in the working tree while you finish the copies and publish?
 
 <!-- xgd-chat-end -->
