@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T19:49:14.932216+00:00'
+updated_at: '2026-09-21T19:58:37.332572+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -267,5 +267,14 @@ The blanket multi-line sweep broke four previously-green suites. Reverting those
 Only the pre-existing `/api/export` gap remains. Committing and re-running all shards for a clean read.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="031a2491-e66d-40d3-bc78-364f7ac024d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:58:35.611471+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
