@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T18:30:58.717904+00:00'
+updated_at: '2026-09-21T19:46:28.577864+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -973,5 +973,11 @@ Then reload `https://app.1stcontact.io/` and look for `admission_denied`. (`obse
 `PLATFORM_ADMINS` is a comma-separated list, and an address that never authenticates writes nothing — the seed only fires for the identity actually presenting. The three addresses this repo and account mention are `martin-cloudflaire@westhead.me` (deployed the Worker), `martin-github@westhead.me` (the service token identity), and `martoin-claude@westhead.me`. Naming all three plus whichever one `get-identity` reports costs nothing and guarantees a hit on the first try. You empty the var after the repair anyway — that's the break-glass contract, and the rows survive it.
 
 Paste me the `email` from `get-identity` (or say "use all three") and I'll make the line-423 edit.
+
+<!-- xgd-turn id="c96e40ae-cf1d-4d4c-a0b1-e2b4a44f8222-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:46:28.253088+00:00" -->
+#### You
+{"err":"no app token set"}
 
 <!-- xgd-chat-end -->
