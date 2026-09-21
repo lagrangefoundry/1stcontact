@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:32:45.933507+00:00'
+updated_at: '2026-09-21T00:37:02.739552+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -403,5 +403,11 @@ All three were answerable from design context. Two things for your awareness rat
 
 - **REQ-289 is still unstarted and the LF draft still has no backup.** Unblocking REQ-290 means both can run, but if you only have one session to spend, the backup is the one that's load-bearing.
 - **I was wrong twice in this ticket now** — `storage/sites/` as the place to look for the LF site, and the test count. Both were cases of reasoning from the repo's structure instead of checking. The implementing session caught the second one; worth them staying adversarial about my scoping.
+
+<!-- xgd-turn id="d52a93d4-1298-45d2-b4dd-7da7a6c70033-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:37:02.002207+00:00" -->
+#### You
+ok so REQ-289 has landed can you walk me through (1) deploying the code and the schema to CF (2) copying my sites up there
 
 <!-- xgd-chat-end -->
