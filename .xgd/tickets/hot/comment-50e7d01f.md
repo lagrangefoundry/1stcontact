@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:48:21.263477+00:00'
+updated_at: '2026-09-21T19:49:44.319345+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -545,5 +545,33 @@ Shall I file both and cut the branch for REQ (1)?
 <!-- xgd-chat role="user" ts="2026-09-21T19:48:19.993577+00:00" -->
 #### You
 Where will you put the turn spend?
+
+<!-- xgd-turn id="608e2bb5-c32f-45dd-b6a5-a4073d88f943-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:49:43.503671+00:00" -->
+#### Claude
+**A new D1 table, `turn_spend`, by migration `0019_turn_spend.sql`** — next after `0018_activity_log.sql`.
+
+Two wiring facts that came out of checking:
+
+The D1 handle isn't currently reachable from the AI host — `WorkerAiEnv` declares `SITES: R2Bucket` and the API key, nothing else. So the binding gets **assembled by `router.ts` and passed in**, with `null` an ordinary state. That's the same shape `fidelity` and `images` already have on `workerHost`, for the same stated reason: a deployment with no meter still opens the session.
+
+And the write lands in a path already held open — `streamTurn` wraps the turn's `finally` in `ctx.waitUntil` (BUG-46), so the record survives the response closing without a new lifecycle mechanism and without delaying the client's last frame.
+
+### Why not the obvious alternatives
+
+**`log_records`** was the tempting one — it exists, already has `business`, `duration_ms`, `outcome` and a JSON `data` column, and needs no migration. Disqualified: `pruneRecords()` DELETEs it on a band and `log_floor` tracks how far that's reached. **A meter you bill from must not be deletable by an ops job.** Nothing's been pruned yet (6,165 rows, floor at 0) but the mechanism exists and is meant to run.
+
+**R2 beside the audit** — durable, flush path already exists. Disqualified on the read: a month's report becomes a prefix listing and thousands of GETs. The audit gets away with that because nothing reads it routinely; a meter is read on every dashboard load and every billing run.
+
+**`counters`** `(tenant_id, type, value)` — aggregate only. Can't say which turns, can't split by model or role, can't be re-priced, which is the whole portability argument. But it's the right *second* structure, because a cap check mustn't scan a month of rows. **Rows for truth, counters for speed** — the rollup arrives with the cap, which isn't this ticket.
+
+**The chat ticket via the ledger surface** — wrong on `ledger-core.ts`'s own argument: the ledger is *the engagement's* record and spend isn't part of the engagement. It would also put the client's bill in a document the consultant reads and the KB indexes.
+
+### Retention: keep, don't prune
+
+The raw counters are what answers your open-weights question a year from now. Deleting them forecloses it. Rows roll into a period aggregate when they age out — named in the ticket so it's a decision rather than an omission, built when there's enough data to matter.
+
+Recorded in EPIC-20 under REQ (1). Ready to file both REQs when you are.
 
 <!-- xgd-chat-end -->
