@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:57:43.592103+00:00'
+updated_at: '2026-09-21T22:58:30.217332+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2195,5 +2195,36 @@ Both are the same defect. The deploy host genuinely can't probe a stored secret 
 <!-- xgd-chat role="user" ts="2026-09-21T22:57:43.256749+00:00" -->
 #### You
 cool now working - can I copy my other sites into place? Also - I need to copy the chat transcripts?
+
+<!-- xgd-turn id="dddc99b0-b68b-47dc-b35f-a5dbbb8407eb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:58:29.598216+00:00" -->
+#### Claude
+Yes to the first. On transcripts — let me check what `copy-to-cloud` actually moves.
+
+**Yes to the sites:**
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+bin/copy-to-cloud --force --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+
+bin/copy-to-cloud --force --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "XGD"
+```
+
+**No to the transcripts — and there's currently no way to.** `GET /api/export` carries a `SitePayload` and nothing else: `site.json`, the page documents, and the asset bytes. `router.ts:2566` is explicit that export/import are a matched pair over that one payload. Chat transcripts live in the `tickets` table as `chat_transcript` comments, which nothing in either copy script touches. `--contacts` is a recognised flag, refused in one direction and unimplemented in the other, and even it wouldn't cover transcripts.
+
+So production starts with empty conversations. Two things make that less alarming than it sounds:
+
+- **Nothing is lost.** Your local store keeps every transcript. This is deferrable, not now-or-never — a transcript class could be built later and backfill from the same local builder.
+- **The consultant doesn't need history to work on a site.** It's handed the page with every turn (that's `0cf8632494 feat(ai): hand the consultant the page with every turn`), so it can reason about the current state fine. What it loses is memory of *why* past decisions were made.
+
+Whether that matters is your call. If the reasoning in those conversations is load-bearing — and for a 210-version site it plausibly is — say so and I'll scope a transcript class as a child ticket. If not, carry on and the production conversations start clean.
+
+One thing to watch on the copies: `/api/export` **409s when a business holds more than one site**, by design, rather than guessing which you meant. Both target businesses currently hold exactly one (their starter), so this should be clean — but if a copy adds rather than replaces, a later export of that business would hit the ambiguity refusal. Worth a glance at the output.
 
 <!-- xgd-chat-end -->
