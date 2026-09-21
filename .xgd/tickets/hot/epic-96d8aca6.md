@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T00:23:14.370067+00:00'
+updated_at: '2026-09-21T01:00:54.041990+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: underway
 fields:
   priority: medium
@@ -714,3 +714,71 @@ Filed as [[REQ-289]] (1–3) and [[REQ-290]] (4–5); 6 is an acceptance item in
 
 Steps 1–3 stand alone and are worth doing before 4–6 is scheduled: the backup is the urgent half,
 the tidy-up is not.
+
+## H. The baseline drifted after it was applied — first deploy attempt, 2026-09-21
+
+`bin/deploy`'s migrate hook failed on the first real run:
+
+```
+no such table: sessions: SQLITE_ERROR [code: 7500]
+```
+
+### What happened
+
+| | |
+|---|---|
+| Remote `d1_migrations` | one row — `0001_baseline.sql`, applied **2026-09-06 17:39:19** |
+| Commits editing `0001_baseline.sql` **after** that | **12**, the first being `fc5c78dbe5` (2026-09-06), which is what added `CREATE TABLE sessions` |
+| Remote tables | 14 |
+| Tables the current baseline creates | 31 |
+| `0002_session_rotation.sql`, first statement | `ALTER TABLE sessions RENAME TO sessions_pre_rotation` |
+
+The baseline's own header states the premise that licensed this:
+
+> ITS SIBLINGS EDIT IT RATHER THAN FOLLOW IT. REQ-191 (`user_emails`) and REQ-193
+> (`user_names`) have, and REQ-194 (`accounts`) and REQ-195 (`contact_events`) will,
+> land in THIS file. **Editing a baseline that has never been applied is not a second
+> rebaseline.**
+
+The premise was false by a few hours. It *had* been applied — to production, that
+same afternoon. `d1_migrations` records a migration's **name**, not its content, so
+wrangler considers `0001_baseline.sql` done forever and starts at 0002. The applied
+migration and the file on disk are now two different schemas wearing one name, and
+there is no forward path between them.
+
+**This is `db/migrations/`'s own rule — never edit an applied migration — broken
+in the one file that documents it.** Not carelessly: the author checked the premise
+and the premise was true when they wrote it. What was missing is any mechanism that
+would have noticed it stop being true.
+
+### The fix: rebaseline, because this is the last free moment
+
+Remote holds 0 sites, 0 users, 0 revisions and one vestigial tenant row
+(`acct_51a6…`, itself carrying a prefix `TENANT_ID` does not use). Nothing is lost by
+a wipe, which is [[REQ-190]]'s own argument applied a second time — and §B above
+already named this: *the empty database is the cheapest moment this will ever be.*
+
+`db/ops/rebaseline-remote.sql` drops the twelve app tables and `d1_migrations`,
+leaving `_cf_KV` (Cloudflare's) and `sqlite_sequence` (SQLite's). Then
+`wrangler d1 migrations apply DB --remote` replays 0001…0018 into an empty database.
+
+**Verified before proposing**: the full chain 0001→0018 applies clean from an empty
+SQLite database, producing 31 tables. The failure is specific to the drifted remote,
+not to the migrations.
+
+### The consequence for the pipeline — this is not a one-off
+
+After the rebaseline, `0001_baseline.sql` is an applied migration again, and the same
+trap is re-armed for staging and for every future environment. The rule cannot be
+"remember not to edit it"; that is what just failed.
+
+**Open question 4 now has a concrete answer to give.** The migration policy check
+(child 5) should compare a **content hash** of every migration file against what the
+target environment recorded, and fail the deploy when an applied file's bytes have
+changed — before anything uploads. `d1_migrations` stores only `(id, name,
+applied_at)`, so the hash has to live somewhere this repo controls; a checked-in
+manifest of `name → sha256`, verified by the migrate hook, is the smallest thing that
+works and needs no schema change.
+
+That check would have caught this on 2026-09-06, against a database nobody had
+deployed to yet, instead of on the first production deploy a fortnight later.
