@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-20T20:07:15.815640+00:00'
+updated_at: '2026-09-21T00:06:44.598115+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -966,3 +966,68 @@ until it becomes a problem — we should focus on tokens, that is our scarce
 resource to manage.* If runaway browser spend ever appears, it returns as a rate
 limit with evidence attached. [[REQ-286]] carries the removal; the metering that
 matters is already in flight in [[REQ-284]], LF REQ-168, LF REQ-169 and [[REQ-283]].
+
+
+### Finding 6 addendum — the fix landed; this clone was never provisioned (2026-09-20)
+
+[[BUG-124]] is committed (`d5ace65da7`, 0.2.289, `free_coded`) and the code is
+correct end to end: `developmentFor` composes the surface on
+`DEVELOPMENT_TICKETS_URL` alone, `provisionFilingVars` mints the bearer into
+`apps/control-app/.dev.vars` once per clone, `1c filing` runs the listener
+independently of the dev server, and `--var` is gone from every launch path.
+
+The consultant is still read-only because **nothing has provisioned this clone
+since the fix shipped**:
+
+- `apps/control-app/.dev.vars` carries no `DEVELOPMENT_TICKETS_URL` and no
+  `DEVELOPMENT_TICKETS_TOKEN` (mtime 2026-09-10; the commit landed 12:22 today).
+- Nothing answers on `127.0.0.1:8790` — the listener has never been started.
+- The dev server on 8788 and `bin/access-sim` on 8799 are both up and both
+  predate the commit, so the Worker read no address at boot regardless.
+
+The Worker therefore reads no address, composes no surface, and the derived
+grant offers no filing operation — which is exactly the correct behaviour for a
+deployment with no project, and indistinguishable from it.
+
+Recovery is two steps, in order: `./bin/1c filing` (writes the two lines, starts
+the listener, waits), then restart the dev server so wrangler re-reads
+`.dev.vars`. `bin/access-sim` is unaffected and can stay up.
+
+**The residue worth watching.** Provisioning is a side effect of running one of
+two commands, and the operator's working launch path is neither of them —
+`bin/access-sim`'s recipe launches wrangler by hand. So a clone can sit
+unprovisioned indefinitely with nothing saying so, which is Finding 6's silence
+one remove: the fix removed the coupling between filing and *how* the dev server
+was launched, but left provisioning coupled to *which command* was typed. If this
+recurs, the fix is for `filingStatus` to be read somewhere an operator sees
+regardless of launch path, or for the two lines to be provisioned by something
+every path runs.
+
+### Finding 9 — builder UX items raised while working the sites (2026-09-20)
+
+- [[REQ-287]] — the upload confirmation names the stored filename rather than the
+  catalogue label. `materialEnvelope` does not carry `label`, so the client
+  cannot print one; the neighbouring `POST /api/material/role` route returns the
+  same material through `readMaterial`, which does project it. An omission that
+  predates [[REQ-280]] and was never revisited when labels arrived. Null labels
+  keep the filename; the gate on "is it on the site" stays; the filename stays on
+  the first line, since recognising the file and referring to it afterwards are
+  different questions.
+- [[BUG-131]] — "Open in a new tab" in edit mode opens the EDIT channel, so the
+  new tab shows the outline markers. DOC-28 §10 already specifies the draft
+  render URL for both modes, and the rationale is why it has to be: the control
+  exists to see the page without the builder's distortions. `openInNewTabAction`
+  takes the href off `panel.getSrc()`, whose stated invariant is that the tab and
+  the iframe can never disagree — an invariant that was safe with one channel and
+  became wrong when [[REQ-116]] added the second. In edit mode they MUST disagree.
+- [[REQ-288]] — `transform` should accept a static translate in percent of the
+  node's own size (`translateXPct` / `translateYPct`), applied at paint time with
+  layout unaffected. A pixel offset is a different number at every width whenever
+  the node is responsive, so it needs per-width keyframes and drifts between
+  them; a percentage of the node's own box resolves at every width with one
+  value. Raised by Lagrange Foundry's caption plaques, which should hang half off
+  the picture's bottom edge and cannot, because there is currently no way to
+  overlap two elements except by pinning coordinates — and pinned keyframes
+  cannot track a reading column that WRAPS rather than slides. Also settles paint
+  order for overlapping siblings and that a node translated outside its parent's
+  box still paints.
