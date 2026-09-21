@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:43:16.198110+00:00'
+updated_at: '2026-09-21T23:45:10.840872+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -861,5 +861,40 @@ Can I get an REQ for context overflow avoidance please - this is urgent
 Written to `.xgd/tmp/lf-cost/metrics-today.md ` <--how can that work in production?
 
 I think I need an admin console - only visible to level 0 users we can put cost metrics there a list with a row per tentent ordered most costly in the last 30 days to least - click on a row expands to show details by day and delegate vs principle
+
+<!-- xgd-turn id="1310565d-715d-4fbe-aac5-60e23c042b57-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:45:08.648257+00:00" -->
+#### Claude
+Fair hit on the tmp file — that was a local analysis artifact, not a product. Let me check two things before filing.
+
+Good — `ownsPlatformBusiness(env, admission)` exists and is the right gate. Filing both.
+
+You're right about the tmp file — that was a script against a local `.wrangler` SQLite file writing to a scratch path in a worktree. It answered your question once; it isn't a product and no tidying makes it one. Hence REQ-297.
+
+## REQ-296 — Do not let a turn overflow its context (`request-3a7beaa8`)
+
+**It sequences ahead of REQ-295**, which I'd flag as the urgent part: a Haiku worker has a 200k window against Opus's 1M, and the measured build already reached ~300k resident. Opening workers before the guard exists is opening sessions that overflow.
+
+Four facts from the installed store:
+
+- **A single exchange is deliberately unbounded** — `recentExchanges` keeps at least one whole exchange whatever its size, because cutting inside one orphans a `tool_result`.
+- **The only bound on a turn is a count, not a size.** `MAX_TOOL_ITERATIONS = 50`, and an iteration may carry several parallel calls. A counter can't tell a 200-byte result from a 200-kilobyte one.
+- **Nothing compacts on the API path** — that capability is CLI-only.
+- **`contextWindow` isn't configured**, so the manager reads the window as 0 and can't compute fullness even when asked.
+
+Four parts: declare `contextWindow` in `backends.json`; wire the `session.budget` gauge **into the per-turn tail, not `system`** (a figure that changes every turn in the cached prefix would re-break exactly what REQ-144 fixed); wire the tool-transcript pointer so the model has somewhere to put what it drops; and a **host-side guard on measured occupancy** that ends the turn cleanly before the provider errors. The gauge asks the model to behave; the guard holds when it doesn't.
+
+## REQ-297 — An operator console for tenant cost (`request-64a38f0c`)
+
+The list, ordered by 30-day cost descending, expanding to per-day and principal-vs-delegate. Period is a parameter from the start, defaulting to 30 days.
+
+**One correction to the spec, and it's load-bearing.** "Level 0 users" is the one implementation `identity.ts` forbids in terms: *"`scope.ts` is its only reader; no control, page or route is gated on [`platform_operator`], and none may be — a surface that appears 'because you are an admin' is DOC-40 §2.1 rule 1's failure mode."*
+
+So the gate is **`ownsPlatformBusiness(env, admission)`** — owning the 1st Contact business, which is the condition DOC-42 §7 actually describes, and which exists because 1st Contact *hosts* the other businesses, not because anyone is senior. Non-owners get the ordinary answer for a business they hold nothing on, with no evidence the console exists.
+
+The principal-vs-delegate split is why this is worth building before REQ-295 rather than after: a caller's true total is `usage + sum(attributed)`, and showing one number would make a delegation that moved no work look like one that worked.
+
+All five now on EPIC-20. Order: **296 → 292/293 reconcile → 297 → 295**.
 
 <!-- xgd-chat-end -->
