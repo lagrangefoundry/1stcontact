@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:17:14.886440+00:00'
+updated_at: '2026-09-21T19:19:53.012698+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -405,5 +405,78 @@ ok where this conversation leads to - lets start with metrics - I should have do
 We need clear per-turn understanding of actual tokens used.
 
 The per hour number is something I want to also estimate, because its how I may charge/cap customer use. My customers can't/don't want to  understand token cost, they could understand consulting hours though. My product could offer X AI consulting hours per month - if we decide to get fancy we could have an overage model. If I'm charging my customers $50 per month lets say then I need to cap their usage at a cost that is significantly less than that. And that determines business viability.
+
+<!-- xgd-turn id="58b03d2d-ec0d-4eda-a9ed-5e9377f99f96-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:19:52.482388+00:00" -->
+#### Claude
+Metrics first is right. Let me check what already exists before scoping anything new.
+
+Upstream is already done; the hook point exists. Now the hours definition — let me test candidates against real data.
+
+Two instruments, and the data says something important about the second. Writing the scope.
+
+Agreed — and the good news is instrument 1 is nearly free, because upstream already built it.
+
+## Instrument 1 — per-turn tokens
+
+REQ-143 captures the four counters per request; `turnUsage` folds them into `{usage, requests}`; `turnSpend` puts them on the terminal `done` event; REQ-148 adds `sessionUsage` and `attributed` so delegated worker spend rolls up. **All built. Nothing here writes it down.**
+
+The hook already exists. `streamPrompt` in `host-core.ts:2147` reads the terminal event today:
+
+```
+if (event.kind === DONE) outcome = turnOutcome(event.meta)
+```
+
+and has a `finally` calling `closePending(deps, sessionId, outcome)`. The spend record is the same change in the same two places — fold `turnSpend(event.meta)` beside `outcome`, write it in the `finally`, through a `deps.recordTurnSpend()` port so the Worker uses D1 and the CLI doesn't have to care.
+
+Record holds: tenant, session, turn, start/end, model, role, outcome, request count, the four raw counters, `attributed`, and **cost in micros computed at write time**. Both raw and settled — raw so a period can be re-priced when rates move, settled so a bill doesn't depend on a table that since changed.
+
+First thing it must confirm: `cache_read_input_tokens` is non-zero and grows. Every figure I've given you assumes the caching works. Nobody has ever seen it work.
+
+## Instrument 2 — engaged hours
+
+Definition, picked from your data rather than assumed: **message to last action, plus the gap to the next turn capped at 5 minutes.**
+
+| definition | 09-20 | $/hour |
+|---|---|---|
+| machine time only | 1.58 h | $48 |
+| + gaps capped at 2 min | 2.67 h | $28 |
+| **+ gaps capped at 5 min** | **3.69 h** | **$20** |
+| + gaps capped at 10 min | 4.64 h | $16 |
+| raw elapsed | 6.68 h | $11 |
+
+Five minutes because the median inter-turn gap that evening was 4.2 min — two minutes stops the clock during ordinary thinking, ten bills your multitasking as consulting.
+
+## The thing that changes your pricing model
+
+**Cost per engaged hour varied 20× in one evening, and climbed all the way through:**
+
+| hour | engaged | cost | $/hour |
+|---|---|---|---|
+| 12:00 | 0.34 h | $0.71 | **$2** |
+| 14:00 | 0.65 h | $8.06 | $12 |
+| 15:00 | 0.82 h | $16.80 | $20 |
+| **17:00** | 0.66 h | $28.16 | **$42** |
+
+A no-tool turn averages $0.57; a 15+-tool turn averages $2.77; worst single turn $8.90.
+
+So **hours are the right meter and the wrong cap.** Sell and display hours; enforce a dollar ceiling underneath. Otherwise one client's heavy construction afternoon burns the month in an hour while another talks for the same hour and costs nothing. Both numbers live in the same record, so it's a reporting decision, not a second mechanism.
+
+Worth noting: the levers cut hardest on exactly the expensive turns, so they **flatten** that curve too. A predictable $/hour is worth as much to pricing as a low one.
+
+## Viability at $50/month
+
+| | $/hour | hours @ $10 COGS | hours @ $15 COGS |
+|---|---|---|---|
+| Today | $20 | 0.5 h | 0.75 h |
+| Config levers | $11 | 0.9 h | 1.4 h |
+| All levers | $3.3 | 3.0 h | 4.5 h |
+
+**"One hour a month" is what today's cost supports, and it isn't a product. "Four hours a month for $50" needs the whole stack, and is.**
+
+Scope is in EPIC-20 under *Metrics first*. Order: instrument 1, instrument 2 alongside it (two timestamps and a capped gap — free while the record is being designed), a week of real sessions, then re-read the lever ranking against measurement. My predictions have a poor record here.
+
+Want me to scope instrument 1 as a child ticket and cut the branch?
 
 <!-- xgd-chat-end -->
