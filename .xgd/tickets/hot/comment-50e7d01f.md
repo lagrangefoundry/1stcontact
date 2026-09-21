@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:00:08.891694+00:00'
+updated_at: '2026-09-21T19:04:10.973749+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -342,5 +342,11 @@ Compounded: $31 → $14. Nothing here is new framework code; the window and TTL 
 Yesterday's $31 is the number I'd stand behind most — it's one concentrated sitting, so the isolate-lifetime assumption that dominated my earlier error matters least. The $55 whole-build figure carries a $45–80 band. Both fit inside your $166.50.
 
 The band closes with one write in `ai.ts` — `usage` is already on the turn's `done` event and currently discarded. Want me to do that first, or go straight at the three settings?
+
+<!-- xgd-turn id="7b4d0d06-34ac-499c-a786-41117ab6bcf6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:04:09.901982+00:00" -->
+#### You
+I think your new modelling is a little optimistic - I know I paid 7 $10-11 top ups yesterday - so the cost was at least $75 yesterday
 
 <!-- xgd-chat-end -->
