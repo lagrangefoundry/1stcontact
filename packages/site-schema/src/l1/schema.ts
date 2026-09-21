@@ -568,9 +568,56 @@ export const l1ObjectPositionSchema = z
   })
   .strict()
 
-/** A node-level 2D transform — rotation (deg) + uniform scale (decomposed from the matrix). */
+/**
+ * A node-level 2D transform — a static paint offset, rotation (deg) and uniform
+ * scale. Applied at paint time: **layout is unaffected**, exactly as CSS
+ * `transform` is, so a translated node still occupies the box the flow gave it
+ * and everything after it stays where it was.
+ *
+ * REQ-288 — `translateXPct` / `translateYPct` are a share of the node's **own
+ * rendered box** (X of its width, Y of its height), which is the CSS
+ * `translate()` percentage basis. Percent-of-self is the point of the axis, not
+ * a convenience: a pixel offset is a different number at every width whenever the
+ * node's size is responsive, so it needs a per-width keyframe track and drifts
+ * between the stored widths. "Half my own height" is ONE value that resolves
+ * correctly at every width, with no keyframes and nothing to drift.
+ *
+ * The case it was added for: a caption plaque that hangs half off the bottom edge
+ * of the picture it labels, sitting inside a reading column that *wraps* at narrow
+ * widths — the column's width jumps rather than sliding, so pinned `geometry`
+ * keyframes cannot track it, and before this axis the only way to overlap two
+ * elements at all was to pin both their coordinates.
+ *
+ * `translateXPx` / `translateYPx` are the same offset in absolute units, for the
+ * nudge that is a fixed distance rather than a share of anything (a 2px optical
+ * correction). Both may be given on one axis; they compose (`calc()`).
+ *
+ * TWO CONSEQUENCES THIS AXIS SETTLES, both of which fall out of the renderer
+ * emitting no `z-index` and no `overflow` anywhere:
+ *   - **Paint order** is document order — a later sibling paints over an earlier
+ *     one. A translated node additionally carries a CSS transform, which promotes
+ *     it into the positioned paint layer, so the node that moved is the node on
+ *     top of whatever it moved over. That is the right default for the only
+ *     reason to translate a node onto its neighbour in the first place.
+ *   - **Nothing clips it.** L1 emits no `overflow`, so a node translated past its
+ *     parent's edge paints in full rather than being cut off at the boundary.
+ *     (An explicit `mask` still clips — that is what it is for.)
+ *
+ * An overlap the translate produces is still reported by the geometry envelope
+ * unless the node declares `stacked: true`: the measurement cannot tell a
+ * deliberate stack from two runs painted over each other, so the intent is
+ * declared rather than inferred (see {@link l1NodeAxisGroupsSchema}'s `stacked`).
+ */
 export const l1TransformSchema = z
   .object({
+    /** REQ-288 — static X offset as a share of the node's own width (CSS `translate` semantics). */
+    translateXPct: finite.optional(),
+    /** REQ-288 — static Y offset as a share of the node's own height. */
+    translateYPct: finite.optional(),
+    /** REQ-288 — static X offset in absolute px; composes with `translateXPct`. */
+    translateXPx: finite.optional(),
+    /** REQ-288 — static Y offset in absolute px; composes with `translateYPct`. */
+    translateYPx: finite.optional(),
     rotateDeg: finite.optional(),
     scale: finite.positive().optional(),
   })
