@@ -158,21 +158,27 @@ describe('BUG-36 — the operator commands name the credential that exists', () 
   // retired that script; REQ-289's replacement forwards every flag to
   // `1c copy-to-cloud` rather than re-parsing one, deliberately, so that the
   // refusals are one implementation. So the same claim is now asserted where the
-  // refusal actually lives.
+  // refusal actually lives — which [[BUG-134]] then split in two, because a copy
+  // has two ends and each end has its own variable names. The three-way the pair
+  // requires is still one function in `copy.ts`; the names it puts in the
+  // sentence are a row of `ACCESS_NAMING` in `push.ts`. Both are read, because
+  // the claim is that an operator is told a credential that exists, and half of
+  // that is the rule and half of it is the name.
   const copy = readFileSync(join(REPO_ROOT, 'tools/generate/src/cli/copy.ts'), 'utf8')
+  const naming = readFileSync(join(REPO_ROOT, 'tools/generate/src/cli/push.ts'), 'utf8')
   const script = readFileSync(join(REPO_ROOT, 'bin/copy-to-cloud'), 'utf8')
 
   it('test_UAT_FC_BUG-36_publish_refuses_production_without_both_halves', () => {
     // A service token is a PAIR. Half of one is not a weaker credential, it is a
     // request refused at the edge with a message about identity rather than
     // about the half that was missing locally — so it is caught here instead.
-    expect(copy).toMatch(/CF_ACCESS_CLIENT_ID/)
-    expect(copy).toMatch(/CF_ACCESS_CLIENT_SECRET/)
+    expect(naming).toMatch(/CF_ACCESS_CLIENT_ID/)
+    expect(naming).toMatch(/CF_ACCESS_CLIENT_SECRET/)
     // Both halves, or neither, or a refusal — the three-way the pair requires.
     expect(copy).toMatch(/id !== '' && secret !== ''/)
     expect(copy).toMatch(/id === '' && secret === ''/)
     // Named fix, not just a named fault.
-    expect(copy).toMatch(/bin\/access-token/)
+    expect(naming).toMatch(/bin\/access-token/)
   })
 
   it('test_UAT_FC_BUG-36_publish_no_longer_offers_a_single_value_token', () => {
