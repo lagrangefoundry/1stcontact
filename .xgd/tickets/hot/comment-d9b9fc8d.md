@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:00:38.265134+00:00'
+updated_at: '2026-09-21T00:01:41.197994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -249,5 +249,17 @@ So the old dev path and content are dead and I do not want to support them or al
 bin/publish is also an extremely confusing verb here. "publish" is the act of moving a site from draft to versioned and make the version live. Conflating that with moving things from my laptop to Cloudflare is beyond confusing.
 
 So I suggest we delete bin/publish what I would like is more like a bin/copy-to-cloud [business name] --site (default) --contacts --...other data as we add it. What is 1c pull?
+
+<!-- xgd-turn id="2244f532-c5ae-46e0-bb1b-deaab3153637-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:01:40.502071+00:00" -->
+#### You
+So the old dev path and content are dead and I do not want to support them or allow you (or any other agent) to be confused by them.
+
+bin/publish is also an extremely confusing verb here. "publish" is the act of moving a site from draft to versioned and make the version live. Conflating that with moving things from my laptop to Cloudflare is beyond confusing.
+
+So I suggest we delete bin/publish what I would like is more like a bin/copy-to-cloud [business name] and it copies the site draft from my local copy to the cloud copy.
+
+What is 1c pull?
 
 <!-- xgd-chat-end -->
