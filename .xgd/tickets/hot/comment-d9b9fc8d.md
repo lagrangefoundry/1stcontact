@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T01:01:07.920972+00:00'
+updated_at: '2026-09-21T01:04:01.998205+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -585,5 +585,11 @@ After the rebaseline, `0001_baseline.sql` is an applied migration *again*, and t
 This gives **open question 4** a concrete answer: the migration policy check should compare a **content hash** of each migration against what the target environment recorded, and fail before anything uploads. `d1_migrations` stores only `(id, name, applied_at)`, so the hash needs to live somewhere this repo controls — a checked-in `name → sha256` manifest verified by the migrate hook is the smallest thing that works and needs no schema change.
 
 That check would have caught this on 2026-09-06, against a database nobody had deployed to, rather than on your first production deploy a fortnight later. Recorded in the epic as §H; want it as a child ticket?
+
+<!-- xgd-turn id="ed8237e9-3abb-4b9d-a915-f6dcb538ab24-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:04:01.271013+00:00" -->
+#### You
+Yes and can you do the "proper" fix to the credential confusion too please
 
 <!-- xgd-chat-end -->
