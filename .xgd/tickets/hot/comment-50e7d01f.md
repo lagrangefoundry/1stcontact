@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:59:34.722996+00:00'
+updated_at: '2026-09-21T20:01:07.717349+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -579,5 +579,27 @@ Recorded in EPIC-20 under REQ (1). Ready to file both REQs when you are.
 <!-- xgd-chat role="user" ts="2026-09-21T19:59:33.912206+00:00" -->
 #### You
 ok please go ahead
+
+<!-- xgd-turn id="b9452c75-fe4e-47c2-a7fe-ffc767ae622c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:01:07.250605+00:00" -->
+#### Claude
+Both filed and attached to EPIC-20.
+
+**REQ-292 — The turn's token spend, written down** (`request-24efb2e6`)
+
+Folds `turnSpend(event.meta)` beside the `outcome` line that already exists in `streamPrompt`, writes in the `finally` that already runs on abandonment, through a `deps.recordTurnSpend()` port. New D1 table `turn_spend`, migration `0019_turn_spend.sql`, D1 handle passed in from `router.ts` because `WorkerAiEnv` doesn't have one. Price table keyed by `(backend, model)` with four rates. Raw counters *and* settled cost. Nothing-never-zero.
+
+Its acceptance includes the one nobody has tested: **`cache_read_input_tokens` non-zero and growing across two consecutive turns.** If that fails it's a bug outranking the rest of the epic.
+
+**REQ-293 — A tenant's spend, in engaged hours and in dollars** (`request-17c6805c`)
+
+Engaged time derived at read from the row's two timestamps, gap capped at five minutes — justified in the body from the 4.2-minute median on 09-20, with the 1.58 / 2.67 / 3.69 / 4.64 hour readings at each candidate cap. Reports hours, cost, and $/engaged-hour split by role and by model, because that split is what makes a delegation experiment and a second provider readable.
+
+The cap is explicitly out of scope in both, with the reason stated: hours are the right meter and the wrong cap, and there's no data yet to set a dollar ceiling from.
+
+Two things I did *not* do, deliberately. I didn't cut a branch — this session is the epic, and the branch belongs to whoever picks up REQ-292. And I didn't file a BUG, because there isn't one yet; REQ-292's third acceptance is what would produce it.
+
+Sequence stands: REQ-292 alone, then a week of ordinary sessions, then re-read the lever ranking in EPIC-20 against records rather than against my model. REQ-293 can be built during that week — it only needs the row's shape.
 
 <!-- xgd-chat-end -->
