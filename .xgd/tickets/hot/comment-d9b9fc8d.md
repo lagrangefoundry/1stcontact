@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T18:22:22.169859+00:00'
+updated_at: '2026-09-21T18:29:17.125706+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -911,5 +911,36 @@ Through the builder's domains pane. `CLOUDFLARE_DNS_TOKEN` is in place and the z
 ---
 
 **To unblock me right now:** paste the `email` value from Step 1, and tell me whether you want the Turnstile sitekey line staged now or left empty. I'll make both config edits and you can go straight to `bin/build && bin/deploy`.
+
+<!-- xgd-turn id="6e4835b6-c27b-4161-b8d2-b990cd8d7947-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:29:16.424868+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+((.venv-working) ) martin@nyx control-app % npx wrangler tail 1stcontact-control-app --env production --format pretty
+▲ [WARNING] Processing wrangler.toml configuration:
+
+  
+    - "env.production" environment configuration
+      - The following vars exist at the top level, but not on "env.production.vars".
+        This is probably not what you want, since "vars" configuration is not inherited by
+  environments.
+        Please add these vars to "env.production.vars":
+        - ACCESS_DEV_OPEN
+
+ ⛅️ wrangler 4.106.0
+────────────────────
+
+✘ [ERROR] A request to the Cloudflare API (/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/workers/scripts/1stcontact-control-app-production/tails) failed.
+
+  This Worker does not exist on your account. [code: 10007]
+  
+  If you think this is a bug, please open an issue at:
+  https://github.com/cloudflare/workers-sdk/issues/new/choose
+
+🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-09-21_18-27-54_770.log"
+
+```
 
 <!-- xgd-chat-end -->
