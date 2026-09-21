@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:48:23.630856+00:00'
+updated_at: '2026-09-21T22:49:41.017935+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2046,5 +2046,39 @@ Run the `localStorage.clear(); location.reload()` and tell me what you get. If t
 I get exactly the same behavior as a reload.
 
 Just to be clear I get the whole page frame the preview view. Editor mode, mark points all work. but there is no text entry in the chat window. And that error appears at the top of the page above everything else
+
+<!-- xgd-turn id="fc6b97b5-b014-4676-b40e-3deaf9d2ad90-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:49:40.806836+00:00" -->
+#### Claude
+That reframes it completely — **the builder works.** Frame, preview, editor mode, marked points all live. So two separate things are going on:
+
+**1. The panel is a boot-guard false positive.** The guard fires at a 4-second deadline (`BOOT_DEADLINE_MS = 4000`) if `#app` is still empty, and it checks `stillEmpty()` before writing. You're seeing the panel *and* a working builder, which means the mount took longer than 4s in production, the guard wrote its div, and the shell then mounted alongside it. The deadline was tuned against localhost latency; over the real network with Access in front of every module fetch, it's too tight.
+
+That also explains the empty console — nothing ever failed.
+
+**2. The chat input is the actual defect.** Let me look.
+
+`chat.inputReady` is a promise — **"the composer's rich editor loads asynchronously"**. If that lazy load fails, the input never appears, and the failures here are swallowed (`.catch(() => {})`). That would also explain a mount slow enough to trip the 4-second guard.
+
+**There it is.** The chat composer's rich editor (TipTap) and the sanitizer (DOMPurify) are both **dynamically imported from a CDN** — `esm.sh` — and `input.js:511` says the fallback is *"offline / blocked CDN — the textarea remains the control"*.
+
+So a blocked CDN is supposed to degrade to a plain textarea, and you're getting no control at all. The obvious production-only blocker for a cross-origin dynamic import is CSP.
+
+Two findings, and I think they're the same bug.
+
+**The guard's panel is inside `#app`.** It does `document.getElementById(APP).innerHTML = …` at the 4-second mark while `#app` is empty, then the shell mounts and adds its own children alongside. So you have a stray `<div>` as the **first child of `#app`**, ahead of everything the shell laid out. A layout that expects its own children to be the only ones there will collapse whatever it sizes last — and a chat composer with zero height looks exactly like "no text entry".
+
+**One-line test, in the console:**
+
+```js
+document.getElementById('app').firstElementChild.remove()
+```
+
+If the chat input appears, this is a single defect: `BOOT_DEADLINE_MS = 4000` is too short for production, and the false-positive panel corrupts the layout it was only meant to explain.
+
+For completeness, the chat composer *is* CDN-loaded — `webui-markdown/src/editor.js` pulls TipTap from `https://esm.sh/@tiptap/core@2` and `starter-kit@2`, `sanitize.js` pulls `dompurify@3`, `marked.js` pulls `marked@9`. Four cross-origin dynamic imports. We set no CSP anywhere in the Worker, and those work for you locally in the same browser, so they're unlikely to be the cause — but they *are* four network round trips on the mount path, which is a solid explanation for why production crosses 4 seconds when localhost doesn't.
+
+If removing that div doesn't restore the input, then check the console for a CSP or CORS failure on `esm.sh` and we'll go at it from there.
 
 <!-- xgd-chat-end -->
