@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T19:47:29.247251+00:00'
+updated_at: '2026-09-21T19:59:35.306320+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -965,3 +965,45 @@ every candidate address. This is sound rather than sloppy: the seed fires only f
 identity that actually authenticates, so an address that never signs in writes no row,
 and `user_emails` afterwards states which one fired. The var returns to `""` once the
 rows exist.
+
+
+### I9 — The Access identity was recorded in the repository all along
+
+§I8 chased the operator's Access address through `get-identity` (no app token), through
+`wrangler tail` (wrong script name), and finally through a superset seed. All three
+were unnecessary. **`ACCESS.md` §"Granted identities" is the record of the policy**, and
+it names exactly one human: `martin-github@westhead.me`. The file says why the shape is
+an allow-list rather than a domain rule, and a UAT
+(`test_UAT_FC_REQ-147_the_access_policy_is_recorded_in_the_repository`) exists to keep
+it current.
+
+The address tried first, `martin-cloudflaire@westhead.me`, is not on it. Cloudflare's
+One-time PIN does not email a code to an address no policy admits, so the missing
+message was the gate working. Confirmed against production at the time: 0 `users`,
+0 `login_tokens`, 0 `sessions` — neither the Access path nor the application's own
+magic-link path had produced anything at all.
+
+`PLATFORM_ADMINS` is therefore a single address, and deliberately the same one
+`SERVICE_TOKEN_IDENTITIES` maps `1stcontact-publish` to: one seeded `users` row admits
+both the operator in a browser and `bin/copy-to-cloud` from their laptop.
+
+**The lesson for the pipeline, and it is the same one §I6 and §I7 are circling.** Three
+diagnostic routes were tried against a live deployment before the checked-in record was
+read. `ACCESS.md` is exactly the artefact REQ-147 created for this, and nothing pointed
+at it: not the deploy output, not the refusal, not the runbook. When the identity check
+proposed in §I6 lands, its failure message should name `ACCESS.md` and quote the
+granted-identities table — the operator who cannot get in is precisely the reader who
+needs to be told where the answer is kept.
+
+### I10 — Still outstanding before customers arrive: the Bypass policy
+
+`ACCESS.md` §"Invitee paths" records an item that is not yet done and is not blocking
+today. The application's blanket policy covers all paths, so an invitee clicking their
+invitation meets Access first and is challenged with its own one-time-PIN email —
+two messages, one of which is from a system they have never heard of, and the second
+gate admits nobody who is not on the operator allow-list. The fix recorded there is a
+**Bypass** policy ahead of the allow-list, scoped to the sign-in and invitation paths.
+
+Not needed for go-live of the platform's own sites (the operator is the only identity),
+but required the moment a real customer is invited. Noted here so it is not rediscovered
+by an invitee failing to accept.
