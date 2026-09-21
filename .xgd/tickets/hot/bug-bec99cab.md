@@ -5,9 +5,9 @@ type: bug
 title: copy-to-cloud sends one Access token to two ends that need different ones
 created_by: EPIC-16
 created_at: '2026-09-21T01:05:49.302220+00:00'
-updated_at: '2026-09-21T01:05:49.302220+00:00'
+updated_at: '2026-09-21T01:08:38.870766+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -101,3 +101,46 @@ pairs and which end each reaches.
 - No change to `bin/access-sim`, to `/api/export`, or to `/api/import`.
 - No change to what `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` mean.
 - `--contacts`' asymmetry is untouched.
+
+## Findings from reading the code — handed over, not decided
+
+These came out of tracing the credential path. They are facts the implementing session
+would otherwise rediscover; the design calls are still yours.
+
+**`postSitePayload` has the same wrong-variable bug, and it is shared.**
+`tools/generate/src/cli/push.ts:314` refuses with "Set `CF_ACCESS_CLIENT_ID` and
+`CF_ACCESS_CLIENT_SECRET`…" unconditionally. On `copy-from-cloud` the DESTINATION is
+the local end, so that sentence names the wrong credential there too — the same defect
+as `getJson`'s, one layer down. It cannot be fixed by editing the text, because
+`1c push` shares the function and its target really is the cloud; the end has to reach
+it as a parameter.
+
+**The credential mapping wants to be the same shape as `endsFor`.** That function maps
+a direction onto `{source, destination}` over two origins, and its comment says why it
+is one function: so "from-cloud is to-cloud with the ends swapped" is a fact about the
+code rather than a claim in a comment. The credentials are the same mapping over two
+different inputs. Written out by hand a second time, the swap gets reversed in the
+direction nobody runs daily.
+
+**Name the pairs after the END, not the role.** `source`/`destination` swap with
+direction; `local`/`cloud` are the two machines an operator configures, and they are
+what the variables should be named for. A refusal that said "the source end" makes the
+reader work out which machine that is this time.
+
+**The variable names appear in five places** — `serviceToken`'s refusal, `getJson`'s
+refusal, `postSitePayload`'s refusal, the two `bin/*.help` texts and `1c` help. This
+bug is what one of them naming the wrong credential costs. Worth one table rather than
+five string literals.
+
+**`bin/access-sim --print-token` emits `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`.**
+If the local end gets its own variable names, that output now sets the CLOUD pair to the
+simulator's values — which is the original confusion wearing the opposite jacket. Either
+`--print-token` learns to emit the local names, or the help text has to be explicit about
+which pair it is setting. **This is a question, not a decision**: the Boundaries section
+says not to change `bin/access-sim`, and that boundary may need to move. Raise it rather
+than route around it.
+
+**The simulator's defaults are fixed, not minted**: `local-dev.access` /
+`local-dev-secret` (`bin/access-sim:104-105`, overridable by `SIM_CLIENT_ID` /
+`SIM_CLIENT_SECRET`). So a UAT can exercise the two-pairs case with known values and
+without starting the simulator.
