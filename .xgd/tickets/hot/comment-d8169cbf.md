@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-20T23:15:18.697078+00:00'
+updated_at: '2026-09-21T00:03:34.431987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2989,5 +2989,13 @@ The ticket calls for pointing Edit's action at the draft channel at the current 
 One thing I found while checking the citation and noted as secondary: both DOC-28 §10 and `panel.js:403` attribute this to **DOC-8 §4.3**, which is *"Edits are diffs, not full replacements"* — nothing about previews or tabs. The section they mean is §3.3, *"Production-fidelity check"*. Worth correcting while those lines are open.
 
 You now have two unstarted tickets from this session — REQ-287 and BUG-131, both one-pointers in the same builder files. Want me to take them together on one branch, or keep them separate? And the LF chat jam is still live unless you've restarted the builder.
+
+<!-- xgd-turn id="797a7256-e13f-4e17-8317-a4adcc974a0e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:03:34.013182+00:00" -->
+#### You
+Tickets are still read only for the consultant - what do we need to do to fix it?
+
+Also note REQ-288 that should be one of your children
 
 <!-- xgd-chat-end -->
