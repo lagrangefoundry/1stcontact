@@ -5,10 +5,10 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T20:18:51.205305+00:00'
+updated_at: '2026-09-21T20:20:18.220983+00:00'
 completed_at: null
-last_field_updated: body
-status: underway
+last_field_updated: status
+status: done
 fields:
   priority: medium
   chat_comment: comment-d9b9fc8d
