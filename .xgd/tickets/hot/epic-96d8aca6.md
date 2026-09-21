@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T18:09:45.690461+00:00'
+updated_at: '2026-09-21T19:47:29.247251+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -923,3 +923,45 @@ path.
   time that the target environment has an enterable identity and a working lead path,
   and say so in the deploy output rather than leaving it to be discovered by a person
   failing to sign in.
+
+
+### I7 — `wrangler` advises the one change that would open the builder to the world
+
+Every `wrangler` invocation against this app prints:
+
+> *The following vars exist at the top level, but not on `env.production.vars`. This
+> is probably not what you want... Please add these vars to `env.production.vars`: —
+> `ACCESS_DEV_OPEN`*
+
+`wrangler.toml:416` says the opposite, and it is right: *"No ACCESS_DEV_OPEN here, and
+that absence is the security control (REQ-145)."* `ACCESS_DEV_OPEN = "1"` at line 253
+bypasses the Access gate for `wrangler dev`. An operator who follows the tool's advice
+— on the deploy where nothing is working yet and every warning looks like a lead —
+publishes the builder, the customer data and the AI credentials to anyone who types
+the hostname.
+
+The warning is generic and cannot be taught the exception, so the mitigation has to be
+local: the deliberate-absence comment already exists at line 416, but it is 163 lines
+below the warning's subject and nothing connects them. **The comment at line 136,
+where `ACCESS_DEV_OPEN` is declared, should name the warning verbatim and say to
+ignore it** — an operator reading the tool's output greps for the var, lands on its
+declaration, and must meet the refusal there rather than having to find it.
+
+Filed as part of the same control §I6 asks for: the deploy output is what an operator
+reads at the moment they are most likely to act, and it currently carries a
+recommendation that is a security incident.
+
+### I8 — Access identity was not readable, and the seed is a superset
+
+`/cdn-cgi/access/get-identity` answered `{"err":"no app token set"}` — the browser held
+no `CF_Authorization` cookie, so the Access login had not completed. `wrangler tail`
+was also unavailable at first for an unrelated reason worth recording: **a positional
+script name plus `--env production` makes wrangler compose
+`1stcontact-control-app-production`**, which does not exist, because `[env.production]`
+declares `name` explicitly. Dropping the positional name resolves correctly.
+
+Rather than block on discovering the exact JWT string, `PLATFORM_ADMINS` now names
+every candidate address. This is sound rather than sloppy: the seed fires only for an
+identity that actually authenticates, so an address that never signs in writes no row,
+and `user_emails` afterwards states which one fired. The var returns to `""` once the
+rows exist.
