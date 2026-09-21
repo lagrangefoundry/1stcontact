@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-21T18:01:22.284820+00:00'
+updated_at: '2026-09-21T18:07:51.576070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -830,5 +830,29 @@ Priority `medium` rather than `high` — it's a design ticket behind a cheaper l
 <!-- xgd-chat role="user" ts="2026-09-21T18:01:20.620461+00:00" -->
 #### You
 Please summarize our best understanding and status into EPIC-20 and reference this transcript
+
+<!-- xgd-turn id="ec8d46e1-f459-46b7-b8b9-551209b66d75-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:07:49.931787+00:00" -->
+#### Claude
+**EPIC-20** (`epic-0923bb64`) now carries the summary, plus a `chat_transcript` comment (COMMENT-3576) with the design turns so the epic's own chat session can resume the conversation. Status left at `draft` — promotion is yours.
+
+> AI session economics: what a builder session costs, and the model split that brings it down
+
+**Reference:** the body names **CHAT-47** (`chat-5011da11`) as the transcript of record, for the arithmetic and the reasoning behind every number.
+
+## What I found when checking status — it has moved since that conversation
+
+All seven framework tickets are now implemented and sitting at `ready_to_reconcile`: REQ-143/144/145/146/148, BUG-48, and **BUG-49** — the truncation bug I offered to file on 09-10 was filed and fixed, and it did more than I'd scoped. It turned the model and the output ceiling into **configuration** rather than framework constants.
+
+1stcontact then exercised that seam. `tools/generate/src/cli/ai/backends.json` (BUG-67) sets **`claude-opus-5` at `max_tokens` 64000**. So the strong-front-face half of the multi-model idea is already live — and it means the expensive model is now paying for the mechanical majority of the work, which sharpens rather than weakens the delegation argument.
+
+**REQ-148 shipped too.** `delegation_surface.json` is installed in the shared store, and the surface holds the properties we argued for: prose brief, authority from the role's grant, worker transcript never entering the caller's, no nesting, spend rolling up into the caller's ledger.
+
+## The three things the epic records as still owed
+
+1. **Re-measure from telemetry.** The CHAT-47 figures predate the Opus move and aren't comparable. REQ-143/145 mean the real numbers are now recorded rather than modelled.
+2. **Effort levels** — still not implemented anywhere in the framework. Still the cheaper lever, and the epic says explicitly it shouldn't be used to skip it.
+3. **Adopt delegation in 1stcontact.** `instances.json` declares one role, `consultant`, and no worker — nothing from the surface is granted. The epic sets out the likely group split and flags `accept` checks as the load-bearing part: if Opus re-inspects everything the worker did, the tokens moved to the more expensive side rather than being saved.
 
 <!-- xgd-chat-end -->
