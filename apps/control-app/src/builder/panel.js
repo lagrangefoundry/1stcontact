@@ -400,8 +400,16 @@ export function createDisplayPanel(options = {}) {
     getMode: () => activeId,
     getSite: () => site,
     /**
-     * The URL the pane is displaying. "Open in new tab" uses exactly this, so
-     * the tab and the iframe can never disagree (DOC-8 §4.3).
+     * The URL the pane is displaying.
+     *
+     * IT IS WHAT THE PANE SHOWS AND NOTHING WIDER ([[BUG-131]]). It used to
+     * carry a second claim — that "open in new tab" uses exactly this, so the
+     * tab and the iframe can never disagree — and that claim was true of one
+     * channel and wrong of two: the edit render is deliberately non-functional,
+     * so the honest tab for it is the draft render of the same page. Which
+     * channel a tab should open is the toolbar action's question ([[DOC-8]]
+     * §3.3, the production-fidelity check); this answers only where the pane is,
+     * which is what that action derives the page from.
      */
     getSrc: () => currentSrc,
     on(event, cb) {

@@ -189,11 +189,35 @@ export function modeToggleAction() {
 }
 
 /**
- * Open in new tab — points at the SAME url the iframe loads. An iframe can
- * distort layout, so a real tab is the honest view (DOC-28 §10); it is only
- * meaningful for a mode that shows a document, which is why modes opt in.
+ * Open in new tab — the DRAFT render of the page the pane is on (DOC-28 §10).
+ *
+ * An iframe can distort layout, so a real tab is the honest view — and that is
+ * a claim about the *production* render, which is the one thing the tab has to
+ * be for the control to mean anything ([[DOC-8]] §3.3, the same action framed
+ * as a production-fidelity check). It is only meaningful for a mode that shows
+ * a document, which is why modes opt in.
+ *
+ * IT IS NOT `panel.getSrc()` ([[BUG-131]]). "The same URL the iframe loads" was
+ * right while there was one channel and became wrong when [[REQ-116]] added the
+ * second: the edit channel is a deliberately crippled render — every region
+ * outlined, addresses stamped on the markup, every panel open at once, no link
+ * target, no form action and no client script at all — so opening THAT in a tab
+ * hands the operator the editor's scaffolding with no editor attached to it, and
+ * inverts the one purpose the control has. In Edit the tab and the iframe
+ * **must** disagree, and this is where they do.
+ *
+ * THE HOST SAYS WHICH RENDER IS THE HONEST ONE. `honestUrl` maps the pane's
+ * current URL onto the production channel; naming `draft` in here would put a
+ * channel name in a module that otherwise knows only about strips and buttons,
+ * and `app.js` is already the one place that composes channel URLs.
+ *
+ * THE HREF STILL TRACKS NAVIGATION. It is re-derived on the pane's `src` event,
+ * so moving between pages — in either channel — re-points the link at that
+ * page's draft render rather than freezing it on the first one.
+ *
+ * @param {(src: string) => string} honestUrl the production render of this URL
  */
-export function openInNewTabAction() {
+export function openInNewTabAction(honestUrl) {
   return {
     id: 'open-new-tab',
     create({ panel, subscribe }) {
@@ -202,7 +226,7 @@ export function openInNewTabAction() {
       link.target = '_blank'
       link.rel = 'noopener'
       link.textContent = 'Open in new tab'
-      const sync = () => link.setAttribute('href', panel.getSrc())
+      const sync = () => link.setAttribute('href', honestUrl(panel.getSrc()))
       sync()
       // Through the toolbar, so the subscription dies with this element rather
       // than outliving it on the panel — see `actionCleanups`.
