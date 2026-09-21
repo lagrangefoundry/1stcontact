@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:42:30.631009+00:00'
+updated_at: '2026-09-21T21:44:36.247194+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1630,5 +1630,52 @@ copied '1st Contact' http://127.0.0.1:8799 → https://app.1stcontact.io
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="4ac3ada7-45d7-48e1-9452-0dce4f7f2052-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T21:44:35.738653+00:00" -->
+#### Claude
+It worked — and note the site got a **new id in production** (`site_c4bed79a…`, vs local's `site_62d3d009…`), while the business id is identical on both sides. So `APEX_SITE_KEY` must be the production one.
+
+Confirmed in production: **1 page, 6 assets** under 1st Contact. The `no_email` fix worked.
+
+Now the other two. I've verified their production sites are untouched starters — `version 1`, 1 page, **0 assets** — so `--force` is overwriting auto-generated placeholder content, not anything you authored:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+bin/copy-to-cloud --force --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+
+bin/copy-to-cloud --force --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "XGD"
+```
+
+If you'd rather see what it's protecting first, drop `--force` on the first one and read the refusal — it names the business and the change count.
+
+Lagrange Foundry is your big one (local version 210 vs XGD's 23), so that's the one to eyeball afterwards.
+
+One thing to know before you publish: `POST /api/publish` can refuse with a **409 when the business hasn't chosen an address yet** (REQ-238). Let me check what that requires.
+
+Publishing needs each business to have a **public address** first — either a `1stc.site` hostname or a domain it owns — and `site_domains` is empty. Let me find how that's assigned.
+
+Finish the two copies first, then there's a prerequisite my earlier sequence missed.
+
+**Publishing requires each business to have a public address.** `publish.ts:293` refuses with 409 `NO_PUBLIC_ADDRESS` when a site has zero `site_domains` rows — and production has zero, full stop. The check is deliberately over the list's *length* only, not the kind, so **either** a `1stc.site` hostname **or** a connected domain satisfies it.
+
+⚠️ **Don't burn a `1stc.site` name to test the pipeline.** `hostname.ts` is emphatic: the namespace is global, first-come, and there is *no update path on `host`* — nothing is relinquished and nothing is re-issued. A throwaway name is permanently gone.
+
+So the right move is to connect the real domains, which is your actual goal anyway and exercises the DNS path that has never run in production (`CLOUDFLARE_DNS_TOKEN` only arrived with this deploy):
+
+1. Finish `copy-to-cloud --force` for Lagrange Foundry and XGD
+2. In the builder, connect **lagrangefoundry.ai** to Lagrange Foundry
+3. Publish Lagrange Foundry — first publish anywhere, ever
+4. Then decide XGD's and 1st Contact's addresses
+
+1st Contact is the awkward one: it's served at the apex via `APEX_SITE_KEY`, but publish still demands an address row, and the honest one is `1stcontact.io` itself. Worth seeing whether the domain-connect flow accepts a hostname the deployment already owns — if it doesn't, that's a finding.
+
+I couldn't check whether `1stc.site` is delegated in your account; DNS lookups are blocked from my sandbox.
 
 <!-- xgd-chat-end -->
