@@ -5,16 +5,24 @@ type: request
 title: Fail the deploy when an applied migration's content has changed
 created_by: EPIC-16
 created_at: '2026-09-21T01:05:22.242071+00:00'
-updated_at: '2026-09-21T18:43:56.026370+00:00'
+updated_at: '2026-09-21T18:45:01.863985+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-a8453d09
+  commits:
+  - working_sha: 8b764435a6f0a7ec51f0e21beba77591a7442e3f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: faea2a963ba82d533ab5986bf99b14e2de8d701f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.306
 ---
 
 Parent: [[EPIC-16]]. Asked for by the operator on 2026-09-20, after the first real
