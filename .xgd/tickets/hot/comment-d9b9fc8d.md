@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:47:43.516415+00:00'
+updated_at: '2026-09-21T23:53:49.585371+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2440,5 +2440,11 @@ bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
 ```
 
 Then the same two for XGD, plus `--chats` for 1st Contact. And `bin/deploy control-app` before any `--chats` run, since production predates those routes.
+
+<!-- xgd-turn id="b31348a4-a6b1-4b8e-aeff-fe77a1461882-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:53:49.241787+00:00" -->
+#### You
+BUG-134 has landed what do I need to do to deploy it?
 
 <!-- xgd-chat-end -->
