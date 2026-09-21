@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:06:01.430017+00:00'
+updated_at: '2026-09-21T19:17:14.886440+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -395,5 +395,15 @@ One counterintuitive result: **window 20 is worse than window 40** ($111). A sma
 $75 is yours. The split of it across levers is still mine, and rests on chars-per-token and thinking-token assumptions I can't observe. That's item 1: `usage` is already on the turn's `done` event and `ai.ts` discards it. Two rounds of this analysis were wrong by 4.5× and 2.4× in opposite directions, both about numbers the API already reports.
 
 Ticket updated. I'd do the `usage` write first — it's one write, and it makes the other five verifiable instead of argued.
+
+<!-- xgd-turn id="58b03d2d-ec0d-4eda-a9ed-5e9377f99f96-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:17:14.533282+00:00" -->
+#### You
+ok where this conversation leads to - lets start with metrics - I should have done this earlier - we can't effectively optimize something we can't measure. The error level in your modelling is sufficient to make the difference between a profitable business and a dud, so we definitely need to know what we are dealing with here.
+
+We need clear per-turn understanding of actual tokens used.
+
+The per hour number is something I want to also estimate, because its how I may charge/cap customer use. My customers can't/don't want to  understand token cost, they could understand consulting hours though. My product could offer X AI consulting hours per month - if we decide to get fancy we could have an overage model. If I'm charging my customers $50 per month lets say then I need to cap their usage at a cost that is significantly less than that. And that determines business viability.
 
 <!-- xgd-chat-end -->
