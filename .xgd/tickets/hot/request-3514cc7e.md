@@ -14,6 +14,7 @@ fields:
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a8453d09
 ---
 
 Parent: [[EPIC-16]]. Asked for by the operator on 2026-09-20, after the first real
