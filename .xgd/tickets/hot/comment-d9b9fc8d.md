@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:39:06.346140+00:00'
+updated_at: '2026-09-21T23:46:49.601599+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2380,5 +2380,18 @@ bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
 Then the same pair for XGD, and `--chats` for 1st Contact whose site is already up.
 
 One thing worth flagging: `--chat` didn't fail as an unknown argument — it got all the way to a network call. If 8788 had been up, that would have run a **site** copy while you believed you were copying conversations. The `--site`/`--contacts`/`--chats` class flags are a set where a typo silently selects the default, and the file's own convention elsewhere is that a known-but-wrong flag fails with a sentence. Want me to file that as a small bug?
+
+<!-- xgd-turn id="446ec0b6-773d-4c3b-9af6-19b3644dda79-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:46:48.700518+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+INTERNAL: No business called 'Lagrange Foundry' at http://127.0.0.1:8799. This command never creates one — create it in the builder there first. What that side offers: 'biz_51a6746495c8057e886ff98d4208e6b9'.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
