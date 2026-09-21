@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:18:55.404246+00:00'
+updated_at: '2026-09-21T20:27:29.072509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1311,5 +1311,21 @@ Your local sim will act as `martin@westhead.me` — that's `PLATFORM_ADMINS` in 
 Expect **Lagrange Foundry and XGD to demand `--force`** — their starter sites are builder-authored changes and `/api/import` refuses to clobber them. Read the count it names before you re-run. 1st Contact should go through clean, having no site at all.
 
 Recorded as §I12–I13. The Gigabyte Alchemy question matters beyond tidiness: there's no route that deletes a business — `POST /api/admin/businesses` has no inverse — so if it was a mis-click, undoing it means hand-editing D1. That's worth adding to the controls list either way.
+
+<!-- xgd-turn id="d4799e7b-0a54-4453-8d1a-77cb876973ca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:27:28.404265+00:00" -->
+#### You
+Of course I created it on purpose...
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/1st-contact.json "1st Contact"
+INTERNAL: Listing the businesses at http://127.0.0.1:8799 was refused with 403: access-sim: that CF-Access-Client-Id / CF-Access-Client-Secret pair is not this simulator's. Run ./bin/access-sim --print-token for the one it accepts.
+The LOCAL end is behind Cloudflare Access. Set LOCAL_ACCESS_CLIENT_ID and LOCAL_ACCESS_CLIENT_SECRET to a service token, or pass --local-client-id and --local-client-secret. Run ./bin/access-sim --print-token and put its two values in LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET — it prints them under the CLOUD names, which are the other end.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+on the local server I am just marrtin@westhead.me is that the issue?
 
 <!-- xgd-chat-end -->
