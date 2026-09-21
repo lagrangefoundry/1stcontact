@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:40:55.890516+00:00'
+updated_at: '2026-09-21T21:41:25.459589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1593,5 +1593,23 @@ Failed: apex_resolves
 ```
 
 Trying the copy anyway
+
+<!-- xgd-turn id="dcc29e53-8fc3-4c21-9b3c-90c32310482b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T21:41:24.402514+00:00" -->
+#### Claude
+That smoke run is exactly the expected baseline — identical to what I reproduced earlier. Nothing regressed; the apex still 404s because no site has been imported yet. `apex_resolves` is the only thing that can fail until the copy lands, and the two passes are the ones that matter structurally.
+
+Let me confirm the deploy actually carried the new mapping, so the copy has a chance.
+
+Deploy landed at **21:40:18Z**, one minute after the edit — so the new `SERVICE_TOKEN_IDENTITIES` mapping is live and the copy has a real chance this time.
+
+Watch the tail. Three outcomes:
+
+- **It works** → 1st Contact gets its site, and you'll then want `--force` on Lagrange Foundry and XGD.
+- **Still `no_email`** → Cloudflare sends neither spelling of the client id; we'd need to see the actual `common_name`, which nothing currently logs.
+- **A different reason** (`no_user`, `no_membership`) → progress; the token resolved to an identity and we fix that identity.
+
+The apex will keep failing smoke until the import lands and you publish a revision — that's two steps away, not one. Import writes the site; `APEX_SITE_KEY` needs a *published* revision to serve, and there are still zero of those anywhere.
 
 <!-- xgd-chat-end -->
