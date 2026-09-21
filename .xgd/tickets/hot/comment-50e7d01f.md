@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:09:56.386123+00:00'
+updated_at: '2026-09-21T23:11:32.204842+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -750,5 +750,33 @@ Want me to file the delegation REQ now with option (a) as the scope?
 <!-- xgd-chat role="user" ts="2026-09-21T23:09:56.302157+00:00" -->
 #### You
 Yes, please create the REQ. I would like a configuration so that I can turn the feature on or off.
+
+<!-- xgd-turn id="0780c045-620f-4254-a010-e399e367ea18-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:11:30.961484+00:00" -->
+#### Claude
+**REQ-295 — Delegate construction to a cheaper worker, behind a switch** (`request-ed8a0dd9`), attached to EPIC-20.
+
+Scoped as option (a): the delegation grant is **additive**, the consultant keeps every capability it has today, and delegating is a decision it makes per piece of work. The narrowed-grant design is written into the ticket explicitly as *held in reserve* against REQ-293's split-by-model report — with the risk stated plainly, that the model doesn't see the bill and has no incentive to hand work away, so the lever rests entirely on the method prose.
+
+### The switch
+
+`delegation.json`, beside `backends.json` and `instances.json`, holding whether the feature is on and which backend each worker role runs on.
+
+Two decisions worth flagging:
+
+**Not a key in `backends.json`.** That file's keys are the framework's schema, validated at start-up by `configureBackends`, which rejects anything it doesn't declare — a non-backend key there would fail the exact validation the file exists to pass.
+
+**Off means the surface is never composed**, not that `delegate` refuses. That's the pattern this codebase already applies to a missing browser, a missing image credential and a missing ticket store — *absent rather than present-and-throwing, so the manual never mentions it and the model cannot propose an operation it has not got.* The first two acceptance criteria pin it: with the switch off the consultant is byte-identical to this repository today, and with it on it offers `delegate` **in addition to** everything it offered before, nothing withdrawn. So turning it off is a true rollback, not a new state to debug.
+
+Deployment-wide, read at start-up. Per-tenant is out of scope but the config is shaped as a map, so adding a scope later is an extension rather than a rewrite. And a role bound to a backend `backends.json` doesn't declare fails at start-up naming the key, rather than at the first delegation.
+
+### The accounting criterion
+
+Worker spend is attributed to the caller on **every** exit path — including a worker that failed, was stopped, or never reported. A delegation whose spend vanished because the work went wrong would be the one accounting hole this could introduce. It lands in REQ-292's `attributed` and shows up in REQ-293's split by model.
+
+### Sequence
+
+Ticket says: build whenever, but **don't enable the switch before there's a baseline**. If it goes on before REQ-292/293 are reconciled and a week of records exists, the saving it exists to produce is unobservable — and given this epic's history of confident wrong numbers, that's the part I'd hold firmest.
 
 <!-- xgd-chat-end -->
