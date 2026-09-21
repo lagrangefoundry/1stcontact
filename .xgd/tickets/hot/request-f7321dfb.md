@@ -5,10 +5,10 @@ type: request
 title: Fixing image titles for resizing
 created_by: martin-github@westhead.me
 created_at: '2026-09-20T23:50:27.799384+00:00'
-updated_at: '2026-09-21T00:14:06.234989+00:00'
+updated_at: '2026-09-21T00:29:34.249975+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
