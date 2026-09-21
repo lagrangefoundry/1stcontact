@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:58:30.217332+00:00'
+updated_at: '2026-09-21T22:59:56.080148+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2226,5 +2226,11 @@ So production starts with empty conversations. Two things make that less alarmin
 Whether that matters is your call. If the reasoning in those conversations is load-bearing — and for a 210-version site it plausibly is — say so and I'll scope a transcript class as a child ticket. If not, carry on and the production conversations start clean.
 
 One thing to watch on the copies: `/api/export` **409s when a business holds more than one site**, by design, rather than guessing which you meant. Both target businesses currently hold exactly one (their starter), so this should be clean — but if a copy adds rather than replaces, a later export of that business would hit the ambiguity refusal. Worth a glance at the output.
+
+<!-- xgd-turn id="341f20db-1887-4eae-8659-dae755216077-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:59:55.615257+00:00" -->
+#### You
+Actually I think the history is critical - can you create a copy flag that copies the chats?
 
 <!-- xgd-chat-end -->
