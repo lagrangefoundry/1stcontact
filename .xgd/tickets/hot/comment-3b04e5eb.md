@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T00:22:30.448571+00:00'
+updated_at: '2026-09-21T00:33:36.770019+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -58,5 +58,11 @@ So I'd delete `bin/publish`, the `push` case in the CLI, and its `1c help` secti
 **One finding you should know, no question attached:** the ticket says three tests read the repo's own tree. It is **fourteen** — `req107`, `req105`, `req103`, `req55`, `req109`, `req119`, `reconciliation-l1-control-and-texture`, `reconciliation-l1-one-colour-system`, `reconciliation-colour-census-and-retrofit`, `reconciliation-colour-retrofit-shade-model`, `BUG-92`, `BUG-101`, `REQ-153`, `REQ-175`. Two of them (`req109`, `REQ-153`) call `loadSite({cwd: REPO, root: 'sites'}, …)`, so the fixture has to keep repo shape. I'll move the corpus to `tests/fixtures/l1-corpus/storage/sites/<slug>/` — then every reader swaps one constant (`REPO` → `CORPUS_ROOT`) and every assertion stays exactly as it is. That's 7.9 MB / 32 tracked files, a `git mv`. I'll also update `1c reset`'s `preserved` list, `bin/access-token`'s next-step line, `apps/control-app/ACCESS.md`, DOC-41 §1/§2/§3/§5, and delete `bin/author_xgd_sections.py` (a throwaway helper that edits `storage/sites/xgd/draft/pages/home.json` and nothing else).
 
 Answer "yes to all three" and I'll start.
+
+<!-- xgd-turn id="3a239fbb-cc41-44a9-b654-ce1e0329572c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:33:36.288798+00:00" -->
+#### You
+Your ticket has been updated to answer the questions that you asked. Please reread it and determine if you are ready to code
 
 <!-- xgd-chat-end -->
