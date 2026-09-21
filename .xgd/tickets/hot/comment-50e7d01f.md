@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:36:04.938353+00:00'
+updated_at: '2026-09-21T23:43:16.198110+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -851,5 +851,15 @@ But the audit ledger already supports a read-out. Written to `.xgd/tmp/lf-cost/m
 1,100 calls, **110 failed (10%)**, 10.28 engaged hours across six sessions and three tenants. The Lagrange Foundry build alone is 648 calls / 6.05 h; `site-unnamed` had a 25% failure rate.
 
 **$16.20 per engaged hour** top-down — $166.50 over 10.28 h, no modelling. Upper bound, since the account total also covers describer calls that leave no audit record.
+
+<!-- xgd-turn id="1310565d-715d-4fbe-aac5-60e23c042b57-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:43:15.826746+00:00" -->
+#### You
+Can I get an REQ for context overflow avoidance please - this is urgent
+
+Written to `.xgd/tmp/lf-cost/metrics-today.md ` <--how can that work in production?
+
+I think I need an admin console - only visible to level 0 users we can put cost metrics there a list with a row per tentent ordered most costly in the last 30 days to least - click on a row expands to show details by day and delegate vs principle
 
 <!-- xgd-chat-end -->
