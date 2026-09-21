@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-21T00:03:34.431987+00:00'
+updated_at: '2026-09-21T00:07:01.432120+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2997,5 +2997,44 @@ You now have two unstarted tickets from this session — REQ-287 and BUG-131, bo
 Tickets are still read only for the consultant - what do we need to do to fix it?
 
 Also note REQ-288 that should be one of your children
+
+<!-- xgd-turn id="797a7256-e13f-4e17-8317-a4adcc974a0e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T00:07:00.562663+00:00" -->
+#### Claude
+**BUG-124's fix landed. This clone was never provisioned — that's the whole of it.**
+
+The commit is `d5ace65da7` (12:22 today, 0.2.289, `free_coded`), and the code is right end to end: `developmentFor` composes the surface on `DEVELOPMENT_TICKETS_URL` alone, the bearer is minted into `.dev.vars` once per clone, `1c filing` runs the listener on its own, and `--var` is gone from every launch path.
+
+What I found on your machine:
+
+| | |
+|---|---|
+| `apps/control-app/.dev.vars` | **no** `DEVELOPMENT_TICKETS_URL`, **no** `_TOKEN` — mtime **Sep 10** |
+| `127.0.0.1:8790` | nothing listening |
+| 8788 (dev server) / 8799 (access-sim) | both up, both started **before** the commit |
+
+So the Worker reads no address → composes no surface → the derived grant offers no filing operation, and the consultant correctly reports only the client's five read tools. Which is also exactly what a deployed builder with no project looks like — the two are indistinguishable, which is Finding 6's silence.
+
+## Two commands, in this order
+
+```
+./bin/1c filing          # writes the two lines into apps/control-app/.dev.vars,
+                         # starts the listener on 127.0.0.1:8790, and waits
+```
+
+Then **restart the dev server** so wrangler re-reads `.dev.vars`. Order matters — filing writes the file, wrangler only reads it at boot. `bin/access-sim` is unaffected and can stay up; it's a proxy.
+
+No build step: `bin/1c` compiles the CLI through Vite on the fly, so the post-fix code is already live.
+
+To confirm afterwards, `./bin/1c filing` a second time answers *"A filing service is already answering at…"* rather than starting a second one.
+
+## The residue I'd flag
+
+The fix removed the coupling between filing and *how* the dev server was launched — but provisioning is still a side effect of running one of two commands, and your actual launch path (access-sim's hand-launched wrangler) is neither. So a clone can sit unprovisioned indefinitely with nothing saying so. If that bites again, the fix is either surfacing `filingStatus` somewhere an operator sees regardless of launch path, or provisioning the two lines from something every path runs. Recorded as a Finding 6 addendum rather than a new ticket.
+
+## Ticket housekeeping
+
+EPIC-19 now carries **Finding 9** with the three children that were missing from the thread — **REQ-288** (the `translateXPct`/`translateYPct` transform, with the Lagrange Foundry caption-plaque case and the wrapping-column reason pinned keyframes can't track it), plus **REQ-287** and **BUG-131** from last night.
 
 <!-- xgd-chat-end -->
