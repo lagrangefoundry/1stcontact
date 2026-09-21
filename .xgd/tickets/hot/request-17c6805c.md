@@ -5,18 +5,25 @@ type: request
 title: A tenant's spend, in engaged hours and in dollars
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:44.197313+00:00'
-updated_at: '2026-09-21T21:52:28.589492+00:00'
+updated_at: '2026-09-21T21:53:28.109840+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-d29cd4b4
+  commits:
+  - working_sha: 4b70fd9045aab751a7de13a4022890fca534ca42
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1b052f91e9e8a5587ebb234879093ec3770a2521
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.311
 ---
-
 
 ## Why
 
