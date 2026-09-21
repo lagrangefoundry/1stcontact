@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T19:58:37.332572+00:00'
+updated_at: '2026-09-21T20:23:42.219671+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -276,5 +276,124 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="031a2491-e66d-40d3-bc78-364f7ac024d9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:23:40.645552+00:00" -->
+#### Claude
+I'll re-establish state before continuing — prior sessions were interrupted mid-work.
+
+The branch is clean with 10 WIP commits. Let me verify the work state and then run the full suite.
+
+The diff vs `xgd-working` includes drift — xgd-working has moved. Let me diff against the merge base.
+
+Real diff is ~105 files. xgd-working has 275 commits of drift — I'll deal with the merge after verifying. First, the test sweep.
+
+Both pre-existing on `xgd-working` too. Continuing the sweep.
+
+EADDRINUSE on a leftover listener — environment, not a regression (BUG-124 is untouched by this branch).
+
+BUG-67 was already confirmed pre-existing in an earlier pass. Continuing.
+
+Node side is clean of regressions. Now the workerd project.
+
+Full suite green apart from four pre-existing classes. Now the build/typecheck.
+
+Build passes. Let me review the UAT and the key source changes before committing.
+
+UAT covers all 13 behaviour clauses. Let me check what ticket-store files the branch touched before squashing.
+
+DOC-41 hasn't been updated yet — the ticket's Acceptance section requires §1, §2, §3, §5 rewritten. Let me read it.
+
+Now updating DOC-41 §1, §2, §3, §5 as the ticket's Acceptance section requires.
+
+DOC-41 done. Now squashing the WIP commits into one atomic commit.
+
+Now taking the merge lock and merging xgd-working into the branch (275 commits of drift).
+
+Only three conflicts. Let me resolve each.
+
+My edits only dropped `bin/publish` mentions; xgd-working's rewritten block no longer names it. Taking theirs.
+
+Combine case — my `subject` rewrite plus xgd-working's new `end` paragraph.
+
+No `pushSite` callers remain in index.ts. Now sweeping the merged tree for re-introduced references.
+
+All conflicts resolved. Committing the merge and verifying the build.
+
+Build clean. Now the targeted suites around the merge, then a full re-sweep.
+
+My earlier repoint targeted `copy.ts`; BUG-134 has since moved the credential handling. Let me find where it lives now.
+
+BUG-134 split the claim: pair logic in `copy.ts`, the literal names in `push.ts`'s `ACCESS_NAMING`. Repointing the assertion accordingly.
+
+Now the full post-merge sweep.
+
+Same two pre-existing. Continuing.
+
+Node side clean. Now the workerd project post-merge.
+
+Full suite green post-merge. Now committing the two test repoints and bumping the version.
+
+Version bumping is handled by the gate command itself. Committing the BUG-36 repoint.
+
+Now fast-forwarding xgd-working to the branch (still holding the merge lock).
+
+xgd-working advanced again during the sweep. Re-merging.
+
+Only ticket auto-commits. Merging and fast-forwarding.
+
+A deliberate uncommitted operator edit (EPIC-16 §I3). I'll preserve it across the fast-forward.
+
+Branch changes are comment-only; the operator's edit is a distinct line. I'll restore it after the fast-forward.
+
+xgd-working is fast-forwarded and the operator's edit is restored intact. Now the gate command.
+
+Status `free_coded`, version 0.2.307. Now syncing the ticket body to what actually landed. Let me verify the divergences first.
+
+23 suites read the corpus, not the fourteen the ticket and the module comment claim. Fixing the count.
+
+Untracked local residue in the operator's checkout, not repo state. Let me look before touching it.
+
+A single already-applied copy edit from August. Let me confirm the corpus carries the applied text before removing anything.
+
+Verified redundant — the edit is already in the corpus. Removing the dead residue.
+
+Now committing the corpus-count correction and appending it to the ticket.
+
+Now syncing the ticket body to what actually landed, preserving the existing content.
+
+Now releasing the lock and tearing down the branch.
+
+REQ-290 is complete and landed on `xgd-working` at `free_coded`.
+
+## What landed
+
+**The tier is gone.** The three site trees, `bin/publish`, the `push` CLI verb, and `bin/author_xgd_sections.py` are deleted. A grep over the whole tracked tree outside `.xgd/` returns nothing for either name.
+
+**The corpus moved first, intact.** `tests/fixtures/l1-corpus/storage/sites/<slug>/` keeps repo shape, so every reader swaps one constant and not one assertion changed. A `corpus.ts` module is the single definition site; a README says it is a frozen test input, not an authoring tier.
+
+**The root pin landed one layer up from where the ticket pointed.** Pinning the three call sites individually leaves an open-ended tail — every library entry point taking `GlobalOptions` needs flagging by hand in any suite that also drives the CLI, and a missed one silently writes the retired root. Pinning `run()`'s `GlobalOptions` construction makes library and CLI agree by construction and is the narrower diff. `--sandbox` is still parsed but leaves the help text. `push.ts` stays; `'sites'` stays in the `Root` type.
+
+DOC-41 §0/§1/§2/§3/§5 rewritten (ticket update, no commit — docs sit outside the matrix).
+
+## Three things the work found rather than the ticket predicting
+
+- **The corpus has 23 readers, not the 14 surveyed** — a suite opening the tree through a `StoreContext` rather than a glob doesn't match a path search. Corrected in the module comment and the ticket.
+- **BUG-134 landed on `xgd-working` mid-flight** and split BUG-36's credential claim across two files. Both halves are still asserted; two comments naming the retired verb were rewritten so the absence-scan stays true.
+- **Your checkout had untracked residue** under `storage/sites/` — a `.DS_Store` and a `.journal.json` with one already-applied copy edit from August, which is why git left the directory behind. I verified the applied text is already in the corpus copy, then removed the directory. Flagging it since those were untracked files in your tree.
+
+## Verification
+
+Full suite, foreground, sharded, re-run after the 280-commit merge: **625 node + 141 workerd files green**, `pnpm -r build` clean. Four pre-existing failure classes remain, all reproduced on `xgd-working` itself or confirmed environmental:
+
+| Failure | Status |
+|---|---|
+| `bug32-webui-scope-rebrand` | fails on `xgd-working` too (`dist-assets.staging` residue) |
+| `/api/export` unprobed route | pre-existing REQ-289 gap, fails on `xgd-working` too |
+| `BUG-67` backend settings | pre-existing at the cut point |
+| `EADDRINUSE :8790` (BUG-124, REQ-273) | leftover detached listener from an earlier session; I can't kill it from the sandbox |
+
+4 commits, version `0.2.307`, 8 story points. Your uncommitted `wrangler.toml` `PLATFORM_ADMINS` edit is untouched — I saved and restored it byte-for-byte across the fast-forward. The ticket is parked at `free_coded`; promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
