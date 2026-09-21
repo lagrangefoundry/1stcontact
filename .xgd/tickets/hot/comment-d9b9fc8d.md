@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:18:36.291661+00:00'
+updated_at: '2026-09-21T23:37:59.217613+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2309,5 +2309,20 @@ Three traps called out explicitly because they bit us: `--origin` must be `127.0
 I also fixed a live trap in the existing doc — it showed `copy-to-cloud … --backup lf.json` under a heading reading like a copy. That example is exactly the mistake I made and you hit. It now shows both forms with the backup one marked as writing nothing.
 
 The docs and the `wrangler.toml` edits are uncommitted. Want me to commit them, or leave them in the working tree while you finish the copies and publish?
+
+<!-- xgd-turn id="42409454-e4c9-43ac-838e-ba5be7c801d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:37:58.551953+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --chat --origin http://127.0.0.1:8799 \                                                                       
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+
+INTERNAL: Listing the businesses at http://127.0.0.1:8799 was refused with 502: access-sim: the builder at http://127.0.0.1:8788 did not answer (fetch failed).
+
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
