@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T19:59:45.565818+00:00'
+updated_at: '2026-09-21T20:05:19.969169+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1097,5 +1097,47 @@ Expect one row, `platform_operator: 1`.
 **One item is queued behind this, not blocking today.** `ACCESS.md` notes the app's blanket Access policy also covers the invitee sign-in paths — so a real customer clicking an invitation meets Access first, gets a one-time-PIN email from a system they've never heard of, and is then refused for not being on the operator allow-list. The fix is a Bypass policy ahead of the allow-list, scoped to those paths. You're the only identity for go-live so it doesn't bite yet, but it will the moment you invite anyone. Logged as §I10.
 
 After you're in, next up is step 6 — creating **Lagrange Foundry** and **XGD** by hand — and then [[BUG-134]] blocks `bin/copy-to-cloud`. Say the word and I'll get that one moving in parallel while you're in the builder.
+
+<!-- xgd-turn id="1d6d9c15-4f9f-48da-9866-0f879e403492-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:05:18.597580+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+((.venv-working) ) martin@nyx control-app % npx wrangler d1 execute DB --remote --command \
+  "select e.email, u.platform_operator from users u join user_emails e on e.user_id = u.id;" --json
+
+[
+  {
+    "results": [
+      {
+        "email": "martin-github@westhead.me",
+        "platform_operator": 1
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "WNAM",
+      "served_by_colo": "SJC",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.2728
+      },
+      "duration": 0.2728,
+      "changes": 0,
+      "last_row_id": 114,
+      "changed_db": false,
+      "size_after": 524288,
+      "rows_read": 2,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]
+
+```
+
+Now what?
 
 <!-- xgd-chat-end -->
