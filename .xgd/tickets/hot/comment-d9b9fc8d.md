@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:39:13.897155+00:00'
+updated_at: '2026-09-21T21:40:55.890516+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1558,5 +1558,40 @@ Recorded as §I16, and flagged as a genuine bug rather than a config slip.
 What makes it worth a ticket: `bin/access-sim` derives its `common_name` from its own client id and emits a matching `SERVICE_TOKEN_IDENTITIES` line, so the simulator, `ACCESS.md` and `wrangler.toml` all agree with each other and all disagree with Cloudflare. Local runs proved the mechanism against a stand-in that shared its assumption. That's the sharpest example yet of the thing EPIC-17 exists to catch.
 
 My recommended fix is the cheap one: `bin/access-token` already holds the client id when it creates or rotates, and already prints the two `export` lines — it should print the exact `SERVICE_TOKEN_IDENTITIES` entry too. You'd never have had to learn any of this, and it fixes staging before staging exists. Say the word and I'll file it as a child of EPIC-16.
+
+<!-- xgd-turn id="dcc29e53-8fc3-4c21-9b3c-90c32310482b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T21:40:54.977562+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/smoke
+  FAIL  apex_resolves
+      GET https://1stcontact.io/ returned 404, expected 200
+  PASS  unknown_site_not_found
+      404
+  skip  unpublished_site_indistinguishable
+      no --site-key given
+  skip  published_root_redirects
+      no --site-key given
+  skip  published_index_serves_html
+      no --site-key given
+  skip  published_cache_policy
+      no --site-key given
+  skip  published_miss_is_404
+      no --site-key given
+  skip  published_assets_resolve
+      no --site-key given
+  PASS  control_app_challenges_unauthenticated
+      302 → https://lagrangefoundry.cloudflareaccess.com/cdn-cgi/access/login/app.1stcontact.io?kid=c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e&meta=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImFmMjcyMTA4M2Y3OGNlZGJhMTc3ZTAzMTM1MmIwM2E1YjQxZGQ4YWZmN2Q5M2RiMTM0ZTg1ZDlmMTNhMTJmZDAifQ.eyJ0eXBlIjoibWV0YSIsImF1ZCI6ImM4MDJmYTljNGVmYzQ4M2UxM2YxYzI3ZDJkOWE5Y2EzZmY5MzM2ZDU1YTAxNDIwNWJkMWE2MzI1ODI2MGM3NGUiLCJob3N0bmFtZSI6ImFwcC4xc3Rjb250YWN0LmlvIiwicmVkaXJlY3RfdXJsIjoiLyIsInNlcnZpY2VfdG9rZW5fc3RhdHVzIjpmYWxzZSwiaXNfd2FycCI6ZmFsc2UsImlzX2dhdGV3YXkiOmZhbHNlLCJleHAiOjE3OTAwMjcxMzMsIm5iZiI6MTc5MDAyNjgzMywiaWF0IjoxNzkwMDI2ODMzLCJhdXRoX3N0YXR1cyI6Ik5PTkUiLCJtdGxzX2F1dGgiOnsiY2VydF9pc3N1ZXJfZG4iOiIiLCJjZXJ0X3NlcmlhbCI6IiIsImNlcnRfaXNzdWVyX3NraSI6IiIsImNlcnRfcHJlc2VudGVkIjpmYWxzZSwiY29tbW9uX25hbWUiOiIiLCJhdXRoX3N0YXR1cyI6Ik5PTkUifSwicmVhbF9jb3VudHJ5IjoiVVMiLCJhcHBfc2Vzc2lvbl9oYXNoIjoiMmExMmE5Y2I3ZTY4ZjRjY2VjNzU2YmViZmM2ZTlhNjk1MjdjMTgxNzc1NjZjZmVhMDk4YjM1ZTA4ZGIxYjJjNCJ9.RPS-YCFPwzsKgGh7OMScQfzUnc9IiE_154ywWs5eRkNR_vbbzhVIIdUBS6fcnYds4LDSujrxPtj0VveWsgpMQiUxcMpFuw_I3s_ZI_K509a2tMSpFnqU25jKiWvMr_bvDzqcmJy513sdci5pBp9yMSeNbgQ2XvC4zrAV80oEFCwZurEOoHewy8XctgfgijAsf-YU9ImmLhS-r-3UJMnmi-vnKDIDSDGERAItz5ldYHQzdNSBs_vlR78hTPD6x0kxjXw9JHGLoPHRu-bS84aMN_mjZ2t5EwautMmaw_oLBtzRq1fuDFIn6CmBa4UPBVmAjZ17v3oI7yhm_TVrSuKsEQ&redirect_url=%2F
+  skip  control_app_workers_dev_closed
+      no --workers-dev-origin given
+
+Smoke FAILED against https://1stcontact.io: 1 failed, 2 passed, 7 skipped.
+Failed: apex_resolves
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Trying the copy anyway
 
 <!-- xgd-chat-end -->
