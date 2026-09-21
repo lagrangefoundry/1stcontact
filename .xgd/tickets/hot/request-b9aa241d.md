@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   epic_parent: epic-96d8aca6
+  chat_comment: comment-d3920f75
 ---
 
 The local builder holds conversation history that production does not, and there is no
