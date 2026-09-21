@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:37:23.325002+00:00'
+updated_at: '2026-09-21T22:48:23.630856+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2038,5 +2038,13 @@ That drops both remembered values and forces a clean selection. If the builder c
 Recorded as §I20, and it resolves the §I18 puzzle: the client wasn't failing to mount, it was mounting and then asking for a site it couldn't name. Every layer we checked was healthy because every layer *was* healthy.
 
 Run the `localStorage.clear(); location.reload()` and tell me what you get. If the builder comes up, the remaining work is two tickets — one to stop `selectBusiness` recording a site and a business that can disagree, and one to make `scoped()` refuse rather than silently drop the prefix on a route that can't mean anything without it.
+
+<!-- xgd-turn id="fc6b97b5-b014-4676-b40e-3deaf9d2ad90-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:48:23.283019+00:00" -->
+#### You
+I get exactly the same behavior as a reload.
+
+Just to be clear I get the whole page frame the preview view. Editor mode, mark points all work. but there is no text entry in the chat window. And that error appears at the top of the page above everything else
 
 <!-- xgd-chat-end -->
