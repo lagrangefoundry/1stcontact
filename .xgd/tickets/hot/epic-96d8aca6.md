@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T20:07:21.706723+00:00'
+updated_at: '2026-09-21T20:18:51.205305+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -1056,3 +1056,43 @@ it is that the go-live sequence should be *derived* from the stores rather than
 written from memory — what businesses exist on each side, which names match, what has
 a site, what has a revision. That is a report `bin/` could produce and a person
 cannot reliably hold.
+
+
+### I12 — `copy-to-cloud`'s local end must be the simulator, not the dev server
+
+`bin/copy-to-cloud`'s `--origin` defaults to `http://localhost:8788`, which is the raw
+`wrangler dev` builder, and the first attempt was refused there with
+*"Cloudflare Access rejected this request: no Access token was presented."* The
+refusal is BUG-134's fix working: it names the LOCAL end specifically, says which two
+variables to set, and warns that `--print-token` emits them under the CLOUD names.
+
+**The default is the wrong end for two of the three businesses, and not because of the
+gate.** `scope.ts:329` records that the dev-open branch answers from `TENANT_ID` and is
+its last reader — so a connection straight to the dev server can only ever resolve to
+1st Contact, whatever credential it carries. `bin/access-sim` (port 8799) is the only
+local front door that reaches a business other than `TENANT_ID`, which is precisely
+what the copy of Lagrange Foundry and XGD needs. The header says this in passing
+(*"in practice `bin/access-sim`"*); the DEFAULT says otherwise, and the default is what
+an operator runs.
+
+Worth considering whether the default should be 8799, or whether the refusal should
+name the scope consequence rather than only the credential one — an operator who sets
+`LOCAL_ACCESS_*` and retries against 8788 gets past the gate and then silently copies
+the wrong business, or finds only one on offer.
+
+### I13 — An unintended business may exist in production
+
+After provisioning, production holds four businesses: 1st Contact (no site yet, as
+expected — it acquires one by import), Lagrange Foundry, XGD, and **Gigabyte
+Alchemy**, the last carrying a starter site `site_70772e9206eec9b1313a406b04076c06`.
+
+Gigabyte Alchemy is one of the local builder's test businesses and was not part of the
+go-live plan. `provisionBusiness` writes a live `pro` grant, so it is a real customer
+as far as entitlements, quotas and any future billing are concerned. **Open with the
+operator**: deliberate, or a mis-click while locating the fulfil action.
+
+If it is unintended it is worth more than a tidy-up. There is no route that deletes a
+business — provisioning is `POST /api/admin/businesses` and nothing undoes it — so a
+mistake at this control is permanent without hand-editing D1. That asymmetry belongs
+with the controls §I6 collects: the one operator action that mints a tenant, a
+membership, a grant and a site has no confirmation step and no inverse.
