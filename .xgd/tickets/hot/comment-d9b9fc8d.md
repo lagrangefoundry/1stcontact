@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:40:04.596754+00:00'
+updated_at: '2026-09-21T20:41:55.981963+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1438,5 +1438,48 @@ The CLOUD end is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and CF_ACCESS
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="486a56a9-e046-47bf-ae0b-6ceab7e57351-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:41:54.860322+00:00" -->
+#### Claude
+That 403 body is **our application's voice, not Cloudflare's** — so the request got *past* Access and was refused by the app. `copy-to-cloud`'s handler is guessing wrong about why. Let me find what actually produced it.
+
+`DENIED_MESSAGE` is deliberately reason-free — `identity.ts:443` explains it's an anti-oracle: distinguishing `no_user` from `no_membership` would leak membership to anyone who can pass a one-time PIN. So the message can't tell us which. But `denyAdmission` logs the reason. Let me check the cheap possibility first.
+
+`entitlements.account_id` being NULL is a red herring — `businessesFor` (`identity.ts:1431`) joins on **memberships**, not entitlements. Let me check those properly (my column name was wrong).
+
+Memberships are clean — `owner`, `active`, not revoked, not expired, on all four businesses. So the browser path is fine and this is specific to the **service token**.
+
+That narrows it to the token's identity mapping. `SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"` keys on the `common_name` Cloudflare puts in the JWT — which is the token's **name**, not its client id. If your token is named anything other than `1stcontact-publish`, `admit` gets no email at all and refuses `no_email`.
+
+The message can't tell us (by design), but the log does. Two terminals:
+
+**Terminal A:**
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler tail --env production --format pretty
+```
+
+**Terminal B** — re-run the copy:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "1st Contact"
+```
+
+Terminal A will print one line that settles it:
+```json
+{"event":"admission_denied","reason":"...","email":...,"platformAdminSeed":...}
+```
+
+- `reason: "no_email"` → the token's `common_name` ≠ `1stcontact-publish`. Fix by editing the mapping in `wrangler.toml:429` to the real name (and redeploying), or rotating the token to that name in **Zero Trust → Access → Service Auth**.
+- `reason: "no_user"` → it mapped, but to an address with no `users` row — tell me the `email` field and I'll add it.
+- Anything else → paste it and we'll go from there.
+
+Worth noting for the record: `copy-to-cloud` told you to *"Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET"* when you plainly had — it treats any 403 on the cloud end as a missing credential. Same defect class as §I12 and §I14: correct behaviour, misleading output. A 403 carrying our own `DENIED_MESSAGE` means the credential *worked* and the app refused, which is the opposite of what it advised.
+
+Recorded as §I15. Run the tail and paste the `admission_denied` line — that gives us the reason directly, and it's a one-line fix from there either way.
 
 <!-- xgd-chat-end -->
