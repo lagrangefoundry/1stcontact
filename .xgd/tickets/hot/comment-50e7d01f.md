@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T21:39:30.909988+00:00'
+updated_at: '2026-09-21T21:41:28.113746+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -607,5 +607,46 @@ Sequence stands: REQ-292 alone, then a week of ordinary sessions, then re-read t
 <!-- xgd-chat role="user" ts="2026-09-21T21:39:29.462554+00:00" -->
 #### You
 Can REQ-292 and 293 be used in retrospect for the data that we have?
+
+<!-- xgd-turn id="5b2dcf52-a7f7-44e2-b65c-a9cfa846656f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T21:41:27.519735+00:00" -->
+#### Claude
+Partly — and the split is worth being precise about. Let me check what's actually recoverable.
+
+Yes for hours, no for tokens — and the hours half already pays off. Recording it.
+
+**Hours: yes, completely. Tokens: no, and never.**
+
+### REQ-292 — no
+
+Across all 1,100 audit records in the R2 ledger — 2026-09-08 to 09-21, every session of all three tenants — **zero carry any token counter.** The junction log held them and died with its isolate; the archive never carried them into the chat ticket. Past spend can be modelled, and has been, but it can't be recovered.
+
+So the right answer isn't "backfill it approximately" — it's that `turn_spend` must **reject a row without counters**. A table holding measured and estimated rows side by side is one nobody can bill from, and the estimate always outlives the memory of it being one.
+
+REQ-292 had already moved to `ready_to_reconcile` while we were talking, so its body is frozen; that constraint went on as COMMENT-3613.
+
+### REQ-293 — yes, and it already paid off
+
+Turn boundaries survive. Every audit record has a timestamp, session and role, so engaged time is computable **exactly** for everything already run:
+
+| tenant | tool calls | engaged hours (5-min cap) |
+|---|---|---|
+| Lagrange Foundry | 768 | 7.37 |
+| 1st Contact | 193 | 2.02 |
+| XGD | 139 | 0.89 |
+| **total** | **1,100** | **10.28** |
+
+The audit spans 09-08 to 09-21 with nothing before 09-01 — so it covers your billing period. Which gives:
+
+**$166.50 ÷ 10.28 h = $16.20 per engaged hour, top-down, with no modelling at all.**
+
+Against the $20.33/h my bottom-up model gives for 09-20. Those agree — and the whole-period number being lower is what you'd expect, since 09-20 was the heaviest day and cost/hour climbs with context. **That's the first independent check any figure in this epic has had**, and it validates the hours metric before a line of code ships.
+
+Treat $16.20 as an upper bound: the $166.50 also covers document and image describer calls, which produce no audit records and no engaged hours.
+
+The design consequence is in REQ-293: **the engaged-time calculation takes turn boundaries as an argument**, not `turn_spend` as a table. Same code answers for a historical session from the audit and a live one from the meter, with no second implementation to drift — and no fabricated rows in the meter.
+
+So you have a defensible $/hour today: **~$16–20 as things run**, against the $50 plan. That's the number to set the first cap against while REQ-292 gets built.
 
 <!-- xgd-chat-end -->
