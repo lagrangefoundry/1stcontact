@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:27:29.072509+00:00'
+updated_at: '2026-09-21T20:29:23.678409+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1327,5 +1327,42 @@ The LOCAL end is behind Cloudflare Access. Set LOCAL_ACCESS_CLIENT_ID and LOCAL_
 ```
 
 on the local server I am just marrtin@westhead.me is that the issue?
+
+<!-- xgd-turn id="d4799e7b-0a54-4453-8d1a-77cb876973ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:29:21.116599+00:00" -->
+#### Claude
+No — the identity isn't the issue. This 403 is purely about the client id/secret **pair** not matching the running simulator; it hasn't got as far as asking who you are. `martin@westhead.me` is what the sim's token will *act as* (from `.dev.vars:29`), and that's correct.
+
+Let me find out what the running sim actually accepts.
+
+Confirmed by probing your running sim directly — three tests:
+
+| Credentials sent | Result |
+|---|---|
+| none | `302 → /login` |
+| `bogus.access` / `bogus` | **the exact 403 you got** |
+| `local-dev.access` / `local-dev-secret` | accepted — no 403, request proceeds |
+
+So the default pair **is** this simulator's pair, and your `LOCAL_ACCESS_*` variables aren't carrying it. The `eval`/`sed` I gave you didn't take — most likely the sed ran but something overwrote the vars, or the eval silently no-op'd.
+
+Skip the environment entirely and pass them as flags:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' \
+  --local-client-secret 'local-dev-secret' \
+  --backup storage/backups/1st-contact.json "1st Contact"
+```
+
+You'll still need the cloud pair in the environment (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` from `bin/access-token`) — or add `--client-id` / `--client-secret` alongside.
+
+If you want to check what your shell actually has:
+```bash
+echo "local id=[$LOCAL_ACCESS_CLIENT_ID] secret=[${LOCAL_ACCESS_CLIENT_SECRET:+set}] cloud id=[$CF_ACCESS_CLIENT_ID] secret=[${CF_ACCESS_CLIENT_SECRET:+set}]"
+```
+
+**One thing to expect next.** With the correct pair the sim accepted and then the request hung — I gave it 20s on `/api/status` and got nothing back, while unauthenticated requests answer instantly. So the *authenticated* proxy into the builder on 8788 is slow or wedged. If the copy sits there, restart your `wrangler dev` on 8788 before assuming the copy is broken. I'd rather flag that now than have you read a stall as a `copy-to-cloud` fault.
 
 <!-- xgd-chat-end -->
