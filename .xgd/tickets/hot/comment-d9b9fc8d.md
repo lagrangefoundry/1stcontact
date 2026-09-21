@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:41:55.981963+00:00'
+updated_at: '2026-09-21T20:46:33.843351+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1481,5 +1481,18 @@ Terminal A will print one line that settles it:
 Worth noting for the record: `copy-to-cloud` told you to *"Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET"* when you plainly had — it treats any 403 on the cloud end as a missing credential. Same defect class as §I12 and §I14: correct behaviour, misleading output. A 403 carrying our own `DENIED_MESSAGE` means the credential *worked* and the app refused, which is the opposite of what it advised.
 
 Recorded as §I15. Run the tail and paste the `admission_denied` line — that gives us the reason directly, and it's a one-line fix from there either way.
+
+<!-- xgd-turn id="6ad744ce-0a56-4e59-9d45-ed69bcf06a48-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:46:33.013961+00:00" -->
+#### You
+```
+Successfully created tail, expires at 2026-09-22T02:45:47Z
+Connected to 1stcontact-control-app, waiting for logs...
+GET https://app.1stcontact.io/api/businesses - Ok @ 9/21/2026, 1:46:13 PM
+  (warn) {"event":"admission_denied","reason":"no_email","email":null,"platformAdminSeed":false}
+  (info) {"ts":1790023574422,"trace_id":"trace_25c8f8615dc88e2ca0c96a0f10370760","kind":"app","level":"info","event":"request","route":"/api/businesses","method":"GET","status":403,"duration_ms":316}
+
+```
 
 <!-- xgd-chat-end -->
