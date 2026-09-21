@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:11:32.204842+00:00'
+updated_at: '2026-09-21T23:33:50.466723+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -778,5 +778,21 @@ Worker spend is attributed to the caller on **every** exit path — including a 
 ### Sequence
 
 Ticket says: build whenever, but **don't enable the switch before there's a baseline**. If it goes on before REQ-292/293 are reconciled and a week of records exists, the saving it exists to produce is unobservable — and given this epic's history of confident wrong numbers, that's the part I'd hold firmest.
+
+<!-- xgd-turn id="bc6830c9-3851-4c6d-843c-c12961bdd68e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:33:50.402343+00:00" -->
+#### You
+It is important that our metrics preserve tokens spent by principle vs delegate - do we keep that?
+
+Do we expose the costs to the principle? We should talk about schemes for doing that.
+
+I think we ensure (or try to ensure) that the context never fills up (please check). We should be maintaining summaries as we go and provide chuck-based search access to the full transcript and the summary log.
+
+I suspect that we will need to apply caps on user usage in order to maintain control of the business economics. It would be useful if the AI had visibility into these so it knew if/when it was approaching a limit.
+
+I think we should hold off on building that now but its worth discussing.
+
+Also is there any way that I can see the metrics that we are gathering?
 
 <!-- xgd-chat-end -->
