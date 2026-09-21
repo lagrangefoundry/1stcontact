@@ -5,16 +5,24 @@ type: request
 title: copy-to-cloud carries the site but not the conversations that built it
 created_by: EPIC-16
 created_at: '2026-09-21T23:01:33.483748+00:00'
-updated_at: '2026-09-21T23:29:32.812819+00:00'
+updated_at: '2026-09-21T23:30:20.578758+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   epic_parent: epic-96d8aca6
   chat_comment: comment-d3920f75
+  commits:
+  - working_sha: ead5aa1dd01cded3163d40d5e78f817d44006207
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2f16eb2aeadcfdf85aa79cbd339e75eb34f93d69
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.313
 ---
 
 The local builder holds conversation history that production does not, and there is no
