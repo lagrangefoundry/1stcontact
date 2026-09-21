@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:22:59.600470+00:00'
+updated_at: '2026-09-21T22:27:54.519215+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1863,5 +1863,39 @@ https://app.1stcontact.io/api/status
 If `/api/businesses` returns 403 with *"1st Contact cannot open this for you at the moment"*, that's the cause and we're back to an admission problem — this time for your browser session, not the service token. Worth noting the guard's own probe of `/api/sites` returned **200**, so the session works for *that* route; if `/api/businesses` refuses while `/api/sites` serves, that difference is itself the clue.
 
 Keep `wrangler tail` running when you load those — an `admission_denied` line will name the reason directly.
+
+<!-- xgd-turn id="782fde71-9c28-47d7-b4c7-d44c1c2ee638-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:27:54.382769+00:00" -->
+#### You
+| person |  |
+| --- | --- |
+| name | null |
+| email | "martin-github@westhead.me" |
+| businesses |  |
+| 0 |  |
+| id | "biz_51a6746495c8057e886ff98d4208e6b9" |
+| name | "1st Contact" |
+| selectable | true |
+| lapse | null |
+| 1 |  |
+| id | "biz_33086a94838ac8ad14cecbb919b525c2" |
+| name | "Lagrange Foundry" |
+| selectable | true |
+| lapse | null |
+| 2 |  |
+| id | "biz_cf6bcb93acc626dbad5778c5d6e0c9b0" |
+| name | "XGD" |
+| selectable | true |
+| lapse | null |
+| 3 |  |
+| id | "biz_7669997277262a4c04ccd71c73ba4c70" |
+| name | "Gigabyte Alchemy" |
+| selectable | true |
+| lapse | null<br/><br/> |
+
+| ai | true |
+| --- | --- |
+| message | null |
 
 <!-- xgd-chat-end -->
