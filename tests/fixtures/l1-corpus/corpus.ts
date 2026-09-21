@@ -4,12 +4,18 @@ import { fileURLToPath } from 'node:url'
 /**
  * Where the L1 conformance corpus lives (REQ-290).
  *
- * ONE DEFINITION SITE, because fourteen suites read this tree and each of them
- * used to derive it from the repository root independently. That was fine while
- * the corpus WAS the repository's own `storage/sites/`: there was nothing to
- * agree about. Now that it is a fixture, fourteen copies of a relative path are
- * fourteen things to update the next time it moves — and a suite that missed the
- * move would not fail loudly, it would find no documents and assert nothing.
+ * ONE DEFINITION SITE, because twenty-three suites read this tree and each of
+ * them used to derive it from the repository root independently. That was fine
+ * while the corpus WAS the repository's own `storage/sites/`: there was nothing
+ * to agree about. Now that it is a fixture, twenty-three copies of a relative
+ * path are twenty-three things to update the next time it moves — and a suite
+ * that missed the move would not fail loudly, it would find no documents and
+ * assert nothing.
+ *
+ * (The ticket surveyed fourteen. The move found the rest: a reader that opens
+ * the tree through a `StoreContext` rather than a glob does not match a search
+ * for the path, which is the same reason a single definition site is worth
+ * having.)
  *
  * WHY IT KEEPS REPO SHAPE (`<dir>/storage/sites/<slug>/`). `siteDir` resolves
  * `<cwd>/storage/<root>/<slug>`, so a directory shaped like a repository is
