@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:38:22.714725+00:00'
+updated_at: '2026-09-21T21:39:13.897155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1533,5 +1533,30 @@ Keep the tail running; if it still refuses, the log line will say whether we mov
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="593bf8a7-a2dd-49d7-9756-fb446ab5e48d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T21:39:11.667224+00:00" -->
+#### Claude
+That settles it. `29edd0e0ede45619455f21128c7b88ce.access` is a Cloudflare-generated id, not the label `bin/access-token --name` supplied. So `SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=…"` could never have matched — **this path has never worked against real Cloudflare Access**, only against `bin/access-sim`, which is self-consistent because it derives its own `common_name` from its own client id.
+
+Edit made — all three forms named, so it resolves whichever claim Cloudflare actually sends:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/deploy control-app
+
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "1st Contact"
+```
+
+Keep the tail running. If it still refuses, the reason will have moved off `no_email` — which tells us which of the two spellings Cloudflare sends, and we drop the other.
+
+Recorded as §I16, and flagged as a genuine bug rather than a config slip.
+
+What makes it worth a ticket: `bin/access-sim` derives its `common_name` from its own client id and emits a matching `SERVICE_TOKEN_IDENTITIES` line, so the simulator, `ACCESS.md` and `wrangler.toml` all agree with each other and all disagree with Cloudflare. Local runs proved the mechanism against a stand-in that shared its assumption. That's the sharpest example yet of the thing EPIC-17 exists to catch.
+
+My recommended fix is the cheap one: `bin/access-token` already holds the client id when it creates or rotates, and already prints the two `export` lines — it should print the exact `SERVICE_TOKEN_IDENTITIES` entry too. You'd never have had to learn any of this, and it fixes staging before staging exists. Say the word and I'll file it as a child of EPIC-16.
 
 <!-- xgd-chat-end -->
