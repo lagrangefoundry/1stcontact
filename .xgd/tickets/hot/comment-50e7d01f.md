@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:47:41.447928+00:00'
+updated_at: '2026-09-21T23:48:25.746961+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -902,5 +902,28 @@ All five now on EPIC-20. Order: **296 → 292/293 reconcile → 297 → 295**.
 <!-- xgd-chat role="user" ts="2026-09-21T23:47:40.744019+00:00" -->
 #### You
 295 is in-flight do I need to stop it?
+
+<!-- xgd-turn id="877415f3-9603-45cf-9069-8259cbd88f40-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:48:24.883005+00:00" -->
+#### Claude
+No — let it run. But one line is missing from its body, and it's the line that makes it safe.
+
+**No — let it run.** It's at `free_coding`, and the switch is exactly what makes stopping unnecessary.
+
+The distinction that matters: **building** REQ-295 conflicts with nothing. It's config, prose, and one `build` closure — none of it depends on REQ-296. Only **enabling** it is dangerous, because a `claude-haiku-4-5` worker has a 200k window against Opus's 1M, and the measured build already hit ~300k resident.
+
+But its body didn't pin the shipped default, which is the one thing that made your question a real risk rather than a theoretical one. Now added, while the body is still editable:
+
+- **`delegation.json` ships disabled** — a property of the ticket, not of whoever deploys it. Two reasons stated: no baseline yet (REQ-292/293 unreconciled), and no guard yet (REQ-296).
+- It may be **built and merged in full** ahead of REQ-296. What it may not do is ship enabled.
+
+That also gives the free-coding pass something to trace a UAT to — "default off" is now body language, so it can be tested rather than assumed.
+
+### One thing to tell whoever's holding it
+
+**REQ-295 and REQ-296 both edit `backends.json`.** 295 adds the worker entry naming `claude-haiku-4-5`; 296 adds `contextWindow` to every entry. No conflict in substance, but **whichever lands second owns making the worker entry carry both**. A worker backend with no declared window is precisely the case REQ-296's guard can't protect, and it would read as configured rather than as missed — a silent gap, in the flattering direction.
+
+So: 295 proceeds, merges, ships off. 296 is the thing to start now if you want the switch to be flippable soon.
 
 <!-- xgd-chat-end -->
