@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T00:33:36.770019+00:00'
+updated_at: '2026-09-21T01:03:39.536837+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -64,5 +64,49 @@ Answer "yes to all three" and I'll start.
 <!-- xgd-chat role="user" ts="2026-09-21T00:33:36.288798+00:00" -->
 #### You
 Your ticket has been updated to answer the questions that you asked. Please reread it and determine if you are ready to code
+
+<!-- xgd-turn id="3a239fbb-cc41-44a9-b654-ce1e0329572c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:03:38.663175+00:00" -->
+#### Claude
+Ticket answers all three questions. One measurement contradicts a line in it, which changes where one edit lands — I'll record that in the body as I go. Cutting the branch.
+
+Now repointing the fourteen suites. Let me look at each call site precisely.
+
+Now the three `globSync` suites and the rest of the constant swaps.
+
+Now req119, l1-one-colour-system, colour-census, shade-model, BUG-92, REQ-153, REQ-175.
+
+Now BUG-92 and REQ-153, which read the corpus through `loadSite`/`readHistory` contexts.
+
+Now the `global` construction — the one edit whose placement I need to justify.
+
+Now the deletions: `bin/publish`, the `push` verb, `bin/author_xgd_sections.py`.
+
+REQ-289 has already landed on this branch — `bin/copy-to-cloud`, `bin/copy-from-cloud`, `GET /api/export` and `cli/copy.ts` all exist. My earlier survey was against an older checkout. Re-surveying against the real base.
+
+Now the remaining `bin/publish` / `storage/sites` prose in `index.ts`, `reset.ts` and the store modules.
+
+Now `reset.ts`, `push.ts`, `copy.ts`, `bin/copy-to-cloud` and the store-module comments.
+
+Now rewriting `push.ts`'s prose so it describes a transport rather than a retired command.
+
+Now `builder.ts`, the store modules, and `router.ts`.
+
+Now the `bin/` scripts, `ACCESS.md`, `.gitignore` and `db/dev-seed.sql`.
+
+Now the UAT suite for REQ-290. Let me check the naming conventions used by the repo's own naming test first.
+
+Now I'll repoint BUG-36's script assertions at the live artefact and fix the boot-guard message.
+
+Now the remaining prose references in `wrangler.toml`, source comments and test headers.
+
+Now the UAT suite.
+
+Now the full suite, to catch anything the targeted runs missed.
+
+The failures are the CLI flip reaching in-process `run()` callers. Making library and CLI agree on one root rather than splitting them.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
