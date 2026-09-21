@@ -5,10 +5,10 @@ type: request
 title: Fail the deploy when an applied migration's content has changed
 created_by: EPIC-16
 created_at: '2026-09-21T01:05:22.242071+00:00'
-updated_at: '2026-09-21T01:05:22.242071+00:00'
+updated_at: '2026-09-21T18:37:10.435078+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-96d8aca6
