@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T21:39:06.616791+00:00'
+updated_at: '2026-09-21T21:48:45.251672+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -1226,3 +1226,43 @@ reader looks for.
 Whichever lands, `ACCESS.md` needs a line saying what the left-hand side actually is,
 because its identity table is the artefact an operator reaches for and it currently
 implies the label.
+
+
+### I17 — The copy works, and publishing has a prerequisite §I5 missed
+
+`bin/copy-to-cloud "1st Contact"` succeeded once the §I16 mapping was deployed
+(21:40:18Z). The site landed as `site_c4bed79aeb647305a5e3098f70d6dca3` carrying 1 page
+and 6 assets, verified in production.
+
+**The site id is new on the destination while the business id is not.** Both sides
+resolve `1st Contact` to `biz_51a6746495c8057e886ff98d4208e6b9` because both read it
+from `TENANT_ID` (§I11), but the import mints a fresh site key. `APEX_SITE_KEY` must
+therefore be read from production after the import and never copied from the local
+store — a mistake that would 404 exactly as an unpublished site does, and would look
+like the import having failed.
+
+**Publishing requires a public address, and §I5 step 6 did not know it.**
+`publish.ts:293` refuses with 409 `NO_PUBLIC_ADDRESS` when a site holds zero
+`site_domains` rows, and production holds zero for every business. The check is over
+the list's LENGTH only — `[[REQ-238]]` names "a publish check that names the
+`1stc.site` hostname rather than asking whether any address exists" as its own
+falsifier — so a claimed hostname and a connected domain satisfy it equally.
+
+`site_domains` is keyed on `id` with `site_id`, `kind`, `status` and `canonical`, so a
+site holds MANY addresses. Claiming a `1stc.site` hostname is therefore additive and
+does not commit the business against connecting its real domain later; `canonical`
+decides which is the public face.
+
+That matters for sequencing. Claiming the hostname unblocks the publish with no DNS
+dependency, which **separates the first-ever publish from the first-ever domain
+attach** — two paths that have never run in production and would otherwise fail as one
+event with one error to interpret.
+
+A correction worth recording against my own advice: this section first framed claiming
+a `1stc.site` name as something to avoid until the real domain was ready, on the
+grounds that the namespace is permanent and non-recyclable. The operator's objection is
+the right one — permanence is the reason to claim `lagrangefoundry.1stc.site` for the
+Lagrange Foundry business EARLY, not late. It is a first-come namespace; the risk is
+not spending a name, it is someone else holding the one name that business should have.
+`hostname.ts`'s permanence argument is about not recycling names between owners, not
+about hesitating to take the obviously correct one.
