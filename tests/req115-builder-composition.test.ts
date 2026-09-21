@@ -199,7 +199,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 display panel mode contract', () => {
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
-  it('test_UAT_FC_REQ-115_open_in_new_tab_matches_the_iframe_exactly', () => {
+  it('test_UAT_FC_REQ-115_open_in_new_tab_is_the_production_render_of_the_iframes_page', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
     // Re-read the control every time. `toolbar.js` re-renders the whole strip on
     // both `mode` and `site`, so a captured handle is a detached survivor whose
@@ -207,11 +207,20 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
     // asserting on it would prove nothing about the link that is on screen.
     const link = () => app.toolbar.get('open-new-tab') as HTMLAnchorElement
 
-    // AC 8 — identical URL, and it stays identical as the pane changes.
+    // AC 8 — "the identical URL", as REQ-115 wrote it when there was one render
+    // channel to be identical to. [[REQ-116]] added a second and [[BUG-131]]
+    // settled which one a tab opens: the PRODUCTION render of the page the
+    // iframe is on. In View that is still the identical URL; in Edit the iframe
+    // is deliberately showing a non-functional render, so the tab is the draft
+    // render of that same page. It tracks the pane either way, which is the part
+    // of AC 8 that was never about the channel.
     expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
     app.panel.setMode('edit')
-    expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
+    expect(app.panel.frame.getAttribute('src')).toBe('/preview/alpha/edit/')
+    expect(link().getAttribute('href')).toBe('/preview/alpha/draft/')
     app.panel.setSite('beta')
+    expect(link().getAttribute('href')).toBe('/preview/beta/draft/')
+    app.panel.setMode('view')
     expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
     expect(link().target).toBe('_blank')
   })

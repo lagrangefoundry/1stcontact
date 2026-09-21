@@ -371,22 +371,35 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar', () => {
     expect(() => app.panel.setMode('bad')).toThrow(/unknown action "no-such-control"/)
   })
 
-  it('test_UAT_AC971_open_in_a_new_tab_always_targets_the_displayed_document', () => {
+  it('test_UAT_AC971_open_in_a_new_tab_targets_the_production_render_of_the_displayed_page', () => {
+    /**
+     * AC-971 AS [[BUG-131]] LEAVES IT. The criterion used to read "always
+     * targets the displayed document", and that was true of one render channel
+     * and wrong of two: the edit render is deliberately non-functional, so the
+     * honest tab for it is the DRAFT render of the same page. What survives is
+     * the half that was always the point — the control targets the page the pane
+     * is displaying, and follows it — and the channel is now always the
+     * production one. [[DOC-28]] §10 specified exactly this all along.
+     */
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
     const displayed = () => app.panel.frame.getAttribute('src')
     const target = () =>
       (app.toolbar.get('open-new-tab') as HTMLAnchorElement).getAttribute('href')
 
-    // AC-971 — compared DIRECTLY against the displayed document's URL rather
-    // than against a reconstructed expectation, so a shared formatting mistake
-    // cannot make this pass falsely.
+    // In View the two coincide, and are compared DIRECTLY rather than against a
+    // reconstructed expectation, so a shared formatting mistake cannot make this
+    // pass falsely.
     expect(target()).toBe(displayed())
 
     app.panel.setMode('edit')
-    expect(target()).toBe(displayed())
+    // The one case where they must differ: same page, production channel.
+    expect(displayed()).toBe('/preview/alpha/edit/')
+    expect(target()).toBe('/preview/alpha/draft/')
 
     app.panel.setSite('beta')
-    expect(target()).toBe(displayed())
+    // It still FOLLOWS the pane — the site moved and so did the target.
+    expect(displayed()).toBe('/preview/beta/edit/')
+    expect(target()).toBe('/preview/beta/draft/')
 
     app.panel.setMode('view')
     expect(target()).toBe(displayed())

@@ -101,7 +101,9 @@ async function send(fetchImpl, url, init) {
 /**
  * The URL a rendered channel is served at. Same-origin by construction: a
  * relative path, so the iframe is never cross-origin and "open in new tab"
- * lands on the identical document (DOC-28 §10).
+ * lands on this same origin (DOC-28 §10) — on the draft render of the page the
+ * pane is on, which is not necessarily the pane's own URL ([[BUG-131]]; see
+ * {@link previewChannelUrl}).
  *
  * The business prefix is inherited by the page's own relative sub-resources,
  * which is precisely why `scope.ts` chose a path over a query string — a
@@ -149,6 +151,31 @@ export function previewRelPath(pathname) {
 export function previewPageUrl(url, rel) {
   const m = /^(.*\/preview\/[^/]+\/[^/]+\/)/.exec(url ?? '')
   return m ? `${m[1]}${String(rel ?? '').replace(/^\/+/, '')}` : String(url ?? '')
+}
+
+/**
+ * The same page, rendered by a different channel ([[BUG-131]]).
+ *
+ * THE FOURTH READER OF THE SAME URL SHAPE, and the exact dual of
+ * {@link previewPageUrl}: that one keeps the channel and replaces the page,
+ * this one keeps the page and replaces the channel. It is here for the reason
+ * both of its neighbours are — the shape is one fact, and readers of it that
+ * each know it separately are one rename away from disagreeing.
+ *
+ * WHY THE PAGE IS TAKEN FROM A URL rather than composed from the state around
+ * the pane. The caller — "open in new tab" — has to answer for the page the
+ * operator is looking at NOW, and it is told so by the pane's `src` event,
+ * which fires at the moment the pane is re-pointed and before the new document
+ * has arrived. Anything derived from the outgoing document at that moment names
+ * the page being left; the URL being navigated to names the one being opened.
+ *
+ * A URL THAT NAMES NO CHANNEL IS RETURNED UNTOUCHED, for the same reason
+ * {@link previewPageUrl} does: a pane showing no document is not a pane whose
+ * channel there is anything to change.
+ */
+export function previewChannelUrl(url, channel) {
+  const m = /^(.*\/preview\/[^/]+\/)[^/]+\/(.*)$/.exec(url ?? '')
+  return m ? `${m[1]}${encodeURIComponent(channel)}/${m[2]}` : String(url ?? '')
 }
 
 /**

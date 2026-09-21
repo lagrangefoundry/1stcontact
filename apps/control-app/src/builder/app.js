@@ -56,6 +56,7 @@ import {
   openChatSession,
   openSettingsSession,
   postSurface,
+  previewChannelUrl,
   previewUrl,
   saveMaterialName,
   saveMaterialRecipe,
@@ -684,7 +685,12 @@ export function mountBuilder(root, options = {}) {
       markPointsAction(points),
       panelsAction(carry),
       colorsAction(openPalette),
-      openInNewTabAction(),
+      // THE DRAFT RENDER OF WHATEVER PAGE THE PANE IS ON ([[BUG-131]]) — not the
+      // URL the pane is showing. The tab is the honest, production view
+      // (DOC-28 §10), and the edit channel is deliberately not production: the
+      // one channel name here is the whole of the fix, and it is here because
+      // this module is already the only place that composes channel URLs.
+      openInNewTabAction((src) => previewChannelUrl(src, 'draft')),
       publishAction(lockedPublish),
     ],
   })

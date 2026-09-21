@@ -146,7 +146,13 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
     const live = app.toolbar.get('open-new-tab') as HTMLAnchorElement
 
     expect(captured.getAttribute('href')).toBe(frozen)
-    expect(live.getAttribute('href')).toBe(app.panel.getSrc())
+    // THE DRAFT RENDER OF WHAT THE PANE IS SHOWING, not the pane's own URL
+    // ([[BUG-131]]) — the probe here is a control that keeps itself current, and
+    // this control's "current" is the production render of the page on screen.
+    // Edit shows a deliberately non-functional render, so in that channel the
+    // two legitimately differ; what is being asserted is that the live control
+    // reacted at all, which either expression answers.
+    expect(live.getAttribute('href')).toBe('/preview/beta/draft/')
     // Not vacuous: the displayed document genuinely moved between the two.
     expect(app.panel.getSrc()).not.toBe(frozen)
 
@@ -204,7 +210,9 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
 
     remounted.panel.setMode('edit')
     const remountedLink = remounted.toolbar.get('open-new-tab') as HTMLAnchorElement
-    expect(remountedLink.getAttribute('href')).toBe(remounted.panel.getSrc())
+    // The production render of the page the new pane is on ([[BUG-131]]) — the
+    // claim being made is that THIS strip reacted and the released one did not.
+    expect(remountedLink.getAttribute('href')).toBe('/preview/alpha/draft/')
     expect(lastLive.getAttribute('href')).toBe(hrefAtTeardown)
   })
 
