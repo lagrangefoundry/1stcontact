@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:46:57.444050+00:00'
+updated_at: '2026-09-21T19:48:21.263477+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -539,5 +539,11 @@ Reports engaged hours, settled cost, and $/engaged-hour per tenant per period �
 REQ (1) alone → **one week of ordinary sessions** → re-read the lever ranking against records. REQ (2) builds in parallel; it only needs the record's shape.
 
 Shall I file both and cut the branch for REQ (1)?
+
+<!-- xgd-turn id="608e2bb5-c32f-45dd-b6a5-a4073d88f943-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:48:19.993577+00:00" -->
+#### You
+Where will you put the turn spend?
 
 <!-- xgd-chat-end -->
