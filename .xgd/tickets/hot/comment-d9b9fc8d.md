@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T19:58:02.425518+00:00'
+updated_at: '2026-09-21T19:59:45.565818+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1046,5 +1046,56 @@ Either way, tell me the address and I'll add it.
 <!-- xgd-chat role="user" ts="2026-09-21T19:58:02.189655+00:00" -->
 #### You
 The sign-in token is not arriving - I tried the first email address
+
+<!-- xgd-turn id="da695f18-28df-4376-bf81-b537fa4d7960-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:59:44.010644+00:00" -->
+#### Claude
+Found it — **the repo already records the answer**, and `martin-cloudflaire@westhead.me` was never going to work.
+
+`ACCESS.md:59`:
+> The policy is an allow-list of individual emails, not a domain rule.
+
+And the table at line 64 lists exactly one human:
+
+| Identity | Why |
+|---|---|
+| **`martin-github@westhead.me`** (Martin Westhead, operator) | Sole operator of the platform |
+| `1stcontact-publish` (service token) | `bin/copy-to-cloud` / `bin/publish` |
+
+Cloudflare's One-time PIN won't email a code to an address no policy admits, so nothing was ever going to arrive for `martin-cloudflaire@`. Nothing is broken — no Resend involvement, no deploy problem. (Confirmed against production: 0 `users`, 0 `login_tokens`, 0 `sessions` — neither sign-in path has ever produced anything.)
+
+**Sign in with `martin-github@westhead.me`.**
+
+That's already the second address in the edit I made. And it's pleasingly economical: it's the same address `SERVICE_TOKEN_IDENTITIES` maps `1stcontact-publish` to, so the one seeded `users` row serves both you in the browser and `bin/copy-to-cloud` from your laptop.
+
+I've tightened `PLATFORM_ADMINS` to just that address — no point naming identities Access will refuse:
+
+Ticket updated (§I9–I10).
+
+## Do this now
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/deploy control-app
+```
+
+Then open `https://app.1stcontact.io/` and sign in with **`martin-github@westhead.me`**. The PIN will arrive this time. Accept the terms when the app asks.
+
+Verify the seed fired:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select e.email, u.platform_operator from users u join user_emails e on e.user_id = u.id;" --json
+```
+Expect one row, `platform_operator: 1`.
+
+## Two things worth saying
+
+**I should have read `ACCESS.md` first.** It's the artefact REQ-147 created to answer exactly this question, and I went at the live deployment three ways before opening it. I've recorded that in §I9 as a concrete recommendation: when the identity pre-flight check lands, its failure message should quote the granted-identities table, because the operator who can't get in is precisely the person who needs pointing at the record.
+
+**One item is queued behind this, not blocking today.** `ACCESS.md` notes the app's blanket Access policy also covers the invitee sign-in paths — so a real customer clicking an invitation meets Access first, gets a one-time-PIN email from a system they've never heard of, and is then refused for not being on the operator allow-list. The fix is a Bypass policy ahead of the allow-list, scoped to those paths. You're the only identity for go-live so it doesn't bite yet, but it will the moment you invite anyone. Logged as §I10.
+
+After you're in, next up is step 6 — creating **Lagrange Foundry** and **XGD** by hand — and then [[BUG-134]] blocks `bin/copy-to-cloud`. Say the word and I'll get that one moving in parallel while you're in the builder.
 
 <!-- xgd-chat-end -->
