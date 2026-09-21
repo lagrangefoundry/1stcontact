@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-20T23:54:31.142202+00:00'
+updated_at: '2026-09-21T00:00:38.265134+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -239,5 +239,15 @@ The alternatives all lose: rebuilding in the deployed builder is a day again plu
 2. **Nothing has ever been published, anywhere.** `public-site` serves revisions, not drafts, so the first publish is also the first exercise of that path. Worth doing locally first — LF already has the addresses `/api/publish` requires.
 
 Want me to scope the `1c pull` child now? Given the backup angle I'd do that before anything else.
+
+<!-- xgd-turn id="2baea63f-5793-4c0b-bdc8-1071bd456c31-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:00:37.657869+00:00" -->
+#### You
+So the old dev path and content are dead and I do not want to support them or allow you (or any other agent) to be confused by them.
+
+bin/publish is also an extremely confusing verb here. "publish" is the act of moving a site from draft to versioned and make the version live. Conflating that with moving things from my laptop to Cloudflare is beyond confusing.
+
+So I suggest we delete bin/publish what I would like is more like a bin/copy-to-cloud [business name] --site (default) --contacts --...other data as we add it. What is 1c pull?
 
 <!-- xgd-chat-end -->
