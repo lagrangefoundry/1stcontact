@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:21:29.649157+00:00'
+updated_at: '2026-09-21T22:22:59.600470+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1807,5 +1807,61 @@ Either way we'll know in about ten seconds, and the answer determines whether th
 <!-- xgd-chat role="user" ts="2026-09-21T22:21:29.398283+00:00" -->
 #### You
 The FF behavior ius identical except I get a 404 for the favicon in the console
+
+<!-- xgd-turn id="f9fd1cf3-7c45-4491-8f46-80bdad16ea91-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:22:59.528986+00:00" -->
+#### Claude
+Identical in Firefox rules out browser compatibility. And a favicon 404 in the console tells us something useful: asset requests reach the Worker and get a real 404 back — no Access redirect on assets, so my `run_worker_first` hypothesis is dead too.
+
+Critically, `/builder/main.js` itself must be loading — a 404 there would fire the element `error` event and the guard would have printed *"could not load…"*. It printed no reason at all.
+
+Let me look at what `main.js` does before it mounts.
+
+Found the shape of it. `main.js` has a **top-level await**:
+
+```js
+const loaded = await loadOrSignOut(root, () => Promise.all([fetchBusinesses(), fetchAiStatus()]))
+if (loaded) { mountBuilder(root, {...}) }
+```
+
+If `loadOrSignOut` returns falsy, `mountBuilder` never runs — **no throw, no rejection, empty `#app`**. That is precisely the signature you're seeing, and it's the one path the guard can't characterise.
+
+Note the timeline too: the builder *worked* at 20:03 when you signed in and created three businesses. What changed since is the 21:40 deploy and the import.
+
+`loadOrSignOut` narrows it hard:
+
+- rejects with a session error → it **draws a notice**, so `#app` wouldn't be empty and you'd see no guard panel
+- rejects with anything else → it **rethrows** → unhandled rejection → the guard would print *"What failed:"*
+- resolves → `mountBuilder` runs
+
+You got an empty `#app` and no reason. So either `mountBuilder` ran and rendered nothing, **or the two fetches simply hadn't finished when the 4-second deadline fired**. `fetchAiStatus` is the suspect there — REQ-173 has it gating what gets drawn, and if it probes the AI provider from the Worker that's a real round trip.
+
+Let me get the exact URLs for you to test.
+
+**Found the mechanism.** `api.js:311`:
+
+```js
+const res = await send(fetchImpl, '/api/businesses')
+if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
+if (!res.ok) return { person: null, businesses: [] }   // ← 403, 404, 500 all land here
+```
+
+Only a **401** becomes a session error. Any other failure — including the **403** we've been staring at all session — is swallowed and returns an *empty business list*. `loadOrSignOut` sees a resolved promise, returns truthy, and `mountBuilder` runs with `businesses: []` and `person: null`.
+
+That renders nothing, throws nothing, and rejects nothing. Empty `#app`, clean console, and a boot guard with no reason to report — every symptom you have, exactly.
+
+`fetchAiStatus` does the same thing one line up (`if (!res.ok) return { ai: true, message: null }`).
+
+**Two URLs in your browser address bar will confirm it:**
+
+```
+https://app.1stcontact.io/api/businesses
+https://app.1stcontact.io/api/status
+```
+
+If `/api/businesses` returns 403 with *"1st Contact cannot open this for you at the moment"*, that's the cause and we're back to an admission problem — this time for your browser session, not the service token. Worth noting the guard's own probe of `/api/sites` returned **200**, so the session works for *that* route; if `/api/businesses` refuses while `/api/sites` serves, that difference is itself the clue.
+
+Keep `wrangler tail` running when you load those — an `admission_denied` line will name the reason directly.
 
 <!-- xgd-chat-end -->
