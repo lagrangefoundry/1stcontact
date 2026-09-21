@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:19:32.212837+00:00'
+updated_at: '2026-09-21T22:21:29.649157+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1801,5 +1801,11 @@ Then that changes the odds considerably — the deployed builder may simply neve
 - **Fails in Firefox too** → production-specific, and the Network tab is next. My leading hypothesis there is `run_worker_first = true`: every `/webui/...` module fetch goes through the Worker and Access before reaching the assets binding, and a 302-to-login on a module request stalls the graph without throwing.
 
 Either way we'll know in about ten seconds, and the answer determines whether the next move is a compatibility ticket or a serving-path investigation.
+
+<!-- xgd-turn id="f9fd1cf3-7c45-4491-8f46-80bdad16ea91-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:21:29.398283+00:00" -->
+#### You
+The FF behavior ius identical except I get a 404 for the favicon in the console
 
 <!-- xgd-chat-end -->
