@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T22:53:14.268517+00:00'
+updated_at: '2026-09-21T22:54:59.067143+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -1445,3 +1445,47 @@ textarea when the CDN is unreachable, which is the right instinct — but it mak
 product's authoring surface depend on a third party being up, and makes first paint pay
 four cross-origin round trips. Vendoring those four into `dist-assets` would remove the
 dependency and the latency that caused this bug in one step.
+
+
+### I22 — The AI key is invalid, and two capability checks both said otherwise
+
+The first chat turn in the deployed builder returned, verbatim from Anthropic:
+
+```
+401 {"type":"error","error":{"type":"authentication_error","message":"API key is invalid."}}
+```
+
+So `ANTHROPIC_API_KEY` is present on the Worker and its value is refused. Two separate
+mechanisms exist to prevent exactly this, and both reported healthy.
+
+**1. `/api/status` answers presence, not capability.** It returned `ai: true`, which is
+what the builder draws its "the assistant is available" state from. Nothing in that
+path exercises the credential.
+
+**2. The deploy-time probe is skipped for a stored secret.**
+`bin/deploy.d/secrets/10-anthropic-api-key` states the requirement precisely — *"AND
+PRESENCE IS NOT CAPABILITY ([[REQ-264]]). A revoked key, or one scoped to the wrong
+organisation, satisfied every check this hook made and then failed on the first turn a
+customer took"* — and probes `GET /v1/models` when a value is SUPPLIED. When the secret
+is already in the store it reports *"already on … — left alone, not probed"* (line 134)
+and the deploy passes.
+
+That branch is the steady state for every deploy after the first, so the probe covers
+the rotation and leaves the standing credential unexercised — reproducing the exact
+failure the comment above it describes.
+
+**The rationale for skipping is sound and the conclusion does not follow.** A secret
+cannot be read back out of Cloudflare, so the deploy host genuinely has nothing to
+probe. But the thing that holds it can: **the capability question should be asked of
+the Worker, not of the operator's shell.** A `GET /api/status` that actually exercises
+the key — or a deploy-time call to an endpoint that does — closes the hole without
+requiring anybody to re-supply a value Cloudflare already has, which is the practice
+this hook was deliberately written to avoid.
+
+That also fixes `/api/status` at the same time. Both defects here are one: two places
+report "the AI works" from the presence of a configuration value, and neither asks the
+only system that can answer.
+
+Interim: re-supplying the key through `bin/deploy` takes the supplied path and probes
+it, failing the deploy if Anthropic refuses — which is the behaviour wanted on every
+deploy, not only on a rotation.
