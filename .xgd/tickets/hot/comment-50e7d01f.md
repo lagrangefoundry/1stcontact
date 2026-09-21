@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:04:10.973749+00:00'
+updated_at: '2026-09-21T19:06:01.430017+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -348,5 +348,52 @@ The band closes with one write in `ai.ts` — `usage` is already on the turn's `
 <!-- xgd-chat role="user" ts="2026-09-21T19:04:09.901982+00:00" -->
 #### You
 I think your new modelling is a little optimistic - I know I paid 7 $10-11 top ups yesterday - so the cost was at least $75 yesterday
+
+<!-- xgd-turn id="7b4d0d06-34ac-499c-a786-41117ab6bcf6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:06:00.159734+00:00" -->
+#### Claude
+Two hard numbers now, and they bracket the answer. Let me calibrate rather than guess.
+
+Your $75 is the better number — I've calibrated to it rather than argued with it.
+
+What it fixed: the one thing the records can't show is how long the Worker isolate holding `messages[]` survived between turns. I'd guessed 10 minutes. $75 says **about an hour** — which is right, because this was local `wrangler dev`, a long-running process, not a production isolate.
+
+### 1–4, calibrated
+
+**2026-09-20: 38 turns, 339 tool calls, 377 round trips, 2.60 h engaged** (1.58 h machine + 1.03 h typing at 40 wpm).
+
+| | yesterday | $/hour | whole build |
+|---|---|---|---|
+| **1. As it ran** | **$75** | **$29** | $107 |
+| **2. Config only** (3 settings) | **$39** | **$15** | $61 |
+| **3. + Haiku delegation** | **$12** | **$4** | $19 |
+
+**2** is window 40→10, defer the tool definitions, TTL 1h→5min. No new code in either repo.
+
+**3** also includes two code changes worth having: a cache-preserving window trim (−$9) and low effort on construction turns (−$5). Haiku itself is the biggest single lever, worth over half.
+
+$107 for the whole build fits your $166.50 alongside the $25 on 1st Contact and the 09-08 session.
+
+### What the money actually buys
+
+| | |
+|---|---|
+| **Tool results replayed inside their own turn** | **37%** |
+| Seeded 40-exchange window | 17% |
+| Output + thinking | 15% |
+| Tool arguments | 13% |
+| System + tool definitions | 10% |
+| Screenshots | 1.2% |
+
+A 55-tool turn is 56 requests, and the 56th carries everything the first 55 produced. That's the same quadratic the 09-08 diagnosis found — it survived the caching fix because a cache read still costs 10%, and 10% of a large number, 56 times, isn't small.
+
+One counterintuitive result: **window 20 is worse than window 40** ($111). A smaller window slides more often, and each slide drops the oldest exchange off the *front*, invalidating the prefix. Only at 10 does the smaller payload outrun the extra invalidation.
+
+### Caveat
+
+$75 is yours. The split of it across levers is still mine, and rests on chars-per-token and thinking-token assumptions I can't observe. That's item 1: `usage` is already on the turn's `done` event and `ai.ts` discards it. Two rounds of this analysis were wrong by 4.5× and 2.4× in opposite directions, both about numbers the API already reports.
+
+Ticket updated. I'd do the `usage` write first — it's one write, and it makes the other five verifiable instead of argued.
 
 <!-- xgd-chat-end -->
