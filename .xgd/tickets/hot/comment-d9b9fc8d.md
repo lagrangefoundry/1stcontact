@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:46:49.601599+00:00'
+updated_at: '2026-09-21T23:47:43.516415+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2393,5 +2393,52 @@ INTERNAL: No business called 'Lagrange Foundry' at http://127.0.0.1:8799. This c
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="446ec0b6-773d-4c3b-9af6-19b3644dda79-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:47:43.205015+00:00" -->
+#### Claude
+That's the **dev-open fallback**: the local end is answering with a bare tenant id rather than names, which is `ACCESS_DEV_OPEN` resolving everything to `TENANT_ID` and nothing else. `biz_51a674…` *is* 1st Contact — which is why every copy so far worked and this one can't.
+
+Your local builder came up without the simulator's Access vars.
+
+`apps/control-app/.dev.vars:20` states the rule:
+
+> `ACCESS_DEV_OPEN = "1"` in wrangler.toml only takes effect when BOTH of these are empty
+
+…and `.dev.vars` sets `ACCESS_TEAM_DOMAIN = ""` and `ACCESS_AUD = ""`. The root `.dev.vars.local` is what fills them in with the simulator's values — and it exists and is correct:
+
+```
+ACCESS_TEAM_DOMAIN="http://127.0.0.1:8799"
+ACCESS_AUD="local-dev-aud"
+SERVICE_TOKEN_IDENTITIES="local-dev=martin@westhead.me"
+```
+
+So your `wrangler dev` came up with only `.dev.vars`, both vars stayed empty, dev-open engaged, and the Worker has no admission to resolve a *named* business against. Restart with both files, second overriding first:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 --env-file .dev.vars --env-file ../../.dev.vars.local
+```
+
+**The tell is in the error message itself.** It offered `'biz_51a674…'` — a bare id. With admission working it lists **names** (`'1st Contact', 'Lagrange Foundry', 'XGD', …`). Bare id = dev-open = you can only ever reach `TENANT_ID`, which is why every copy so far succeeded: 1st Contact *is* `TENANT_ID`.
+
+Added that to the refusals table in ACCESS.md, since "bare id versus names" is the fastest way to spot it and it isn't obvious from anywhere else.
+
+Worth noting this is the *same root cause* as the very first `copy-to-cloud` failure today — `--origin` defaulting to 8788 — wearing different clothes. Both are "the local end can only reach `TENANT_ID`", once via the wrong port and once via the wrong env files. That's §I12's point restated: the refusal names the credential but never the scope consequence, so you fix what it tells you and hit the same wall from the other side.
+
+Once it's restarted, the sequence is unchanged:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+bin/copy-to-cloud --force --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' "Lagrange Foundry"
+
+bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' "Lagrange Foundry"
+```
+
+Then the same two for XGD, plus `--chats` for 1st Contact. And `bin/deploy control-app` before any `--chats` run, since production predates those routes.
 
 <!-- xgd-chat-end -->
