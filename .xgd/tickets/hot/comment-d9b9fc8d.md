@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:59:56.080148+00:00'
+updated_at: '2026-09-21T23:00:16.113165+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2232,5 +2232,11 @@ One thing to watch on the copies: `/api/export` **409s when a business holds mor
 <!-- xgd-chat role="user" ts="2026-09-21T22:59:55.615257+00:00" -->
 #### You
 Actually I think the history is critical - can you create a copy flag that copies the chats?
+
+<!-- xgd-turn id="becff2d1-f791-4a6f-9a66-1f3c981a4eac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:00:15.467990+00:00" -->
+#### You
+Actually I think the history is critical - can you create a ticket for  a copy flag that copies the chats?
 
 <!-- xgd-chat-end -->
