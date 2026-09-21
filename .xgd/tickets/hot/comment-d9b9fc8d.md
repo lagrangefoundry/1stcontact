@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:17:30.853315+00:00'
+updated_at: '2026-09-21T20:18:55.404246+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1270,5 +1270,46 @@ INTERNAL: Listing the businesses at http://localhost:8788 was refused with 401: 
 The LOCAL end is behind Cloudflare Access. Set LOCAL_ACCESS_CLIENT_ID and LOCAL_ACCESS_CLIENT_SECRET to a service token, or pass --local-client-id and --local-client-secret. Run ./bin/access-sim --print-token and put its two values in LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET — it prints them under the CLOUD names, which are the other end.
 
 ```
+
+<!-- xgd-turn id="7fccf82a-e5b3-4f4b-9de8-24b9eb3452f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:18:54.336096+00:00" -->
+#### Claude
+Two things.
+
+## ⚠️ There's a business in production you may not have meant to create
+
+`Gigabyte Alchemy` — with a starter site, `site_70772e92…`. It's one of your local test businesses. `provisionBusiness` writes a live `pro` grant, so it's a real customer as far as the system is concerned. Did you create it deliberately, or was it a mis-click while finding the fulfil action? Tell me and I'll either leave it or work out the clean removal.
+
+Also note 1st Contact correctly has no site yet — that arrives by import.
+
+## The copy-to-cloud refusal is correct, and points at the wrong port
+
+You aimed at `localhost:8788`, which is the raw `wrangler dev` builder. The sim is on **8799** and it's already running (I probed both — 8788 answers 401, 8799 answers 302).
+
+**`--origin` isn't optional here, it's required.** `scope.ts:329` notes the dev-open branch answers from `TENANT_ID` and is its last reader — so a direct connection to 8788 could only ever reach *1st Contact*, even if the gate were open. `bin/access-sim` is the only local front door that can reach Lagrange Foundry and XGD.
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+# local end — remap the sim's output onto the LOCAL_ names
+eval "$(./bin/access-sim --print-token | sed 's/CF_ACCESS_/LOCAL_ACCESS_/')"
+
+# cloud end — from bin/access-token, if you haven't already
+export CF_ACCESS_CLIENT_ID='...'
+export CF_ACCESS_CLIENT_SECRET='...'
+
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/1st-contact.json "1st Contact"
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/xgd.json "XGD"
+```
+
+The `sed` is just belt and braces — the sim prints under the CLOUD names (as its error message warned), and its defaults are the well-known `local-dev.access` / `local-dev-secret`, deliberately fixed because `/mint` hands anyone a token anyway and it binds to loopback.
+
+Your local sim will act as `martin@westhead.me` — that's `PLATFORM_ADMINS` in `apps/control-app/.dev.vars:29`, which is a different address again from the production one. Expected; the sim reads the local break-glass the same way the Worker does.
+
+Expect **Lagrange Foundry and XGD to demand `--force`** — their starter sites are builder-authored changes and `/api/import` refuses to clobber them. Read the count it names before you re-run. 1st Contact should go through clean, having no site at all.
+
+Recorded as §I12–I13. The Gigabyte Alchemy question matters beyond tidiness: there's no route that deletes a business — `POST /api/admin/businesses` has no inverse — so if it was a mis-click, undoing it means hand-editing D1. That's worth adding to the controls list either way.
 
 <!-- xgd-chat-end -->
