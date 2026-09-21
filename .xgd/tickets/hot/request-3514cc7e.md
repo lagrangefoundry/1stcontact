@@ -5,9 +5,9 @@ type: request
 title: Fail the deploy when an applied migration's content has changed
 created_by: EPIC-16
 created_at: '2026-09-21T01:05:22.242071+00:00'
-updated_at: '2026-09-21T18:45:01.863985+00:00'
+updated_at: '2026-09-21T18:45:09.927117+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.306
+  story_points: 3
 ---
 
 Parent: [[EPIC-16]]. Asked for by the operator on 2026-09-20, after the first real
