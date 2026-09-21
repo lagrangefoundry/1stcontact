@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:53:49.585371+00:00'
+updated_at: '2026-09-21T23:54:36.959401+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2446,5 +2446,33 @@ Then the same two for XGD, plus `--chats` for 1st Contact. And `bin/deploy contr
 <!-- xgd-chat role="user" ts="2026-09-21T23:53:49.241787+00:00" -->
 #### You
 BUG-134 has landed what do I need to do to deploy it?
+
+<!-- xgd-turn id="b31348a4-a6b1-4b8e-aeff-fe77a1461882-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:54:36.503317+00:00" -->
+#### Claude
+**BUG-135** is what just landed — `f1f7f87713 fix(builder): the boot guard reports slowness as slowness [FREE-CODED]`, merged at `f4cda2ebf6`. BUG-134 went in earlier (`87c49670d8`) and is `ready_to_reconcile` too.
+
+The distinction matters for deploying:
+
+**`bin/build && bin/deploy control-app`** — and the `bin/build` half is not optional here.
+
+BUG-135 touched two files that ship by different routes:
+
+- `apps/control-app/src/boot-guard.ts` → inlined into the chrome document by `chrome.ts`, so it rides the **Worker bundle** and `bin/deploy` alone would ship it
+- `apps/control-app/src/builder/main.js` → a **client asset**, which only reaches `dist-assets/builder/main.js` when `1c assets` runs
+
+`bin/deploy` on its own would give you the new guard talking to the old `main.js`. The commit message says `main.js` records `data-builder-boot`, and the new guard's whole design is that "a caught fault, not a clock, licenses the verdict" — it reads that marker to tell a graph that never ran from one that's merely slow. Ship one without the other and the guard loses the evidence it now depends on.
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/build && bin/deploy control-app
+```
+
+**BUG-134 needs nothing extra.** `bin/copy-to-cloud` is a local script — already in effect on your laptop. It also touched `tools/generate/src/cli/{copy,index,push}.ts`, and `push.ts` is bundled into the Worker (it's the producer/consumer behind `/api/export` and `/api/import`), so the same deploy carries it.
+
+What you should see afterwards, on a slow mount: **"Still loading the builder…"** instead of the false failure, rendered into its own `div#boot-guard` on `document.body` rather than inside `#app` — so the chat composer should be there without you removing anything by hand. The thresholds are now `BOOT_NOTICE_MS=4000` for the claims-nothing note and `BOOT_DEADLINE_MS=12000` before a caught fault becomes a verdict.
+
+That same deploy also carries `/api/chats/export` and `/api/chats/import`, which production still doesn't have — so it unblocks the `--chats` copies too.
 
 <!-- xgd-chat-end -->
