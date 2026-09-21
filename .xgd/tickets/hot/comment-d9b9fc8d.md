@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:53:29.758064+00:00'
+updated_at: '2026-09-21T21:54:19.486240+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1730,5 +1730,28 @@ The document loaded; its client did not. Full detail is in the browser console.
 
 ^^^^
 This appears at the top of the app.1stcontact.io plage
+
+<!-- xgd-turn id="1caf4a04-c76e-46ae-b1ad-0d9ad3ee3969-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T21:54:18.530592+00:00" -->
+#### Claude
+That's `boot-guard.ts` reporting: the HTML and the API are fine, the client bundle didn't initialise. Let me check whether the assets actually got built and uploaded.
+
+Assets are there — 112 files — but dated **Sep 20 17:30**, before today's work. Let me check whether the source has moved since.
+
+Two things ruled out, so I'm not asking blind:
+
+- **Assets are deployed** — 112 files under `dist-assets/` (builder, framework, webui), uploaded with the deploy.
+- **They're not stale.** 18 files have changed since the assets were built, but every one is under `tools/generate/src` — CLI and store code that bundles into the *Worker*, not into the client. No `src/builder/*.js` has moved since 17:30 on the 20th.
+
+So this is a runtime failure in the client, not a missing or outdated bundle. `boot-guard` is telling you the truth: the document and `/api/sites` are fine (`latest: null` is correct — nothing published yet), and something threw during startup.
+
+**Paste the browser console.** That's the one thing that names it, and there's no way to get at it from here — `run_worker_first = true` puts the assets behind Access, so I can't fetch them.
+
+Worth trying first, in this order:
+1. **Hard reload** (Cmd-Shift-R) — a cached bundle from a previous deploy against a changed Worker is the cheapest explanation.
+2. If it persists, the console's first error — a 404 on a module URL points at a missing asset; a `TypeError`/`ReferenceError` points at the code itself.
+
+If it turns out to be a 404, tell me the URL and I can check whether that file exists in `dist-assets` locally — which would separate "never built" from "built but not uploaded".
 
 <!-- xgd-chat-end -->
