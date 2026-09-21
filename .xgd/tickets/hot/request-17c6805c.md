@@ -5,9 +5,9 @@ type: request
 title: A tenant's spend, in engaged hours and in dollars
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:44.197313+00:00'
-updated_at: '2026-09-21T21:45:12.405342+00:00'
+updated_at: '2026-09-21T21:52:28.589492+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-d29cd4b4
 ---
+
 
 ## Why
 
@@ -129,3 +130,113 @@ audit and for a live one from the meter, with no second implementation to drift.
 It does **not** mean backfilling `turn_spend`. That table holds measured rows
 only — its own ticket says why — so a retrospective is an analysis run over the
 audit, never rows written into the meter.
+
+## Implementation decisions
+
+Recorded here because three of them narrow a condition above, and one of them
+reads a condition in the only way the definition allows.
+
+### The gap is credited FORWARD, so the boundary falls on a session's last turn
+
+Condition 3's second half — *a session's first turn contributes only its own
+duration* — is implemented as **a turn with no turn after it contributes only
+its own duration**, which in a session is the LAST one, not the first.
+
+The definition above forces it: a turn's engaged time is its own duration *plus
+the gap until the next turn*, so the gap is an interval the earlier turn owns.
+It is also the honest attribution — that gap is the client reading what the turn
+produced and deciding what to ask next, so it belongs to the turn whose answer
+they were reading, and the model split is only truthful if it is attributed that
+way.
+
+**The total is identical either way**; only the attribution differs, which is
+why this is a decision about the split rather than about the bill. And the first
+turn still gains nothing from what precedes it: silence before somebody starts
+talking is not engagement, so the clock begins at the first message and never at
+the moment a tab was opened.
+
+### The clock never runs between two conversations
+
+The gap is measured **within a session**, never across one. Two sessions are two
+engagements — possibly two people, possibly the same person on two days — and a
+clock that ran from the end of one into the start of the next would bill the
+interval between two conversations as though somebody had sat through it. It
+would also make one tenant's arithmetic depend on which other conversations
+happened to fall in the same report.
+
+### A turn the price table does not name is counted, not absorbed
+
+`turn_spend` writes a measured row with a **null** cost where `prices.json` has
+no entry for its `(backend, model)` — measured but not priced (REQ-292). A
+report that silently summed the rest would present a **floor** as a total. So
+every level of the report carries `unpricedTurns` beside its figure, and where
+*nothing* in a slice was priced the cost is null rather than zero — the same
+rule as the empty period. The count is also the alarm that says `prices.json`
+has fallen behind `backends.json`.
+
+### Both the exact milliseconds and the rounded hours
+
+Hours are quoted to two decimals because that is how they will be sold, and
+`engagedMs` is carried beside them unrounded because a caller adding slices
+together, or comparing a month against a cap, must not accumulate two decimal
+places of rounding error per row. Cost per engaged hour is in **micros per
+hour**, for the reason the settled cost is in micros: floating-point money is
+not money.
+
+### Where it lives, and what is deliberately not imported
+
+- `tools/generate/src/cli/ai/spend-report-core.ts` — `ENGAGED_GAP_CAP_MS`,
+  `engagedMs(boundaries)` and `spendReport(turns)`. It **imports nothing**: a
+  report is assembled from stored rows that are already priced, and re-deriving
+  a cost here would be a second answer to a question the meter settled at write
+  time. `spend-core.ts` owns what a turn *is*; this owns what a period of them
+  adds up to.
+- `apps/control-app/src/spend.ts` — `tenantSpendTurns` / `tenantSpendReport`,
+  in the same module as the write because there is one table and one shape of
+  row; a reader that lived elsewhere would restate the column names a second
+  time and could disagree with the writer about them silently. It selects five
+  columns and **not** the four counters: this report is in hours and dollars,
+  and the counters answer a different question that needs a replay harness.
+
+### The period is half-open, and either end may be absent
+
+`started_at >= from AND started_at < to`, so adjacent periods tile: a turn that
+begins exactly on a boundary is in the later period and in that one only, or a
+year does not add up to the sum of its months. A turn belongs to the period it
+**began** in, so a conversation crossing midnight is counted on the day somebody
+sat down. An absent end means unbounded — the meter is retained rather than
+pruned, so *everything this tenant has ever spent* is a question it can answer,
+and the first person to read it has no period in mind yet.
+
+### The report is reachable: `GET /api/admin/spend`
+
+A report nothing can ask for is unprovable, so the read has an entry point:
+`GET /api/admin/spend?business=…&from=…&to=…`, behind `ownsPlatformBusiness`
+and refusing with **404** rather than 403 on every other `/api/admin/` route's
+reasoning — a caller asking whether an administrative surface exists is owed
+nothing, and what this one would hand over is a profile of somebody else's
+spending.
+
+It is an operator surface rather than a customer one, and that is temporary
+rather than permanent: a client will be shown their hours, but what they are
+shown is a bill, and a bill needs a plan, a cap and a decision about overage —
+none of which exist yet. Customer-facing billing stays out of scope.
+
+Two refusals: a missing `business` is a 400, and an **unreadable timestamp is a
+400 rather than an ignored bound** — dropping a `from` nobody could parse would
+answer a wider question with no sign that it had, and the reader would take the
+total for the month they asked about.
+
+### The retrospective is an analysis run, not product code
+
+The pure-function property is what ships and what is pinned by a UAT: the same
+call answers over the meter's ISO stamps and over boundaries shaped from the
+audit ledger's epoch `timestamp` + `durationMs`, and the two must agree. An R2
+reader that listed a fortnight of audit objects is a one-off analysis, as this
+ticket already says, and is not built here.
+
+### Rows the database does not forbid but the arithmetic must survive
+
+An `ended_at` before its `started_at`, two turns of one session that overlap,
+and an unparseable stamp all clamp to a zero contribution rather than a negative
+one. A negative interval would **subtract** from a bill.
