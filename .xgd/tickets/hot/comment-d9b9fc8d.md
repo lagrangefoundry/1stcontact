@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T01:08:49.692743+00:00'
+updated_at: '2026-09-21T01:10:52.090599+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -635,5 +635,13 @@ Stopped. Worktree reverted to clean — `free-BUG-134` exists and is untouched, 
 **The rebaseline.** `db/ops/rebaseline-remote.sql` is written and unrun. I verified 0001→0018 applies clean from empty. Your "Yes" was ambiguous between the ticket and the wipe, and I'm not guessing on a production drop — say the word and I'll run it, or hand it to a session.
 
 That script is the one other thing I authored outside a ticket. It's an ops artifact rather than product code and §H references it, but if you'd rather it lived under a ticket too, say so and I'll move it.
+
+<!-- xgd-turn id="ef5fc448-0cb6-412d-a6b0-333c056dec69-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:10:48.997004+00:00" -->
+#### You
+I will run install and deployment scripts - you help me get them right and create tickets for me.
+
+ok so I ran bin/deploy and bin/smoke failed - what now?
 
 <!-- xgd-chat-end -->
