@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:48:49.499658+00:00'
+updated_at: '2026-09-21T21:53:02.080185+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1707,5 +1707,15 @@ For 1st Contact the same applies; it needs *an* address row before it can publis
 Recorded as §I17, including the correction to my own advice.
 
 One thing in there worth flagging separately, because it's a trap waiting for the next person: **the import mints a new site id.** `1st Contact` resolved to the same business id on both sides (both read `TENANT_ID`), but the site came out as `site_c4bed79a…` in production versus `site_62d3d009…` locally. So `APEX_SITE_KEY` has to be read from production after the import. Copying it from the local store would 404 identically to an unpublished site — indistinguishable from the import having failed.
+
+<!-- xgd-turn id="f68fa0be-900d-4a75-9afc-a6131cc8e207-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T21:53:01.543839+00:00" -->
+#### You
+# The builder did not start.
+
+**GET /api/sites:** 200 [{"site":"site_c4bed79aeb647305a5e3098f70d6dca3","latest":null}]
+
+The document loaded; its client did not. Full detail is in the browser console.
 
 <!-- xgd-chat-end -->
