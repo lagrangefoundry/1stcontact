@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:37:59.217613+00:00'
+updated_at: '2026-09-21T23:39:06.346140+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2324,5 +2324,61 @@ INTERNAL: Listing the businesses at http://127.0.0.1:8799 was refused with 502: 
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="42409454-e4c9-43ac-838e-ba5be7c801d9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:39:06.272191+00:00" -->
+#### Claude
+Two separate things.
+
+**1. Your local builder is down.** That 502 is the simulator reporting that nothing answered on 8788 — `fetch failed` is no listener, not a refusal.
+
+**2. `--chat` doesn't exist yet.** That's REQ-294, filed but not built. What concerns me is that it didn't stop you.
+
+8788 is dead (the sim on 8799 is fine and correctly reporting it). But `bin/copy-to-cloud`'s header has **changed since I read it earlier** — it now mentions things that weren't there.
+
+**REQ-294 is already built.** Another session landed it while we were working: `ead5aa1dd0 feat(copy): carry a business's conversations with --chats [FREE-CODED]` — `/api/chats/export` and `/api/chats/import` as a second route pair, which is the shape the ticket asked for.
+
+So three things were wrong at once:
+
+1. **The flag is `--chats`, plural** — you used `--chat`
+2. **Your local builder on 8788 is down** — restart it
+3. **Production doesn't have the new routes yet** — it was deployed at 21:40Z, before that commit
+
+REQ-294 is `ready_to_reconcile` — and the implementation settled every decision the ticket flagged, including idempotency: conversations match by session id, one the far side already holds is **kept and counted** rather than refusing the whole set, and `--force` replaces.
+
+That makes the Chat transcripts section I wrote in ACCESS.md an hour ago already false. Fixing it now.
+
+Docs corrected. Now, in order:
+
+**1. Restart your local builder** (it's what's actually down):
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 --env-file .dev.vars --env-file ../../.dev.vars.local
+```
+
+**2. Redeploy the control app** — production was deployed at 21:40Z, before `ead5aa1dd0`, so `/api/chats/import` doesn't exist there yet and the copy would 404 on the far side:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/deploy control-app
+```
+
+**3. Then the copies** — note `--chats` is plural, and it's a *separate* command from the site copy, since they're separate route pairs:
+
+```bash
+bin/copy-to-cloud --force --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+
+bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+```
+
+Then the same pair for XGD, and `--chats` for 1st Contact whose site is already up.
+
+One thing worth flagging: `--chat` didn't fail as an unknown argument — it got all the way to a network call. If 8788 had been up, that would have run a **site** copy while you believed you were copying conversations. The `--site`/`--contacts`/`--chats` class flags are a set where a typo silently selects the default, and the file's own convention elsewhere is that a known-but-wrong flag fails with a sentence. Want me to file that as a small bug?
 
 <!-- xgd-chat-end -->
