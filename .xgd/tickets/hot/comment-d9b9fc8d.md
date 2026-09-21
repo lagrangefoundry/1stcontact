@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:33:20.777759+00:00'
+updated_at: '2026-09-21T22:35:42.907887+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1983,5 +1983,17 @@ Note you've only ever run `bin/deploy control-app` on its own today; `bin/build`
 **2. If it still fails, the console dump.** The snippet from my last message is the decisive artifact — every request with its status, plus `#app`'s child count and the import-map size. That single paste tells us whether the shell module was fetched, what it returned, and whether the graph completed.
 
 I'd rather not keep theorising past this point. Every hypothesis I can test from here is spent: the assets are complete on disk, contain no symlinks, aren't stale, all import targets resolve, both APIs return correct data, both browsers behave identically, and the fresh-origin theory is dead. What's left is what production actually sent your browser, and only your browser can show that.
+
+<!-- xgd-turn id="414fdf0a-065c-4b2b-aa55-8fc9c0c8f869-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:35:42.681349+00:00" -->
+#### You
+I just used the back button after those initial API calls and go two new 404s on the builder page:
+
+https://app.1stcontact.io/api/pages?site=site_23c1afb3739dadf62347a5008e8a7dea
+
+https://app.1stcontact.io/preview/site_23c1afb3739dadf62347a5008e8a7dea/draft/
+
+On your test, https://app.1stcontact.io/webui/webui-shell/src/index.js returns a js file
 
 <!-- xgd-chat-end -->
