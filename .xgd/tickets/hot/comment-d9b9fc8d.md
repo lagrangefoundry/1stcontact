@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:54:03.827014+00:00'
+updated_at: '2026-09-21T22:55:04.953530+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2153,5 +2153,41 @@ Say the word on tickets and I'll file them: the boot guard (§I21) is the one th
 Note the chat window does not work though, attempts to chat create: Hello are you connected?
 
 *401 {"type":"error","error":{"type":"authentication_error","message":"API key is invalid."},"request_id":null}*
+
+<!-- xgd-turn id="3a0eacee-8241-40d3-9d4a-3c2916c6fdbb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:55:03.304030+00:00" -->
+#### Claude
+Unambiguous: the `ANTHROPIC_API_KEY` secret exists but its value is rejected by Anthropic. Note `/api/status` returned `ai: true` — so that probe checks the var is *present*, not that it *works*.
+
+That should have been caught at deploy time, though — the secrets hooks are documented as probing what a credential can actually do.
+
+`bin/deploy.d/secrets/10-anthropic-api-key:134`:
+
+> `ANTHROPIC_API_KEY already on $DEPLOY_WORKER_NAME — left alone, not probed`
+
+The capability probe (`GET /v1/models`) only runs when you *supply* a value. An already-stored secret is skipped — so an invalid key is never exercised, and that's the steady state for every deploy after the first.
+
+The hook's own rationale names this exact failure:
+
+> **AND PRESENCE IS NOT CAPABILITY ([[REQ-264]]).** A revoked key, or one scoped to the wrong organisation, satisfied every check this hook made and then failed on the first turn a customer took.
+
+…and then the already-stored branch reproduces it, because the probe only runs on the supplied path. The reasoning for skipping is sound as far as it goes — you can't read a secret back out of Cloudflare, so the deploy host has nothing to probe. But the Worker *holds* it and could.
+
+**To fix it now** — supply the key so the hook pushes *and* probes it:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+export ANTHROPIC_API_KEY='sk-ant-...'
+bin/deploy control-app
+```
+
+Use this rather than `wrangler secret put` directly: the hook will run `GET /v1/models` against the new key and **fail the deploy** if Anthropic refuses it, so you find out now instead of on the next chat turn.
+
+Check your key at console.anthropic.com first — a 401 `API key is invalid` means revoked, deleted, or from a different organisation, not merely out of credit.
+
+Recorded as §I22. The interesting part isn't the bad key — it's that two independent capability checks both reported healthy: `/api/status` answers presence rather than capability, and the deploy probe skips any secret already in the store, which is the steady state for every deploy after the first.
+
+Both are the same defect. The deploy host genuinely can't probe a stored secret — you can't read it back out of Cloudflare — but the Worker holds it and can. Asking the capability question of the Worker rather than the operator's shell closes the hole and fixes `/api/status` in the same change, without forcing anyone to re-supply a value Cloudflare already has.
 
 <!-- xgd-chat-end -->
