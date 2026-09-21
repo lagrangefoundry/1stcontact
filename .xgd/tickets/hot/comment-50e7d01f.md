@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:19:53.012698+00:00'
+updated_at: '2026-09-21T19:45:06.038542+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -478,5 +478,15 @@ Worth noting: the levers cut hardest on exactly the expensive turns, so they **f
 Scope is in EPIC-20 under *Metrics first*. Order: instrument 1, instrument 2 alongside it (two timestamps and a capped gap — free while the record is being designed), a week of real sessions, then re-read the lever ranking against measurement. My predictions have a poor record here.
 
 Want me to scope instrument 1 as a child ticket and cut the branch?
+
+<!-- xgd-turn id="37ca9116-cc1b-4166-adf7-c35b42c35729-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:45:05.974485+00:00" -->
+#### You
+Ok very interesting - we have other options too - open weights models are 7x cheaper - they are not yet at Opus 5 level, which we need, but in a year they would likely be there. So long as we are not too tied to Anthropic there's very significant cost savings available - and its likely to be a year before we have real scale.
+
+You are an Epic ticket we design and strategise - you delegate coding to REQ and BUG tickets.
+
+Please can you lay out your plan for metrics
 
 <!-- xgd-chat-end -->
