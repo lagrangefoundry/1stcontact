@@ -434,9 +434,49 @@ function borderCss(b: L1Border): string | null {
   return `${w} ${style} ${c}`
 }
 
-/** A 2D transform → `rotate(<deg>) scale(<n>)`, or null when it is the identity. */
+/**
+ * REQ-288 — one axis of a static translate as a `<length-percentage>`, or null
+ * when it is zero.
+ *
+ * The percentage is CSS `translate()`'s own basis: a share of the node's OWN
+ * rendered box. That is the whole reason the axis exists — see
+ * {@link L1Transform} — and it is why the percentage is emitted as a percentage
+ * rather than resolved to px here: the renderer does not know the node's width at
+ * any given viewport, and the browser does, at every one of them.
+ *
+ * A `calc()` when both components are given. It is arithmetic over two numbers
+ * this emitter formatted itself, not a value from the document, so it carries no
+ * more authority than the two lengths it adds.
+ */
+function translateComponent(pct: number | undefined, pxOffset: number | undefined): string | null {
+  const hasPct = pct !== undefined && Number.isFinite(pct) && pct !== 0
+  const hasPx = pxOffset !== undefined && Number.isFinite(pxOffset) && pxOffset !== 0
+  if (hasPct && hasPx) {
+    // `calc(50% - 4px)` rather than `calc(50% + -4px)`: both are valid, one is
+    // readable in a devtools panel, and a stylesheet is read by people.
+    const sign = pxOffset < 0 ? '-' : '+'
+    return `calc(${num(pct)}% ${sign} ${num(Math.abs(pxOffset))}px)`
+  }
+  if (hasPct) return `${num(pct)}%`
+  if (hasPx) return `${num(pxOffset)}px`
+  return null
+}
+
+/**
+ * A 2D transform → `translate(<x>, <y>) rotate(<deg>) scale(<n>)`, or null when
+ * it is the identity.
+ *
+ * THE ORDER IS LOAD-BEARING. `translate` first means the node is moved in its
+ * parent's frame and *then* spun and scaled about its own centre — "hang this
+ * plaque half off the edge, tilted 2°". Rotating first would spin the offset
+ * vector with the node, so the same two values would land it somewhere else for
+ * every angle, which is not what either value reads as.
+ */
 function transformCss(t: L1Transform): string | null {
   const parts: string[] = []
+  const tx = translateComponent(t.translateXPct, t.translateXPx)
+  const ty = translateComponent(t.translateYPct, t.translateYPx)
+  if (tx || ty) parts.push(`translate(${tx ?? '0px'}, ${ty ?? '0px'})`)
   const r = deg(t.rotateDeg)
   if (r && t.rotateDeg !== 0) parts.push(`rotate(${r})`)
   if (t.scale !== undefined && Number.isFinite(t.scale) && t.scale !== 1) {
@@ -752,9 +792,14 @@ function focusRingDecls(ring: L1FocusRing | undefined): string[] {
  */
 function motionTransformCss(motion: L1Motion, base: L1Transform | undefined): string | null {
   const parts: string[] = []
-  const x = motion.offsetXPx ?? 0
-  const y = motion.offsetYPx ?? 0
-  if (x !== 0 || y !== 0) parts.push(`translate(${num(x)}px, ${num(y)}px)`)
+  // REQ-288 — a state's offsets ADD to the node's own static translate rather
+  // than replacing it: they are a nudge *from where the node sits*, and the node
+  // may well sit half off its neighbour's edge by design. (Rotation and scale
+  // keep their override semantics — a state names an absolute angle or factor,
+  // so there is something to replace; `motion` has no translate to override with.)
+  const x = translateComponent(base?.translateXPct, (base?.translateXPx ?? 0) + (motion.offsetXPx ?? 0))
+  const y = translateComponent(base?.translateYPct, (base?.translateYPx ?? 0) + (motion.offsetYPx ?? 0))
+  if (x || y) parts.push(`translate(${x ?? '0px'}, ${y ?? '0px'})`)
   const rotate = motion.rotateDeg ?? base?.rotateDeg
   if (rotate !== undefined && Number.isFinite(rotate) && rotate !== 0) parts.push(`rotate(${num(rotate)}deg)`)
   const scale = motion.scale ?? base?.scale

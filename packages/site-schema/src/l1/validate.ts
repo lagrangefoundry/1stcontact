@@ -40,6 +40,14 @@ export const L1_ENVELOPE = {
   transformScale: { min: 0.01, max: 100 },
   /** Transform rotation (REQ-91) — an angle, not a length: ±10 full turns. */
   rotateDeg: { min: -3600, max: 3600 },
+  /**
+   * REQ-288 — a static translate as a share of the node's own box. Ten times the
+   * node's own size in either direction is far past any composition ("half my own
+   * height" is 50), and the bound is what keeps a typo from throwing a plaque a
+   * hundred screens off the page where no reader can find it and no gate can see
+   * that anything moved.
+   */
+  translatePct: { min: -1000, max: 1000 },
   /** BUG-17 — per-side box-model padding (px); non-negative, bounded so it can't blow out layout. */
   paddingPx: { min: 0, max: 10_000 },
   /** REQ-99 — interaction transition duration; bounded so a state change can't stall for minutes. */
@@ -358,6 +366,23 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
         message: `scale ${s} out of range [${L1_ENVELOPE.transformScale.min}, ${L1_ENVELOPE.transformScale.max}]`,
       })
     }
+    // REQ-288 — the static paint offset. The percentage pair is bounded as a
+    // multiple of the node's own size; the px pair is an effect length like every
+    // other bounded offset in this group.
+    for (const key of ['translateXPct', 'translateYPct'] as const) {
+      const v = node.transform[key]
+      if (
+        v !== undefined &&
+        !inRange(v, L1_ENVELOPE.translatePct.min, L1_ENVELOPE.translatePct.max)
+      ) {
+        errors.push({
+          path: `${path}/transform/${key}`,
+          message: `${key} ${v} out of range [${L1_ENVELOPE.translatePct.min}, ${L1_ENVELOPE.translatePct.max}]`,
+        })
+      }
+    }
+    checkEffectLen(node.transform.translateXPx, `${path}/transform/translateXPx`, errors)
+    checkEffectLen(node.transform.translateYPx, `${path}/transform/translateYPx`, errors)
   }
   if (node.mask) checkEffectLen(node.mask.featherPx, `${path}/mask/featherPx`, errors)
 

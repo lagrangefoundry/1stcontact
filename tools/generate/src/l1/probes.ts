@@ -478,6 +478,48 @@ interface Ctx {
    * unmeasured run cannot shift every later occurrence onto the wrong row.
    */
   textCursor: Map<string, number>
+  /**
+   * BUG-112 / REQ-288 — an ancestor declared `stacked: true`, so every leaf this
+   * subtree pushes is part of that declared composition.
+   *
+   * The declaration is made by whichever node IS the composition, and with a
+   * static translate (REQ-288) that node is routinely a container — a caption
+   * plaque, a badge — whose leaves are its children. Without the inheritance the
+   * plaque's own declaration would exempt nothing at all, because a container
+   * pushes no leaf of its own, and the operator would have to repeat `stacked` on
+   * every run inside it to say the one thing they already said.
+   */
+  stacked?: true
+}
+
+/**
+ * REQ-288 — move a subtree's already-resolved leaf boxes by the node's static
+ * translate, WITHOUT touching the height it advanced its parent's flow by.
+ *
+ * That split is the axis: a translate is a paint offset, so the boxes the reader
+ * sees move and the flow the boxes came out of does not. Modelling it any other
+ * way would make the evaluator disagree with the browser about the one thing the
+ * axis exists to do — and this model is what the geometry envelope's overlap and
+ * clip findings are computed from, so the disagreement would surface as findings
+ * for overlaps that are not there and silence about the ones that are.
+ *
+ * The percentage resolves against the node's OWN box, exactly as CSS resolves it,
+ * which is why this runs after the subtree is laid out rather than before: for a
+ * container, "half my own height" is not knowable until its children have been
+ * placed.
+ */
+function translateSubtree(node: L1Node, box: EvalBox, ctx: Ctx, fromLeaf: number): void {
+  const t = node.transform
+  if (!t) return
+  const dx = ((t.translateXPct ?? 0) / 100) * box.width + (t.translateXPx ?? 0)
+  const dy = ((t.translateYPct ?? 0) / 100) * box.height + (t.translateYPx ?? 0)
+  if (dx === 0 && dy === 0) return
+  // Every leaf the subtree pushed, the node's own included — a translated
+  // container carries its children with it, as the browser's compositor does.
+  for (let i = fromLeaf; i < ctx.leaves.length; i++) {
+    ctx.leaves[i].box.x += dx
+    ctx.leaves[i].box.y += dy
+  }
 }
 
 /**
@@ -485,10 +527,27 @@ interface Ctx {
  * resolved height. Pinned children float by their own geometry (out of flow);
  * in-flow children stack. Leaf boxes (text / image / slot) are pushed to
  * `ctx.leaves`; boxes / containers are structural.
+ *
+ * REQ-288 — the node's own static translate is applied to the leaves this call
+ * pushed, after they are placed; the height returned to the caller's flow is the
+ * untranslated one (see {@link translateSubtree}).
  */
 function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
+  const fromLeaf = ctx.leaves.length
+  const { advance, box } = layoutInFlow(node, frame, path, ctx)
+  translateSubtree(node, box, ctx, fromLeaf)
+  return advance
+}
+
+/** {@link layout}'s body: the flow placement, before any paint-time translate. */
+function layoutInFlow(
+  node: L1Node,
+  frame: EvalBox,
+  path: string,
+  ctx: Ctx,
+): { advance: number; box: EvalBox } {
   const { width, opts } = ctx
-  if (hidden(node, width)) return 0
+  if (hidden(node, width)) return { advance: 0, box: { ...frame, height: 0 } }
 
   // A pinned node resolves its own box from geometry, ignoring the parent frame.
   // REQ-278 — an in-flow track resolves against the frame instead: its `x`/`y`
@@ -515,7 +574,9 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       : { ...frame }
   // A node the recovery put in flow becomes the origin for its own subtree; every
   // other node passes its parent's along unchanged.
-  const inner: Ctx = lead ? { ...ctx, origin: { x: box.x, y: box.y } } : ctx
+  const placed: Ctx = lead ? { ...ctx, origin: { x: box.x, y: box.y } } : ctx
+  // BUG-112 / REQ-288 — the declaration covers the subtree it was made about.
+  const inner: Ctx = node.stacked ? { ...placed, stacked: true } : placed
   /**
    * REQ-278 — what this node consumes of its parent's flow: its own height plus
    * the leading offset it was placed by. A stack's cursor and a row's line height
@@ -567,22 +628,22 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // measure's join key (see `sampleFidelity`), and the oracle side joins the
       // same run group into the same string — so a node that emphasises a word
       // still pairs with the element it was folded from.
-      ctx.leaves.push({ path, kind: 'text', text: l1PlainText(node.text), id: node.id, box, pinned, ...stackedOf(node) })
-      return adv(box.height)
+      ctx.leaves.push({ path, kind: 'text', text: l1PlainText(node.text), id: node.id, box, pinned, ...stackedOf(node, ctx) })
+      return { advance: adv(box.height), box }
     }
     case 'image': {
       const own = declaredHeight(node, width)
       if (own !== undefined) box.height = own * opts.contentScale
-      ctx.leaves.push({ path, kind: 'image', id: node.id, box, pinned, ...stackedOf(node) })
-      return adv(box.height)
+      ctx.leaves.push({ path, kind: 'image', id: node.id, box, pinned, ...stackedOf(node, ctx) })
+      return { advance: adv(box.height), box }
     }
     case 'slot': {
       // A slot's extent is the seam the module mounts into — a pinned frame read
       // it off `evalGeometry` for free, an in-flow one has to ask for it.
       const own = declaredHeight(node, width)
       if (own !== undefined) box.height = own
-      ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned, ...stackedOf(node) })
-      return adv(box.height)
+      ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned, ...stackedOf(node, ctx) })
+      return { advance: adv(box.height), box }
     }
     case 'control': {
       // REQ-96 — a control is a leaf like any other: the module contributes its
@@ -590,8 +651,8 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // pinned keyframe height wins; otherwise the parent's frame stands.
       const own = declaredHeight(node, width)
       if (own !== undefined) box.height = own * opts.contentScale
-      ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned, ...stackedOf(node) })
-      return adv(box.height)
+      ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned, ...stackedOf(node, ctx) })
+      return { advance: adv(box.height), box }
     }
     case 'box':
     case 'container': {
@@ -601,8 +662,8 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       if (node.kind === 'box' && children.length === 0) {
         const own = declaredHeight(node, width)
         if (own !== undefined) box.height = own * opts.contentScale
-        ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned, ...stackedOf(node) })
-        return adv(box.height)
+        ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned, ...stackedOf(node, ctx) })
+        return { advance: adv(box.height), box }
       }
       const gap = node.kind === 'container' ? (node.gapPx ?? 0) : 0
       // A `row` container flows horizontally along the main axis; a `box` and a
@@ -718,18 +779,23 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
           paths: [path],
         })
       }
-      return adv(pinnedH !== undefined ? pinnedH : contentHeight)
+      // The node's own resolved height, so a translate expressed as a share of it
+      // (REQ-288) has something to resolve against.
+      box.height = pinnedH !== undefined ? pinnedH : contentHeight
+      return { advance: adv(box.height), box }
     }
   }
 }
 
 /**
- * BUG-112 — the node's declared stacking intent, as a spreadable fragment so an
- * unmarked node carries no key at all (rather than an explicit `undefined`,
- * which would survive `JSON.stringify` into every serialized leaf).
+ * BUG-112 — the declared stacking intent in force for this leaf: its own, or the
+ * one an ancestor made on its behalf (REQ-288 — see {@link Ctx.stacked}). A
+ * spreadable fragment, so an unmarked leaf carries no key at all rather than an
+ * explicit `undefined`, which would survive `JSON.stringify` into every
+ * serialized leaf.
  */
-function stackedOf(node: L1Node): { stacked?: true } {
-  return node.stacked ? { stacked: true } : {}
+function stackedOf(node: L1Node, ctx: Ctx): { stacked?: true } {
+  return node.stacked || ctx.stacked ? { stacked: true } : {}
 }
 
 /** Do two boxes overlap by more than `eps` on both axes? */
