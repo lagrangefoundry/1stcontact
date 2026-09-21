@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T18:40:24.203700+00:00'
+updated_at: '2026-09-21T18:44:21.577788+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -236,5 +236,64 @@ I'm not sure that your accounting is accurate. My account (that I believe is pay
 Your fixes sound good but can't add up they suggest an available saving of $310 on a spend of $252 - but I understand the reasoning here.
 
 If we can realistically get the $252 (which I believe in practice is actually half that) down to $30-$50 - then we probably do have a product after all
+
+<!-- xgd-turn id="b55ced76-301e-4b18-a9b4-98185efbdf0e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:44:21.068547+00:00" -->
+#### Claude
+You're right on both counts. Let me find the level error before I defend anything.
+
+That changes everything. Let me check the seed path.
+
+The account number is the check I didn't have. Let me refine the cold-start cache behaviour too — a re-seeded window is still a prefix of the previous one.
+
+You were right. I made a structural error, and it's a 4.5× one.
+
+## The error
+
+I modelled the adapter's `messages[]` as surviving all 80 turns. It can't. `ClaudeAPIBackend` keeps it in a plain `Map`, and the host holding it is cached in `CHATS` — also a plain `Map`, with the comment in `router.ts:365` saying outright: *"isolates are short-lived and it dies with them."*
+
+On every eviction, `seedDialogue` rebuilds the segment from the transcript window — **user and assistant prose only**. No `tool_use`, no `tool_result`, no images. Over eleven days of `wrangler dev`, with 35 inter-turn gaps past ten minutes and a reload on every file change, that's most turns. Average context is ~54k tokens per request, not the ~229k I assumed.
+
+**Corrected: ~$55, band $45–80.** That fits your $166.50 alongside the $25 on 1st Contact, ~$20 for the 09-08 session, and the XGD/Gigabyte Alchemy sessions. Your "actually half that" was right, and then some.
+
+Two claims I'm retracting: the window-bound-breaks-the-cache finding costs ~$3 here, not ~$85 — it only bites on a warm segment. And you're right that the savings table read as additive; the levers are multiplicative, they share the same tokens.
+
+## Where the money actually is
+
+| | |
+|---|---|
+| **Seeded 40-exchange window, re-sent on all 838 round trips** | **38%** |
+| System + tool definitions (~15.5k tokens every request) | 19% |
+| Tool results replayed within their own turn | 17% |
+| Output + thinking | 17% |
+| **Screenshots** | **1.3%** |
+
+The lever moved off accumulated history and onto the **fixed** per-request payload. The window plus the tool definitions are 57% of spend, paid 838 times.
+
+And `DEFAULT_WINDOW_TURNS = 40` comes with the framework's own note: *"Defaulted large deliberately… N is then dialled down experimentally rather than guessed at now."* Nobody ran the experiment. It's the largest line item.
+
+## Your $30–50 target
+
+Reachable on configuration alone:
+
+| | |
+|---|---|
+| As it ran | $55 |
+| Window 10 exchanges | $41 |
+| + tool definitions deferred (`defer_loading` + tool search) | $34 |
+| + 5-minute TTL instead of 1h | **$29** |
+| + low effort on construction turns | $27 |
+| + construction on Haiku | **$13** |
+
+Three settings get you to $29. No delegation, no model change, no new framework code. Delegation is then a further ~2×, not the headline.
+
+Per hour, that's **~$10/h as it ran, ~$5/h at $29** — against $20/h on 09-08. So yes, the economics work.
+
+## The caveat that matters
+
+Every number here turns on an *assumed* isolate lifetime. At 30-minute eviction it's $76; warm throughout it was $252. That spread is the whole uncertainty, and it's closed by one write beside the audit flush in `ai.ts` — `usage` is already on the `done` event and already thrown away. That's still item 1, and it should go first.
+
+Ticket updated with the corrected section and the retractions. Want me to file the framework ticket for the window/tool-deferral settings, or do the `usage` persistence here first?
 
 <!-- xgd-chat-end -->
