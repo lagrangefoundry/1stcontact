@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:54:36.959401+00:00'
+updated_at: '2026-09-21T23:59:56.720866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2474,5 +2474,40 @@ bin/build && bin/deploy control-app
 What you should see afterwards, on a slow mount: **"Still loading the builder…"** instead of the false failure, rendered into its own `div#boot-guard` on `document.body` rather than inside `#app` — so the chat composer should be there without you removing anything by hand. The thresholds are now `BOOT_NOTICE_MS=4000` for the claims-nothing note and `BOOT_DEADLINE_MS=12000` before a caught fault becomes a verdict.
 
 That same deploy also carries `/api/chats/export` and `/api/chats/import`, which production still doesn't have — so it unblocks the `--chats` copies too.
+
+<!-- xgd-turn id="aa34f644-77ef-47ec-8e44-885c79b401c9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:59:56.195569+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/smoke                          
+  FAIL  apex_resolves
+      GET https://1stcontact.io/ returned 404, expected 200
+  PASS  unknown_site_not_found
+      404
+  skip  unpublished_site_indistinguishable
+      no --site-key given
+  skip  published_root_redirects
+      no --site-key given
+  skip  published_index_serves_html
+      no --site-key given
+  skip  published_cache_policy
+      no --site-key given
+  skip  published_miss_is_404
+      no --site-key given
+  skip  published_assets_resolve
+      no --site-key given
+  PASS  control_app_challenges_unauthenticated
+      302 → https://lagrangefoundry.cloudflareaccess.com/cdn-cgi/access/login/app.1stcontact.io?kid=c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e&meta=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImFmMjcyMTA4M2Y3OGNlZGJhMTc3ZTAzMTM1MmIwM2E1YjQxZGQ4YWZmN2Q5M2RiMTM0ZTg1ZDlmMTNhMTJmZDAifQ.eyJ0eXBlIjoibWV0YSIsImF1ZCI6ImM4MDJmYTljNGVmYzQ4M2UxM2YxYzI3ZDJkOWE5Y2EzZmY5MzM2ZDU1YTAxNDIwNWJkMWE2MzI1ODI2MGM3NGUiLCJob3N0bmFtZSI6ImFwcC4xc3Rjb250YWN0LmlvIiwicmVkaXJlY3RfdXJsIjoiLyIsInNlcnZpY2VfdG9rZW5fc3RhdHVzIjpmYWxzZSwiaXNfd2FycCI6ZmFsc2UsImlzX2dhdGV3YXkiOmZhbHNlLCJleHAiOjE3OTAwMzU0NDIsIm5iZiI6MTc5MDAzNTE0MiwiaWF0IjoxNzkwMDM1MTQyLCJhdXRoX3N0YXR1cyI6Ik5PTkUiLCJtdGxzX2F1dGgiOnsiY2VydF9pc3N1ZXJfZG4iOiIiLCJjZXJ0X3NlcmlhbCI6IiIsImNlcnRfaXNzdWVyX3NraSI6IiIsImNlcnRfcHJlc2VudGVkIjpmYWxzZSwiY29tbW9uX25hbWUiOiIiLCJhdXRoX3N0YXR1cyI6Ik5PTkUifSwicmVhbF9jb3VudHJ5IjoiVVMiLCJhcHBfc2Vzc2lvbl9oYXNoIjoiYmI4OTY1Y2Y2MjdmZWQ3ZDJkMTI0NDM4NjY3ZDUwYjQzMjIyZTEyYjlkMDliYWY3MWRiMGVjZDAzYjNiYjUwMiJ9.X7sZVWeugUbrcqBnNU44W8plBELY3cntGlC5qnG1XONqBiPZz9ngZriklX4HcOlubzlsuAr4eP6fh8P9mooUNyrOhjsyrMWX5aSeN77xrWoiNyf9UnsVHAZU6tn78wZzJvPS0OJRCwIFUOFDkTm7cyWGKa5w2cmky7wOLPJbDZNUUh-khm30fP93QHlEMQ_W1YTvbKxhSdhD6mIZ5Mn9tJopnP22oqQfycJamCeoAxWjZIEsyp3QiTICoT5c6yaMNPVlfM-LAhhNTPY6UlqDz_DM5mfHhCwklBguMEUrO7A0OgIbyFrejjNVdOZ03EOtvErBRkV-xNnpCbGwxISXkA&redirect_url=%2F
+  skip  control_app_workers_dev_closed
+      no --workers-dev-origin given
+
+Smoke FAILED against https://1stcontact.io: 1 failed, 2 passed, 7 skipped.
+Failed: apex_resolves
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Can we fix the smoke tests? and why are so many skipped - I think we fix them or delete them, skipped tests are code debt
 
 <!-- xgd-chat-end -->
