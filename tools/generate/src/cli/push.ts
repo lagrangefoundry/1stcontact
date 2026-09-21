@@ -37,6 +37,13 @@ export interface SitePayload {
    * business's site, created when it holds none — and what this field is still
    * for is the sentence a refusal has to say back to the operator, which has to
    * name the site they typed rather than one they have never seen.
+   *
+   * AND ON AN EXPORT IT IS THE STORE'S OWN KEY ([[REQ-289]]). `GET /api/export`
+   * answers with this same payload, so it has to put something here; what it
+   * puts is what the site is called where it was read, which in D1 is a minted
+   * key. That is the same statement this field has always made, in the
+   * vocabulary of whichever side produced it — and it still addresses nothing
+   * on the side it is going to.
    */
   slug: string
   /** `site.json`, or null when the site holds none. */
@@ -95,13 +102,63 @@ export function fromBase64(text: string): Uint8Array {
 }
 
 /**
+ * Read one site's whole draft out of `store` — nothing refused, nothing gated.
+ *
+ * THE READ AND THE RIGHTS GATE ARE SEPARATE FUNCTIONS ([[REQ-289]]), because
+ * there are now two readers and only one of them is a writer's first step.
+ * `/api/export` reads a store the caller already owns and hands the bytes back
+ * to the caller they came from, which publishes nothing and has nothing to
+ * gate; {@link readSitePayload} below reads in order to POST somewhere else,
+ * which is the act BUG-84's gate exists to refuse. One reader means the export
+ * payload and the import payload cannot drift apart — they are the same
+ * {@link SitePayload}, produced by the same lines.
+ *
+ * THE RAW BYTES COME BACK BESIDE THE BASE64 so the gate above can read them
+ * without decoding what this function just encoded — a second pass over the
+ * largest thing in the payload to learn something that was in hand a line
+ * earlier.
+ *
+ * `site` IS WHATEVER THE STORE CALLS THE SITE — a directory under
+ * `storage/sites/` in the file-backed tier, a minted key in D1. The port says
+ * so and this function does not look.
+ */
+export async function readSiteDraft(
+  store: SiteStore,
+  site: string,
+): Promise<{ payload: SitePayload; raw: { name: string; bytes: Uint8Array }[] }> {
+  if (!(await store.hasDraft(site))) {
+    throw new Error(`No draft for '${site}' in the local store.`)
+  }
+  const pages: StoredPage[] = await store.readPages(site)
+  const names = await store.listAssets(site)
+  const assets: { name: string; base64: string }[] = []
+  const raw: { name: string; bytes: Uint8Array }[] = []
+  for (const name of names) {
+    const bytes = await store.readAsset(site, name)
+    // A name the listing produced but the store cannot read is a corrupt store,
+    // not an empty asset — importing it as zero bytes would land a broken image
+    // that looks deliberate.
+    if (bytes === null) throw new Error(`Asset '${name}' is listed for '${site}' but unreadable.`)
+    raw.push({ name, bytes })
+    assets.push({ name, base64: toBase64(bytes) })
+  }
+  return {
+    payload: {
+      slug: site,
+      siteJson: await store.readSiteJson(site),
+      pages: pages.map((p) => ({ name: p.name, page: p.page })),
+      assets,
+    },
+    raw,
+  }
+}
+
+/**
  * Read one site's whole draft out of `store` — and refuse one it may not send.
  *
  * THE RIGHTS GATE LIVES HERE RATHER THAN IN {@link pushSite} (BUG-84) because
- * this is where the raw bytes are. A gate one layer up would have to decode
- * every asset back out of the base64 this function just encoded it into, which
- * is a second pass over the largest thing in the payload to learn something that
- * was in hand a line earlier.
+ * this is where the raw bytes are, and it lives here rather than in
+ * {@link readSiteDraft} because reading is not sending ([[REQ-289]]).
  *
  * WHAT IT REFUSES: an asset whose bytes are byte-for-byte a subresource we
  * mirrored from a captured page. `1c repro` copies a bundle's mirrored
@@ -115,33 +172,13 @@ export async function readSitePayload(
   references: ReferenceStore,
   slug: string,
 ): Promise<SitePayload> {
-  if (!(await store.hasDraft(slug))) {
-    throw new Error(`No draft for '${slug}' in the local store.`)
-  }
-  const pages: StoredPage[] = await store.readPages(slug)
-  const names = await store.listAssets(slug)
-  const assets: { name: string; base64: string }[] = []
-  const raw: { name: string; bytes: Uint8Array }[] = []
-  for (const name of names) {
-    const bytes = await store.readAsset(slug, name)
-    // A name the listing produced but the store cannot read is a corrupt store,
-    // not an empty asset — importing it as zero bytes would land a broken image
-    // that looks deliberate.
-    if (bytes === null) throw new Error(`Asset '${name}' is listed for '${slug}' but unreadable.`)
-    raw.push({ name, bytes })
-    assets.push({ name, base64: toBase64(bytes) })
-  }
+  const { payload, raw } = await readSiteDraft(store, slug)
   // BEFORE THE PAYLOAD IS HANDED BACK, so a refused draft is never posted and no
   // partial state is reachable. The far side enforces the same rule against the
   // TENANT's bundles; this side is the only one that sees a capture taken on
   // this laptop, which is the case that actually happened.
   await assertNotCaptureMirrored(raw, references)
-  return {
-    slug,
-    siteJson: await store.readSiteJson(slug),
-    pages: pages.map((p) => ({ name: p.name, page: p.page })),
-    assets,
-  }
+  return payload
 }
 
 /** Turn a received payload back into the one {@link SiteWrite} the store takes. */
@@ -206,16 +243,34 @@ export interface PushOptions {
   fetch?: typeof fetch
 }
 
-/** Read `slug` from `store` and post it to `origin`'s import route. */
-export async function pushSite(
-  store: SiteStore,
-  slug: string,
-  opts: PushOptions,
-): Promise<PushResult> {
-  const payload = await readSitePayload(store, opts.references, slug)
-  // Set only when asked, so an ordinary push sends a body with no `force` key at
-  // all rather than one that says `false`. The wire then shows what was meant.
-  if (opts.force === true) payload.force = true
+/**
+ * POST one payload at an import route, and report its refusals as refusals.
+ *
+ * LIFTED OUT OF {@link pushSite} ([[REQ-289]]) because there are two callers
+ * now: `1c push`, which reads `storage/sites/` and posts, and
+ * `1c copy-to-cloud` / `1c copy-from-cloud`, which read one builder's
+ * `/api/export` and post to another builder's `/api/import`. The refusals that
+ * matter — Access bouncing an unauthenticated request to a login page, and
+ * BUG-51's 409 over builder-authored changes — must read identically whichever
+ * command met them, and the way to guarantee that is one function.
+ *
+ * `url` AND NOT AN ORIGIN, because the copy commands address the destination
+ * business explicitly with `/b/<businessId>/api/import`. An origin plus an
+ * assumed path would put that prefix somewhere else.
+ *
+ * `subject` IS WHAT THE OPERATOR TYPED. `1c push` was given a slug and says so;
+ * a copy was given a business name and says that. A shared function that named
+ * one of them for both would report a site key the operator has never seen.
+ */
+export async function postSitePayload(
+  payload: SitePayload,
+  opts: {
+    url: string
+    subject: string
+    access?: AccessServiceToken
+    fetch?: typeof fetch
+  },
+): Promise<PushResult['landed']> {
   const doFetch = opts.fetch ?? globalThis.fetch
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (opts.access) {
@@ -223,7 +278,7 @@ export async function pushSite(
     headers['CF-Access-Client-Secret'] = opts.access.clientSecret
   }
 
-  const res = await doFetch(new URL('/api/import', opts.origin).toString(), {
+  const res = await doFetch(opts.url, {
     method: 'POST',
     headers,
     // `manual`, and this is the difference between a legible failure and a
@@ -250,7 +305,7 @@ export async function pushSite(
     // leave the one they did unanswered.
     const conflicted = res.status === 409
     throw new Error(
-      `Import of '${slug}' was refused with ` +
+      `${opts.subject} was refused with ` +
         `${bounced ? `${res.status || 'a redirect'} to a login page` : res.status}: ` +
         `${body || '(no body)'}\n` +
         (conflicted
@@ -262,7 +317,25 @@ export async function pushSite(
             : ''),
     )
   }
-  const landed = JSON.parse(body) as PushResult['landed']
+  return JSON.parse(body) as PushResult['landed']
+}
+
+/** Read `slug` from `store` and post it to `origin`'s import route. */
+export async function pushSite(
+  store: SiteStore,
+  slug: string,
+  opts: PushOptions,
+): Promise<PushResult> {
+  const payload = await readSitePayload(store, opts.references, slug)
+  // Set only when asked, so an ordinary push sends a body with no `force` key at
+  // all rather than one that says `false`. The wire then shows what was meant.
+  if (opts.force === true) payload.force = true
+  const landed = await postSitePayload(payload, {
+    url: new URL('/api/import', opts.origin).toString(),
+    subject: `Import of '${slug}'`,
+    ...(opts.access ? { access: opts.access } : {}),
+    ...(opts.fetch ? { fetch: opts.fetch } : {}),
+  })
   return {
     slug,
     pages: payload.pages.map((p) => p.name),

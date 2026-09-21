@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#
+# `bin/copy-to-cloud` — copy one business's site from the LOCAL builder to the
+# DEPLOYED one (REQ-289).
+#
+# WHY THIS IS NOT `bin/publish`. `publish` already names an operation — take a
+# draft, freeze it as a version, make that version live — and `bin/publish`
+# borrows the word for a different one on a different axis: copy bytes from this
+# laptop to Cloudflare. Worse, it copies the wrong thing. It reads
+# `storage/sites/<slug>/`, the git-tracked file tier; the sites that actually
+# exist were authored in the builder and live in the D1 and R2 store under
+# `apps/control-app/.wrangler/state/`. So until this command there was no way to
+# move a builder-authored site anywhere at all.
+#
+# THE DIRECTION IS IN THE NAME. `bin/copy-from-cloud` is the same two HTTP calls
+# with the ends swapped. It is two names rather than one command with a flag
+# because the operator reads the name back later, out of a shell history or a
+# runbook, and has to know which way the bytes went.
+#
+# THE WORKER READS, AND THE WORKER WRITES. Node cannot open the source: under
+# `wrangler dev` a D1 database is a miniflare SQLite file whose layout is an
+# implementation detail, and R2 is a second SQLite plus a blob directory beside
+# it. So this is two HTTP calls — `GET /api/export` at one end, `POST /api/import`
+# at the other — and each end reads and writes through the very store it serves
+# from. It is `bin/publish`'s own argument for why an import goes over HTTP,
+# applied in reverse to the read.
+#
+# THE TARGET BUSINESS MUST ALREADY EXIST. Copying to a business that is not on
+# the far side fails, naming what that side does offer. This command never mints
+# a tenant: a deployment acquiring a business nobody signed up for, from a laptop
+# script, is the failure that refusal exists to prevent.
+#
+# Usage:
+#   bin/copy-to-cloud "Lagrange Foundry"
+#   bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+#   bin/copy-to-cloud --force "Lagrange Foundry"
+#   bin/copy-to-cloud --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+#
+# <business> is the business's NAME as it reads in the builder. It resolves to a
+# different id on each side, independently, so the name is the only thing that
+# means the same on both.
+#
+# --origin overrides the LOCAL end (default http://localhost:8788), so the pair
+# works against a dev server on any port — in practice `bin/access-sim`, which is
+# the local front door that can reach a business other than TENANT_ID.
+#
+# --force is BUG-51's answer. `/api/import` refuses a target carrying changes
+# authored in the builder, naming the business and the change count; nothing is
+# written without it.
+#
+# --backup FILE writes the SOURCE side's export to FILE and touches the
+# destination not at all. To-cloud reads local, so this is the local builder's
+# own export, landing somewhere committable.
+#
+# --site is the default and the only class implemented. --contacts is recognised
+# and refused: see `bin/copy-from-cloud` for why the two directions answer
+# differently.
+#
+# The cloud end is behind Cloudflare Access and needs the service-token PAIR
+# CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET, exactly as `bin/publish
+# --production` did. Provision one with `bin/access-token`. CLOUDFLARE_API_TOKEN
+# is an API credential for api.cloudflare.com and is refused here like no
+# credential at all. See apps/control-app/ACCESS.md.
+#
+# Exit codes: 0 success; non-zero anything else.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  sed -n '2,66p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  exit 0
+fi
+
+# EVERY FLAG IS FORWARDED RATHER THAN RE-PARSED HERE. The refusals this command
+# owes the operator — half a credential pair, an unknown business, --contacts,
+# BUG-51's 409 — are one implementation in `copy.ts`, shared with
+# `bin/copy-from-cloud`. A second parser in bash would be a second place for one
+# of them to drift.
+exec "$repo_root/bin/1c" copy-to-cloud "$@"

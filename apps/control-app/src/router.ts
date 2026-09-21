@@ -35,7 +35,7 @@ import {
   setPreference,
 } from './acceptances'
 import { eventsOf, type EventEnv } from './events'
-import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
+import { payloadToWrite, readSiteDraft, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
 import type {
   ImageLadder,
@@ -2499,6 +2499,79 @@ async function routeUncached(
       if (err instanceof CommandError) {
         return json(400, { error: scrub(err.message), ...err.toEnvelope() })
       }
+      const message = err instanceof Error ? err.message : String(err)
+      return json(500, { error: scrub(message) })
+    }
+  }
+
+  /**
+   * GET /api/export — this business's site, in the shape `/api/import` takes
+   * ([[REQ-289]]).
+   *
+   * THE WORKER READS, THROUGH THE VERY STORE IT SERVES FROM, which is
+   * `/api/import`'s argument in reverse and the whole reason this is a route
+   * and not a script. The sites that exist were authored in the builder and
+   * live in D1 and R2 — under `wrangler dev` that is a miniflare SQLite file
+   * whose layout is an implementation detail, plus a second SQLite and a blob
+   * directory beside it. Opening those from Node would be a third store adapter
+   * with no contract behind it. One HTTP GET against the Worker that already
+   * has the bindings costs nothing and cannot disagree with the store.
+   *
+   * IT IS `/api/import`'s MATCHED PAIR, and that is a maintenance obligation
+   * rather than a resemblance. Export followed by import yields a draft
+   * identical to the original — same `site.json`, same page documents, same
+   * asset bytes under the same names — because both halves are the same
+   * {@link SitePayload}, produced and consumed by the same two functions in
+   * `push.ts`. A change to the payload shape that touches one must touch the
+   * other.
+   *
+   * IT RESOLVES ITS TARGET THE WAY THE IMPORT DOES. The business comes from the
+   * authorised scope, never from a query parameter; a business holding more than
+   * one site is refused as ambiguity, in the words the import refuses it in,
+   * rather than resolved by first match — the difference being that guessing
+   * here hands back a site the operator was not asking for, and guessing there
+   * overwrites one.
+   *
+   * A BUSINESS HOLDING NO SITE IS A 404 NAMING IT, not an empty payload. An
+   * empty export is a legible thing to import over the top of something real,
+   * so "there was nothing to read" must not be expressible as a successful read
+   * of nothing.
+   *
+   * NO RIGHTS GATE HERE, deliberately (BUG-84). The gate refuses PUBLISHING a
+   * capture-mirrored asset under a client's own domain; this hands a caller who
+   * already owns the store the bytes that are already in it. The gate is on the
+   * write side, where it already runs against the destination's own bundles —
+   * so an export that carries such an asset is refused the moment somebody tries
+   * to import it, which is the moment it matters.
+   */
+  if (p === '/api/export' && method === 'GET') {
+    try {
+      const scoped = requireScope()
+      const store = await (deps.store ?? storeFor)(env, scoped)
+      const held = await store.siteKeys('site')
+      if (held.length > 1) {
+        return json(409, {
+          error:
+            `This business holds ${held.length} sites, so there is no unambiguous ` +
+            'site to export. Nothing was read.',
+          sites: held.length,
+        })
+      }
+      const site = held[0]
+      if (site === undefined) {
+        return json(404, {
+          error: `Business '${scoped.businessId}' holds no site to export.`,
+          business: scoped.businessId,
+        })
+      }
+      const { payload } = await readSiteDraft(store, site)
+      return json(200, payload)
+    } catch (err) {
+      // Rethrown for the reason the import route rethrows it: this route opens
+      // the store itself rather than through the memoised opener, so it is one
+      // of the two places a missing business would be swallowed into a 500
+      // instead of reaching `index.ts` as the caller-level 403 it is.
+      if (err instanceof NoBusinessError) throw err
       const message = err instanceof Error ? err.message : String(err)
       return json(500, { error: scrub(message) })
     }

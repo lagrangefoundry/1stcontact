@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+#
+# `bin/copy-from-cloud` — copy one business's site from the DEPLOYED builder to
+# the LOCAL one (REQ-289).
+#
+# IT IS `bin/copy-to-cloud` WITH THE ENDS SWAPPED, and literally so: both scripts
+# forward to the same command with the direction as a parameter, so there is one
+# implementation and two names. The name carries the direction because the
+# operator reads it back later, out of a shell history or a runbook, and has to
+# know which way the bytes went.
+#
+# WHAT IT IS FOR. Pulling a site somebody built in the deployed builder down to a
+# laptop — to reproduce a defect against the real content, or to hold a copy of
+# it somewhere other than one Cloudflare account. See `bin/copy-to-cloud` for why
+# this is two HTTP calls and not a store adapter, and for why `publish` was the
+# wrong word for it.
+#
+# THE TARGET BUSINESS MUST ALREADY EXIST here too, and for the same reason: this
+# command never mints a tenant on either side.
+#
+# Usage:
+#   bin/copy-from-cloud "Lagrange Foundry"
+#   bin/copy-from-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+#   bin/copy-from-cloud --force "Lagrange Foundry"
+#   bin/copy-from-cloud --backup storage/backups/prod-lagrange-foundry.json "Lagrange Foundry"
+#
+# <business> is the business's NAME as it reads in the builder. It resolves to a
+# different id on each side, independently, so the name is the only thing that
+# means the same on both.
+#
+# --origin overrides the LOCAL end (default http://localhost:8788) — the
+# destination for this direction.
+#
+# --force is BUG-51's answer, and it is the local builder it protects here: a
+# pull over a site you have been editing locally would replace what you did.
+#
+# --backup FILE writes the SOURCE side's export to FILE and touches the
+# destination not at all. From-cloud reads the cloud, so this is a backup of
+# production that never writes to your dev store.
+#
+# --contacts IS REFUSED IN THIS DIRECTION, AND THAT IS A DECISION RATHER THAN A
+# GAP. Contacts are real people's data. The local builder runs with
+# ACCESS_DEV_OPEN=1 — reachable on loopback with no identity check — so pulling a
+# customer's contact records into it is not a smaller version of copying a site.
+# The refusal is written before the feature exists so that building --contacts
+# later cannot quietly make the two directions symmetric. On `bin/copy-to-cloud`
+# the same flag reports that it is not implemented yet, which is a different
+# sentence. Neither is an unknown-flag error: the flag is known.
+#
+# The cloud end is behind Cloudflare Access and needs the service-token PAIR
+# CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET. Provision one with
+# `bin/access-token`. CLOUDFLARE_API_TOKEN is an API credential for
+# api.cloudflare.com and is refused here like no credential at all. See
+# apps/control-app/ACCESS.md.
+#
+# Exit codes: 0 success; non-zero anything else.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  sed -n '2,56p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  exit 0
+fi
+
+# EVERY FLAG IS FORWARDED RATHER THAN RE-PARSED HERE — see `bin/copy-to-cloud`.
+exec "$repo_root/bin/1c" copy-from-cloud "$@"
