@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:59:07.793020+00:00'
+updated_at: '2026-09-21T01:01:07.920972+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -530,5 +530,60 @@ Your database may not be available to serve requests during the migration, conti
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="94f58261-4043-4c87-a9ca-e11d118e52c5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:01:07.159884+00:00" -->
+#### Claude
+Let me diagnose rather than guess — the question is what production's baseline actually created.
+
+Found it. Let me confirm the mechanism before recommending anything destructive.
+
+Chain applies clean from empty. Let me prepare the recovery script (not run it) and record the finding.
+
+Diagnosed. This isn't a bug in 0002 — it's the baseline having drifted after it was applied.
+
+## What happened
+
+| | |
+|---|---|
+| Remote `d1_migrations` | one row: `0001_baseline.sql`, applied **2026-09-06 17:39:19** |
+| Commits editing that file **after** | **12** — the first, `fc5c78dbe5`, is what added `CREATE TABLE sessions` |
+| Remote tables | 14 |
+| Tables the current baseline creates | 31 |
+| `0002`'s first statement | `ALTER TABLE sessions RENAME TO sessions_pre_rotation` |
+
+The baseline's own header says it outright:
+
+> ITS SIBLINGS EDIT IT RATHER THAN FOLLOW IT. […] **Editing a baseline that has never been applied is not a second rebaseline.**
+
+That premise was false by a few hours. It *had* been applied — to production, the same afternoon. `d1_migrations` records a migration's **name**, not its content, so wrangler considers `0001_baseline.sql` permanently done and starts at 0002. Production's baseline and the file on disk are now two different schemas under one name, and there's no forward path between them.
+
+It's `db/migrations/`'s own rule — never edit an applied migration — broken in the file that states it. Not carelessly: the premise was checked and was true when written. What was missing is anything that would notice it stop being true.
+
+## The fix: rebaseline
+
+Remote holds 0 sites, 0 users, 0 revisions, and one vestigial tenant row. Nothing is lost by a wipe — REQ-190's own argument, a second time, and the epic already called this the cheapest moment it will ever be.
+
+I've written `db/ops/rebaseline-remote.sql` — drops the twelve app tables plus `d1_migrations`, leaves `_cf_KV` (Cloudflare's) and `sqlite_sequence` (SQLite's). **I have not run it.**
+
+```bash
+cd apps/control-app
+npx wrangler d1 execute DB --remote --file ../../db/ops/rebaseline-remote.sql
+npx wrangler d1 migrations apply DB --remote     # replays 0001…0018 into an empty db
+cd .. && bin/deploy                              # or just re-run; the hook does the apply
+```
+
+**Verified before proposing it:** I applied all 18 migrations to a scratch SQLite database from empty — clean, 31 tables. The failure is specific to the drifted remote, not to the migrations.
+
+Say go and I'll run it.
+
+## The part that isn't a one-off
+
+After the rebaseline, `0001_baseline.sql` is an applied migration *again*, and the trap is re-armed for staging and every future environment. The rule can't be "remember not to edit it" — that's exactly what just failed.
+
+This gives **open question 4** a concrete answer: the migration policy check should compare a **content hash** of each migration against what the target environment recorded, and fail before anything uploads. `d1_migrations` stores only `(id, name, applied_at)`, so the hash needs to live somewhere this repo controls — a checked-in `name → sha256` manifest verified by the migrate hook is the smallest thing that works and needs no schema change.
+
+That check would have caught this on 2026-09-06, against a database nobody had deployed to, rather than on your first production deploy a fortnight later. Recorded in the epic as §H; want it as a child ticket?
 
 <!-- xgd-chat-end -->
