@@ -5,9 +5,9 @@ type: request
 title: The turn's token spend, written down
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:23.160825+00:00'
-updated_at: '2026-09-21T20:11:11.342821+00:00'
+updated_at: '2026-09-21T20:32:49.704415+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -137,3 +137,98 @@ are the sibling REQ. Replaying a workload through another provider to compare
 it truthfully: token counts are not portable across tokenizers, so re-pricing
 stored counters is an estimate and a real comparison needs a replay harness.
 That is named in EPIC-20 and deliberately left out here.
+
+## Implementation decisions
+
+Recorded here because several were forced by what upstream actually hands over,
+and one of them narrows a condition above.
+
+### The record carries no tenant; the implementation is bound to one
+
+`TurnSpendRecord` has session, turn, times, role, backend, model, outcome,
+requests, the four counters, `attributed` and the settled cost — and no tenant.
+`router.ts` resolves the business before the host is built and binds
+`d1TurnSpend(env, tenantId)` once, so the tenant is stamped by the
+implementation. A crossing is then impossible by construction rather than
+prevented by a predicate somebody has to keep correct, which is the same shape
+`chatLedger(tickets, sessionIdFor(site))` already has. The stored row still
+carries `tenant_id`, and the index the period read uses leads with it.
+
+### The turn id is minted by the host
+
+The framework's own turn id is stamped on the junction's `turn_start` /
+`turn_end` records and never reaches the stream vocabulary `streamPrompt`
+consumes. So the host mints one, from the system's single minter, and it is the
+table's primary key — which makes *exactly one row per turn* a property of the
+database rather than of the caller.
+
+### `attributed` is stored whole, and is null here
+
+An attributed entry names its own backend and its own role, so flattening it
+into this row's four counters would price a delegated worker's tokens at this
+row's `(backend, model)` — the error the two-part price key exists to prevent.
+It is therefore one nullable JSON column. It is null on every turn this product
+takes: no delegation surface is composed, and `SessionManager` puts `attributed`
+on the junction's `turn_end` rather than on the terminal event `turnSpend` reads.
+
+### An unpriced `(backend, model)` writes a row with a null cost
+
+Null, never zero, for the same reason an unmeasured turn writes nothing: the
+counters make the turn re-priceable later, and a zero would claim it was free.
+Two UATs follow from this — that the project's *configured* model has rates (so
+changing `backends.json` without touching `prices.json` fails a test rather than
+producing months of unpriced turns), and that every entry in the table carries
+all four rates or is refused wholesale rather than part-pricing a turn.
+
+### The counter names are restated once, and held to the library
+
+`spend-core.ts` cannot derive its column set from the library: the library is
+resolved at runtime and typed `any`. It restates the four names and a UAT asserts
+they equal `lib.USAGE_KEYS`, so a counter added upstream fails a test instead of
+being silently dropped — the same discipline `log.ts`'s `COLUMN_OF` uses.
+
+### Condition 4, narrowed: what an abandoned turn can and cannot say
+
+A turn the client walked away from **after its terminal event** is recorded like
+any other: the write is in the `finally`, and `ctx.waitUntil` holds the isolate
+open past the response closing. That is the common case — the `done` frame goes
+out before the host's `finally` runs, so the client is entitled to stop listening
+before the write has happened, and without `waitUntil` the turn the operator was
+billed for would be the one turn with no record of it.
+
+A turn cut off **mid-generation** is a different matter and cannot currently be
+recovered. The client walking away closes the host's loop, which closes the
+manager's, which closes the adapter's — and the adapter reports what it was
+billed for on the `done` it never reaches. The counters for requests already sent
+survive only in `ClaudeAPIBackend`'s own per-segment ledger, which this host holds
+no handle on; the manager's `turn_end` carries `{}` for the same reason. So no
+row is written, which is the honest answer rather than the convenient one: a row
+of zeros would claim the turn was free, and a row of the counters we happen to
+hold would claim a total that is short. This is pinned by a UAT so the boundary
+is visible rather than discovered later as a discrepancy, and closing it is an
+upstream change — the adapter's ledger exposed, or a stop requested on
+disconnect — not one this host can make.
+
+### Condition 3, what is and is not proved offline
+
+Whether Anthropic actually served a cached prefix is a fact about a provider and
+is only observable against the real API. What the UATs prove is everything
+between that number arriving and it being readable a week later: that the
+counter is carried per turn rather than summed across the session, that it is
+not confused with the full-price input side, that it is priced at its own rate —
+a turn that moved tokens from input to cache read costs *less*, which a single
+input rate could not express — and that the request this host sends carries the
+`cache_control` breakpoint without which the provider could never report one.
+The first non-zero reading against the real API is still the moment the epic's
+premise is confirmed; this makes that reading exist to be looked at.
+
+### The price table
+
+`tools/generate/src/cli/ai/prices.json`, beside `backends.json`, keyed
+`(backend, model)` with four rates each in **US dollars per million tokens** —
+the unit every provider publishes, and the one that makes the settled figure
+`tokens x rate` in micros with no division. It carries `claude-opus-5` and
+`claude-sonnet-5` under `claude`, and `gpt-4o` under `chatgpt` — a second
+backend that the framework already declares, so condition 6's second entry is
+real rather than a placeholder. The numbers are published list rates at the time
+of writing and are configuration.
