@@ -16,5 +16,6 @@
   "0015_inbound_mail.sql": "3f0fa1d809e6228cb4aacbd1d782c4bf7fbba86d5246e53c69cba1c9d64e9379",
   "0016_gutter_collection.sql": "2a40d9ed55e6bc888b0bf393ab960d62d9a8592ec504006f30cb269ba4d9077c",
   "0017_dns_changes.sql": "22675d2893c95fdb24078a1c4bbdb5a8e94cf9e484b648d55080e854ce1766aa",
-  "0018_activity_log.sql": "ea5a813ec95c8be1fbc52d4bce5735633d26d7747e9b93e92434b85a34d91b3e"
+  "0018_activity_log.sql": "ea5a813ec95c8be1fbc52d4bce5735633d26d7747e9b93e92434b85a34d91b3e",
+  "0019_turn_spend.sql": "559b0d2342b274d4ae0d6b6f255d751609c3914e84081cbca20e90994c37229b"
 }

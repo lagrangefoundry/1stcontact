@@ -88,7 +88,9 @@ import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import type { LibraryDeps } from './library-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { siteDigestSource } from './digest-core'
-import { configureProjectBackends } from './backends'
+import { configureProjectBackends, PROJECT_BACKEND, projectBackendModel } from './backends'
+import { turnSpendRecord, type RecordTurnSpend } from './spend-core'
+import { newId } from '../../store/ids'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
 import { browserMeasurer } from './measure-core'
@@ -641,6 +643,27 @@ export interface HostDeps {
    * has not got.
    */
   dns?: DnsDeps | null
+
+  /**
+   * Where this turn's token spend is written down ([[REQ-292]]), or absent where
+   * this deployment keeps no meter.
+   *
+   * NOT A FACTORY OVER THE SLUG, unlike `fidelity`, `pictures`, `ledger`,
+   * `library`, `assetUrl` and `addresses` above it, and the asymmetry is the
+   * point: a turn's cost is a fact about the TENANT and the conversation, not
+   * about a site — the settings conversation has no site at all and spends money
+   * exactly like a site one does. So it is bound to the tenant by whoever builds
+   * it, once, and takes a whole record per turn.
+   *
+   * ABSENT IS ORDINARY AND IS THE DEFAULT, for `fidelity`'s reason and with a
+   * sharper consequence: a host with nowhere to keep a meter reading still takes
+   * the turn, unchanged, and simply records nothing. That is the `1c` CLI's
+   * permanent state — it edits a directory on somebody's machine, has no tenant
+   * and nothing to bill — and it is also what the Worker falls back to if the
+   * database handle is not there. A meter that could fail a conversation would
+   * be worse than no meter at all.
+   */
+  recordTurnSpend?: RecordTurnSpend | null
 }
 
 
@@ -1804,6 +1827,68 @@ async function closePending(
 }
 
 /**
+ * Write down what the turn cost ([[REQ-292]]).
+ *
+ * IN THE SAME `finally` AS {@link closePending}, and for a stronger version of
+ * the same reason. A consumer that walks away mid-turn returns the generator,
+ * which runs that block and never reaches `catch` — and abandonment is exactly
+ * when spend would otherwise be lost, because the requests were sent and paid
+ * for whatever became of their answers. On the Worker that `finally` is held
+ * open past the client disconnect by `ctx.waitUntil` (BUG-46), so the write
+ * survives the response closing without a new lifecycle mechanism and without
+ * delaying the last frame the client sees.
+ *
+ * NEVER THROWS, like the three calls above it. A meter is not worth a
+ * conversation: this runs in a `finally`, so a throw here would also REPLACE
+ * whatever error the turn was already carrying — the operator would be shown a
+ * database failure in place of the model's own.
+ *
+ * A TURN THAT MEASURED NOTHING WRITES NOTHING, decided by
+ * {@link turnSpendRecord} rather than here, so every host gets the rule instead
+ * of every host restating it.
+ */
+async function writeTurnSpend(
+  deps: HostDeps,
+  meta: Record<string, unknown> | undefined,
+  facts: { session: string; turn: string; startedAt: string; role: string; outcome: string },
+): Promise<void> {
+  if (!deps.recordTurnSpend) return
+  try {
+    // FOLDED FROM THE TERMINAL EVENT'S META BY THE LIBRARY'S OWN FUNCTION, which
+    // is the one place that says which of that meta's keys are spend and which
+    // are facts about the turn that are not (`interrupted`, `occupancy_tokens`).
+    // Re-deriving the split here would be a second opinion about upstream's
+    // vocabulary, which is the thing that goes quietly out of date.
+    const lib = deps.lib as Untyped
+    const spend = {
+      ...((lib.turnSpend(meta) ?? {}) as Record<string, unknown>),
+      // …PLUS WHAT THE TURN CAUSED ELSEWHERE, which `turnSpend` deliberately
+      // does not carry: its whole job is to say which of that meta's keys ARE
+      // spend, and a delegated worker's requests are not this turn's spend —
+      // they are a second party's, attributed to the turn that caused them
+      // (REQ-148 §8). Taken from the raw meta so the record can hold it the day
+      // it arrives there; today the manager puts it on the junction's
+      // `turn_end` and not on this event, and this product delegates nothing.
+      ...(Array.isArray(meta?.attributed) ? { attributed: meta.attributed } : {}),
+    } as Record<string, unknown>
+    const record = turnSpendRecord(spend, {
+      session: facts.session,
+      turn: facts.turn,
+      startedAt: facts.startedAt,
+      endedAt: new Date().toISOString(),
+      role: facts.role,
+      backend: PROJECT_BACKEND,
+      model: projectBackendModel(lib),
+      outcome: facts.outcome,
+    })
+    if (record === null) return
+    await deps.recordTurnSpend(record)
+  } catch {
+    // See above. Deliberately swallowed.
+  }
+}
+
+/**
  * The turn of this conversation that did not finish, or `null` ([[BUG-121]]).
  *
  * THE RECONCILIATION, and it is why this is computed where the transcript is
@@ -2032,11 +2117,25 @@ export async function* streamPrompt(
     // change their business.
     await openPending(deps, sessionId, text)
     let outcome: TurnOutcome = 'aborted'
+    // [[REQ-292]] — the turn's meter, opened beside the pending record and for
+    // the same reason it is: this is the point at which the turn begins costing
+    // money, and `startedAt` is what makes a long turn visible as one rather
+    // than as an instant at the moment it closed. The id is minted rather than
+    // read because the framework's own turn id never leaves the junction.
+    const spendTurn = newId('turn')
+    const spendStartedAt = new Date().toISOString()
+    let spendMeta: Record<string, unknown> | undefined
     let seen = businessWrites.get(key) ?? 0
     try {
       for await (const event of settingsManager.promptStream(sessionId, text)) {
         yield withoutImageData(event)
-        if (event.kind === DONE) outcome = turnOutcome(event.meta)
+        if (event.kind === DONE) {
+          outcome = turnOutcome(event.meta)
+          // WHAT IT COST RIDES THE SAME EVENT ([[REQ-292]]). Held rather than
+          // folded here, because the fold belongs in the `finally` where the
+          // turn is genuinely over.
+          spendMeta = event.meta
+        }
         // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
         // write — and a Map read rather than the site half's store round trip, so
         // a turn that only answers a question costs nothing at all.
@@ -2076,6 +2175,17 @@ export async function* streamPrompt(
       // walks away mid-turn returns the generator, which runs this and never
       // `catch`. That is the interruption this ticket is about ([[BUG-121]]).
       await closePending(deps, sessionId, outcome)
+      // AND WHAT IT COST ([[REQ-292]]). A settings turn spends exactly as a site
+      // turn does, so it is metered by the same call with the same shape — the
+      // role is the only thing that differs, and it is a column. See the site
+      // branch's own note below for what an abandoned turn can and cannot say.
+      await writeTurnSpend(deps, spendMeta, {
+        session: sessionId,
+        turn: spendTurn,
+        startedAt: spendStartedAt,
+        role: SETTINGS_ROLE,
+        outcome,
+      })
     }
     return
   }
@@ -2130,6 +2240,13 @@ export async function* streamPrompt(
   // caused survives.
   await openPending(deps, sessionId, text)
   let outcome: TurnOutcome = 'aborted'
+  // [[REQ-292]] — the turn's meter. See the settings branch above: opened here
+  // because this is where the turn starts costing money, and the id is minted
+  // because the framework's own turn id is stamped on junction records and never
+  // reaches the stream vocabulary this loop consumes.
+  const spendTurn = newId('turn')
+  const spendStartedAt = new Date().toISOString()
+  let spendMeta: Record<string, unknown> | undefined
 
   // BUG-43 — the counter as it stands right now, carried down the loop below so
   // each write is compared against the one before it rather than against the
@@ -2142,7 +2259,15 @@ export async function* streamPrompt(
       // ([[BUG-121]]). Seeing no terminal event at all is itself the answer —
       // `outcome` starts at `aborted` — because the consumer walking away is
       // exactly how a turn ends without one.
-      if (event.kind === DONE) outcome = turnOutcome(event.meta)
+      if (event.kind === DONE) {
+        outcome = turnOutcome(event.meta)
+        // AND WHAT IT COST, OFF THE SAME EVENT ([[REQ-292]]). The adapter counts
+        // every request it sends and the manager folds the turn's; both ride
+        // this one terminal meta, which this host read for `status` and then
+        // discarded. Held rather than folded here, because the fold belongs in
+        // the `finally` where the turn is genuinely over.
+        spendMeta = event.meta
+      }
       // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
       // write. A turn that answers a question makes no extra read at all, and a
       // turn that writes makes one primary-key lookup per call it made.
@@ -2167,6 +2292,25 @@ export async function* streamPrompt(
     // `catch` — so this is the one place that can tell an interruption from a
     // conversation.
     await closePending(deps, sessionId, outcome)
+    // AND WHAT THE TURN COST, in the same block and for the same reason
+    // ([[REQ-292]]). A turn the client walked away from reaches here and nowhere
+    // else, and on the Worker `ctx.waitUntil` holds the isolate open for it — so
+    // a turn abandoned the instant its answer arrived is recorded like any other.
+    //
+    // WHAT IT CANNOT RECOVER, stated because the gap is upstream's rather than
+    // this line's: a turn cut off MID-GENERATION never produces a terminal
+    // event, so `spendMeta` is undefined and the requests already sent are
+    // accounted for nowhere this host can reach — the adapter's own per-segment
+    // ledger has them and the manager's `turn_end` does not. Nothing is written,
+    // which is the honest answer rather than the convenient one: a row of zeros
+    // would claim the turn was free.
+    await writeTurnSpend(deps, spendMeta, {
+      session: sessionId,
+      turn: spendTurn,
+      startedAt: spendStartedAt,
+      role: CONSULTANT_ROLE,
+      outcome,
+    })
   }
 }
 

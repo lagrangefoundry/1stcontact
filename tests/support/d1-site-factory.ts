@@ -157,8 +157,16 @@ const MIGRATIONS = [
   // writes one record per invocation, so a suite that skipped this file would
   // fail on a missing table in EVERY request it made rather than in the one
   // assertion that is about logging.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0018_activity_log.sql?raw'),
+  // [[REQ-292]] — `turn_spend`, one row per measured turn of every conversation.
+  // Applied here for every reason above, and one of its own: the chat host now
+  // writes a row from the `finally` of EVERY turn it takes, so a suite that
+  // skipped this file would fail on a missing table in the prompt route itself
+  // rather than in the one assertion that is about spend — except that it would
+  // not even do that, because the host swallows a meter failure on purpose. The
+  // symptom would be a silently unmetered suite, which is worse.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0019_turn_spend.sql?raw'),
 ]
 
 /**
@@ -251,7 +259,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-235]]'s `idx_log_records_business`, the activity log's operator read. It used to
+ * [[REQ-292]]'s `idx_turn_spend_tenant`, the turn meter's period read. It used to
  * ask for `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -274,7 +282,7 @@ export async function applySchema(): Promise<void> {
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
   const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_log_records_business')
+    .bind('idx_turn_spend_tenant')
     .first<{ name: string }>()
   return row !== null
 }

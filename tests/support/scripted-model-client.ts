@@ -203,6 +203,47 @@ export const calls =
     { type: 'content_block_stop', index: 0 },
   ]
 
+/**
+ * The four counters one request reports, as the provider names them
+ * ([[REQ-292]]).
+ *
+ * Partial on purpose: a real `usage` block omits what it has nothing to say
+ * about, and the fold reads a missing counter as zero rather than throwing.
+ */
+export type ReportedUsage = Partial<{
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number
+  cache_creation_input_tokens: number
+}>
+
+/**
+ * The same step, reporting what the request was billed for ([[REQ-292]]).
+ *
+ * A WRAPPER RATHER THAN A FIFTH TRANSCRIPTION, for this module's whole reason:
+ * the double is a transcription of Anthropic's wire protocol, and the last time
+ * there were four copies three fell behind silently. So this composes with
+ * {@link says} and {@link calls} instead of restating their events.
+ *
+ * TWO FRAMES AND NOT ONE, because that is what the wire does and what
+ * `AnthropicAccumulator` reads: the INPUT side (including both cache figures)
+ * arrives on `message_start`, and the settled OUTPUT count on `message_delta`.
+ * A double that put all four on one frame would pass against an accumulator that
+ * read only the other one — which is exactly the class of drift this module
+ * exists to prevent. `usageRecord` folds the second over the first, so a counter
+ * named on neither frame stays zero.
+ */
+export const metered =
+  (usage: ReportedUsage, step: ModelStep): ModelStep =>
+  (req) => {
+    const { output_tokens: output = 0, ...input } = usage
+    return [
+      { type: 'message_start', message: { usage: input } },
+      ...step(req),
+      { type: 'message_delta', usage: { output_tokens: output } },
+    ]
+  }
+
 /** A scripted client whose answer stops half-way until the test lets it finish. */
 export interface PacedClient extends ScriptedClient {
   /** Resolves once the first half has been streamed and consumed. */
@@ -235,7 +276,7 @@ export interface PacedClient extends ScriptedClient {
  * appended by `promptStream` before it yields. Waiting on it is therefore
  * waiting for "the turn has said something", not for a timer.
  */
-export function pacedClient(first: string, rest: string): PacedClient {
+export function pacedClient(first: string, rest: string, usage?: ReportedUsage): PacedClient {
   const seen: ModelRequest[] = []
   let release = (): void => {}
   const gate = new Promise<void>((resolve) => {
@@ -253,12 +294,24 @@ export function pacedClient(first: string, rest: string): PacedClient {
       create: async (req: ModelRequest) => {
         seen.push(req)
         return (async function* () {
+          // [[REQ-292]] — the billing frames, in the SAME two places
+          // {@link metered} puts them and for the same reason: the input side
+          // arrives before the content and the settled output count after it.
+          // A caller that names no usage gets exactly the stream this produced
+          // before spend existed.
+          if (usage) {
+            const { output_tokens: _out = 0, ...input } = usage
+            yield { type: 'message_start', message: { usage: input } }
+          }
           yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }
           yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: first } }
           arrive()
           await gate
           yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: rest } }
           yield { type: 'content_block_stop', index: 0 }
+          if (usage) {
+            yield { type: 'message_delta', usage: { output_tokens: usage.output_tokens ?? 0 } }
+          }
         })()
       },
     },
