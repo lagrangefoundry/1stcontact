@@ -168,7 +168,7 @@ import {
   ZoneApexTakenError,
 } from './zones'
 import { fidelityDeps } from './shot'
-import { d1TurnSpend } from './spend'
+import { d1TurnSpend, tenantSpendReport, type SpendPeriod } from './spend'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
@@ -1559,6 +1559,32 @@ export const ADMIN_DNS_PATH = '/api/admin/dns'
  * domain would otherwise be repairable only by editing the database by hand.
  */
 export const ADMIN_DOMAINS_PATH = '/api/admin/domains'
+
+/**
+ * Where the OPERATOR reads what a business's conversations have cost
+ * ([[REQ-293]]).
+ *
+ * `/api/admin/` AND NOT A CUSTOMER SURFACE, and unlike the zones route that is
+ * a temporary position rather than a permanent one. A client WILL be shown
+ * their hours — that is the unit EPIC-20 says this product is sold in — but
+ * what they are shown is a bill, and a bill needs a plan, a cap and a decision
+ * about what happens when somebody reaches it, none of which exist yet. What
+ * exists is a meter, and the person who needs to read it today is the person
+ * setting the price. Customer-facing billing is named out of scope on the
+ * ticket.
+ *
+ * IT NAMES THE BUSINESS RATHER THAN READING THE RESOLVED SCOPE, on
+ * {@link ADMIN_BUSINESSES_PATH}'s reasoning: an operator comparing two tenants'
+ * cost per engaged hour is asking about somebody else's meter by definition,
+ * and a route that could only report the scope it was reached through would
+ * make that question unaskable from anywhere.
+ *
+ * GET AND NOTHING ELSE, because there is nothing here to write. Engaged time is
+ * derived at read from the two stamps each row already holds (REQ-293), so a
+ * report can neither create nor revise a row — which is what makes it safe to
+ * run against a meter that will be billed from.
+ */
+export const ADMIN_SPEND_PATH = '/api/admin/spend'
 
 /**
  * The User tab's four routes ([[REQ-170]]).
@@ -3166,6 +3192,62 @@ async function routeUncached(
         if (err instanceof ResolverUnreachableError) return json(502, { error: scrub(err.message) })
         throw err
       }
+    }
+
+    /**
+     * GET /api/admin/spend?business=…&from=…&to=… — what a tenant's
+     * conversations have cost, in engaged hours and in dollars ([[REQ-293]]).
+     *
+     * THE TWO NUMBERS A PERSON CAN ACT ON, and the arithmetic that turns the
+     * meter's rows into them lives in `spend-report-core.ts`, not here. This
+     * route is the transport: it decides WHO may ask and WHICH tenant and WHAT
+     * period, and hands the rest over.
+     *
+     * BEHIND `ownsPlatformBusiness`, AND 404 RATHER THAN 403, on
+     * {@link ADMIN_ZONES_PATH}'s reasoning exactly: a caller asking whether an
+     * administrative surface exists is owed nothing. The answer here is a
+     * profile of somebody else's spending — how long they worked, on what, and
+     * at what rate — which is not a fact to hand to whoever asks.
+     *
+     * BOTH ENDS OF THE PERIOD ARE OPTIONAL AND ABSENT MEANS UNBOUNDED. The
+     * meter is retained rather than pruned (REQ-292), so *everything this
+     * tenant has ever spent* is a question it can answer — and the first person
+     * to read this has no period in mind yet, because the baseline they are
+     * establishing is what a period would be judged against.
+     *
+     * AN UNREADABLE STAMP IS A REFUSAL AND NOT AN IGNORED BOUND. Dropping a
+     * `from` nobody could parse would answer a DIFFERENT question — a wider one
+     * — with no sign that it had, and the reader would take the total for the
+     * month they asked about.
+     */
+    if (p === ADMIN_SPEND_PATH && method === 'GET') {
+      const admission = deps.admission
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+      const business = (url.searchParams.get('business') ?? '').trim()
+      if (business === '') return json(400, { error: 'business is required' })
+      const period: SpendPeriod = {}
+      for (const end of ['from', 'to'] as const) {
+        const raw = (url.searchParams.get(end) ?? '').trim()
+        if (raw === '') continue
+        if (!Number.isFinite(Date.parse(raw))) {
+          return json(400, { error: `${end} is not a readable timestamp` })
+        }
+        period[end] = raw
+      }
+      return json(200, {
+        business,
+        period: { from: period.from ?? null, to: period.to ?? null },
+        report: await tenantSpendReport(env, business, period),
+      })
     }
 
     /**
