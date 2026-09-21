@@ -5,10 +5,10 @@ type: request
 title: 'Content copy between stores: GET /api/export, bin/copy-to-cloud, bin/copy-from-cloud'
 created_by: EPIC-16
 created_at: '2026-09-21T00:08:58.636330+00:00'
-updated_at: '2026-09-21T00:23:10.761495+00:00'
+updated_at: '2026-09-21T00:23:14.150471+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-96d8aca6
