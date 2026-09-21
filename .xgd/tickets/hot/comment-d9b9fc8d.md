@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T18:10:07.912748+00:00'
+updated_at: '2026-09-21T18:21:09.370147+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -752,5 +752,11 @@ Two cautions, both already paid for once in this codebase: set it under **`[env.
 Steps 1, 2 and 7 are `wrangler.toml` edits — configuration, no ticket. **I need one thing from you before I make edit 1: the exact address in your Access JWT** (the one you sign into `lagrangefoundry.cloudflareaccess.com` with). I won't guess it — a near-miss is the lockout that `platformAdminSeed` exists to diagnose.
 
 Also worth knowing: **step 5 is blocked on [[BUG-134]]**, still `draft`, and it has moved onto the critical path. Want me to hand it to a session now?
+
+<!-- xgd-turn id="0e9660d5-e439-41a3-b7a1-a50d55e9e72f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:21:08.907294+00:00" -->
+#### You
+Can you give me specific instructions please?
 
 <!-- xgd-chat-end -->
