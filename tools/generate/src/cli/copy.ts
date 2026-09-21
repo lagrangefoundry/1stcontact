@@ -1,7 +1,10 @@
 import { BUSINESSES_PATH, type BusinessesPayload } from '../../../../apps/control-app/src/router'
 import { businessPath } from '../../../../apps/control-app/src/scope'
 import {
+  accessAdvice,
+  ACCESS_NAMING,
   postSitePayload,
+  type AccessEnd,
   type AccessServiceToken,
   type PushResult,
   type SitePayload,
@@ -68,17 +71,31 @@ export interface CopyOptions {
   /** The cloud end. Overridable so a UAT can aim both ends at a fake. */
   cloud?: string
   /**
-   * The Cloudflare Access service token, sent to BOTH ends when it is set.
+   * The CLOUD end's Cloudflare Access service token — and the local end's
+   * fallback when {@link localAccess} is absent.
    *
-   * REQUIRED FOR THE CLOUD END and merely useful for the other one. Access
-   * fronts `app.1stcontact.io`, so a copy that touches it without the pair is
-   * refused at the edge; but the local builder run behind `bin/access-sim` is
-   * reached exactly the way production is — that is what `--origin` is for —
-   * and it needs the same credential. Sending it to whichever end was asked for
-   * costs nothing when that end does not care, and withholding it from the
-   * local end would make the simulator unreachable for no reason.
+   * REQUIRED FOR THE CLOUD END. Access fronts `app.1stcontact.io`, so a copy
+   * that touches it without the pair is refused at the edge.
    */
-  access?: AccessServiceToken
+  cloudAccess?: AccessServiceToken
+  /**
+   * The LOCAL end's own pair, for a local builder that is itself behind a gate.
+   *
+   * THE FIELD [[BUG-134]] ADDS, and the whole of the bug. The local builder run
+   * behind `bin/access-sim` is reached exactly the way production is — that is
+   * what `--origin` is for — but it accepts only the SIMULATOR's pair, not
+   * Cloudflare's. One field sent to both ends could satisfy either and never
+   * both, and the only way out was to restart the simulator with the production
+   * token's values: a production credential in a local process's argv, to work
+   * around a missing parameter.
+   *
+   * ABSENT, THE CLOUD PAIR SERVES BOTH, which is what this did before and is
+   * right whenever one credential genuinely does serve both — a UAT aiming both
+   * ends at one fake, or a local builder with no gate at all, which ignores the
+   * headers either way. This adds a way to say the ends differ; it does not
+   * make everyone say so.
+   */
+  localAccess?: AccessServiceToken
   /** Replace a target carrying builder changes (BUG-51). Forwarded, never defaulted. */
   force?: boolean
   /** Defaults to `site`. See {@link assertDataClass}. */
@@ -92,20 +109,62 @@ export interface CopyEnds {
   destination: string
 }
 
+/** Whatever is true of an end, once the direction has said which role it plays. */
+export interface ByRole<T> {
+  source: T
+  destination: T
+}
+
 /**
- * The two origins, chosen by direction.
+ * THE SWAP. Written once, in the whole codebase.
  *
  * ONE FUNCTION, so "from-cloud is to-cloud with the ends swapped" is a fact
- * about the code and not a claim in a comment.
+ * about the code and not a claim in a comment. It started out mapping the two
+ * ORIGINS; [[BUG-134]] gave a copy a second per-end fact — the credential that
+ * end accepts — and generalising was cheaper than writing the conditional a
+ * second time. Written out by hand again, the swap gets reversed in the
+ * direction nobody runs daily.
  */
+export function byEnd<T>(direction: CopyDirection, local: T, cloud: T): ByRole<T> {
+  return direction === 'to-cloud'
+    ? { source: local, destination: cloud }
+    : { source: cloud, destination: local }
+}
+
+/** The two origins, chosen by direction. */
 export function endsFor(
   direction: CopyDirection,
   local: string = LOCAL_ORIGIN,
   cloud: string = CLOUD_ORIGIN,
 ): CopyEnds {
-  return direction === 'to-cloud'
-    ? { source: local, destination: cloud }
-    : { source: cloud, destination: local }
+  return byEnd(direction, local, cloud)
+}
+
+/**
+ * Which MACHINE is at each role, so a refusal can name it ([[BUG-134]]).
+ *
+ * The same swap over the same direction, which is why a message about "the
+ * source end" cannot go wrong about which machine that is.
+ */
+export function endNamesFor(direction: CopyDirection): ByRole<AccessEnd> {
+  return byEnd<AccessEnd>(direction, 'local', 'cloud')
+}
+
+/**
+ * The two credentials, chosen by direction — the same mapping over different
+ * inputs ([[BUG-134]]).
+ *
+ * THE FALLBACK IS HERE AND NOWHERE ELSE. "The local end uses the cloud pair
+ * when it has none of its own" is one sentence about the credentials, so it is
+ * one expression next to them rather than a `??` at each of the three places a
+ * credential is read.
+ */
+export function accessFor(
+  direction: CopyDirection,
+  local: AccessServiceToken | undefined,
+  cloud: AccessServiceToken | undefined,
+): ByRole<AccessServiceToken | undefined> {
+  return byEnd(direction, local ?? cloud, cloud)
 }
 
 /**
@@ -154,21 +213,43 @@ export function assertDataClass(klass: DataClass, direction: CopyDirection): voi
  * credential for `api.cloudflare.com`, and Access exchanges a service-token
  * pair at the edge for the JWT it forwards. Being told it is refused "like no
  * credential at all" only helps if the sentence says the name.
+ *
+ * `end` CHOOSES THE NAMES AND NOTHING ELSE ([[BUG-134]]). Half a LOCAL pair is
+ * refused exactly as half a cloud pair is — the same function, the same
+ * sentence, the local variables in it. Half a credential is not a weaker
+ * credential whichever machine it was meant for, so there is no second rule
+ * here, only a second row of {@link ACCESS_NAMING}. It defaults to `cloud`
+ * because that is what this meant before there were two.
  */
 export function serviceToken(
   clientId: string | undefined,
   clientSecret: string | undefined,
+  end: AccessEnd = 'cloud',
 ): AccessServiceToken | undefined {
   const id = (clientId ?? '').trim()
   const secret = (clientSecret ?? '').trim()
   if (id !== '' && secret !== '') return { clientId: id, clientSecret: secret }
   if (id === '' && secret === '') return undefined
+  const n = ACCESS_NAMING[end]
   throw new Error(
-    'A Cloudflare Access service token is a PAIR. Set both CF_ACCESS_CLIENT_ID ' +
-      'and CF_ACCESS_CLIENT_SECRET (or pass both --client-id and --client-secret). ' +
+    `A Cloudflare Access service token is a PAIR. Set both ${n.envId} ` +
+      `and ${n.envSecret} (or pass both ${n.flagId} and ${n.flagSecret}). ` +
       'CLOUDFLARE_API_TOKEN is an API credential for api.cloudflare.com and is not ' +
-      'what Access accepts. Run bin/access-token to provision one.',
+      `what Access accepts. ${n.provision}`,
   )
+}
+
+/**
+ * What one call needs to reach one end: the credential, and which end it is.
+ *
+ * THE END TRAVELS WITH THE CREDENTIAL, always, because the two are only useful
+ * together — the credential to be accepted, the name to say which one was
+ * wanted when it is not ([[BUG-134]]).
+ */
+export interface Wire {
+  end: AccessEnd
+  access?: AccessServiceToken
+  fetch?: typeof fetch
 }
 
 /** The headers every call in this module sends. */
@@ -193,7 +274,7 @@ function headersFor(access: AccessServiceToken | undefined): Record<string, stri
 async function getJson(
   url: string,
   what: string,
-  opts: { access?: AccessServiceToken; fetch?: typeof fetch },
+  opts: Wire,
 ): Promise<unknown> {
   const doFetch = opts.fetch ?? globalThis.fetch
   const res = await doFetch(url, {
@@ -209,11 +290,10 @@ async function getJson(
       `${what} was refused with ` +
         `${bounced ? `${res.status || 'a redirect'} to a login page` : res.status}: ` +
         `${body || '(no body)'}\n` +
-        (refusedByAccess
-          ? 'That end is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and ' +
-            'CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and ' +
-            '--client-secret. Run bin/access-token to provision one.'
-          : ''),
+        // NAMING THE END THAT REFUSED AND THE CREDENTIAL IT WANTS ([[BUG-134]]).
+        // "That end" named neither, and the operator who followed it set the
+        // pair that was already correct, for the end that was not refusing.
+        (refusedByAccess ? accessAdvice(opts.end) : ''),
     )
   }
   return JSON.parse(body) as unknown
@@ -242,7 +322,7 @@ async function getJson(
 export async function resolveBusiness(
   origin: string,
   name: string,
-  opts: { access?: AccessServiceToken; fetch?: typeof fetch },
+  opts: Wire,
 ): Promise<BusinessRef> {
   const payload = (await getJson(
     new URL(BUSINESSES_PATH, origin).toString(),
@@ -279,7 +359,7 @@ export interface ExportResult {
 export async function exportSite(
   origin: string,
   business: string,
-  opts: { access?: AccessServiceToken; fetch?: typeof fetch },
+  opts: Wire,
 ): Promise<ExportResult> {
   const ref = await resolveBusiness(origin, business, opts)
   const payload = (await getJson(
@@ -324,10 +404,17 @@ export interface CopyResult {
 export async function copySite(business: string, opts: CopyOptions): Promise<CopyResult> {
   assertDataClass(opts.klass ?? 'site', opts.direction)
   const ends = endsFor(opts.direction, opts.local, opts.cloud)
-  const wire = { access: opts.access, fetch: opts.fetch }
+  // THREE SWAPS, ONE FUNCTION ([[BUG-134]]). The origins, the credentials and
+  // the end names are all per-END facts read per-ROLE, so they are the same
+  // mapping over three sets of inputs rather than three conditionals that could
+  // disagree about which way round `from-cloud` is.
+  const creds = accessFor(opts.direction, opts.localAccess, opts.cloudAccess)
+  const who = endNamesFor(opts.direction)
+  const wireTo: Wire = { end: who.destination, access: creds.destination, fetch: opts.fetch }
+  const wireFrom: Wire = { end: who.source, access: creds.source, fetch: opts.fetch }
 
-  const to = await resolveBusiness(ends.destination, business, wire)
-  const read = await exportSite(ends.source, business, wire)
+  const to = await resolveBusiness(ends.destination, business, wireTo)
+  const read = await exportSite(ends.source, business, wireFrom)
 
   const payload: SitePayload = { ...read.payload }
   // Set only when asked, so an ordinary copy sends a body with no `force` key
@@ -338,7 +425,11 @@ export async function copySite(business: string, opts: CopyOptions): Promise<Cop
   const landed = await postSitePayload(payload, {
     url: new URL(businessPath(to.id, '/api/import'), ends.destination).toString(),
     subject: `Copy of '${to.name}'`,
-    access: opts.access,
+    // The DESTINATION's end, not the command's — on `copy-from-cloud` the
+    // import lands on the laptop, and the advice it owes on a refusal is the
+    // local row ([[BUG-134]]).
+    end: who.destination,
+    access: creds.destination,
     fetch: opts.fetch,
   })
 
