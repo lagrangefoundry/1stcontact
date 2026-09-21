@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:01:41.197994+00:00'
+updated_at: '2026-09-21T00:03:59.653154+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -261,5 +261,66 @@ bin/publish is also an extremely confusing verb here. "publish" is the act of mo
 So I suggest we delete bin/publish what I would like is more like a bin/copy-to-cloud [business name] and it copies the site draft from my local copy to the cloud copy.
 
 What is 1c pull?
+
+<!-- xgd-turn id="2244f532-c5ae-46e0-bb1b-deaab3153637-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T00:03:58.710176+00:00" -->
+#### Claude
+Straight answer first: **`1c pull` doesn't exist.** I invented the name two messages ago as a proposal for the missing direction and then kept using it as if it were real. That's on me — there is no pull, no `/api/export`, nothing that reads out of a store. `tools/generate/src/cli/` has `push.ts` and no counterpart.
+
+Before I agree to delete things, let me check what actually depends on the tier you're calling dead.
+
+Ticket updated with section G. Answering your question first.
+
+## What is `1c pull`?
+
+**Nothing. I made it up.** I proposed the name while drafting §F4 and then kept writing as if it were an existing command I was extending. There's no `pull`, no `/api/export`, no counterpart to `push.ts`. Nothing in the system reads content *out* of a store in any direction. I've marked that correction in the ticket (§G0) so the next agent reading §F doesn't chase it either.
+
+## The verb — agreed, and it's worse than a naming problem
+
+You're right, and the tell is that both `bin/publish`'s header *and* DOC-41 §3 already carry a paragraph apologising for the collision. A comment explaining why two things share a name is the defect, not the mitigation. `bin/publish` loses the name.
+
+## `bin/copy-to-cloud` is a rewrite, not a rename
+
+This is the part worth your attention. It can't be a `git mv`, because **the source tier changes**:
+
+- `bin/publish` reads `storage/sites/<slug>/` — the tier you're declaring dead.
+- Your LF site lives in the **local D1/R2** under `apps/control-app/.wrangler/state/`, because you built it in the builder. It has never been in `storage/sites/`.
+
+So the old command reads from the dead tier, and the new one needs a store Node can't open — miniflare's D1 is a SQLite file whose layout is an implementation detail, R2 is a second SQLite plus a blob directory. Reading those directly is a third store adapter with no contract behind it.
+
+**The design that falls out: add `GET /api/export`, symmetric with `/api/import`.** The Worker already writes through the store it serves from, precisely so there's no second writer that could disagree about what a site is made of. Export is that same argument reversed, and it makes the command two HTTP calls:
+
+```
+bin/copy-to-cloud <business>     # GET localhost:8788/api/export → POST app.1stcontact.io/api/import
+bin/copy-from-cloud <business>   # same two calls, origins swapped
+```
+
+One route to build, three problems solved: go-live for a builder-authored site, a **backup** for a draft that currently exists in one gitignored directory, and the staging seed.
+
+Two things to design for rather than discover: `/api/import` resolves its target from the authenticated scope, so `<business>` resolves independently on each side — and **the cloud business must already exist** (production has 1 tenant, 0 sites). Copying to a business that isn't there should fail with "create it in the builder first", not invent one.
+
+On the flags: `--contacts` going *up* is fine; going *down* should be refused in the code, not warned about in help text. Real people's data on a laptop in a store running `ACCESS_DEV_OPEN=1` is your own security note 1, applied where it matters more.
+
+## One correction to "the old dev path is dead"
+
+`storage/sites/` has three uses and only the first is dead:
+
+| Use | Status |
+|---|---|
+| Authoring real sites on disk — the three trees, `1c new/publish/checkout`, `bin/publish` | **Dead.** Delete. |
+| **The reproduction substrate** — `1c repro` imports a capture as a site, then `render`/`shot`/`diff`/`values-diff`/`gate` run the fidelity loop on it (`storage/sandbox/` has 7 such trees) | **Load-bearing.** Keep the fs-store code; pin repro to `sandbox` so it never writes to `sites`. |
+| A corpus of hand-authored L1 for conformance — `req107` AC-4, `req105`, `BUG-101` glob the repo's actual tree | **Load-bearing, narrowly** — 3 tests. Move the corpus to fixtures, repoint the globs. |
+
+So the delete is the three site trees, `bin/publish` and `1c push` — not the fs-store module, which dozens of test suites open against temp dirs.
+
+## Order I'd take it in
+
+1. `GET /api/export`
+2. `bin/copy-to-cloud` / `bin/copy-from-cloud` over it, `--site` only
+3. **Back up the LF draft** — the urgent half
+4. → 6. Repoint tests, delete the dead trees, rewrite DOC-41
+
+Steps 1–3 stand alone. Want me to scope the child ticket and cut a branch for them? I'd keep 4–6 as a separate child so the backup isn't gated on the tidy-up.
 
 <!-- xgd-chat-end -->
