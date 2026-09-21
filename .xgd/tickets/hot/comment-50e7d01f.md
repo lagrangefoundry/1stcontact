@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T18:32:48.485502+00:00'
+updated_at: '2026-09-21T18:40:24.203700+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -226,5 +226,15 @@ Inter-turn gaps under 20 min — wall-clock "at the desk" — give 7.3 h and $34
 4. Effort levels and delegation still stand, and now have a ceiling: moving construction to Haiku is worth ~$200 of this $252, and it stacks with the cache fix.
 
 Item 2 is a framework ticket I haven't filed — say the word and I will. Simulator's at `.xgd/tmp/lf-cost/`, uncommitted.
+
+<!-- xgd-turn id="b55ced76-301e-4b18-a9b4-98185efbdf0e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:40:23.960392+00:00" -->
+#### You
+I'm not sure that your accounting is accurate. My account (that I believe is paying for this) tells me that 166.50 was spent since Sept 1. And I know that at least $25 was spent on the 1st Contact site.
+
+Your fixes sound good but can't add up they suggest an available saving of $310 on a spend of $252 - but I understand the reasoning here.
+
+If we can realistically get the $252 (which I believe in practice is actually half that) down to $30-$50 - then we probably do have a product after all
 
 <!-- xgd-chat-end -->
