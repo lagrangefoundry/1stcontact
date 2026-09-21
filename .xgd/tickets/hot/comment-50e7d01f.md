@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T18:44:21.577788+00:00'
+updated_at: '2026-09-21T18:59:34.091731+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -295,5 +295,16 @@ Per hour, that's **~$10/h as it ran, ~$5/h at $29** — against $20/h on 09-08. 
 Every number here turns on an *assumed* isolate lifetime. At 30-minute eviction it's $76; warm throughout it was $252. That spread is the whole uncertainty, and it's closed by one write beside the audit flush in `ai.ts` — `usage` is already on the `done` event and already thrown away. That's still item 1, and it should go first.
 
 Ticket updated with the corrected section and the retractions. Want me to file the framework ticket for the window/tool-deferral settings, or do the `usage` persistence here first?
+
+<!-- xgd-turn id="70633133-00cd-4154-b52d-8a5d34d1d8b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:59:31.432832+00:00" -->
+#### You
+Ok lets rewind - I got completely lost in your attempts to explain your backpedaling. Work this forward for me:
+
+1. How much do you think I spent in yesterday's session?
+2. How much of that do you think can be optimized with improved configuration?
+3. How much can be optimized with the Haiku delegation?
+4. What is my rough cost per hour for 1, 2 and 3
 
 <!-- xgd-chat-end -->
