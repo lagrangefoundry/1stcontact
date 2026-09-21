@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T21:48:45.251672+00:00'
+updated_at: '2026-09-21T22:29:09.925439+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -1266,3 +1266,67 @@ Lagrange Foundry business EARLY, not late. It is a first-come namespace; the ris
 not spending a name, it is someone else holding the one name that business should have.
 `hostname.ts`'s permanence argument is about not recycling names between owners, not
 about hesitating to take the obviously correct one.
+
+
+### I18 — The deployed builder mounts nothing, and every layer is healthy
+
+After the import, `https://app.1stcontact.io/` renders the boot guard's panel:
+*"The builder did not start… The document loaded; its client did not."* Identical in
+Safari and Firefox, so not a browser-compatibility fault. The only console entry in
+Firefox is a favicon 404.
+
+**What the panel's own shape rules out.** `boot-guard.ts` renders a *"What failed:"*
+line whenever it captured an `error` event or an `unhandledrejection`. That line is
+ABSENT, so in the 4-second window the guard saw neither. A 404 in the module graph —
+the most common cause and the one the guard was built for — is therefore excluded, as
+is a throw during mount and a rejected top-level await.
+
+**What was verified healthy**, each read directly:
+
+| | |
+|---|---|
+| `dist-assets` | 112 files; all 7 import-map targets and 6 stylesheets present |
+| Asset staleness | 18 files newer than the build, all under `tools/generate/src` — Worker code, not client |
+| `/api/sites` (guard's own probe) | 200, one site, `latest: null` |
+| `/api/businesses` | 200 — person, 4 businesses, every one `selectable: true`, `lapse: null` |
+| `/api/status` | 200, `ai: true` |
+
+So `main.js`'s top-level `await loadOrSignOut(...)` resolves with good data and
+`mountBuilder` is called. `mountBuilder` is synchronous and renders through
+`mountShell(root, …)` (`app.js:221`) — the shared `@lagrangefoundry/webui-shell`
+component. Something there returns without writing to `#app`.
+
+**The untested path is a fresh origin.** `mountBuilder`'s own documentation notes the
+remembered business selection lives in "the shell's own namespaced storage".
+`app.1stcontact.io` has never written that storage; the local builder has had it for
+months. First-ever load with no stored selection is a state the local builder stopped
+being able to reach after its first run, and the deployed one is in it permanently
+until something mounts. **Reproduction to try: the local builder in a private window.**
+
+### I19 — Latent: `fetchBusinesses` turns any non-401 failure into an empty builder
+
+Not today's cause — `/api/businesses` answers 200 — but found while chasing it, and it
+would have made this hunt far worse.
+
+```js
+const res = await send(fetchImpl, '/api/businesses')
+if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
+if (!res.ok) return { person: null, businesses: [] }
+```
+
+Only 401 is treated as a session failure. **A 403, a 404, a 500 or a 502 all return an
+empty business list**, which `loadOrSignOut` reads as success, so `mountBuilder` runs
+with `businesses: []` and `person: null` and draws nothing. `fetchAiStatus` has the
+same shape one function above (`if (!res.ok) return { ai: true, message: null }` — and
+note it defaults `ai` to TRUE, so a failing status probe reports the AI as working).
+
+The result is a blank builder with no throw, no rejection, an empty console and a boot
+guard that can only say it does not know. Given §I15 established that a 403 carrying
+`DENIED_MESSAGE` is a routine and expected failure of this exact route, this is a live
+path and not a hypothetical.
+
+`mountBuilder`'s comment says empty "IS ORDINARY AND MEANS 'NO IDENTITY BEHIND THIS
+HOST'" — true of the Node transport and a headless suite, and exactly wrong for a
+browser whose request was refused. The two states are indistinguishable downstream
+because the distinction is discarded at the fetch. Worth a ticket: a refused fetch
+should be a third state, not the same value a headless host produces.
