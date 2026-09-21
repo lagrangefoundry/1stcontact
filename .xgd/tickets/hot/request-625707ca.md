@@ -5,9 +5,9 @@ type: request
 title: 'Content copy between stores: GET /api/export, bin/copy-to-cloud, bin/copy-from-cloud'
 created_by: EPIC-16
 created_at: '2026-09-21T00:08:58.636330+00:00'
-updated_at: '2026-09-21T00:08:58.636330+00:00'
+updated_at: '2026-09-21T00:23:10.761495+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -123,3 +123,75 @@ builder's store.
   export is built to match it, not the other way round.
 - The retirement of `storage/sites/`, `bin/publish` and `1c push` is the sibling
   ticket. This one leaves them in place, so the backup does not wait on a delete.
+
+
+## How it is built
+
+These are the decisions the implementation session settled. They are consequences
+of the behaviour above rather than additions to it, and they are recorded here so
+the UATs that pin them have language to point at.
+
+**A business is named, and the name is resolved on each side independently.**
+`<business>` is matched against `GET /api/businesses` on that origin — the
+switcher's own list, which reports exactly what that caller may operate and
+nothing else. The match is case-insensitive and exact; two businesses answering
+to one name is refused as ambiguity rather than resolved by first match, for the
+same reason `/api/import` refuses a business holding two sites. A name that is
+not in that list is refused with the list the side did offer, because "no such
+business" and "not yours" are the same sentence from the outside and the list is
+the only useful half of it.
+
+**Nothing here addresses a business by id on the wire except the prefix.** Once
+resolved, both calls are made against `/b/<businessId>/api/…` — the prefix
+`scope.ts` already defines — so the target of the read and the target of the
+write are each stated explicitly rather than left to "whichever one you may
+open first".
+
+**The commands are `bin/copy-to-cloud` and `bin/copy-from-cloud`, and both are
+one implementation.** They forward to `1c copy-to-cloud` / `1c copy-from-cloud`,
+which is the same code with the origins swapped — the direction is a parameter,
+and it is in two names because the operator reads the name back, not the
+parameter. (`1c copy` is the structured-edit verb and is untouched.)
+
+**The Access service-token pair is sent to whichever end is behind Access, which
+locally means `bin/access-sim`.** The pair is *required* for the cloud end and
+*sent* to any end when it is set, because the local builder run behind
+`bin/access-sim` is reached exactly the way production is — that is what
+`--origin` is for. Half a pair is refused before either call is made, and
+`CLOUDFLARE_API_TOKEN` is named in that refusal as the credential it is not.
+
+**`--backup <path>` reads the source side and writes nothing to the
+destination.** This is the acceptance case above made into a supported command:
+the Lagrange Foundry backup is the local builder's own export landing in a file
+the operator can commit, and the alternative is a hand-built `curl` that has to
+know a business id. The direction still says which side was read — `bin/copy-to-cloud
+--backup lf.json "Lagrange Foundry"` reads the local builder, because local is
+what to-cloud reads.
+
+**Export and import share one reader, so the payload shape cannot come apart.**
+`readSitePayload` — the function `1c push` already reads a draft with — is split
+so that the read and the capture-rights gate are separate, and `GET /api/export`
+calls the read. The gate stays on the write side: it is `/api/import`'s, it
+already runs there against the destination's own bundles, and a read of a store
+the caller already owns publishes nothing.
+
+## Test plan
+
+UATs named `test_UAT_FC_REQ-289_*`:
+
+- `…_export.workers.test.ts` — over the real route table, a real D1 and a real
+  R2: export returns the import payload shape; export→import round-trips a
+  site's `site.json`, page documents and asset bytes unchanged; a business
+  holding two sites is refused 409 in `/api/import`'s own words; a business
+  holding none is 404 naming the business.
+- `…_copy.test.ts` — the command, against a recorded `fetch`: the origins are
+  chosen by direction; the business is resolved on each side and both calls
+  carry the `/b/<id>` prefix; an unknown business on the destination is refused
+  without a write and without minting anything; `--force` reaches the payload
+  and a 409 is reported naming the business and the change count; `--backup`
+  makes no second call; `--contacts` is refused on `copy-from-cloud` with its
+  reason and reported unimplemented on `copy-to-cloud`; half a credential pair
+  is refused before any call.
+- `…_scripts.test.ts` — `bin/copy-to-cloud` and `bin/copy-from-cloud` exist, are
+  executable, name the credential pair and the direction they carry, and DOC-41
+  §2/§3 name them instead of `bin/publish` as the content path.
