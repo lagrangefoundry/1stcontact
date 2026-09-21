@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T01:07:27.806028+00:00'
+updated_at: '2026-09-21T01:07:51.766423+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -603,5 +603,11 @@ Branch cut as a worktree. Implementing there.
 Now the implementation.
 
 Now thread the per-end credential through `resolveBusiness`, `exportSite` and `copySite`.
+
+<!-- xgd-turn id="ea3a77e5-cdfd-48d5-9d1d-64d3fee36ab4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:07:50.905616+00:00" -->
+#### You
+STOP you are an EPIC - you delegate - code is written by the agent tickets
 
 <!-- xgd-chat-end -->
