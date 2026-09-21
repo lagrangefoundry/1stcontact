@@ -5,16 +5,21 @@ type: request
 title: 'Content copy between stores: GET /api/export, bin/copy-to-cloud, bin/copy-from-cloud'
 created_by: EPIC-16
 created_at: '2026-09-21T00:08:58.636330+00:00'
-updated_at: '2026-09-21T00:34:18.721986+00:00'
+updated_at: '2026-09-21T00:35:12.735065+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-ac9e4976
+  commits:
+  - working_sha: 37fddc2bd99e1000af31ecefaaecb9da3a02368a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.301
 ---
 
 Parent: [[EPIC-16]]. Asked for by the operator on 2026-09-20, after a session that
