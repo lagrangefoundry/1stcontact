@@ -5,9 +5,9 @@ type: request
 title: A tenant's spend, in engaged hours and in dollars
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:44.197313+00:00'
-updated_at: '2026-09-21T21:53:28.109840+00:00'
+updated_at: '2026-09-21T21:53:34.309206+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.311
+  story_points: 3
 ---
 
 ## Why
