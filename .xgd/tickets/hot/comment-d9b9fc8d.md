@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T18:21:09.370147+00:00'
+updated_at: '2026-09-21T18:22:22.169859+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -758,5 +758,158 @@ Also worth knowing: **step 5 is blocked on [[BUG-134]]**, still `draft`, and it 
 <!-- xgd-chat role="user" ts="2026-09-21T18:21:08.907294+00:00" -->
 #### You
 Can you give me specific instructions please?
+
+<!-- xgd-turn id="0e9660d5-e439-41a3-b7a1-a50d55e9e72f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:22:21.791892+00:00" -->
+#### Claude
+Here's the runbook. Steps marked **[me]** I can do as soon as you give me the input; the rest need a browser or a credential.
+
+---
+
+## Step 1 — Find out the exact address Access sends
+
+Don't guess it. Make the Worker tell you.
+
+**Terminal:**
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler tail 1stcontact-control-app --env production --format pretty
+```
+
+**Browser:** open `https://app.1stcontact.io/` and sign in through the Access page.
+
+You'll be refused. The tail prints:
+```json
+{"event":"admission_denied","reason":"no_user","email":"<THE ADDRESS>","platformAdminSeed":false}
+```
+
+That `email` value is the exact string Access puts in the JWT — copy it verbatim. (`platformAdminSeed: false` confirms the deployment doesn't name it; that field exists because this diagnosis cost a lockout once.)
+
+Ctrl-C the tail.
+
+---
+
+## Step 2 — Set `PLATFORM_ADMINS` **[me, once you paste the address]**
+
+`apps/control-app/wrangler.toml` **line 423**, inside `[env.production.vars]`:
+
+```toml
+PLATFORM_ADMINS = ""
+```
+becomes
+```toml
+PLATFORM_ADMINS = "<THE ADDRESS>,martin-github@westhead.me"
+```
+
+Both addresses: the first is you in the browser, the second is what `SERVICE_TOKEN_IDENTITIES` maps `1stcontact-publish` to, so `bin/copy-to-cloud` and `bin/publish` are admitted too.
+
+⚠️ Edit **that** line — don't add a second `PLATFORM_ADMINS` anywhere, and don't touch line 251 (the base `[vars]` copy, which production doesn't inherit).
+
+---
+
+## Step 3 — Turnstile
+
+Needed before any real site takes a message; skip it and every `POST /api/lead` returns 503.
+
+**Cloudflare dashboard → Turnstile → Add widget.** Hostnames: `1stcontact.io`, `lagrangefoundry.ai`, plus any customer domain you'll attach. Mode: Managed. You get two values.
+
+**Public half [me]** — `apps/public-site/wrangler.toml` **line 177**:
+```toml
+TURNSTILE_SITEKEY = "0x4AAA..."
+```
+
+**Secret half — you, never pasted to me:**
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/public-site
+printf '%s' '<the secret>' | npx wrangler secret put TURNSTILE_SECRET --env production
+```
+
+There's no deploy hook for this pair yet — that's the gap §I6 records.
+
+---
+
+## Step 4 — Build and deploy
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/build && bin/deploy
+```
+
+Read the **capability report** it prints at the end. `OPENAI_API_KEY` absent is expected and fine — image generation drops out of the tool surface, everything else works.
+
+---
+
+## Step 5 — Sign in for real
+
+Reload `https://app.1stcontact.io/`. You should be admitted this time and asked to accept the terms — **accept them**; the seed deliberately doesn't do that for you.
+
+Confirm the rows landed:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select (select count(*) from users) users, (select count(*) from accounts) accounts, (select count(*) from memberships) memberships, (select count(*) from entitlements) ents, (select count(*) from sites) sites;" --json
+```
+Expect `1 / 1 / 1 / 1` and at least one site (the platform business's starter).
+
+---
+
+## Step 6 — Create the two businesses
+
+In the builder, by hand: **Lagrange Foundry** and **XGD**. `bin/copy-to-cloud` never mints a tenant — that's deliberate, not a gap.
+
+---
+
+## Step 7 — Copy content up ⛔ blocked
+
+```bash
+bin/copy-to-cloud <business>
+```
+**[[BUG-134]] bites here** — one Access token sent to two ends that need different ones. Still `draft`. Say the word and I'll hand it to a session; it's small and it's now the only thing between you and a published site.
+
+---
+
+## Step 8 — Publish
+
+In the deployed builder, publish a revision for each site. First exercise of that path anywhere — expect this to be where something surprises us.
+
+---
+
+## Step 9 — Point the apex **[me, once you have the key]**
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select s.id, t.name from sites s join tenants t on t.id = s.tenant_id;" --json
+```
+
+Take the `site_…` id belonging to **1st Contact** → `apps/public-site/wrangler.toml` **line 171**:
+```toml
+APEX_SITE_KEY = "site_…"
+```
+then:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact && bin/deploy public-site
+```
+
+---
+
+## Step 10 — Smoke, properly this time
+
+```bash
+bin/smoke --site-key site_…
+```
+
+Now `apex_resolves` has something to resolve and the six `published_*` checks actually run — the asset crawl, the content types, the cache policy, the 404-on-miss. They have never executed against anything.
+
+---
+
+## Step 11 — Attach `lagrangefoundry.ai`
+
+Through the builder's domains pane. `CLOUDFLARE_DNS_TOKEN` is in place and the zone is in the account, so this path is configured for the first time.
+
+---
+
+**To unblock me right now:** paste the `email` value from Step 1, and tell me whether you want the Turnstile sitekey line staged now or left empty. I'll make both config edits and you can go straight to `bin/build && bin/deploy`.
 
 <!-- xgd-chat-end -->
