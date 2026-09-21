@@ -5,9 +5,9 @@ type: request
 title: A tenant's spend, in engaged hours and in dollars
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:44.197313+00:00'
-updated_at: '2026-09-21T20:00:44.197313+00:00'
+updated_at: '2026-09-21T21:41:04.384601+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-0923bb64
@@ -100,3 +100,32 @@ EPIC-20 says so.
 
 Also out: any customer-facing billing, and the replay harness that would let
 stored counters be compared truthfully against another provider.
+
+
+## Engaged hours are recoverable for sessions that predate the meter
+
+Unlike the counters, turn boundaries survive. The R2 audit ledger carries a
+timestamp, session and role on every tool call — 1,100 records spanning
+2026-09-08 to 09-21 — so engaged time is computable **exactly** for every
+session already run:
+
+| tenant | tool calls | engaged hours (5-min cap) |
+|---|---|---|
+| Lagrange Foundry | 768 | 7.37 |
+| 1st Contact | 193 | 2.02 |
+| XGD | 139 | 0.89 |
+| **total** | **1,100** | **10.28** |
+
+Against the account's **$166.50** over the same period, that is **$16.20 per
+engaged hour measured top-down, with no modelling at all** — and it corroborates
+the $20/hour the bottom-up model gives for the heaviest single day, which is the
+first independent check any figure in EPIC-20 has had.
+
+**So the engaged-time calculation is a pure function of `(started_at, ended_at)`
+pairs**, taking turn boundaries as an argument rather than reading `turn_spend`
+itself. That is what lets the same code answer for a historical session from the
+audit and for a live one from the meter, with no second implementation to drift.
+
+It does **not** mean backfilling `turn_spend`. That table holds measured rows
+only — its own ticket says why — so a retrospective is an analysis run over the
+audit, never rows written into the meter.
