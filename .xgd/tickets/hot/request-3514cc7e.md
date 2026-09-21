@@ -5,9 +5,9 @@ type: request
 title: Fail the deploy when an applied migration's content has changed
 created_by: EPIC-16
 created_at: '2026-09-21T01:05:22.242071+00:00'
-updated_at: '2026-09-21T18:37:10.435078+00:00'
+updated_at: '2026-09-21T18:43:56.026370+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -86,3 +86,99 @@ invariants gain it beside "migrations before upload".
 - No automatic repair, rebaseline or corrective-migration generation.
 - The one-off recovery of today's production database is not this ticket — that is
   `db/ops/rebaseline-remote.sql`, run by hand under [[EPIC-16]] §H.
+
+
+---
+
+## As built (2026-09-21)
+
+**`db/migrations/manifest.json`** — the manifest, a JSON object of migration
+filename → SHA-256 of that file's bytes, pretty-printed one key per line so a
+`git diff` renders one line per file. It sits beside the migrations it describes;
+wrangler's default `migrations_pattern` is `<migrations_dir>/*.sql`, so a JSON
+file in that directory is invisible to it.
+
+**`bin/migration-manifest`** — the deliberate command, plain Node with no
+dependency or transform (the reason `bin/smoke` is): it runs inside a deploy, and
+a gate that needed the site toolchain built before it could refuse anything would
+be a gate with a new way to fail open.
+
+- `bin/migration-manifest` rewrites the manifest and reports what moved. An
+  **added** key is a new migration and reads as ordinary; a **CHANGED** value is
+  an edit to a migration that already existed, printed with both hashes under a
+  heading that says what it costs. The two are reported separately because they do
+  not mean the same thing.
+- `bin/migration-manifest --check` reports the same and writes nothing, exiting
+  non-zero when anything moved.
+- `bin/migration-manifest verify --env <name> --status <n>` is the hook's entry
+  point, reading `wrangler d1 execute --json` output on stdin.
+- It ships executable, because the refusal it prints tells an operator to type it.
+
+The migrations directory is read from `migrations_dir` in
+`apps/control-app/wrangler.toml` — the same key wrangler reads — and every
+occurrence of that key must agree. The top-level block and `[env.production]`'s
+are deliberately duplicated, so taking the first match would be right today and
+silently wrong the day they diverge.
+
+**The hook.** `bin/deploy.d/migrate/10-d1-site-store` asks the target environment
+for `SELECT name FROM d1_migrations` through `wrangler d1 execute --remote --json`
+and pipes the answer to `verify`. That query is the table wrangler itself reads;
+anything else — a marker file, a recorded high-water mark — would be a second
+opinion free to disagree with the one that decides what runs. The check sits above
+the dry-run branch rather than inside either side of it, so the rehearsal and the
+deploy run the identical verification.
+
+### The cases, and what each one costs
+
+| State | Outcome |
+|---|---|
+| applied, on disk, hash differs | **refuse** — names the file, the environment and both hashes |
+| applied, on disk, hash matches | proceed |
+| not applied | not checked — it is about to be, and its content is whatever it is |
+| applied, on disk, **no manifest entry** | **refuse** — the manifest is stale, and says what to type |
+| applied, **not in this checkout** | reported, not refused |
+| environment unreadable | **refuse** — only a positive read counts |
+| `no such table: d1_migrations` | proceed — that environment has applied nothing |
+
+An applied migration with no manifest entry is refused because a tripwire that can
+be disarmed by deleting a line is not a tripwire; the manifest's completeness is
+load-bearing. An applied migration absent from this checkout is reported rather
+than refused because an older checkout against a newer environment is an ordinary
+state — the same judgement `tools/generate/src/cli/d1-migrations.ts` already makes
+about a local database that is ahead of the files beside it. An unreadable
+environment is a refusal for this directory's standing reason ([[REQ-149]],
+[[REQ-259]]): the failure being guarded against is a confident skip based on an
+answer nobody actually got. The one exception is stated by the error itself — a
+database with no `d1_migrations` table has applied nothing, which is a fact about
+the environment rather than a failure to read one, so a first deploy into an empty
+database proceeds.
+
+**Wrangler's own chatter is not the answer.** The hook merges stderr into the
+reply so that a failure carries its own explanation, and wrangler says things on
+its way to answering — `▲ [WARNING] Proxy environment variables detected` on any
+machine behind a proxy. That line contains a bracket, so a reader that took the
+first `[` as the start of the document would refuse a deploy that was perfectly
+fine. The document is found by parsing each `[` in turn and taking the first that
+yields a D1 result set. A gate that fires on a warning about a proxy is a gate
+people disable.
+
+### On the manifest lagging
+
+The manifest is regenerated only when somebody types the command. That lag IS the
+mechanism: a hash refreshed as a side effect of being looked at would always agree
+with the file it was just read from and could never disagree with anything. So the
+repository's own test asserts **presence, not equality** — every migration on disk
+has an entry and no entry names a file that is not there — because a file with no
+entry is one the deploy check cannot speak for, while a hash that no longer matches
+is exactly what the check exists to find.
+
+### Evidence
+
+`tests/test_UAT_FC_REQ-291_applied_migration_content_drift.test.ts`, driving the
+shipped hook and the shipped script through `tests/support/migrate-hook.ts`, with
+only `npx` stubbed so the deployed database's answer is the test's to dictate.
+Every case asserts on the `wrangler d1 migrations` invocations that followed: a
+check that refuses and then applies the migrations anyway is indistinguishable
+from one that refuses, unless somebody looks. The first case is the incident of
+2026-09-06 constructed as data — an environment reporting the baseline as applied,
+a manifest holding the hash of the bytes it applied, and a different file on disk.
