@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:07:08.525623+00:00'
+updated_at: '2026-09-21T00:10:16.170750+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -328,5 +328,41 @@ Steps 1–3 stand alone. Want me to scope the child ticket and cut a branch for 
 <!-- xgd-chat role="user" ts="2026-09-21T00:07:07.404787+00:00" -->
 #### You
 ok can you create the reasonable minimum number of tickets for 1-6
+
+<!-- xgd-turn id="5534d9e7-19c2-4457-a58f-8af077fe7e63-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T00:10:15.543569+00:00" -->
+#### Claude
+REQ-289 created. Now the retirement ticket.
+
+Both created. Now recording them in the epic's Children section, which still says "None yet".
+
+Two tickets, not six.
+
+**[[REQ-289]] — Content copy between stores** (steps 1–3, priority high)
+`GET /api/export` + `bin/copy-to-cloud` / `bin/copy-from-cloud`.
+
+**[[REQ-290]] — Retire the file-backed authoring tier** (steps 4–5, priority medium)
+`storage/sites/`, `bin/publish`, `1c push`. Depends on REQ-289.
+
+Both are children of EPIC-16, and the epic's Children section now records them ahead of the six previously-suggested pipeline children.
+
+## Why these seams
+
+**1+2+3 are one ticket** because step 3 isn't work — "back up the LF draft" is running the command once. It's the acceptance criterion of the route, not a sibling of it. A route with no caller can't be verified in the way that matters.
+
+**4+5 are one ticket** because you can't delete the trees without repointing the three test globs in the same change, or the build breaks between commits. Same branch, same commit.
+
+**6 is not a ticket.** DOC-41 says of itself: *"Where this document and those disagree, they are right and this is stale."* The doc is derived from the scripts, so it changes when they do. I folded the rewrite into both tickets as an acceptance item — REQ-289 updates §2/§3 to name the new pair, REQ-290 rewrites them again plus §1's table to describe the file store as what it becomes. Filing it separately would invite shipping the code with the doc left stale.
+
+## Two things I put in the bodies that we hadn't settled
+
+Both are decisions rather than restatements, so flagging them:
+
+**The `--contacts` refusal ships before the feature.** REQ-289 has `copy-from-cloud --contacts` recognised and **refused with its reason**, while `copy-to-cloud --contacts` reports "not implemented". Neither is an unknown-flag error. The point is that the asymmetry is recorded in code now, so whoever builds `--contacts` later can't quietly make it symmetric.
+
+**The reproduction loop gets pinned to the sandbox root.** `1c repro` currently defaults to the `sites` root with `--sandbox` as the opt-in. If `storage/sites/` stops being an authoring tier but the one loop that still writes sites can repopulate it, the retirement doesn't hold. REQ-290 inverts that default.
+
+Both tickets are at status `draft`. Want me to cut a branch for REQ-289 and start, or would you rather read the bodies first?
 
 <!-- xgd-chat-end -->
