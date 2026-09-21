@@ -6,10 +6,10 @@ title: 'Open in new tab opens the edit channel: the operator gets outline marker
   on a deliberately non-functional page'
 created_by: EPIC-19
 created_at: '2026-09-20T23:15:06.775879+00:00'
-updated_at: '2026-09-21T00:00:20.260110+00:00'
+updated_at: '2026-09-21T00:01:42.693422+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: medium
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   story_points: 1
   chat_comment: comment-552601b3
+  commits:
+  - working_sha: 40e1d5ffed9358a77ccf407da54a2dc289581799
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 308048a9bc4eccd8e4b211ad636ef7888b01fec7
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.299
 ---
 
 ## What happens
