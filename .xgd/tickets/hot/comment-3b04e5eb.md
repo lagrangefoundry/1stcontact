@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T01:10:08.963945+00:00'
+updated_at: '2026-09-21T01:11:02.815134+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -126,5 +126,14 @@ The full-suite run was killed (exit 137 — OOM). Let me re-establish state and 
 
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: You've hit your session limit · resets 8:50pm (America/Los_Angeles)
+
+<!-- xgd-turn id="5742df42-1035-4f2e-9a65-5cb049f75233-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:10:59.770143+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
