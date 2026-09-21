@@ -5,9 +5,9 @@ type: request
 title: 'Content copy between stores: GET /api/export, bin/copy-to-cloud, bin/copy-from-cloud'
 created_by: EPIC-16
 created_at: '2026-09-21T00:08:58.636330+00:00'
-updated_at: '2026-09-21T00:23:14.150471+00:00'
+updated_at: '2026-09-21T00:34:18.721986+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -179,19 +179,31 @@ the caller already owns publishes nothing.
 
 UATs named `test_UAT_FC_REQ-289_*`:
 
-- `…_export.workers.test.ts` — over the real route table, a real D1 and a real
-  R2: export returns the import payload shape; export→import round-trips a
-  site's `site.json`, page documents and asset bytes unchanged; a business
-  holding two sites is refused 409 in `/api/import`'s own words; a business
-  holding none is 404 naming the business.
-- `…_copy.test.ts` — the command, against a recorded `fetch`: the origins are
-  chosen by direction; the business is resolved on each side and both calls
-  carry the `/b/<id>` prefix; an unknown business on the destination is refused
-  without a write and without minting anything; `--force` reaches the payload
-  and a 409 is reported naming the business and the change count; `--backup`
-  makes no second call; `--contacts` is refused on `copy-from-cloud` with its
-  reason and reported unimplemented on `copy-to-cloud`; half a credential pair
-  is refused before any call.
-- `…_scripts.test.ts` — `bin/copy-to-cloud` and `bin/copy-from-cloud` exist, are
-  executable, name the credential pair and the direction they carry, and DOC-41
-  §2/§3 name them instead of `bin/publish` as the content path.
+- `…_export.workers.test.ts` — in workerd, over a real D1 and a real R2, through
+  the route table: `GET /api/export` answers the payload `/api/import` accepts;
+  export → import into a SECOND business reproduces the draft exactly (same
+  `site.json`, same page documents, same asset bytes, text and binary alike) and
+  the site key is the one thing that differs, because a copy must not carry the
+  source's address; a business holding two sites is refused 409 saying nothing
+  was read; a business holding none is 404 naming the business.
+- `…_copy.test.ts` — the command, against a recorded transport: the direction
+  chooses which origin is read and which is written; the business name resolves
+  to each side's own id and both calls carry that side's `/b/<id>/` prefix; the
+  credential pair reaches both ends and the BUG-36 assertion header reaches
+  neither; a business absent on the far side is refused before anything is read
+  and without minting anything; one name on two businesses is ambiguity rather
+  than a first match; `--force` reaches the payload and its absence sends no
+  `force` key at all, and a 409 is reported naming the business and the change
+  count; `--contacts` is refused per direction before any call; half a
+  credential pair is refused and names `CLOUDFLARE_API_TOKEN`; an Access bounce
+  on the READ reads as a refusal rather than as a JSON parse error.
+  Two of its cases spawn the real `bin/copy-to-cloud` / `bin/copy-from-cloud`
+  over real HTTP against a loopback builder, because two decisions belong to the
+  command rather than the library: `--backup` writes the source's export to a
+  file and makes no call to any destination (the loopback builder answers no
+  import route, so a write would fail the test), and `--contacts` is refused
+  ahead of the credential check — an operator sent to provision an Access token,
+  who provisions one and is then told the flag was never going to be carried,
+  has been sent on an errand.
+
+[[DOC-41]] and `apps/control-app/ACCESS.md` are documentation and carry no UAT.
