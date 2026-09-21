@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T22:53:40.390691+00:00'
+updated_at: '2026-09-21T23:04:49.917293+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -685,5 +685,17 @@ Items 1 and 4 are prose, and they're where the value actually lives. The surface
 **And we still can't measure the result.** REQ-292 and REQ-293 are at `ready_to_reconcile`, not merged — `turn_spend` doesn't exist in the local D1 yet. My "$25 instead of $75" for delegation is modelled, and my models have been wrong by 4.5× and 2.4×. I'd reconcile the metrics, take a week of records, and size delegation against real numbers rather than against my arithmetic.
 
 Want me to file it as a REQ under EPIC-20 now, or hold it until the metrics land?
+
+<!-- xgd-turn id="dbd3e257-593a-47d5-a6f8-d1e7c09a0f3c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:04:49.231906+00:00" -->
+#### You
+ok I just reinstalled lf 
+
+Can you walk me through the AI experience here please - does the primary session still have access to the tools? (so delegation is a choice that it is encouraged to do - not a requirement?I think this is correct)
+
+How are the Haiku sessions primed? I suspect they only need access to the tool instructions and may not even need a continuous session (although there might be caching value to doing so)
+
+How are the Haiku sessions prompted? I assume the primary session writes prompts for them?
 
 <!-- xgd-chat-end -->
