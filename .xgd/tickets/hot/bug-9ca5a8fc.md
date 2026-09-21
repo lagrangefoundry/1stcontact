@@ -6,9 +6,9 @@ title: 'Open in new tab opens the edit channel: the operator gets outline marker
   on a deliberately non-functional page'
 created_by: EPIC-19
 created_at: '2026-09-20T23:15:06.775879+00:00'
-updated_at: '2026-09-20T23:41:34.002060+00:00'
+updated_at: '2026-09-21T00:00:20.260110+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -125,3 +125,74 @@ nothing to say about the preview or about tabs. The section that does is §3.3,
 *"Production-fidelity check"*. Worth correcting while the surrounding lines are
 being edited, so the next reader who follows the reference finds the argument
 rather than a dead end.
+---
+
+## What was implemented
+
+**The action asks the host for the honest URL.** `openInNewTabAction` now takes
+`honestUrl(src)` — a function from the pane's current URL to the production
+render of the same page — and re-derives the href through it on every `src`
+event. `app.js`, which is already the only module that composes channel URLs,
+supplies `(src) => previewChannelUrl(src, 'draft')`. `toolbar.js` stays free of
+channel names and of imports; the one channel name in the fix sits beside the
+mode registry that names the other one.
+
+**The page is taken from the URL, not recomposed from the pane's state.**
+`previewChannelUrl(url, channel)` (`api.js`) keeps everything up to and
+including the site — scope prefix, site key — and the path after the channel,
+replacing only the channel segment. It is the exact dual of the existing
+`previewPageUrl`, and it is a fourth reader of the same URL shape for the reason
+the other three are co-located: the shape is one fact.
+
+Deriving the draft URL from `carry.pathFor(site)` instead — the composition the
+two modes' `src` already use — would have been wrong in a way worth recording.
+`src` fires at the moment the pane is re-pointed, *before* the new document has
+arrived, so the carry still holds the page being left; the link would have
+lagged one page behind on every move. The URL being navigated to is the only
+thing that names the page being opened at that instant.
+
+**Consequences the UATs pin**, beyond the two properties named above:
+
+- **The business prefix survives the change of channel.** The draft URL is
+  composed from the pane's own URL rather than from `previewUrl(site, …)`, so
+  `/b/<businessId>` is carried through. Without it the tab would open another
+  business's site — or the origin's unscoped fallback — from a link the operator
+  can copy out of the browser.
+- **The control is still offered in Edit.** The rejected alternative was to drop
+  `'open-new-tab'` from edit mode's `actions`; the fix keeps it, so there is a
+  claim to make that it is present *and* correct in that channel.
+- **No reachable state of the control names the edit channel**, in any channel,
+  on any page. Stated once as a negative over every state rather than implied by
+  the positive cases.
+
+## Supersession: AC-971, and REQ-115's AC 8
+
+This intent deliberately changes behaviour two existing criteria pin, and both
+are **INVALIDATED** as written:
+
+- **AC-971** — *"open in a new tab always targets the displayed document"*
+  (`reconciliation-builder-workspace-chrome`). True of one render channel and
+  wrong of two. What survives is the half that was always the point: the control
+  targets the *page* the pane is displaying and follows it. The channel is now
+  always the production one.
+- **REQ-115's AC 8** — *"identical URL, and it stays identical as the pane
+  changes"* (`req115-builder-composition`). Written when there was one channel to
+  be identical to. [[REQ-116]] added the second; this settles which one a tab
+  opens.
+
+`AC-1110` (a replaced control stops reacting) is **not** superseded — it used
+this control as its probe and the probe's expected value moved with it. Its
+assertions were re-pointed at the draft render; the lifetime claim is unchanged.
+
+## Documentation corrected
+
+- **[[DOC-28]] §10** — the citation moved from [[DOC-8]] §4.3 (*"Edits are
+  diffs"*) to §3.3 (*"Production-fidelity check"*), and the row now says the
+  channel is `draft` in **both** modes and why.
+- **`panel.js`'s `getSrc`** — the invariant *"the tab and the iframe can never
+  disagree"* is gone, along with the same misattributed citation. `getSrc`
+  answers where the pane is and nothing wider; which channel a tab opens is the
+  action's question.
+- **`api.js`'s `previewUrl`** — no longer claims the tab "lands on the identical
+  document"; it lands on the same origin, on the draft render of the page the
+  pane is on.
