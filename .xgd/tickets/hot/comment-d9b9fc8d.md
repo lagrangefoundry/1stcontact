@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:27:54.519215+00:00'
+updated_at: '2026-09-21T22:29:17.829303+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1897,5 +1897,33 @@ Keep `wrangler tail` running when you load those — an `admission_denied` line 
 | ai | true |
 | --- | --- |
 | message | null |
+
+<!-- xgd-turn id="782fde71-9c28-47d7-b4c7-d44c1c2ee638-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:29:16.716044+00:00" -->
+#### Claude
+Both return 200 with correct data — person, four businesses, all `selectable: true`, `lapse: null`, and `ai: true`. So `loadOrSignOut` resolves cleanly and `mountBuilder` *is* being called with good inputs. The failure is inside `mountBuilder`, and it's silent.
+
+Both browsers agree, both APIs are healthy, and `mountBuilder` is a plain synchronous function — so a throw would have surfaced. Something in it is returning early or rendering into nothing.
+
+Here's the important asymmetry: **your local builder works and has been used for months.** The deployed one is a *fresh origin* — and `mountBuilder`'s own docs note the remembered business selection lives in "the shell's own namespaced storage", which on `app.1stcontact.io` has never been written.
+
+So the likely-untested path is *first-ever load with no stored selection*.
+
+**Reproduce it locally — open your local builder in a private/incognito window** (or clear local storage for `127.0.0.1:8799`). If it fails the same way, you have the production bug reproducing on localhost, where it's debuggable with real source rather than deployed assets.
+
+That's worth doing before anything else: it turns this from a production mystery into a local one.
+
+`mountBuilder` renders via `mountShell(root, …)` at `app.js:221` — that's `@lagrangefoundry/webui-shell`, the shared upstream component. If the shell mounts nothing, `#app` stays empty and nothing throws.
+
+The deployed and local copies of that shell are the same bytes (both served from `dist-assets/webui`, built Sep 20 17:30), which is what makes the incognito test decisive: same code, same data-shape, only the stored selection differs.
+
+Recorded as §I18–I19.
+
+**Next action: open your local builder in a private window.** If it fails identically, the production bug reproduces on localhost with real source and a debugger — that's worth far more than continuing to read deployed bundles.
+
+The separate finding worth a ticket regardless of today's outcome is §I19: `fetchBusinesses` treats only a 401 as a session failure, and turns a 403, 500 or 502 into an *empty business list*. That resolves as success, so `mountBuilder` draws nothing — blank page, no throw, empty console, and a boot guard that can only say it doesn't know. `fetchAiStatus` is worse in one respect: its fallback is `ai: true`, so a failing status probe reports the AI as working.
+
+Given §I15 established that a 403 on `/api/businesses` is a routine failure of that exact route, that's a live path. `mountBuilder`'s comment says an empty list means "no identity behind this host" — true for a headless suite, exactly wrong for a refused browser, and the two are indistinguishable because the distinction is thrown away at the fetch.
 
 <!-- xgd-chat-end -->
