@@ -5,16 +5,27 @@ type: request
 title: The turn's token spend, written down
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:23.160825+00:00'
-updated_at: '2026-09-21T20:44:56.380273+00:00'
+updated_at: '2026-09-21T20:48:01.800162+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-99caa32c
+  commits:
+  - working_sha: 6bdbc815610f55875e29012cac625d9f8d66a728
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c46609ea0f26fa7914e14b44d7175de7808a42c3
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ae35c37753394a61075c9a5def00c4fa03249ac1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.309
 ---
 
 ## Why
