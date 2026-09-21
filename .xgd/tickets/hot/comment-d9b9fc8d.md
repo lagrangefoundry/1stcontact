@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:07:34.341044+00:00'
+updated_at: '2026-09-21T20:17:30.853315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1212,5 +1212,63 @@ bin/copy-to-cloud --backup storage/backups/xgd.json "XGD"
 ---
 
 Do those three and tell me what `copy-to-cloud` says. Publishing is next, and it's the genuinely untested path — 0 revisions on both sides, so whatever happens there, nobody has seen it before.
+
+<!-- xgd-turn id="7fccf82a-e5b3-4f4b-9de8-24b9eb3452f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:17:30.277007+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx control-app % npx wrangler d1 execute DB --remote --command \
+  "select t.name, s.id from tenants t left join sites s on s.tenant_id = t.id;" --json
+
+[
+  {
+    "results": [
+      {
+        "name": "1st Contact",
+        "id": null
+      },
+      {
+        "name": "Lagrange Foundry",
+        "id": "site_23c1afb3739dadf62347a5008e8a7dea"
+      },
+      {
+        "name": "XGD",
+        "id": "site_6caf0a8b4a9ec0e7c74b69c95d599eda"
+      },
+      {
+        "name": "Gigabyte Alchemy",
+        "id": "site_70772e9206eec9b1313a406b04076c06"
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "WNAM",
+      "served_by_colo": "SJC",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.4086
+      },
+      "duration": 0.4086,
+      "changes": 0,
+      "last_row_id": 127,
+      "changed_db": false,
+      "size_after": 532480,
+      "rows_read": 9,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]
+
+```
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --backup storage/backups/1st-contact.json "1st Contact"
+INTERNAL: Listing the businesses at http://localhost:8788 was refused with 401: Cloudflare Access rejected this request: no Access token was presented.
+The LOCAL end is behind Cloudflare Access. Set LOCAL_ACCESS_CLIENT_ID and LOCAL_ACCESS_CLIENT_SECRET to a service token, or pass --local-client-id and --local-client-secret. Run ./bin/access-sim --print-token and put its two values in LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET — it prints them under the CLOUD names, which are the other end.
+
+```
 
 <!-- xgd-chat-end -->
