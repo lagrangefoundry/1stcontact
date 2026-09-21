@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:04:49.917293+00:00'
+updated_at: '2026-09-21T23:06:33.090035+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -697,5 +697,52 @@ Can you walk me through the AI experience here please - does the primary session
 How are the Haiku sessions primed? I suspect they only need access to the tool instructions and may not even need a continuous session (although there might be caching value to doing so)
 
 How are the Haiku sessions prompted? I assume the primary session writes prompts for them?
+
+<!-- xgd-turn id="dbd3e257-593a-47d5-a6f8-d1e7c09a0f3c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:06:32.839510+00:00" -->
+#### Claude
+Installed copy confirmed — `delegation_toolbox.js` is there (567 lines). Reading the actual lifecycle.
+
+Framework confirmed installed — `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/delegation_toolbox.js`, and `delegationInstanceConfig` is exported from `core.js`. Here's the walkthrough from the installed code.
+
+## 1. Does the primary keep its tools?
+
+**Yes — the grant is purely additive.** `delegationInstanceConfig(['builder'])` returns `{delegation: {groups: ['delegate'], scope: {role: ['builder']}}}`, which composes alongside the consultant's existing `l1` and `fidelity` entries. Nothing is removed. Delegation becomes one more tool in its list, and using it is a decision the model makes each time.
+
+Your instinct matches the framework's design. But there's a fork the epic currently glosses, and it's yours to settle:
+
+- **(a) Consultant keeps everything, may delegate.** Pure choice. Risk: *the model doesn't see the bill.* It has no incentive to hand work away, so the entire lever rests on priming prose. Could easily deliver 0%.
+- **(b) Consultant's grant is narrowed** — which is what the epic's proposed split actually describes: builder gets ReadSite, AuthorPages, ManageComponents, MeasureDrawings, DrawImages, SeeSite; consultant keeps ManagePages, WriteConfig, ManagePalette. Under that split the consultant *cannot* author a page itself, so construction must be delegated.
+
+I'd take (a) first precisely because it's measurable: REQ-293's split-by-model report tells you what fraction of spend actually moved. If it's low, you've learned the prose is the lever and (b) is the fallback — and you've learned it cheaply.
+
+## 2. How are the workers primed?
+
+`manager.createSession(role, registryName, {sessionId: sid})` — the **normal seeding path**, so the worker gets the `builder` role's own priming, not the consultant's. Its toolbox is built from `roleObj.tools`, plus:
+
+- the `report` group forced in ("a host having to remember to grant that in every delegable role would make a forgotten line look like a silent worker rather than a misconfiguration");
+- `delegation` scoped to **no roles at all** — one-level nesting is enforced *in the grant*, not by a check.
+
+**On continuity — you're right, and the framework already decided it.** `sid = worker-${role}-${newWorkerId()}`: a **fresh session per delegation**, torn down after.
+
+And your caching question has a nicer answer than you'd expect: you get the caching anyway. The worker's priming plus tool definitions are a **stable prefix across every delegation**, and Anthropic's cache is content-keyed, not session-keyed. So separate worker sessions hit the same cached prefix. Continuity would buy you almost nothing. (Caveat: TTL — back-to-back delegations hit warm, sparse ones pay the write.)
+
+One correction to "they only need the tool instructions": the schemas come from the surfaces, but the builder still needs *some* prose — what it is, what "done" means, house constraints it can't infer. That's the cheap part (cached across every delegation) and the part that decides output quality.
+
+## 3. How are they prompted?
+
+The primary writes the brief. `brief(goal, checks)`:
+
+- **`goal` is prose**, in the consultant's own words — deliberately not a schema, because "serialising it would spend your tokens encoding something the worker immediately decodes."
+- **`accept` is a list of checks**, appended verbatim with an instruction to quote each one back and report it passed or failed with a reason.
+- **It's one turn, not a conversation.** `promptStream(workerSid, brief(...))` fires once; the worker's entire tool loop happens inside it. That's what bounds a delegation's cost without a second budget to configure.
+- **The worker's stream is drained and discarded** — *"yielding them onward would put the tokens straight back into the expensive context."*
+
+The worker ends by calling `report` with summary / changed / decisions / passed / failed; `reconcile()` matches verdicts to the checks asked for. Failures are outcomes, not exceptions — `reported`, `stopped`, `silent`, `failed` — and **spend is attributed to the caller on every exit path**, so a worker that failed is still billed. The caller gets the usage back in the result, so it can see what a delegation cost.
+
+The load-bearing part is `accept`. A run where everything passed should cost the consultant a short summary and nothing else. If Opus re-screenshots what the worker did, you've moved the tokens to the expensive side — which is exactly the failure mode REQ-293's report would catch.
+
+Want me to file the delegation REQ now with option (a) as the scope?
 
 <!-- xgd-chat-end -->
