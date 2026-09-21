@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:45:10.840872+00:00'
+updated_at: '2026-09-21T23:47:41.447928+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -896,5 +896,11 @@ So the gate is **`ownsPlatformBusiness(env, admission)`** — owning the 1st Con
 The principal-vs-delegate split is why this is worth building before REQ-295 rather than after: a caller's true total is `usage + sum(attributed)`, and showing one number would make a delegation that moved no work look like one that worked.
 
 All five now on EPIC-20. Order: **296 → 292/293 reconcile → 297 → 295**.
+
+<!-- xgd-turn id="877415f3-9603-45cf-9069-8259cbd88f40-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:47:40.744019+00:00" -->
+#### You
+295 is in-flight do I need to stop it?
 
 <!-- xgd-chat-end -->
