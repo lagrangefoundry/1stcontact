@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:29:17.829303+00:00'
+updated_at: '2026-09-21T22:31:55.134887+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1925,5 +1925,13 @@ Recorded as §I18–I19.
 The separate finding worth a ticket regardless of today's outcome is §I19: `fetchBusinesses` treats only a 401 as a session failure, and turns a 403, 500 or 502 into an *empty business list*. That resolves as success, so `mountBuilder` draws nothing — blank page, no throw, empty console, and a boot guard that can only say it doesn't know. `fetchAiStatus` is worse in one respect: its fallback is `ai: true`, so a failing status probe reports the AI as working.
 
 Given §I15 established that a 403 on `/api/businesses` is a routine failure of that exact route, that's a live path. `mountBuilder`'s comment says an empty list means "no identity behind this host" — true for a headless suite, exactly wrong for a refused browser, and the two are indistinguishable because the distinction is thrown away at the fetch.
+
+<!-- xgd-turn id="e4930919-e1e7-4102-86f4-d8f67356b634-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:31:54.750475+00:00" -->
+#### You
+Nope the local version works fine from a private window
+
+What next?
 
 <!-- xgd-chat-end -->
