@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T22:29:09.925439+00:00'
+updated_at: '2026-09-21T22:37:17.834900+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -1330,3 +1330,59 @@ HOST'" — true of the Node transport and a headless suite, and exactly wrong fo
 browser whose request was refused. The two states are indistinguishable downstream
 because the distinction is discarded at the fetch. Worth a ticket: a refused fetch
 should be a third state, not the same value a headless host produces.
+
+
+### I20 — The builder asks for a site unscoped, and the Worker correctly refuses
+
+The blank builder is not a missing asset. `https://app.1stcontact.io/webui/webui-shell/src/index.js`
+serves correctly to an authenticated browser, so the module graph is intact and §I18's
+remaining suspects are all cleared. A back-navigation got the client far enough to
+issue two requests, and both 404:
+
+```
+/api/pages?site=site_23c1afb3739dadf62347a5008e8a7dea
+/preview/site_23c1afb3739dadf62347a5008e8a7dea/draft/
+```
+
+`site_23c1afb3…` is **Lagrange Foundry's** starter site. Neither URL carries a
+`/b/<business-id>/` prefix, and that is the whole finding:
+
+```js
+function scoped(path) {
+  return businessScope === null ? path : `/b/${encodeURIComponent(businessScope)}${path}`
+}
+```
+
+`businessScope` was `null`, so the request went out unscoped, resolved to some other
+business, and the site was not in scope. The 404 is the Worker being right.
+
+`setBusinessScope` has exactly one caller — `selectBusiness()` (`app.js:1435`) — which
+sets the scope AND writes the remembered id to storage in the same breath. The client
+was therefore holding a **remembered site with no matching remembered business**: it
+knew which site to open and had nothing to open it under.
+
+**Why this is a deployment-shaped bug rather than a local one.** The local builder has
+had both values in storage since its first run and never revisits the state where one
+exists without the other. A fresh origin reaches it on the first load, and any
+interruption between selecting a site and recording its business leaves it there
+persistently — reloading does not clear it, which is why the symptom looked like a
+build or asset fault for as long as it did.
+
+Two things worth a ticket, separately from the immediate unblock (clearing storage):
+
+1. **`selectBusiness` writes two facts that must agree, and nothing enforces it.** The
+   site key and the business id are remembered independently; the code that reads them
+   back does not check that the remembered site belongs to the remembered business, and
+   a site key is globally unique so the check is cheap. `app.js`'s own comment argues
+   at length that [[REQ-236]] made the survives-a-switch test exact *because* a globally
+   unique key allows it — the same reasoning applies one level up and was not taken.
+2. **An unscoped request for a scoped resource should not be silently possible.**
+   `scoped()` returning the bare path when `businessScope` is null is correct for the
+   routes that are genuinely unscoped and wrong for `/api/pages`, which cannot mean
+   anything without a business. The failure surfaces as a 404 from the far end rather
+   than as a refusal at the call site, which is what sent this investigation through
+   assets, browsers, import maps and DNS first.
+
+This also resolves the §I18 puzzle. The client was not failing to mount; it was
+mounting and then asking for something it could not name, and every layer we checked
+was healthy because every layer was.
