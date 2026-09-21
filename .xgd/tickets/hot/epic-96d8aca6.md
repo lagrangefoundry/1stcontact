@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T22:37:17.834900+00:00'
+updated_at: '2026-09-21T22:53:14.268517+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -1386,3 +1386,62 @@ Two things worth a ticket, separately from the immediate unblock (clearing stora
 This also resolves the §I18 puzzle. The client was not failing to mount; it was
 mounting and then asking for something it could not name, and every layer we checked
 was healthy because every layer was.
+
+
+### I21 — BUG: the boot guard breaks the builder it was written to diagnose
+
+The blank builder, the collapsed chat composer and the whole of §I18 are one defect.
+Confirmed by removing the guard's panel from the live page —
+`document.getElementById('app').firstElementChild.remove()` — after which the chat
+window appeared and the builder was fully usable.
+
+**The chain.** Mounting in production exceeds `BOOT_DEADLINE_MS = 4000`. That is not a
+fault: the composer's rich editor is four cross-origin dynamic imports —
+`https://esm.sh/@tiptap/core@2` and `starter-kit@2` (`webui-markdown/src/editor.js`),
+`dompurify@3` (`webui-chat/src/sanitize.js`), `marked@9`
+(`webui-markdown/src/marked.js`) — on top of every module fetch passing through
+Cloudflare Access. Localhost pays none of that, which is why four seconds was ever
+enough.
+
+The guard then fires **on a deadline rather than on a failure**, writes its panel into
+`#app`, and the shell mounts alongside it. The stray unclassed `div` as first child of
+the mount point breaks the shell's layout, and what collapses is the chat composer.
+
+**The docstring's guarantee is one-directional and the other direction is the one that
+happens.** `boot-guard.ts` states: *"IT NEVER HIDES A WORKING BUILDER. Every path
+checks that `#app` is still empty immediately before writing, so a slow-but-successful
+mount is never replaced by an error panel it raced."* Both `stillEmpty()` checks guard
+against the guard OVERWRITING a builder that mounted first. Neither covers the builder
+mounting SECOND, and the guard has no means to retract what it wrote.
+
+**Why it cost so much to find.** Every symptom pointed away from the guard, because the
+guard is the thing that reports symptoms. Its panel said the client had not started;
+the client had started and was slow. It printed no *"What failed:"* line — correctly,
+since nothing failed — and that absence was read as "the failure is of a kind the guard
+cannot see" rather than "there is no failure". The investigation went through assets,
+staleness, symlinks, import maps, browser compatibility, fresh-origin storage, Access
+on the asset path, and admission, all of which were healthy, before the panel itself
+became a suspect.
+
+**Three fixes, and the first two are independent of the third:**
+
+1. **Render outside `#app`.** The guard must not put anything inside the element the
+   application mounts into. A fixed-position overlay on `document.body` cannot corrupt
+   a layout whatever else is wrong, and costs nothing.
+2. **Retract on arrival.** After writing, observe `#app`; if the builder mounts, remove
+   the panel. The docstring's promise then holds in both directions rather than one.
+3. **Fire on failure, not on a timer.** A deadline cannot distinguish "did not start"
+   from "has not started yet", which is the whole defect. `main.js` could set a flag
+   when its module body begins executing, letting the guard tell a module graph that
+   never ran from one that is merely slow — and a slow mount is then reported as slow,
+   which is useful, rather than as broken, which is false.
+
+A raised deadline alone is not a fix: it re-tunes a race against a network whose
+latency is not ours to predict, and leaves fixes 1 and 2 unmade.
+
+**Adjacent, worth deciding separately.** The builder depends on `esm.sh` at runtime for
+its editor, sanitizer and markdown renderer. `input.js:511` degrades to a plain
+textarea when the CDN is unreachable, which is the right instinct — but it makes the
+product's authoring surface depend on a third party being up, and makes first paint pay
+four cross-origin round trips. Vendoring those four into `dist-assets` would remove the
+dependency and the latency that caused this bug in one step.
