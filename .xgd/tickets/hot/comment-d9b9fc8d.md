@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T19:47:40.670373+00:00'
+updated_at: '2026-09-21T19:58:02.425518+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1040,5 +1040,11 @@ npx wrangler tail --env production --format pretty
 Or retry `https://app.1stcontact.io/cdn-cgi/access/get-identity` **after** the login completes — the cookie will exist by then.
 
 Either way, tell me the address and I'll add it.
+
+<!-- xgd-turn id="da695f18-28df-4376-bf81-b537fa4d7960-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:58:02.189655+00:00" -->
+#### You
+The sign-in token is not arriving - I tried the first email address
 
 <!-- xgd-chat-end -->
