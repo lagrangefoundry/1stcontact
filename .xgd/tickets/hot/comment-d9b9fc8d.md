@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:54:19.486240+00:00'
+updated_at: '2026-09-21T22:08:52.667229+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1753,5 +1753,11 @@ Worth trying first, in this order:
 2. If it persists, the console's first error — a 404 on a module URL points at a missing asset; a `TypeError`/`ReferenceError` points at the code itself.
 
 If it turns out to be a 404, tell me the URL and I can check whether that file exists in `dist-assets` locally — which would separate "never built" from "built but not uploaded".
+
+<!-- xgd-turn id="72ccea48-ec63-44b0-b9f0-c94f78c05616-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:08:52.126225+00:00" -->
+#### You
+I loaded the js console on safari and see no errors - not content
 
 <!-- xgd-chat-end -->
