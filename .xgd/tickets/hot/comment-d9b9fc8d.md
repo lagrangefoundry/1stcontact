@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:29:23.678409+00:00'
+updated_at: '2026-09-21T20:38:49.293729+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1364,5 +1364,26 @@ echo "local id=[$LOCAL_ACCESS_CLIENT_ID] secret=[${LOCAL_ACCESS_CLIENT_SECRET:+s
 ```
 
 **One thing to expect next.** With the correct pair the sim accepted and then the request hung — I gave it 20s on `/api/status` and got nothing back, while unauthenticated requests answer instantly. So the *authenticated* proxy into the builder on 8788 is slow or wedged. If the copy sits there, restart your `wrangler dev` on 8788 before assuming the copy is broken. I'd rather flag that now than have you read a stall as a `copy-to-cloud` fault.
+
+<!-- xgd-turn id="d3900920-7933-44e8-a693-91fb0a95aa4e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:38:45.482574+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % cd /Users/martin/lagrangefoundry/1stcontact
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' \
+  --local-client-secret 'local-dev-secret' \
+  --backup storage/backups/1st-contact.json "1st Contact"
+backed up '1st Contact' from http://127.0.0.1:8799
+  site    site_62d3d0097bbc7b6e86bdcdb3728389a3
+  pages   1 (home.json)
+  assets  6
+  file    /Users/martin/lagrangefoundry/1stcontact/storage/backups/1st-contact.json
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+That looks correct, did it work?
 
 <!-- xgd-chat-end -->
