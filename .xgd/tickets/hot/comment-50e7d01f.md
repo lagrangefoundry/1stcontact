@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:33:50.466723+00:00'
+updated_at: '2026-09-21T23:36:04.938353+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -794,5 +794,62 @@ I suspect that we will need to apply caps on user usage in order to maintain con
 I think we should hold off on building that now but its worth discussing.
 
 Also is there any way that I can see the metrics that we are gathering?
+
+<!-- xgd-turn id="bc6830c9-3851-4c6d-843c-c12961bdd68e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:36:03.814170+00:00" -->
+#### Claude
+Five things — let me check each rather than assert.
+
+## 1. Principal vs delegate — yes, by construction
+
+`manager.usage()` returns `{usage, turns, attributed}`. `usage` folds **the caller's own turns only**; `attributed` is a separate list, one entry per delegation, each carrying `{session, role, backend, usage, requests, cost_usd}`. Role and backend travel with the worker's spend, so REQ-293's split works on delegated work with no extra mechanism.
+
+**One footgun worth pinning in acceptance:** the caller's true total is `usage + sum(attributed)`. A reader taking `usage` alone under-reports every delegating turn — silently, and in the flattering direction. That's exactly the bug that would make delegation look like it worked when it didn't.
+
+## 2. Exposing cost to the principal
+
+Half is already done: the `delegate` result returns the worker's `usage`, so the consultant is told what each delegation cost.
+
+For total session spend, there's a precedent to copy rather than a mechanism to invent — REQ-169's `budgetProvider` renders occupancy as used/window/percent/remaining and **pushes it into the seed every turn**.
+
+1. **A gauge in the seed** — one line per turn. Few tokens, no new surface, model sees it whether or not it thinks to look.
+2. **A tool it may call** — cheaper per turn, worse: the turns it'd skip the call on are the long ones, which are exactly when the number matters. REQ-283 made this mistake with a write-only ledger and corrected it the same way.
+3. **Host-side enforcement only** — cuts the session off mid-thought.
+
+Scheme 1, with a caveat: the gauge changes every turn, so it must ride in the per-turn tail past the history (REQ-144), never in `system`. A budget line in the cached prefix would invalidate it every turn — the exact defect REQ-144 exists to have fixed.
+
+## 3. Context filling — no, we don't ensure that
+
+Checked. Three of four pieces are missing:
+
+- **A single exchange is deliberately unbounded.** `recentExchanges` keeps *at least one whole exchange, whatever its size* — cutting inside one orphans a `tool_result`. So the 40-exchange window bounds growth *across* turns and declines to bound a turn. Lagrange Foundry had a 55-tool turn; nothing would have stopped it at 200.
+- **Nothing compacts on the API path** — `_compactionDue` requires the `compaction` capability, which only the CLI adapter declares.
+- **`contextWindow` isn't configured** — `backends.json` names `model` and `max_tokens` only, so the manager reads the window as 0 and can't compute fullness.
+- **The gauge isn't wired** — `session.budget` isn't in this project's priming.
+
+What *does* exist is what you described: **summaries as we go** (the ledger standing note + decisions, delivered into the seed via `memory.trigger` — 57 calls in the measured session, so it's in use) and **chunk-based search** (chat tickets indexed in the KB, `KnowledgeChunkSearch` 25 times). The one missing piece of your design is `TOOL_TRANSCRIPT_NOTE_PROVIDER` — it exists upstream and isn't wired, so the model can't address by turn id the record holding what its tools actually returned.
+
+Gaps are narrow: configure `contextWindow`, wire the gauge, wire the pointer, decide what happens to a turn that runs long. Not filed — say the word.
+
+## 4. Caps — held, shape recorded
+
+Meter in hours, cap in dollars. `counters` for the hot path beside `turn_spend` — rows for truth, counters for speed. AI sees the limit via scheme 1, which also gives it a reason to delegate that it can *perceive* — the incentive REQ-295's additive design currently lacks. What happens at the limit isn't answerable before a week of records.
+
+## 5. Seeing the metrics today
+
+Not from REQ-292/293 — both are at `ready_to_reconcile`, and `turn_spend` doesn't exist in the local D1 yet.
+
+But the audit ledger already supports a read-out. Written to `.xgd/tmp/lf-cost/metrics-today.md`:
+
+| day (PDT) | tool calls | engaged h |
+|---|---:|---:|
+| 09-18 | 189 | 1.55 |
+| 09-19 | 120 | 1.16 |
+| **09-20** | **338** | **3.34** |
+
+1,100 calls, **110 failed (10%)**, 10.28 engaged hours across six sessions and three tenants. The Lagrange Foundry build alone is 648 calls / 6.05 h; `site-unnamed` had a 25% failure rate.
+
+**$16.20 per engaged hour** top-down — $166.50 over 10.28 h, no modelling. Upper bound, since the account total also covers describer calls that leave no audit record.
 
 <!-- xgd-chat-end -->
