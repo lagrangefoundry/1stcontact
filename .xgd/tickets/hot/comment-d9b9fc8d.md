@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:49:41.017935+00:00'
+updated_at: '2026-09-21T22:51:09.147219+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2080,5 +2080,16 @@ If the chat input appears, this is a single defect: `BOOT_DEADLINE_MS = 4000` is
 For completeness, the chat composer *is* CDN-loaded — `webui-markdown/src/editor.js` pulls TipTap from `https://esm.sh/@tiptap/core@2` and `starter-kit@2`, `sanitize.js` pulls `dompurify@3`, `marked.js` pulls `marked@9`. Four cross-origin dynamic imports. We set no CSP anywhere in the Worker, and those work for you locally in the same browser, so they're unlikely to be the cause — but they *are* four network round trips on the mount path, which is a solid explanation for why production crosses 4 seconds when localhost doesn't.
 
 If removing that div doesn't restore the input, then check the console for a CSP or CORS failure on `esm.sh` and we'll go at it from there.
+
+<!-- xgd-turn id="3ac732dc-23d6-442c-bdb3-b4b75cf3b904-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:51:08.387879+00:00" -->
+#### You
+```js
+document.getElementById('app').firstElementChild.remove()
+
+```
+
+gives "undefined"
 
 <!-- xgd-chat-end -->
