@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:01:45.362777+00:00'
+updated_at: '2026-09-21T23:15:35.247556+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2261,5 +2261,15 @@ The body scopes it from the code rather than describing the wish. What's in it:
 - **Business-scoped or site-scoped**, which the chat ticket's `fields.session_id` doesn't settle.
 
 I've scoped it but not cut a branch — this is an epic session, so the implementation belongs to a child. Want me to hand it off now, or keep it queued while you finish the go-live copies and publish?
+
+<!-- xgd-turn id="b9b18218-83d1-43ac-af8c-1b52c397864b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:15:34.204407+00:00" -->
+#### You
+Now that The builder did not start message - can I get a bug to change that timeout to something more reasonable - its not a good UX?
+
+Then we need to talk about what was now a pretty painful experience. Mostly the issue, it seems, was credentials the scripts themselves mostly worked ok when the right things were in place. What I would like is for you to add specific recipies to the deployment documentation.
+
+How to copy content: sites, change contacts etc in either direction - not all the nuance - simple actionable instructions including all the credentials that need to be set up first and the accounts that have to be used.
 
 <!-- xgd-chat-end -->
