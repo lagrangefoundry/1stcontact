@@ -25,6 +25,21 @@ import * as pageState from '/framework/page-state.js'
  * they live in this file: `main.js` is the one module nothing but the browser
  * loads, so no test, bundler or typechecker ever has to resolve them.
  */
+/**
+ * THE BOOT GUARD IS TOLD THIS MODULE BODY IS RUNNING ([[BUG-135]]).
+ *
+ * The guard is an inline ES5 script with no imports — it has no way to tell a
+ * module graph that never loaded from one that loaded and is waiting on the
+ * server, and reporting the second as the first is exactly the bug. Reaching
+ * this line means every import above resolved, so the attribute distinguishes
+ * the two; `boot-guard.ts` owns both spellings and a UAT pins them together.
+ *
+ * It is written HERE rather than imported because nothing bundles this file —
+ * it is browser source served as-is, and it already imports three modules by
+ * absolute URL that only a browser can resolve.
+ */
+document.documentElement.setAttribute('data-builder-boot', 'loading')
+
 const root = document.getElementById('app')
 /**
  * IN PARALLEL, because neither answer depends on the other and the status call
@@ -54,6 +69,8 @@ const loaded = await loadOrSignOut(root, () =>
 
 if (loaded) {
   const [businesses, aiStatus] = loaded
+  // The answers are in; what is left is drawing. ([[BUG-135]])
+  document.documentElement.setAttribute('data-builder-boot', 'mounting')
   mountBuilder(root, {
     businesses: businesses.businesses,
     person: businesses.person,

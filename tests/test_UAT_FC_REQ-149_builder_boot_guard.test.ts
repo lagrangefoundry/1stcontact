@@ -6,10 +6,22 @@
  * present would pass on a guard that threw on its first line, which is the one
  * failure mode that matters: this is the code that runs when everything else has
  * already gone wrong.
+ *
+ * WHAT [[BUG-135]] MOVED. The diagnostic is read out of the guard's OWN element
+ * now rather than out of `#app`, and a fault has to be in evidence before the
+ * guard calls a boot failed — a deadline on its own no longer does it. REQ-149's
+ * claim is unchanged and still asserted here: each of its three named causes
+ * produces a page that names the cause and the fix. What changed is where the
+ * page is written and what licenses it.
  */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
-import { APP_ID, BOOT_DEADLINE_MS, BOOT_GUARD } from '../apps/control-app/src/boot-guard'
+import {
+  APP_ID,
+  BOOT_DEADLINE_MS,
+  BOOT_GUARD,
+  GUARD_ID,
+} from '../apps/control-app/src/boot-guard'
 import { chromeHtml } from '../apps/control-app/src/chrome'
 
 let dom: JSDOM
@@ -42,11 +54,25 @@ function app(): Element {
   return dom.window.document.getElementById(APP_ID)!
 }
 
+/** What the guard has on screen, if anything. Never inside `#app` ([[BUG-135]]). */
+function guardHtml(): string {
+  return dom.window.document.getElementById(GUARD_ID)?.innerHTML ?? ''
+}
+
+/** The module graph rejecting, which is how every fatal boot reaches the guard. */
+function moduleRejected(message: string): void {
+  dom.window.dispatchEvent(
+    Object.assign(new dom.window.Event('unhandledrejection'), {
+      reason: new Error(message),
+    }),
+  )
+}
+
 /** Run the guard's deadline and let its promise chain settle. */
 async function reachDeadline(): Promise<void> {
   vi.advanceTimersByTime(BOOT_DEADLINE_MS)
   vi.useRealTimers()
-  // Two macrotask turns: the probe resolves, then `render` runs on its `then`.
+  // Two macrotask turns: the probe resolves, then the panel is written on its `then`.
   await new Promise((r) => setTimeout(r, 0))
   await new Promise((r) => setTimeout(r, 0))
 }
@@ -74,7 +100,7 @@ describe('REQ-149 — the builder does not fail silently', () => {
 
     await reachDeadline()
 
-    const html = app().innerHTML
+    const html = guardHtml()
     expect(html).toContain('The builder did not start')
     expect(html).toContain('/webui/webui-shell/src/index.js')
     // Named cause, named fix — including the restart, because the assets
@@ -84,22 +110,18 @@ describe('REQ-149 — the builder does not fail silently', () => {
   })
 
   it('test_UAT_FC_REQ-149_a_store_with_no_tenant_is_named_in_the_page', async () => {
-    // `main.js` awaits `/api/sites` at TOP LEVEL, so a refusal rejects the
+    // `main.js` awaits its opening calls at TOP LEVEL, so a refusal rejects the
     // module and nothing mounts. The guard asks the API itself rather than
     // guessing, so "no tenant" reads as itself.
     bootWith({ status: 503, body: "No tenant '1stcontact'." })
-    dom.window.dispatchEvent(
-      Object.assign(new dom.window.Event('unhandledrejection'), {
-        reason: new Error('GET /api/sites → 503'),
-      }),
-    )
+    moduleRejected('GET /api/sites → 503')
 
     await reachDeadline()
 
-    const html = app().innerHTML
+    const html = guardHtml()
     expect(html).toContain('The builder did not start')
     expect(html).toContain('503')
-    expect(html).toContain("No tenant")
+    expect(html).toContain('No tenant')
     // The named remedy, not a generic one. It named the retired push script
     // until REQ-290 deleted it along with the file tier it read; the command
     // that now puts a site into an empty store is REQ-289's copy pair.
@@ -107,26 +129,30 @@ describe('REQ-149 — the builder does not fail silently', () => {
   })
 
   it('test_UAT_FC_REQ-149_a_builder_that_mounted_is_never_overwritten', async () => {
-    // The guard must never race a slow-but-successful mount. Every write path
-    // re-checks that `#app` is empty immediately beforehand, so a builder that
-    // arrived late keeps its page.
+    // The guard must never race a slow-but-successful mount. It re-checks that
+    // `#app` is empty immediately before every write, so a builder that arrived
+    // late keeps its page — and, since BUG-135, the guard has not written so
+    // much as its own element into the document either.
     bootWith({ status: 200, body: '[]' })
     app().innerHTML = '<div class="builder-shell">the real thing</div>'
 
     await reachDeadline()
 
     expect(app().innerHTML).toBe('<div class="builder-shell">the real thing</div>')
+    expect(dom.window.document.getElementById(GUARD_ID)).toBeNull()
   })
 
   it('test_UAT_FC_REQ-149_an_unreachable_api_still_produces_a_page', async () => {
     // The diagnostic must survive its own diagnostics failing — an origin that
     // refuses the connection outright is exactly when an operator needs a page
-    // rather than a second silent failure.
+    // rather than a second silent failure. The module's own fetch fails the same
+    // way, which is what puts the fault in evidence.
     bootWith(new Error('Failed to fetch'))
+    moduleRejected('Failed to fetch')
 
     await reachDeadline()
 
-    const html = app().innerHTML
+    const html = guardHtml()
     expect(html).toContain('The builder did not start')
     expect(html).toContain('unreachable')
   })
