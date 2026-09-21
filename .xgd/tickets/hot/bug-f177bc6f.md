@@ -5,10 +5,10 @@ type: bug
 title: the boot guard reports a working builder as failed, and breaks its layout
 created_by: EPIC-16
 created_at: '2026-09-21T23:17:11.874416+00:00'
-updated_at: '2026-09-21T23:49:32.051817+00:00'
+updated_at: '2026-09-21T23:51:41.470422+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
