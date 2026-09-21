@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T18:03:34.314192+00:00'
+updated_at: '2026-09-21T18:10:07.912748+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -697,5 +697,60 @@ Error: You've hit your session limit · resets 11:50am (America/Los_Angeles)
 <!-- xgd-chat role="user" ts="2026-09-21T18:03:32.930984+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="e11cdac4-38e0-4a6d-825f-000f5d55617d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:10:06.449425+00:00" -->
+#### Claude
+Ticket appended (§I). Title and status untouched — still `draft`, no code changed, no new tickets.
+
+## The deploy worked. Smoke failing is smoke doing its job.
+
+Read straight off the account:
+
+| | |
+|---|---|
+| Migrations | **"No migrations to apply"** — 0001…0018 all recorded. The rebaseline held. |
+| Tables | 33 (31 app) |
+| Platform tenant | `biz_51a6746495c8057e886ff98d4208e6b9` — the `acct_`/`biz_` mismatch went out with the wipe |
+| Control-app secrets | `ANTHROPIC_API_KEY`, **`CLOUDFLARE_DNS_TOKEN`**, `RESEND_API_KEY` |
+| Rows | 1 tenant · 0 accounts · 0 users · 0 sites · 0 revisions · 0 domains |
+
+Check by check, reproduced against the live origins:
+
+- `apex_resolves` — **FAIL**, `https://1stcontact.io/` → 404 `Not Found`
+- `unknown_site_not_found` — pass (404)
+- `control_app_challenges_unauthenticated` — pass, 302 → `lagrangefoundry.cloudflareaccess.com`
+- six `published_*` — skipped, no `--site-key`
+
+One failure, and it's a true statement: `APEX_SITE_KEY = ""` and there are zero sites to point it at. The apex 404s exactly as an unpublished site does, which is what `public-site/src/index.ts` says it should. **The REQ-147 gate passed against a real Access challenge for the first time** — that's the assertion that actually mattered.
+
+## But smoke hid two blockers it can't see
+
+**1. You cannot get into the deployed builder.** `PLATFORM_ADMINS = ""` and `users` is empty, so `admit()` denies `no_user`. Access lets you past the edge and the app turns you away. Smoke's control check asserts *non-200*, and a refusal is a non-200 — it reads as a pass.
+
+The same refusal blocks `bin/copy-to-cloud`: `SERVICE_TOKEN_IDENTITIES` maps the token to `martin-github@westhead.me`, an address with no user row.
+
+`PLATFORM_ADMINS` is precisely the mechanism for this, and using it isn't a workaround — it's deployment config so it works before any row exists, it's idempotent, and `ensurePlatformOperator` leaves the real rows behind (tenant, account, user with `platform_operator=1`, owner membership, entitlement). Emptying it afterwards doesn't undo the repair.
+
+Two cautions, both already paid for once in this codebase: set it under **`[env.production.vars]` (line 423)**, not the base `[vars]` at 251 — named environments inherit nothing. And **edit the existing line, don't add a second** — `identity.ts:948` records a lockout caused by a duplicated `PLATFORM_ADMINS` key, which is why `denyAdmission` now logs `platformAdminSeed`.
+
+**2. Every contact form will 503.** public-site has **no secrets at all** and `TURNSTILE_SITEKEY = ""`. `lead.ts:464` fails *closed* for anonymous callers: no `TURNSTILE_SECRET` → 503 *"This site cannot take messages at the moment."* So a site can go live, render perfectly, pass every smoke check, and capture no leads — on a lead-capture platform. Smoke has no lead check; that gap is worth closing alongside EPIC-15's probes.
+
+## The order from here
+
+1. `PLATFORM_ADMINS` (line 423) ← your Access address **and** `martin-github@westhead.me`
+2. `TURNSTILE_SITEKEY` + push `TURNSTILE_SECRET` to public-site — or skip knowingly
+3. `bin/build && bin/deploy`
+4. Sign in at `app.1stcontact.io`, accept terms → the rows get written. If refused, `wrangler tail 1stcontact-control-app --env production` names `admission_denied` with `platformAdminSeed`, which tells you *wrong address* vs *never invited* without reading config.
+5. Create **Lagrange Foundry** and **XGD** by hand in the builder, then copy each up
+6. Publish a revision per site — first exercise of that path anywhere
+7. `APEX_SITE_KEY` ← the 1st Contact site key, redeploy public-site
+8. `bin/smoke --site-key <key>` → the six published checks run for the first time
+9. Attach `lagrangefoundry.ai` — now possible, the DNS token is there
+
+Steps 1, 2 and 7 are `wrangler.toml` edits — configuration, no ticket. **I need one thing from you before I make edit 1: the exact address in your Access JWT** (the one you sign into `lagrangefoundry.cloudflareaccess.com` with). I won't guess it — a near-miss is the lockout that `platformAdminSeed` exists to diagnose.
+
+Also worth knowing: **step 5 is blocked on [[BUG-134]]**, still `draft`, and it has moved onto the critical path. Want me to hand it to a session now?
 
 <!-- xgd-chat-end -->
