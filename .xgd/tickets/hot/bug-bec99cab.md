@@ -5,10 +5,10 @@ type: bug
 title: copy-to-cloud sends one Access token to two ends that need different ones
 created_by: EPIC-16
 created_at: '2026-09-21T01:05:49.302220+00:00'
-updated_at: '2026-09-21T18:30:10.570035+00:00'
+updated_at: '2026-09-21T19:17:23.369767+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
