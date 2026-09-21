@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T20:41:52.234570+00:00'
+updated_at: '2026-09-21T21:39:06.616791+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -1177,3 +1177,52 @@ resolves to no email and is refused `no_email`.
 time this section has had to reach for `wrangler tail` to learn something the operator
 needed (see §I8), which strengthens §I6's case: the deploy-time identity check should
 report whether the SERVICE TOKEN is admissible, not only whether a human is.
+
+
+### I16 — BUG: `SERVICE_TOKEN_IDENTITIES` is keyed on a name Cloudflare never sends
+
+The `no_email` refusal in §I15 is not a misconfiguration. It is a defect in
+[[BUG-59]]'s design, and this is the first time that design has met real Cloudflare
+Access.
+
+`actingEmail` (`identity.ts:1017`) resolves a service token by comparing the JWT's
+`common_name` against the left-hand side of each `SERVICE_TOKEN_IDENTITIES` entry. The
+configured entry was `1stcontact-publish`, which is the **friendly name** passed as
+`bin/access-token --name`. Cloudflare stores that label in the dashboard and mints the
+client id separately; the operator's is
+`29edd0e0ede45619455f21128c7b88ce.access`. The label is not in the token.
+
+So the comparison could never succeed, `actingEmail` returned `null`, and `admit`
+refused `no_email` with `email: null` — exactly what the log shows.
+
+**Why it was not caught.** `bin/access-sim` is self-consistent: it derives
+`SERVICE_NAME` from its own `CLIENT_ID` by stripping `.access`, and its `--print-env`
+emits the matching `SERVICE_TOKEN_IDENTITIES` line. Local runs therefore prove the
+mechanism works against a simulator that agrees with the assumption, and prove nothing
+about Cloudflare. `ACCESS.md`'s identity table records `1stcontact-publish` as the
+identity, so the documentation, the configuration and the simulator all agree with each
+other and all disagree with the product.
+
+This is the sharpest instance of the pattern EPIC-17 exists for: a component verified
+end-to-end against a stand-in for the thing it integrates with.
+
+**Interim fix applied** (configuration, `wrangler.toml:447`): the entry names the label
+AND both spellings of the client id. Unmatched entries cost nothing; a missing one
+costs the call. The label is retained because it is what `ACCESS.md` names and what a
+reader looks for.
+
+**The real fix is a ticket, not this edit**, and there are two candidates:
+
+1. `bin/access-token` holds the client id at the moment it creates or rotates a token,
+   and already prints the two `export` lines. It should also print the exact
+   `SERVICE_TOKEN_IDENTITIES` entry to paste — the operator would never have had to
+   learn any of this. Cheapest, and fixes the next environment too.
+2. `actingEmail` could accept either spelling of the client id as well as the label, so
+   configuration written from `ACCESS.md` works as documented. More forgiving, but it
+   makes the key ambiguous, which is the opposite of what a mapping wants.
+
+(1) is the recommendation; (2) only if the documented-name form must keep working.
+
+Whichever lands, `ACCESS.md` needs a line saying what the left-hand side actually is,
+because its identity table is the artefact an operator reaches for and it currently
+implies the label.
