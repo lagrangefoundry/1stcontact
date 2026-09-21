@@ -1,8 +1,10 @@
 import { BUSINESSES_PATH, type BusinessesPayload } from '../../../../apps/control-app/src/router'
 import { businessPath } from '../../../../apps/control-app/src/scope'
+import type { ChatsLanded, ChatsPayload } from '../../../../apps/control-app/src/chat-copy'
 import {
   accessAdvice,
   ACCESS_NAMING,
+  postPayload,
   postSitePayload,
   type AccessEnd,
   type AccessServiceToken,
@@ -56,8 +58,28 @@ export type CopyDirection = 'to-cloud' | 'from-cloud'
  * differently, and the difference is a decision rather than a gap, so it is
  * written down before the feature exists instead of being discovered by
  * whoever builds it.
+ *
+ * `chats` IS A BUSINESS'S CONVERSATION HISTORY ([[REQ-294]]) — the consultant
+ * conversations that produced a site, which `--site` does not carry and is not
+ * going to. It is asymmetric in exactly `contacts`' way: carried up, refused
+ * down. One more class rather than a fatter `site` payload, so that a site copy
+ * still carries a site and nothing else.
  */
-export type DataClass = 'site' | 'contacts'
+export type DataClass = 'site' | 'contacts' | 'chats'
+
+/**
+ * The paths this pair addresses, one row per data class.
+ *
+ * SPELLED ONCE, BESIDE EACH OTHER. The two pairs are separate routes on purpose
+ * ([[REQ-294]]) and a class's read must be matched by its own write — a table
+ * makes that visible at a glance, where four string literals scattered across
+ * two functions would let a class come to read from one pair and write to the
+ * other with nothing to notice.
+ */
+export const CLASS_ROUTES = {
+  site: { read: '/api/export', write: '/api/import' },
+  chats: { read: '/api/chats/export', write: '/api/chats/import' },
+} as const
 
 /** One business, as the side that holds it names it. */
 export interface BusinessRef {
@@ -186,6 +208,27 @@ export function accessFor(
  * thing being stated.
  */
 export function assertDataClass(klass: DataClass, direction: CopyDirection): void {
+  // `--chats` IS REFUSED DOWNWARD ON `--contacts`' REASONING ([[REQ-294]]), and
+  // the reasoning transfers whole rather than by analogy. A conversation with
+  // the consultant is unstructured text the customer typed, so it can contain
+  // anything a contact record can and more; the local builder is the same store
+  // running with ACCESS_DEV_OPEN=1, reachable on loopback with no identity check
+  // at all. Written here before the reverse direction exists, for the reason the
+  // refusal below is: otherwise whoever builds it makes the two directions
+  // symmetric without ever meeting the decision.
+  if (klass === 'chats') {
+    if (direction === 'from-cloud') {
+      throw new Error(
+        'copy-from-cloud will not carry --chats. A conversation with the ' +
+          'consultant is unstructured text the customer typed and can contain ' +
+          'anything, and the local builder runs with ACCESS_DEV_OPEN=1 — a copy ' +
+          'would put a real conversation in a store reachable on loopback with ' +
+          'no identity check. This is a decision, not a gap; copy the site ' +
+          'instead.',
+      )
+    }
+    return
+  }
   if (klass !== 'contacts') return
   if (direction === 'from-cloud') {
     throw new Error(
@@ -196,8 +239,9 @@ export function assertDataClass(klass: DataClass, direction: CopyDirection): voi
     )
   }
   throw new Error(
-    'copy-to-cloud does not carry --contacts yet. Only --site is implemented. ' +
-      'The flag is recognised so that it can be refused rather than misread.',
+    'copy-to-cloud does not carry --contacts yet. Only --site and --chats are ' +
+      'implemented. The flag is recognised so that it can be refused rather ' +
+      'than misread.',
   )
 }
 
@@ -350,6 +394,32 @@ export async function resolveBusiness(
   return { id: found.id, name: found.name }
 }
 
+/**
+ * What both ends need before anything is read or written.
+ *
+ * THE FIVE LINES EVERY COPY BEGINS WITH, hoisted when the second data class
+ * arrived ([[REQ-294]]). Three of them are the same swap over three sets of
+ * per-end facts ([[BUG-134]]) — the origins, the credentials, the machine names
+ * — and a second copy of that swap is exactly the thing `byEnd` exists so
+ * nobody writes.
+ *
+ * THE DESTINATION IS RESOLVED HERE AND THE SOURCE IS NOT. A copy that failed at
+ * the far end after transferring a history's worth of transcripts has spent the
+ * operator's time to tell them something it could have said first — the same
+ * ordering `copySite` has always had, now shared rather than repeated.
+ */
+async function planCopy(
+  business: string,
+  opts: CopyOptions,
+): Promise<{ ends: CopyEnds; from: Wire; to: Wire; target: BusinessRef; who: ByRole<AccessEnd> }> {
+  const ends = endsFor(opts.direction, opts.local, opts.cloud)
+  const creds = accessFor(opts.direction, opts.localAccess, opts.cloudAccess)
+  const who = endNamesFor(opts.direction)
+  const to: Wire = { end: who.destination, access: creds.destination, fetch: opts.fetch }
+  const from: Wire = { end: who.source, access: creds.source, fetch: opts.fetch }
+  return { ends, from, to, target: await resolveBusiness(ends.destination, business, to), who }
+}
+
 export interface ExportResult {
   business: BusinessRef
   origin: string
@@ -364,7 +434,7 @@ export async function exportSite(
 ): Promise<ExportResult> {
   const ref = await resolveBusiness(origin, business, opts)
   const payload = (await getJson(
-    new URL(businessPath(ref.id, '/api/export'), origin).toString(),
+    new URL(businessPath(ref.id, CLASS_ROUTES.site.read), origin).toString(),
     `Exporting '${ref.name}' from ${origin}`,
     opts,
   )) as SitePayload
@@ -404,18 +474,16 @@ export interface CopyResult {
  */
 export async function copySite(business: string, opts: CopyOptions): Promise<CopyResult> {
   assertDataClass(opts.klass ?? 'site', opts.direction)
-  const ends = endsFor(opts.direction, opts.local, opts.cloud)
-  // THREE SWAPS, ONE FUNCTION ([[BUG-134]]). The origins, the credentials and
-  // the end names are all per-END facts read per-ROLE, so they are the same
-  // mapping over three sets of inputs rather than three conditionals that could
-  // disagree about which way round `from-cloud` is.
-  const creds = accessFor(opts.direction, opts.localAccess, opts.cloudAccess)
-  const who = endNamesFor(opts.direction)
-  const wireTo: Wire = { end: who.destination, access: creds.destination, fetch: opts.fetch }
-  const wireFrom: Wire = { end: who.source, access: creds.source, fetch: opts.fetch }
-
-  const to = await resolveBusiness(ends.destination, business, wireTo)
-  const read = await exportSite(ends.source, business, wireFrom)
+  // THREE SWAPS, ONE FUNCTION ([[BUG-134]]), now behind {@link planCopy} so the
+  // second data class shares them rather than repeating them ([[REQ-294]]). The
+  // origins, the credentials and the end names are all per-END facts read
+  // per-ROLE, so they are one mapping over three sets of inputs rather than
+  // three conditionals that could disagree about which way round `from-cloud`
+  // is.
+  const plan = await planCopy(business, opts)
+  const { ends } = plan
+  const to = plan.target
+  const read = await exportSite(ends.source, business, plan.from)
 
   const payload: SitePayload = { ...read.payload }
   // Set only when asked, so an ordinary copy sends a body with no `force` key
@@ -424,13 +492,13 @@ export async function copySite(business: string, opts: CopyOptions): Promise<Cop
   if (opts.force === true) payload.force = true
 
   const landed = await postSitePayload(payload, {
-    url: new URL(businessPath(to.id, '/api/import'), ends.destination).toString(),
+    url: new URL(businessPath(to.id, CLASS_ROUTES.site.write), ends.destination).toString(),
     subject: `Copy of '${to.name}'`,
     // The DESTINATION's end, not the command's — on `copy-from-cloud` the
     // import lands on the laptop, and the advice it owes on a refusal is the
     // local row ([[BUG-134]]).
-    end: who.destination,
-    access: creds.destination,
+    end: plan.who.destination,
+    access: plan.to.access,
     fetch: opts.fetch,
   })
 
@@ -441,6 +509,101 @@ export async function copySite(business: string, opts: CopyOptions): Promise<Cop
     to,
     pages: payload.pages.map((p) => p.name),
     assets: payload.assets.map((a) => a.name),
+    landed,
+  }
+}
+
+
+export interface ChatsExportResult {
+  business: BusinessRef
+  origin: string
+  payload: ChatsPayload
+}
+
+/**
+ * Read one business's whole conversation history out of `origin` ([[REQ-294]]).
+ *
+ * {@link exportSite} FOR THE OTHER CLASS, and deliberately the same three lines:
+ * resolve the business on the side being read, address that side's own id
+ * explicitly, GET. What differs is one path, which is why the paths are a table
+ * rather than a literal here.
+ */
+export async function exportChats(
+  origin: string,
+  business: string,
+  opts: Wire,
+): Promise<ChatsExportResult> {
+  const ref = await resolveBusiness(origin, business, opts)
+  const payload = (await getJson(
+    new URL(businessPath(ref.id, CLASS_ROUTES.chats.read), origin).toString(),
+    `Exporting the conversations of '${ref.name}' from ${origin}`,
+    opts,
+  )) as ChatsPayload
+  return { business: ref, origin, payload }
+}
+
+export interface CopyChatsResult {
+  direction: CopyDirection
+  ends: CopyEnds
+  /** What each side calls the business. The ids differ; the name does not. */
+  from: BusinessRef
+  to: BusinessRef
+  /** How many conversations were read out of the source. */
+  read: number
+  landed: ChatsLanded
+}
+
+/**
+ * Read one business's conversation history from one end and write it to the
+ * other ([[REQ-294]]).
+ *
+ * WHY THIS EXISTS. `bin/copy-to-cloud` carried the Lagrange Foundry site to
+ * production and none of the consultant conversations that produced it. The
+ * reasoning behind a long-lived site's decisions lives in those conversations,
+ * and a consultant that cannot read them re-litigates settled choices.
+ *
+ * IT IS {@link copySite} OVER A SECOND PAIR OF ROUTES, and everything that made
+ * the first one work is shared rather than reproduced: {@link planCopy} for the
+ * ends, the credentials and the destination check, {@link resolveBusiness} for
+ * the name→id resolution each side does independently, and `postPayload` for
+ * the three refusals a POST owes the operator.
+ *
+ * THE DESTINATION BUSINESS MUST ALREADY EXIST, by the same construction: there
+ * is no call here that could create one.
+ *
+ * `--force` MEANS REPLACE A CONVERSATION THE DESTINATION ALREADY HOLDS. Without
+ * it such a conversation is kept and counted rather than refused — see
+ * `chat-copy.ts` for why a history answers that differently from a site. Either
+ * way a second copy duplicates no turn, which is the failure this class exists
+ * to not have.
+ */
+export async function copyChats(business: string, opts: CopyOptions): Promise<CopyChatsResult> {
+  assertDataClass('chats', opts.direction)
+  const plan = await planCopy(business, opts)
+  const read = await exportChats(plan.ends.source, business, plan.from)
+
+  const payload: ChatsPayload = { ...read.payload }
+  // Set only when asked, so an ordinary copy sends a body with no `force` key
+  // at all rather than one that says `false` — `push.ts`'s rule, kept.
+  if (opts.force === true) payload.force = true
+
+  const landed = await postPayload<ChatsLanded>(payload, {
+    url: new URL(
+      businessPath(plan.target.id, CLASS_ROUTES.chats.write),
+      plan.ends.destination,
+    ).toString(),
+    subject: `Copy of '${plan.target.name}'s conversations`,
+    end: plan.who.destination,
+    access: plan.to.access,
+    fetch: opts.fetch,
+  })
+
+  return {
+    direction: opts.direction,
+    ends: plan.ends,
+    from: read.business,
+    to: plan.target,
+    read: payload.chats.length,
     landed,
   }
 }

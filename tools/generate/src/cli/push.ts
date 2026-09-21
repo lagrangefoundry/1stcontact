@@ -372,6 +372,33 @@ export async function postSitePayload(
     fetch?: typeof fetch
   },
 ): Promise<PushResult['landed']> {
+  return postPayload<PushResult['landed']>(payload, opts)
+}
+
+/**
+ * The same POST, over any payload an import route takes ([[REQ-294]]).
+ *
+ * THE SITE PAYLOAD WAS NEVER WHAT THIS FUNCTION WAS ABOUT. Every line of it is
+ * about the WIRE — the headers, the unfollowed redirect, and the three refusals
+ * that have to read identically whichever command met them. `--chats` posts a
+ * conversation history at `/api/chats/import` and owes the operator exactly the
+ * same three sentences, so it gets the same function rather than a second copy
+ * of it that could drift on any one of them.
+ *
+ * {@link postSitePayload} REMAINS, AS ITS SITE-TYPED FACE. The site pair's own
+ * callers say what they mean by naming it, and the type they get back is the
+ * import's landed report rather than `unknown`.
+ */
+export async function postPayload<T>(
+  payload: unknown,
+  opts: {
+    url: string
+    subject: string
+    end: AccessEnd
+    access?: AccessServiceToken
+    fetch?: typeof fetch
+  },
+): Promise<T> {
   const doFetch = opts.fetch ?? globalThis.fetch
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (opts.access) {
@@ -416,7 +443,7 @@ export async function postSitePayload(
             : ''),
     )
   }
-  return JSON.parse(body) as PushResult['landed']
+  return JSON.parse(body) as T
 }
 
 /** Read `slug` from `store` and post it to `origin`'s import route. */

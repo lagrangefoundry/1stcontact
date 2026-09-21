@@ -36,6 +36,7 @@
 #   bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
 #   bin/copy-to-cloud --force "Lagrange Foundry"
 #   bin/copy-to-cloud --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+#   bin/copy-to-cloud --chats "Lagrange Foundry"
 #
 # <business> is the business's NAME as it reads in the builder. It resolves to a
 # different id on each side, independently, so the name is the only thing that
@@ -53,9 +54,32 @@
 # destination not at all. To-cloud reads local, so this is the local builder's
 # own export, landing somewhere committable.
 #
-# --site is the default and the only class implemented. --contacts is recognised
-# and refused: see `bin/copy-from-cloud` for why the two directions answer
-# differently.
+# --site is the default. --contacts is recognised and refused: see
+# `bin/copy-from-cloud` for why the two directions answer differently.
+#
+# --chats CARRIES THIS BUSINESS'S CONVERSATION HISTORY (REQ-294) — every chat
+# ticket, its transcript, its engagement ledger and the standing note it keeps
+# about its own engagement. It exists because this command carried the Lagrange
+# Foundry site to production and none of the consultant conversations that
+# produced it, and the reasoning behind a long-lived site's decisions lives in
+# those conversations: a consultant that cannot read them re-litigates settled
+# choices.
+#
+# IT IS A SECOND PAIR OF ROUTES, NOT A BIGGER SITE PAYLOAD. `/api/chats/export`
+# and `/api/chats/import`, matched to each other the way the site pair is — so a
+# --site copy still carries a site and nothing else.
+#
+# RUN IT TWICE AND NOTHING DOUBLES. Conversations are matched by session id and
+# each is written whole or not at all. One the far side already holds is KEPT
+# and counted rather than refused, which is deliberately not --site's 409: a
+# history is many objects, and refusing the set because one member is present
+# would stop every later conversation from ever landing. --force replaces such a
+# conversation; without it the far side's own turns are never overwritten.
+#
+# --backup works for it too, writing the source side's conversation export to a
+# file and touching the destination not at all.
+#
+# THE REVERSE DIRECTION IS REFUSED — see `bin/copy-from-cloud`.
 #
 # TWO ENDS, TWO CREDENTIALS, ONE PER MACHINE (BUG-134). A copy touches two
 # builders and they can be behind two different gates, so there are two pairs and
@@ -90,7 +114,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,84p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,109p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 

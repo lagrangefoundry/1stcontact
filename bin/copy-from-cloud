@@ -47,6 +47,14 @@
 # the same flag reports that it is not implemented yet, which is a different
 # sentence. Neither is an unknown-flag error: the flag is known.
 #
+# --chats IS REFUSED IN THIS DIRECTION TOO, ON THE SAME REASONING (REQ-294). A
+# conversation with the consultant is unstructured text the customer typed and
+# can contain anything a contact record can and more; the local builder is the
+# same ACCESS_DEV_OPEN=1 store, reachable on loopback with no identity check.
+# Written before the reverse direction exists, for the reason above: so that
+# building it later cannot quietly make the two directions symmetric. On
+# `bin/copy-to-cloud` --chats is implemented and carried.
+#
 # TWO ENDS, TWO CREDENTIALS, ONE PER MACHINE (BUG-134). A copy touches two
 # builders and they can be behind two different gates, so there are two pairs and
 # each reaches exactly one end. Which end is read and which is written depends on
@@ -80,7 +88,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,75p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,83p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 
