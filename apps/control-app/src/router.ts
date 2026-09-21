@@ -168,6 +168,7 @@ import {
   ZoneApexTakenError,
 } from './zones'
 import { fidelityDeps } from './shot'
+import { d1TurnSpend } from './spend'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
@@ -799,6 +800,24 @@ function chatHost(
         // project and to nothing of theirs, so there is no business to name and
         // no argument anywhere on the path that could name one.
         (deps.development ?? developmentFor)(env),
+        // WHAT THE TURN COST ([[REQ-292]]). Assembled here for the reason the
+        // ticket gives: the D1 binding is not on `WorkerAiEnv` and should not be
+        // put there, and the TENANT the meter is scoped to is this function's
+        // own — resolved per request, ahead of the host, by the same `scope.ts`
+        // that decides everything else the conversation may reach.
+        //
+        // BOUND ONCE, BESIDE THE CACHE KEY, and those are the same act: this
+        // host lives for the isolate keyed by `scope.businessId`, so a meter
+        // bound to `tenantId` here cannot outlive or cross the scope it was
+        // built under. Nothing below this line can name another business's
+        // meter, because nothing below this line is given one.
+        //
+        // NULL WHERE THERE IS NO DATABASE. Every deployment has `DB` and the
+        // type says so; the guard is for the degenerate environment a test or a
+        // partially-configured preview can construct, and it degrades to the
+        // `1c` CLI's permanent state — a conversation that runs and is not
+        // metered — rather than to a builder that will not talk.
+        env.DB ? d1TurnSpend(env, tenantId) : null,
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would

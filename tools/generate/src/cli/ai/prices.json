@@ -1,0 +1,68 @@
+{
+  "about": [
+    "What a token costs, per backend and per model ([[REQ-292]]).",
+    "",
+    "WHY IT IS A DOCUMENT AND NOT A TABLE OF CONSTANTS, and the reason is",
+    "`backends.json`'s exactly: a price is the second fastest-moving fact in the",
+    "system after a model ID, and the two change together. lagrange-framework",
+    "BUG-49 opened the seam for the first of them; this is the same seam used for",
+    "the second, so a repricing is an edit to this file and nothing else. It sits",
+    "beside `backends.json` because a `model` changed there without a rate added",
+    "here is the one edit that silently stops a turn being priced.",
+    "",
+    "KEYED BY (BACKEND, MODEL), NEVER BY MODEL ALONE. Two levels, because a",
+    "provider is a thing this product must be able to acquire a second of. A table",
+    "keyed by model would have to be REWRITTEN the day a second backend arrives —",
+    "every entry re-homed under a provider that was previously implicit — rather",
+    "than extended by one object. The backend names are the framework's own",
+    "(`claude`, `chatgpt` in `defaults/backends.json`), so this file cannot key a",
+    "provider that does not exist, and `turn_spend.backend` records which one",
+    "actually ran.",
+    "",
+    "FOUR RATES AND NOT ONE, because the request is billed from four counters. A",
+    "cached prefix is read at roughly a tenth of the full input rate and written at",
+    "rather more than it, so a single `input` rate cannot express the shape of a",
+    "long conversation at all — it would price the thing this whole ticket exists",
+    "to make visible as though caching were not happening.",
+    "",
+    "UNITS: US DOLLARS PER MILLION TOKENS, which is how every provider publishes",
+    "them, so a rate can be copied off a pricing page without arithmetic in",
+    "between. That unit is also what makes the settled figure cheap and exact:",
+    "cost in MICROS (millionths of a dollar) is `tokens x rate`, summed over the",
+    "four counters, with no division and therefore no rounding until the end.",
+    "",
+    "A PAIR THIS FILE DOES NOT NAME IS NOT AN ERROR. The row is still written, its",
+    "four raw counters intact, with `cost_micros` NULL — `measured but not priced`,",
+    "which is recoverable later from the counters. A zero would not be: it would",
+    "claim a turn was free, which is the one thing a meter must never say.",
+    "",
+    "THE NUMBERS ARE PUBLISHED LIST RATES AT THE TIME OF WRITING and carry no",
+    "contracted discount. They are configuration: correcting one is an edit here,",
+    "and a past period's bill does not move when they change, because",
+    "`cost_micros` is settled at write time and stored."
+  ],
+
+  "claude": {
+    "claude-opus-5": {
+      "input": 5,
+      "output": 25,
+      "cache_read": 0.5,
+      "cache_write": 6.25
+    },
+    "claude-sonnet-5": {
+      "input": 3,
+      "output": 15,
+      "cache_read": 0.3,
+      "cache_write": 3.75
+    }
+  },
+
+  "chatgpt": {
+    "gpt-4o": {
+      "input": 2.5,
+      "output": 10,
+      "cache_read": 1.25,
+      "cache_write": 0
+    }
+  }
+}

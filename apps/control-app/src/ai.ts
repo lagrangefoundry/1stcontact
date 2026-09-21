@@ -552,6 +552,25 @@ export function workerHost(
    * so in words, instead of one that offers a tool and fails on it.
    */
   development: DevelopmentSurface | null = null,
+  /**
+   * Where this tenant's turn spend is written down ([[REQ-292]]), or `null`
+   * where this deployment keeps no meter.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, and here the reason is the one the
+   * ticket names rather than an import-graph one: the D1 handle is simply not
+   * reachable from this file. {@link WorkerAiEnv} declares `SITES` and the API
+   * key and nothing else, deliberately — it is the AI host's environment, not
+   * the Worker's — and widening it to carry a database so that one write could
+   * reach it would make every future reader of this type wonder what else the
+   * assistant touches. The router already holds both halves the meter needs, the
+   * binding and the scope, and it binds them together before this is called.
+   *
+   * NULL IS ORDINARY, like every wire above it. A host with no meter takes the
+   * turn unchanged and records nothing — which is the `1c` CLI's permanent state
+   * and, for the Worker, what an absent binding degrades to rather than a
+   * conversation that refuses to run.
+   */
+  recordTurnSpend: HostDeps['recordTurnSpend'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -694,6 +713,11 @@ export function workerHost(
         ? (sessionId: string) =>
             turnDelta(knowledge, tickets, sessionId, new Date().toISOString())
         : null,
+      // WHAT THE TURN COST ([[REQ-292]]), passed straight through:
+      // `host-core.ts` folds the terminal event's spend and calls this from the
+      // `finally` that already closes the pending record, and `spend.ts` decides
+      // what a row looks like. This file only carries it.
+      recordTurnSpend,
       // WHAT THE CLIENT TYPED, DURABLE BEFORE THE MODEL ANSWERS ([[BUG-121]]).
       // Unconditional, like the ledger above and unlike the three knowledge
       // wires: it depends on a ticket store and on nothing else, and the one

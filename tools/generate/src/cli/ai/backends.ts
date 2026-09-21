@@ -65,3 +65,39 @@ export function configureProjectBackends(lib: AiLibrary): void {
 
 /** The settings this project declares, for anything that needs to assert them. */
 export { backendsDocument }
+
+/**
+ * The adapter family every backend this host registers is a variant of
+ * ([[REQ-292]]).
+ *
+ * WHY IT IS NAMED AT ALL. The registry names are per-site and per-business —
+ * `claude+site:acme`, `claude+business:…` — because a backend carries its tool
+ * set and the registry is global. None of those is what a PRICE is keyed by: the
+ * rates belong to the adapter and the model, and `ClaudeAPIBackend` itself reads
+ * its settings under `{family: 'claude'}` for exactly the same reason. So the
+ * family is what `turn_spend.backend` records and what `prices.json` keys on,
+ * and this is the one place it is spelled.
+ *
+ * It is `'claude'` because that is the only adapter this host constructs. A
+ * second one is a second `registerBackend` call, and the record already has a
+ * column to tell them apart.
+ */
+export const PROJECT_BACKEND = 'claude'
+
+/**
+ * The model in force for {@link PROJECT_BACKEND}, or `''` where none is
+ * configured ([[REQ-292]]).
+ *
+ * ASKED OF THE FRAMEWORK RATHER THAN READ OUT OF {@link backendsDocument}. The
+ * settings that reach the wire are the consumer's document merged per key over
+ * the framework's shipped defaults, and `backendSettings` is the function that
+ * performs that merge — the same one `ClaudeAPIBackend`'s constructor calls. A
+ * meter that read this file directly would record the model this project NAMES,
+ * which is not necessarily the model a request was sent with: delete the key and
+ * the wire quietly falls back to the framework's, and only one of the two
+ * readings would notice.
+ */
+export function projectBackendModel(lib: AiLibrary): string {
+  const settings = lib.backendSettings(PROJECT_BACKEND) as { model?: string } | undefined
+  return typeof settings?.model === 'string' ? settings.model : ''
+}
