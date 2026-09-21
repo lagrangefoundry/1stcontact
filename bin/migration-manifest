@@ -1,0 +1,400 @@
+#!/usr/bin/env node
+/**
+ * `bin/migration-manifest` — the record of what an applied migration's bytes
+ * were, and the check that they have not changed since ([[REQ-291]]).
+ *
+ * WHY THIS EXISTS. `d1_migrations` records a migration's NAME and the moment it
+ * ran, and nothing else. A file that has been applied is therefore done forever
+ * as far as wrangler is concerned, whatever is subsequently done to its
+ * contents — which is how `0001_baseline.sql` came to be applied to production
+ * on 2026-09-06 and then edited twelve times, leaving the applied schema and the
+ * file on disk as two different databases wearing one name ([[EPIC-16]] §H).
+ * `db/migrations/` already carried the rule — never edit an applied migration —
+ * and the file that broke it is the file that documents it. What was missing was
+ * not a firmer rule but a mechanism that notices a checked premise stop being
+ * true.
+ *
+ * THE MANIFEST IS DELIBERATELY NOT DERIVED AT CHECK TIME. `db/migrations/manifest.json`
+ * maps each migration's filename to the SHA-256 of its bytes, and is rewritten
+ * only when somebody types the command below. That lag IS the mechanism: a hash
+ * regenerated as a side effect of a build would always agree with the file it was
+ * just read from and could never disagree with anything. Because it is committed,
+ * `git diff` renders an edit to an existing migration as a CHANGED value — a line
+ * somebody has to justify in review — and a new migration as an ADDED key, which
+ * is ordinary and reads as ordinary.
+ *
+ * IT REPORTS, IT DOES NOT REPAIR. The remedy for a drifted migration is a
+ * decision about data: rebaseline a database with nothing in it, or write a
+ * corrective migration for one with customers. A script cannot make that call and
+ * must not appear to, so `verify` prints both hashes and exits non-zero.
+ *
+ *   bin/migration-manifest                 rewrite the manifest, report what moved
+ *   bin/migration-manifest --check         report drift, change nothing (exit 1 if any)
+ *   bin/migration-manifest verify --env <name> --status <n>
+ *                                          the deploy hook's entry point; reads
+ *                                          `wrangler d1 execute --json` on stdin
+ *
+ * PLAIN NODE WITH NO DEPENDENCY OR TRANSFORM, for the reason `bin/smoke` is:
+ * it runs inside a deploy, on whatever Node is present, and a deploy gate that
+ * needed the site toolchain built before it could refuse anything would be a gate
+ * with a new way to fail open.
+ */
+
+import { createHash } from 'node:crypto'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+/**
+ * `DEPLOY_REPO_ROOT` FIRST, THIS FILE'S OWN LOCATION OTHERWISE.
+ *
+ * A hook is handed the root of the checkout being deployed ([[REQ-144]]), and a
+ * check run inside a deploy must read the migrations of THAT checkout rather than
+ * of whichever copy of this script happens to be on the path. Typed by hand
+ * outside a deploy there is no such variable, and the script's own directory is
+ * the answer — which is how `bin/1c` resolves the same thing.
+ */
+const REPO_ROOT =
+  process.env.DEPLOY_REPO_ROOT ||
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const APP_DIR = path.join(REPO_ROOT, 'apps', 'control-app')
+const MANIFEST_NAME = 'manifest.json'
+
+/**
+ * Where the migrations are, read from the same key wrangler reads.
+ *
+ * SCRAPED RATHER THAN PARSED, which is this repository's existing convention for
+ * `wrangler.toml` (see `tools/generate/src/cli/d1-migrations.ts`): a TOML parser
+ * would be a dependency bought for one key.
+ *
+ * EVERY OCCURRENCE, AND THEY MUST AGREE. The top-level block and
+ * `[env.production]`'s are deliberately duplicated — a named environment inherits
+ * no bindings — so taking the first match would be right today and silently wrong
+ * the day they diverge. Two different answers to "where are the migrations" is
+ * itself the kind of drift this command exists to notice, so it is an error here
+ * rather than a coin toss.
+ */
+function migrationsDir() {
+  const toml = readFileSync(path.join(APP_DIR, 'wrangler.toml'), 'utf8')
+  const declared = [...toml.matchAll(/^\s*migrations_dir\s*=\s*"([^"]+)"/gm)].map((m) => m[1])
+  const unique = [...new Set(declared)]
+  if (unique.length === 0) {
+    throw new Error(`No migrations_dir declared in ${path.join(APP_DIR, 'wrangler.toml')}`)
+  }
+  if (unique.length > 1) {
+    throw new Error(
+      `${path.join(APP_DIR, 'wrangler.toml')} declares more than one migrations_dir ` +
+        `(${unique.join(', ')}). The top-level block and [env.production]'s must agree.`,
+    )
+  }
+  return path.resolve(APP_DIR, unique[0])
+}
+
+/**
+ * The migration files, as wrangler selects them.
+ *
+ * `*.sql` DIRECTLY IN THE DIRECTORY, dotfiles excluded — wrangler's default
+ * `migrations_pattern` is `<migrations_dir>/*.sql`. Sorted by name, which is the
+ * order the manifest's keys are written in so that a diff shows one line per
+ * file and the insertion point of a new migration is obvious.
+ */
+function migrationFiles(dir) {
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.sql') && !e.name.startsWith('.'))
+    .map((e) => e.name)
+    .sort()
+}
+
+/** SHA-256 of a migration's bytes, hex. The bytes, not the parsed SQL. */
+function hashOf(dir, name) {
+  return createHash('sha256').update(readFileSync(path.join(dir, name))).digest('hex')
+}
+
+/** The hashes on disk right now, filename → sha256. */
+function hashesOnDisk(dir) {
+  const out = {}
+  for (const name of migrationFiles(dir)) out[name] = hashOf(dir, name)
+  return out
+}
+
+/**
+ * The committed manifest, or an empty one when there is none yet.
+ *
+ * A MISSING FILE IS AN EMPTY MANIFEST AND NOT AN ERROR, so that the first run of
+ * this command writes one instead of demanding one. A file that exists and does
+ * not parse IS an error: a manifest nobody can read is indistinguishable from an
+ * empty one only if you do not care which, and the check is exactly the place
+ * where you do.
+ */
+function readManifest(manifestPath) {
+  let raw
+  try {
+    raw = readFileSync(manifestPath, 'utf8')
+  } catch (err) {
+    if (err.code === 'ENOENT') return {}
+    throw err
+  }
+  const parsed = JSON.parse(raw)
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${manifestPath} is not an object of filename → sha256`)
+  }
+  return parsed
+}
+
+/**
+ * Write the manifest, with the keys in the order wrangler applies the files.
+ *
+ * PRETTY-PRINTED, ONE KEY PER LINE, because the whole point is that a human
+ * reads the diff. A compact document would render any change as one long
+ * unreadable line.
+ */
+function writeManifest(manifestPath, hashes) {
+  const ordered = {}
+  for (const name of Object.keys(hashes).sort()) ordered[name] = hashes[name]
+  writeFileSync(manifestPath, `${JSON.stringify(ordered, null, 2)}\n`)
+}
+
+/** What changed between the committed manifest and the files on disk. */
+function diff(manifest, disk) {
+  const added = Object.keys(disk).filter((n) => !(n in manifest))
+  const removed = Object.keys(manifest).filter((n) => !(n in disk))
+  const changed = Object.keys(disk).filter((n) => n in manifest && manifest[n] !== disk[n])
+  return { added, removed, changed }
+}
+
+/**
+ * `bin/migration-manifest` and `bin/migration-manifest --check`.
+ *
+ * THE THREE CATEGORIES ARE REPORTED SEPARATELY AND NOT AS A COUNT, because they
+ * do not mean the same thing. An added key is a new migration and is ordinary. A
+ * CHANGED value is an edit to a migration that already existed, which is the one
+ * this repository lost a production database to — so it is printed last, under a
+ * heading that says what it costs, where an operator scrolling past a wall of
+ * output will still see it.
+ */
+function cmdWrite({ check }) {
+  const dir = migrationsDir()
+  const manifestPath = path.join(dir, MANIFEST_NAME)
+  const disk = hashesOnDisk(dir)
+  const manifest = readManifest(manifestPath)
+  const { added, removed, changed } = diff(manifest, disk)
+  const rel = path.relative(REPO_ROOT, manifestPath) || manifestPath
+
+  if (added.length === 0 && removed.length === 0 && changed.length === 0) {
+    console.log(`${rel} is already current — ${Object.keys(disk).length} migrations, nothing moved.`)
+    return 0
+  }
+
+  for (const name of added) console.log(`  added    ${name}  ${disk[name].slice(0, 12)}…`)
+  for (const name of removed) console.log(`  removed  ${name}`)
+  for (const name of changed) {
+    console.log(`  CHANGED  ${name}`)
+    console.log(`             was ${manifest[name]}`)
+    console.log(`             now ${disk[name]}`)
+  }
+
+  if (changed.length > 0) {
+    console.log('')
+    console.log(
+      'A CHANGED hash is an edit to a migration that already existed. If any environment\n' +
+        'has applied it, that environment now holds a different schema than this file\n' +
+        'describes, and no migration will ever reconcile them — `d1_migrations` records a\n' +
+        'name and a timestamp, never content. Say why in the commit message.',
+    )
+  }
+
+  if (check) {
+    console.log(`\n${rel} was NOT rewritten (--check).`)
+    return 1
+  }
+
+  writeManifest(manifestPath, disk)
+  console.log(`\nWrote ${rel}. Commit it with the migrations it describes.`)
+  return 0
+}
+
+/**
+ * Pull the applied migration names out of `wrangler d1 execute --json`.
+ *
+ * THE DOCUMENT IS FOUND BY PARSING, NOT BY LOCATING THE FIRST `[`. That shortcut
+ * is what `bin/access-sim` does, and it holds only while nothing wrangler says on
+ * its way to answering contains a bracket — which `▲ [WARNING] Proxy environment
+ * variables detected` does, on any machine behind a proxy. The hook merges stderr
+ * in so that a failure carries its own explanation, so every `[` is tried in turn
+ * and the first one that yields the shape of a D1 result set is the answer.
+ */
+function appliedFrom(stdout) {
+  for (let i = stdout.indexOf('['); i !== -1; i = stdout.indexOf('[', i + 1)) {
+    let parsed
+    try {
+      parsed = JSON.parse(stdout.slice(i))
+    } catch {
+      continue
+    }
+    if (!Array.isArray(parsed) || !Array.isArray(parsed[0]?.results)) continue
+    return parsed[0].results.map((r) => String(r.name))
+  }
+  throw new Error('no D1 result set in wrangler output')
+}
+
+/**
+ * `verify` — the migrate hook's half.
+ *
+ * IT CHECKS ONLY WHAT THE ENVIRONMENT SAYS IT HAS APPLIED. A migration this
+ * environment has not run is not checked, because it is about to be and its
+ * content is whatever it is; that is the ordinary case of adding a migration and
+ * deploying it.
+ *
+ * AN UNREADABLE ENVIRONMENT IS NOT A PASS, which is this directory's standing
+ * asymmetry ([[REQ-149]], [[REQ-259]]): only a positive read counts, because the
+ * failure being guarded against is a confident skip based on an answer nobody
+ * actually got. The one exception is stated by the error itself — a database with
+ * no `d1_migrations` table has applied nothing, which is a fact and not a failure
+ * to read one.
+ *
+ * AN APPLIED MIGRATION WITH NO MANIFEST ENTRY FAILS TOO. It is not drift, it is a
+ * stale manifest — but a tripwire that can be disarmed by deleting a line is not a
+ * tripwire, so the manifest's completeness is load-bearing and the refusal says
+ * exactly what to type.
+ *
+ * AN APPLIED MIGRATION WITH NO FILE ON DISK IS REPORTED AND NOT REFUSED. An older
+ * checkout against a newer environment is an ordinary state rather than an error,
+ * which is the judgement `tools/generate/src/cli/d1-migrations.ts` already makes
+ * about the same asymmetry.
+ */
+function cmdVerify({ env, status, stdout }) {
+  const dir = migrationsDir()
+  const manifestPath = path.join(dir, MANIFEST_NAME)
+  const manifestRel = path.relative(REPO_ROOT, manifestPath) || manifestPath
+
+  let applied
+  if (status !== 0) {
+    if (/no such table:?\s*"?d1_migrations/i.test(stdout)) {
+      console.log(`    ${env} has applied no migrations yet — nothing to verify`)
+      return 0
+    }
+    console.error(
+      `    could not read the migrations '${env}' has applied, so none were verified:\n` +
+        indent(stdout.trim() || `wrangler exited ${status}`),
+    )
+    return 1
+  }
+  try {
+    applied = appliedFrom(stdout)
+  } catch (err) {
+    console.error(
+      `    could not read the migrations '${env}' has applied, so none were verified:\n` +
+        indent(`${err.message}\n${stdout.trim()}`),
+    )
+    return 1
+  }
+
+  const manifest = readManifest(manifestPath)
+  const onDisk = new Set(migrationFiles(dir))
+  const drifted = []
+  const unrecorded = []
+  const absent = []
+
+  for (const name of applied) {
+    if (!onDisk.has(name)) {
+      absent.push(name)
+      continue
+    }
+    if (!(name in manifest)) {
+      unrecorded.push(name)
+      continue
+    }
+    const now = hashOf(dir, name)
+    if (now !== manifest[name]) drifted.push({ name, was: manifest[name], now })
+  }
+
+  for (const name of absent) {
+    console.log(`    ${name} is applied to ${env} but is not in this checkout — not verified`)
+  }
+
+  if (drifted.length === 0 && unrecorded.length === 0) {
+    const checked = applied.length - absent.length
+    console.log(
+      `    ${checked} applied migration${checked === 1 ? '' : 's'} match${checked === 1 ? 'es' : ''} ` +
+        manifestRel,
+    )
+    return 0
+  }
+
+  console.error('')
+  for (const { name, was, now } of drifted) {
+    console.error(`    ${name} HAS CHANGED since it was applied to '${env}'.`)
+    console.error(`        applied  ${was}   (${manifestRel})`)
+    console.error(`        on disk  ${now}`)
+  }
+  for (const name of unrecorded) {
+    console.error(`    ${name} is applied to '${env}' and has no entry in ${manifestRel},`)
+    console.error(`        so its content could not be checked.`)
+  }
+  console.error('')
+  console.error(
+    drifted.length > 0
+      ? `    '${env}' holds the schema those files USED to describe. wrangler will never\n` +
+          `    re-run them — ${'`d1_migrations`'} records a name and a timestamp, never content — so\n` +
+          `    nothing downstream reconciles the two, and every later migration is written\n` +
+          `    against a schema that environment does not have.\n\n` +
+          `    Nothing was uploaded and no migration was applied. What to do about it is a\n` +
+          `    decision about DATA, which this check deliberately does not make: rebaseline an\n` +
+          `    environment with nothing in it, or write a corrective migration for one with\n` +
+          `    customers in it. If the edit was already accounted for, record the new bytes\n` +
+          `    with ${'`bin/migration-manifest`'} and say why in the commit message.`
+      : `    Nothing was uploaded and no migration was applied. Record the applied bytes\n` +
+          `    with ${'`bin/migration-manifest`'} and commit the result, so that a later edit to\n` +
+          `    one of those files is visible as a changed hash.`,
+  )
+  return 1
+}
+
+function indent(text) {
+  return text
+    .split('\n')
+    .map((line) => `      ${line}`)
+    .join('\n')
+}
+
+function readStdin() {
+  try {
+    return readFileSync(0, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+function flag(argv, name, fallback) {
+  const i = argv.indexOf(name)
+  return i === -1 || i + 1 >= argv.length ? fallback : argv[i + 1]
+}
+
+const argv = process.argv.slice(2)
+try {
+  if (argv[0] === 'verify') {
+    process.exit(
+      cmdVerify({
+        env: flag(argv, '--env', 'the target environment'),
+        status: Number(flag(argv, '--status', '0')),
+        stdout: readStdin(),
+      }),
+    )
+  } else if (argv[0] === undefined || argv[0] === '--check') {
+    process.exit(cmdWrite({ check: argv[0] === '--check' }))
+  } else {
+    console.error(
+      'bin/migration-manifest — record what an applied migration\'s bytes were.\n\n' +
+        '  bin/migration-manifest            rewrite db/migrations/manifest.json\n' +
+        '  bin/migration-manifest --check    report drift, change nothing\n' +
+        '  bin/migration-manifest verify --env <name> [--status <n>]\n' +
+        '                                    compare what <name> has applied against the\n' +
+        '                                    manifest; reads `wrangler d1 execute --json`\n' +
+        '                                    output on stdin. Used by the migrate hook.\n',
+    )
+    process.exit(2)
+  }
+} catch (err) {
+  console.error(`bin/migration-manifest: ${err.message}`)
+  process.exit(2)
+}
