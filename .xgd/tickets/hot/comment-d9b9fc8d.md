@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:41:11.648781+00:00'
+updated_at: '2026-09-21T00:59:07.793020+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -509,5 +509,26 @@ The LF payload is **64 MB in a single POST**, and there's no chunking — `DSC_7
 ---
 
 **Two things I'd like your call on:** whether to file the per-end-credentials gap as a bug against REQ-289, and whether to gitignore `storage/backups/`. Neither blocks you today.
+
+<!-- xgd-turn id="94f58261-4043-4c87-a9ca-e11d118e52c5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:59:06.591159+00:00" -->
+#### You
+```
+Your database may not be available to serve requests during the migration, continue? … yes
+🌀 Executing on remote database 1stcontact (0434cd88-07e0-4eb2-a7d8-7370c333534c):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+
+✘ [ERROR] A request to the Cloudflare API (/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/d1/database/0434cd88-07e0-4eb2-a7d8-7370c333534c/query) failed.
+
+  no such table: sessions: SQLITE_ERROR [code: 7500]
+  
+  If you think this is a bug, please open an issue at:
+  https://github.com/cloudflare/workers-sdk/issues/new/choose
+
+🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-09-21_00-55-17_469.log"
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
