@@ -13,7 +13,7 @@ import { applySchema } from './support/d1-site-factory'
  * `forTenant` refuses an unregistered tenant — correctly — so every read route
  * answered 503, the chrome's top-level `await` on `/api/sites` rejected, and
  * the operator got a boot guard instead of a builder. The one thing that could
- * fix it was `bin/publish`, because the import route opened the store through a
+ * fix it was to copy a site up, because the import route opened the store through a
  * SECOND function that registered the tenant first. A deployment could not be
  * read until someone had written to it from a laptop.
  *

@@ -80,7 +80,23 @@ export function resetPlan(opts: {
     }),
     // Named individually rather than as "everything else": the point of the line
     // is that the operator can check the two they care about are on it.
-    preserved: ['storage/sites', 'storage/chat', 'storage/references'],
+    //
+    // `storage/sites` CAME OFF THIS LIST (REQ-290) and `storage/sandbox` WENT ON
+    // IT, which between them are the whole point of touching this file.
+    //
+    // `storage/sites` was here as "the git-tracked authored source a re-seed
+    // comes from" — true while sites were authored on disk, and a lie the moment
+    // the builder's store became the only place a site lives. A retired tier
+    // named on this list is a promise the reset cannot keep: there is nothing to
+    // re-seed FROM. What comes back after a reset comes back over
+    // `bin/copy-from-cloud`.
+    //
+    // `storage/sandbox` replaces it because it is now the tree an operator would
+    // actually fear losing: the reproduction substrate the fidelity loop works
+    // in, gitignored, with no copy anywhere else. It always survived a reset;
+    // what it lacked was the line saying so, and this list exists precisely so
+    // the operator can read the promise instead of taking it on trust.
+    preserved: ['storage/sandbox', 'storage/chat', 'storage/references'],
   }
 }
 

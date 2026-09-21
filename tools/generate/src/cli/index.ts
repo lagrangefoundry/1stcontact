@@ -16,7 +16,6 @@ import { devEnvLayering, devVarsPath, readDevEnv, wranglerDevArgs } from './dev-
 import { localD1Check } from './d1-migrations'
 import { repoRoot } from './webui'
 import { cmdAssets, formatAssetReport } from './assets'
-import { pushSite } from './push'
 import {
   assertDataClass,
   copySite,
@@ -290,22 +289,22 @@ export type {
 const USAGE = `1c — file-backed site storage, versioning & server-side render (REQ-9)
 
 Usage:
-  1c new <slug> [--sandbox]
-  1c list [--sandbox]
-  1c render <slug> [--source draft|latest|<revId>] [--edit] [--sandbox] [--out <dir>]
+  1c new <slug>
+  1c list
+  1c render <slug> [--source draft|latest|<revId>] [--edit] [--out <dir>]
     --edit renders the third channel (REQ-116): the page the builder's editor works on.
     Always from draft/. Deliberately non-functional — no link target, no form action, no
     behaviour or motion script — so all content shows at once, and every editable region
     is outlined and stamped with its address. Never published; lands in dist/<slug>/edit/.
-  1c publish <slug> [-m "message"] [--by <id>] [--sandbox]
+  1c publish <slug> [-m "message"] [--by <id>]
     Freezes the draft as the next revision, renders it, and records what changed.
     An UNCHANGED draft mints nothing and says so (REQ-149) — publishing twice in a
     row is a no-op, not a second revision describing no difference.
-  1c checkout <slug> [<revId>] [--force] [--sandbox]
+  1c checkout <slug> [<revId>] [--force]
     Replaces the draft with a revision. Forward-only: publishing afterwards mints a
     NEW highest revision recording what it descended from — history never rewinds.
-  1c revisions <slug> [--sandbox]
-  1c verify <slug> [--sandbox]
+  1c revisions <slug>
+  1c verify <slug>
     Recomputes every published revision's digest and reports any whose stored bytes
     no longer match the log. A published revision is immutable (REQ-266); this is how
     you ask whether the history still is, without checking each one out by hand.
@@ -313,8 +312,9 @@ Usage:
     Empties the LOCAL dev store: apps/control-app/.wrangler/state, which is where
     \`wrangler dev\` persists D1 and R2 — every site, page, change journal, asset,
     revision, chat transcript, ticket, tenant and audit record. Removing it is what
-    a fresh clone would have. storage/ is never touched: storage/sites/ is the
-    git-tracked authored source a re-seed comes from.
+    a fresh clone would have. storage/ is never touched, and nothing under it is a
+    source a re-seed could come from: every site lives in the store this empties, and
+    \`bin/copy-from-cloud\` is how one comes back.
     Without --yes it PREVIEWS: prints what it would remove and deletes nothing.
     Refuses while the builder is answering on --port (default 8788) — a live
     miniflare holds those SQLite files open, so deleting under it corrupts the
@@ -324,7 +324,8 @@ Usage:
   1c builder [--port <n>] [--remote] [--no-filing]
     Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
     routes, store and runtime as production. Serves what \`1c assets\` built, so run
-    that first. The store is the LOCAL simulated D1/R2; seed it with \`bin/publish\`.
+    that first. The store is the LOCAL simulated D1/R2, and it starts empty: author in
+    the builder, or bring a site down with \`bin/copy-from-cloud <business>\`.
     --remote points at the deployed D1 and R2, which means editing production data.
     Refuses to start when the local database is behind db/migrations/, naming the
     pending files and the command that applies them; --remote skips that check,
@@ -366,18 +367,6 @@ Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
     them missing — and a missing BROWSER component yields an import map that
     loads and then fails at the first import, in the operator's browser. This is
     where that is caught instead.
-
-Push a site to the cloud store (REQ-145) — what \`bin/publish\` runs:
-  1c push <slug> [--origin URL] [--force] [--client-id ID --client-secret SECRET] [--json]
-    Reads the local draft (definition + assets) and posts it to the builder Worker's
-    import route, which writes it into D1 and R2 through the same store it serves from.
-    Idempotent: re-running after a LOCAL edit replaces each page and asset by name.
-    REFUSED with 409 when the target has changes made in the BUILDER — importing
-    would replace them (BUG-51). --force says you mean it; nothing is written without.
-    --origin defaults to http://localhost:8788 (\`wrangler dev\`). A deployed builder
-    is behind Cloudflare Access and needs a service token: --client-id/--client-secret,
-    or CF_ACCESS_CLIENT_ID/CF_ACCESS_CLIENT_SECRET in the environment. Provision one
-    with \`bin/access-token\`. This is NOT \`1c publish\`, which mints a revision.
 
 Copy a business's site between builders (REQ-289) — what \`bin/copy-to-cloud\` runs:
   1c copy-to-cloud   <business> [--origin URL] [--force] [--backup FILE]
@@ -429,7 +418,7 @@ Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
     (hints.json: parent layout, sizing unit, position mode, @media breakpoints — read for direction, never executed).
 
 L1 reproduction pipeline (REQ-88) — turn a capture bundle into a servable, gate-able 1c site:
-  1c repro <slug> --ref <captureBundleDir> [--sandbox]
+  1c repro <slug> --ref <captureBundleDir>
     Import the bundle's folded l1.json as a raw-L1 home page site (idempotent — re-import rebuilds).
     The normal render/serve/shot/diff/values-diff loop then works on the reproduction unchanged.
   1c refold --ref <captureBundleDir>
@@ -437,14 +426,14 @@ L1 reproduction pipeline (REQ-88) — turn a capture bundle into a servable, gat
     Both are a pure function of the oracle and the current fold, so every fold change makes every
     stored bundle stale; this picks the change up without re-hitting the site (which would also
     re-roll the oracle, landing a fold change and a reference change inseparably).
-  1c l1-gate --ref <captureBundleDir> [--json] [--sandbox]
+  1c l1-gate --ref <captureBundleDir> [--json]
     The mechanical 3-probe acceptance gate: fold multistate.json → base, promoteToFlow → recovered,
     then sample-fidelity · off-sample · content-robustness. Exits non-zero while any probe fails;
     each residual names a framework gap (missing L1 axis / capture hint / region needing promotion).
 
 Cross-gate reconciliation (REQ-94) — run l1-gate + values-diff + perceptual diff and COMPARE them:
   1c gate <slug> --ref <captureBundleDir> [--source draft|published] [--size mobile|tablet|desktop]
-          [--out <dir>] [--json] [--sandbox] [--mean-floor <0-255>] [--pct-floor <0-100>]
+          [--out <dir>] [--json] [--mean-floor <0-255>] [--pct-floor <0-100>]
           [--values-tier <CRITICAL|HIGH|MEDIUM|LOW|none>]
   1c gate --ref <captureBundleDir> --actual-image <png> --actual-manifest <manifest.json> [--out <dir>] [--json]
     (BUG-103) with --out, writes actual-manifest.json, expected-manifest.json and actual.png beside
@@ -467,11 +456,11 @@ Cross-gate reconciliation (REQ-94) — run l1-gate + values-diff + perceptual di
     Reference coverage (mirrored-vs-referenced images, page height per section) is reported every run.
 
 Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
-  1c shot <slug> [--source draft|published] [--viewport mobile|tablet|desktop] [--out <file>] [--sandbox]
+  1c shot <slug> [--source draft|published] [--viewport mobile|tablet|desktop] [--out <file>]
   1c shot --url <url> [--viewport mobile|tablet|desktop] [--out <file>]
 
 Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
-  1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json] [--sandbox]
+  1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json]
   1c values-diff --ref <captureBundleDir> --actual <manifest.json> [--out <file>] [--json]
     (BUG-103) --actual-out <manifest.json> / --expected-out <manifest.json> WRITE the manifests the diff was
     computed from — the reproduction's and the reference's. Both sides, because a delta's actual value is
@@ -495,7 +484,7 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   Ignore-masks (REQ-48): [--ignore <regex,regex,…>] suppress dynamic content; [--compare-years] disable the built-in © year mask.
 
 Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regions + crop triptychs:
-  1c diff <slug> --ref <bundleDir|refPng> [--source draft|published] [--size mobile|tablet|desktop] [--out <dir>] [--json] [--sandbox]
+  1c diff <slug> --ref <bundleDir|refPng> [--source draft|published] [--size mobile|tablet|desktop] [--out <dir>] [--json]
   1c diff --ref <bundleDir|refPng> --actual <png> [--out <dir>] [--json]
     (BUG-103) --actual-out <png> keeps the reproduction's screenshot; without it the shot is deleted with the
     scratch dir and the actual path recorded in regions.json names a file that no longer exists.
@@ -514,16 +503,16 @@ Responsive-diff (REQ-61) — analyse ONE captured site across sizes (not a repro
     --classify labels each changed node value-step / presence-flip / layout-swap (the reproduction move).
 
 Adopt-gaps (REQ-74) — close section-boundary vertical GAP deltas by inverting to spacingTop:
-  1c adopt-gaps <slug> --ref <captureBundleDir> [--apply] [--json] [--sandbox]
+  1c adopt-gaps <slug> --ref <captureBundleDir> [--apply] [--json]
     A gap is linear in one knob: new spacingTop = current + (ref_gap - our_gap); a too-tight gap also
     reduces the previous section's spacingBottom. Dry-run by default. Pairs with the REQ-73 gap axis.
 
 Colours (REQ-114, REQ-137) — the palette colour model (DOC-23 §5): one colour per entry, the
 light↔dark position carried as shade on the reference:
-  1c colors <slug> [--json] [--sandbox]
+  1c colors <slug> [--json]
     Census the site's colour literals: distinct colours, distinct RGB ignoring alpha, and the
     alpha families (one RGB used at several opacities) that collapse to one entry exactly.
-  1c colors <slug> --assign [--names <derived>=<chosen>,…] [--json] [--sandbox]
+  1c colors <slug> --assign [--names <derived>=<chosen>,…] [--json]
     Retrofit the site onto a derived palette: alpha collapse first (exact), then shade fitting —
     each family member is fitted to an Oklab mix of its base toward black or white and carried as
     shade on the reference. Writes site.palette and rewrites every colour literal as a reference.
@@ -537,8 +526,9 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     Join every site's l1.resources.fonts against fonts/registry.yaml. Fails on a family the
     registry does not record, on a served file the family's entry does not list, and — for a
     site declaring config.distribution "product" — on a licence whose redistribute_in_product
-    is not true. Outstanding licence actions are reported but do not fail. Scans both the
-    sites/ and sandbox/ trees, because a licence attaches to the font, not to the site.
+    is not true. Outstanding licence actions are reported but do not fail. Scans every
+    site tree the file store can address, because a licence attaches to the font, not
+    to the site.
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -600,9 +590,11 @@ The page editor's write path (REQ-117) — the same surface, same validator:
   data-l1-path; --module/--slot are its data-fc-module / data-l1-slot scope, and
   are needed only for copy inside a behavior module's slot.
 
-Every command defaults to the git-tracked sites/ tree; --sandbox targets the
-gitignored sandbox/ scratch tree. Rendered output always lands in
-dist/<root>/<slug>/<channel>/.
+Every command works in storage/sandbox/, the gitignored scratch tree the
+reproduction loop lives in. There is no second tree and no flag to choose one:
+REQ-290 retired storage/sites/, the file-backed authoring tier, and every real
+site now lives in the builder's store. Rendered output lands in
+dist/sandbox/<slug>/<channel>/.
 
 In --json mode, structured-edit commands emit {"ok":true,"data":...} on success
 or {"ok":false,"error":{code,message,path?,hint?}} on failure. Exit codes:
@@ -635,7 +627,24 @@ function parseRev(tok: string | undefined): number | undefined {
 export async function run(argv: string[]): Promise<void> {
   const { positionals, flags } = parseArgs(argv)
   const [command, ...rest] = positionals
-  const global: GlobalOptions = { sandbox: flags.sandbox === true }
+  // REQ-290 — THE SANDBOX ROOT, UNCONDITIONALLY, whatever was typed. The file
+  // tier had two roots: `sites/`, git-tracked, where real sites were authored on
+  // disk; and `sandbox/`, gitignored, where a reproduction is imported and the
+  // fidelity loop runs over it. The builder replaced the first one — every real
+  // site now lives in its D1/R2 store — so the only surviving use of the file
+  // tier is the second, and a default that still resolved `sites` would let
+  // `1c new foo` recreate a retired authoring tier one directory at a time.
+  //
+  // WHY THE PIN IS HERE AND NOT IN `ctxOf`. `ctxOf(opts)` is a library call:
+  // around a hundred suites reach it directly against a temp `cwd`, and the
+  // relocated L1 conformance corpus is read through it. The file store is
+  // deliberately still able to address both roots — that is how the corpus is
+  // read at all. What is retired is the *CLI's* ability to choose, and the CLI
+  // is exactly one entry point, so this is where the choice stops being made.
+  //
+  // `--sandbox` is still parsed and still means what it says; it is simply no
+  // longer load-bearing, and it has come out of the usage text.
+  const global: GlobalOptions = { sandbox: true }
 
   // REQ-44 — check the installed tree before the command does anything. Here
   // rather than inside each handler because the failure is about the workspace,
@@ -717,61 +726,6 @@ export async function run(argv: string[]): Promise<void> {
       return
     }
 
-    case 'push': {
-      // REQ-145 — copy a local site's draft into the cloud store. The WORKER
-      // writes, through the bindings it serves from, because Node has neither a
-      // D1 nor an R2 binding and a second writer would be a second definition of
-      // what a site is made of. See push.ts.
-      const slug = requireSlug(rest[0])
-      const origin = typeof flags.origin === 'string' ? flags.origin : 'http://localhost:8788'
-      // Flags win over the environment so a one-off push can name a different
-      // token without editing a shell profile; the environment is the ordinary
-      // path, because a secret on the command line lands in shell history.
-      const clientId =
-        typeof flags['client-id'] === 'string'
-          ? flags['client-id']
-          : process.env.CF_ACCESS_CLIENT_ID
-      const clientSecret =
-        typeof flags['client-secret'] === 'string'
-          ? flags['client-secret']
-          : process.env.CF_ACCESS_CLIENT_SECRET
-      // BOTH OR NEITHER. Half a credential is not a weaker credential, it is a
-      // request that will be refused at the edge with a message about identity
-      // rather than about the half that was missing here. The refusal is
-      // `copy.ts`'s ([[REQ-289]]) so that this command and the copy pair say
-      // the same sentence about the same credential.
-      const access = serviceToken(clientId, clientSecret)
-      const result = await pushSite(fsSiteStore(ctxOf(global)), slug, {
-        origin,
-        // BUG-84 — the operator's own `storage/references/` tree, which is the
-        // evidence this side's rights gate reads. Handed in rather than reached
-        // for inside `pushSite` so the push path stays free of `node:fs` and the
-        // same function serves a test against an in-memory store.
-        references: fsReferenceStore(ctxOf(global).cwd),
-        // BUG-51 — only ever passed when typed. The far side refuses an import
-        // that would replace builder changes, and this is the operator saying
-        // they know what is there. A default would be the destructive default
-        // the whole ticket exists to remove.
-        ...(flags.force === true ? { force: true } : {}),
-        ...(access ? { access } : {}),
-      })
-      if (flags.json === true) {
-        console.log(JSON.stringify(result, null, 2))
-        return
-      }
-      console.log(
-        `pushed ${result.slug} → ${origin}\n` +
-          // THE DESTINATION'S KEY, WHEN IT SAID ([[REQ-236]]). It is the site's
-          // public address and the only handle the operator has for what they
-          // just wrote, so it belongs in the one line they read after a push.
-          (result.landed.site ? `  site    ${result.landed.site}\n` : '') +
-          `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
-          `  assets  ${result.landed.assets}\n` +
-          `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
-      )
-      return
-    }
-
     /**
      * `1c copy-to-cloud` / `1c copy-from-cloud` — one business's site, moved
      * between the local builder and the deployed one ([[REQ-289]]).
@@ -813,10 +767,10 @@ export async function run(argv: string[]): Promise<void> {
             ? flags['client-secret']
             : process.env.CF_ACCESS_CLIENT_SECRET,
         )
-        // `--origin` OVERRIDES THE NON-CLOUD END ONLY, as `bin/publish`
-        // allowed, so the pair works against a dev server on any port — which
-        // in practice means `bin/access-sim`, the one local front door that
-        // can resolve a business other than `TENANT_ID`.
+        // `--origin` OVERRIDES THE NON-CLOUD END ONLY, as the retired push
+        // script allowed, so the pair works against a dev server on any port —
+        // which in practice means `bin/access-sim`, the one local front door
+        // that can resolve a business other than `TENANT_ID`.
         const local = typeof flags.origin === 'string' ? flags.origin : LOCAL_ORIGIN
         const ends = endsFor(direction, local)
 
@@ -848,8 +802,9 @@ export async function run(argv: string[]): Promise<void> {
         // REFUSED BEFORE THE FIRST CALL rather than after the read has already
         // happened: a run that fetched a site's worth of assets and then
         // discovered it had no credential has spent the operator's time to tell
-        // them something it could have said first. `bin/publish`'s reasoning,
-        // applied to a pair of ends instead of a list of slugs.
+        // them something it could have said first. That was the retired push
+        // script's reasoning too, applied there to a list of slugs and here to a
+        // pair of ends.
         if (access === undefined && (ends.source === CLOUD_ORIGIN || ends.destination === CLOUD_ORIGIN)) {
           throw new Error(
             `${CLOUD_ORIGIN} is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID ` +
@@ -1007,7 +962,7 @@ export async function run(argv: string[]): Promise<void> {
       // BUG-51 — the deliberate way back to empty. See `reset.ts` for why a
       // command exists rather than an instruction to delete a directory.
       const port = Number.parseInt(typeof flags.port === 'string' ? flags.port : '8788', 10)
-      // A bare Error, as `1c push` raises for its own usage mistake: the
+      // A bare Error, as the copy verbs raise for their own usage mistakes: the
       // `ErrorCode` set is about what happened to a DEFINITION, and a mistyped
       // flag never reached one.
       if (!Number.isFinite(port) || port <= 0) {
@@ -1069,7 +1024,7 @@ export async function run(argv: string[]): Promise<void> {
         (removed.length
           ? `Emptied the local dev store:\n${removed.map((t) => `  ${t.label}`).join('\n')}`
           : 'The local dev store was already empty.') +
-          `\n\nNext start is a fresh store; seed it with \`bin/publish\`.`,
+          `\n\nNext start is a fresh store; \`bin/copy-from-cloud <business>\` brings a site back.`,
       )
       return
     }
@@ -1184,7 +1139,7 @@ export async function run(argv: string[]): Promise<void> {
         `Builder (wrangler dev) on http://localhost:${port}\n` +
           `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
           `${status.line}\n` +
-          '  seed it with `bin/publish`\n',
+          '  starts empty — author in the builder, or `bin/copy-from-cloud <business>`\n',
       )
       // AFTER the banner and BEFORE wrangler's own output, which is where an
       // operator is still reading. A warning, never a refusal: a missing key is
@@ -1582,7 +1537,7 @@ export async function run(argv: string[]): Promise<void> {
           gap +
           mounted +
           envelope +
-          `\n  next: 1c render ${slug}${global.sandbox ? ' --sandbox' : ''}  ·  1c l1-gate --ref ${ref}`,
+          `\n  next: 1c render ${slug}  ·  1c l1-gate --ref ${ref}`,
       )
       return
     }
@@ -2183,7 +2138,7 @@ export async function run(argv: string[]): Promise<void> {
 /**
  * The CLI's store (REQ-142).
  *
- * `1c` edits `storage/sites/` on the operator's own machine (DOC-12 §3.1), so
+ * `1c` edits the file-backed tree on the operator's own machine (DOC-12 §3.1), so
  * this is the ONE place in the CLI that names the filesystem adapter. Every
  * `edit*` call below is handed the result and none of them can tell what it is.
  */

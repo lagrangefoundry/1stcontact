@@ -16,6 +16,7 @@ import type { ModuleResolver } from '../tools/generate/src/render/render'
 import type { BehaviorDefinition, BehaviorProps } from '../packages/framework/src/modules/behavior'
 import { starterHomePage, starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import type { LoadedSite } from '../tools/generate/src/store/assemble'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * REQ-151 — a site knows where it is, and both renderers say so.
@@ -83,9 +84,9 @@ function langDir(tag: string): { lang: string | null; dir: string | null } {
   }
 }
 
-/** Every real site under `storage/sites/` — the ones AC-1 must not regress. */
+/** Every site in the L1 corpus (REQ-290) — the ones AC-1 must not regress. */
 function realDraftDefinitions(): { slug: string; json: Record<string, unknown> }[] {
-  const sites = path.join(REPO, 'storage', 'sites')
+  const sites = L1_CORPUS_SITES
   return readdirSync(sites)
     .filter((slug) => statSync(path.join(sites, slug, 'draft'), { throwIfNoEntry: false })?.isDirectory())
     .map((slug) => ({

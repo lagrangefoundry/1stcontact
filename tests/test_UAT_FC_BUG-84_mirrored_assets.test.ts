@@ -6,8 +6,8 @@
  * the client's own domain. It enforces that by reading `republishable` off the
  * material's own record. The seed/push door has no record to read: `1c repro`
  * mirrors a captured page's subresources into
- * `storage/sites/<slug>/draft/assets/` so the reproduction renders from its own
- * media, `1c push` copies whatever is in that directory up, and nothing along
+ * `storage/sandbox/<slug>/draft/assets/` so the reproduction renders from its own
+ * media, a copy-up takes whatever is in that directory with it, and nothing along
  * the way mints a ticket. So the gate had nothing to consult and a third
  * party's photograph went straight past it.
  *
@@ -80,7 +80,7 @@ describe('BUG-84 — the seed/push door has a rights gate', () => {
   it('test_UAT_FC_BUG-84_a_capture_mirrored_asset_cannot_be_pushed', async () => {
     // The reported instance, reduced: a subresource mirrored from a captured
     // third-party page sits in the draft's assets because `1c repro` put it
-    // there, and `1c push` would have copied it onto a client's site with no
+    // there, and a copy-up would have put it onto a client's site with no
     // rights record and no gate. It is refused, and the refusal names the asset
     // AND the bundle member it mirrors — told only that a push failed, the
     // operator has a directory of files and no idea which one is the problem.

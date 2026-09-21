@@ -41,6 +41,7 @@ import { renderL1Document } from '../packages/framework/src/l1/render'
 import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import { cmdColors, cmdColorsAssign, collectColorLiterals } from '../tools/generate/src/cli/colors'
 import { loadSite } from '../tools/generate/src/store'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -459,7 +460,7 @@ describe('AC-932 a retrofitted site yields a palette, not a colour list, and los
   /** Copy a real stored site into an isolated workspace. */
   function stage(cwd: string, slug: string): void {
     mkdirSync(path.join(cwd, 'storage', 'sites'), { recursive: true })
-    cpSync(path.join(REPO_ROOT, 'storage', 'sites', slug), path.join(cwd, 'storage', 'sites', slug), {
+    cpSync(path.join(L1_CORPUS_SITES, slug), path.join(cwd, 'storage', 'sites', slug), {
       recursive: true,
     })
   }

@@ -16,6 +16,7 @@ import {
   derivePalette,
   fitShade,
 } from '../tools/generate/src/cli/colors'
+import { L1_CORPUS_CWD, L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * UATs for REQ-137 — **shade on the reference replaces named steps**.
@@ -33,8 +34,12 @@ import {
  * on the members re-expressed as shades, exact everywhere else.
  */
 
-const REPO = path.resolve(__dirname, '..')
-const SITES = path.join(REPO, 'storage', 'sites')
+// REQ-290 moved these documents out of the repository's own `storage/sites/`.
+// `cmdColors` resolves `<cwd>/storage/sites/<slug>` through `ctxOf`, and the
+// corpus keeps that shape, so pointing its `cwd` at the fixture reads the same
+// three sites through the same code path.
+const REPO = L1_CORPUS_CWD
+const SITES = L1_CORPUS_SITES
 
 /** The two stored sites carrying L1 colour, which are the retrofit's subjects. */
 const RETROFITTED = ['xgd', 'gigabytealchemy'] as const

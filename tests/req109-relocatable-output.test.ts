@@ -22,14 +22,11 @@ import { createServer, type Server } from 'node:http'
 import { createReadStream, existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { renderL1Document, type L1Document } from '../packages/framework/src/index'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { loadSite } from '../tools/generate/src/store'
 import { renderSite } from '../tools/generate/src/render/write'
-
-/** The repository root — the real `storage/sites/` tree lives beneath it. */
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+import { L1_CORPUS_CWD } from './fixtures/l1-corpus/corpus'
 
 let out: string
 let cwd: string
@@ -46,9 +43,9 @@ afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
-/** Render the real in-repo `xgd` site into an isolated temp directory. */
+/** Render the corpus's hand-authored `xgd` site into an isolated temp directory. */
 async function renderXgd(): Promise<string[]> {
-  const loaded = loadSite({ cwd: REPO, root: 'sites' }, 'xgd', 'draft')
+  const loaded = loadSite({ cwd: L1_CORPUS_CWD, root: 'sites' }, 'xgd', 'draft')
   if (!loaded.ok) throw new Error(`xgd failed to load: ${JSON.stringify(loaded.errors)}`)
   return renderSite(loaded.value, out)
 }

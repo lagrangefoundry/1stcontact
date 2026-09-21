@@ -17,6 +17,7 @@
  * renders exactly as before.
  */
 import { describe, expect, it } from 'vitest'
+import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { globSync } from 'node:fs'
 import {
@@ -36,6 +37,7 @@ import {
 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
 import { evaluateLayout } from '../tools/generate/src/l1'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const WIDTHS = [320, 768, 1440]
 
@@ -239,7 +241,7 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
     const bareDecls = baseDecls(bare.css, slotClass(bare.html)).join(';')
     expect(bareDecls).not.toMatch(/(^|;)\s*(min-|max-)?(width|height):/)
 
-    const pages = globSync('storage/sites/*/draft/pages/*.json')
+    const pages = globSync(path.join(L1_CORPUS_SITES, '*', 'draft', 'pages', '*.json'))
     expect(pages.length, 'shipped L1 pages to re-render').toBeGreaterThan(0)
     for (const path of pages) {
       const page = JSON.parse(readFileSync(path, 'utf8')) as { l1?: L1Document }

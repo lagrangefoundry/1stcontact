@@ -84,7 +84,8 @@ Seeded (db/dev-seed.sql, idempotent — re-running changes nothing):
 NOT seeded, deliberately:
 
   the platform operator    PLATFORM_ADMINS writes those rows, and nothing else may
-  any site                 these are identity fixtures; `1c push <slug>` adds one
+  any site                 these are identity fixtures; author one in the builder,
+                           or bring one down with `bin/copy-from-cloud <business>`
 
 To sign in as any of them, without a Cloudflare account:
 

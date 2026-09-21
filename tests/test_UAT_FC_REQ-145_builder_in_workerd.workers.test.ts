@@ -204,7 +204,7 @@ describe('REQ-145 — the builder runs in workerd', () => {
   })
 
   it('test_UAT_FC_REQ-145_importing_the_same_site_twice_is_idempotent', async () => {
-    // AC-7. `bin/publish` is run after every local edit, so re-import is the
+    // AC-7. A copy-up is run after every local edit, so re-import is the
     // ordinary case rather than the exceptional one.
     const tenant = nextBusiness()
     const site = pureL1Site()

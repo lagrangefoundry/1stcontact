@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process'
-import { closeSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
+import { closeSync, cpSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * BUG-101 — a `--json` document survives a pipe.
@@ -26,10 +27,17 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  *
  * WHY `gigabytealchemy/home` IS THE FIXTURE. The bug was found on the
  * `repro-gigabytealchemy-ai` sandbox site, which no checkout has until something
- * captures it. `storage/sites/gigabytealchemy/draft/pages/home.json` is
- * committed, so this needs no sandbox, no capture and no browser — and its
- * `--json` document is comfortably past one pipe buffer, which is the only
- * property the bug cares about.
+ * captures it. The L1 conformance corpus carries
+ * `gigabytealchemy/draft/pages/home.json` and is committed, so this needs no
+ * capture and no browser — and its `--json` document is comfortably past one
+ * pipe buffer, which is the only property the bug cares about.
+ *
+ * THE CORPUS IS COPIED INTO A SANDBOX TREE FIRST (REQ-290). This suite drives the
+ * real binary, and the CLI now resolves the `sandbox` root for every command, so
+ * `<cwd>/storage/sandbox/<slug>` is the only place it looks. Copying is also the
+ * honest shape for a corpus its README calls read-only: `page get` does not write,
+ * but nothing about running a CLI at a fixture directory would stop the next
+ * command from doing so.
  */
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -47,7 +55,8 @@ const LAUNCHER = path.join(repoRoot, 'tools', 'generate', 'bin', '1c.mjs')
  */
 const PIPE_BUFFER_BYTES = 65536
 
-const ARGV = ['page', 'get', 'gigabytealchemy', 'home', '--json']
+const SLUG = 'gigabytealchemy'
+const ARGV = ['page', 'get', SLUG, 'home', '--json']
 
 /** The document as it arrives through a pipe — the path the bug was on. */
 let piped: Buffer
@@ -61,13 +70,18 @@ let workDir: string
 beforeAll(() => {
   workDir = mkdtempSync(path.join(tmpdir(), 'bug101-'))
 
+  // The site the CLI is pointed at, in the tree the CLI reads.
+  const sandbox = path.join(workDir, 'storage', 'sandbox')
+  mkdirSync(sandbox, { recursive: true })
+  cpSync(path.join(L1_CORPUS_SITES, SLUG), path.join(sandbox, SLUG), { recursive: true })
+
   // stdio 'pipe' with no encoding, so stdout comes back as a Buffer and the
   // byte count is the real one rather than a decoded-string approximation.
   // A timeout, so that the "it ends by itself" claim below can distinguish a
   // process that exited from one that had to be killed: letting the process end
   // naturally is only correct if it does end.
   const pipedResult = spawnSync('node', [LAUNCHER, ...ARGV], {
-    cwd: repoRoot,
+    cwd: workDir,
     maxBuffer: 16 * 1024 * 1024,
     timeout: 120_000,
   })
@@ -81,7 +95,7 @@ beforeAll(() => {
   const fd = openSync(outPath, 'w')
   try {
     spawnSync('node', [LAUNCHER, ...ARGV], {
-      cwd: repoRoot,
+      cwd: workDir,
       stdio: ['ignore', fd, 'pipe'],
       timeout: 120_000,
     })

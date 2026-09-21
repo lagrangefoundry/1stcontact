@@ -43,9 +43,10 @@
 -- `platform_operator` or writes a membership on the deployment's own business.
 --
 -- NO SITES ARE SEEDED. These are identity fixtures, not a demo corpus: the
--- businesses come up empty and `1c push <slug>` puts a site in one. The `xgd`
--- site lives in the file-backed store at `storage/sites/xgd/` and is restored the
--- same way, which is why CHAT-23's wipe did not lose it.
+-- businesses come up empty, and `bin/copy-from-cloud <business>` is what puts a
+-- site in one (REQ-289). There is no on-disk copy to restore from any more —
+-- REQ-290 retired the file-backed authoring tier — so the deployed store is
+-- where a site survives a local wipe.
 
 -- ---------------------------------------------------------------------------
 -- The businesses

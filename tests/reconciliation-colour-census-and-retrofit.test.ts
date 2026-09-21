@@ -57,10 +57,11 @@ import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { listFilesRel } from '../tools/generate/src/store'
 import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BIN = path.join(REPO_ROOT, 'tools', 'generate', 'bin', '1c.mjs')
-const SITES = path.join(REPO_ROOT, 'storage', 'sites')
+const SITES = L1_CORPUS_SITES
 const SANDBOX = path.join(REPO_ROOT, 'storage', 'sandbox')
 
 /** `#rrggbb` or `#rrggbbaa`, the only shape an L1 colour literal takes. */

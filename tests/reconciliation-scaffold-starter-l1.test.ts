@@ -314,19 +314,23 @@ describe('story-86c7c21b — creation offers no starter-mode selection', () => {
       expect(l1DocumentSchema.safeParse(doc).success, slug).toBe(true)
     }
 
-    // The documented usage advertises no opt-in: creation lists the slug and the
-    // shared workspace-root selector, and nothing else. Read from the shipped
-    // launcher's own help output — what an author actually reads.
+    // The documented usage advertises no opt-in: creation lists the slug and
+    // nothing else. Read from the shipped launcher's own help output — what an
+    // author actually reads.
+    //
+    // It used to read `1c new <slug> [--sandbox]`, and the workspace-root
+    // selector was named here to say what it was NOT — a starter mode. REQ-290
+    // pinned every command to the sandbox root and took the flag out of the
+    // help, so the line carries the slug alone and there is nothing left to
+    // mistake for a mode.
     const help = execFileSync('node', [path.join('tools', 'generate', 'bin', '1c.mjs'), 'help'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
     })
     const newLine = help.split('\n').find((l) => l.trim().startsWith('1c new '))
     expect(newLine).toBeDefined()
-    expect(newLine?.trim()).toBe('1c new <slug> [--sandbox]')
-    // `--sandbox` is the workspace-root selector every command shares, not a
-    // starter mode: it appears on the other storage verbs too.
-    expect(help).toContain('1c list [--sandbox]')
+    expect(newLine?.trim()).toBe('1c new <slug>')
+    expect(help).toContain('1c list')
     // No starter-mode flag exists to choose or to forget.
     expect(help).not.toMatch(/1c new[^\n]*--l1/)
     expect(help).not.toMatch(/1c new[^\n]*--empty/)

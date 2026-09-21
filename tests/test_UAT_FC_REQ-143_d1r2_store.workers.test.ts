@@ -288,10 +288,10 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
   // ── AC-6 (half): a real site imported into D1 assembles identically ───────
 
   it('UAT_FC_REQ-143 a real site imported into D1 assembles identically to the source store', async () => {
-    // The actual definitions from `storage/sites/`, inlined by Vite at build
+    // The actual definitions from the L1 corpus (REQ-290), inlined by Vite at build
     // time — workerd has no filesystem, so this is how the real bytes reach it.
     // Nothing is hand-written: these are the sites the operator builds with.
-    const modules = import.meta.glob('../storage/sites/*/draft/**/*.json', {
+    const modules = import.meta.glob('./fixtures/l1-corpus/storage/sites/*/draft/**/*.json', {
       eager: true,
       import: 'default',
     }) as Record<string, Record<string, unknown>>
@@ -314,8 +314,8 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
       const importSlug = `import-${slug}`
 
       // The source: the same definitions, held by an adapter with nothing behind
-      // it. It stands in for `storage/sites/` because the bytes ARE the ones
-      // from `storage/sites/` — what differs is only which store holds them.
+      // it. It stands in for the corpus because the bytes ARE the corpus's —
+      // what differs is only which store holds them.
       const source = memorySiteStore()
       source.seed(importSlug, { siteJson: parts.siteJson, pages: parts.pages })
 

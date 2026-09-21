@@ -26,7 +26,7 @@
  *   surface covers is derived from the schema rather than written down, so the
  *   sixth document key fails this file on the day it is added.
  *
- * The reproduction corpus in `storage/sites/` is the fixture for the parity
+ * The reproduction corpus in `storage/sandbox/` is the fixture for the parity
  * half, copied rather than mocked: a hand-written approximation of a captured
  * page is exactly the thing that stops resembling one.
  */
@@ -39,11 +39,12 @@ import { cmdNew } from '../tools/generate/src/cli'
 import { createL1Toolbox, L1_DECLARATION, L1_INSTANCES } from '../tools/generate/src/cli/ai/toolbox'
 import { L1_DOCUMENT_KEYS } from '../packages/site-schema/src/index'
 import type { L1Node } from '@1stcontact/site-schema'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const SLUG = 'studio'
 
 /** The repo's reproduction corpus — the pages the importer actually produced. */
-const CORPUS = path.resolve(__dirname, '..', 'storage', 'sites')
+const CORPUS = L1_CORPUS_SITES
 
 let cwd: string
 

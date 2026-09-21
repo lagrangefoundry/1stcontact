@@ -30,14 +30,13 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { renderL1Document, type L1Document, type L1Node } from '../packages/framework/src/index'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { loadSite } from '../tools/generate/src/store'
 import { renderSite } from '../tools/generate/src/render/write'
+import { L1_CORPUS_CWD } from './fixtures/l1-corpus/corpus'
 
-/** The repository root — the real `storage/sites/` tree lives beneath it. */
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+/** The repository root — the real `storage/sandbox/` tree lives beneath it. */
 
 const WIDTHS = [320, 768, 1440]
 
@@ -72,9 +71,9 @@ afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
-/** Render the real in-repo `xgd` site — a genuinely multi-asset site — into `out`. */
+/** Render the corpus's `xgd` site — a genuinely multi-asset site — into `out`. */
 async function renderXgd(): Promise<string[]> {
-  const loaded = loadSite({ cwd: REPO, root: 'sites' }, 'xgd', 'draft')
+  const loaded = loadSite({ cwd: L1_CORPUS_CWD, root: 'sites' }, 'xgd', 'draft')
   if (!loaded.ok) throw new Error(`xgd failed to load: ${JSON.stringify(loaded.errors)}`)
   return renderSite(loaded.value, out)
 }
@@ -87,8 +86,8 @@ async function renderXgd(): Promise<string[]> {
  * because on a single-page site the two readings are indistinguishable.
  */
 async function renderTwoPageSite(links: string[], slug = 'acme'): Promise<string> {
-  cmdNew(slug, { cwd })
-  const loaded = loadSite({ cwd, root: 'sites' }, slug, 'draft')
+  cmdNew(slug, { cwd, sandbox: true })
+  const loaded = loadSite({ cwd, root: 'sandbox' }, slug, 'draft')
   if (!loaded.ok) throw new Error(`${slug} failed to load: ${JSON.stringify(loaded.errors)}`)
   const home = loaded.value.site.pages[0]
   home.id = 'home'
@@ -295,8 +294,8 @@ describe('AC-891 a nested page slug fails the render loudly', () => {
     // Every argument about resolving against the snapshot DIRECTORY breaks at
     // once if a page sits below the root, so the renderer must refuse rather
     // than emit a page whose every reference is silently wrong.
-    cmdNew('acme', { cwd })
-    const nested = loadSite({ cwd, root: 'sites' }, 'acme', 'draft')
+    cmdNew('acme', { cwd, sandbox: true })
+    const nested = loadSite({ cwd, root: 'sandbox' }, 'acme', 'draft')
     if (!nested.ok) throw new Error(`acme failed to load: ${JSON.stringify(nested.errors)}`)
     nested.value.site.pages[0].slug = 'docs/intro'
 

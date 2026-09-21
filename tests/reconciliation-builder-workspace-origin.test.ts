@@ -286,7 +286,7 @@ describe('story-e674c60a builder origin', () => {
       }
     }
 
-    // `/api/import` is `bin/publish`'s write path. The REQ-145 workerd suite
+    // `/api/import` is the copy commands' write path. The REQ-145 workerd suite
     // covers it against real D1 and R2 bindings, which is the only place its
     // behaviour is meaningful; over this transport it would prove nothing.
     declared.delete('/api/import')

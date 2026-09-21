@@ -29,7 +29,7 @@ const SLUG = 'studio'
 
 let cwd: string
 
-const draftDir = (root = cwd): string => path.join(root, 'storage', 'sites', SLUG, 'draft')
+const draftDir = (root = cwd): string => path.join(root, 'storage', 'sandbox', SLUG, 'draft')
 const sitePath = (root = cwd): string => path.join(draftDir(root), 'site.json')
 const pagePath = (page = 'home', root = cwd): string =>
   path.join(draftDir(root), 'pages', `${page}.json`)
@@ -49,14 +49,14 @@ interface Box {
   manual: () => string
 }
 
-const consultant = (root = cwd): Promise<Box> => createL1Toolbox(SLUG, { cwd: root })
+const consultant = (root = cwd): Promise<Box> => createL1Toolbox(SLUG, { cwd: root, sandbox: true })
 
 const json = async <T,>(box: Box, tool: string, input: Record<string, unknown> = {}): Promise<T> =>
   JSON.parse(unwrap(await box.run(tool, input))) as T
 
 function fresh(prefix: string): string {
   const root = mkdtempSync(path.join(tmpdir(), prefix))
-  cmdNew(SLUG, { cwd: root })
+  cmdNew(SLUG, { cwd: root, sandbox: true })
   return root
 }
 
@@ -415,7 +415,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // And it is a WORKING component, not a validated record: the module is the
     // sole `<form>` sink, so a rendered form means the instance mounted — with
     // the replaced words in it, so the write reached the page and not only the file.
-    const { outDir } = await cmdRender(SLUG, { cwd })
+    const { outDir } = await cmdRender(SLUG, { cwd, sandbox: true })
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     expect(html).toMatch(new RegExp(`<form[^>]+action="${LEAD_ACTION}"`))
     expect(html).toMatch(/type="email"/)
@@ -490,7 +490,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
 
     // And both reach the render, so a supplied presentation is a mounted one
     // whichever vocabulary supplied it.
-    const rendered = await cmdRender(SLUG, { cwd })
+    const rendered = await cmdRender(SLUG, { cwd, sandbox: true })
     const withCarousels = readFileSync(path.join(rendered.outDir, 'index.html'), 'utf8')
     expect(withCarousels).toContain(SLIDE_COPY)
     expect(withCarousels).toContain(REVIEW_COPY)
@@ -672,7 +672,7 @@ describe('story-b3de4571 — a page describes itself to a search engine', () => 
       page: 'home',
       seo: { title: 'XGD — AI writes it.', description: 'A living spec of intended behaviour.' },
     })
-    const { outDir } = await cmdRender(SLUG, { cwd })
+    const { outDir } = await cmdRender(SLUG, { cwd, sandbox: true })
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     expect(html).toContain('<title>XGD — AI writes it.</title>')
     expect(html).toMatch(/name="description"[^>]*content="A living spec of intended behaviour\."/)
@@ -777,7 +777,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
 
     // ...emitted document-relative, as every asset reference is, and the bytes
     // ship into the output unchanged: a drawing is an asset, not a special case.
-    const { outDir } = await cmdRender(SLUG, { cwd })
+    const { outDir } = await cmdRender(SLUG, { cwd, sandbox: true })
     expect(readFileSync(path.join(outDir, 'index.html'), 'utf8')).toMatch(
       /<img[^>]+src="assets\/wordmark\.svg"/,
     )

@@ -52,7 +52,7 @@ export { TenantNotConfiguredError } from './scope'
  * `tenants` table was empty — and `forTenant` refuses an unregistered tenant, as
  * it must. So every read 503'd, the chrome's top-level `await` on `/api/sites`
  * rejected, and nothing mounted: the operator got a boot guard rather than a
- * builder. The only cure was for someone to run `bin/publish` from a laptop,
+ * builder. The only cure was for someone to copy a site up from a laptop,
  * because the import route opened the store through a SECOND function that
  * registered the tenant first. One deployment, one configured tenant, two
  * openers that disagreed about whether it existed.

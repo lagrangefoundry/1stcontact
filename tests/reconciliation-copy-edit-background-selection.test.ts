@@ -82,7 +82,7 @@ const BACKDROP_PAINT = {
 } as const
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 const homeJsonPath = (cwd: string): string => draftPath(cwd, 'acme', 'pages', 'home.json')
 
@@ -217,7 +217,7 @@ const draftBytes = (cwd: string): string => readFileSync(homeJsonPath(cwd), 'utf
 
 /** The already-rendered page, byte for byte, from the command line's own render. */
 async function renderedBytes(cwd: string): Promise<string> {
-  const { outDir } = await cmdRender('acme', { cwd, edit: true })
+  const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
   return readFileSync(path.join(outDir, 'index.html'), 'utf8')
 }
 
@@ -259,7 +259,7 @@ const fieldNamed = (result: CliResult, name: string): Field | undefined =>
  * against an artifact someone had to remember to refresh.
  */
 async function withOrigin(cwd: string, fn: (builder: BuilderHandle) => Promise<void>): Promise<void> {
-  const builder = await startBuilder({ cwd })
+  const builder = await startBuilder({ cwd, sandbox: true })
   try {
     await fn(builder)
   } finally {
@@ -272,7 +272,7 @@ describe('story-37a3921b — a painted panel’s background image, through the s
 
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-bg-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {
@@ -471,7 +471,7 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     // in the draft, and the re-rendered page paints that image behind that panel.
     // A published base gives `status` something to diff against, so "what did
     // this edit change?" has a countable answer.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     const filesBefore = readdirSync(draftPath(cwd, 'acme', 'assets')).sort()
     const printBefore = assetFingerprint(cwd)
     const nodeBefore = draftNode(cwd, A_BACKDROP)

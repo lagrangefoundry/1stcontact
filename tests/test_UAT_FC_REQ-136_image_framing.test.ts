@@ -49,7 +49,7 @@ const A_FEATHERED = '0.1'
 const A_PILL = '0.2'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]) =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 function seedSite(cwd: string, slug: string): void {
   const homePath = draftPath(cwd, slug, 'pages', 'home.json')
@@ -176,7 +176,7 @@ describe('REQ-136 — image framing, shape and colour adjustment', () => {
 
   beforeEach(() => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'req136-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {

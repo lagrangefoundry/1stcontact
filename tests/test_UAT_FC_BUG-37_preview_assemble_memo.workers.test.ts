@@ -131,7 +131,7 @@ describe('BUG-37 — the assembled draft is memoised per isolate', () => {
   it('test_UAT_FC_BUG-37_a_write_through_another_handle_invalidates_the_memo', async () => {
     // AC-3. The memo lives for the ISOLATE while a store handle lives for one
     // request, so the two must not be tied together. A second handle stands in
-    // for the next request — or for `bin/publish` writing from a laptop. The
+    // for the next request — or for a copy writing from a laptop. The
     // version is re-read from D1 every time, so the writer's identity is
     // irrelevant, which is exactly the property being pinned.
     const { seed, store, site } = await seedSite()

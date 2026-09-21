@@ -83,7 +83,7 @@ const ASSET_FILES: Record<string, string> = {
 if (!WEBUI_INSTALLED) console.warn(`REQ-132 picker suite: ${WEBUI_SKIP_REASON}`)
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
-  return path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  return path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 }
 
 /**
@@ -188,12 +188,12 @@ describe('REQ-132 the image picker', () => {
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'req132-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
     pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
-    builder = await startBuilder({ cwd })
+    builder = await startBuilder({ cwd, sandbox: true })
     if (WEBUI_INSTALLED) {
       ;({ mountEditor } = await import('../apps/control-app/src/builder/editor.js'))
     }

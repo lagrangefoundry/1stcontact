@@ -129,7 +129,7 @@ describe('REQ-289 — the direction chooses the ends', () => {
   it('test_UAT_FC_REQ-289_to_cloud_reads_local_and_from_cloud_reads_the_cloud', async () => {
     // The whole of "the same two calls with the origins swapped", asserted as
     // one function rather than believed from a comment. It is also where the
-    // defaults live: `bin/publish`'s two origins, unchanged.
+    // defaults live: the retired push script's two origins, unchanged.
     expect(endsFor('to-cloud')).toEqual({ source: LOCAL_ORIGIN, destination: CLOUD_ORIGIN })
     expect(endsFor('from-cloud')).toEqual({ source: CLOUD_ORIGIN, destination: LOCAL_ORIGIN })
 

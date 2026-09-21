@@ -69,7 +69,7 @@ const A_SYSTEM = '0.3'
 const A_UNWEIGHTED = '0.4'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]) =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 /**
  * A page whose runs differ in exactly the ways that decide behaviour.
@@ -217,7 +217,7 @@ describe('REQ-135 — text properties', () => {
 
   beforeEach(() => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'req135-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {
@@ -413,10 +413,10 @@ describe('REQ-135 — text properties', () => {
 
     beforeEach(async () => {
       seedSite(cwd, 'acme')
-      const { outDir } = await cmdRender('acme', { cwd, edit: true })
+      const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
       html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
       pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
-      builder = await startBuilder({ cwd })
+      builder = await startBuilder({ cwd, sandbox: true })
       const real = globalThis.fetch
       const origin = builder.url
       globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>

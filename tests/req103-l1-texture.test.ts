@@ -29,6 +29,7 @@ import {
   type L1SurfaceAxes,
 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const WIDTHS = [320, 768, 1440]
 
@@ -291,7 +292,7 @@ describe('REQ-103 — a surface can carry a repeating texture', () => {
     expect(decl(wash, 'background-size')).toBeUndefined()
     expect(decl(wash, 'background-repeat')).toBeUndefined()
 
-    const pages = globSync('storage/sites/*/draft/pages/*.json')
+    const pages = globSync(path.join(L1_CORPUS_SITES, '*', 'draft', 'pages', '*.json'))
     expect(pages.length, 'shipped L1 pages to re-render').toBeGreaterThan(0)
     for (const pagePath of pages) {
       const page = JSON.parse(readFileSync(pagePath, 'utf8')) as { l1?: L1Document }

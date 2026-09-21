@@ -54,7 +54,7 @@ const ASSET_FILES: Record<string, string> = {
 }
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
-  return path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  return path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 }
 
 /**
@@ -141,7 +141,7 @@ const setBackground = (cwd: string, addr: string, values: Record<string, unknown
   cli(cwd, 'copy', 'set', 'acme', 'home', addr, '--values', JSON.stringify(values))
 
 async function editHtml(cwd: string, slug: string): Promise<string> {
-  const { outDir } = await cmdRender(slug, { cwd, edit: true })
+  const { outDir } = await cmdRender(slug, { cwd, sandbox: true, edit: true })
   return readFileSync(path.join(outDir, 'index.html'), 'utf8')
 }
 
@@ -185,7 +185,7 @@ describe('REQ-128 — background image selection', () => {
   let cwd: string
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req128-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {
@@ -348,7 +348,7 @@ describe('REQ-128 — background image selection', () => {
   it('test_UAT_FC_REQ-128_choosing_a_background_bakes_nothing_and_moves_one_structured_field', async () => {
     // A published base gives `status` something to diff against, so "what did
     // this edit add to the draft?" has a countable answer.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     const beforeAssets = assetFingerprint(cwd, 'acme')
     const beforeNode = draftNode(cwd, A_BACKDROP)
 
@@ -419,12 +419,13 @@ describe('REQ-128 background image selection over the builder origin', () => {
 
   beforeAll(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req128-origin-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
     const html = await editHtml(cwd, 'acme')
     pageId = /data-fc-page="([^"]+)"/.exec(html)![1]
     builder = await startBuilder({
       cwd,
+      sandbox: true,
       clientDir: path.join(REPO, 'apps/control-app/src/builder'),
     })
   }, 180000)

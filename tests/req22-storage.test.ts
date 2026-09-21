@@ -9,22 +9,23 @@ import { cmdNew, cmdList } from '../tools/generate/src/cli/commands'
 import { bundleDirFor } from '../tools/generate/src/store/fs-reference-store'
 
 /**
- * UATs for REQ-22 — all four site-data trees consolidated under `storage/`
- * (sites tracked; sandbox/dist/references gitignored). Pure path-builder checks
- * plus a `git check-ignore` assertion against the repo's real `.gitignore`.
+ * UATs for REQ-22 — the site-data trees consolidated under `storage/`, all of
+ * them gitignored since REQ-290 retired the tracked authoring tier. Pure
+ * path-builder checks plus a `git check-ignore` assertion against the repo's
+ * real `.gitignore`.
  */
 describe('storage/ layout (REQ-22)', () => {
   const cwd = '/repo'
 
   it('test_UAT_FC_REQ-22_new_and_render_use_storage', () => {
-    expect(siteDir({ cwd, root: 'sites' }, 'acme')).toBe(
-      path.join('/repo', 'storage', 'sites', 'acme'),
+    expect(siteDir({ cwd, root: 'sandbox' }, 'acme')).toBe(
+      path.join('/repo', 'storage', 'sandbox', 'acme'),
     )
     expect(siteDir({ cwd, root: 'sandbox' }, 'acme')).toBe(
       path.join('/repo', 'storage', 'sandbox', 'acme'),
     )
-    expect(distDir({ cwd, root: 'sites' }, 'acme', 'draft')).toBe(
-      path.join('/repo', 'storage', 'dist', 'sites', 'acme', 'draft'),
+    expect(distDir({ cwd, root: 'sandbox' }, 'acme', 'draft')).toBe(
+      path.join('/repo', 'storage', 'dist', 'sandbox', 'acme', 'draft'),
     )
   })
 
@@ -34,7 +35,7 @@ describe('storage/ layout (REQ-22)', () => {
     )
   })
 
-  it('test_UAT_FC_REQ-22_gitignore_tracks_sites_ignores_rest', () => {
+  it('test_UAT_FC_REQ-22_gitignore_ignores_every_storage_tier', () => {
     const ignored = (rel: string): boolean => {
       try {
         execFileSync('git', ['check-ignore', '-q', rel])
@@ -43,12 +44,18 @@ describe('storage/ layout (REQ-22)', () => {
         return false
       }
     }
-    // A placeholder slug, like the three lines below it: this asserts a
-    // GITIGNORE PATTERN and never opens the file, so it must not depend on which
-    // sites happen to be stored (REQ-140).
-    expect(ignored('storage/sites/example/site.json')).toBe(false)
+    // Placeholder slugs: this asserts a GITIGNORE PATTERN and never opens the
+    // file, so it must not depend on which sites happen to be stored (REQ-140).
+    //
+    // REQ-290 retired the tracked tier. `storage/sites/` was the one path under
+    // `storage/` that git followed, because it was where real sites were
+    // authored on disk. Every real site now lives in the builder's store, and
+    // the only tree the CLI writes is the gitignored reproduction substrate —
+    // so what this asserts is no longer "one tracked tier, the rest ignored"
+    // but that NOTHING under `storage/` is committed site data.
+    expect(ignored('storage/sandbox/example/site.json')).toBe(true)
     expect(ignored('storage/sandbox/x/site.json')).toBe(true)
-    expect(ignored('storage/dist/sites/x/draft/index.html')).toBe(true)
+    expect(ignored('storage/dist/sandbox/x/draft/index.html')).toBe(true)
     expect(ignored('storage/references/foo.com/index/capture.json')).toBe(true)
   })
 

@@ -10,9 +10,9 @@
  * party copyright under the client's own domain — and it enforces that by
  * reading `republishable` off the material's own record. The seed/push door has
  * no record to read. `1c repro` mirrors a bundle's subresources straight into
- * `storage/sites/<slug>/draft/assets/`, and `1c push` copies whatever is in that
- * directory up; nothing along the way mints a ticket, so the gate has nothing to
- * consult and the bytes arrive ungated. That is how a third party's photograph
+ * `storage/sandbox/<slug>/draft/assets/`, and anything that copies a draft up
+ * takes whatever is in that directory with it; nothing along the way mints a
+ * ticket, so the gate has nothing to consult and the bytes arrive ungated. That is how a third party's photograph
  * reached a site's assets with no rights record at all.
  *
  * IDENTITY IS THE SHA256 OF THE BYTES, AND IT HAS TO BE. The copy into the draft
@@ -41,9 +41,9 @@
  * BUG-51 made it — the operator saying they meant to replace builder changes —
  * and does not reach this.
  *
- * IT TAKES THE PORT, SO ONE PREDICATE SERVES BOTH HOSTS. `1c push` checks
- * against the operator's `storage/references/` tree through the filesystem
- * adapter; `POST /api/import` checks against the tenant's R2 bundles through the
+ * IT TAKES THE PORT, SO ONE PREDICATE SERVES BOTH HOSTS. The Node-side sender
+ * checks against the operator's `storage/references/` tree through the
+ * filesystem adapter; `POST /api/import` checks against the tenant's R2 bundles through the
  * R2 adapter. Neither half is sufficient alone — a capture taken on a laptop is
  * not in R2, and a request posted by hand never runs the CLI — so the rule is
  * enforced at both and written once.

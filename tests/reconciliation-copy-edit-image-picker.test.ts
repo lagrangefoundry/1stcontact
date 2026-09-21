@@ -105,7 +105,7 @@ const BUILDER_CSS = path.join(REPO, 'apps/control-app/src/builder/builder.css')
 
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 /**
  * One page carrying every case the grid has to answer for: an image with alt
@@ -212,12 +212,12 @@ describe('story-3bf94bd4 choosing an image by looking at it', () => {
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-3bf94bd4-picker-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
     pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
-    builder = await startBuilder({ cwd })
+    builder = await startBuilder({ cwd, sandbox: true })
     if (WEBUI_INSTALLED) {
       ;({ mountEditor } = await import('../apps/control-app/src/builder/editor.js'))
     }

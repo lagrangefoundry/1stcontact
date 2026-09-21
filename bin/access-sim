@@ -34,8 +34,8 @@
 // different question and is [[REQ-187]]'s.
 //
 // IT IS ALSO THE EDGE, NOT ONLY THE ISSUER (BUG-59). Turning the gate on locally
-// used to lock the local tooling out of the local builder: `1c push` is the only
-// way to get a site into the store, its one inbound credential is the
+// used to lock the local tooling out of the local builder: an HTTP import is the
+// only way to get a site into the store, its one inbound credential is the
 // `CF-Access-Client-Id` / `CF-Access-Client-Secret` service-token pair, and there
 // was nothing here to exchange it for an identity. The exchange is the EDGE's
 // half of that protocol and never the client's — BUG-36 removed a
@@ -73,7 +73,7 @@
 // To push a site in, aim the tooling at the SIMULATOR rather than at the builder,
 // exactly as a production push is aimed at the edge rather than at the Worker:
 //   eval "$(./bin/access-sim --print-token)"
-//   ./bin/publish --origin http://127.0.0.1:8799
+//   ./bin/copy-to-cloud <business> --origin http://127.0.0.1:8799
 import http from 'node:http'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -99,7 +99,7 @@ const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..',
 // does not already have, because `/mint` below hands anyone a token for any
 // address with no credential at all and the listener binds to loopback. What the
 // pair does buy is that the CLIENT side is byte-identical to production: the same
-// two headers `bin/publish --production` sends are the two this exchanges, so the
+// two headers `bin/copy-to-cloud` sends are the two this exchanges, so the
 // local path rehearses the deployed one instead of being a second protocol.
 const CLIENT_ID = arg('client-id', process.env.SIM_CLIENT_ID || 'local-dev.access')
 const CLIENT_SECRET = arg('client-secret', process.env.SIM_CLIENT_SECRET || 'local-dev-secret')
@@ -392,8 +392,8 @@ async function knownPeople() {
  *                      with, and which turns a bare 401 naming Cloudflare into a
  *                      way in.
  *
- * HALF A PAIR IS NO PAIR, matching the rule `1c push` already enforces on the way
- * out. It is not a weaker credential; treating it as one would answer a question
+ * HALF A PAIR IS NO PAIR, matching the rule the copy commands already enforce on
+ * the way out. It is not a weaker credential; treating it as one would answer a question
  * about the missing half instead of the question the caller is really asking.
  */
 async function forward(req, res, url) {

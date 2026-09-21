@@ -39,6 +39,7 @@ import { resolveL1Palette, resolveLayoutMode, validateL1 } from '../packages/sit
 import { renderL1Document } from '../packages/framework/src/l1/render'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli'
 import { evaluateLayout } from '../tools/generate/src/l1'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const tmpDirs: string[] = []
 function freshCwd(): string {
@@ -270,14 +271,17 @@ describe('REQ-104 — responsive layout track + wrapping rows', () => {
   // ── AC4: xgd.dev's duplicated pairs are gone ──────────────────────────────
 
   it('test_UAT_FC_REQ-104_xgd_home_collapses_its_duplicated_row_stack_pairs', () => {
+    // REQ-290 moved this document out of the repository's own `storage/sites/`
+    // and into the frozen L1 corpus. It is the same hand-authored xgd.dev home
+    // page, read the same way; only where it lives changed.
     const page = JSON.parse(
-      readFileSync(path.join('storage', 'sites', 'xgd', 'draft', 'pages', 'home.json'), 'utf8'),
+      readFileSync(path.join(L1_CORPUS_SITES, 'xgd', 'draft', 'pages', 'home.json'), 'utf8'),
     ) as { l1: L1Document }
     // REQ-114 — on disk a colour may be a palette reference; every consumer
     // downstream of `loadSite` reads the resolved literal. Resolve here so this
     // test sees the same document the renderer and evaluator do.
     const site = JSON.parse(
-      readFileSync(path.join('storage', 'sites', 'xgd', 'draft', 'site.json'), 'utf8'),
+      readFileSync(path.join(L1_CORPUS_SITES, 'xgd', 'draft', 'site.json'), 'utf8'),
     ) as { palette?: L1Palette }
     const l1 = resolveL1Palette(page.l1, site.palette)
 

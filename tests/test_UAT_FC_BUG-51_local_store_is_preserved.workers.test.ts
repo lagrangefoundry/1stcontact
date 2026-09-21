@@ -26,7 +26,7 @@ import { nextSlug, siteSeed } from './support/site-seed'
  * THE COUNTER, NOT THE VERSION, is what the guard reads, and one case here exists
  * solely to hold that line: an ordinary publish-edit-publish loop must keep
  * working. `write` bumps `version` on every call including the import's own, so a
- * version guard would refuse the second `bin/publish` of a site nobody had
+ * version guard would refuse the second copy-up of a site nobody had
  * touched in the builder. `counter` moves only through `appendChange`.
  */
 
@@ -69,7 +69,7 @@ const call = (tenant: string, path: string, init?: RequestInit): Promise<Respons
     workerEnv(tenant),
   )
 
-/** A payload in exactly the shape `1c push` sends. */
+/** A payload in exactly the shape a copy-up sends. */
 function payloadFor(slug: string, heading?: string) {
   const seed = siteSeed({ slug })
   const pages = Object.entries(seed.pages).map(([name, page]) => ({
@@ -137,7 +137,7 @@ describe('BUG-51 — an import never silently replaces work done in the builder'
     // THE CASE A VERSION GUARD WOULD HAVE BROKEN. This site's `version` is
     // already non-zero after the first import, because `write` bumps it. Its
     // `counter` is still zero, because nothing has been journalled. Publish,
-    // edit locally, publish again is the loop `bin/publish` exists for and it
+    // edit locally, copy again is the loop the copy commands exist for and it
     // must not need a flag.
     const tenant = nextBusiness()
     await ensureTenant(tenant)

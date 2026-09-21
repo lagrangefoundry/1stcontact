@@ -72,7 +72,7 @@ const A_IMAGE = '0.7'
 const A_SLIDE = '0'
 
 const homeJsonPath = (cwd: string, slug: string): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', 'pages', 'home.json')
 
 /**
  * One page whose runs differ in exactly the ways that decide behaviour.
@@ -296,7 +296,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
 
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-type-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedPage(cwd, 'acme')
   })
   afterEach(() => {
@@ -744,7 +744,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     // growth is a NARROWING: a closed list can only hand back an option the
     // surface itself supplied, and a whole number and a bit cannot express a
     // character at all.
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     const beforeDoc = new JSDOM(readFileSync(path.join(outDir, 'index.html'), 'utf8')).window.document
     const scriptsBefore = beforeDoc.querySelectorAll('script').length
     const stylesBefore = beforeDoc.querySelectorAll('style').length

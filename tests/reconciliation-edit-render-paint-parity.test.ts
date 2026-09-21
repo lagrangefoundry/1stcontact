@@ -45,7 +45,7 @@ const PAGE_COPY = 'One document, one emitter.'
 const PAINT = /^(object-fit|object-position|filter|clip-path|transform)\s*:/
 
 const homeJsonPath = (cwd: string, slug: string): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', 'pages', 'home.json')
 
 /** A page carrying one picture and one run of copy. */
 function seedPage(cwd: string, slug: string): void {
@@ -124,7 +124,7 @@ describe('story-af36c2cb — one emitter: the edit channel paints as the page do
   let cwd: string
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'edit-paint-parity-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedPage(cwd, 'acme')
   })
   afterEach(() => {
@@ -160,16 +160,16 @@ describe('story-af36c2cb — one emitter: the edit channel paints as the page do
     // One definition, rendered through the edit channel and through BOTH shipped
     // channels — the operator's channel against the reviewer's and the visitor's.
     const editHtml = readFileSync(
-      path.join((await cmdRender('acme', { cwd, edit: true })).outDir, 'index.html'),
+      path.join((await cmdRender('acme', { cwd, sandbox: true, edit: true })).outDir, 'index.html'),
       'utf8',
     )
     const previewHtml = readFileSync(
-      path.join((await cmdRender('acme', { cwd })).outDir, 'index.html'),
+      path.join((await cmdRender('acme', { cwd, sandbox: true })).outDir, 'index.html'),
       'utf8',
     )
     const publishedHtml = readFileSync(
       path.join(
-        (await cmdPublish('acme', { cwd, now: '2026-01-01T00:00:00.000Z' })).outDir,
+        (await cmdPublish('acme', { cwd, sandbox: true, now: '2026-01-01T00:00:00.000Z' })).outDir,
         'index.html',
       ),
       'utf8',

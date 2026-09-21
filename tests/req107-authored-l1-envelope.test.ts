@@ -27,8 +27,11 @@
  *           count, a duplicate node id — is rejected at authoring time.
  *   - AC-3  the renderer keeps its own independent `isSafeUrl` degradation; this
  *           ticket ADDS a line of defence, it does not replace one.
- *   - AC-4  every `storage/sites/**` document passes the envelope — the control
- *           that was missing when REQ-95's documents drifted out of it unnoticed.
+ *   - AC-4  every document in the L1 conformance corpus passes the envelope — the
+ *           control that was missing when REQ-95's documents drifted out of it
+ *           unnoticed. The corpus was `storage/sandbox/**` until REQ-290 retired that
+ *           tier and moved it to `tests/fixtures/l1-corpus/`; the same three sites
+ *           are checked for the same property.
  */
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -39,6 +42,7 @@ import { L1_ENVELOPE, validateL1, validateSite } from '../packages/site-schema/s
 import { renderL1Document } from '../packages/framework/src/l1/render'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli'
 import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const tmpDirs: string[] = []
 function freshCwd(): string {
@@ -208,7 +212,7 @@ describe('REQ-107 — the authoring path clears the L1 envelope', () => {
     // meaningful if the committed corpus is held to it: this is the test that
     // would have caught REQ-95's drift at the pass it happened, instead of by
     // reading emitted HTML seven passes later.
-    const root = path.join(process.cwd(), 'storage', 'sites')
+    const root = L1_CORPUS_SITES
     const checked: string[] = []
 
     for (const slug of readdirSync(root)) {

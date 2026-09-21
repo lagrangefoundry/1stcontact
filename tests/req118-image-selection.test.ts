@@ -54,7 +54,7 @@ const ASSET_FILES: Record<string, string> = {
 }
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
-  return path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  return path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 }
 
 /**
@@ -129,7 +129,7 @@ const setImage = (cwd: string, addr: string, values: Record<string, unknown>) =>
   cli(cwd, 'copy', 'set', 'acme', 'home', addr, '--values', JSON.stringify(values))
 
 async function editHtml(cwd: string, slug: string): Promise<string> {
-  const { outDir } = await cmdRender(slug, { cwd, edit: true })
+  const { outDir } = await cmdRender(slug, { cwd, sandbox: true, edit: true })
   return readFileSync(path.join(outDir, 'index.html'), 'utf8')
 }
 
@@ -163,7 +163,7 @@ describe('REQ-118 — image selection', () => {
   let cwd: string
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req118-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {
@@ -257,7 +257,7 @@ describe('REQ-118 — image selection', () => {
   // AC4 — alt text is a copy field on the same segment, and one Save is one diff:
   // the picker and the words travel together rather than as two writes.
   it('test_UAT_FC_REQ-118_alt_text_is_editable_alongside_the_image_and_saved_in_the_same_diff', async () => {
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     expect((await cli(cwd, 'status', 'acme')).data!.modified).toEqual([])
 
     const alt = (await cli(cwd, 'copy', 'get', 'acme', 'home', '0.0')).data!.fields as Field[]
@@ -316,7 +316,7 @@ describe('REQ-118 — image selection', () => {
   it('test_UAT_FC_REQ-118_choosing_an_asset_bakes_nothing_and_changes_only_a_structured_field', async () => {
     // A published base gives `status` something to diff against, so "what did
     // this edit add to the draft?" has a countable answer.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     const before = assetFingerprint(cwd, 'acme')
     const beforeNode = JSON.parse(draftBytes(cwd, 'acme')).l1.root.children[0]
 
@@ -394,13 +394,14 @@ describe('REQ-118 image selection over the builder origin', () => {
 
   beforeAll(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req118-origin-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
     const html = await editHtml(cwd, 'acme')
     pageId = /data-fc-page="([^"]+)"/.exec(html)![1]
     addr = /data-l1-path="([^"]+)"[^>]*data-l1-segment="image"/.exec(html)![1]
     builder = await startBuilder({
       cwd,
+      sandbox: true,
       clientDir: path.join(REPO, 'apps/control-app/src/builder'),
     })
   }, 180000)

@@ -100,7 +100,7 @@ function unverified(what: string): void {
 // ── the workspace on disk ────────────────────────────────────────────────────
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
-  return path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  return path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 }
 
 const siteFile = (cwd: string, slug: string) => draftPath(cwd, slug, 'site.json')
@@ -125,7 +125,7 @@ function draftBytes(cwd: string, slug: string): Record<string, string> {
  * would orphan the other two.
  */
 function seedSite(cwd: string, slug: string): void {
-  cmdNew(slug, { cwd })
+  cmdNew(slug, { cwd, sandbox: true })
 
   const base = readSite(cwd, slug)
   base.palette = { ...PALETTE }
@@ -161,7 +161,7 @@ function seedSite(cwd: string, slug: string): void {
 
 /** The rendered draft home page — the bytes an operator actually looks at. */
 async function renderedHome(cwd: string, slug: string): Promise<string> {
-  const { outDir } = await cmdRender(slug, { cwd, edit: false })
+  const { outDir } = await cmdRender(slug, { cwd, sandbox: true, edit: false })
   return readText(path.join(outDir, 'index.html'))
 }
 
@@ -216,7 +216,11 @@ const ORIGIN = 'http://builder.test'
  * request-time rendering of a channel — is that function's, and is reached here
  * by the identical addresses the shipped `api.js` sends.
  */
-function originFetchFor(opts: { cwd: string; clientDir?: string }): typeof fetch {
+function originFetchFor(given: { cwd: string; clientDir?: string }): typeof fetch {
+  // `sandbox`, because REQ-290 pinned the CLI's own entry point to that root and
+  // this suite seeds through it — the context the routing table resolves against
+  // has to name the tree the seed actually wrote.
+  const opts = { ...given, sandbox: true }
   const ctx = ctxOf(opts)
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : String(input)
@@ -515,7 +519,7 @@ describe('story-4300366a the palette popup', () => {
     const slug = 'unpainted'
     // A site with NO PALETTE AT ALL — the state two of the stored sites are
     // genuinely in, because their colours are still literals.
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     expect(readSite(cwd, slug).palette).toBeUndefined()
     expect(await censusOf(cwd, slug)).toEqual([])
 

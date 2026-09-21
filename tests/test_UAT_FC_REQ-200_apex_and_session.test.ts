@@ -8,6 +8,7 @@ import { validateSite } from '../packages/site-schema/src/index'
 import { accountChromePreset } from '../packages/framework/src/l2/account-chrome'
 import { renderSiteFiles } from '../tools/generate/src/render/render'
 import { emptyPublished, publishInto, type PublishedFixture } from './fixtures/published-site'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * [[REQ-200]] — **`public-site` becomes session-aware, and only that; and
@@ -232,7 +233,7 @@ describe('REQ-200 · the apex is a published site', () => {
   it('test_UAT_FC_REQ_200_the_authored_apex_site_carries_the_module', () => {
     // The dogfooding claim, made concrete: the platform's own front page is a 1c
     // site definition in the repo, declaring accounts and mounting the chrome.
-    const root = path.join(__dirname, '../storage/sites/1stcontact/draft')
+    const root = path.join(L1_CORPUS_SITES, '1stcontact', 'draft')
     const site = JSON.parse(fs.readFileSync(path.join(root, 'site.json'), 'utf8'))
     const home = JSON.parse(fs.readFileSync(path.join(root, 'pages/home.json'), 'utf8'))
     expect(site.config.capabilities).toEqual({ accounts: true })

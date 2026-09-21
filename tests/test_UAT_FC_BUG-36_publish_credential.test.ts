@@ -1,12 +1,12 @@
 /**
- * BUG-36 — `bin/publish` can actually authenticate against a deployed builder.
+ * BUG-36 — the push transport can actually authenticate against a deployed builder.
  *
  * THE BUG THESE PIN DOWN. `pushSite` sent its Access credential as a
  * `cf-access-jwt-assertion` header. That header is what Access SETS on the
  * request it forwards to the origin, carrying an identity it has already
- * verified; it is not an inbound credential, and Access ignores it. So
- * `bin/publish --production` could never have worked — and it did not fail
- * cleanly either: the client followed Access's 302 to the login page, got 200
+ * verified; it is not an inbound credential, and Access ignores it. So a push at
+ * a deployed target could never have worked — and it did not fail cleanly
+ * either: the client followed Access's 302 to the login page, got 200
  * with HTML, and `JSON.parse` threw on `<!DOCTYPE html>`.
  *
  * Two things are asserted throughout, because fixing only one leaves the
@@ -152,26 +152,37 @@ describe('BUG-36 — the publish credential is the one Access accepts', () => {
   })
 })
 
-describe('BUG-36 — the operator scripts name the credential that exists', () => {
-  const publish = readFileSync(join(REPO_ROOT, 'bin/publish'), 'utf8')
+describe('BUG-36 — the operator commands name the credential that exists', () => {
+  // THE ARTEFACT THIS READS MOVED, THE CLAIM DID NOT (REQ-290). It used to read
+  // a bash push script that checked for half a pair itself. REQ-290
+  // retired that script; REQ-289's replacement forwards every flag to
+  // `1c copy-to-cloud` rather than re-parsing one, deliberately, so that the
+  // refusals are one implementation. So the same claim is now asserted where the
+  // refusal actually lives.
+  const copy = readFileSync(join(REPO_ROOT, 'tools/generate/src/cli/copy.ts'), 'utf8')
+  const script = readFileSync(join(REPO_ROOT, 'bin/copy-to-cloud'), 'utf8')
 
   it('test_UAT_FC_BUG-36_publish_refuses_production_without_both_halves', () => {
     // A service token is a PAIR. Half of one is not a weaker credential, it is a
     // request refused at the edge with a message about identity rather than
     // about the half that was missing locally — so it is caught here instead.
-    expect(publish).toMatch(/CF_ACCESS_CLIENT_ID/)
-    expect(publish).toMatch(/CF_ACCESS_CLIENT_SECRET/)
-    expect(publish).toMatch(/-z "\$client_id" \|\| -z "\$client_secret"/)
+    expect(copy).toMatch(/CF_ACCESS_CLIENT_ID/)
+    expect(copy).toMatch(/CF_ACCESS_CLIENT_SECRET/)
+    // Both halves, or neither, or a refusal — the three-way the pair requires.
+    expect(copy).toMatch(/id !== '' && secret !== ''/)
+    expect(copy).toMatch(/id === '' && secret === ''/)
     // Named fix, not just a named fault.
-    expect(publish).toMatch(/bin\/access-token/)
+    expect(copy).toMatch(/bin\/access-token/)
   })
 
   it('test_UAT_FC_BUG-36_publish_no_longer_offers_a_single_value_token', () => {
     // `CF_ACCESS_TOKEN` never denoted anything Access accepts. Leaving the name
     // in place would keep sending operators to look for a value that cannot be
     // obtained, which is how this bug survived a written ACCESS.md.
-    expect(publish).not.toMatch(/CF_ACCESS_TOKEN/)
-    expect(publish).not.toMatch(/--token\b/)
+    for (const source of [copy, script]) {
+      expect(source).not.toMatch(/CF_ACCESS_TOKEN/)
+      expect(source).not.toMatch(/--token\b/)
+    }
   })
 
   it('test_UAT_FC_BUG-36_the_provisioner_is_executable_and_gated_on_the_api_token', () => {
@@ -182,8 +193,8 @@ describe('BUG-36 — the operator scripts name the credential that exists', () =
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/CLOUDFLARE_API_TOKEN/)
     // The distinction the whole ticket turns on, written where it is acted on:
-    // the API token PROVISIONS the service token and is never the credential
-    // `bin/publish` presents.
+    // the API token PROVISIONS the service token and is never the credential the
+    // copy commands present.
     expect(source).toMatch(/non_identity/)
     expect(source).not.toMatch(/cf-access-jwt-assertion/)
   })

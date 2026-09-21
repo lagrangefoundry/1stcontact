@@ -76,7 +76,7 @@ const EVERY_SEGMENT = [A_WORDMARK, A_LEDE, A_BACKDROP, A_SYSTEM]
 const HERO = '/assets/hero.png'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]) =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 /**
  * A page whose segments differ in exactly the ways that decide whether a control
@@ -231,7 +231,7 @@ describe('REQ-139 — controls that cannot express what the element holds', () =
 
   beforeEach(() => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'req139-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {
@@ -404,10 +404,10 @@ describe('REQ-139 — controls that cannot express what the element holds', () =
     })
 
     beforeEach(async () => {
-      const { outDir } = await cmdRender('acme', { cwd, edit: true })
+      const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
       html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
       pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
-      builder = await startBuilder({ cwd })
+      builder = await startBuilder({ cwd, sandbox: true })
       const real = globalThis.fetch
       const origin = builder.url
       globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>

@@ -124,7 +124,7 @@ const A_BARE_PAGE_COPY = '0.0'
 const A_PLAIN_COPY = '0.0'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 const pageJsonPath = (cwd: string, slug: string, pageId: string): string =>
   draftPath(cwd, slug, 'pages', `${pageId}.json`)
@@ -474,7 +474,7 @@ const axesOf = (cwd: string, addr: string): Record<string, unknown> =>
 
 /** The page as the command line's own render wrote it. */
 async function renderedHtml(cwd: string, edit = false): Promise<string> {
-  const { outDir } = await cmdRender('acme', { cwd, ...(edit ? { edit: true } : {}) })
+  const { outDir } = await cmdRender('acme', { cwd, sandbox: true, ...(edit ? { edit: true } : {}) })
   return readFileSync(path.join(outDir, 'index.html'), 'utf8')
 }
 
@@ -483,7 +483,7 @@ async function withOrigin(
   cwd: string,
   fn: (builder: BuilderHandle) => Promise<void>,
 ): Promise<void> {
-  const builder = await startBuilder({ cwd })
+  const builder = await startBuilder({ cwd, sandbox: true })
   try {
     await fn(builder)
   } finally {
@@ -532,7 +532,7 @@ function regionsOfPage(page: Record<string, unknown>, slug: string, pageId: stri
 
 /** Every region of every page of every site in the store. */
 function everyRegion(cwd: string): Region[] {
-  const sitesDir = path.join(cwd, 'storage', 'sites')
+  const sitesDir = path.join(cwd, 'storage', 'sandbox')
   const out: Region[] = []
   for (const slug of readdirSync(sitesDir).sort()) {
     const pagesDir = draftPath(cwd, slug, 'pages')
@@ -551,10 +551,10 @@ describe('story-37a3921b — a region’s colour, and the controls it cannot hon
 
   beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-colour-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedRichSite(cwd, 'acme')
     await addBarePage(cwd, 'acme')
-    cmdNew('plain', { cwd })
+    cmdNew('plain', { cwd, sandbox: true })
     seedPlainSite(cwd, 'plain')
   })
   afterEach(() => {

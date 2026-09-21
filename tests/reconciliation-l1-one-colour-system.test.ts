@@ -36,9 +36,10 @@ import type { ModuleMeta } from '../packages/framework/src/modules/types'
 import { starterSiteJson, starterHomePage } from '../tools/generate/src/cli/scaffold'
 import { loadSite } from '../tools/generate/src/store'
 import { renderSite } from '../tools/generate/src/render/write'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const SITES = path.join(REPO, 'storage', 'sites')
+const SITES = L1_CORPUS_SITES
 
 const WIDTHS = [320, 1440]
 
@@ -77,7 +78,7 @@ function modulePage(module: Record<string, unknown>): Record<string, unknown> {
 
 /** Write a site definition into `dir` in the one-file-per-page on-disk shape. */
 function writeSite(dir: string, slug: string, site: Record<string, unknown>): void {
-  const draft = path.join(dir, 'storage', 'sites', slug, 'draft')
+  const draft = path.join(dir, 'storage', 'sandbox', slug, 'draft')
   mkdirSync(path.join(draft, 'pages'), { recursive: true })
   const { pages, ...base } = site as { pages: Record<string, unknown>[] }
   writeFileSync(path.join(draft, 'site.json'), JSON.stringify({ ...base, id: slug }, null, 2))
@@ -131,7 +132,7 @@ describe('AC-933 a rendered page emits no colour custom property, and exactly on
     //     or reference a colour custom property.
     const site = siteWith(starterHomePage('colourstory') as Record<string, unknown>)
     writeSite(cwd, 'colourstory', site)
-    const loaded = loadSite({ cwd, root: 'sites' }, 'colourstory', 'draft')
+    const loaded = loadSite({ cwd, root: 'sandbox' }, 'colourstory', 'draft')
     expect(loaded.ok, JSON.stringify(loaded.ok ? [] : loaded.errors)).toBe(true)
     if (!loaded.ok) return
     await renderSite(loaded.value, out)

@@ -16,6 +16,7 @@ import {
   toHcl,
 } from '../tools/generate/src/cli/colors'
 import type { ColorCensus } from '../tools/generate/src/cli/colors'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * UATs for REQ-114 — the L1 palette colour model (DOC-23 §5) and the retirement
@@ -28,7 +29,7 @@ import type { ColorCensus } from '../tools/generate/src/cli/colors'
  */
 
 const REPO = path.resolve(__dirname, '..')
-const SITES = path.join(REPO, 'storage', 'sites')
+const SITES = L1_CORPUS_SITES
 
 /**
  * The largest per-channel byte difference between two colour literals, which is

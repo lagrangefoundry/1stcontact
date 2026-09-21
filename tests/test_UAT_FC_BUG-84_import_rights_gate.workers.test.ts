@@ -10,7 +10,7 @@ import { siteSeed } from './support/site-seed'
 /**
  * BUG-84 — the Worker refuses a capture-mirrored asset at the import door.
  *
- * WHY THE WORKER ENFORCES IT AND NOT ONLY `1c push`. The Worker is the writer:
+ * WHY THE WORKER ENFORCES IT AND NOT ONLY THE SENDER. The Worker is the writer:
  * `/api/import` is what actually puts bytes into a site's assets, and a rule
  * only the client applies is not a rule — a request posted by hand never runs
  * the CLI at all. These assertions therefore go through the route table, over a
@@ -52,7 +52,7 @@ function routerEnv(over: Partial<RouterEnv> = {}): RouterEnv {
 const toBase64 = (bytes: Uint8Array): string =>
   btoa(String.fromCharCode(...bytes))
 
-/** One import, exactly as `1c push` posts one. */
+/** One import, exactly as the Node-side sender posts one. */
 async function importSite(
   scope: Scope,
   slug: string,

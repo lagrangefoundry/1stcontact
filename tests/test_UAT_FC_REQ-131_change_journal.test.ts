@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -49,7 +50,7 @@ const HEADLINE_PATH = '0.0'
 let cwd: string
 
 const pagePath = (page = 'home'): string =>
-  path.join(cwd, 'storage', 'sites', SLUG, 'draft', 'pages', `${page}.json`)
+  path.join(cwd, 'storage', 'sandbox', SLUG, 'draft', 'pages', `${page}.json`)
 
 /** A page with one addressable text run, so a copy edit has somewhere to land. */
 function seedPage(): void {
@@ -65,7 +66,7 @@ function seedPage(): void {
 }
 
 async function changes(since?: number): Promise<ChangeSlice> {
-  return (await editChanges(SLUG, since, fsOpts(cwd))).data as ChangeSlice
+  return (await editChanges(SLUG, since, fsOpts(cwd, 'sandbox'))).data as ChangeSlice
 }
 
 // ── the counter ──────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ async function changes(since?: number): Promise<ChangeSlice> {
 describe('REQ-131 — every write advances a count, and a refusal does not', () => {
   beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req131-counter-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -81,8 +82,8 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
   it('test_UAT_FC_REQ_131_a_write_returns_a_higher_count_and_a_refusal_returns_none', async () => {
     // AC-1. The count is the whole mechanism: it is what a caller holds so that
     // anything past it is, by construction, somebody else's work.
-    const first = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'One.' }, fsOpts(cwd))
-    const second = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Two.' }, fsOpts(cwd))
+    const first = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'One.' }, fsOpts(cwd, 'sandbox'))
+    const second = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Two.' }, fsOpts(cwd, 'sandbox'))
 
     expect(first.at).toBeGreaterThan(0)
     expect(second.at).toBeGreaterThan(first.at as number)
@@ -90,7 +91,7 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
     // A refused write is refused BEFORE a byte lands, so there is nothing to
     // record and nothing to count. An address that resolves to nothing is the
     // cheapest way to reach that path honestly.
-    await expect(editCopySet(SLUG, 'home', '9.9.9', { text: 'nope' }, fsOpts(cwd))).rejects.toThrow()
+    await expect(editCopySet(SLUG, 'home', '9.9.9', { text: 'nope' }, fsOpts(cwd, 'sandbox'))).rejects.toThrow()
 
     expect((await changes()).now).toBe(second.at)
     expect((await changes(second.at)).changes).toEqual([])
@@ -99,7 +100,7 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
   it('test_UAT_FC_REQ_131_asking_since_the_current_count_is_the_cheap_nothing_happened_answer', async () => {
     // AC-2. An empty slice, not an error — this is the call the assistant makes
     // most often and it has to be boring.
-    const write = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Only me.' }, fsOpts(cwd))
+    const write = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Only me.' }, fsOpts(cwd, 'sandbox'))
 
     const slice = await changes(write.at)
     expect(slice.changes).toEqual([])
@@ -114,7 +115,7 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
     // own work into it. The arithmetic attributes; the actor field only explains.
     let baseline = (await changes()).now
     for (const text of ['A.', 'B.', 'C.']) {
-      const out = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd))
+      const out = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd, 'sandbox'))
       expect((await changes(baseline)).changes).toHaveLength(1) // exactly the one just made
       baseline = out.at as number
     }
@@ -125,18 +126,24 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
     // It lives beside the site, never inside `draft/` — so it cannot be captured
     // by a snapshot or perturb byte-identity — and it is gitignored, because a
     // record of every keystroke-settle is not something a checkout should carry.
-    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Written.' }, fsOpts(cwd))
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Written.' }, fsOpts(cwd, 'sandbox'))
 
-    const siteRoot = path.join(cwd, 'storage', 'sites', SLUG)
+    const siteRoot = path.join(cwd, 'storage', 'sandbox', SLUG)
     expect(existsSync(path.join(siteRoot, '.journal.json'))).toBe(true)
     expect(existsSync(path.join(siteRoot, 'draft', '.journal.json'))).toBe(false)
     // No revision was created, and `history.json` never heard about any of this.
     expect(existsSync(path.join(siteRoot, 'revisions'))).toBe(false)
-    const ignore = readFileSync(
-      path.join(path.dirname(new URL(import.meta.url).pathname), '..', '.gitignore'),
-      'utf8',
-    )
-    expect(ignore).toContain('.journal.json')
+    // Ask git itself, rather than grepping `.gitignore` for a literal. REQ-290
+    // retired `storage/sites/` and with it the `/storage/sites/*/.journal.json`
+    // line that used to carry this: journals are now covered by the blanket
+    // `/storage/sandbox/` rule instead. The claim worth pinning is that a
+    // journal is not committable — not which line happens to say so.
+    const repo = path.join(path.dirname(new URL(import.meta.url).pathname), '..')
+    const journalRel = path.posix.join('storage', 'sandbox', SLUG, '.journal.json')
+    const ignored = spawnSync('git', ['check-ignore', '-q', '--no-index', journalRel], {
+      cwd: repo,
+    })
+    expect(ignored.status, `${journalRel} is not gitignored`).toBe(0)
   })
 })
 
@@ -145,7 +152,7 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
 describe('REQ-131 — a record says what happened, in words that outlive the address', () => {
   beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req131-records-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -160,7 +167,7 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
       'home',
       HEADLINE_PATH,
       { text: 'A warmer welcome.' },
-      { ...fsOpts(cwd), actor: 'client' },
+      { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
     )
 
     const [record] = (await changes(before)).changes
@@ -177,7 +184,7 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
     // render-scoped (DOC-28 §5.2): re-shape the tree and `0.0` means something
     // else, or nothing. The record still reads.
     const before = (await changes()).now
-    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Still here.' }, { ...fsOpts(cwd), actor: 'client' })
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Still here.' }, { ...fsOpts(cwd, 'sandbox'), actor: 'client' })
 
     // Now replace the whole root with a differently-shaped tree, so the address
     // the record was taken against no longer reaches what it reached.
@@ -193,7 +200,7 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
           { kind: 'box', children: [{ kind: 'text', text: 'Moved down a level.' }] },
         ],
       },
-      fsOpts(cwd),
+      fsOpts(cwd, 'sandbox'),
     )
 
     const [copyEdit, structural] = (await changes(before)).changes
@@ -212,8 +219,8 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
     // The journal covers the whole write surface, not only copy: an operator who
     // repaints the site between turns has changed it just as much.
     const before = (await changes()).now
-    await editPaletteAdd(SLUG, 'primary', '#2e86a3', { ...fsOpts(cwd), actor: 'client' })
-    await editPaletteSet(SLUG, 'primary', '#101822', { ...fsOpts(cwd), actor: 'client' })
+    await editPaletteAdd(SLUG, 'primary', '#2e86a3', { ...fsOpts(cwd, 'sandbox'), actor: 'client' })
+    await editPaletteSet(SLUG, 'primary', '#101822', { ...fsOpts(cwd, 'sandbox'), actor: 'client' })
 
     const [added, set] = (await changes(before)).changes
     expect(added.op).toBe('palette.add')
@@ -229,7 +236,7 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
     // rather than to a confident, incomplete list.
     const start = (await changes()).now
     for (let i = 0; i < JOURNAL_WINDOW + 5; i++) {
-      await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, fsOpts(cwd))
+      await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, fsOpts(cwd, 'sandbox'))
     }
 
     const stale = await changes(start)
@@ -249,7 +256,7 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
 describe('REQ-131 — the operation is declared, granted, and marked third-party', () => {
   beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req131-surface-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -258,13 +265,13 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
     // AC-7, both halves. The surface declares; the grant selects. A session with
     // the reading capability is told about it; one without is never told it
     // exists, so it cannot propose it or apologise for it.
-    const granted = await createL1Toolbox(SLUG, { cwd }, { config: { l1: { groups: ['ReadSite'] } } })
+    const granted = await createL1Toolbox(SLUG, { cwd, sandbox: true }, { config: { l1: { groups: ['ReadSite'] } } })
     expect(granted.toolNames()).toContain('list_changes')
     expect(granted.manual()).toContain('**list_changes**')
 
     const ungranted = await createL1Toolbox(
       SLUG,
-      { cwd },
+      { cwd, sandbox: true },
       { config: { l1: { groups: ['AuthorPages'] } } },
     )
     expect(ungranted.toolNames()).not.toContain('list_changes')
@@ -275,9 +282,9 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
     // AC-8. A journal is the operator's own prose — the very words they typed —
     // re-entering the model's context. DOC-30 S5 names exactly this, and the
     // `inproc` default would have marked it trusted.
-    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Words a person typed.' }, { ...fsOpts(cwd), actor: 'client' })
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Words a person typed.' }, { ...fsOpts(cwd, 'sandbox'), actor: 'client' })
 
-    const box = await createL1Toolbox(SLUG, { cwd })
+    const box = await createL1Toolbox(SLUG, { cwd, sandbox: true })
     // `await`, because `Toolbox.run` is async in the shared library. It reads as
     // a detail and is not one: it is what `toolbox.ts` says makes `publish`
     // unhostable, and that note is now out of date.
@@ -294,7 +301,7 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
   it('test_UAT_FC_REQ_131_a_write_hands_its_resulting_count_back_to_the_caller', async () => {
     // The half that makes AC-4 reachable from a tool session: a caller advances
     // its own baseline as it writes, with no second call to ask where it is.
-    const box = await createL1Toolbox(SLUG, { cwd })
+    const box = await createL1Toolbox(SLUG, { cwd, sandbox: true })
     const answer = (await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
@@ -316,7 +323,7 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
     // its own upload was somebody else's work. That is precisely the false alarm
     // the counter exists to make impossible, so the shape of the answer must not
     // decide whether the count travels with it.
-    const box = await createL1Toolbox(SLUG, { cwd })
+    const box = await createL1Toolbox(SLUG, { cwd, sandbox: true })
     const unwrap = (a: string): Record<string, unknown> =>
       JSON.parse(a.replace(/^<<<untrusted>>>\n/, '').replace(/\n<<<\/untrusted>>>$/, ''))
 
@@ -353,9 +360,9 @@ describe('REQ-131 — a session is TOLD when the site moved under it', () => {
 
   beforeAll(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req131-signal-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
-    builder = await startBuilder({ cwd })
+    builder = await startBuilder({ cwd, sandbox: true })
     base = builder.url
   }, 180000)
 

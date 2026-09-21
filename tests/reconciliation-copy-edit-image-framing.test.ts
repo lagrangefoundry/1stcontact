@@ -97,7 +97,7 @@ const AS_A_BROWSER_PAINTS_IT = {
 }
 
 const homeJsonPath = (cwd: string, slug: string): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', 'pages', 'home.json')
 
 /**
  * One page whose pictures differ in exactly the ways that decide behaviour.
@@ -241,7 +241,7 @@ describe('story-37a3921b — how a picture is seen, through the same write path'
 
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-frame-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedPage(cwd, 'acme')
   })
   afterEach(() => {
@@ -344,7 +344,7 @@ describe('story-37a3921b — how a picture is seen, through the same write path'
   it('test_UAT_AC1130_colour_is_adjusted_in_percentages_over_the_fractions_the_definition_holds', async () => {
     // AC-1130 — a published base gives `status` something to diff against, so
     // "how many files did this save move?" has a countable answer.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     expect((await cli(cwd, 'status', 'acme')).data!.modified).toEqual([])
 
     // Every colour control is a BOUNDED PERCENTAGE, never a free-form value.

@@ -62,7 +62,7 @@ who ever holds an address at that domain, including people who do not exist yet.
 | Identity | Why | Added |
 |---|---|---|
 | `martin-github@westhead.me` (Martin Westhead, operator) | Sole operator of the platform; builds and publishes every site | REQ-147 |
-| `1stcontact-publish` (service token, `non_identity` policy) | `bin/copy-to-cloud` / `bin/copy-from-cloud` (and `bin/publish`) moving a site into or out of the store from a developer machine; no human at the keyboard | BUG-36, REQ-289 |
+| `1stcontact-publish` (service token, `non_identity` policy) | `bin/copy-to-cloud` / `bin/copy-from-cloud` moving a site into or out of the store from a developer machine; no human at the keyboard | BUG-36, REQ-289 |
 
 <!-- Append a row when an identity is added, and say WHY. A row removed here must also be removed
      from the Cloudflare policy — this table is the record, not a copy of one. -->
@@ -121,17 +121,16 @@ It prints the pair once and writes it nowhere. Then:
 export CF_ACCESS_CLIENT_ID='…access'
 export CF_ACCESS_CLIENT_SECRET='…'
 bin/copy-to-cloud "Lagrange Foundry"   # a builder-authored site, up (REQ-289)
-bin/publish --production xgd           # the older storage/sites/ path
 ```
 
 **The API token is the provisioner, never the credential.** `CLOUDFLARE_API_TOKEN` authenticates
 to `api.cloudflare.com`. It is not an Access credential, and presenting it to `app.1stcontact.io`
 earns the same 302 to the login page as presenting nothing at all. `bin/access-token` uses it to
-*create* a service token; neither the copy pair nor `bin/publish` ever sees it. The copy pair
+*create* a service token; the copy pair never sees it. The copy pair
 names `CLOUDFLARE_API_TOKEN` in its refusal for exactly this reason — it is the credential an
 operator reaches for, and the one thing that cannot work.
 
-> Until BUG-36, `1c push` sent its credential as a `cf-access-jwt-assertion` header. That could
+> Until BUG-36, the sender sent its credential as a `cf-access-jwt-assertion` header. That could
 > never have worked against a deployed target: it is the header Access **sets** on the request it
 > forwards to the origin, carrying an identity it has already verified — not an inbound credential.
 > The symptom was not a clean refusal but a `JSON.parse` error, because the client followed
@@ -182,9 +181,9 @@ REQ-187's.
 #### Getting a site in, with the gate on
 
 `bin/seed` writes people and no sites — `db/dev-seed.sql` says so — so a fresh clone's builder
-comes up signed-in and empty, and `1c push` is how a site gets there. Until BUG-59 that was
-impossible with the simulator running: `push.ts`'s one inbound credential is the service-token
-pair, and nothing here exchanged it, so every push answered 401 with advice (`bin/access-token`)
+comes up signed-in and empty, and `bin/copy-from-cloud` is how a site gets there. Until BUG-59
+that was impossible with the simulator running: `push.ts`'s one inbound credential is the
+service-token pair, and nothing here exchanged it, so every send answered 401 with advice (`bin/access-token`)
 that cannot be followed against a laptop.
 
 **So the simulator is the edge, not only the issuer.** Anything that is not one of its own three
@@ -194,7 +193,7 @@ client at the *simulator*, the way a production push is aimed at the edge and no
 
 ```bash
 eval "$(./bin/access-sim --print-token)"        # CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET
-./bin/publish --origin http://127.0.0.1:8799   # every local site → the local builder
+./bin/copy-from-cloud "Lagrange Foundry" --origin http://127.0.0.1:8799   # a site → the local builder
 ```
 
 The copy pair aims the same way, and this is the ONLY way it can reach a business other than
@@ -215,7 +214,7 @@ Three outcomes, and the order matters. A complete pair is exchanged for a
 real edge. A complete but *wrong* pair is a **403**, never a redirect — BUG-36 records what a 302
 costs a client, which follows it, receives the login page as 200, and parses HTML as its result. A
 request with no credential gets the 302 to `/login` a browser wants. Half a pair is no pair, which
-is the rule `1c push` already enforces on the way out.
+is the rule the sender already enforces on the way out.
 
 The default pair is well known (`local-dev.access` / `local-dev-secret`, overridable with
 `--client-id` / `--client-secret`), and that is not a weakening: `/mint` already hands anyone a
@@ -232,9 +231,9 @@ prints the mapping this process would exchange, so a disagreement is visible rat
 refusal. With no address to map the name to, the exchange refuses here rather than minting a token
 the Worker will turn away.
 
-A first push against a fresh database also has to clear the terms gate once (REQ-169), which
-refuses every route until the account has accepted — and accepting is a browser action `1c push`
-has no way to perform. Sign in at `/login` and accept at `/terms`, or do it from a shell with a
+A first send against a fresh database also has to clear the terms gate once (REQ-169), which
+refuses every route until the account has accepted — and accepting is a browser action the copy
+commands have no way to perform. Sign in at `/login` and accept at `/terms`, or do it from a shell with a
 minted cookie:
 
 ```bash

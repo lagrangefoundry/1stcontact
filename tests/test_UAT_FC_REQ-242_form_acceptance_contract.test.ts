@@ -59,7 +59,7 @@ const SLUG = 'studio'
 let cwd: string
 
 const pagePath = (page = 'home'): string =>
-  path.join(cwd, 'storage', 'sites', SLUG, 'draft', 'pages', `${page}.json`)
+  path.join(cwd, 'storage', 'sandbox', SLUG, 'draft', 'pages', `${page}.json`)
 const readPage = (page = 'home'): Record<string, any> =>
   JSON.parse(readFileSync(pagePath(page), 'utf8'))
 
@@ -112,7 +112,7 @@ const addForm = (config: Record<string, unknown>): Promise<CliResult> =>
 describe('REQ-242 — what a capture form cannot be configured to do', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req242-contract-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedSlot()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
