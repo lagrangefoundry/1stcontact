@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:53:25.086105+00:00'
+updated_at: '2026-09-21T22:54:03.827014+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2145,5 +2145,13 @@ Back to go-live, where you left off:
 5. `bin/smoke --site-key site_c4bed79a…`
 
 Say the word on tickets and I'll file them: the boot guard (§I21) is the one that matters most — it will mislead the next person exactly as it misled us — with §I19 (`fetchBusinesses` swallowing non-401s), §I20 (unscoped site requests) and §I16 (`SERVICE_TOKEN_IDENTITIES` keyed on a name Cloudflare never sends) behind it.
+
+<!-- xgd-turn id="3a0eacee-8241-40d3-9d4a-3c2916c6fdbb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:54:02.508788+00:00" -->
+#### You
+Note the chat window does not work though, attempts to chat create: Hello are you connected?
+
+*401 {"type":"error","error":{"type":"authentication_error","message":"API key is invalid."},"request_id":null}*
 
 <!-- xgd-chat-end -->
