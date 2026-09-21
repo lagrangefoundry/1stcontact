@@ -5,9 +5,9 @@ type: request
 title: copy-to-cloud carries the site but not the conversations that built it
 created_by: EPIC-16
 created_at: '2026-09-21T23:01:33.483748+00:00'
-updated_at: '2026-09-21T23:01:33.483748+00:00'
+updated_at: '2026-09-21T23:18:34.499597+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -112,3 +112,91 @@ An operator who has built a site locally can run `bin/copy-to-cloud --chats
 with the consultant able to read back the record it keeps ([[REQ-281]]), the summaries
 intact, and no turn duplicated by running the command twice. `bin/copy-from-cloud
 --chats` refuses, in a sentence that says why.
+
+
+## The decisions, taken
+
+Each of the five questions above, answered — and the answers are what the code does.
+
+**`--chats` is refused from-cloud, in `--contacts`' voice and for `--contacts`'
+reason.** A conversation with the consultant is unstructured text the customer
+typed and can contain anything, and the local builder runs with
+`ACCESS_DEV_OPEN=1` — reachable on loopback with no identity check. The refusal
+is a sentence naming that, not an unknown-flag error, and it lands before any
+credential is read: an operator sent to provision an Access token, who
+provisions one and is then told the flag was never going to be carried, has been
+sent on an errand.
+
+**The change-feed cursor does not travel, and neither does the pending turn.**
+`kb_cursor` names positions in one store's `ticket_changes` sequence; carried, it
+names sequence numbers that mean something else in the destination or nothing at
+all, and the destination's indexer then skips turns it never saw. `pending_turn`
+([[BUG-121]]) is the same rule one layer up: it is what a turn was asked *while
+that turn is still unaccounted for*, a claim about a host that was running — and
+the destination was running nothing, so an `open` record carried there is a
+statement that is simply false where it lands. Both are named in one exported
+constant with the rule written beside it, and a UAT pins that they are absent
+from the payload. Everything else about the chat ticket travels: the
+`chat_transcript` comment, the ledger body ([[REQ-171]]), the standing
+engagement note ([[REQ-283]]), the session id, and the rest of the upstream chat
+fields.
+
+**Comments travel wholesale rather than by a list of kinds.** The transcript is
+one kind; a session that called a tool also has a `tool_transcript`. Carrying
+every comment the chat ticket holds, matched by kind at the far end, means a
+kind added upstream later travels without this code being touched — the
+alternative is a list that goes stale silently and drops part of the record.
+
+**Tenancy and uids are rewritten, never carried.** The destination resolves its
+own business from the authorised scope exactly as `/api/import` does, and mints
+its own ticket uids. The payload carries the source business's NAME, which names
+where the conversations came from and addresses nothing — the same statement
+`SitePayload.slug` makes.
+
+**Re-copying merges by `session_id`: a conversation the destination already
+holds is kept and counted, and `--force` replaces it.** A second copy therefore
+duplicates no turn, which is the failure to avoid. It is deliberately NOT
+`--site`'s 409: a site is one object, so "part of this is new" is not expressible
+and refusing the whole import is the only honest answer; a conversation history
+is many objects, and refusing the set because one member is already there would
+block every later conversation from ever landing. Skipping is also the safe
+default in the direction this runs — the deployed builder is where the client
+actually talks, so its copy of a session may have continued past the local one,
+and replacing by default would delete the client's own turns. `--force` is
+already the word for "I know what is there and I mean it" ([[BUG-51]]), so it is
+reused rather than joined by a second flag. Replacement is per-conversation and
+whole: the ticket's fields and body are rewritten and each comment is matched by
+kind and rewritten, never appended to — merging two divergent copies of one
+session file is a conflict nobody asked this command to resolve.
+
+**A conversation is scoped to the BUSINESS, not to the site.** A `chat` ticket
+carries no site reference at all — it is found by `fields.session_id` and
+tenant-scoped by the handle — so "the conversations belonging to this site" is
+not expressible without inventing a link this product does not have. `--chats`
+carries every conversation the business holds. Archived ones do not travel,
+which needs no code: the store's reads are hardcoded to `archived: false`, and a
+conversation the client deleted is one they deleted.
+
+## What is built
+
+**A second pair of routes, matched the way the first pair is.**
+`GET /api/chats/export` and `POST /api/chats/import` on the control app, reading
+and writing through the ticket store the Worker already serves from, for the
+reason the site pair gives: under `wrangler dev` D1 is a miniflare SQLite file
+whose layout is an implementation detail and Node has no contract for it. Both
+halves are the same `ChatsPayload`, produced and consumed by two functions in one
+new module (`apps/control-app/src/chat-copy.ts`), so the pair cannot drift —
+`SitePayload` is left exactly as it is, and a `--site` copy carries no
+conversation.
+
+**`--chats` on `bin/copy-to-cloud`,** alongside `--site` and `--contacts`, as a
+third `DataClass`. `--backup` works for it too — it is the same source-side read
+landing in a file, and a special-case refusal would be more code than supporting
+it. The command reports what landed: conversations created, conversations kept
+because they were already there, and comments written.
+
+**The end-to-end claim.** An operator who built a site locally runs
+`bin/copy-to-cloud --chats "<business>"` and the deployed builder then holds
+those conversations — transcripts, ledgers and standing notes intact, readable
+by the consultant through the surface it already has ([[REQ-228]]) — and running
+the command a second time adds nothing and duplicates nothing.
