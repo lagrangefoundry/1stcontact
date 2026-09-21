@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:46:33.843351+00:00'
+updated_at: '2026-09-21T20:47:32.125562+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1494,5 +1494,33 @@ GET https://app.1stcontact.io/api/businesses - Ok @ 9/21/2026, 1:46:13 PM
   (info) {"ts":1790023574422,"trace_id":"trace_25c8f8615dc88e2ca0c96a0f10370760","kind":"app","level":"info","event":"request","route":"/api/businesses","method":"GET","status":403,"duration_ms":316}
 
 ```
+
+<!-- xgd-turn id="6ad744ce-0a56-4e59-9d45-ed69bcf06a48-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:47:31.700040+00:00" -->
+#### Claude
+`reason: "no_email"`, `email: null` — the service token's `common_name` didn't resolve through `SERVICE_TOKEN_IDENTITIES`. Let me confirm exactly what string is being compared.
+
+Exactly the predicted failure, and it points at something real.
+
+`actingEmail` (`identity.ts:1017`) compares the JWT's `common_name` against the **left-hand side** of `SERVICE_TOKEN_IDENTITIES`, which is currently `1stcontact-publish`. That's the *friendly name* `bin/access-token --name` gives Cloudflare. But Cloudflare generates the token's client id separately and — I believe — puts that in `common_name`, not the label. `email: null` means nothing matched, and there's no third possibility: either `common_name` was empty or it didn't equal `1stcontact-publish`.
+
+The decisive value is your client id, which is the non-secret half:
+
+```bash
+echo "$CF_ACCESS_CLIENT_ID"
+```
+
+If that prints something like `88bf3b6d…f7219099e57.access`, then the mapping key is wrong and always has been — which would mean this path has never been exercised against real Cloudflare Access, only against `bin/access-sim`, where it's self-consistent because the simulator derives its own name from its own client id.
+
+Paste it and I'll set the mapping. Or do it yourself — edit `apps/control-app/wrangler.toml:429` to name **both** forms, so it works whichever claim Cloudflare sends:
+
+```toml
+SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me,<client-id-without-.access>=martin-github@westhead.me,<client-id-with-.access>=martin-github@westhead.me"
+```
+
+then `bin/deploy control-app` and re-run the copy. Comma-separated, first-`=`-wins per entry, case-folded on both sides — so extra entries are harmless.
+
+Keep the tail running; if it still refuses, the log line will say whether we moved from `no_email` to something else, which is progress either way.
 
 <!-- xgd-chat-end -->
