@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T22:51:52.148688+00:00'
+updated_at: '2026-09-21T22:53:40.390691+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -654,5 +654,36 @@ So you have a defensible $/hour today: **~$16–20 as things run**, against the 
 <!-- xgd-chat role="user" ts="2026-09-21T22:51:51.416193+00:00" -->
 #### You
 ok metrics are implemented - how much work is the Haiku delegate fix - the framework is already in place, right?
+
+<!-- xgd-turn id="3107c567-215c-406d-ac4a-503cccec03a6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:53:39.577349+00:00" -->
+#### Claude
+Mostly, yes — and smaller than I'd have guessed, because you've already done this shape once.
+
+### What's genuinely already in place
+
+- **The surface itself** (REQ-148): `delegation_surface.json`, `DelegationRuntime`, `WorkerConfig`, `delegationInstanceConfig`, the nesting refusal, the spend roll-up. Exported from `core.js`.
+- **`createL1Toolbox` already takes `role`, `config`, `extraSurfaces`, `session`, `audit`** — a second, narrower toolbox for a different role is an *argument change*, not a refactor. That was the thing I expected to be expensive and isn't.
+- **A second role already exists end to end.** `settings` (REQ-239) has its own role prose, priming config, reminders, `SessionManager`, backend name via `businessBackendName()`, and stream path. The builder worker walks the same path that's already been walked.
+- **`backends.json` is the seam for a second model** (BUG-49/BUG-67) — adding a Haiku entry is a config edit.
+- **REQ-292's record already holds `attributed`**, so worker spend rolls into the caller's row without a schema change.
+
+### The actual work — one REQ
+
+1. **The builder's grant and prose.** `instances.json` gains a `builder` entry (ReadSite, AuthorPages, ManageComponents, MeasureDrawings, DrawImages, SeeSite); consultant keeps ManagePages, WriteConfig, ManagePalette and gains `delegation` scoped to `['builder']`; builder gains the `report` group. Plus a `builder-role` entry and reminders in `priming.json`.
+2. **A worker backend entry** — `claude-haiku-4-5` in `backends.json`.
+3. **The one piece of new code**: a `workers.builder.build` closure constructing a `ClaudeAPIBackend` around a builder toolbox. Small, because of the `createL1Toolbox` parameterisation above.
+4. **The consultant's method prose** — when to delegate and how to write `accept` checks.
+
+Items 1 and 4 are prose, and they're where the value actually lives. The surface's own overview says it: *"If you re-inspect everything the worker did, the tokens have been moved rather than saved — and moved to the more expensive side."* The code is a day; getting the accept-checks right is the real work.
+
+### Two things to check before committing to it
+
+**I can't verify the framework is installed.** There's no `node_modules/@lagrangefoundry` in this worktree, and the shared store isn't writable from here. The epic *claims* `delegation_surface.json` is in the installed copy — that claim is unverified, and it's the premise of your question. Probe the installed copy first, not the framework source; a stale shared store would read as a declaration that silently does nothing.
+
+**And we still can't measure the result.** REQ-292 and REQ-293 are at `ready_to_reconcile`, not merged — `turn_spend` doesn't exist in the local D1 yet. My "$25 instead of $75" for delegation is modelled, and my models have been wrong by 4.5× and 2.4×. I'd reconcile the metrics, take a week of records, and size delegation against real numbers rather than against my arithmetic.
+
+Want me to file it as a REQ under EPIC-20 now, or hold it until the metrics land?
 
 <!-- xgd-chat-end -->
