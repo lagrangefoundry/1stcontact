@@ -20,9 +20,11 @@ import { accessAdvice } from './push'
 import {
   accessFor,
   assertDataClass,
+  copyChats,
   copySite,
   endNamesFor,
   endsFor,
+  exportChats,
   exportSite,
   serviceToken,
   CLOUD_ORIGIN,
@@ -371,10 +373,10 @@ Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
     loads and then fails at the first import, in the operator's browser. This is
     where that is caught instead.
 
-Copy a business's site between builders (REQ-289) — what \`bin/copy-to-cloud\` runs:
+Copy a business between builders (REQ-289, REQ-294) — what \`bin/copy-to-cloud\` runs:
   1c copy-to-cloud   <business> [--origin URL] [--force] [--backup FILE]
   1c copy-from-cloud <business> [--origin URL] [--force] [--backup FILE]
-                     [--site|--contacts] [--client-id ID --client-secret SECRET]
+                     [--site|--chats|--contacts] [--client-id ID --client-secret SECRET]
                      [--local-client-id ID --local-client-secret SECRET] [--json]
     Reads one business's site out of one builder through GET /api/export and writes it
     into the other through POST /api/import — the same payload, the matched pair of routes.
@@ -385,8 +387,22 @@ Copy a business's site between builders (REQ-289) — what \`bin/copy-to-cloud\`
     or point it at \`bin/access-sim\`). REFUSED with 409 when the target
     carries changes made in the BUILDER (BUG-51); --force says you mean it.
     --backup FILE writes the SOURCE side's export to FILE and touches the destination
-    not at all. --site is the default; --contacts is recognised and not carried.
+    not at all.
     This is NOT \`1c publish\`, which mints a revision, and NOT \`1c copy\`, which edits text.
+
+    THREE CLASSES, AND THEY ARE SEPARATE PAYLOADS ON PURPOSE (REQ-294):
+      --site     the default. site.json, the page documents and the asset bytes.
+      --chats    this business's consultant conversations — every chat ticket, its
+                 transcript, its engagement ledger and its standing note. A second
+                 pair of routes (/api/chats/export, /api/chats/import), so a site
+                 copy still carries a site and nothing else. Matched by session id:
+                 running it twice duplicates no turn. A conversation the far side
+                 already holds is KEPT and counted; --force replaces it. Carried
+                 to-cloud only — refused from-cloud, because the local builder runs
+                 with ACCESS_DEV_OPEN=1 and a conversation is whatever the customer
+                 typed.
+      --contacts recognised and not carried, in either direction, for that reason
+                 and its own.
 
     TWO ENDS, TWO CREDENTIALS (BUG-134), because the two builders can be behind
     two different gates and a copy has to satisfy both in one run:
@@ -764,8 +780,10 @@ export async function run(argv: string[]): Promise<void> {
         const business = requireArg(rest[0], 'business')
         // RECOGNISED, THEN REFUSED — never an unknown-flag error. What
         // `--contacts` means in each direction is a decision this ticket
-        // records; see `assertDataClass`.
-        const klass: DataClass = flags.contacts === true ? 'contacts' : 'site'
+        // records; see `assertDataClass`. `--chats` is the third class and the
+        // second one implemented ([[REQ-294]]): carried up, refused down.
+        const klass: DataClass =
+          flags.contacts === true ? 'contacts' : flags.chats === true ? 'chats' : 'site'
         // BEFORE THE CREDENTIAL CHECK, because it is about what was ASKED FOR
         // and that one is about how to reach a side. An operator told to
         // provision an Access token, who then provisions one and is told the
@@ -820,12 +838,31 @@ export async function run(argv: string[]): Promise<void> {
         // a file the operator can commit. That is this ticket's first real use
         // — a site that exists in exactly one gitignored directory, with no
         // published revision to fall back to.
+        //
+        // IT WORKS FOR `--chats` TOO ([[REQ-294]]), because it is the same
+        // source-side read landing in a file — and refusing it for one class
+        // would be more code than carrying it, for a worse command.
+        const wireFromSource = {
+          end: who.source,
+          ...(creds.source ? { access: creds.source } : {}),
+        }
         if (typeof flags.backup === 'string') {
-          const read = await exportSite(ends.source, business, {
-            end: who.source,
-            ...(creds.source ? { access: creds.source } : {}),
-          })
           const out = path.resolve(process.cwd(), flags.backup)
+          if (klass === 'chats') {
+            const read = await exportChats(ends.source, business, wireFromSource)
+            writeFileSync(out, `${JSON.stringify(read.payload, null, 2)}\n`)
+            if (json) {
+              console.log(JSON.stringify({ ok: true, data: { ...read, file: out } }, null, 2))
+              return
+            }
+            console.log(
+              `backed up '${read.business.name}'s conversations from ${ends.source}\n` +
+                `  chats   ${read.payload.chats.length}\n` +
+                `  file    ${out}`,
+            )
+            return
+          }
+          const read = await exportSite(ends.source, business, wireFromSource)
           writeFileSync(out, `${JSON.stringify(read.payload, null, 2)}\n`)
           if (json) {
             console.log(JSON.stringify({ ok: true, data: { ...read, file: out } }, null, 2))
@@ -859,7 +896,7 @@ export async function run(argv: string[]): Promise<void> {
           )
         }
 
-        const result = await copySite(business, {
+        const opts = {
           direction,
           local,
           klass,
@@ -867,24 +904,44 @@ export async function run(argv: string[]): Promise<void> {
           ...(localAccess ? { localAccess } : {}),
           // BUG-51 — only ever passed when typed. The far side refuses an
           // import that would replace builder changes; this is the operator
-          // saying they know what is there.
+          // saying they know what is there. `--chats` reuses it as *replace a
+          // conversation the destination already holds* ([[REQ-294]]) rather
+          // than adding a second flag for the same sentence.
           ...(flags.force === true ? { force: true } : {}),
-        })
+        }
+        // ONE BRANCH, AT THE POINT THE CLASSES GENUINELY DIFFER. Everything
+        // above — the ends, the two credential pairs, the cloud-reachability
+        // refusal — is the same for every class, and a `--chats` copy that
+        // re-derived any of it would be a second place for one of them to drift.
+        const result = klass === 'chats' ? await copyChats(business, opts) : await copySite(business, opts)
         if (json) {
           console.log(JSON.stringify({ ok: true, data: result }, null, 2))
           return
         }
         console.log(
-          `copied '${result.to.name}' ${ends.source} → ${ends.destination}\n` +
-            // BOTH IDS, because they are different strings for one business and
-            // the operator has no other way to see that. The destination's is
-            // also what a `/b/<id>/` builder URL needs.
-            `  from    ${result.from.id}\n` +
-            `  to      ${result.to.id}\n` +
-            `  site    ${result.landed.site ?? '(not reported)'}\n` +
-            `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
-            `  assets  ${result.landed.assets}\n` +
-            `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
+          // BOTH IDS ON EITHER CLASS, because they are different strings for one
+          // business and the operator has no other way to see that. The
+          // destination's is also what a `/b/<id>/` builder URL needs.
+          'read' in result
+            ? `copied ${result.read} conversation(s) of '${result.to.name}' ` +
+              `${ends.source} → ${ends.destination}\n` +
+              `  from    ${result.from.id}\n` +
+              `  to      ${result.to.id}\n` +
+              `  new     ${result.landed.created}\n` +
+              `  replaced ${result.landed.replaced}\n` +
+              // NAMED, NOT SILENT. A second copy reports every conversation as
+              // kept, which is the command saying it duplicated nothing — and
+              // the one place the operator learns `--force` is what replaces.
+              `  kept    ${result.landed.kept}` +
+              `${result.landed.kept > 0 ? ' (already there; --force replaces)' : ''}\n` +
+              `  comments ${result.landed.comments}`
+            : `copied '${result.to.name}' ${ends.source} → ${ends.destination}\n` +
+              `  from    ${result.from.id}\n` +
+              `  to      ${result.to.id}\n` +
+              `  site    ${result.landed.site ?? '(not reported)'}\n` +
+              `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
+              `  assets  ${result.landed.assets}\n` +
+              `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
         )
       } catch (err) {
         fail(err, json)

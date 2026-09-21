@@ -35,6 +35,7 @@ import {
   setPreference,
 } from './acceptances'
 import { eventsOf, type EventEnv } from './events'
+import { readChats, writeChats, type ChatsPayload } from './chat-copy'
 import { payloadToWrite, readSiteDraft, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
 import type {
@@ -2617,6 +2618,99 @@ async function routeUncached(
       // of the two places a missing business would be swallowed into a 500
       // instead of reaching `index.ts` as the caller-level 403 it is.
       if (err instanceof NoBusinessError) throw err
+      const message = err instanceof Error ? err.message : String(err)
+      return json(500, { error: scrub(message) })
+    }
+  }
+
+  /**
+   * GET /api/chats/export — this business's whole conversation history
+   * ([[REQ-294]]).
+   *
+   * THE SECOND PAIR, AND IT IS A SECOND PAIR ON PURPOSE. `/api/export` above
+   * carries a site and nothing else; the obligation `/api/import` and it owe
+   * each other is that a change to one touches the other, and folding
+   * conversations into `SitePayload` would make every future change to either
+   * half of THAT pair a change to conversations too — while making a plain site
+   * copy carry data the operator did not ask for. So this is its own payload,
+   * produced and consumed by `chat-copy.ts`'s own two functions.
+   *
+   * THE WORKER READS, THROUGH THE VERY STORE IT SERVES FROM, for the reason the
+   * site export gives: under `wrangler dev` a conversation is rows in a
+   * miniflare SQLite file whose layout is an implementation detail, and Node has
+   * no contract for it.
+   *
+   * A BUSINESS WITH NO CONVERSATIONS IS 200 AND AN EMPTY LIST, and that is the
+   * OPPOSITE of the site export's 404 — deliberately, because the two are not
+   * the same statement. "This business holds no site" makes an export
+   * meaningless: an empty site payload is a perfectly legible thing to import
+   * over the top of something real, so it must not be expressible. "This
+   * business has had no conversations yet" is an ordinary, true fact about a new
+   * client, and the import it produces writes nothing. Nothing can be destroyed
+   * by an empty history, so nothing needs to be refused.
+   *
+   * NO AMBIGUITY TO REFUSE EITHER. The site export refuses a business holding
+   * two sites because there is no unambiguous site to read; a history is every
+   * conversation the business holds, which is unambiguous however many there
+   * are.
+   */
+  if (p === '/api/chats/export' && method === 'GET') {
+    try {
+      const scoped = requireScope()
+      const store = await (deps.tickets ?? ticketStoreFor)(env, scoped)
+      return json(200, await readChats(store, scoped.businessId))
+    } catch (err) {
+      // Rethrown for the reason the two site routes rethrow it: this route opens
+      // its store itself rather than through the memoised opener below, so it is
+      // one of the places a missing business would be swallowed into a 500
+      // instead of reaching `index.ts` as the caller-level 403 it is.
+      if (err instanceof NoBusinessError) throw err
+      const message = err instanceof Error ? err.message : String(err)
+      return json(500, { error: scrub(message) })
+    }
+  }
+
+  /**
+   * POST /api/chats/import — a conversation history, written into this business
+   * ([[REQ-294]]).
+   *
+   * `/api/chats/export`'s MATCHED PAIR, and the same maintenance obligation the
+   * site pair carries: export followed by import yields the same conversations —
+   * same transcripts, same ledgers, same standing notes — because both halves
+   * are the same `ChatsPayload`, produced and consumed by the same two functions
+   * in `chat-copy.ts`.
+   *
+   * IT RESOLVES ITS OWN TARGET, exactly as `/api/import` does. The business
+   * comes from the authorised scope and never from the payload; `payload.business`
+   * names where the conversations were read and addresses nothing here.
+   *
+   * RE-RUNNING IT IS THE ORDINARY WAY TO USE IT, and this time the sentence is
+   * true without a footnote. Conversations are matched by `session_id` and each
+   * is written whole or not at all, so a second copy adds no ticket, no comment
+   * and no turn. `force` is what replaces a conversation the destination already
+   * holds; without it that conversation is kept and counted. See `writeChats`
+   * for why this is a count rather than the 409 `/api/import` answers.
+   */
+  if (p === '/api/chats/import' && method === 'POST') {
+    try {
+      const scoped = requireScope()
+      const store = await (deps.tickets ?? ticketStoreFor)(env, scoped)
+      const payload = (await readJsonBody(request)) as unknown as ChatsPayload
+      const chats = Array.isArray(payload?.chats) ? payload.chats : null
+      if (chats === null) {
+        // NAMED RATHER THAN COERCED TO AN EMPTY IMPORT. A body with no `chats`
+        // is a caller sending the wrong shape, and answering 200 "0 landed"
+        // would report that as a successful copy of nothing.
+        return json(400, {
+          error: 'A conversation history must carry a `chats` array. Nothing was written.',
+        })
+      }
+      return json(200, await writeChats(store, { ...payload, chats }))
+    } catch (err) {
+      if (err instanceof NoBusinessError) throw err
+      if (err instanceof CommandError) {
+        return json(400, { error: scrub(err.message), ...err.toEnvelope() })
+      }
       const message = err instanceof Error ? err.message : String(err)
       return json(500, { error: scrub(message) })
     }
