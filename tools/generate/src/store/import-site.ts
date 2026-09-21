@@ -3,7 +3,7 @@ import type { SiteStore, SiteWrite, StoredAsset } from './site-store'
 /**
  * Copy one site's draft from any {@link SiteStore} into any other (REQ-143).
  *
- * WHY IT IS PORT-TO-PORT AND NOT "SEED D1 FROM `storage/sites/`". The obvious
+ * WHY IT IS PORT-TO-PORT AND NOT "SEED D1 FROM A DIRECTORY TREE". The obvious
  * shape for the import path — read the operator's directory tree, INSERT the
  * rows — would have to know about both a filesystem and a database, so it could
  * only ever run in Node, and it would be a third place that encodes what a site
@@ -13,9 +13,9 @@ import type { SiteStore, SiteWrite, StoredAsset } from './site-store'
  * restating it.
  *
  * What that buys immediately is the *test* for DOC-12 §7's migration: the same
- * function that will seed D1 from `storage/sites/` also copies a site between
- * two in-memory stores, so its correctness is checkable without a database and
- * its behaviour against a real one is the same code.
+ * function that seeds D1 from a file-backed tree also copies a site between two
+ * in-memory stores, so its correctness is checkable without a database and its
+ * behaviour against a real one is the same code.
  *
  * ONE WRITE, DELIBERATELY. Everything — `site.json`, every page, every asset —
  * crosses as a single {@link SiteWrite}. Against the D1 adapter that is one

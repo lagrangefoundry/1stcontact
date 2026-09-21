@@ -57,7 +57,7 @@ const DARKER = -0.42
 const LIGHTER = 0.31
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
-  return path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  return path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 }
 
 /**
@@ -157,7 +157,7 @@ function urlOn(base: string, rel: string): string {
 
 /** The rendered draft's bytes — what an operator actually looks at. */
 async function renderedDraft(cwd: string, slug: string): Promise<string> {
-  const { outDir } = await cmdRender(slug, { cwd, edit: false })
+  const { outDir } = await cmdRender(slug, { cwd, sandbox: true, edit: false })
   return fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
 }
 
@@ -233,10 +233,10 @@ describe('REQ-133 the palette popup', () => {
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'req133-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
-    cmdNew('blank', { cwd })
-    builder = await startBuilder({ cwd })
+    cmdNew('blank', { cwd, sandbox: true })
+    builder = await startBuilder({ cwd, sandbox: true })
     unbindFetch = bindFetch(builder.url)
   }, 240000)
 
@@ -355,7 +355,7 @@ describe('REQ-133 the palette popup', () => {
 
   it('test_UAT_FC_REQ_133_changing_a_color_repaints_every_use_at_every_shade', async () => {
     const slug = 'repaint'
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     seedSite(cwd, slug)
 
     const before = await renderedDraft(cwd, slug)
@@ -392,7 +392,7 @@ describe('REQ-133 the palette popup', () => {
 
   it('test_UAT_FC_REQ_133_adding_a_color_makes_it_pickable_and_refuses_a_bad_name', async () => {
     const slug = 'adding'
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     seedSite(cwd, slug)
 
     const answer = open(slug)
@@ -435,7 +435,7 @@ describe('REQ-133 the palette popup', () => {
 
   it('test_UAT_FC_REQ_133_delete_is_refused_while_anything_uses_it', async () => {
     const slug = 'deleting'
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     seedSite(cwd, slug)
 
     const answer = open(slug)
@@ -484,7 +484,7 @@ describe('REQ-133 the palette popup', () => {
 
   it('test_UAT_FC_REQ_133_rename_moves_the_key_and_every_reference_in_one_write', async () => {
     const slug = 'renaming'
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     seedSite(cwd, slug)
     const before = await renderedDraft(cwd, slug)
 
@@ -535,7 +535,7 @@ describe('REQ-133 the palette popup', () => {
 
   it('test_UAT_FC_REQ_133_rename_is_refused_on_a_collision_or_a_bad_name', async () => {
     const slug = 'rename-guard'
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     seedSite(cwd, slug)
     const siteBefore = JSON.stringify(readSite(cwd, slug))
     const homeBefore = readHome(cwd, slug)
@@ -585,7 +585,7 @@ describe('REQ-133 the palette popup', () => {
 
   it('test_UAT_FC_REQ_133_cli_and_api_expose_the_same_four_writes_and_one_read', async () => {
     const slug = 'surface'
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     seedSite(cwd, slug)
 
     // The CLI read carries the counts.
@@ -628,7 +628,7 @@ describe('REQ-133 the palette popup', () => {
 
   it('test_UAT_FC_REQ_133_a_write_needs_no_re_render_because_channels_render_on_request', async () => {
     const slug = 'fresh'
-    cmdNew(slug, { cwd })
+    cmdNew(slug, { cwd, sandbox: true })
     seedSite(cwd, slug)
 
     const write = await cli(cwd, 'palette', 'set', slug, 'primary', '#123456')

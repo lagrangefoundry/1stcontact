@@ -40,7 +40,7 @@ const FORM_INTRO = 'Tell us what you are building.'
  * (carousel slides) and a single-subtree one (the contact form).
  */
 function seedPage(cwd: string, slug: string): Record<string, unknown> {
-  const homePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
+  const homePath = path.join(cwd, 'storage', 'sandbox', slug, 'draft', 'pages', 'home.json')
   const home = JSON.parse(readFileSync(homePath, 'utf8'))
 
   const root: L1Node = {
@@ -104,12 +104,12 @@ function seedPage(cwd: string, slug: string): Record<string, unknown> {
 
 /** The edit render's bytes, as a real DOM the client can be pointed at. */
 async function editDom(cwd: string, slug: string): Promise<JSDOM> {
-  const { outDir } = await cmdRender(slug, { cwd, edit: true })
+  const { outDir } = await cmdRender(slug, { cwd, sandbox: true, edit: true })
   return new JSDOM(readFileSync(path.join(outDir, 'index.html'), 'utf8'))
 }
 
 async function editHtml(cwd: string, slug: string): Promise<string> {
-  const { outDir } = await cmdRender(slug, { cwd, edit: true })
+  const { outDir } = await cmdRender(slug, { cwd, sandbox: true, edit: true })
   return readFileSync(path.join(outDir, 'index.html'), 'utf8')
 }
 
@@ -170,7 +170,7 @@ async function cli(cwd: string, ...argv: string[]): Promise<CliResult> {
 /** The draft page file, byte for byte — the thing a failed edit must not touch. */
 function draftBytes(cwd: string, slug: string): string {
   return readFileSync(
-    path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json'),
+    path.join(cwd, 'storage', 'sandbox', slug, 'draft', 'pages', 'home.json'),
     'utf8',
   )
 }
@@ -179,7 +179,7 @@ describe('REQ-117 — copy editing, end to end', () => {
   let cwd: string
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req117-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedPage(cwd, 'acme')
   })
   afterEach(() => {
@@ -270,7 +270,7 @@ describe('REQ-117 — copy editing, end to end', () => {
   it('test_UAT_FC_REQ-117_one_save_is_one_atomic_diff_not_a_write_per_field', async () => {
     // A published base gives `status` something to diff against, so "how much did
     // this Save change?" has a countable answer.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     expect((await cli(cwd, 'status', 'acme')).data!.modified).toEqual([])
 
     const before = draftBytes(cwd, 'acme')
@@ -365,7 +365,7 @@ describe('REQ-117 — copy editing, end to end', () => {
   // past the envelope, and a copy edit refuses for exactly the reason `config
   // set` does — which it could not do if it validated only what it touched.
   it('test_UAT_FC_REQ-117_copy_edits_run_the_same_whole_definition_validator_as_the_ai_surface', async () => {
-    const homePath = path.join(cwd, 'storage', 'sites', 'acme', 'draft', 'pages', 'home.json')
+    const homePath = path.join(cwd, 'storage', 'sandbox', 'acme', 'draft', 'pages', 'home.json')
     const page = JSON.parse(readFileSync(homePath, 'utf8'))
     // 9999px clears the schema's shape check and fails the L1 envelope's range —
     // so only a caller running `validateL1` over the document will see it.
@@ -552,7 +552,7 @@ describe('REQ-117 — copy editing, end to end', () => {
   // a host that forgets to unmount on a mode switch still cannot intercept a
   // click, mark a segment hot, or open a modal.
   it('test_UAT_FC_REQ-117_view_mode_is_not_intercepted_marked_or_editable', async () => {
-    const { outDir } = await cmdRender('acme', { cwd })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true })
     const dom = new JSDOM(readFileSync(path.join(outDir, 'index.html'), 'utf8'))
     const doc = dom.window.document
 

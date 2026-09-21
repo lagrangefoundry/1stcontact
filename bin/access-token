@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`bin/access-token` — provision the service token `bin/publish` authenticates with.
+"""`bin/access-token` — provision the service token `bin/copy-to-cloud` authenticates with.
 
 WHY THIS SCRIPT EXISTS AT ALL. `app.1stcontact.io` is behind Cloudflare Access
 (REQ-147), and Access is an *identity* gate at the edge. It accepts exactly three
@@ -8,7 +8,7 @@ certificate, or a service token's `CF-Access-Client-Id` / `CF-Access-Client-Secr
 pair. Automation has no browser, so automation needs a service token — and a
 service token has to be created before it can be used.
 
-WHAT IT IS NOT. It is not a login, it is not run on every publish, and it does not
+WHAT IT IS NOT. It is not a login, it is not run on every copy, and it does not
 belong in `bin/deploy`. It is run ONCE by the operator, by hand, and its output
 goes into a password manager. A deploy that could mint credentials would be a
 deploy that could grant access, which is a much larger thing than shipping code.
@@ -17,7 +17,7 @@ THE API TOKEN IS THE PROVISIONER, NEVER THE CREDENTIAL. `CLOUDFLARE_API_TOKEN`
 authenticates to `api.cloudflare.com`; it is not an Access credential and
 presenting it to `app.1stcontact.io` earns the same 302 to the login page as
 presenting nothing. So it is used here, to CREATE the service token, and never by
-`bin/publish`, which uses the service token itself. Conflating the two is the
+`bin/copy-to-cloud`, which uses the service token itself. Conflating the two is the
 mistake this script exists to make impossible.
 
 THE SECRET IS SHOWN ONCE, BY CLOUDFLARE'S DESIGN. It is printed to stdout here
@@ -119,7 +119,7 @@ def find_app(account: str, domain: str, api_token: str) -> dict:
 
     Not on the name, which is a label an operator can change in the dashboard
     without meaning to change anything. The domain IS the application's identity
-    as far as this script is concerned, because it is what `bin/publish` posts to.
+    as far as this script is concerned, because it is what `bin/copy-to-cloud` posts to.
     """
     apps = call("GET", f"/accounts/{account}/access/apps", api_token).get("result") or []
     for app in apps:
@@ -242,7 +242,7 @@ def main() -> int:
     print(f"    export CF_ACCESS_CLIENT_ID='{client_id}'")
     print(f"    export CF_ACCESS_CLIENT_SECRET='{secret}'")
     print()
-    print("Then:  bin/publish --production <slug>")
+    print("Then:  bin/copy-to-cloud <business>")
     return 0
 
 

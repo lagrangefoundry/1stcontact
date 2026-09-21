@@ -76,7 +76,7 @@ const A_OFFSITE = '0.2'
 const A_OFFSITE_PANEL = '0.3'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 const homeJsonPath = (cwd: string): string => draftPath(cwd, 'acme', 'pages', 'home.json')
 
@@ -195,7 +195,7 @@ const fieldNamed = (result: CliResult, name: string): Field =>
   (result.data!.fields as Field[]).find((f) => f.name === name)!
 
 async function withOrigin(cwd: string, fn: (builder: BuilderHandle) => Promise<void>): Promise<void> {
-  const builder = await startBuilder({ cwd })
+  const builder = await startBuilder({ cwd, sandbox: true })
   try {
     await fn(builder)
   } finally {
@@ -208,7 +208,7 @@ describe('story-37a3921b — declaring what a closed list of images holds', () =
 
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-format-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {

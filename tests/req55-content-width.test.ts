@@ -11,6 +11,7 @@ import {
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
 import type { ModuleMeta } from '../packages/framework/src/modules/types'
 import { generateThemeCss } from '../packages/framework/src/tokens'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * UATs for REQ-55 — the `contentWidth`/`rowWidth` scale realigned to Tailwind's
@@ -114,7 +115,7 @@ describe('REQ-55 literal escape hatch', () => {
 })
 
 // NOTE (REQ-88): the `REQ-55 gigabytealchemy "Most apps" block` UAT was removed
-// here. It read `storage/sites/gigabytealchemy/draft/pages/home.json` — a
+// here. It read `storage/sandbox/gigabytealchemy/draft/pages/home.json` — a
 // module-era (`text-block`) site the framework pivot's deleted layout modules can
 // no longer render, and which REQ-88 removed for the L1 reproduction rebuild. The
 // contentWidth resolver behaviour it exercised (`4xl` → 896px token; literal px)
@@ -136,7 +137,7 @@ describe('REQ-55 migration — retired width names are gone', () => {
   }
 
   it('test_UAT_FC_REQ-55_old_width_names_migrated', () => {
-    const docs = siteDocs(path.join(process.cwd(), 'storage/sites'))
+    const docs = siteDocs(L1_CORPUS_SITES)
     expect(docs.length).toBeGreaterThan(0)
     for (const file of docs) {
       const doc = JSON.parse(readFileSync(file, 'utf8'))

@@ -45,8 +45,8 @@ function tempRepo(): string {
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, 'db.sqlite'), 'x'.repeat(2048))
   }
-  fs.mkdirSync(path.join(root, 'storage', 'sites', 'xgd'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'storage', 'sites', 'xgd', 'site.json'), '{}')
+  fs.mkdirSync(path.join(root, 'storage', 'sandbox', 'xgd'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'storage', 'sandbox', 'xgd', 'site.json'), '{}')
   return root
 }
 
@@ -66,7 +66,11 @@ describe('BUG-51 — the reset plan', () => {
     expect(plan.targets[0].bytes).toBe(2048)
     // Stated in the plan rather than merely absent from it: the operator can
     // read the promise instead of taking it on trust.
-    expect(plan.preserved).toContain('storage/sites')
+    // REQ-290 retired `storage/sites`; the tree whose survival the operator
+    // now needs promised is the reproduction substrate, which is gitignored
+    // and has no copy anywhere else.
+    expect(plan.preserved).toContain('storage/sandbox')
+    expect(plan.preserved).not.toContain('storage/sites')
   })
 
   it('adds the public site only when asked', () => {
@@ -102,7 +106,7 @@ describe('BUG-51 — performing the reset', () => {
     expect(removed).toHaveLength(1)
     expect(fs.existsSync(path.join(root, 'apps/control-app', STATE_DIR))).toBe(false)
     // THE ASSERTION THAT MAKES THE COMMAND SAFE TO OFFER AT ALL.
-    expect(fs.readFileSync(path.join(root, 'storage/sites/xgd/site.json'), 'utf8')).toBe('{}')
+    expect(fs.readFileSync(path.join(root, 'storage/sandbox/xgd/site.json'), 'utf8')).toBe('{}')
     // Not asked for, so not touched.
     expect(fs.existsSync(path.join(root, 'apps/public-site', STATE_DIR))).toBe(true)
   })

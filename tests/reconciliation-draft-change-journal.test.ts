@@ -37,6 +37,10 @@ import { JOURNAL_TEXT_LIMIT, JOURNAL_WINDOW, revisionDir } from '../tools/genera
 import type { ChangeSlice, JournalRecord } from '../tools/generate/src/store'
 import type { L1Node } from '@1stcontact/site-schema'
 import { fsOpts } from './support/site-factory'
+import { execFileSync } from 'node:child_process'
+
+/** The repository itself — `git check-ignore` is asked about its `.gitignore`. */
+const REPO_ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..')
 
 /**
  * Reconciliation UATs for story-6cd17452 — **the draft change journal**.
@@ -68,7 +72,7 @@ const HEADLINE_PATH = '0.0'
 
 let cwd: string
 
-const siteRoot = (slug = SLUG): string => path.join(cwd, 'storage', 'sites', slug)
+const siteRoot = (slug = SLUG): string => path.join(cwd, 'storage', 'sandbox', slug)
 const pagePath = (page = 'home', slug = SLUG): string =>
   path.join(siteRoot(slug), 'draft', 'pages', `${page}.json`)
 const journalFile = (slug = SLUG): string => path.join(siteRoot(slug), '.journal.json')
@@ -88,7 +92,7 @@ function seedPage(text = HEADLINE, slug = SLUG): void {
 
 /** Ask the journal the same question the assistant and the operator both ask. */
 async function changes(since?: number, slug = SLUG): Promise<ChangeSlice> {
-  return (await editChanges(slug, since, fsOpts(cwd))).data as ChangeSlice
+  return (await editChanges(slug, since, fsOpts(cwd, 'sandbox'))).data as ChangeSlice
 }
 
 const countNow = async (slug = SLUG): Promise<number> => (await changes(undefined, slug)).now
@@ -150,7 +154,7 @@ async function cli(...argv: string[]): Promise<CliResult> {
 describe('story-6cd17452 — the count is the whole mechanism', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'journal-count-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -161,7 +165,7 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
     // refused one does not.
     const before = await countNow()
 
-    const accepted = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'One.' }, fsOpts(cwd))
+    const accepted = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'One.' }, fsOpts(cwd, 'sandbox'))
     expect(accepted.at).toBe(before + 1)
     expect((await changes(before)).changes).toHaveLength(1)
 
@@ -170,7 +174,7 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
     // whole resulting definition BEFORE touching disk, so nothing landed either.
     const draftBefore = readFileSync(pagePath(), 'utf8')
     await expect(
-      editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 42 }, fsOpts(cwd)),
+      editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 42 }, fsOpts(cwd, 'sandbox')),
     ).rejects.toMatchObject({ code: 'SCHEMA_INVALID' })
 
     expect(readFileSync(pagePath(), 'utf8')).toBe(draftBefore)
@@ -181,15 +185,15 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
   it('test_UAT_AC1254_a_write_that_changes_nothing_returns_the_current_count_and_records_nothing', async () => {
     // A no-op save from the modal must not look, to the assistant, exactly like
     // the client rewriting a heading. Only a write that ALTERS the draft counts.
-    const written = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Settled.' }, fsOpts(cwd))
+    const written = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Settled.' }, fsOpts(cwd, 'sandbox'))
 
-    const noop = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Settled.' }, fsOpts(cwd))
+    const noop = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Settled.' }, fsOpts(cwd, 'sandbox'))
     expect(noop.human).toMatch(/No change/i)
     expect(noop.at).toBe(written.at)
     expect((await changes(written.at)).changes).toEqual([])
 
     // The same rule for a fix run that is asked to plan and not to apply.
-    const dry = await cmdApplyGapFixes(SLUG, [], { ...fsOpts(cwd), apply: false })
+    const dry = await cmdApplyGapFixes(SLUG, [], { ...fsOpts(cwd, 'sandbox'), apply: false })
     expect(dry.human).toMatch(/dry-run/)
     expect((dry.data as { applied: boolean }).applied).toBe(false)
     expect(dry.at).toBe(written.at)
@@ -202,7 +206,7 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
     // it would be easy to leave them out on that basis — but then a session whose
     // last write was an upload would hold a stale count and be told next turn that
     // its own upload was somebody else's work.
-    const opts = fsOpts(cwd)
+    const opts = fsOpts(cwd, 'sandbox')
     const shapes: Array<[string, () => Promise<{ at?: number }>]> = [
       ['a copy change', () => editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Reworded.' }, opts)],
       ['a page-level change', () => editPageAdd(SLUG, 'about', { ...opts, title: 'About' })],
@@ -235,7 +239,7 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
     }
     // And the manual a session is actually handed is projected from those shapes,
     // so the count is something the model is TOLD about rather than has to notice.
-    const box = await createL1Toolbox(SLUG, { cwd })
+    const box = await createL1Toolbox(SLUG, { cwd, sandbox: true })
     expect(box.manual()).toMatch(/change count/i)
   })
 
@@ -245,7 +249,7 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
     // into it. The arithmetic attributes; the actor field only explains.
     let baseline = await countNow()
     for (const text of ['A.', 'B.', 'C.']) {
-      const out = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd))
+      const out = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd, 'sandbox'))
       baseline = out.at as number
     }
     expect((await changes(baseline)).changes).toEqual([])
@@ -256,7 +260,7 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
       'home',
       HEADLINE_PATH,
       { text: 'Theirs, not mine.' },
-      { ...fsOpts(cwd), actor: 'client' },
+      { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
     )
 
     const slice = await changes(baseline)
@@ -271,7 +275,7 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
 describe('story-6cd17452 — a record says what happened, in words that outlive the address', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'journal-records-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -285,7 +289,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
       'home',
       HEADLINE_PATH,
       { text: 'A warmer welcome.' },
-      { ...fsOpts(cwd), actor: 'client' },
+      { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
     )
 
     const [record] = (await changes(before)).changes
@@ -302,14 +306,14 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
     // The three actors are distinguished, and an unattributed caller is recorded
     // as the operator's own tools rather than guessed at.
     const mid = await countNow()
-    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'By the assistant.' }, { ...fsOpts(cwd), actor: 'ai' })
-    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'By nobody in particular.' }, fsOpts(cwd))
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'By the assistant.' }, { ...fsOpts(cwd, 'sandbox'), actor: 'ai' })
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'By nobody in particular.' }, fsOpts(cwd, 'sandbox'))
     expect((await changes(mid)).changes.map((c) => c.actor)).toEqual(['ai', 'cli'])
 
     // A write that does not happen ON a page leaves `page` absent rather than
     // fabricating one.
     const beforePalette = await countNow()
-    await editPaletteAdd(SLUG, 'accent', '#2e86a3', { ...fsOpts(cwd), actor: 'client' })
+    await editPaletteAdd(SLUG, 'accent', '#2e86a3', { ...fsOpts(cwd, 'sandbox'), actor: 'client' })
 
     const [palette] = (await changes(beforePalette)).changes
     expect(palette.page).toBeUndefined()
@@ -330,7 +334,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
       'home',
       HEADLINE_PATH,
       { text: 'Still here.' },
-      { ...fsOpts(cwd), actor: 'client' },
+      { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
     )
 
     // Insert a level so the address the record was taken against no longer
@@ -345,7 +349,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
         layout: 'row',
         children: [{ kind: 'box', children: [{ kind: 'text', text: 'Moved down a level.' }] }],
       },
-      fsOpts(cwd),
+      fsOpts(cwd, 'sandbox'),
     )
 
     const [copyEdit, structural] = (await changes(before)).changes
@@ -370,7 +374,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
     seedPage(long)
 
     const before = await countNow()
-    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: longer }, fsOpts(cwd))
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: longer }, fsOpts(cwd, 'sandbox'))
 
     const [cut] = (await changes(before)).changes
     for (const [side, value] of [
@@ -387,7 +391,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
     // Text at or under the limit is carried whole and unmarked.
     const short = 'A short line.'
     const beforeShort = await countNow()
-    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: short }, fsOpts(cwd))
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: short }, fsOpts(cwd, 'sandbox'))
 
     const [whole] = (await changes(beforeShort)).changes
     expect(whole.after).toBe(short)
@@ -399,7 +403,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
     // The call the assistant makes most often, and it has to be boring: an empty
     // slice, not an error.
     for (const text of ['One.', 'Two.', 'Three.']) {
-      await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd))
+      await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd, 'sandbox'))
     }
     const now = await countNow()
 
@@ -425,7 +429,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
       // than to a confident, incomplete list.
       const start = await countNow()
       for (let i = 0; i < JOURNAL_WINDOW + 3; i++) {
-        await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, fsOpts(cwd))
+        await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, fsOpts(cwd, 'sandbox'))
       }
 
       const stale = await changes(start)
@@ -439,7 +443,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
       expect(recent.changes).toHaveLength(2)
 
       // And a site nothing has ever been written to reports no truncation either.
-      cmdNew('annex', { cwd })
+      cmdNew('annex', { cwd, sandbox: true })
       const untouched = await changes(0, 'annex')
       expect(untouched.truncated).toBe(false)
       expect(untouched.now).toBe(0)
@@ -454,7 +458,7 @@ describe('story-6cd17452 — a record says what happened, in words that outlive 
 describe('story-6cd17452 — the journal degrades, and is never a revision', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'journal-degrade-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -469,7 +473,7 @@ describe('story-6cd17452 — the journal degrades, and is never a revision', () 
     expect(empty.now).toBe(0)
     expect(empty.truncated).toBe(false)
 
-    const first = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'First.' }, fsOpts(cwd))
+    const first = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'First.' }, fsOpts(cwd, 'sandbox'))
     expect(first.at).toBe(1)
 
     // Now make the retained history uninterpretable.
@@ -479,7 +483,7 @@ describe('story-6cd17452 — the journal degrades, and is never a revision', () 
     expect(degraded.changes).toEqual([])
     expect(degraded.now).toBe(0)
 
-    const after = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Second.' }, fsOpts(cwd))
+    const after = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Second.' }, fsOpts(cwd, 'sandbox'))
     expect(typeof after.at).toBe('number')
     expect(JSON.parse(readFileSync(pagePath(), 'utf8')).l1.root.children[0].text).toBe('Second.')
   })
@@ -491,7 +495,7 @@ describe('story-6cd17452 — the journal degrades, and is never a revision', () 
         JSON.parse(readFileSync(path.join(siteRoot(), 'history.json'), 'utf8'))
 
       for (const text of ['One.', 'Two.', 'Three.']) {
-        await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd))
+        await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd, 'sandbox'))
       }
 
       // Recording a change mints no revision id and adds no publish-history entry.
@@ -504,8 +508,8 @@ describe('story-6cd17452 — the journal degrades, and is never a revision', () 
       expect(existsSync(journalFile())).toBe(true)
       expect(existsSync(path.join(siteRoot(), 'draft', '.journal.json'))).toBe(false)
 
-      const withJournal = await cmdPublish(SLUG, { cwd, message: 'with a journal' })
-      const a = filesUnder(revisionDir({ cwd, root: 'sites' }, SLUG, withJournal.id))
+      const withJournal = await cmdPublish(SLUG, { cwd, sandbox: true, message: 'with a journal' })
+      const a = filesUnder(revisionDir({ cwd, root: 'sandbox' }, SLUG, withJournal.id))
       expect(a).toContain('site.json')
       expect(a).toContain(path.join('pages', 'home.json'))
       expect(a.some((f) => f.includes('journal'))).toBe(false)
@@ -519,19 +523,30 @@ describe('story-6cd17452 — the journal degrades, and is never a revision', () 
       // diffs the draft against the live revision, so if the journal were part
       // of the definition, deleting it would show up as a change and mint r2.
       rmSync(journalFile())
-      const withoutJournal = await cmdPublish(SLUG, { cwd, message: 'without a journal' })
+      const withoutJournal = await cmdPublish(SLUG, { cwd, sandbox: true, message: 'without a journal' })
       expect(withoutJournal.published).toBe(false)
       expect(withoutJournal.id).toBe(withJournal.id)
       expect(withoutJournal.changes).toEqual({ added: [], modified: [], removed: [] })
-      expect(filesUnder(revisionDir({ cwd, root: 'sites' }, SLUG, withJournal.id))).toEqual(a)
+      expect(filesUnder(revisionDir({ cwd, root: 'sandbox' }, SLUG, withJournal.id))).toEqual(a)
 
       // And it is excluded from version control, so an edit leaves no tracked
       // working-tree modification beyond the draft content it changed.
-      const ignore = readFileSync(
-        path.join(path.dirname(new URL(import.meta.url).pathname), '..', '.gitignore'),
-        'utf8',
-      )
-      expect(ignore).toContain('.journal.json')
+      //
+      // Asked of git rather than of the `.gitignore` text. REQ-290 deleted the
+      // rule that named `.journal.json` explicitly: it was scoped to
+      // `/storage/sites/*/`, the retired authoring tier, and the tree the CLI
+      // writes now is covered wholesale. The PROPERTY is what this AC claims, so
+      // this asks for the property — and it would have held on either rule.
+      const journal = path.join('storage', 'sandbox', SLUG, '.journal.json')
+      const ignored = ((): boolean => {
+        try {
+          execFileSync('git', ['check-ignore', '-q', journal], { cwd: REPO_ROOT })
+          return true
+        } catch {
+          return false
+        }
+      })()
+      expect(ignored, journal).toBe(true)
     },
     180000,
   )
@@ -542,7 +557,7 @@ describe('story-6cd17452 — the journal degrades, and is never a revision', () 
 describe('story-6cd17452 — the change-reading operation is declared, granted and marked', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'journal-surface-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -551,7 +566,7 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
     // The surface declares; the grant selects. A session with the reading
     // capability is told about it; one without is never told it exists, so it
     // cannot propose it or apologise for it.
-    const granted = await createL1Toolbox(SLUG, { cwd }, { config: { l1: { groups: ['ReadSite'] } } })
+    const granted = await createL1Toolbox(SLUG, { cwd, sandbox: true }, { config: { l1: { groups: ['ReadSite'] } } })
 
     expect(granted.toolNames()).toContain('list_changes')
     const manual = granted.manual() as string
@@ -578,7 +593,7 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
     // A session granted a different group only is never told, and cannot invoke.
     const ungranted = await createL1Toolbox(
       SLUG,
-      { cwd },
+      { cwd, sandbox: true },
       { config: { l1: { groups: ['AuthorPages'] } } },
     )
     expect(ungranted.toolNames()).not.toContain('list_changes')
@@ -596,7 +611,7 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
       'home',
       HEADLINE_PATH,
       { text: 'Words a person typed.' },
-      { ...fsOpts(cwd), actor: 'client' },
+      { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
     )
 
     const declared = (
@@ -604,7 +619,7 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
     ).find((o) => o.op === 'list_changes')!
     expect(declared.returns?.provenance).toBe('untrusted')
 
-    const box = await createL1Toolbox(SLUG, { cwd }, { config: { l1: { groups: ['ReadSite'] } } })
+    const box = await createL1Toolbox(SLUG, { cwd, sandbox: true }, { config: { l1: { groups: ['ReadSite'] } } })
     const answer = (await box.run('list_changes', { since: 0 })) as string
 
     // Delivered under the same untrusted-provenance handling every other
@@ -627,9 +642,9 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
 describe('story-6cd17452 — a session is TOLD when the site moved under it', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'journal-signal-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
-    rmSync(sessionsDir({ cwd }), { recursive: true, force: true })
+    rmSync(sessionsDir({ cwd, sandbox: true }), { recursive: true, force: true })
     resetAiHost()
   })
   afterEach(() => {
@@ -641,7 +656,7 @@ describe('story-6cd17452 — a session is TOLD when the site moved under it', ()
   /** Run one turn to completion, draining the stream so the turn has finished. */
   async function turn(sessionId: string, text: string): Promise<void> {
     const drained: unknown[] = []
-    for await (const event of streamPrompt(sessionId, text, { cwd })) drained.push(event)
+    for await (const event of streamPrompt(sessionId, text, { cwd, sandbox: true })) drained.push(event)
     expect(drained.length).toBeGreaterThan(0)
   }
 
@@ -673,7 +688,7 @@ describe('story-6cd17452 — a session is TOLD when the site moved under it', ()
       ])
       setModelClient(client)
 
-      const { sessionId } = await openSession(SLUG, { cwd })
+      const { sessionId } = await openSession(SLUG, { cwd, sandbox: true })
 
       // A quiet turn says nothing about changes. A reminder that reported
       // "nothing happened" every turn is one that gets skimmed on the turn
@@ -696,7 +711,7 @@ describe('story-6cd17452 — a session is TOLD when the site moved under it', ()
         'home',
         HEADLINE_PATH,
         { text: 'I rewrote this myself.' },
-        { ...fsOpts(cwd), actor: 'client' },
+        { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
       )
 
       await turn(sessionId, 'make the heading bigger')
@@ -737,7 +752,7 @@ describe('story-6cd17452 — a session is TOLD when the site moved under it', ()
 describe('story-6cd17452 — one implementation, two callers', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'journal-cli-'))
-    cmdNew(SLUG, { cwd })
+    cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
@@ -750,7 +765,7 @@ describe('story-6cd17452 — one implementation, two callers', () => {
         'home',
         HEADLINE_PATH,
         { text: 'A warmer welcome.' },
-        { ...fsOpts(cwd), actor: 'client' },
+        { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
       )
 
       const listing = await cli('changes', SLUG)
@@ -770,7 +785,7 @@ describe('story-6cd17452 — one implementation, two callers', () => {
 
       // Driven past the retained window, it says so rather than answering half.
       for (let i = 0; i < JOURNAL_WINDOW + 2; i++) {
-        await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, fsOpts(cwd))
+        await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, fsOpts(cwd, 'sandbox'))
       }
       const truncated = await cli('changes', SLUG, '--since', '0')
       expect(truncated.exitCode).toBe(0)
@@ -791,9 +806,9 @@ describe('story-6cd17452 — one implementation, two callers', () => {
       'home',
       HEADLINE_PATH,
       { text: 'A warmer welcome.' },
-      { ...fsOpts(cwd), actor: 'client' },
+      { ...fsOpts(cwd, 'sandbox'), actor: 'client' },
     )
-    await editPaletteAdd(SLUG, 'accent', '#2e86a3', { ...fsOpts(cwd), actor: 'client' })
+    await editPaletteAdd(SLUG, 'accent', '#2e86a3', { ...fsOpts(cwd, 'sandbox'), actor: 'client' })
 
     const answer = await cli('changes', SLUG, '--since', '0', '--json')
     expect(answer.exitCode).toBe(0)

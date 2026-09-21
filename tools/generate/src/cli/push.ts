@@ -3,7 +3,18 @@ import type { ReferenceStore } from '../store/reference-store'
 import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 
 /**
- * Copying a local site up to the cloud store (REQ-145).
+ * The site-payload transport: one site's draft, read out of a store and posted
+ * into another store's import route (REQ-145).
+ *
+ * THIS IS A TRANSPORT, NOT A COMMAND (REQ-290). It began as the local half of a
+ * CLI verb that read the git-tracked authoring tier and posted it up; REQ-290
+ * retired both the verb and the tier. Nothing here
+ * went with it, because nothing here was ever about that tier: every function
+ * below takes a {@link SiteStore} port and cannot tell which implementation it
+ * was handed. What survives is the wire shape (`SitePayload`), the two ends
+ * that convert to and from it, and the refusals — and REQ-289's copy pair,
+ * along with the Worker's own `/api/import` and `/api/export`, are built on
+ * exactly those.
  *
  * WHY IT GOES OVER HTTP AND NOT STRAIGHT INTO D1. The store's D1/R2 adapter
  * takes workerd *bindings* — a `D1Database` and an `R2Bucket` — and Node has
@@ -27,8 +38,8 @@ import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 /** One site's whole draft, as it crosses the wire. */
 export interface SitePayload {
   /**
-   * What the site is called in the LOCAL store it came from — a directory under
-   * `storage/sites/`.
+   * What the site is called in the store it came from — whatever that store's
+   * own naming is.
    *
    * IT NAMES THE SOURCE AND ADDRESSES NOTHING ([[REQ-236]]). It used to be the
    * far side's target too, because the cloud store addressed a site by a slug.
@@ -57,8 +68,8 @@ export interface SitePayload {
    * ABSENT MEANS NO, and the refusal it unlocks is the whole point. An import
    * replaces `site.json` and every page it carries, so pushing a freshly
    * scaffolded site over one somebody built in the builder destroys the built
-   * one — which is exactly how BUG-51's demo site was lost, to a `bin/publish`
-   * whose own documentation calls re-running it "the ordinary way to use it".
+   * one — which is exactly how BUG-51's demo site was lost, to a push script
+   * whose own documentation called re-running it "the ordinary way to use it".
    * The far side refuses that case now; this is how a caller says it meant it.
    *
    * IT TRAVELS IN THE PAYLOAD rather than as a query parameter or a header,
@@ -118,9 +129,9 @@ export function fromBase64(text: string): Uint8Array {
  * largest thing in the payload to learn something that was in hand a line
  * earlier.
  *
- * `site` IS WHATEVER THE STORE CALLS THE SITE — a directory under
- * `storage/sites/` in the file-backed tier, a minted key in D1. The port says
- * so and this function does not look.
+ * `site` IS WHATEVER THE STORE CALLS THE SITE — a directory name in the
+ * file-backed tier, a minted key in D1. The port says so and this function does
+ * not look.
  */
 export async function readSiteDraft(
   store: SiteStore,
@@ -162,7 +173,7 @@ export async function readSiteDraft(
  *
  * WHAT IT REFUSES: an asset whose bytes are byte-for-byte a subresource we
  * mirrored from a captured page. `1c repro` copies a bundle's mirrored
- * subresources into `storage/sites/<slug>/draft/assets/` so the reproduction
+ * subresources into `storage/sandbox/<slug>/draft/assets/` so the reproduction
  * renders from its own media, and everything in that directory is a site asset
  * to this function — which is how a third party's photograph reached a client
  * site with no rights record and no gate. See `asset-rights.ts`.
@@ -327,8 +338,8 @@ export interface PushOptions {
 /**
  * POST one payload at an import route, and report its refusals as refusals.
  *
- * LIFTED OUT OF {@link pushSite} ([[REQ-289]]) because there are two callers
- * now: `1c push`, which reads `storage/sites/` and posts, and
+ * LIFTED OUT OF {@link pushSite} ([[REQ-289]]) because there are two callers:
+ * {@link pushSite}, which reads a store directly and posts, and
  * `1c copy-to-cloud` / `1c copy-from-cloud`, which read one builder's
  * `/api/export` and post to another builder's `/api/import`. The refusals that
  * matter — Access bouncing an unauthenticated request to a login page, and
@@ -339,16 +350,17 @@ export interface PushOptions {
  * business explicitly with `/b/<businessId>/api/import`. An origin plus an
  * assumed path would put that prefix somewhere else.
  *
- * `subject` IS WHAT THE OPERATOR TYPED. `1c push` was given a slug and says so;
- * a copy was given a business name and says that. A shared function that named
- * one of them for both would report a site key the operator has never seen.
+ * `subject` IS WHAT THE CALLER NAMED. {@link pushSite} is given a site name in
+ * its store's own terms and says that back; a copy was given a business name and
+ * says that. A shared function that named one of them for both would report a
+ * site key the operator has never seen.
  *
  * `end` IS WHICH MACHINE `url` ADDRESSES, AND IT IS A PARAMETER ([[BUG-134]]).
  * This function's Access advice used to name `CF_ACCESS_CLIENT_*`
- * unconditionally, which is right for `1c push` — its target really is the
- * cloud — and wrong for `copy-from-cloud`, whose destination is the laptop. The
- * text could not be fixed in place because both callers share it, so the end
- * has to reach the sentence instead of being assumed by it.
+ * unconditionally, which is right for a push to the cloud and wrong for
+ * `copy-from-cloud`, whose destination is the laptop. The text could not be
+ * fixed in place because both callers share it, so the end has to reach the
+ * sentence instead of being assumed by it.
  */
 export async function postSitePayload(
   payload: SitePayload,
@@ -420,10 +432,10 @@ export async function pushSite(
   const landed = await postSitePayload(payload, {
     url: new URL('/api/import', opts.origin).toString(),
     subject: `Import of '${slug}'`,
-    // `1c push` HAS ONE END AND IT IS THE CLOUD. `--origin` can aim it at a
-    // local Worker, but the credential it reads is `CF_ACCESS_CLIENT_*` and the
-    // advice it owes on a refusal is the cloud row. The copy pair is the
-    // command with two ends; this one names its single end and moves on.
+    // THIS TRANSPORT HAS ONE END AND IT IS THE CLOUD. `--origin` can aim it at
+    // a local Worker, but the credential it reads is `CF_ACCESS_CLIENT_*` and
+    // the advice it owes on a refusal is the cloud row. The copy pair is the
+    // caller with two ends; this one names its single end and moves on.
     end: 'cloud',
     ...(opts.access ? { access: opts.access } : {}),
     ...(opts.fetch ? { fetch: opts.fetch } : {}),

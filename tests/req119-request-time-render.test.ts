@@ -27,6 +27,7 @@ import {
 import { getModule } from '../packages/framework/src/modules/registry'
 import { renderSite, renderSiteFiles } from '../tools/generate/src/render'
 import { loadSite, type LoadedSite } from '../tools/generate/src/store'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const REPO = path.resolve(__dirname, '..')
 const SLUG = 'xgd'
@@ -35,7 +36,7 @@ const SLUG = 'xgd'
  * so it would exercise neither the Astro container path nor asset serving —
  * which is most of what a request-time render has to get right.
  */
-const FIXTURE = path.join(REPO, 'storage/sites', SLUG, 'draft')
+const FIXTURE = path.join(L1_CORPUS_SITES, SLUG, 'draft')
 
 /** Every text artifact under a rendered channel, keyed by its relative path. */
 function textFiles(dir: string, prefix = ''): Map<string, string> {
@@ -56,7 +57,7 @@ function textFiles(dir: string, prefix = ''): Map<string, string> {
 }
 
 function loadDraft(cwd: string): LoadedSite {
-  const result = loadSite({ cwd, root: 'sites' }, SLUG, 'draft')
+  const result = loadSite({ cwd, root: 'sandbox' }, SLUG, 'draft')
   if (!result.ok) throw new Error(`fixture draft does not validate: ${JSON.stringify(result.errors)}`)
   return result.value
 }
@@ -68,7 +69,7 @@ describe('REQ-119 request-time draft and edit renders', () => {
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'req119-'))
-    const site = path.join(cwd, 'storage', 'sites', SLUG)
+    const site = path.join(cwd, 'storage', 'sandbox', SLUG)
     fs.mkdirSync(site, { recursive: true })
     fs.cpSync(FIXTURE, path.join(site, 'draft'), { recursive: true })
     fs.writeFileSync(path.join(site, 'history.json'), JSON.stringify({ revisions: [] }))
@@ -79,6 +80,7 @@ describe('REQ-119 request-time draft and edit renders', () => {
 
     builder = await startBuilder({
       cwd,
+      sandbox: true,
       clientDir: path.join(REPO, 'apps/control-app/src/builder'),
     })
   }, 180000)
@@ -128,7 +130,7 @@ describe('REQ-119 request-time draft and edit renders', () => {
     // every artifact each one contains — including the edit channel, whose
     // whole point is that it renders the same document differently.
     for (const channel of ['draft', 'edit'] as const) {
-      const { outDir } = await cmdRender(SLUG, { cwd, edit: channel === 'edit' })
+      const { outDir } = await cmdRender(SLUG, { cwd, sandbox: true, edit: channel === 'edit' })
       const onDisk = textFiles(outDir)
       expect(onDisk.size, channel).toBeGreaterThan(2)
 
@@ -177,7 +179,7 @@ describe('REQ-119 request-time draft and edit renders', () => {
     // whatever the last `1c render` produced, so a change made anywhere but the
     // builder's own save path was invisible until someone re-rendered — and
     // nothing on screen said so.
-    const pagePath = path.join(cwd, 'storage', 'sites', SLUG, 'draft', 'pages', 'home.json')
+    const pagePath = path.join(cwd, 'storage', 'sandbox', SLUG, 'draft', 'pages', 'home.json')
     const before = fs.readFileSync(pagePath, 'utf8')
     const marker = 'Edited out of band 119'
     const page = JSON.parse(before) as { seoMeta?: { title?: string }; title: string }
@@ -201,7 +203,7 @@ describe('REQ-119 request-time draft and edit renders', () => {
     // The one failure on this route the operator can fix. Serving off disk hid
     // it: a broken edit left the last good render in place, so the iframe went
     // on showing a page that no longer described the definition, indefinitely.
-    const sitePath = path.join(cwd, 'storage', 'sites', SLUG, 'draft', 'site.json')
+    const sitePath = path.join(cwd, 'storage', 'sandbox', SLUG, 'draft', 'site.json')
     const before = fs.readFileSync(sitePath, 'utf8')
     const broken = JSON.parse(before) as Record<string, unknown>
     delete broken.theme
@@ -225,7 +227,7 @@ describe('REQ-119 request-time draft and edit renders', () => {
     // AC-4. `published` is the immutable artifact a locked revision produced.
     // Deriving it from today's draft — the easy way to make one code path serve
     // all three channels — would put unpublished work on the published URL.
-    const { outDir } = await cmdPublish(SLUG, { cwd, message: 'req119' })
+    const { outDir } = await cmdPublish(SLUG, { cwd, sandbox: true, message: 'req119' })
     const published = path.join(outDir, 'index.html')
     expect(fs.existsSync(published)).toBe(true)
     const artifact = fs.readFileSync(published, 'utf8')
@@ -237,7 +239,7 @@ describe('REQ-119 request-time draft and edit renders', () => {
     expect(redirected.headers.get('location')).toBe(`https://1stcontact.io/site/${SLUG}/`)
 
     // Now move the draft. The draft-side channels follow it; published does not.
-    const pagePath = path.join(cwd, 'storage', 'sites', SLUG, 'draft', 'pages', 'home.json')
+    const pagePath = path.join(cwd, 'storage', 'sandbox', SLUG, 'draft', 'pages', 'home.json')
     const before = fs.readFileSync(pagePath, 'utf8')
     const marker = 'Unpublished work 119'
     const page = JSON.parse(before) as { seoMeta?: { title?: string } }

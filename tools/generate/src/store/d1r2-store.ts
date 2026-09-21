@@ -248,7 +248,8 @@ export interface TenantSiteStore extends SiteStore {
  * — including asset writes, which `assembleSite` consumes as `assetFiles` — so
  * nothing that changes the assembled value leaves the version still. Because the
  * check is a D1 read rather than isolate state, a write from ANOTHER isolate or
- * another process (`bin/publish` from a laptop) invalidates this correctly too.
+ * another process (`bin/copy-to-cloud` from a laptop) invalidates this correctly
+ * too.
  *
  * IT CACHES DATA, NEVER A HANDLE, and that is what makes it safe where the
  * router's `PREVIEWS` WeakMap is not. A cached `PreviewRenderer` would hold the

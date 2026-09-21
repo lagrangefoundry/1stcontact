@@ -48,9 +48,9 @@ import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-
  * have put the sequencing inside every adapter and made "one implementation"
  * (REQ-149 AC-6) a thing to maintain rather than a thing that is structurally so.
  *
- * TWO ADAPTERS, BOTH CURRENT. `fsSiteStore` (the operator's git-tracked
- * `storage/sites/`, DOC-12 §3.1) and the Worker's D1/R2 one are both live; this
- * is not a legacy mode with a preserved old path. Nothing detects a mode and no
+ * TWO ADAPTERS, BOTH CURRENT. `fsSiteStore` (the operator's local tree, now the
+ * reproduction substrate under `storage/sandbox/`, DOC-12 §3.1) and the Worker's
+ * D1/R2 one are both live; this is not a legacy mode with a preserved old path. Nothing detects a mode and no
  * caller chooses at runtime — the adapter is injected at construction.
  */
 
@@ -164,8 +164,8 @@ export interface DraftSnapshot {
  * Storage for one site tree, addressed by whatever the store calls the site.
  *
  * WHAT `site` IS DEPENDS ON THE ADAPTER, and deliberately says so rather than
- * naming one ([[REQ-236]]). In the file-backed tier it is the directory under
- * `storage/sites/` — single-user, git-tracked, nothing to collide with. In D1 it
+ * naming one ([[REQ-236]]). In the file-backed tier it is the site's own
+ * directory — single-user, local, nothing to collide with. In D1 it
  * is the site's KEY: `sites.slug` is gone, so there is no second name to
  * translate and no lookup to spend undoing one. A caller holds one opaque string
  * either way and cannot tell which adapter it has, which is the whole point of

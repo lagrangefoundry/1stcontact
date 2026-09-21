@@ -40,7 +40,9 @@ let opts: { cwd: string; store: ReturnType<typeof fsSiteStore> }
 
 beforeEach(() => {
   cwd = mkdtempSync(path.join(tmpdir(), 'req11-'))
-  opts = { cwd, store: fsSiteStore({ cwd, root: 'sites' }) }
+  // REQ-290 — `runCli` below resolves the sandbox root, so the store these
+  // handlers are driven against has to be the same tree.
+  opts = { cwd, sandbox: true, store: fsSiteStore({ cwd, root: 'sandbox' }) }
   origCwd = process.cwd()
   // run() resolves against process.cwd(); chdir so CLI-level tests target temp.
   process.chdir(cwd)
@@ -51,7 +53,7 @@ afterEach(() => {
 })
 
 const draftPath = (slug: string, ...parts: string[]) =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...parts)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...parts)
 
 /**
  * Repoint the (now-empty since REQ-84) starter home page onto instances of the
@@ -312,15 +314,15 @@ describe('1c structured-edit command surface (REQ-11)', () => {
 
     // Edit the draft, then status reports the modification against r1.
     await editPageUpdate('acme', 'home', { ...opts, title: 'Home (edited)' })
-    const revsBefore = listFilesRel(path.join(cwd, 'storage', 'sites', 'acme', 'revisions')).length
-    const historyBefore = readFileSync(path.join(cwd, 'storage', 'sites', 'acme', 'history.json'), 'utf8')
+    const revsBefore = listFilesRel(path.join(cwd, 'storage', 'sandbox', 'acme', 'revisions')).length
+    const historyBefore = readFileSync(path.join(cwd, 'storage', 'sandbox', 'acme', 'history.json'), 'utf8')
 
     const status = (await editStatus('acme', opts)).data as { modified: string[] }
     expect(status.modified).toContain('pages/home.json')
 
     // status creates no revision and writes nothing.
-    expect(listFilesRel(path.join(cwd, 'storage', 'sites', 'acme', 'revisions')).length).toBe(revsBefore)
-    expect(readFileSync(path.join(cwd, 'storage', 'sites', 'acme', 'history.json'), 'utf8')).toBe(historyBefore)
+    expect(listFilesRel(path.join(cwd, 'storage', 'sandbox', 'acme', 'revisions')).length).toBe(revsBefore)
+    expect(readFileSync(path.join(cwd, 'storage', 'sandbox', 'acme', 'history.json'), 'utf8')).toBe(historyBefore)
   })
 
   it('test_UAT_FC_REQ-11_failed_command_is_atomic', async () => {

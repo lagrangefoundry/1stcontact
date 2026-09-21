@@ -119,7 +119,7 @@ export interface IdentityEnv extends SiteStoreEnv {
    * WHY A MAPPING RATHER THAN A PRINCIPAL. A service token authenticates as a
    * non-human `common_name` and carries no email at all, so {@link admit} had
    * nothing to look it up by and refused every one of them `no_email` — which
-   * meant the credential BUG-36 provisioned for `bin/publish` passed Access and
+   * meant the credential BUG-36 provisioned for the copy commands passed Access and
    * was then turned away by this module. The answer that needs no new concepts is
    * that a service token is a PERSON'S AUTOMATION, which is what
    * `1stcontact-publish` literally is: an operator's laptop pushing sites. Saying

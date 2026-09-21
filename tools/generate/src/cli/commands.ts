@@ -32,6 +32,25 @@ import { starterHomePage, starterSiteJson } from './scaffold'
 
 export type { GlobalOptions } from './options'
 
+/**
+ * The context a command resolves against — the library's view, addressing both
+ * roots.
+ *
+ * REQ-290 retired `storage/sites/` as an authoring tier and pinned the CLI to
+ * `sandbox`, but it did that at the CLI's own entry point (`run`), NOT here, and
+ * the distinction is load-bearing rather than incidental.
+ *
+ * `ctxOf` is a LIBRARY call. Roughly a hundred suites reach it — through
+ * `cmdNew`, `cmdRender`, `cmdColors` and friends — against a temp `cwd`, and the
+ * relocated L1 conformance corpus is read through it too: the corpus keeps repo
+ * shape precisely so `cmdColors(slug, { cwd: L1_CORPUS_CWD })` resolves it with
+ * no new code on either side. Pinning the root here would take the store's
+ * ability to address `sites` away from the one caller that still needs it, to
+ * constrain callers that were never the problem.
+ *
+ * What REQ-290 retired is the *CLI's* ability to choose, and the CLI is exactly
+ * one entry point. See `run` in `./index.ts`.
+ */
 export function ctxOf(opts: GlobalOptions): StoreContext {
   const root: Root = opts.sandbox ? 'sandbox' : 'sites'
   return { cwd: opts.cwd ?? process.cwd(), root }

@@ -8,10 +8,18 @@
  * on anything un-provenanced.
  *
  * The check is *project* level, not per-site: licence obligations attach to the
- * font, not to the site that happens to reference it, so both the git-tracked
- * `sites/` tree and the gitignored `sandbox/` scratch tree are scanned in one
- * pass. Sandbox reproduction sites carry capture-derived fonts whose terms are
- * often unclear, and that is precisely the state the registry exists to record.
+ * font, not to the site that happens to reference it, so every tree that can
+ * hold a site is scanned in one pass, whether or not anything currently writes
+ * it. Reproduction sites carry capture-derived fonts whose terms are often
+ * unclear, and that is precisely the state the registry exists to record.
+ *
+ * WHAT "PROJECT" MEANS SINCE REQ-290. The obligation attaches to bytes in the
+ * repository, not to a directory name, so the scan follows the bytes. REQ-290
+ * retired `storage/sites/` as an authoring tier and moved the hand-authored L1
+ * corpus — which carries seven committed font files — to a fixture under
+ * `tests/`. Scanning only `storage/` afterwards would have left those files
+ * unaccounted for while still reporting PASS, which is the one outcome this
+ * gate exists to prevent. See {@link SOURCE_BASES_REL}.
  *
  * Registration is *provenance, not approval*. A registered family with an open
  * `actions` entry warns; it does not fail. The blocking gate is
@@ -32,6 +40,31 @@ import { CommandError } from './errors'
 
 /** Where the registry lives, relative to the repo root. */
 export const REGISTRY_REL = path.join('fonts', 'registry.yaml')
+
+/**
+ * Every repo-relative directory that may hold project font bytes.
+ *
+ * `.` is the repository itself, whose `storage/` trees hold the reproduction
+ * substrate and the mirrored bytes of every capture. The second entry is the
+ * L1 conformance corpus, which is repo-shaped (`<base>/storage/sites/<slug>/`)
+ * precisely so that one `cwd` swap reads it — see its README.
+ *
+ * This is the one place production code names the fixture, and it is deliberate
+ * rather than a leak of test layout into the CLI: a font file committed under
+ * `tests/` is redistributed by this repository exactly as one committed under
+ * `storage/` is, and a licence gate that declined to look at it would be
+ * answering a question about directory names instead of about obligations. A
+ * base that is not present is skipped, so a consumer that vendors only the tool
+ * scans what it has.
+ */
+export const SOURCE_BASES_REL = ['.', path.join('tests', 'fixtures', 'l1-corpus')] as const
+
+/** The {@link SOURCE_BASES_REL} entries that exist under `cwd`, as absolute paths. */
+function sourceBases(cwd: string): Array<{ dir: string; rel: string }> {
+  return SOURCE_BASES_REL.map((rel) => ({ dir: path.resolve(cwd, rel), rel })).filter(({ dir }) =>
+    pathExists(path.join(dir, 'storage')),
+  )
+}
 
 export function registryPath(cwd: string): string {
   return path.join(cwd, REGISTRY_REL)
@@ -169,28 +202,30 @@ function indexByFamily(registry: FontRegistry): Map<string, FontRegistryEntry> {
  */
 export function collectFontUsages(cwd: string): FontUsage[] {
   const usages: FontUsage[] = []
-  for (const root of ['sites', 'sandbox'] as const) {
-    const ctx: StoreContext = { cwd, root }
-    const treeDir = path.join(cwd, 'storage', root)
-    if (!pathExists(treeDir)) continue
-    for (const slug of listDirs(treeDir)) {
-      if (!pathExists(draftDir(ctx, slug))) continue
-      const loaded = loadSite(ctx, slug, 'draft')
-      if (!loaded.ok) continue
-      const { site } = loaded.value
-      const distribution = site.config.distribution ?? 'internal'
-      for (const page of site.pages as Page[]) {
-        const fonts: L1FontFace[] = page.l1?.resources?.fonts ?? []
-        for (const face of fonts) {
-          usages.push({
-            root,
-            slug,
-            distribution,
-            pageSlug: page.slug,
-            family: face.family,
-            src: face.src,
-            file: assetBasename(face.src),
-          })
+  for (const base of sourceBases(cwd)) {
+    for (const root of ['sites', 'sandbox'] as const) {
+      const ctx: StoreContext = { cwd: base.dir, root }
+      const treeDir = path.join(base.dir, 'storage', root)
+      if (!pathExists(treeDir)) continue
+      for (const slug of listDirs(treeDir)) {
+        if (!pathExists(draftDir(ctx, slug))) continue
+        const loaded = loadSite(ctx, slug, 'draft')
+        if (!loaded.ok) continue
+        const { site } = loaded.value
+        const distribution = site.config.distribution ?? 'internal'
+        for (const page of site.pages as Page[]) {
+          const fonts: L1FontFace[] = page.l1?.resources?.fonts ?? []
+          for (const face of fonts) {
+            usages.push({
+              root,
+              slug,
+              distribution,
+              pageSlug: page.slug,
+              family: face.family,
+              src: face.src,
+              file: assetBasename(face.src),
+            })
+          }
         }
       }
     }
@@ -219,19 +254,22 @@ const NON_SOURCE_TREES = new Set(['dist', 'node_modules'])
  * demanded of the file on disk, not of the reference to it.
  */
 export function collectFontFilesOnDisk(cwd: string): FontFileOnDisk[] {
-  const storage = path.join(cwd, 'storage')
-  if (!pathExists(storage)) return []
-
   const byFile = new Map<string, string[]>()
-  for (const tree of listDirs(storage)) {
-    if (NON_SOURCE_TREES.has(tree)) continue
-    for (const rel of listFilesRel(path.join(storage, tree))) {
-      const base = rel.split('/').pop() ?? rel
-      const lower = base.toLowerCase()
-      if (!FONT_EXTENSIONS.some((ext) => lower.endsWith(ext))) continue
-      const locations = byFile.get(base) ?? []
-      locations.push(`storage/${tree}/${rel}`)
-      byFile.set(base, locations)
+  for (const source of sourceBases(cwd)) {
+    const storage = path.join(source.dir, 'storage')
+    // A location is reported relative to the repo root, so a violation names a
+    // path the reader can open; the repository's own base contributes no prefix.
+    const prefix = source.rel === '.' ? '' : `${source.rel.split(path.sep).join('/')}/`
+    for (const tree of listDirs(storage)) {
+      if (NON_SOURCE_TREES.has(tree)) continue
+      for (const rel of listFilesRel(path.join(storage, tree))) {
+        const base = rel.split('/').pop() ?? rel
+        const lower = base.toLowerCase()
+        if (!FONT_EXTENSIONS.some((ext) => lower.endsWith(ext))) continue
+        const locations = byFile.get(base) ?? []
+        locations.push(`${prefix}storage/${tree}/${rel}`)
+        byFile.set(base, locations)
+      }
     }
   }
 

@@ -100,7 +100,10 @@ describe('REQ-149 — the builder does not fail silently', () => {
     expect(html).toContain('The builder did not start')
     expect(html).toContain('503')
     expect(html).toContain("No tenant")
-    expect(html).toContain('bin/publish')
+    // The named remedy, not a generic one. It named the retired push script
+    // until REQ-290 deleted it along with the file tier it read; the command
+    // that now puts a site into an empty store is REQ-289's copy pair.
+    expect(html).toContain('bin/copy-from-cloud')
   })
 
   it('test_UAT_FC_REQ-149_a_builder_that_mounted_is_never_overwritten', async () => {

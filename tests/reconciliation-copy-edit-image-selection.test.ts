@@ -76,7 +76,7 @@ const A_MODULE = '0.3' // the behavior-module instance's region
 const A_SLIDE = '0'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 const homeJsonPath = (cwd: string): string => draftPath(cwd, 'acme', 'pages', 'home.json')
 
@@ -256,7 +256,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
 
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-image-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {
@@ -427,7 +427,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
 
     // A new image and a new alt text chosen together are ONE change, not two:
     // one operation, one modified document, both reported as changed.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     expect((await cli(cwd, 'status', 'acme')).data!.modified).toEqual([])
 
     const both = await cli(cwd, ...setArgs(A_IMAGE, { src: LOGO, alt: 'Our mark' }))
@@ -461,7 +461,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     // AC-1027 — choosing an image points the region at a different handle and
     // does nothing else at all. A published base gives `status` something to
     // diff against, so "what did this edit add?" has a countable answer.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     const filesBefore = readdirSync(draftPath(cwd, 'acme', 'assets')).sort()
     const printBefore = assetFingerprint(cwd)
     const nodeBefore = draftNode(cwd, A_IMAGE)
@@ -630,7 +630,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     // AC-991 — "there is no raw-editing mode" is a property of the surface's
     // shape, not a rule it has to enforce. There are exactly two shapes of field
     // and neither can carry code.
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     const beforeDoc = new JSDOM(readFileSync(path.join(outDir, 'index.html'), 'utf8')).window.document
     const scriptsBefore = beforeDoc.querySelectorAll('script').length
     const stylesBefore = beforeDoc.querySelectorAll('style').length
@@ -795,7 +795,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
  * against an artifact someone had to remember to refresh.
  */
 async function withOrigin(cwd: string, fn: (builder: BuilderHandle) => Promise<void>): Promise<void> {
-  const builder = await startBuilder({ cwd })
+  const builder = await startBuilder({ cwd, sandbox: true })
   try {
     await fn(builder)
   } finally {

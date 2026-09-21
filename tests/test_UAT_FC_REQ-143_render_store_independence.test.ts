@@ -1,19 +1,19 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { renderSiteFiles } from '../tools/generate/src/render'
 import { fsSiteStore } from '../tools/generate/src/store/fs-store'
 import { importSite } from '../tools/generate/src/store/import-site'
 import { memorySiteStore } from '../tools/generate/src/store/memory-store'
 import type { LoadedSite, LoadResult } from '../tools/generate/src/store/assemble'
+import { L1_CORPUS_CWD, L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * REQ-143 AC-6, the half that needs Astro — a site renders the same from any
  * store that holds it.
  *
  * WHY AC-6 IS PROVED IN TWO PLACES. The claim is that a site imported from
- * `storage/sites/` renders byte-identically from the D1/R2 store and the
+ * `storage/sandbox/` renders byte-identically from the D1/R2 store and the
  * filesystem store. No single test can assert that today, because the two ends
  * live in runtimes that cannot meet: D1 exists only inside workerd, and the
  * render runs through Astro's container API, which workerd has no transform for.
@@ -33,11 +33,13 @@ import type { LoadedSite, LoadResult } from '../tools/generate/src/store/assembl
  * narrative link.
  */
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const REPO = path.join(HERE, '..')
-const SITES = path.join(REPO, 'storage', 'sites')
+const SITES = L1_CORPUS_SITES
 
-/** Every real site on disk. Not a fixture — the sites the operator builds with. */
+/**
+ * Every site in the L1 conformance corpus — hand-authored documents, not fixtures
+ * a test built to pass itself. They were the operator's own `storage/sites/` tree
+ * until REQ-290 retired that tier and moved the corpus under `tests/fixtures/`.
+ */
 function realSlugs(): string[] {
   return readdirSync(SITES).filter((name) =>
     statSync(path.join(SITES, name, 'draft'), { throwIfNoEntry: false })?.isDirectory(),
@@ -59,7 +61,7 @@ describe('REQ-143 — the render is a pure function of the assembled site', () =
   const slugs = realSlugs()
 
   it('UAT_FC_REQ-143 there is at least one real site to render', () => {
-    // A guard, not decoration: an empty `storage/sites/` would make every
+    // A guard, not decoration: an empty `storage/sandbox/` would make every
     // `it.each` below vacuous and the suite would go green having asserted
     // nothing at all.
     expect(slugs.length).toBeGreaterThan(0)
@@ -70,7 +72,7 @@ describe('REQ-143 — the render is a pure function of the assembled site', () =
     async (slug) => {
       const draft = path.join(SITES, slug, 'draft')
 
-      const fs = fsSiteStore({ cwd: REPO, root: 'sites' })
+      const fs = fsSiteStore({ cwd: L1_CORPUS_CWD, root: 'sites' })
       const memory = memorySiteStore()
       memory.seed(slug, {
         siteJson: readJson(path.join(draft, 'site.json')),
@@ -113,7 +115,7 @@ describe('REQ-143 — the render is a pure function of the assembled site', () =
 
   it('UAT_FC_REQ-143 an imported site renders identically to the site it was imported from', async () => {
     const slug = slugs[0]
-    const source = fsSiteStore({ cwd: REPO, root: 'sites' })
+    const source = fsSiteStore({ cwd: L1_CORPUS_CWD, root: 'sites' })
 
     // The same `importSite` the D1 path uses — this is the port-to-port copy
     // (REQ-143 §5's import path), run here between two adapters that a single

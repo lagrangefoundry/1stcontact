@@ -1,6 +1,5 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { validateSite } from '../packages/site-schema/src'
 import type { ValidationError } from '../packages/site-schema/src/validate'
@@ -10,6 +9,7 @@ import { readHistory } from '../tools/generate/src/store/history'
 import { editPageAdd, editPageList } from '../tools/generate/src/cli/edit'
 import { CommandError } from '../tools/generate/src/cli/errors'
 import { makeMemorySite } from './support/site-factory'
+import { L1_CORPUS_CWD, L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 /**
  * REQ-153 — a page slug may not be mistaken for a locale.
@@ -24,12 +24,10 @@ import { makeMemorySite } from './support/site-factory'
  *
  * The claims are asserted on `validateSite` — the real entry point every writer
  * (`1c edit page add`, the AI toolbox, the store loader) funnels through — and
- * on the actual definitions in `storage/sites/`, not on hand-built fixtures
+ * on the actual definitions in `storage/sandbox/`, not on hand-built fixtures
  * standing in for them.
  */
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const REPO = path.join(HERE, '..')
 
 /** A one-page site whose home page carries `slug`. */
 function siteWithSlug(slug: string): Record<string, unknown> {
@@ -101,7 +99,7 @@ describe('REQ-153 AC-2 — only the exact locale forms, never a prefix', () => {
 })
 
 describe('REQ-153 AC-3 — every stored site still validates', () => {
-  const sitesRoot = path.join(REPO, 'storage', 'sites')
+  const sitesRoot = L1_CORPUS_SITES
   const slugs = existsSync(sitesRoot)
     ? readdirSync(sitesRoot).filter((n) => statSync(path.join(sitesRoot, n)).isDirectory())
     : []
@@ -113,18 +111,18 @@ describe('REQ-153 AC-3 — every stored site still validates', () => {
   })
 
   it.each(slugs)('%s: draft loads and validates', (slug) => {
-    const result = loadSite({ cwd: REPO, root: 'sites' }, slug, 'draft')
+    const result = loadSite({ cwd: L1_CORPUS_CWD, root: 'sites' }, slug, 'draft')
     expect(result.ok, result.ok ? '' : JSON.stringify(result.errors)).toBe(true)
   })
 
   // A published revision is frozen: if the rule broke one, no edit could rescue
   // it. Checking every revision that exists is the only honest form of AC-3.
   const revisions = slugs.flatMap((slug) =>
-    readHistory({ cwd: REPO, root: 'sites' }, slug).revisions.map((r) => [slug, r.id] as const),
+    readHistory({ cwd: L1_CORPUS_CWD, root: 'sites' }, slug).revisions.map((r) => [slug, r.id] as const),
   )
 
   it.each(revisions)('%s: published revision %i still validates', (slug, id) => {
-    const result = loadSite({ cwd: REPO, root: 'sites' }, slug, id)
+    const result = loadSite({ cwd: L1_CORPUS_CWD, root: 'sites' }, slug, id)
     expect(result.ok, result.ok ? '' : JSON.stringify(result.errors)).toBe(true)
   })
 })

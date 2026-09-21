@@ -12,7 +12,7 @@ import { resetJwksCache, verifyAccessJwt } from '../apps/control-app/src/access'
  * BUG-59 — **the simulator is the edge, not only the issuer**.
  *
  * WHAT WAS BROKEN. Turning the local gate on locked the local tooling out of the
- * local builder. `1c push` is the only way to get a site into the store — the
+ * local builder. An HTTP import is the only way to get a site into the store — the
  * documented recovery when `sites` is empty, which is the state a fresh clone is
  * in — and its one inbound credential is the `CF-Access-Client-Id` /
  * `CF-Access-Client-Secret` pair. Nothing on this side exchanged that pair for an
@@ -134,7 +134,7 @@ afterAll(() => {
 
 describe('BUG-59 — bin/access-sim exchanges a service token', () => {
   /**
-   * The claim the whole ticket rests on: the pair `1c push` already sends is
+   * The claim the whole ticket rests on: the pair the sender already sends is
    * exchanged for an assertion the product's own verifier accepts.
    *
    * IT IS VERIFIED RATHER THAN MATCHED. Asserting the header is merely present
@@ -219,7 +219,7 @@ describe('BUG-59 — bin/access-sim exchanges a service token', () => {
   })
 
   /**
-   * Half a pair is no pair — the rule `1c push` already enforces on the way out,
+   * Half a pair is no pair — the rule the sender already enforces on the way out,
    * restated here because this is the end that decides. Half a credential is not
    * a weaker credential, so it takes the uncredentialed path rather than earning
    * an answer about the missing half.
@@ -291,7 +291,7 @@ describe('BUG-59 — bin/access-sim exchanges a service token', () => {
   })
 
   /**
-   * The property `1c push` depends on: an import is a POST with a JSON body, and
+   * The property the sender depends on: an import is a POST with a JSON body, and
    * a hop that dropped either would fail as an empty or malformed import rather
    * than as a proxy fault.
    */

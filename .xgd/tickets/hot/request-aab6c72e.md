@@ -5,16 +5,31 @@ type: request
 title: 'Retire the file-backed authoring tier: storage/sites, bin/publish, 1c push'
 created_by: EPIC-16
 created_at: '2026-09-21T00:09:46.682813+00:00'
-updated_at: '2026-09-21T00:31:35.786104+00:00'
+updated_at: '2026-09-21T20:27:37.762560+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-3b04e5eb
+  commits:
+  - working_sha: 766f26e10cfb3154e57a2cf0530dfcf440e0bfc0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d4f941881ed562be0f1c159d2fdb947a927e93ac
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: f843e29ee15c1d59f2801f33e36e42ff18ee5f18
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: dc076907ba7ee829d6d0b89817a56b62e4d9a214
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.307
+  story_points: 8
 ---
 
 Parent: [[EPIC-16]]. Asked for by the operator on 2026-09-20: "the old dev path and
@@ -59,7 +74,7 @@ without separating them breaks the build:
 |---|---|
 | **Authoring a real site on disk** — `1c new` / `publish` / `checkout` against the `sites` root, then `bin/publish` up | Dead. Superseded by the builder. |
 | **The reproduction substrate** — `1c repro --ref <bundle>` imports a capture as a site, then `render` / `shot` / `diff` / `values-diff` / `gate` run the fidelity loop over it. `storage/sandbox/` holds seven such trees | **Load-bearing.** It is the framework-growth loop, and [[DOC-41]] §1 already names it as the thing that resembles a raw server and is not. |
-| **A corpus of hand-authored L1 for conformance tests** — `req107` AC-4 globs `storage/sites/**`, `req105` globs `storage/sites/*/draft/pages/*.json`, [[BUG-101]] reads `gigabytealchemy/draft/pages/home.json` | **Load-bearing, and wider than first written.** The implementing session's trace found **fourteen** suites reading the repo's own tree — `req107`, `req105`, `req103`, `req55`, `req109`, `req119`, `reconciliation-l1-control-and-texture`, `reconciliation-l1-one-colour-system`, `reconciliation-colour-census-and-retrofit`, `reconciliation-colour-retrofit-shade-model`, [[BUG-92]], [[BUG-101]], [[REQ-153]], [[REQ-175]]. (An earlier draft of this ticket said three. It was wrong.) 31 test files mention `storage/sites` in total, most against a temp `cwd`, so the move is verified by running the suite rather than by working down a list. |
+| **A corpus of hand-authored L1 for conformance tests** — `req107` AC-4 globs `storage/sites/**`, `req105` globs `storage/sites/*/draft/pages/*.json`, [[BUG-101]] reads `gigabytealchemy/draft/pages/home.json` | **Load-bearing, and wider than first written.** The implementing session's trace found **fourteen** suites reading the repo's own tree — and the move itself found **twenty-three**, because a suite that opens the tree through a `StoreContext` rather than a glob does not match a search for the path — `req107`, `req105`, `req103`, `req55`, `req109`, `req119`, `reconciliation-l1-control-and-texture`, `reconciliation-l1-one-colour-system`, `reconciliation-colour-census-and-retrofit`, `reconciliation-colour-retrofit-shade-model`, [[BUG-92]], [[BUG-101]], [[REQ-153]], [[REQ-175]]. (An earlier draft of this ticket said three. It was wrong.) 31 test files mention `storage/sites` in total, most against a temp `cwd`, so the move is verified by running the suite rather than by working down a list. |
 
 ## Behaviour
 
@@ -119,8 +134,23 @@ not just `repro`. Pinning `1c repro` alone would leave `1c new foo` recreating
 `storage/sites/foo`, and the tier would not have ceased to be an authoring tier at
 all; it would just be empty until someone typed a command.
 
-So the flip is at those three call sites: the CLI resolves `sandbox` unconditionally.
-`--sandbox` becomes redundant and comes out of the help text.
+So the flip is at the CLI's own entry point rather than at those three call
+sites. `run()` in `cli/index.ts` constructs `GlobalOptions` with `sandbox: true`
+unconditionally, and `ctxOf` — which all three call sites already go through —
+is left resolving `opts.sandbox ? 'sandbox' : 'sites'` exactly as it did.
+
+Pinning the three call sites individually was tried first and abandoned: it
+leaves an open-ended tail, because every library entry point that takes a
+`GlobalOptions` then has to be flagged by hand in any suite that also drives
+the CLI, and a missed one silently writes the retired root. Pinning the one
+place the CLI builds its options makes the library and the CLI agree by
+construction, and it is the narrower diff. The library still addresses both
+roots — that is what the relocated corpus needs.
+
+`--sandbox` is still parsed and still means what it always meant, because a
+flag that errors is a worse answer than one that has become a no-op. It comes
+out of the help text, because documenting a choice that is not offered is how
+the retired tier would keep being advertised.
 
 **`'sites'` stays in the `Root` type.** It is how the relocated L1 corpus is read —
 the suites construct a context directly (`loadSite({cwd: CORPUS_ROOT, root: 'sites'}, …)`)
@@ -155,3 +185,58 @@ substrate and a test transport.
 - `1c new` / `render` / `publish` / `checkout` / `revisions` / `verify` keep working
   against the sandbox root — they are how a reproduction gets a published channel to
   diff against. What ends is their use for authoring real sites.
+
+## What landed
+
+The behaviour above, as stated, with three things worth recording because the
+work found them rather than the ticket predicting them.
+
+**The corpus fixture gets a module, not twenty-three relative paths.**
+`tests/fixtures/l1-corpus/corpus.ts` exports `L1_CORPUS_CWD` and
+`L1_CORPUS_SITES` and is the single definition site for where the corpus lives.
+While the corpus *was* the repository's own `storage/sites/`, every reader
+deriving it from the repo root independently cost nothing — there was nothing to
+agree about. As a fixture it does: a suite that missed a later move would not
+fail loudly, it would find no documents and assert nothing. The README the
+ticket asks for sits beside it.
+
+**[[BUG-36]]'s credential assertion is repointed twice, not once.** It read the
+retired push script for the claim that the operator commands name a credential
+that exists. That artefact is gone, so the claim moved to where the refusal now
+lives — and [[BUG-134]], which landed on `xgd-working` during this work, then
+split that: the three-way a service-token pair requires is still `serviceToken`
+in `cli/copy.ts`, but the variable names the refusal puts in its sentence became
+a row of `ACCESS_NAMING` in `cli/push.ts`, because a copy has two ends and each
+end has its own names. Both halves are still asserted. The claim is unchanged;
+only the files that carry it moved.
+
+**Two comments naming the retired command are rewritten in tests this ticket
+does not otherwise touch** — [[BUG-134]]'s and `pushSite`'s own. The ticket's
+promise is that a grep for the script or the verb returns only the tickets and
+documents recording the retirement, and a UAT asserts exactly that over the
+tracked tree; a surviving prose mention would make it false. They are
+comment-only edits.
+
+**The operator's checkout had untracked residue under `storage/sites/`** — a
+`.DS_Store` and a `.journal.json` holding one already-applied copy edit from
+August, which is why git left the directory behind after deleting everything it
+tracked. The applied text is already in the corpus copy, so the record was
+redundant; the directory is removed, because a surviving empty `storage/sites/`
+is still a directory an agent finds and reads as a place sites go.
+
+### Evidence
+
+`tests/test_UAT_FC_REQ-290_file_backed_authoring_tier_retired.test.ts` — 13
+cases across five groups: the tier is gone (trees, script, helper, and a scan of
+the whole tracked tree for either name); the CLI always uses the sandbox root
+(a site created with no flag, the redundant flag, the render path, the help
+text, and `push` no longer resolving as a verb); the corpus moved intact (same
+three sites, repo shape still loadable through `loadSite`, and the README saying
+what it is); `1c reset` no longer advertises a source it does not have; and the
+transport the retired verb used is still importable by the Worker.
+
+The cases drive the shipped launcher (`tools/generate/bin/1c.mjs`) rather than
+calling `cmdNew` directly, which matters here specifically: the root a command
+resolves is decided in `run()`, so a test against the library would be asserting
+the library's default — and the whole point is that the library still addresses
+both roots while the CLI no longer chooses between them.

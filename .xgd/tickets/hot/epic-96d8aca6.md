@@ -5,10 +5,10 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T20:07:21.706723+00:00'
+updated_at: '2026-09-21T20:41:52.234570+00:00'
 completed_at: null
 last_field_updated: body
-status: underway
+status: done
 fields:
   priority: medium
   chat_comment: comment-d9b9fc8d
@@ -1056,3 +1056,124 @@ it is that the go-live sequence should be *derived* from the stores rather than
 written from memory — what businesses exist on each side, which names match, what has
 a site, what has a revision. That is a report `bin/` could produce and a person
 cannot reliably hold.
+
+
+### I12 — `copy-to-cloud`'s local end must be the simulator, not the dev server
+
+`bin/copy-to-cloud`'s `--origin` defaults to `http://localhost:8788`, which is the raw
+`wrangler dev` builder, and the first attempt was refused there with
+*"Cloudflare Access rejected this request: no Access token was presented."* The
+refusal is BUG-134's fix working: it names the LOCAL end specifically, says which two
+variables to set, and warns that `--print-token` emits them under the CLOUD names.
+
+**The default is the wrong end for two of the three businesses, and not because of the
+gate.** `scope.ts:329` records that the dev-open branch answers from `TENANT_ID` and is
+its last reader — so a connection straight to the dev server can only ever resolve to
+1st Contact, whatever credential it carries. `bin/access-sim` (port 8799) is the only
+local front door that reaches a business other than `TENANT_ID`, which is precisely
+what the copy of Lagrange Foundry and XGD needs. The header says this in passing
+(*"in practice `bin/access-sim`"*); the DEFAULT says otherwise, and the default is what
+an operator runs.
+
+Worth considering whether the default should be 8799, or whether the refusal should
+name the scope consequence rather than only the credential one — an operator who sets
+`LOCAL_ACCESS_*` and retries against 8788 gets past the gate and then silently copies
+the wrong business, or finds only one on offer.
+
+### I13 — An unintended business may exist in production
+
+After provisioning, production holds four businesses: 1st Contact (no site yet, as
+expected — it acquires one by import), Lagrange Foundry, XGD, and **Gigabyte
+Alchemy**, the last carrying a starter site `site_70772e9206eec9b1313a406b04076c06`.
+
+Gigabyte Alchemy is one of the local builder's test businesses and was not part of the
+go-live plan. `provisionBusiness` writes a live `pro` grant, so it is a real customer
+as far as entitlements, quotas and any future billing are concerned. **Open with the
+operator**: deliberate, or a mis-click while locating the fulfil action.
+
+If it is unintended it is worth more than a tidy-up. There is no route that deletes a
+business — provisioning is `POST /api/admin/businesses` and nothing undoes it — so a
+mistake at this control is permanent without hand-editing D1. That asymmetry belongs
+with the controls §I6 collects: the one operator action that mints a tenant, a
+membership, a grant and a site has no confirmation step and no inverse.
+
+
+### I14 — `--backup` is a mode, and its success line reads like a copy
+
+`bin/copy-to-cloud --backup FILE "1st Contact"` was run expecting a copy that also left
+a committable snapshot. `--backup` is exclusive: line 52 states it *"writes the SOURCE
+side's export to FILE and touches the destination not at all."* Nothing reached
+production; 1st Contact still held no site afterwards.
+
+The documentation is correct and unambiguous. What made the mistake survive is the
+**success line**:
+
+```
+backed up '1st Contact' from http://127.0.0.1:8799
+  site    site_62d3d0097bbc7b6e86bdcdb3728389a3
+  pages   1 (home.json)
+  assets  6
+  file    /Users/martin/.../storage/backups/1st-contact.json
+```
+
+Every fact there is true, and an operator who believed they had asked for a copy reads
+it as one completing — the site id, the page count and the asset count are exactly what
+a successful copy would report, and the word *backed up* is the only thing separating
+them. Nothing says the destination was not written.
+
+**The cheap fix is one clause in that line** — `"backed up … (destination not
+touched)"` — or, better, refusing the combination: `--backup` alongside a copy is a
+reasonable thing to WANT, and a flag whose presence silently cancels the command's
+named operation is a shape worth not having. Either the flag becomes additive, or it
+says plainly that it replaced the copy.
+
+Related to §I12: both entries in this section are the same class of defect. The tool's
+prose is right, its behaviour is right, and its **operator-facing output** is what
+misleads — a refusal that names the credential but not the scope consequence, and a
+success that names the export but not the untouched destination. That is the surface
+worth auditing before the next environment is stood up, and it is cheaper than any of
+the controls §I6 proposes.
+
+
+### I15 — A 403 from the app is not a missing credential, and `copy-to-cloud` says it is
+
+`bin/copy-to-cloud` reached the cloud end and was refused:
+
+```
+INTERNAL: Listing the businesses at https://app.1stcontact.io was refused with 403:
+1st Contact cannot open this for you at the moment. Please get in touch and we will sort it out.
+The CLOUD end is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and
+CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and --client-secret.
+```
+
+The quoted body is `DENIED_MESSAGE` (`identity.ts:459`) — **the application's own
+refusal**. Reaching it means Cloudflare Access ACCEPTED the credential and the Worker
+turned the caller away afterwards. The advice printed underneath is therefore the
+opposite of the diagnosis: it tells an operator who has a working credential to go and
+set one.
+
+`copy-to-cloud` treats any 403 on an end as "no credential for that end". That is right
+for Access's own 403 and wrong for ours, and the two are distinguishable: a refusal
+carrying `DENIED_MESSAGE` is an ADMISSION refusal. **The handler should branch on the
+body it already has** — it quotes it — and say so.
+
+This is the third instance of one defect in this section (§I12 credential-vs-scope,
+§I14 backup-vs-copy). The pattern: each message is written for the failure its author
+had in mind, and is emitted for a wider set of failures than that. Worth one pass over
+`bin/`'s operator-facing output as a unit rather than three separate fixes.
+
+State ruled out before reaching for the log, for the next reader: the operator's
+`users` row, account, and `owner` memberships on all four businesses are present,
+`active`, unrevoked and unexpired; the browser path works and provisioned three
+businesses through it. `entitlements.account_id` is NULL on every row, which LOOKS like
+the cause and is not — `businessesFor` (`identity.ts:1431`) joins `memberships`, not
+`entitlements`. The remaining candidate is the service token's identity: the
+`SERVICE_TOKEN_IDENTITIES` mapping keys on the `common_name` in Cloudflare's JWT, which
+is the token's NAME and not its client id, so a token provisioned under any other name
+resolves to no email and is refused `no_email`.
+
+`DENIED_MESSAGE` cannot say which — deliberately, as an anti-oracle — so
+`denyAdmission`'s structured log is the only route to the reason. That is the second
+time this section has had to reach for `wrangler tail` to learn something the operator
+needed (see §I8), which strengthens §I6's case: the deploy-time identity check should
+report whether the SERVICE TOKEN is admissible, not only whether a human is.

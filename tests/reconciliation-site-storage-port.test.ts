@@ -459,7 +459,7 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
 
   it('test_UAT_AC1326_command_arguments_output_and_refusal_envelopes_are_unchanged', async () => {
     const cwd = tempDir('ac1326-')
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
 
     /** The `1c` entry point: argv in, `--json` envelope and exit code out. */
     const cli = async (
@@ -672,7 +672,7 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
  * refuses `listen`, and nothing about it is TCP's.
  */
 async function builderFetch(cwd: string, url: string, init: RequestInit): Promise<Response> {
-  const opts = { cwd }
+  const opts = { cwd, sandbox: true }
   const ctx = ctxOf(opts)
   const payload = init.body == null ? [] : [Buffer.from(String(init.body))]
 

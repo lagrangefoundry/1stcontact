@@ -4,11 +4,26 @@ import path from 'node:path'
  * Path resolution for the file-backed site store (DOC-12 §2).
  *
  * Every command resolves against a {@link StoreContext}: a working directory
- * (the repo root in normal use) and a `root` selecting real sites (`storage/sites/`,
- * git-tracked) or throwaway scratch (`storage/sandbox/`, gitignored). Rendered output
- * always lands under `storage/dist/<root>/<slug>/<channel>/`.
+ * (the repo root in normal use) and a {@link Root}. Rendered output always lands
+ * under `storage/dist/<root>/<slug>/<channel>/`.
  */
 
+/**
+ * Which tree under `storage/` a context addresses.
+ *
+ * `sandbox` IS THE ONLY ONE THE CLI REACHES (REQ-290). It is the gitignored
+ * scratch tree the reproduction loop lives in: `1c repro` imports a capture
+ * there and the fidelity commands run over it.
+ *
+ * `sites` WAS THE AUTHORING TIER AND IS NOT ONE ANY MORE. Sites were authored as
+ * JSON on disk there, git-tracked, and copied up to the cloud; the builder
+ * replaced all of it and every real site now lives in the builder's store.
+ * REQ-290 deleted the tree and stopped the CLI from resolving this value. It
+ * survives in the type because the L1 conformance corpus — the hand-authored
+ * documents fourteen suites read, now under `tests/fixtures/l1-corpus/` — keeps
+ * repo shape, and `loadSite({ cwd: L1_CORPUS_CWD, root: 'sites' }, …)` is how it
+ * is addressed. A path shape, not a tier.
+ */
 export type Root = 'sites' | 'sandbox'
 /**
  * The channels a site renders to. `draft` and `published` are the two DOC-12

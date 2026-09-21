@@ -2334,7 +2334,7 @@ async function routeUncached(
   /**
    * POST /api/import — one whole site, copied up from a local store (REQ-145).
    *
-   * THE WORKER IS THE WRITER, deliberately. `bin/publish` runs in Node, which
+   * THE WORKER IS THE WRITER, deliberately. The caller runs in Node, which
    * has no D1 binding and no R2 binding; the alternatives were shelling out to
    * `wrangler d1 execute` with site JSON hand-escaped into SQL, or a third
    * store adapter over Cloudflare's HTTP API. Posting the payload here means
@@ -2346,8 +2346,8 @@ async function routeUncached(
    * would be missing pages nobody had a record of.
    *
    * IDEMPOTENT by construction — `createDraft` is a no-op for a site that
-   * exists and the write replaces each page and asset by name — so re-running
-   * `bin/publish` after a LOCAL edit is the ordinary way to use it.
+   * exists and the write replaces each page and asset by name — so re-running a
+   * copy after a LOCAL edit is the ordinary way to use it.
    *
    * "Idempotent" was doing too much work in that sentence, and BUG-51 is the
    * bill. Re-running the command is safe when the local copy is the only place
@@ -2357,8 +2357,8 @@ async function routeUncached(
    * now true of the case it was always meant to describe.
    *
    * IT RESOLVES ITS OWN TARGET NOW ([[REQ-236]]). The payload used to address
-   * one, by slug, and it cannot any more: a D1 site is named by a key, and
-   * `1c push` reads a directory under `storage/sites/` and has never seen one.
+   * one, by slug, and it cannot any more: a D1 site is named by a key, and a
+   * file-backed sender names a directory and has never seen one.
    * So the target is THIS BUSINESS'S SITE — the one of kind `site`, created when
    * the business holds none — which is the only unambiguous reading while a
    * business holds exactly one ([[BUG-90]]). A business holding several is
@@ -2405,9 +2405,9 @@ async function routeUncached(
       // THE COUNTER IS THE TEST, NOT THE VERSION, and the difference is the
       // whole reason this refusal does not break the ordinary loop. `write`
       // bumps `version` on every call including this route's own, so a site that
-      // has only ever been published from `storage/sites/` still has a version
-      // well above zero — guarding on it would refuse `bin/publish` the second
-      // time it ran, every time. `counter` moves only through `appendChange`,
+      // has only ever arrived through this route still has a version well above
+      // zero — guarding on it would refuse the second copy of the same site,
+      // every time. `counter` moves only through `appendChange`,
       // which is what a builder edit, an AI turn or a structured-edit command
       // does. So it separates content somebody AUTHORED HERE from content this
       // very command put here, which is exactly the distinction being made.
@@ -2440,7 +2440,7 @@ async function routeUncached(
           // Named in the body rather than only in the prose, so a caller that
           // is not a person can tell "refused, and here is the way to mean it"
           // from "refused" without parsing a sentence.
-          force: 'Re-send with "force": true (1c push --force, bin/publish --force).',
+          force: 'Re-send with "force": true (bin/copy-to-cloud --force).',
         })
       }
       const write = payloadToWrite(payload)
@@ -2451,16 +2451,16 @@ async function routeUncached(
       // domain — [[DOC-38]] §5's "most damaging single action available in the
       // system". It enforces that by reading `republishable` off the material's
       // own record. THIS route has no record to read: a subresource mirrored
-      // into `storage/sites/<slug>/draft/assets/` by `1c repro` and copied up by
-      // `1c push` arrives as bare bytes under a bare name, so the gate had
-      // nothing to consult and the bytes went straight past it.
+      // into `storage/sandbox/<slug>/draft/assets/` by `1c repro` and copied up
+      // arrives as bare bytes under a bare name, so the gate had nothing to
+      // consult and the bytes went straight past it.
       //
       // SO IDENTITY IS THE BYTES. The copy destroys every other link back to the
       // capture; the content hash is the only evidence it cannot erase. See
       // `asset-rights.ts` for why the scan is the bundle's `assets/` prefix and
       // why there is no override.
       //
-      // ENFORCED HERE AS WELL AS IN `1c push`, not instead of it. The CLI checks
+      // ENFORCED HERE AS WELL AS IN THE SENDER, not instead of it. The CLI checks
       // the operator's own `storage/references/` tree and this checks the
       // tenant's cloud bundles; neither sees the other's captures, and a request
       // posted by hand never runs the CLI at all. The Worker is the writer, so

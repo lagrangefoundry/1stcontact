@@ -264,7 +264,7 @@ describe('BUG-134 — a refusal names the end and that end‑s credential', () =
 
   it('test_UAT_FC_BUG-134_a_bounced_import_names_the_destination_end_not_the_cloud', async () => {
     // `postSitePayload` HAD THE SAME DEFECT ONE LAYER DOWN, and it could not be
-    // fixed by editing the text: `1c push` shares the function and its target
+    // fixed by editing the text: `pushSite` shares the function and its target
     // really is the cloud, while `copy-from-cloud`'s destination is the laptop.
     // So the end reaches the sentence as a parameter.
     const bounce = (async () => ({

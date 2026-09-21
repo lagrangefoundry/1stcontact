@@ -3,14 +3,15 @@
 # `bin/copy-to-cloud` — copy one business's site from the LOCAL builder to the
 # DEPLOYED one (REQ-289).
 #
-# WHY THIS IS NOT `bin/publish`. `publish` already names an operation — take a
-# draft, freeze it as a version, make that version live — and `bin/publish`
-# borrows the word for a different one on a different axis: copy bytes from this
-# laptop to Cloudflare. Worse, it copies the wrong thing. It reads
-# `storage/sites/<slug>/`, the git-tracked file tier; the sites that actually
-# exist were authored in the builder and live in the D1 and R2 store under
+# WHY IT IS NOT CALLED `publish`. `publish` already names an operation — take a
+# draft, freeze it as a version, make that version live. The push script this
+# replaced borrowed the word for a different one on a different axis: copy bytes
+# from this laptop to Cloudflare. Worse, it copied the wrong thing. It read the
+# git-tracked file tier; the sites that actually exist were authored in the
+# builder and live in the D1 and R2 store under
 # `apps/control-app/.wrangler/state/`. So until this command there was no way to
-# move a builder-authored site anywhere at all.
+# move a builder-authored site anywhere at all. REQ-290 retired both the script
+# and the tier it read.
 #
 # THE DIRECTION IS IN THE NAME. `bin/copy-from-cloud` is the same two HTTP calls
 # with the ends swapped. It is two names rather than one command with a flag
@@ -22,8 +23,8 @@
 # implementation detail, and R2 is a second SQLite plus a blob directory beside
 # it. So this is two HTTP calls — `GET /api/export` at one end, `POST /api/import`
 # at the other — and each end reads and writes through the very store it serves
-# from. It is `bin/publish`'s own argument for why an import goes over HTTP,
-# applied in reverse to the read.
+# from. That was the push script's own argument for why an import goes over HTTP,
+# applied here in reverse to the read.
 #
 # THE TARGET BUSINESS MUST ALREADY EXIST. Copying to a business that is not on
 # the far side fails, naming what that side does offer. This command never mints

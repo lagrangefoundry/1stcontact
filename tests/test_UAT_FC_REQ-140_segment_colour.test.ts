@@ -48,6 +48,7 @@ import {
 } from '../packages/site-schema/src/l1/edit'
 import type { L1Node } from '@1stcontact/site-schema'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 
@@ -67,7 +68,7 @@ const A_PANEL_COPY = '0.1.0'
 const A_BARE_BOX = '0.2'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]) =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 /**
  * A page shaped around the distinctions that decide behaviour.
@@ -181,7 +182,7 @@ describe('REQ-140 — segment colour', () => {
 
   beforeEach(() => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'req140-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
   afterEach(() => {
@@ -235,7 +236,7 @@ describe('REQ-140 — segment colour', () => {
 
     // The PAGE paints the entry's colour, so the conversion literal→reference is
     // invisible downstream.
-    const { outDir } = await cmdRender('acme', { cwd })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true })
     const html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
     expect(html).toContain('#2e86a3')
   })
@@ -396,7 +397,7 @@ describe('REQ-140 — segment colour', () => {
     // which is the dogfooding claim made concrete. A later intent may supersede
     // an earlier one at the same surface; what this criterion protects is that a
     // deleted EXAMPLE stays deleted, and that is unchanged for `harbor-cafe`.
-    const SITES = path.join(REPO_ROOT, 'storage', 'sites')
+    const SITES = L1_CORPUS_SITES
     for (const slug of ['harbor-cafe']) {
       expect(fs.existsSync(path.join(SITES, slug, 'draft', 'site.json')), slug).toBe(false)
       expect(fs.existsSync(path.join(SITES, slug, 'revisions')), slug).toBe(false)
@@ -433,10 +434,10 @@ describe('REQ-140 — segment colour', () => {
 
     beforeEach(async () => {
       seedSite(cwd, 'acme')
-      const { outDir } = await cmdRender('acme', { cwd, edit: true })
+      const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
       html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
       pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
-      builder = await startBuilder({ cwd })
+      builder = await startBuilder({ cwd, sandbox: true })
       const real = globalThis.fetch
       const origin = builder.url
       globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>

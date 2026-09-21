@@ -16,8 +16,8 @@ import { applySchema } from './support/d1-site-factory'
  * and reports it as `service-token:<name>`. `admit` then refused it, opening with
  * `if (!email) return { reason: 'no_email' }` — DOC-40 §2 makes the verified
  * email the identity and a `common_name` gives it nothing to look up. So the
- * credential BUG-36 provisioned for `bin/publish` passed the gate and was turned
- * away one layer in: `bin/publish --production` could authenticate and could not
+ * credential BUG-36 provisioned for the copy commands passed the gate and was
+ * turned away one layer in: a copy to the cloud could authenticate and could not
  * do anything.
  *
  * THE FIX ADDS NO NEW PRINCIPAL. `SERVICE_TOKEN_IDENTITIES` maps a token's name
@@ -210,7 +210,7 @@ describe('BUG-59 — who a service token is', () => {
   /**
    * And the whole path, through the Worker's own `fetch`: a real signed service
    * token, verified against a real JWKS, admitted, past the terms gate the person
-   * cleared, and served. This is the case `bin/publish --production` is, and the
+   * cleared, and served. This is the case a copy to the cloud is, and the
    * one that was 403ing.
    */
   it('test_UAT_FC_BUG-59_a_service_token_request_reaches_the_worker', async () => {

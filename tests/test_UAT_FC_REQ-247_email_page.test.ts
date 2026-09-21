@@ -82,7 +82,7 @@ interface Box {
 
 /** The consultant, with exactly the grant it ships with. Nothing is added. */
 function consultant(): Promise<Box> {
-  return createL1Toolbox(SLUG, { cwd }) as Promise<Box>
+  return createL1Toolbox(SLUG, { cwd, sandbox: true }) as Promise<Box>
 }
 
 /** A read's payload, with the provenance markers a consumer strips after reading. */
@@ -115,7 +115,7 @@ async function refused(
 
 beforeEach(() => {
   cwd = mkdtempSync(path.join(tmpdir(), 'req247-'))
-  cmdNew(SLUG, { cwd })
+  cmdNew(SLUG, { cwd, sandbox: true })
 })
 afterEach(() => rmTmp())
 function rmTmp(): void {
@@ -252,8 +252,8 @@ describe('REQ-247 — a message has no public address', () => {
     })
     await box.run('add_page', { page: 'about', title: 'About', path: 'about' })
 
-    await cmdRender(SLUG, { cwd })
-    const out = path.join(cwd, 'storage', 'dist', 'sites', SLUG, 'draft')
+    await cmdRender(SLUG, { cwd, sandbox: true })
+    const out = path.join(cwd, 'storage', 'dist', 'sandbox', SLUG, 'draft')
     const written = readdirSync(out).filter((f) => f.endsWith('.html')).sort()
 
     // The served pages are there…
@@ -792,8 +792,8 @@ describe('REQ-247 — what reaches a message is a form, not a link', () => {
     // wording is produced. The assistant reads the structured rows above; the
     // sentence is what a person reads, and it has to send them looking for the
     // right missing thing rather than for a link they must never add.
-    const store = fsSiteStore({ cwd, root: 'sites' })
-    const human = (await editPageList(SLUG, { cwd, store })).human
+    const store = fsSiteStore({ cwd, root: 'sandbox' })
+    const human = (await editPageList(SLUG, { cwd, sandbox: true, store })).human
     expect(human).toContain('(unreachable: no form sends it)')
     expect(human).not.toContain('(unreachable: nothing links to it)')
   })
@@ -821,7 +821,7 @@ describe('REQ-247 — a message is carried by an export and restored by an impor
    * be exactly as broken.
    *
    * ROUND-TRIPPED THROUGH THE REAL PAIR, `readSitePayload` and `payloadToWrite`,
-   * which are what `1c push` and `/api/import` are built out of.
+   * which are what `pushSite` and `/api/import` are built out of.
    */
   it('test_UAT_FC_REQ-247_a_message_survives_an_export_and_an_import', async () => {
     const box = await consultant()
@@ -859,7 +859,7 @@ describe('REQ-247 — a message is carried by an export and restored by an impor
     })
 
     // ── export ──
-    const payload = await readSitePayload(fsSiteStore({ cwd, root: 'sites' }), memoryReferenceStore(), SLUG)
+    const payload = await readSitePayload(fsSiteStore({ cwd, root: 'sandbox' }), memoryReferenceStore(), SLUG)
 
     // ── import, into a store that has never seen this site ──
     const landed = memorySiteStore()

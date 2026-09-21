@@ -18,6 +18,7 @@
  * are all pure.
  */
 import { describe, expect, it } from 'vitest'
+import path from 'node:path'
 import { readFileSync, globSync } from 'node:fs'
 import {
   l1GradientSchema,
@@ -36,6 +37,7 @@ import {
 } from '../packages/framework/src/index'
 import { contactFormControls, controlId } from '../packages/framework/src/modules/contact-form/controls'
 import { assertSafeUrl, ContentSafetyError } from '../packages/framework/src/modules/safety'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const WIDTHS = [320, 768, 1440]
 
@@ -564,7 +566,7 @@ describe('AC-831 texture composes with fill, gradient, scrim and image in a defi
 
     // This holds across every shipped page: no untextured page's rendered CSS
     // changes by a byte — every `background-size` is still a single value.
-    const pages = globSync('storage/sites/*/draft/pages/*.json')
+    const pages = globSync(path.join(L1_CORPUS_SITES, '*', 'draft', 'pages', '*.json'))
     expect(pages.length, 'shipped L1 pages to re-render').toBeGreaterThan(0)
     let checked = 0
     for (const file of pages) {

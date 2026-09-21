@@ -1,5 +1,6 @@
 import http from 'node:http'
 import { run, startBuilder, type BuilderHandle } from '../../tools/generate/src/cli'
+import type { Root } from '../../tools/generate/src/store/paths'
 
 /**
  * The workspace origin the edit dialog talks to, over whichever transport this
@@ -168,9 +169,9 @@ async function inProcess(cwd: string, url: URL, init?: RequestInit): Promise<Res
  * Prefers the real HTTP origin; falls back to the in-process transport only when
  * this machine refuses to open a socket at all.
  */
-export async function openOrigin(cwd: string): Promise<OriginHandle> {
+export async function openOrigin(cwd: string, root: Root = 'sandbox'): Promise<OriginHandle> {
   if (await canListen()) {
-    const builder: BuilderHandle = await startBuilder({ cwd })
+    const builder: BuilderHandle = await startBuilder({ cwd, sandbox: root === 'sandbox' })
     return {
       overHttp: true,
       url: builder.url,

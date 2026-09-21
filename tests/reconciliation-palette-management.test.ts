@@ -60,7 +60,7 @@ function paint(entryHex: string, shade?: number, alpha?: number): string {
 }
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
-  return path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  return path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 }
 
 const siteFile = (cwd: string, slug: string) => draftPath(cwd, slug, 'site.json')
@@ -135,7 +135,7 @@ const countOf = (entries: Entry[], name: string) => entries.find((e) => e.name =
  * walk over the document and every page exists to prevent.
  */
 async function seedSite(cwd: string, slug: string): Promise<void> {
-  cmdNew(slug, { cwd })
+  cmdNew(slug, { cwd, sandbox: true })
 
   const base = readSite(cwd, slug)
   base.palette = PALETTE
@@ -187,7 +187,7 @@ async function seedSite(cwd: string, slug: string): Promise<void> {
 
 /** The rendered draft home page — the bytes an operator actually looks at. */
 async function renderedHome(cwd: string, slug: string): Promise<string> {
-  const { outDir } = await cmdRender(slug, { cwd, edit: false })
+  const { outDir } = await cmdRender(slug, { cwd, sandbox: true, edit: false })
   return readText(path.join(outDir, 'index.html'))
 }
 
@@ -237,7 +237,7 @@ describe('story-ee073693 palette management', () => {
 
     // A site declaring no palette is a legitimate state, and reads as an empty
     // palette that says so — not an error, not a failure.
-    cmdNew('unpainted', { cwd })
+    cmdNew('unpainted', { cwd, sandbox: true })
     const empty = await cli(cwd, 'palette', 'get', 'unpainted')
     expect(empty.ok).toBe(true)
     expect(empty.exitCode).toBe(0)
@@ -466,7 +466,7 @@ describe('story-ee073693 palette management', () => {
       })
 
     beforeAll(async () => {
-      builder = await startBuilder({ cwd })
+      builder = await startBuilder({ cwd, sandbox: true })
     }, 120000)
 
     afterAll(async () => {
@@ -677,7 +677,7 @@ describe('story-ee073693 palette management', () => {
 
     // ALL FIVE OPERATIONS ARE DECLARED and every one is actually implemented —
     // a declared operation with no method is a capability nothing can reach.
-    const callable = Object.keys(l1Operations(slug, fsOpts(cwd)))
+    const callable = Object.keys(l1Operations(slug, fsOpts(cwd, 'sandbox')))
     for (const tool of ALL) {
       expect(operations.map((o) => o.tool), tool).toContain(tool)
       expect(callable, tool).toContain(tool)
@@ -716,7 +716,7 @@ describe('story-ee073693 palette management', () => {
       return typeof out === 'string' ? out : JSON.stringify(out)
     }
 
-    const granted: Toolbox = await createL1Toolbox(slug, { cwd })
+    const granted: Toolbox = await createL1Toolbox(slug, { cwd, sandbox: true })
     for (const tool of ALL) expect(granted.toolNames(), tool).toContain(tool)
 
     // It can change, add, rename and remove — and the site definition moves
@@ -782,7 +782,7 @@ describe('story-ee073693 palette management', () => {
     // ── a session NOT granted the palette writes ─────────────────────────────
     const readOnly: Toolbox = await createL1Toolbox(
       slug,
-      { cwd },
+      { cwd, sandbox: true },
       { config: { l1: { groups: ['ReadSite'] } } },
     )
     // The four writes are NOT OFFERED AT ALL — a consumer is never told about a

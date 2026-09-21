@@ -80,7 +80,7 @@ function unverified(what: string): void {
 }
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 /**
  * Two runs that differ only in whether their controls can tell the truth.
@@ -184,9 +184,9 @@ describe('story-3bf94bd4 unavailable controls, and the ordinary ones beside them
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-3bf94bd4-lock-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
     pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
     origin = await openOrigin(cwd)

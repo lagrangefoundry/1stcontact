@@ -89,7 +89,7 @@ export const BOOT_GUARD = `(function () {
       return 'An asset the builder imports is missing. Run <code>1c assets</code>, then restart the builder — the assets manifest is read at startup.';
     }
     if (/no tenant/i.test(api || '')) {
-      return 'The store has no business registered yet. Run <code>bin/publish &lt;site&gt;</code> to import a site, which registers one.';
+      return 'The store has no business registered yet. Run <code>bin/copy-from-cloud &lt;business&gt;</code> to bring a site down, which registers one.';
     }
     if (/TENANT_ID/.test(api || '')) {
       return 'TENANT_ID is not configured for this deployment. See apps/control-app/wrangler.toml.';

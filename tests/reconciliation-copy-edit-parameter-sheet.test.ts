@@ -91,7 +91,7 @@ function unverified(what: string): void {
 }
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 /**
  * One page carrying both shapes the criterion contrasts.
@@ -248,12 +248,12 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-3bf94bd4-sheet-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
     pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
-    builder = await startBuilder({ cwd })
+    builder = await startBuilder({ cwd, sandbox: true })
     if (WEBUI_INSTALLED) {
       ;({ mountEditor } = await import('../apps/control-app/src/builder/editor.js'))
     }

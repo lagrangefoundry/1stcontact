@@ -13,8 +13,8 @@ import type { SiteStore, StoredPage } from './site-store'
  * performed that way can only ever reach the fixtures. A repair expressed
  * against `node:fs` would have exactly that reach and would leave the real
  * defect in place. Expressed over {@link SiteStore} it runs wherever an adapter
- * does: the operator's `storage/sites/` tree in Node, and D1 inside the Worker
- * that holds the binding.
+ * does: the operator's local file tree in Node, and D1 inside the Worker that
+ * holds the binding.
  *
  * IT IS READ-ONLY UNLESS ASKED. {@link UpgradeSiteOptions.write} is absent by
  * default, so the ordinary run reports and changes nothing. A facility that

@@ -66,7 +66,7 @@ const MIXED_STORE = [
 ]
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
-  return path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  return path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 }
 
 /**
@@ -147,7 +147,7 @@ describe('story-c46abfa6 — the site asset store', () => {
 
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-c46abfa6-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
   })
 
@@ -159,7 +159,7 @@ describe('story-c46abfa6 — the site asset store', () => {
     // AC-1018 — the state EVERY real site in `storage/` is in, and since BUG-44
     // the only state there is: a full asset directory and nothing declaring any
     // of it. A listing that needed a declaration would name nothing at all here.
-    cmdNew('undeclared', { cwd })
+    cmdNew('undeclared', { cwd, sandbox: true })
     seedSite(cwd, 'undeclared')
 
     const listed = await askForAssets(cwd, 'undeclared')
@@ -278,7 +278,7 @@ describe('story-c46abfa6 — the site asset store', () => {
     expect(entriesOf(listed)).toEqual(MIXED_STORE)
 
     // "This site has no assets" is an answer, not a failure.
-    cmdNew('blank', { cwd })
+    cmdNew('blank', { cwd, sandbox: true })
     const empty = await askForAssets(cwd, 'blank')
     expect(empty.ok).toBe(true)
     expect(empty.exitCode).toBe(0)
@@ -292,9 +292,9 @@ describe('story-c46abfa6 — the site asset store over the builder origin', () =
 
   beforeAll(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-c46abfa6-origin-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
-    builder = await startBuilder({ cwd })
+    builder = await startBuilder({ cwd, sandbox: true })
   }, 120000)
 
   afterAll(async () => {

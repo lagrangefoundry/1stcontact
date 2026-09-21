@@ -81,7 +81,7 @@ function unverified(what: string): void {
 }
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', ...rest)
 
 /**
  * A page shaped around the distinctions these three criteria turn on.
@@ -164,9 +164,9 @@ describe('story-3bf94bd4 a region exposes its colour, and the panel behind it', 
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-3bf94bd4-colour-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedSite(cwd, 'acme')
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     html = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
     pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]+)"`).exec(html)![1]
     origin = await openOrigin(cwd)
@@ -402,7 +402,7 @@ describe('story-3bf94bd4 a region exposes its colour, and the panel behind it', 
       })
       // The PAGE repaints with it, so the literal→reference conversion is
       // invisible downstream.
-      const { outDir } = await cmdRender('acme', { cwd })
+      const { outDir } = await cmdRender('acme', { cwd, sandbox: true })
       expect(fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')).toContain(
         PALETTE.brand.value,
       )
@@ -633,7 +633,7 @@ describe('story-3bf94bd4 a region exposes its colour, and the panel behind it', 
       expect(nameIn(colour), 'the row now shows the entry that was just created').toBe('brand')
       await confirm(modal)
       expect(axesOf(A_HEADLINE).color).toEqual({ ref: 'brand' })
-      const { outDir } = await cmdRender('acme', { cwd })
+      const { outDir } = await cmdRender('acme', { cwd, sandbox: true })
       expect(fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')).toContain('#2e86a3')
     },
     240000,

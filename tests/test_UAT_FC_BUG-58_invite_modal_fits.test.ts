@@ -232,6 +232,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-58 — measured against a real browser', 
     await cmdRender('alpha', { cwd, source: 'draft' })
     builder = await startBuilder({
       cwd,
+      sandbox: true,
       clientDir: path.join(REPO, 'apps/control-app/src/builder'),
     })
   }, 120000)

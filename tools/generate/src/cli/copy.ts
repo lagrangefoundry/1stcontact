@@ -14,13 +14,14 @@ import {
  * Copying one business's site between the local builder and the deployed one
  * ([[REQ-289]]).
  *
- * WHY THIS IS NOT `bin/publish` RENAMED. `publish` already names an operation —
- * take a draft, freeze it as a version, make that version live — and
- * `bin/publish` borrows the word for a different one on a different axis: copy
- * bytes from this laptop to Cloudflare. Worse, it copies the wrong thing. It
- * reads `storage/sites/<slug>/`, the git-tracked file tier, and the sites that
- * actually exist were authored in the builder and live in D1 and R2. So there
- * has never been a command that moves a builder-authored site anywhere.
+ * WHY IT IS NOT CALLED `publish`. `publish` already names an operation — take a
+ * draft, freeze it as a version, make that version live. The push script this
+ * replaced borrowed the word for a different one on a different axis: copy bytes
+ * from this laptop to Cloudflare. Worse, it copied the wrong thing. It read the
+ * git-tracked file tier, and the sites that actually exist were authored in the
+ * builder and live in D1 and R2 — so until this pair there had never been a
+ * command that moves a builder-authored site anywhere. REQ-290 retired both the
+ * script and the tier it read.
  *
  * WHY IT IS TWO HTTP CALLS AND NOT A THIRD STORE ADAPTER. Under `wrangler dev`
  * the source is a miniflare SQLite file whose layout is an implementation
@@ -206,7 +207,7 @@ export function assertDataClass(klass: DataClass, direction: CopyDirection): voi
  * HALF A CREDENTIAL IS NOT A WEAKER CREDENTIAL. A request carrying one header
  * is declined at the edge with a message about identity rather than about the
  * half that was missing here, so the refusal belongs on this side. Lifted out
- * of `1c push`'s own handler so both commands refuse identically.
+ * of the push handler so both commands refuse identically.
  *
  * `CLOUDFLARE_API_TOKEN` IS NAMED IN THE REFUSAL because it is the credential
  * an operator reaches for and the one thing that cannot work: it is an API

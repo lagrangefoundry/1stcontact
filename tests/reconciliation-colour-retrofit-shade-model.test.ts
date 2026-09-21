@@ -48,7 +48,8 @@
  * synthetic one, and removed afterwards. The ACs that speak about the derived
  * palette or the converted definition drive the same command handlers the
  * launcher dispatches, against isolated temp working directories. Nothing is
- * mocked; the repo's own `storage/sites/` tree is only ever read.
+ * mocked; the stored sites they copy from come from the frozen L1 corpus under
+ * `tests/fixtures/`, which is only ever read.
  */
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -74,10 +75,11 @@ import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { listFilesRel } from '../tools/generate/src/store'
 import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
+import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BIN = path.join(REPO_ROOT, 'tools', 'generate', 'bin', '1c.mjs')
-const SITES = path.join(REPO_ROOT, 'storage', 'sites')
+const SITES = L1_CORPUS_SITES
 const SANDBOX = path.join(REPO_ROOT, 'storage', 'sandbox')
 
 /** `#rrggbb` or `#rrggbbaa`, the only shape an L1 colour literal takes. */
@@ -109,7 +111,15 @@ function seedSandbox(source: string, slug: string): string {
   return dir
 }
 
-/** Copy a real stored site into an isolated temp working directory. */
+/**
+ * Copy a real stored site into an isolated temp working directory.
+ *
+ * The `sites` root, here and in {@link paintedSite}, because these sites are
+ * reached through `cmdColors` / `cmdColorsAssign` against this temp `cwd` — the
+ * LIBRARY, which still addresses both roots. REQ-290 pinned `sandbox` at the
+ * CLI's entry point and nowhere else, and the commands this suite spawns
+ * through {@link cli} run against the repository rather than against `cwd`.
+ */
 function seedTemp(cwd: string, source: string, slug: string): string {
   const dir = path.join(cwd, 'storage', 'sites', slug)
   mkdirSync(path.dirname(dir), { recursive: true })

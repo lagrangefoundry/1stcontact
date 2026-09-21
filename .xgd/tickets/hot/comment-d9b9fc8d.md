@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:07:34.341044+00:00'
+updated_at: '2026-09-21T20:41:55.981963+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1212,5 +1212,274 @@ bin/copy-to-cloud --backup storage/backups/xgd.json "XGD"
 ---
 
 Do those three and tell me what `copy-to-cloud` says. Publishing is next, and it's the genuinely untested path — 0 revisions on both sides, so whatever happens there, nobody has seen it before.
+
+<!-- xgd-turn id="7fccf82a-e5b3-4f4b-9de8-24b9eb3452f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:17:30.277007+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx control-app % npx wrangler d1 execute DB --remote --command \
+  "select t.name, s.id from tenants t left join sites s on s.tenant_id = t.id;" --json
+
+[
+  {
+    "results": [
+      {
+        "name": "1st Contact",
+        "id": null
+      },
+      {
+        "name": "Lagrange Foundry",
+        "id": "site_23c1afb3739dadf62347a5008e8a7dea"
+      },
+      {
+        "name": "XGD",
+        "id": "site_6caf0a8b4a9ec0e7c74b69c95d599eda"
+      },
+      {
+        "name": "Gigabyte Alchemy",
+        "id": "site_70772e9206eec9b1313a406b04076c06"
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "WNAM",
+      "served_by_colo": "SJC",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.4086
+      },
+      "duration": 0.4086,
+      "changes": 0,
+      "last_row_id": 127,
+      "changed_db": false,
+      "size_after": 532480,
+      "rows_read": 9,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]
+
+```
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --backup storage/backups/1st-contact.json "1st Contact"
+INTERNAL: Listing the businesses at http://localhost:8788 was refused with 401: Cloudflare Access rejected this request: no Access token was presented.
+The LOCAL end is behind Cloudflare Access. Set LOCAL_ACCESS_CLIENT_ID and LOCAL_ACCESS_CLIENT_SECRET to a service token, or pass --local-client-id and --local-client-secret. Run ./bin/access-sim --print-token and put its two values in LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET — it prints them under the CLOUD names, which are the other end.
+
+```
+
+<!-- xgd-turn id="7fccf82a-e5b3-4f4b-9de8-24b9eb3452f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:18:54.336096+00:00" -->
+#### Claude
+Two things.
+
+## ⚠️ There's a business in production you may not have meant to create
+
+`Gigabyte Alchemy` — with a starter site, `site_70772e92…`. It's one of your local test businesses. `provisionBusiness` writes a live `pro` grant, so it's a real customer as far as the system is concerned. Did you create it deliberately, or was it a mis-click while finding the fulfil action? Tell me and I'll either leave it or work out the clean removal.
+
+Also note 1st Contact correctly has no site yet — that arrives by import.
+
+## The copy-to-cloud refusal is correct, and points at the wrong port
+
+You aimed at `localhost:8788`, which is the raw `wrangler dev` builder. The sim is on **8799** and it's already running (I probed both — 8788 answers 401, 8799 answers 302).
+
+**`--origin` isn't optional here, it's required.** `scope.ts:329` notes the dev-open branch answers from `TENANT_ID` and is its last reader — so a direct connection to 8788 could only ever reach *1st Contact*, even if the gate were open. `bin/access-sim` is the only local front door that can reach Lagrange Foundry and XGD.
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+# local end — remap the sim's output onto the LOCAL_ names
+eval "$(./bin/access-sim --print-token | sed 's/CF_ACCESS_/LOCAL_ACCESS_/')"
+
+# cloud end — from bin/access-token, if you haven't already
+export CF_ACCESS_CLIENT_ID='...'
+export CF_ACCESS_CLIENT_SECRET='...'
+
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/1st-contact.json "1st Contact"
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/xgd.json "XGD"
+```
+
+The `sed` is just belt and braces — the sim prints under the CLOUD names (as its error message warned), and its defaults are the well-known `local-dev.access` / `local-dev-secret`, deliberately fixed because `/mint` hands anyone a token anyway and it binds to loopback.
+
+Your local sim will act as `martin@westhead.me` — that's `PLATFORM_ADMINS` in `apps/control-app/.dev.vars:29`, which is a different address again from the production one. Expected; the sim reads the local break-glass the same way the Worker does.
+
+Expect **Lagrange Foundry and XGD to demand `--force`** — their starter sites are builder-authored changes and `/api/import` refuses to clobber them. Read the count it names before you re-run. 1st Contact should go through clean, having no site at all.
+
+Recorded as §I12–I13. The Gigabyte Alchemy question matters beyond tidiness: there's no route that deletes a business — `POST /api/admin/businesses` has no inverse — so if it was a mis-click, undoing it means hand-editing D1. That's worth adding to the controls list either way.
+
+<!-- xgd-turn id="d4799e7b-0a54-4453-8d1a-77cb876973ca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:27:28.404265+00:00" -->
+#### You
+Of course I created it on purpose...
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/1st-contact.json "1st Contact"
+INTERNAL: Listing the businesses at http://127.0.0.1:8799 was refused with 403: access-sim: that CF-Access-Client-Id / CF-Access-Client-Secret pair is not this simulator's. Run ./bin/access-sim --print-token for the one it accepts.
+The LOCAL end is behind Cloudflare Access. Set LOCAL_ACCESS_CLIENT_ID and LOCAL_ACCESS_CLIENT_SECRET to a service token, or pass --local-client-id and --local-client-secret. Run ./bin/access-sim --print-token and put its two values in LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET — it prints them under the CLOUD names, which are the other end.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+on the local server I am just marrtin@westhead.me is that the issue?
+
+<!-- xgd-turn id="d4799e7b-0a54-4453-8d1a-77cb876973ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:29:21.116599+00:00" -->
+#### Claude
+No — the identity isn't the issue. This 403 is purely about the client id/secret **pair** not matching the running simulator; it hasn't got as far as asking who you are. `martin@westhead.me` is what the sim's token will *act as* (from `.dev.vars:29`), and that's correct.
+
+Let me find out what the running sim actually accepts.
+
+Confirmed by probing your running sim directly — three tests:
+
+| Credentials sent | Result |
+|---|---|
+| none | `302 → /login` |
+| `bogus.access` / `bogus` | **the exact 403 you got** |
+| `local-dev.access` / `local-dev-secret` | accepted — no 403, request proceeds |
+
+So the default pair **is** this simulator's pair, and your `LOCAL_ACCESS_*` variables aren't carrying it. The `eval`/`sed` I gave you didn't take — most likely the sed ran but something overwrote the vars, or the eval silently no-op'd.
+
+Skip the environment entirely and pass them as flags:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' \
+  --local-client-secret 'local-dev-secret' \
+  --backup storage/backups/1st-contact.json "1st Contact"
+```
+
+You'll still need the cloud pair in the environment (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` from `bin/access-token`) — or add `--client-id` / `--client-secret` alongside.
+
+If you want to check what your shell actually has:
+```bash
+echo "local id=[$LOCAL_ACCESS_CLIENT_ID] secret=[${LOCAL_ACCESS_CLIENT_SECRET:+set}] cloud id=[$CF_ACCESS_CLIENT_ID] secret=[${CF_ACCESS_CLIENT_SECRET:+set}]"
+```
+
+**One thing to expect next.** With the correct pair the sim accepted and then the request hung — I gave it 20s on `/api/status` and got nothing back, while unauthenticated requests answer instantly. So the *authenticated* proxy into the builder on 8788 is slow or wedged. If the copy sits there, restart your `wrangler dev` on 8788 before assuming the copy is broken. I'd rather flag that now than have you read a stall as a `copy-to-cloud` fault.
+
+<!-- xgd-turn id="d3900920-7933-44e8-a693-91fb0a95aa4e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:38:45.482574+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % cd /Users/martin/lagrangefoundry/1stcontact
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' \
+  --local-client-secret 'local-dev-secret' \
+  --backup storage/backups/1st-contact.json "1st Contact"
+backed up '1st Contact' from http://127.0.0.1:8799
+  site    site_62d3d0097bbc7b6e86bdcdb3728389a3
+  pages   1 (home.json)
+  assets  6
+  file    /Users/martin/lagrangefoundry/1stcontact/storage/backups/1st-contact.json
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+That looks correct, did it work?
+
+<!-- xgd-turn id="d3900920-7933-44e8-a693-91fb0a95aa4e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:39:43.270132+00:00" -->
+#### Claude
+No — nothing reached production. I gave you a wrong flag.
+
+`--backup` is a **mode, not a modifier**. `bin/copy-to-cloud:52`: *"writes the SOURCE side's export to FILE and touches the destination not at all."* So it exported your local 1st Contact to the JSON file and stopped. Confirmed against production — 1st Contact still has `id: null`:
+
+| Business | Site | Version |
+|---|---|---|
+| 1st Contact | **none** | — |
+| Gigabyte Alchemy | `site_70772e92…` | 1 |
+| Lagrange Foundry | `site_23c1afb3…` | 1 |
+| XGD | `site_6caf0a8b…` | 1 |
+
+The backup file is real and worth keeping. Re-run without the flag:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "1st Contact"
+
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "XGD"
+```
+
+1st Contact should go clean. **Lagrange Foundry and XGD will refuse** — they hold version-1 starter sites, which count as builder-authored changes; the refusal will name the business and the change count. Read it, then re-run those two with `--force`.
+
+Two retractions while I'm at it: the sim→builder hang I warned about didn't materialise — the local read worked fine, so 8788 is healthy. And your instinct was right to ask; the output *did* look like success.
+
+Logged as §I14 — paired with §I12, since both are the same shape: the tool's prose and behaviour are right, and its operator-facing output is what misleads. A refusal that names the credential but not the scope consequence, and a success that names the export but not the untouched destination. That output surface is worth auditing before you stand up staging, and it's cheaper than any of the deploy-time checks the epic already proposes.
+
+<!-- xgd-turn id="486a56a9-e046-47bf-ae0b-6ceab7e57351-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:40:02.937238+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "1st Contact"
+INTERNAL: Listing the businesses at https://app.1stcontact.io was refused with 403: 1st Contact cannot open this for you at the moment. Please get in touch and we will sort it out.
+The CLOUD end is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and --client-secret. Run bin/access-token to provision one.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="486a56a9-e046-47bf-ae0b-6ceab7e57351-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:41:54.860322+00:00" -->
+#### Claude
+That 403 body is **our application's voice, not Cloudflare's** — so the request got *past* Access and was refused by the app. `copy-to-cloud`'s handler is guessing wrong about why. Let me find what actually produced it.
+
+`DENIED_MESSAGE` is deliberately reason-free — `identity.ts:443` explains it's an anti-oracle: distinguishing `no_user` from `no_membership` would leak membership to anyone who can pass a one-time PIN. So the message can't tell us which. But `denyAdmission` logs the reason. Let me check the cheap possibility first.
+
+`entitlements.account_id` being NULL is a red herring — `businessesFor` (`identity.ts:1431`) joins on **memberships**, not entitlements. Let me check those properly (my column name was wrong).
+
+Memberships are clean — `owner`, `active`, not revoked, not expired, on all four businesses. So the browser path is fine and this is specific to the **service token**.
+
+That narrows it to the token's identity mapping. `SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"` keys on the `common_name` Cloudflare puts in the JWT — which is the token's **name**, not its client id. If your token is named anything other than `1stcontact-publish`, `admit` gets no email at all and refuses `no_email`.
+
+The message can't tell us (by design), but the log does. Two terminals:
+
+**Terminal A:**
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler tail --env production --format pretty
+```
+
+**Terminal B** — re-run the copy:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "1st Contact"
+```
+
+Terminal A will print one line that settles it:
+```json
+{"event":"admission_denied","reason":"...","email":...,"platformAdminSeed":...}
+```
+
+- `reason: "no_email"` → the token's `common_name` ≠ `1stcontact-publish`. Fix by editing the mapping in `wrangler.toml:429` to the real name (and redeploying), or rotating the token to that name in **Zero Trust → Access → Service Auth**.
+- `reason: "no_user"` → it mapped, but to an address with no `users` row — tell me the `email` field and I'll add it.
+- Anything else → paste it and we'll go from there.
+
+Worth noting for the record: `copy-to-cloud` told you to *"Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET"* when you plainly had — it treats any 403 on the cloud end as a missing credential. Same defect class as §I12 and §I14: correct behaviour, misleading output. A 403 carrying our own `DENIED_MESSAGE` means the credential *worked* and the app refused, which is the opposite of what it advised.
+
+Recorded as §I15. Run the tail and paste the `admission_denied` line — that gives us the reason directly, and it's a one-line fix from there either way.
 
 <!-- xgd-chat-end -->

@@ -56,7 +56,7 @@ const A_SLIDE = '0'
 const A_FORM_INTRO = '0.0'
 
 const homeJsonPath = (cwd: string, slug: string): string =>
-  path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
+  path.join(cwd, 'storage', 'sandbox', slug, 'draft', 'pages', 'home.json')
 
 /**
  * One page carrying every case this surface has to answer for: copy nested
@@ -190,7 +190,7 @@ const draftBytes = (cwd: string): string => readFileSync(homeJsonPath(cwd, 'acme
 
 /** A rendered channel's document, straight off disk — no re-render. */
 const renderedBytes = (cwd: string, channel: 'edit' | 'draft'): string =>
-  readFileSync(path.join(cwd, 'storage', 'dist', 'sites', 'acme', channel, 'index.html'), 'utf8')
+  readFileSync(path.join(cwd, 'storage', 'dist', 'sandbox', 'acme', channel, 'index.html'), 'utf8')
 
 /** The current text of the addressed run, read out of the draft definition. */
 function draftText(cwd: string, indices: number[]): string {
@@ -205,7 +205,7 @@ describe('story-37a3921b — the copy-edit write path', () => {
 
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedPage(cwd, 'acme')
   })
   afterEach(() => {
@@ -330,7 +330,7 @@ describe('story-37a3921b — the copy-edit write path', () => {
   it('test_UAT_AC983_a_change_map_is_applied_whole_or_not_at_all', async () => {
     // AC-983 — one save is one change. A published base gives `status` something
     // to diff against, so "how many files did this save move?" has an answer.
-    await cmdPublish('acme', { cwd, message: 'base' })
+    await cmdPublish('acme', { cwd, sandbox: true, message: 'base' })
     expect((await cli(cwd, 'status', 'acme')).data!.modified).toEqual([])
 
     // First entry valid, second not. Neither may land.
@@ -357,7 +357,7 @@ describe('story-37a3921b — the copy-edit write path', () => {
   it('test_UAT_AC984_a_rejected_edit_leaves_the_draft_and_the_render_byte_identical', async () => {
     // AC-984 — the guarantee that makes "show the error and carry on" safe: the
     // page the operator is looking at is still accurate.
-    await cmdRender('acme', { cwd, edit: true })
+    await cmdRender('acme', { cwd, sandbox: true, edit: true })
     const draftBefore = draftBytes(cwd)
     const renderBefore = renderedBytes(cwd, 'edit')
 
@@ -598,7 +598,7 @@ describe('story-37a3921b — the copy-edit write path', () => {
     // AC-991 — "there is no raw-editing mode" is a property of the surface's
     // SHAPE: there are exactly two kinds of control it can offer, a plain-text
     // one and a closed-list one, and neither can carry code.
-    const { outDir } = await cmdRender('acme', { cwd, edit: true })
+    const { outDir } = await cmdRender('acme', { cwd, sandbox: true, edit: true })
     const beforeDoc = new JSDOM(readFileSync(path.join(outDir, 'index.html'), 'utf8')).window
       .document
     const scriptsBefore = beforeDoc.querySelectorAll('script').length
@@ -703,11 +703,11 @@ describe('story-37a3921b — the copy-edit write path over the builder origin', 
 
   beforeAll(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-37a3921b-origin-'))
-    cmdNew('acme', { cwd })
+    cmdNew('acme', { cwd, sandbox: true })
     seedPage(cwd, 'acme')
-    await cmdRender('acme', { cwd, edit: true })
-    await cmdRender('acme', { cwd })
-    builder = await startBuilder({ cwd })
+    await cmdRender('acme', { cwd, sandbox: true, edit: true })
+    await cmdRender('acme', { cwd, sandbox: true })
+    builder = await startBuilder({ cwd, sandbox: true })
   }, 120000)
 
   afterAll(async () => {
