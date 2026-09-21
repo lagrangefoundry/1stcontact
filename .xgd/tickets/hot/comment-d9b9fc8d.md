@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:00:16.113165+00:00'
+updated_at: '2026-09-21T23:01:45.362777+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2238,5 +2238,28 @@ Actually I think the history is critical - can you create a copy flag that copie
 <!-- xgd-chat role="user" ts="2026-09-21T23:00:15.467990+00:00" -->
 #### You
 Actually I think the history is critical - can you create a ticket for  a copy flag that copies the chats?
+
+<!-- xgd-turn id="becff2d1-f791-4a6f-9a66-1f3c981a4eac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:01:43.845889+00:00" -->
+#### Claude
+Scoped from the code. Let me check the create flags so I don't file a duplicate.
+
+**REQ-294** — *copy-to-cloud carries the site but not the conversations that built it* (`request-b9aa241d`), filed as a child of EPIC-16, priority high.
+
+The body scopes it from the code rather than describing the wish. What's in it:
+
+**The ask** — a `--chats` class on `bin/copy-to-cloud`, working the way `--site` does: a matched export/import pair over HTTP, because the Worker reads through the store it serves from and Node has no contract for miniflare's D1/R2 layout.
+
+**A second route pair, not a bigger `SitePayload`.** The existing pair's whole identity is one payload with one producer and one consumer, and `router.ts:2566` names keeping them in step as a maintenance obligation. Folding conversations in makes every future change to either half a change to both.
+
+**Four decisions I flagged rather than made:**
+
+- **Direction is asymmetric.** `--contacts` is refused *from*-cloud because the local builder runs `ACCESS_DEV_OPEN=1`. A consultant conversation is at least as sensitive — unstructured, customer-typed, can contain anything. `--chats` should be refused from-cloud in the same voice, and that refusal should land in this ticket rather than waiting for whoever builds the reverse.
+- **The change-feed cursor must not travel.** It indexes a specific store's `ticket_changes` sequence; carried elsewhere it names numbers that mean something else. The transcript, summary body and engagement note belong to the *conversation*; the cursor belongs to an index pass. Getting this wrong is silent — the import succeeds and the destination's indexer skips turns it never saw.
+- **Re-copying needs a defined answer.** `--site` refuses builder-authored changes and `--force` overrides. Conversations are append-only in a way a draft isn't, so "overwrite" may be the wrong verb — merge by `session_id`, skip existing, or refuse are all defensible and not the same. The failure to avoid is a second run silently duplicating every turn.
+- **Business-scoped or site-scoped**, which the chat ticket's `fields.session_id` doesn't settle.
+
+I've scoped it but not cut a branch — this is an epic session, so the implementation belongs to a child. Want me to hand it off now, or keep it queued while you finish the go-live copies and publish?
 
 <!-- xgd-chat-end -->
