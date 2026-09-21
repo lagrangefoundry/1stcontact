@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:49:44.319345+00:00'
+updated_at: '2026-09-21T19:59:34.722996+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -573,5 +573,11 @@ And the write lands in a path already held open — `streamTurn` wraps the turn'
 The raw counters are what answers your open-weights question a year from now. Deleting them forecloses it. Rows roll into a period aggregate when they age out — named in the ticket so it's a decision rather than an omission, built when there's enough data to matter.
 
 Recorded in EPIC-20 under REQ (1). Ready to file both REQs when you are.
+
+<!-- xgd-turn id="b9452c75-fe4e-47c2-a7fe-ffc767ae622c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:59:33.912206+00:00" -->
+#### You
+ok please go ahead
 
 <!-- xgd-chat-end -->
