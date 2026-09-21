@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:41:25.459589+00:00'
+updated_at: '2026-09-21T21:42:30.631009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1611,5 +1611,24 @@ Watch the tail. Three outcomes:
 - **A different reason** (`no_user`, `no_membership`) → progress; the token resolved to an identity and we fix that identity.
 
 The apex will keep failing smoke until the import lands and you publish a revision — that's two steps away, not one. Import writes the site; `APEX_SITE_KEY` needs a *published* revision to serve, and there are still zero of those anywhere.
+
+<!-- xgd-turn id="4ac3ada7-45d7-48e1-9452-0dce4f7f2052-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T21:42:29.990351+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "1st Contact"
+copied '1st Contact' http://127.0.0.1:8799 → https://app.1stcontact.io
+  from    biz_51a6746495c8057e886ff98d4208e6b9
+  to      biz_51a6746495c8057e886ff98d4208e6b9
+  site    site_c4bed79aeb647305a5e3098f70d6dca3
+  pages   1 (home.json)
+  assets  6
+  site.json yes
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
