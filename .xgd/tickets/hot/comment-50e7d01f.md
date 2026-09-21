@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T20:01:07.717349+00:00'
+updated_at: '2026-09-21T21:39:30.909988+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -601,5 +601,11 @@ The cap is explicitly out of scope in both, with the reason stated: hours are th
 Two things I did *not* do, deliberately. I didn't cut a branch — this session is the epic, and the branch belongs to whoever picks up REQ-292. And I didn't file a BUG, because there isn't one yet; REQ-292's third acceptance is what would produce it.
 
 Sequence stands: REQ-292 alone, then a week of ordinary sessions, then re-read the lever ranking in EPIC-20 against records rather than against my model. REQ-293 can be built during that week — it only needs the row's shape.
+
+<!-- xgd-turn id="5b2dcf52-a7f7-44e2-b65c-a9cfa846656f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T21:39:29.462554+00:00" -->
+#### You
+Can REQ-292 and 293 be used in retrospect for the data that we have?
 
 <!-- xgd-chat-end -->
