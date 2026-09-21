@@ -5,10 +5,10 @@ type: request
 title: copy-to-cloud carries the site but not the conversations that built it
 created_by: EPIC-16
 created_at: '2026-09-21T23:01:33.483748+00:00'
-updated_at: '2026-09-21T23:18:34.499597+00:00'
+updated_at: '2026-09-21T23:18:38.656612+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   auto_merge_back: true
