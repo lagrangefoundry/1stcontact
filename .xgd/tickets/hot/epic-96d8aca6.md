@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T20:20:18.220983+00:00'
+updated_at: '2026-09-21T20:39:40.328034+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: done
 fields:
   priority: medium
@@ -1096,3 +1096,40 @@ business — provisioning is `POST /api/admin/businesses` and nothing undoes it 
 mistake at this control is permanent without hand-editing D1. That asymmetry belongs
 with the controls §I6 collects: the one operator action that mints a tenant, a
 membership, a grant and a site has no confirmation step and no inverse.
+
+
+### I14 — `--backup` is a mode, and its success line reads like a copy
+
+`bin/copy-to-cloud --backup FILE "1st Contact"` was run expecting a copy that also left
+a committable snapshot. `--backup` is exclusive: line 52 states it *"writes the SOURCE
+side's export to FILE and touches the destination not at all."* Nothing reached
+production; 1st Contact still held no site afterwards.
+
+The documentation is correct and unambiguous. What made the mistake survive is the
+**success line**:
+
+```
+backed up '1st Contact' from http://127.0.0.1:8799
+  site    site_62d3d0097bbc7b6e86bdcdb3728389a3
+  pages   1 (home.json)
+  assets  6
+  file    /Users/martin/.../storage/backups/1st-contact.json
+```
+
+Every fact there is true, and an operator who believed they had asked for a copy reads
+it as one completing — the site id, the page count and the asset count are exactly what
+a successful copy would report, and the word *backed up* is the only thing separating
+them. Nothing says the destination was not written.
+
+**The cheap fix is one clause in that line** — `"backed up … (destination not
+touched)"` — or, better, refusing the combination: `--backup` alongside a copy is a
+reasonable thing to WANT, and a flag whose presence silently cancels the command's
+named operation is a shape worth not having. Either the flag becomes additive, or it
+says plainly that it replaced the copy.
+
+Related to §I12: both entries in this section are the same class of defect. The tool's
+prose is right, its behaviour is right, and its **operator-facing output** is what
+misleads — a refusal that names the credential but not the scope consequence, and a
+success that names the export but not the untouched destination. That is the surface
+worth auditing before the next environment is stood up, and it is cheaper than any of
+the controls §I6 proposes.
