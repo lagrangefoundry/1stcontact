@@ -5,15 +5,20 @@ type: request
 title: Fixing image titles for resizing
 created_by: martin-github@westhead.me
 created_at: '2026-09-20T23:50:27.799384+00:00'
-updated_at: '2026-09-21T00:06:47.499461+00:00'
+updated_at: '2026-09-21T00:14:02.166261+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-027b6e4c
+  commits:
+  - working_sha: 7fb433737f4f84dfdae43f4c3d9ddcfb90bc07bc
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.300
 ---
 
 `transform`** should accept a static translate, in percent of the node's own size**
