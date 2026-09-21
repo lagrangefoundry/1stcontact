@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T00:09:46.908812+00:00'
+updated_at: '2026-09-21T00:10:04.620219+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -188,7 +188,18 @@ The corollary for the production round: **without progressive rollout, productio
 
 ## Children
 
-None yet. Suggested order, and the first is not about staging at all:
+**Filed 2026-09-20 — the content path, ahead of the pipeline work:**
+
+- [[REQ-289]] **Content copy between stores** — `GET /api/export`, `bin/copy-to-cloud`,
+  `bin/copy-from-cloud`. Covers §G6 steps 1–3. Ahead of everything below because the Lagrange
+  Foundry draft currently has no backup (§F5).
+- [[REQ-290]] **Retire the file-backed authoring tier** — `storage/sites/`, `bin/publish`,
+  `1c push`. Covers §G6 steps 4–5. Depends on [[REQ-289]].
+
+Step 6 — the [[DOC-41]] rewrite — is folded into both as an acceptance item rather than filed
+separately: the document is derived from the scripts, so it changes when they do.
+
+**Still unfiled. Suggested order, and the first is not about staging at all:**
 
 1. **Put the cloud deploy on **`bin/build`** + **`bin/deploy`**.** The workflow is wrong today, in production, and every automated thing after this depends on the cloud path being the same path. Includes the migrate hook's database-name fix (which is security note §2's failure, already present in the repository) and the shared-store pin (security note §4 / open question 10), without which the workflow cannot run `bin/build` at all.
 
@@ -690,6 +701,8 @@ So the delete is: the three site trees, `bin/publish`, and `1c push` — **not**
 which stays as the reproduction tier's storage and as the test transport dozens of suites open.
 
 ### G6. Order
+
+Filed as [[REQ-289]] (1–3) and [[REQ-290]] (4–5); 6 is an acceptance item in each.
 
 1. `GET /api/export` on the Worker, symmetric with `/api/import`.
 2. `bin/copy-to-cloud` / `bin/copy-from-cloud` over it, `--site` only.
