@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:06:33.090035+00:00'
+updated_at: '2026-09-21T23:09:56.386123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -744,5 +744,11 @@ The worker ends by calling `report` with summary / changed / decisions / passed 
 The load-bearing part is `accept`. A run where everything passed should cost the consultant a short summary and nothing else. If Opus re-screenshots what the worker did, you've moved the tokens to the expensive side — which is exactly the failure mode REQ-293's report would catch.
 
 Want me to file the delegation REQ now with option (a) as the scope?
+
+<!-- xgd-turn id="0780c045-620f-4254-a010-e399e367ea18-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:09:56.302157+00:00" -->
+#### You
+Yes, please create the REQ. I would like a configuration so that I can turn the feature on or off.
 
 <!-- xgd-chat-end -->
