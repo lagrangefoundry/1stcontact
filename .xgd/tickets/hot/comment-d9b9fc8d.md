@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:10:08.479069+00:00'
+updated_at: '2026-09-21T22:19:15.089862+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1782,5 +1782,11 @@ If both of those say "production, any browser", then the **Network tab** is what
 - Are the seven `/webui/webui-*/src/index.js` requested, and what status?
 
 Note `run_worker_first = true`, so every asset request goes through the Worker and Access before it reaches the assets binding — a 302-to-login on a module fetch would stall the graph without throwing. That's my leading hypothesis for a production-only failure, and the Network tab confirms or kills it in one look.
+
+<!-- xgd-turn id="a9901c89-da5e-40a0-babc-1bc4e60e88cf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:19:14.457493+00:00" -->
+#### You
+I ahve been authoring in Firefox
 
 <!-- xgd-chat-end -->
