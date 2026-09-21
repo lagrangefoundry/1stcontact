@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:08:52.667229+00:00'
+updated_at: '2026-09-21T22:10:08.479069+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1759,5 +1759,28 @@ If it turns out to be a 404, tell me the URL and I can check whether that file e
 <!-- xgd-chat role="user" ts="2026-09-21T22:08:52.126225+00:00" -->
 #### You
 I loaded the js console on safari and see no errors - not content
+
+<!-- xgd-turn id="72ccea48-ec63-44b0-b9f0-c94f78c05616-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:10:08.257718+00:00" -->
+#### Claude
+Your panel has **no "What failed:" line** — only the `/api/sites` probe. That's decisive: `failure` was `null`, meaning the guard captured **no error event and no unhandled rejection** in its 4-second window. Consistent with your empty console, and it rules out the most common cause (a 404 in the module graph, which the guard catches in the capture phase).
+
+So the module graph never mounted and nothing threw. Let me get the exact URL you should be looking for.
+
+Two scripts matter: an **import map**, then `<script type="module" src="/builder/main.js">`. The guard's own hint text mentions *"the assets manifest is read at startup"* — let me check how that map gets built, since an empty one would break bare-specifier resolution.
+
+All seven import-map targets exist in `dist-assets`, plus the six stylesheets. The local bundle is complete, and it's what got uploaded. So the failure is specific to the deployed environment or the browser — and there are two fast discriminators before we go digging.
+
+**1. Does the local builder work in the same Safari?** You've been authoring a version-210 site in it, so if `http://127.0.0.1:8799` renders fine in Safari right now, the client code and Safari's capabilities are both fine and this is production-specific.
+
+**2. Try Chrome against `app.1stcontact.io`.** The chrome document ships an `<script type="importmap">` with seven bare specifiers (`@lagrangefoundry/webui-shell` → `/webui/webui-shell/src/index.js`). Import maps need **Safari 16.4+**, and a resolution failure there doesn't reliably fire the element-level `error` event the guard listens for — which would produce exactly your symptom: no captured failure, no console error, empty `#app`. If Chrome works, that's the answer.
+
+If both of those say "production, any browser", then the **Network tab** is what I need (Develop → Show Web Inspector → Network, then reload):
+
+- Is `/builder/main.js` requested, and what status?
+- Are the seven `/webui/webui-*/src/index.js` requested, and what status?
+
+Note `run_worker_first = true`, so every asset request goes through the Worker and Access before it reaches the assets binding — a 302-to-login on a module fetch would stall the graph without throwing. That's my leading hypothesis for a production-only failure, and the Network tab confirms or kills it in one look.
 
 <!-- xgd-chat-end -->
