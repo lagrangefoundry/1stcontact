@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T19:17:50.437447+00:00'
+updated_at: '2026-09-21T19:49:14.932216+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -231,5 +231,41 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="8d5ac72f-899c-4c27-92b5-a39d94b1271b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:49:14.094823+00:00" -->
+#### Claude
+I'll re-establish state before continuing — prior sessions were interrupted mid-work.
+
+Now I have the full picture. The branch settled on the narrow pin (CLI entry point only); the four uncommitted files are leftovers from the abandoned wide-pin sweep. Fixing them to match.
+
+The uncommitted diff was correct for those three — I reverted it wrongly. Re-applying the established sweep shape.
+
+All four green. Committing this shard before continuing the sweep.
+
+Pre-existing, unrelated to this branch. Continuing the sweep.
+
+The narrow pin has an open-ended tail — every library entry point taking `GlobalOptions` needs flagging in any suite that also drives the CLI. Pinning `ctxOf` (what the ticket literally names) makes library and CLI agree and removes the tail entirely. Switching to that.
+
+Good — both read correctly under this design. Now running the full node suite to find what the shard commits left inconsistent.
+
+Rather than pre-judging the restored sweep, I'll let the suite arbitrate. Running all node shards.
+
+The 70-file restore dragged back the blanket rewrite's corpus mistakes. HEAD already has those fixed — better to start from HEAD and apply only the pin.
+
+req104 was already fixed at HEAD. Running the full node suite under the pin.
+
+The wide pin costs ~40 suites of churn and its blanket application already introduced silent corpus-reader bugs. Reverting to the narrow pin — it meets the ticket's purpose and keeps the Boundaries promise.
+
+Now finishing shard 7's five suites — the long tail is library entry points that need the flag.
+
+Shard 7's suites are green. Committing and running the remaining shards.
+
+The blanket multi-line sweep broke four previously-green suites. Reverting those.
+
+Only the pre-existing `/api/export` gap remains. Committing and re-running all shards for a clean read.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
