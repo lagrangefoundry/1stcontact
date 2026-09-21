@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:47:32.125562+00:00'
+updated_at: '2026-09-21T21:38:22.714725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1522,5 +1522,16 @@ SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me,<client
 then `bin/deploy control-app` and re-run the copy. Comma-separated, first-`=`-wins per entry, case-folded on both sides — so extra entries are harmless.
 
 Keep the tail running; if it still refuses, the log line will say whether we moved from `no_email` to something else, which is progress either way.
+
+<!-- xgd-turn id="593bf8a7-a2dd-49d7-9756-fb446ab5e48d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T21:38:22.242298+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % echo "$CF_ACCESS_CLIENT_ID"
+29edd0e0ede45619455f21128c7b88ce.access
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
