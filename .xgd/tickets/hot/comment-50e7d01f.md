@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T19:45:06.038542+00:00'
+updated_at: '2026-09-21T19:46:57.444050+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -488,5 +488,56 @@ Ok very interesting - we have other options too - open weights models are 7x che
 You are an Epic ticket we design and strategise - you delegate coding to REQ and BUG tickets.
 
 Please can you lay out your plan for metrics
+
+<!-- xgd-turn id="37ca9116-cc1b-4166-adf7-c35b42c35729-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:46:56.595431+00:00" -->
+#### Claude
+Found the sharper version of the gap. Writing the plan.
+
+Plan is in EPIC-20. Two REQs, no BUG yet.
+
+## What's actually missing — narrower than I said
+
+I traced it end to end and the gap is smaller and more precise than "no telemetry":
+
+- `ClaudeAPIBackend` captures `usage` per request ✓
+- `SessionManager` **already writes it into the junction log** on the `turn_end` record — `record.usage`, `record.requests` — and `manager.usage()` reads it back, including a delegated worker's `attributed` spend ✓
+- 1stcontact's junction is `memoryJunctions()`. **It dies with the isolate.** The `ArchiveSyncer` persists the transcript and carries no `usage` — confirmed, neither transcript comment on CHAT-3 has a single token count.
+- Nothing here calls `manager.usage()`, and `streamPrompt` reads the terminal event for `outcome` and drops the rest of `meta`.
+
+**Nothing needs building upstream.** It's a write and a read, both in this repo.
+
+## Portability is a constraint now, not a migration later
+
+Your 7×-in-a-year point changes the design, cheaply if done now:
+
+- **The vocabulary is already neutral.** `usage.js` uses the Anthropic names deliberately — *"the four questions worth asking of any cached endpoint"* — and the ChatGPT adapter already reports into them, pinning `cache_creation_input_tokens` at zero because OpenAI caches automatically and never bills a write. A record of those four counters is portable by construction. Don't add a fifth.
+- **Price table keyed by `(backend, model)`**, never model alone, as configuration beside `backends.json`.
+- **Store raw counters *and* settled cost** — raw to re-price against another provider, settled so a bill doesn't move when the table does.
+
+One limit worth writing down now: **token counts aren't portable across tokenizers.** Re-pricing a stored month against an open-weights model is an estimate. A true answer needs the workload replayed through the other backend. That replay harness is real work and explicitly *not* in these tickets — but the records have to keep enough per-turn shape to drive one, which constrains the schema.
+
+## REQ (1) — the turn spend record
+
+One durable record per turn, per tenant, surviving the isolate. Folds `turnSpend(event.meta)` beside the `outcome` line that already exists in `streamPrompt`, writes it in the `finally` that already calls `closePending`, through a `deps.recordTurnSpend()` port on the `LedgerDeps` pattern — Worker to D1, CLI to a file or declines.
+
+Holds: tenant, session, turn, start/end, role, backend, model, outcome, request count, the four counters, `attributed`, cost in micros. A turn that measured nothing writes nothing — "nothing, never zero", because an unmeasured turn and a free turn are different facts.
+
+**Its acceptance must include the thing nobody has seen:** `cache_read_input_tokens` non-zero and growing across two consecutive turns.
+
+## REQ (2) — reading it back
+
+**Engaged time is computed at read, not stored** — a turn's share is its duration plus the capped gap to the *next* turn, which doesn't exist yet when the first ends. Storing it means retroactive updates; deriving it from two timestamps can't drift.
+
+Reports engaged hours, settled cost, and $/engaged-hour per tenant per period — split by role and by model, which is exactly what makes a delegation experiment and a second provider readable.
+
+**The cap is not in scope.** Hours are the right meter and the wrong cap (20× variance in one evening), so enforcement needs a dollar ceiling underneath, and there's no data yet to set it from.
+
+## Sequence
+
+REQ (1) alone → **one week of ordinary sessions** → re-read the lever ranking against records. REQ (2) builds in parallel; it only needs the record's shape.
+
+Shall I file both and cut the branch for REQ (1)?
 
 <!-- xgd-chat-end -->
