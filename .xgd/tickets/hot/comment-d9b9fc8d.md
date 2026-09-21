@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:35:42.907887+00:00'
+updated_at: '2026-09-21T22:37:23.325002+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1995,5 +1995,48 @@ https://app.1stcontact.io/api/pages?site=site_23c1afb3739dadf62347a5008e8a7dea
 https://app.1stcontact.io/preview/site_23c1afb3739dadf62347a5008e8a7dea/draft/
 
 On your test, https://app.1stcontact.io/webui/webui-shell/src/index.js returns a js file
+
+<!-- xgd-turn id="414fdf0a-065c-4b2b-aa55-8fc9c0c8f869-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:37:22.153227+00:00" -->
+#### Claude
+That changes everything. Two new facts:
+
+- `/webui/webui-shell/src/index.js` **serves correctly** — so the assets are deployed and the module graph is fine.
+- The builder got far enough to select Lagrange Foundry and request its pages, and **those routes 404**.
+
+`site_23c1afb3…` is Lagrange Foundry's starter site. Let me check whether the Worker still has those routes.
+
+`/api/pages` **does** exist in the Worker (`router.ts:4460`), so it's not a missing route. But look at how the client calls it:
+
+```js
+send(fetchImpl, scoped(`/api/pages?site=${encodeURIComponent(site)}`))
+```
+
+`scoped()` — the business prefix. The URL you saw 404 was `/api/pages?site=…` with **no `/b/<business-id>/` prefix**, which is what `scoped()` produces when no business has been selected.
+
+Now we have it. `api.js:63`:
+
+```js
+function scoped(path) {
+  return businessScope === null ? path : `/b/${encodeURIComponent(businessScope)}${path}`
+}
+```
+
+The URL you saw was `/api/pages?site=site_23c1afb3…` with **no `/b/<business>/` prefix** — so `businessScope` was `null`. But `site_23c1afb3…` belongs to *Lagrange Foundry*. An unscoped request resolves to a different business, that site isn't in scope, and you get a 404. Same for the `/preview/` URL.
+
+`setBusinessScope` is called in exactly one place — `selectBusiness()` (`app.js:1435`) — which also writes the remembered id to storage. So the client is holding a **remembered site without a matching remembered business**: it asks for a site it knows about, unscoped, and the Worker correctly refuses to find it.
+
+**Try this right now** on `app.1stcontact.io`, in the console:
+
+```js
+localStorage.clear(); location.reload()
+```
+
+That drops both remembered values and forces a clean selection. If the builder comes up, we've found it — and the original "did not start" was the same state, just earlier in the sequence.
+
+Recorded as §I20, and it resolves the §I18 puzzle: the client wasn't failing to mount, it was mounting and then asking for a site it couldn't name. Every layer we checked was healthy because every layer *was* healthy.
+
+Run the `localStorage.clear(); location.reload()` and tell me what you get. If the builder comes up, the remaining work is two tickets — one to stop `selectBusiness` recording a site and a business that can disagree, and one to make `scoped()` refuse rather than silently drop the prefix on a route that can't mean anything without it.
 
 <!-- xgd-chat-end -->
