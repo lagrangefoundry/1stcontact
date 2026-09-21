@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Apply the site store's D1 migrations before control-app is uploaded (REQ-143).
+# Verify, then apply, the site store's D1 migrations before control-app is
+# uploaded (REQ-143; the verification is REQ-291).
 #
 # THE ORDERING IS THE WHOLE POINT. `bin/deploy` runs this before it uploads, and
 # aborts the app's deploy if it exits non-zero. A Worker whose code assumes a
@@ -18,6 +19,28 @@ set -euo pipefail
 
 # Every wrangler invocation below resolves its config from the app directory.
 cd "$DEPLOY_APP_DIR"
+
+# VERIFY BEFORE APPLYING ([[REQ-291]]). `d1_migrations` records a migration's name
+# and the moment it ran, never its content, so a file that has been applied is
+# done forever however it is subsequently edited — which is how the baseline came
+# to be applied to production and then changed twelve times, leaving the applied
+# schema and the file on disk as two different databases wearing one name
+# ([[EPIC-16]] §H). This reads what the target environment has applied and hands
+# it to `bin/migration-manifest`, which compares each one against the hash
+# committed beside the migrations and refuses the deploy when they differ.
+#
+# IT IS ABOVE THE DRY-RUN BRANCH AND NOT INSIDE EITHER SIDE OF IT. The comparison
+# is a read, and a rehearsal whose whole value is catching this before the deploy
+# that would have discovered it must run the same check the deploy does.
+#
+# THE QUERY IS THE TABLE WRANGLER ITSELF READS. Anything else — a marker file, a
+# recorded high-water mark — would be a second opinion free to disagree with the
+# one that decides what runs.
+applied_status=0
+applied_json="$(npx wrangler d1 execute 1stcontact --env "$DEPLOY_ENV" --remote --json \
+  --command 'SELECT name FROM d1_migrations ORDER BY id' 2>&1)" || applied_status=$?
+printf '%s' "$applied_json" | node "$DEPLOY_REPO_ROOT/bin/migration-manifest" verify \
+  --env "$DEPLOY_ENV" --status "$applied_status"
 
 # `--remote` is the deployed database, not the local miniflare one. The
 # migrations directory is declared in the app's wrangler.toml (`migrations_dir`),
