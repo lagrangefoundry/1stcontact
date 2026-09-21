@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:39:44.333066+00:00'
+updated_at: '2026-09-21T20:40:04.596754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1424,5 +1424,19 @@ bin/copy-to-cloud --origin http://127.0.0.1:8799 \
 Two retractions while I'm at it: the sim→builder hang I warned about didn't materialise — the local read worked fine, so 8788 is healthy. And your instinct was right to ask; the output *did* look like success.
 
 Logged as §I14 — paired with §I12, since both are the same shape: the tool's prose and behaviour are right, and its operator-facing output is what misleads. A refusal that names the credential but not the scope consequence, and a success that names the export but not the untouched destination. That output surface is worth auditing before you stand up staging, and it's cheaper than any of the deploy-time checks the epic already proposes.
+
+<!-- xgd-turn id="486a56a9-e046-47bf-ae0b-6ceab7e57351-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:40:02.937238+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "1st Contact"
+INTERNAL: Listing the businesses at https://app.1stcontact.io was refused with 403: 1st Contact cannot open this for you at the moment. Please get in touch and we will sort it out.
+The CLOUD end is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and --client-secret. Run bin/access-token to provision one.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
