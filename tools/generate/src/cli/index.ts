@@ -17,6 +17,17 @@ import { localD1Check } from './d1-migrations'
 import { repoRoot } from './webui'
 import { cmdAssets, formatAssetReport } from './assets'
 import { pushSite } from './push'
+import {
+  assertDataClass,
+  copySite,
+  endsFor,
+  exportSite,
+  serviceToken,
+  CLOUD_ORIGIN,
+  LOCAL_ORIGIN,
+  type CopyDirection,
+  type DataClass,
+} from './copy'
 import { bundleDir, fsReferenceBundle, fsReferenceStore, fsSiteStore } from '../store'
 import {
   editAssetAdd,
@@ -108,7 +119,7 @@ import {
   clusterDefects,
   formatClusterReport,
 } from './fidelity'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
 import { cmdAlignedCrops } from './aligned-crops'
@@ -367,6 +378,24 @@ Push a site to the cloud store (REQ-145) — what \`bin/publish\` runs:
     is behind Cloudflare Access and needs a service token: --client-id/--client-secret,
     or CF_ACCESS_CLIENT_ID/CF_ACCESS_CLIENT_SECRET in the environment. Provision one
     with \`bin/access-token\`. This is NOT \`1c publish\`, which mints a revision.
+
+Copy a business's site between builders (REQ-289) — what \`bin/copy-to-cloud\` runs:
+  1c copy-to-cloud   <business> [--origin URL] [--force] [--backup FILE]
+  1c copy-from-cloud <business> [--origin URL] [--force] [--backup FILE]
+                     [--site|--contacts] [--client-id ID --client-secret SECRET] [--json]
+    Reads one business's site out of one builder through GET /api/export and writes it
+    into the other through POST /api/import — the same payload, the matched pair of routes.
+    <business> is the business's NAME as it reads in the builder ("Lagrange Foundry");
+    it resolves to a different id on each side, and both calls name their side's id
+    explicitly. The target business must ALREADY EXIST on the far side: this never
+    creates one. --origin overrides the non-cloud end (default http://localhost:8788,
+    or point it at \`bin/access-sim\`). The cloud end needs a Cloudflare Access service
+    token PAIR — CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET, or --client-id and
+    --client-secret; CLOUDFLARE_API_TOKEN is not one. REFUSED with 409 when the target
+    carries changes made in the BUILDER (BUG-51); --force says you mean it.
+    --backup FILE writes the SOURCE side's export to FILE and touches the destination
+    not at all. --site is the default; --contacts is recognised and not carried.
+    This is NOT \`1c publish\`, which mints a revision, and NOT \`1c copy\`, which edits text.
 
 Control-app assets (REQ-145) — the build step behind /builder, /webui and /framework:
   1c assets [--json]
@@ -708,14 +737,10 @@ export async function run(argv: string[]): Promise<void> {
           : process.env.CF_ACCESS_CLIENT_SECRET
       // BOTH OR NEITHER. Half a credential is not a weaker credential, it is a
       // request that will be refused at the edge with a message about identity
-      // rather than about the half that was missing here.
-      if ((clientId ? 1 : 0) + (clientSecret ? 1 : 0) === 1) {
-        throw new Error(
-          'A Cloudflare Access service token is a PAIR. Set both ' +
-            'CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET (or pass both ' +
-            '--client-id and --client-secret). Run bin/access-token to provision one.',
-        )
-      }
+      // rather than about the half that was missing here. The refusal is
+      // `copy.ts`'s ([[REQ-289]]) so that this command and the copy pair say
+      // the same sentence about the same credential.
+      const access = serviceToken(clientId, clientSecret)
       const result = await pushSite(fsSiteStore(ctxOf(global)), slug, {
         origin,
         // BUG-84 — the operator's own `storage/references/` tree, which is the
@@ -728,9 +753,7 @@ export async function run(argv: string[]): Promise<void> {
         // they know what is there. A default would be the destructive default
         // the whole ticket exists to remove.
         ...(flags.force === true ? { force: true } : {}),
-        ...(clientId && clientSecret
-          ? { access: { clientId, clientSecret } }
-          : {}),
+        ...(access ? { access } : {}),
       })
       if (flags.json === true) {
         console.log(JSON.stringify(result, null, 2))
@@ -746,6 +769,126 @@ export async function run(argv: string[]): Promise<void> {
           `  assets  ${result.landed.assets}\n` +
           `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
       )
+      return
+    }
+
+    /**
+     * `1c copy-to-cloud` / `1c copy-from-cloud` — one business's site, moved
+     * between the local builder and the deployed one ([[REQ-289]]).
+     *
+     * TWO CASES AND ONE BODY, which is the shape the ticket asks for: the
+     * direction is a parameter to `copySite` and a word in the command name,
+     * because the operator reads the name back later and has to know which way
+     * the bytes went. `1c copy` is the structured-edit verb and is untouched.
+     *
+     * THE BUSINESS IS NAMED, NOT ADDRESSED BY ID. A site's id is minted by the
+     * store that holds it, so the two ends have different strings for the thing
+     * the operator calls one name; `copy.ts` asks each side what it calls it.
+     */
+    case 'copy-to-cloud':
+    case 'copy-from-cloud': {
+      const json = flags.json === true
+      try {
+        const direction: CopyDirection = command === 'copy-to-cloud' ? 'to-cloud' : 'from-cloud'
+        const business = requireArg(rest[0], 'business')
+        // RECOGNISED, THEN REFUSED — never an unknown-flag error. What
+        // `--contacts` means in each direction is a decision this ticket
+        // records; see `assertDataClass`.
+        const klass: DataClass = flags.contacts === true ? 'contacts' : 'site'
+        // BEFORE THE CREDENTIAL CHECK, because it is about what was ASKED FOR
+        // and that one is about how to reach a side. An operator told to
+        // provision an Access token, who then provisions one and is told the
+        // flag was never going to be carried, has been sent on an errand. (It
+        // runs inside `copySite` as well — this is the ordering, not the rule.)
+        assertDataClass(klass, direction)
+        // Flags win over the environment so a one-off run can name a different
+        // token without editing a shell profile; the environment is the
+        // ordinary path, because a secret on a command line lands in shell
+        // history.
+        const access = serviceToken(
+          typeof flags['client-id'] === 'string'
+            ? flags['client-id']
+            : process.env.CF_ACCESS_CLIENT_ID,
+          typeof flags['client-secret'] === 'string'
+            ? flags['client-secret']
+            : process.env.CF_ACCESS_CLIENT_SECRET,
+        )
+        // `--origin` OVERRIDES THE NON-CLOUD END ONLY, as `bin/publish`
+        // allowed, so the pair works against a dev server on any port — which
+        // in practice means `bin/access-sim`, the one local front door that
+        // can resolve a business other than `TENANT_ID`.
+        const local = typeof flags.origin === 'string' ? flags.origin : LOCAL_ORIGIN
+        const ends = endsFor(direction, local)
+
+        // A BACKUP READS THE SOURCE AND WRITES NOTHING TO THE DESTINATION. The
+        // direction still says which side was read: to-cloud reads local, so
+        // `copy-to-cloud --backup` is the local builder's own export landing in
+        // a file the operator can commit. That is this ticket's first real use
+        // — a site that exists in exactly one gitignored directory, with no
+        // published revision to fall back to.
+        if (typeof flags.backup === 'string') {
+          const read = await exportSite(ends.source, business, { ...(access ? { access } : {}) })
+          const out = path.resolve(process.cwd(), flags.backup)
+          writeFileSync(out, `${JSON.stringify(read.payload, null, 2)}\n`)
+          if (json) {
+            console.log(JSON.stringify({ ok: true, data: { ...read, file: out } }, null, 2))
+            return
+          }
+          console.log(
+            `backed up '${read.business.name}' from ${ends.source}\n` +
+              `  site    ${read.payload.slug}\n` +
+              `  pages   ${read.payload.pages.length} ` +
+              `(${read.payload.pages.map((pg) => pg.name).join(', ') || 'none'})\n` +
+              `  assets  ${read.payload.assets.length}\n` +
+              `  file    ${out}`,
+          )
+          return
+        }
+
+        // REFUSED BEFORE THE FIRST CALL rather than after the read has already
+        // happened: a run that fetched a site's worth of assets and then
+        // discovered it had no credential has spent the operator's time to tell
+        // them something it could have said first. `bin/publish`'s reasoning,
+        // applied to a pair of ends instead of a list of slugs.
+        if (access === undefined && (ends.source === CLOUD_ORIGIN || ends.destination === CLOUD_ORIGIN)) {
+          throw new Error(
+            `${CLOUD_ORIGIN} is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID ` +
+              'and CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id ' +
+              'and --client-secret. CLOUDFLARE_API_TOKEN is an API credential for ' +
+              'api.cloudflare.com and is not what Access accepts. Provision one with ' +
+              'bin/access-token.',
+          )
+        }
+
+        const result = await copySite(business, {
+          direction,
+          local,
+          klass,
+          ...(access ? { access } : {}),
+          // BUG-51 — only ever passed when typed. The far side refuses an
+          // import that would replace builder changes; this is the operator
+          // saying they know what is there.
+          ...(flags.force === true ? { force: true } : {}),
+        })
+        if (json) {
+          console.log(JSON.stringify({ ok: true, data: result }, null, 2))
+          return
+        }
+        console.log(
+          `copied '${result.to.name}' ${ends.source} → ${ends.destination}\n` +
+            // BOTH IDS, because they are different strings for one business and
+            // the operator has no other way to see that. The destination's is
+            // also what a `/b/<id>/` builder URL needs.
+            `  from    ${result.from.id}\n` +
+            `  to      ${result.to.id}\n` +
+            `  site    ${result.landed.site ?? '(not reported)'}\n` +
+            `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
+            `  assets  ${result.landed.assets}\n` +
+            `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
+        )
+      } catch (err) {
+        fail(err, json)
+      }
       return
     }
 

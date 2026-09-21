@@ -62,7 +62,7 @@ who ever holds an address at that domain, including people who do not exist yet.
 | Identity | Why | Added |
 |---|---|---|
 | `martin-github@westhead.me` (Martin Westhead, operator) | Sole operator of the platform; builds and publishes every site | REQ-147 |
-| `1stcontact-publish` (service token, `non_identity` policy) | `bin/publish` writing a site into the store from a developer machine; no human at the keyboard | BUG-36 |
+| `1stcontact-publish` (service token, `non_identity` policy) | `bin/copy-to-cloud` / `bin/copy-from-cloud` (and `bin/publish`) moving a site into or out of the store from a developer machine; no human at the keyboard | BUG-36, REQ-289 |
 
 <!-- Append a row when an identity is added, and say WHY. A row removed here must also be removed
      from the Cloudflare policy — this table is the record, not a copy of one. -->
@@ -120,13 +120,16 @@ It prints the pair once and writes it nowhere. Then:
 ```bash
 export CF_ACCESS_CLIENT_ID='…access'
 export CF_ACCESS_CLIENT_SECRET='…'
-bin/publish --production xgd
+bin/copy-to-cloud "Lagrange Foundry"   # a builder-authored site, up (REQ-289)
+bin/publish --production xgd           # the older storage/sites/ path
 ```
 
 **The API token is the provisioner, never the credential.** `CLOUDFLARE_API_TOKEN` authenticates
 to `api.cloudflare.com`. It is not an Access credential, and presenting it to `app.1stcontact.io`
 earns the same 302 to the login page as presenting nothing at all. `bin/access-token` uses it to
-*create* a service token; `bin/publish` never sees it.
+*create* a service token; neither the copy pair nor `bin/publish` ever sees it. The copy pair
+names `CLOUDFLARE_API_TOKEN` in its refusal for exactly this reason — it is the credential an
+operator reaches for, and the one thing that cannot work.
 
 > Until BUG-36, `1c push` sent its credential as a `cf-access-jwt-assertion` header. That could
 > never have worked against a deployed target: it is the header Access **sets** on the request it
@@ -192,6 +195,15 @@ client at the *simulator*, the way a production push is aimed at the edge and no
 ```bash
 eval "$(./bin/access-sim --print-token)"        # CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET
 ./bin/publish --origin http://127.0.0.1:8799   # every local site → the local builder
+```
+
+The copy pair aims the same way, and this is the ONLY way it can reach a business other than
+`TENANT_ID` locally: with `ACCESS_DEV_OPEN` the Worker has no admission to resolve a named
+business against, so `/api/businesses` answers with the configured tenant and nothing else.
+
+```bash
+eval "$(./bin/access-sim --print-token)"
+./bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup lf.json "Lagrange Foundry"
 ```
 
 `--print-env` and `--print-token` configure opposite sides of the wire and are deliberately
