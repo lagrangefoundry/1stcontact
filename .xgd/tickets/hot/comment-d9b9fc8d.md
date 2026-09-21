@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:51:09.147219+00:00'
+updated_at: '2026-09-21T22:51:25.411439+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2091,5 +2091,21 @@ document.getElementById('app').firstElementChild.remove()
 ```
 
 gives "undefined"
+
+<!-- xgd-turn id="3ac732dc-23d6-442c-bdb3-b4b75cf3b904-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:51:24.697192+00:00" -->
+#### Claude
+`undefined` is the correct return — `.remove()` doesn't return anything, so that means it ran. Look at the page rather than the console: is the error panel gone, and did the chat input appear?
+
+If you want to see what's actually in there, this one returns something:
+
+```js
+[...document.getElementById('app').children].map(c => c.tagName + '.' + (c.className || '(no class)'))
+```
+
+That lists `#app`'s direct children. If the guard's div is still in the list, the first element wasn't it — the shell may have mounted *before* the panel in DOM order, in which case removing `firstElementChild` just deleted part of the builder and you should reload.
+
+What I'm looking for in that output: whether there's a bare `<div>` with no class sitting among the shell's own elements. The guard writes an unclassed `div` with inline styles, so it's distinctive.
 
 <!-- xgd-chat-end -->
