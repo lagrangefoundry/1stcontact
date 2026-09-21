@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T20:39:40.328034+00:00'
+updated_at: '2026-09-21T20:41:52.234570+00:00'
 completed_at: null
 last_field_updated: body
 status: done
@@ -1133,3 +1133,47 @@ misleads — a refusal that names the credential but not the scope consequence, 
 success that names the export but not the untouched destination. That is the surface
 worth auditing before the next environment is stood up, and it is cheaper than any of
 the controls §I6 proposes.
+
+
+### I15 — A 403 from the app is not a missing credential, and `copy-to-cloud` says it is
+
+`bin/copy-to-cloud` reached the cloud end and was refused:
+
+```
+INTERNAL: Listing the businesses at https://app.1stcontact.io was refused with 403:
+1st Contact cannot open this for you at the moment. Please get in touch and we will sort it out.
+The CLOUD end is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and
+CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and --client-secret.
+```
+
+The quoted body is `DENIED_MESSAGE` (`identity.ts:459`) — **the application's own
+refusal**. Reaching it means Cloudflare Access ACCEPTED the credential and the Worker
+turned the caller away afterwards. The advice printed underneath is therefore the
+opposite of the diagnosis: it tells an operator who has a working credential to go and
+set one.
+
+`copy-to-cloud` treats any 403 on an end as "no credential for that end". That is right
+for Access's own 403 and wrong for ours, and the two are distinguishable: a refusal
+carrying `DENIED_MESSAGE` is an ADMISSION refusal. **The handler should branch on the
+body it already has** — it quotes it — and say so.
+
+This is the third instance of one defect in this section (§I12 credential-vs-scope,
+§I14 backup-vs-copy). The pattern: each message is written for the failure its author
+had in mind, and is emitted for a wider set of failures than that. Worth one pass over
+`bin/`'s operator-facing output as a unit rather than three separate fixes.
+
+State ruled out before reaching for the log, for the next reader: the operator's
+`users` row, account, and `owner` memberships on all four businesses are present,
+`active`, unrevoked and unexpired; the browser path works and provisioned three
+businesses through it. `entitlements.account_id` is NULL on every row, which LOOKS like
+the cause and is not — `businessesFor` (`identity.ts:1431`) joins `memberships`, not
+`entitlements`. The remaining candidate is the service token's identity: the
+`SERVICE_TOKEN_IDENTITIES` mapping keys on the `common_name` in Cloudflare's JWT, which
+is the token's NAME and not its client id, so a token provisioned under any other name
+resolves to no email and is refused `no_email`.
+
+`DENIED_MESSAGE` cannot say which — deliberately, as an anti-oracle — so
+`denyAdmission`'s structured log is the only route to the reason. That is the second
+time this section has had to reach for `wrangler tail` to learn something the operator
+needed (see §I8), which strengthens §I6's case: the deploy-time identity check should
+report whether the SERVICE TOKEN is admissible, not only whether a human is.
