@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T18:29:17.125706+00:00'
+updated_at: '2026-09-21T18:30:58.717904+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -942,5 +942,36 @@ Through the builder's domains pane. `CLOUDFLARE_DNS_TOKEN` is in place and the z
 🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-09-21_18-27-54_770.log"
 
 ```
+
+<!-- xgd-turn id="6e4835b6-c27b-4161-b8d2-b990cd8d7947-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:30:57.249847+00:00" -->
+#### Claude
+My command was wrong. With a positional script name **and** `--env production`, wrangler composes `1stcontact-control-app-production` — but `[env.production]` declares `name = "1stcontact-control-app"` explicitly, so no such worker exists. Drop the positional name and wrangler reads the right one from config (verified — `wrangler deployments list --env production` resolves and returns the real deployment history).
+
+## Better: skip the logs entirely
+
+Cloudflare Access will just tell you. You already have the `CF_Authorization` cookie from that sign-in, so in the same browser open:
+
+```
+https://app.1stcontact.io/cdn-cgi/access/get-identity
+```
+
+That's served by Cloudflare's edge before the Worker ever runs, so the app's refusal doesn't matter. It returns JSON containing `"email": "…"` — the exact string in the JWT, which is exactly what `PLATFORM_ADMINS` is compared against.
+
+## If you'd rather use the tail
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler tail --env production --format pretty
+```
+
+Then reload `https://app.1stcontact.io/` and look for `admission_denied`. (`observability` is enabled on this Worker, so the dashboard's Workers → Logs view works as a third option.)
+
+## Belt and braces, if you want to stop guessing
+
+`PLATFORM_ADMINS` is a comma-separated list, and an address that never authenticates writes nothing — the seed only fires for the identity actually presenting. The three addresses this repo and account mention are `martin-cloudflaire@westhead.me` (deployed the Worker), `martin-github@westhead.me` (the service token identity), and `martoin-claude@westhead.me`. Naming all three plus whichever one `get-identity` reports costs nothing and guarantees a hit on the first try. You empty the var after the repair anyway — that's the break-glass contract, and the rows survive it.
+
+Paste me the `email` from `get-identity` (or say "use all three") and I'll make the line-423 edit.
 
 <!-- xgd-chat-end -->
