@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T19:02:03.545954+00:00'
+updated_at: '2026-09-21T19:17:50.437447+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -222,5 +222,14 @@ I drifted into the main checkout during baselining — returning to the branch w
 Only the pre-existing `/api/export` gap remains in shard 5. Continuing.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="8d5ac72f-899c-4c27-92b5-a39d94b1271b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:17:49.621561+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
