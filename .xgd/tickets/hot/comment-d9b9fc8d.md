@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:47:58.664399+00:00'
+updated_at: '2026-09-21T21:48:49.499658+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1683,5 +1683,29 @@ I couldn't check whether `1stc.site` is delegated in your account; DNS lookups a
 <!-- xgd-chat role="user" ts="2026-09-21T21:47:57.892923+00:00" -->
 #### You
 ⚠️ **Don't burn a **`1stc.site`** name to test the pipeline. <-- but I DO NOT want anyone else to have lagrangefoundry.1stc.site there is no BURN a name**
+
+<!-- xgd-turn id="41fa029a-1437-4fa4-942e-a2d4842cbc11-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T21:48:48.888712+00:00" -->
+#### Claude
+You're right, and my framing was wrong. Claiming `lagrangefoundry.1stc.site` for the Lagrange Foundry business isn't burning anything — it's *securing* the name you want, for the business that should have it. Permanence is the feature there. Burning would be claiming a throwaway name, or claiming a good name for the wrong business. Neither is what you'd be doing.
+
+Let me confirm it's additive rather than a choice against the real domain.
+
+Confirmed additive: `site_domains` is keyed on `id` with `site_id` plus `kind`, `status` and `canonical` columns — **many rows per site**. So a claimed `1stc.site` hostname and a connected `lagrangefoundry.ai` coexist; the second is another row, not a replacement, and `canonical` decides which one is the public face.
+
+That makes claiming strictly better than waiting:
+
+1. Claim **`lagrangefoundry.1stc.site`** for Lagrange Foundry and **`xgd.1stc.site`** for XGD. Secures both names against a first-come namespace, and satisfies the publish gate immediately — no DNS dependency.
+2. Publish. That's the first publish anywhere, and it's now unblocked without touching DNS.
+3. Connect `lagrangefoundry.ai` afterwards as a second row, on your own schedule, with the DNS path exercised separately from the publish path.
+
+Decoupling those two is worth having on its own — if the publish fails you know it's the publish, not the domain plumbing.
+
+For 1st Contact the same applies; it needs *an* address row before it can publish, and `1stcontact.io` is the honest one, with `APEX_SITE_KEY` doing the actual serving.
+
+Recorded as §I17, including the correction to my own advice.
+
+One thing in there worth flagging separately, because it's a trap waiting for the next person: **the import mints a new site id.** `1st Contact` resolved to the same business id on both sides (both read `TENANT_ID`), but the site came out as `site_c4bed79a…` in production versus `site_62d3d009…` locally. So `APEX_SITE_KEY` has to be read from production after the import. Copying it from the local store would 404 identically to an unpublished site — indistinguishable from the import having failed.
 
 <!-- xgd-chat-end -->
