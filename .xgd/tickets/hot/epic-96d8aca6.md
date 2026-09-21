@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T00:08:59.091040+00:00'
+updated_at: '2026-09-21T00:09:46.908812+00:00'
 completed_at: null
 last_field_updated: epic_children
 status: draft
@@ -14,6 +14,7 @@ fields:
   chat_comment: comment-d9b9fc8d
   epic_children:
   - request-625707ca
+  - request-aab6c72e
 ---
 
 ## What the client asked for
