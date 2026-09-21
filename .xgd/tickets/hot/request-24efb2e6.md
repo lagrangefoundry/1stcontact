@@ -5,10 +5,10 @@ type: request
 title: The turn's token spend, written down
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:23.160825+00:00'
-updated_at: '2026-09-21T20:48:16.343659+00:00'
+updated_at: '2026-09-21T21:38:41.116712+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
