@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T18:19:02.474665+00:00'
+updated_at: '2026-09-21T18:32:48.485502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -166,5 +166,65 @@ I would like you to review the transcript for Lagrange Foundry site building exe
 Can you investigate how we spent our tokens? 
 
 I was multi tasking furiously while working on this but I am interested if we can estimate the rough cost-per-hour for this kind of work. To do so you should make an assumption about how fast I can type a turn and use that rather than the actual time for the delay between my turn landing and the next.
+
+<!-- xgd-turn id="04039591-6322-40d1-8c88-6a2fd86f7c53-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:32:48.091379+00:00" -->
+#### Claude
+I'll start by reading the ticket, then go after the actual transcript data.Architecture understood. Now the simulation:
+
+Analysis complete. Recording it on the ticket, then the summary.
+
+Ticket updated (I left your new title, "Token cost optimization", alone).
+
+## What I found
+
+**There is no telemetry.** REQ-143/145 capture `usage` upstream and put `{usage, requests}` on the turn's `done` event — and `apps/control-app/src/ai.ts` throws it away. It flushes an audit record per *tool call*, nothing per *request*. So item 1 of the epic ("re-measure from telemetry") isn't just undone, it's blocked at the host. Everything below is still a model.
+
+What *is* measured: the 768 R2 audit objects and the two transcript comments on CHAT-3 align call-for-call, 0 mismatches over 758 calls. So counts, order and true result sizes are real.
+
+**The session.** 80 exchanges, 758 tool calls, **838 model round trips**. 1.5 MB of text tool results plus 34.5 MB of screenshot bytes. Context reached ~300k tokens per request. Half the turns and 60% of the calls landed on 09-20/21.
+
+**Modelled cost ~$250**, band $190–290 across plausible chars-per-token. That floor is above your $100–150 — the session cost roughly twice what it felt like.
+
+**Where it went — 60% is cache *writes* at 2×.** Not reads, not output, not screenshots (those are 3%; 34.5 MB of base64 bills as ~460 tokens per image).
+
+## The actual defect
+
+REQ-168 landed 2026-09-19, two days before the expensive half. `boundDialogue` drops the oldest exchange past 40, and `ageImages` rewrites older messages to redact screenshots past two turns. Both mutate the **front** of `messages[]`. The cache is a byte-prefix.
+
+So past 40 exchanges, every turn re-writes the whole ~300k prefix at 2× before its first request can read anything. 84 invalidations measured: 40 window slides, 20 image agings, 16 standing-note writes (the note is in the seed, so it invalidates `system` and everything after), 8 idle gaps past the 1h TTL.
+
+| | |
+|---|---|
+| As it ran | **$252** |
+| No window/image bounds at all (pre-REQ-168) | $220 |
+| Same, 5-min TTL instead of 1h | $194 |
+| Window bounds that preserved the prefix | **$167** |
+| …and a 5-min TTL | $143 |
+| Same workload, Haiku 4.5 | $51 |
+
+The bound costs more than it saves — capping context made requests smaller but made every turn a full rewrite, and the net is worse than not bounding. And the 1h TTL has inverted: it was chosen for sessions paced by a person thinking, but when the prefix dies every turn anyway you pay the doubled write 40 times and never use the lifetime.
+
+## Cost per hour
+
+26,140 characters typed across 80 turns, 3.2 h of measured machine time.
+
+| typing | engaged | $/hour |
+|---|---|---|
+| 30 wpm | 6.1 h | $41 |
+| **40 wpm** | **5.4 h** | **$47** |
+| 60 wpm | 4.6 h | $54 |
+
+Inter-turn gaps under 20 min — wall-clock "at the desk" — give 7.3 h and $34/h. So **$35–60 per engaged hour**, against $20/h measured on 09-08 before the Opus move. And per-turn cost is now set by context size, not by the ask: late turns cost $5–12 each whether the request was 54 characters or 1,137.
+
+## Path forward — the ordering changed
+
+1. **Persist `usage` at the host.** One write beside the audit flush. Nothing else here is checkable until it exists.
+2. **Fix the invalidation before touching models.** ~$85 of the $252 is the window bound fighting the cache breakpoints. Nobody chose it — trim at a breakpoint boundary, or in blocks, or widen the window and drop the bound. Upstream, in lagrange-framework.
+3. TTL is a two-line change worth ~$25 even unfixed.
+4. Effort levels and delegation still stand, and now have a ceiling: moving construction to Haiku is worth ~$200 of this $252, and it stacks with the cache fix.
+
+Item 2 is a framework ticket I haven't filed — say the word and I will. Simulator's at `.xgd/tmp/lf-cost/`, uncommitted.
 
 <!-- xgd-chat-end -->
