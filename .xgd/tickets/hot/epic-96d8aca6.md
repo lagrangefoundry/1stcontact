@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-20T23:54:15.792346+00:00'
+updated_at: '2026-09-21T00:03:37.571580+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -592,3 +592,109 @@ The three alternatives, for the record, and why they lose:
    local store, so `/api/publish` has never minted a revision in this database. `public-site` serves
    *revisions*, not drafts, so the first publish is also the first exercise of that path. Worth
    doing locally first, where LF already has the addresses `/api/publish` requires.
+
+## G. The content commands, renamed and re-sourced (2026-09-20)
+
+### G0. `1c pull` does not exist — a correction
+
+§F4 and §F5 above recommend "`/api/export` + `1c pull <slug>`" as though `1c pull` were a thing
+being extended. **It is not a command. It was a proposed name**, invented while drafting §F4 and
+then reused as if it existed. `tools/generate/src/cli/` holds `push.ts` and no counterpart; the
+router has `/api/import` and no `/api/export`. Nothing reads content out of a store, anywhere.
+Wherever §F names `1c pull`, read it as "the unbuilt export direction".
+
+### G1. `publish` is overloaded, and `bin/publish` loses the name
+
+**The operator's ruling, and it is right.** *Publish* means one thing: take a draft, freeze it as a
+version, make that version live. `bin/publish` uses the same word for *copy bytes from this laptop
+to Cloudflare*, which is a different operation on a different axis. [[DOC-41]] §3 and the header of
+`bin/publish` both already carry a paragraph apologising for the collision — a comment explaining
+why two things share a name is the defect, not the mitigation.
+
+`bin/publish` is **deleted**. The replacement is `bin/copy-to-cloud <business>`, and the verb is
+now unambiguous in both directions: *copy* moves bytes between stores, *publish* mints a version.
+
+### G2. It is a rewrite, not a rename — the source tier changes
+
+The crucial point, and the reason this cannot be a `git mv`:
+
+- `bin/publish` / `1c push` read **`storage/sites/<slug>/`** — the git-tracked file-backed tier.
+- The sites that exist read **the local D1/R2** under `apps/control-app/.wrangler/state/` — because
+  they were built in the builder. The Lagrange Foundry site (§F5) is there and has never been in
+  `storage/sites/`.
+
+So the old command's source is the tier being retired, and the new command's source is a store Node
+cannot open: miniflare's D1 is a SQLite file whose layout is an implementation detail, and R2 is a
+second SQLite plus a blob directory beside it. Reading those directly is a third store adapter with
+no contract behind it.
+
+**The design: `GET /api/export`, symmetric with `/api/import`.** The Worker already writes through
+the store it serves from, for exactly the reason `import-site.ts` documents — one writer, no second
+adapter that could disagree about what a site is made of. Export is that argument in reverse, and it
+makes the command trivially symmetric:
+
+```
+bin/copy-to-cloud <business>      # GET localhost:8788/api/export → POST app.1stcontact.io/api/import
+bin/copy-from-cloud <business>    # the same two calls with the origins swapped
+```
+
+One route to build; three problems solved — go-live for a builder-authored site, a **backup** for a
+draft that currently exists in one gitignored directory, and the staging seed §4 above wants.
+
+### G3. Addressing by business name
+
+`/api/import` resolves its target from the **authenticated scope**, not from the payload — the
+`slug` field names the source and addresses nothing ([[REQ-236]]). So `<business>` is resolved on
+each side independently: locally `tenants.name` → `biz_…`, in the cloud the same lookup under the
+session the Access token carries.
+
+Two consequences to design for rather than discover:
+
+1. **The cloud business must exist first.** Production holds 1 tenant and 0 sites (§B). Copying to a
+   business that is not there has to fail with "create it in the builder first", not invent one —
+   minting tenants from a laptop script is how a deployment gets a business nobody signed up for.
+2. **The >1-site refusal still applies.** `/api/import` refuses a business holding more than one
+   site as unresolvable ambiguity. Every business in the local store holds exactly one, so this is
+   latent today and should stay an explicit refusal rather than a first-match guess.
+
+### G4. Flags, and the one asymmetry that matters
+
+`--site` is the default and the only one built now. The shape is extensible — `--contacts`, and
+whatever follows — but the two directions are **not** mirror images and the command must not pretend
+they are:
+
+| | to cloud | from cloud |
+|---|---|---|
+| `--site` | the go-live path | the backup path |
+| `--contacts` | plausible — laptop fixtures going up | **refused by construction** |
+
+Pulling contacts down puts real people's data on a laptop and into a dev store running
+`ACCESS_DEV_OPEN=1`. That is security note 1 above applied where it matters more, not less. The
+refusal belongs in the code, not in a warning in the help text.
+
+### G5. What "the old dev path is dead" does and does not cover
+
+`storage/sites/` has **three** uses and only the first is dead. Deleting the tree without separating
+them breaks the build:
+
+| Use | Status | What it needs |
+|---|---|---|
+| **Authoring a real site on disk** — `1c new/publish/checkout` against `--root sites`, then `bin/publish` up. The three sites in the tree (`1stcontact`, `gigabytealchemy`, `xgd`) | **Dead.** Superseded by the builder. | Delete the content; retire `bin/publish`. |
+| **The reproduction substrate** — `1c repro --ref <bundle>` imports a capture as a site, then `render`/`shot`/`diff`/`values-diff`/`gate` run the fidelity loop on it. `storage/sandbox/` holds 7 such trees today | **Load-bearing** — it is the framework-growth loop, and [[DOC-41]] §1 already calls it out as the thing that resembles a raw server and is not. | Keep the fs-store code. Pin the repro loop to `storage/sandbox/` so it never writes to `sites`. |
+| **A corpus of hand-authored L1 for conformance tests** — `req107` AC-4 globs `storage/sites/**`, `req105` globs `storage/sites/*/draft/pages/*.json`, `BUG-101` reads `gigabytealchemy/draft/pages/home.json` | **Load-bearing, narrowly.** Three tests read the *repo's* tree; every other test builds its own under a temp `cwd`. | Move the corpus to a fixtures directory and repoint those three globs. |
+
+So the delete is: the three site trees, `bin/publish`, and `1c push` — **not** the fs-store module,
+which stays as the reproduction tier's storage and as the test transport dozens of suites open.
+
+### G6. Order
+
+1. `GET /api/export` on the Worker, symmetric with `/api/import`.
+2. `bin/copy-to-cloud` / `bin/copy-from-cloud` over it, `--site` only.
+3. **Back up the LF draft** — the first real use, and the reason this is ahead of the pipeline work.
+4. Repoint the three test globs; move the L1 corpus to fixtures.
+5. Delete `storage/sites/`'s three trees, `bin/publish`, `1c push`.
+6. Rewrite [[DOC-41]] §2 and §3 around the new verbs, and record that `storage/sites/` is no longer
+   an authoring tier.
+
+Steps 1–3 stand alone and are worth doing before 4–6 is scheduled: the backup is the urgent half,
+the tidy-up is not.
