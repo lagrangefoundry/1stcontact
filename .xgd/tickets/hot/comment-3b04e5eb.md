@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T18:30:27.261939+00:00'
+updated_at: '2026-09-21T19:02:03.545954+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -180,5 +180,47 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="bea0fbed-a720-431b-84a9-200be422ddb0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:02:02.544516+00:00" -->
+#### Claude
+I'll re-establish state first — prior sessions were interrupted mid-work.
+
+Substantial uncommitted work exists on the branch. Let me get the full picture.
+
+Now I understand the state. Let me check the test setup and the key tension point.
+
+Test runner works. Let me protect the in-progress work with a WIP commit before continuing.
+
+Work protected. Now fixing the one test whose intent genuinely changes under this ticket.
+
+Now let me assess the whole suite. Running in batches to avoid the OOM that killed the earlier attempt.
+
+Shard 1 reveals the prior pass was too broad — it rewrote repo-corpus readers into sandbox readers. Let me audit that class.
+
+Now fixing the font-provenance gate, which lost sight of the corpus's font bytes when the corpus moved.
+
+Now req104 — a fifteenth corpus reader the original trace missed.
+
+Let me proactively find the rest of that class before running more shards.
+
+Let me measure the alternative before churning further — the evidence now contradicts one line in the ticket.
+
+The evidence points the other way from one line in the ticket. Let me verify the cheaper, more faithful alternative before committing to it.
+
+Reverting the over-broad sweep, keeping the corpus work, and restoring the CLI-entry-point flip.
+
+These are worktree-environment artifacts, not regressions. Let me repair the worktree env so the rest of the sweep is trustworthy.
+
+Found it — `startBuilder` resolves through `ctxOf` too, so it must agree with the seed.
+
+BUG-67 fails at baseline too — pre-existing. The other three are mine.
+
+I drifted into the main checkout during baselining — returning to the branch worktree.
+
+Only the pre-existing `/api/export` gap remains in shard 5. Continuing.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
