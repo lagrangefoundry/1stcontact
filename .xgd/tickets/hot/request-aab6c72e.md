@@ -5,9 +5,9 @@ type: request
 title: 'Retire the file-backed authoring tier: storage/sites, bin/publish, 1c push'
 created_by: EPIC-16
 created_at: '2026-09-21T00:09:46.682813+00:00'
-updated_at: '2026-09-21T20:20:17.952661+00:00'
+updated_at: '2026-09-21T20:22:40.265082+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: free_coded
 fields:
   priority: medium
@@ -25,7 +25,11 @@ fields:
   - working_sha: f843e29ee15c1d59f2801f33e36e42ff18ee5f18
     reconcile_sha: null
     main_sha: null
+  - working_sha: dc076907ba7ee829d6d0b89817a56b62e4d9a214
+    reconcile_sha: null
+    main_sha: null
   version: 0.2.307
+  story_points: 8
 ---
 
 Parent: [[EPIC-16]]. Asked for by the operator on 2026-09-20: "the old dev path and
