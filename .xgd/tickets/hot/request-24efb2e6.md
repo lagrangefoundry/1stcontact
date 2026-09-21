@@ -5,7 +5,7 @@ type: request
 title: The turn's token spend, written down
 created_by: EPIC-20
 created_at: '2026-09-21T20:00:23.160825+00:00'
-updated_at: '2026-09-21T20:32:49.704415+00:00'
+updated_at: '2026-09-21T20:44:56.380273+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -232,3 +232,35 @@ the unit every provider publishes, and the one that makes the settled figure
 backend that the framework already declares, so condition 6's second entry is
 real rather than a placeholder. The numbers are published list rates at the time
 of writing and are configuration.
+
+
+### The model is asked of the framework, not read out of `backends.json`
+
+The row's `model` column is the second half of the price key, so a reading that
+is merely *plausible* is worse than none. `backends.json` records what this
+project **names**; the settings that actually reach the wire are that document
+merged per key over the framework's shipped defaults. Delete the `model` key and
+the request quietly falls back to the framework's, and a meter reading the file
+directly would go on recording the model nobody ran. So `projectBackendModel`
+calls the same `backendSettings` the adapter's own constructor calls, and the
+backend half is `PROJECT_BACKEND` — the adapter FAMILY, not the per-site registry
+name (`claude+site:acme`), because rates belong to the adapter and the model.
+
+### The test harness applies the migration, and its head marker moves with it
+
+`0019` is appended to `d1-site-factory.ts`'s migration list and the `atHead`
+probe is moved onto `idx_turn_spend_tenant`. Not optional bookkeeping: the chat
+host now writes from the `finally` of every turn, and the host swallows a meter
+failure on purpose — so a suite left at the old head would not fail on a missing
+table, it would run silently unmetered, which is the worse of the two.
+
+### The shared model double learns to report usage
+
+`scripted-model-client.ts` gains `metered(usage, step)`, which wraps an existing
+step rather than transcribing a fifth copy of the wire protocol. It emits the
+two frames the real wire uses and `AnthropicAccumulator` reads — the input side
+(both cache figures included) on `message_start`, the settled output count on
+`message_delta`. A double that put all four on one frame would pass against an
+accumulator that read only the other, which is the drift this module exists to
+prevent. `pacedClient` takes the same optional usage so the mid-generation
+cut-off case has something it could have recorded.
