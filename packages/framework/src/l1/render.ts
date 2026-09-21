@@ -1604,20 +1604,117 @@ const ALIGN: Record<string, string> = {
   stretch: 'stretch',
 }
 
-function sizingCss(axis: 'width' | 'height', s: L1Sizing | undefined): string[] {
+/**
+ * BUG-133 — the flow a parent lays its children out in, handed DOWN to each
+ * child so the child can spell a `fluid` axis the way that actually fills there.
+ *
+ * A node cannot answer "what does *fill* mean on my height?" from its own
+ * fields: the answer is which axis the parent made `height` into. So the parent
+ * states it, once, and every kind's emission reads the same answer.
+ *
+ * `keyframes` are REQ-104's LATER keyframes only (the first one is the base, as
+ * in {@link layoutDecls}), because a container that flips between `row` and
+ * `stack` across the ladder flips which axis `height` is with it.
+ */
+interface ParentFlow {
+  /** The mode in force below the first responsive keyframe, or the static one. */
+  base: L1LayoutMode
+  /** REQ-104 — the mode from each later keyframe's `at` px upward. */
+  keyframes: readonly { at: number; value: L1LayoutMode }[]
+}
+
+/**
+ * BUG-133 — is `height` the parent's CROSS axis, the one with no definite extent
+ * until its own content has been laid out?
+ *
+ * A `row` is a flex container whose cross axis is vertical; a `grid` sizes its
+ * tracks from their content and stretches its items into them. Under either,
+ * a percentage height has nothing to resolve against and `fluid` has to be
+ * spelled as a stretch. Under a `stack` height is the MAIN axis — a percentage
+ * there resolves against a parent that declares a height, and where none is
+ * declared there is no free space to fill either — so it is left alone.
+ */
+function heightIsCrossAxis(mode: L1LayoutMode | undefined): boolean {
+  return mode === 'row' || mode === 'grid'
+}
+
+/**
+ * BUG-133 — the CSS for a `fluid` height under one parent mode.
+ *
+ * `height: 100%` on a flex-row child is not merely inert: because the *computed*
+ * value is a percentage rather than `auto`, it also disqualifies the node from
+ * the flex `stretch` step, so the declaration actively suppresses the fill the
+ * row would have given it for free. The cross-axis spelling therefore hands the
+ * height back to `auto` and asks for the stretch explicitly.
+ *
+ * `align-self` is on the CHILD, so a node that asked for a fluid height fills
+ * even inside a row whose `align` is `center` / `start` / `end`: per-node sizing
+ * is the more specific statement, and the container's `align` stays the default
+ * for every sibling that makes none.
+ *
+ * `whole` restates the property the other branch owns (`align-self: auto`) so a
+ * `@media` override can REPLACE the mode below it — the same self-sufficiency
+ * rule {@link layoutDecls} is emitted under, and for the same reason: half a
+ * spelling leaking past a breakpoint is a layout nobody declared. It is off by
+ * default so a parent with no layout track emits exactly what it always did.
+ */
+function fluidHeightDecls(cross: boolean, whole: boolean): string[] {
+  if (cross) return ['height: auto', 'align-self: stretch']
+  return whole ? ['height: 100%', 'align-self: auto'] : ['height: 100%']
+}
+
+function sizingCss(
+  axis: 'width' | 'height',
+  s: L1Sizing | undefined,
+  /** BUG-133 — for `height` only: the fluid spelling this parent calls for. */
+  fluidOverride?: string[],
+): string[] {
   if (!s) return []
   const out: string[] = []
   if (s.mode === 'fixed' && s.px !== undefined) out.push(`${axis}: ${s.px}px`)
-  else if (s.mode === 'fluid') out.push(`${axis}: 100%`)
+  else if (s.mode === 'fluid') out.push(...(fluidOverride ?? [`${axis}: 100%`]))
   else if (s.mode === 'hug') out.push(`${axis}: fit-content`)
   if (s.minPx !== undefined) out.push(`min-${axis}: ${s.minPx}px`)
   if (s.maxPx !== undefined) out.push(`max-${axis}: ${s.maxPx}px`)
   return out
 }
 
-function axisSizingCss(sizing: L1AxisSizing | undefined): string[] {
+function axisSizingCss(sizing: L1AxisSizing | undefined, parent?: ParentFlow): string[] {
   if (!sizing) return []
-  return [...sizingCss('width', sizing.width), ...sizingCss('height', sizing.height)]
+  // BUG-133 — a width is the same everywhere: a block's containing width is
+  // definite, so `width: 100%` resolves under every parent. Only the height
+  // asks the parent what axis it landed on.
+  const flips = parent?.keyframes.some(
+    (kf) => heightIsCrossAxis(kf.value) !== heightIsCrossAxis(parent.base),
+  )
+  const fluidHeight = fluidHeightDecls(heightIsCrossAxis(parent?.base), Boolean(flips))
+  return [...sizingCss('width', sizing.width), ...sizingCss('height', sizing.height, fluidHeight)]
+}
+
+/**
+ * BUG-133 — the `@media` overrides a fluid height needs when its PARENT's layout
+ * mode changes across the ladder, one per breakpoint that flips which axis the
+ * height is. A parent with no track, or one that never crosses the row/grid ↔
+ * stack boundary, produces none — so the overwhelming majority of documents
+ * carry not one extra byte for this.
+ */
+function fluidHeightRules(
+  sizing: L1AxisSizing | undefined,
+  parent: ParentFlow | undefined,
+  selector: string,
+): Rule[] {
+  if (!parent || sizing?.height?.mode !== 'fluid') return []
+  const rules: Rule[] = []
+  let cross = heightIsCrossAxis(parent.base)
+  const flips = parent.keyframes.some((kf) => heightIsCrossAxis(kf.value) !== cross)
+  if (!flips) return []
+  for (const kf of parent.keyframes) {
+    const next = heightIsCrossAxis(kf.value)
+    if (next === cross) continue
+    cross = next
+    rules.push({ media: `(min-width: ${kf.at}px)`, selector, decls: fluidHeightDecls(next, true) })
+  }
+  return rules
 }
 
 /** One CSS block for a selector. */
@@ -2896,6 +2993,12 @@ function emitNode(
   /** REQ-116 — the child indices walked to reach this node from the render root. */
   path: readonly number[],
   staggerDelayMs = 0,
+  /**
+   * BUG-133 — how this node's PARENT lays its children out. Absent for a render
+   * root and for a `box`'s children (a box is a plain block, not a flex
+   * container), which is the same answer as `stack`: height stays a percentage.
+   */
+  parent?: ParentFlow,
 ): string {
   const name = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
   const selector = `.${name}`
@@ -3131,7 +3234,7 @@ function emitNode(
       emitTextAxes(node.axes ?? {}, node.responsive)
       // REQ-97 — the run's own measure. A paragraph caps its line length here
       // rather than borrowing a wrapper container's `max-width`.
-      base.push(...axisSizingCss(node.sizing))
+      base.push(...axisSizingCss(node.sizing, parent))
       base.push('margin: 0')
       // REQ-106 — a retagged run needs the block behaviour `<p>` had, and must not
       // inherit UA link chrome. Unshifted so any authored colour/decoration wins.
@@ -3159,7 +3262,7 @@ function emitNode(
         break
       }
       emitTextAxes(node.axes ?? {}, node.responsive)
-      base.push(...axisSizingCss(node.sizing))
+      base.push(...axisSizingCss(node.sizing, parent))
       // The zero-look baseline. A form control arrives with UA chrome (border,
       // fill, padding, its own font) that would paint *through* an L1 subtree
       // that simply declined to set those axes — so the sole emitter neutralises
@@ -3210,7 +3313,7 @@ function emitNode(
         base.push(`object-position: ${num(a.objectPosition.xPct)}% ${num(a.objectPosition.yPct)}%`)
       }
       base.push(...surfaceLadderDecls(a, selector, node.geometry, node.sizing, state))
-      base.push(...axisSizingCss(node.sizing))
+      base.push(...axisSizingCss(node.sizing, parent))
       base.push('display: block')
       const src = isSafeUrl(node.src) ? relativizeUrl(node.src.trim()) : ''
       // REQ-222 — the delivery ladder, when this render is a publish that built
@@ -3277,7 +3380,7 @@ function emitNode(
       // REQ-105 — the seam's own measure. A mounted module is constrained by the
       // slot it mounts into, so a max-width no longer costs a wrapper container
       // that carries nothing but the number.
-      base.push(...axisSizingCss(node.sizing))
+      base.push(...axisSizingCss(node.sizing, parent))
       const mounted = state.mounts?.[node.name] ?? ''
       html = `<div class="${cls}"${idAttr}${editAttrs} data-l1-slot="${escapeHtml(node.name)}"${
         node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
@@ -3286,7 +3389,7 @@ function emitNode(
     }
     case 'box': {
       base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
-      base.push(...axisSizingCss(node.sizing))
+      base.push(...axisSizingCss(node.sizing, parent))
       if (!node.geometry) base.push('position: relative')
       const inner = (node.children ?? [])
         .map((child, i) => emitNode(child, state, [...path, i]))
@@ -3315,17 +3418,24 @@ function emitNode(
       // REQ-98 — a container paints AND lays out, so a painted, internally-laid-out
       // element is ONE node rather than a `box` wrapped around a `container`.
       base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
-      base.push(...axisSizingCss(node.sizing))
+      base.push(...axisSizingCss(node.sizing, parent))
       if (!node.geometry) base.push('position: relative')
       // REQ-100 — a container's stagger is handed DOWN to each revealing child as
       // its share of the interval. Only children that actually reveal advance the
       // counter, so a decorative spacer between two cards does not silently buy
       // itself a slot and desynchronise everything after it.
       let revealIndex = 0
+      // BUG-133 — the flow this container puts its children in, resolved from the
+      // SAME cascade `layoutDecls` above compiled, so a child's fluid height can
+      // never disagree with the mode it is actually laid out by.
+      const childFlow: ParentFlow = {
+        base: track ? track.keyframes[0].value : node.layout,
+        keyframes: track?.keyframes.slice(1) ?? [],
+      }
       const inner = node.children
         .map((child, i) => {
           const share = node.staggerMs && child.reveal ? revealIndex++ * node.staggerMs : 0
-          return emitNode(child, state, [...path, i], share)
+          return emitNode(child, state, [...path, i], share, childFlow)
         })
         .join('')
       if (href) base.unshift('text-decoration: none', 'color: inherit')
@@ -3422,6 +3532,12 @@ function emitNode(
     // a single `transition-duration` value applies to the whole list.
     state.rules.push({ media: REDUCED_MOTION, selector, decls: ['transition-duration: 0ms'] })
   }
+
+  // BUG-133 — a fluid height whose parent's layout mode changes across the
+  // ladder, restated at each breakpoint that flips which axis the height is.
+  // Emitted before visibility for the same reason everything else is: a node
+  // hidden at a width must stay hidden, and `display` is the last word.
+  state.rules.push(...fluidHeightRules(node.sizing, parent, selector))
 
   // Visibility is emitted LAST (REQ-104) so that within any one media block it is
   // the final word on `display`. It shares that property with the layout track,
