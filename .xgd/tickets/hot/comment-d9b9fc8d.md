@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:52:24.474327+00:00'
+updated_at: '2026-09-21T22:53:25.086105+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2113,5 +2113,37 @@ What I'm looking for in that output: whether there's a bare `<div>` with no clas
 <!-- xgd-chat role="user" ts="2026-09-21T22:52:23.797635+00:00" -->
 #### You
 ok I see the chat window now
+
+<!-- xgd-turn id="4dafefc1-2be4-45c6-b979-dfb86299174d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:53:24.483660+00:00" -->
+#### Claude
+That's the whole thing. One bug, and it explains every symptom of the last hour.
+
+**The chain:** production mount exceeds `BOOT_DEADLINE_MS = 4000` (four cross-origin CDN imports for TipTap, DOMPurify and marked, plus every module fetch passing through Access) → the guard fires on a deadline that has nothing to do with failure → it writes its panel into `#app` → the shell then mounts *alongside* it → the stray first child breaks the shell's layout → the chat composer collapses to zero height.
+
+Empty console, healthy APIs, working assets, both browsers identical — all consistent, because nothing was ever broken.
+
+And `boot-guard.ts`'s own docstring claims the opposite:
+
+> IT NEVER HIDES A WORKING BUILDER. Every path checks that `#app` is still empty immediately before writing, so a slow-but-successful mount is never replaced by an error panel it raced.
+
+That guarantee is **one-directional**. It prevents the guard *overwriting* a builder that mounted first; it says nothing about the builder mounting *after* the guard has written — which is the race that actually happens, and the guard has no way to retract.
+
+Recorded as §I21 with three fixes — render outside `#app`, retract on arrival, and fire on failure rather than on a timer. Raising the deadline alone isn't a fix; it just re-tunes a race against latency that isn't ours to predict.
+
+There's an adjacent decision worth making separately: the builder fetches TipTap, DOMPurify and marked from `esm.sh` **at runtime**, so your authoring surface depends on a third party being up and pays four cross-origin round trips on first paint. Vendoring them into `dist-assets` would remove the dependency and the latency that caused this bug in one move.
+
+**You're unblocked.** The builder works — remove that div after each load until this is fixed, and it may not even appear once assets and CDN modules are warm in cache.
+
+Back to go-live, where you left off:
+
+1. `copy-to-cloud --force` for **Lagrange Foundry** and **XGD** (1st Contact is already up)
+2. Claim `lagrangefoundry.1stc.site` and `xgd.1stc.site` — satisfies the publish gate with no DNS dependency, and secures the names
+3. **Publish** — still the first publish anywhere, zero revisions on either side
+4. `APEX_SITE_KEY` ← `site_c4bed79aeb647305a5e3098f70d6dca3`, redeploy public-site
+5. `bin/smoke --site-key site_c4bed79a…`
+
+Say the word on tickets and I'll file them: the boot guard (§I21) is the one that matters most — it will mislead the next person exactly as it misled us — with §I19 (`fetchBusinesses` swallowing non-401s), §I20 (unscoped site requests) and §I16 (`SERVICE_TOKEN_IDENTITIES` keyed on a name Cloudflare never sends) behind it.
 
 <!-- xgd-chat-end -->
