@@ -14,6 +14,7 @@ fields:
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-49f51bb4
 ---
 
 Found while walking the operator through the first go-live, 2026-09-20. Defect in
