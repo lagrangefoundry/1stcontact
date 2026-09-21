@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:51:25.411439+00:00'
+updated_at: '2026-09-21T22:52:24.474327+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2107,5 +2107,11 @@ If you want to see what's actually in there, this one returns something:
 That lists `#app`'s direct children. If the guard's div is still in the list, the first element wasn't it — the shell may have mounted *before* the panel in DOM order, in which case removing `firstElementChild` just deleted part of the builder and you should reload.
 
 What I'm looking for in that output: whether there's a bare `<div>` with no class sitting among the shell's own elements. The guard writes an unclassed `div` with inline styles, so it's distinctive.
+
+<!-- xgd-turn id="4dafefc1-2be4-45c6-b979-dfb86299174d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:52:23.797635+00:00" -->
+#### You
+ok I see the chat window now
 
 <!-- xgd-chat-end -->
