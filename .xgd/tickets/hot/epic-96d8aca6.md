@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T01:05:49.501605+00:00'
+updated_at: '2026-09-21T18:09:45.690461+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: underway
 fields:
   priority: medium
@@ -784,3 +784,142 @@ works and needs no schema change.
 
 That check would have caught this on 2026-09-06, against a database nobody had
 deployed to yet, instead of on the first production deploy a fortnight later.
+
+
+---
+
+## §I — First production deploy: what landed, and why `bin/smoke` failed (2026-09-21)
+
+Read off the account directly after the operator ran the rebaseline, `bin/deploy` and
+`bin/smoke`. **The deploy worked. The smoke failure is correct behaviour, not a
+defect** — but it hid two blockers that smoke does not check for.
+
+### I1 — The rebaseline succeeded, and it cleaned up the prefix mismatch for free
+
+| Fact | State |
+|---|---|
+| `wrangler d1 migrations list --remote` | *No migrations to apply* — 0001…0018 all recorded |
+| Tables | 33 (31 app + `_cf_KV` + `sqlite_sequence`) |
+| Platform tenant | `biz_51a6746495c8057e886ff98d4208e6b9` "1st Contact", created 2026-09-21T01:02:18Z |
+| Control-app secrets | `ANTHROPIC_API_KEY`, `CLOUDFLARE_DNS_TOKEN`, `RESEND_API_KEY` |
+| public-site secrets | **none** |
+| Rows | 1 tenant · 0 accounts · 0 users · 0 sites · 0 pages · 0 assets · 0 revisions · 0 domains |
+
+The `acct_…`/`biz_…` mismatch flagged in §C is gone: the wipe took the vestigial
+`acct_` row with it, and the row now present carries the id `TENANT_ID` names.
+`CLOUDFLARE_DNS_TOKEN` is now present, so the `site_domains` attach path
+(`serving.ts`) is configured for the first time.
+
+### I2 — Smoke's one failure is a true statement about an empty deployment
+
+Reproduced check by check against the live origins:
+
+| Check | Result |
+|---|---|
+| `apex_resolves` | **FAIL** — `GET https://1stcontact.io/` → 404 `Not Found` |
+| `unknown_site_not_found` | pass — 404 |
+| `control_app_challenges_unauthenticated` | pass — 302 → `lagrangefoundry.cloudflareaccess.com` |
+| `published_*` (6) | skipped — no `--site-key` |
+| `control_app_workers_dev_closed` | skipped — no `--workers-dev-origin` |
+
+`APEX_SITE_KEY = ""` under `[env.production.vars]`, and there are zero sites and zero
+revisions to point it at. The apex 404s exactly as an unpublished site does, which is
+what `public-site/src/index.ts` says it should do. **Nothing here needs fixing; the
+apex needs content.** The REQ-147 gate — the assertion that actually matters —
+passes against a real Access challenge for the first time.
+
+Incidental: neither `1stcontact-public-site.…workers.dev` nor
+`1stcontact-control-app.…workers.dev` resolves from here, so the `workers_dev = true`
+exposure recorded in §E is currently inert in production. Unverified rather than
+disproved — the account's workers.dev subdomain was assumed, not looked up — so
+EPIC-17 item 12 still stands.
+
+### I3 — BLOCKER: nobody can enter the deployed builder
+
+`PLATFORM_ADMINS = ""` at `apps/control-app/wrangler.toml` line 423, and `users` is
+empty. `admit()` (`identity.ts:1044`) runs `isPlatformAdminSeed` → false, then
+`findUser` → null, and denies `no_user`. **Cloudflare Access lets the operator past
+the edge and the application then turns them away.** Smoke cannot see this: its
+control-app check asserts a non-200, and a refusal is a non-200.
+
+The same refusal blocks the automation. `SERVICE_TOKEN_IDENTITIES` maps
+`1stcontact-publish` to `martin-github@westhead.me` — an address with no `users` row —
+so `bin/copy-to-cloud` passes Access and is refused `no_user` one layer further in.
+
+**`PLATFORM_ADMINS` is exactly the mechanism for this**, and using it is not a
+workaround. It is deployment configuration, so it works before any row exists; it is
+idempotent; and `ensurePlatformOperator` (`identity.ts:1196`) *leaves real rows
+behind* — the tenant, an account, a `users` row with `platform_operator = 1`, an
+`owner` membership, an entitlement — so emptying the var afterwards does not undo the
+repair. That is what makes it break-glass rather than a second authorisation path.
+DOC-40 §6's promise is precisely that the break-glass capability cannot lock its
+holder out of the system that grants it.
+
+Two cautions, both already paid for once:
+
+- **Set it under `[env.production.vars]` (line 423), not the base `[vars]` (line 251).**
+  A named environment inherits neither vars nor bindings — the refrain this file
+  repeats about every key in it.
+- **Edit the existing line; do not add a second.** `identity.ts:948` records a lockout
+  caused by a duplicated `PLATFORM_ADMINS` key, where the address the operator signed
+  in with was not the address the deployment named. That incident is why
+  `denyAdmission` logs `platformAdminSeed`, so the same mistake is now diagnosable
+  from `wrangler tail` instead of by reading configuration.
+
+The address must be the exact one in the Access JWT, and both identities need naming:
+the operator's human address, and `martin-github@westhead.me` for the service token.
+
+### I4 — BLOCKER: every public contact form will refuse
+
+public-site holds **no secrets at all**, and `TURNSTILE_SITEKEY = ""`.
+`lead.ts:464` fails **closed** for any unidentified caller: with `TURNSTILE_SECRET`
+unset, `POST /api/lead` returns 503 *"This site cannot take messages at the
+moment."* By design — a deployment that forgot the secret is refused, loudly, at the
+endpoint rather than quietly on the page.
+
+So a site can go live, render correctly, pass every smoke check, and capture no
+leads — on a platform whose entire purpose is lead capture. **Smoke has no lead
+check**, which is the gap worth closing: `bin/smoke` asserts that bytes serve and
+says nothing about whether the form behind them works. That belongs with EPIC-15's
+probes (its synthetic form-fill is the same assertion), but the *configuration* half
+is this epic's, and it is a go-live step rather than a ticket.
+
+### I5 — The ordered path from here
+
+Steps 1–2 and 7 are configuration edits to `wrangler.toml`, which need no ticket.
+Step 5 is blocked on [[BUG-134]], which is still `draft` and now sits on the critical
+path.
+
+1. `PLATFORM_ADMINS` at line 423 ← the operator's Access address **and**
+   `martin-github@westhead.me`.
+2. `TURNSTILE_SITEKEY` at `apps/public-site/wrangler.toml` line 54, and push
+   `TURNSTILE_SECRET` to public-site — or accept that no form works yet, knowingly.
+3. `bin/build && bin/deploy`.
+4. Sign in at `https://app.1stcontact.io/`, accept the terms. This writes the rows.
+   If refused, `wrangler tail 1stcontact-control-app --env production` names
+   `admission_denied` with `platformAdminSeed`, which separates "wrong address" from
+   "never invited" without reading configuration.
+5. Create **Lagrange Foundry** and **XGD** in the builder by hand —
+   `bin/copy-to-cloud` never mints a tenant, deliberately. Then copy each business up.
+6. Publish a revision per site in the deployed builder. This is the first exercise of
+   that path anywhere, locally or in the cloud.
+7. `APEX_SITE_KEY` ← the 1st Contact site key; redeploy public-site.
+8. `bin/smoke --site-key <key>` — expect all green, including the six published-channel
+   checks that have never run.
+9. Attach `lagrangefoundry.ai` through the builder. `CLOUDFLARE_DNS_TOKEN` is present
+   now, so this path is configured for the first time; the zone is in the account
+   (§F5).
+
+### I6 — What §I adds to the epic's standing scope
+
+- **Open question 4's answer is unchanged and now urgent** — the migration content-hash
+  check (child 5) is the control that would have caught the drift before it cost a
+  deploy.
+- **A new control for the pipeline**: a deployment whose `PLATFORM_ADMINS` and
+  `users` are both empty is unenterable, and a deployment with no `TURNSTILE_SECRET`
+  captures no leads. Both are silent, both are invisible to `bin/smoke`, and both will
+  recur verbatim when staging is stood up. The migrate/secret hooks already probe what
+  each key can do (REQ-264); **these two belong in the same report** — assert at deploy
+  time that the target environment has an enterable identity and a working lead path,
+  and say so in the deploy output rather than leaving it to be discovered by a person
+  failing to sign in.
