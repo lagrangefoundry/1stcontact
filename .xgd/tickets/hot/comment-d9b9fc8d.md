@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T21:53:02.080185+00:00'
+updated_at: '2026-09-21T21:53:29.758064+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1717,5 +1717,18 @@ One thing in there worth flagging separately, because it's a trap waiting for th
 **GET /api/sites:** 200 [{"site":"site_c4bed79aeb647305a5e3098f70d6dca3","latest":null}]
 
 The document loaded; its client did not. Full detail is in the browser console.
+
+<!-- xgd-turn id="1caf4a04-c76e-46ae-b1ad-0d9ad3ee3969-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T21:53:29.409414+00:00" -->
+#### You
+# The builder did not start.
+
+**GET /api/sites:** 200 [{"site":"site_c4bed79aeb647305a5e3098f70d6dca3","latest":null}]
+
+The document loaded; its client did not. Full detail is in the browser console.
+
+^^^^
+This appears at the top of the app.1stcontact.io plage
 
 <!-- xgd-chat-end -->
