@@ -194,12 +194,16 @@ describe('REQ-289 — the direction chooses the ends', () => {
     // when the local end is reached that way — which is what `--origin` is for.
     // Withholding the pair from the local end would make the simulator
     // unreachable for no reason, so it is sent to whichever end was asked for.
+    //
+    // STILL TRUE AFTER [[BUG-134]], and deliberately: one pair with no local
+    // override still reaches both ends. That ticket adds a way to say the ends
+    // differ, it does not make everyone say so.
     const { impl, calls } = bothEnds()
     await copySite('Lagrange Foundry', {
       direction: 'to-cloud',
       local: FAKE_LOCAL,
       cloud: FAKE_CLOUD,
-      access: { clientId: 'abc.access', clientSecret: 's3cret' },
+      cloudAccess: { clientId: 'abc.access', clientSecret: 's3cret' },
       fetch: impl,
     })
     expect(calls.length).toBeGreaterThan(2)
@@ -350,9 +354,9 @@ describe('REQ-289 — what the copy refuses', () => {
       status: 302,
       text: () => Promise.resolve(''),
     })) as unknown as typeof fetch
-    await expect(exportSite(FAKE_CLOUD, 'Lagrange Foundry', { fetch: impl })).rejects.toThrow(
-      /login page[\s\S]*CF_ACCESS_CLIENT_ID[\s\S]*CF_ACCESS_CLIENT_SECRET/,
-    )
+    await expect(
+      exportSite(FAKE_CLOUD, 'Lagrange Foundry', { end: 'cloud', fetch: impl }),
+    ).rejects.toThrow(/login page[\s\S]*CF_ACCESS_CLIENT_ID[\s\S]*CF_ACCESS_CLIENT_SECRET/)
   })
 })
 

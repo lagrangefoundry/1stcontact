@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-290
 created_by: xgd
 created_at: '2026-09-21T00:16:58.079965+00:00'
-updated_at: '2026-09-21T00:33:36.770019+00:00'
+updated_at: '2026-09-21T19:58:37.332572+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -64,5 +64,217 @@ Answer "yes to all three" and I'll start.
 <!-- xgd-chat role="user" ts="2026-09-21T00:33:36.288798+00:00" -->
 #### You
 Your ticket has been updated to answer the questions that you asked. Please reread it and determine if you are ready to code
+
+<!-- xgd-turn id="3a239fbb-cc41-44a9-b654-ce1e0329572c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:03:38.663175+00:00" -->
+#### Claude
+Ticket answers all three questions. One measurement contradicts a line in it, which changes where one edit lands — I'll record that in the body as I go. Cutting the branch.
+
+Now repointing the fourteen suites. Let me look at each call site precisely.
+
+Now the three `globSync` suites and the rest of the constant swaps.
+
+Now req119, l1-one-colour-system, colour-census, shade-model, BUG-92, REQ-153, REQ-175.
+
+Now BUG-92 and REQ-153, which read the corpus through `loadSite`/`readHistory` contexts.
+
+Now the `global` construction — the one edit whose placement I need to justify.
+
+Now the deletions: `bin/publish`, the `push` verb, `bin/author_xgd_sections.py`.
+
+REQ-289 has already landed on this branch — `bin/copy-to-cloud`, `bin/copy-from-cloud`, `GET /api/export` and `cli/copy.ts` all exist. My earlier survey was against an older checkout. Re-surveying against the real base.
+
+Now the remaining `bin/publish` / `storage/sites` prose in `index.ts`, `reset.ts` and the store modules.
+
+Now `reset.ts`, `push.ts`, `copy.ts`, `bin/copy-to-cloud` and the store-module comments.
+
+Now rewriting `push.ts`'s prose so it describes a transport rather than a retired command.
+
+Now `builder.ts`, the store modules, and `router.ts`.
+
+Now the `bin/` scripts, `ACCESS.md`, `.gitignore` and `db/dev-seed.sql`.
+
+Now the UAT suite for REQ-290. Let me check the naming conventions used by the repo's own naming test first.
+
+Now I'll repoint BUG-36's script assertions at the live artefact and fix the boot-guard message.
+
+Now the remaining prose references in `wrangler.toml`, source comments and test headers.
+
+Now the UAT suite.
+
+Now the full suite, to catch anything the targeted runs missed.
+
+The failures are the CLI flip reaching in-process `run()` callers. Making library and CLI agree on one root rather than splitting them.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="22d8fa2b-7589-473d-accc-f7811cedeb0e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:08:02.411027+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="22d8fa2b-7589-473d-accc-f7811cedeb0e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:10:06.675942+00:00" -->
+#### Claude
+The full-suite run was killed (exit 137 — OOM). Let me re-establish state and run tests in smaller foreground batches.
+
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 8:50pm (America/Los_Angeles)
+
+<!-- xgd-turn id="5742df42-1035-4f2e-9a65-5cb049f75233-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:10:59.770143+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="5742df42-1035-4f2e-9a65-5cb049f75233-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:11:07.396371+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 8:50pm (America/Los_Angeles)
+
+<!-- xgd-turn id="d46d4406-84e5-4d4e-ba75-01c347b1a2f2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:18:47.387072+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="d46d4406-84e5-4d4e-ba75-01c347b1a2f2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:18:55.448763+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 8:50pm (America/Los_Angeles)
+
+<!-- xgd-turn id="1a8aae03-9ffb-427c-9abd-140eeb930482-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T17:43:01.709694+00:00" -->
+#### You
+Please continue
+
+<!-- xgd-turn id="1a8aae03-9ffb-427c-9abd-140eeb930482-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T17:43:09.356493+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 11:50am (America/Los_Angeles)
+
+<!-- xgd-turn id="bea0fbed-a720-431b-84a9-200be422ddb0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:30:26.914096+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="bea0fbed-a720-431b-84a9-200be422ddb0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:02:02.544516+00:00" -->
+#### Claude
+I'll re-establish state first — prior sessions were interrupted mid-work.
+
+Substantial uncommitted work exists on the branch. Let me get the full picture.
+
+Now I understand the state. Let me check the test setup and the key tension point.
+
+Test runner works. Let me protect the in-progress work with a WIP commit before continuing.
+
+Work protected. Now fixing the one test whose intent genuinely changes under this ticket.
+
+Now let me assess the whole suite. Running in batches to avoid the OOM that killed the earlier attempt.
+
+Shard 1 reveals the prior pass was too broad — it rewrote repo-corpus readers into sandbox readers. Let me audit that class.
+
+Now fixing the font-provenance gate, which lost sight of the corpus's font bytes when the corpus moved.
+
+Now req104 — a fifteenth corpus reader the original trace missed.
+
+Let me proactively find the rest of that class before running more shards.
+
+Let me measure the alternative before churning further — the evidence now contradicts one line in the ticket.
+
+The evidence points the other way from one line in the ticket. Let me verify the cheaper, more faithful alternative before committing to it.
+
+Reverting the over-broad sweep, keeping the corpus work, and restoring the CLI-entry-point flip.
+
+These are worktree-environment artifacts, not regressions. Let me repair the worktree env so the rest of the sweep is trustworthy.
+
+Found it — `startBuilder` resolves through `ctxOf` too, so it must agree with the seed.
+
+BUG-67 fails at baseline too — pre-existing. The other three are mine.
+
+I drifted into the main checkout during baselining — returning to the branch worktree.
+
+Only the pre-existing `/api/export` gap remains in shard 5. Continuing.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="8d5ac72f-899c-4c27-92b5-a39d94b1271b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:17:49.621561+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="8d5ac72f-899c-4c27-92b5-a39d94b1271b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:49:14.094823+00:00" -->
+#### Claude
+I'll re-establish state before continuing — prior sessions were interrupted mid-work.
+
+Now I have the full picture. The branch settled on the narrow pin (CLI entry point only); the four uncommitted files are leftovers from the abandoned wide-pin sweep. Fixing them to match.
+
+The uncommitted diff was correct for those three — I reverted it wrongly. Re-applying the established sweep shape.
+
+All four green. Committing this shard before continuing the sweep.
+
+Pre-existing, unrelated to this branch. Continuing the sweep.
+
+The narrow pin has an open-ended tail — every library entry point taking `GlobalOptions` needs flagging in any suite that also drives the CLI. Pinning `ctxOf` (what the ticket literally names) makes library and CLI agree and removes the tail entirely. Switching to that.
+
+Good — both read correctly under this design. Now running the full node suite to find what the shard commits left inconsistent.
+
+Rather than pre-judging the restored sweep, I'll let the suite arbitrate. Running all node shards.
+
+The 70-file restore dragged back the blanket rewrite's corpus mistakes. HEAD already has those fixed — better to start from HEAD and apply only the pin.
+
+req104 was already fixed at HEAD. Running the full node suite under the pin.
+
+The wide pin costs ~40 suites of churn and its blanket application already introduced silent corpus-reader bugs. Reverting to the narrow pin — it meets the ticket's purpose and keeps the Boundaries promise.
+
+Now finishing shard 7's five suites — the long tail is library entry points that need the flag.
+
+Shard 7's suites are green. Committing and running the remaining shards.
+
+The blanket multi-line sweep broke four previously-green suites. Reverting those.
+
+Only the pre-existing `/api/export` gap remains. Committing and re-running all shards for a clean read.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="031a2491-e66d-40d3-bc78-364f7ac024d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:58:35.611471+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->

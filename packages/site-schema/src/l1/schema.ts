@@ -284,7 +284,26 @@ export const l1GeometrySchema = z
 
 // ── Structure primitives (capture leaves empty; the AI recovers) ──────────────
 
-/** Per-axis sizing intent: a fixed px, fluid (fill), or hug (fit-content). */
+/**
+ * Per-axis sizing intent: a fixed px, fluid (fill), or hug (fit-content).
+ *
+ * BUG-133 — **`fluid` means fill, and what "fill" compiles to depends on which
+ * axis the PARENT made this one.** A width fills the same way everywhere: a
+ * block's containing width is definite, so it is a percentage of it. A height
+ * does not, because a flex row's height is indefinite until its own content has
+ * been laid out:
+ *
+ * - under a `row` or a `grid`, height is the parent's cross/block axis, and a
+ *   fluid height stretches the node to the row's (or track's) resolved height —
+ *   which is what makes an `image` fill the depth of the column beside it, with
+ *   `axes.objectFit` governing the crop;
+ * - under a `stack`, height is the parent's main axis, and a fluid height is a
+ *   share of a parent that declares one.
+ *
+ * Stated here because it is not inferable from the field: an author reading
+ * `{ mode: "fluid" }` alone cannot tell which of the two they wrote, and the
+ * renderer settles it without asking.
+ */
 export const l1SizingSchema = z
   .object({
     mode: z.enum(['fixed', 'fluid', 'hug']),

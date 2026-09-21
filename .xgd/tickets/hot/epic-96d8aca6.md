@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T00:23:14.370067+00:00'
+updated_at: '2026-09-21T20:07:21.706723+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: underway
 fields:
   priority: medium
@@ -15,6 +15,8 @@ fields:
   epic_children:
   - request-625707ca
   - request-aab6c72e
+  - request-3514cc7e
+  - bug-bec99cab
 ---
 
 ## What the client asked for
@@ -714,3 +716,343 @@ Filed as [[REQ-289]] (1–3) and [[REQ-290]] (4–5); 6 is an acceptance item in
 
 Steps 1–3 stand alone and are worth doing before 4–6 is scheduled: the backup is the urgent half,
 the tidy-up is not.
+
+## H. The baseline drifted after it was applied — first deploy attempt, 2026-09-21
+
+`bin/deploy`'s migrate hook failed on the first real run:
+
+```
+no such table: sessions: SQLITE_ERROR [code: 7500]
+```
+
+### What happened
+
+| | |
+|---|---|
+| Remote `d1_migrations` | one row — `0001_baseline.sql`, applied **2026-09-06 17:39:19** |
+| Commits editing `0001_baseline.sql` **after** that | **12**, the first being `fc5c78dbe5` (2026-09-06), which is what added `CREATE TABLE sessions` |
+| Remote tables | 14 |
+| Tables the current baseline creates | 31 |
+| `0002_session_rotation.sql`, first statement | `ALTER TABLE sessions RENAME TO sessions_pre_rotation` |
+
+The baseline's own header states the premise that licensed this:
+
+> ITS SIBLINGS EDIT IT RATHER THAN FOLLOW IT. REQ-191 (`user_emails`) and REQ-193
+> (`user_names`) have, and REQ-194 (`accounts`) and REQ-195 (`contact_events`) will,
+> land in THIS file. **Editing a baseline that has never been applied is not a second
+> rebaseline.**
+
+The premise was false by a few hours. It *had* been applied — to production, that
+same afternoon. `d1_migrations` records a migration's **name**, not its content, so
+wrangler considers `0001_baseline.sql` done forever and starts at 0002. The applied
+migration and the file on disk are now two different schemas wearing one name, and
+there is no forward path between them.
+
+**This is `db/migrations/`'s own rule — never edit an applied migration — broken
+in the one file that documents it.** Not carelessly: the author checked the premise
+and the premise was true when they wrote it. What was missing is any mechanism that
+would have noticed it stop being true.
+
+### The fix: rebaseline, because this is the last free moment
+
+Remote holds 0 sites, 0 users, 0 revisions and one vestigial tenant row
+(`acct_51a6…`, itself carrying a prefix `TENANT_ID` does not use). Nothing is lost by
+a wipe, which is [[REQ-190]]'s own argument applied a second time — and §B above
+already named this: *the empty database is the cheapest moment this will ever be.*
+
+`db/ops/rebaseline-remote.sql` drops the twelve app tables and `d1_migrations`,
+leaving `_cf_KV` (Cloudflare's) and `sqlite_sequence` (SQLite's). Then
+`wrangler d1 migrations apply DB --remote` replays 0001…0018 into an empty database.
+
+**Verified before proposing**: the full chain 0001→0018 applies clean from an empty
+SQLite database, producing 31 tables. The failure is specific to the drifted remote,
+not to the migrations.
+
+### The consequence for the pipeline — this is not a one-off
+
+After the rebaseline, `0001_baseline.sql` is an applied migration again, and the same
+trap is re-armed for staging and for every future environment. The rule cannot be
+"remember not to edit it"; that is what just failed.
+
+**Open question 4 now has a concrete answer to give.** The migration policy check
+(child 5) should compare a **content hash** of every migration file against what the
+target environment recorded, and fail the deploy when an applied file's bytes have
+changed — before anything uploads. `d1_migrations` stores only `(id, name,
+applied_at)`, so the hash has to live somewhere this repo controls; a checked-in
+manifest of `name → sha256`, verified by the migrate hook, is the smallest thing that
+works and needs no schema change.
+
+That check would have caught this on 2026-09-06, against a database nobody had
+deployed to yet, instead of on the first production deploy a fortnight later.
+
+
+---
+
+## §I — First production deploy: what landed, and why `bin/smoke` failed (2026-09-21)
+
+Read off the account directly after the operator ran the rebaseline, `bin/deploy` and
+`bin/smoke`. **The deploy worked. The smoke failure is correct behaviour, not a
+defect** — but it hid two blockers that smoke does not check for.
+
+### I1 — The rebaseline succeeded, and it cleaned up the prefix mismatch for free
+
+| Fact | State |
+|---|---|
+| `wrangler d1 migrations list --remote` | *No migrations to apply* — 0001…0018 all recorded |
+| Tables | 33 (31 app + `_cf_KV` + `sqlite_sequence`) |
+| Platform tenant | `biz_51a6746495c8057e886ff98d4208e6b9` "1st Contact", created 2026-09-21T01:02:18Z |
+| Control-app secrets | `ANTHROPIC_API_KEY`, `CLOUDFLARE_DNS_TOKEN`, `RESEND_API_KEY` |
+| public-site secrets | **none** |
+| Rows | 1 tenant · 0 accounts · 0 users · 0 sites · 0 pages · 0 assets · 0 revisions · 0 domains |
+
+The `acct_…`/`biz_…` mismatch flagged in §C is gone: the wipe took the vestigial
+`acct_` row with it, and the row now present carries the id `TENANT_ID` names.
+`CLOUDFLARE_DNS_TOKEN` is now present, so the `site_domains` attach path
+(`serving.ts`) is configured for the first time.
+
+### I2 — Smoke's one failure is a true statement about an empty deployment
+
+Reproduced check by check against the live origins:
+
+| Check | Result |
+|---|---|
+| `apex_resolves` | **FAIL** — `GET https://1stcontact.io/` → 404 `Not Found` |
+| `unknown_site_not_found` | pass — 404 |
+| `control_app_challenges_unauthenticated` | pass — 302 → `lagrangefoundry.cloudflareaccess.com` |
+| `published_*` (6) | skipped — no `--site-key` |
+| `control_app_workers_dev_closed` | skipped — no `--workers-dev-origin` |
+
+`APEX_SITE_KEY = ""` under `[env.production.vars]`, and there are zero sites and zero
+revisions to point it at. The apex 404s exactly as an unpublished site does, which is
+what `public-site/src/index.ts` says it should do. **Nothing here needs fixing; the
+apex needs content.** The REQ-147 gate — the assertion that actually matters —
+passes against a real Access challenge for the first time.
+
+Incidental: neither `1stcontact-public-site.…workers.dev` nor
+`1stcontact-control-app.…workers.dev` resolves from here, so the `workers_dev = true`
+exposure recorded in §E is currently inert in production. Unverified rather than
+disproved — the account's workers.dev subdomain was assumed, not looked up — so
+EPIC-17 item 12 still stands.
+
+### I3 — BLOCKER: nobody can enter the deployed builder
+
+`PLATFORM_ADMINS = ""` at `apps/control-app/wrangler.toml` line 423, and `users` is
+empty. `admit()` (`identity.ts:1044`) runs `isPlatformAdminSeed` → false, then
+`findUser` → null, and denies `no_user`. **Cloudflare Access lets the operator past
+the edge and the application then turns them away.** Smoke cannot see this: its
+control-app check asserts a non-200, and a refusal is a non-200.
+
+The same refusal blocks the automation. `SERVICE_TOKEN_IDENTITIES` maps
+`1stcontact-publish` to `martin-github@westhead.me` — an address with no `users` row —
+so `bin/copy-to-cloud` passes Access and is refused `no_user` one layer further in.
+
+**`PLATFORM_ADMINS` is exactly the mechanism for this**, and using it is not a
+workaround. It is deployment configuration, so it works before any row exists; it is
+idempotent; and `ensurePlatformOperator` (`identity.ts:1196`) *leaves real rows
+behind* — the tenant, an account, a `users` row with `platform_operator = 1`, an
+`owner` membership, an entitlement — so emptying the var afterwards does not undo the
+repair. That is what makes it break-glass rather than a second authorisation path.
+DOC-40 §6's promise is precisely that the break-glass capability cannot lock its
+holder out of the system that grants it.
+
+Two cautions, both already paid for once:
+
+- **Set it under `[env.production.vars]` (line 423), not the base `[vars]` (line 251).**
+  A named environment inherits neither vars nor bindings — the refrain this file
+  repeats about every key in it.
+- **Edit the existing line; do not add a second.** `identity.ts:948` records a lockout
+  caused by a duplicated `PLATFORM_ADMINS` key, where the address the operator signed
+  in with was not the address the deployment named. That incident is why
+  `denyAdmission` logs `platformAdminSeed`, so the same mistake is now diagnosable
+  from `wrangler tail` instead of by reading configuration.
+
+The address must be the exact one in the Access JWT, and both identities need naming:
+the operator's human address, and `martin-github@westhead.me` for the service token.
+
+### I4 — BLOCKER: every public contact form will refuse
+
+public-site holds **no secrets at all**, and `TURNSTILE_SITEKEY = ""`.
+`lead.ts:464` fails **closed** for any unidentified caller: with `TURNSTILE_SECRET`
+unset, `POST /api/lead` returns 503 *"This site cannot take messages at the
+moment."* By design — a deployment that forgot the secret is refused, loudly, at the
+endpoint rather than quietly on the page.
+
+So a site can go live, render correctly, pass every smoke check, and capture no
+leads — on a platform whose entire purpose is lead capture. **Smoke has no lead
+check**, which is the gap worth closing: `bin/smoke` asserts that bytes serve and
+says nothing about whether the form behind them works. That belongs with EPIC-15's
+probes (its synthetic form-fill is the same assertion), but the *configuration* half
+is this epic's, and it is a go-live step rather than a ticket.
+
+### I5 — The ordered path from here
+
+Steps 1–2 and 7 are configuration edits to `wrangler.toml`, which need no ticket.
+Step 5 is blocked on [[BUG-134]], which is still `draft` and now sits on the critical
+path.
+
+1. `PLATFORM_ADMINS` at line 423 ← the operator's Access address **and**
+   `martin-github@westhead.me`.
+2. `TURNSTILE_SITEKEY` at `apps/public-site/wrangler.toml` line 54, and push
+   `TURNSTILE_SECRET` to public-site — or accept that no form works yet, knowingly.
+3. `bin/build && bin/deploy`.
+4. Sign in at `https://app.1stcontact.io/`, accept the terms. This writes the rows.
+   If refused, `wrangler tail 1stcontact-control-app --env production` names
+   `admission_denied` with `platformAdminSeed`, which separates "wrong address" from
+   "never invited" without reading configuration.
+5. Create **Lagrange Foundry** and **XGD** in the builder by hand —
+   `bin/copy-to-cloud` never mints a tenant, deliberately. Then copy each business up.
+6. Publish a revision per site in the deployed builder. This is the first exercise of
+   that path anywhere, locally or in the cloud.
+7. `APEX_SITE_KEY` ← the 1st Contact site key; redeploy public-site.
+8. `bin/smoke --site-key <key>` — expect all green, including the six published-channel
+   checks that have never run.
+9. Attach `lagrangefoundry.ai` through the builder. `CLOUDFLARE_DNS_TOKEN` is present
+   now, so this path is configured for the first time; the zone is in the account
+   (§F5).
+
+### I6 — What §I adds to the epic's standing scope
+
+- **Open question 4's answer is unchanged and now urgent** — the migration content-hash
+  check (child 5) is the control that would have caught the drift before it cost a
+  deploy.
+- **A new control for the pipeline**: a deployment whose `PLATFORM_ADMINS` and
+  `users` are both empty is unenterable, and a deployment with no `TURNSTILE_SECRET`
+  captures no leads. Both are silent, both are invisible to `bin/smoke`, and both will
+  recur verbatim when staging is stood up. The migrate/secret hooks already probe what
+  each key can do (REQ-264); **these two belong in the same report** — assert at deploy
+  time that the target environment has an enterable identity and a working lead path,
+  and say so in the deploy output rather than leaving it to be discovered by a person
+  failing to sign in.
+
+
+### I7 — `wrangler` advises the one change that would open the builder to the world
+
+Every `wrangler` invocation against this app prints:
+
+> *The following vars exist at the top level, but not on `env.production.vars`. This
+> is probably not what you want... Please add these vars to `env.production.vars`: —
+> `ACCESS_DEV_OPEN`*
+
+`wrangler.toml:416` says the opposite, and it is right: *"No ACCESS_DEV_OPEN here, and
+that absence is the security control (REQ-145)."* `ACCESS_DEV_OPEN = "1"` at line 253
+bypasses the Access gate for `wrangler dev`. An operator who follows the tool's advice
+— on the deploy where nothing is working yet and every warning looks like a lead —
+publishes the builder, the customer data and the AI credentials to anyone who types
+the hostname.
+
+The warning is generic and cannot be taught the exception, so the mitigation has to be
+local: the deliberate-absence comment already exists at line 416, but it is 163 lines
+below the warning's subject and nothing connects them. **The comment at line 136,
+where `ACCESS_DEV_OPEN` is declared, should name the warning verbatim and say to
+ignore it** — an operator reading the tool's output greps for the var, lands on its
+declaration, and must meet the refusal there rather than having to find it.
+
+Filed as part of the same control §I6 asks for: the deploy output is what an operator
+reads at the moment they are most likely to act, and it currently carries a
+recommendation that is a security incident.
+
+### I8 — Access identity was not readable, and the seed is a superset
+
+`/cdn-cgi/access/get-identity` answered `{"err":"no app token set"}` — the browser held
+no `CF_Authorization` cookie, so the Access login had not completed. `wrangler tail`
+was also unavailable at first for an unrelated reason worth recording: **a positional
+script name plus `--env production` makes wrangler compose
+`1stcontact-control-app-production`**, which does not exist, because `[env.production]`
+declares `name` explicitly. Dropping the positional name resolves correctly.
+
+Rather than block on discovering the exact JWT string, `PLATFORM_ADMINS` now names
+every candidate address. This is sound rather than sloppy: the seed fires only for an
+identity that actually authenticates, so an address that never signs in writes no row,
+and `user_emails` afterwards states which one fired. The var returns to `""` once the
+rows exist.
+
+
+### I9 — The Access identity was recorded in the repository all along
+
+§I8 chased the operator's Access address through `get-identity` (no app token), through
+`wrangler tail` (wrong script name), and finally through a superset seed. All three
+were unnecessary. **`ACCESS.md` §"Granted identities" is the record of the policy**, and
+it names exactly one human: `martin-github@westhead.me`. The file says why the shape is
+an allow-list rather than a domain rule, and a UAT
+(`test_UAT_FC_REQ-147_the_access_policy_is_recorded_in_the_repository`) exists to keep
+it current.
+
+The address tried first, `martin-cloudflaire@westhead.me`, is not on it. Cloudflare's
+One-time PIN does not email a code to an address no policy admits, so the missing
+message was the gate working. Confirmed against production at the time: 0 `users`,
+0 `login_tokens`, 0 `sessions` — neither the Access path nor the application's own
+magic-link path had produced anything at all.
+
+`PLATFORM_ADMINS` is therefore a single address, and deliberately the same one
+`SERVICE_TOKEN_IDENTITIES` maps `1stcontact-publish` to: one seeded `users` row admits
+both the operator in a browser and `bin/copy-to-cloud` from their laptop.
+
+**The lesson for the pipeline, and it is the same one §I6 and §I7 are circling.** Three
+diagnostic routes were tried against a live deployment before the checked-in record was
+read. `ACCESS.md` is exactly the artefact REQ-147 created for this, and nothing pointed
+at it: not the deploy output, not the refusal, not the runbook. When the identity check
+proposed in §I6 lands, its failure message should name `ACCESS.md` and quote the
+granted-identities table — the operator who cannot get in is precisely the reader who
+needs to be told where the answer is kept.
+
+### I10 — Still outstanding before customers arrive: the Bypass policy
+
+`ACCESS.md` §"Invitee paths" records an item that is not yet done and is not blocking
+today. The application's blanket policy covers all paths, so an invitee clicking their
+invitation meets Access first and is challenged with its own one-time-PIN email —
+two messages, one of which is from a system they have never heard of, and the second
+gate admits nobody who is not on the operator allow-list. The fix recorded there is a
+**Bypass** policy ahead of the allow-list, scoped to the sign-in and invitation paths.
+
+Not needed for go-live of the platform's own sites (the operator is the only identity),
+but required the moment a real customer is invited. Noted here so it is not rediscovered
+by an invitee failing to accept.
+
+
+### I11 — The seed worked, and two things §I5 got wrong
+
+Confirmed in production 2026-09-21T20:03Z: one `users` row
+(`martin-github@westhead.me`, `platform_operator = 1`), one `accounts` row, one
+`memberships` row, one `entitlements` row, `tos_accepted_at` stamped. The break-glass
+path did exactly what `identity.ts` says it does, including leaving the terms
+unaccepted for the operator to accept like anybody else.
+
+**[[BUG-134]] is not blocking.** §I5 named it on the critical path; the fix landed in
+`87c49670d8 fix(copy): one Access credential per end, chosen by direction
+[FREE-CODED]`, which is on `xgd-working`, and `bin/copy-to-cloud`'s header documents
+the two-credential design as shipped. Only the ticket's `status` is stale.
+
+**The apex site does not need creating.** §I5 step 7 assumed the 1st Contact business
+would need a site and did not check whether one could be made. It could not:
+`/api/sites` is GET-only, and a site is written only by `provisionBusiness`, which the
+platform business never went through — `ensurePlatformOperator` calls bare
+`createTenant`. That would have been a dead end.
+
+It is not one, because the local builder already holds the site, and **both sides
+resolve `1st Contact` to the same id from `TENANT_ID`**
+(`biz_51a6746495c8057e886ff98d4208e6b9`). `bin/copy-to-cloud "1st Contact"` therefore
+imports into the business that is already there. The general case is the interesting
+one: `copy-to-cloud` matches businesses BY NAME because ids are minted independently
+per side — the platform business is the one business where that is not true, and it is
+the one this step needs.
+
+Local inventory, read from `apps/control-app/.wrangler/state`:
+
+| Business | Site | Version |
+|---|---|---|
+| 1st Contact | `site_62d3d0097bbc7b6e86bdcdb3728389a3` | 60 |
+| Lagrange Foundry | `site_936dd7c92e5e14df694dd9a80433aa4f` | 210 |
+| XGD | `site_bca807fc7cdd0bf418b15e255f8c45c6` | 23 |
+| Alice's Plumbing / Lettings / Old Salon | none | — |
+| uat@westhead.me, Felix Test, Gigabyte Alchemy | test | — |
+
+`site_revisions` is **0 locally as well as remotely**. Nothing has ever been published
+in either builder, so the publish step is a first run in the strict sense — not a
+re-run of a path that works locally.
+
+**A third control for §I6's list.** Both corrections above are the same failure: a
+runbook step asserted about a system without reading it. The remedy is not more care;
+it is that the go-live sequence should be *derived* from the stores rather than
+written from memory — what businesses exist on each side, which names match, what has
+a site, what has a revision. That is a report `bin/` could produce and a person
+cannot reliably hold.

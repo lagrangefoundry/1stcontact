@@ -1,0 +1,20 @@
+{
+  "0001_baseline.sql": "c3b352ef1bbbeab8a8dac7c66ff73a6a0c2bedc3ae51e67efd896746f0dfee0f",
+  "0002_session_rotation.sql": "21198e0132c4c1da92cd588e2d5db8b10d0d48f4814e3f567a58008cb11fda2d",
+  "0003_contact_change_cursor.sql": "ce01dc658afab11e53dbb968342364639d46ab77f938a019b9c8d11b87194a67",
+  "0004_user_acceptances.sql": "10baa353fc44d67f61b911fe8f0da3f09ec052916128bec785d9d60599b3064e",
+  "0005_retire_site_slug.sql": "74e4cdea3446f3aebdb346d991de39b5576f409f5a204fe0da60a52cdd8d3b1d",
+  "0006_asset_grants.sql": "d38f320b3cf704b20ea00975aa489333ff21c5b1adaca5df3c34433368c19671",
+  "0007_business_name_unique.sql": "0bce8d3adc4c96decb81812036444fe86c815123c60bfa63d9367ee582922d5a",
+  "0008_site_domains.sql": "feb40f5dca523bf3ad85c02857b2b547a31be271f2d94e780a21814b8bfbf973",
+  "0009_asset_grant_form_handle.sql": "95baf569a742296331f2681d8089e5d2266dc662de649a14e55cc1fa21c70725",
+  "0010_zones.sql": "f8cdad678dd59df7ac235b2b3414ed6b5f688ee99f1a0f6250fb4c31c181face",
+  "0011_site_domains_canonical.sql": "dce3bb7880ca6a4eae08c14c1c492a0835a644d920531c644f47d230ea226808",
+  "0012_sending_domains.sql": "907748396aa6b66e89a712731a2465720052c764bbb4dd178a66e40e809344f6",
+  "0013_revision_immutability.sql": "d1016a1474a73bd6cd5a7d394a6d1808217dd5f0f1d573019cab8a40ef4cba2a",
+  "0014_capture_gutter.sql": "b088917cd6b9dbf5c7af81992f0102011acb6fdd0500a381e3bfe87112c47186",
+  "0015_inbound_mail.sql": "3f0fa1d809e6228cb4aacbd1d782c4bf7fbba86d5246e53c69cba1c9d64e9379",
+  "0016_gutter_collection.sql": "2a40d9ed55e6bc888b0bf393ab960d62d9a8592ec504006f30cb269ba4d9077c",
+  "0017_dns_changes.sql": "22675d2893c95fdb24078a1c4bbdb5a8e94cf9e484b648d55080e854ce1766aa",
+  "0018_activity_log.sql": "ea5a813ec95c8be1fbc52d4bce5735633d26d7747e9b93e92434b85a34d91b3e"
+}

@@ -228,6 +228,87 @@ export interface AccessServiceToken {
   clientSecret: string
 }
 
+/**
+ * Which MACHINE a request is addressed to — not which role it plays in a
+ * transfer ([[BUG-134]]).
+ *
+ * `source`/`destination` SWAP WITH DIRECTION AND THESE DO NOT. A copy reads one
+ * end and writes the other, and which of them is the laptop depends on which
+ * way the bytes are going; but an operator does not configure a role, they
+ * configure a machine. So the credential an end wants is named for the end, and
+ * a refusal that said "the source end" would make the reader work out which
+ * machine that was this time.
+ */
+export type AccessEnd = 'local' | 'cloud'
+
+/** Every name one end's credential goes by, in the one place they are written. */
+export interface AccessNaming {
+  /** How the end reads inside a sentence. */
+  subject: string
+  envId: string
+  envSecret: string
+  flagId: string
+  flagSecret: string
+  /** Where a pair THIS end accepts comes from. */
+  provision: string
+}
+
+/**
+ * The two ends' credentials, as one table rather than five string literals.
+ *
+ * WHY A TABLE. These names appear in `serviceToken`'s refusal, in `getJson`'s,
+ * in {@link postSitePayload}'s, in the two `bin/copy-*` help texts and in `1c`
+ * help — and [[BUG-134]] is what one of those naming the wrong credential
+ * costs. The operator was told to set the pair that was already correct, for
+ * the end that was not refusing, and following that advice made it worse. Six
+ * copies of a name is six chances for that; one table is none.
+ *
+ * THE CLOUD ROW IS UNCHANGED, deliberately. `CF_ACCESS_CLIENT_ID` /
+ * `CF_ACCESS_CLIENT_SECRET` are the real Cloudflare credential and mean exactly
+ * what they always did; the fix adds a second row, it does not rename the first.
+ */
+export const ACCESS_NAMING: Record<AccessEnd, AccessNaming> = {
+  cloud: {
+    subject: 'The CLOUD end',
+    envId: 'CF_ACCESS_CLIENT_ID',
+    envSecret: 'CF_ACCESS_CLIENT_SECRET',
+    flagId: '--client-id',
+    flagSecret: '--client-secret',
+    provision: 'Run bin/access-token to provision one.',
+  },
+  local: {
+    subject: 'The LOCAL end',
+    envId: 'LOCAL_ACCESS_CLIENT_ID',
+    envSecret: 'LOCAL_ACCESS_CLIENT_SECRET',
+    flagId: '--local-client-id',
+    flagSecret: '--local-client-secret',
+    // THE SIMULATOR PRINTS THE CLOUD NAMES (`bin/access-sim --print-token`
+    // emits `CF_ACCESS_CLIENT_*`), so this sentence says which pair to put its
+    // values in. Left at "run --print-token", an `eval` of that output would
+    // set the OTHER end's credential to the simulator's — which is BUG-134
+    // wearing the opposite jacket.
+    provision:
+      'Run ./bin/access-sim --print-token and put its two values in ' +
+      'LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET — it prints them under ' +
+      'the CLOUD names, which are the other end.',
+  },
+}
+
+/**
+ * The one sentence that tells an operator which credential a refusing end wants.
+ *
+ * IT NAMES THE END FIRST. A copy has two of them and the operator has two
+ * pairs; the sentence that named neither is what turned [[BUG-134]]'s one-line
+ * fix into a diagnosis.
+ */
+export function accessAdvice(end: AccessEnd): string {
+  const n = ACCESS_NAMING[end]
+  return (
+    `${n.subject} is behind Cloudflare Access. Set ${n.envId} and ${n.envSecret} ` +
+    `to a service token, or pass ${n.flagId} and ${n.flagSecret}. ${n.provision}`
+  )
+}
+
 export interface PushOptions {
   /** Where the builder Worker is, e.g. `http://localhost:8788`. */
   origin: string
@@ -273,12 +354,20 @@ export interface PushOptions {
  * its store's own terms and says that back; a copy was given a business name and
  * says that. A shared function that named one of them for both would report a
  * site key the operator has never seen.
+ *
+ * `end` IS WHICH MACHINE `url` ADDRESSES, AND IT IS A PARAMETER ([[BUG-134]]).
+ * This function's Access advice used to name `CF_ACCESS_CLIENT_*`
+ * unconditionally, which is right for a push to the cloud and wrong for
+ * `copy-from-cloud`, whose destination is the laptop. The text could not be
+ * fixed in place because both callers share it, so the end has to reach the
+ * sentence instead of being assumed by it.
  */
 export async function postSitePayload(
   payload: SitePayload,
   opts: {
     url: string
     subject: string
+    end: AccessEnd
     access?: AccessServiceToken
     fetch?: typeof fetch
   },
@@ -323,9 +412,7 @@ export async function postSitePayload(
         (conflicted
           ? 'Pass --force to replace it anyway. Nothing was written.'
           : refusedByAccess
-            ? 'The target is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and ' +
-              'CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and ' +
-              '--client-secret. Run bin/access-token to provision one.'
+            ? accessAdvice(opts.end)
             : ''),
     )
   }
@@ -345,6 +432,11 @@ export async function pushSite(
   const landed = await postSitePayload(payload, {
     url: new URL('/api/import', opts.origin).toString(),
     subject: `Import of '${slug}'`,
+    // THIS TRANSPORT HAS ONE END AND IT IS THE CLOUD. `--origin` can aim it at
+    // a local Worker, but the credential it reads is `CF_ACCESS_CLIENT_*` and
+    // the advice it owes on a refusal is the cloud row. The copy pair is the
+    // caller with two ends; this one names its single end and moves on.
+    end: 'cloud',
     ...(opts.access ? { access: opts.access } : {}),
     ...(opts.fetch ? { fetch: opts.fetch } : {}),
   })

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:32:45.933507+00:00'
+updated_at: '2026-09-21T20:07:34.341044+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -403,5 +403,814 @@ All three were answerable from design context. Two things for your awareness rat
 
 - **REQ-289 is still unstarted and the LF draft still has no backup.** Unblocking REQ-290 means both can run, but if you only have one session to spend, the backup is the one that's load-bearing.
 - **I was wrong twice in this ticket now** — `storage/sites/` as the place to look for the LF site, and the test count. Both were cases of reasoning from the repo's structure instead of checking. The implementing session caught the second one; worth them staying adversarial about my scoping.
+
+<!-- xgd-turn id="d52a93d4-1298-45d2-b4dd-7da7a6c70033-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:37:02.002207+00:00" -->
+#### You
+ok so REQ-289 has landed can you walk me through (1) deploying the code and the schema to CF (2) copying my sites up there
+
+<!-- xgd-turn id="d52a93d4-1298-45d2-b4dd-7da7a6c70033-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T00:41:10.929867+00:00" -->
+#### Claude
+Let me check what actually landed before I write steps against it.
+
+Let me test the local half now rather than speculate — `GET /api/export` is read-only.
+
+Export works. Let me make the backup through the real command rather than my curl, which also verifies `bin/copy-to-cloud` end to end.
+
+Done one thing before answering: **your LF draft now has a backup.** First one that has ever existed.
+
+```
+storage/backups/lagrange-foundry-2026-09-20.json   64 MB
+  site    site_936dd7c92e5e14df694dd9a80433aa4f
+  pages   1 (home.json)    assets  17
+```
+
+Note it's **not gitignored** — 64 MB would go into git if you commit. Your call; I'd gitignore `storage/backups/` and keep it out of the repo.
+
+Also: it's at counter 194 now, not 190. You've kept working since I first looked.
+
+---
+
+# (1) Deploying code and schema
+
+**Production right now** — read off the account just now, not from the earlier audit:
+
+| | |
+|---|---|
+| Migrations applied | `0001_baseline` only. **0002–0018 pending (17)** |
+| Secrets | `ANTHROPIC_API_KEY`, `RESEND_API_KEY`. Missing: `OPENAI_API_KEY`, `CLOUDFLARE_DNS_TOKEN` |
+| Tenants | one row: `acct_51a6746495c8057e886ff98d4208e6b9` "1st Contact" |
+
+```bash
+bin/build                       # preflight → 1c assets → typecheck → both bundles
+
+# only if you're setting them — the hooks probe what each key can actually do
+export OPENAI_API_KEY='...'
+export CLOUDFLARE_DNS_TOKEN='...'   # needs Zone:DNS:Edit + Workers Routes:Edit
+
+bin/deploy --dry-run            # lists the 17 pending migrations, runs capability probes
+bin/deploy                      # migrations land, both Workers upload, report prints
+bin/smoke                       # apex + control-origin challenge
+```
+
+Three things to expect so they don't stop you:
+
+- **A wrangler warning that `ACCESS_DEV_OPEN` exists at top level but not on `env.production.vars`.** That is deliberate — it's how the dev bypass is prevented from reaching production, and a UAT fails the build if anyone "fixes" it.
+- **`bin/smoke` will report the apex as 404.** `APEX_SITE_KEY` is still `""`, so `1stcontact.io` has nothing to serve until you set it and redeploy.
+- **Without `CLOUDFLARE_DNS_TOKEN` you cannot attach `lagrangefoundry.ai` at all** — the attach path writes DNS records and a Worker route before the `site_domains` row.
+
+**One thing to check after the migrations land.** `TENANT_ID` in `wrangler.toml` is `biz_51a6746495c8057e886ff98d4208e6b9`, but production's only tenant row is `acct_51a6746495c8057e886ff98d4208e6b9` — same hex, different prefix. That row looks vestigial (0 sites, 0 users, dated 2026-09-06). Worth confirming you end up with one platform business and not two; the database is empty, so it's cheap to clean up now and expensive later.
+
+---
+
+# (2) Copying your sites up
+
+Four sites exist locally; three have content:
+
+| Business | Changes |
+|---|---|
+| Lagrange Foundry | 194 |
+| 1st Contact | 57 |
+| XGD | 21 |
+| Gigabyte Alchemy | 0 — nothing authored, skip |
+
+## Blocker A — the businesses don't exist in the cloud
+
+Production has one business: "1st Contact". `bin/copy-to-cloud` **never mints a tenant** — by design, so a laptop script can't give a deployment a business nobody signed up for. So before copying, sign in to `app.1stcontact.io` and create **Lagrange Foundry** and **XGD** by hand.
+
+## Blocker B — one credential slot, two ends that need different tokens
+
+This one I hit while testing, and you'll hit it too.
+
+Your dev server is behind `bin/access-sim` — I confirmed `:8788` answers *"Cloudflare Access rejected this request"*. So the local end needs the simulator's pair (`local-dev.access` / `local-dev-secret`), and the cloud end needs the real service token from `bin/access-token`. But `copy.ts` sends **one** pair to **both** ends, and access-sim 403s a pair that isn't its own. So a single `bin/copy-to-cloud "Lagrange Foundry"` cannot authenticate both ends.
+
+The unblock today is to make the two pairs the same — start the simulator with the production token's values:
+
+```bash
+./bin/access-sim --client-id "$CF_ACCESS_CLIENT_ID" --client-secret "$CF_ACCESS_CLIENT_SECRET" &
+./bin/access-sim --client-id "$CF_ACCESS_CLIENT_ID" --client-secret "$CF_ACCESS_CLIENT_SECRET" --print-env > .dev.vars.local
+# restart wrangler so it picks up the new mapping, then:
+bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+```
+
+It works, but it puts your production token into a local process's argv. The proper fix is per-end credentials (`--source-client-id` / `--dest-client-id`), which is a small change to `copy.ts` — REQ-289 collapsed both ends onto one pair and the local-behind-access-sim case is exactly where that breaks.
+
+## Then: publish
+
+Copying moves the **draft**. `public-site` serves **revisions**, so each site needs a revision minted in the deployed builder before anything is live — and no revision has ever been minted anywhere, locally or in the cloud, so that path is unexercised. Worth doing once locally first.
+
+## One risk worth knowing before you run it
+
+The LF payload is **64 MB in a single POST**, and there's no chunking — `DSC_7975.jpg` alone is 17 MB base64. That's inside Workers' 100 MB body limit but not comfortably, and the Worker has to base64-decode and write 17 R2 objects in one request. If the copy fails, that's the first thing to suspect. Pruning unused assets first would help — that photo doesn't appear in `home.json`'s L1 at all.
+
+---
+
+**Two things I'd like your call on:** whether to file the per-end-credentials gap as a bug against REQ-289, and whether to gitignore `storage/backups/`. Neither blocks you today.
+
+<!-- xgd-turn id="94f58261-4043-4c87-a9ca-e11d118e52c5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:59:06.591159+00:00" -->
+#### You
+```
+Your database may not be available to serve requests during the migration, continue? … yes
+🌀 Executing on remote database 1stcontact (0434cd88-07e0-4eb2-a7d8-7370c333534c):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+
+✘ [ERROR] A request to the Cloudflare API (/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/d1/database/0434cd88-07e0-4eb2-a7d8-7370c333534c/query) failed.
+
+  no such table: sessions: SQLITE_ERROR [code: 7500]
+  
+  If you think this is a bug, please open an issue at:
+  https://github.com/cloudflare/workers-sdk/issues/new/choose
+
+🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-09-21_00-55-17_469.log"
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="94f58261-4043-4c87-a9ca-e11d118e52c5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:01:07.159884+00:00" -->
+#### Claude
+Let me diagnose rather than guess — the question is what production's baseline actually created.
+
+Found it. Let me confirm the mechanism before recommending anything destructive.
+
+Chain applies clean from empty. Let me prepare the recovery script (not run it) and record the finding.
+
+Diagnosed. This isn't a bug in 0002 — it's the baseline having drifted after it was applied.
+
+## What happened
+
+| | |
+|---|---|
+| Remote `d1_migrations` | one row: `0001_baseline.sql`, applied **2026-09-06 17:39:19** |
+| Commits editing that file **after** | **12** — the first, `fc5c78dbe5`, is what added `CREATE TABLE sessions` |
+| Remote tables | 14 |
+| Tables the current baseline creates | 31 |
+| `0002`'s first statement | `ALTER TABLE sessions RENAME TO sessions_pre_rotation` |
+
+The baseline's own header says it outright:
+
+> ITS SIBLINGS EDIT IT RATHER THAN FOLLOW IT. […] **Editing a baseline that has never been applied is not a second rebaseline.**
+
+That premise was false by a few hours. It *had* been applied — to production, the same afternoon. `d1_migrations` records a migration's **name**, not its content, so wrangler considers `0001_baseline.sql` permanently done and starts at 0002. Production's baseline and the file on disk are now two different schemas under one name, and there's no forward path between them.
+
+It's `db/migrations/`'s own rule — never edit an applied migration — broken in the file that states it. Not carelessly: the premise was checked and was true when written. What was missing is anything that would notice it stop being true.
+
+## The fix: rebaseline
+
+Remote holds 0 sites, 0 users, 0 revisions, and one vestigial tenant row. Nothing is lost by a wipe — REQ-190's own argument, a second time, and the epic already called this the cheapest moment it will ever be.
+
+I've written `db/ops/rebaseline-remote.sql` — drops the twelve app tables plus `d1_migrations`, leaves `_cf_KV` (Cloudflare's) and `sqlite_sequence` (SQLite's). **I have not run it.**
+
+```bash
+cd apps/control-app
+npx wrangler d1 execute DB --remote --file ../../db/ops/rebaseline-remote.sql
+npx wrangler d1 migrations apply DB --remote     # replays 0001…0018 into an empty db
+cd .. && bin/deploy                              # or just re-run; the hook does the apply
+```
+
+**Verified before proposing it:** I applied all 18 migrations to a scratch SQLite database from empty — clean, 31 tables. The failure is specific to the drifted remote, not to the migrations.
+
+Say go and I'll run it.
+
+## The part that isn't a one-off
+
+After the rebaseline, `0001_baseline.sql` is an applied migration *again*, and the trap is re-armed for staging and every future environment. The rule can't be "remember not to edit it" — that's exactly what just failed.
+
+This gives **open question 4** a concrete answer: the migration policy check should compare a **content hash** of each migration against what the target environment recorded, and fail before anything uploads. `d1_migrations` stores only `(id, name, applied_at)`, so the hash needs to live somewhere this repo controls — a checked-in `name → sha256` manifest verified by the migrate hook is the smallest thing that works and needs no schema change.
+
+That check would have caught this on 2026-09-06, against a database nobody had deployed to, rather than on your first production deploy a fortnight later. Recorded in the epic as §H; want it as a child ticket?
+
+<!-- xgd-turn id="ed8237e9-3abb-4b9d-a915-f6dcb538ab24-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:04:01.271013+00:00" -->
+#### You
+Yes and can you do the "proper" fix to the credential confusion too please
+
+<!-- xgd-turn id="ed8237e9-3abb-4b9d-a915-f6dcb538ab24-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:07:26.649607+00:00" -->
+#### Claude
+Two tickets then the code. Let me read the credential path properly first.
+
+Branch cut as a worktree. Implementing there.
+
+Now the implementation.
+
+Now thread the per-end credential through `resolveBusiness`, `exportSite` and `copySite`.
+
+<!-- xgd-turn id="ea3a77e5-cdfd-48d5-9d1d-64d3fee36ab4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:07:50.905616+00:00" -->
+#### You
+STOP you are an EPIC - you delegate - code is written by the agent tickets
+
+<!-- xgd-turn id="ea3a77e5-cdfd-48d5-9d1d-64d3fee36ab4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:08:48.297254+00:00" -->
+#### Claude
+You're right. Reverting my edits so BUG-134 starts clean.
+
+Stopped. Worktree reverted to clean — `free-BUG-134` exists and is untouched, ready for its own session.
+
+## What I should have handed over, and now have
+
+**[[REQ-291]]** — Fail the deploy when an applied migration's content has changed. Child of EPIC-16, priority high. The incident replayed is its acceptance test.
+
+**[[BUG-134]]** — copy-to-cloud sends one Access token to two ends that need different ones. Child of EPIC-16, priority high. Body carries the behaviour spec, plus a new **Findings** section with what I learned tracing the code — handed over as facts, not decisions:
+
+- `postSitePayload` (`push.ts:314`) has the same wrong-variable bug one layer down, and it's shared with `1c push`, so the end has to reach it as a parameter rather than the text being edited
+- the credential mapping wants `endsFor`'s shape, for `endsFor`'s stated reason
+- name the pairs after the **end**, not the role
+- the variable names appear in five places
+- **an open question I deliberately did not answer**: `access-sim --print-token` emits `CF_ACCESS_*`, so introducing local names makes its output set the wrong pair. Fixing that means moving the ticket's own "don't change access-sim" boundary — flagged for them to raise, not route around
+
+## Still on your desk
+
+**The rebaseline.** `db/ops/rebaseline-remote.sql` is written and unrun. I verified 0001→0018 applies clean from empty. Your "Yes" was ambiguous between the ticket and the wipe, and I'm not guessing on a production drop — say the word and I'll run it, or hand it to a session.
+
+That script is the one other thing I authored outside a ticket. It's an ops artifact rather than product code and §H references it, but if you'd rather it lived under a ticket too, say so and I'll move it.
+
+<!-- xgd-turn id="ef5fc448-0cb6-412d-a6b0-333c056dec69-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:10:48.997004+00:00" -->
+#### You
+I will run install and deployment scripts - you help me get them right and create tickets for me.
+
+ok so I ran bin/deploy and bin/smoke failed - what now?
+
+<!-- xgd-turn id="ef5fc448-0cb6-412d-a6b0-333c056dec69-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:10:58.054943+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 8:50pm (America/Los_Angeles)
+
+<!-- xgd-turn id="6bbf3a1e-ae7f-495c-861b-ccb1fbc50fe7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T01:18:42.381278+00:00" -->
+#### You
+will run install and deployment scripts - you help me get them right and create tickets for me.
+
+ok so I ran bin/deploy and bin/smoke failed - what now?
+
+<!-- xgd-turn id="6bbf3a1e-ae7f-495c-861b-ccb1fbc50fe7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:18:48.306262+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 8:50pm (America/Los_Angeles)
+
+<!-- xgd-turn id="be15ac08-670f-46e8-b29e-e456ce4908a5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T17:42:56.755649+00:00" -->
+#### You
+Please continue
+
+<!-- xgd-turn id="be15ac08-670f-46e8-b29e-e456ce4908a5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T17:43:03.311070+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 11:50am (America/Los_Angeles)
+
+<!-- xgd-turn id="1219c630-b2f9-4ec4-99a1-1dd996d6a3c9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T17:43:12.538349+00:00" -->
+#### You
+Please continue
+
+<!-- xgd-turn id="1219c630-b2f9-4ec4-99a1-1dd996d6a3c9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T17:43:18.925546+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your session limit · resets 11:50am (America/Los_Angeles)
+
+<!-- xgd-turn id="e11cdac4-38e0-4a6d-825f-000f5d55617d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:03:32.930984+00:00" -->
+#### You
+Please continue
+
+<!-- xgd-turn id="e11cdac4-38e0-4a6d-825f-000f5d55617d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:10:06.449425+00:00" -->
+#### Claude
+Ticket appended (§I). Title and status untouched — still `draft`, no code changed, no new tickets.
+
+## The deploy worked. Smoke failing is smoke doing its job.
+
+Read straight off the account:
+
+| | |
+|---|---|
+| Migrations | **"No migrations to apply"** — 0001…0018 all recorded. The rebaseline held. |
+| Tables | 33 (31 app) |
+| Platform tenant | `biz_51a6746495c8057e886ff98d4208e6b9` — the `acct_`/`biz_` mismatch went out with the wipe |
+| Control-app secrets | `ANTHROPIC_API_KEY`, **`CLOUDFLARE_DNS_TOKEN`**, `RESEND_API_KEY` |
+| Rows | 1 tenant · 0 accounts · 0 users · 0 sites · 0 revisions · 0 domains |
+
+Check by check, reproduced against the live origins:
+
+- `apex_resolves` — **FAIL**, `https://1stcontact.io/` → 404 `Not Found`
+- `unknown_site_not_found` — pass (404)
+- `control_app_challenges_unauthenticated` — pass, 302 → `lagrangefoundry.cloudflareaccess.com`
+- six `published_*` — skipped, no `--site-key`
+
+One failure, and it's a true statement: `APEX_SITE_KEY = ""` and there are zero sites to point it at. The apex 404s exactly as an unpublished site does, which is what `public-site/src/index.ts` says it should. **The REQ-147 gate passed against a real Access challenge for the first time** — that's the assertion that actually mattered.
+
+## But smoke hid two blockers it can't see
+
+**1. You cannot get into the deployed builder.** `PLATFORM_ADMINS = ""` and `users` is empty, so `admit()` denies `no_user`. Access lets you past the edge and the app turns you away. Smoke's control check asserts *non-200*, and a refusal is a non-200 — it reads as a pass.
+
+The same refusal blocks `bin/copy-to-cloud`: `SERVICE_TOKEN_IDENTITIES` maps the token to `martin-github@westhead.me`, an address with no user row.
+
+`PLATFORM_ADMINS` is precisely the mechanism for this, and using it isn't a workaround — it's deployment config so it works before any row exists, it's idempotent, and `ensurePlatformOperator` leaves the real rows behind (tenant, account, user with `platform_operator=1`, owner membership, entitlement). Emptying it afterwards doesn't undo the repair.
+
+Two cautions, both already paid for once in this codebase: set it under **`[env.production.vars]` (line 423)**, not the base `[vars]` at 251 — named environments inherit nothing. And **edit the existing line, don't add a second** — `identity.ts:948` records a lockout caused by a duplicated `PLATFORM_ADMINS` key, which is why `denyAdmission` now logs `platformAdminSeed`.
+
+**2. Every contact form will 503.** public-site has **no secrets at all** and `TURNSTILE_SITEKEY = ""`. `lead.ts:464` fails *closed* for anonymous callers: no `TURNSTILE_SECRET` → 503 *"This site cannot take messages at the moment."* So a site can go live, render perfectly, pass every smoke check, and capture no leads — on a lead-capture platform. Smoke has no lead check; that gap is worth closing alongside EPIC-15's probes.
+
+## The order from here
+
+1. `PLATFORM_ADMINS` (line 423) ← your Access address **and** `martin-github@westhead.me`
+2. `TURNSTILE_SITEKEY` + push `TURNSTILE_SECRET` to public-site — or skip knowingly
+3. `bin/build && bin/deploy`
+4. Sign in at `app.1stcontact.io`, accept terms → the rows get written. If refused, `wrangler tail 1stcontact-control-app --env production` names `admission_denied` with `platformAdminSeed`, which tells you *wrong address* vs *never invited* without reading config.
+5. Create **Lagrange Foundry** and **XGD** by hand in the builder, then copy each up
+6. Publish a revision per site — first exercise of that path anywhere
+7. `APEX_SITE_KEY` ← the 1st Contact site key, redeploy public-site
+8. `bin/smoke --site-key <key>` → the six published checks run for the first time
+9. Attach `lagrangefoundry.ai` — now possible, the DNS token is there
+
+Steps 1, 2 and 7 are `wrangler.toml` edits — configuration, no ticket. **I need one thing from you before I make edit 1: the exact address in your Access JWT** (the one you sign into `lagrangefoundry.cloudflareaccess.com` with). I won't guess it — a near-miss is the lockout that `platformAdminSeed` exists to diagnose.
+
+Also worth knowing: **step 5 is blocked on [[BUG-134]]**, still `draft`, and it has moved onto the critical path. Want me to hand it to a session now?
+
+<!-- xgd-turn id="0e9660d5-e439-41a3-b7a1-a50d55e9e72f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:21:08.907294+00:00" -->
+#### You
+Can you give me specific instructions please?
+
+<!-- xgd-turn id="0e9660d5-e439-41a3-b7a1-a50d55e9e72f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:22:21.791892+00:00" -->
+#### Claude
+Here's the runbook. Steps marked **[me]** I can do as soon as you give me the input; the rest need a browser or a credential.
+
+---
+
+## Step 1 — Find out the exact address Access sends
+
+Don't guess it. Make the Worker tell you.
+
+**Terminal:**
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler tail 1stcontact-control-app --env production --format pretty
+```
+
+**Browser:** open `https://app.1stcontact.io/` and sign in through the Access page.
+
+You'll be refused. The tail prints:
+```json
+{"event":"admission_denied","reason":"no_user","email":"<THE ADDRESS>","platformAdminSeed":false}
+```
+
+That `email` value is the exact string Access puts in the JWT — copy it verbatim. (`platformAdminSeed: false` confirms the deployment doesn't name it; that field exists because this diagnosis cost a lockout once.)
+
+Ctrl-C the tail.
+
+---
+
+## Step 2 — Set `PLATFORM_ADMINS` **[me, once you paste the address]**
+
+`apps/control-app/wrangler.toml` **line 423**, inside `[env.production.vars]`:
+
+```toml
+PLATFORM_ADMINS = ""
+```
+becomes
+```toml
+PLATFORM_ADMINS = "<THE ADDRESS>,martin-github@westhead.me"
+```
+
+Both addresses: the first is you in the browser, the second is what `SERVICE_TOKEN_IDENTITIES` maps `1stcontact-publish` to, so `bin/copy-to-cloud` and `bin/publish` are admitted too.
+
+⚠️ Edit **that** line — don't add a second `PLATFORM_ADMINS` anywhere, and don't touch line 251 (the base `[vars]` copy, which production doesn't inherit).
+
+---
+
+## Step 3 — Turnstile
+
+Needed before any real site takes a message; skip it and every `POST /api/lead` returns 503.
+
+**Cloudflare dashboard → Turnstile → Add widget.** Hostnames: `1stcontact.io`, `lagrangefoundry.ai`, plus any customer domain you'll attach. Mode: Managed. You get two values.
+
+**Public half [me]** — `apps/public-site/wrangler.toml` **line 177**:
+```toml
+TURNSTILE_SITEKEY = "0x4AAA..."
+```
+
+**Secret half — you, never pasted to me:**
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/public-site
+printf '%s' '<the secret>' | npx wrangler secret put TURNSTILE_SECRET --env production
+```
+
+There's no deploy hook for this pair yet — that's the gap §I6 records.
+
+---
+
+## Step 4 — Build and deploy
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/build && bin/deploy
+```
+
+Read the **capability report** it prints at the end. `OPENAI_API_KEY` absent is expected and fine — image generation drops out of the tool surface, everything else works.
+
+---
+
+## Step 5 — Sign in for real
+
+Reload `https://app.1stcontact.io/`. You should be admitted this time and asked to accept the terms — **accept them**; the seed deliberately doesn't do that for you.
+
+Confirm the rows landed:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select (select count(*) from users) users, (select count(*) from accounts) accounts, (select count(*) from memberships) memberships, (select count(*) from entitlements) ents, (select count(*) from sites) sites;" --json
+```
+Expect `1 / 1 / 1 / 1` and at least one site (the platform business's starter).
+
+---
+
+## Step 6 — Create the two businesses
+
+In the builder, by hand: **Lagrange Foundry** and **XGD**. `bin/copy-to-cloud` never mints a tenant — that's deliberate, not a gap.
+
+---
+
+## Step 7 — Copy content up ⛔ blocked
+
+```bash
+bin/copy-to-cloud <business>
+```
+**[[BUG-134]] bites here** — one Access token sent to two ends that need different ones. Still `draft`. Say the word and I'll hand it to a session; it's small and it's now the only thing between you and a published site.
+
+---
+
+## Step 8 — Publish
+
+In the deployed builder, publish a revision for each site. First exercise of that path anywhere — expect this to be where something surprises us.
+
+---
+
+## Step 9 — Point the apex **[me, once you have the key]**
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select s.id, t.name from sites s join tenants t on t.id = s.tenant_id;" --json
+```
+
+Take the `site_…` id belonging to **1st Contact** → `apps/public-site/wrangler.toml` **line 171**:
+```toml
+APEX_SITE_KEY = "site_…"
+```
+then:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact && bin/deploy public-site
+```
+
+---
+
+## Step 10 — Smoke, properly this time
+
+```bash
+bin/smoke --site-key site_…
+```
+
+Now `apex_resolves` has something to resolve and the six `published_*` checks actually run — the asset crawl, the content types, the cache policy, the 404-on-miss. They have never executed against anything.
+
+---
+
+## Step 11 — Attach `lagrangefoundry.ai`
+
+Through the builder's domains pane. `CLOUDFLARE_DNS_TOKEN` is in place and the zone is in the account, so this path is configured for the first time.
+
+---
+
+**To unblock me right now:** paste the `email` value from Step 1, and tell me whether you want the Turnstile sitekey line staged now or left empty. I'll make both config edits and you can go straight to `bin/build && bin/deploy`.
+
+<!-- xgd-turn id="6e4835b6-c27b-4161-b8d2-b990cd8d7947-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T18:29:16.424868+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+((.venv-working) ) martin@nyx control-app % npx wrangler tail 1stcontact-control-app --env production --format pretty
+▲ [WARNING] Processing wrangler.toml configuration:
+
+  
+    - "env.production" environment configuration
+      - The following vars exist at the top level, but not on "env.production.vars".
+        This is probably not what you want, since "vars" configuration is not inherited by
+  environments.
+        Please add these vars to "env.production.vars":
+        - ACCESS_DEV_OPEN
+
+ ⛅️ wrangler 4.106.0
+────────────────────
+
+✘ [ERROR] A request to the Cloudflare API (/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/workers/scripts/1stcontact-control-app-production/tails) failed.
+
+  This Worker does not exist on your account. [code: 10007]
+  
+  If you think this is a bug, please open an issue at:
+  https://github.com/cloudflare/workers-sdk/issues/new/choose
+
+🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-09-21_18-27-54_770.log"
+
+```
+
+<!-- xgd-turn id="6e4835b6-c27b-4161-b8d2-b990cd8d7947-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T18:30:57.249847+00:00" -->
+#### Claude
+My command was wrong. With a positional script name **and** `--env production`, wrangler composes `1stcontact-control-app-production` — but `[env.production]` declares `name = "1stcontact-control-app"` explicitly, so no such worker exists. Drop the positional name and wrangler reads the right one from config (verified — `wrangler deployments list --env production` resolves and returns the real deployment history).
+
+## Better: skip the logs entirely
+
+Cloudflare Access will just tell you. You already have the `CF_Authorization` cookie from that sign-in, so in the same browser open:
+
+```
+https://app.1stcontact.io/cdn-cgi/access/get-identity
+```
+
+That's served by Cloudflare's edge before the Worker ever runs, so the app's refusal doesn't matter. It returns JSON containing `"email": "…"` — the exact string in the JWT, which is exactly what `PLATFORM_ADMINS` is compared against.
+
+## If you'd rather use the tail
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler tail --env production --format pretty
+```
+
+Then reload `https://app.1stcontact.io/` and look for `admission_denied`. (`observability` is enabled on this Worker, so the dashboard's Workers → Logs view works as a third option.)
+
+## Belt and braces, if you want to stop guessing
+
+`PLATFORM_ADMINS` is a comma-separated list, and an address that never authenticates writes nothing — the seed only fires for the identity actually presenting. The three addresses this repo and account mention are `martin-cloudflaire@westhead.me` (deployed the Worker), `martin-github@westhead.me` (the service token identity), and `martoin-claude@westhead.me`. Naming all three plus whichever one `get-identity` reports costs nothing and guarantees a hit on the first try. You empty the var after the repair anyway — that's the break-glass contract, and the rows survive it.
+
+Paste me the `email` from `get-identity` (or say "use all three") and I'll make the line-423 edit.
+
+<!-- xgd-turn id="c96e40ae-cf1d-4d4c-a0b1-e2b4a44f8222-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:46:28.253088+00:00" -->
+#### You
+{"err":"no app token set"}
+
+<!-- xgd-turn id="c96e40ae-cf1d-4d4c-a0b1-e2b4a44f8222-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:47:40.230084+00:00" -->
+#### Claude
+`no app token set` means there's no `CF_Authorization` cookie for that application — so the Access login never actually completed in that browser. You got the 302 to the login page and stopped there (or the tail error interrupted you before you tried the browser at all).
+
+Rather than chase this, take the belt-and-braces path. It's self-verifying and needs no logs.
+
+I've made the edit — `apps/control-app/wrangler.toml` line 423:
+
+Edit made, ticket updated (§I7–I8).
+
+## ⚠️ First — ignore one of wrangler's warnings
+
+Every wrangler command on this app prints:
+
+> *The following vars exist at the top level, but not on `env.production.vars`… Please add these vars to `env.production.vars`: `ACCESS_DEV_OPEN`*
+
+**Do not do that.** `wrangler.toml:416` says why: *"No ACCESS_DEV_OPEN here, and that absence is the security control (REQ-145)."* That var bypasses the Access gate for `wrangler dev`. Adding it to production publishes the builder, the customer data and the AI credentials to anyone who types the hostname. On a deploy where nothing works yet, every warning looks like a lead — this one is a trap. I've recorded it as §I7.
+
+## What I changed
+
+`PLATFORM_ADMINS` at line 423 now names all three candidate addresses:
+```toml
+PLATFORM_ADMINS = "martin-cloudflaire@westhead.me,martin-github@westhead.me,martoin-claude@westhead.me"
+```
+with a comment saying it's temporary and to restore it to `""`. Naming a superset is safe — the seed only fires for an identity that actually authenticates, so an address that never signs in writes nothing.
+
+## Now do this
+
+**1. Deploy just the control app:**
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/deploy control-app
+```
+
+**2. Sign in** at `https://app.1stcontact.io/` — complete the Access login properly this time (you'll get an email OTP or your IdP), then accept the terms.
+
+**3. Confirm which address fired** — this is the definitive answer, no logs needed:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select e.email, u.platform_operator, u.created_at from users u join user_emails e on e.user_id = u.id;" --json
+```
+
+You should get exactly one row, `platform_operator: 1`.
+
+## If it still refuses
+
+Then your Access identity is a fourth address. Two ways to see it:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler tail --env production --format pretty
+```
+(no positional script name — that's what broke it before; `[env.production]` declares `name` explicitly, so adding the name made wrangler look for `1stcontact-control-app-production`)
+
+Or retry `https://app.1stcontact.io/cdn-cgi/access/get-identity` **after** the login completes — the cookie will exist by then.
+
+Either way, tell me the address and I'll add it.
+
+<!-- xgd-turn id="da695f18-28df-4376-bf81-b537fa4d7960-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T19:58:02.189655+00:00" -->
+#### You
+The sign-in token is not arriving - I tried the first email address
+
+<!-- xgd-turn id="da695f18-28df-4376-bf81-b537fa4d7960-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:59:44.010644+00:00" -->
+#### Claude
+Found it — **the repo already records the answer**, and `martin-cloudflaire@westhead.me` was never going to work.
+
+`ACCESS.md:59`:
+> The policy is an allow-list of individual emails, not a domain rule.
+
+And the table at line 64 lists exactly one human:
+
+| Identity | Why |
+|---|---|
+| **`martin-github@westhead.me`** (Martin Westhead, operator) | Sole operator of the platform |
+| `1stcontact-publish` (service token) | `bin/copy-to-cloud` / `bin/publish` |
+
+Cloudflare's One-time PIN won't email a code to an address no policy admits, so nothing was ever going to arrive for `martin-cloudflaire@`. Nothing is broken — no Resend involvement, no deploy problem. (Confirmed against production: 0 `users`, 0 `login_tokens`, 0 `sessions` — neither sign-in path has ever produced anything.)
+
+**Sign in with `martin-github@westhead.me`.**
+
+That's already the second address in the edit I made. And it's pleasingly economical: it's the same address `SERVICE_TOKEN_IDENTITIES` maps `1stcontact-publish` to, so the one seeded `users` row serves both you in the browser and `bin/copy-to-cloud` from your laptop.
+
+I've tightened `PLATFORM_ADMINS` to just that address — no point naming identities Access will refuse:
+
+Ticket updated (§I9–I10).
+
+## Do this now
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/deploy control-app
+```
+
+Then open `https://app.1stcontact.io/` and sign in with **`martin-github@westhead.me`**. The PIN will arrive this time. Accept the terms when the app asks.
+
+Verify the seed fired:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select e.email, u.platform_operator from users u join user_emails e on e.user_id = u.id;" --json
+```
+Expect one row, `platform_operator: 1`.
+
+## Two things worth saying
+
+**I should have read `ACCESS.md` first.** It's the artefact REQ-147 created to answer exactly this question, and I went at the live deployment three ways before opening it. I've recorded that in §I9 as a concrete recommendation: when the identity pre-flight check lands, its failure message should quote the granted-identities table, because the operator who can't get in is precisely the person who needs pointing at the record.
+
+**One item is queued behind this, not blocking today.** `ACCESS.md` notes the app's blanket Access policy also covers the invitee sign-in paths — so a real customer clicking an invitation meets Access first, gets a one-time-PIN email from a system they've never heard of, and is then refused for not being on the operator allow-list. The fix is a Bypass policy ahead of the allow-list, scoped to those paths. You're the only identity for go-live so it doesn't bite yet, but it will the moment you invite anyone. Logged as §I10.
+
+After you're in, next up is step 6 — creating **Lagrange Foundry** and **XGD** by hand — and then [[BUG-134]] blocks `bin/copy-to-cloud`. Say the word and I'll get that one moving in parallel while you're in the builder.
+
+<!-- xgd-turn id="1d6d9c15-4f9f-48da-9866-0f879e403492-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:05:18.597580+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+((.venv-working) ) martin@nyx control-app % npx wrangler d1 execute DB --remote --command \
+  "select e.email, u.platform_operator from users u join user_emails e on e.user_id = u.id;" --json
+
+[
+  {
+    "results": [
+      {
+        "email": "martin-github@westhead.me",
+        "platform_operator": 1
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "WNAM",
+      "served_by_colo": "SJC",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.2728
+      },
+      "duration": 0.2728,
+      "changes": 0,
+      "last_row_id": 114,
+      "changed_db": false,
+      "size_after": 524288,
+      "rows_read": 2,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]
+
+```
+
+Now what?
+
+<!-- xgd-turn id="1d6d9c15-4f9f-48da-9866-0f879e403492-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:07:33.983339+00:00" -->
+#### Claude
+You're in. Let me check what the seed actually wrote before pointing you at the next step.
+
+Seed complete and terms accepted — `tos_accepted_at: 2026-09-21T20:03:44Z`, four rows written (user, account, membership, entitlement). Let me check how you create a business before I send you into the UI.
+
+Seed is complete: user, account, owner membership, entitlement, terms accepted. Two things changed since my last list.
+
+**Correction: BUG-134 is already fixed.** Commit `87c49670d8 fix(copy): one Access credential per end, chosen by direction [FREE-CODED]` is on your branch — the ticket is still `draft`, but the code landed. `bin/copy-to-cloud` is not blocking you.
+
+**And the apex site already exists locally.** I read your local builder store:
+
+| Business | Site | Version |
+|---|---|---|
+| **1st Contact** | `site_62d3d009…` | 60 |
+| **Lagrange Foundry** | `site_936dd7c9…` | 210 |
+| **XGD** | `site_bca807fc…` | 23 |
+| *(Alice's ×3, uat@, Felix Test, Gigabyte Alchemy)* | test data | — |
+
+Your local `1st Contact` tenant id is **identical** to production's (`biz_51a6746495c8057e886ff98d4208e6b9`) — both read it from `TENANT_ID`. So copying that site up lands it straight under the business that already exists, and `APEX_SITE_KEY` gets something real to point at. That closes a gap I was about to flag: `/api/sites` is GET-only and sites are created *only* by `provisionBusiness`, so the platform business had no way to acquire one. It doesn't need one — it imports.
+
+Also note: `site_revisions` is **0 locally too**. Nothing has ever been published anywhere, so step 8 is genuinely first-run.
+
+## Next: create the two businesses in production
+
+Only **Lagrange Foundry** and **XGD** — 1st Contact is already there. Names must match your local ones exactly; `copy-to-cloud` matches by name.
+
+In the builder at `https://app.1stcontact.io/`, the affordance is on the **People/Contacts tab** — the "fulfil" action against your own contact (`builder/people.js:964`, `fulfil: provisionBusinessFor`). It deliberately isn't on the Account surface: `business.js:274` explains it's an operator action while you're pre-billing, since it writes a live `pro` grant.
+
+If the UI fights you, the route underneath is `POST /api/admin/businesses` with `{"accountEmail": "martin-github@westhead.me", "name": "Lagrange Foundry"}`.
+
+Then confirm:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select t.name, s.id from tenants t left join sites s on s.tenant_id = t.id;" --json
+```
+Expect three businesses; Lagrange Foundry and XGD will each have a starter site already (`provisionBusiness` makes one), 1st Contact will have none yet.
+
+## Then: the Access service token
+
+`bin/copy-to-cloud` needs the **cloud-end** credential pair:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/access-token
+```
+
+`1stcontact-publish` already exists per `ACCESS.md`, so it'll say *"already exists — not recreated"*. **The client secret is only shown at create or rotate time** — if you don't have it saved, rotate. Then:
+
+```bash
+export CF_ACCESS_CLIENT_ID='...'
+export CF_ACCESS_CLIENT_SECRET='...'
+```
+
+## Then: copy all three up
+
+Start your local builder (`bin/access-sim` — it's the local front door that can reach a business other than `TENANT_ID`), then:
+
+```bash
+bin/copy-to-cloud --backup storage/backups/1st-contact.json "1st Contact"
+bin/copy-to-cloud --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+bin/copy-to-cloud --backup storage/backups/xgd.json "XGD"
+```
+
+`--backup` writes the local export to a file as it goes, so you get a committable snapshot for free. Expect `--force` to be demanded on Lagrange Foundry and XGD — their starter sites count as builder-authored changes, and `/api/import` refuses to overwrite without it. Read the refusal before you re-run with `--force`; it names the change count.
+
+---
+
+Do those three and tell me what `copy-to-cloud` says. Publishing is next, and it's the genuinely untested path — 0 revisions on both sides, so whatever happens there, nobody has seen it before.
 
 <!-- xgd-chat-end -->

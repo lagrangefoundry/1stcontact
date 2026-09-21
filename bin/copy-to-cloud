@@ -57,11 +57,30 @@
 # and refused: see `bin/copy-from-cloud` for why the two directions answer
 # differently.
 #
-# The cloud end is behind Cloudflare Access and needs the service-token PAIR
-# CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET. Provision one with
-# `bin/access-token`. CLOUDFLARE_API_TOKEN
-# is an API credential for api.cloudflare.com and is refused here like no
-# credential at all. See apps/control-app/ACCESS.md.
+# TWO ENDS, TWO CREDENTIALS, ONE PER MACHINE (BUG-134). A copy touches two
+# builders and they can be behind two different gates, so there are two pairs and
+# each reaches exactly one end. Which end is read and which is written depends on
+# the direction; which machine each pair reaches does not.
+#
+#   CLOUD end — app.1stcontact.io, behind Cloudflare Access.
+#     CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET, or --client-id and
+#     --client-secret. Provision one with `bin/access-token`.
+#     CLOUDFLARE_API_TOKEN is an API credential for api.cloudflare.com and is
+#     refused here like no credential at all.
+#
+#   LOCAL end — whatever --origin names. Behind a gate only when that is
+#     `bin/access-sim`, which accepts ONLY the simulator's own pair and not
+#     Cloudflare's.
+#     LOCAL_ACCESS_CLIENT_ID + LOCAL_ACCESS_CLIENT_SECRET, or --local-client-id
+#     and --local-client-secret. Left unset, the CLOUD pair is sent to this end
+#     too — which is what to do when one credential genuinely serves both, or
+#     when the local builder has no gate at all and ignores the headers.
+#
+# `bin/access-sim --print-token` PRINTS ITS PAIR UNDER THE CLOUD NAMES. Copy the
+# two values into LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET rather than
+# eval-ing it, or you will have set the credential for the other end. Half a pair
+# is refused on either side with the same sentence, naming that side's variables.
+# See apps/control-app/ACCESS.md.
 #
 # Exit codes: 0 success; non-zero anything else.
 
@@ -71,7 +90,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,66p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,84p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 

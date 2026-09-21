@@ -16,9 +16,12 @@ import { devEnvLayering, devVarsPath, readDevEnv, wranglerDevArgs } from './dev-
 import { localD1Check } from './d1-migrations'
 import { repoRoot } from './webui'
 import { cmdAssets, formatAssetReport } from './assets'
+import { accessAdvice } from './push'
 import {
+  accessFor,
   assertDataClass,
   copySite,
+  endNamesFor,
   endsFor,
   exportSite,
   serviceToken,
@@ -371,20 +374,34 @@ Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
 Copy a business's site between builders (REQ-289) — what \`bin/copy-to-cloud\` runs:
   1c copy-to-cloud   <business> [--origin URL] [--force] [--backup FILE]
   1c copy-from-cloud <business> [--origin URL] [--force] [--backup FILE]
-                     [--site|--contacts] [--client-id ID --client-secret SECRET] [--json]
+                     [--site|--contacts] [--client-id ID --client-secret SECRET]
+                     [--local-client-id ID --local-client-secret SECRET] [--json]
     Reads one business's site out of one builder through GET /api/export and writes it
     into the other through POST /api/import — the same payload, the matched pair of routes.
     <business> is the business's NAME as it reads in the builder ("Lagrange Foundry");
     it resolves to a different id on each side, and both calls name their side's id
     explicitly. The target business must ALREADY EXIST on the far side: this never
     creates one. --origin overrides the non-cloud end (default http://localhost:8788,
-    or point it at \`bin/access-sim\`). The cloud end needs a Cloudflare Access service
-    token PAIR — CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET, or --client-id and
-    --client-secret; CLOUDFLARE_API_TOKEN is not one. REFUSED with 409 when the target
+    or point it at \`bin/access-sim\`). REFUSED with 409 when the target
     carries changes made in the BUILDER (BUG-51); --force says you mean it.
     --backup FILE writes the SOURCE side's export to FILE and touches the destination
     not at all. --site is the default; --contacts is recognised and not carried.
     This is NOT \`1c publish\`, which mints a revision, and NOT \`1c copy\`, which edits text.
+
+    TWO ENDS, TWO CREDENTIALS (BUG-134), because the two builders can be behind
+    two different gates and a copy has to satisfy both in one run:
+      CLOUD end  app.1stcontact.io, behind Cloudflare Access.
+                 CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET, or --client-id and
+                 --client-secret. Provision with \`bin/access-token\`.
+                 CLOUDFLARE_API_TOKEN is an API credential and is not one of these.
+      LOCAL end  whatever --origin names. Behind a gate only when it is
+                 \`bin/access-sim\`, which accepts ONLY its own pair.
+                 LOCAL_ACCESS_CLIENT_ID + LOCAL_ACCESS_CLIENT_SECRET, or
+                 --local-client-id and --local-client-secret. Unset, the cloud pair
+                 is used for this end too — which is right when one credential
+                 genuinely serves both, or when the local builder has no gate.
+                 \`bin/access-sim --print-token\` prints its pair under the CLOUD
+                 names; put those two values in the LOCAL_ ones, do not eval it.
 
 Control-app assets (REQ-145) — the build step behind /builder, /webui and /framework:
   1c assets [--json]
@@ -759,13 +776,31 @@ export async function run(argv: string[]): Promise<void> {
         // token without editing a shell profile; the environment is the
         // ordinary path, because a secret on a command line lands in shell
         // history.
-        const access = serviceToken(
+        //
+        // TWO PAIRS, ONE PER END ([[BUG-134]]). A copy touches two builders and
+        // they can be behind two different gates — production's Access and the
+        // laptop's `bin/access-sim`, which accepts only its OWN pair. One slot
+        // could satisfy either and never both, and the way out was to restart
+        // the simulator with the production token's values. Each end reads its
+        // own now; the local one falls back to the cloud's when it is unset, so
+        // a single credential that genuinely serves both still does.
+        const cloudAccess = serviceToken(
           typeof flags['client-id'] === 'string'
             ? flags['client-id']
             : process.env.CF_ACCESS_CLIENT_ID,
           typeof flags['client-secret'] === 'string'
             ? flags['client-secret']
             : process.env.CF_ACCESS_CLIENT_SECRET,
+          'cloud',
+        )
+        const localAccess = serviceToken(
+          typeof flags['local-client-id'] === 'string'
+            ? flags['local-client-id']
+            : process.env.LOCAL_ACCESS_CLIENT_ID,
+          typeof flags['local-client-secret'] === 'string'
+            ? flags['local-client-secret']
+            : process.env.LOCAL_ACCESS_CLIENT_SECRET,
+          'local',
         )
         // `--origin` OVERRIDES THE NON-CLOUD END ONLY, as the retired push
         // script allowed, so the pair works against a dev server on any port —
@@ -773,6 +808,11 @@ export async function run(argv: string[]): Promise<void> {
         // that can resolve a business other than `TENANT_ID`.
         const local = typeof flags.origin === 'string' ? flags.origin : LOCAL_ORIGIN
         const ends = endsFor(direction, local)
+        // The same swap over the credentials and over the end names, so the
+        // `--backup` read below and the refusal it may meet agree about which
+        // machine it is talking to ([[BUG-134]]).
+        const creds = accessFor(direction, localAccess, cloudAccess)
+        const who = endNamesFor(direction)
 
         // A BACKUP READS THE SOURCE AND WRITES NOTHING TO THE DESTINATION. The
         // direction still says which side was read: to-cloud reads local, so
@@ -781,7 +821,10 @@ export async function run(argv: string[]): Promise<void> {
         // — a site that exists in exactly one gitignored directory, with no
         // published revision to fall back to.
         if (typeof flags.backup === 'string') {
-          const read = await exportSite(ends.source, business, { ...(access ? { access } : {}) })
+          const read = await exportSite(ends.source, business, {
+            end: who.source,
+            ...(creds.source ? { access: creds.source } : {}),
+          })
           const out = path.resolve(process.cwd(), flags.backup)
           writeFileSync(out, `${JSON.stringify(read.payload, null, 2)}\n`)
           if (json) {
@@ -805,13 +848,14 @@ export async function run(argv: string[]): Promise<void> {
         // them something it could have said first. That was the retired push
         // script's reasoning too, applied there to a list of slugs and here to a
         // pair of ends.
-        if (access === undefined && (ends.source === CLOUD_ORIGIN || ends.destination === CLOUD_ORIGIN)) {
+        if (
+          cloudAccess === undefined &&
+          (ends.source === CLOUD_ORIGIN || ends.destination === CLOUD_ORIGIN)
+        ) {
           throw new Error(
-            `${CLOUD_ORIGIN} is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID ` +
-              'and CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id ' +
-              'and --client-secret. CLOUDFLARE_API_TOKEN is an API credential for ' +
-              'api.cloudflare.com and is not what Access accepts. Provision one with ' +
-              'bin/access-token.',
+            `${CLOUD_ORIGIN} is unreachable without a credential. ` +
+              `${accessAdvice('cloud')} CLOUDFLARE_API_TOKEN is an API credential ` +
+              'for api.cloudflare.com and is not what Access accepts.',
           )
         }
 
@@ -819,7 +863,8 @@ export async function run(argv: string[]): Promise<void> {
           direction,
           local,
           klass,
-          ...(access ? { access } : {}),
+          ...(cloudAccess ? { cloudAccess } : {}),
+          ...(localAccess ? { localAccess } : {}),
           // BUG-51 — only ever passed when typed. The far side refuses an
           // import that would replace builder changes; this is the operator
           // saying they know what is there.
