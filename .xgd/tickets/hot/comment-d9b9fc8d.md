@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:03:59.653154+00:00'
+updated_at: '2026-09-21T00:07:08.525623+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -322,5 +322,11 @@ So the delete is the three site trees, `bin/publish` and `1c push` — not the f
 4. → 6. Repoint tests, delete the dead trees, rewrite DOC-41
 
 Steps 1–3 stand alone. Want me to scope the child ticket and cut a branch for them? I'd keep 4–6 as a separate child so the backup isn't gated on the tidy-up.
+
+<!-- xgd-turn id="5534d9e7-19c2-4457-a58f-8af077fe7e63-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:07:07.404787+00:00" -->
+#### You
+ok can you create the reasonable minimum number of tickets for 1-6
 
 <!-- xgd-chat-end -->
