@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-292
 created_by: xgd
 created_at: '2026-09-21T20:03:48.277997+00:00'
-updated_at: '2026-09-21T20:35:18.088683+00:00'
+updated_at: '2026-09-21T20:37:23.780042+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -64,5 +64,14 @@ Now updating the ticket body while those run:
 Found an inconsistency in my own reasoning — `turnSpend()` strips `attributed`, so reading it off that output could never work:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="c2a67480-eb8a-41fb-9051-c88c58f483ab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T20:37:23.245442+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
