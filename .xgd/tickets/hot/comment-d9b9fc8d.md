@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T20:05:19.969169+00:00'
+updated_at: '2026-09-21T20:07:34.341044+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1139,5 +1139,78 @@ After you're in, next up is step 6 — creating **Lagrange Foundry** and **XGD**
 ```
 
 Now what?
+
+<!-- xgd-turn id="1d6d9c15-4f9f-48da-9866-0f879e403492-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T20:07:33.983339+00:00" -->
+#### Claude
+You're in. Let me check what the seed actually wrote before pointing you at the next step.
+
+Seed complete and terms accepted — `tos_accepted_at: 2026-09-21T20:03:44Z`, four rows written (user, account, membership, entitlement). Let me check how you create a business before I send you into the UI.
+
+Seed is complete: user, account, owner membership, entitlement, terms accepted. Two things changed since my last list.
+
+**Correction: BUG-134 is already fixed.** Commit `87c49670d8 fix(copy): one Access credential per end, chosen by direction [FREE-CODED]` is on your branch — the ticket is still `draft`, but the code landed. `bin/copy-to-cloud` is not blocking you.
+
+**And the apex site already exists locally.** I read your local builder store:
+
+| Business | Site | Version |
+|---|---|---|
+| **1st Contact** | `site_62d3d009…` | 60 |
+| **Lagrange Foundry** | `site_936dd7c9…` | 210 |
+| **XGD** | `site_bca807fc…` | 23 |
+| *(Alice's ×3, uat@, Felix Test, Gigabyte Alchemy)* | test data | — |
+
+Your local `1st Contact` tenant id is **identical** to production's (`biz_51a6746495c8057e886ff98d4208e6b9`) — both read it from `TENANT_ID`. So copying that site up lands it straight under the business that already exists, and `APEX_SITE_KEY` gets something real to point at. That closes a gap I was about to flag: `/api/sites` is GET-only and sites are created *only* by `provisionBusiness`, so the platform business had no way to acquire one. It doesn't need one — it imports.
+
+Also note: `site_revisions` is **0 locally too**. Nothing has ever been published anywhere, so step 8 is genuinely first-run.
+
+## Next: create the two businesses in production
+
+Only **Lagrange Foundry** and **XGD** — 1st Contact is already there. Names must match your local ones exactly; `copy-to-cloud` matches by name.
+
+In the builder at `https://app.1stcontact.io/`, the affordance is on the **People/Contacts tab** — the "fulfil" action against your own contact (`builder/people.js:964`, `fulfil: provisionBusinessFor`). It deliberately isn't on the Account surface: `business.js:274` explains it's an operator action while you're pre-billing, since it writes a live `pro` grant.
+
+If the UI fights you, the route underneath is `POST /api/admin/businesses` with `{"accountEmail": "martin-github@westhead.me", "name": "Lagrange Foundry"}`.
+
+Then confirm:
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler d1 execute DB --remote --command \
+  "select t.name, s.id from tenants t left join sites s on s.tenant_id = t.id;" --json
+```
+Expect three businesses; Lagrange Foundry and XGD will each have a starter site already (`provisionBusiness` makes one), 1st Contact will have none yet.
+
+## Then: the Access service token
+
+`bin/copy-to-cloud` needs the **cloud-end** credential pair:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/access-token
+```
+
+`1stcontact-publish` already exists per `ACCESS.md`, so it'll say *"already exists — not recreated"*. **The client secret is only shown at create or rotate time** — if you don't have it saved, rotate. Then:
+
+```bash
+export CF_ACCESS_CLIENT_ID='...'
+export CF_ACCESS_CLIENT_SECRET='...'
+```
+
+## Then: copy all three up
+
+Start your local builder (`bin/access-sim` — it's the local front door that can reach a business other than `TENANT_ID`), then:
+
+```bash
+bin/copy-to-cloud --backup storage/backups/1st-contact.json "1st Contact"
+bin/copy-to-cloud --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+bin/copy-to-cloud --backup storage/backups/xgd.json "XGD"
+```
+
+`--backup` writes the local export to a file as it goes, so you get a committable snapshot for free. Expect `--force` to be demanded on Lagrange Foundry and XGD — their starter sites count as builder-authored changes, and `/api/import` refuses to overwrite without it. Read the refusal before you re-run with `--force`; it names the change count.
+
+---
+
+Do those three and tell me what `copy-to-cloud` says. Publishing is next, and it's the genuinely untested path — 0 revisions on both sides, so whatever happens there, nobody has seen it before.
 
 <!-- xgd-chat-end -->
