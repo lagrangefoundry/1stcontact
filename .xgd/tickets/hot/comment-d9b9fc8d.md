@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T01:04:01.998205+00:00'
+updated_at: '2026-09-21T01:07:27.806028+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -591,5 +591,17 @@ That check would have caught this on 2026-09-06, against a database nobody had d
 <!-- xgd-chat role="user" ts="2026-09-21T01:04:01.271013+00:00" -->
 #### You
 Yes and can you do the "proper" fix to the credential confusion too please
+
+<!-- xgd-turn id="ed8237e9-3abb-4b9d-a915-f6dcb538ab24-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T01:07:26.649607+00:00" -->
+#### Claude
+Two tickets then the code. Let me read the credential path properly first.
+
+Branch cut as a worktree. Implementing there.
+
+Now the implementation.
+
+Now thread the per-end credential through `resolveBusiness`, `exportSite` and `copySite`.
 
 <!-- xgd-chat-end -->
