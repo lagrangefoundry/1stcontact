@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:37:02.739552+00:00'
+updated_at: '2026-09-21T00:41:11.648781+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -409,5 +409,105 @@ All three were answerable from design context. Two things for your awareness rat
 <!-- xgd-chat role="user" ts="2026-09-21T00:37:02.002207+00:00" -->
 #### You
 ok so REQ-289 has landed can you walk me through (1) deploying the code and the schema to CF (2) copying my sites up there
+
+<!-- xgd-turn id="d52a93d4-1298-45d2-b4dd-7da7a6c70033-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T00:41:10.929867+00:00" -->
+#### Claude
+Let me check what actually landed before I write steps against it.
+
+Let me test the local half now rather than speculate — `GET /api/export` is read-only.
+
+Export works. Let me make the backup through the real command rather than my curl, which also verifies `bin/copy-to-cloud` end to end.
+
+Done one thing before answering: **your LF draft now has a backup.** First one that has ever existed.
+
+```
+storage/backups/lagrange-foundry-2026-09-20.json   64 MB
+  site    site_936dd7c92e5e14df694dd9a80433aa4f
+  pages   1 (home.json)    assets  17
+```
+
+Note it's **not gitignored** — 64 MB would go into git if you commit. Your call; I'd gitignore `storage/backups/` and keep it out of the repo.
+
+Also: it's at counter 194 now, not 190. You've kept working since I first looked.
+
+---
+
+# (1) Deploying code and schema
+
+**Production right now** — read off the account just now, not from the earlier audit:
+
+| | |
+|---|---|
+| Migrations applied | `0001_baseline` only. **0002–0018 pending (17)** |
+| Secrets | `ANTHROPIC_API_KEY`, `RESEND_API_KEY`. Missing: `OPENAI_API_KEY`, `CLOUDFLARE_DNS_TOKEN` |
+| Tenants | one row: `acct_51a6746495c8057e886ff98d4208e6b9` "1st Contact" |
+
+```bash
+bin/build                       # preflight → 1c assets → typecheck → both bundles
+
+# only if you're setting them — the hooks probe what each key can actually do
+export OPENAI_API_KEY='...'
+export CLOUDFLARE_DNS_TOKEN='...'   # needs Zone:DNS:Edit + Workers Routes:Edit
+
+bin/deploy --dry-run            # lists the 17 pending migrations, runs capability probes
+bin/deploy                      # migrations land, both Workers upload, report prints
+bin/smoke                       # apex + control-origin challenge
+```
+
+Three things to expect so they don't stop you:
+
+- **A wrangler warning that `ACCESS_DEV_OPEN` exists at top level but not on `env.production.vars`.** That is deliberate — it's how the dev bypass is prevented from reaching production, and a UAT fails the build if anyone "fixes" it.
+- **`bin/smoke` will report the apex as 404.** `APEX_SITE_KEY` is still `""`, so `1stcontact.io` has nothing to serve until you set it and redeploy.
+- **Without `CLOUDFLARE_DNS_TOKEN` you cannot attach `lagrangefoundry.ai` at all** — the attach path writes DNS records and a Worker route before the `site_domains` row.
+
+**One thing to check after the migrations land.** `TENANT_ID` in `wrangler.toml` is `biz_51a6746495c8057e886ff98d4208e6b9`, but production's only tenant row is `acct_51a6746495c8057e886ff98d4208e6b9` — same hex, different prefix. That row looks vestigial (0 sites, 0 users, dated 2026-09-06). Worth confirming you end up with one platform business and not two; the database is empty, so it's cheap to clean up now and expensive later.
+
+---
+
+# (2) Copying your sites up
+
+Four sites exist locally; three have content:
+
+| Business | Changes |
+|---|---|
+| Lagrange Foundry | 194 |
+| 1st Contact | 57 |
+| XGD | 21 |
+| Gigabyte Alchemy | 0 — nothing authored, skip |
+
+## Blocker A — the businesses don't exist in the cloud
+
+Production has one business: "1st Contact". `bin/copy-to-cloud` **never mints a tenant** — by design, so a laptop script can't give a deployment a business nobody signed up for. So before copying, sign in to `app.1stcontact.io` and create **Lagrange Foundry** and **XGD** by hand.
+
+## Blocker B — one credential slot, two ends that need different tokens
+
+This one I hit while testing, and you'll hit it too.
+
+Your dev server is behind `bin/access-sim` — I confirmed `:8788` answers *"Cloudflare Access rejected this request"*. So the local end needs the simulator's pair (`local-dev.access` / `local-dev-secret`), and the cloud end needs the real service token from `bin/access-token`. But `copy.ts` sends **one** pair to **both** ends, and access-sim 403s a pair that isn't its own. So a single `bin/copy-to-cloud "Lagrange Foundry"` cannot authenticate both ends.
+
+The unblock today is to make the two pairs the same — start the simulator with the production token's values:
+
+```bash
+./bin/access-sim --client-id "$CF_ACCESS_CLIENT_ID" --client-secret "$CF_ACCESS_CLIENT_SECRET" &
+./bin/access-sim --client-id "$CF_ACCESS_CLIENT_ID" --client-secret "$CF_ACCESS_CLIENT_SECRET" --print-env > .dev.vars.local
+# restart wrangler so it picks up the new mapping, then:
+bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+```
+
+It works, but it puts your production token into a local process's argv. The proper fix is per-end credentials (`--source-client-id` / `--dest-client-id`), which is a small change to `copy.ts` — REQ-289 collapsed both ends onto one pair and the local-behind-access-sim case is exactly where that breaks.
+
+## Then: publish
+
+Copying moves the **draft**. `public-site` serves **revisions**, so each site needs a revision minted in the deployed builder before anything is live — and no revision has ever been minted anywhere, locally or in the cloud, so that path is unexercised. Worth doing once locally first.
+
+## One risk worth knowing before you run it
+
+The LF payload is **64 MB in a single POST**, and there's no chunking — `DSC_7975.jpg` alone is 17 MB base64. That's inside Workers' 100 MB body limit but not comfortably, and the Worker has to base64-decode and write 17 R2 objects in one request. If the copy fails, that's the first thing to suspect. Pruning unused assets first would help — that photo doesn't appear in `home.json`'s L1 at all.
+
+---
+
+**Two things I'd like your call on:** whether to file the per-end-credentials gap as a bug against REQ-289, and whether to gitignore `storage/backups/`. Neither blocks you today.
 
 <!-- xgd-chat-end -->
