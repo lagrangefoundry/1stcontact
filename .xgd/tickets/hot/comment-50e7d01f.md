@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T21:41:28.113746+00:00'
+updated_at: '2026-09-21T22:51:52.148688+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -648,5 +648,11 @@ Treat $16.20 as an upper bound: the $166.50 also covers document and image descr
 The design consequence is in REQ-293: **the engaged-time calculation takes turn boundaries as an argument**, not `turn_spend` as a table. Same code answers for a historical session from the audit and a live one from the meter, with no second implementation to drift — and no fabricated rows in the meter.
 
 So you have a defensible $/hour today: **~$16–20 as things run**, against the $50 plan. That's the number to set the first cap against while REQ-292 gets built.
+
+<!-- xgd-turn id="3107c567-215c-406d-ac4a-503cccec03a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T22:51:51.416193+00:00" -->
+#### You
+ok metrics are implemented - how much work is the Haiku delegate fix - the framework is already in place, right?
 
 <!-- xgd-chat-end -->
