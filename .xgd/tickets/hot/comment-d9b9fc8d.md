@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:29:00.345160+00:00'
+updated_at: '2026-09-21T00:32:45.933507+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -370,5 +370,38 @@ Both tickets are at status `draft`. Want me to cut a branch for REQ-289 and star
 <!-- xgd-chat role="user" ts="2026-09-21T00:28:58.990075+00:00" -->
 #### You
 No you are an EPIC ticket - we keep your context for design. Please review the questions in the transcript of REQ-290 and answer them in the ticket - bring anything back here that you need support with
+
+<!-- xgd-turn id="d66879cd-9ed6-4bad-b8cf-0923d0eb775d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T00:32:45.134630+00:00" -->
+#### Claude
+Let me verify the three claims before I rule on them.
+
+Verified all three. Now updating REQ-290's body — the decisions have to live there for UATs to trace to.
+
+Now the reply comment on the ticket, so the implementing session gets the answers where it asked.
+
+Answered in REQ-290 — body updated (COMMENT-3404 carries the reasoning, the body carries the behaviour so UATs have language to trace to).
+
+## The three answers
+
+**Q1 — Unblocked, land it whenever.** Their reading was right and my dependency line was wrong. I wrote it as though `bin/publish` were a working path being removed ahead of its replacement; it can only read the three dead trees and has never moved a builder-authored site. The real constraint is narrower and turned out to be their own Q3.
+
+**Q2 — Narrow, but wider than the narrow they proposed.** This is the one place I changed their plan on substance. The default isn't one call site, it's three — `commands.ts:36`, `shot.ts:94`, `serve.ts:56`, each resolving `opts.sandbox ? 'sandbox' : 'sites'`. So *every* command without `--sandbox` writes `storage/sites/`, not just `repro`. Pinning `repro` alone leaves `1c new foo` recreating the tree — the tier would be empty rather than retired, which is exactly the state the ticket is written against. Flip all three; `'sites'` stays in the `Root` type for the relocated corpus, so the ~103 temp-`cwd` suites stay untouched. Still narrow, just closes the hole.
+
+**Q3 — Confirmed, and firmer than they put it.** They argued reuse and waste. The harder fact is that `router.ts:38` imports `payloadToWrite`/`SitePayload` from `push.ts` to serve `/api/import` — **deleting the module breaks the deployed Worker.** I left the file's final home to REQ-289, since that's the ticket that knows what the transport becomes.
+
+## Their finding, and my error
+
+My body said three tests read the repo's own corpus. It's fourteen. I've corrected it and attributed the trace. Their fixture plan (`tests/fixtures/l1-corpus/storage/sites/<slug>/`, repo shape preserved so every reader swaps one constant and no assertion changes) is adopted as written.
+
+I added one thing: a README in the fixture directory. A `storage/sites/` path surviving inside `tests/fixtures/` still reads as an authoring tier to anything grepping for it, and this ticket exists precisely because a retired path that still answers questions is worse than one that's gone.
+
+## Nothing I need support with
+
+All three were answerable from design context. Two things for your awareness rather than your decision:
+
+- **REQ-289 is still unstarted and the LF draft still has no backup.** Unblocking REQ-290 means both can run, but if you only have one session to spend, the backup is the one that's load-bearing.
+- **I was wrong twice in this ticket now** — `storage/sites/` as the place to look for the LF site, and the test count. Both were cases of reasoning from the repo's structure instead of checking. The implementing session caught the second one; worth them staying adversarial about my scoping.
 
 <!-- xgd-chat-end -->
