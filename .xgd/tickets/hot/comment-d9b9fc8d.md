@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T22:31:55.134887+00:00'
+updated_at: '2026-09-21T22:33:20.777759+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1933,5 +1933,55 @@ Given §I15 established that a 403 on `/api/businesses` is a routine failure of 
 Nope the local version works fine from a private window
 
 What next?
+
+<!-- xgd-turn id="e4930919-e1e7-4102-86f4-d8f67356b634-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T22:33:20.458472+00:00" -->
+#### Claude
+Fresh-origin theory is dead then. Same client bytes, same API responses, different outcome — so the difference is in what production *serves* for the module graph, and the Network tab is the only place left that shows it.
+
+Paste this into the console on `app.1stcontact.io` — it dumps every request with its status, plus the two facts that bracket the problem:
+
+```js
+copy([
+  'app children: ' + document.getElementById('app').childElementCount,
+  'importmap: ' + (document.querySelector('script[type=importmap]')?.textContent.length ?? 'MISSING'),
+  ...performance.getEntriesByType('resource')
+    .map(r => (r.responseStatus ?? '?') + '  ' + r.name.replace(location.origin, ''))
+].join('\n'))
+```
+
+That copies the result to your clipboard. If `copy()` isn't available, drop the wrapper and read it.
+
+And one direct check that needs no console — put this in the address bar:
+
+```
+https://app.1stcontact.io/webui/webui-shell/src/index.js
+```
+
+If that 404s, we have it: the shell is the one import that comes from the `webui/` tree rather than `builder/` or `framework/`, and a missing shell explains a silent empty mount exactly — `mountShell` is the only thing that writes to `#app`.
+
+Worth knowing why that's plausible despite the files existing locally: `dist-assets/webui/*` are **symlinks or copies of the shared `@lagrangefoundry` store**, which isn't in your lockfile. If `1c assets` produced links rather than real files, `wrangler deploy` may have uploaded nothing for those paths — they'd be present on your disk and absent in production, which is precisely the asymmetry we're looking at.
+
+No symlinks — real files, so that's not it either. Let me check the other side: with `run_worker_first = true` the Worker sees every asset request first, so what it forwards matters.
+
+I've exhausted what's visible from outside: every asset path returns 302 unauthenticated, including a deliberately fake one, so Access gates ahead of the Worker and I can't tell a served asset from a missing one from here.
+
+Two things to do, in this order:
+
+**1. Rebuild and redeploy, and read the upload count.**
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/build && bin/deploy control-app
+```
+
+Wrangler prints how many asset files it uploaded. If it says nothing was uploaded, or a number well under 112, the earlier deploy shipped a partial `dist-assets` — which would explain everything and be fixed by the same command. This both diagnoses and potentially cures, and needs no browser.
+
+Note you've only ever run `bin/deploy control-app` on its own today; `bin/build` is what regenerates `dist-assets` via `1c assets`.
+
+**2. If it still fails, the console dump.** The snippet from my last message is the decisive artifact — every request with its status, plus `#app`'s child count and the import-map size. That single paste tells us whether the shell module was fetched, what it returned, and whether the graph completed.
+
+I'd rather not keep theorising past this point. Every hypothesis I can test from here is spent: the assets are complete on disk, contain no symlinks, aren't stale, all import targets resolve, both APIs return correct data, both browsers behave identically, and the fresh-origin theory is dead. What's left is what production actually sent your browser, and only your browser can show that.
 
 <!-- xgd-chat-end -->
