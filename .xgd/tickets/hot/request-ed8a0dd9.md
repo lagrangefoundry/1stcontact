@@ -5,9 +5,9 @@ type: request
 title: Delegate construction to a cheaper worker, behind a switch
 created_by: EPIC-20
 created_at: '2026-09-21T23:11:05.910693+00:00'
-updated_at: '2026-09-21T23:46:22.851693+00:00'
+updated_at: '2026-09-21T23:48:16.254403+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -169,3 +169,33 @@ records exists, so that the before and after are measured on the same
 instrument. Building it earlier is acceptable; enabling the switch before there
 is a baseline is not, because the saving it exists to produce would then be
 unobservable.
+
+
+## The shipped default is off
+
+`delegation.json` ships with the feature **disabled**, and that is a property of
+this ticket rather than of whoever deploys it. Two reasons, and the second is
+the urgent one:
+
+- **Nothing may be enabled before there is a baseline.** The saving this exists
+  to produce is unobservable until REQ-292 and REQ-293 are reconciled and a
+  period of records exists to compare against.
+- **A worker's context window is smaller than the caller's.** `claude-haiku-4-5`
+  carries 200k against `claude-opus-5`'s 1M, and the measured Lagrange Foundry
+  build already reached roughly 300k tokens resident. **REQ-296** declares
+  `contextWindow` per backend entry and adds the host-side guard that ends a
+  turn before the provider errors. Until that lands, a worker opened on the
+  smaller window is a session with nothing between it and an overflow.
+
+So this ticket may be **built and merged** in full ahead of REQ-296 — the switch
+is what makes that safe. What it may not do is ship enabled, and a deployment
+that turns it on before REQ-296 is a deployment that has skipped the guard.
+
+## One file this shares with REQ-296
+
+Both tickets edit `backends.json`: this one adds the worker's entry naming
+`claude-haiku-4-5`, REQ-296 adds a `contextWindow` key to every entry. They do
+not conflict in substance, but whichever lands second is responsible for the
+worker entry carrying **both** — a worker backend without a declared window is
+exactly the case REQ-296's guard cannot protect, and it would read as
+configured rather than as missed.
