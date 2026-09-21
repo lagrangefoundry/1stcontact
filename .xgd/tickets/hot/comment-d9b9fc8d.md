@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T00:10:16.170750+00:00'
+updated_at: '2026-09-21T00:29:00.345160+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -364,5 +364,11 @@ Both are decisions rather than restatements, so flagging them:
 **The reproduction loop gets pinned to the sandbox root.** `1c repro` currently defaults to the `sites` root with `--sandbox` as the opt-in. If `storage/sites/` stops being an authoring tier but the one loop that still writes sites can repopulate it, the retirement doesn't hold. REQ-290 inverts that default.
 
 Both tickets are at status `draft`. Want me to cut a branch for REQ-289 and start, or would you rather read the bodies first?
+
+<!-- xgd-turn id="d66879cd-9ed6-4bad-b8cf-0923d0eb775d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T00:28:58.990075+00:00" -->
+#### You
+No you are an EPIC ticket - we keep your context for design. Please review the questions in the transcript of REQ-290 and answer them in the ticket - bring anything back here that you need support with
 
 <!-- xgd-chat-end -->
