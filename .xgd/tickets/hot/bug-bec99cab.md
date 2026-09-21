@@ -5,9 +5,9 @@ type: bug
 title: copy-to-cloud sends one Access token to two ends that need different ones
 created_by: EPIC-16
 created_at: '2026-09-21T01:05:49.302220+00:00'
-updated_at: '2026-09-21T18:23:38.441983+00:00'
+updated_at: '2026-09-21T18:29:33.038796+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -145,3 +145,46 @@ than route around it.
 `local-dev-secret` (`bin/access-sim:104-105`, overridable by `SIM_CLIENT_ID` /
 `SIM_CLIENT_SECRET`). So a UAT can exercise the two-pairs case with known values and
 without starting the simulator.
+
+
+## Decisions taken during implementation
+
+**`bin/access-sim` is not changed; the help texts say which pair it prints.**
+This is the question the Findings section raised, answered the way the Boundaries
+section points. `--print-token` keeps emitting `CF_ACCESS_CLIENT_ID` /
+`CF_ACCESS_CLIENT_SECRET` because the single-ended commands that read it —
+`1c push --origin <sim>`, `bin/publish --origin <sim>` — read the cloud names and
+are correct as they stand. Instead every place that names the local pair says, in
+one sentence built from one table, that the simulator prints its values under the
+CLOUD names and they must be copied into the `LOCAL_` ones rather than eval'd.
+An operator who evals it anyway has set the cloud pair to the simulator's values,
+the cloud end refuses at the edge, and the refusal now names the cloud end and
+`bin/access-token` — diagnosable rather than silent. **Cheaply reversible**: if
+the boundary should move, `bin/access-sim` gains a `--print-local-token` that
+emits the `LOCAL_` names and these sentences get shorter.
+
+**The swap is one generic function, and it carries three facts, not two.** The
+origins, the credentials and the END NAMES are all per-end facts read per-role,
+so `byEnd(direction, local, cloud)` is written once and `endsFor`, `accessFor`
+and `endNamesFor` are each one line over it. The end name has to travel by the
+same swap as the rest: a refusal that worked out which machine it was talking to
+independently is a second place for `from-cloud` to be got backwards.
+
+**The fallback runs one way only.** An absent local pair borrows the cloud's; an
+absent cloud pair never borrows the local one. The cloud is the end that is
+always gated, and lending it the simulator's credential would send a local
+development value to production.
+
+**`postSitePayload` takes the end as a parameter and `1c push` passes `cloud`.**
+The shared refusal could not be fixed by editing its text — `1c push` really does
+target the cloud — so the end reaches the sentence as an argument. `1c push`'s
+own behaviour is unchanged: one end, the cloud names, the cloud advice.
+
+**`serviceToken` defaults its end to `cloud`.** That is what the function meant
+before there were two of them, so every existing caller keeps its sentence
+unchanged and the copy commands name their end explicitly.
+
+**The local end's refusal is asserted not to name the cloud variables.** Naming
+both would be the original failure with more words in it: the operator who is
+told to set `CF_ACCESS_CLIENT_*` sets the pair that was already correct, for the
+end that was not refusing.
