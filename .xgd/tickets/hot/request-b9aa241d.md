@@ -5,9 +5,9 @@ type: request
 title: copy-to-cloud carries the site but not the conversations that built it
 created_by: EPIC-16
 created_at: '2026-09-21T23:01:33.483748+00:00'
-updated_at: '2026-09-21T23:18:38.656612+00:00'
+updated_at: '2026-09-21T23:29:32.812819+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -200,3 +200,45 @@ because they were already there, and comments written.
 those conversations — transcripts, ledgers and standing notes intact, readable
 by the consultant through the surface it already has ([[REQ-228]]) — and running
 the command a second time adds nothing and duplicates nothing.
+
+
+## The edges, and what they answer
+
+These fall out of "it works the way `--site` works" but they are not all the same
+answer as `--site`'s, so they are written down rather than assumed.
+
+**A business with no conversations exports `200` and an empty list — the opposite
+of the site export's `404`.** The two are not the same statement. "This business
+holds no site" makes an export meaningless, because an empty site payload is a
+perfectly legible thing to import over the top of something real, so it must not
+be expressible as a successful read of nothing. "This client has had no
+conversations yet" is an ordinary true fact about a new business, and the import
+it produces writes nothing — there is nothing an empty history can destroy, so
+there is nothing to refuse. There is no ambiguity refusal either: the site export
+refuses a business holding two sites because there is no unambiguous site to
+read, and a history is every conversation the business holds however many that
+is.
+
+**A body with no `chats` array is refused with a sentence, not read as an empty
+import.** Answering `200` "nothing landed" to a caller sending the wrong shape
+would report a copy that did not happen as a copy that succeeded.
+
+**The runtime pointers are stripped on the WRITE as well as omitted from the
+read.** The export never puts one in a payload, but a payload is a *file* on this
+path — `--backup` writes one and an operator can post one back — so a rule
+enforced only on the export is a rule enforced only when the export produced the
+bytes. Since the failure it prevents is the silent one (the import succeeds and
+the destination's indexer skips turns it never saw), it is made a property of the
+store rather than a property of one producer.
+
+**Everything a `--site` copy already refuses, a `--chats` copy refuses
+identically, because it is the same code.** The destination business must already
+exist and is resolved *before* the source is read — a copy that fetched a
+history's worth of transcripts and then discovered the far side has no such
+business has spent the operator's time to tell them something it could have said
+first. One name answering to two businesses is ambiguity rather than a first
+match. Half a credential pair is refused on the side it was meant for, an Access
+bounce to a login page arrives as a refusal rather than as `JSON.parse` choking
+on a doctype, and both ends receive the credential for the end they address
+([[BUG-134]]). None of that is re-derived for the new class; the shared plan step
+is the only place it lives.
