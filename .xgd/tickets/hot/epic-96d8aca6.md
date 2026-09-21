@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-21T19:59:35.306320+00:00'
+updated_at: '2026-09-21T20:07:21.706723+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -1007,3 +1007,52 @@ gate admits nobody who is not on the operator allow-list. The fix recorded there
 Not needed for go-live of the platform's own sites (the operator is the only identity),
 but required the moment a real customer is invited. Noted here so it is not rediscovered
 by an invitee failing to accept.
+
+
+### I11 — The seed worked, and two things §I5 got wrong
+
+Confirmed in production 2026-09-21T20:03Z: one `users` row
+(`martin-github@westhead.me`, `platform_operator = 1`), one `accounts` row, one
+`memberships` row, one `entitlements` row, `tos_accepted_at` stamped. The break-glass
+path did exactly what `identity.ts` says it does, including leaving the terms
+unaccepted for the operator to accept like anybody else.
+
+**[[BUG-134]] is not blocking.** §I5 named it on the critical path; the fix landed in
+`87c49670d8 fix(copy): one Access credential per end, chosen by direction
+[FREE-CODED]`, which is on `xgd-working`, and `bin/copy-to-cloud`'s header documents
+the two-credential design as shipped. Only the ticket's `status` is stale.
+
+**The apex site does not need creating.** §I5 step 7 assumed the 1st Contact business
+would need a site and did not check whether one could be made. It could not:
+`/api/sites` is GET-only, and a site is written only by `provisionBusiness`, which the
+platform business never went through — `ensurePlatformOperator` calls bare
+`createTenant`. That would have been a dead end.
+
+It is not one, because the local builder already holds the site, and **both sides
+resolve `1st Contact` to the same id from `TENANT_ID`**
+(`biz_51a6746495c8057e886ff98d4208e6b9`). `bin/copy-to-cloud "1st Contact"` therefore
+imports into the business that is already there. The general case is the interesting
+one: `copy-to-cloud` matches businesses BY NAME because ids are minted independently
+per side — the platform business is the one business where that is not true, and it is
+the one this step needs.
+
+Local inventory, read from `apps/control-app/.wrangler/state`:
+
+| Business | Site | Version |
+|---|---|---|
+| 1st Contact | `site_62d3d0097bbc7b6e86bdcdb3728389a3` | 60 |
+| Lagrange Foundry | `site_936dd7c92e5e14df694dd9a80433aa4f` | 210 |
+| XGD | `site_bca807fc7cdd0bf418b15e255f8c45c6` | 23 |
+| Alice's Plumbing / Lettings / Old Salon | none | — |
+| uat@westhead.me, Felix Test, Gigabyte Alchemy | test | — |
+
+`site_revisions` is **0 locally as well as remotely**. Nothing has ever been published
+in either builder, so the publish step is a first run in the strict sense — not a
+re-run of a path that works locally.
+
+**A third control for §I6's list.** Both corrections above are the same failure: a
+runbook step asserted about a system without reading it. The remedy is not more care;
+it is that the go-live sequence should be *derived* from the stores rather than
+written from memory — what businesses exist on each side, which names match, what has
+a site, what has a revision. That is a report `bin/` could produce and a person
+cannot reliably hold.
