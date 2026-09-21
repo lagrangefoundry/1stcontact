@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T18:59:34.091731+00:00'
+updated_at: '2026-09-21T19:00:08.891694+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -306,5 +306,41 @@ Ok lets rewind - I got completely lost in your attempts to explain your backpeda
 2. How much of that do you think can be optimized with improved configuration?
 3. How much can be optimized with the Haiku delegation?
 4. What is my rough cost per hour for 1, 2 and 3
+
+<!-- xgd-turn id="70633133-00cd-4154-b52d-8a5d34d1d8b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T19:00:08.274269+00:00" -->
+#### Claude
+Straight answers, for yesterday (2026-09-20 local) — 38 turns, 339 tool calls, 377 model round trips, 2.6 hours engaged.
+
+| | yesterday | whole build (11 days) |
+|---|---|---|
+| **1. As it ran** | **$31** | $55 |
+| **2. With config changes** | **$14** | $29 |
+| **3. + Haiku delegation** | **$7** | $14 |
+
+**4. Cost per engaged hour** (1.6 h machine + 1.0 h typing at 40 wpm):
+
+| | $/hour |
+|---|---|
+| As it ran | **$12** |
+| With config | **$5** |
+| + Haiku | **$3** |
+
+### What "config changes" means — three settings, no code
+
+| | saves |
+|---|---|
+| Window 40 → 10 exchanges | ~25% |
+| Defer the tool definitions (~13k tokens of schema on every round trip) | ~13% |
+| Cache TTL 1h → 5min (write 1.25× instead of 2×) | ~16% |
+
+Compounded: $31 → $14. Nothing here is new framework code; the window and TTL are already parameters, and tool deferral is an API flag.
+
+### Confidence
+
+Yesterday's $31 is the number I'd stand behind most — it's one concentrated sitting, so the isolate-lifetime assumption that dominated my earlier error matters least. The $55 whole-build figure carries a $45–80 band. Both fit inside your $166.50.
+
+The band closes with one write in `ai.ts` — `usage` is already on the turn's `done` event and currently discarded. Want me to do that first, or go straight at the three settings?
 
 <!-- xgd-chat-end -->
