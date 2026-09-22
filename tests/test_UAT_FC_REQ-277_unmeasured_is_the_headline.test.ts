@@ -200,20 +200,19 @@ const post = (f: Fixture, route: string, body = ''): Promise<Response> =>
 
 const page = async (f: Fixture): Promise<string> => (await fetch(new URL('/', f.handle.url))).text()
 
-async function reproduce(f: Fixture, url = SITE): Promise<void> {
-  await post(f, '/run', new URLSearchParams({ url }).toString())
-  await f.handle.console.settled()
-}
-
-async function runAgain(f: Fixture): Promise<void> {
-  await post(f, '/run-again')
-  await f.handle.console.settled()
-}
-
+/**
+ * Press [recapture] and wait — the one verb the console has ([[REQ-299]] part 1).
+ *
+ * `reproduce` and `again` name the POSITION the press came from, which is still
+ * a real distinction even though the request is now the same one.
+ */
 async function recapture(f: Fixture, url = SITE): Promise<void> {
   await post(f, '/recapture', new URLSearchParams({ url }).toString())
   await f.handle.console.settled()
 }
+
+const reproduce = recapture
+const again = recapture
 
 async function diagnose(f: Fixture, n: number): Promise<void> {
   await post(f, `/iteration/${n}/diagnose`)
@@ -281,7 +280,32 @@ describe('REQ-277 the unmeasured set is the headline number', () => {
       { deltas: 14, unmatched: 0, unpairedActual: 0, unpairedSections: 0, unpairedActualSections: 0, unmeasuredAxes: [axis('paddingTopPx')] },
     ])
     await reproduce(f)
-    await runAgain(f)
+    await again(f)
+
+    // A CHAIN WRITTEN BEFORE [[REQ-299]], READ BACK.
+    //
+    // The delta count only moves between two iterations that measured against
+    // the SAME reference, and since [[REQ-299]] part 1 every press the console
+    // offers re-captures — so a chain built by pressing has a seam at every
+    // step and the comparison is suppressed by design (the test below this one
+    // is what that looks like). The reading is not dead, though: chains already
+    // on disk were built when [run again] existed, and re-opening one must still
+    // render them correctly rather than re-labelling history it did not make.
+    //
+    // So the two manifests are re-written to the shape a refold left — no
+    // `recaptured`, the same `bundleCapturedAt` — and the chain is re-opened
+    // through the real entry point, which is the one an operator restarting the
+    // console uses.
+    const dir = path.join(f.cwd, CONSOLE_WORKSPACE, slugForUrl(SITE))
+    for (const n of [1, 2]) {
+      const file = path.join(dir, `iteration-${n}`, 'iteration.json')
+      const parsed = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+      delete parsed.recaptured
+      parsed.bundleCapturedAt = f.oneC.times[0]
+      writeFileSync(file, JSON.stringify(parsed))
+    }
+    await page(f)
+    await post(f, '/open', new URLSearchParams({ url: SITE }).toString())
 
     const second = section(await page(f), 2)
     expect(second).toContain('unmeasured 1')

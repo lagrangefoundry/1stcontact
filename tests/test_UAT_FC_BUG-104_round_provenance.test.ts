@@ -144,15 +144,17 @@ async function startConsole(opts: { ai?: AiRunner; commands?: CommandRunner } = 
 const SITE = 'gigabytealchemy.ai'
 
 /**
- * Press [reproduce], then press the round's own button, and wait for both.
+ * Press [recapture], then press the round's own button, and wait for both.
  *
  * TWO PRESSES SINCE [[REQ-272]]. The round used to start from the iteration
  * finishing; it starts from `[diagnose this]` now. What this suite asserts —
  * that every ticket a round names is read back and its provenance checked — is
  * about what happens once the round has run, which that change does not touch.
+ * [[REQ-299]] part 1 left one verb, `[recapture]`, which is the press that
+ * produces the iteration the round then runs on; that does not touch it either.
  */
 async function reproduce(f: Fixture): Promise<void> {
-  await fetch(new URL('/run', f.handle.url), {
+  await fetch(new URL('/recapture', f.handle.url), {
     method: 'POST',
     body: new URLSearchParams({ url: SITE }).toString(),
     headers: { 'content-type': 'application/x-www-form-urlencoded' },

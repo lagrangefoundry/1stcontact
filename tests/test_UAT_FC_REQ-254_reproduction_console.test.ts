@@ -241,17 +241,22 @@ const post = (f: Fixture, route: string, body = ''): Promise<Response> =>
 const get = (f: Fixture, route: string): Promise<Response> => fetch(new URL(route, f.handle.url))
 const page = async (f: Fixture): Promise<string> => (await get(f, '/')).text()
 
-/** Press [reproduce] and wait for the run to finish. */
-async function reproduce(f: Fixture, url: string): Promise<void> {
-  await post(f, '/run', new URLSearchParams({ url }).toString())
+/**
+ * Press [recapture] and wait for the run to finish.
+ *
+ * [[REQ-299]] part 1 retired [reproduce] and [run again]: one verb is left, it
+ * always carries an address, and what the address names decides whether the
+ * press begins a list or appends to the one on screen. Both of this file's
+ * presses are therefore the same POST, and the helpers differ only in which
+ * address they send.
+ */
+async function recapture(f: Fixture, url: string): Promise<void> {
+  await post(f, '/recapture', new URLSearchParams({ url }).toString())
   await f.handle.console.settled()
 }
 
-/** Press [run again] and wait. */
-async function runAgain(f: Fixture): Promise<void> {
-  await post(f, '/run-again')
-  await f.handle.console.settled()
-}
+/** Press [recapture] under the iteration list — the address already loaded. */
+const again = recapture
 
 describe('REQ-254 the reproduction console', () => {
   it('test_UAT_FC_REQ_254_it_opens_blank_and_serves_only_on_loopback', async () => {
@@ -262,12 +267,18 @@ describe('REQ-254 the reproduction console', () => {
     // processes and serves this disk on the network.
     expect((f.handle.server.address() as AddressInfo).address).toBe('127.0.0.1')
 
-    // Requirement 2 — a text box and a [reproduce] button, and nothing else.
+    // Requirement 2 — a text box and a [recapture] button, and nothing else.
+    // [[REQ-299]] part 1 renamed the button in this position without changing
+    // what requirement 2 asks of the page; part 2 adds one more thing that must
+    // not be on it, because the blank state is the state clearing returns to and
+    // a control for a history that does not exist would be a control for
+    // nothing.
     const html = await page(f)
     expect(html).toContain('name="url"')
-    expect(html).toContain('>reproduce<')
+    expect(html).toContain('>recapture<')
     expect(html).not.toContain('Iteration')
     expect(html).not.toContain('run again')
+    expect(html).not.toContain('clear history')
   })
 
   it('test_UAT_FC_REQ_254_a_run_produces_an_iteration_with_three_new_tab_links', async () => {
@@ -276,7 +287,7 @@ describe('REQ-254 the reproduction console', () => {
 
     // Requirement 3 — entering an address and pressing [reproduce] captures the
     // site and reproduces it. Requirement 14 — as a sequence of `1c` steps.
-    await reproduce(f, 'joyfulculinarycreations.com')
+    await recapture(f, 'joyfulculinarycreations.com')
     expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'gate'])
 
     // Requirement 4 — the heading and its three links, and requirement 5 —
@@ -303,7 +314,7 @@ describe('REQ-254 the reproduction console', () => {
 
   it('test_UAT_FC_REQ_254_every_link_reaches_the_real_artifact', async () => {
     const f = await startConsole(fakeRunner([]))
-    await reproduce(f, 'example.com')
+    await recapture(f, 'example.com')
 
     // The reproduction link serves the rendered output `1c render --out` wrote.
     const repro = await get(f, '/iteration/1/site/')
@@ -359,26 +370,31 @@ describe('REQ-254 the reproduction console', () => {
     expect((await get(f, '/iteration/9/site/')).status).toBe(404)
   })
 
-  it('test_UAT_FC_REQ_254_run_again_appends_and_earlier_iterations_keep_their_own_artifacts', async () => {
+  it('test_UAT_FC_REQ_254_the_continuation_appends_and_earlier_iterations_keep_their_own_artifacts', async () => {
     const log: IterationStep['name'][] = []
     const f = await startConsole(fakeRunner(log))
-    await reproduce(f, 'example.com')
+    await recapture(f, 'example.com')
     const first = await (await get(f, '/iteration/1/site/')).text()
 
-    // Requirement 6 — [run again] appends, and earlier iterations stay.
-    await runAgain(f)
-    await runAgain(f)
+    // Requirement 6 — the continuation appends, and earlier iterations stay.
+    // The verb that continues is [recapture] now ([[REQ-299]] part 1); what
+    // requirement 6 is about — that continuing does not throw away what is
+    // already on the page — is untouched by which verb does it.
+    await again(f, 'example.com')
+    await again(f, 'example.com')
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 1</h2>')
     expect(html).toContain('<h2>Iteration 2</h2>')
     expect(html).toContain('<h2>Iteration 3</h2>')
     expect(html.indexOf('<h2>Iteration 1</h2>')).toBeLessThan(html.indexOf('<h2>Iteration 3</h2>'))
 
-    // Requirement 15 — a re-run refolds the stored bundle rather than
-    // re-capturing it. Re-capturing would re-roll the oracle, moving the
-    // reference at the same moment the fold moved, and the iteration exists to
-    // tell those two apart.
-    expect(log.filter((step) => step === 'capture')).toHaveLength(1)
+    // Requirement 15 is RETIRED by [[REQ-299]] part 1, and this is where it
+    // shows. A re-run used to refold the stored bundle so that the oracle did
+    // not move at the same moment the fold did — but whether that is the right
+    // trade depends on the schema the stored bundle was written at, which the
+    // page does not carry, so the console no longer offers the press that makes
+    // it. Every continuation re-captures: three presses, three captures.
+    expect(log.filter((step) => step === 'capture')).toHaveLength(3)
     expect(log.filter((step) => step === 'refold')).toHaveLength(3)
 
     // Requirement 17 — iteration 1's links still serve iteration 1's artifacts.
@@ -388,22 +404,25 @@ describe('REQ-254 the reproduction console', () => {
     expect(await (await get(f, '/iteration/3/diff/diff.png')).text()).toContain('iteration-3')
   })
 
-  it('test_UAT_FC_REQ_254_reproduce_with_an_address_starts_a_new_list', async () => {
-    // Requirement 16 — [reproduce] and [run again] are different verbs.
+  it('test_UAT_FC_REQ_254_a_different_address_starts_a_new_list', async () => {
+    // Requirement 16 — beginning a list and continuing one are different acts.
+    // [[REQ-299]] part 1 collapsed the two VERBS into one, so what tells them
+    // apart is no longer which button was pressed but which address it carried:
+    // the site on the page continues it, a different site starts over at 1.
     const log: IterationStep['name'][] = []
     const f = await startConsole(fakeRunner(log))
-    await reproduce(f, 'example.com')
-    await runAgain(f)
+    await recapture(f, 'example.com')
+    await again(f, 'example.com')
     expect(await page(f)).toContain('<h2>Iteration 2</h2>')
 
-    await reproduce(f, 'other.example')
+    await recapture(f, 'other.example')
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 1</h2>')
     expect(html).not.toContain('<h2>Iteration 2</h2>')
     expect(html).toContain('https://other.example')
     // A new address is a new capture; the second site does not reuse the first
-    // site's bundle.
-    expect(log.filter((step) => step === 'capture')).toHaveLength(2)
+    // site's bundle. (Three presses, three captures — [[REQ-299]] part 1.)
+    expect(log.filter((step) => step === 'capture')).toHaveLength(3)
   })
 
   it('test_UAT_FC_REQ_254_a_run_in_progress_says_so_and_a_second_press_starts_nothing', async () => {
@@ -419,7 +438,7 @@ describe('REQ-254 the reproduction console', () => {
       }),
     )
 
-    await post(f, '/run', new URLSearchParams({ url: 'example.com' }).toString())
+    await post(f, '/recapture', new URLSearchParams({ url: 'example.com' }).toString())
 
     // Requirement 9 — while a run is in progress the page says so…
     const state = (await (await get(f, '/state')).json()) as { running: boolean; message: string }
@@ -427,9 +446,10 @@ describe('REQ-254 the reproduction console', () => {
     expect(state.message).toMatch(/Running iteration 1/)
     expect(await page(f)).toMatch(/Running iteration 1/)
 
-    // …and pressing a button again during the run does not start a second one.
-    expect((await post(f, '/run-again')).status).toBe(409)
-    expect((await post(f, '/run', new URLSearchParams({ url: 'other.com' }).toString())).status).toBe(409)
+    // …and pressing a button again during the run does not start a second one,
+    // from either position [recapture] occupies ([[REQ-299]] part 1).
+    expect((await post(f, '/recapture', new URLSearchParams({ url: 'example.com' }).toString())).status).toBe(409)
+    expect((await post(f, '/recapture', new URLSearchParams({ url: 'other.com' }).toString())).status).toBe(409)
 
     gated = false
     release()
@@ -445,7 +465,7 @@ describe('REQ-254 the reproduction console', () => {
         failAt: { step: 'repro', code: 1, stderr: 'repro: no l1.json in bundle', once: true },
       }),
     )
-    await reproduce(f, 'example.com')
+    await recapture(f, 'example.com')
 
     // Requirement 10 — the page says WHAT failed, naming the step and carrying
     // what the process said, rather than reporting a bare non-zero exit.
@@ -458,7 +478,7 @@ describe('REQ-254 the reproduction console', () => {
     expect(log).toEqual(['capture', 'refold', 'repro'])
 
     // …and the console stays usable: the next press runs and produces one.
-    await reproduce(f, 'example.com')
+    await recapture(f, 'example.com')
     expect(await page(f)).toContain('<h2>Iteration 1</h2>')
   })
 
@@ -468,7 +488,7 @@ describe('REQ-254 the reproduction console', () => {
     // looking at. Judging that step by its exit code would report every real
     // iteration as a failed run; it is judged by whether it wrote its report.
     const f = await startConsole(fakeRunner([], { diffExitCode: 1 }))
-    await reproduce(f, 'example.com')
+    await recapture(f, 'example.com')
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 1</h2>')
     expect(html).not.toContain('failed at')
@@ -479,7 +499,7 @@ describe('REQ-254 the reproduction console', () => {
     // Requirement 17 — the artifacts land under `storage/tmp/`, which DOC-12
     // declares scratch and `.gitignore` keeps out of the tree.
     const f = await startConsole(fakeRunner([]))
-    await reproduce(f, 'joyfulculinarycreations.com')
+    await recapture(f, 'joyfulculinarycreations.com')
     expect(CONSOLE_WORKSPACE.startsWith(path.join('storage', 'tmp'))).toBe(true)
     const iteration = path.join(f.cwd, CONSOLE_WORKSPACE, slugForUrl('joyfulculinarycreations.com'), 'iteration-1')
     expect(existsSync(path.join(iteration, 'site', 'index.html'))).toBe(true)
@@ -526,11 +546,17 @@ describe('REQ-254 the reproduction console', () => {
   })
 })
 
-  it('test_UAT_FC_REQ_254_a_stored_capture_is_reused_not_retaken', async () => {
-    // Requirement 29 — pressing [reproduce] on a site that already has a bundle
-    // SKIPS the capture. Re-capturing re-rolls the acceptance oracle, moving the
-    // reference at the same instant the fold moves, which destroys the one
-    // comparison an iteration exists to make.
+  it('test_UAT_FC_REQ_254_a_stored_capture_is_adopted_for_free_and_retaken_on_the_next_press', async () => {
+    // Requirement 29's REUSE IS RETIRED ([[REQ-299]] part 1). It made the press
+    // skip the capture so the oracle would not move at the same instant the fold
+    // did — but a fold against a stored bundle is measured at whatever schema
+    // that bundle was written at, and the page does not carry that fact, so the
+    // press that reuses is gone and every press re-rolls.
+    //
+    // WHAT SURVIVES IS THE FREE HALF. Adopting a stored capture still runs
+    // nothing at all — requirement 31's list is still one click and still costs
+    // no capture — and this test reads both halves off one console, because
+    // either alone would pass against a page that had lost the other.
     const log: IterationStep['name'][] = []
     const f = await startConsole(
       fakeRunner(log, {
@@ -545,10 +571,15 @@ describe('REQ-254 the reproduction console', () => {
       }),
     )
     await page(f) // the blank page is what lists what is on disk
-    await reproduce(f, 'example.com')
 
-    expect(log).toEqual(['refold', 'repro', 'page', 'render', 'gate'])
-    expect(log).not.toContain('capture')
+    // Adopting: no steps at all, and the site is loaded.
+    await post(f, '/open', new URLSearchParams({ url: 'example.com' }).toString())
+    expect(log).toEqual([])
+    expect(await page(f)).toContain('https://example.com')
+
+    // Pressing: the capture is re-taken rather than skipped.
+    await recapture(f, 'example.com')
+    expect(log).toEqual(['capture', 'refold', 'repro', 'page', 'render', 'gate'])
     expect(await page(f)).toContain('<h2>Iteration 1</h2>')
   })
 
@@ -568,10 +599,11 @@ describe('REQ-254 the reproduction console', () => {
     expect(parseCaptureList('{"not":"an array"}')).toEqual([])
   })
 
-  it('test_UAT_FC_REQ_254_recapture_is_the_explicit_way_to_rehit_the_site', async () => {
+  it('test_UAT_FC_REQ_254_recapture_rehits_the_site_and_is_on_the_page_to_be_pressed', async () => {
     // Requirement 30 — deliberately moving the reference is a real thing to
-    // want, and it must be a thing the operator CHOSE rather than something
-    // that happened because they pressed the ordinary button twice.
+    // want. [[REQ-299]] part 1 made it the ONLY thing the page offers rather
+    // than the explicit alternative to an ordinary button, so what is left to
+    // assert is that the verb still re-hits the site and is still reachable.
     const log: IterationStep['name'][] = []
     const f = await startConsole(
       fakeRunner(log, {
@@ -584,8 +616,11 @@ describe('REQ-254 the reproduction console', () => {
     await post(f, '/recapture', new URLSearchParams({ url: 'example.com' }).toString())
     await f.handle.console.settled()
     expect(log[0]).toBe('capture')
-    // …and the button is on the page to be pressed.
-    expect(await page(f)).toContain('formaction="/recapture"')
+    // …and the button is on the page to be pressed, in both the positions
+    // [[REQ-299]] part 1 gives it: the address row, and under the history.
+    const html = await page(f)
+    expect(html).toMatch(/<form method="post" action="\/recapture">\s*<input name="url"/)
+    expect(html).toMatch(/<section class="continue">[\s\S]*?action="\/recapture"[\s\S]*?<\/section>/)
   })
 
   it('test_UAT_FC_REQ_254_the_blank_page_lists_the_captures_on_disk', async () => {
@@ -621,8 +656,8 @@ describe('REQ-254 the reproduction console', () => {
     ]
     const first = await startConsole(fakeRunner([], { stored }))
     await page(first)
-    await reproduce(first, 'example.com')
-    await runAgain(first)
+    await recapture(first, 'example.com')
+    await again(first, 'example.com')
     expect(await page(first)).toContain('<h2>Iteration 2</h2>')
     const wasIteration1 = await (await get(first, '/iteration/1/site/')).text()
     await first.handle.close()
@@ -648,7 +683,7 @@ describe('REQ-254 the reproduction console', () => {
     // The links are live, serving the same bytes the first console served.
     expect(await (await get(revived, '/iteration/1/site/')).text()).toBe(wasIteration1)
     // And the next run appends rather than starting over.
-    await runAgain(revived)
+    await again(revived, 'example.com')
     expect(await page(revived)).toContain('<h2>Iteration 3</h2>')
   })
 
@@ -663,7 +698,7 @@ describe('REQ-254 the reproduction console', () => {
       fakeRunner([], { stored, failAt: { step: 'render', code: 1, stderr: 'render: boom' } }),
     )
     await page(f)
-    await reproduce(f, 'example.com')
+    await recapture(f, 'example.com')
     expect(await page(f)).toContain('failed at render')
 
     const dir = path.join(f.cwd, CONSOLE_WORKSPACE, slugForUrl('example.com'), 'iteration-1')
@@ -682,8 +717,8 @@ describe('REQ-254 the reproduction console', () => {
     ]
     const f = await startConsole(fakeRunner([], { stored }))
     await page(f)
-    await reproduce(f, 'example.com')
-    await runAgain(f)
+    await recapture(f, 'example.com')
+    await again(f, 'example.com')
 
     const one = await get(f, '/iteration/1/page')
     expect(one.status).toBe(200)

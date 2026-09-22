@@ -240,9 +240,19 @@ const page = async (f: Fixture): Promise<string> => (await get(f, '/')).text()
  * ones — which is the point: [[REQ-272]] moved the trigger and nothing else.
  */
 async function reproduce(f: Fixture, url = 'joyfulculinarycreations.com'): Promise<void> {
-  await post(f, '/run', new URLSearchParams({ url }).toString())
-  await f.handle.console.settled()
+  await recapture(f, url)
   await diagnose(f, 1)
+}
+
+/**
+ * Press [recapture] and wait — the console's one verb ([[REQ-299]] part 1).
+ *
+ * It takes the address from whichever position it was pressed in; continuing
+ * the chain is pressing it with the address already on the page.
+ */
+async function recapture(f: Fixture, url = 'joyfulculinarycreations.com'): Promise<void> {
+  await post(f, '/recapture', new URLSearchParams({ url }).toString())
+  await f.handle.console.settled()
 }
 
 /** Press [diagnose this] on one iteration and wait for the round ([[REQ-272]]). */
@@ -304,7 +314,7 @@ describe('REQ-256 the AI round', () => {
       ai: fakeAi(log, FILED, ['reading gate.json', '→ Read values-diff.json'], () => held),
     })
 
-    await post(f, '/run', new URLSearchParams({ url: 'joyfulculinarycreations.com' }).toString())
+    await post(f, '/recapture', new URLSearchParams({ url: 'joyfulculinarycreations.com' }).toString())
     await f.handle.console.settled()
     await post(f, '/iteration/1/diagnose')
 
@@ -430,8 +440,7 @@ describe('REQ-256 the AI round', () => {
     // Round 1 filed, so the loop is held until the operator says the fix landed
     // ([[REQ-272]] part 1, behaviour 3).
     await release(f)
-    await post(f, '/run-again')
-    await f.handle.console.settled()
+    await recapture(f)
     await diagnose(f, 2)
 
     // Round 2 was handed the class and its ticket, and told to append to it.
@@ -446,7 +455,7 @@ describe('REQ-256 the AI round', () => {
     expect(gaps[0].ticketId).toBe('REQ-263')
     expect(gaps[0].iterations).toHaveLength(2)
 
-    // Both iterations link the same ticket — behavior 9's [run again] appended.
+    // Both iterations link the same ticket — behavior 9's continuation appended.
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 2</h2>')
     expect([...html.matchAll(/the gap ticket \(REQ-263\)/g)]).toHaveLength(2)
@@ -684,11 +693,13 @@ describe('REQ-256 the AI round', () => {
     expect(red).toContain('REGRESSED · references: faelan.com meanDiff 22.9 → 41.0')
   })
 
-  it('test_UAT_FC_REQ_256_run_again_reproduces_with_whatever_landed_and_appends', async () => {
-    // Behavior 9 — [run again] does not require that anything was free-coded.
-    // A round that produced no landed change simply reproduces the same
-    // numbers, which is itself information; and behavior 12's fresh `1c` per
-    // iteration is what makes a change that DID land take effect.
+  it('test_UAT_FC_REQ_256_the_continuation_reproduces_with_whatever_landed_and_appends', async () => {
+    // Behavior 9 — the continuation does not require that anything was
+    // free-coded. A round that produced no landed change simply reproduces the
+    // same numbers, which is itself information; and behavior 12's fresh `1c`
+    // per iteration is what makes a change that DID land take effect. The verb
+    // that continues is [recapture] now ([[REQ-299]] part 1); behavior 9 is
+    // about what the press PRODUCES, and that is unmoved.
     const steps: IterationStep['name'][] = []
     const f = await startConsole({
       ai: fakeAi({ prompts: [], calls: 0 }, { status: 'no-gap', summary: 'nothing to file' }),
@@ -701,16 +712,16 @@ describe('REQ-256 the AI round', () => {
       return base(step, cwd)
     }
     await reproduce(f)
-    await post(f, '/run-again')
-    await handle.console.settled()
+    await recapture(f)
     await diagnose(f, 2)
 
     const html = await page(f)
     expect(html).toContain('<h2>Iteration 2</h2>')
     expect(html).toContain('AI — found no engine gap')
-    // A re-run refolds rather than re-captures (REQ-254 requirement 15), and
-    // the second round really did run the whole sequence again.
-    expect(steps.filter((s) => s === 'capture')).toHaveLength(1)
+    // Every press re-captures ([[REQ-299]] part 1 retires REQ-254 requirement
+    // 15's refold), and the second round really did run the whole sequence
+    // again — which is behavior 12 and is what this test is for.
+    expect(steps.filter((s) => s === 'capture')).toHaveLength(2)
     expect(steps.filter((s) => s === 'gate')).toHaveLength(2)
   })
 
