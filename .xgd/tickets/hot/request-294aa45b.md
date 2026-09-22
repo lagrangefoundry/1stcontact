@@ -5,7 +5,7 @@ type: request
 title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T21:02:14.254805+00:00'
+updated_at: '2026-09-22T21:32:49.411415+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -17,6 +17,7 @@ fields:
   needs_review: false
   chat_comment: comment-be83c49e
 ---
+
 
 ## Why
 
@@ -398,6 +399,24 @@ engaged hours and cost per engaged hour across every tenant; with the ranking no
 carried by the list, the same three facts about one business sit at the top of its
 detail. Dropping them would have made the re-housing a loss of information rather
 than a change of container.
+
+**`GET /api/admin/sites` takes no period, and an unknown query changes no
+answer.** Its sibling `/api/admin/spend/businesses` takes one because the meter
+is measured over a window; nothing this route answers is. A site exists, belongs
+to somebody, and is reachable or not. So a `from`/`to` here would either be a
+second period the console could believe something different about than the one
+governing its rows, or a parameter accepted and ignored — which is a parameter
+that lies. It is neither: the handler reads no query at all, and a UAT asserts
+that by asking for a window and getting back exactly the unwindowed answer. It
+is `GET` and nothing else, for the reason the meter routes give — a site is
+created by provisioning and an address by `claimHostname`, both elsewhere and
+both with consequences a read has none of.
+
+**The console closes when the builder is torn down.** It hides the shell's
+panels and suppresses the tab strip's selection, so a teardown that left it up
+would leave the builder's own navigation looking broken with nothing on screen
+to explain it. It goes at the same point, and for the same reason, as the
+no-address modal already does.
 
 **`switcher.setEnabled(on)` remembers what it found.** An account with nothing
 selectable already has a permanently disabled switcher (REQ-179 reopen); naively
