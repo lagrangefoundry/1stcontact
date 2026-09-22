@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-136
 created_by: xgd
 created_at: '2026-09-22T00:20:40.959810+00:00'
-updated_at: '2026-09-22T00:41:28.916168+00:00'
+updated_at: '2026-09-22T00:43:05.582099+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -104,5 +104,20 @@ Commits `516be6fbfe` + auto-bump `25ee87d90a` (v0.2.315), `story_points: 3`. Bra
 <!-- xgd-chat role="user" ts="2026-09-22T00:41:28.693111+00:00" -->
 #### You
 Is this finished
+
+<!-- xgd-turn id="29f974a9-9cb2-403d-8f63-31a97bbba01c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T00:43:05.198986+00:00" -->
+#### Claude
+Yes — it's finished, and I re-verified it just now rather than taking the prior session's word for it:
+
+- **Code landed on `xgd-working`**: `516be6fbfe` (the fix) + `25ee87d90a` (version bump to 0.2.315) are both ancestors of the branch tip.
+- **Ticket at `free_coded`** with both SHAs in `fields.commits`, `version: 0.2.315`, `story_points: 3`, and a body describing the converged behaviour.
+- **Branch cleaned**: no `free-BUG-136` branch or worktree remains.
+- **Tests green**: `tests/test_UAT_FC_BUG-136_smoke_runs_without_arguments.test.ts` — 14 passed just now on the current tree (which has moved since the session, so this isn't a stale result).
+
+The one thing left is not mine to do: promotion to `ready_to_reconcile`. That's your call, and the ticket can sit at `free_coded` indefinitely until you're satisfied with the smoke output in practice.
+
+One caveat worth restating before you promote: the fix changes an outcome that AC-1336, AC-1337 and AC-1340 pinned (checks that used to `skip` now report `n/a`, or run against the apex). Those three UATs were updated in place and the supersession is recorded in the ticket body, so reconcile has what it needs — but it does mean reconcile will be touching existing matrix entries, not just adding new ones.
 
 <!-- xgd-chat-end -->
