@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:16:16.557756+00:00'
+updated_at: '2026-09-22T20:17:10.709848+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2778,5 +2778,31 @@ Want me to run the `--dry-run` so you can see the hook output and the capability
 <!-- xgd-chat role="user" ts="2026-09-22T20:16:15.433678+00:00" -->
 #### You
 I believe the default is changed at my instruction. I will deploy now
+
+<!-- xgd-turn id="40e5b11c-8d4d-48f1-9fc0-dc378fc9b674-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:17:10.628027+00:00" -->
+#### Claude
+You're right, and I was reading the wrong thing — I took the switch from the original REQ-295 blob rather than the working tree. There's a third commit on top:
+
+```
+d384588e  feat(ai): ship delegation on by default [FREE-CODED]   2026-09-22 13:13
+```
+
+Working tree is `"enabled": true`, committed, on HEAD. So the deploy does ship delegation live, not dark. The commit message records both reasons resolved — REQ-296 discharged the context-window risk, and the undelegated baseline overruled on your call that a week measuring construction is a week paying for it.
+
+**Pre-flight checks, all green:**
+
+- **Ticket bookkeeping is complete** — REQ-295 now records all four commits (`78e6a54`, `a401e91`, `d384588e`, `6804f0d1`) at version `0.2.321`. Nothing for reconciliation to mistake for drift.
+- **Both context windows resolve.** This was the one thing that could have taken chat down for every tenant at start-up, since REQ-296 makes an unresolvable window a start-up refusal and `backends.json` declares no `context_window` itself — it resolves from the model name through the framework's table. Checked the installed store directly: `claude-opus-5 → 1,000,000`, `claude-haiku-4-5 → 200,000`. Worth having confirmed rather than assumed, because that store isn't in the lockfile and can drift without a commit here.
+- **`claude_builder`** is `claude-haiku-4-5` at `max_tokens: 32000`; the consultant is untouched on `claude-opus-5`.
+
+Two things to have in hand as you go:
+
+**The rollback is a one-line flip**, not a redeploy of old code — set `delegation.json` back to `"enabled": false` and the surface is never composed, so the prompt returns byte-for-byte to its pre-delegation shape. That property is still asserted in full by the tests; it just has to be installed as a document now rather than obtained by configuring nothing.
+
+**The AI key is still the invalid one** from §I22 — production returns a 401 from Anthropic on the first turn. If you don't re-supply it during this deploy, delegation won't be exercised at all, because no turn gets far enough to delegate. Re-supplying takes the probed path and fails the deploy if Anthropic refuses.
+
+Go ahead — I'll stay out of the way. Tell me what the capability report says at the end and I'll record the outcome on EPIC-16.
 
 <!-- xgd-chat-end -->
