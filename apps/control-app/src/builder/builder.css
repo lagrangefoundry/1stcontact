@@ -459,7 +459,8 @@ body {
         .builder-modal__picker,
         .builder-modal__reader,
         .builder-modal__imaged,
-        .builder-people__compose
+        .builder-people__compose,
+        .builder-console
       )
   ) {
   width: min(520px, calc(100vw - 48px));
@@ -3650,4 +3651,162 @@ body {
   background: transparent;
   color: var(--shell-fg);
   cursor: pointer;
+}
+
+/* --- the operator console ([[REQ-297]]) --------------------------------------
+ *
+ * CHROME ONLY, like the module it styles. Nothing here knows what a control is
+ * about; a control's own classes are declared beside it, and the console's job
+ * is to space several of them apart legibly. It is named in the panel's `:has()`
+ * width rule above for the same reason the composer is: a table of tenants is
+ * not one sentence, and a 520px dialog can only answer it by overflowing.
+ */
+.builder-console {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: auto;
+}
+
+.builder-console__heading {
+  margin: 0;
+  font-size: 18px;
+}
+
+.builder-console__hint,
+.builder-console__empty,
+.builder-console__control-hint {
+  margin: 0;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-console__control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--shell-border, #e4e4e7);
+}
+
+.builder-console__control-label {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.builder-console__control-error {
+  margin: 0;
+  color: var(--shell-danger, #b91c1c);
+}
+
+/* --- tenant cost, the console's first control --------------------------------
+ *
+ * FOUR COLUMNS AND NO CHART. The question is "who is costing us money", which a
+ * sorted table answers; a trend line answers a different one and is named out of
+ * scope on the ticket. The expansion's day rows are three of the same columns,
+ * so they align under the summary without a second grid definition.
+ */
+.builder-tenant-cost__period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.builder-tenant-cost__period-field {
+  width: 6em;
+  /* SIZED HERE AND NOT LEFT TO `inherit` ([[BUG-70]]). A form control does not
+     inherit the page's type — the browser gives it one of its own — so a `font`
+     shorthand that only says `inherit` leaves the box at the UA's default while
+     everything around it is the app's. The shorthand is kept for the family and
+     the size is declared from the token every other builder control uses. */
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  padding: 4px 6px;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: 6px;
+  background: var(--shell-bg, #fff);
+  color: inherit;
+}
+
+.builder-tenant-cost__head,
+.builder-tenant-cost__summary,
+.builder-tenant-cost__day,
+.builder-tenant-cost__model {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 8px;
+  align-items: baseline;
+  text-align: left;
+}
+
+.builder-tenant-cost__head {
+  font-weight: 600;
+  color: var(--shell-muted, #71717a);
+  padding: 6px 4px;
+}
+
+.builder-tenant-cost__summary {
+  width: 100%;
+  /* A `<button>`, so the same rule applies — see the period field above. It is a
+     button because a row that opens a disclosure is a control and not a
+     decoration, and keyboard reach and `aria-expanded` come with the element. */
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  color: inherit;
+  padding: 6px 4px;
+  border: 0;
+  border-top: 1px solid var(--shell-border, #e4e4e7);
+  background: none;
+  cursor: pointer;
+}
+
+/* The figures are money and hours read down a column, so they line up on their
+   digits rather than on their first character. */
+.builder-tenant-cost__summary .builder-tenant-cost__cell:not(:first-child),
+.builder-tenant-cost__day .builder-tenant-cost__cell:not(:first-child),
+.builder-tenant-cost__model .builder-tenant-cost__cell:not(:first-child),
+.builder-tenant-cost__head .builder-tenant-cost__cell:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+}
+
+.builder-tenant-cost__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px 4px 14px 16px;
+}
+
+.builder-tenant-cost__subheading {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shell-muted, #71717a);
+}
+
+/* The two halves sit SIDE BY SIDE and are never stacked into one figure — the
+   layout is the claim the surface is making, so it says the same thing the
+   labels do. */
+.builder-tenant-cost__split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.builder-tenant-cost__figure {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.builder-tenant-cost__empty,
+.builder-tenant-cost__nothing,
+.builder-tenant-cost__loading,
+.builder-tenant-cost__unpriced {
+  margin: 0;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-tenant-cost__error {
+  margin: 0;
+  color: var(--shell-danger, #b91c1c);
 }

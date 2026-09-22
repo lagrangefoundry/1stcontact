@@ -410,3 +410,87 @@ export const UPLOAD_AREAS = [
     icon: '📄',
   },
 ]
+
+/**
+ * The operator console ([[REQ-297]]) — a fourth header action, and DELIBERATELY
+ * NOT A TAB.
+ *
+ * THE ACCOUNT SURFACE'S ARGUMENT, APPLIED A SECOND TIME. The tab strip is
+ * uniformly business-scoped ([[REQ-179]]), which is what lets the switcher sit
+ * above it with no exception to explain. This console is about EVERY tenant at
+ * once, so a tab for it would be a second place where the switcher is present
+ * and silently does not apply — and a control that is present and ignored reads
+ * as a bug. The header's trailing slot is where a surface that is not about one
+ * business already lives.
+ *
+ * IT IS RENDERED ON `ownsPlatformBusiness` AND ON NOTHING ELSE ([[DOC-42]] §7).
+ * Not on a level, not on a seniority flag, not on `platform_operator` — whose
+ * only reader is `scope.ts` and must stay so. A session that does not own the
+ * 1st Contact business gets no action, and the routes behind it answer 404 to
+ * anyone who types the URL anyway, so the absence is chrome and the refusal is
+ * the gate.
+ *
+ * `CONSOLE_EMPTY` IS NOT A PLACEHOLDER. The console is chrome and a registry
+ * with no subject of its own; with no controls registered there is genuinely
+ * nothing to show, and saying so is what stops the next hand reading an empty
+ * dialog as a failure to load and "fixing" it by giving the console content.
+ */
+export const CONSOLE_ACTION_ID = 'console'
+export const CONSOLE_LABEL = 'Console'
+export const CONSOLE_HINT = 'Operating 1st Contact itself. Not about one business.'
+export const CONSOLE_EMPTY = 'No controls are registered on this console yet.'
+
+/**
+ * The window the console asks for when nobody has said otherwise ([[REQ-297]]).
+ *
+ * THIRTY DAYS, AND IT LIVES HERE RATHER THAN ON THE ROUTE. `/api/admin/spend`'s
+ * contract is [[REQ-293]]'s — both ends optional, absent meaning unbounded,
+ * because the meter is retained rather than pruned and *everything this tenant
+ * has ever spent* is a question it must still answer. A default on the server
+ * would quietly give a different answer to a caller who asked for all of it. So
+ * the default is the CONSOLE's opinion about what "lately" means, and it travels
+ * in the request.
+ *
+ * AND IT IS A DEFAULT RATHER THAN A CONSTANT, which is the ticket's own phrase.
+ * The control renders the number and re-reads when it changes, so a day-long
+ * investigation and a month-long billing question are both askable from the
+ * surface — and a calendar month stays expressible on the wire, which takes
+ * `from` and `to`, without this control growing a date picker.
+ */
+export const CONSOLE_PERIOD_DAYS = 30
+export const CONSOLE_PERIOD_LABEL = 'Period (days)'
+
+/**
+ * The console's first control ([[REQ-297]]) — its name, and the words its table
+ * uses.
+ *
+ * THE IDENTIFIERS SAY `TENANT` AND THE WORDS SAY *BUSINESS*, and that split is
+ * [[REQ-180]] §3 rather than an inconsistency. The meter's own vocabulary is the
+ * schema's — `turn_spend.tenant_id`, `tenantSpendReport` — and §3 explicitly
+ * keeps internal identifiers. What it forbids is the word reaching a screen: a
+ * person came here to run a business, and *tenant* describes our data model. The
+ * operator reads screens too, and is the one reader most likely to be handed the
+ * data model by accident, because they also read the schema.
+ *
+ * THE LABELS ARE DECLARED HERE for the reason every other label is: provisional
+ * chrome, addressed by code, changed in one edit. `TENANT_COST_PRINCIPAL` and
+ * `TENANT_COST_DELEGATED` are the load-bearing pair — the two figures must be
+ * labelled and must never be added into one, because a caller's true total is
+ * its own spend PLUS what it handed off, and a reader taking the first alone
+ * under-reports every delegating turn in the flattering direction.
+ *
+ * `TENANT_COST_NOTHING` IS WHAT AN ABSENT FIGURE SAYS. Nothing, never zero: a
+ * business that delegated nothing has no delegated cost, and `$0.00` there would
+ * claim work was handed off and came free.
+ */
+export const TENANT_COST_LABEL = 'Business cost'
+export const TENANT_COST_HINT = 'Which business is costing us money, over the period.'
+export const TENANT_COST_COLUMNS = ['Business', 'Cost', 'Engaged hours', 'Cost / hour']
+export const TENANT_COST_EMPTY = 'No business has a measured turn in this period.'
+export const TENANT_COST_NOTHING = '—'
+export const TENANT_COST_BY_DAY = 'By day'
+export const TENANT_COST_PRINCIPAL = 'Own spend'
+export const TENANT_COST_DELEGATED = 'Delegated spend'
+export const TENANT_COST_DELEGATED_NONE = 'Nothing was delegated in this period.'
+export const TENANT_COST_UNPRICED = (turns) =>
+  `${turns} turn${turns === 1 ? '' : 's'} had no price, so the cost beside it is a floor.`

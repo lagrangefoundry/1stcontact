@@ -22,6 +22,8 @@ import {
   openAccountSurface,
   resolveBusiness,
 } from './business.js'
+import { consoleActions, openOperatorConsole } from './console.js'
+import { tenantCostControl } from './tenant-cost.js'
 import { mountEditor } from './editor.js'
 import { mountImageEditor } from './image-editor.js'
 import { isEditablePicture } from './picture-kind.js'
@@ -108,6 +110,31 @@ export function mountBuilder(root, options = {}) {
      * and a key of its own.
      */
     person = null,
+    /**
+     * Whether this session owns the 1st Contact business ([[REQ-297]],
+     * [[DOC-42]] §7) — and therefore whether the operator console has an action.
+     *
+     * REPORTED BY `/api/businesses` AND NOT INFERRED FROM `businesses`. The
+     * switcher's list says which businesses this person may OPERATE, which is a
+     * different question from whether they OWN the one whose product is
+     * businesses — and an inference that happened to agree today would be the
+     * generic admin-surface mechanism [[DOC-42]] §7 names as its falsifier.
+     *
+     * FALSE BY DEFAULT, so every existing host and every suite that does not care
+     * mounts exactly the chrome it mounted before — and so that the failure mode
+     * of forgetting to pass it is a missing control rather than an offered one.
+     */
+    ownsPlatformBusiness = false,
+    /**
+     * What the operator console mounts ([[REQ-297]]).
+     *
+     * A LIST, DEFAULTING TO THE ONE CONTROL THERE IS. The console is chrome and a
+     * registry with no subject of its own, so which controls it holds is the
+     * caller's statement rather than the console's — and a suite can hand it
+     * none, or one it invented, which is how "the console has no content"
+     * is asserted rather than asserted about.
+     */
+    consoleControls = [tenantCostControl()],
     /**
      * The sites of the SELECTED business.
      *
@@ -286,6 +313,21 @@ export function mountBuilder(root, options = {}) {
             selected: currentBusiness,
           }),
       },
+      /**
+       * THE OPERATOR CONSOLE, BESIDE THE ACCOUNT AND FOR THE SAME REASON
+       * ([[REQ-297]]). Both are surfaces that are not about one business, and the
+       * header's trailing slot is where such a surface lives — the tab strip
+       * stays uniformly business-scoped, with no exception to explain.
+       *
+       * SPREAD RATHER THAN CONDITIONAL, so "present" and "absent" are the same
+       * expression here and the decision lives in one function that a UAT can
+       * ask directly. It is empty for a session that does not own the 1st Contact
+       * business, and the routes behind it refuse that caller anyway.
+       */
+      ...consoleActions({
+        ownsPlatformBusiness,
+        open: () => openOperatorConsole({ host: shell.element, controls: consoleControls }),
+      }),
     ],
     ...(storage ? { storage } : {}),
   })

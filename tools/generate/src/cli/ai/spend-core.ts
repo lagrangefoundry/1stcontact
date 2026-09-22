@@ -34,6 +34,7 @@
  */
 
 import priceDocument from './prices.json'
+import { modelOfBackend } from './backends'
 
 /**
  * The four counters a request is billed from, in one order, spelled once.
@@ -281,4 +282,76 @@ export function turnSpendRecord(
     attributed,
     costMicros: costMicros(usage, facts.backend, facts.model),
   }
+}
+
+/**
+ * One delegated worker's spend, priced ([[REQ-297]]).
+ *
+ * WHAT IT IS A VIEW OF. `turn_spend.attributed` holds the framework's own
+ * structure verbatim — one entry per completed delegation, each
+ * `{turn_id, session, role, backend, usage, requests?, cost_usd?}` — stored whole
+ * and deliberately not flattened into the row's four counters, because an entry
+ * names its own backend and folding it in would price a worker's tokens at the
+ * CALLER's `(backend, model)`. This is the read that honours that: the same
+ * {@link costMicros} that settled the turn, applied to the entry's own key.
+ *
+ * `model` IS RESOLVED AND NOT STORED, which is the one place this shape is weaker
+ * than the row beside it. The framework's delegation surface puts a backend on
+ * the entry and no model, so the binding comes from {@link modelOfBackend} —
+ * `backends.json`, the document that decides it — and carries that function's
+ * caveat: it is the model configured today. The alternative was to price an entry
+ * at the caller's model, which is confidently wrong rather than honestly dated.
+ *
+ * AN UNREADABLE ENTRY IS DROPPED AND NOT GUESSED AT. `usage` is what makes an
+ * entry a measurement at all ({@link measured}'s rule, one layer out), so an
+ * entry with none is not a delegation that cost nothing — it is not a delegation
+ * this reader can account for, and a zero would claim the first.
+ */
+export interface AttributedSpend {
+  /** The worker's own session, so its record can be gone and read. */
+  session: string
+  /** Which role the worker took — the builder, today. */
+  role: string
+  /** Which backend name ran it — the first half of the price key. */
+  backend: string
+  /** What {@link modelOfBackend} binds that name to, or `''`. */
+  model: string
+  /** The four counters, as the entry reported them. */
+  usage: TurnCounters
+  /** What it cost in micros, or `null` where the pair is not priced. */
+  costMicros: number | null
+}
+
+/**
+ * A stored `attributed` value as priced entries — `[]` for a turn that delegated
+ * nothing, which is every turn while the switch is off ([[REQ-295]]).
+ *
+ * IT TAKES `unknown` BECAUSE THAT IS WHAT THE COLUMN IS. The row holds the
+ * framework's structure as JSON and this module does not own its schema, so every
+ * field is read defensively and an entry that does not answer is left out rather
+ * than defaulted into existence.
+ */
+export function attributedSpend(raw: unknown): AttributedSpend[] {
+  if (!Array.isArray(raw)) return []
+  const out: AttributedSpend[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    const record = entry as Record<string, unknown>
+    const usage = countersOf(record.usage)
+    if (!measured(usage)) continue
+    const backend = typeof record.backend === 'string' ? record.backend : ''
+    const model = modelOfBackend(backend)
+    out.push({
+      session: typeof record.session === 'string' ? record.session : '',
+      role: typeof record.role === 'string' ? record.role : '',
+      backend,
+      model,
+      usage,
+      // BOTH HALVES OF THE KEY OR NOTHING. An entry whose backend resolves no
+      // model has no pair to look up, and `costMicros` would answer `null` for
+      // it anyway — this says so without pretending a lookup happened.
+      costMicros: backend === '' || model === '' ? null : costMicros(usage, backend, model),
+    })
+  }
+  return out
 }

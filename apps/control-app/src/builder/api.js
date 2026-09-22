@@ -1601,3 +1601,61 @@ export async function setDomainEmail(enabled, fetchImpl = fetch) {
   }
   return res.json()
 }
+
+/**
+ * A `from`/`to` pair as the meter routes take it ([[REQ-297]]).
+ *
+ * BOTH ENDS OMITTED WHEN NULL, rather than sent empty. The routes read absent as
+ * UNBOUNDED and an empty string as absent, but a query string that carries
+ * `from=` says the caller meant to name one and could not — which is a different
+ * thing from not asking, and only one of them should be indistinguishable from
+ * the other.
+ */
+function periodParams({ from = null, to = null } = {}, into = new URLSearchParams()) {
+  if (from) into.set('from', from)
+  if (to) into.set('to', to)
+  return into
+}
+
+/** The same, as a `?…` suffix — empty when nothing is bounded. */
+function query(params) {
+  const text = params.toString()
+  return text === '' ? '' : `?${text}`
+}
+
+/**
+ * Every business's cost over a period, dearest first ([[REQ-297]]).
+ *
+ * `/api/admin/` AND NOT `scoped()`, on `provisionBusinessFor`'s reasoning: this
+ * is a question about the PLATFORM rather than about the business the operator
+ * happens to have selected, and prefixing it with one would suggest the answer
+ * varied by which. An operator comparing two of them is asking about somebody
+ * else's meter by definition.
+ */
+export async function fetchTenantCost(period = {}, fetchImpl = fetch) {
+  const path = `/api/admin/spend/businesses${query(periodParams(period))}`
+  const res = await send(fetchImpl, path, {})
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `GET ${path} → ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
+ * One tenant's period in detail — the report, its days, and what it delegated.
+ *
+ * THE SAME ROUTE [[REQ-293]] ALREADY OWNS, widened rather than duplicated. The
+ * report this returns IS that route's report, which is what makes the console's
+ * figures checkable against the one endpoint that is authoritative about them.
+ */
+export async function fetchTenantSpend(business, period = {}, fetchImpl = fetch) {
+  const params = new URLSearchParams({ business })
+  const path = `/api/admin/spend${query(periodParams(period, params))}`
+  const res = await send(fetchImpl, path, {})
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `GET ${path} → ${res.status}`)
+  }
+  return res.json()
+}

@@ -183,3 +183,35 @@ export function projectBackendModel(lib: AiLibrary): string {
   const settings = lib.backendSettings(PROJECT_BACKEND) as { model?: string } | undefined
   return typeof settings?.model === 'string' ? settings.model : ''
 }
+
+/**
+ * The model this project BINDS `name` to, or `''` where the document names none
+ * ([[REQ-297]]).
+ *
+ * THE ONE READER THAT MAY GO STRAIGHT TO THE DOCUMENT, and the exception needs
+ * its reason stated because {@link projectBackendModel} exists two functions up
+ * and says the opposite. That one answers *what model will this request be sent
+ * with*, which is a question about the wire, and the wire's answer is the
+ * framework's shipped default merged under this project's keys — so it has to be
+ * asked of the library. This one answers *which model did a stored record's
+ * backend name run on*, months after the request, from a row that kept the name
+ * and not the model. There is no library instance in that question and no
+ * request to ask about; the document is the only thing that binds the two, and
+ * `delegation.ts` already resolves a worker's backend against exactly this
+ * document for exactly this reason.
+ *
+ * SO THE CAVEAT TRAVELS WITH THE ANSWER: this is the model configured TODAY, not
+ * a fact recovered from the past. A turn's OWN model is stored on its row
+ * (`turn_spend.model`) and is never inferred this way — only a delegated entry
+ * needs this, because the framework's `attributed` list carries a backend and no
+ * model. Deleting an entry's `model` key makes this `''` rather than silently
+ * substituting the framework's floor, because a price keyed on a guess is worse
+ * than a price that is honestly absent.
+ */
+export function modelOfBackend(name: string): string {
+  if (name === 'about') return ''
+  const entry = (backendsDocument as Record<string, unknown>)[name]
+  if (!entry || typeof entry !== 'object') return ''
+  const model = (entry as Record<string, unknown>).model
+  return typeof model === 'string' ? model : ''
+}

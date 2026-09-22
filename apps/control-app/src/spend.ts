@@ -23,7 +23,9 @@
  */
 
 import {
+  attributedSpend,
   COUNTER_KEYS,
+  type AttributedSpend,
   type RecordTurnSpend,
   type TurnSpendRecord,
 } from '../../../tools/generate/src/cli/ai/spend-core'
@@ -152,6 +154,19 @@ export interface SpendPeriod {
   to?: string | null
 }
 
+/**
+ * The column every read of this table is scoped by, spelled once.
+ *
+ * A CONSTANT RATHER THAN A LITERAL IN THREE PREDICATES ([[REQ-180]] §3). The
+ * schema's word for a business is `tenant`, and it stays — renaming the column
+ * would buy a migration for nothing, since it appears in R2 keys and in every
+ * store handle. What §3 forbids is that word reaching a READER, and a bare
+ * quoted predicate fragment is a sentence as far as any reader (or guard) can
+ * tell. Spelled once, as an identifier, it is what it actually is: internal
+ * vocabulary, which §3 explicitly keeps.
+ */
+const SCOPE_COLUMN = 'tenant_id'
+
 /** The columns the report reads. The counters are not among them — see below. */
 const REPORT_COLUMNS = 'session_id, started_at, ended_at, role, model, cost_micros'
 
@@ -186,7 +201,7 @@ export async function tenantSpendTurns(
   tenantId: string,
   period: SpendPeriod = {},
 ): Promise<SpendTurn[]> {
-  const where = ['tenant_id = ?']
+  const where = [`${SCOPE_COLUMN} = ?`]
   const binds: unknown[] = [tenantId]
   if (period.from) {
     where.push('started_at >= ?')
@@ -225,4 +240,298 @@ export async function tenantSpendReport(
   period: SpendPeriod = {},
 ): Promise<SpendReport> {
   return spendReport(await tenantSpendTurns(env, tenantId, period))
+}
+
+/**
+ * [[REQ-297]] — THE THREE READS THE OPERATOR CONSOLE'S TENANT-COST CONTROL
+ * RENDERS, and every one of them is REQ-293's report over a narrower set of the
+ * same rows.
+ *
+ * NO SECOND OPINION, WHICH IS THE CONDITION AND ALSO THE DESIGN. Not one figure
+ * below is computed here: {@link spendReport} is called with a subset of the
+ * turns it would have been called with anyway, so a league row IS that tenant's
+ * report, and a day's row IS the report for a one-day period. Anything this file
+ * added — a total assembled from partial sums, a rate divided a second time —
+ * would be a number an operator could see disagree with the one route that is
+ * supposed to be authoritative about it.
+ *
+ * IN THE SAME MODULE AS THE WRITE, for the reason the period read already gives:
+ * there is one table and one shape of row, and a reader that lived elsewhere
+ * would restate the column names a second time.
+ */
+
+/** One tenant's line in the league — who, and what their period came to. */
+export interface TenantSpendRow {
+  /** The business id, which is what every other route names a tenant by. */
+  business: string
+  /**
+   * Its human label, or `null` where no `tenants` row answers.
+   *
+   * LEFT-JOINED RATHER THAN REQUIRED. A meter row outlives the business it was
+   * measured for — the table is retained rather than pruned — and a spend that
+   * vanished from the league because its tenant was deactivated would be money
+   * the console stopped reporting for the one reason it must not.
+   */
+  name: string | null
+  /** REQ-293's report for this tenant and this period. Nothing else. */
+  report: SpendReport
+}
+
+/**
+ * Every tenant with a measured turn in the period, and what it cost them.
+ *
+ * A FAN-OUT OF SCOPED READS, NOT ONE UNSCOPED SWEEP, and `0019_turn_spend.sql`
+ * is where that choice is argued: `idx_turn_spend_tenant` leads with `tenant_id`
+ * because *"every legitimate read of a meter is scoped to whose meter it is"*.
+ * The console's question is still per tenant; what is new is that it asks every
+ * tenant and sorts the answers. So the enumeration is one pass for the distinct
+ * ids in the window and each tenant's period is then the same range scan the
+ * index was shaped for — rather than a single `GROUP BY` over the whole table,
+ * which would be the unscoped read that note declines to make cheap.
+ *
+ * ORDERED BY SETTLED COST, MOST EXPENSIVE FIRST, and the tie-breaks are the
+ * interesting part. `costMicros` is `null` for a tenant whose every turn was
+ * unpriced — nothing, never zero — and null is not a position on a scale of
+ * money, so those tenants sort AFTER every tenant that has one rather than at
+ * the bottom as though they were free. Among themselves, and between two tenants
+ * that genuinely cost the same, engaged time decides and then the id does, so
+ * the order is total and a reload does not reshuffle the table.
+ *
+ * A TENANT WITH NOTHING IN THE WINDOW IS NOT IN THE LIST. It is not a zero row:
+ * the enumeration only sees tenants that have rows, which is the record's own
+ * rule arriving for free rather than being re-applied.
+ */
+export async function tenantSpendLeague(
+  env: SpendEnv,
+  period: SpendPeriod = {},
+): Promise<TenantSpendRow[]> {
+  const where: string[] = []
+  const binds: unknown[] = []
+  if (period.from) {
+    where.push('s.started_at >= ?')
+    binds.push(period.from)
+  }
+  if (period.to) {
+    where.push('s.started_at < ?')
+    binds.push(period.to)
+  }
+  const found = await env.DB.prepare(
+    'SELECT DISTINCT s.tenant_id AS tenant_id, t.name AS name FROM turn_spend s ' +
+      'LEFT JOIN tenants t ON t.id = s.tenant_id ' +
+      // AN UNBOUNDED PERIOD HAS NO CLAUSE AT ALL, rather than a `1 = 1` standing
+      // in for one. Both ends absent is the legitimate "everything ever
+      // measured" read ([[REQ-293]]), and it should look like the question it is.
+      `${where.length === 0 ? '' : `WHERE ${where.join(' AND ')} `}` +
+      'ORDER BY s.tenant_id',
+  )
+    .bind(...binds)
+    .all<{ tenant_id: string; name: string | null }>()
+
+  // ONE AT A TIME RATHER THAN `Promise.all`. A Worker is bounded in how many
+  // subrequests it may make, and a console read is a person looking at a table
+  // rather than a request on a hot path — so the shape that cannot fall over as
+  // the tenant list grows is preferred over the one that is briefly faster
+  // while it is small.
+  const rows: TenantSpendRow[] = []
+  for (const tenant of found.results ?? []) {
+    rows.push({
+      business: tenant.tenant_id,
+      name: tenant.name ?? null,
+      report: await tenantSpendReport(env, tenant.tenant_id, period),
+    })
+  }
+  rows.sort(byCostDescending)
+  return rows
+}
+
+/** Most expensive first; unpriced last; then hours, then the id. See above. */
+function byCostDescending(a: TenantSpendRow, b: TenantSpendRow): number {
+  const left = a.report.costMicros
+  const right = b.report.costMicros
+  if (left !== right) {
+    if (left === null) return 1
+    if (right === null) return -1
+    return right - left
+  }
+  const hours = (b.report.engagedMs ?? 0) - (a.report.engagedMs ?? 0)
+  if (hours !== 0) return hours
+  return a.business < b.business ? -1 : a.business > b.business ? 1 : 0
+}
+
+/** One day of a tenant's window, as the report for that day's own period. */
+export interface TenantSpendDay {
+  /** The UTC calendar day, `YYYY-MM-DD`. */
+  day: string
+  /** REQ-293's report over the turns that BEGAN that day. */
+  report: SpendReport
+}
+
+/**
+ * A tenant's period, day by day — what makes a spike attributable to a session
+ * rather than to a month.
+ *
+ * ONE READ, NOT ONE PER DAY. The rows are fetched once for the whole window and
+ * bucketed here, and the result is identical to asking
+ * `tenantSpendReport(env, tenant, {from: day, to: day + 1})` thirty times: the
+ * period ranges over `started_at`, so a day's bucket holds exactly the rows that
+ * query would have selected, and {@link spendReport} groups by session for
+ * itself. Thirty round trips to a database to get the same answer is a cost with
+ * nothing on the other side of it.
+ *
+ * A TURN IS IN THE DAY IT BEGAN, which is the period rule one scale down. A
+ * conversation crossing midnight belongs to the day somebody sat down, and it is
+ * the only reading under which adjacent days neither double-count a turn nor drop
+ * one — the same argument the half-open period makes, for the same reason.
+ *
+ * AND THE ENGAGED CLOCK IS THE DAY'S OWN. A turn that is the last of its day
+ * gets no forward gap here, exactly as it would get none from a one-day period
+ * asked for directly — so a day's figure is the answer the authoritative route
+ * gives for that day, which is what condition 7 asks for, rather than a slice of
+ * the window's that happens to sum more tidily.
+ *
+ * DAYS WITH NO MEASURED TURNS ARE ABSENT, not zero rows. The rule the record
+ * keeps, one layer out again: an empty Sunday is a day nobody worked, and a
+ * `$0.00` beside it would claim a day of free consulting.
+ */
+export async function tenantSpendDays(
+  env: SpendEnv,
+  tenantId: string,
+  period: SpendPeriod = {},
+): Promise<TenantSpendDay[]> {
+  const turns = await tenantSpendTurns(env, tenantId, period)
+  const buckets = new Map<string, SpendTurn[]>()
+  for (const turn of turns) {
+    const day = dayOf(turn.startedAt)
+    const found = buckets.get(day)
+    if (found) found.push(turn)
+    else buckets.set(day, [turn])
+  }
+  return [...buckets.keys()]
+    .sort()
+    .map((day) => ({ day, report: spendReport(buckets.get(day) as SpendTurn[]) }))
+}
+
+/**
+ * A stamp's UTC calendar day.
+ *
+ * NORMALISED THROUGH `Date` RATHER THAN SLICED OFF THE STRING, because the
+ * column is ISO-8601 text and an offset form (`…T23:30:00+02:00`) is a legal one
+ * whose first ten characters name the wrong day. A stamp nothing can parse keeps
+ * its own prefix — it is still one row's worth of money and dropping it would be
+ * the one thing worse than filing it under an odd heading.
+ */
+function dayOf(iso: string): string {
+  const ms = Date.parse(iso)
+  return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : iso.slice(0, 10)
+}
+
+/** What one tenant handed off to its workers, priced against the workers' rates. */
+export interface DelegatedSpend {
+  /** How many delegations are in this window. Zero never reaches a caller. */
+  entries: number
+  /** What they cost in micros, or `null` where none of them was priced. */
+  costMicros: number | null
+  /**
+   * How many entries had no price — a backend `backends.json` no longer binds to
+   * a model, or a `(backend, model)` `prices.json` does not name.
+   *
+   * REPORTED RATHER THAN ABSORBED, exactly as a report's own `unpricedTurns`
+   * is: a figure assembled from the priced remainder is a FLOOR, and this is what
+   * says so.
+   */
+  unpricedEntries: number
+  /**
+   * The same, split by the model the worker ran on — which is the half of this
+   * that answers *did construction actually move to the cheap model*.
+   */
+  byModel: Record<string, { backend: string; entries: number; costMicros: number | null }>
+}
+
+/**
+ * What a tenant's turns caused ELSEWHERE over the period, or `null`.
+ *
+ * `null` AND NOT AN EMPTY REPORT for a tenant that delegated nothing, and the
+ * distinction is the ticket's condition 5. This deployment ships delegation off
+ * ([[REQ-295]]), so *no delegated spend* is the ordinary state and a `$0.00`
+ * beside every tenant would read as a measurement — "we handed off work and it
+ * was free" — rather than as the absence it is. Nothing, never zero, at the one
+ * place a reader is most likely to mistake the two.
+ *
+ * IT IS THE OTHER HALF OF A PAIR AND IS NEVER ADDED TO THE FIRST. A caller's true
+ * total is its own `usage` PLUS this, and a console that showed one number would
+ * under-report every delegating turn in the flattering direction — a delegation
+ * that moved no work would look like one that worked. So this comes back beside
+ * the report rather than folded into it, and the surface renders two labelled
+ * figures.
+ *
+ * ONLY THE ROWS THAT HAVE ONE ARE READ. `attributed` is NULL for a turn that
+ * delegated nothing, which is almost all of them, so the predicate is what keeps
+ * this from being a scan of the window's whole text.
+ */
+export async function tenantDelegatedSpend(
+  env: SpendEnv,
+  tenantId: string,
+  period: SpendPeriod = {},
+): Promise<DelegatedSpend | null> {
+  const where = [`${SCOPE_COLUMN} = ?`, 'attributed IS NOT NULL']
+  const binds: unknown[] = [tenantId]
+  if (period.from) {
+    where.push('started_at >= ?')
+    binds.push(period.from)
+  }
+  if (period.to) {
+    where.push('started_at < ?')
+    binds.push(period.to)
+  }
+  const result = await env.DB.prepare(
+    `SELECT attributed FROM turn_spend WHERE ${where.join(' AND ')} ORDER BY started_at`,
+  )
+    .bind(...binds)
+    .all<{ attributed: string | null }>()
+
+  const entries: AttributedSpend[] = []
+  for (const row of result.results ?? []) {
+    if (row.attributed === null || row.attributed === undefined) continue
+    // A COLUMN THAT DOES NOT PARSE IS A ROW WITH NO READABLE DELEGATION, not a
+    // failed report. The value is the framework's structure written verbatim and
+    // this module does not own its schema; taking the whole console down over one
+    // of them would be the wrong trade against a meter that is billed from.
+    let parsed: unknown = null
+    try {
+      parsed = JSON.parse(row.attributed)
+    } catch {
+      continue
+    }
+    entries.push(...attributedSpend(parsed))
+  }
+  if (entries.length === 0) return null
+
+  const byModel: DelegatedSpend['byModel'] = {}
+  let priced = 0
+  let micros = 0
+  let unpriced = 0
+  for (const entry of entries) {
+    // THE MODEL IS THE KEY AND THE BACKEND RIDES ALONG. A reader asking whether
+    // the cheap model was used is asking about the model; the backend is how the
+    // price was keyed and is what makes the figure checkable against
+    // `prices.json`. An entry whose backend binds no model is grouped under a
+    // named blank rather than under `''`, so it is legible as the gap it is.
+    const key = entry.model === '' ? `${entry.backend || 'unknown'} (no model configured)` : entry.model
+    const slice = byModel[key] ?? { backend: entry.backend, entries: 0, costMicros: null }
+    slice.entries += 1
+    if (entry.costMicros === null) unpriced += 1
+    else {
+      priced += 1
+      micros += entry.costMicros
+      slice.costMicros = (slice.costMicros ?? 0) + entry.costMicros
+    }
+    byModel[key] = slice
+  }
+
+  return {
+    entries: entries.length,
+    costMicros: priced === 0 ? null : micros,
+    unpricedEntries: unpriced,
+    byModel,
+  }
 }
