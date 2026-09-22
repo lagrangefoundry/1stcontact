@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-298
 created_by: xgd
 created_at: '2026-09-22T20:01:55.947228+00:00'
-updated_at: '2026-09-22T21:04:34.976018+00:00'
+updated_at: '2026-09-22T21:13:59.824257+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -130,5 +130,14 @@ Pre-existing on a clean tree. Running the rest of the scope.
 While the full suite runs, let me bring the ticket body up to date with what was actually built.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="19ba92b5-12d3-45cc-b253-ed21f8170e7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:13:59.498248+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
