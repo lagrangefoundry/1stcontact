@@ -5,9 +5,9 @@ type: request
 title: The image ladder must stream renditions and refuse on bytes, not subrequests
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:52.642548+00:00'
-updated_at: '2026-09-22T23:27:16.998113+00:00'
+updated_at: '2026-09-22T23:39:55.541190+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -92,3 +92,99 @@ decides to build.
 - A site within both ceilings publishes, and its manifest is byte-identical to what it would
   have been before this change.
 - A republish with no image changes still renders nothing and reports nothing outstanding.
+## Design decisions (as implemented)
+
+**The sink, and what a build reports.** `buildImageLadder` takes an `open?: () =>
+Promise<RenditionSink>` — a factory, not a sink, so nothing is opened until both
+ceilings are cleared and a refusal costs nothing. Each rendition is rendered,
+awaited through the sink, and released inside the job that produced it, so peak
+rendition memory is `LADDER_CONCURRENCY` renditions regardless of the site's size.
+`LadderBuild.derived: Map<string, Uint8Array>` becomes `LadderBuild.landed:
+ReadonlySet<string>` — the paths that landed, which is the only thing deciding the
+manifest ever needed. A rung the renderer could not produce is never written, as
+well as never named. Absent `open`, the pipeline is unchanged with the write left
+out, which is what a caller asking "what would this site's ladder be" wants.
+
+**Where a rendition goes, and the revision lifecycle.** Content-addressed publish
+has not landed, so the destination is the revision's own `out/`, as before. That
+requires the destination to be open before the ladder renders, which the single
+`writeRevision` call could not provide — so the port gains one verb:
+
+- `SiteStore.beginRevision(site, id): Promise<RenditionSink>` — takes the revision
+  id and opens its derived channel. `RevisionContent.derived` is removed;
+  `writeRevision` is still the one act that makes a revision exist, and until its
+  log entry lands what the sink wrote is unreachable bytes.
+- `publishSite` reads `nextRevision` before the ladder rather than as the entry is
+  assembled (`beginRevision` needs to know which revision it is opening). It is a
+  read in every adapter and reserves nothing, and every non-ladder refusal is
+  still upstream of it.
+- A publish opens exactly one destination, whether or not the deployment can build
+  renditions — the adapters also use this verb to make the destination ready, and
+  a lifecycle that sometimes ran would be two lifecycles wearing one name.
+- **D1/R2:** the [[REQ-266]] §2 revision-id claim moves from `writeRevision` into
+  `beginRevision`. This is a strengthening, not a relocation: the front of the
+  write is now `beginRevision`, so the loser of a race between two publishes of one
+  site still writes nothing — and now fails before paying for a ladder rather than
+  after. `writeRevision` keeps its own ownership and published-id refusals, so a
+  caller arriving with an id it never minted is still refused before its first
+  `put`.
+- **Filesystem:** `beginRevision` is what empties `dist/published/`, because a
+  rendition written before `writeRevision` would otherwise be deleted by it. The
+  revision's own source directory is still emptied by `writeRevision`.
+- **In-memory:** `beginRevision` creates the revision's derived map, which the
+  sink fills; `derivedRevision` therefore answers an empty map for a publish that
+  built nothing and `null` only for a revision that was never begun.
+
+**The weight ceiling.** `LADDER_MAX_SOURCE_BYTES = 32 MiB` — the total source
+weight of the pictures one publish will carry. Derived from the 128 MB isolate:
+the publish holds the draft's sources and, after the first publish, the previous
+revision's snapshot read for the diff, so the pictures are paid for roughly twice
+before a transform runs; 32 MiB leaves half the isolate for the render, the
+runtime and the handful of renditions in flight. It admits about forty web-prepared
+pictures, twenty at 1.6 MB, ten camera originals at 3 MB — so a photo-heavy site
+whose images went through any export step fits, and the site that uploaded forty
+originals is refused in its own terms rather than dying.
+
+It counts only the assets this module would ladder (`isLadderedAsset`), not the
+whole asset library: a document weighs on the same isolate but is not something
+the ladder decided to do anything with, and a refusal blaming a client's
+photographs for a PDF's weight would name a remedy that does not work.
+
+It is checked **first**, before any measurement, because it is `bytes.length` and
+costs no round trip — so the cheapest refusal comes first and a site over both
+ceilings is told the fact that was actually going to kill it.
+
+**`LadderTooHeavyError`, a sibling of `LadderTooLargeError`.** Both limits are
+real and a site can meet either — one bounds how many requests a publish makes,
+the other how much it holds — so the subrequest guard is kept untouched rather
+than folded into one number that would report the wrong fact about whichever bound
+was looser. The new error names the site's own facts (how many pictures, what they
+weigh in MB, what one publish can carry) and carries the same remedy sentence:
+*"Removing some pictures, or replacing the largest with smaller ones, will let it
+publish."*
+
+## Test plan
+
+New UATs in `tests/test_UAT_FC_REQ-305_streamed_ladder.test.ts`:
+
+- `holds_no_more_rendition_bytes_than_its_concurrency_allows` — thirty pictures,
+  390 renditions, 24 MB of ladder; the sizer and sink account for every buffer
+  between existing and written, and the observed peak is `LADDER_CONCURRENCY`
+  renditions.
+- `the_sink_receives_exactly_the_renditions_the_manifest_names` and
+  `a_rung_that_would_not_render_is_never_written`.
+- `the_manifest_is_identical_whether_or_not_a_sink_is_open` — content and
+  serialised ordering both.
+- `refuses_a_site_whose_pictures_weigh_more_than_a_publish_can_hold` — the message
+  names the count, the weight, the ceiling and the remedy; no measurement, no
+  transform, no destination opened.
+- `weighs_the_pictures_and_not_the_whole_asset_library`.
+- `keeps_the_subrequest_ceiling_and_reports_the_one_a_site_meets_first`.
+- `opens_the_destination_once_before_the_first_rendition_and_before_the_revision`,
+  `a_publish_with_no_ladder_still_opens_exactly_one_destination`, and
+  `a_publish_refused_by_weight_leaves_no_revision_and_opens_nothing`.
+- `a_republish_reports_nothing_outstanding_and_names_the_same_renditions`.
+
+Regression scope: the REQ-222 node and workerd ladder suites (updated for
+`landed`), the REQ-266 immutability/claim suites, and the publish/store suites
+that drive `writeRevision` through the fixture.
