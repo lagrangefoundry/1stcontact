@@ -430,7 +430,8 @@ function fakeFetch(table: Map<string, Reply>, origin = 'https://example.test') {
 
 interface Check {
   name: string
-  status: 'pass' | 'fail' | 'skip'
+  /** `na` is [[BUG-136]]'s outcome for a check that had nothing to assert against. */
+  status: 'pass' | 'fail' | 'skip' | 'na'
   detail: string
 }
 interface Report {
@@ -981,13 +982,29 @@ describe('story-d5167ced — the smoke check against an origin that serves corre
     )
 
     expect(run.code, run.all).toBe(0)
-    for (const name of ALL_CHECKS) {
+    // EVERY check passes EXCEPT the one that cannot on this fixture, and that
+    // exception is [[BUG-136]] rather than a hole. `unpublished_site_indistinguishable`
+    // needs a key that exists and has published NOTHING, while the four channel
+    // checks need the same key to serve — the two cannot be one origin, which is
+    // what `unpublishedOrigin()` beside `correctOrigin()` has always been for.
+    // What changed is that the impossible branch reports `n/a` instead of a pass:
+    // it compared nothing, and a check that passes without asserting is
+    // indistinguishable from one that holds. AC-1340 is where it passes.
+    const NOTHING_TO_COMPARE = 'unpublished_site_indistinguishable'
+    for (const name of ALL_CHECKS.filter((n) => n !== NOTHING_TO_COMPARE)) {
       expect(run.out, `${name} did not pass`).toContain(`PASS  ${name}`)
     }
+    expect(run.out, `${NOTHING_TO_COMPARE} reported a pass having compared nothing`).toContain(
+      `n/a  ${NOTHING_TO_COMPARE}`,
+    )
     expect(run.out).not.toContain('skip  ')
     expect(run.out).not.toContain('FAIL  ')
-    // The summary states how many passed and how many were skipped.
-    expect(run.out).toContain(`Smoke passed against ${FAKE_ORIGIN}: ${ALL_CHECKS.length} passed, 0 skipped.`)
+    // The summary counts the three outcomes APART, so a run that proved nine
+    // things and declined the tenth cannot read as a run that proved ten.
+    expect(run.out).toContain(
+      `Smoke passed against ${FAKE_ORIGIN}: ${ALL_CHECKS.length - 1} passed, 0 skipped, ` +
+        '1 not applicable to this deployment.',
+    )
 
     // The asset check reports the number it verified, rather than reporting a
     // pass having verified none.
@@ -1109,7 +1126,12 @@ describe('story-d5167ced — each way a deploy is silently broken fails the smok
       expect(report.checks.map((c) => c.name)).toEqual(ALL_CHECKS)
       const broken = new Set([check, ...(also ?? [])])
       for (const other of report.checks.filter((c) => !broken.has(c.name))) {
-        expect(['pass', 'skip'], `${what}: ${other.name} did not report an outcome`).toContain(other.status)
+        // `na` is an outcome like the others ([[BUG-136]]): on this fixture the
+        // site is published, so the leak check has no 404 to compare and says so.
+        expect(
+          ['pass', 'skip', 'na'],
+          `${what}: ${other.name} did not report an outcome`,
+        ).toContain(other.status)
       }
     }
 
@@ -1279,10 +1301,23 @@ describe('story-d5167ced — an unpublished site is indistinguishable from an un
     expect(statusLeak.ok).toBe(false)
     expect(detailOf(statusLeak).detail).toContain('the difference tells a stranger the site exists')
 
-    // ── the site DOES have a live revision: nothing to compare, said as a pass ──
+    // ── the site DOES have a live revision: nothing to compare, and NOT a pass ──
+    //
+    // [[BUG-136]] — this branch compares nothing. It used to say so in a detail
+    // line while reporting `pass`, so the one check guarding a cross-tenant leak
+    // could report green having asserted nothing at all. It is `n/a` now: not a
+    // failure, because the deployment is not broken, and not a skip either,
+    // because no argument to THIS run fixes it — the key it was given is
+    // published, and the check needs one that is not.
     const live = await smoke(correctOrigin())
-    expect(detailOf(live).status).toBe('pass')
-    expect(detailOf(live).detail).toContain('nothing to compare')
+    expect(detailOf(live).status).toBe('na')
+    expect(detailOf(live).status).not.toBe('pass')
+    expect(detailOf(live).detail).toContain('has a live revision')
+    // The outcome says what WOULD let it assert, so it is an instruction rather
+    // than a shrug.
+    expect(detailOf(live).detail).toContain('published nothing')
+    // And an n/a never fails the run.
+    expect(live.ok).toBe(true)
   })
 })
 

@@ -25,9 +25,38 @@
  * syntax an older engine choked on, would be one more way for it to fail
  * silently and leave the operator exactly where they started.
  *
- * IT NEVER HIDES A WORKING BUILDER. Every path checks that `#app` is still empty
- * immediately before writing, so a slow-but-successful mount is never replaced
- * by an error panel it raced.
+ * IT NEVER TOUCHES THE BUILDER, IN EITHER DIRECTION ([[BUG-135]]). The original
+ * promise was half a promise: every write re-checked that `#app` was empty, so a
+ * builder that mounted FIRST was never overwritten — and nothing at all covered
+ * the builder mounting SECOND, which is the case that actually occurs in
+ * production. The panel went inside `#app` as an unclassed first child, ahead of
+ * everything the shell laid out, and the chat composer rendered with no input at
+ * all. Three things close it:
+ *
+ *   - the guard renders into its OWN fixed-position element on `document.body`,
+ *     never into `#app`, so whatever it shows cannot participate in the
+ *     builder's layout however wrong it is;
+ *   - it watches `#app` after it has spoken and RETRACTS when the builder
+ *     arrives, so the promise holds in both directions;
+ *   - and it no longer treats a clock as evidence — see below.
+ *
+ * A DEADLINE IS NOT EVIDENCE OF FAILURE ([[BUG-135]]). Four seconds was enough on
+ * localhost and is not enough through Cloudflare Access with the composer's
+ * cross-origin engine on the mount path, so a slow-but-healthy production
+ * builder was reported as broken — worse than silence, because it sends the
+ * reader looking for a fault that is not there. The guard now says "did not
+ * start" only when it has caught an actual fault (a failed load, a rejected
+ * top-level await, a throw); slowness with no fault in evidence reads as
+ * slowness. Raising the deadline is part of that change and not the change: the
+ * larger number buys margin, the split between the two messages is what makes
+ * the sentence true.
+ *
+ * IT SAYS WHICH KIND OF SLOW, because `main.js` tells it. A module graph that
+ * never ran and one that ran and is waiting on the server are indistinguishable
+ * from inside the guard, so `main.js` records its progress in an attribute
+ * (`BOOT_PHASE_ATTR`) and the guard reads it. The attribute is written as a
+ * literal there rather than imported — `main.js` is browser source that nothing
+ * bundles — and a UAT pins the two spellings together.
  *
  * ITS MATCHERS SAY `tenant` AND ITS SENTENCES SAY *business* ([[REQ-180]] §3),
  * and the mismatch is deliberate rather than a half-finished rename. `hintFor`
@@ -39,11 +68,43 @@
  * declines to buy a migration to rename one.
  */
 
-/** How long to let the module graph mount before concluding it will not. */
-export const BOOT_DEADLINE_MS = 4000
+/**
+ * How long before the guard says anything at all.
+ *
+ * This is a "you are still waiting" threshold, not a verdict, so it can stay
+ * short: the note it produces claims nothing the guard cannot see.
+ */
+export const BOOT_NOTICE_MS = 4000
+
+/**
+ * How long before a fault the guard has CAUGHT is reported as a failed boot.
+ *
+ * It gates a fault rather than replacing one, because an error event is not on
+ * its own proof of a dead page — a stylesheet that 404s fires one and the
+ * builder mounts fine. Waiting means the common non-fatal case has mounted and
+ * been seen to mount before anything is said about it.
+ */
+export const BOOT_DEADLINE_MS = 12000
+
+/** How often the guard re-checks `#app` once it has something on screen. */
+export const BOOT_WATCH_MS = 250
 
 /** The element the builder mounts into. Must match `chrome.ts`. */
 export const APP_ID = 'app'
+
+/** The guard's own element. Never inside `#app` — that is the whole of BUG-135. */
+export const GUARD_ID = 'boot-guard'
+
+/**
+ * Where `main.js` records how far its own boot has got, and the two values it
+ * writes. On `documentElement` rather than a global so it is visible in the
+ * element inspector of a browser whose console the operator has not opened.
+ */
+export const BOOT_PHASE_ATTR = 'data-builder-boot'
+/** The module body is running: every import resolved, the server has not answered. */
+export const BOOT_PHASE_LOADING = 'loading'
+/** The answers are in hand and the builder is drawing. */
+export const BOOT_PHASE_MOUNTING = 'mounting'
 
 /**
  * The guard, as source. Exported rather than written straight into `chrome.ts`
@@ -52,10 +113,27 @@ export const APP_ID = 'app'
  */
 export const BOOT_GUARD = `(function () {
   var APP = ${JSON.stringify(APP_ID)};
+  var GUARD = ${JSON.stringify(GUARD_ID)};
+  var PHASE = ${JSON.stringify(BOOT_PHASE_ATTR)};
+  var NOTICE = ${BOOT_NOTICE_MS};
   var DEADLINE = ${BOOT_DEADLINE_MS};
-  var failure = null;
+  var WATCH = ${BOOT_WATCH_MS};
 
-  function note(what) { if (!failure && what) { failure = String(what); } }
+  var failure = null;
+  var expired = false;   // the deadline has passed
+  var asking = false;    // the API probe is in flight
+  var retracted = false; // the builder arrived; the guard is finished
+  var shown = '';        // what is on screen, so a re-render that changes nothing does nothing
+  var watching = null;   // the handle of the #app watch, once there is something to withdraw
+
+  function note(what) {
+    if (failure || !what) { return; }
+    failure = String(what);
+    // A fault that arrives AFTER the deadline is still a fault. The original
+    // guard looked once and never again, so a module that 404ed at eight
+    // seconds was never reported at all.
+    if (expired) { speak(); }
+  }
 
   // Capture phase, because a failed script/stylesheet fires its error event on
   // the ELEMENT and those do not bubble. This is the one that catches a 404ed
@@ -72,9 +150,9 @@ export const BOOT_GUARD = `(function () {
     note((r && r.message) || r);
   });
 
-  function stillEmpty() {
+  function mounted() {
     var el = document.getElementById(APP);
-    return !!el && el.childElementCount === 0;
+    return !el || el.childElementCount > 0;
   }
 
   function escape(text) {
@@ -97,22 +175,84 @@ export const BOOT_GUARD = `(function () {
     return null;
   }
 
-  function render(reason, api) {
-    if (!stillEmpty()) { return; }
+  // Fixed, on document.body, with nothing of the page's own layout to disturb.
+  var PILL_STYLE = 'position:fixed;left:1rem;bottom:1rem;z-index:2147483647;' +
+    'max-width:30rem;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;' +
+    'background:#111;color:#f4f4f5;padding:.6rem .85rem;border-radius:.4rem;' +
+    'box-shadow:0 2px 12px rgba(0,0,0,.3)';
+  // 'top/right/bottom/left' rather than the 'inset' shorthand, for the same
+  // reason this file is ES5: the guard runs where other things have failed.
+  var PANEL_STYLE = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483647;' +
+    'overflow:auto;background:#fff;color:#111';
+
+  function element() {
+    var el = document.getElementById(GUARD);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = GUARD;
+      document.body.appendChild(el);
+      watch();
+    }
+    return el;
+  }
+
+  function put(style, html) {
+    if (retracted || mounted()) { return; }
+    if (html === shown) { return; }
+    var el = element();
+    el.setAttribute('style', style);
+    el.innerHTML = html;
+    shown = html;
+  }
+
+  function retract() {
+    retracted = true;
+    var el = document.getElementById(GUARD);
+    if (el && el.parentNode) { el.parentNode.removeChild(el); }
+    if (watching) { window.clearInterval(watching); watching = null; }
+  }
+
+  function watch() {
+    if (watching) { return; }
+    // A poll, not a MutationObserver: this is the code that runs when the modern
+    // path has already failed, and one property read every quarter second is the
+    // smallest mechanism that cannot itself become the reason nothing happens.
+    // It doubles as the refresh for the waiting note, whose sentence changes as
+    // 'main.js' gets further.
+    watching = window.setInterval(function () {
+      if (mounted()) { retract(); return; }
+      if (!failure) { waiting(); }
+    }, WATCH);
+  }
+
+  function waiting() {
+    var phase = document.documentElement.getAttribute(PHASE);
+    var what =
+      phase === ${JSON.stringify(BOOT_PHASE_MOUNTING)}
+        ? 'It has its data and is drawing.'
+        : phase === ${JSON.stringify(BOOT_PHASE_LOADING)}
+          ? 'Its code has loaded; it is waiting on the server.'
+          : 'Its code is still loading.';
+    put(PILL_STYLE,
+      '<strong>Still loading the builder…</strong> ' + what +
+      '<br><span style="opacity:.7">Nothing has failed — this note goes away by itself.</span>');
+  }
+
+  function failed(reason, api) {
     var hint = hintFor(reason, api);
-    document.getElementById(APP).innerHTML =
-      '<div style="font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:2rem;max-width:60rem;color:#111">' +
+    put(PANEL_STYLE,
+      '<div style="font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:2rem;max-width:60rem">' +
       '<h1 style="font-size:1.05rem;margin:0 0 1rem">The builder did not start.</h1>' +
       (reason ? '<p style="margin:0 0 .75rem"><strong>What failed:</strong> ' + escape(reason) + '</p>' : '') +
       (api ? '<p style="margin:0 0 .75rem"><strong>GET /api/sites:</strong> ' + escape(api) + '</p>' : '') +
       (hint ? '<p style="margin:0 0 .75rem;padding:.75rem;background:#f4f4f5;border-left:3px solid #999">' + hint + '</p>' : '') +
       '<p style="margin:0;color:#666">The document loaded; its client did not. Full detail is in the browser console.</p>' +
-      '</div>';
+      '</div>');
   }
 
-  // The API is asked ONLY once the page is already known to be broken, so a
-  // healthy load costs nothing and the answer describes the failure rather than
-  // a state that has since moved on.
+  // The API is asked ONLY once a fault is in evidence, so a healthy load costs
+  // nothing and the answer describes the failure rather than a state that has
+  // since moved on.
   function probe(done) {
     try {
       window.fetch('/api/sites', { headers: { accept: 'application/json' } }).then(
@@ -124,8 +264,23 @@ export const BOOT_GUARD = `(function () {
     } catch (err) { done(null); }
   }
 
+  function speak() {
+    if (retracted || mounted()) { return; }
+    // No fault caught means no fault to report. Slow is slow, and saying so is
+    // the whole of BUG-135: a clock is not evidence.
+    if (!failure) { waiting(); return; }
+    if (asking) { return; }
+    asking = true;
+    probe(function (api) { failed(failure, api); });
+  }
+
   window.setTimeout(function () {
-    if (!stillEmpty()) { return; }
-    probe(function (api) { render(failure, api); });
+    if (retracted || mounted()) { return; }
+    waiting();
+  }, NOTICE);
+
+  window.setTimeout(function () {
+    expired = true;
+    speak();
   }, DEADLINE);
 })();`

@@ -10,14 +10,16 @@
 # against a fake origin rather than by breaking a real deploy.
 #
 # Usage:
-#   bin/smoke                                       # apex, unknown site, control gate
-#   bin/smoke --site-key site_a3f9c1d2e4b5             # the published-channel checks too
+#   bin/smoke                                       # everything that can run, runs
+#   bin/smoke --site-key site_a3f9c1d2e4b5             # the /site/<key>/ grammar too
 #   bin/smoke --origin https://staging.example --site-key site_a3f9c1d2e4b5
 #
 # `--control-origin` defaults to app.<host> of the origin, so the REQ-147 gate is
-# checked without being told where it is. The published-channel checks need a
-# site key and cannot discover one — a key is 128 random bits and this script
-# takes no dependency that could ask D1 for it.
+# checked without being told where it is. The published-channel checks that need
+# only a published ROOT address the apex when one is published, so they run with
+# no argument too ([[BUG-136]]) — `--site-key` remains for the two that assert
+# the /site/<key>/ grammar itself, because a key is 128 random bits and this
+# script takes no dependency that could ask D1 for one.
 #
 # Exits 0 when every check passes, 1 naming the ones that did not.
 

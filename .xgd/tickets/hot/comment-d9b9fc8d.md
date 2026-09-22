@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:39:06.346140+00:00'
+updated_at: '2026-09-22T00:01:14.422159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2380,5 +2380,160 @@ bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
 Then the same pair for XGD, and `--chats` for 1st Contact whose site is already up.
 
 One thing worth flagging: `--chat` didn't fail as an unknown argument — it got all the way to a network call. If 8788 had been up, that would have run a **site** copy while you believed you were copying conversations. The `--site`/`--contacts`/`--chats` class flags are a set where a typo silently selects the default, and the file's own convention elsewhere is that a known-but-wrong flag fails with a sentence. Want me to file that as a small bug?
+
+<!-- xgd-turn id="446ec0b6-773d-4c3b-9af6-19b3644dda79-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:46:48.700518+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' \
+  "Lagrange Foundry"
+INTERNAL: No business called 'Lagrange Foundry' at http://127.0.0.1:8799. This command never creates one — create it in the builder there first. What that side offers: 'biz_51a6746495c8057e886ff98d4208e6b9'.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="446ec0b6-773d-4c3b-9af6-19b3644dda79-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:47:43.205015+00:00" -->
+#### Claude
+That's the **dev-open fallback**: the local end is answering with a bare tenant id rather than names, which is `ACCESS_DEV_OPEN` resolving everything to `TENANT_ID` and nothing else. `biz_51a674…` *is* 1st Contact — which is why every copy so far worked and this one can't.
+
+Your local builder came up without the simulator's Access vars.
+
+`apps/control-app/.dev.vars:20` states the rule:
+
+> `ACCESS_DEV_OPEN = "1"` in wrangler.toml only takes effect when BOTH of these are empty
+
+…and `.dev.vars` sets `ACCESS_TEAM_DOMAIN = ""` and `ACCESS_AUD = ""`. The root `.dev.vars.local` is what fills them in with the simulator's values — and it exists and is correct:
+
+```
+ACCESS_TEAM_DOMAIN="http://127.0.0.1:8799"
+ACCESS_AUD="local-dev-aud"
+SERVICE_TOKEN_IDENTITIES="local-dev=martin@westhead.me"
+```
+
+So your `wrangler dev` came up with only `.dev.vars`, both vars stayed empty, dev-open engaged, and the Worker has no admission to resolve a *named* business against. Restart with both files, second overriding first:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 --env-file .dev.vars --env-file ../../.dev.vars.local
+```
+
+**The tell is in the error message itself.** It offered `'biz_51a674…'` — a bare id. With admission working it lists **names** (`'1st Contact', 'Lagrange Foundry', 'XGD', …`). Bare id = dev-open = you can only ever reach `TENANT_ID`, which is why every copy so far succeeded: 1st Contact *is* `TENANT_ID`.
+
+Added that to the refusals table in ACCESS.md, since "bare id versus names" is the fastest way to spot it and it isn't obvious from anywhere else.
+
+Worth noting this is the *same root cause* as the very first `copy-to-cloud` failure today — `--origin` defaulting to 8788 — wearing different clothes. Both are "the local end can only reach `TENANT_ID`", once via the wrong port and once via the wrong env files. That's §I12's point restated: the refusal names the credential but never the scope consequence, so you fix what it tells you and hit the same wall from the other side.
+
+Once it's restarted, the sequence is unchanged:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+bin/copy-to-cloud --force --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' "Lagrange Foundry"
+
+bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 \
+  --local-client-id 'local-dev.access' --local-client-secret 'local-dev-secret' "Lagrange Foundry"
+```
+
+Then the same two for XGD, plus `--chats` for 1st Contact. And `bin/deploy control-app` before any `--chats` run, since production predates those routes.
+
+<!-- xgd-turn id="b31348a4-a6b1-4b8e-aeff-fe77a1461882-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:53:49.241787+00:00" -->
+#### You
+BUG-134 has landed what do I need to do to deploy it?
+
+<!-- xgd-turn id="b31348a4-a6b1-4b8e-aeff-fe77a1461882-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-21T23:54:36.503317+00:00" -->
+#### Claude
+**BUG-135** is what just landed — `f1f7f87713 fix(builder): the boot guard reports slowness as slowness [FREE-CODED]`, merged at `f4cda2ebf6`. BUG-134 went in earlier (`87c49670d8`) and is `ready_to_reconcile` too.
+
+The distinction matters for deploying:
+
+**`bin/build && bin/deploy control-app`** — and the `bin/build` half is not optional here.
+
+BUG-135 touched two files that ship by different routes:
+
+- `apps/control-app/src/boot-guard.ts` → inlined into the chrome document by `chrome.ts`, so it rides the **Worker bundle** and `bin/deploy` alone would ship it
+- `apps/control-app/src/builder/main.js` → a **client asset**, which only reaches `dist-assets/builder/main.js` when `1c assets` runs
+
+`bin/deploy` on its own would give you the new guard talking to the old `main.js`. The commit message says `main.js` records `data-builder-boot`, and the new guard's whole design is that "a caught fault, not a clock, licenses the verdict" — it reads that marker to tell a graph that never ran from one that's merely slow. Ship one without the other and the guard loses the evidence it now depends on.
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+bin/build && bin/deploy control-app
+```
+
+**BUG-134 needs nothing extra.** `bin/copy-to-cloud` is a local script — already in effect on your laptop. It also touched `tools/generate/src/cli/{copy,index,push}.ts`, and `push.ts` is bundled into the Worker (it's the producer/consumer behind `/api/export` and `/api/import`), so the same deploy carries it.
+
+What you should see afterwards, on a slow mount: **"Still loading the builder…"** instead of the false failure, rendered into its own `div#boot-guard` on `document.body` rather than inside `#app` — so the chat composer should be there without you removing anything by hand. The thresholds are now `BOOT_NOTICE_MS=4000` for the claims-nothing note and `BOOT_DEADLINE_MS=12000` before a caught fault becomes a verdict.
+
+That same deploy also carries `/api/chats/export` and `/api/chats/import`, which production still doesn't have — so it unblocks the `--chats` copies too.
+
+<!-- xgd-turn id="aa34f644-77ef-47ec-8e44-885c79b401c9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-21T23:59:56.195569+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/smoke                          
+  FAIL  apex_resolves
+      GET https://1stcontact.io/ returned 404, expected 200
+  PASS  unknown_site_not_found
+      404
+  skip  unpublished_site_indistinguishable
+      no --site-key given
+  skip  published_root_redirects
+      no --site-key given
+  skip  published_index_serves_html
+      no --site-key given
+  skip  published_cache_policy
+      no --site-key given
+  skip  published_miss_is_404
+      no --site-key given
+  skip  published_assets_resolve
+      no --site-key given
+  PASS  control_app_challenges_unauthenticated
+      302 → https://lagrangefoundry.cloudflareaccess.com/cdn-cgi/access/login/app.1stcontact.io?kid=c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e&meta=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImFmMjcyMTA4M2Y3OGNlZGJhMTc3ZTAzMTM1MmIwM2E1YjQxZGQ4YWZmN2Q5M2RiMTM0ZTg1ZDlmMTNhMTJmZDAifQ.eyJ0eXBlIjoibWV0YSIsImF1ZCI6ImM4MDJmYTljNGVmYzQ4M2UxM2YxYzI3ZDJkOWE5Y2EzZmY5MzM2ZDU1YTAxNDIwNWJkMWE2MzI1ODI2MGM3NGUiLCJob3N0bmFtZSI6ImFwcC4xc3Rjb250YWN0LmlvIiwicmVkaXJlY3RfdXJsIjoiLyIsInNlcnZpY2VfdG9rZW5fc3RhdHVzIjpmYWxzZSwiaXNfd2FycCI6ZmFsc2UsImlzX2dhdGV3YXkiOmZhbHNlLCJleHAiOjE3OTAwMzU0NDIsIm5iZiI6MTc5MDAzNTE0MiwiaWF0IjoxNzkwMDM1MTQyLCJhdXRoX3N0YXR1cyI6Ik5PTkUiLCJtdGxzX2F1dGgiOnsiY2VydF9pc3N1ZXJfZG4iOiIiLCJjZXJ0X3NlcmlhbCI6IiIsImNlcnRfaXNzdWVyX3NraSI6IiIsImNlcnRfcHJlc2VudGVkIjpmYWxzZSwiY29tbW9uX25hbWUiOiIiLCJhdXRoX3N0YXR1cyI6Ik5PTkUifSwicmVhbF9jb3VudHJ5IjoiVVMiLCJhcHBfc2Vzc2lvbl9oYXNoIjoiYmI4OTY1Y2Y2MjdmZWQ3ZDJkMTI0NDM4NjY3ZDUwYjQzMjIyZTEyYjlkMDliYWY3MWRiMGVjZDAzYjNiYjUwMiJ9.X7sZVWeugUbrcqBnNU44W8plBELY3cntGlC5qnG1XONqBiPZz9ngZriklX4HcOlubzlsuAr4eP6fh8P9mooUNyrOhjsyrMWX5aSeN77xrWoiNyf9UnsVHAZU6tn78wZzJvPS0OJRCwIFUOFDkTm7cyWGKa5w2cmky7wOLPJbDZNUUh-khm30fP93QHlEMQ_W1YTvbKxhSdhD6mIZ5Mn9tJopnP22oqQfycJamCeoAxWjZIEsyp3QiTICoT5c6yaMNPVlfM-LAhhNTPY6UlqDz_DM5mfHhCwklBguMEUrO7A0OgIbyFrejjNVdOZ03EOtvErBRkV-xNnpCbGwxISXkA&redirect_url=%2F
+  skip  control_app_workers_dev_closed
+      no --workers-dev-origin given
+
+Smoke FAILED against https://1stcontact.io: 1 failed, 2 passed, 7 skipped.
+Failed: apex_resolves
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Can we fix the smoke tests? and why are so many skipped - I think we fix them or delete them, skipped tests are code debt
+
+<!-- xgd-turn id="aa34f644-77ef-47ec-8e44-885c79b401c9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T00:01:13.626307+00:00" -->
+#### Claude
+Two different things in that output, and only one is a smoke defect.
+
+**`apex_resolves` is not a bug.** Nothing has been published anywhere yet — zero `site_revisions` on both sides — and `APEX_SITE_KEY` is still `""`. The apex 404s exactly as an unpublished site does, which is what `public-site/src/index.ts` says it should. That clears when you publish and set the key.
+
+**The seven skips are debt, and you're right about them.** The header's reasoning — *"a key is 128 random bits and this script takes no dependency that could ask D1 for it"* — is sound about D1 and leads to the wrong conclusion, because four of those six checks don't need a key at all.
+
+**BUG-136** — *bin/smoke skips seven of ten checks, and four of them need no argument*.
+
+The core of it: `APEX_SITE_KEY` names a **published site served at the root of the host**, so when an apex is configured the apex *is* the published channel. Four of the six skipped checks — the asset crawl, content types, cache policy, and 404-on-miss — have a target already and need no key. Only `published_root_redirects` (which asserts the `/site/<key>` grammar) and `unpublished_site_indistinguishable` (which needs a key that exists but has published nothing) genuinely require the argument.
+
+The header's no-dependency rule is worth keeping and doesn't force the skip. Reading a line out of `apps/public-site/wrangler.toml` isn't the dependency it argues against — asking D1 is.
+
+Three other things went in:
+
+- **`control_app_workers_dev_closed`** guards a live exposure (`public-site` still declares `workers_dev = true`), and BUG-57 already records that making the operator retype a derivable origin is what left the REQ-147 gate unchecked by default. Same argument.
+- **`unpublished_site_indistinguishable` can report `pass` having asserted nothing** — its "the site has a live revision; nothing to compare" branch. A check that passes without asserting is indistinguishable from one that holds.
+- **Skips must say what would make them run**, and the summary must distinguish "not applicable to this deployment" from "nobody supplied an argument". Right now both get the same word.
+
+I scoped `apex_resolves` explicitly *out*: it's failing correctly, and nothing in the fix should make that quieter.
+
+Four tickets now queued behind the go-live — BUG-136 (smoke), plus BUG-135 and REQ-294 already landed, and the ones from §I16/§I19/§I20 still unfiled. Say the word if you want those filed too, but the thing that closes BUG-136's own "done looks like" is publishing the apex — which is still the next step.
 
 <!-- xgd-chat-end -->
