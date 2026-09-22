@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:24:57.440277+00:00'
+updated_at: '2026-09-22T23:28:13.136608+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3100,5 +3100,45 @@ Recorded as Finding 10 on EPIC-19. Want me to file the durable-junction ticket, 
 This is probably an upstream fix, yes? If so, please create an REQ there.
 
 Also the chat is supposed to apply timestamps to all turns with a specific scheme - the scheme is working but the labels only apply to the last turn - I want them all the way back...also and LF ticket?
+
+<!-- xgd-turn id="14192e95-51a4-47d0-a2ab-e57f80ab2cdc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:28:12.867383+00:00" -->
+#### Claude
+Two questions to settle before I file anything: whether the durable junction actually needs an upstream change, and where the timestamp labels are dropping.
+
+Both answers are settled, and neither is upstream. Let me confirm the ticket syntax and file them.
+
+Both filed under EPIC-19. On your first question, the answer is no — and upstream says so itself.
+
+## REQ-307 — the durable junction. Not an upstream change
+
+`junction_memory.js`'s own header already anticipates this:
+
+> *"A Durable Object restores both properties — it is a single writer with a synchronous SQLite API — **and needs no change here, which is the point of making storage a port**."*
+
+Three things have to be true for that, and all three already are:
+
+- **The port is synchronous.** `JunctionStorage` is `exists/size/append/read/replace/remove/readMeta/writeMeta`, and `SessionLog` calls them synchronously. A DO's `ctx.storage.sql` is synchronous, so a DO satisfies the port as written. D1, R2 and KV do not — which is *why* the answer is a Durable Object and not one of them.
+- **Single writer per session** is what the junction assumes, and a DO keyed by session restores it.
+- **Crash recovery already exists.** `SessionManager._reconcile` runs when a fresh process attaches to a junction ending mid-turn: a lapsed lease means the producer is gone, so it closes the dangling turn `aborted` and drains. That's the pass that turns a killed turn into a consistent, archived, truncated one — it just has nothing to recover from today, because the junction dies with the isolate.
+
+So the missing piece is an adapter on our side of a port built for exactly this. One line changes in `ai.ts`; the rest is a DO class, a binding, and a migration.
+
+One boundary I wrote into the ticket explicitly: **the turn will not resume across a deploy.** The model loop was running in an isolate that no longer exists. What you get is that the client's words, the partial reply, and the tool records for work that actually landed all survive and fold into a coherent transcript — so nobody reconstructs anything, and a deploy costs the rest of one answer. Driving a turn from *inside* the DO so it outlives its request is a much larger question; I kept it out of scope rather than smuggling it in.
+
+## BUG-138 — the turn times
+
+The timestamp exists at every layer except the two that would show it. `transcript.js` parses a `ts` off every `<!-- xgd-chat -->` marker and `manager.js` folds it onto every turn — your archived transcript has one on all 3,588 lines of markers. `webui-chat`'s `appendMessage(role, text, {ts})` renders it and emits the day separators. But `host-core.ts`'s `storedTranscript` maps upstream's turns to `{role, markdown}` and throws `ts` away, and then `chat.js:565` replays with `appendMessage(turn.role, turn.markdown)` — no third argument. So `stampTurn` never runs for a single historical turn.
+
+That's also why the stamped turn loses its stamp on reload: it was stamped by the widget's own clock at submit, and it's history the next time round.
+
+Two small edits. The day separators come free once `ts` is flowing.
+
+## Before I cut the branch
+
+`xgd branch cut BUG-138` switches branches in `/Users/martin/lagrangefoundry/1stcontact` — the tree `wrangler dev` is serving. Per Finding 10, that rewrites files under the dev server and restarts it, which will kill whatever turn you have running. That's the whole thing we just diagnosed, so I'm not going to do it blind.
+
+Say when you're between turns and I'll cut it and free-code BUG-138 straight away. If you'd rather I set up the pinned-checkout arrangement first so this stops being a question at all, I can do that instead — it's config, not code, so it doesn't need a branch.
 
 <!-- xgd-chat-end -->
