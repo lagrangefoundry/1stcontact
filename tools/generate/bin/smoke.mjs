@@ -33,6 +33,22 @@
  *     challenged rather than served, on the Access hostname AND on the
  *     workers.dev hostname an Access policy cannot cover.
  *
+ * WHAT RUNS WITH NO ARGUMENTS ([[BUG-136]]). Every check that CAN run against a
+ * deployment does, because the moment this script exists for — straight after a
+ * deploy, possibly in CI — is the moment nobody is in a position to remember a
+ * flag. Four of the published-channel checks need only a published ROOT and the
+ * apex is one whenever `APEX_SITE_KEY` names a site, so they address `/` unless
+ * `--site-key` names somewhere else; `apps/public-site/src/index.ts` routes the
+ * apex and `/site/<key>/` through one `serve()`, which is what makes those two
+ * targets the same assertion rather than two similar ones.
+ *
+ * AND WHAT DOES NOT RUN SAYS WHY, IN ONE OF TWO WORDS. `skip` is *nobody gave me
+ * an argument* and names the argument. `n/a` is *this deployment has nothing for
+ * me to assert against* — no argument fixes it, and it is what a check reports
+ * instead of a pass when it compared nothing. Both are counted apart in the
+ * summary: giving them one word is how seven unrun checks read as one uniform
+ * kind of debt for as long as they did.
+ *
  * THERE IS ONE CHANNEL TO SMOKE (REQ-149 D7, [[BUG-57]]). Five checks here used
  * to address `/site/<slug>/draft/<sha>/…`, behind a `--draft` flag. That channel
  * was deleted with the `1c deploy` that was the only producer of sha-addressed
@@ -57,6 +73,8 @@
  * takes no transform, no bundler and no dependency, which is what the header
  * above requires of everything in here.
  */
+import { readFileSync } from 'node:fs'
+
 import { contentTypeOf, extensionOf } from '../src/store/content-type.js'
 
 /**
@@ -66,6 +84,21 @@ import { contentTypeOf, extensionOf } from '../src/store/content-type.js'
  * place it appears, so a UAT pins the pair.
  */
 const PUBLISHED_CACHE = 'public, max-age=60'
+
+/**
+ * The OTHER policy a published page can carry, and it is not an exception.
+ *
+ * `serve()` rewrites a page that holds account chrome per visitor, so it marks
+ * that response `private, no-store` and varies on the cookie. Which of the two
+ * applies is a property of the PAGE rather than of the channel, so it is the
+ * same question at `/` and at `/site/<key>/` — but the apex is this product's
+ * own front door and therefore the page most likely to carry chrome, so a check
+ * that knew only `PUBLISHED_CACHE` would report a failing cache policy for a
+ * correctly-served apex. Restated from `SESSION_CACHE` in
+ * `apps/public-site/src/index.ts`, and pinned against it by a UAT alongside its
+ * neighbour above.
+ */
+const SESSION_CACHE = 'private, no-store'
 
 /** A site key nothing will ever deploy. Fixed, so a failure is reproducible. */
 const ABSENT_SITE_KEY = 'smoke-absent-site-do-not-deploy'
@@ -101,9 +134,60 @@ function controlOriginFor(origin) {
 
 class Failed extends Error {}
 
+/**
+ * THE OUTCOME FOR A CHECK THAT HAS NOTHING TO ASSERT AGAINST.
+ *
+ * Distinct from a failure, obviously — but distinct from a PASS too, which is
+ * the point. `unpublished_site_indistinguishable` used to report a pass when the
+ * site it was given had a live revision, having compared nothing; a check that
+ * passes without asserting is indistinguishable from one that holds, and is
+ * exactly how coverage that does not exist goes on looking like coverage.
+ *
+ * And distinct from a SKIP, which is the other half of the same honesty: a skip
+ * is *nobody supplied an argument* and names the one that would run it. This is
+ * *this deployment has nothing for the check to assert*, which no argument fixes.
+ */
+class NotApplicable extends Error {}
+
 /** Assert, with the message that will be reported when it does not hold. */
 function ensure(condition, message) {
   if (!condition) throw new Failed(message)
+}
+
+/** End this check as `n/a`, saying what this deployment did not have. */
+function inapplicable(message) {
+  throw new NotApplicable(message)
+}
+
+/**
+ * Why the default apex publishes nothing, read from the file that decides it.
+ *
+ * `APEX_SITE_KEY` names the site served at the root of the host, so an empty one
+ * is the whole explanation for a 404 at `/` — and an explanation is what turns a
+ * skip into an instruction.
+ *
+ * READING A FILE IN THE REPOSITORY THIS SCRIPT SHIPS IN IS NOT THE DEPENDENCY
+ * THE HEADER ARGUES AGAINST. `node:fs` is built in, the match is a line match
+ * rather than a TOML parse, and every failure of it is swallowed: this is extra
+ * words on a check that has already decided its outcome, never the thing that
+ * decides it. Asking D1 for a key would be the dependency; reading the config
+ * beside the Worker is not.
+ */
+function apexConfigHint() {
+  try {
+    const toml = readFileSync(
+      new URL('../../../apps/public-site/wrangler.toml', import.meta.url),
+      'utf8',
+    )
+    const declared = [...toml.matchAll(/^\s*APEX_SITE_KEY\s*=\s*"([^"]*)"/gm)].map((m) => m[1])
+    if (declared.length === 0 || declared.some((value) => value !== '')) return ''
+    return (
+      ' — APEX_SITE_KEY is empty in apps/public-site/wrangler.toml, so this deployment ' +
+      'publishes no apex at all'
+    )
+  } catch {
+    return ''
+  }
 }
 
 /**
@@ -183,6 +267,10 @@ export async function runSmoke(options = {}) {
       const detail = await fn()
       checks.push({ name, status: 'pass', detail: detail ?? '' })
     } catch (err) {
+      if (err instanceof NotApplicable) {
+        checks.push({ name, status: 'na', detail: err.message })
+        return
+      }
       checks.push({
         name,
         status: 'fail',
@@ -191,14 +279,25 @@ export async function runSmoke(options = {}) {
     }
   }
 
+  /** Nobody supplied an argument. `why` must name the one that would run it. */
   function skip(name, why) {
     checks.push({ name, status: 'skip', detail: why })
   }
 
+  /**
+   * What the apex answered, kept for the checks below rather than asked twice.
+   *
+   * Headers and status only, never the body: a `Response` body reads once, and
+   * `published_index_serves_html` and `published_assets_resolve` fetch `/` for
+   * themselves.
+   */
+  let apexIndex
+
   await check('apex_resolves', async () => {
     const res = await get(`${origin}/`)
+    apexIndex = { status: res.status, contentType: res.headers.get('content-type') ?? '' }
     ensure(res.status === 200, `GET ${origin}/ returned ${res.status}, expected 200`)
-    return `200 ${res.headers.get('content-type') ?? ''}`
+    return `200 ${apexIndex.contentType}`
   })
 
   await check('unknown_site_not_found', async () => {
@@ -207,27 +306,80 @@ export async function runSmoke(options = {}) {
     return '404'
   })
 
-  // ── the published channel (REQ-111) ────────────────────────────────────────
+  // ── the published channel (REQ-111) ───────────────────────────────────────
   //
-  // Every check below needs a site key, and there is no way to discover one from
-  // here: the script takes no dependency, so it cannot ask D1, and a key is 128
-  // random bits, so it cannot be guessed. `--site-key` is therefore the one thing
-  // the operator has to supply, and without it these skip.
+  // THE APEX IS THE PUBLISHED CHANNEL WHEN IT SERVES ONE ([[BUG-136]]).
+  //
+  // All six of these used to wait for `--site-key`, on the reasoning that a key
+  // is 128 random bits and this script takes no dependency that could ask D1 for
+  // one. That reasoning is still true and still the rule — but it was answering
+  // the wrong question for four of them. `APEX_SITE_KEY` names a site served at
+  // the ROOT of the host, and `apps/public-site/src/index.ts` routes `apex` and
+  // `asset` through one branch into one `serve()`, so `/` on a deployment that
+  // has published its apex IS a published site root, with the same headers, the
+  // same 404-on-miss and the same assets to crawl. Four assertions therefore had
+  // a target all along and were skipping beside it.
+  //
+  // A check that only runs when an operator remembers a flag is a check that
+  // will not run, and this is the assertion surface for "did the deploy serve
+  // anything" — the one moment it exists for is the moment nobody is in a
+  // position to supply an argument. So the four run with no flag whenever there
+  // is a published root to run them against, and the two that genuinely need a
+  // key say so in those words rather than sharing a skip with checks that could
+  // have run and did not.
   //
   // THE SEGMENT IS A KEY, NOT A SLUG ([[REQ-190]]). It used to carry a name the
   // operator chose, which is why the flag and two of the check names said "slug".
   // Renamed rather than aliased: an unknown argument is already an error here, so
   // `--slug` fails loudly instead of quietly smoking the wrong thing.
-  if (siteKey) {
-    const siteRoot = `${origin}/site/${siteKey}`
 
+  /**
+   * Whether `/` is a published site root — a 200 whose body is a page.
+   *
+   * THE CONTENT TYPE IS PART OF THE QUESTION rather than pedantry. An origin can
+   * answer 200 at `/` with something that is not a site (a health endpoint, a
+   * placeholder, a staging origin's plain-text greeting), and pointing the
+   * published-channel assertions at it would report four failures about a
+   * deployment that never claimed to publish an apex. That is a false alarm, and
+   * the script's own rule for `--control-origin` is that a false alarm is worse
+   * than a skip.
+   */
+  const apexServesSite =
+    apexIndex !== undefined && apexIndex.status === 200 && apexIndex.contentType.startsWith('text/html')
+
+  /**
+   * What the four channel checks address, without its trailing slash.
+   *
+   * `--site-key` WINS when it is given: the operator named the site they want
+   * smoked, and a run that quietly asserted against the apex instead would be
+   * answering a question nobody asked. With no key the apex stands in, which is
+   * the no-flag path this ticket exists for.
+   */
+  const channelBase = siteKey ? `${origin}/site/${siteKey}` : apexServesSite ? origin : undefined
+
+  const siteRoot = siteKey ? `${origin}/site/${siteKey}` : undefined
+
+  // ── the two that genuinely need a key ────────────────────────────────────
+
+  if (siteKey) {
     await check('unpublished_site_indistinguishable', async () => {
       const absent = await get(`${origin}/site/${ABSENT_SITE_KEY}/`)
       const known = await get(`${siteRoot}/`)
       // Either the site has a live revision (200) or it has not (404). Only the
       // second is comparable — and it is the case that leaks, so it is the one
       // worth asserting on.
-      if (known.status === 200) return 'the site has a live revision; nothing to compare'
+      //
+      // N/A AND NOT PASS ([[BUG-136]]). This branch compares nothing, and it used
+      // to say so in a detail line while reporting a pass, so the one check that
+      // guards a cross-tenant leak could report green having asserted nothing at
+      // all. It is not a skip either: no argument to THIS run fixes it — the key
+      // it was given is published, and the check needs one that is not.
+      if (known.status === 200) {
+        inapplicable(
+          `'${siteKey}' has a live revision, so there is no 404 to compare — this check ` +
+            'needs a key that EXISTS and has published nothing, and asserted nothing here',
+        )
+      }
       ensure(
         known.status === absent.status,
         `'${siteKey}' returned ${known.status} but an unknown site key returned ` +
@@ -252,44 +404,78 @@ export async function runSmoke(options = {}) {
       )
       return `301 → ${location}`
     })
+  } else {
+    // Stated in the words that distinguish them from the four below: these are
+    // not assertions that could have run against this deployment and did not.
+    skip(
+      'unpublished_site_indistinguishable',
+      'no --site-key given — this check needs a key that EXISTS and has published nothing, ' +
+        'and the apex cannot stand in for one: it is published by definition',
+    )
+    skip(
+      'published_root_redirects',
+      'no --site-key given — this check asserts the /site/<key> → /site/<key>/ grammar, ' +
+        'which only a key has an instance of',
+    )
+  }
+
+  // ── the four that need only a published root ──────────────────────────────
+
+  if (channelBase) {
+    /** Which root the four below are reporting on, so a pass names what it proved. */
+    const channelLabel = siteKey ? `/site/${siteKey}/` : 'the apex /'
 
     await check('published_index_serves_html', async () => {
-      const res = await get(`${siteRoot}/`)
-      ensure(res.status === 200, `GET ${siteRoot}/ returned ${res.status}, expected 200`)
+      const res = await get(`${channelBase}/`)
+      ensure(res.status === 200, `GET ${channelBase}/ returned ${res.status}, expected 200`)
       const type = res.headers.get('content-type') ?? ''
       const expected = contentTypeOf('index.html')
       ensure(type === expected, `content-type was '${type}', expected '${expected}'`)
-      return `200 ${type}`
+      return `${channelLabel}: 200 ${type}`
     })
 
     await check('published_cache_policy', async () => {
-      const res = await get(`${siteRoot}/`)
+      const res = await get(`${channelBase}/`)
       const cache = res.headers.get('cache-control') ?? ''
+      // TWO POLICIES, AND THE RESPONSE SAYS WHICH ONE IT IS UNDER. A published
+      // page carrying account chrome is rewritten per visitor, so `serve()`
+      // marks it `private, no-store` and varies on the cookie; every other page
+      // keeps the brief shared policy. Asserting only the shared one would
+      // report a FAILING cache policy for a correctly-served front door — which
+      // is the page most likely to carry chrome and, now that the apex is where
+      // these checks run by default, the page this check most often sees.
+      //
+      // `vary: cookie` is asserted rather than merely consulted: it is what makes
+      // every cache downstream agree, and session bytes in a shared cache
+      // WITHOUT it is the leak the private policy exists to prevent.
+      const varies = (res.headers.get('vary') ?? '').toLowerCase().includes('cookie')
+      const expected = varies ? SESSION_CACHE : PUBLISHED_CACHE
       ensure(
-        cache === PUBLISHED_CACHE,
-        `cache-control was '${cache}', expected '${PUBLISHED_CACHE}'`,
+        cache === expected,
+        `cache-control was '${cache}', expected '${expected}'` +
+          (varies ? " — the response varies on cookie, so it is session-dependent" : ''),
       )
-      return cache
+      return varies ? `${channelLabel}: ${cache} (vary: cookie)` : `${channelLabel}: ${cache}`
     })
 
     await check('published_miss_is_404', async () => {
       // Named so it cannot collide with a real page: the assertion is about the
       // bucket's answer to a key nobody uploaded, and a site that happened to
       // publish this file would turn a pass into a false one.
-      const res = await get(`${siteRoot}/smoke-no-such-asset.css`)
+      const res = await get(`${channelBase}/smoke-no-such-asset.css`)
       ensure(res.status === 404, `a missing published asset returned ${res.status}, expected 404`)
       // A 404 and never a listing — the bucket's key space is not a browsable
       // filesystem and must not become one by accident (public-site/index.ts).
-      const res2 = await get(`${siteRoot}/smoke-no-such-directory/`)
+      const res2 = await get(`${channelBase}/smoke-no-such-directory/`)
       ensure(
         res2.status === 404,
         `a missing published directory returned ${res2.status}, expected 404`,
       )
-      return '404 for a missing object and a missing directory'
+      return `${channelLabel}: 404 for a missing object and a missing directory`
     })
 
     await check('published_assets_resolve', async () => {
-      const indexUrl = `${siteRoot}/`
+      const indexUrl = `${channelBase}/`
       const res = await get(indexUrl)
       ensure(res.status === 200, `GET ${indexUrl} returned ${res.status}, expected 200`)
       const html = await res.text()
@@ -342,18 +528,25 @@ export async function runSmoke(options = {}) {
         queue.length === 0,
         `stopped after ${maxAssets} assets with ${queue.length} still queued — raise --max-assets`,
       )
-      return `${checkedCount} assets, all 200 with the expected type`
+      return `${channelLabel}: ${checkedCount} assets, all 200 with the expected type`
     })
   } else {
+    // NO KEY AND NO PUBLISHED APEX, and the reason names both halves — an
+    // operator reading this needs to know that `--site-key` would run it AND
+    // that publishing the apex would run it without one.
+    const answered = apexIndex
+      ? `${apexIndex.status}${apexIndex.contentType ? ` ${apexIndex.contentType}` : ''}`
+      : 'it did not answer'
+    const why =
+      `no --site-key given, and ${origin}/ is not a published site index (${answered})` +
+      (origin === DEFAULT_ORIGIN ? apexConfigHint() : '')
     for (const name of [
-      'unpublished_site_indistinguishable',
-      'published_root_redirects',
       'published_index_serves_html',
       'published_cache_policy',
       'published_miss_is_404',
       'published_assets_resolve',
     ]) {
-      skip(name, 'no --site-key given')
+      skip(name, why)
     }
   }
 
@@ -416,7 +609,20 @@ export async function runSmoke(options = {}) {
       return `${res.status}`
     })
   } else {
-    skip('control_app_workers_dev_closed', 'no --workers-dev-origin given')
+    // NOT DERIVABLE, AND SAYING SO IS THE POINT ([[BUG-136]]). `--control-origin`
+    // is derived for the known apex because control-app declares exactly one
+    // route; this hostname is `<script>.<subdomain>.workers.dev` and the
+    // account's subdomain appears nowhere in this repository, so deriving it
+    // would mean guessing — and a guess here asserts against a hostname that
+    // may belong to somebody else. A silent skip and an underivable input are
+    // different reports, so this one says which it is.
+    skip(
+      'control_app_workers_dev_closed',
+      'no --workers-dev-origin given, and it cannot be derived: the hostname embeds this ' +
+        "account's workers.dev subdomain, which is nowhere in this repository. " +
+        'apps/control-app/wrangler.toml declares workers_dev = false and a static check pins ' +
+        'that declaration, but only a request proves the door is shut',
+    )
   }
 
   const failed = checks.filter((c) => c.status === 'fail')
@@ -429,8 +635,10 @@ const USAGE = `bin/smoke — prove a deployed origin actually serves.
             [--control-origin <url>] [--workers-dev-origin <url>]
 
   --origin              default https://1stcontact.io
-  --site-key            a published site's key, the first segment of /site/<key>/;
-                        without it the published-channel checks are skipped
+  --site-key            a published site's key, the first segment of /site/<key>/.
+                        Without it the four checks that need only a published ROOT
+                        run against the apex, whenever the apex serves one; the two
+                        that assert the /site/<key>/ grammar itself skip
   --control-origin      the control app — asserts an unauthenticated caller is
                         challenged, not served (REQ-147). Defaults to
                         https://app.1stcontact.io when --origin is the apex that
@@ -441,9 +649,13 @@ const USAGE = `bin/smoke — prove a deployed origin actually serves.
                         hostname embeds the account subdomain, so it is skipped
                         unless given
 
-Exits 0 when every check passes, 1 naming the ones that did not. Skipped checks
-never fail the run, but they are counted in the summary — a run that skipped
-everything has proved nothing, and says so.`
+Exits 0 when every check passes, 1 naming the ones that did not.
+
+Neither a skip nor an n/a fails the run, and they are counted apart in the
+summary because they are answered differently: a skip means nobody supplied an
+argument and names the one that would run it; an n/a means this deployment had
+nothing for the check to assert against. A run that asserted nothing has proved
+nothing, and says so in as many words.`
 
 function parseArgs(argv) {
   const opts = {}
@@ -486,21 +698,34 @@ function parseArgs(argv) {
 
 export function formatReport(report) {
   const lines = []
-  const mark = { pass: 'PASS', fail: 'FAIL', skip: 'skip' }
+  // Four marks, all four columns wide, because the summary's whole job is to
+  // make the difference between them visible at a glance.
+  const mark = { pass: 'PASS', fail: 'FAIL', skip: 'skip', na: ' n/a' }
   for (const c of report.checks) {
     lines.push(`  ${mark[c.status]}  ${c.name}${c.detail ? `\n      ${c.detail}` : ''}`)
   }
-  const counts = { pass: 0, fail: 0, skip: 0 }
+  const counts = { pass: 0, fail: 0, skip: 0, na: 0 }
   for (const c of report.checks) counts[c.status] += 1
   lines.push('')
+  // A SKIP AND AN N/A ARE COUNTED APART ([[BUG-136]]). One says nobody supplied
+  // an argument and is answered by supplying it; the other says this deployment
+  // had nothing for the check to assert and is answered by deploying something.
+  // Giving both the same word in the summary is what let seven unrun checks read
+  // as one uniform kind of debt.
+  const notApplicable = counts.na > 0 ? `, ${counts.na} not applicable to this deployment` : ''
   lines.push(
     report.ok
-      ? `Smoke passed against ${report.origin}: ${counts.pass} passed, ${counts.skip} skipped.`
+      ? `Smoke passed against ${report.origin}: ${counts.pass} passed, ${counts.skip} skipped${notApplicable}.`
       : `Smoke FAILED against ${report.origin}: ${counts.fail} failed, ` +
-          `${counts.pass} passed, ${counts.skip} skipped.`,
+          `${counts.pass} passed, ${counts.skip} skipped${notApplicable}.`,
   )
   if (!report.ok) {
     lines.push(`Failed: ${report.failed.map((c) => c.name).join(', ')}`)
+  }
+  // A run that asserted nothing is a run that proved nothing, and exiting zero
+  // on it would be the quietest way for this script to lie.
+  if (counts.pass === 0 && counts.fail === 0) {
+    lines.push('Nothing was proved: no check ran. Every line above says what would make one.')
   }
   return lines.join('\n')
 }
