@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:55:37.520744+00:00'
+updated_at: '2026-09-22T20:57:33.737531+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3113,5 +3113,11 @@ Worth separating: **rendering is fine, prompt construction is not.** Your browse
 The real fix is a **windowed resume**: nothing currently bounds what a session materialises, so every session eventually reaches a turn that kills it — no degradation, no warning, no readable error. Want me to file that against EPIC-16?
 
 One correction to something I told you earlier: I said the stale ids left in the transcript body were ids "discussed in the conversation". They aren't — I've now enumerated all ten, and **every one is a markdown image URL** (`![recursion-diagram](/b/biz_5b101742…/preview/site_936dd7c9…/draft/assets/…)`). That's your 403s, and they're fixable: all four assets plus `plate-i-loop.png` exist under the production site. The two `material-*` links won't recover — production has no Library at all, only chat and comment tickets. Separate issue from the blocker; say the word and I'll fix the URLs.
+
+<!-- xgd-turn id="cefd71e1-a9cf-4f83-9055-f8d1fc41868b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:57:32.449613+00:00" -->
+#### You
+Ok this is a real problem. we can try flip and redeploy - I don'
 
 <!-- xgd-chat-end -->
