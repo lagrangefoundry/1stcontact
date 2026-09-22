@@ -19,10 +19,12 @@
  *     has to be made inert.
  *   - IT FILLS THE CONTENT REGION, the full height and width the active tab's
  *     panel would have had. That is what makes the split inside it worth
- *     dragging, and it is why the panels are hidden with `display: none` rather
- *     than removed: the shell's own height chain is a `:has()` on a live
+ *     dragging, and it is why the panels are hidden rather than removed: the
+ *     shell's own height chain is a `:has()` on a live
  *     `.shell-panel.is-fill.is-active`, and a panel that is merely not painted
- *     still satisfies it.
+ *     still satisfies it. How they are hidden — an inline `display: none` and
+ *     not a rule in `builder.css` — is a specificity argument, made in full at
+ *     `panelsDisplay` below.
  *   - ESCAPE DOES NOT CLOSE IT. There is no `keydown` listener in this file and
  *     that absence is the feature — `modal.js` binds one at creation, which is
  *     the right reflex for a thing you glance at and the wrong one for a surface
@@ -49,12 +51,19 @@ import {
 } from './config.js'
 
 /**
- * The one marker on the shell root, and the one CSS rule it drives.
+ * The one marker on the shell root.
  *
  * A CLASS AND NOT A BESPOKE ATTRIBUTE, because `builder-shell--no-business` and
  * `builder-shell--publishing` are already exactly this: a state of the builder,
- * written on the shell root, read by one rule in `builder.css`. A third state
- * spelled a different way would make the three look like three mechanisms.
+ * written on the shell root, read by `builder.css`. A third state spelled a
+ * different way would make the three look like three mechanisms.
+ *
+ * WHAT IT DRIVES IS THE HEIGHT CHAIN AND NOT THE HIDING. `builder.css` uses it
+ * to give `.shell-content` a definite height and a column axis for the console
+ * to fill, which the shell's own `:has()` chain also supplies whenever the
+ * active tab is a fill tab — declaring it here is what stops the console
+ * depending on that happening to be true of every tab. Taking the panels off
+ * screen is not done from here; see `panelsDisplay` in `openOperatorConsole`.
  */
 export const CONSOLE_OPEN_CLASS = 'builder-shell--console'
 
@@ -105,8 +114,38 @@ export function openOperatorConsole({
 } = {}) {
   const root = shell.element
   const content = root.querySelector('.shell-content') ?? root
+  const panels = root.querySelector('.shell-panels')
   const strip = root.querySelector('.shell-tabs')
   const action = root.querySelector(`[data-action="${CONSOLE_ACTION_ID}"]`)
+
+  /**
+   * THE PANELS GO OFF SCREEN ON AN INLINE STYLE, AND THAT IS NOT A SHORTCUT.
+   *
+   * This started as one class rule — `.builder-shell--console .shell-panels {
+   * display: none }` — and that rule CANNOT WIN. `shell.css` declares
+   * `.shell:has(> .shell-content > .shell-panels > .shell-panel.is-fill.is-active)
+   * > .shell-content > .shell-panels { display: flex; flex: 1 }` to build its
+   * fill-height chain; `:has()` takes the specificity of its argument, so that
+   * selector is EIGHT classes and a two-class rule in a later sheet loses to it
+   * outright — order does not enter into it. Every tab in this builder is a fill
+   * tab, so the losing case was the only case: the panels stayed on screen and
+   * the console, also `flex: 1`, took the half of the region left over.
+   *
+   * THE ALTERNATIVES WERE WORSE. Mirroring upstream's selector to out-specify it
+   * couples this sheet to the exact shape of another package's internals, and
+   * goes quietly wrong the day that shape changes; `!important` wins the same
+   * fight while saying nothing about who it is fighting. An inline style beats
+   * every selector by construction, needs no knowledge of the rule it displaces,
+   * and — because it is set and unset by the same two lines — restores to
+   * exactly what it found.
+   *
+   * REMOVING THE PANELS INSTEAD IS NOT AN OPTION, and the `:has()` above is the
+   * reason: the shell's height chain needs a live `.shell-panel.is-fill.is-active`
+   * in the tree to give `.shell-content` a definite height at all. A panel that
+   * is merely not painted still satisfies the selector; a panel that is gone
+   * collapses the region the console is trying to fill.
+   */
+  const panelsDisplay = panels?.style.display ?? ''
 
   /**
    * WHERE DISMISSAL GOES BACK TO, taken before anything is suppressed. The shell
@@ -167,6 +206,7 @@ export function openOperatorConsole({
     }
     element.remove()
     root.classList.remove(CONSOLE_OPEN_CLASS)
+    if (panels) panels.style.display = panelsDisplay
     strip?.removeEventListener('click', dismissOnTabClick, true)
     for (const { tab, active } of restore) {
       tab.classList.toggle('is-active', active)
@@ -202,6 +242,7 @@ export function openOperatorConsole({
 
   content.append(element)
   root.classList.add(CONSOLE_OPEN_CLASS)
+  if (panels) panels.style.display = 'none'
   // THE ACTION IS MARKED WHILE THE VIEW IS UP. `aria-pressed` rather than a
   // class alone, because the header control has genuinely become a toggle: it is
   // the way in, and the thing it opened is still there.

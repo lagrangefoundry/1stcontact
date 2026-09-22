@@ -37,9 +37,11 @@
 
 import {
   TENANT_COST_BY_DAY,
+  TENANT_COST_DAY_COLUMNS,
   TENANT_COST_DELEGATED,
   TENANT_COST_DELEGATED_NONE,
   TENANT_COST_LABEL,
+  TENANT_COST_MODEL_COLUMNS,
   TENANT_COST_NOTHING,
   TENANT_COST_PRINCIPAL,
   TENANT_COST_READING,
@@ -152,7 +154,16 @@ function mountTenantCost(container, { site, period }, { fetchTenant }) {
       return
     }
     if (!live) return
-    container.replaceChildren(totalsOf(answer), daysOf(answer?.days ?? []), splitOf(answer))
+    /**
+     * ONE ROOT AROUND THE THREE BLOCKS, and not three siblings dropped into the
+     * section body. The blocks are a headline, a decomposition by day and a
+     * decomposition by payer — related closely enough that they need more air
+     * between them than the section body gives its ordinary contents, and the
+     * only place to say so once is a box that owns all three.
+     */
+    const view = el('div', 'builder-tenant-cost')
+    view.append(totalsOf(answer), daysOf(answer?.days ?? []), splitOf(answer))
+    container.replaceChildren(view)
   })()
 
   return {
@@ -178,7 +189,9 @@ function mountTenantCost(container, { site, period }, { fetchTenant }) {
  * module's rule about second opinions at the one figure that most invites one.
  */
 function totalsOf(answer) {
-  const section = el('div', 'builder-tenant-cost__totals')
+  const section = el('div', 'builder-tenant-cost__headline')
+  const figuresRow = el('div', 'builder-tenant-cost__totals')
+  section.append(figuresRow)
   const report = answer?.report ?? null
   const figures = {
     cost: dollars(report?.costMicros ?? null),
@@ -192,10 +205,12 @@ function totalsOf(answer) {
       el('span', 'builder-tenant-cost__subheading', label),
       el('span', 'builder-tenant-cost__figure', figures[id]),
     )
-    section.append(cell)
+    figuresRow.append(cell)
   }
   // The count is what says a blank cost beside it is a gap in the price table
-  // rather than a period nobody was billed for.
+  // rather than a period nobody was billed for. BENEATH the figures and not
+  // inside their row: the row is a set of columns, and a sentence added to it
+  // becomes a fourth column of nothing.
   if (report?.unpricedTurns) {
     section.append(
       el('p', 'builder-tenant-cost__unpriced', TENANT_COST_UNPRICED(report.unpricedTurns)),
@@ -204,10 +219,30 @@ function totalsOf(answer) {
   return section
 }
 
+/**
+ * The heading row over a grid of figures — the whole of *which number is which*.
+ *
+ * SAME CLASS AS THE ROWS IT SITS OVER, so the columns cannot drift apart: one
+ * grid definition, used twice. `data-column` is what a UAT addresses, for the
+ * reason `data-total` exists one function up.
+ */
+function columnsOf(rowClass, columns) {
+  const head = el('div', `${rowClass} builder-tenant-cost__head`)
+  for (const [id, label] of Object.entries(columns)) {
+    const cell = el('span', 'builder-tenant-cost__cell', label)
+    cell.dataset.column = id
+    head.append(cell)
+  }
+  return head
+}
+
 /** Cost and hours per day — what makes a spike attributable to a session. */
 function daysOf(rows) {
   const section = el('div', 'builder-tenant-cost__days')
   section.append(el('h4', 'builder-tenant-cost__subheading', TENANT_COST_BY_DAY))
+  if (rows.length > 0) {
+    section.append(columnsOf('builder-tenant-cost__day', TENANT_COST_DAY_COLUMNS))
+  }
   for (const day of rows) {
     const line = el('div', 'builder-tenant-cost__day')
     line.dataset.day = day.day
@@ -239,6 +274,9 @@ function splitOf(answer) {
   own.dataset.half = 'principal'
   own.append(el('h4', 'builder-tenant-cost__subheading', TENANT_COST_PRINCIPAL))
   own.append(el('p', 'builder-tenant-cost__figure', dollars(answer?.report?.costMicros ?? null)))
+  if (Object.keys(answer?.report?.byModel ?? {}).length > 0) {
+    own.append(columnsOf('builder-tenant-cost__model', TENANT_COST_MODEL_COLUMNS))
+  }
   for (const [model, totals] of Object.entries(answer?.report?.byModel ?? {})) {
     const line = el('div', 'builder-tenant-cost__model')
     line.dataset.model = model
@@ -261,6 +299,9 @@ function splitOf(answer) {
     handed.append(el('p', 'builder-tenant-cost__nothing', TENANT_COST_DELEGATED_NONE))
   } else {
     handed.append(el('p', 'builder-tenant-cost__figure', dollars(delegated.costMicros ?? null)))
+    if (Object.keys(delegated.byModel ?? {}).length > 0) {
+      handed.append(columnsOf('builder-tenant-cost__model', TENANT_COST_MODEL_COLUMNS))
+    }
     for (const [model, slice] of Object.entries(delegated.byModel ?? {})) {
       const line = el('div', 'builder-tenant-cost__model')
       line.dataset.model = model
