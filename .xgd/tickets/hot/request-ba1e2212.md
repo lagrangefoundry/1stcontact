@@ -5,9 +5,9 @@ type: request
 title: A durable junction, so a deploy does not have to wait for an empty house
 created_by: EPIC-19
 created_at: '2026-09-22T23:27:12.118848+00:00'
-updated_at: '2026-09-22T23:27:12.118848+00:00'
+updated_at: '2026-09-22T23:38:19.568011+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-95bc3b15
@@ -104,3 +104,5 @@ survives its originating request is a separate and much larger question.
 - `apps/control-app/src/ai.ts` — `junctions:` is the one line that changes.
 - A new DO class plus its `wrangler.toml` binding and migration.
 - `apps/control-app/src/router.ts` — the DO namespace has to reach `workerHost`.
+
+/tmp/claude-501/req307-corr.md
