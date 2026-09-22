@@ -9,6 +9,7 @@ import {
   SETTINGS_ROLE_ENTRY,
   businessLine,
   primingText,
+  registerBudgetProvider,
   registerSettingsProviders,
   settingsPrimingConfig,
   settingsRole,
@@ -59,6 +60,13 @@ describe('REQ-239 AC1 — a second role, loaded by the framework', () => {
   it('test_UAT_FC_REQ-239_the_settings_role_loads_with_its_declared_providers', async () => {
     const lib = await aiCore()
     const providers = new lib.PrimingProviders()
+    // THE FRAMEWORK'S DEFAULTS FIRST, THIS PROJECT'S ON TOP — `host-core.ts`'s own
+    // order, and it matters here because the role's declaration grew: [[REQ-296]]
+    // added the occupancy gauge to this role's tail, and that entry names an
+    // UPSTREAM provider. A registry holding only this project's bindings can no
+    // longer load the role, which is the case below asserting exactly that.
+    lib.registerDefaults(providers, {})
+    registerBudgetProvider(providers, async () => 0)
     // The box is a double HERE and only here: what it stands in for — a projected
     // manual — is proved against the real Toolbox in the `.workers` suite.
     registerSettingsProviders(providers, {

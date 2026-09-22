@@ -1,16 +1,21 @@
 {
   "surface": "ledger",
   "version": 1,
-  "surface_version": 2,
+  "surface_version": 3,
   "title": "The record of what you decided",
   "call_type": "inproc",
-  "overview": "A conversation is not a record. Everything you and your client work out — what the business is, who it is for, why the site looks the way it does, what you tried and rejected — is said once and then buried under everything said after it. This is where it stops being buried.\n\nThe ledger is the engagement written down: each decision, the reasoning behind it, and what was considered and set aside. It is not a summary of the conversation and it is not a transcript. A transcript is already kept for you and you never have to write one. What you write here is the part a reader could act on months later without reading a word of what was said.\n\n**It is also how the next session knows anything.** A later conversation about this site is primed from what has been written down, not from what was said. A decision you did not record is a decision the next session will re-open, re-argue, and quite possibly reverse — in front of the same client, who will remember settling it.\n\n**Write for someone searching, not someone reading.** Name the business, the trade, the town, the audience, the colours, in the words your client would use. A ledger that reads beautifully and never names what the business actually is cannot be found by anyone looking for it, and being found is most of its job.\n\n**Beside the ledger you keep one standing note.** The ledger grows without limit and you will not be re-reading all of it; the note is short, you rewrite it whole whenever the shape of the work changes, and it is put in front of you on every single turn. Put in it what you would need if you woke up in the middle of this engagement with none of the conversation in front of you: what you are doing, what is settled, what is out of scope, and what was rejected and why. The two do not compete — the ledger is the durable record and the note is the working one, and a decision belongs in both.",
+  "overview": "A conversation is not a record. Everything you and your client work out — what the business is, who it is for, why the site looks the way it does, what you tried and rejected — is said once and then buried under everything said after it. This is where it stops being buried.\n\nThe ledger is the engagement written down: each decision, the reasoning behind it, and what was considered and set aside. It is not a summary of the conversation and it is not a transcript. A transcript is already kept for you and you never have to write one. What you write here is the part a reader could act on months later without reading a word of what was said.\n\n**It is also how the next session knows anything.** A later conversation about this site is primed from what has been written down, not from what was said. A decision you did not record is a decision the next session will re-open, re-argue, and quite possibly reverse — in front of the same client, who will remember settling it.\n\n**Write for someone searching, not someone reading.** Name the business, the trade, the town, the audience, the colours, in the words your client would use. A ledger that reads beautifully and never names what the business actually is cannot be found by anyone looking for it, and being found is most of its job.\n\n**Beside the ledger you keep one standing note.** The ledger grows without limit and you will not be re-reading all of it; the note is short, you rewrite it whole whenever the shape of the work changes, and it is put in front of you on every single turn. Put in it what you would need if you woke up in the middle of this engagement with none of the conversation in front of you: what you are doing, what is settled, what is out of scope, and what was rejected and why. The two do not compete — the ledger is the durable record and the note is the working one, and a decision belongs in both.\n\n**And the tool calls you made are kept for you, separately.** Everything you\ncalled, with what you called it on and what came back, is recorded as a work log\n— one entry per call, each stamped with the turn it belongs to. You never write\nit and you cannot change it. Read it with read_work_log when you need to recover\nwhat you already did rather than doing it again, which is the cheapest thing you\ncan do on a turn that is running short of room.",
   "param_types": {},
   "shapes": {
     "ledger": {
       "entries": "how many decisions the ledger now holds",
       "title": "what this engagement is currently called",
       "note": "the standing note as it now stands"
+    },
+    "work_log": {
+      "calls": "how many recorded calls this answer covers",
+      "turns": "the turn ids the answer covers, oldest first",
+      "log": "the calls themselves: an index of all of them, or one turn's in full"
     }
   },
   "errors": {
@@ -25,6 +30,12 @@
     },
     "NOTE_TOO_LONG": {
       "message": "the standing note is over its size cap. Nothing was stored and nothing was shortened, so send it again with less in it. If what you are about to cut is what was rejected and why, cut something else — the settled detail is already in the ledger, and the rejections are the part that stops you re-proposing something this client already turned down."
+    },
+    "NO_WORK_LOG": {
+      "message": "this conversation has no work log yet — nothing in it has called a tool, so there is nothing recorded to read back."
+    },
+    "UNKNOWN_TURN": {
+      "message": "no recorded call belongs to that turn. Read the log with no turn named to see which turns have one."
     }
   },
   "operations": [
@@ -106,6 +117,27 @@
         "SCHEMA_INVALID",
         "NOTE_TOO_LONG"
       ]
+    },
+    {
+      "op": "read_work_log",
+      "tool": "read_work_log",
+      "effect": "read",
+      "summary": "Read back the tool calls you have made in this session.",
+      "description": "Name no turn and you get an index: every recorded call, oldest first, each\nline naming the turn it belongs to and what it was called on. Name a turn and\nyou get that turn's calls in full — the input each was given and the result it\nreturned.\n\nUse it to recover work rather than repeat it. If you read a page eight turns\nago and need it again, the recorded call is already there and asking for it back\ncosts a fraction of reading it a second time.\n\nLarge inputs and results are stored shortened, each marked with how much was\nkept and how large it really was, and a long answer is shortened the same way\nat the end. Treat a marked record as a pointer to work you did rather than as\nthe full text of it.",
+      "params": {
+        "turn": {
+          "type": "string",
+          "required": false,
+          "description": "The turn to read in full. Omit for the index of every recorded call."
+        }
+      },
+      "returns": {
+        "shape": "work_log"
+      },
+      "errors": [
+        "NO_WORK_LOG",
+        "UNKNOWN_TURN"
+      ]
     }
   ],
   "groups": [
@@ -118,6 +150,15 @@
         "record_decision",
         "name_engagement",
         "set_standing_note"
+      ]
+    },
+    {
+      "group": "ReadWorkLog",
+      "effect": "read",
+      "title": "Reading your own work log",
+      "description": "What you called, on what, and what came back — kept for you, and readable by turn. It reaches this session's own record of its own calls and nothing else.",
+      "operations": [
+        "read_work_log"
       ]
     }
   ],

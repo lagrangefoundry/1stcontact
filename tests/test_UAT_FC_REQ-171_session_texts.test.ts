@@ -366,6 +366,12 @@ describe('REQ-171 — what was decided is written down', () => {
     expect(decl.surface).toBe('ledger')
     expect(decl.operations.map((o) => o.op).sort()).toEqual([
       'name_engagement',
+      // [[REQ-296]]'s one READ on this surface: the session's own tool calls,
+      // kept for it by the archive and addressable by turn. It joined the ledger
+      // rather than arriving as a fourth surface because it is the same
+      // session's own record on the same `chat` ticket — a surface of its own
+      // would have been a declaration, a toolbox and a grant for one read.
+      'read_work_log',
       'record_decision',
       'set_standing_note',
     ])

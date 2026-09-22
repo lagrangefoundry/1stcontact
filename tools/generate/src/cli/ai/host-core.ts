@@ -66,12 +66,14 @@ import {
   CONSULTANT_ROLE,
   consultantRole,
   LEGACY_ROLE_NAMES,
+  registerBudgetProvider,
   registerBuilderProviders,
   registerMemoryProviders,
   registerSettingsProviders,
   registerSiteProviders,
   SETTINGS_ROLE,
   settingsRole,
+  toolTranscriptNote,
   type TurnSignal,
 } from './roles'
 import { delegationFor } from './delegation'
@@ -92,13 +94,30 @@ import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import type { LibraryDeps } from './library-core'
 import { createL1Toolbox, l1SurfaceSet, type AiLibrary, type L1Operations } from './toolbox-core'
 import { siteDigestSource } from './digest-core'
-import { configureProjectBackends, PROJECT_BACKEND, projectBackendModel } from './backends'
+import {
+  configureProjectBackends,
+  PROJECT_BACKEND,
+  projectBackendCeiling,
+  projectBackendModel,
+  projectBackendWindow,
+} from './backends'
 import { turnSpendRecord, type RecordTurnSpend } from './spend-core'
 import { newId } from '../../store/ids'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
 import { browserMeasurer } from './measure-core'
 import type { FidelityDeps } from './fidelity-core'
+import {
+  BUDGET_STOP_REASON,
+  DONE,
+  TEXT,
+  TOOL_ACTIVITY,
+  budgetStopMeta,
+  budgetStopNotice,
+  guardTurn,
+  lastOccupancy,
+  overBudget,
+} from './budget-core'
 
 /**
  * The AI library — and everything it constructs — is untyped JavaScript loaded at
@@ -108,24 +127,15 @@ import type { FidelityDeps } from './fidelity-core'
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /**
- * The library's own event kind for a tool call, matched rather than restated.
+ * The library's event vocabulary — matched here, and PRODUCED in `budget-core.ts`.
  *
- * It is a string on the wire either way; naming it here is what stops the one
- * comparison this file makes against upstream's vocabulary from being a literal
- * buried mid-function.
+ * It was three constants in this file: one for the comparison {@link streamPrompt}
+ * makes, two more once {@link tailSession} began projecting INTO the vocabulary.
+ * [[REQ-296]]'s guard has to close a turn with a terminal event of its own, so the
+ * three moved to the module that emits them and this file imports them. One
+ * definition site, which is what keeps the junction's record kinds (`delta`,
+ * `tool`, `turn_end`) legibly a DIFFERENT set rather than three more literals.
  */
-const TOOL_ACTIVITY = 'tool_activity'
-
-/**
- * The rest of that vocabulary, needed once {@link tailSession} projects INTO it.
- *
- * Matching one kind was a comparison; producing them is a translation, and the
- * junction's record kinds (`delta`, `tool`, `turn_end`) are deliberately not
- * these — one is what a producer writes down, the other is what a subscriber
- * reads. Naming both sides is what keeps the mapping legible as a mapping.
- */
-const TEXT = 'text'
-const DONE = 'done'
 
 /**
  * THE SITE MOVED, and the operator is looking at it (BUG-43).
@@ -335,6 +345,26 @@ export interface PendingPrompt {
  * and what it is written with belongs to the runtime, exactly like
  * {@link HostDeps.delta} beside it.
  */
+export interface SessionOccupancy {
+  /**
+   * What this session's last measured request carried, or `0` for not measured.
+   *
+   * ZERO IS NEVER "EMPTY", which is upstream's rule for the same figure: a gauge
+   * reading zero is a gauge saying there is room, and a guard reading zero would
+   * wave through a conversation it cannot measure.
+   */
+  read(sessionId: string): Promise<number>
+  /**
+   * Record what this turn's last request carried. Called as the turn closes.
+   *
+   * A NO-OP FOR ZERO, so a turn whose provider reported nothing leaves the last
+   * real figure standing — the same judgement the manager makes about its own
+   * in-memory copy, and for the same reason: that figure is still what the most
+   * recent measured request carried.
+   */
+  write(sessionId: string, tokens: number): Promise<void>
+}
+
 export interface PendingPrompts {
   /** Remember this prompt. Called before the turn's first token exists. */
   open(sessionId: string, text: string): Promise<void>
@@ -568,6 +598,32 @@ export interface HostDeps {
    * `library` already have.
    */
   pending?: PendingPrompts | null
+
+  /**
+   * How full this conversation's context was when its last turn ended
+   * ([[REQ-296]]).
+   *
+   * A SEAM FOR {@link HostDeps.pending}'s REASON, and deliberately the same shape:
+   * one advisory value on the session's own `chat` ticket, read at the start of a
+   * turn and replaced at the end of it.
+   *
+   * WHY THE HOST HAS TO KEEP IT AT ALL. Upstream measures occupancy off the
+   * provider's counters and hands it to the next turn as `ctx.occupancyTokens` —
+   * off the manager's IN-MEMORY session. This Worker rebuilds `deps` per request,
+   * the manager cache is keyed by the store's object identity, and the session is
+   * resumed from the archive: so that field is zero on every turn, the gauge
+   * renders nothing, and a guard reading it would never fire. Nothing upstream is
+   * broken; nothing on this host can see it.
+   *
+   * BOTH READERS ARE HERE. The gauge the session is shown (`roles.ts`) and the
+   * pre-turn refusal below read the same figure, which is what stops the warning
+   * and the guard disagreeing about how full the conversation is.
+   *
+   * ABSENT IS ORDINARY, and it is the `1c` CLI again — where the manager lives for
+   * the whole process, so the framework's own figure is already right and this
+   * would have nothing to add.
+   */
+  occupancy?: SessionOccupancy | null
 
   /** Operations only the host's runtime can implement (`add_asset`, `publish`). */
   extraOps?: Partial<L1Operations>
@@ -1233,7 +1289,13 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
               // it.
               build: ({ toolbox, backend }: { toolbox: Untyped; backend: string }) => {
                 auditWorker(toolbox, deps.audit ?? null)
-                return new lib.ClaudeAPIBackend({
+                // GUARDED AGAINST ITS OWN WINDOW ([[REQ-296]]). The ceiling is
+                // read off the instance, and the instance reads its settings
+                // under the name it was CONSTRUCTED with — so a worker on
+                // `claude-haiku-4-5` is held to 200k while the consultant that
+                // opened it is held to a million, from one wrapper and with
+                // nothing here naming either number.
+                return guardTurn(lib, new lib.ClaudeAPIBackend({
                   ...(modelClient ? { client: modelClient } : {}),
                   ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
                   // THE CONFIGURED NAME AND NOT THE DERIVED ONE. The framework
@@ -1245,7 +1307,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
                   // the ceiling.
                   name: backend,
                   tools: toolSet(lib, toolbox),
-                })
+                }))
               },
             }),
           },
@@ -1298,13 +1360,43 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // about a capability it was not granted" has to mean once the claim ships
   // upstream.
   //
-  // `tool-transcript-note` IS DECLINED ON ITS OWN MERITS, by binding no reader.
-  // The agent surface reads the CONVERSATION; nothing this host grants reads the
-  // persisted TOOL record stream, so pointing a session at one is still a
-  // hand-written claim about a tool it does not have. Upstream's own answer to
-  // that is the conditional provider — "registered with no reader, it renders
-  // nothing" — so the mapping stays loadable and the entry stays silent.
-  lib.registerDefaults(providers, {})
+  // `tool-transcript-note` WAS DECLINED ON ITS OWN MERITS and is now bound
+  // ([[REQ-296]]). The reason it was declined was real: the agent surface reads
+  // the CONVERSATION, nothing here read the persisted TOOL record stream, and
+  // pointing a session at an artifact it cannot open is a hand-written claim
+  // about a tool it does not have. `read_work_log` on the ledger surface is that
+  // reader, so the claim is now true — and it is bound on the SAME condition the
+  // surface is composed on, which is what keeps the two from disagreeing.
+  //
+  // THE READER IS THE ARCHIVE'S OWN, which is also what the operation answers
+  // from. `toolTranscript` is `''` for a session that has recorded no call, so
+  // the entry renders only once there is something to point at; a failed read is
+  // silence rather than a failed turn, because an unreadable archive is a reason
+  // not to advertise a log and never a reason to lose the turn that was being
+  // assembled.
+  lib.registerDefaults(providers, {
+    ...(ledger
+      ? {
+          toolTranscriptNote: toolTranscriptNote(),
+          hasToolTranscript: async (ctx: Untyped) => {
+            try {
+              return Boolean(await deps.archive.toolTranscript(String(ctx?.sessionId ?? '')))
+            } catch {
+              return false
+            }
+          },
+        }
+      : {}),
+  })
+
+  // AND THE GAUGE, REBOUND TO A FIGURE THAT SURVIVES A TURN ([[REQ-296]]). The
+  // shipped product tier already declares the entry in the right place — after
+  // its cache boundary, so it rides the per-turn tail past the message history —
+  // and what it is bound to is this host's decision, exactly as the seed above is.
+  // See `roles.ts` for why `ctx.occupancyTokens` cannot be the only source here.
+  registerBudgetProvider(providers, (sessionId: string) =>
+    deps.occupancy ? deps.occupancy.read(sessionId) : Promise.resolve(0),
+  )
 
   // -- the memory is ONE OBJECT ([[REQ-283]]) --------------------------------
   //
@@ -1468,7 +1560,16 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         ...(deps.ledger
           ? [
               {
-                surface: await ledgerSurfaceFor(lib, deps.ledger(slug)),
+                surface: await ledgerSurfaceFor(lib, {
+                  ...deps.ledger(slug),
+                  // THE WORK LOG, READ THROUGH THE ARCHIVE ([[REQ-296]]). Not a
+                  // second ticket query: the archive is what WRITES the artifact
+                  // on every drain and already answers for it, and it is the same
+                  // reader the tool-transcript pointer is bound to above — so the
+                  // entry that tells the session the log exists and the operation
+                  // that opens it cannot come apart.
+                  workLog: () => deps.archive.toolTranscript(sessionIdFor(slug)),
+                }),
                 granted: ledgerInstanceConfig(),
               },
             ]
@@ -1503,18 +1604,29 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // instance a manager caches is always the one built with this site's tools.
   //
   // The tools are a PROJECTION of the enabled operations — see {@link toolSet}.
+  //
+  // AND GUARDED ([[REQ-296]]). `guardTurn` wraps the adapter's tool loop and ends
+  // a turn between two requests when the last one measured over this backend's
+  // ceiling, so the request that would have overflowed the window is never built.
+  // Wrapped at the factory rather than inside it, so every backend this host
+  // registers is guarded by construction and a second adapter cannot arrive
+  // unguarded — see the worker's own below, which is guarded against its OWN
+  // window rather than against the consultant's.
   lib.registerBackend(
     siteBackendName(slug),
     () =>
-      new lib.ClaudeAPIBackend({
-        ...(modelClient ? { client: modelClient } : {}),
-        // A Worker has no `process.env`; the key arrives from a `wrangler
-        // secret` and is passed in. Spread conditionally so Node keeps reading
-        // the environment and an absent key still fails at FIRST USE with the
-        // library's own message rather than at construction.
-        ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-        tools: toolSet(lib, box),
-      }),
+      guardTurn(
+        lib,
+        new lib.ClaudeAPIBackend({
+          ...(modelClient ? { client: modelClient } : {}),
+          // A Worker has no `process.env`; the key arrives from a `wrangler
+          // secret` and is passed in. Spread conditionally so Node keeps reading
+          // the environment and an absent key still fails at FIRST USE with the
+          // library's own message rather than at construction.
+          ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+          tools: toolSet(lib, box),
+        }),
+      ),
   )
 
   // -- priming, as configuration (REQ-182; DOC-22) ---------------------------
@@ -1817,17 +1929,34 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
     role: SETTINGS_ROLE,
   })
 
+  // GUARDED LIKE THE CONSULTANT'S ([[REQ-296]]), and on the same terms: a
+  // settings conversation runs on the same adapter, against the same window, and
+  // has no more protection from a long turn than any other.
   lib.registerBackend(
     businessBackendName(businessId),
     () =>
-      new lib.ClaudeAPIBackend({
-        ...(modelClient ? { client: modelClient } : {}),
-        ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-        tools: toolSet(lib, box),
-      }),
+      guardTurn(
+        lib,
+        new lib.ClaudeAPIBackend({
+          ...(modelClient ? { client: modelClient } : {}),
+          ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+          tools: toolSet(lib, box),
+        }),
+      ),
   )
 
   const providers = new lib.PrimingProviders()
+  // THE FRAMEWORK'S DEFAULTS, FOR ONE NAME ([[REQ-296]]). This manager is built
+  // with a registry and NO product tier — deliberately: the shipped tier would
+  // tell a settings session its turns are addressable by id, which is true of the
+  // consultant, which has the `agent` surface, and not of this one. But the
+  // occupancy gauge is upstream's provider, so the registry has to hold it before
+  // the configuration can name it, and `registerDefaults` is how it is bound. The
+  // three names it registers beside it are named by no tier this role loads.
+  lib.registerDefaults(providers, {})
+  registerBudgetProvider(providers, (sessionId: string) =>
+    deps.occupancy ? deps.occupancy.read(sessionId) : Promise.resolve(0),
+  )
   // THE NAME IS READ PER TURN AND NOT CAPTURED. It is the thing this session
   // exists to change, so a framing line rendered once would spend the rest of the
   // conversation naming the business by the name the customer has just corrected.
@@ -2102,6 +2231,113 @@ async function writeTurnSpend(
     await deps.recordTurnSpend(record)
   } catch {
     // See above. Deliberately swallowed.
+  }
+}
+
+/**
+ * Whether this turn can be taken at all, and what to say when it cannot
+ * ([[REQ-296]]).
+ *
+ * THE PRE-TURN HALF OF THE GUARD, and the half that has to be here rather than in
+ * the adapter: what it reads is the figure the LAST turn measured, and on a Worker
+ * that figure survives only because this host wrote it down
+ * ({@link HostDeps.occupancy}). The adapter's own guard covers the other moment —
+ * between two requests INSIDE a turn — from the segment ledger it holds itself.
+ *
+ * WHY BOTH MOMENTS ARE NEEDED. A conversation that ended its last turn nearly full
+ * overflows on its FIRST request of the next one, before any tool has run and
+ * before the in-turn guard has anything to read. That is the shape the measured
+ * ~300k-token session would have hit on a 200k worker, and a count of iterations
+ * could never have seen it coming.
+ *
+ * A REFUSAL IS NOT A FAILURE. The turn ends `aborted`, its prompt stays on the
+ * pending record — so the client can re-send it into a fresh conversation — and
+ * nothing is written to the meter, because nothing was sent and a row of zeros
+ * would claim a turn that cost nothing rather than a turn that never ran.
+ */
+async function overContextBudget(deps: HostDeps, sessionId: string): Promise<number> {
+  if (!deps.occupancy) return 0
+  const ceiling = projectBackendCeiling(deps.lib as Untyped)
+  if (ceiling <= 0) return 0
+  try {
+    const resident = await deps.occupancy.read(sessionId)
+    return overBudget(resident, ceiling) ? resident : 0
+  } catch {
+    // See {@link previousTurn}: a store that cannot answer must cost the
+    // conversation a safeguard rather than the turn it was there to protect.
+    return 0
+  }
+}
+
+/** The two events a refused turn is made of ([[REQ-296]]). */
+function budgetRefusal(
+  deps: HostDeps,
+  resident: number,
+): { kind: string; content: string; meta?: Record<string, unknown> }[] {
+  return [
+    { kind: TEXT, content: budgetStopNotice(resident, projectBackendWindow(deps.lib as Untyped)) },
+    // `aborted`, like the adapter's own stop and for the same reason: the turn
+    // neither finished nor broke, and `turnOutcome` reads this meta.
+    //
+    // AND THE REASON, NAMED HERE DIRECTLY, because this event is the host's own
+    // and reaches the client unaltered. The in-turn half has to have it restated
+    // above the manager instead — see {@link budgetNamed}.
+    {
+      kind: DONE,
+      content: '',
+      meta: { status: 'aborted', stop_reason: BUDGET_STOP_REASON, occupancy_tokens: resident },
+    },
+  ]
+}
+
+/**
+ * The turn's terminal event as the client should read it ([[REQ-296]]).
+ *
+ * ONE REASON FOR BOTH HALVES OF THE GUARD. A turn the ADAPTER stopped arrives
+ * here having lost its `stop_reason`: the manager reads `interrupted`,
+ * `occupancy_tokens` and the spend keys off the adapter's meta and emits a
+ * terminal event of its own, which is the right boundary for upstream and means
+ * the reason must be re-stated on this side of it. `budgetStopMeta` derives it
+ * from the two numbers the guard itself fires on, so a client sees the same
+ * outcome whether the refusal came before the turn or inside it.
+ *
+ * EVERY OTHER TERMINAL EVENT PASSES THROUGH UNCHANGED, image data stripped as
+ * always.
+ */
+function budgetNamed(deps: HostDeps, event: Untyped): Untyped {
+  const stripped = withoutImageData(event)
+  const named = budgetStopMeta(
+    deps.lib as Untyped,
+    event.meta as Record<string, unknown> | undefined,
+    projectBackendCeiling(deps.lib as Untyped),
+  )
+  return named ? { ...stripped, meta: named } : stripped
+}
+
+/**
+ * Record how full the conversation was when this turn ended ([[REQ-296]]).
+ *
+ * DERIVED FROM THE TERMINAL EVENT'S `requests`, which is the same list the meter
+ * beside this reads — so one terminal event feeds both, and a turn the guard
+ * stopped is measured exactly like a turn that finished. The LAST record, never
+ * their sum: each request in a turn replays everything the one before it carried.
+ *
+ * NEVER THROWS, and writes nothing for a turn that measured nothing — see
+ * {@link writeTurnSpend}, which this sits beside in the same `finally` and follows
+ * in every respect.
+ */
+async function writeOccupancy(
+  deps: HostDeps,
+  meta: Record<string, unknown> | undefined,
+  sessionId: string,
+): Promise<void> {
+  if (!deps.occupancy) return
+  try {
+    const requests = Array.isArray(meta?.requests) ? (meta.requests as unknown[]) : []
+    const measured = lastOccupancy(deps.lib as Untyped, requests)
+    if (measured > 0) await deps.occupancy.write(sessionId, measured)
+  } catch {
+    // Deliberately swallowed, in a `finally`, for {@link writeTurnSpend}'s reason.
   }
 }
 
@@ -2393,15 +2629,26 @@ export async function* streamPrompt(
     let spendMeta: Record<string, unknown> | undefined
     let seen = businessWrites.get(key) ?? 0
     try {
+      // [[REQ-296]] — REFUSED BEFORE THE PROVIDER DOES. A settings conversation
+      // runs on the same adapter against the same window as the consultant's, so
+      // it is held to the same ceiling by the same reading.
+      const full = await overContextBudget(deps, sessionId)
+      if (full > 0) {
+        outcome = 'aborted'
+        for (const event of budgetRefusal(deps, full)) yield event
+        return
+      }
       for await (const event of settingsManager.promptStream(sessionId, text)) {
-        yield withoutImageData(event)
         if (event.kind === DONE) {
           outcome = turnOutcome(event.meta)
           // WHAT IT COST RIDES THE SAME EVENT ([[REQ-292]]). Held rather than
           // folded here, because the fold belongs in the `finally` where the
           // turn is genuinely over.
           spendMeta = event.meta
+          yield budgetNamed(deps, event)
+          continue
         }
+        yield withoutImageData(event)
         // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
         // write — and a Map read rather than the site half's store round trip, so
         // a turn that only answers a question costs nothing at all.
@@ -2452,6 +2699,10 @@ export async function* streamPrompt(
         role: SETTINGS_ROLE,
         outcome,
       })
+      // AND HOW FULL IT LEFT THE CONVERSATION ([[REQ-296]]), off the same
+      // terminal event and in the same block, for the same reason: this is the
+      // one exit every turn reaches.
+      await writeOccupancy(deps, spendMeta, sessionId)
     }
     return
   }
@@ -2519,8 +2770,17 @@ export async function* streamPrompt(
   // start of the turn. `at` itself must survive for the baseline arithmetic.
   let seen = at
   try {
+    // [[REQ-296]] — REFUSED BEFORE THE PROVIDER DOES. Read after the prompt is
+    // durable and before the model is called: the client's words survive a turn
+    // that is refused exactly as they survive one that is interrupted, which is
+    // what lets them be carried into a fresh conversation.
+    const full = await overContextBudget(deps, sessionId)
+    if (full > 0) {
+      outcome = 'aborted'
+      for (const event of budgetRefusal(deps, full)) yield event
+      return
+    }
     for await (const event of manager.promptStream(sessionId, text)) {
-      yield withoutImageData(event)
       // WHAT BECAME OF THE TURN, taken off the library's terminal event
       // ([[BUG-121]]). Seeing no terminal event at all is itself the answer —
       // `outcome` starts at `aborted` — because the consumer walking away is
@@ -2533,7 +2793,10 @@ export async function* streamPrompt(
         // discarded. Held rather than folded here, because the fold belongs in
         // the `finally` where the turn is genuinely over.
         spendMeta = event.meta
+        yield budgetNamed(deps, event)
+        continue
       }
+      yield withoutImageData(event)
       // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
       // write. A turn that answers a question makes no extra read at all, and a
       // turn that writes makes one primary-key lookup per call it made.
@@ -2582,6 +2845,11 @@ export async function* streamPrompt(
       // read per turn to be told so.
       attributed: manager.roles[BUILDER_ROLE] ? turnAttributions(manager, sessionId) : null,
     })
+    // AND HOW FULL IT LEFT THE CONVERSATION ([[REQ-296]]). Off the same terminal
+    // event the meter reads, in the same `finally`, and with the same rule about
+    // a turn that measured nothing: the last real figure stands rather than being
+    // blanked by a turn that merely failed to measure.
+    await writeOccupancy(deps, spendMeta, sessionId)
   }
 }
 

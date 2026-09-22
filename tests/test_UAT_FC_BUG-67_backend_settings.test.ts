@@ -127,9 +127,21 @@ describe('BUG-67: backend settings are project configuration', () => {
 
     configureProjectBackends(lib)
 
-    const settings = (ai as { backendSettings: (n: string) => { model: string; maxTokens: number } })
-      .backendSettings('claude')
-    expect(settings).toEqual({ model: DECLARED.model, maxTokens: DECLARED.max_tokens })
+    const settings = (
+      ai as {
+        backendSettings: (n: string) => { model: string; maxTokens: number; contextWindow: number }
+      }
+    ).backendSettings('claude')
+    expect(settings.model).toBe(DECLARED.model)
+    expect(settings.maxTokens).toBe(DECLARED.max_tokens)
+    // AND THE WINDOW ARRIVES WITH THEM, resolved from the model rather than
+    // declared beside it ([[REQ-296]]). This assertion read `toEqual` on the two
+    // keys above and went red the day the framework began resolving a third: the
+    // settings object gained `contextWindow`, which is exactly what this
+    // repository now depends on for its occupancy gauge and its overflow guard.
+    // Asserted per key from here on, so a fourth resolved fact is an addition
+    // rather than a failure.
+    expect(settings.contextWindow).toBeGreaterThan(0)
   })
 
   it('rejects a malformed document at install, naming the offending key', () => {
@@ -144,7 +156,16 @@ describe('BUG-67: backend settings are project configuration', () => {
     expect(() => install({ claude: { max_tokens: 64000.5 } })).toThrow(/max_tokens/)
     expect(() => install({ claude: { model: '' } })).toThrow(/model/)
     expect(() => install({ claude: { ceiling: 64000 } })).toThrow(/ceiling/)
-    expect(() => install({ gemini: { model: 'x' } })).toThrow(/gemini/)
+
+    // A BACKEND NAME THE FRAMEWORK DOES NOT SHIP IS NO LONGER REFUSED, and this
+    // repository is the reason: `claude_builder` ([[REQ-295]]) is a variant of
+    // the same adapter registered by this host, and its entry above is a name the
+    // framework has never heard of. Upstream opened the name list for exactly
+    // that and kept the safeguard where it actually lives — the KEYS, which are
+    // what its code knows what to do with. So an unknown key is still a typo
+    // refused by name, and an unknown name is a host's own variant.
+    expect(() => install({ gemini: { model: 'x' } })).not.toThrow()
+    expect(() => install({ gemini: { ceiling: 1 } })).toThrow(/ceiling/)
   })
 
   it('declares the settings as a document a Worker can read', () => {

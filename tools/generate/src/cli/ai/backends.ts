@@ -37,6 +37,7 @@
 
 import backendsDocument from './backends.json'
 import type { AiLibrary } from './toolbox-core'
+import { budgetCeiling } from './budget-core'
 
 /**
  * Install {@link backendsDocument} as the settings every backend is built with.
@@ -61,6 +62,87 @@ import type { AiLibrary } from './toolbox-core'
  */
 export function configureProjectBackends(lib: AiLibrary): void {
   lib.configureBackends(backendsDocument)
+  checkProjectWindows(lib)
+}
+
+/**
+ * Every backend this project configures resolves a context window, or refuse to
+ * start ([[REQ-296]]).
+ *
+ * WHY A CHECK AND NOT A DECLARED VALUE. `context_window` is a key this file may
+ * set, and setting it would be the obvious reading of "declare the window" — but
+ * the framework resolves the window from the CONFIGURED MODEL through
+ * `defaults/models.json`, and says at length why a window declared beside a model
+ * is the wrong shape: settings merge per key, so a `context_window` here would
+ * outlive the next change of `model` and hand a session the denominator of a model
+ * it is not running. Silently, and forever. A wrong denominator is worse than
+ * none — a session told it is at 60% when it is at 12% spends conservatively for
+ * no reason, and the reverse gets it truncated while believing it has room.
+ *
+ * SO WHAT WAS ACTUALLY MISSING WAS THE ALARM. Both models this file names are in
+ * the framework's table, so both windows resolve today and nothing had to be
+ * declared. What was true is that NOTHING NOTICED if they did not: a model the
+ * table does not name resolves no window, and a host with no window has no gauge
+ * (it renders the figure and declines to give a proportion) and no guard (a
+ * ceiling of zero is "unguardable"). Both would have degraded in silence, on the
+ * one edit — a model ID, the fastest-moving fact in the system — most likely to
+ * cause it.
+ *
+ * RAISED AT HOST BUILD, beside the rejections `configureBackends` already makes,
+ * for the reason that call is here rather than on the first turn: a
+ * misconfiguration should cost a start-up and not a conversation. The escape hatch
+ * is the one the framework documents — declare `context_window` on that entry,
+ * which is the one case that key exists for.
+ *
+ * @throws the framework's `BackendConfigError`, so a window that cannot be
+ *   resolved reads like every other configuration failure rather than like a bug.
+ */
+export function checkProjectWindows(lib: AiLibrary): void {
+  for (const name of Object.keys(backendsDocument)) {
+    if (name === 'about') continue
+    if (projectBackendWindow(lib, name) > 0) continue
+    const settings = lib.backendSettings(name, { family: PROJECT_BACKEND }) as { model?: string }
+    throw new lib.BackendConfigError(
+      `backends.json entry '${name}' resolves no context window: the framework ` +
+        `does not know how large ${JSON.stringify(settings?.model ?? '')}'s context ` +
+        `is. Without one this session gets no occupancy gauge and no overflow ` +
+        `guard ([[REQ-296]]). Either name a model the framework's model table ` +
+        `carries, or declare 'context_window' on this entry — which is the one ` +
+        `case that key exists for.`,
+    )
+  }
+}
+
+/**
+ * How much context the model configured for `name` holds, or `0`.
+ *
+ * ASKED OF THE FRAMEWORK, for {@link projectBackendModel}'s reason: the window is
+ * resolved from the model that came out of the merge, so reading this file
+ * directly would answer for a model this project NAMES rather than for the one a
+ * request is sent with.
+ */
+export function projectBackendWindow(lib: AiLibrary, name: string = PROJECT_BACKEND): number {
+  const settings = lib.backendSettings(name, { family: PROJECT_BACKEND }) as {
+    contextWindow?: number
+  }
+  return Math.trunc(Number(settings?.contextWindow) || 0)
+}
+
+/**
+ * The measured occupancy at which this host stops sending on `name` ([[REQ-296]]).
+ *
+ * THE SAME NUMBER THE ADAPTER'S OWN GUARD USES, derived from the same two
+ * settings, so the pre-turn refusal in `host-core.ts` and the in-turn one in
+ * `budget-core.ts` cannot disagree about where the line is. The host asks for it
+ * by NAME because it makes its decision before there is a backend instance to ask;
+ * the guard reads the instance, because by then there is one.
+ */
+export function projectBackendCeiling(lib: AiLibrary, name: string = PROJECT_BACKEND): number {
+  const settings = lib.backendSettings(name, { family: PROJECT_BACKEND }) as {
+    contextWindow?: number
+    maxTokens?: number
+  }
+  return budgetCeiling(Number(settings?.contextWindow) || 0, Number(settings?.maxTokens) || 0)
 }
 
 /** The settings this project declares, for anything that needs to assert them. */

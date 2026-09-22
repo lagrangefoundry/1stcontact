@@ -18,10 +18,11 @@
  * That is an honest capability difference, not a gap to paper over: there is
  * nowhere on a laptop for the record to go.
  */
-import type {
-  LedgerDeps,
-  LedgerRecord,
-  LedgerState,
+import {
+  ledgerError,
+  type LedgerDeps,
+  type LedgerRecord,
+  type LedgerState,
 } from '../../../tools/generate/src/cli/ai/ledger-core'
 import { findChat } from './session-delta'
 import type { Ticket, TicketStore } from './tickets'
@@ -76,13 +77,6 @@ function noteOf(chat: Ticket | null): string {
   const fields = (chat?.fields ?? {}) as Record<string, unknown>
   const note = fields[FRAME_FIELD]
   return typeof note === 'string' ? note : ''
-}
-
-/** An error carrying a code the ledger surface declares. */
-function ledgerError(code: string, message: string): Error {
-  const error = new Error(message) as Error & { code: string }
-  error.code = code
-  return error
 }
 
 /** The session's chat ticket, or the declared refusal when it has none yet. */
