@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:49:24.507655+00:00'
+updated_at: '2026-09-22T20:52:04.812275+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3041,5 +3041,37 @@ GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/preview/site
 GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material/file?uid=material-9709113f[HTTP/3 403 650ms]
 
 GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material/file?uid=material-22dae8cb
+
+<!-- xgd-turn id="a225d4da-bdca-4d97-b35f-06e6c8b13de0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:52:04.456025+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % cd apps/control-app && npx wrangler tail --env production --format json
+▲ [WARNING] Processing wrangler.toml configuration:
+
+  
+    - "env.production" environment configuration
+      - The following vars exist at the top level, but not on "env.production.vars".
+        This is probably not what you want, since "vars" configuration is not inherited by
+  environments.
+        Please add these vars to "env.production.vars":
+        - ACCESS_DEV_OPEN
+
+```
+
+This is the error I get in the console when I see the lost message message Uncaught SyntaxError: unexpected token: identifier debugger eval code:1:4
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/preview/site_936dd7c92e5e14df694dd9a80433aa4f/draft/assets/recursion-diagram.svg[HTTP/3 403 708ms]
+
+GEThttps://app.1stcontact.io/assets/plate-i-loop.png[HTTP/3 404 670ms]
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/preview/site_936dd7c92e5e14df694dd9a80433aa4f/draft/assets/vitruvian-fragment.svg[HTTP/3 403 730ms]
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material/file?uid=material-9709113f[HTTP/3 403 650ms]
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material/file?uid=material-22dae8cb
+
+I'm sorry that's a red herring - the 403s arre legitimate and reproducible the syntax error is something I pasted into the console ignore it
 
 <!-- xgd-chat-end -->
