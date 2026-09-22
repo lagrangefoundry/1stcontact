@@ -5,9 +5,9 @@ type: request
 title: 'Console: a cross-business tab with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T20:01:03.576610+00:00'
+updated_at: '2026-09-22T20:01:09.038825+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-0923bb64
@@ -238,14 +238,14 @@ is written against them.
 
 ## Test plan
 
-- `tests/test_UAT_FC_<TICKET-ID>_console_tab.test.ts` (jsdom) — the tab's
+- `tests/test_UAT_FC_REQ-298_console_tab.test.ts` (jsdom) — the tab's
   presence for an owner and absence otherwise; the header action activating it
   rather than opening a dialog; the switcher disabled on the console tab and
   restored on leaving; no surface posted for it; the list's order including the
   no-spend tail; the empty-detail state; the three detail sections; a section
   that throws leaving the others rendered; the period default moving both the
   order and the detail.
-- `tests/test_UAT_FC_<TICKET-ID>_admin_sites.workers.test.ts` — `/api/admin/sites`
+- `tests/test_UAT_FC_REQ-298_admin_sites.workers.test.ts` — `/api/admin/sites`
   against a real D1 in workerd through `route()` with a real admission: the 404
   for a non-owner, one row per site, the address resolved through `hostname.ts`,
   a site with no address, and a site whose business row is missing still present
