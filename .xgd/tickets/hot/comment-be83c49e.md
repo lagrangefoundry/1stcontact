@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-298
 created_by: xgd
 created_at: '2026-09-22T20:01:55.947228+00:00'
-updated_at: '2026-09-22T22:25:36.144863+00:00'
+updated_at: '2026-09-22T23:03:57.217086+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -209,5 +209,55 @@ ok this landed but it needs work
 (1) It weirdly occupies the bottom half of the screen - should be the whole area
 (2) all the text appears to be unstyled default fonts
 (3) the lay our of the costs is inscrutable its impossible to tell which headings are associated with which numbers - lack of CSS again?
+
+<!-- xgd-turn id="1095598a-af11-4b78-8f69-e7f3936d6152-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T22:56:29.409480+00:00" -->
+#### Claude
+Now the console chrome — the panels hide has to beat the shell's own rule.
+
+Now the stylesheet.
+
+Now the cost section markup — column headings and the block structure.
+
+Now the panes suite — the day-row query and the new column headings.
+
+It rendered. Let me look.
+
+Now version bump, commit, and merge back.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="bf66a6e8-03bf-4820-800d-095118f9cc22-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:59:19.858714+00:00" -->
+#### You
+PLease continue
+
+<!-- xgd-turn id="bf66a6e8-03bf-4820-800d-095118f9cc22-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:03:56.973275+00:00" -->
+#### Claude
+Typecheck clean, 46 UATs green. Now the ticket body — the second pass added behaviour the text above doesn't yet motivate.
+
+Now record the second commit and its version on the ticket.
+
+Now release the merge lock and tear down the branch.
+
+REQ-298 is complete and back at `free_coded`.
+
+**The three faults you reported, and what each actually was**
+
+*Bottom half of the screen.* Not a layout choice — a specificity loss. The console hid the tab panels with `.builder-shell--console .shell-panels { display: none }`, two classes, against `shell.css`'s own eight-class `:has()` fill-height chain setting `display: flex` on that same element. The shell wins, source order never enters into it, and every tab in this builder is a fill tab — so the losing case was the only case. The panels stayed up and the console took the room left over. They're now hidden by `console.js` on an inline style, which nothing can out-specify and which restores to exactly what it found; `builder.css` carries no rule that tries, and a UAT asserts that absence so it can't come back looking like it works. While I was there the view stopped depending on the active tab being a fill tab for its height and declares that chain under its own root marker.
+
+*Unstyled default fonts.* Nothing between `html` and the view declared a size. `webui-list-detail` sizes its own rows, but the console replaces every row through `renderRow` so that never reached the text on screen, and the detail pane isn't rendered by the component at all. One declaration at the root of the view at the builder's control font size; the detail pane's metrics are the People tab's exactly.
+
+*Inscrutable costs.* The day table and the model table now each carry a heading row **sharing the row's own class** — which is what keeps a heading over the columns it names rather than merely above them, and is what the UAT asserts. The rest resolved into ordinary layout: each half of the principal/delegated split is a bordered box, the unpriced-usage sentence moved out of the row of headline figures it was being read as a fourth member of, both tables are width-bounded, and model rows got their own two-column grid instead of borrowing the day row's three and leaving a third of each row empty.
+
+The common cause is worth naming: jsdom lays nothing out and applies no stylesheet, so every first-pass case passed against a surface that was broken in a browser. The new assertions are placed where the fact actually lives — the stylesheet's text, or the element's inline style — and I checked the result in a real Chromium against the shipped markup and sheet.
+
+**State** — commit `32a2667dc6`, version `0.2.325`, merged into `xgd-working`, branch cleaned, lock released. Ticket now carries both SHAs; body gained a third superseded statement (the "one CSS rule" claim, which was false) and a *second pass* section motivating the height chain, the type size and the column headings.
+
+**Verification** — 46 UATs across the five suites pass (30 DOM + 16 workers). `tsc --noEmit` on `apps/control-app` is clean. I could not run `pnpm -r build` this time: an untracked `.pnpm-store/` in the repo root moved pnpm's store, so it wants to purge `node_modules` and aborts without a TTY. That's environmental and predates this turn, but you may want to remove that directory — it will keep breaking workspace builds.
 
 <!-- xgd-chat-end -->

@@ -632,6 +632,26 @@ export const TENANT_COST_TOTALS = {
   'per-hour': 'Cost / hour',
 }
 export const TENANT_COST_BY_DAY = 'By day'
+/**
+ * The column headings over the day rows and over the model rows.
+ *
+ * WITHOUT THEM A DAY IS THREE BARE VALUES — a date and two numbers — and nothing
+ * on screen says which number is money and which is time. The figures share a
+ * grid precisely so they can be read down a column, and a column that is not
+ * named is a column that cannot be.
+ *
+ * KEYED LIKE `TENANT_COST_TOTALS`, and for the same reason: a UAT addresses
+ * `[data-column="cost"]` rather than the words currently in it.
+ */
+export const TENANT_COST_DAY_COLUMNS = {
+  day: 'Day',
+  cost: 'Cost',
+  hours: 'Engaged',
+}
+export const TENANT_COST_MODEL_COLUMNS = {
+  model: 'Model',
+  cost: 'Cost',
+}
 export const TENANT_COST_PRINCIPAL = 'Own spend'
 export const TENANT_COST_DELEGATED = 'Delegated spend'
 export const TENANT_COST_DELEGATED_NONE = 'Nothing was delegated in this period.'

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:44:17.859959+00:00'
+updated_at: '2026-09-22T23:13:46.666106+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3423,5 +3423,45 @@ That takes publish from O(site) to O(largest single asset) — the only shape th
 - **C**: ladder streams instead of accumulating; add a byte-based refusal beside the rendition-count one.
 
 Recorded as §I26 on EPIC-16. A is a contained change I can scope and free-code now while you work in dev. B is the real architectural one and wants its own design pass — it changes how assets are stored, so it'll touch the upload path and want a migration for existing sites. Want me to start on A?
+
+<!-- xgd-turn id="d434cb4f-aed0-496a-83ab-b5c34de619f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:11:11.044667+00:00" -->
+#### You
+No you are an Epic you do not code. Please create REQ tickets for all this work
+
+<!-- xgd-turn id="d434cb4f-aed0-496a-83ab-b5c34de619f9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:13:46.047184+00:00" -->
+#### Claude
+Correct — my mistake. Let me check the create syntax.
+
+All in this repo — `tools/generate` and `packages/framework`. Creating three children of EPIC-16.
+
+REQ-303. Now the architectural one.
+
+One more that came out of the diagnosis but wasn't in my A/B/C split — the failure was *invisible*, which is its own defect:
+
+Four REQs under EPIC-16, all in this project. **None blocks another** — deliberate, so the urgent one doesn't wait on the architectural work.
+
+| ticket | title | priority |
+|---|---|---|
+| **REQ-303** | The per-turn site digest must not read asset bytes | critical |
+| **REQ-304** | Publish must compare and freeze assets by content identity, not content | high |
+| **REQ-305** | The image ladder must stream renditions and refuse on bytes, not subrequests | high |
+| **REQ-306** | A turn that dies uncatchably must still report legibly to the client | medium |
+
+**REQ-303** is the contained one that gets LF's chat back. It specifies behaviour — no asset bytes read, same `live` and `pending` values, still derived fresh per turn — and leaves the mechanism open, since `site_assets` already has `size` and R2 has etags. It explicitly hands publish's identical problem to REQ-304 so nobody scope-creeps it.
+
+**REQ-304** carries the conflation you pushed on: publish asks *what is the content* when it only ever needs *what is the content's identity*. Diff, sha and revision-freezing all stop reading bytes; `byteKey` is retired everywhere; peak memory becomes O(largest single asset). I added a migration requirement — existing revisions must stay readable and their recorded `sha` must not start failing REQ-266's integrity refusal on data that's actually intact.
+
+**REQ-305** covers both ladder faults: `derived` accumulating every rendition, and the guard counting subrequests while memory is what runs out. It keeps the subrequest cap rather than replacing it — both limits are real — and requires the refusal to still name the site's own facts.
+
+**REQ-306** wasn't in my A/B/C split, and I want to flag that I added it rather than slip it past you. It's not about memory at all: the turn died with a 200, an empty body, no terminal frame and no audit record, and would have done the same for a CPU overrun or an eviction. The `catch` never ran; the `finally` died with it. It's scoped to forbid being implemented as an `exceededMemory` fix specifically. If you'd rather that lived as a BUG, or not at all yet, say so and I'll abandon it.
+
+Two things I recorded on the epic but didn't file:
+
+- **Whether publish belongs on the request path at all**, versus a Queue or Workflow. Worth asking against measurements after 304 and 305, not against today's numbers.
+- **The 35.8 MB of unreferenced LF assets.** Still your call, still not done. It'd likely restore chat and publish ahead of REQ-303 — but you've moved to dev, so it's no longer blocking you, and I'd rather not delete a dozen images on my own initiative.
 
 <!-- xgd-chat-end -->

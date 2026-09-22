@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-22T21:44:00.791650+00:00'
+updated_at: '2026-09-22T23:13:33.661197+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -21,6 +21,10 @@ fields:
   - bug-f177bc6f
   - bug-583068f3
   - bug-f65d693a
+  - request-b98dd5a4
+  - request-d21899ba
+  - request-cf08927d
+  - request-16813fa3
 ---
 
 ## What the client asked for
@@ -1371,6 +1375,8 @@ route      = /b/biz_33086a94…/api/ai/prompt
 **Rendering is not the problem — prompt construction is.** The browser displays the whole 253 KB transcript without difficulty (§I26's 403s are proof it rendered). What exceeds 128 MB is the Worker materialising the session to build a prompt from it.
 
 The defect is that **nothing bounds what a resume materialises**. A session grows without limit, every turn re-reads the whole archive, and the first turn that crosses the isolate's ceiling kills the conversation permanently — there is no degradation, no warning, and no error the operator can read. The fix is a windowed resume; a session that cannot be re-entered is a session that has been destroyed by its own success.
+
+-
 
 -
 

@@ -270,8 +270,24 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-298 — the detail pane', () => {
     expect((asked.tenants[0] as { business: string }).business).toBe('biz_salon')
     const cost = sectionOf('tenant-cost')
     expect(cost.querySelector('[data-total="cost"] .builder-tenant-cost__figure')!.textContent).toBe('$24.00')
-    const days = [...cost.querySelectorAll('.builder-tenant-cost__day')]
+    const days = [...cost.querySelectorAll('.builder-tenant-cost__day[data-day]')]
     expect(days.map((d) => (d as HTMLElement).dataset.day)).toEqual(['2026-09-20', '2026-09-21'])
+
+    // AND EVERY COLUMN IS NAMED. A day row is a date and two numbers; without a
+    // heading over each column nothing on screen says which number is money and
+    // which is time, and the grid that exists so figures can be read DOWN a
+    // column becomes a grid that cannot be read at all. The heading shares the
+    // row's own class, which is what keeps it over the columns it names.
+    const head = cost.querySelector('.builder-tenant-cost__day.builder-tenant-cost__head')!
+    expect(
+      [...head.querySelectorAll('[data-column]')].map((c) => c.textContent),
+    ).toEqual(Object.values(CONFIG.TENANT_COST_DAY_COLUMNS))
+    const models = cost.querySelector(
+      '[data-half="principal"] .builder-tenant-cost__model.builder-tenant-cost__head',
+    )!
+    expect(
+      [...models.querySelectorAll('[data-column]')].map((c) => c.textContent),
+    ).toEqual(Object.values(CONFIG.TENANT_COST_MODEL_COLUMNS))
 
     // THE TWO FIGURES, LABELLED, AND NEVER ADDED — the claim that survived the
     // re-housing intact. A caller's true total is its own spend plus what it

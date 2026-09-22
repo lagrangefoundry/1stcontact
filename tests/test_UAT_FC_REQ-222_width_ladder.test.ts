@@ -389,12 +389,12 @@ describe('REQ-222 building the ladder', () => {
     const named = namedRenditions(built.manifest['hero.jpg'])
     // A candidate the bucket does not hold is a 404 on the request the page
     // cannot recover from, so the two sets are asserted to be the same set.
-    expect([...built.derived.keys()].sort()).toEqual([...named].sort())
+    expect([...built.landed].sort()).toEqual([...named].sort())
   })
 
   it('puts renditions under a derived segment inside the revision output', async () => {
     const built = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
-    for (const path of built.derived.keys()) {
+    for (const path of built.landed) {
       expect(path.startsWith('assets/d/')).toBe(true)
     }
     expect(renditionPath('abc', 640, '.jpg')).toBe('assets/d/abc-640.jpg')
@@ -408,7 +408,7 @@ describe('REQ-222 building the ladder', () => {
     // identical address, so the sizer's cache answers before any transform.
     const same = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
     const again = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
-    expect([...again.derived.keys()].sort()).toEqual([...same.derived.keys()].sort())
+    expect([...again.landed].sort()).toEqual([...same.landed].sort())
     expect(again.manifest).toEqual(same.manifest)
   })
 
@@ -420,20 +420,20 @@ describe('REQ-222 building the ladder', () => {
     )
     // Same name, same width, different bytes — and therefore a different key
     // everywhere: the manifest, the revision, and the renderer's own cache.
-    expect([...after.derived.keys()]).not.toEqual([...before.derived.keys()])
+    expect([...after.landed]).not.toEqual([...before.landed])
   })
 
   it('gives a picture the renderer cannot read no ladder, and no failed publish', async () => {
     const built = await buildImageLadder(jpeg(), fakeRenderer(null))
     expect(built.manifest).toEqual({})
-    expect(built.derived.size).toBe(0)
+    expect(built.landed.size).toBe(0)
   })
 
   it('drops a rung that would not render and keeps the rest of the ladder', async () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 }, { failAt: [640] })
     const built = await buildImageLadder(jpeg(), renderer)
     expect(built.manifest['hero.jpg'].renditions.map((r) => r.width)).toEqual([320, 960, 1000])
-    expect([...built.derived.keys()].some((k) => k.includes('-640.'))).toBe(false)
+    expect([...built.landed].some((k) => k.includes('-640.'))).toBe(false)
   })
 
   it('never measures a vector or an animation', async () => {
@@ -499,7 +499,7 @@ describe('REQ-222 publish builds the ladder and the pages name it', () => {
     expect([...(derived ?? new Map()).keys()].sort()).toEqual([
       ...(await (async () => {
         const built = await buildImageLadder([{ name: 'hero.jpg', bytes: SOURCE }], fakeRenderer({ width: 1000, height: 500 }))
-        return [...built.derived.keys()].sort()
+        return [...built.landed].sort()
       })()),
     ])
 
@@ -750,7 +750,7 @@ describe('REQ-222 a content-addressed rendition is cached forever', () => {
         },
       },
     }
-    const { content } = await publishInto(
+    const { derived } = await publishInto(
       fixture,
       SLUG,
       {
@@ -760,7 +760,7 @@ describe('REQ-222 a content-addressed rendition is cached forever', () => {
       },
       imageLadder(fakeRenderer({ width: 1000, height: 500 })),
     )
-    return { fixture, content }
+    return { fixture, derived }
   }
 
   async function get(fixture: PublishedFixture, path: string): Promise<Response> {
@@ -772,8 +772,8 @@ describe('REQ-222 a content-addressed rendition is cached forever', () => {
   }
 
   it('serves a rendition immutably, at the key the publish actually wrote', async () => {
-    const { fixture, content } = await publishWithLadder()
-    const rendition = [...(content.derived ?? new Map()).keys()][0]
+    const { fixture, derived } = await publishWithLadder()
+    const rendition = [...derived.keys()][0]
     expect(rendition).toMatch(/^assets\/d\//)
 
     const res = await get(fixture, `/site/${SLUG}/${rendition}`)
@@ -1080,7 +1080,7 @@ describe('REQ-222 the ladder builds both formats', () => {
     // encode WebP publishes exactly the page it published before.
     expect(entry.renditions.map((r) => r.width)).toEqual([320, 640, 960, 1000])
     expect(entry.sources).toBeUndefined()
-    for (const path of built.derived.keys()) expect(path.endsWith('.webp')).toBe(false)
+    for (const path of built.landed) expect(path.endsWith('.webp')).toBe(false)
   })
 
   it('offers no alternative for a WebP original', async () => {

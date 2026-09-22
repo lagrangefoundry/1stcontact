@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-21T00:07:01.432120+00:00'
+updated_at: '2026-09-22T23:53:49.848001+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3036,5 +3036,247 @@ The fix removed the coupling between filing and *how* the dev server was launche
 ## Ticket housekeeping
 
 EPIC-19 now carries **Finding 9** with the three children that were missing from the thread — **REQ-288** (the `translateXPct`/`translateYPct` transform, with the Lagrange Foundry caption-plaque case and the wrapping-column reason pinned keyframes can't track it), plus **REQ-287** and **BUG-131** from last night.
+
+<!-- xgd-turn id="04e546d3-ee57-456f-8a8e-d500149034ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:07:35.790481+00:00" -->
+#### You
+Every other turn or so I return to the chat to see this message:
+
+*That turn was interrupted and nothing of it was recorded — not even your message, until now. It is back in the box below, ready to send again.*
+
+*I* think some partial chunks may have landed while I was away. This may be a Lagrange Framework bug - it is unacceptable and needs to be fixed.
+
+I am working in the dev environment
+
+<!-- xgd-turn id="04e546d3-ee57-456f-8a8e-d500149034ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:17:55.249796+00:00" -->
+#### Claude
+I'll trace that message back to the code that emits it.
+
+Diagnosis is conclusive. Let me record it on the epic before reporting.
+
+**It is not a framework bug. We are killing your turns ourselves** — every merge into `xgd-working` restarts the Worker the builder is served from, and the junction is RAM.
+
+## Turns really are being lost, and I can show you which
+
+`pending_turn`'s own change history on the Lagrange Foundry chat ticket records a prompt opened and then never cleared, with the same text re-opened minutes later — you re-sending. Three today, none with a `turn_spend` row, none folded into the transcript:
+
+| prompt opened (UTC) | what landed while it was in flight |
+|---|---|
+| 21:33:41 | `Merge branch 'free-REQ-298'` at **21:37:07** — rewrote `apps/control-app/src/builder/*` |
+| 22:35:11 | builder restarted at **~22:42** (`.wrangler/tmp/dev-*`, 15:42 PDT) |
+| 23:00:48 | `Merge branch 'free-REQ-299'` at **23:03:51** — rewrote `router.ts`, the Worker entry |
+
+Every turn that *survived* started after the last change and finished before the next. That's the "every other turn" cadence: your turns run 2–9 minutes now that they delegate to `claude_builder` workers, and code lands every few minutes.
+
+A record left at `status: open` with **no spend row and no fold** means the turn's `finally` never ran — so it wasn't an abort (an abort reaches `finally`, writes `turn_end`, syncs, and would have left your words in the transcript). The process holding the turn stopped existing. `wrangler dev` watches that tree, rebuilds, and replaces the Worker; in-flight requests are dropped without running any JS.
+
+## The framework is doing its part
+
+`manager.js` appends `TURN_END` from its `finally` on every exit path — complete, errored, stopped, consumer-walked-away — and awaits `sync()` in the same block. `ctx.waitUntil` (BUG-46) already holds the isolate open past a client disconnect. None of that can survive the process being replaced. The RAM junction is our own choice — `ai.ts`'s `junctions: lib.memoryJunctions()`, whose comment already states this exact exposure and names the route back: a Durable Object junction, which fits the `Junctions` port with no library change.
+
+And the message you're seeing is BUG-121 working. It's the only reason your prompt comes back at all.
+
+## What I'd do
+
+**Today, no code:** stop serving your builder from the worktree we merge into. Either hold merges while you have a turn in flight, or run `wrangler dev` from a checkout pinned to a commit with `--persist-to` pointed at the shared `.wrangler/state`. That removes the whole amplifier immediately.
+
+**The real fix:** the durable junction. That's Finding 4's standing item and it's the thing that also makes a production isolate eviction non-destructive.
+
+## One thing I haven't explained
+
+Your 23:04:41 re-send behaved differently: it ran 8m43s, spawned a worker that finished at 23:07:13, then closed `status: error` at 23:13:24. `closePending` ran, so the `finally` *did* execute — yet the transcript still didn't grow. The missing spend row is explained (spend only rides the `DONE` event); the missing fold is not, because `sync` is inside the library's `finally`. So there's a second failure where a turn that errors after real work still tells you nothing was recorded, and I don't yet know what the error was.
+
+Recorded as Finding 10 on EPIC-19. Want me to file the durable-junction ticket, and a separate one for that errored-turn fold? I haven't created either — say the word.
+
+<!-- xgd-turn id="14192e95-51a4-47d0-a2ab-e57f80ab2cdc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:24:57.308511+00:00" -->
+#### You
+**The real fix:** the durable junction. That's Finding 4's standing item and it's the thing that also makes a production isolate eviction non-destructive. <-- we will need this. We cannot gate deploy on "no users have turns in-flight"
+
+This is probably an upstream fix, yes? If so, please create an REQ there.
+
+Also the chat is supposed to apply timestamps to all turns with a specific scheme - the scheme is working but the labels only apply to the last turn - I want them all the way back...also and LF ticket?
+
+<!-- xgd-turn id="14192e95-51a4-47d0-a2ab-e57f80ab2cdc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:28:12.867383+00:00" -->
+#### Claude
+Two questions to settle before I file anything: whether the durable junction actually needs an upstream change, and where the timestamp labels are dropping.
+
+Both answers are settled, and neither is upstream. Let me confirm the ticket syntax and file them.
+
+Both filed under EPIC-19. On your first question, the answer is no — and upstream says so itself.
+
+## REQ-307 — the durable junction. Not an upstream change
+
+`junction_memory.js`'s own header already anticipates this:
+
+> *"A Durable Object restores both properties — it is a single writer with a synchronous SQLite API — **and needs no change here, which is the point of making storage a port**."*
+
+Three things have to be true for that, and all three already are:
+
+- **The port is synchronous.** `JunctionStorage` is `exists/size/append/read/replace/remove/readMeta/writeMeta`, and `SessionLog` calls them synchronously. A DO's `ctx.storage.sql` is synchronous, so a DO satisfies the port as written. D1, R2 and KV do not — which is *why* the answer is a Durable Object and not one of them.
+- **Single writer per session** is what the junction assumes, and a DO keyed by session restores it.
+- **Crash recovery already exists.** `SessionManager._reconcile` runs when a fresh process attaches to a junction ending mid-turn: a lapsed lease means the producer is gone, so it closes the dangling turn `aborted` and drains. That's the pass that turns a killed turn into a consistent, archived, truncated one — it just has nothing to recover from today, because the junction dies with the isolate.
+
+So the missing piece is an adapter on our side of a port built for exactly this. One line changes in `ai.ts`; the rest is a DO class, a binding, and a migration.
+
+One boundary I wrote into the ticket explicitly: **the turn will not resume across a deploy.** The model loop was running in an isolate that no longer exists. What you get is that the client's words, the partial reply, and the tool records for work that actually landed all survive and fold into a coherent transcript — so nobody reconstructs anything, and a deploy costs the rest of one answer. Driving a turn from *inside* the DO so it outlives its request is a much larger question; I kept it out of scope rather than smuggling it in.
+
+## BUG-138 — the turn times
+
+The timestamp exists at every layer except the two that would show it. `transcript.js` parses a `ts` off every `<!-- xgd-chat -->` marker and `manager.js` folds it onto every turn — your archived transcript has one on all 3,588 lines of markers. `webui-chat`'s `appendMessage(role, text, {ts})` renders it and emits the day separators. But `host-core.ts`'s `storedTranscript` maps upstream's turns to `{role, markdown}` and throws `ts` away, and then `chat.js:565` replays with `appendMessage(turn.role, turn.markdown)` — no third argument. So `stampTurn` never runs for a single historical turn.
+
+That's also why the stamped turn loses its stamp on reload: it was stamped by the widget's own clock at submit, and it's history the next time round.
+
+Two small edits. The day separators come free once `ts` is flowing.
+
+## Before I cut the branch
+
+`xgd branch cut BUG-138` switches branches in `/Users/martin/lagrangefoundry/1stcontact` — the tree `wrangler dev` is serving. Per Finding 10, that rewrites files under the dev server and restarts it, which will kill whatever turn you have running. That's the whole thing we just diagnosed, so I'm not going to do it blind.
+
+Say when you're between turns and I'll cut it and free-code BUG-138 straight away. If you'd rather I set up the pinned-checkout arrangement first so this stops being a question at all, I can do that instead — it's config, not code, so it doesn't need a branch.
+
+<!-- xgd-turn id="a34b5420-865c-47ed-9139-8228f2a09dbf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:35:17.835003+00:00" -->
+#### You
+One boundary I wrote into the ticket explicitly: **the turn will not resume across a deploy.** The model loop was running in an isolate that no longer exists. What you get is that the client's words, the partial reply, and the tool records for work that actually landed all survive and fold into a coherent transcript — so nobody reconstructs anything, and a deploy costs the rest of one answer. Driving a turn from *inside* the DO so it outlives its request is a much larger question; I kept it out of scope rather than smuggling it in. <-- is preservation across a deploy possible - I think we need that
+
+<!-- xgd-turn id="a34b5420-865c-47ed-9139-8228f2a09dbf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:38:37.741662+00:00" -->
+#### Claude
+Let me check something I glossed over — whether a DO can actually sit behind that port from outside.
+
+That question changes the design, and I got something wrong last turn. Let me verify the platform semantics before I answer.
+
+Verified, and it inverts part of what I told you. Let me correct the record and file the upstream half.
+
+Checked it against the platform docs, and I had it backwards. Two facts change the picture:
+
+**A Worker deploy does not kill in-flight turns today.** Cloudflare does not forcibly terminate requests already running on the old version — they complete there, and only new requests route to the new version. So the thing you said we can't do — gate deploys on an empty house — isn't a constraint we're currently under. What actually loses turns is `wrangler dev`'s reload (no drain) and isolate eviction under memory pressure.
+
+**A code deploy restarts every Durable Object**, clearing in-memory state; only SQLite storage survives.
+
+And the piece I got wrong last turn: **the synchronous port forces the driver into the DO.** `Junctions.open()` returns a `SessionLog` synchronously over a synchronous `JunctionStorage` — `append`, `read`, `size` all return values, not promises, and `promptStream` calls them inline. A DO reached over RPC is async and cannot sit behind that. The only arrangement that satisfies the port is the manager running *inside* the DO against `ctx.storage.sql`. So "DO junction" and "turn driven in the DO" aren't separable, as I claimed — they're the same work.
+
+Put together, REQ-307 as I first scoped it would **trade a failure mode we don't have for one we do**: today a deploy drains safely; move the driver into a DO and every deploy restarts it, after which `_reconcile` closes each open turn `aborted`. Records survive — that's the gain — but every conversation in progress ends mid-sentence.
+
+## So: yes, preservation across a deploy is possible — and it needs the upstream half
+
+Filed as **lagrange-framework REQ-175 — "Resume an open turn from the junction, instead of only closing it aborted."** The manager can start a turn and bury one; it can't continue one. Resumption is mostly mechanical: the junction has the prompt, the deltas, and the completed tool records, and a backend request is a pure function of the message list, so re-issuing it with the partial text as prefill is legitimate.
+
+**The hard edge, which I put in both tickets rather than waving at:** the junction records that a tool *finished*, never that one *started* — `tool_record` is appended after the call returns. So a turn interrupted *during* a tool call is indistinguishable from one interrupted just before it, and re-driving re-issues a call that may already have landed. Cloudflare hits the same wall in their own long-running-agent guidance: in-flight HTTP calls are abandoned on eviction, no automatic resumption, checkpoint before expensive work. REQ-175 asks for an "issued" record written *before* the call, closed by the existing `tool_record` — which turns "may have run" into a question with an answer.
+
+REQ-307 now carries the correction and is explicitly blocked on REQ-175. It's still worth doing on its own merits — the RAM junction means an eviction under memory pressure loses the turn outright, and that's real with 270KB transcripts and images in flight. The sequencing changed, not the destination.
+
+BUG-138 is still waiting on you — cutting its branch restarts the builder, so tell me when you're between turns.
+
+Sources: [Gradual deployments](https://developers.cloudflare.com/workers/versions-and-deployments/gradual-deployments/), [Lifecycle of a Durable Object](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/), [Long-running agents](https://developers.cloudflare.com/agents/concepts/agentic-patterns/long-running-agents/)
+
+<!-- xgd-turn id="90d6ba43-9d6a-4aca-88a1-ad6afb561fbb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:47:09.268242+00:00" -->
+#### You
+Good - now my LF session just ended with a bug: *D1_ERROR: string or blob too big: SQLITE_TOOBIG*
+
+*What's behind that?*
+
+<!-- xgd-turn id="90d6ba43-9d6a-4aca-88a1-ad6afb561fbb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:50:32.473456+00:00" -->
+#### Claude
+That number is the answer — let me confirm the limit and check whether anything is supposed to bound it.
+
+Your tool transcript outgrew D1's row limit. Concretely:
+
+| | bytes |
+|---|---|
+| `comment-ca74b1b7` — LF session tool transcript | **2,162,212** |
+| D1 ceiling for a string, BLOB, or row | **2,000,000** |
+
+Upstream predicted this in writing. `tool_transcript.js` caps each call at `DEFAULT_TOOL_MAX_BYTES = 5800` per side — input and result separately, ~11.7 KB per record — and then says:
+
+> *"a record is bounded at twice this plus the heading — **the only bound on the artifact, since there is no total cap**. If that becomes a problem the levers are to lower this or to add a total bound eliding the oldest records; neither is here now."*
+
+It became a problem. The LF conversation has run since 2026-09-20 with heavy tool use, and an append-only artifact in a single D1 row has exactly one ending.
+
+## What it takes down with it
+
+The archive writes the tool transcript **first** (`.809`) and the prose transcript **second** (`.851`). So when `append_body` throws, the pass dies before the prose write. Your chat transcript is stuck at 272,554 bytes, last folded **23:00:09** — and it's now 23:50. Three turns have been attempted since; none of them exist anywhere.
+
+Then the failure propagates: `sync()` is inside `promptStream`'s `finally`, so the D1 error replaces whatever the turn was carrying, the turn surfaces as `error`, `closePending` records that, and nothing folds. Which means every one of those turns comes back as *"nothing of it was recorded"* — and will keep doing so. **This isn't an interruption, it's a bricked session.** Every future turn fails identically at the same line.
+
+It also closes out the loose end from Finding 10: the 23:04:41 turn that ran 8m43s, spawned a delegation worker, then errored with no fold and no spend row. Same cause — it was the first turn after the artifact crossed the line.
+
+The sting is that a **debugging aid is taking the conversation down with it.** The prose transcript — the thing you actually read — is 272 KB and nowhere near any limit. It's being lost because a tool-call log it doesn't depend on overflowed a row.
+
+Two notes on the numbers: the last *successful* write was already at 2.16 MB, so local `workerd` tolerates slightly more than production D1 will — this session was over the published ceiling before it started failing. And the prose transcript is on the same trajectory, just an order of magnitude slower.
+
+## Your session is recoverable
+
+Nothing is corrupt. Elide the oldest records from that comment body until it's under the ceiling and the archive starts folding again — you'd lose old tool-call detail, not a word of the conversation. I haven't touched it; it's your data and your live session.
+
+Want me to:
+1. **Unblock it now** — trim `comment-ca74b1b7` down to fit, so your next turn lands.
+2. **File the bug** — the artifact needs a total bound (elide oldest) and the prose fold needs to stop being hostage to the tool fold. That second half is arguably upstream's, since the ordering is in `ticket_store.js`.
+
+Say which, and BUG-138's branch is still parked waiting for a gap between turns.
+
+<!-- xgd-turn id="a069e3c6-b527-49d2-bbe6-02eddfd8131d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:52:06.827043+00:00" -->
+#### You
+How will chat cope with a fix max size?
+
+<!-- xgd-turn id="a069e3c6-b527-49d2-bbe6-02eddfd8131d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:53:49.330142+00:00" -->
+#### Claude
+That's the right question to ask before committing to a cap. Let me check what actually reads these artifacts.
+
+Well — the design already answers this, and the answer is "fine, with one specific cost".
+
+## The transcript was never the model's memory
+
+`manager.js` states the contract:
+
+> *"A turn's context is the seed — assembled priming, the session's summary, the transcript pointer, and **a window of the last N exchanges** — and the seed does not grow with the conversation... What used to fall off the end of a character budget now falls outside the window by design, from the first turn, and is **reachable two ways: the summary the session maintains, and the transcript it can address by turn id**."*
+
+`DEFAULT_WINDOW_TURNS = 40`. So every turn already runs on: priming + summary + the last 40 exchanges verbatim. Your LF session has ~110 turns; the model has been working from the summary and the last 40 for a long time already.
+
+And the summary is explicit about its job:
+
+> *"This is the artifact that survives when the verbatim history does not, so it is the load-bearing piece of the context-management design."*
+
+**So a cap costs no continuity.** The conversation does not get dumber. What it costs is precisely one of the two documented recovery routes — the transcript addressable by turn id. The model can no longer go read turn 6. The summary still covers it, which is why the summary exists.
+
+The second cost is yours: scrollback depth.
+
+## Which argues for two different treatments
+
+They're different artifacts with different value curves, and I'd not cap them the same way:
+
+- **Tool transcript — elide the oldest.** It's 2.16 MB against the prose's 272 KB, 8× the size, and it's a debugging aid. Nobody needs September's tool arguments. A total bound eliding oldest is exactly the lever upstream already named.
+- **Prose transcript — roll, don't elide.** Start `chat_transcript` part 2 when part 1 nears the ceiling. Costs a reader that walks N comments; keeps the addressable-by-turn-id route intact, which is the thing a cap would otherwise quietly remove. Your scrollback stays complete.
+
+Capping the tool transcript alone buys the prose transcript years of headroom, so this isn't urgent in both places at once.
+
+## Three things worth saying before you pick
+
+**The elision must be visible.** Silently dropping the oldest turns means opening a conversation that appears to begin mid-thought — the same "screen that denies what happened" failure BUG-121 exists to prevent. A marker at the cut, in the artifact and in the panel.
+
+**The same wall is coming for the summary.** `chat_summary`'s log is also append-only through `append_body`. The *frame* is capped and enforced; the log is not — consumers take a tail, but nothing bounds the artifact. Same 2 MB row, same ending, slower. If we're fixing this, it's a class of bug, not one instance.
+
+**The cap isn't the real defect anyway.** Even perfectly capped, the prose fold should not be hostage to the tool fold. They're separate artifacts written in one pass, tool first; a debugging aid failing should never cost you the conversation. That coupling is what turned a size limit into a bricked session, and it's arguably upstream's since the ordering lives in `ticket_store.js`.
+
+My recommendation: elide the tool transcript, roll the prose one, break the coupling, and treat the summary log as the same bug found early.
+
+Want me to file that, and unblock your LF session by trimming `comment-ca74b1b7` now? Both are still waiting on you, as is BUG-138's branch.
 
 <!-- xgd-chat-end -->

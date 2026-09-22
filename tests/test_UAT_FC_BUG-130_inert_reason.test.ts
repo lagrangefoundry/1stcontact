@@ -152,7 +152,7 @@ const get = (f: Fixture, route: string): Promise<Response> => fetch(new URL(rout
 const page = async (f: Fixture): Promise<string> => (await get(f, '/')).text()
 
 async function reproduce(f: Fixture, url = SITE): Promise<void> {
-  await post(f, '/run', new URLSearchParams({ url }).toString())
+  await post(f, '/recapture', new URLSearchParams({ url }).toString())
   await f.handle.console.settled()
 }
 
@@ -163,7 +163,15 @@ async function diagnose(f: Fixture, n: number): Promise<void> {
 
 // ── reading the markup ───────────────────────────────────────────────────────
 
-/** The group [[BUG-120]] put the two continuations in. */
+/**
+ * The group [[BUG-120]] put the continuations in.
+ *
+ * [[REQ-299]] left one verb in it and added [clear history] beside that verb,
+ * so the group still holds exactly two controls the hold gates — which is what
+ * the counts below are about. What they assert is [[BUG-130]]'s rule, not
+ * [[BUG-120]]'s list: every control the hold catches says so in the markup, and
+ * is named in the sentence that explains the hold.
+ */
 function continuation(html: string): string {
   const found = /<section class="continue">[\s\S]*?<\/section>/.exec(html)
   expect(found, 'the continuations are rendered as one group').not.toBeNull()
@@ -221,8 +229,12 @@ describe('BUG-130 the page says WHY a control is inert, and the two reasons diff
     // Every inert control says the same true thing: something is running.
     expect(reasons(busy).length).toBeGreaterThan(0)
     expect(new Set(reasons(busy))).toEqual(new Set(['running']))
-    // …including [reproduce], which the hold never touches and a round does.
-    expect(/<form method="post" action="\/run">[\s\S]*?<button disabled data-inert="running">/.test(busy)).toBe(true)
+    // …including the address row, which the hold never touches and a round does
+    // ([[REQ-299]] part 1 put [recapture] in the position [reproduce] held; the
+    // fact under test is that a ROUND greys it and the HOLD does not).
+    expect(
+      /<form method="post" action="\/recapture">\s*<input name="url"[\s\S]*?<button disabled data-inert="running">/.test(busy),
+    ).toBe(true)
 
     // ── the machine is waiting on the operator ────────────────────────────
     finish()
@@ -239,9 +251,12 @@ describe('BUG-130 the page says WHY a control is inert, and the two reasons diff
     // element would pass on a console that never stopped saying `running`.
     expect(new Set(reasons(held))).toEqual(new Set(['held']))
     expect(buttonTags(held).filter((tag) => tag.includes('data-inert="running"'))).toEqual([])
-    // The two controls the hold gates are the two the group holds, and both say so.
+    // The controls the hold gates are the ones the group holds, and each says
+    // so — [recapture] and [clear history] since [[REQ-299]].
     const group = continuation(held)
     expect([...group.matchAll(/data-inert="held"/g)]).toHaveLength(2)
+    expect(group).toContain('>recapture</button>')
+    expect(group).toContain('>clear history</button>')
     // [[REQ-272]] and [[BUG-120]] read this pair as contiguous text. Adding a
     // fact to the markup does not get to invalidate the evidence standing on it.
     expect([...group.matchAll(/data-held="1" disabled/g)]).toHaveLength(2)
@@ -330,10 +345,12 @@ describe('BUG-130 the reason survives a poll tick, like the hold it explains', (
 // ── behaviour 3: the sentence names both controls it holds ───────────────────
 
 describe('BUG-130 the hold names both continuations it holds', () => {
-  it('test_UAT_FC_BUG_130_the_hold_sentence_names_run_again_and_recapture_together', async () => {
-    // [recapture] was always held — it carries `data-held="1"`, the poller keys
-    // on that, and [[BUG-120]] grouped the two because they are the same kind of
-    // act — and the sentence named only [run again], predating the grouping.
+  it('test_UAT_FC_BUG_130_the_hold_sentence_names_every_control_it_holds', async () => {
+    // The rule, not the list. [[BUG-130]]'s defect was a sentence that named one
+    // of the two controls the hold gated, so the other read as mysteriously
+    // dead; the fix is that the sentence names all of them. [[REQ-299]] changed
+    // which controls those are — [recapture] and [clear history] — and the rule
+    // is what has to keep holding.
     const f = await startConsole({ outcome: FILED })
     await reproduce(f)
     await diagnose(f, 1)
@@ -341,7 +358,8 @@ describe('BUG-130 the hold names both continuations it holds', () => {
     expect(notice, 'the hold says what it is waiting for').not.toBeNull()
     const read = visible(notice![0])
 
-    expect(read).toContain('[run again] and [recapture]')
+    expect(read).toContain('[recapture]')
+    expect(read).toContain('[clear history]')
     // What it is waiting for, by name, and how to lift it — [[REQ-272]]'s, unchanged.
     expect(read).toContain('REQ-263')
     expect(read).toMatch(/held until that implementation lands/)
@@ -349,18 +367,21 @@ describe('BUG-130 the hold names both continuations it holds', () => {
   })
 
   it('test_UAT_FC_BUG_130_a_stale_reference_and_the_hold_do_not_point_at_different_buttons', async () => {
-    // The state the report came from, and the reason the omission was not
-    // cosmetic. Against a bundle behind the extractor, [recapture] is the control
-    // that can move the numbers and [run again] provably cannot: the page warned
-    // about the reference, offered two controls, and then explained the hold in
-    // terms of the one that is not the answer.
+    // The state the report came from. Against a bundle behind the extractor the
+    // page warns about the reference AND holds the loop at the same time, and
+    // the two must not describe different controls — the original defect was a
+    // warning about one button beside an explanation about another. With one
+    // verb left ([[REQ-299]] part 1) the warning no longer picks a button at
+    // all, so the rule reduces to: every control the page greys here is a
+    // control the sentence beside it names.
     const f = await startConsole({ captureSchema: 1, outcome: FILED })
     await reproduce(f)
     await diagnose(f, 1)
     const html = await page(f)
 
     expect(continuation(html)).toContain('class="stale-reference"')
-    expect(visible(html)).toContain('[run again] and [recapture]')
+    expect(visible(html)).toContain('[recapture]')
+    expect(visible(html)).toContain('[clear history]')
     // Both are held, both say so, and neither is described as busy.
     expect(new Set(reasons(html))).toEqual(new Set(['held']))
   })

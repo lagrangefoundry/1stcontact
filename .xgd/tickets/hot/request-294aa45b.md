@@ -5,22 +5,21 @@ type: request
 title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T22:23:43.504230+00:00'
+updated_at: '2026-09-22T23:03:32.004996+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
   priority: high
   auto_merge_back: true
-  story_points: 8
+  story_points: 9
   needs_review: false
   chat_comment: comment-be83c49e
   commits:
-  - working_sha: 0a0465bd79ff80020af1a700bc4a1d1173d118c5
-    reconcile_sha: null
-    main_sha: null
-  version: 0.2.322
+  - 0a0465bd79ff80020af1a700bc4a1d1173d118c5
+  - 32a2667dc6e9ed6d12ff8e8e25ed1fcacb4bbcd9
+  version: 0.2.325
 ---
 
 ## Why
@@ -328,7 +327,7 @@ implementation record: the decisions taken while building it, and — named
 explicitly, because reconciliation reads this body as authoritative — the two
 places where a statement above turned out to be false about the codebase.
 
-### Two statements above are superseded by this section
+### Three statements above are superseded by this section
 
 1. **"This is the second place this app touches shell-internal markup."** Not
    quite. `app.js`'s `blockTabs`, `blockForPublish` and `blockEverything` all
@@ -352,6 +351,22 @@ places where a statement above turned out to be false about the codebase.
    platform business, whose `owner_account_id` is `NULL` because it is nobody's
    customer. The two are worded differently on screen, because a blank cell
    would make an ordinary fact and a fault indistinguishable.
+
+3. **"The shell's own panels container is hidden … (one attribute on the
+   shell root, one CSS rule)."** The attribute is right; the CSS rule is not,
+   and it did not work. `.builder-shell--console .shell-panels { display: none }`
+   is two classes, and it is up against `shell.css`'s own eight-class `:has()`
+   fill-height chain setting `display: flex` on that same element. Specificity
+   decides it and the console loses; source order never enters into it. Every
+   tab in this builder is a fill tab, so the losing case was the only case —
+   the panels stayed on screen and the console took whatever vertical room was
+   left, which is what "it occupies the bottom half of the screen" was. **The
+   panels are hidden by `console.js`, on an inline style on the element**, which
+   no selector can out-specify, which needs no knowledge of the rule it
+   displaces, and which — like the tab's selected styling and the switcher
+   before it — restores to exactly what it found rather than to a guess.
+   `builder.css` carries no rule that tries, and a UAT asserts its absence,
+   because a rule reintroduced there would look like it worked without working.
 
 ### Decisions taken while building
 
@@ -430,6 +445,53 @@ may not enter. A UAT covers it.
 **The split position persists under `STORAGE_KEYS.console`** — prefixed with the
 console's own stable id, exactly as each tab's state is prefixed with its tab's.
 
+### The second pass: what a browser showed and jsdom could not
+
+The console landed, was opened, and was wrong in three ways at once — it
+occupied the bottom half of the region, its text rendered at the user agent's
+size in a builder that is 13px throughout, and the cost figures could not be
+matched to the headings they belonged under. Every case in the first pass
+passed against it, because **jsdom lays nothing out and applies no stylesheet**:
+a surface can be structurally exactly as specified and still be unusable, and
+nothing in a DOM assertion can tell you which. So the fixes below are asserted
+where the fact actually lives — in the stylesheet's text, or on the element's
+own inline style — and were checked against a real Chromium rendering the
+shipped markup and sheet.
+
+**The region, and why the console declares its own height chain.** The
+specificity fault is recorded above as the third superseded statement. What
+goes with it: filling the content region needs that region to be a shrinkable
+column of definite height, and the shell supplies exactly that — but only while
+the active tab is a *fill* tab. That is true of all four of this builder's tabs
+and it is not a property the console should rest on, because it makes "the
+console fills the region" depend on which tab happened to be open behind it. So
+the sheet declares the chain under the console's own root marker, and the
+view's height is its own fact.
+
+**The type size is declared at the root of the view.** Nothing between `html`
+and this view set one. `webui-list-detail` sizes its own rows, but the console
+replaces every row through `renderRow`, so that size does not reach the text
+that is actually on screen — and the detail pane, which the component does not
+render at all, had no size from anywhere. One declaration at the root of the
+view, taking the builder's own control font size; the detail pane's metrics are
+the People tab's detail pane's exactly, because two panes of the same kind in
+the same builder reading differently is a defect with no upside.
+
+**Every column in the cost section is named.** A day row is a date and two
+numbers, and a model row a name and two more; the grid exists so figures can be
+read *down* a column, and without a heading over each column nothing on screen
+says which number is money and which is time. The day table and the model table
+each carry a heading row **sharing the row's own class**, which is what keeps
+the headings over the columns they name rather than merely above them — a UAT
+asserts the pairing, since a heading in a grid of its own is exactly the fault
+being fixed. With that, the rest of the section's illegibility resolves into
+ordinary layout: each half of the principal/delegated split is a bordered box
+so the two sets of figures cannot be read as one, the sentence about unpriced
+usage moves out of the row of headline figures it was being read as a fourth
+member of, both tables are width-bounded rather than stretching a three-column
+grid across a wide pane, and the model rows get a two-column grid of their own
+instead of borrowing the day row's and leaving a third of every row empty.
+
 ### What changed in REQ-297's own suite
 
 `tests/test_UAT_FC_REQ-297_operator_console.test.ts` lost the cases asserting the
@@ -450,7 +512,8 @@ route it proves survives unchanged.
 - `apps/control-app/src/router.ts` — `ADMIN_SITES_PATH` and its handler.
 - `apps/control-app/src/builder/console.js` — rewritten: the full-surface view.
   `modal.js` is no longer imported; no key is bound, which is the whole of
-  "Escape does not close it".
+  "Escape does not close it". It also hides and restores the shell's panels
+  on their own inline style, the one declaration no sheet can out-specify.
 - `apps/control-app/src/builder/platform-sites.js` — **new.** The two-panel body:
   the list, the ordering, and the detail pane with its section registry, plus the
   account and address sections.
@@ -466,4 +529,8 @@ route it proves survives unchanged.
   and the pane's own labels; the league table's vocabulary removed.
 - `apps/control-app/src/builder/builder.css` — the view's rules, the two panels',
   and the tenant-cost section's; the console's entry in the modal-panel `:has()`
-  exclusion list removed, since it is no longer a dialog.
+  exclusion list removed, since it is no longer a dialog. The view declares its own
+  height chain and its own type size, and deliberately carries **no** rule
+  hiding `.shell-panels`.
+
+-

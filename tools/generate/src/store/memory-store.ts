@@ -2,7 +2,14 @@ import { assembleSite } from './assemble'
 import { assertWritableAssetNames } from './asset-name'
 import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
 import { emptyJournal, nextJournal, sliceSince } from './journal-model'
-import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import type {
+  AssetStamp,
+  RenditionSink,
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 import { nextRevisionOf, verifiedSnapshot } from './revision-model'
 import type {
   DraftSnapshot,
@@ -224,6 +231,30 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve(nextRevisionOf(site(slug)?.history ?? []))
     },
 
+    /**
+     * [[REQ-305]] — the derived channel, opened before the renditions exist.
+     *
+     * NOTHING TO CLAIM AND NOTHING TO EMPTY, so this adapter's whole contribution
+     * is the map the sink fills. It is created here rather than at
+     * {@link writeRevision} so that `derivedRevision` answers an empty map for a
+     * publish that built no renditions and `null` only for a revision that was
+     * never begun — the same distinction the other two adapters draw between a
+     * prefix that was prepared and one that was not.
+     */
+    beginRevision(slug, id): Promise<RenditionSink> {
+      const found = require(slug)
+      const held = new Map<string, Uint8Array>()
+      found.derived.set(id, held)
+      // COPIED IN, like the snapshot below and for the same reason: a revision
+      // that shared a buffer with the caller would not be frozen. The ladder
+      // releases its own reference the moment this resolves, so the copy is the
+      // only surviving one.
+      return Promise.resolve((path: string, bytes: Uint8Array) => {
+        held.set(path, new Uint8Array(bytes))
+        return Promise.resolve()
+      })
+    },
+
     writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
       const found = require(slug)
       // Deep-copied in, so the snapshot cannot be reached through the draft it
@@ -238,12 +269,6 @@ export function memorySiteStore(): MemorySiteStore {
         })),
       })
       found.outputs.set(entry.id, new Map(content.out))
-      // [[REQ-222]] — copied in like the snapshot above, and for the same reason:
-      // a revision that shared a buffer with the caller would not be frozen.
-      found.derived.set(
-        entry.id,
-        new Map([...(content.derived ?? [])].map(([path, bytes]) => [path, new Uint8Array(bytes)])),
-      )
       found.history.push(copy(entry))
       return Promise.resolve()
     },
@@ -274,6 +299,42 @@ export function memorySiteStore(): MemorySiteStore {
       return verifiedSnapshot(slug, id, entry.sha, snapshot)
     },
 
+    /**
+     * [[REQ-303]] — the draft with its assets stamped by LENGTH.
+     *
+     * THE SAME PROMISE THE FILESYSTEM MAKES, deliberately. This adapter holds
+     * the bytes in a Map and could hash them for nothing, and hashing them would
+     * make it the only tier that sees a same-length replacement — so the suites
+     * that run a body of assertions over both backends would be asserting two
+     * different behaviours and calling it one. The tier that can do better is
+     * the one with an etag it did not have to compute.
+     */
+    draftOutline(slug): Promise<SiteOutline> {
+      const found = site(slug)
+      if (!found) return Promise.resolve({ siteJson: null, pages: [], assets: [] })
+      return Promise.resolve({
+        siteJson: found.siteJson ? copy(found.siteJson) : null,
+        pages: pageNames(found).map((name) => ({ name, page: copy(found.pages.get(name)!) })),
+        assets: [...found.assets.keys()].sort().map((name) => ({
+          name,
+          stamp: String(found.assets.get(name)!.byteLength),
+        })),
+      })
+    },
+
+    /** [[REQ-303]] — the same shape for a frozen revision, and unverified. */
+    revisionOutline(slug, id): Promise<SiteOutline | null> {
+      const held = site(slug)?.snapshots.get(id)
+      if (!held) return Promise.resolve(null)
+      return Promise.resolve({
+        siteJson: copy(held.siteJson),
+        pages: held.pages.map((p: StoredPage) => ({ name: p.name, page: copy(p.page) })),
+        assets: held.assets.map(
+          (a: StoredAsset): AssetStamp => ({ name: a.name, stamp: String(a.bytes.byteLength) }),
+        ),
+      })
+    },
+
     draftBase(slug) {
       return Promise.resolve(site(slug)?.basedOn ?? null)
     },
@@ -290,7 +351,7 @@ export function memorySiteStore(): MemorySiteStore {
       return out ? new Map(out) : null
     },
 
-    /** [[REQ-222]] — the delivery renditions a revision published. */
+    /** [[REQ-222]] — the delivery renditions a revision published, as the sink took them. */
     derivedRevision(slug, id) {
       const held = site(slug)?.derived.get(id)
       return held ? new Map(held) : null

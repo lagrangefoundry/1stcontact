@@ -3659,22 +3659,51 @@ body {
  * the console is an ordinary child of `.shell-content` and the panels beside it
  * are hidden, so there is nothing to be layered over.
  *
- * `flex: 1; min-height: 0` IS WHAT MAKES THE SPLIT INSIDE IT WORTH DRAGGING.
- * The shell gives `.shell-content` a definite height only while a live
- * `.shell-panel.is-fill.is-active` exists — its own `:has()` chain — and a panel
- * hidden with `display: none` still satisfies that selector, which is precisely
- * why the rule below hides the CONTAINER rather than removing anything.
+ * THE PANELS ARE HIDDEN FROM `console.js`, ON AN INLINE STYLE, and this sheet
+ * deliberately carries no rule that tries to. The shell's own fill-height chain
+ * sets `display: flex` on `.shell-panels` from an eight-class `:has()` selector
+ * that nothing writable here can out-specify; the full argument is at
+ * `panelsDisplay` in `console.js`. A rule here would look like it worked and
+ * would not, which is exactly how the console came to occupy half the screen.
+ *
+ * THE HEIGHT CHAIN IS DECLARED HERE ANYWAY. The shell supplies the same three
+ * declarations, but only while the active tab is a FILL tab — true of all four
+ * of this builder's tabs today and not a thing the console should depend on.
+ * Same values, so the two never disagree; this one is simply the one that is
+ * always there.
  */
-.builder-shell--console .shell-panels {
-  display: none;
+.builder-shell--console {
+  height: 100%;
+  min-height: 0;
 }
 
+.builder-shell--console > .shell-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * `flex: 1; min-height: 0` IS WHAT MAKES THE SPLIT INSIDE IT WORTH DRAGGING —
+ * the console is the content region's one visible child, so it takes the whole
+ * of it.
+ *
+ * THE TYPE SIZE IS DECLARED AND NOT INHERITED ([[BUG-70]]'s lesson, one level
+ * up). Nothing between `html` and here sets one, so every row, label and figure
+ * in this view was landing at the user agent's 16px while the rest of the
+ * builder — and `webui-list-detail`'s own rows, which `renderRow` replaces —
+ * sits at 13px. The result read as a surface nobody had styled. One declaration
+ * at the root of the view is what stops the next section inside it having to
+ * remember.
+ */
 .builder-console {
   display: flex;
   flex-direction: column;
   gap: 14px;
   flex: 1;
   min-height: 0;
+  font-size: var(--builder-control-font-size);
 }
 
 .builder-console__header {
@@ -3684,9 +3713,19 @@ body {
   gap: 16px;
 }
 
+.builder-console__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The view's title, against a 13px body. 16px is the step the builder's other
+   headings take (`.builder-people__heading` is 0.95em of the same 16px the pane
+   used to inherit) — enough to read as a title, not enough to read as a page. */
 .builder-console__heading {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .builder-console__hint,
@@ -3717,9 +3756,13 @@ body {
   color: var(--shell-accent, #6366f1);
 }
 
+/* The body's children are the period control, the notice and the split. `gap`
+   rather than margins on each, because the notice is `hidden` most of the time
+   and a margin would leave its space behind. */
 .builder-console__body {
   display: flex;
   flex-direction: column;
+  gap: 10px;
   flex: 1;
   min-height: 0;
 }
@@ -3735,17 +3778,26 @@ body {
  * that business cost. Anything else about a site belongs in the pane, which is
  * the whole point of there being a pane.
  */
+/* A definite-height box for the split to fill, and nothing else — `webui-split`
+   declares its own layout and its own internal scrolling. `.builder-library` is
+   the same three lines for the same reason; `overflow: hidden` is what keeps a
+   long list scrolling INSIDE the pane rather than growing the view. */
 .builder-console-sites {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .builder-console-sites__period {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.builder-console-sites__period-label {
+  color: var(--shell-muted, #71717a);
 }
 
 .builder-console-sites__period-field {
@@ -3772,11 +3824,21 @@ body {
   color: var(--shell-danger, #b91c1c);
 }
 
+/* `minmax(0, …)` AND NOT BARE `fr`. A grid track's default minimum is its
+   content, so a long business name or a long hostname would push the cost out of
+   the row rather than ellipsing — the one column here that must never move is
+   the money, because it is what the list is ordered by. */
 .builder-console-sites__row {
   display: grid;
-  grid-template-columns: 1.4fr 1.6fr auto;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) auto;
   gap: 8px;
   align-items: baseline;
+}
+
+.builder-console-sites__row-business {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .builder-console-sites__row-address {
@@ -3790,11 +3852,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* The pane's own metrics are `.builder-people__detail`'s and
+   `.builder-library__detail`'s, deliberately: three detail panes in one builder
+   that pad differently read as three different components. */
 .builder-console-sites__detail {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 4px 2px 16px;
+  gap: 14px;
+  padding: 12px;
+  min-width: 0;
 }
 
 .builder-console-sites__section {
@@ -3803,6 +3869,7 @@ body {
   gap: 8px;
   padding-top: 14px;
   border-top: 1px solid var(--shell-border, #e4e4e7);
+  min-width: 0;
 }
 
 .builder-console-sites__section:first-child {
@@ -3812,13 +3879,22 @@ body {
 
 .builder-console-sites__section-label {
   margin: 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
+}
+
+/* A section owns its own vertical rhythm, so a section that renders three
+   stacked blocks does not depend on each block bringing a margin. */
+.builder-console-sites__section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .builder-console-sites__field {
   display: grid;
-  grid-template-columns: 10em 1fr;
+  grid-template-columns: 10em minmax(0, 1fr);
   gap: 8px;
   align-items: baseline;
 }
@@ -3856,13 +3932,39 @@ body {
  * added. A trend line answers a different question and is named out of scope on
  * the ticket.
  *
- * THE DAY ROWS AND THE MODEL ROWS SHARE ONE GRID, so a model's figure aligns
- * under a day's without a second definition.
+ * EVERY GRID HERE IS HEADED. The first cut shipped the day rows and the model
+ * rows as bare values — a date and two numbers, a name and one number — with no
+ * heading over any column, so nothing on screen said which number was money and
+ * which was time. The grids exist so figures can be read DOWN a column; a column
+ * nobody has named cannot be.
  */
-.builder-tenant-cost__day,
+.builder-tenant-cost {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.builder-tenant-cost__headline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The day rows and their heading share ONE definition, which is the whole of why
+   the heading cannot drift off the columns it names. The model rows are a
+   different shape — a name and a figure — and get their own. */
+.builder-tenant-cost__day {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  text-align: left;
+}
+
 .builder-tenant-cost__model {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 8px;
   align-items: baseline;
   text-align: left;
@@ -3873,6 +3975,30 @@ body {
 .builder-tenant-cost__day .builder-tenant-cost__cell:not(:first-child),
 .builder-tenant-cost__model .builder-tenant-cost__cell:not(:first-child) {
   font-variant-numeric: tabular-nums;
+}
+
+/* A heading is not a figure: quiet, small, and separated from the first row by a
+   rule so the eye can tell the label band from the data. */
+.builder-tenant-cost__head .builder-tenant-cost__cell {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-tenant-cost__head {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--shell-border, #e4e4e7);
+  margin-bottom: 2px;
+}
+
+/* The model name is the one thing in either grid that can be cut and still read,
+   so it takes the truncation and the figure beside it never moves. */
+.builder-tenant-cost__model .builder-tenant-cost__cell:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The three headline figures sit in a row: they are one answer read across, not
@@ -3896,13 +4022,48 @@ body {
   color: var(--shell-muted, #71717a);
 }
 
+/* BOUNDED, AND NOT THE WIDTH OF THE PANE. The pane is as wide as the operator
+   dragged the divider; three columns stretched across all of it put a day's cost
+   half a screen from its date, which is a table you read by ruler. Capped, the
+   row is one glance. Narrower than the cap it simply shrinks. */
+.builder-tenant-cost__days {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-width: 32em;
+}
+
 /* The two halves sit SIDE BY SIDE and are never stacked into one figure — the
    layout is the claim the surface is making, so it says the same thing the
-   labels do. */
+   labels do.
+ *
+ * `auto-fit` WITH A FLOOR RATHER THAN `1fr 1fr`. The pane is one side of a
+ * draggable split, so its width is the operator's to choose; two fixed halves
+ * below about 300px stop being two readable columns and become two shredded
+ * ones. Below the floor they stack, which is still two labelled figures.
+ */
 .builder-tenant-cost__split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  /* Bounded for the reason the day table is: the figures inside each half are
+     read across, and a half stretched to the width of a dragged-open pane puts
+     a model's cost a hand's width from its name. */
+  max-width: 48em;
+}
+
+/* EACH HALF IS A BOX, and that is the answer to *which heading owns which
+   number*: the border is what says this figure and these models belong to
+   `Own spend` and not to the column beside it. */
+.builder-tenant-cost__half {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: var(--shell-radius, 8px);
 }
 
 .builder-tenant-cost__figure {

@@ -152,9 +152,9 @@ const post = (f: Fixture, route: string, body = ''): Promise<Response> =>
 
 const page = async (f: Fixture): Promise<string> => (await fetch(new URL('/', f.handle.url))).text()
 
-/** Press [reproduce], then press [diagnose this], and wait for both. */
+/** Press [recapture] ([[REQ-299]]), then press [diagnose this], and wait for both. */
 async function round(f: Fixture, url = 'joyfulculinarycreations.com'): Promise<void> {
-  await post(f, '/run', new URLSearchParams({ url }).toString())
+  await post(f, '/recapture', new URLSearchParams({ url }).toString())
   await f.handle.console.settled()
   await post(f, '/iteration/1/diagnose')
   await f.handle.console.settled()

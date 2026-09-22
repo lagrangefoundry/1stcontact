@@ -5,10 +5,10 @@ type: request
 title: 'repro console: one verb instead of three, and a way to clear the history'
 created_by: EPIC-12
 created_at: '2026-09-22T20:33:22.529568+00:00'
-updated_at: '2026-09-22T21:50:54.349746+00:00'
+updated_at: '2026-09-22T23:11:22.993458+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 3
@@ -16,6 +16,14 @@ fields:
   needs_review: false
   epic_parent: epic-bf282b3d
   chat_comment: comment-f9e3fa64
+  commits:
+  - working_sha: 37e1e8672e8b432c4464df5ff5ce3fb1e3108c4d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0f84bb502a638e21e9269ed1f7ee46fec55e7b21
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.326
 ---
 
 # One verb, and a way to clear the history
@@ -218,3 +226,15 @@ render it as it was rather than re-labelling history the console did not make: a
 stored iteration carrying no `recaptured` flag and the same `bundleCapturedAt`
 as the one above it is still shown as comparable with it. Only presses made from
 now on produce seams.
+
+
+## One more case the control has to answer for
+
+**Clearing a page with nothing on it.** `[clear history]` is not rendered on a
+blank console — there is no history for it to act on — but the route behind it
+is still reachable, by a reload of the POST or a back-button re-submit after a
+chain has already been cleared. That press must do the harmless thing: no
+archive is created, because inventing an empty one would put a directory on disk
+that claims a chain existed, and nothing is reported as a failure, because
+nothing failed. The status line says there was nothing to clear and the page
+stays blank.
