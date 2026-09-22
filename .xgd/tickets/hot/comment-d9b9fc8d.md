@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T18:05:05.261267+00:00'
+updated_at: '2026-09-22T19:01:45.197840+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2697,5 +2697,11 @@ The `backend` field was the one that would have bitten you if I'd only done `ses
 Titles handled differently by kind: `chat-fa105276` keeps its human title *"Lagrange Foundry — initial website build"*; `chat-e3df9535`'s title only mirrored its session id, so it was rewritten to match.
 
 **1st Contact and XGD still have only empty placeholders** — their `--chats` copies never ran. Don't run them yet: BUG-137 is unfixed, so they'd land orphaned exactly as these did. Either wait for the fix, or run them and tell me and I'll repeat this repoint — it's mechanical now that I know the shape.
+
+<!-- xgd-turn id="9b77151d-664e-41f0-8016-0cc14292740e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T19:01:43.228959+00:00" -->
+#### You
+Have you fixed it?
 
 <!-- xgd-chat-end -->
