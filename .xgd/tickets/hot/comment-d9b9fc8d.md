@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:59:01.864331+00:00'
+updated_at: '2026-09-22T21:00:47.887003+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3127,5 +3127,41 @@ Ok this is a real problem. we can try flip and redeploy - I don'
 I think it unlikely that this is delegation - I asked the chat "are you connected" That should not trigger delegate tool use.
 
 How much memory do I have? Presumably we can increase it?
+
+<!-- xgd-turn id="22d4e37e-ec9a-415b-8528-c692df13b497-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:00:47.249201+00:00" -->
+#### Claude
+The user's reasoning is right, and my evidence already supports it — "are you connected" wouldn't reach `delegate`, and the settings session took a clean turn on the same deployment.
+
+You're right on both counts, and my evidence already pointed that way — "are you connected" never reaches `delegate`, and the settings session took a clean turn on the same deployment. Delegation is excluded.
+
+## The memory answer: 128 MB, and no, you can't raise it
+
+Workers isolates are capped at **128 MB**, and it's a platform constant, not a setting. I checked wrangler's own config validator: the only key it accepts under `[limits]` is `cpu_ms`. The `memory_mib` options that do exist in wrangler are for **Containers** — a different product with its own per-deployment memory budget. You have no `[limits]` block at all right now, and adding one wouldn't help.
+
+**But the ceiling isn't the bug.** Here's the number that matters:
+
+| this session's data | |
+|---|---|
+| chat transcript | 0.25 MB |
+| tool transcript | 2.02 MB |
+| **total** | **2.27 MB** |
+| isolate limit | 128 MB |
+
+**2.27 MB of data is dying inside 128 MB.** That's roughly a 56× blowup. Even if you could buy a bigger isolate, you'd be buying a few more weeks before the same conversation killed it again — the multiplication factor is the defect, not the ceiling.
+
+I chased and eliminated the obvious alternative while checking this. The Lagrange Foundry site holds **50 MB of assets** — 135× any other site, and a tempting culprit — but the digest only collects asset *names*, never bytes, and the site's pages total 0.02 MB. So it isn't the site. It's the session, and specifically the 2.02 MB tool transcript, which is the one thing about this conversation that's outsized.
+
+## The experiment that unblocks you and proves it at the same time
+
+Let me **back up the tool transcript in full and truncate it**, then re-run my probe against the session. It's ~2 MB to a file, fully restorable, and it's the single biggest lever:
+
+- **Turn succeeds** → cause confirmed, you're unblocked immediately, and the chat transcript (the actual conversation, all 253 KB) is untouched.
+- **Turn still OOMs** → I restore the backup and we know the blowup is in transcript parsing generally, which narrows the upstream fix.
+
+Either outcome is worth having, and neither costs you the conversation. Want me to run it?
+
+Independently of that, the real fix is a **windowed resume** — nothing bounds what a session materialises, so every conversation eventually reaches the turn that kills it, with no degradation and no readable error. Say the word and I'll file it against EPIC-16; it's a framework-side change, so it'll want a ticket in `lagrange-framework` rather than code here.
 
 <!-- xgd-chat-end -->
