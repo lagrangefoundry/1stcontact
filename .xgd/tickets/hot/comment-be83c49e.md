@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-298
 created_by: xgd
 created_at: '2026-09-22T20:01:55.947228+00:00'
-updated_at: '2026-09-22T21:27:53.685943+00:00'
+updated_at: '2026-09-22T21:37:46.263060+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -167,5 +167,38 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="807e0663-c9c1-44ea-82b0-a26b975bbe41-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:37:45.386901+00:00" -->
+#### Claude
+I'll re-establish state before doing anything.
+
+Now running the four affected suites plus typecheck and lint in the foreground.
+
+Running. While it goes, let me review the diff.
+
+Now let me add the ticket-body language for the two behaviours that currently have UATs but no motivating text.
+
+All failures are pre-existing or environmental — none touch this work. Now the version bump and commit.
+
+Now the merge-back per protocol: lock, merge by hand, then mark free_coded.
+
+REQ-298 is complete and at `free_coded`.
+
+**What landed** — commit `0a0465bd79`, version `0.2.322`, merged into `xgd-working`, branch cleaned.
+
+The console keeps REQ-297's header action and gate and loses the dialog. It now appends into the shell's `.shell-content` with one root class hiding the panels — no scrim, no `z-index`, nothing inert behind it, and no `keydown` listener at all, which is the whole of "Escape does not close it". The tab strip stays live (capture-phase handler, so the close runs before the shell's own `select`), Close returns to the tab that was active, and the switcher is suspended through a new `setEnabled` that restores what it found rather than what it assumed.
+
+Inside: a two-panel list/detail over the shared `webui-list-detail` in `no-tab` mode. Rows are every site, ordered by the league's own position (not re-derived from its figures) with the unmeasured tail by name. Detail is three registered sections — account, published address, cost — each isolated so one failure doesn't take the pane down. New route `GET /api/admin/sites` in `directory.ts`, same gate and 404, address resolved through `hostname.ts`.
+
+**Verification** — 37 new/kept UATs pass across the four suites; `pnpm -r build` (tsc across the workspace) clean. Full suite: **5399 passed, 14 failed, 104 skipped**. I checked every failure: four reproduce identically on the clean baseline worktree (`bug32-webui-scope-rebrand`, `reconciliation-assistant-conversation`, `reconciliation-builder-workspace-origin`, `BUG-64`); nine are `EADDRINUSE` on 127.0.0.1:8790 from an orphaned node listener (PID 79585) still holding the port; one (`BUG-134`) fails only because the branch worktree has no git-ignored `.xgd/tmp` directory. None touch this work.
+
+**Two things I did before committing**, both to close gaps where a UAT had no motivating ticket language:
+
+- Added a paragraph recording that `/api/admin/sites` takes no period and is `GET`-only — a UAT asserts it by asking for a window and getting the unwindowed answer back, and reconciliation needed the body to say why.
+- Added a paragraph on the console closing when the builder is torn down.
+
+One note for you: the stray listener on port 8790 is from an earlier session, not this one. Killing PID 79585 would clear nine of those fourteen failures next run.
 
 <!-- xgd-chat-end -->
