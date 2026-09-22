@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-295
 created_by: xgd
 created_at: '2026-09-21T23:35:42.313528+00:00'
-updated_at: '2026-09-22T20:07:30.187473+00:00'
+updated_at: '2026-09-22T20:15:15.907156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -228,5 +228,63 @@ Also worth noting: deploying will ship REQ-292, REQ-293, REQ-295 and REQ-296 tog
 Separately, REQ-295 is on `xgd-working`, not yet on `main`. <-- I am tired of saying this we run from working!!!
 
 Please set the default to be true now and I will deploy the code to production
+
+<!-- xgd-turn id="3fee75a0-2aee-4ef4-bc38-a4429a2661ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:15:14.810837+00:00" -->
+#### Claude
+Understood — deploys run from `xgd-working`; I won't raise `main` again. Let me record that so it sticks.
+
+Ticket is at `ready_to_reconcile`, which freezes the body — demoting to `free_coding` first so the scope edit lands, then cutting the branch.
+
+Status demoted. Now cutting the branch.
+
+Now the config change — flipping the default and replacing the rationale that justified the old value.
+
+The switch-off test relied on the bundled default being off — it needs to install a disabled document explicitly now. Updating all three assertions.
+
+Flipping the default changes the default tool set for every AI test that doesn't configure delegation. Let me find what else depends on it.
+
+Both REQ-295 suites pass. Now the blast radius — suites that assert the consultant's tool set or prompt without configuring delegation.
+
+All green. Now the ticket body — the scope still says the default is off, and every UAT must trace to it.
+
+Merging back under the lock now.
+
+Now tearing down the branch and re-running the UATs against `xgd-working` to confirm the merged state is green.
+
+Done and merged to `xgd-working`.
+
+## What changed
+
+**`tools/generate/src/cli/ai/delegation.json`** — `"enabled": true`. The `about` prose that justified the old value is replaced rather than left contradicting the file it sits in.
+
+**Two UATs**, because flipping the default changed what "off" means for a test. The off path is still a requirement — it's the rollback story — but it's now a document a test must *install* rather than one it gets by configuring nothing:
+
+- `..._the_switch_ships_off_...` → `..._the_switch_ships_on_...`, asserting `enabled === true`
+- `..._with_the_switch_off_the_consultant_has_no_delegate_tool...` now installs an explicit `DISABLED` document
+- `..._the_consultant_gains_delegate_and_loses_nothing` — this one mattered most: its "before" half opened a session **without** configuring anything, so with the default flipped it would have compared the delegating shape against itself and passed vacuously. It now installs `DISABLED` for the baseline half.
+
+**The ticket body**, since every UAT has to trace to language in it. The `## The shipped default is off` section is now `## The shipped default is on`, recording both original reasons and how each resolved — the context window **discharged** (REQ-296 landed, so every backend entry resolves a declared window or start-up refuses), the baseline **overruled** by you, deliberately, with the before-figure being the ticket's own modelling.
+
+## Verification
+
+| Suite | Result |
+|---|---|
+| REQ-295 config + workers | 23 passed |
+| Consultant/settings roles, document parity, session texts, req39 | 48 passed, 5 skipped |
+| REQ-292 / 296 / 297 / 251 workers | 36 passed |
+| 5 reconciliation surface suites | 67 passed |
+| 9 L1 / fidelity / catalogue / iteration suites | 169 passed |
+
+I went looking for the blast radius specifically because the default tool set now changes for every AI suite that doesn't configure delegation — nothing else depended on it.
+
+Ticket state: `status: free_coded`, `version: 0.2.321`, 4 commits recorded (feature `d384588eaf` plus the gate's auto-bump `6804f0d1b2`). Branch cut, merged, cleaned.
+
+## Before you deploy
+
+**REQ-295 is at `free_coded`, not `ready_to_reconcile`.** I demoted it to `free_coding` to unfreeze the body and the gate left it at `free_coded` — you'll want to re-promote it when you want the dispatcher to bundle it. That transition is yours.
+
+Deploy is `cd apps/control-app && npm run deploy`. It'll ship REQ-292, REQ-293, REQ-295 and REQ-296 together, since none of them are in the live bundle — the last code deploy was 2026-09-21 23:56Z. Rollback for delegation specifically is `enabled: false` and redeploy; the surface stops being composed entirely rather than being present-and-refusing.
 
 <!-- xgd-chat-end -->
