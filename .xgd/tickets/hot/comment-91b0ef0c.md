@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:55:58.454995+00:00'
+updated_at: '2026-09-22T20:57:15.611537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1412,5 +1412,64 @@ regression rail: the regression rail — not yet recorded — no baseline at sto
 ```
 
 You need to raise the level tyou are explaining things - I am not familiar with the code
+
+<!-- xgd-turn id="d571bbab-5949-4a7b-9ac5-67ee94106a57-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:57:15.159422+00:00" -->
+#### Claude
+Let me look at what iteration 4 actually produced rather than just reading your paste back to you.
+
+Here's the plain-English read. I pulled the underlying numbers rather than going off the summary line.
+
+## The recapture did what it was supposed to
+
+Blind spots went **12 → 5**, and the reference is stamped today at 20:38. That's the stale-oracle problem solved — you're now measuring against a fresh capture taken with the current extractor.
+
+## The reproduction looks almost perfect
+
+| what was measured | result | allowed |
+|---|---|---|
+| average pixel difference | **0.52** | 8 |
+| pixels over threshold | **0.38%** | 25% |
+| content overlapping itself | none | — |
+| anything missing from the capture | none | — |
+
+So visually this is a very close match. Which is exactly why the failure is confusing — **nothing here is failing because of how it looks.**
+
+## Why it fails anyway
+
+Two separate reasons.
+
+**1. Four serious value differences.** Two are about meaning rather than appearance:
+
+- *"Gigabyte Alchemy"* — plain text on the original, reproduced as a **link**
+- *"Intentional Software"* — plain text on the original, reproduced as a **heading**
+
+Neither changes a single pixel. Both change what the page *is*: what a screen reader announces, what search engines index, what's clickable. This is the whole reason the gate refuses to pass on pixels alone — a page that lost every heading and link can still be pixel-perfect.
+
+The other two are systemic, affecting 6 elements each:
+
+- a **green 4px left border** on the original that's missing in the reproduction
+- a **dark gradient** in the reproduction that the original doesn't have
+
+Six elements each means these are one styling rule getting lost and one being invented — two fixes, not twelve.
+
+**2. The structural gate failed.** This is what produces the `structural-failure` headline. Its diagnosis is the generic one, and the layout checks came back clean, so it isn't telling you much on its own. `1c l1-gate --ref <bundle>` is what makes it specific.
+
+## The 5 remaining blind spots
+
+**Four are one bug.** Top, right and bottom padding, plus text alignment — the comparison knows how to check all four, but the capture step never writes them down for text elements, so there's nothing on the reference side to compare against. One gap in the capture step, four symptoms. (Left padding *is* recorded, which makes the set oddly lopsided — probably worth a ticket on its own.)
+
+**One is a band.** The top strip of the page — full width, 192px tall — has no counterpart on the reproduction side, so it can't be compared at all. That's your header area.
+
+## On the "23 deltas"
+
+Ignore the count as a trend. It genuinely can't be compared to iteration 3, because you changed the thing you're measuring against. The seam warning is correct, not noise. From iteration 5 onward the counts become comparable again — provided you don't recapture.
+
+## Where this leaves you
+
+Better than it reads. The reproduction is visually excellent, the capture is complete, and the measurement gaps are down by more than half. What's left is four concrete defects — two semantic, two styling — and a structural gate that needs to be asked directly what it objected to.
+
+The rail line is still just the unrecorded-baseline notice, unrelated to any of this. Now that the reference has been recaptured, this is the right moment to run `./bin/repro-rail record` — the sequencing reason I gave earlier has passed.
 
 <!-- xgd-chat-end -->
