@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:35:18.513225+00:00'
+updated_at: '2026-09-22T23:38:38.695393+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3146,5 +3146,37 @@ Say when you're between turns and I'll cut it and free-code BUG-138 straight awa
 <!-- xgd-chat role="user" ts="2026-09-22T23:35:17.835003+00:00" -->
 #### You
 One boundary I wrote into the ticket explicitly: **the turn will not resume across a deploy.** The model loop was running in an isolate that no longer exists. What you get is that the client's words, the partial reply, and the tool records for work that actually landed all survive and fold into a coherent transcript — so nobody reconstructs anything, and a deploy costs the rest of one answer. Driving a turn from *inside* the DO so it outlives its request is a much larger question; I kept it out of scope rather than smuggling it in. <-- is preservation across a deploy possible - I think we need that
+
+<!-- xgd-turn id="a34b5420-865c-47ed-9139-8228f2a09dbf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:38:37.741662+00:00" -->
+#### Claude
+Let me check something I glossed over — whether a DO can actually sit behind that port from outside.
+
+That question changes the design, and I got something wrong last turn. Let me verify the platform semantics before I answer.
+
+Verified, and it inverts part of what I told you. Let me correct the record and file the upstream half.
+
+Checked it against the platform docs, and I had it backwards. Two facts change the picture:
+
+**A Worker deploy does not kill in-flight turns today.** Cloudflare does not forcibly terminate requests already running on the old version — they complete there, and only new requests route to the new version. So the thing you said we can't do — gate deploys on an empty house — isn't a constraint we're currently under. What actually loses turns is `wrangler dev`'s reload (no drain) and isolate eviction under memory pressure.
+
+**A code deploy restarts every Durable Object**, clearing in-memory state; only SQLite storage survives.
+
+And the piece I got wrong last turn: **the synchronous port forces the driver into the DO.** `Junctions.open()` returns a `SessionLog` synchronously over a synchronous `JunctionStorage` — `append`, `read`, `size` all return values, not promises, and `promptStream` calls them inline. A DO reached over RPC is async and cannot sit behind that. The only arrangement that satisfies the port is the manager running *inside* the DO against `ctx.storage.sql`. So "DO junction" and "turn driven in the DO" aren't separable, as I claimed — they're the same work.
+
+Put together, REQ-307 as I first scoped it would **trade a failure mode we don't have for one we do**: today a deploy drains safely; move the driver into a DO and every deploy restarts it, after which `_reconcile` closes each open turn `aborted`. Records survive — that's the gain — but every conversation in progress ends mid-sentence.
+
+## So: yes, preservation across a deploy is possible — and it needs the upstream half
+
+Filed as **lagrange-framework REQ-175 — "Resume an open turn from the junction, instead of only closing it aborted."** The manager can start a turn and bury one; it can't continue one. Resumption is mostly mechanical: the junction has the prompt, the deltas, and the completed tool records, and a backend request is a pure function of the message list, so re-issuing it with the partial text as prefill is legitimate.
+
+**The hard edge, which I put in both tickets rather than waving at:** the junction records that a tool *finished*, never that one *started* — `tool_record` is appended after the call returns. So a turn interrupted *during* a tool call is indistinguishable from one interrupted just before it, and re-driving re-issues a call that may already have landed. Cloudflare hits the same wall in their own long-running-agent guidance: in-flight HTTP calls are abandoned on eviction, no automatic resumption, checkpoint before expensive work. REQ-175 asks for an "issued" record written *before* the call, closed by the existing `tool_record` — which turns "may have run" into a question with an answer.
+
+REQ-307 now carries the correction and is explicitly blocked on REQ-175. It's still worth doing on its own merits — the RAM junction means an eviction under memory pressure loses the turn outright, and that's real with 270KB transcripts and images in flight. The sequencing changed, not the destination.
+
+BUG-138 is still waiting on you — cutting its branch restarts the builder, so tell me when you're between turns.
+
+Sources: [Gradual deployments](https://developers.cloudflare.com/workers/versions-and-deployments/gradual-deployments/), [Lifecycle of a Durable Object](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/), [Long-running agents](https://developers.cloudflare.com/agents/concepts/agentic-patterns/long-running-agents/)
 
 <!-- xgd-chat-end -->
