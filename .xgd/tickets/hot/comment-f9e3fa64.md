@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-299
 created_by: xgd
 created_at: '2026-09-22T21:30:38.078707+00:00'
-updated_at: '2026-09-22T22:57:04.127410+00:00'
+updated_at: '2026-09-22T22:59:08.652970+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,14 @@ Baseline has 17; my branch has 14. One name appears on my branch but not baselin
 Environment gap in the fresh worktree — `.xgd/tmp/` doesn't exist there. Confirming.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="7fc7264e-267a-4f32-906a-a0f80c8c35c2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:59:08.116725+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
