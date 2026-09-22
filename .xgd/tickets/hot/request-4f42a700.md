@@ -5,10 +5,10 @@ type: request
 title: 'repro console: one verb instead of three, and a way to clear the history'
 created_by: EPIC-12
 created_at: '2026-09-22T20:33:22.529568+00:00'
-updated_at: '2026-09-22T23:04:13.557373+00:00'
+updated_at: '2026-09-22T23:11:22.993458+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 3
