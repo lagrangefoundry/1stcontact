@@ -17,6 +17,11 @@ import { RESPONSIVE_VIEWPORTS } from './capture/values-diff'
  *
  * There is no flag and no second shape. L1 is *the* way to author a page, so a
  * `--l1` opt-in would be exactly the mode detection `CLAUDE.md` forbids.
+ *
+ * REQ-300 — and the same starter is what `add_page` seeds, because the hole REQ-102
+ * closed for site creation was still open for every page added afterwards. So the
+ * document is named ({@link starterDocument}) rather than inlined in the page
+ * below: one definition, reached by both ways a page comes into existence.
  */
 
 /**
@@ -55,6 +60,58 @@ const STARTER_BACKGROUND = '#ffffff'
 const STARTER_TEXT = '#111827'
 
 /**
+ * The document a page starts life with — the width ladder, the page paint and a
+ * root frame carrying one line of copy.
+ *
+ * ONE DEFINITION, REACHED BY BOTH WAYS A PAGE COMES INTO EXISTENCE ([[REQ-300]]).
+ * It was inlined in {@link starterHomePage} and therefore reachable only by site
+ * creation, which is exactly how `add_page` came to produce a page with no
+ * document at all: every operation that could put content on a page replaces
+ * something already there, so a page born without a root had no address to write
+ * to and no way to acquire one — it could be created, renamed, re-pathed and
+ * deleted, and nothing else. Named here, the same starter seeds the page a site
+ * is born with and the page added on day ten, so the two cannot drift apart and a
+ * page added later keyframes at the same widths as the one before it.
+ *
+ * @param heading The one true thing on the page — a site's name when the site is
+ *   being created, a page's title when a page is being added.
+ */
+export function starterDocument(heading: string): Record<string, unknown> {
+  return {
+    widths: [...STARTER_WIDTHS],
+    background: STARTER_BACKGROUND,
+    textColor: STARTER_TEXT,
+    // A flowed root — no geometry track. A scaffolded page has nothing to pin
+    // to: keyframes are what a *capture* folds to, and inventing a set here
+    // would hand the author six absolute boxes to unpick before their first
+    // edit. Flow centres itself at every width instead, so the skeleton is
+    // responsive before anyone touches it.
+    root: {
+      kind: 'container',
+      id: 'root',
+      layout: 'stack',
+      align: 'center',
+      distribution: 'center',
+      padding: { topPx: 96, rightPx: 24, bottomPx: 96, leftPx: 24 },
+      children: [
+        {
+          kind: 'text',
+          id: 'placeholder',
+          text: heading,
+          axes: {
+            color: STARTER_TEXT,
+            fontSizePx: 48,
+            fontWeight: 700,
+            lineHeightPx: 56,
+            textAlign: 'center',
+          },
+        },
+      ],
+    },
+  }
+}
+
+/**
  * @param heading What the page says. Defaults to the slug, which is what `1c new`
  *   wants — an authored site is named by its author, so the slug IS the first
  *   true thing on the page. REQ-167's invite passes its own, because an account
@@ -72,37 +129,6 @@ export function starterHomePage(slug: string, heading: string = slug): Record<st
       description: `Welcome to ${slug}.`,
     },
     modules: [],
-    l1: {
-      widths: [...STARTER_WIDTHS],
-      background: STARTER_BACKGROUND,
-      textColor: STARTER_TEXT,
-      // A flowed root — no geometry track. A scaffolded page has nothing to pin
-      // to: keyframes are what a *capture* folds to, and inventing a set here
-      // would hand the author six absolute boxes to unpick before their first
-      // edit. Flow centres itself at every width instead, so the skeleton is
-      // responsive before anyone touches it.
-      root: {
-        kind: 'container',
-        id: 'root',
-        layout: 'stack',
-        align: 'center',
-        distribution: 'center',
-        padding: { topPx: 96, rightPx: 24, bottomPx: 96, leftPx: 24 },
-        children: [
-          {
-            kind: 'text',
-            id: 'placeholder',
-            text: heading,
-            axes: {
-              color: STARTER_TEXT,
-              fontSizePx: 48,
-              fontWeight: 700,
-              lineHeightPx: 56,
-              textAlign: 'center',
-            },
-          },
-        ],
-      },
-    },
+    l1: starterDocument(heading),
   }
 }

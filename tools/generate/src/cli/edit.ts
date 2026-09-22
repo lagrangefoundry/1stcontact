@@ -51,6 +51,7 @@ import type { ImageLibrary, StoredImage } from './image-library'
 import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
+import { starterDocument } from './scaffold'
 
 /**
  * The structured-edit command surface (REQ-11): validated, AI-legible read and
@@ -1448,6 +1449,15 @@ function refuseEmailOnlyFields(opts: PageWriteOptions, pageId: string): void {
   })
 }
 
+/**
+ * Add a page, ready to be written to.
+ *
+ * BOTH KINDS ARRIVE WITH A DOCUMENT and for one reason: a page with no document
+ * cannot be given content by any operation on this surface ([[REQ-300]]). A
+ * served page gets the scaffolder's own starter; a mailed one gets readable
+ * default copy. Neither is a template to choose between — it is the minimum that
+ * makes the page addressable, and everything after it is an ordinary `set_l1`.
+ */
 export async function editPageAdd(
   slug: string,
   pageId: string,
@@ -1511,6 +1521,19 @@ export async function editPageAdd(
         title,
         ...(opts.seoMeta ? { seoMeta: opts.seoMeta } : {}),
         modules: [],
+        // [[REQ-300]] — THE PAGE ARRIVES PAINTABLE, seeded with the same starter
+        // `1c new` puts on the page a site is born with. A page written as
+        // `{ modules: [] }` had no L1 document, and every operation that could
+        // put content on one replaces something already there: `set_l1` refuses
+        // an address that resolves to nothing, `set_page_style` refuses a
+        // document that is not there, and a component has no slot to mount into.
+        // So the page could be created, renamed, re-pathed and deleted, and
+        // nothing else — a site could never gain a second page. The defect was
+        // invisible during ordinary work precisely because the FIRST page was
+        // scaffolded, which is the same reason the fix is to scaffold this one
+        // the same way rather than to add an operation every caller must
+        // remember.
+        l1: starterDocument(title),
       }
   await validateOrThrow(slug, opts, base, [...files.map((f) => f.page), newPage])
 
@@ -1522,7 +1545,7 @@ export async function editPageAdd(
       data: { page: newPage },
       human: mailed
         ? `Added email page '${pageId}' — nobody receives it until a form names it.`
-        : `Added page '${pageId}' (path: ${pageSlug}).`,
+        : `Added page '${pageId}' (path: ${pageSlug}) — it carries a heading and nothing else, ready to paint.`,
     },
     { op: 'page.add', page: pageId, label: String(newPage.title) },
   )
