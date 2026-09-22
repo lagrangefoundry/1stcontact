@@ -5,9 +5,9 @@ type: request
 title: An operator console for tenant cost
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:45.407051+00:00'
-updated_at: '2026-09-22T19:02:59.422419+00:00'
+updated_at: '2026-09-22T19:09:37.570431+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -19,7 +19,14 @@ fields:
   - working_sha: be385cd90f335147321557585d1142008508691c
     reconcile_sha: null
     main_sha: null
-  version: 0.2.318
+    working_sha_history: []
+  - working_sha: ccf726422052fab1e74b5f26ce744094d2575683
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3ee35c4e05d9b4562c357317f569f679b193303c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.320
   story_points: 8
 ---
 
