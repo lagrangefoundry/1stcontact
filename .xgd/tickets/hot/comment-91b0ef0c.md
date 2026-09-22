@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:33:39.090836+00:00'
+updated_at: '2026-09-22T20:35:12.390264+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1319,5 +1319,11 @@ One ticket, not two — same surface, same defect: the page asks for decisions i
 Two things to flag. First, the `[reproduce]` removal only works because `[recapture]` takes over starting a chain — if you actually wanted the address row to keep a distinct starting verb, say so and I'll re-scope. Second, `[run again]` disappearing means every continuation now carries REQ-272's not-comparable seam, so that marking becomes the norm rather than the exception.
 
 Ticket's in `draft` and I haven't cut a branch or written code. Say the word and I'll build it.
+
+<!-- xgd-turn id="fd2bf7a2-cf77-466f-a686-d9a7aec81861-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:35:12.139856+00:00" -->
+#### You
+Good - thanks
 
 <!-- xgd-chat-end -->
