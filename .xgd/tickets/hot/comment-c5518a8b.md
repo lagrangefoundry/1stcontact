@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-295
 created_by: xgd
 created_at: '2026-09-21T23:35:42.313528+00:00'
-updated_at: '2026-09-22T19:57:58.937939+00:00'
+updated_at: '2026-09-22T20:01:39.706608+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -175,5 +175,50 @@ The switch ships off, so nothing is enabled ahead of REQ-296 or a REQ-292/REQ-29
 <!-- xgd-chat role="user" ts="2026-09-22T19:57:57.860685+00:00" -->
 #### You
 Is this now working in production? I would like the default to be configured to be on
+
+<!-- xgd-turn id="742d645b-e29d-4b9d-ac35-c7903eb67140-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:01:37.892167+00:00" -->
+#### Claude
+I'll check the current state of the delegation switch and whether it's live in production.
+
+No — on two counts, and there's a sequencing blocker before I can flip it.
+
+## Is it working in production?
+
+**No.** Production is running code that predates delegation entirely:
+
+| | |
+|---|---|
+| Last real deploy of `1stcontact-control-app` | 2026-09-21 **23:56:06Z** |
+| REQ-295's feature commit `78e6a5463b` | 2026-09-22 **00:33Z** |
+
+(The later deployment entries are `Secret Change` redeploys of the same bundle.) So the worker role, the `claude_builder` backend and the delegation surface aren't in the deployed artifact at all.
+
+And even once deployed, the switch is `enabled: false`, which by design means the delegation surface is **never composed** — not composed-and-refusing. Production would be byte-identical to pre-delegation.
+
+Separately, REQ-295 is on `xgd-working`, not yet on `main`.
+
+## Flipping the default to on
+
+That's three edits on this ticket: `delegation.json` (`enabled: true`), its `about` prose (the "IT SHIPS OFF" paragraph is the rationale for the current value), and one UAT — `test_UAT_FC_REQ-295_the_switch_ships_off_with_a_builder_bound_to_a_declared_backend` asserts `enabled === false` explicitly as a decision rather than an oversight.
+
+Nothing technical blocks it. REQ-296 landed and resolves the context window from the model table, refusing at start-up if it can't — so `claude-haiku-4-5` either works or fails loudly on boot, not mid-conversation.
+
+## The blocker — your call
+
+**REQ-295 is at `ready_to_reconcile` and the dispatcher is live.** It's currently running `xgd reconcile BUNDLE-29`; REQ-295 (along with REQ-292, REQ-293, REQ-296) is queued behind it. If I commit now, the dispatcher can bundle the ticket mid-flight and my commit is orphaned on `xgd-working` against a ticket already marked `free_and_reconciled` — a manual repair.
+
+Demoting `ready_to_reconcile → free_coded` reverses your authorisation, so it's yours to make. My recommendation:
+
+1. You set REQ-295 back to `free_coded`
+2. I cut a branch, flip the default, update the prose and the UAT, run the scope, merge back, and re-record the commits
+3. You re-promote to `ready_to_reconcile`
+
+Say the word and I'll do step 2.
+
+One thing to weigh: the reason recorded for shipping off is that REQ-292's spend meter needed a period of *undelegated* measurement to give the saving an after-figure to be measured against — and REQ-292 isn't deployed either, so that baseline doesn't exist yet. Turning delegation on now means the first spend data you collect is already delegated. Your decision; I just don't want it to be an accident.
+
+Also worth noting: deploying will ship REQ-292, REQ-293, REQ-295 and REQ-296 together, since none of them are in the live bundle. I haven't deployed anything — tell me when you want that done.
 
 <!-- xgd-chat-end -->
