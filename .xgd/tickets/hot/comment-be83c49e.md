@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-298
 created_by: xgd
 created_at: '2026-09-22T20:01:55.947228+00:00'
-updated_at: '2026-09-22T20:12:45.878713+00:00'
+updated_at: '2026-09-22T20:33:19.343964+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,6 +13,16 @@ fields:
   subject_uid: request-294aa45b
   kind: chat_transcript
 ---
+
+<!-- xgd-session
+{
+  "id": "31ff39b1-2d58-4f12-9e0a-8449cc320ba2",
+  "role": "chat",
+  "backend": "claude_code",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
 
 <!-- xgd-cli-session ts="2026-09-22T20:01:52Z" model="claude-opus-5" continued_from="new" -->
 *Captured by CLI Claude — paraphrased reconstruction from session memory, not raw capture.*
@@ -56,5 +66,15 @@ Getting out: the tab strip stays live and clicking any tab dismisses the console
 One honest cost I named rather than hid: this is the SECOND place the app touches shell-internal markup — the first is the business switcher prepended into `.shell-bar`, which `app.js` documents as the one such place. There is no declared slot for a view that replaces the panels either, so they become a list of exactly two, each with a comment naming the upstream gap it stands in.
 
 Everything else is unchanged: the sites list ordered by cost descending, the three detail sections, `GET /api/admin/sites`, and all of REQ-297's routes, gate and arithmetic reused.
+
+<!-- xgd-turn id="efe8be04-2677-4198-a2b2-dee73c2da092-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:33:02.325441+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
