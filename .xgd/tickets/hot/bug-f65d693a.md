@@ -5,10 +5,10 @@ type: bug
 title: copied conversations keep the source side's session ids and are unreachable
 created_by: EPIC-16
 created_at: '2026-09-22T17:55:18.978851+00:00'
-updated_at: '2026-09-22T19:06:24.015742+00:00'
+updated_at: '2026-09-22T19:56:57.386555+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
