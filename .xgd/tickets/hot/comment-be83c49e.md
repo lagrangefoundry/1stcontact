@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-298
 created_by: xgd
 created_at: '2026-09-22T20:01:55.947228+00:00'
-updated_at: '2026-09-22T21:16:36.552114+00:00'
+updated_at: '2026-09-22T21:27:53.685943+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -158,5 +158,14 @@ Adjacent suites green. The full suite (645 files) exceeds the foreground cap, so
 
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message
+
+<!-- xgd-turn id="807e0663-c9c1-44ea-82b0-a26b975bbe41-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:27:52.600857+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
