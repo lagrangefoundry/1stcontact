@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:21:00.776513+00:00'
+updated_at: '2026-09-22T20:23:24.713653+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2847,5 +2847,44 @@ Delegation is now live in production on version `3f9b69de`. Want me to check the
 <!-- xgd-chat role="user" ts="2026-09-22T20:21:00.670763+00:00" -->
 #### You
 I still see this in the chat? *Unknown backend "claude+site:site_936dd7c92e5e14df694dd9a80433aa4f". Available backends: claude, claude+business:biz_33086a94838ac8ad14cecbb919b525c2, claude+site:site_23c1afb3739dadf62347a5008e8a7dea*
+
+<!-- xgd-turn id="4bda7155-aafe-45f5-89ac-9c4359d4c66e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:23:23.796451+00:00" -->
+#### Claude
+Found it — and it's my repair that was incomplete, not a new fault. `site_936dd7c9…` is the **old local site id** from `chat-fa105276`, straight out of the pre-repair backup.
+
+I repointed the ticket's `fields` and stopped there. But each transcript carries its **own session envelope** in the comment body, and that's what the session manager actually resumes from:
+
+```
+<!-- xgd-session
+{
+  "id": "site-site_936dd7c92e5e14df694dd9a80433aa4f",     ← stale
+  "role": "consultant",
+  "backend": "claude+site:site_936dd7c92e5e14df694dd9a80433aa4f",   ← stale, this is the error
+  "backend_ref": "",
+  "chat_ticket_uid": "chat-50932534"                       ← stale, no such ticket
+}
+-->
+```
+
+So I fixed the index and left the payload. `fields.session_id` is what the list reads; the header is what the resume reads — which is why the session appears in the list correctly and then fails the moment you open it. The available-backends list in your error is exactly the two `fields.backend` values I did repoint, which is the same mistake showing from the other side.
+
+Both sessions are affected, and `chat-50932534` / `chat-3484636f` don't exist in production either.
+
+**The fix is header-only, and that boundary matters.** In the Lagrange Foundry transcript the old site id appears **6 times, only 2 of them in the header** — the other 4, plus 6 occurrences of the old business id, are inside the conversation itself, where you and the assistant discussed those ids. Those are a faithful record of what was said and must not be rewritten. A blanket find-and-replace would corrupt the transcript, which is the obvious move and the wrong one.
+
+What I'd change, per header, nothing else:
+
+| field | comment-fec1c7d8 (site) | comment-42698e7e (business) |
+|---|---|---|
+| `id` | → `site-site_23c1afb3…` | → `business-biz_33086a94…` |
+| `backend` | → `claude+site:site_23c1afb3…` | → `claude+business:biz_33086a94…` |
+| `chat_ticket_uid` | → `chat-fa105276` | → `chat-e3df9535` |
+| `backend_ref` | already `""` | → `""` (stale provider ref from the local run) |
+
+Both old headers are backed up at `storage/backups/chat-header-before.json`, so this reverses with a single statement.
+
+Say go and I'll apply it — it's two UPDATEs, header replaced, body after the first `-->` untouched byte-for-byte. I'd rather you confirm the boundary than have me guess twice on your only copy of that conversation.
 
 <!-- xgd-chat-end -->
