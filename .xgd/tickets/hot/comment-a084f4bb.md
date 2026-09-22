@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T18:32:50.802605+00:00'
+updated_at: '2026-09-22T18:34:45.998279+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -141,5 +141,29 @@ Branch merged (fast-forward) and cleaned; story points 8. It's parked at `free_c
 <!-- xgd-chat role="user" ts="2026-09-22T18:32:50.148270+00:00" -->
 #### You
 What do I need to do to see it in the UI - I was expecting a new tab?
+
+<!-- xgd-turn id="1fd61261-31bc-47c6-8c57-a16ce33b67a5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T18:34:45.724576+00:00" -->
+#### Claude
+It's not a tab — deliberately, and the ticket says so in writing. You're looking for a **"Console" button in the shell header's trailing slot**, beside Theme / About / the account avatar. Clicking it opens a dialog.
+
+The ticket's reasoning (`## Two things…`, "**It is not a tab**"): the tab strip is uniformly business-scoped (REQ-179), and that uniformity is what lets the business switcher sit above it with no exception to explain. This console is about *every* tenant at once, so a tab would be a second place where the switcher is present and silently doesn't apply. It goes where the other non-business-scoped surface — the account surface — already lives.
+
+**What was actually blocking you, and I've now done it:** the builder's browser sources are build artifacts. `console.js` and `tenant-cost.js` were not in `apps/control-app/dist-assets/builder/`, so no amount of restarting would have shown them. I ran `./bin/1c assets` — both files are there now (builder: 46 files, import graph resolves). `dist-assets` is gitignored, so the tree is unchanged.
+
+**What's left for you:**
+
+```
+./bin/1c builder
+```
+
+I haven't started it — detached listeners can't be killed from this sandbox afterwards, so that one's yours.
+
+**The gate will let you in.** In the local D1 (`apps/control-app/.wrangler/…/24f6d843….sqlite`), `martin@westhead.me` (`usr_e575…`) is an active `owner` of `biz_51a6746495c8057e886ff98d4208e6b9` — the 1st Contact business, `TENANT_ID` in `wrangler.toml` — granted by `PLATFORM_ADMINS`. That is exactly the two conditions `ownsPlatformBusiness` checks. Any other session gets no button, and a 404 from both routes if they type the URL.
+
+**One caveat: it will open empty.** `turn_spend` has **0 rows** in that local database, so Business cost will read *"No business has a measured turn in this period."* That's the correct rendering rather than a fault — it's the ticket's own "absent rather than zero", and its `## Depends on`: REQ-292 and REQ-293, with nothing to render until a period of records exists. There's no seeder for `turn_spend`; rows are only written by the AI host as turns actually happen (`recordTurnSpend`), so the table fills once you use the assistant against this local database — or if you point it at one that already has records.
+
+If you genuinely want it as a tab rather than a header action, that contradicts the ticket body and REQ-179's uniformity argument, so it's a re-scope decision for you rather than something I should quietly change.
 
 <!-- xgd-chat-end -->
