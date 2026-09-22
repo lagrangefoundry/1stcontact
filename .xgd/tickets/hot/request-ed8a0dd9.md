@@ -5,9 +5,9 @@ type: request
 title: Delegate construction to a cheaper worker, behind a switch
 created_by: EPIC-20
 created_at: '2026-09-21T23:11:05.910693+00:00'
-updated_at: '2026-09-22T00:48:25.681212+00:00'
+updated_at: '2026-09-22T00:48:30.761580+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.316
+  story_points: 8
 ---
 
 ## Why
