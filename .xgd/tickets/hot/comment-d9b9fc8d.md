@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T17:55:31.007901+00:00'
+updated_at: '2026-09-22T18:01:54.032322+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2623,5 +2623,11 @@ Three things I put in the fix scope:
 - **The merge rule needs an answer for auto-created empty sessions.** The deployed builder mints an empty `site-…` and `business-…` session the moment you open it. REQ-294's "one the far side already holds is kept and counted" is right for protecting real turns and wrong against an empty placeholder — it would preserve the empty one *instead of* the history, reproducing this bug with a success message.
 
 That's four tickets from this exercise now (BUG-135 landed, BUG-136 smoke, BUG-137 chats, REQ-294 landed), plus the simulator-keypair one I offered earlier and the unfiled §I16/§I19/§I20 findings. Want me to file those three, or keep going on the go-live?
+
+<!-- xgd-turn id="a9e03701-d921-4a00-a955-4fd85a8a33f4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T18:01:52.587660+00:00" -->
+#### You
+Can you do the data fix to give me access to my chats?
 
 <!-- xgd-chat-end -->
