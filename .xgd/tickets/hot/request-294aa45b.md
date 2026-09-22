@@ -5,10 +5,10 @@ type: request
 title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T21:37:21.467526+00:00'
+updated_at: '2026-09-22T21:42:19.223591+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   epic_parent: epic-0923bb64
   priority: high
