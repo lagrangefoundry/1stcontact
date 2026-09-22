@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:52:09.414111+00:00'
+updated_at: '2026-09-22T23:53:49.848001+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3233,5 +3233,50 @@ Say which, and BUG-138's branch is still parked waiting for a gap between turns.
 <!-- xgd-chat role="user" ts="2026-09-22T23:52:06.827043+00:00" -->
 #### You
 How will chat cope with a fix max size?
+
+<!-- xgd-turn id="a069e3c6-b527-49d2-bbe6-02eddfd8131d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:53:49.330142+00:00" -->
+#### Claude
+That's the right question to ask before committing to a cap. Let me check what actually reads these artifacts.
+
+Well — the design already answers this, and the answer is "fine, with one specific cost".
+
+## The transcript was never the model's memory
+
+`manager.js` states the contract:
+
+> *"A turn's context is the seed — assembled priming, the session's summary, the transcript pointer, and **a window of the last N exchanges** — and the seed does not grow with the conversation... What used to fall off the end of a character budget now falls outside the window by design, from the first turn, and is **reachable two ways: the summary the session maintains, and the transcript it can address by turn id**."*
+
+`DEFAULT_WINDOW_TURNS = 40`. So every turn already runs on: priming + summary + the last 40 exchanges verbatim. Your LF session has ~110 turns; the model has been working from the summary and the last 40 for a long time already.
+
+And the summary is explicit about its job:
+
+> *"This is the artifact that survives when the verbatim history does not, so it is the load-bearing piece of the context-management design."*
+
+**So a cap costs no continuity.** The conversation does not get dumber. What it costs is precisely one of the two documented recovery routes — the transcript addressable by turn id. The model can no longer go read turn 6. The summary still covers it, which is why the summary exists.
+
+The second cost is yours: scrollback depth.
+
+## Which argues for two different treatments
+
+They're different artifacts with different value curves, and I'd not cap them the same way:
+
+- **Tool transcript — elide the oldest.** It's 2.16 MB against the prose's 272 KB, 8× the size, and it's a debugging aid. Nobody needs September's tool arguments. A total bound eliding oldest is exactly the lever upstream already named.
+- **Prose transcript — roll, don't elide.** Start `chat_transcript` part 2 when part 1 nears the ceiling. Costs a reader that walks N comments; keeps the addressable-by-turn-id route intact, which is the thing a cap would otherwise quietly remove. Your scrollback stays complete.
+
+Capping the tool transcript alone buys the prose transcript years of headroom, so this isn't urgent in both places at once.
+
+## Three things worth saying before you pick
+
+**The elision must be visible.** Silently dropping the oldest turns means opening a conversation that appears to begin mid-thought — the same "screen that denies what happened" failure BUG-121 exists to prevent. A marker at the cut, in the artifact and in the panel.
+
+**The same wall is coming for the summary.** `chat_summary`'s log is also append-only through `append_body`. The *frame* is capped and enforced; the log is not — consumers take a tail, but nothing bounds the artifact. Same 2 MB row, same ending, slower. If we're fixing this, it's a class of bug, not one instance.
+
+**The cap isn't the real defect anyway.** Even perfectly capped, the prose fold should not be hostage to the tool fold. They're separate artifacts written in one pass, tool first; a debugging aid failing should never cost you the conversation. That coupling is what turned a size limit into a bricked session, and it's arguably upstream's since the ordering lives in `ticket_store.js`.
+
+My recommendation: elide the tool transcript, roll the prose one, break the coupling, and treat the summary log as the same bug found early.
+
+Want me to file that, and unblock your LF session by trimming `comment-ca74b1b7` now? Both are still waiting on you, as is BUG-138's branch.
 
 <!-- xgd-chat-end -->
