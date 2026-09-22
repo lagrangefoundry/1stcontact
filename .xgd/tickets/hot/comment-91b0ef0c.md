@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T21:09:22.931694+00:00'
+updated_at: '2026-09-22T21:12:41.963564+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1564,5 +1564,85 @@ IMO the delta from the original is getting worse - can you actually take a look:
 1) The hero image is supposed to be tied to browser width and bottom of the fold - this works in the original and fails in complicated ways in the reproduction
 2) The hero masthead has gradated text coloring (a detail, but it is the masthead)
 3) This is the big one - the background, segment shading and text boxes are not connected to the text they move with browser resizing independently of the text itself at the right width and height I can get them to align but at any other they look terrible
+
+<!-- xgd-turn id="f35107c0-629d-446a-be67-6d631866f22c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:12:40.662472+00:00" -->
+#### Claude
+Three good questions. Let me answer the first two from the code, then actually dig into the third — because what you're describing should be impossible given the numbers, and that's interesting.
+
+The L1 document records geometry at six widths — 320, 375, 768, 1024, 1280, 1440. So responsive behaviour *is* measured. Let me run the check that looks at it.
+
+There it is. Let me get the detail.
+
+Dug into this properly. Short version: **your eye is right, and the tool agrees with you — it just said so in one word.**
+
+## 1. What [diagnose] does
+
+It starts an **AI round** on that iteration. A round reads the evidence the iteration produced — the gate results, the diff images, the value comparison — works out what's wrong, and files gap tickets for what it finds.
+
+It's deliberately a button rather than automatic, so a round only ever runs when you decide to spend one.
+
+## 2. Why no ticket
+
+Because nobody pressed it. Iterations 1, 2 and 3 each have an AI round attached. Iteration 4 doesn't.
+
+Producing an iteration and diagnosing it are two separate acts — `[recapture]` does the first and stops. **Iterations never file tickets; rounds do.**
+
+## 3. "Getting worse" — it isn't. The measurement got honest.
+
+Here's the trend:
+
+| | verdict | structural | pixel diff | deltas |
+|---|---|---|---|---|
+| iter 1 | **pass** | ✓ | 0.31 | 0 |
+| iter 2 | **pass** | ✓ | 0.31 | 1 |
+| iter 3 | **pass** | ✓ | 0.31 | 14 |
+| iter 4 | **structural-failure** | ✗ | 0.52 | 23 |
+
+I checked whether the page actually changed. Between iteration 3 and 4:
+
+- the **reference** holds 59 elements and 8 sections — both times
+- the **reproduction** holds 66 then 65 elements, 7 sections — both times
+
+Neither side moved. The reproduction you're looking at now is essentially the one from 17 September. What changed is that the tool can finally see it.
+
+So iterations 1–3 reported `pass` on a page you could see was broken. That's the finding — three green lights on a broken reproduction is a worse bug than anything on your list.
+
+## 4. Your three observations, checked
+
+I ran the structural gate directly. It's made of four probes, and it reports only their combined verdict to the console:
+
+| probe | what it asks | result |
+|---|---|---|
+| fidelity | does geometry match at the captured widths? | **pass** (0.89px) |
+| on-sample | does anything overlap at those widths, as-is? | **pass** |
+| **off-sample** | does it hold at widths *between* the captured ones? | **fail** |
+| **content-robustness** | does it hold if the text grows? | **fail** |
+
+**Your #3 — backgrounds and boxes not connected to their text.** This is content-robustness, and it fails at all six widths with 19–21 text-over-text overlaps each. The probe's own description of what failing it means:
+
+> *A purely-pinned region fails here (growing text overruns a fixed-y sibling); a flow region survives (siblings reflow).*
+
+"Pinned" means a box placed at a fixed coordinate instead of attached to the content. That is exactly what you described. The engine already recognises it — it promoted five regions to flow — and the overlaps survived anyway.
+
+**Your #1 — hero tied to browser width and the fold.** Two separate failures.
+
+*Width:* geometry is stored as fixed points at six widths and interpolated between them. The off-sample probe tests 500px, and it fails there with two overlaps — so the in-between widths are known-bad.
+
+*The fold:* each width carries exactly one window height (320→800, 768→1024, 1440→900, and so on). Height is never varied on its own. So anything sized to the bottom of the fold is baked to a single window height and cannot track a vertical resize. That's a limit of what gets captured, not a mistake in the copy — which is why it fails "in complicated ways."
+
+**Your #2 — gradient text on the masthead.** Partially seen. There are gradient differences on six elements, and oddly the reproduction invents a "gradient" whose two colours are identical where the original has none. But gradient fill *on text specifically* isn't a property the comparator knows about at all.
+
+That's worth understanding generally: **"unmeasured 5" means five *known* things it couldn't check.** A property nobody has taught it about doesn't show up as a blind spot — it's simply invisible. The blind-spot counter can't count what it doesn't know exists.
+
+## What I'd do
+
+The console is compressing a four-part structural result into one word, which is why five days of your attention went to pixel deltas while three real defects sat underneath. Two things worth filing, and I'd suggest:
+
+1. **The console reports structural failure as one word** — the four probes and which failed should be on the page, not behind a separate command. This is the one that cost you the time.
+2. **Your three defects**, which the evidence supports as one root cause plus two: pinned-not-flow geometry, single-height capture, and unknown text-gradient axis.
+
+Say which and I'll write them. I haven't filed anything yet.
 
 <!-- xgd-chat-end -->
