@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:37:39.221680+00:00'
+updated_at: '2026-09-22T21:42:08.295781+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3359,5 +3359,11 @@ The counter-question — "is anything unpublished, and against what revision" �
 ---
 
 One caution as you head back to dev: **this probably won't reproduce locally.** The 128 MB ceiling is a production Workers isolate limit; Node and local workerd have far more headroom, so the same code will just be slow. If LF chats fine in dev, that's not evidence the problem is gone — and publish will look fine there too, right up until it isn't.
+
+<!-- xgd-turn id="fd49ae66-fcc1-4176-8d5e-4b37be304031-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:42:08.078121+00:00" -->
+#### You
+That's fine - but I see two problems: (1) we need to keep the digest calculation cheap agreed lets do that (2) separately I am worried that our "publish" function will blow the memory budget pretty fast on a real site - LF is one page with 5 images (and no photos btw). A real site could have a dozen pages with twice that number of images on each - and I would not call that big...
 
 <!-- xgd-chat-end -->
