@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-136
 created_by: xgd
 created_at: '2026-09-22T00:20:40.959810+00:00'
-updated_at: '2026-09-22T00:37:11.966964+00:00'
+updated_at: '2026-09-22T00:41:28.916168+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,11 @@ skip  published_assets_resolve
 New `tests/test_UAT_FC_BUG-136_smoke_runs_without_arguments.test.ts` — 14 tests, each of the four proven to both run *and* fail against the apex breakage it owns. Regression scope (BUG-57, REQ-147, REQ-144, REQ-246, the reconciliation suite) green: **66 passed** on merged `xgd-working`.
 
 Commits `516be6fbfe` + auto-bump `25ee87d90a` (v0.2.315), `story_points: 3`. Branch merged and cleaned; promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="29f974a9-9cb2-403d-8f63-31a97bbba01c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T00:41:28.693111+00:00" -->
+#### You
+Is this finished
 
 <!-- xgd-chat-end -->
