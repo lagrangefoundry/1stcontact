@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T00:01:14.422159+00:00'
+updated_at: '2026-09-22T17:50:43.914044+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2535,5 +2535,11 @@ Three other things went in:
 I scoped `apex_resolves` explicitly *out*: it's failing correctly, and nothing in the fix should make that quieter.
 
 Four tickets now queued behind the go-live — BUG-136 (smoke), plus BUG-135 and REQ-294 already landed, and the ones from §I16/§I19/§I20 still unfiled. Say the word if you want those filed too, but the thing that closes BUG-136's own "done looks like" is publishing the apex — which is still the next step.
+
+<!-- xgd-turn id="168ef0d1-ad60-457a-bbed-dc008b792e72-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T17:50:42.322999+00:00" -->
+#### You
+after our deployment exercise, I can't log in to the dev environment, it says: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-39370'.
 
 <!-- xgd-chat-end -->
