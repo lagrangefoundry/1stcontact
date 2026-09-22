@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-20T22:14:38.052035+00:00'
+updated_at: '2026-09-22T20:22:33.233693+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1216,5 +1216,11 @@ One thing worth knowing: four of those suites initially failed in the fresh work
 2. **Left out deliberately:** moving the ⏸ release block *inside* the continuation group so the explanation and the greyed buttons are one visual block. It's a plausible third fix, but it moves DOM placement BUG-120 just settled and wasn't what you agreed to. Say the word if you want it.
 
 The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="47c6a7c7-8932-4751-8162-170b7e9a9474-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:22:32.689119+00:00" -->
+#### You
+Sorry, I am returning to this after a break, can you remind me where we are?
 
 <!-- xgd-chat-end -->
