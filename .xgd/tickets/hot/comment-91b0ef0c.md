@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:31:45.071960+00:00'
+updated_at: '2026-09-22T20:33:39.090836+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1286,5 +1286,38 @@ Could we simplify this can you create a ticket to just remove the buttons that s
 Can you also give me a button to clear the history - I like to see the history, but its long and confusing I also want to clear it at the start of a new test.
 
 Please give me a REQ for these?
+
+<!-- xgd-turn id="01f5d007-def3-479d-bb66-5e695c1fe317-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:33:37.755171+00:00" -->
+#### Claude
+Before writing it — one consequence worth naming, because it shapes the ticket.
+
+`[reproduce]` is currently the *only* control that can begin a chain from a typed address; `[run again]` and `[recapture]` both continue an existing one. So removing `[reproduce]` outright would leave no way to start a site. I've written the ticket so the surviving verb — `[recapture]` — does both jobs, which works because it always re-hits the site anyway. Net effect is one verb instead of three.
+
+**REQ-299** — `request-4f42a700`, high, 3 points, `draft`, linked both ways to EPIC-12.
+
+## Part 1 — three verbs become one
+
+`[run again]` and `[reproduce]` go. `[recapture]` survives and appears in both places they occupied: on the address row where it begins a chain, and under the iteration list where it appends to one. Both re-hit the site.
+
+The reason I wrote it as a *trap* rather than just clutter: the only bit that varied between `[run again]` and the other two was whether the reference gets re-rolled — and the operator can't answer that from the page. Answering it right means knowing the stored bundle's capture schema versus the extractor's. Yours differ right now (1 vs 4), which is why `[run again]` would have handed you an iteration that's blind to five axes without saying so. Removing it means every iteration the console produces is measured at the current schema.
+
+Label stays the word `recapture` in both spots. The "re-" is a bit off on a blank page — I made that an explicit, stated trade in the ticket, because two labels for one act would put the which-one-do-I-want question straight back.
+
+## Part 2 — `[clear history]`
+
+Empties the list, returns the console to its blank state, next chain starts at iteration 1. Two constraints I wrote in that you didn't ask for:
+
+- **It archives, it doesn't delete.** The chain directory holds AI transcripts, diffs and filed ticket ids. A button on a page shouldn't destroy that, so clearing moves it aside — page reads empty, evidence still on disk.
+- **It doesn't touch `storage/references/`.** The captured bundle has its own lifecycle and the regression rail baselines against it.
+
+Sits with the history rather than the address box, and follows the existing held/running inert rules from REQ-272 and BUG-130.
+
+One ticket, not two — same surface, same defect: the page asks for decisions it shouldn't.
+
+Two things to flag. First, the `[reproduce]` removal only works because `[recapture]` takes over starting a chain — if you actually wanted the address row to keep a distinct starting verb, say so and I'll re-scope. Second, `[run again]` disappearing means every continuation now carries REQ-272's not-comparable seam, so that marking becomes the norm rather than the exception.
+
+Ticket's in `draft` and I haven't cut a branch or written code. Say the word and I'll build it.
 
 <!-- xgd-chat-end -->
