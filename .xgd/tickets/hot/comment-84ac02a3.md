@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-300
 created_by: xgd
 created_at: '2026-09-22T21:54:12.525194+00:00'
-updated_at: '2026-09-22T22:11:12.921766+00:00'
+updated_at: '2026-09-22T22:12:59.373907+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,14 @@ Two notes for you:
 
 1. **Your live site's two existing empty pages are not retro-fitted.** Nothing creates a document-less page any more, but those two keep their state — they're recoverable by deleting and re-adding them. I deliberately left option 2 (`set_l1` at `0` creating the root) out: it invents document-level values the caller never asked for, and delete-and-re-add is one call. Say the word if you'd rather I add it.
 2. The worktree needed `./bin/1c assets` before three suites would even import (`src/generated/knowledge` is gitignored). Unrelated to this change, but worth knowing for fresh worktrees.
+
+<!-- xgd-turn id="8108fd63-b370-450f-bca5-bafdf73b31bd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:12:58.879012+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
