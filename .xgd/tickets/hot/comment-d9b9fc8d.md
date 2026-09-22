@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:11:34.092455+00:00'
+updated_at: '2026-09-22T21:12:25.141208+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3169,5 +3169,35 @@ Independently of that, the real fix is a **windowed resume** — nothing bounds 
 <!-- xgd-chat role="user" ts="2026-09-22T21:11:34.014977+00:00" -->
 #### You
 Do you want me to just choose a different tenant?
+
+<!-- xgd-turn id="4ea05d3d-e820-4dd9-bc30-ed07fadeb8a8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:12:24.554861+00:00" -->
+#### Claude
+Switching tenant would work — but it's a one-way door for that conversation, and you probably don't need it.
+
+**There's no "new chat" on the same site.** Session ids are derived, not minted:
+
+```js
+export function sessionIdFor(site) {
+  return `site-${site}`
+}
+```
+
+One session per site, forever. So "start a fresh conversation on Lagrange Foundry" isn't available — the session *is* the site. Switching tenant means switching to a **different site**, which gets you a working builder and permanently parks the Lagrange Foundry build, including its 50 MB of assets and the 253 KB conversation that produced them. You'd be able to read that transcript but never take another turn in it until the underlying fix lands.
+
+The other sites are all safe — their sessions are 313 B to 6.3 KB, three orders of magnitude under this one, and I've already proven a turn completes cleanly on this deployment.
+
+**My recommendation: let me run the trim first.** It's two minutes and fully reversible:
+
+1. Back up the 2.02 MB tool transcript to a file.
+2. Truncate it in D1.
+3. Re-run my probe against `site-site_23c1afb3…`.
+
+If the turn completes, you're unblocked **on Lagrange Foundry**, with the actual conversation — all 253 KB of chat — untouched. You lose only the tool-call history, which is a record of what the assistant did, not what either of you said, and I'll still hold the full copy on disk. If it still OOMs, I restore the backup, you've lost nothing, and we've narrowed the fix to transcript parsing rather than tool records specifically — at which point switching tenant is the right call and you'll know it rather than guessing.
+
+The one thing I'd avoid is switching tenant *first* and leaving this undiagnosed, because the same ceiling is waiting on whichever site you move to — just further away. Gigabyte Alchemy is already at 2.58 MB of assets and a 6 KB session; it's the same road, earlier on.
+
+Say go and I'll run the trim now.
 
 <!-- xgd-chat-end -->
