@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:17:55.532431+00:00'
+updated_at: '2026-09-22T23:24:57.440277+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3090,5 +3090,15 @@ And the message you're seeing is BUG-121 working. It's the only reason your prom
 Your 23:04:41 re-send behaved differently: it ran 8m43s, spawned a worker that finished at 23:07:13, then closed `status: error` at 23:13:24. `closePending` ran, so the `finally` *did* execute — yet the transcript still didn't grow. The missing spend row is explained (spend only rides the `DONE` event); the missing fold is not, because `sync` is inside the library's `finally`. So there's a second failure where a turn that errors after real work still tells you nothing was recorded, and I don't yet know what the error was.
 
 Recorded as Finding 10 on EPIC-19. Want me to file the durable-junction ticket, and a separate one for that errored-turn fold? I haven't created either — say the word.
+
+<!-- xgd-turn id="14192e95-51a4-47d0-a2ab-e57f80ab2cdc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:24:57.308511+00:00" -->
+#### You
+**The real fix:** the durable junction. That's Finding 4's standing item and it's the thing that also makes a production isolate eviction non-destructive. <-- we will need this. We cannot gate deploy on "no users have turns in-flight"
+
+This is probably an upstream fix, yes? If so, please create an REQ there.
+
+Also the chat is supposed to apply timestamps to all turns with a specific scheme - the scheme is working but the labels only apply to the last turn - I want them all the way back...also and LF ticket?
 
 <!-- xgd-chat-end -->
