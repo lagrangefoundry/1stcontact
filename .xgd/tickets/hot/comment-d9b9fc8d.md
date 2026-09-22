@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T18:02:24.552116+00:00'
+updated_at: '2026-09-22T18:02:49.156424+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2635,5 +2635,11 @@ Can you do the data fix to give me access to my chats?
 <!-- xgd-chat role="assistant" ts="2026-09-22T18:02:23.338063+00:00" -->
 #### Claude
 Yes — but let me look carefully first, because the destination already holds empty sessions on the ids I'd need to move onto.
+
+<!-- xgd-turn id="9005991c-074d-4aee-9be1-7b091e75e316-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T18:02:47.180217+00:00" -->
+#### You
+There is no chat content on production that I want to preserve you can blow anything there away
 
 <!-- xgd-chat-end -->
