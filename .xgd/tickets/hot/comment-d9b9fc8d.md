@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T18:02:49.156424+00:00'
+updated_at: '2026-09-22T18:05:05.261267+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2641,5 +2641,61 @@ Yes — but let me look carefully first, because the destination already holds e
 <!-- xgd-chat role="user" ts="2026-09-22T18:02:47.180217+00:00" -->
 #### You
 There is no chat content on production that I want to preserve you can blow anything there away
+
+<!-- xgd-turn id="9005991c-074d-4aee-9be1-7b091e75e316-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T18:05:04.508360+00:00" -->
+#### Claude
+That makes it much simpler. Let me finish the inspection — my child-count query returned 0 for everything, so comments don't attach the way I guessed.
+
+Now I have the structure — comments attach via `fields.subject_uid`, with kinds `chat_transcript` and `tool_transcript`. And `chat-fa105276` holds a 253KB transcript plus a 2MB tool transcript. Let me get the full picture.
+
+Complete picture. Only **Lagrange Foundry** needs fixing:
+
+| uid | session_id | bytes | |
+|---|---|---|---|
+| `chat-fa105276` | `site-site_936dd7c9…` (**local** site) | **2,274,004** | imported — the real one |
+| `chat-e3df9535` | `business-biz_5b101742…` (**local** biz) | 8,254 | imported |
+| `chat-b423e25d` | `site-site_23c1afb3…` (prod site) | 313 | empty placeholder |
+| `chat-442b6c4a` | `business-biz_33086a94…` (prod biz) | 317 | empty placeholder |
+
+1st Contact and XGD have only empty placeholders — their `--chats` copies never ran. Gigabyte Alchemy's 6KB session is already on the correct production id, so it needs nothing.
+
+Let me check the fields before I touch anything.
+
+Two fields carry the source ids, not one — there's also `backend`:
+
+```
+"backend":"claude+site:site_936dd7c92e5e14df694dd9a80433aa4f"
+"backend":"claude+business:biz_5b101742d436573a04a2512fb7ecdbb5"
+```
+
+That matters — the backend reference is what actually binds a session to its subject. And the titles differ in kind: `chat-fa105276` is titled *"Lagrange Foundry — initial website build"* (human, keep it), while `chat-e3df9535`'s title just mirrors its session id (rewrite it).
+
+Its `frame` field is also intact — the whole standing engagement note, palette decisions, rejected approaches, unfiled bugs. Worth preserving carefully.
+
+Backing up the rows I'm about to change first.
+
+Backup saved to `storage/backups/chat-fix-before.json`. Now the fix — placeholders out first, so there's no collision when I repoint.
+
+Done. Lagrange Foundry now has exactly two sessions, both on production ids with their transcripts attached:
+
+| session_id | backend | bytes |
+|---|---|---|
+| `site-site_23c1afb3…` | `claude+site:site_23c1afb3…` | **2,274,004** |
+| `business-biz_33086a94…` | `claude+business:biz_33086a94…` | 8,254 |
+
+**Open the Lagrange Foundry site in the deployed builder** — the conversation should be there, including the `frame` note with your palette decisions, the settled section shape, the rejected approaches and the unfiled bug list.
+
+What I did:
+- Backed up all six affected rows to `storage/backups/chat-fix-before.json` first
+- Deleted the two empty placeholders and their comments (4 rows, 313–317 bytes each — nothing but auto-created stubs)
+- Repointed `session_id` **and** `backend` on both imported sessions
+
+The `backend` field was the one that would have bitten you if I'd only done `session_id` — it's what actually binds a session to its subject, and a stale `backend_ref` is its own failure mode. I've noted it on BUG-137 territory; the fix there needs to rewrite both.
+
+Titles handled differently by kind: `chat-fa105276` keeps its human title *"Lagrange Foundry — initial website build"*; `chat-e3df9535`'s title only mirrored its session id, so it was rewritten to match.
+
+**1st Contact and XGD still have only empty placeholders** — their `--chats` copies never ran. Don't run them yet: BUG-137 is unfixed, so they'd land orphaned exactly as these did. Either wait for the fix, or run them and tell me and I'll repeat this repoint — it's mechanical now that I know the shape.
 
 <!-- xgd-chat-end -->
