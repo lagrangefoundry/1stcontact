@@ -5,10 +5,10 @@ type: request
 title: An operator console for tenant cost
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:45.407051+00:00'
-updated_at: '2026-09-21T23:44:45.407051+00:00'
+updated_at: '2026-09-22T17:59:02.054346+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
@@ -27,6 +27,29 @@ amount of tidying makes it into one.
 
 Nobody can answer "which tenant is costing us money this month" without a
 surface. That question decides pricing, caps and whether delegation worked.
+
+## Two things, and the first has no content of its own
+
+This ticket builds **an operator console** and **its first control**, and they
+are deliberately two artefacts rather than one:
+
+1. **The console** — chrome and a registry, and nothing else. It knows how to be
+   opened, how to be gated, and how to mount a list of named controls. It knows
+   nothing about spend, or about any other subject a later control will have. A
+   console with no controls registered renders as an empty console rather than
+   as a broken one, and that state is asserted: it is what "no content of its
+   own" means in a form the next hand cannot accidentally undo.
+2. **Tenant cost** — the first of many controls, in its own module, registered
+   with the console. Everything below about lists, expansions and periods is
+   this control's, not the console's.
+
+**It is not a tab.** The tab strip is uniformly business-scoped ([[REQ-179]]) —
+that uniformity is what lets the business switcher sit above it with no
+exception to explain — and this console is about every tenant at once. So it
+lives where the other non-business-scoped surface lives: an action in the
+shell header's trailing slot, beside the account avatar, opening a dialog. The
+account surface's own reasoning applies unchanged, and is the reason a tab is
+refused rather than merely not chosen.
 
 ## The gate: not "level 0", and this matters
 
@@ -47,6 +70,13 @@ A caller who does not own the platform business gets the same answer they get
 for any other business they hold nothing on — not a hidden control, and not a
 different-looking refusal that tells them the console exists.
 
+**The chrome is told, and being untold is not the gate.** `/api/businesses`
+already answers facts about the session, and it gains one: whether this session
+owns the platform business. The header action renders on it. Every route the
+console reads asks `ownsPlatformBusiness` again for itself, because a control
+that is merely unrendered is refused to nobody who can type a URL — the same
+two-layer shape `canFulfil` and `/api/admin/businesses` already have.
+
 ## What this ticket does
 
 ### The list
@@ -57,6 +87,11 @@ cost per engaged hour — the three numbers from REQ-293, and no new arithmetic.
 
 A tenant with no measured turns in the window is absent rather than zero, the
 same rule the record itself keeps: nothing, never zero.
+
+A tenant whose turns are all **unpriced** has no cost, which is not a cost of
+zero, so it cannot take a position in a descending order of money. It sorts
+after every tenant that has one, and its unpriced count is what says the blank
+is a gap in `prices.json` rather than a free month.
 
 ### The expansion
 
@@ -85,6 +120,68 @@ from the start — a billing question will want a calendar month and an
 investigation will want a day, and retrofitting that later means rewriting every
 query.
 
+## How it is built
+
+### Where the default lives, and why not on the route
+
+`/api/admin/spend`'s contract is REQ-293's and is not superseded here: both ends
+of the period are optional and **absent means unbounded**, because the meter is
+retained rather than pruned and "everything this tenant has ever spent" is a
+question it must still be able to answer. A 30-day default on the route would
+quietly change that answer for a caller who asked for everything.
+
+So the default is the **console's**, and it is a declared constant beside the
+console's other chrome. The control names the window it wants in the request it
+makes, and the operator can change it on the surface — a number of days, which
+is the form a `from`/`to` pair takes when a person is asking "how much lately".
+A calendar month remains expressible on the wire without the control growing a
+date picker.
+
+### The per-day figures are REQ-293's report, once per day
+
+Each day's row is `spendReport` over the turns that BEGAN that day — which is
+byte-for-byte the answer `/api/admin/spend?business=…&from=<day>&to=<day+1>`
+gives, because that is the same function over the same rows. It is computed
+from one range read of the window rather than one read per day, and the
+bucketing is by `started_at`, so a turn belongs to the day somebody sat down —
+the same rule the period itself keeps, and the only one under which adjacent
+days neither double-count a turn nor drop one.
+
+A day with no measured turns is **absent from the list**, not a zero row.
+
+### The league is a fan-out of scoped reads, not one unscoped sweep
+
+`idx_turn_spend_tenant` leads with `tenant_id` and says why: *"every legitimate
+read of a meter is scoped to whose meter it is — an unscoped total is not a
+question anybody asks and not one this product should make cheap."* This
+console's question is still per tenant; what is new is that it asks it of every
+tenant and sorts the answers. So it enumerates the tenants with rows in the
+window and then reads each one's period through the same `tenantSpendReport`
+every other caller uses — which is both what the index is shaped for and what
+makes condition 7 true by construction rather than by comparison.
+
+### What a delegated entry costs, and which model it ran on
+
+A stored `attributed` entry carries `{session, role, backend, usage}` and the
+worker's session id — it does **not** carry a model, because the framework's
+delegation surface does not put one there. The price key is
+`(backend, model)`, so the model has to come from somewhere, and the only
+truthful source is the document that decides it: `backends.json`, which is what
+binds `claude_builder` to `claude-haiku-4-5` and is the same document
+`delegation.ts` resolves a worker's backend against.
+
+It is resolved at READ and the caveat is stated rather than hidden: this names
+the model the deployment CONFIGURES that backend with today, which is not
+necessarily what ran months ago. The turn's own model is stored on the row and
+is never inferred this way. Pricing itself is `costMicros` — spend-core's own
+function, the same one that settled the turn — so a delegated entry is priced
+against its own rates and never at the caller's, which is the whole reason the
+price key has two levels.
+
+A tenant that delegated nothing in the window has **no delegated figure**,
+absent rather than zero — because this deployment ships delegation off, and
+"asked and found none" is a different claim from "there is no such thing here".
+
 ## What must be true when this is done
 
 1. A caller owning the platform business sees the console; every other caller
@@ -100,6 +197,11 @@ query.
 6. The period is a parameter; the default is 30 days.
 7. The numbers match what REQ-293 reports for the same tenant and period — this
    console renders that report and does not compute a second opinion.
+8. The console is chrome and a registry: with no controls registered it renders
+   as an empty console, and it names no subject of its own. Tenant cost is one
+   registered control and the console does not know what it is about.
+9. The console is not a tab, and the tab strip remains uniformly
+   business-scoped.
 
 ## Not in scope
 
@@ -112,3 +214,15 @@ Anything about a tenant other than its spend.
 
 REQ-292 and REQ-293. There is nothing to render until both are reconciled and a
 period of records exists.
+
+## Test plan
+
+- `tests/test_UAT_FC_REQ-297_operator_console.test.ts` (jsdom) — the console's
+  own emptiness, the control registry, the header action's presence and absence,
+  the rendered list and its order, the expansion's day rows and its two
+  labelled figures, and the 30-day default being a parameter that moves.
+- `tests/test_UAT_FC_REQ-297_tenant_cost.workers.test.ts` — the two routes
+  against a real D1 in workerd, through `route()` with a real admission: the
+  gate answering 404, the order, the absent-not-zero rules, the per-day figures
+  equalling `tenantSpendReport` for the same day period, and a delegated split
+  priced against the worker's own backend.
