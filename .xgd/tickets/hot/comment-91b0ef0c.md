@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:18:27.562957+00:00'
+updated_at: '2026-09-22T22:22:25.229097+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1841,5 +1841,57 @@ Want me to scope #2 under EPIC-12? It's the one that turns "should I give it mor
 <!-- xgd-chat role="user" ts="2026-09-22T22:18:27.148080+00:00" -->
 #### You
 ok so on 3 as far as I am concerned I am still trying to get confidence that the system as constructed can work. Once I have that we will expand it. But even on three sites we are really struggling. The problem is that the errors (such as issue 3) is egregious. I can understand the text color gradient being missed (except it feels like it should be trivially easy to get right) but its acceptable and fixable. But the discontinunity between text and text backgrounds feels lie a structural failure and is certainly completely unacceptable
+
+<!-- xgd-turn id="16b3d6e0-4e85-428d-959b-ef624371a898-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T22:22:24.648417+00:00" -->
+#### Claude
+I ran the gate on gigabytealchemy rather than reason about it. The picture is different from what the one-word verdict implies.
+
+## What the engine is actually doing
+
+```
+sampleFidelity   pass   maxDelta 0.89px   residuals 0
+onSample         pass   0 findings at all six captured widths
+offSample        FAIL
+contentRobustness FAIL
+recovery: served=true  promoted=[0.14, 0.15, 0.16, 0.17, 0.19]
+          base 287 findings → recovery 116
+```
+
+So flow recovery is not shelved — `chooseRecovery` ran, the recovery won on all five conditions, and it *is* the served document. It found the right five regions and cut perturbed overlaps from 287 to 116. Fidelity cost: none (0.89px, zero residuals).
+
+## The shape of what survives
+
+I classified all 118 surviving findings:
+
+- **98 of 118 (83%)** are between nodes at *different depths* — not sibling pairs
+- **106 of 118 (90%)** are *inside a region the recovery already promoted*
+
+Examples: `0.15.4` ("A voice-first app that helps you…") overlaps `0.15.11.0` (`✓`) and `0.15.11.1` ("Completely on-device…"). `0.14.10` overlaps `0.14.11.1.1`.
+
+Inspecting the recovered tree: `0.15` is a container the recovery built, with 14 children — six plain text runs in flow, and eight **band containers** it created to hold things like `✓` + its label. The collisions are between a flow text run and the *descendants inside* those bands.
+
+That is not "L1 can't express flow." It's: the recovery flows a region one level deep, and the bands it creates to do so carry their own members with captured offsets inside the flow it just built.
+
+## Which is the answer to your confidence question
+
+You're right that the symptom is unacceptable. I don't think it's structural, and here's the distinction that matters:
+
+**90% of the residue is concentrated in one shape, inside machinery that already ran and already worked.** That's a bounded defect with a name. A structural failure would look like diffuse breakage everywhere, or recovery declining to run, or fidelity and robustness trading against each other. None of those are happening — fidelity is 0.89px *and* on-sample is clean *and* the recovery was free.
+
+**But the loop had no way to see that.** Getting from `structural-failure` to "83% cross-depth, 90% inside promoted regions" took four commands against `gate.json` — a file the round already has. Nothing prompted it to run them. So a defect that is one recursion level deep reads to the operator, and to the round, as the approach not working.
+
+That's the real finding here, and it's exactly the loop-level thing you were asking about two turns ago: **the instrument's reporting is what makes a diagnosable defect look structural.** Fixing the verdict isn't cosmetic plumbing — it's the difference between the loop filing "recovery doesn't recurse into its own bands" and filing "the page is broken."
+
+## What I have not established
+
+I have the signature, not the mechanism. I can see the collisions are cross-depth inside promoted regions; I have *not* proven why two in-flow siblings collide under perturbation — whether the band containers fail to advance the flow cursor by their perturbed content height, or something else. That's one targeted experiment, not a guess I should make here.
+
+On the gradient: agreed it should be cheap. It's a fold axis, not a structural question, and it's independent of all of this.
+
+Two notes: I ran `1c refold` on the bundle (regenerated `l1.json` from its own retained oracle — no material change, 70 nodes either way), and left the diagnostic script at `storage/tmp/diag/recover.mjs`.
+
+Want me to scope the verdict-reporting fix under EPIC-12, run the mechanism experiment first, or both?
 
 <!-- xgd-chat-end -->
