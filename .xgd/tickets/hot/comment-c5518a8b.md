@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-295
 created_by: xgd
 created_at: '2026-09-21T23:35:42.313528+00:00'
-updated_at: '2026-09-22T00:48:55.851775+00:00'
+updated_at: '2026-09-22T19:57:58.937939+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -169,5 +169,11 @@ Two things worth flagging:
 - **This landed first relative to REQ-296.** No entry in `backends.json` declares `contextWindow`, so REQ-296 lands second and carries the responsibility to give *both* entries a declared window — the worker's included.
 
 The switch ships off, so nothing is enabled ahead of REQ-296 or a REQ-292/REQ-293 baseline. The ticket is parked at `free_coded`; promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="742d645b-e29d-4b9d-ac35-c7903eb67140-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T19:57:57.860685+00:00" -->
+#### You
+Is this now working in production? I would like the default to be configured to be on
 
 <!-- xgd-chat-end -->
