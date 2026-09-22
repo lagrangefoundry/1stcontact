@@ -5,9 +5,9 @@ type: request
 title: An operator console for tenant cost
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:45.407051+00:00'
-updated_at: '2026-09-22T18:31:07.561015+00:00'
+updated_at: '2026-09-22T19:02:59.422419+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -282,3 +282,29 @@ period of records exists.
   gate answering 404, the order, the absent-not-zero rules, the per-day figures
   equalling `tenantSpendReport` for the same day period, and a delegated split
   priced against the worker's own backend.
+
+
+## The flag has to arrive, not merely be answered
+
+`/api/businesses` reporting `ownsPlatformBusiness` is half of "the chrome is
+told"; the other half is that the builder's own reader of that endpoint
+**carries the field through to the mount**. It did not. `fetchBusinesses`
+rebuilds its result from a named list of fields — `person` and `businesses` —
+so a third fact the endpoint answers was dropped on the floor between the wire
+and `mountBuilder`. The server said `true`, the gate function was correct, the
+shell renders every action it is given, and the operator still had no Console:
+every part worked and the value never crossed the seam between them.
+
+So the reader carries the whole session fact, and the absence of the action is
+a statement about the session rather than an artefact of which fields a client
+function happened to name. Its two refusal paths — a non-OK response and a
+caught failure — say `false` explicitly for the same reason the mount defaults
+to `false`: a session we could not ask about does not own the platform
+business, and the failure mode of a dropped field must stay "no console"
+rather than becoming "an offered one".
+
+This is asserted end to end and not at the gate alone. The existing cases call
+`consoleActions` directly with the flag already in hand, which is why a reader
+that never passed it on was invisible to all of them: the assertion that
+matters is that a response carrying `ownsPlatformBusiness: true` reaches
+`mountBuilder` as `true`, over the same function the browser calls.
