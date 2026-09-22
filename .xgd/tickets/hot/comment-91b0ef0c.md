@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T21:28:01.306821+00:00'
+updated_at: '2026-09-22T21:30:56.449111+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1689,5 +1689,48 @@ Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usa
 <!-- xgd-chat role="user" ts="2026-09-22T21:27:59.769532+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="bea0b9db-06b4-4592-9a5b-5a3431a9a8e7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:30:55.714213+00:00" -->
+#### Claude
+You're right, and the fault is mine — I answered in the vocabulary of your site when every one of those findings is a statement about the engine. Let me restate them properly.
+
+## The engine-level version
+
+| what I said about the site | what it says about the engine | filed? |
+|---|---|---|
+| "boxes don't move with their text" | **The fold emits pinned coordinates where it should emit flow.** It pins a box at an absolute y instead of attaching it to the content above. Any page whose text can grow — i.e. any page — breaks. | **REQ-278** |
+| "fails at in-between widths" | **The geometry model interpolates between keyframes it never validates.** It stores exact geometry at 6 widths and guesses linearly between them. Nothing checks the guess, so widths nobody sampled are unverified by construction. | not filed |
+| "gradient text isn't reproduced" | **The comparator has no axis for it, so it is invisible rather than unmeasured.** | not filed — and this is the interesting one |
+
+## One correction
+
+Last turn I told you the engine never varies window height independently, so it can't express "size to the fold." **That was wrong.** REQ-88 already built it: the capture shoots one extra projection at 1280×**1000** specifically to make the height axis identifiable, the fold reads it as a finite difference, and your stored capture has it (7 projections, not 6). The code even explains why one pair is the minimum.
+
+So the mechanism exists. If hero-to-fold is still wrong, it's a defect *in* that mechanism, not an absence of it — a different and much cheaper ticket.
+
+## The two I proposed, at engine level
+
+**1. The loop's instrument reports one word where it measured four things.**
+
+The structural gate runs four probes. Two passed, two failed. The console prints `structural-failure` and nothing else. That is an *engine-harness* defect with a price tag: three rounds, ~$21, spent on sub-pixel value deltas because the operator surface never said which probe objected. The fix is plumbing — surface the four results — and it makes every subsequent round cheaper.
+
+**2. The headline number systematically understates.**
+
+REQ-277 made `unmeasured` the number to drive down, on the reasoning that a blind spot is worse than a known defect. Correct — but `unmeasured` counts only axes the comparator *knows about and couldn't read*. An axis nobody has taught it doesn't appear at all. So the number you're being told to drive to zero can reach zero while real properties go unexamined.
+
+That's an honesty gap in the instrument, and REQ-275 (the capture-completeness audit — mechanically diff the CSS properties a page uses against what the capture records) is the thing that closes it. It's filed and unbuilt, and on this evidence it's the highest-leverage item in the epic: it converts "discover one missing axis per $7 round" into one list in one pass.
+
+## What I'd actually file
+
+Only two, both engine-level and neither about your site:
+
+- **The structural gate reports one verdict for four probes** — the harness defect that cost the three rounds.
+- **The interpolation model is unverified between keyframes** — off-sample is failing, and it's a distinct geometry defect from REQ-278's pinned-vs-flow.
+
+The gradient axis needs no ticket of its own; it's an instance of what REQ-275 exists to enumerate. And the hero-to-fold item I'd hold until someone checks whether REQ-88's height response actually fired on this capture — it may be a bug in existing machinery rather than new work.
+
+Say which and I'll write them.
 
 <!-- xgd-chat-end -->
