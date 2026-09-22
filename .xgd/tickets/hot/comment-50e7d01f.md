@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-21T23:48:25.746961+00:00'
+updated_at: '2026-09-22T01:22:38.774447+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -925,5 +925,15 @@ That also gives the free-coding pass something to trace a UAT to — "default of
 **REQ-295 and REQ-296 both edit `backends.json`.** 295 adds the worker entry naming `claude-haiku-4-5`; 296 adds `contextWindow` to every entry. No conflict in substance, but **whichever lands second owns making the worker entry carry both**. A worker backend with no declared window is precisely the case REQ-296's guard can't protect, and it would read as configured rather than as missed — a silent gap, in the flattering direction.
 
 So: 295 proceeds, merges, ships off. 296 is the thing to start now if you want the switch to be flippable soon.
+
+<!-- xgd-turn id="0736ee9d-b2d0-4f58-a24a-bf139c79803a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T01:22:37.457931+00:00" -->
+#### You
+Lets talk about model benchmarks - dropping to open weight models is likely to be a real option before we get to any scale, but how do we know that we are not compromising quality by doing so?
+
+My suggestion is we create a handful of packages - a business description, some assets (photos and graphics) and a handful of canned prompts. We create a test business, up load the materials and feed the prompts in one by one at the end of the process we look at the quallity of the website, the effectiveness of the discussion and the cost.
+
+Thoughts?
 
 <!-- xgd-chat-end -->
