@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:44:17.859959+00:00'
+updated_at: '2026-09-22T23:11:11.118606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3423,5 +3423,11 @@ That takes publish from O(site) to O(largest single asset) — the only shape th
 - **C**: ladder streams instead of accumulating; add a byte-based refusal beside the rendition-count one.
 
 Recorded as §I26 on EPIC-16. A is a contained change I can scope and free-code now while you work in dev. B is the real architectural one and wants its own design pass — it changes how assets are stored, so it'll touch the upload path and want a migration for existing sites. Want me to start on A?
+
+<!-- xgd-turn id="d434cb4f-aed0-496a-83ab-b5c34de619f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:11:11.044667+00:00" -->
+#### You
+No you are an Epic you do not code. Please create REQ tickets for all this work
 
 <!-- xgd-chat-end -->
