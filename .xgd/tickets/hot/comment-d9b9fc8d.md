@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-21T23:59:56.720866+00:00'
+updated_at: '2026-09-22T00:01:14.422159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2509,5 +2509,31 @@ Failed: apex_resolves
 ```
 
 Can we fix the smoke tests? and why are so many skipped - I think we fix them or delete them, skipped tests are code debt
+
+<!-- xgd-turn id="aa34f644-77ef-47ec-8e44-885c79b401c9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T00:01:13.626307+00:00" -->
+#### Claude
+Two different things in that output, and only one is a smoke defect.
+
+**`apex_resolves` is not a bug.** Nothing has been published anywhere yet — zero `site_revisions` on both sides — and `APEX_SITE_KEY` is still `""`. The apex 404s exactly as an unpublished site does, which is what `public-site/src/index.ts` says it should. That clears when you publish and set the key.
+
+**The seven skips are debt, and you're right about them.** The header's reasoning — *"a key is 128 random bits and this script takes no dependency that could ask D1 for it"* — is sound about D1 and leads to the wrong conclusion, because four of those six checks don't need a key at all.
+
+**BUG-136** — *bin/smoke skips seven of ten checks, and four of them need no argument*.
+
+The core of it: `APEX_SITE_KEY` names a **published site served at the root of the host**, so when an apex is configured the apex *is* the published channel. Four of the six skipped checks — the asset crawl, content types, cache policy, and 404-on-miss — have a target already and need no key. Only `published_root_redirects` (which asserts the `/site/<key>` grammar) and `unpublished_site_indistinguishable` (which needs a key that exists but has published nothing) genuinely require the argument.
+
+The header's no-dependency rule is worth keeping and doesn't force the skip. Reading a line out of `apps/public-site/wrangler.toml` isn't the dependency it argues against — asking D1 is.
+
+Three other things went in:
+
+- **`control_app_workers_dev_closed`** guards a live exposure (`public-site` still declares `workers_dev = true`), and BUG-57 already records that making the operator retype a derivable origin is what left the REQ-147 gate unchecked by default. Same argument.
+- **`unpublished_site_indistinguishable` can report `pass` having asserted nothing** — its "the site has a live revision; nothing to compare" branch. A check that passes without asserting is indistinguishable from one that holds.
+- **Skips must say what would make them run**, and the summary must distinguish "not applicable to this deployment" from "nobody supplied an argument". Right now both get the same word.
+
+I scoped `apex_resolves` explicitly *out*: it's failing correctly, and nothing in the fix should make that quieter.
+
+Four tickets now queued behind the go-live — BUG-136 (smoke), plus BUG-135 and REQ-294 already landed, and the ones from §I16/§I19/§I20 still unfiled. Say the word if you want those filed too, but the thing that closes BUG-136's own "done looks like" is publishing the apex — which is still the next step.
 
 <!-- xgd-chat-end -->
