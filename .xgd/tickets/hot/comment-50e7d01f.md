@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T21:46:40.055290+00:00'
+updated_at: '2026-09-22T21:49:53.670994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1165,5 +1165,44 @@ REQ-298 now names both upstream tickets at the point where it documents its two 
 <!-- xgd-chat role="user" ts="2026-09-22T21:46:39.600286+00:00" -->
 #### You
 Its important that the cost in tokens and dollars is split between primary model and delagates - I was assured that we are storing it that way
+
+<!-- xgd-turn id="84ea5bbb-35fe-4f3e-9f8e-2ebd61e3d22d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:49:52.289600+00:00" -->
+#### Claude
+I'll check what's actually stored rather than repeat the assurance.
+
+Verified against the schema, the pricing module, the report layer and the route. The assurance holds for dollars; for tokens it holds in storage but not in the reports.
+
+**Yes for dollars, everywhere. Yes for tokens in storage, no for tokens in the reports.**
+
+## Storage — split by construction
+
+`turn_spend` holds the principal's four counters as their own columns, and `cost_micros` is settled from **that row's** `(backend, model)` only — `costMicros(usage, facts.backend, facts.model)`. Nothing delegated is in that figure.
+
+The delegate's spend sits in a separate `attributed` JSON column, kept whole: each entry carries its own `session`, `role`, `backend`, `usage` and `requests`. It is deliberately **not** flattened into the row's counters, and the migration says why — folding it in would price a worker's tokens at the caller's model, which is exactly the error the two-part price key exists to prevent. `attributedSpend()` prices each entry against its own key, resolving the model from `backends.json`.
+
+So both halves survive in tokens *and* in dollars, at their own rates.
+
+## Reporting — split preserved, and never summed
+
+`GET /api/admin/spend` returns two objects, not one:
+
+- `report` — principal, split by role and by model
+- `delegated` — delegated, split by model with the backend alongside
+
+The module states the rule it's enforcing: the true total is `usage + attributed`, and one combined number would under-report every delegating turn *in the flattering direction* — a delegation that moved no work would look like one that worked. `delegated` is `null`, never a zeroed report, for a tenant that delegated nothing.
+
+## One real gap
+
+**The aggregates report dollars, not tokens.** `SpendTotals` gives turns, engaged time, cost, unpriced count, cost-per-hour. `DelegatedSpend` gives entries, cost, unpriced count, `byModel`. Neither surfaces the four counters on either side.
+
+The tokens are retained per row — principal in columns, delegate inside the JSON — so any token question is answerable from the table, but not from the console or the API. Fine for billing; inadequate for the open-weights re-pricing question this epic exists to keep answerable. I haven't filed it: it's a read-layer addition to REQ-293's shape, not a storage change, and better decided once there's a week of real rows.
+
+## Caveat on "proven"
+
+Delegation ships off (REQ-295), so `attributed` is NULL on every production row today. The split is proven by UAT (`test_UAT_FC_REQ-292_a_delegated_workers_spend_is_kept_whole`), not yet by a real delegation.
+
+Recorded on EPIC-20 as a dated verification section; nothing else in the body touched.
 
 <!-- xgd-chat-end -->
