@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-295
 created_by: xgd
 created_at: '2026-09-21T23:35:42.313528+00:00'
-updated_at: '2026-09-22T20:01:39.706608+00:00'
+updated_at: '2026-09-22T20:07:30.187473+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -220,5 +220,13 @@ Say the word and I'll do step 2.
 One thing to weigh: the reason recorded for shipping off is that REQ-292's spend meter needed a period of *undelegated* measurement to give the saving an after-figure to be measured against — and REQ-292 isn't deployed either, so that baseline doesn't exist yet. Turning delegation on now means the first spend data you collect is already delegated. Your decision; I just don't want it to be an accident.
 
 Also worth noting: deploying will ship REQ-292, REQ-293, REQ-295 and REQ-296 together, since none of them are in the live bundle. I haven't deployed anything — tell me when you want that done.
+
+<!-- xgd-turn id="3fee75a0-2aee-4ef4-bc38-a4429a2661ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:07:28.468006+00:00" -->
+#### You
+Separately, REQ-295 is on `xgd-working`, not yet on `main`. <-- I am tired of saying this we run from working!!!
+
+Please set the default to be true now and I will deploy the code to production
 
 <!-- xgd-chat-end -->
