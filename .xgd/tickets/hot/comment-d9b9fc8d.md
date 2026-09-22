@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:11:08.371369+00:00'
+updated_at: '2026-09-22T20:16:16.557756+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2772,5 +2772,11 @@ So there are two defensible moves, and they're different questions: **ship it of
 One thing to fold in while you're there: production's `ANTHROPIC_API_KEY` is still the invalid one from §I22. Re-supplying it through `bin/deploy` takes the *supplied* path, which probes Anthropic and fails the deploy if refused — the stored-secret path skips the probe entirely.
 
 Want me to run the `--dry-run` so you can see the hook output and the capability report before committing to it? I'll leave the real deploy to you.
+
+<!-- xgd-turn id="40e5b11c-8d4d-48f1-9fc0-dc378fc9b674-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:16:15.433678+00:00" -->
+#### You
+I believe the default is changed at my instruction. I will deploy now
 
 <!-- xgd-chat-end -->
