@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T20:41:49.467220+00:00'
+updated_at: '2026-09-22T21:46:40.055290+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1159,5 +1159,11 @@ Both carry explicit acceptance conditions, `PUBLIC-API.md` expectations (173 add
 Two things I checked rather than assumed: there were no existing framework tickets covering either gap, and the shell copy vendored into `1stcontact/apps/control-app/dist-assets` is byte-identical to `lagrange-framework/components/webui/shell/js/src`, so this is a real omission and not version drift.
 
 REQ-298 now names both upstream tickets at the point where it documents its two selector touches, and states that neither blocks it — the workarounds ship, and each becomes a one-line change when its upstream lands. No code written in the framework repo.
+
+<!-- xgd-turn id="84ea5bbb-35fe-4f3e-9f8e-2ebd61e3d22d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:46:39.600286+00:00" -->
+#### You
+Its important that the cost in tokens and dollars is split between primary model and delagates - I was assured that we are storing it that way
 
 <!-- xgd-chat-end -->
