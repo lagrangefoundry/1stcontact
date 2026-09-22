@@ -14,6 +14,7 @@ fields:
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-c7695bd0
 ---
 
 ## Why
