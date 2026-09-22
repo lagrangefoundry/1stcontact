@@ -177,6 +177,7 @@ import {
   tenantSpendReport,
   type SpendPeriod,
 } from './spend'
+import { platformSites } from './directory'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
@@ -1621,6 +1622,35 @@ export const ADMIN_SPEND_PATH = '/api/admin/spend'
  * time is derived at read, so a report can neither create nor revise a row.
  */
 export const ADMIN_BUSINESS_SPEND_PATH = '/api/admin/spend/businesses'
+
+/**
+ * Every site on the platform, which is the OPERATOR CONSOLE'S left-hand list
+ * ([[REQ-298]]).
+ *
+ * THE SAME GATE AND THE SAME 404 as the two meter routes beside it, and for
+ * {@link ADMIN_BUSINESSES_PATH}'s reason rather than a weaker one: a directory of
+ * every customer's sites is a question about the PLATFORM, not about the business
+ * the request happened to resolve to, and it names who owns each of them.
+ *
+ * IT IS NOT MERGED INTO {@link ADMIN_BUSINESS_SPEND_PATH}, and the boundary is
+ * the ticket's. That route answers the meter and is ordered by it, so a business
+ * with no measured turn is absent from it — the record's own *nothing, never
+ * zero* rule. A site with no spend must appear here, because this is a directory;
+ * folding the two would give one route two answers, decided by whether the caller
+ * wanted the quiet rows. The console joins them by business id and does its own
+ * ordering, because the ordering is a property of the surface and the period is
+ * the surface's.
+ *
+ * NO PERIOD PARAMETER. Nothing this route answers is measured over a window — a
+ * site exists, belongs to somebody and is reachable or not — so accepting one
+ * would be a parameter that changed no answer.
+ *
+ * GET AND NOTHING ELSE, for the reason the meter routes give: there is nothing
+ * here to write. A site is created by provisioning and an address by
+ * `claimHostname`, both elsewhere and both with consequences this read has none
+ * of.
+ */
+export const ADMIN_SITES_PATH = '/api/admin/sites'
 
 /**
  * The period both meter routes take, off the query string ([[REQ-293]],
@@ -3544,6 +3574,34 @@ async function routeUncached(
         period: { from: period.from ?? null, to: period.to ?? null },
         businesses: await tenantSpendLeague(env, period),
       })
+    }
+
+    /**
+     * GET /api/admin/sites — every site on the platform ([[REQ-298]]).
+     *
+     * THE HALF OF THE CONSOLE'S LIST THE METER CANNOT ANSWER. The league knows
+     * which businesses spent; this knows which sites exist, who owns them and
+     * where they can be reached — including the ones that have never cost us
+     * anything, which the league is right to leave out and this would be wrong to.
+     *
+     * THE SAME GATE, THE SAME 404, AND THE SAME LOG LINE as the routes above,
+     * written out rather than routed through a helper for the reason the ones
+     * above are: the refusal is the gate, and a gate that is one call away from
+     * every route is one edit away from being the wrong call on one of them.
+     */
+    if (p === ADMIN_SITES_PATH && method === 'GET') {
+      const admission = deps.admission
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+      return json(200, { sites: await platformSites(identityEnv) })
     }
 
     /**

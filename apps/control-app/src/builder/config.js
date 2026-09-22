@@ -109,6 +109,142 @@ export const SETTINGS_TAB = { id: 'settings', label: 'Settings', fill: true }
 export const TABS = [SITE_TAB, LIBRARY_TAB, PEOPLE_TAB, SETTINGS_TAB]
 
 /**
+ * The operator console ([[REQ-297]], re-housed by [[REQ-298]]) — a fourth header
+ * action, a FULL-SURFACE VIEW, and DELIBERATELY NOT A TAB.
+ *
+ * THE ACCOUNT SURFACE'S ARGUMENT, APPLIED A SECOND TIME, AND IT SURVIVED THE
+ * RE-HOUSING INTACT. The tab strip is uniformly business-scoped ([[REQ-179]]),
+ * which is what lets the switcher sit above it with no exception to explain.
+ * This console is about EVERY business at once, so a tab for it would be a
+ * second place where the switcher is present and silently does not apply — and a
+ * control that is present and ignored reads as a bug. [[REQ-298]] replaced the
+ * container and left this reasoning where it was: no entry is added to
+ * {@link TABS}, and the strip stays what it was.
+ *
+ * WHAT [[REQ-298]] DID CHANGE is what the action OPENS. A dialog is for a thing
+ * you glance at and dismiss; this is a two-panel surface somebody works in, with
+ * a divider to drag and a detail pane to scroll, so it takes over the shell's
+ * content region the way a tab's panel does — no scrim, nothing of the builder
+ * behind it, and Escape does not close it.
+ *
+ * IT IS RENDERED ON `ownsPlatformBusiness` AND ON NOTHING ELSE ([[DOC-42]] §7).
+ * Not on a level, not on a seniority flag, not on `platform_operator` — whose
+ * only reader is `scope.ts` and must stay so. A session that does not own the
+ * 1st Contact business gets no action, and the routes behind it answer 404 to
+ * anyone who types the URL anyway, so the absence is chrome and the refusal is
+ * the gate.
+ *
+ * IT IS DECLARED HERE, ABOVE {@link STORAGE_KEYS}, BECAUSE THAT MAP READS IT.
+ * The console's split position is namespaced by this id exactly as each tab's
+ * state is namespaced by its own, so the id has to exist before the map that
+ * derives a key from it — the same ordering the four tab declarations above are
+ * already in.
+ */
+export const CONSOLE_ACTION_ID = 'console'
+export const CONSOLE_LABEL = 'Console'
+export const CONSOLE_HINT = 'Operating 1st Contact itself. Not about one business.'
+
+/**
+ * Leaving the console ([[REQ-298]]) — the dismissal, as opposed to the navigation.
+ *
+ * TWO WAYS OUT AND THEY ARE NOT REDUNDANT. Clicking any tab is NAVIGATION: it
+ * dismisses the console and takes you to that tab, which is what "behaves like a
+ * tab" has to mean at the one seam where it is testable. This is DISMISSAL: it
+ * puts back the tab that was live when the console opened, which is the thing a
+ * person who opened the console mid-task actually wants and which no tab in the
+ * strip can express.
+ *
+ * AND NEITHER OF THEM IS ESCAPE. A transient overlay owes its reader that
+ * reflex; a surface somebody has spent twenty minutes in, with a dragged divider
+ * and a scrolled pane, owes them the opposite.
+ */
+export const CONSOLE_CLOSE_LABEL = 'Close'
+
+/**
+ * What the detail pane says when it has no sections ([[REQ-298]]), inheriting
+ * [[REQ-297]]'s claim about the console at the seam that still exists.
+ *
+ * NOT A PLACEHOLDER. The pane composes sections somebody else registered and has
+ * no subject of its own; with none registered there is genuinely nothing to
+ * show, and saying so is what stops the next hand reading a blank pane as a
+ * failure to load and "fixing" it by giving the pane content.
+ */
+export const CONSOLE_PANE_EMPTY = 'No sections are registered on this pane yet.'
+
+/**
+ * The console's own two-panel surface ([[REQ-298]]) — every site on the platform
+ * on the left, the selected site's business on the right.
+ *
+ * ONE ROW PER SITE AND NOT PER BUSINESS, which is what `SITES_TITLE` has to
+ * say without a sentence under it. A business with two sites is two rows,
+ * because the operator's question starts from something they can see published.
+ *
+ * `SITES_NONE_SELECTED` IS A STATE AND NOT AN INSTRUCTION. The pane does not
+ * pick a row on the operator's behalf: the first row is the dearest tenant, and
+ * opening somebody's spending because nothing else was chosen is a decision this
+ * surface should not make on its own.
+ *
+ * `SITE_NO_ADDRESS` IS A SENTENCE WHERE A LINK WOULD BE, never an empty anchor
+ * and never a dead one. It is the same fact `POST /api/publish` refuses on with
+ * `NO_PUBLIC_ADDRESS`, so what the console says and what the publish says cannot
+ * disagree about whether a site is reachable.
+ *
+ * `BUSINESS_NAME_MISSING` and `ACCOUNT_PLATFORM` are two different absences and
+ * are worded as two. A site whose `tenants` row has gone is a row worth
+ * noticing; 1st Contact's own site has no owner account because it is nobody's
+ * customer, which is not a gap at all. Rendering both as a blank cell would make
+ * them indistinguishable to the one person who can act on either.
+ */
+export const CONSOLE_SITES_TITLE = 'Sites'
+export const CONSOLE_SITES_EMPTY = 'No site has been provisioned on this platform yet.'
+export const CONSOLE_SITES_NONE_SELECTED = 'Choose a site on the left to see whose it is.'
+export const CONSOLE_SITE_NO_ADDRESS =
+  'This site has no public address, so there is nowhere to link to. It cannot be published either.'
+export const CONSOLE_BUSINESS_NAME_MISSING = 'No business record answers for this site.'
+export const CONSOLE_ACCOUNT_PLATFORM = '1st Contact itself — no owner account.'
+export const CONSOLE_ACCOUNT_MISSING = 'No account record answers for this business.'
+export const CONSOLE_ACCOUNT_UNNAMED = 'Unnamed account'
+
+/** The three sections of the detail pane, in the order they are read. */
+export const CONSOLE_SECTION_ACCOUNT = 'Account'
+export const CONSOLE_SECTION_ADDRESS = 'Published site'
+export const CONSOLE_SECTION_COST = 'Cost'
+
+/** What a section that could not be opened says, in its own block. */
+export const CONSOLE_SECTION_FAILED = (message) => `This section could not be opened: ${message}`
+
+/**
+ * The labels of the account section's fields, declared here for the reason every
+ * other label is: provisional chrome, addressed by code, changed in one edit.
+ *
+ * THE IDS ARE NOT DERIVED FROM THEM. A `data-field` computed by slugging the
+ * label would make renaming a heading silently re-address the element a UAT
+ * reads, which is the coupling this whole file exists to prevent.
+ */
+export const CONSOLE_FIELDS = {
+  business: 'Business',
+  businessId: 'Business id',
+  account: 'Account',
+  accountId: 'Account id',
+  status: 'Status',
+}
+
+/**
+ * The two things the console says when a read fails, and WHY THEY ARE TWO.
+ *
+ * The directory is what this surface cannot do without: without it there are no
+ * rows, so its failure empties the list. The meter is an ornament on rows that
+ * exist — an operator who came to see what we have published should not be shown
+ * nothing because the meter was unavailable — so its failure leaves the list
+ * standing, in the route's own order, with no cost beside any row and this
+ * sentence saying so.
+ */
+export const CONSOLE_SITES_UNREADABLE = (message) =>
+  `The site list could not be read: ${message}`
+export const CONSOLE_METER_UNREADABLE = (message) =>
+  `The meter could not be read, so no cost is shown: ${message}`
+
+/**
  * Per-instance persistence keys, namespaced by the shell under `APP_ID`.
  *
  * `business` is the one key here that is NOT prefixed with a tab id, and the
@@ -136,6 +272,22 @@ export const STORAGE_KEYS = {
    */
   settingsSplit: `${SETTINGS_TAB.id}:split`,
   settingsChat: `${SETTINGS_TAB.id}:chat`,
+  /**
+   * The operator console's list/detail ([[REQ-298]]).
+   *
+   * NAMED FOR THE CONSOLE AND NOT FOR A TAB, which is the one thing that makes
+   * it consistent with the rule above rather than an exception to it. Every
+   * other key here is prefixed with the id of the tab whose state it holds;
+   * `business` is unprefixed because the selected business belongs to the shell.
+   * This split position belongs to a surface that is neither — so it is prefixed
+   * with the CONSOLE's own stable id, and the prefix is a true claim about
+   * whose state it is.
+   *
+   * IT PERSISTS AT ALL BECAUSE THE VIEW IS ONE SOMEBODY WORKS IN. A divider the
+   * operator drags and that resets on the next open would be the whole of why
+   * [[REQ-298]] is not a dialog, reproduced inside the thing that replaced it.
+   */
+  console: `${CONSOLE_ACTION_ID}:list`,
 }
 
 /**
@@ -412,35 +564,6 @@ export const UPLOAD_AREAS = [
 ]
 
 /**
- * The operator console ([[REQ-297]]) — a fourth header action, and DELIBERATELY
- * NOT A TAB.
- *
- * THE ACCOUNT SURFACE'S ARGUMENT, APPLIED A SECOND TIME. The tab strip is
- * uniformly business-scoped ([[REQ-179]]), which is what lets the switcher sit
- * above it with no exception to explain. This console is about EVERY tenant at
- * once, so a tab for it would be a second place where the switcher is present
- * and silently does not apply — and a control that is present and ignored reads
- * as a bug. The header's trailing slot is where a surface that is not about one
- * business already lives.
- *
- * IT IS RENDERED ON `ownsPlatformBusiness` AND ON NOTHING ELSE ([[DOC-42]] §7).
- * Not on a level, not on a seniority flag, not on `platform_operator` — whose
- * only reader is `scope.ts` and must stay so. A session that does not own the
- * 1st Contact business gets no action, and the routes behind it answer 404 to
- * anyone who types the URL anyway, so the absence is chrome and the refusal is
- * the gate.
- *
- * `CONSOLE_EMPTY` IS NOT A PLACEHOLDER. The console is chrome and a registry
- * with no subject of its own; with no controls registered there is genuinely
- * nothing to show, and saying so is what stops the next hand reading an empty
- * dialog as a failure to load and "fixing" it by giving the console content.
- */
-export const CONSOLE_ACTION_ID = 'console'
-export const CONSOLE_LABEL = 'Console'
-export const CONSOLE_HINT = 'Operating 1st Contact itself. Not about one business.'
-export const CONSOLE_EMPTY = 'No controls are registered on this console yet.'
-
-/**
  * The window the console asks for when nobody has said otherwise ([[REQ-297]]).
  *
  * THIRTY DAYS, AND IT LIVES HERE RATHER THAN ON THE ROUTE. `/api/admin/spend`'s
@@ -461,8 +584,16 @@ export const CONSOLE_PERIOD_DAYS = 30
 export const CONSOLE_PERIOD_LABEL = 'Period (days)'
 
 /**
- * The console's first control ([[REQ-297]]) — its name, and the words its table
- * uses.
+ * The cost section of the console's detail pane ([[REQ-297]]'s figures,
+ * [[REQ-298]]'s pane) — its name, and the words its figures use.
+ *
+ * THE LEAGUE TABLE'S VOCABULARY IS GONE AND THE FIGURES' IS NOT. [[REQ-298]]
+ * replaced the console's content: there is no longer a sorted table of every
+ * tenant with a row that expands, so the four column headings, the empty-table
+ * sentence and the control's hint had nothing left to name. What survives is
+ * everything about ONE business's period — the per-day rows and the
+ * principal/delegated split — because that arithmetic is unchanged and is now
+ * rendered into a pane instead of an expansion.
  *
  * THE IDENTIFIERS SAY `TENANT` AND THE WORDS SAY *BUSINESS*, and that split is
  * [[REQ-180]] §3 rather than an inconsistency. The meter's own vocabulary is the
@@ -484,10 +615,22 @@ export const CONSOLE_PERIOD_LABEL = 'Period (days)'
  * claim work was handed off and came free.
  */
 export const TENANT_COST_LABEL = 'Business cost'
-export const TENANT_COST_HINT = 'Which business is costing us money, over the period.'
-export const TENANT_COST_COLUMNS = ['Business', 'Cost', 'Engaged hours', 'Cost / hour']
-export const TENANT_COST_EMPTY = 'No business has a measured turn in this period.'
 export const TENANT_COST_NOTHING = '—'
+export const TENANT_COST_READING = 'Reading the meter…'
+/**
+ * The three headline figures above the decomposition — [[REQ-297]]'s league
+ * columns, now about one business.
+ *
+ * KEYED BY A STABLE ID rather than listed, so the element a UAT addresses is
+ * `[data-total="cost"]` and not a slug of whatever the heading currently says.
+ * That is the same split this file makes between a tab's `id` and its `label`,
+ * applied one level down.
+ */
+export const TENANT_COST_TOTALS = {
+  cost: 'Cost',
+  hours: 'Engaged hours',
+  'per-hour': 'Cost / hour',
+}
 export const TENANT_COST_BY_DAY = 'By day'
 export const TENANT_COST_PRINCIPAL = 'Own spend'
 export const TENANT_COST_DELEGATED = 'Delegated spend'

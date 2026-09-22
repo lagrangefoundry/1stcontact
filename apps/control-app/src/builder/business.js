@@ -149,6 +149,9 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
   let current = selected
   /** @type {HTMLSelectElement|null} */
   let select = null
+  /** Whether {@link setEnabled} is holding the control down, and what it found. */
+  let suspended = false
+  let wasDisabled = false
 
   const labelOf = (b) => `${b.name || b.id}${b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''}`
 
@@ -198,6 +201,38 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
   return {
     element,
     get: () => current,
+    /**
+     * Suspend the switcher while a surface it does not apply to is up
+     * ([[REQ-298]]).
+     *
+     * THE OPERATOR CONSOLE IS ABOUT EVERY BUSINESS AT ONCE, so this control
+     * applies to nothing while it is open — and *a control that is present and
+     * silently ignored reads as a bug* is [[REQ-179]]'s own objection, which
+     * does not stop being true because the surface is not a tab.
+     *
+     * IT REMEMBERS WHETHER IT WAS ALREADY DISABLED, which is the whole reason
+     * this is a method and not two lines at the call site. An account with
+     * nothing selectable has a permanently disabled control ({@link
+     * noneSelectable} above); naively re-enabling on close would hand that
+     * account a working switcher onto businesses it may not enter.
+     *
+     * A NO-OP WITH NOTHING TO SUSPEND. One business renders a name and no
+     * control, and zero renders nothing at all — neither is a thing that can be
+     * ignored, so neither needs saying.
+     */
+    setEnabled(on) {
+      if (!select) return
+      if (on) {
+        if (suspended) select.disabled = wasDisabled
+        suspended = false
+        return
+      }
+      if (!suspended) {
+        suspended = true
+        wasDisabled = select.disabled
+      }
+      select.disabled = true
+    },
     /**
      * Show a selection made elsewhere. Deliberately does NOT fire `onSelect`:
      * this is the chrome catching up with a decision, not making one, and a
