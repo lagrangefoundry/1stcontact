@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:53:04.137389+00:00'
+updated_at: '2026-09-22T20:53:43.238807+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1343,5 +1343,44 @@ gate: **structural-failure**
 ```
 regression rail: the regression rail — not yet recorded — no baseline at storage/rail/baseline.json; record one with `repro-rail record`
 ```
+
+<!-- xgd-turn id="c01ca82e-6dcb-4bdf-ae18-b060f8ad486e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:53:42.274440+00:00" -->
+#### Claude
+Two unrelated facts printed next to each other. The rail line is **not** the cause of the verdict.
+
+## `gate: structural-failure`
+
+Decided by one thing only — `gate-core.ts:614`:
+
+```ts
+if (!input.l1Gate.pass) { verdict = 'structural-failure' }
+```
+
+The L1 gate failed: the reproduction isn't geometrically faithful to the oracle. It's checked before anything else and nothing downstream can rescue it — not a clean perceptual score, not zero value deltas.
+
+You pasted the verdict but not the two fields that tell you what to do. Read `diagnosis` and `nextStep` on the same object, because there are two shapes:
+
+- **On-sample collisions** — the served document paints over itself at a width the reference was measured at. `diagnosis` names the widths, `layout.findings` lists every pair. This is the BUG-112 case, and it's the one you can confirm by eye just by opening the page.
+- **No collisions** — plain geometric infidelity; `nextStep` sends you to `1c l1-gate --ref <bundle>` where each residual names the framework gap.
+
+Given your bundle is at capture schema 1 against an extractor at 4, I'd treat this verdict as provisional. Some of what the L1 gate is failing on may be oracle staleness rather than reproduction error — which is the recapture argument again.
+
+## `regression rail: not yet recorded`
+
+This is not a failure. The rail is the *cross-site* check: it re-runs typecheck, worker-build, tests, and every stored reference, and tells you whether a change made for one site made another site worse. With no `storage/rail/baseline.json` there's no recorded number for anything to have moved away from — so it's staying silent rather than reporting "worse".
+
+The wording is deliberate. From `rail-round.ts:65`:
+
+> "NOT YET RECORDED", NOT "NOT AVAILABLE" — unavailable is what a rail that threw is; this one is a setup step nobody has done.
+
+That's BUG-114 working as designed — it distinguishes a rail you turned off, a rail that crashed, and a rail with nothing recorded, because only the third is fixed by a command you can run.
+
+## What it costs you
+
+Every round so far has run with the rail inert. Nothing has been checking that the fixes landing for gigabytealchemy haven't degraded faelan or joyfulculinary.
+
+`./bin/repro-rail record` fixes it — but the sequencing from before still holds: **record it after the recapture, not now.** Recapture re-rolls `storage/references/gigabytealchemy.ai/index`, which is one of the three references the rail baselines against. A baseline recorded against the current bundle would be stale the moment you press the button.
 
 <!-- xgd-chat-end -->
