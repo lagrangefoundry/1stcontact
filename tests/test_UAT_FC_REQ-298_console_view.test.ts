@@ -158,18 +158,33 @@ describe('REQ-298 — the console keeps its entry point and loses its overlay', 
     expect(fs.existsSync(path.join(BUILDER, 'modal.js'))).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-298_one_root_marker_hides_the_panels_and_it_is_a_real_rule', () => {
-    // THE SEAM BETWEEN THE TWO HALVES OF CONDITION 2. `console.js` writes one
-    // class on the shell root; `builder.css` is what makes that class mean
-    // anything. Neither file can prove the pair on its own — and jsdom applies
-    // no stylesheet, so a case that only clicked would pass with the rule
-    // deleted.
+  it('test_UAT_FC_REQ-298_the_sheet_gives_the_view_a_height_chain_and_no_layering', () => {
+    // CONDITION 2's first half, at the one place it is a stylesheet fact. The
+    // console fills the content region, which needs that region to be a
+    // shrinkable column of definite height. The shell supplies exactly that —
+    // but only while the active tab is a FILL tab, which is true of all four of
+    // this builder's tabs and is not a property the console should rest on. So
+    // the sheet declares it under the root marker itself.
     const css = fs.readFileSync(path.join(BUILDER, 'builder.css'), 'utf8')
-    expect(css).toContain(`.${CONSOLE_OPEN_CLASS} .shell-panels {\n  display: none;\n}`)
+    expect(css).toContain(`.${CONSOLE_OPEN_CLASS} > .shell-content {`)
+
+    // AND IT DOES NOT TRY TO HIDE THE PANELS. That was the first cut's bug: a
+    // two-class rule here cannot beat `shell.css`'s eight-class `:has()` chain,
+    // so the panels stayed on screen and the console took the half of the region
+    // left over. Hiding them is `console.js`'s inline style now, and a rule
+    // reintroduced here would look like it worked without working.
+    expect(css).not.toContain(`.${CONSOLE_OPEN_CLASS} .shell-panels {`)
+
+    // THE TYPE SIZE IS DECLARED. Nothing between `html` and this view sets one,
+    // so without this every row, label and figure lands at the user agent's 16px
+    // in a builder that is 13px throughout — which is what "unstyled" looks
+    // like. Asserted in the sheet because jsdom applies no stylesheet.
+    const block = css.slice(css.indexOf('.builder-console {'), css.indexOf('.builder-console__titles'))
+    expect(block).toContain('font-size: var(--builder-control-font-size)')
+
     // AND THE VIEW IS NOT LAYERED. No backdrop, no scrim, nothing positioned
     // over the builder — the content region shows the console INSTEAD of the
     // panels, so there is nothing for a z-index to be above.
-    const block = css.slice(css.indexOf('.builder-console {'), css.indexOf('.builder-console__header'))
     expect(block).not.toContain('position')
     expect(block).not.toContain('z-index')
     expect(css).not.toContain('.builder-console__backdrop')
@@ -214,6 +229,16 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-298 — the console in the builder chrome
     // `.shell-panel.is-fill.is-active`, so removing the panel would collapse
     // the content region the console is trying to fill.
     expect(panels.querySelector('.shell-panel.is-fill.is-active')).toBeTruthy()
+
+    // HIDDEN ON THE ELEMENT, WHICH IS THE ONLY FORM OF HIDDEN THIS CAN PROVE.
+    // The first cut hid them from a class rule in `builder.css`, which loses on
+    // specificity to `shell.css`'s own `:has()` chain and left the console
+    // sharing the region with the panels it was supposed to replace. jsdom
+    // cannot catch that — asked here, its `getComputedStyle` resolves the two
+    // rules by ORDER and reports `none`, the answer no browser gives. An inline
+    // style is the one declaration nothing can out-specify and nothing can
+    // misreport.
+    expect((panels as HTMLElement).style.display).toBe('none')
 
     // AND THE BODY IT WAS GIVEN IS MOUNTED, so "fills the region" is about a
     // surface with something in it.
@@ -292,6 +317,12 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-298 — the console in the builder chrome
     expect(app.shell.getActiveTab()).toBe(CONFIG.PEOPLE_TAB.id)
     expect(tabButton(shell, CONFIG.PEOPLE_TAB.id).getAttribute('aria-selected')).toBe('true')
     expect(action.hasAttribute('aria-pressed')).toBe(false)
+
+    // AND THE PANELS COME BACK. The console hides them on the element itself,
+    // so the way out has to put the element back exactly as it found it — a
+    // leftover `display: none` here would leave the builder with no tab content
+    // at all and no console on screen to explain it.
+    expect((shell.querySelector('.shell-panels') as HTMLElement).style.display).toBe('')
 
     // NO SURFACE FOR OPENING OR CLOSING. `/api/activity/surface` is
     // business-scoped ([[REQ-235]] §5) and `console` is about every business at
