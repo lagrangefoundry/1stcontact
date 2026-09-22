@@ -5,9 +5,9 @@ type: comment
 title: Comment on request REQ-302
 created_by: xgd
 created_at: '2026-09-22T23:01:52.187218+00:00'
-updated_at: '2026-09-22T23:01:52.187218+00:00'
+updated_at: '2026-09-22T23:06:40.225123+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: request-edbc7e5f
@@ -85,5 +85,14 @@ Issue 2 measured-fixed: the flat order is now exact reading order. Let me check 
 Now the REQ-302 UAT suite:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="f9387703-e59e-4777-aaf3-7c37e3766479-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:06:40.165526+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
