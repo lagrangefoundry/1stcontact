@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T18:20:54.417170+00:00'
+updated_at: '2026-09-22T18:22:33.203763+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,14 @@ Now the workers UAT for the routes.
 Now the client vocabulary.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="ef412e5c-db99-4e3b-9939-6e369b1363fc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T18:22:32.959355+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
