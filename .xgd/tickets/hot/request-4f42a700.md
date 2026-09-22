@@ -5,9 +5,9 @@ type: request
 title: 'repro console: one verb instead of three, and a way to clear the history'
 created_by: EPIC-12
 created_at: '2026-09-22T20:33:22.529568+00:00'
-updated_at: '2026-09-22T21:35:06.379507+00:00'
+updated_at: '2026-09-22T21:50:54.349746+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -185,3 +185,36 @@ Naming it here rather than leaving reconciliation to discover it:
   different site being captured. A press there that names the held site is
   refused by the console with the hold's own message, which is the rule the
   disabled button was only ever a courtesy for.
+
+
+## Costs this change carries, found while implementing
+
+Both are direct consequences of "every press re-rolls the reference". Neither is
+a defect; both are real and worth the operator knowing.
+
+- **Round resume no longer reaches across a chain ([[REQ-261]]).** A resumed
+  round is cut whenever the reference moves — that is `session.ts` reset rule 1,
+  and it exists because a round reasoning from remembered numbers about a page
+  that no longer exists is reconstructing rather than reading. With every
+  continuation re-capturing, the rule now fires on every iteration, so each round
+  pays the full reading cost. The rule is not weakened by the reference moving
+  more often, so this is the cut working rather than failing; what it costs is
+  one round's re-reading per iteration.
+
+- **The "instrument sharpened" reading is suppressed on new chains
+  ([[REQ-277]]).** The delta count only moves meaningfully between two iterations
+  measured against the same reference, so the page marks it *not comparable*
+  across a seam — and every iteration now carries a seam. The unmeasured set,
+  which is the headline and the number to drive down, still crosses the seam and
+  still reports its direction. A chain already on disk from before this change,
+  re-opened, still reads its refolds as comparable and still renders the
+  sharpened sentence; the console simply no longer produces new refolds.
+
+## Compatibility
+
+Chains already on disk were built when `[run again]` existed and contain
+refolded iterations. Re-opening one through the `captured already` list must
+render it as it was rather than re-labelling history the console did not make: a
+stored iteration carrying no `recaptured` flag and the same `bundleCapturedAt`
+as the one above it is still shown as comparable with it. Only presses made from
+now on produce seams.
