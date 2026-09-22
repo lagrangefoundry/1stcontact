@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:08:10.261491+00:00'
+updated_at: '2026-09-22T20:11:08.371369+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2733,5 +2733,44 @@ Go-live is still where it was: `--force` copies for Lagrange Foundry and XGD, th
 <!-- xgd-chat role="user" ts="2026-09-22T20:08:09.927841+00:00" -->
 #### You
 How do I deploy the code from REQ-295 to production?
+
+<!-- xgd-turn id="ae4bc997-1484-4fae-aad3-2053e65062d8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:11:08.277019+00:00" -->
+#### Claude
+Short answer: **`bin/deploy control-app` from this branch** — there's no reconcile step in the way, and no branch guard to satisfy. The longer answer is that the thing you'd ship does nothing yet, on purpose.
+
+## Where the code actually is
+
+REQ-295 is two commits on `xgd-working`, status `ready_to_reconcile`:
+
+- `78e6a54` — feat(ai): delegate construction to a cheaper worker \[FREE-CODED]
+- `a401e91` — version bump to 0.2.316
+
+Neither is on `main`, but **that doesn't matter here**: `main` is 14,033 commits behind, and `xgd-working` carries 445 free-coded commits across ~215 tickets. The working branch *is* the product; everything already in production was deployed from this state. `bin/deploy` reads the working tree and runs `npx wrangler deploy --env production` — I checked, it makes no reference to git at all.
+
+**It is genuinely not deployed yet.** The last code deployment was `2026-09-21T21:40:18Z`; REQ-295's commits are `2026-09-22T00:33Z`. The two deployments after that one are both `Source: Secret Change` — the key re-supply, which ships no code.
+
+## The commands
+
+```
+./bin/1c assets                      # only if src/generated shims are stale
+bin/deploy --dry-run control-app     # same hook sequence, same wrangler call
+bin/deploy control-app
+```
+
+`bin/deploy` does **not** run `1c assets` itself, and the Worker imports `./generated/ai-workers.js`, a gitignored shim carrying an absolute path to the out-of-repo store at `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/`. I verified the shims are present, the store has `delegation_toolbox.js`, and `workers.js` does `export * from './core.js'` — so `DelegationRuntime` and `delegationInstanceConfig` do reach the Worker rung. The bundle will resolve as-is; `1c assets` is cheap insurance because that store isn't in the lockfile.
+
+## The part worth pausing on
+
+**REQ-295 ships with the switch off.** `delegation.json` has `enabled: false`, and the ticket is emphatic that this is the design, not an oversight — off means the surface is *never composed*, so the deployment sends byte-for-byte the prompt it sent before delegation existed. Deploying it changes no observable behaviour and saves no money.
+
+Turning it on is a one-line flip, but REQ-295 argues against doing it yet: the ~50% saving is a model, and models in that epic have been wrong by 4.5× and 2.4×. REQ-292's meter needs to run on the undelegated shape first, or the after-figure measures nothing.
+
+So there are two defensible moves, and they're different questions: **ship it off now** (gets the code into production, de-risks the next deploy, costs nothing), or **wait and ship it with the baseline in hand**. I'd ship it off now — a 1,900-line change sitting undeployed is the riskier state.
+
+One thing to fold in while you're there: production's `ANTHROPIC_API_KEY` is still the invalid one from §I22. Re-supplying it through `bin/deploy` takes the *supplied* path, which probes Anthropic and fails the deploy if refused — the stored-secret path skips the probe entirely.
+
+Want me to run the `--dry-run` so you can see the hook output and the capability report before committing to it? I'll leave the real deploy to you.
 
 <!-- xgd-chat-end -->

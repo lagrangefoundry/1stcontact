@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T20:02:17.577300+00:00'
+updated_at: '2026-09-22T20:12:55.204458+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1079,5 +1079,33 @@ Everything server-side from REQ-297 is reused unchanged: the `ownsPlatformBusine
 Your answer settles it, and not the way I guessed. It isn't the isolate cache. `site_936dd7c9…` is the **local** site id and `site_23c1afb3…` is production's — which is precisely **BUG-137**, already filed at `ready_to_reconcile`: `bin/copy-to-cloud --chats` carries the source side's `session_id` across, so the imported conversation names a site that doesn't exist on the destination and the backend is never registered under that name. The transcript I copied is the cause after all, just through the session header rather than the content.
 
 Since the previous prod's contents are disposable, the unblock is to **delete the two imported chat tickets** (`site-site_936dd7c9…` and `business-biz_5b101742…`) and use the native empty sessions. BUG-137's fix still matters for the next copy. Want me to do that deletion?
+
+<!-- xgd-turn id="8f978043-20ab-4790-9f4e-a97e4891e0ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:10:36.917281+00:00" -->
+#### You
+ok so the structural argument against a tab I understand and I am OK with a button being the entry point but I am not ok with this being an overlay - it has to take over the full screen like a tab
+
+<!-- xgd-turn id="8f978043-20ab-4790-9f4e-a97e4891e0ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:12:54.157456+00:00" -->
+#### Claude
+Right — that's a real change of shape, not a wording tweak. Revising REQ-298 now.
+
+Revised. REQ-298 is now a **full-surface view**, not a tab, and REQ-297's condition 9 is restored — the strip stays uniformly business-scoped and gains no entry. Only the container and the content are superseded.
+
+**What "full screen like a tab" is specified as** — behaviour, not style, so it's testable:
+
+- Not layered over anything. No scrim, no `z-index` above the builder: the content region shows the console *instead of* the tab panels.
+- Fills the region a tab's panel would have had, so the two-panel divider is worth dragging.
+- **Escape does not close it.** That's the reflex a transient overlay owes its reader; this is a surface somebody sits in for twenty minutes with divider and scroll state to lose.
+
+**Getting out.** The tab strip stays live — clicking any tab dismisses the console and goes there, which is where "behaves like a tab" is actually testable. While it's up, **no tab reads as selected**: the shell has no concept of "none active", and leaving the old tab highlighted while its panel is off screen would be the surface lying about what you're looking at. The console's own Close returns to the tab that was active. Two exits, not redundant — one is navigation, the other dismissal. Pressing the header button again is a no-op, not a second mount.
+
+**One cost I named rather than hid.** This is the *second* place the app touches shell-internal markup — the first is the business switcher prepended into `.shell-bar`, which `app.js` documents as the one such place. There's no declared slot for a view that replaces the panels either, so they become a list of exactly two, each with a comment naming the upstream gap it stands in. If `webui-shell` ever grows either slot, each is a one-line change.
+
+Unchanged from the last pass: sites list ordered by cost descending with the no-spend tail last, the three detail sections (account, published link, cost) with per-section failure isolation, `GET /api/admin/sites`, and all of REQ-297's routes, gate and arithmetic reused rather than rebuilt.
+
+REQ-297's supersession note, EPIC-20's child entry, and the ticket's chat record are all corrected to match. REQ-298 is still at `draft` — say the word and I'll cut the branch and build it.
 
 <!-- xgd-chat-end -->

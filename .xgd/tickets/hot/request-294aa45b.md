@@ -2,12 +2,12 @@
 uid: request-294aa45b
 id: REQ-298
 type: request
-title: 'Console: a cross-business tab with a sites list beside a business detail'
+title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T20:01:09.038825+00:00'
+updated_at: '2026-09-22T20:12:15.909665+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: draft
 fields:
   epic_parent: epic-0923bb64
@@ -19,18 +19,22 @@ fields:
 
 ## Why
 
-[[REQ-297]] built the operator console as a **dialog** opened from the header's
-trailing slot, and argued at length that it must not be a tab. That argument is
-overruled here, by the operator, deliberately and in the knowledge of what it
-cost to make: the console is going to be a complex, long-lived working surface —
-a list of every site on the platform beside a detail view of one — and a dialog
-is the wrong container for a surface somebody works in rather than glances at.
-A modal cannot be left open beside the thing it informs, cannot hold a split
-position, and puts every future control behind a scrim.
+[[REQ-297]] built the operator console as a **dialog** — a modal panel over a
+scrim, opened from an action in the shell header's trailing slot. Its reasoning
+about *where the console belongs in the information architecture* was accepted
+and stands: the console is not a tab, and the tab strip stays uniformly
+business-scoped. What does not stand is the **container**. A modal is for a
+thing you glance at and dismiss; this console is a two-panel working surface a
+person sits in front of, and a dialog cannot hold a split position, cannot be
+worked in at length, and puts a scrim between the operator and everything else.
 
-So the console becomes a **tab**, and the interface inside it is specified here
-for the first time. Both changes supersede REQ-297; neither is a refinement of
-it.
+So the console keeps its entry point and loses its overlay. It becomes a
+**full-surface view**: opened by the same header button, it takes over the whole
+of the shell's content region, exactly as a tab's panel does, with no scrim and
+nothing of the builder showing through behind it.
+
+And the interface inside it is specified here for the first time: every site on
+the platform on the left, the selected site's business on the right.
 
 ## What supersedes what
 
@@ -38,20 +42,22 @@ REQ-297 is `free_coded` and not yet reconciled. This ticket **explicitly
 supersedes** the following of its statements, which must not survive into the
 capability matrix:
 
-- *"It is not a tab"* and its condition 9 — *the console is not a tab, and the
-  tab strip remains uniformly business-scoped*. Both are withdrawn. The tab
-  strip gains exactly one entry that is not business-scoped, and §"The one
-  consequence, answered" below says what happens to the switcher instead of
-  leaving it present and ignored.
-- Its conditions 2 and 3 — the console's content being a league of tenants
+- The console being a **dialog** — *"an action in the shell header's trailing
+  slot, beside the account avatar, opening a dialog"*, and `modal.js` as its
+  chrome. Withdrawn. The action stays; what it opens is a full-surface view.
+- Its **conditions 2 and 3** — the console's content being a league of tenants
   ordered by cost, with a row that expands in place. The list is now sites, the
   detail is a pane rather than an expansion, and it carries more than spend.
-- Its condition 8, insofar as it fixes the registry to the *console*. The
-  registry survives, re-cast onto the detail pane (§"The registry moves, and is
-  not deleted").
+- Its **condition 8**, only insofar as it binds the registry to the *console*.
+  The registry survives, re-cast onto the detail pane (§"The registry moves, and
+  is not deleted").
 
 Everything else REQ-297 established **stands and is reused unchanged**:
 
+- **Condition 9 survives intact** — the console is not a tab and the tab strip
+  remains uniformly business-scoped ([[REQ-179]]). No entry is added to the
+  strip. The argument was structural and is accepted; only the container it was
+  used to justify is replaced.
 - `ownsPlatformBusiness(env, admission)` as the gate, at the chrome and again on
   every route — not `platform_operator`, for the reason `identity.ts` states in
   terms.
@@ -63,48 +69,87 @@ Everything else REQ-297 established **stands and is reused unchanged**:
 - `/api/businesses` answering `ownsPlatformBusiness`, and `fetchBusinesses`
   carrying that field through to `mountBuilder`.
 
-This is a change of **surface**, not of meter.
+This is a change of **container and content**, not of meter and not of
+information architecture.
 
-## The tab
+## A view, and what that means precisely
 
-`CONSOLE_TAB` joins `TABS` in `config.js`, **and only for a session that owns
-the platform business**. `webui-shell` fixes its tab list at mount and offers no
-`addTab`, so the conditional is in the array the app builds — which is the right
-place anyway: a tab that exists and refuses is a tab that tells every other
-operator the console is there.
+The distinction this ticket turns on is not decoration, so it is stated as
+behaviour rather than as style:
 
-The header action REQ-297 built **stays exactly where it is**, beside the
-account avatar, and changes only what it does: it calls
-`shell.setActiveTab(CONSOLE_TAB.id)` instead of opening a dialog. `consoleActions`
-keeps its shape — a list, empty for a session that does not own the platform
-business — so "present" and "absent" remain one expression at the call site.
+- **It is not layered over anything.** No backdrop, no scrim, no `z-index` above
+  the builder. The content region shows the console *instead of* the tab panels,
+  not on top of them.
+- **It fills the content region completely** — the full height and width the
+  active tab's panel would have had, so the two-panel split inside it gets the
+  same room a tab gets and the divider is worth dragging.
+- **Escape does not close it.** That is the reflex a transient overlay owes its
+  reader, and this is not one. A surface somebody works in for twenty minutes
+  must not vanish on a stray keypress, and a person who has just dragged a
+  divider and scrolled a detail pane has state to lose.
+- **Nothing of the builder is inert behind it**, because nothing of the builder
+  is behind it.
 
-The tab sits **last** in the strip, after Settings. It is the one entry that is
-not about the open business, and putting it at the end keeps the four
-business-scoped tabs contiguous.
+### Where it mounts, and the honest cost
 
-### The one consequence, answered
+The console element is appended into the shell's `<main class="shell-content">`,
+and the shell's own panels container is hidden for as long as the console is up
+(one attribute on the shell root, one CSS rule).
 
-The business switcher is prepended into `.shell-bar` and applies to every tab.
-On the console tab it applies to nothing — and *a control that is present and
-silently ignored reads as a bug* is REQ-179's own objection, which does not stop
-being true because the decision went the other way.
+**This is the second place this app touches shell-internal markup**, and naming
+it is the point. The first is the business switcher prepended into `.shell-bar`,
+which `app.js` already documents as the one such place because `webui-shell`
+offers a trailing `actions` slot and no leading one. There is likewise no
+declared slot for a view that replaces the panels, and inventing a helper to
+hide that would make two exceptions look like none. So they are a list of
+exactly two, each with a comment saying which upstream gap it stands in — and
+the day `webui-shell` grows either slot, each is a one-line change.
 
-So the switcher is **disabled while the console tab is active** and restored on
-leaving it, through the shell's own `onTabChange` seam. It is visibly
-inapplicable rather than quietly inapplicable, which is the difference between an
-answered consequence and an unanswered one.
+### Getting out of it
 
-`postSurface` is **not called for the console tab**. `/api/activity/surface` is
-business-scoped, and recording `console` against whichever business happened to
-be open would put a cross-business surface in one business's activity — a row
-that is not false so much as meaningless. The other four tabs post as before.
+**The tab strip stays live, and clicking any tab dismisses the console and shows
+that tab.** That is what "behaves like a tab" has to mean at the seam where it
+is testable: the strip is the builder's primary navigation and it must not stop
+working because a view is open.
+
+While the console is up, **no tab reads as selected**. The shell keeps an active
+tab internally — it has no concept of none — and leaving that tab highlighted
+while its panel is not on screen would be the surface telling the operator they
+are looking at something they are not. The selected styling is suppressed for as
+long as the console is up, through the same root attribute that hides the
+panels.
+
+The console also carries its own **Close** in its header, returning to the tab
+that was active when it opened. Two ways out, and they are not redundant: one is
+navigation to somewhere else, the other is dismissal back to where you were.
+
+**The header action is marked active while the console is up**, and pressing it
+again does nothing rather than mounting a second console.
+
+### Which surface is recorded
+
+`postSurface` is **not called when the console opens or closes**.
+`/api/activity/surface` is business-scoped ([[REQ-235]] §5), and recording
+`console` against whichever business happened to be open would put a
+cross-business surface in one business's activity — a row that is not false so
+much as meaningless. Dismissing *to another tab* posts that tab's surface
+through the shell's ordinary `onTabChange`, unchanged; dismissing back to the
+tab that was already active posts nothing, because as far as the record is
+concerned nothing moved.
+
+### The business switcher
+
+It is prepended into `.shell-bar` and applies to every tab. It applies to
+nothing on the console, which is about every business at once, so it is
+**disabled while the console is up** and restored when it closes. *A control
+that is present and silently ignored reads as a bug* is REQ-179's own objection
+and it does not stop being true here.
 
 ## The interface
 
 A two-panel list/detail, mounted with `@lagrangefoundry/webui-list-detail` in
 `no-tab` mode — the same component the Library and People tabs already use, and
-the same reason: this is a master/detail, and a second implementation of one
+for the same reason: this is a master/detail, and a second implementation of one
 would diverge from theirs on divider behaviour, collapse and split persistence
 the first time any of those is touched. Split position persists through
 `shell.storage(...)` like the others.
@@ -139,12 +184,13 @@ Three things, in this order:
    `tenants.owner_account_id` names it (`NULL` is the platform business itself
    and says so rather than rendering blank).
 2. **A link to the published site** — the site's canonical public address, as a
-   link that opens in a new tab. Resolved through `hostname.ts`, which is the
-   one place `site_domains` is read; `addressForLinks` already decides which of
-   several addresses a link should use. A site with **no** public address shows
-   that it has none — a sentence, not an empty anchor and not a dead link. This
-   is the same fact `POST /api/publish` refuses on with `NO_PUBLIC_ADDRESS`, so
-   the console and the refusal cannot disagree about whether a site is reachable.
+   link that opens in a new browser tab. Resolved through `hostname.ts`, which
+   is the one place `site_domains` is read; `addressForLinks` already decides
+   which of several addresses a link should use. A site with **no** public
+   address shows that it has none — a sentence, not an empty anchor and not a
+   dead link. This is the same fact `POST /api/publish` refuses on with
+   `NO_PUBLIC_ADDRESS`, so the console and the refusal cannot disagree about
+   whether a site is reachable.
 3. **Cost details for that business** — REQ-297's per-day figures and its
    principal-against-delegate split, over the console's period, from
    `/api/admin/spend?business=…`. Unchanged arithmetic, unchanged wire, rendered
@@ -172,13 +218,14 @@ console-to-control to pane-to-section, and it matters more here than it did
 there: a business whose spend read fails must still show the operator who owns
 it and where the site is.
 
-The console tab itself knows nothing about what a section shows, and a pane with
-no sections registered renders as an empty pane rather than a broken one — the
-same assertion REQ-297 made of the console, at the seam that still exists.
+The console view itself knows nothing about what a section shows, and a pane
+with no sections registered renders as an empty pane rather than a broken one —
+the same assertion REQ-297 made of the console, at the seam that still exists.
 
-**The dialog goes.** `openOperatorConsole` and the console's modal chrome are
-deleted, not left beside the tab behind a flag: two ways to open one surface is
-the complexity this project's standards name outright, and git is the archive.
+**The modal chrome goes.** The console's use of `modal.js` is deleted, not left
+beside the view behind a flag: two ways to open one surface is the complexity
+this project's standards name outright, and git is the archive. `modal.js`
+itself stays — it has other callers, and this ticket is not about them.
 
 ## The route the list needs
 
@@ -200,35 +247,41 @@ rows worth noticing.
 
 ## What must be true when this is done
 
-1. A session owning the platform business sees a Console **tab** in the strip;
-   every other session sees no such tab, and each route behind it refuses that
-   caller in its own right with the ordinary 404.
-2. The header action beside the account avatar activates that tab. It does not
-   open a dialog, and no dialog form of the console remains in the codebase.
-3. The console tab shows a two-panel list/detail: every site on the platform on
-   the left, one selected site's business on the right.
-4. Rows are ordered by their business's cost over the period, dearest first,
+1. A session owning the platform business sees the console action beside the
+   account avatar; every other session sees no action, and each route behind the
+   console refuses that caller in its own right with the ordinary 404.
+2. Pressing the action opens the console as a **full-surface view**: it fills
+   the shell's content region, the tab panels are not shown behind it, there is
+   no scrim, and no dialog form of the console remains in the codebase.
+3. **No entry is added to the tab strip**, which remains uniformly
+   business-scoped.
+4. While the console is up, no tab reads as selected; clicking any tab dismisses
+   the console and shows that tab; the console's own Close returns to the tab
+   that was active when it opened; **Escape does not close it**.
+5. The business switcher is disabled while the console is up and restored when
+   it closes. No surface is posted for opening or closing the console.
+6. The console shows a two-panel list/detail: every site on the platform on the
+   left, one selected site's business on the right.
+7. Rows are ordered by their business's cost over the period, dearest first,
    sites of one business adjacent, businesses with no measured spend last.
-5. A site whose business has no measured turns is listed with no cost rather
+8. A site whose business has no measured turns is listed with no cost rather
    than with zero, and is never omitted.
-6. Selecting a row shows the owning account, a link to the published site, and
+9. Selecting a row shows the owning account, a link to the published site, and
    the business's cost detail — the per-day figures and the principal/delegated
    split, matching what `/api/admin/spend` reports for the same business and
    period.
-7. A site with no public address says so; no empty or dead link is rendered.
-8. A detail section that fails is reported in its own block and the other
-   sections still render.
-9. While the console tab is active the business switcher is disabled, and it is
-   restored on leaving the tab. No surface is posted for the console tab.
-10. The period defaults to 30 days, is changeable on the surface, and governs
+10. A site with no public address says so; no empty or dead link is rendered.
+11. A detail section that fails is reported in its own block and the other
+    sections still render.
+12. The period defaults to 30 days, is changeable on the surface, and governs
     both the row costs and the detail.
 
 ## Not in scope
 
-Writing anything. Opening a listed business into the other tabs (the operator
-switches business the ordinary way; a jump is a later ticket if it is wanted).
-Charts. Export. Caps or enforcement. Anything about a site other than its
-business, its address and that business's spend.
+Writing anything. Opening a listed business into the builder's tabs (the
+operator switches business the ordinary way; a jump is a later ticket if it is
+wanted). A second console view. Charts. Export. Caps or enforcement. Anything
+about a site other than its business, its address and that business's spend.
 
 ## Depends on
 
@@ -238,13 +291,18 @@ is written against them.
 
 ## Test plan
 
-- `tests/test_UAT_FC_REQ-298_console_tab.test.ts` (jsdom) — the tab's
-  presence for an owner and absence otherwise; the header action activating it
-  rather than opening a dialog; the switcher disabled on the console tab and
-  restored on leaving; no surface posted for it; the list's order including the
-  no-spend tail; the empty-detail state; the three detail sections; a section
-  that throws leaving the others rendered; the period default moving both the
-  order and the detail.
+- `tests/test_UAT_FC_REQ-298_console_view.test.ts` (jsdom) — the action's
+  presence for an owner and absence otherwise; opening it filling the content
+  region with the tab panels hidden and no scrim present; the tab strip carrying
+  no selected tab while it is up; a tab click dismissing it to that tab; Close
+  returning to the previously active tab; Escape **not** closing it; a second
+  press of the action not mounting a second console; the tab strip gaining no
+  entry; the switcher disabled and restored; no surface posted on open or close.
+- `tests/test_UAT_FC_REQ-298_console_panes.test.ts` (jsdom) — the list's order
+  including the no-spend tail, a site with no cost still listed, the
+  empty-detail state, the three detail sections, a section that throws leaving
+  the others rendered, and the period default moving both the order and the
+  detail.
 - `tests/test_UAT_FC_REQ-298_admin_sites.workers.test.ts` — `/api/admin/sites`
   against a real D1 in workerd through `route()` with a real admission: the 404
   for a non-owner, one row per site, the address resolved through `hostname.ts`,

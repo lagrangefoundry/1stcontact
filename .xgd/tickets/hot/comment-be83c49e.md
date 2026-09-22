@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-298
 created_by: xgd
 created_at: '2026-09-22T20:01:55.947228+00:00'
-updated_at: '2026-09-22T20:01:56.164990+00:00'
+updated_at: '2026-09-22T20:12:45.878713+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -40,5 +40,21 @@ One thing the instruction did not specify: the list's order. I decided cost desc
 The list needs a route that does not exist: `GET /api/admin/sites`, one row per site across every business, same gate and same 404. Deliberately not merged into `/api/admin/spend/businesses` — a site with no spend must still appear, and adding non-meter rows to a meter route gives one route two answers.
 
 What REQ-297 keeps: the `ownsPlatformBusiness` gate at both layers, both spend routes, the shared period parser, and the principal/delegated split. This is a change of surface, not of meter. REQ-297's body now carries a note naming exactly which of its statements are withdrawn, so a reconcile of both cannot pin 'the console is not a tab' into the matrix.
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:12:43Z" -->
+#### You
+OK so the structural argument against a tab I understand and I am OK with a button being the entry point, but I am not OK with this being an overlay — it has to take over the full screen like a tab.
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:12:43Z" -->
+#### Claude
+Revised. REQ-298 is now a full-surface view rather than a tab, and REQ-297's condition 9 is restored — the console is not a tab and the strip stays uniformly business-scoped. Only the container and the content are superseded.
+
+What 'full screen like a tab' is specified as, in behaviour rather than style, so it is testable: it is not layered over anything (no scrim, no z-index above the builder — the content region shows the console INSTEAD of the tab panels); it fills the region a tab's panel would have had, so the split divider is worth dragging; and Escape does NOT close it, because that is the reflex a transient overlay owes its reader and this is a surface somebody works in for twenty minutes with divider and scroll state to lose.
+
+Getting out: the tab strip stays live and clicking any tab dismisses the console and goes there — that is where 'behaves like a tab' is actually testable. While the console is up no tab reads as selected, because the shell has no concept of 'none' active and leaving the old tab highlighted while its panel is off screen would be the surface lying about what you are looking at. The console's own Close returns to the tab that was active. Two exits, not redundant: one is navigation, one is dismissal.
+
+One honest cost I named rather than hid: this is the SECOND place the app touches shell-internal markup — the first is the business switcher prepended into `.shell-bar`, which `app.js` documents as the one such place. There is no declared slot for a view that replaces the panels either, so they become a list of exactly two, each with a comment naming the upstream gap it stands in.
+
+Everything else is unchanged: the sites list ordered by cost descending, the three detail sections, `GET /api/admin/sites`, and all of REQ-297's routes, gate and arithmetic reused.
 
 <!-- xgd-chat-end -->
