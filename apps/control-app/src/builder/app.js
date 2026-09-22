@@ -23,7 +23,8 @@ import {
   resolveBusiness,
 } from './business.js'
 import { consoleActions, openOperatorConsole } from './console.js'
-import { tenantCostControl } from './tenant-cost.js'
+import { accountSection, addressSection, mountPlatformSites } from './platform-sites.js'
+import { tenantCostSection } from './tenant-cost.js'
 import { mountEditor } from './editor.js'
 import { mountImageEditor } from './image-editor.js'
 import { isEditablePicture } from './picture-kind.js'
@@ -126,15 +127,28 @@ export function mountBuilder(root, options = {}) {
      */
     ownsPlatformBusiness = false,
     /**
-     * What the operator console mounts ([[REQ-297]]).
+     * What the operator console's DETAIL PANE composes ([[REQ-298]]).
      *
-     * A LIST, DEFAULTING TO THE ONE CONTROL THERE IS. The console is chrome and a
-     * registry with no subject of its own, so which controls it holds is the
-     * caller's statement rather than the console's — and a suite can hand it
-     * none, or one it invented, which is how "the console has no content"
-     * is asserted rather than asserted about.
+     * A LIST, DEFAULTING TO THE THREE SECTIONS THERE ARE — the account, the
+     * published address, and the cost. The console is chrome with no subject of
+     * its own and the pane composes sections somebody else registered, so which
+     * sections it holds is the caller's statement rather than the pane's — and a
+     * suite can hand it none, or one it invented, which is how "the pane has no
+     * content of its own" is asserted rather than asserted about.
+     *
+     * THE ORDER IS THIS LIST'S AND IS NOT SORTED ANYWHERE DOWNSTREAM. Which
+     * section an operator reads first is an editorial decision belonging to
+     * whoever assembled the list; a pane that alphabetised it would silently
+     * re-rank them the day one is renamed. They read account → address → cost
+     * because that is the order the questions arrive in: whose is this, what did
+     * we build them, what is it costing us.
+     *
+     * IT REPLACED `consoleControls` RATHER THAN JOINING IT ([[REQ-298]] over
+     * [[REQ-297]]). The registry moved from console-to-control to
+     * pane-to-section; keeping both would be two registries for one surface,
+     * which is the complexity this project's standards name outright.
      */
-    consoleControls = [tenantCostControl()],
+    consoleSections = [accountSection(), addressSection(), tenantCostSection()],
     /**
      * The sites of the SELECTED business.
      *
@@ -319,6 +333,10 @@ export function mountBuilder(root, options = {}) {
        * header's trailing slot is where such a surface lives — the tab strip
        * stays uniformly business-scoped, with no exception to explain.
        *
+       * WHAT IT OPENS IS A FULL-SURFACE VIEW AND NO LONGER A DIALOG
+       * ([[REQ-298]]). The action did not move and the gate did not change; the
+       * container did.
+       *
        * SPREAD RATHER THAN CONDITIONAL, so "present" and "absent" are the same
        * expression here and the decision lives in one function that a UAT can
        * ask directly. It is empty for a session that does not own the 1st Contact
@@ -326,7 +344,7 @@ export function mountBuilder(root, options = {}) {
        */
       ...consoleActions({
         ownsPlatformBusiness,
-        open: () => openOperatorConsole({ host: shell.element, controls: consoleControls }),
+        open: openConsole,
       }),
     ],
     ...(storage ? { storage } : {}),
@@ -467,6 +485,52 @@ export function mountBuilder(root, options = {}) {
   })
   const shellBar = shell.element.querySelector('.shell-bar')
   ;(shellBar ?? shell.element).prepend(switcher.element)
+
+  /**
+   * The operator console, as a full-surface view ([[REQ-298]]).
+   *
+   * A DECLARATION RATHER THAN A CLOSURE AT THE ACTION SITE, because it is read
+   * before it is written: `actions` is built inside the `mountShell` call above
+   * and this needs the `shell` handle that call returns. A function declaration
+   * is hoisted, so the action holds a real reference and the body resolves
+   * `shell` at press time — which it always has by then, because nothing can
+   * press a button that is not yet on screen.
+   *
+   * IT IS ALSO THE LATCH. `live` is the whole of *pressing the action again does
+   * nothing rather than mounting a second console*: the second press finds a
+   * console up and returns, and the handle is cleared by the view's own
+   * `onClose` so every route out — the tab strip, the Close button — leaves the
+   * latch open.
+   *
+   * NO SURFACE IS POSTED FOR OPENING OR CLOSING IT. `/api/activity/surface` is
+   * business-scoped ([[REQ-235]] §5) and recording `console` against whichever
+   * business happened to be open would put a cross-business surface in one
+   * business's activity — a row that is not false so much as meaningless.
+   * Dismissing TO another tab posts that tab's surface through the shell's
+   * ordinary `onTabChange`, unchanged; dismissing back to the tab that was
+   * already active posts nothing, because as far as the record is concerned
+   * nothing moved.
+   */
+  let consoleView = null
+  function openConsole() {
+    if (consoleView) return
+    consoleView = openOperatorConsole({
+      shell,
+      mount: (into) =>
+        mountPlatformSites(into, {
+          sections: consoleSections,
+          storage: shell.storage(STORAGE_KEYS.console),
+        }),
+      // THE SWITCHER APPLIES TO NOTHING HERE, so it is held down for as long as
+      // the view is up and restored to exactly what it was on the way out. See
+      // `business.js` for why that is a method rather than two lines here.
+      onOpen: () => switcher.setEnabled(false),
+      onClose: () => {
+        consoleView = null
+        switcher.setEnabled(true)
+      },
+    })
+  }
 
   /**
    * What the pane is showing, held across the swap that destroys it
@@ -1649,6 +1713,11 @@ export function mountBuilder(root, options = {}) {
       // to a document that no longer has it.
       noAddressModal?.close()
       noAddressModal = null
+      // AND SO DOES THE CONSOLE, for the same reason and one more: it hides the
+      // shell's panels and suppresses the tab strip's selection, so a teardown
+      // that left it up would leave the builder's own navigation looking broken
+      // with nothing on screen to explain it.
+      consoleView?.close()
       settings.destroy()
       settingsChat.destroy()
       settingsSplit.destroy()

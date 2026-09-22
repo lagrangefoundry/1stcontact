@@ -1701,3 +1701,25 @@ export async function fetchTenantSpend(business, period = {}, fetchImpl = fetch)
   }
   return res.json()
 }
+
+/**
+ * Every site on the platform, with whose it is and where it is ([[REQ-298]]).
+ *
+ * `/api/admin/` AND NOT `scoped()`, on {@link fetchTenantCost}'s reasoning
+ * exactly: a directory of every customer's sites is a question about the
+ * PLATFORM rather than about the business the operator happens to have selected.
+ *
+ * NO PERIOD, WHERE ITS SIBLING TAKES ONE. Nothing this route answers is measured
+ * over a window — a site exists, belongs to somebody and is reachable or not —
+ * so sending one would be a parameter that changed no answer, and reading it
+ * back would be a window the console could believe two different things about.
+ */
+export async function fetchPlatformSites(fetchImpl = fetch) {
+  const path = '/api/admin/sites'
+  const res = await send(fetchImpl, path, {})
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `GET ${path} → ${res.status}`)
+  }
+  return res.json()
+}

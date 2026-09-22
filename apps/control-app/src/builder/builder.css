@@ -459,8 +459,7 @@ body {
         .builder-modal__picker,
         .builder-modal__reader,
         .builder-modal__imaged,
-        .builder-people__compose,
-        .builder-console
+        .builder-people__compose
       )
   ) {
   width: min(520px, calc(100vw - 48px));
@@ -3653,19 +3652,36 @@ body {
   cursor: pointer;
 }
 
-/* --- the operator console ([[REQ-297]]) --------------------------------------
+/* --- the operator console ([[REQ-298]]) -------------------------------------
  *
- * CHROME ONLY, like the module it styles. Nothing here knows what a control is
- * about; a control's own classes are declared beside it, and the console's job
- * is to space several of them apart legibly. It is named in the panel's `:has()`
- * width rule above for the same reason the composer is: a table of tenants is
- * not one sentence, and a 520px dialog can only answer it by overflowing.
+ * A VIEW AND NOT A DIALOG, and every rule here is about occupying rather than
+ * covering. There is no `position`, no `inset`, no `z-index` and no backdrop —
+ * the console is an ordinary child of `.shell-content` and the panels beside it
+ * are hidden, so there is nothing to be layered over.
+ *
+ * `flex: 1; min-height: 0` IS WHAT MAKES THE SPLIT INSIDE IT WORTH DRAGGING.
+ * The shell gives `.shell-content` a definite height only while a live
+ * `.shell-panel.is-fill.is-active` exists — its own `:has()` chain — and a panel
+ * hidden with `display: none` still satisfies that selector, which is precisely
+ * why the rule below hides the CONTAINER rather than removing anything.
  */
+.builder-shell--console .shell-panels {
+  display: none;
+}
+
 .builder-console {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  overflow: auto;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.builder-console__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .builder-console__heading {
@@ -3674,51 +3690,69 @@ body {
 }
 
 .builder-console__hint,
-.builder-console__empty,
-.builder-console__control-hint {
+.builder-console__empty {
   margin: 0;
   color: var(--shell-muted, #71717a);
 }
 
-.builder-console__control {
+.builder-console__close {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  color: inherit;
+  padding: 6px 14px;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: 999px;
+  background: var(--shell-bg, #fff);
+  cursor: pointer;
+}
+
+.builder-console__close:hover {
+  border-color: var(--shell-accent, #6366f1);
+}
+
+/* The header action while the view is up. It is a toggle now — the way in, and
+   the thing it opened is still there — so it wears the state rather than
+   looking like a control nothing came of. */
+.shell-action-btn[data-action='console'].is-active {
+  color: var(--shell-accent, #6366f1);
+}
+
+.builder-console__body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 14px;
-  border-top: 1px solid var(--shell-border, #e4e4e7);
+  flex: 1;
+  min-height: 0;
 }
 
-.builder-console__control-label {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.builder-console__control-error {
+.builder-console__error {
   margin: 0;
   color: var(--shell-danger, #b91c1c);
 }
 
-/* --- tenant cost, the console's first control --------------------------------
+/* --- the console's two panels ([[REQ-298]]) ----------------------------------
  *
- * FOUR COLUMNS AND NO CHART. The question is "who is costing us money", which a
- * sorted table answers; a trend line answers a different one and is named out of
- * scope on the ticket. The expansion's day rows are three of the same columns,
- * so they align under the summary without a second grid definition.
+ * THE LIST IS THREE COLUMNS AND NO MORE: whose site it is, where it is, and what
+ * that business cost. Anything else about a site belongs in the pane, which is
+ * the whole point of there being a pane.
  */
-.builder-tenant-cost__period {
+.builder-console-sites {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.builder-console-sites__period {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.builder-tenant-cost__period-field {
+.builder-console-sites__period-field {
   width: 6em;
   /* SIZED HERE AND NOT LEFT TO `inherit` ([[BUG-70]]). A form control does not
-     inherit the page's type — the browser gives it one of its own — so a `font`
-     shorthand that only says `inherit` leaves the box at the UA's default while
-     everything around it is the app's. The shorthand is kept for the family and
-     the size is declared from the token every other builder control uses. */
+     inherit the page's type, so the shorthand is kept for the family and the
+     size comes from the token every other builder control uses. */
   font: inherit;
   font-size: var(--builder-control-font-size);
   padding: 4px 6px;
@@ -3728,52 +3762,131 @@ body {
   color: inherit;
 }
 
-.builder-tenant-cost__head,
-.builder-tenant-cost__summary,
+.builder-console-sites__notice {
+  margin: 0;
+  color: var(--shell-muted, #71717a);
+}
+
+/* A fault reads as one; a settled fact about a young platform does not. */
+.builder-console-sites__notice[data-tone='problem'] {
+  color: var(--shell-danger, #b91c1c);
+}
+
+.builder-console-sites__row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.6fr auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.builder-console-sites__row-address {
+  color: var(--shell-muted, #71717a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-console-sites__row-cost {
+  font-variant-numeric: tabular-nums;
+}
+
+.builder-console-sites__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 2px 16px;
+}
+
+.builder-console-sites__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--shell-border, #e4e4e7);
+}
+
+.builder-console-sites__section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.builder-console-sites__section-label {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.builder-console-sites__field {
+  display: grid;
+  grid-template-columns: 10em 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.builder-console-sites__field-label {
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-console-sites__field-value {
+  overflow-wrap: anywhere;
+}
+
+.builder-console-sites__address {
+  color: var(--shell-accent, #6366f1);
+  overflow-wrap: anywhere;
+}
+
+.builder-console-sites__empty,
+.builder-console-sites__nothing,
+.builder-console-sites__unselected {
+  margin: 0;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-console-sites__section-error {
+  margin: 0;
+  color: var(--shell-danger, #b91c1c);
+}
+
+/* --- tenant cost, a section of the console's detail pane ---------------------
+ *
+ * NO TABLE AND NO CHART. [[REQ-297]]'s four-column league moved out of this
+ * section and became the console's own list, so what is left is one business's
+ * period: three headline figures, its days, and the two halves that are never
+ * added. A trend line answers a different question and is named out of scope on
+ * the ticket.
+ *
+ * THE DAY ROWS AND THE MODEL ROWS SHARE ONE GRID, so a model's figure aligns
+ * under a day's without a second definition.
+ */
 .builder-tenant-cost__day,
 .builder-tenant-cost__model {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 8px;
   align-items: baseline;
   text-align: left;
 }
 
-.builder-tenant-cost__head {
-  font-weight: 600;
-  color: var(--shell-muted, #71717a);
-  padding: 6px 4px;
-}
-
-.builder-tenant-cost__summary {
-  width: 100%;
-  /* A `<button>`, so the same rule applies — see the period field above. It is a
-     button because a row that opens a disclosure is a control and not a
-     decoration, and keyboard reach and `aria-expanded` come with the element. */
-  font: inherit;
-  font-size: var(--builder-control-font-size);
-  color: inherit;
-  padding: 6px 4px;
-  border: 0;
-  border-top: 1px solid var(--shell-border, #e4e4e7);
-  background: none;
-  cursor: pointer;
-}
-
 /* The figures are money and hours read down a column, so they line up on their
    digits rather than on their first character. */
-.builder-tenant-cost__summary .builder-tenant-cost__cell:not(:first-child),
 .builder-tenant-cost__day .builder-tenant-cost__cell:not(:first-child),
-.builder-tenant-cost__model .builder-tenant-cost__cell:not(:first-child),
-.builder-tenant-cost__head .builder-tenant-cost__cell:not(:first-child) {
+.builder-tenant-cost__model .builder-tenant-cost__cell:not(:first-child) {
   font-variant-numeric: tabular-nums;
 }
 
-.builder-tenant-cost__detail {
+/* The three headline figures sit in a row: they are one answer read across, not
+   three unrelated facts read down. */
+.builder-tenant-cost__totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.builder-tenant-cost__total {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 10px 4px 14px 16px;
+  gap: 2px;
 }
 
 .builder-tenant-cost__subheading {
@@ -3793,12 +3906,11 @@ body {
 }
 
 .builder-tenant-cost__figure {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
 
-.builder-tenant-cost__empty,
 .builder-tenant-cost__nothing,
 .builder-tenant-cost__loading,
 .builder-tenant-cost__unpriced {
