@@ -6,10 +6,10 @@ title: A newly created page cannot be given any content — add_page produces a 
   with no L1 document and no operation can create one
 created_by: xgd
 created_at: '2026-09-22T21:49:40.012443+00:00'
-updated_at: '2026-09-22T22:31:27.103076+00:00'
+updated_at: '2026-09-22T22:34:12.082618+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
