@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:32:38.167897+00:00'
+updated_at: '2026-09-22T21:36:53.131886+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3307,5 +3307,13 @@ Worth being clear that this buys headroom rather than fixing anything — the ce
 **REQ-285's reasoning was right and its cost model was wrong.** Reusing `pendingChanges` instead of growing a second idea of "is anything unpublished" is sound. What it didn't price is that the function was written for *publish*, where the byte-level snapshot is the point and the cost is paid once on a deliberate action — and the digest put it on the per-turn path.
 
 Recorded as §I25 on EPIC-16 with the fix shape. Want me to file it as a child ticket? It's the last real blocker on the go-live sequence, and it'll want to go to `lagrange-framework` or here depending on where you want `byteKey` fixed.
+
+<!-- xgd-turn id="e74d9bf4-8e90-45b3-8e12-3400293a5258-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:36:52.886210+00:00" -->
+#### You
+This is a bigger problem than I thought I am going back to the dev env to move foward with the web development while we disect this.
+
+So lets start with what it is trying to do - I don't understand why any asset bytes need to be read to send a message to the chat server?
 
 <!-- xgd-chat-end -->
