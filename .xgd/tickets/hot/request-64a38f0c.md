@@ -5,9 +5,9 @@ type: request
 title: An operator console for tenant cost
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:45.407051+00:00'
-updated_at: '2026-09-22T17:59:02.054346+00:00'
+updated_at: '2026-09-22T18:29:09.692698+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -181,6 +181,56 @@ price key has two levels.
 A tenant that delegated nothing in the window has **no delegated figure**,
 absent rather than zero — because this deployment ships delegation off, and
 "asked and found none" is a different claim from "there is no such thing here".
+
+### The two routes, and why the expansion is not a third
+
+The league needs a route of its own — `/api/admin/spend/businesses`, taking the
+same period and answering one row per tenant ordered by cost. It is a second
+path rather than an optional `business` on `/api/admin/spend`, because an
+optional parameter would give one route two answers of different shapes decided
+by whether a query string was present, and would relax the *business is
+required* refusal that keeps an unscoped read from being one omission away. It
+is `/businesses` and not `/tenants` ([[REQ-180]] §3): a path is a string a
+reader meets, and the operator is the reader most likely to be handed our data
+model by accident. It carries the same `ownsPlatformBusiness` gate and the same
+404, because a profile of every customer's spending at once is strictly more
+than the per-tenant route already declines to hand over.
+
+The expansion asks no new route. `/api/admin/spend` is widened rather than
+duplicated: alongside REQ-293's `report` — the principal half, unchanged — it
+answers `days` and `delegated` for the same period, in one round trip, because a
+decomposition and the report it decomposes must describe the same window. The
+two money figures are never summed on the wire, and `delegated` is absent rather
+than zeroed for a tenant that handed nothing off.
+
+Both routes share one period parser, so a league window and an expansion opened
+out of it cannot come to mean subtly different things. An unreadable `from` or
+`to` is a refusal rather than an ignored bound — dropping it would answer a
+wider question with no sign that it had, and the reader would take the total for
+the period they asked about.
+
+### A tenant's name is a left join
+
+The league's rows come from the meter, and a meter row whose tenant has no
+`tenants` record is still money that was spent. Such a row is present with no
+name rather than dropped: an inner join would stop reporting spend for the one
+reason it must not.
+
+### The control's figures are formatted in one place
+
+Money and the window are rendered by two pure functions the control owns, so
+every figure on the surface passes through the same pair. A measured sub-cent
+cost reads as `$0.00` and an absent one reads as the nothing mark — which is
+what keeps *nothing, never zero* visible on screen rather than merely intended
+in the data.
+
+### A control that fails does not close the console
+
+The console mounts each registered control into a section of its own, and a
+control that throws while mounting is reported inside that section while the
+rest of the console still renders. The console's value is being the one place
+several unrelated things are looked at, so one of them failing must not hide the
+others.
 
 ## What must be true when this is done
 
