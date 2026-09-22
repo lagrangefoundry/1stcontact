@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:52:04.812275+00:00'
+updated_at: '2026-09-22T20:55:37.520744+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3073,5 +3073,45 @@ GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material
 GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material/file?uid=material-22dae8cb
 
 I'm sorry that's a red herring - the 403s arre legitimate and reproducible the syntax error is something I pasted into the console ignore it
+
+<!-- xgd-turn id="a225d4da-bdca-4d97-b35f-06e6c8b13de0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:55:36.981153+00:00" -->
+#### Claude
+Found it, definitively — and I reproduced it myself, so you're out of the loop for diagnosis.
+
+## The Worker is running out of memory
+
+I posted a turn to `/b/<biz>/api/ai/prompt` using the `bin/access-token` service credential, against two sessions on the same business and deployment:
+
+| session | chat | tools | result |
+|---|---|---|---|
+| settings (`business-biz_33086a94…`) | 4.5 KB | 3.7 KB | **200, clean** — `PONG`, terminal `done`, 4.0 s |
+| site builder (`site-site_23c1afb3…`) | 253 KB | **2.02 MB** | **200, zero bytes**, connection closed, no frames |
+
+The tail names it:
+
+```
+outcome   = exceededMemory
+wallTime  = 14843 ms    cpuTime = 8815 ms
+exception = Error: Worker exceeded memory limit.
+route     = /b/biz_33086a94…/api/ai/prompt
+```
+
+**Every symptom falls out of that.** `streamTurn` returns its `Response` before `start()` runs, so the 200 and headers are already on the wire when the isolate is killed — the browser gets a successful response with an empty body and no terminal frame, which is exactly the condition the panel reports as "connection lost". The `catch` that would have rendered a readable error never runs. The `finally` that flushes the audit dies with it, which is why neither transcript grew by a byte. And it's deterministic — your 100% reproducible.
+
+**It is not delegation, not the API key, and not my repair.** The settings session proves the turn path, the delegation start-up validation and the Anthropic credential are all healthy on this deploy. My §I24 fix only made this session *reachable*; the memory ceiling was always sitting behind the `Unknown backend` refusal, and nobody had got past it to meet it.
+
+Worth separating: **rendering is fine, prompt construction is not.** Your browser displays all 253 KB without trouble. What exceeds 128 MB is the Worker materialising the session to build a prompt.
+
+## Your options, fastest first
+
+1. **Start a new chat on the Lagrange Foundry site.** Unblocks you in seconds, costs you conversational continuity, keeps the old transcript intact as a record.
+2. **Trim the transcript** — keep the recent turns, back up the rest. Preserves the session id and recent context. I can do this precisely; I already have the full body.
+3. **Test whether delegation contributes to the baseline** — flip `enabled: false` and redeploy. One line, and it tells you whether the extra worker runtime moved the ceiling. I'd only bother if 1 and 2 are unattractive.
+
+The real fix is a **windowed resume**: nothing currently bounds what a session materialises, so every session eventually reaches a turn that kills it — no degradation, no warning, no readable error. Want me to file that against EPIC-16?
+
+One correction to something I told you earlier: I said the stale ids left in the transcript body were ids "discussed in the conversation". They aren't — I've now enumerated all ten, and **every one is a markdown image URL** (`![recursion-diagram](/b/biz_5b101742…/preview/site_936dd7c9…/draft/assets/…)`). That's your 403s, and they're fixable: all four assets plus `plate-i-loop.png` exist under the production site. The two `material-*` links won't recover — production has no Library at all, only chat and comment tickets. Separate issue from the blocker; say the word and I'll fix the URLs.
 
 <!-- xgd-chat-end -->
