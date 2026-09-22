@@ -4,7 +4,12 @@ import { EMPTY_LADDER, type ImageLadder, type LadderProgressReporter } from './l
 import { InvalidDefinitionError, NoPublicAddressError } from '../cli/errors'
 import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 import type { ValidationError } from '@1stcontact/site-schema'
-import type { ChangeSet, RevisionEntry, StoredSnapshot } from '../store/revision-model'
+import type {
+  ChangeSet,
+  RenditionSink,
+  RevisionEntry,
+  StoredSnapshot,
+} from '../store/revision-model'
 import {
   diffSnapshots,
   isEmptyChangeSet,
@@ -248,12 +253,31 @@ function refusedTemplates(
  * common case. It must sit BEFORE the render, because the render is what writes
  * the manifest into each `<img>`.
  *
- * WHICH ALSO PUTS THE LADDER'S OWN REFUSAL INSIDE RULE 1's PROMISE. A site whose
- * projected renditions exceed what one request can carry throws before a single
- * rendition is written, and that is upstream of `writeRevision` — so an
- * over-budget publish leaves no revision, no history entry and no bytes, exactly
- * as an invalid draft does. A publish that died halfway would leave the opposite:
- * a partial ladder, paid for, serving nothing.
+ * WHICH ALSO PUTS THE LADDER'S OWN REFUSALS INSIDE RULE 1's PROMISE. A site whose
+ * pictures weigh more than one publish can hold, or whose projected renditions
+ * exceed what one request can carry, throws before a single rendition is written —
+ * before the revision's destination has even been opened — so an over-budget
+ * publish leaves no revision, no history entry and no bytes, exactly as an invalid
+ * draft does. A publish that died halfway would leave the opposite: a partial
+ * ladder, paid for, serving nothing.
+ *
+ * [[REQ-305]] SPLIT RULE 3 IN TWO, AND ONLY THE FIRST HALF MOVED. A rendition is
+ * now written the moment it is rendered rather than accumulated ([[REQ-305]]), so
+ * the destination has to be OPEN before the ladder renders — which is upstream of
+ * the render, which is upstream of `writeRevision`. `beginRevision` is that
+ * opening and `writeRevision` is still the single act that makes the revision
+ * exist: until the log entry lands, what the sink wrote is unreachable bytes. So
+ * rule 3's actual promise — no window in which a revision is listed and
+ * unservable — is untouched, because nothing about being listed moved.
+ *
+ * WHICH IS ALSO WHY THE ID IS MINTED EARLIER THAN IT WAS. `beginRevision` needs
+ * to know which revision it is opening, so `nextRevision` is read before the
+ * ladder rather than as the entry is assembled. It is a READ in every adapter and
+ * reserves nothing; the adapter that has a claim to make makes it inside
+ * `beginRevision`, which is now the earliest point at which anything is written —
+ * so the loser of a race between two publishes of one site still fails having
+ * written nothing, and now fails before paying for a ladder rather than after
+ * ([[REQ-266]] §2).
  */
 export async function publishSite(
   store: SiteStore,
@@ -305,32 +329,57 @@ export async function publishSite(
     return { id: live, changes, published: false }
   }
 
+  /*
+   * [[REQ-266]] §2 — THE STORE MINTS THE ID, not `nextRevisionOf(history)`.
+   *
+   * The arithmetic is identical and the id is still one past the highest ever
+   * minted. What changed is the SET it is computed over: the D1/R2 adapter
+   * reserves an id before it writes a byte, so ids that were handed out but never
+   * completed have to count too, and only the adapter holding that reservation
+   * can see them. Computing it here from `history` — which is the log of
+   * COMPLETED publishes — would hand out an id another publish of the same site
+   * is already writing into.
+   *
+   * READ HERE BECAUSE THE LADDER WRITES INTO THE REVISION ([[REQ-305]]). It used
+   * to be read as the entry below was assembled, on the reasoning that a publish
+   * which refuses must reserve nothing. Both halves still hold: this is a READ in
+   * every adapter and reserves nothing at all, and every refusal above this point
+   * — an invalid draft, a form naming a missing message, a site with no address —
+   * is still upstream of it. The ladder's own two refusals are downstream now,
+   * and they are still upstream of `beginRevision`, which is where an adapter
+   * that reserves does its reserving. So the promise is unchanged in substance: a
+   * publish that refuses has taken nothing and written nothing.
+   */
+  const id = await store.nextRevision(slug)
+
+  /*
+   * [[REQ-305]] — THE DERIVED CHANNEL, OPENED AT MOST ONCE AND AS LATE AS
+   * POSSIBLE.
+   *
+   * LAZY, BECAUSE THE LADDER HAS REFUSALS LEFT TO MAKE. Handing `build` an
+   * already-open sink would mean the revision's id had been taken and its tree
+   * emptied on behalf of a publish that is about to throw. So the ladder is given
+   * the ABILITY to open one and opens it itself, once both of its ceilings are
+   * cleared.
+   *
+   * AND ONCE, BECAUSE THE DESTINATION HAS ONE LIFECYCLE. A deployment with no
+   * ladder builds no renditions and still has a revision to write, so the publish
+   * opens the channel itself below if the ladder did not — the adapters use this
+   * verb to make the destination ready, and a publish that sometimes prepared and
+   * sometimes did not would be two lifecycles wearing one name.
+   */
+  let opened: Promise<RenditionSink> | null = null
+  const open = (): Promise<RenditionSink> => (opened ??= store.beginRevision(slug, id))
+
   // The delivery renditions, and then the pages that name them. The manifest is
   // a record of what was actually built, so a `srcset` can only ever name bytes
-  // this same call is about to write.
+  // this same call has already written.
   const ladder = opts.ladder
-    ? await opts.ladder.build(draft.assets, { onProgress: opts.onLadderProgress })
+    ? await opts.ladder.build(draft.assets, { onProgress: opts.onLadderProgress, open })
     : EMPTY_LADDER
   const rendered = await renderSiteFiles(snapshot.result.value, { delivery: ladder.manifest })
   const entry: RevisionEntry = {
-    /*
-     * [[REQ-266]] §2 — THE STORE MINTS THE ID, not `nextRevisionOf(history)`.
-     *
-     * The arithmetic is identical and the id is still one past the highest ever
-     * minted. What changed is the SET it is computed over: the D1/R2 adapter
-     * reserves an id before it writes a byte, so ids that were handed out but
-     * never completed have to count too, and only the adapter holding that
-     * reservation can see them. Computing it here from `history` — which is the
-     * log of COMPLETED publishes — would hand out an id another publish of the
-     * same site is already writing into.
-     *
-     * IT IS READ HERE AND NOT EARLIER. Everything above this point can still
-     * refuse — an invalid draft, a form naming a missing message, a site with no
-     * address, an over-budget ladder — and a publish that refuses must reserve
-     * nothing, or a site would burn a revision number every time its author made
-     * a mistake.
-     */
-    id: await store.nextRevision(slug),
+    id,
     publishedAt: opts.now ?? new Date().toISOString(),
     message: opts.message ?? '',
     by: opts.by ?? null,
@@ -338,11 +387,8 @@ export async function publishSite(
     changes,
     sha: await snapshotSha(draft),
   }
-  await store.writeRevision(slug, entry, {
-    source: draft,
-    out: new Map(rendered.files),
-    derived: ladder.derived,
-  })
+  await open()
+  await store.writeRevision(slug, entry, { source: draft, out: new Map(rendered.files) })
   await store.setDraftBase(slug, entry.id)
   return { id: entry.id, changes, published: true }
 }

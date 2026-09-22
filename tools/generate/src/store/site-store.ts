@@ -1,6 +1,11 @@
 import type { LoadResult } from './assemble'
 import type { ChangeSlice, JournalRecord } from './journal-model'
-import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import type {
+  RenditionSink,
+  RevisionContent,
+  RevisionEntry,
+  StoredSnapshot,
+} from './revision-model'
 
 /**
  * The `SiteStore` port (REQ-142): everything the structured-edit surface needs
@@ -246,6 +251,40 @@ export interface SiteStore {
    * a directory tree and an R2 bucket without knowing which it has.
    */
   writeRevision(site: string, entry: RevisionEntry, content: RevisionContent): Promise<void>
+
+  /**
+   * Take the revision `id` and open the channel its DERIVED bytes are written
+   * through ([[REQ-305]]).
+   *
+   * WHY THE WRITE IS IN TWO ACTS NOW. Everything a revision freezes is known
+   * before it is written except one thing: the delivery renditions, which the
+   * image ladder produces by rendering them, and which the *pages* then have to
+   * name. So the order is forced — renditions first, pages second, revision
+   * last — and a rendition that cannot be written until the last act is a
+   * rendition that has to be HELD until then. Thirteen of those per photograph
+   * is what killed a photo-heavy publish ([[REQ-305]]); a sink opened first is
+   * what lets each one be written and forgotten.
+   *
+   * IT IS WHERE THE ID IS TAKEN, and that is the second half of why it exists.
+   * `nextRevision` is a read, so two publishes of one site can both see the same
+   * answer; the adapter that has a claim to make makes it HERE, before a single
+   * rendition is written, which is earlier than {@link writeRevision} could make
+   * it and is the one ordering in which the loser of that race writes nothing at
+   * all ([[REQ-266]] §2).
+   *
+   * IT IS NOT OPTIONAL AND NOT CONDITIONAL ON A LADDER. A publish calls it
+   * whichever adapter it has and whether or not this deployment can build
+   * renditions, because the adapters also use it to make the destination ready —
+   * and a publish that sometimes prepared and sometimes did not would be two
+   * lifecycles wearing one name. A publish with nothing derived to write opens
+   * the sink and never calls it.
+   *
+   * {@link writeRevision} IS THE ACT THAT MAKES THE REVISION EXIST, still, and
+   * must follow this. Nothing here appends to the log or writes a definition:
+   * until `writeRevision` lands the row, whatever this opened is unreachable
+   * bytes rather than a revision anyone can read.
+   */
+  beginRevision(site: string, id: number): Promise<RenditionSink>
 
   /** A revision's frozen definition, or null when the store holds no such revision. */
   readRevision(site: string, id: number): Promise<StoredSnapshot | null>
