@@ -327,6 +327,16 @@ export interface RawBand {
   contentAnchorRatio: number | null
   content: RawRun[]
   items: RawRun[][]
+  /**
+   * REQ-302 — the index within {@link content} each {@link items} row belongs
+   * at, so a projection can put the repeated rows back where the DOM had them.
+   *
+   * Parallel to `items`. Absent on the geometric-slice path, where the question
+   * has no answer (see the comment at that call site) and on any bundle written
+   * before REQ-302 — in both cases a reader appends, which is what every reader
+   * did before the anchor existed.
+   */
+  itemsAt?: number[]
   /** REQ-47 — text-free rendered elements (form controls, dividers) in this band. */
   fields: RawField[]
 }
@@ -1000,10 +1010,19 @@ export const EXTRACT_SCRIPT = `(() => {
     // REQ-88: composite over the geometric surfaceChain (tightest first) rather
     // than parentElement, so a card painted as a sibling backing box is the
     // surface, not the page backstop behind it.
+    // REQ-302: a flat gradient LAYER is a fill and composites here, above the
+    // same element's background-color (a background-image paints on top of it).
+    // See flatGradientRgba for the asymmetry that closes.
     var acc = null; // [r,g,b,a], top layer first
     var chain = surfaceChainWithSelf(el);
     for (var i = 0; i < chain.length; i++) {
-      var c = rgbaOf(getComputedStyle(chain[i]).backgroundColor);
+      var cs = getComputedStyle(chain[i]);
+      var flat = flatGradientRgba(cs.backgroundImage);
+      if (flat && flat[3] > 0) {
+        acc = acc ? composite(acc, flat) : flat;
+        if (acc[3] >= 0.999) break;
+      }
+      var c = rgbaOf(cs.backgroundColor);
       if (c && c[3] > 0) {
         acc = acc ? composite(acc, c) : c;
         if (acc[3] >= 0.999) break; // opaque — nothing behind shows through
@@ -1096,7 +1115,16 @@ export const EXTRACT_SCRIPT = `(() => {
       var gs = getComputedStyle(chain[i]);
       var img = gs.backgroundImage || 'none';
       var clip = gs.webkitBackgroundClip || gs.backgroundClip || '';
-      if (/gradient\\(/.test(img) && clip !== 'text') return hexifyGradient(img);
+      // REQ-302 -- a single-colour "gradient" is a flat fill and belongs to
+      // surfaceFillOf, which now composites it. Reporting it here as well is
+      // what made one veil two values on two axes. An OPAQUE one still hides
+      // everything behind it, so it ends the walk the way a solid fill does.
+      var flat = flatGradientRgba(img);
+      if (flat) {
+        if (flat[3] >= 0.999) return null;
+      } else if (/gradient\\(/.test(img) && clip !== 'text') {
+        return hexifyGradient(img);
+      }
       var c = rgbaOf(gs.backgroundColor);
       if (c && c[3] >= 0.999) return null; // opaque solid — nothing behind shows
     }
@@ -1261,7 +1289,25 @@ export const EXTRACT_SCRIPT = `(() => {
   // The a11y role: an explicit role attr wins, else the implicit role for the tag
   // (the browser's own framework-agnostic semantic label — a <button>, an <a
   // href>, and a role="button" div all project to the same fact).
-  function a11yRoleOf(el) {
+  //
+  // REQ-302 -- resolved from the nearest SEMANTIC ANCESTOR, exactly as hrefOf and
+  // headingLevelOf above already are. A gradient-text or colour-accent treatment
+  // wraps the words in a presentational span inside the semantic element --
+  // <a href="/"><span style="background-clip:text">Gigabyte Alchemy</span></a> --
+  // and the run's owning element is then the span. Reading the role off the span
+  // alone recorded 'generic' on a record that carried an href beside it, which is
+  // not a state a document can be in. It also made the measurement asymmetric: an
+  // L1 render emits the <a>/<h1> DIRECTLY around its text (there is no
+  // presentational span in L1), so the same function returned 'link' on the
+  // reproduction and 'generic' on the reference, and the two highest-severity
+  // deltas in a run pointed at the side that was right.
+  function semanticOf(el) {
+    if (!el.closest) return el;
+    var anc = el.closest('[role],a[href],button,h1,h2,h3,h4,h5,h6,input,textarea,select,img,hr');
+    return anc || el;
+  }
+  function a11yRoleOf(rawEl) {
+    var el = semanticOf(rawEl);
     var explicit = el.getAttribute && el.getAttribute('role');
     if (explicit) return explicit.trim().toLowerCase();
     var t = el.tagName.toLowerCase();
@@ -1373,19 +1419,51 @@ export const EXTRACT_SCRIPT = `(() => {
   // The gradient rule is sections.ts's firstOverlay rule with one widening: the
   // FIRST TRANSLUCENT stop rather than the first stop. A fade-to-black scrim
   // opens at alpha 0, and "the first stop" would read that as no scrim at all.
-  function gradientScrim(css) {
-    if (!css || css === 'none' || css.indexOf('gradient(') === -1) return null;
+  function gradientColors(css) {
+    if (!css || css === 'none' || css.indexOf('gradient(') === -1) return [];
     // url(...) is stripped first: a background-image is a LAYER LIST, and a
     // photograph's own URL can carry a #fragment that reads as a hex colour.
     var src = css.replace(/url\([^)]*\)/g, '');
     var re = /(rgba?\([^)]*\)|hsla?\([^)]*\)|oklab\([^)]*\)|oklch\([^)]*\)|lab\([^)]*\)|lch\([^)]*\)|#[0-9a-fA-F]{3,8})/g;
-    var m;
+    var out = [], m;
     while ((m = re.exec(src))) {
       var c = rgbaOf(m[1]);
-      if (!c) continue;
+      if (c) out.push(c);
+    }
+    return out;
+  }
+  function gradientScrim(css) {
+    var cols = gradientColors(css);
+    for (var i = 0; i < cols.length; i++) {
+      var c = cols[i];
       if (c[3] > 0 && c[3] < 1) return { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(c[3] * 100) / 100 };
     }
     return null;
+  }
+  // REQ-302 -- the flat fill a "gradient" is actually painting, or null.
+  //
+  // A gradient whose every colour stop resolves to the SAME colour is not a
+  // gradient at all: it is a flat fill painted as a background LAYER rather than
+  // as a background-color. The two are indistinguishable on the page and were
+  // not indistinguishable to this extractor, which is how one veil came to be
+  // reported on two different axes depending only on how the page authored it. A
+  // full-bleed 30% navy scrim written as a sibling div with
+  // 'background: rgba(2,6,23,.3)' composited into surfaceFillOf; the SAME veil
+  // written as 'linear-gradient(#0307174d, #0307174d)' on the box itself landed
+  // on surfaceGradientOf instead, and left surfaceFillOf reporting the page
+  // backstop underneath. Eight false deltas across four runs, measured, with
+  // both sides painting the same pixels.
+  //
+  // Returns the rgba so a caller can composite it exactly as it composites a
+  // background-color -- alpha included, which is the whole point.
+  function flatGradientRgba(css) {
+    var cols = gradientColors(css);
+    if (cols.length < 2) return null;
+    for (var i = 1; i < cols.length; i++) {
+      if (cols[i][0] !== cols[0][0] || cols[i][1] !== cols[0][1] ||
+          cols[i][2] !== cols[0][2] || cols[i][3] !== cols[0][3]) return null;
+    }
+    return cols[0];
   }
   // The scrim this element paints, or null. A translucent background-COLOUR
   // first (the conventional veil), then a translucent gradient LAYER.
@@ -1627,8 +1705,25 @@ export const EXTRACT_SCRIPT = `(() => {
   var FLOW_SEQ = 0;
   // Collect visible text runs under a root, in document order, skipping any node
   // within an excluded subtree (so band content never duplicates item content).
-  function runsUnder(root, excludes) {
+  function runsUnder(root, excludes, meta) {
     var out = [];
+    // REQ-302 -- where, in this walk, the excluded subtree sat.
+    //
+    // itemGroup pulls a band's repeated rows out of the content walk and the
+    // projection used to re-append them after ALL of the band's content, so a
+    // card whose bullet list happened to be the band's one detected item group
+    // had its bullets emitted after a LATER card's copy. Document order is then
+    // not the page's reading order, and every downstream consumer that treats it
+    // as such -- the responsive table, the fold's child order, the flow
+    // recovery's leading offsets -- inherits the inversion. Measured on one
+    // reference: three bullet rows emitted ~460px below where they paint, which
+    // the flow recovery then repaired with margin-top: -946px and friends, a
+    // document that holds only at the six sampled widths.
+    //
+    // Recording the position lets the projection put them back where they were,
+    // which costs nothing and removes the inversion at its source rather than
+    // asking the fold to sort its way out of it.
+    var excludedAtNode = -1;
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     var n;
     // BUG-25 — two passes, because a run's geometry depends on whether its element
@@ -1648,7 +1743,11 @@ export const EXTRACT_SCRIPT = `(() => {
       var owner = n.parentElement;
       if (!owner || !visible(owner)) { if (!t) pendingSpace = true; continue; }
       if (moduleInvariant(owner)) { if (!t) pendingSpace = true; continue; }
-      if (excludes && insideAny(owner, excludes)) { if (!t) pendingSpace = true; continue; }
+      if (excludes && insideAny(owner, excludes)) {
+        if (excludedAtNode === -1) excludedAtNode = nodes.length;
+        if (!t) pendingSpace = true;
+        continue;
+      }
       if (!t) { pendingSpace = true; continue; }
       if (pendingSpace && flow.charAt(0) !== ' ') flow = ' ' + flow;
       pendingSpace = false;
@@ -1709,6 +1808,11 @@ export const EXTRACT_SCRIPT = `(() => {
       last.flow = last.flow.replace(/ +$/, '');
     });
     for (var ri2 = 0; ri2 < nodes.length; ri2++) {
+      // REQ-302 -- the emitted index the excluded subtree belongs at. Taken here
+      // rather than in pass 1 because pass 1 counts CANDIDATE nodes and pass 2
+      // decides which of them become runs; the projection needs an index into
+      // what was emitted.
+      if (meta && ri2 === excludedAtNode && meta.anchor === undefined) meta.anchor = out.length;
       n = nodes[ri2].node;
       var text = nodes[ri2].text;
       var el = nodes[ri2].el;
@@ -1836,6 +1940,10 @@ export const EXTRACT_SCRIPT = `(() => {
         motion: motionOf(s),
       });
     }
+    // REQ-302 -- an exclusion after the last emitted run anchors at the end,
+    // which is where it already was. Set unconditionally when nothing set it in
+    // the loop, so 'anchor' is present whenever an exclusion was seen at all.
+    if (meta && excludedAtNode !== -1 && meta.anchor === undefined) meta.anchor = out.length;
     return out;
   }
 
@@ -2027,6 +2135,14 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     return { roots: [], items: [] };
   }
+  // REQ-302 -- the band's content runs, plus the index within them where the
+  // repeated-item rows belong. One call, so the walk that produces the runs is
+  // the same walk that locates the hole they were lifted out of.
+  function contentWithItemAnchor(band, itemRoots) {
+    var meta = {};
+    var content = runsUnder(band, itemRoots, meta);
+    return { content: content, itemsAt: meta.anchor };
+  }
 
   // ── colors ────────────────────────────────────────────────────────────────
   var colorMap = {};
@@ -2117,6 +2233,13 @@ export const EXTRACT_SCRIPT = `(() => {
     var perSlice = geometricBands.map(function () { return { content: [], fields: [], items: [] }; });
     flatContent.forEach(function (r) { perSlice[sliceIndexFor(r.box, geometricBands)].content.push(r); });
     flatFields.forEach(function (f) { perSlice[sliceIndexFor(f.box, geometricBands)].fields.push(f); });
+    // REQ-302 -- no itemsAt on this path, deliberately. A geometric slice is not
+    // a DOM subtree: its runs were collected once from the flat root and then
+    // PARTITIONED by box, so "the index this row sits at within this slice's
+    // content" is not a question the walk answered. The projection appends,
+    // which is what it did before and is the only truthful answer here. This is
+    // the flat-tree (L1 reproduction) path, where the tree's own order already
+    // came from the reference bundle the fold was built from.
     flatGrp.roots.forEach(function (rootEl, ri) {
       perSlice[sliceIndexFor(absBox(rootEl), geometricBands)].items.push(flatGrp.items[ri]);
     });
@@ -2150,7 +2273,13 @@ export const EXTRACT_SCRIPT = `(() => {
     var bg = rgbToHex(s.backgroundColor);
     var grp = itemGroup(band);
     var bbox = br.box;
-    var content = runsUnder(band, grp.roots);
+    // REQ-302 -- one walk, producing both the content runs and the index each
+    // lifted-out item row belongs at. See contentWithItemAnchor / runsUnder.
+    var walked = contentWithItemAnchor(band, grp.roots);
+    var content = walked.content;
+    var itemsAt = grp.items.map(function () {
+      return walked.itemsAt === undefined ? content.length : walked.itemsAt;
+    });
     var fields = fieldsUnder(band, grp.roots);
     // Arrangement is relative to the previous element in reading order, so text
     // runs and text-free fields must be ordered together (a Subscribe button's
@@ -2169,6 +2298,7 @@ export const EXTRACT_SCRIPT = `(() => {
       contentAnchorRatio: anchorRatioOf(band, bbox),
       content: content,
       items: grp.items,
+      itemsAt: itemsAt,
       fields: fields,
     });
   });

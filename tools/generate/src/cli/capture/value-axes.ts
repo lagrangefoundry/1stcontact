@@ -18,10 +18,14 @@
  * `paddingRightPx`, `paddingBottomPx` and `textAlign` on a TEXT RUN. REQ-64
  * added all four to {@link RawRun} and to the comparator; nothing added them to
  * {@link ContentRun}, so the reference never supplied them, the comparator's
- * both-sides guard never fired, and four *compared* axes have been silently
- * unevaluated on every text run of every reproduction since. They are declared
- * here as reference-side {@link unsupplied}, which is what makes them show up in
- * {@link UNMEASURED_AXES} and reach the gate as UNMEASURED rather than clean.
+ * both-sides guard never fired, and four *compared* axes were silently
+ * unevaluated on every text run of every reproduction. Declaring them here as
+ * reference-side {@link unsupplied} is what made them show up in
+ * {@link UNMEASURED_AXES} and reach the gate as UNMEASURED rather than clean —
+ * and REQ-302 then closed the gap at its source, adding all four to
+ * {@link ContentRun} and to `toContentRun`, so they read from both sides now.
+ * That sequence is the point of this module: a declared gap is a gap someone can
+ * close, where a silent one is a gap nobody can see.
  *
  * ## What a row is
  *
@@ -358,26 +362,6 @@ function rawAccent(r: RawRun): BorderTreatment | null {
     : null
 }
 
-/**
- * Why the reference side cannot supply REQ-64's four Type-A run axes.
- *
- * THE FIFTH INSTANCE OF THE CATEGORY, and the reason this module exists. REQ-64
- * added `paddingTopPx` / `paddingRightPx` / `paddingBottomPx` / `textAlign` to
- * {@link RawRun} and taught the comparator to diff them; {@link ContentRun}
- * never grew them, so the reference recorded nothing, the comparator's
- * both-sides guard skipped every run, and four COMPARED axes have read clean by
- * construction ever since. REQ-269 #1 added exactly these fields to a text-free
- * {@link Field} and stopped there.
- *
- * Recording them is the sibling capture-completeness ticket's job, not this
- * one's. What this one changes is that until that lands they are reported as
- * unmeasured instead of passing as clean.
- */
-const RUN_TYPE_A_GAP = unsupplied(
-  'ContentRun does not record it — REQ-64 added the axis to RawRun and to the comparator but not to the capture bundle, ' +
-    'and REQ-269 #1 added it to a text-free Field only. The extractor has to record it before the reference can read it.',
-)
-
 export const RUN_AXES: readonly AnyElementAxis<ContentRun, RawRun>[] = [
   {
     axis: 'text',
@@ -458,30 +442,26 @@ export const RUN_AXES: readonly AnyElementAxis<ContentRun, RawRun>[] = [
   {
     axis: 'paddingTopPx',
     role: 'compared',
-    note: 'REQ-64 — Type-A top padding. Reference-side gap: see RUN_TYPE_A_GAP.',
-    reference: RUN_TYPE_A_GAP,
-    reproduction: (r) => r.paddingTopPx,
+    note: 'REQ-64 — Type-A top padding, recorded on both sides since REQ-302.',
+    ...sharedRun((r) => r.paddingTopPx),
   },
   {
     axis: 'paddingRightPx',
     role: 'compared',
-    note: 'REQ-64 — Type-A right padding. Reference-side gap: see RUN_TYPE_A_GAP.',
-    reference: RUN_TYPE_A_GAP,
-    reproduction: (r) => r.paddingRightPx,
+    note: 'REQ-64 — Type-A right padding, recorded on both sides since REQ-302.',
+    ...sharedRun((r) => r.paddingRightPx),
   },
   {
     axis: 'paddingBottomPx',
     role: 'compared',
-    note: 'REQ-64 — Type-A bottom padding. Reference-side gap: see RUN_TYPE_A_GAP.',
-    reference: RUN_TYPE_A_GAP,
-    reproduction: (r) => r.paddingBottomPx,
+    note: 'REQ-64 — Type-A bottom padding, recorded on both sides since REQ-302.',
+    ...sharedRun((r) => r.paddingBottomPx),
   },
   {
     axis: 'textAlign',
     role: 'compared',
-    note: 'REQ-64 — normalized computed `text-align` (start→left, end→right). Reference-side gap: see RUN_TYPE_A_GAP.',
-    reference: RUN_TYPE_A_GAP,
-    reproduction: (r) => r.textAlign,
+    note: 'REQ-64 — normalized computed `text-align` (start→left, end→right), recorded on both sides since REQ-302.',
+    ...sharedRun((r) => r.textAlign),
   },
   {
     axis: 'surfaceFill',

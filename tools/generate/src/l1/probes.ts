@@ -1722,9 +1722,17 @@ function atHeightAt(geo: L1Geometry, at: number): number | undefined {
   return f[f.length - 1].atHeight
 }
 
-/** Round to a tenth of a pixel — the offsets are derived, not captured. */
+/**
+ * Round to a hundredth of a pixel — the same precision the fold writes its
+ * captured keyframes at (REQ-302).
+ *
+ * These offsets are DERIVED from those keyframes, so a coarser grid here throws
+ * away precision the fold just took care to keep: a lead rounded to a tenth puts
+ * a run that measured 149.55 back at 149.5, and the half-pixel the fold stopped
+ * introducing comes back one level down.
+ */
 function round(n: number): number {
-  return Math.round(n * 10) / 10
+  return Math.round(n * 100) / 100
 }
 
 /** A node whose own height is its content's, so recovery gives it back to flow. */

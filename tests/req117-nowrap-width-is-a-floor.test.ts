@@ -29,6 +29,19 @@ import { renderL1Document } from '../packages/framework/src/index'
 import { foldToL1 } from '../tools/generate/src'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
 
+/**
+ * REQ-302 — the keyword a relaxed rung resets `width` to.
+ *
+ * REQ-117 wrote `auto`, correct while every placement was absolute (where
+ * `auto` IS shrink-to-fit). REQ-278's in-flow frame made the same keyword mean
+ * "fill the containing block", so a flow-placed wordmark stretched to its
+ * column and its `background-clip: text` gradient was painted across the wrong
+ * area. `fit-content` is shrink-to-fit in both frames, so REQ-117's intent —
+ * captured width as a FLOOR, content free to grow the box — is unchanged and
+ * now holds in flow as well.
+ */
+const RELAXED = 'fit-content'
+
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 const LADDER_H: Record<number, number> = { 320: 800, 375: 800, 768: 1024, 1024: 768, 1280: 800, 1440: 900 }
 
@@ -133,7 +146,7 @@ describe('REQ-117 a nowrap run treats its captured width as a floor', () => {
     const pinned = widthDecls(css, classOf(html, 'Gigabyte Alchemy'))
     expect(pinned.length).toBeGreaterThan(0)
     // No hard pixel width survives on the run...
-    expect(pinned.filter((d) => d.prop === 'width').every((d) => d.value === 'auto')).toBe(true)
+    expect(pinned.filter((d) => d.prop === 'width').every((d) => d.value === RELAXED)).toBe(true)
     // ...and the captured geometry survives as the value of the floor, which is
     // what keeps an unedited page pixel-identical to before.
     expect(pinned.some((d) => d.prop === 'min-width' && d.value === '686px')).toBe(true)
@@ -144,7 +157,7 @@ describe('REQ-117 a nowrap run treats its captured width as a floor', () => {
     // asserted per rung rather than in aggregate.
     for (const [at, ds] of byRung(pinned)) {
       if (!ds.some((d) => d.prop === 'min-width')) continue
-      expect(ds.some((d) => d.prop === 'width' && d.value === 'auto'), `rung ${at ?? 'base'}`).toBe(true)
+      expect(ds.some((d) => d.prop === 'width' && d.value === RELAXED), `rung ${at ?? 'base'}`).toBe(true)
     }
 
     // The wrapping run keeps a hard width — relaxing it would reflow its lines.
@@ -180,16 +193,16 @@ describe('REQ-117 a nowrap run treats its captured width as a floor', () => {
     // too, which is why it counts as "below".
     for (const d of decls.filter((x) => x.at === null || x.at < singleFrom)) {
       expect(d.prop, `at ${d.at ?? 'base'}`).toBe('width')
-      expect(d.value, `at ${d.at ?? 'base'}`).not.toBe('auto')
+      expect(d.value, `at ${d.at ?? 'base'}`).not.toBe(RELAXED)
     }
     // At and above it, the floor — and the reset that keeps the rungs overriding.
     for (const [at, ds] of byRung(decls)) {
       if (at === null || at < singleFrom) continue
       expect(ds.some((d) => d.prop === 'min-width'), `rung ${at}`).toBe(true)
-      expect(ds.some((d) => d.prop === 'width' && d.value === 'auto'), `rung ${at}`).toBe(true)
+      expect(ds.some((d) => d.prop === 'width' && d.value === RELAXED), `rung ${at}`).toBe(true)
     }
     // Both sides of the threshold are actually exercised by this fixture.
-    expect(decls.some((d) => d.prop === 'width' && d.value !== 'auto')).toBe(true)
+    expect(decls.some((d) => d.prop === 'width' && d.value !== RELAXED)).toBe(true)
     expect(decls.some((d) => d.prop === 'min-width')).toBe(true)
   })
 

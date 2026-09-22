@@ -835,6 +835,37 @@ export function rawRunToElement(run: RawRun): ValueElement {
  * later schema (REQ-271's `surfaceFill`) is UNMEASURED on an older bundle rather
  * than defaulted, and that decision belongs at the axis, not here.
  */
+/**
+ * REQ-302 — a band's runs in DOCUMENT order: content, with each repeated-item
+ * row spliced back in at the index it was lifted from.
+ *
+ * `itemGroup` pulls a band's repeated rows out of the content walk, and both
+ * projections used to re-append them after ALL of the band's content. A card
+ * whose bullet list happened to be the band's one detected item group therefore
+ * had its bullets emitted after a LATER card's copy, and everything downstream
+ * that reads this array as reading order — the responsive table's occurrence
+ * pairing, the fold's child order, the flow recovery's leading offsets —
+ * inherited the inversion. One reference paid for it with three bullet rows
+ * emitted ~460px below where they paint and a flow recovery that repaired the
+ * gap with `margin-top: -946px`, giving a document correct at exactly the six
+ * sampled widths and wrong between them.
+ *
+ * An absent anchor for a row (a pre-REQ-302 bundle, or the geometric-slice path
+ * where a slice is a box rather than a subtree and the question has no answer)
+ * appends it, which is what every reader did before the anchor existed.
+ */
+export function runsInDocumentOrder<T>(content: T[], items: T[][], itemsAt?: number[]): T[] {
+  const out: T[] = []
+  for (let i = 0; i <= content.length; i++) {
+    for (let k = 0; k < items.length; k++) {
+      const at = itemsAt?.[k] ?? content.length
+      if (at === i) out.push(...items[k])
+    }
+    if (i < content.length) out.push(content[i])
+  }
+  return out
+}
+
 export function flattenCapture(capture: Capture): ValueManifest {
   const schema = captureSchemaOf(capture)
   const sections: SectionValues[] = capture.sections.map((section, index) =>
@@ -842,10 +873,14 @@ export function flattenCapture(capture: Capture): ValueManifest {
   )
   const elements: ValueElement[] = []
   for (const section of capture.sections) {
-    for (const run of section.content) elements.push(contentRunToElement(run))
-    for (const item of section.items) {
-      for (const run of item.content) elements.push(contentRunToElement(run))
-    }
+    // REQ-302 — content and repeated-item rows in document order, not content
+    // first and every item row after. See runsInDocumentOrder.
+    const runs = runsInDocumentOrder(
+      section.content,
+      section.items.map((i) => i.content),
+      section.itemsAt,
+    )
+    for (const run of runs) elements.push(contentRunToElement(run))
     // REQ-47 — text-free elements (guarded: pre-REQ-47 bundles carry no `fields`).
     for (const field of section.fields ?? []) elements.push(fieldToElement(field))
   }
@@ -872,10 +907,10 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
   const sections: SectionValues[] = signals.bands.map((band, index) => projectSignalsBand(band, index))
   const elements: ValueElement[] = []
   for (const band of signals.bands) {
-    for (const run of band.content) elements.push(rawRunToElement(run))
-    for (const item of band.items) {
-      for (const run of item) elements.push(rawRunToElement(run))
-    }
+    // REQ-302 — see flattenCapture above: the same ordering, read from the raw
+    // band's own anchor, so the two sides of a diff are ordered by one rule.
+    const runs = runsInDocumentOrder(band.content, band.items, band.itemsAt)
+    for (const run of runs) elements.push(rawRunToElement(run))
     // REQ-47 — text-free elements (form controls, dividers).
     for (const field of band.fields ?? []) elements.push(projectField(field, 'reproduction'))
   }
@@ -1361,6 +1396,26 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
  * abandoning exactness everywhere else.
  */
 export interface DiffOptions {
+  /**
+   * REQ-302 — the declared one-sided axes to evaluate this comparison against,
+   * defaulting to the live {@link UNMEASURED_AXES}.
+   *
+   * WHY THIS SEAM EXISTS. REQ-274's capability is "a compared axis the table can
+   * only read on ONE side is REPORTED as unmeasured rather than passing as
+   * clean", and its evidence was necessarily written against whatever live gap
+   * happened to exist — REQ-64's four Type-A run axes. REQ-302 closes that gap,
+   * and it was the last one, so `UNMEASURED_AXES` is now empty and there is no
+   * live example left to drive the reporting path with. Without a seam the only
+   * way to keep REQ-274 proven would be to leave a gap open on purpose, and the
+   * only alternative is to delete its evidence every time a gap is closed —
+   * which is exactly backwards, since closing gaps is the point.
+   *
+   * The axis TABLE already takes its declared list as a parameter
+   * (`observedUnmeasuredAxes(expected, actual, declared)`); this forwards that
+   * parameter the one step it was missing. Production callers pass nothing and
+   * get the live table, unchanged.
+   */
+  declaredUnmeasured?: readonly UnmeasuredAxis[]
   /**
    * Restore loose matching: every measurement axis falls back to its pre-REQ-53
    * jitter-tolerant default instead of exact. The escape hatch for a genuine
@@ -3053,7 +3108,7 @@ export function diffManifests(
     // into: the side that CAN read the axis carried a value and the other side
     // had nothing to compare it with. Not the whole declaration, which is true
     // of every comparison and would put a permanent row on every report.
-    unmeasuredAxes: observedUnmeasuredAxes(expected, actual),
+    unmeasuredAxes: observedUnmeasuredAxes(expected, actual, opts.declaredUnmeasured),
     ...(sectionsNotComparable ? { sectionsNotComparable } : {}),
   }
 }

@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><title>item order</title>
+<style>
+  body { margin: 0; background: #e8dfd3; font-family: system-ui }
+  section { padding: 40px }
+  .card { background: #fff; padding: 24px; margin-bottom: 24px; border-radius: 8px }
+  /* The two cards differ in class, so the CARD row is not a uniform group and
+     the item-group walk descends into the first card's <ul> instead. */
+  .card-a { border-left: 4px solid #ffb900 }
+  .card-b { border-left: 4px solid #50a2ff }
+  ul { margin: 0; padding: 0; list-style: none }
+  li { display: flex }
+  li span:first-child { margin-right: 12px }
+</style></head>
+<body><section>
+  <div class="card card-a">
+    <h3>First Card Heading</h3>
+    <p>First card paragraph copy.</p>
+    <ul>
+      <li><span>+</span><span>Alpha bullet of the first card</span></li>
+      <li><span>+</span><span>Beta bullet of the first card</span></li>
+    </ul>
+  </div>
+  <div class="card card-b">
+    <h3>Second Card Heading</h3>
+    <p>Second card paragraph copy.</p>
+    <ul>
+      <li><span>+</span><span>Gamma bullet of the second card</span></li>
+      <li><span>+</span><span>Delta bullet of the second card</span></li>
+    </ul>
+  </div>
+</section></body></html>

@@ -45,8 +45,16 @@ import type { Capture } from './types'
  *   discovered a single missing axis the expensive way. These four came out of
  *   one mechanical pass (`1c capture audit`) over the three stored references,
  *   which is what the probe exists to make possible.
+ * - **5** — REQ-302: a run's `paddingTopPx`, `paddingRightPx`, `paddingBottomPx`
+ *   and `textAlign` reach the bundle at all (the browser measured all four and
+ *   the projection kept one), and `a11yRole` is read at the semantic ancestor
+ *   rather than at the text node — so a heading or link wrapped in a
+ *   presentational `<span>` stops recording `generic` beside its own `href`.
+ *   It also adds `itemsAt`: the index each repeated-item row belongs at within
+ *   its section's content, without which a section's runs are not in reading
+ *   order and nothing downstream can put them back.
  */
-export const CAPTURE_SCHEMA = 4
+export const CAPTURE_SCHEMA = 5
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -160,6 +168,57 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     axis: 'required',
     where: 'a form control (`sections[].fields[]`)',
     present: (c) => fields(c).some((f) => typeof f.required === 'boolean'),
+  },
+  {
+    since: 5,
+    axis: 'paddingTopPx/paddingRightPx/paddingBottomPx',
+    where: 'a content run (`sections[].content[]`)',
+    // The three sides beside `paddingLeftPx`, which every schema has carried. A
+    // page can legitimately pad nothing, so presence is "the key exists" — a
+    // measured 0 is a measurement, an absent key is the projection dropping it.
+    present: (c) => runs(c).some((r) => typeof r.paddingTopPx === 'number'),
+  },
+  {
+    since: 5,
+    axis: 'textAlign',
+    where: 'a content run (`sections[].content[]`)',
+    present: (c) => runs(c).some((r) => typeof r.textAlign === 'string'),
+  },
+  {
+    since: 5,
+    axis: 'a11yRole resolved at the semantic ancestor',
+    where: 'a content run (`sections[].content[]`)',
+    // Not a presence question — `a11yRole` has always been written. What a
+    // pre-REQ-302 bundle carries is a CONTRADICTION: a run with an `href`, or a
+    // `headingLevel`, and `generic` for its role, because the role was read off
+    // the presentational <span> the treatment wrapped the words in while the two
+    // neighbouring fields walked up to the <a>/<h1>. A record cannot have a
+    // navigation target and not be in a link, so seeing that pair is proof the
+    // bundle predates the fix. Not seeing it proves nothing (the page may simply
+    // wrap nothing), which is exactly the asymmetry `present` is documented to
+    // have: this probe only ever REMOVES the axis from a finding.
+    present: (c) =>
+      !runs(c).some(
+        (r) =>
+          (typeof r.href === 'string' || typeof r.headingLevel === 'number') &&
+          r.a11yRole === 'generic',
+      ),
+  },
+  {
+    since: 5,
+    axis: 'itemsAt',
+    where: 'a section with repeated items (`sections[].itemsAt`)',
+    // A section with no repeated rows records no anchor however new its
+    // extractor is, so presence is asked the only way it can be: does any
+    // section that HAS items lack the anchor. No items anywhere means nothing to
+    // claim, and the axis drops off the finding — the same asymmetry every probe
+    // here has, stated in the other direction.
+    present: (c) =>
+      !c.sections.some(
+        (s) =>
+          (s.items?.length ?? 0) > 0 &&
+          !Array.isArray((s as unknown as { itemsAt?: unknown }).itemsAt),
+      ),
   },
   {
     since: 2,

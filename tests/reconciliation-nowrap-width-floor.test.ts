@@ -126,8 +126,25 @@ function classById(html: string, id: string): string {
 }
 
 /**
+ * REQ-302 — the keyword a relaxed rung resets `width` to before pinning the
+ * captured pixel value as `min-width`.
+ *
+ * REQ-117 wrote `auto`, which is shrink-to-fit for an absolutely positioned box
+ * and "fill the containing block" for the in-flow box REQ-278 later introduced —
+ * so a flow-placed wordmark stretched to its column and its `background-clip:
+ * text` gradient was painted across the wrong area. `fit-content` is
+ * shrink-to-fit in both frames.
+ */
+const RELAXED = 'fit-content'
+
+/**
  * The **counterfactual** stylesheet: the same document with every floored run's
- * width held fixed again (`width: auto; min-width: V` → `width: V`).
+ * width held fixed again (`width: fit-content; min-width: V` → `width: V`).
+ *
+ * REQ-302 changed the relaxed reset from `auto` to `fit-content` — `auto` is
+ * shrink-to-fit only for an absolutely positioned box, and REQ-278's in-flow
+ * frame made it "fill the containing block" instead. The counterfactual reads
+ * the keyword from {@link RELAXED} so the two can never drift apart.
  *
  * The control has to be synthesised from the emitted bytes rather than from a
  * second document, because one axis (`nowrapFromPx`) drives both the floor and
@@ -136,7 +153,8 @@ function classById(html: string, id: string): string {
  * comparison would prove nothing.
  */
 function holdFixed(css: string): string {
-  return css.replace(/width:\s*auto;\s*min-width:\s*([^;}]+)/g, (_m, v: string) => `width: ${v.trim()}`)
+  const re = new RegExp(`width:\\s*${RELAXED};\\s*min-width:\\s*([^;}]+)`, 'g')
+  return css.replace(re, (_m, v: string) => `width: ${v.trim()}`)
 }
 
 // ── Browser measurement ──────────────────────────────────────────────────────
@@ -202,12 +220,12 @@ describe('AC-1009 — a run that cannot wrap treats its captured width as a floo
     // The captured pixel value survives as the run's MINIMUM width...
     expect(pinned.some((d) => d.prop === 'min-width' && d.value === '686px')).toBe(true)
     // ...and no hard pixel width survives on the run.
-    expect(pinned.filter((d) => d.prop === 'width').every((d) => d.value === 'auto')).toBe(true)
+    expect(pinned.filter((d) => d.prop === 'width').every((d) => d.value === RELAXED)).toBe(true)
 
     // The wrapping run keeps hard pixel widths and gains no floor.
     const flowing = widthDecls(css, classOf(html, 'A long paragraph of body copy'))
     expect(flowing.length).toBeGreaterThan(0)
-    expect(flowing.every((d) => d.prop === 'width' && d.value !== 'auto')).toBe(true)
+    expect(flowing.every((d) => d.prop === 'width' && d.value !== RELAXED)).toBe(true)
 
     // A `control` leaf is a text leaf on the same axes and relaxes on the same
     // terms — the emitter reads `nowrapFromPx` for `text` and `control` alike.
@@ -222,7 +240,7 @@ describe('AC-1009 — a run that cannot wrap treats its captured width as a floo
     const ctrlCls = /class="([^"]+)"/.exec(frag.htmls[0])![1].split(/\s+/)[0]
     const ctrlDecls = widthDecls(frag.css, ctrlCls)
     expect(ctrlDecls.some((d) => d.prop === 'min-width' && d.value === '240px')).toBe(true)
-    expect(ctrlDecls.filter((d) => d.prop === 'width').every((d) => d.value === 'auto')).toBe(true)
+    expect(ctrlDecls.filter((d) => d.prop === 'width').every((d) => d.value === RELAXED)).toBe(true)
 
     // Rendered: longer copy grows the box instead of vanishing outside it.
     if (!HAVE_CHROMIUM) return
@@ -285,7 +303,7 @@ describe('AC-1010 — the floor is gated by wrap threshold and by node kind', ()
     // in force at the smallest widths — a hard pixel width and no floor.
     for (const d of decls.filter((x) => x.at === null || x.at < singleFrom)) {
       expect(d.prop, `at ${d.at ?? 'base'}`).toBe('width')
-      expect(d.value, `at ${d.at ?? 'base'}`).not.toBe('auto')
+      expect(d.value, `at ${d.at ?? 'base'}`).not.toBe(RELAXED)
     }
     // At and above it, the floor.
     for (const [at, ds] of byRung(decls)) {
@@ -293,7 +311,7 @@ describe('AC-1010 — the floor is gated by wrap threshold and by node kind', ()
       expect(ds.some((d) => d.prop === 'min-width'), `rung ${at}`).toBe(true)
     }
     // Both sides of the threshold are genuinely present in this fixture.
-    expect(decls.some((d) => d.prop === 'width' && d.value !== 'auto')).toBe(true)
+    expect(decls.some((d) => d.prop === 'width' && d.value !== RELAXED)).toBe(true)
     expect(decls.some((d) => d.prop === 'min-width')).toBe(true)
 
     // ── By node kind: a container's width is structure and never relaxes. ────
@@ -333,16 +351,16 @@ describe('AC-1010 — the floor is gated by wrap threshold and by node kind', ()
 
     const panel = widthDecls(out.css, classById(out.html, 'panel'))
     expect(panel.length).toBeGreaterThan(0)
-    // Every rung: a fixed width, never a floor, never released to `auto`.
+    // Every rung: a fixed width, never a floor, never released to shrink-to-fit.
     expect(panel.every((d) => d.prop === 'width')).toBe(true)
-    expect(panel.every((d) => d.value !== 'auto')).toBe(true)
+    expect(panel.every((d) => d.value !== RELAXED)).toBe(true)
 
     // ...while the run sitting inside it, on the identical axis, is floored —
     // so the container's fixed width is the gate firing, not the fixture failing
     // to reach the relaxation at all.
     const headline = widthDecls(out.css, classById(out.html, 'headline'))
     expect(headline.some((d) => d.prop === 'min-width')).toBe(true)
-    expect(headline.filter((d) => d.prop === 'width').every((d) => d.value === 'auto')).toBe(true)
+    expect(headline.filter((d) => d.prop === 'width').every((d) => d.value === RELAXED)).toBe(true)
 
     // And the relaxation is structurally unreachable for a container rather than
     // merely unexercised: the surface axis group is `.strict()`, so a container
@@ -397,7 +415,10 @@ describe('AC-1011 — a relaxed rung also releases its fixed width', () => {
     for (const [at, ds] of rungs) {
       if (!ds.some((d) => d.prop === 'min-width')) continue
       floored++
-      expect(ds.some((d) => d.prop === 'width' && d.value === 'auto'), `rung ${at ?? 'base'} resets width`).toBe(true)
+      expect(
+        ds.some((d) => d.prop === 'width' && d.value === RELAXED),
+        `rung ${at ?? 'base'} resets width`,
+      ).toBe(true)
     }
     expect(floored, 'the fixture actually floors some rungs').toBeGreaterThan(1)
 
@@ -447,7 +468,7 @@ describe('AC-1012 — the relaxation is invisible for content that has not been 
     const heroCls = classOf(html, 'Gigabyte Alchemy')
     expect(widthDecls(css, heroCls).some((d) => d.prop === 'min-width' && d.value === '686px')).toBe(true)
     const heroFixed = widthDecls(fixed, heroCls)
-    expect(heroFixed.every((d) => d.prop === 'width' && d.value !== 'auto')).toBe(true)
+    expect(heroFixed.every((d) => d.prop === 'width' && d.value !== RELAXED)).toBe(true)
     expect(heroFixed.some((d) => d.value === '686px')).toBe(true)
     // Nothing but the width declarations differs between the two stylesheets.
     const strip = (s: string): string =>

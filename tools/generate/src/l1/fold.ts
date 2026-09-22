@@ -462,7 +462,20 @@ function hasAnchoredNode(node: L1Node): boolean {
  */
 const isSaneColumnFraction = (f: number): boolean => Number.isFinite(f) && Math.abs(f) <= 2
 
+/**
+ * REQ-302 — the precision every derived geometry number is written at.
+ *
+ * A capture measures `149.546875`; `l1KeyframeSchema` types `x`/`y`/`width` as
+ * finite numbers, not integers; and the fold used to write `150`. That 0.45px is
+ * not invisible — it shifts every glyph in the run across a different subpixel
+ * grid and scored 127.69 of one reference's 1043.47 ranked perceptual difference
+ * with no other measured difference on either side. Two decimals is well inside
+ * what a browser resolves and removes the systematic half-pixel, and it is the
+ * precision `lineHeightPx` / `letterSpacingPx` already use.
+ */
 const round2 = (n: number): number => Math.round(n * 100) / 100
+/** {@link round2}'s upward twin, for a width that must never fall short. */
+const ceil2 = (n: number): number => Math.ceil(n * 100) / 100
 const columnOrigin = (c: L1Column, w: number): number => Math.max(0, (w - c.containerPx) / 2) + c.insetPx
 const columnExtent = (c: L1Column, w: number): number => {
   const inner = Math.min(c.containerPx, w) - 2 * c.insetPx
@@ -1488,10 +1501,10 @@ function foldSectionBackgrounds(projections: StateProjection[], widths: number[]
     const entries = entriesRaw.sort((a, b) => a.width - b.width)
     const keyframes: L1Keyframe[] = entries.map((e) => ({
       at: e.width,
-      x: Math.round(e.sv.box!.x),
-      y: Math.round(e.sv.box!.y),
-      width: Math.round(e.sv.box!.width),
-      height: Math.round(e.sv.box!.height),
+      x: round2(e.sv.box!.x),
+      y: round2(e.sv.box!.y),
+      width: round2(e.sv.box!.width),
+      height: round2(e.sv.box!.height),
     }))
     const geometry: L1Geometry = { keyframes }
     if (keyframes.length > 1) {
@@ -1807,9 +1820,9 @@ function buildSolidBands(
       const kf: L1Keyframe = {
         at: w,
         x: 0,
-        y: Math.round(top),
+        y: round2(top),
         width: w,
-        height: Math.round(Math.max(0, bottom - top)),
+        height: round2(Math.max(0, bottom - top)),
       }
       const vh = heightAt.get(w)
       if (vh) kf.atHeight = vh
@@ -1939,10 +1952,10 @@ function buildCards(
       if (!any) continue
       const kf: L1Keyframe = {
         at: w,
-        x: Math.round(x0),
-        y: Math.round(y0),
-        width: Math.round(x1 - x0),
-        height: Math.round(y1 - y0),
+        x: round2(x0),
+        y: round2(y0),
+        width: round2(x1 - x0),
+        height: round2(y1 - y0),
       }
       const h = heightAt.get(w)
       if (h) kf.atHeight = h
@@ -2080,11 +2093,12 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         // whenever the fraction is below .5 — and CSS answers that by wrapping.
         // `Gigabyte Alchemy` measured 685.31 and was pinned at 685, so the hero
         // title reflowed onto a second line the reference never had. Ceil is the
-        // smallest integer that still contains the measured content; a box/image
+        // smallest value at the fold's precision (REQ-302: two decimals, see
+        // {@link ceil2}) that still contains the measured content; a box/image
         // leaf has no such constraint and stays on nearest.
-        const width = withHeight ? Math.round(box.width) : Math.ceil(box.width)
-        const kf: L1Keyframe = { at: c.width, x: Math.round(box.x), y: Math.round(box.y), width }
-        if (withHeight && Number.isFinite(box.height)) kf.height = Math.round(box.height)
+        const width = withHeight ? round2(box.width) : ceil2(box.width)
+        const kf: L1Keyframe = { at: c.width, x: round2(box.x), y: round2(box.y), width }
+        if (withHeight && Number.isFinite(box.height)) kf.height = round2(box.height)
         // REQ-88 — the viewport height this keyframe was measured at, so a height
         // response has an origin to be measured from.
         const h = heightAt.get(c.width)
@@ -2519,10 +2533,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       .map(([at, box]) => {
         const kf: L1Keyframe = {
           at,
-          x: Math.round(box.x),
-          y: Math.round(box.y),
-          width: Math.round(box.width),
-          height: Math.round(box.height),
+          x: round2(box.x),
+          y: round2(box.y),
+          width: round2(box.width),
+          height: round2(box.height),
         }
         const h = heightAt.get(at)
         if (h) kf.atHeight = h
@@ -2547,10 +2561,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const seam = byWidth.get(at)!
       return {
         at,
-        x: Math.round(box.x - seam.x),
-        y: Math.round(box.y - seam.y),
-        width: Math.round(box.width),
-        height: Math.round(box.height),
+        x: round2(box.x - seam.x),
+        y: round2(box.y - seam.y),
+        width: round2(box.width),
+        height: round2(box.height),
       }
     }
     const rebasedGeometry = (
