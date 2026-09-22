@@ -5,16 +5,24 @@ type: bug
 title: copied conversations keep the source side's session ids and are unreachable
 created_by: EPIC-16
 created_at: '2026-09-22T17:55:18.978851+00:00'
-updated_at: '2026-09-22T18:11:28.544894+00:00'
+updated_at: '2026-09-22T19:06:20.949523+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   epic_parent: epic-96d8aca6
   chat_comment: comment-f0f472ad
+  commits:
+  - working_sha: 67da3561fd490285cd232e895d42849f8950d4ec
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 75ee93b8834ab327840442aed58c1caf33c5cb9c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.319
 ---
 
 `bin/copy-to-cloud --chats` ([[REQ-294]]) moves the conversations and leaves them
