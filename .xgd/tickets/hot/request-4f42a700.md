@@ -5,9 +5,9 @@ type: request
 title: 'repro console: one verb instead of three, and a way to clear the history'
 created_by: EPIC-12
 created_at: '2026-09-22T20:33:22.529568+00:00'
-updated_at: '2026-09-22T20:33:22.529568+00:00'
+updated_at: '2026-09-22T21:35:02.622526+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -126,3 +126,62 @@ Both parts are the same change to the same surface: the console asks the
 operator for decisions it should not be asking for. One of them is a verb that
 cannot be chosen correctly from the page; the other is a list that cannot be
 put down. They land together or the page is half-simplified.
+
+
+## What this supersedes, as a consequence
+
+Neither part can land without contradicting behaviour the console already has.
+Naming it here rather than leaving reconciliation to discover it:
+
+- **[[BUG-120]]'s continuation group.** That ticket rendered `[run again]` and
+  `[recapture]` as one labelled pair under the iteration list, because they are
+  the same kind of act and the page had them at opposite ends. Part 1 removes
+  one of the pair. The group survives as a section — it is still where the
+  continuation lives, and it now also holds `[clear history]` — but it holds one
+  verb, its heading no longer promises two, and the sentence that distinguished
+  them is gone because there is nothing left to distinguish. The stale-reference
+  warning stays in it: it no longer informs a choice between two buttons, but it
+  is still true about the reference the iterations on the page were measured
+  against.
+
+- **[[BUG-130]] behaviour 3's sentence.** The hold's explanation names every
+  control the hold catches, which was `[run again] and [recapture]`. It now
+  names `[recapture]` and `[clear history]` — the same rule, applied to the
+  controls that now exist.
+
+- **[[REQ-254]] requirement 29 — reuse the bundle on disk.** `[reproduce]`
+  reused a stored capture rather than re-taking it, so that the reference and
+  the fold did not move together. With `[recapture]` as the only verb there is
+  no press that reuses: every press re-rolls. The stored bundle is still
+  reachable — the `captured already` list on the blank page still adopts a site
+  without running anything ([[REQ-254]] requirement 31), and adopting still
+  costs nothing — but adopting is not folding, and the next fold recaptures.
+
+- **`/run` and `/run-again` are gone from the HTTP surface**, not merely
+  unlinked. A POST to either answers 404. A retired route left answering is a
+  second way to do the thing the page stopped offering, and the whole of part 1
+  is that there is one way.
+
+## Details settled in implementation
+
+- **Where a cleared chain goes.** `storage/tmp/repro-console/repro-<site>/` is
+  renamed to `repro-<site>.cleared-<timestamp>` beside itself, so an operator
+  who opens the workspace directory sees the archive next to the live chain
+  rather than having to know a second location. The console reads a chain at its
+  exact slug, so an archived sibling is invisible to the page without any
+  filtering rule to keep true. The round-session record ([[REQ-261]]) travels
+  with it, which is correct: the new chain is a new chain and starts its rounds
+  unresumed. The gap registry is at the workspace root, above the site
+  directory, and is untouched — it is what the loop has learned across every
+  chain, not what this one did.
+
+- **The status line says where it went.** Clearing reports the number of
+  iterations moved aside and the archive's name, because a button whose whole
+  promise is "this is recoverable" has to say where it is recoverable from.
+
+- **The address row is not held.** `[recapture]` beside the text box stays
+  outside the hold, as `[reproduce]` was: the hold exists to stop this chain
+  advancing before the implementation lands, and it has no business stopping a
+  different site being captured. A press there that names the held site is
+  refused by the console with the hold's own message, which is the rule the
+  disabled button was only ever a courtesy for.
