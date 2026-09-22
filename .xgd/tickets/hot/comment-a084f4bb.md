@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T19:00:22.269234+00:00'
+updated_at: '2026-09-22T19:10:17.545261+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -240,5 +240,96 @@ Tell me what you see after Step 3 and we'll go from there.
 <!-- xgd-chat role="user" ts="2026-09-22T19:00:21.848447+00:00" -->
 #### You
 Ok good I am now properly logged in, but I see no Console button
+
+<!-- xgd-turn id="f0908c92-c7ea-4233-a8fa-354320f2be96-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T19:10:16.984395+00:00" -->
+#### Claude
+Let me check whether the Worker now says you own the platform business, and whether the header code actually renders the button.
+
+Server side is correct — `ownsPlatformBusiness: true`. So it's the header rendering. Let me find where that button is supposed to be wired.
+
+The Worker is serving the right JS. Next suspect is the shell that renders those actions — let me check the installed copy, not the framework source.
+
+Found the bug. Let me confirm the ticket state before touching anything.
+
+Found the defect. Let me check the existing UATs and branch state before fixing.
+
+Confirmed the root cause. Here's what's wrong.
+
+## The bug
+
+`/api/businesses` reports `ownsPlatformBusiness: true` for you — I verified against the running Worker with your cookie. The browser never sees it. `apps/control-app/src/builder/api.js:311`:
+
+```js
+const body = await res.json()
+return {
+  person: body?.person ?? null,
+  businesses: Array.isArray(body?.businesses) ? body.businesses : [],
+}
+```
+
+It rebuilds the result from two named fields and **drops `ownsPlatformBusiness`**. So `main.js:80` evaluates `undefined === true` → `false`, `consoleActions` returns `[]` (`console.js:138`), and the shell renders Theme / About / avatar and no Console.
+
+Everything else is sound: the Worker serves current JS (`no-store`, byte-identical to disk), the shell renders every action it's given unconditionally, and the gate function itself is correct.
+
+**Why the UATs missed it:** the existing REQ-297 cases call `consoleActions({ ownsPlatformBusiness: true })` directly. Nothing asserts the flag *travels* from the endpoint through `fetchBusinesses` into `mountBuilder` — that seam is the one that's broken.
+
+REQ-297 is `free_coded` at `0.2.318` (commit `be385cd9`, already on `xgd-working`), so this is a fix under the same ticket. Let me add the missing body language first, since the UAT has to trace to it.
+
+Now let me add the body language that motivates the fix's UAT.
+
+Now the fix, written in the surrounding idiom:
+
+One correction to my own patch — a shared object returned to two callers is an aliasing hazard if anything sorts that array in place. Making it a factory:
+
+Now the UAT that covers the seam the existing cases missed.
+
+Now I'll write the UAT covering the untested seam.
+
+Now run it. The worktree needs generated assets first (known trap).
+
+16 passed, including the chrome cases. Now the important check — does the new UAT actually catch the bug? Reverting the fix to confirm:
+
+All three new cases fail without the fix — including the end-to-end one reproducing your exact symptom. The 13 pre-existing cases still passed, confirming they were blind to it. Restoring the fix:
+
+The new field breaks a neighbouring exact-shape assertion in BUG-52. Let me look before touching it.
+
+Those 10 are the known worktree artifact — a missing `src/generated/`, not my change (0 test failures, 109 passed). Copying it from the main checkout and re-running:
+
+Down to one file, failing on a missing `dist-assets` — the known fresh-worktree trap. Building it:
+
+Pre-existing — it fails identically at HEAD with my changes reverted. Restoring my work:
+
+All green — 21 files, 179 tests. Now committing:
+
+Now the ticket gate. Letting it allocate the version itself (avoids the race):
+
+Gate passed. Tearing down the branch and verifying the ticket:
+
+Ticket is at `0.2.320`, `free_coded`, all three shas recorded, and your working tree still holds only your own pre-existing changes. Last step — get it into the builder you're looking at:
+
+Your running builder is already serving the fixed `api.js` — no restart needed.
+
+**Reload the builder page (hard-reload, Cmd-Shift-R) and the Console button will be there**, in the header's trailing slot beside your avatar.
+
+## What was wrong
+
+`apps/control-app/src/builder/api.js` — `fetchBusinesses` rebuilds its result from a named list of fields (`person`, `businesses`) and silently dropped the third fact the endpoint answers. So the server said `ownsPlatformBusiness: true`, the gate function was correct, the shell renders every action it's handed — and `main.js` evaluated `undefined === true` and mounted no action. Every part worked; the value never crossed the seam between them.
+
+The reader now carries it, and both refusal paths (non-OK response, caught failure) state `false` from one shape rather than two literals that could drift apart.
+
+## Verified, not assumed
+
+- **The UAT catches it.** Reverted the fix and re-ran: all 3 new cases fail, including the end-to-end one reproducing your exact symptom (`expected null to be truthy` — no Console button). The 13 pre-existing cases still passed, confirming they were blind to it — they all hand the gate a flag that's already in hand, so none crossed the broken seam.
+- **Nothing else broke.** 21 suites / 179 tests green across every file importing the api client.
+- **One pre-existing failure, untouched by this.** `reconciliation-builder-workspace-origin.test.ts` has a route-coverage assertion that fails identically at HEAD with my changes reverted — I baselined it rather than assume. Not mine to fix under this ticket; flagging it as an existing red.
+- I also had to restate BUG-52's exact-shape refusal assertion over the third field. Its claim is unchanged — an origin that couldn't answer hasn't said you own the platform business.
+
+## Ticket state
+
+REQ-297 is `free_coded` at `0.2.320`, merged to `xgd-working`, branch cleaned, lock released. Body language for the new behaviour was appended first so every UAT traces to it. Your working tree still holds only your own pre-existing edits (`ACCESS.md`, `wrangler.toml`, the untracked dirs) — I committed nothing of yours.
+
+One thing to expect: **the console will open empty.** `turn_spend` has 0 rows locally, so Business cost renders *"No business has a measured turn in this period"* — the ticket's "absent rather than zero", not a failure to load.
 
 <!-- xgd-chat-end -->
