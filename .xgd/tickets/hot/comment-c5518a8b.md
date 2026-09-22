@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-295
 created_by: xgd
 created_at: '2026-09-21T23:35:42.313528+00:00'
-updated_at: '2026-09-22T20:15:15.907156+00:00'
+updated_at: '2026-09-22T20:24:06.362460+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -286,5 +286,13 @@ Ticket state: `status: free_coded`, `version: 0.2.321`, 4 commits recorded (feat
 **REQ-295 is at `free_coded`, not `ready_to_reconcile`.** I demoted it to `free_coding` to unfreeze the body and the gate left it at `free_coded` — you'll want to re-promote it when you want the dispatcher to bundle it. That transition is yours.
 
 Deploy is `cd apps/control-app && npm run deploy`. It'll ship REQ-292, REQ-293, REQ-295 and REQ-296 together, since none of them are in the live bundle — the last code deploy was 2026-09-21 23:56Z. Rollback for delegation specifically is `enabled: false` and redeploy; the surface stops being composed entirely rather than being present-and-refusing.
+
+<!-- xgd-turn id="7eafce50-97b3-413a-9e74-4669c19f1a92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:24:05.750447+00:00" -->
+#### You
+Please do not worry about reconcile - leave that to me.
+
+Can you confirm that delegation is live in dev and prod
 
 <!-- xgd-chat-end -->
