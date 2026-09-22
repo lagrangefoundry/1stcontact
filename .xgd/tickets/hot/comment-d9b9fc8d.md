@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T17:53:27.786642+00:00'
+updated_at: '2026-09-22T17:55:31.007901+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2578,5 +2578,50 @@ Want me to file that? It's small, and it removes a failure mode that will recur 
 <!-- xgd-chat role="user" ts="2026-09-22T17:53:27.160555+00:00" -->
 #### You
 ok cool. now I think I copied the chat content up but I don't see it?
+
+<!-- xgd-turn id="6f43a892-5865-4aa3-8702-6771107f6f17-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T17:55:29.058465+00:00" -->
+#### Claude
+Let me look rather than guess.
+
+They **are** there — Lagrange Foundry has 4 `chat` tickets and 6 comments in production. So the copy landed. Let me compare against local to see whether it's all of them.
+
+The counts don't match, and not in a simple way:
+
+| Business | local chats | prod chats | local comments | prod comments |
+|---|---|---|---|---|
+| 1st Contact | 4 | 2 | 6 | 2 |
+| Gigabyte Alchemy | 2 | 2 | 2 | 3 |
+| Lagrange Foundry | **2** | **4** | 9 | 6 |
+
+Production has *more* Lagrange Foundry chats than local. Some of those are conversations you started in the deployed builder. But the data is clearly present — so the question is why the builder won't show it.
+
+Found it. Production's Lagrange Foundry holds **four** sessions — two native, two imported:
+
+```
+site-site_23c1afb3739dadf62347a5008e8a7dea      ← production site   (what the builder asks for)
+business-biz_33086a94838ac8ad14cecbb919b525c2   ← production business
+site-site_936dd7c92e5e14df694dd9a80433aa4f      ← LOCAL site id     (imported, orphaned)
+business-biz_5b101742d436573a04a2512fb7ecdbb5   ← LOCAL business id (imported, orphaned)
+```
+
+A session id is **derived from the site or business id** — `site-<siteid>` / `business-<bizid>`. Both ids differ across the two sides: the business id is minted independently, and the site id is minted fresh by the import. So your conversations copied faithfully and kept the *source side's addresses*. The builder asks for the destination's ids, finds the two empty sessions it auto-created, and shows you those.
+
+The data is safe and in the right tenant. It's just unreachable.
+
+**BUG-137** — *copied conversations keep the source side's session ids and are unreachable*.
+
+Your data is safe: right tenant, transcripts intact, just addressed to ids that don't exist on that side. Nothing needs re-copying from your laptop once the fix lands.
+
+Why REQ-294 missed it: the ticket did require that tenancy be rewritten rather than carried, and that was honoured — the rows are in the correct tenant. What it didn't say is that **`fields.session_id` carries the same two ids inside a string**. A `tenant_id` column looks like an identifier and got rewritten; an id embedded in a derived key didn't.
+
+Three things I put in the fix scope:
+
+- **Rewrite both derived forms on import.** The business id is known from the authorised scope. The site id is knowable for the case that matters, because `/api/export` already refuses a business holding more than one site as ambiguity rather than guessing — so within the shape this tooling supports, the mapping is unambiguous.
+- **An unrecognised session-id form must not pass through silently.** A conversation addressed to nothing is worse than one refused, because it reports success and surfaces as data loss much later — exactly what happened here.
+- **The merge rule needs an answer for auto-created empty sessions.** The deployed builder mints an empty `site-…` and `business-…` session the moment you open it. REQ-294's "one the far side already holds is kept and counted" is right for protecting real turns and wrong against an empty placeholder — it would preserve the empty one *instead of* the history, reproducing this bug with a success message.
+
+That's four tickets from this exercise now (BUG-135 landed, BUG-136 smoke, BUG-137 chats, REQ-294 landed), plus the simulator-keypair one I offered earlier and the unfiled §I16/§I19/§I20 findings. Want me to file those three, or keep going on the go-live?
 
 <!-- xgd-chat-end -->
