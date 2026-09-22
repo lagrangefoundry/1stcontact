@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T18:53:59.261645+00:00'
+updated_at: '2026-09-22T18:56:52.907595+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,68 @@ If you genuinely want it as a tab rather than a header action, that contradicts 
 <!-- xgd-chat role="user" ts="2026-09-22T18:53:58.902169+00:00" -->
 #### You
 ok you will need to help me through this a step at a time. I had to kill -9 the old builder. It is now running but I am not logged in. going back to the access-sim does not help - I can see the 1rts contact site in the builder, but I have no buisness selector and my avatar button shows ?
+
+<!-- xgd-turn id="5373e84b-6bb5-44c8-a19d-330847a2b161-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T18:56:52.816652+00:00" -->
+#### Claude
+I'll diagnose before changing anything. Let me look at how local auth/session works in the control-app.
+
+Read. Let me check the actual current state of your local setup.
+
+Found it. Let me confirm before telling you what to run.
+
+Diagnosed, with evidence. No code change is needed — it's how the builder was launched.
+
+## What's actually wrong
+
+The running builder is in `ACCESS_DEV_OPEN` mode, so the gate never runs and no person is resolved. Proof, straight from the running Worker:
+
+```
+$ curl http://127.0.0.1:8788/api/businesses
+{"person":null,"businesses":[{"id":"biz_51a6...","name":"biz_51a6...",...}],"ownsPlatformBusiness":false}
+```
+
+`person: null`, and the one business is named after its own id — that's `resolveScope` answering from `TENANT_ID` with nobody signed in. Hence the `?` avatar, no switcher, and (relevant to REQ-297) `ownsPlatformBusiness: false`, so no Console button either.
+
+Why: `apps/control-app/.dev.vars` sets `ACCESS_TEAM_DOMAIN=""` and `ACCESS_AUD=""` — both empty is exactly the condition `isUnconfiguredLocalDev` tests, so the gate is bypassed. The file that repoints those at the simulator is `.dev.vars.local` at the repo root, and **`1c builder` has no slot for a third `--env-file`** (`wranglerDevArgs` in `tools/generate/src/cli/dev-env.ts:193` passes exactly two). That's why returning to the access-sim changed nothing: the Worker wasn't reading its token.
+
+The sim itself is fine — I minted from it and the claims match your existing `.dev.vars.local` byte for byte (`iss: http://127.0.0.1:8799`, `aud: local-dev-aud`), so that file does **not** need regenerating.
+
+## Step 1 — stop the builder you have running
+
+Ctrl-C it in its own terminal. It's holding port 8788 and I can't stop it from here.
+
+## Step 2 — relaunch wrangler by hand, with the third env file
+
+```bash
+cd apps/control-app
+npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file "$HOME/Documents/secrets/1c.dev.env" \
+  --env-file ../../.dev.vars.local
+```
+
+That is precisely what `1c builder` runs, plus the third file. Order matters — later wins, so `.dev.vars.local` last is what overrides the two empty Access vars. Leave the access-sim running; it's already up on 8799.
+
+(Optional, in another shell: `./bin/1c filing` — only needed if you want the assistant able to file a defect. Launching wrangler by hand skips the listener `1c builder` starts as a convenience.)
+
+## Step 3 — sign in
+
+```
+http://127.0.0.1:8799/login?email=martin@westhead.me
+```
+
+`127.0.0.1`, never `localhost` — the cookie is host-scoped and `localhost:8788` is a different cookie host. It sets `CF_Authorization` and bounces you to the builder on 8788.
+
+## Step 4 — what you should then see
+
+The avatar resolves, the business switcher appears, and a **"Console" button in the header's trailing slot** beside Theme / About / the avatar.
+
+The gate will pass. I checked the local D1 directly: `martin@westhead.me` (`usr_e5753a29…`) holds an `active` `owner` membership of `biz_51a6746495c8057e886ff98d4208e6b9`, which is `TENANT_ID` — the two conditions `ownsPlatformBusiness` tests.
+
+**It will open empty, and that's correct.** `SELECT COUNT(*) FROM turn_spend` is `0` in that database, so Business cost renders *"No business has a measured turn in this period."* — the ticket's "absent rather than zero". Rows only appear as the AI host records real turns.
+
+Tell me what you see after Step 3 and we'll go from there.
 
 <!-- xgd-chat-end -->
