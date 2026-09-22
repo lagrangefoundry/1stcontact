@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T19:01:45.197840+00:00'
+updated_at: '2026-09-22T19:04:16.141951+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2703,5 +2703,29 @@ Titles handled differently by kind: `chat-fa105276` keeps its human title *"Lagr
 <!-- xgd-chat role="user" ts="2026-09-22T19:01:43.228959+00:00" -->
 #### You
 Have you fixed it?
+
+<!-- xgd-turn id="9b77151d-664e-41f0-8016-0cc14292740e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T19:04:14.800647+00:00" -->
+#### Claude
+Yes — and I've just re-verified it against production rather than trusting my own account of it.
+
+**Lagrange Foundry now has exactly two sessions, both on production ids, both with their transcripts attached:**
+
+| session_id | backend | transcript |
+|---|---|---|
+| `site-site_23c1afb3…` | `claude+site:site_23c1afb3…` | 253 KB chat + 2.02 MB tool |
+| `business-biz_33086a94…` | `claude+business:biz_33086a94…` | 4.5 KB chat + 3.7 KB tool |
+
+No session addressed to a local id survives anywhere in the store, and neither empty placeholder is left to shadow the real one. **Open the Lagrange Foundry site in the deployed builder** — the conversation should be there, including the `frame` note with your palette decisions and the rejected approaches.
+
+The field worth knowing about is **`backend`**. `session_id` is the obvious carrier and the one BUG-137 was filed against, but `backend` holds the same id in a second derived form (`claude+site:<id>`) and is what actually binds a session to its subject. Fixing only `session_id` would have given you a session the builder can find pointing at a backend reference that names nothing — the same bug, quieter. BUG-137's fix has to rewrite both; I've recorded that on the epic as §I23.
+
+**Two things I deliberately did not do:**
+
+- **1st Contact and XGD still hold only empty placeholders** — their `--chats` copies never ran. Don't run them yet: BUG-137 is unfixed, so they'd land orphaned exactly as these did. Say the word after a copy and I'll repeat the repoint; it's mechanical now.
+- The pre-change rows are backed up at `storage/backups/chat-fix-before.json` if anything looks wrong when you open it.
+
+Go-live is still where it was: `--force` copies for Lagrange Foundry and XGD, then an address per business, then the first publish anywhere.
 
 <!-- xgd-chat-end -->
