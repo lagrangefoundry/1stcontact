@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:42:48.365102+00:00'
+updated_at: '2026-09-22T20:47:28.927635+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2994,5 +2994,21 @@ Two things I ruled out already, so you don't spend time there:
 The one genuine gap I found regardless of which way this lands: the turn SSE has **no heartbeat**, while the material-changes stream and the tail both have one with a comment explaining it stops intermediaries reaping idle connections. Delegation adds long silent gaps to that stream. Worth a ticket whether or not it's today's cause — say the word and I'll file it against EPIC-16.
 
 Send the two messages and paste what the tail prints, or just tell me which one failed — either gets me to the fix.
+
+<!-- xgd-turn id="551c8802-efe9-4d1c-a4cc-f9699155b192-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:47:28.859095+00:00" -->
+#### You
+Uncaught SyntaxError: unexpected token: identifier debugger eval code:1:4
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/preview/site_936dd7c92e5e14df694dd9a80433aa4f/draft/assets/recursion-diagram.svg[HTTP/3 403 708ms]
+
+GEThttps://app.1stcontact.io/assets/plate-i-loop.png[HTTP/3 404 670ms]
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/preview/site_936dd7c92e5e14df694dd9a80433aa4f/draft/assets/vitruvian-fragment.svg[HTTP/3 403 730ms]
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material/file?uid=material-9709113f[HTTP/3 403 650ms]
+
+GEThttps://app.1stcontact.io/b/biz_5b101742d436573a04a2512fb7ecdbb5/api/material/file?uid=material-22dae8cb
 
 <!-- xgd-chat-end -->
