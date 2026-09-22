@@ -1448,14 +1448,22 @@ function refuseEmailOnlyFields(opts: PageWriteOptions, pageId: string): void {
   })
 }
 
-export async function editPageAdd(
+/**
+ * The three things that must be free before a page can be brought into being:
+ * its id, its path, and the key the store would file it under. Returns the two
+ * values that follow from them, or throws CONFLICT naming the one that is taken.
+ *
+ * [[REQ-301]] — ONE CHECK FOR EVERY WAY OF MAKING A PAGE. `editPageAdd` and
+ * `editPageCopy` ask exactly the same question and must not come to disagree
+ * about the answer: "which ids are available" is the kind of rule that decays
+ * the moment it is written twice.
+ */
+function claimPageIdentity(
   slug: string,
+  files: PageFile[],
   pageId: string,
-  opts: PageWriteOptions,
-): Promise<EditOutput> {
-  const base = await readBase(slug, opts)
-  const files = await readPageFiles(slug, opts)
-
+  path: string | undefined,
+): { name: string; pageSlug: string } {
   if (findPageFile(files, pageId)) {
     throw new CommandError({
       code: 'CONFLICT',
@@ -1464,7 +1472,7 @@ export async function editPageAdd(
       hint: 'Choose a different page id, or update the existing page.',
     })
   }
-  const pageSlug = opts.path ?? pageId
+  const pageSlug = path ?? pageId
   if (files.some((f) => f.page.slug === pageSlug)) {
     throw new CommandError({
       code: 'CONFLICT',
@@ -1484,6 +1492,17 @@ export async function editPageAdd(
       path: name,
     })
   }
+  return { name, pageSlug }
+}
+
+export async function editPageAdd(
+  slug: string,
+  pageId: string,
+  opts: PageWriteOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const { name, pageSlug } = claimPageIdentity(slug, files, pageId, opts.path)
 
   const title = opts.title ?? pageId
   const mailed = opts.kind === 'email'
@@ -1525,6 +1544,87 @@ export async function editPageAdd(
         : `Added page '${pageId}' (path: ${pageSlug}).`,
     },
     { op: 'page.add', page: pageId, label: String(newPage.title) },
+  )
+}
+
+/** What a copy may rename. Everything else about the page comes across as it is. */
+export interface PageCopyOptions extends EditOptions {
+  /** The copy's path segment. Defaults to the new page id, as `add_page` does. */
+  path?: string
+  /** The copy's title. Defaults to the source page's — a copy arrives titled. */
+  title?: string
+}
+
+/**
+ * [[REQ-301]] — a new page that IS an existing one, under a new id, path and title.
+ *
+ * WHY THIS IS THREE ASSIGNMENTS AND NOT A WALK. A page is
+ * `{ id, slug, title, kind?, email?, seoMeta?, modules[], l1? }`. Everything the
+ * request asks to be carried over is carried by copying that object: the L1
+ * document brings the content AND the page style (background, text colour,
+ * widths, column all live on the document, which is why `set_page_style` reads
+ * it); `modules` brings each component with its configuration and the `slot`
+ * name it mounts into; image `src` handles come across as handles, so the copy
+ * references the same bytes and no asset is duplicated. Transcribing a page
+ * element by element — which is what this operation exists to stop anyone
+ * having to do — could only ever produce this same object, less reliably.
+ *
+ * NO ID IS REWRITTEN, AND NONE NEEDS TO BE. A node id must be unique within its
+ * own document (`L1_STRUCTURAL_RULES.uniqueNodeIds`) because it becomes a real
+ * DOM id on that page; a module id is unique within its page. Neither is
+ * site-wide. So the ids of a wholesale copy are already valid, and leaving them
+ * alone is strictly safer than renaming them: an `action` that opens a dialog by
+ * id, the `for`/`id` wiring a control's accessible name is built from, and a
+ * `#fragment` link all survive by construction rather than by a rewrite
+ * remembering to catch them. The one reference class a rename WOULD have to
+ * chase — an in-page anchor href — is deliberately not validated anywhere, so a
+ * rewrite that missed one would fail silently.
+ *
+ * Hrefs are content, and are left alone for the same reason: a copied menu
+ * should still point at the site's real pages.
+ */
+export async function editPageCopy(
+  slug: string,
+  fromPageId: string,
+  pageId: string,
+  opts: PageCopyOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+
+  const source = findPageFile(files, fromPageId)
+  if (!source) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${fromPageId}' not found in site '${slug}'.`,
+      path: fromPageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+
+  const { name, pageSlug } = claimPageIdentity(slug, files, pageId, opts.path)
+
+  // Deep, so the two pages share no structure: an edit to the copy that reached
+  // back into the source through a shared subtree would be the one failure this
+  // operation must not have.
+  const newPage: Record<string, unknown> = {
+    ...(structuredClone(source.page) as Record<string, unknown>),
+    id: pageId,
+    slug: pageSlug,
+    title: opts.title ?? source.page.title,
+  }
+
+  await validateOrThrow(slug, opts, base, [...files.map((f) => f.page), newPage])
+
+  await opts.store.write(slug, { pages: [{ name, page: newPage }] })
+  return note(
+    slug,
+    opts,
+    {
+      data: { page: newPage },
+      human: `Copied page '${fromPageId}' to '${pageId}' (path: ${pageSlug}).`,
+    },
+    { op: 'page.copy', page: pageId, label: String(newPage.title) },
   )
 }
 

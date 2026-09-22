@@ -202,11 +202,25 @@ describe('REQ-126 — the surface is declared as data', () => {
 
     // Every parameter that carries an address is typed as one, rather than as a
     // bare string that would have to restate the rule.
+    //
+    // [[REQ-301]] — THE EXEMPTION IS READ, NOT LISTED. `ManagePages` operations
+    // take a `path` that is the page's address in the SITE, not an address in a
+    // page's tree — a different kind of value that must not inherit the
+    // re-read-me rule. That set used to be spelled here as `add_page` and
+    // `update_page`, which meant every new page-management operation silently
+    // failed a test about L1 addressing. The group already says which
+    // operations those are.
+    const sitePathOps = new Set(
+      (L1_DECLARATION.groups as { group: string; operations: string[] }[]).find(
+        (g) => g.group === 'ManagePages',
+      )?.operations ?? [],
+    )
+    expect(sitePathOps.size).toBeGreaterThan(0)
     for (const op of L1_DECLARATION.operations as {
       op: string
       params?: Record<string, { type: string }>
     }[]) {
-      if (op.params?.path && op.op !== 'add_page' && op.op !== 'update_page') {
+      if (op.params?.path && !sitePathOps.has(op.op)) {
         expect(op.params.path.type, op.op).toBe('l1_address')
       }
     }
@@ -477,12 +491,19 @@ describe('REQ-126 — the surface documents itself', () => {
     // painting a page is authoring — a role that can paint every element on a
     // page can paint the page, and one that cannot do the first cannot do the
     // second either.
+    //
+    // [[REQ-301]] added `copy_page`, in `ManagePages` beside `add_page`. It is
+    // the other way a page comes into being and it reaches nothing `add_page`
+    // and `set_l1` could not already reach between them — its whole claim is
+    // that it does in one call what would otherwise be a page-long transcription
+    // — so it widens the grant by nothing and the surface by one operation.
     expect(writes).toEqual([
       'add_asset',
       'add_component',
       'add_page',
       'add_palette_color',
       'configure_component',
+      'copy_page',
       'publish',
       'remove_asset',
       'remove_component',
