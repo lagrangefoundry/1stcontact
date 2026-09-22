@@ -60,17 +60,19 @@ const DECLARED_BACKENDS = Object.keys(backendsDocument).filter((key) => key !== 
 // ── the switch, and how it fails ─────────────────────────────────────────────
 
 describe('REQ-295 — the switch is a document, and a bad one is a start-up failure', () => {
-  it('test_UAT_FC_REQ-295_the_switch_ships_off_with_a_builder_bound_to_a_declared_backend', () => {
+  it('test_UAT_FC_REQ-295_the_switch_ships_on_with_a_builder_bound_to_a_declared_backend', () => {
     const settings = delegationFor([BUILDER_ROLE])
 
-    // IT SHIPS OFF, and that is a decision rather than an oversight: the saving
-    // this exists to produce is only observable against REQ-292's baseline, so
-    // enabling it before a period of undelegated measurement exists would spend
-    // the measurement rather than make it.
-    expect(settings.enabled).toBe(false)
-    // AND THE WIRING IS COMPLETE ANYWAY, so flipping it is a decision and not an
-    // experiment. A worker misconfiguration that only became visible on the day
-    // somebody turned it on would make the switch untrustworthy.
+    // IT SHIPS ON, and it shipped off first. Of the two reasons it shipped off,
+    // the context window is discharged outright — REQ-296 landed, so a worker on
+    // the smaller window meets a start-up check and a host-side guard rather than
+    // a provider error mid-turn — and the wait for REQ-292's undelegated baseline
+    // was overruled: the before-figure is this ticket's modelling, and a week
+    // spent measuring what construction costs is a week spent paying it.
+    expect(settings.enabled).toBe(true)
+    // AND THE WIRING IS CHECKED WHICHEVER WAY THE SWITCH POINTS, which is what
+    // makes it a switch rather than an experiment. A worker misconfiguration that
+    // only surfaced on the day somebody flipped it would make it untrustworthy.
     expect(Object.keys(settings.workers)).toEqual([BUILDER_ROLE])
     expect(DECLARED_BACKENDS).toContain(settings.workers[BUILDER_ROLE].backend)
   })
@@ -134,7 +136,7 @@ describe('REQ-295 — the switch is a document, and a bad one is a start-up fail
       configureDelegation(null)
     }
     // Restored: the bundled document is in force again.
-    expect(delegationFor([BUILDER_ROLE]).enabled).toBe(false)
+    expect(delegationFor([BUILDER_ROLE]).enabled).toBe(true)
   })
 })
 

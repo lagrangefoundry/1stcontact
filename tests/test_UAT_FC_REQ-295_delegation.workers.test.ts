@@ -55,6 +55,15 @@ const TENANT = 'req295'
 /** The switch as it ships, turned on — what an enabling deployment installs. */
 const ENABLED = { ...delegationDocument, enabled: true }
 
+/**
+ * The switch turned off, which since the default flipped is the case that has to
+ * be INSTALLED rather than the one that is simply left alone. The off path is
+ * still a requirement — it is the whole of the rollback story — so it is exercised
+ * against an explicit document instead of against whatever the bundle happens to
+ * say today.
+ */
+const DISABLED = { ...delegationDocument, enabled: false }
+
 /** What the worker runs on, and what the consultant runs on. Read, never restated. */
 const WORKER_MODEL = backendsDocument.claude_builder.model
 const CALLER_MODEL = backendsDocument.claude.model
@@ -272,11 +281,14 @@ describe('REQ-295 — delegating construction', () => {
   // ── condition 1 ────────────────────────────────────────────────────────────
 
   it('test_UAT_FC_REQ-295_with_the_switch_off_the_consultant_has_no_delegate_tool_and_is_not_told_about_one', async () => {
-    // THE DEFAULT PATH, and the whole of what "off" has to mean: the surface is
+    // THE ROLLBACK PATH, and the whole of what "off" has to mean: the surface is
     // never composed, not composed-and-refusing — so the manual never mentions
     // it and the model cannot propose, apologise for, or probe for an operation
-    // it has not got. Nothing here configures anything; this is the repository
-    // as it ships.
+    // it has not got. A deployment that turns the switch back off is
+    // indistinguishable from this repository before delegation existed, which is
+    // what makes it a rollback rather than a new state to debug. The document is
+    // installed explicitly because the bundled one now ships ON.
+    configureDelegation(DISABLED)
     const sessionId = await openSession('off')
     const client = scriptedClient([says('Looks fine to me.')])
     setModelClient(client)
@@ -299,7 +311,10 @@ describe('REQ-295 — delegating construction', () => {
     // The grant is ADDITIVE. The consultant can still author a page itself, and
     // delegating is a decision it makes per piece of work rather than a
     // capability it lost — so what this asserts is a strict superset, not a
-    // different set.
+    // different set. The undelegated half is installed explicitly, because the
+    // bundled document now ships ON and leaving it alone would compare the
+    // delegating shape against itself.
+    configureDelegation(DISABLED)
     const withoutSession = await openSession('additive-off')
     const off = scriptedClient([says('Fine.')])
     setModelClient(off)

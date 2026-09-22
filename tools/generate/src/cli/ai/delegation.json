@@ -21,10 +21,15 @@
     "before delegation existed, which is what makes turning it off a true rollback",
     "rather than a new state to debug.",
     "",
-    "IT SHIPS OFF. The saving this exists to produce is only observable against a",
-    "baseline, and REQ-292's meter has to have run for a period on the undelegated",
-    "shape before the after-figure means anything. Building it early is fine;",
-    "enabling it before there is a baseline is what would waste the measurement.",
+    "IT SHIPS ON, and it shipped off first. Two things kept it off. One has been",
+    "discharged outright: a worker runs on the smaller context window, and until",
+    "REQ-296 landed there was nothing between it and an overflow — now every entry",
+    "beside this one resolves a declared window or start-up refuses, so the worker",
+    "meets a guard rather than a provider error halfway through a customer's turn.",
+    "The other was that REQ-292's meter wanted a period of undelegated records to",
+    "measure the saving against, and that one was overruled: the before-figure is",
+    "the modelling in the ticket, and waiting a week to be told what construction",
+    "costs is itself a week of paying it. The switch remains the rollback.",
     "",
     "DEPLOYMENT-WIDE, READ AT START-UP. Per-tenant control is deliberately out of",
     "scope, but `workers` is a MAP rather than a pair of scalars so that adding a",
@@ -37,7 +42,7 @@
     "is a configuration failure discovered by a customer."
   ],
 
-  "enabled": false,
+  "enabled": true,
 
   "workers": {
     "builder": { "backend": "claude_builder" }
