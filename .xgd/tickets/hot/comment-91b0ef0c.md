@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:35:12.390264+00:00'
+updated_at: '2026-09-22T20:35:21.951086+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1325,5 +1325,11 @@ Ticket's in `draft` and I haven't cut a branch or written code. Say the word and
 <!-- xgd-chat role="user" ts="2026-09-22T20:35:12.139856+00:00" -->
 #### You
 Good - thanks
+
+<!-- xgd-turn id="fd2bf7a2-cf77-466f-a686-d9a7aec81861-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:35:21.444829+00:00" -->
+#### Claude
+REQ-299 is parked in `draft` under EPIC-12 — nothing cut, nothing coded. Whenever you want it built, just say so.
 
 <!-- xgd-chat-end -->
