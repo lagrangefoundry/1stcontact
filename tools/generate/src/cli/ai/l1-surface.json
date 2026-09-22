@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 12,
+  "surface_version": 13,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -454,8 +454,8 @@
       "op": "add_page",
       "tool": "add_page",
       "effect": "write",
-      "summary": "Add a new, empty page to the site — or a new message a form can send.",
-      "description": "The page arrives with nothing on it. Say so — the user will expect to see something.\n\nPass `kind: \"email\"` to make a **message** instead: the copy a contact form mails when somebody fills it in. A message is an ordinary page in every way that matters to you — it is in the page list, you read it with `get_l1` and write it with `set_l1`, and it is styled the same way. Two things are different. It has **no public address**: nobody can visit it, nothing links to it, and it is not part of the published site's pages. And it can use **only part of what a web page can** — no absolute positioning, no gradients, no shadows, no web fonts, because a mail client supports none of them. `describe_page` tells you exactly what is allowed; anything else is refused when you write it.\n\nA message arrives with readable default copy, so it can be read and rewritten **before anybody receives it**. Show it to your user before a form starts sending it.\n\nIf the message carries a link the recipient has to follow — a download, a confirmation — declare `cta_url` in `placeholders`. The copy is then built around it, and you will be stopped from later deleting the one thing the message depends on.",
+      "summary": "Add a new page to the site — or a new message a form can send.",
+      "description": "The page arrives with a heading carrying its title, centred on a blank page, and nothing else — enough that it renders and can be seen, and little enough that it is all replaceable. Read it with `describe_page` and rewrite it with `set_l1` like any other page: there is no separate step that brings the page into existence, and nothing to remember before painting it.\n\nPass `kind: \"email\"` to make a **message** instead: the copy a contact form mails when somebody fills it in. A message is an ordinary page in every way that matters to you — it is in the page list, you read it with `get_l1` and write it with `set_l1`, and it is styled the same way. Two things are different. It has **no public address**: nobody can visit it, nothing links to it, and it is not part of the published site's pages. And it can use **only part of what a web page can** — no absolute positioning, no gradients, no shadows, no web fonts, because a mail client supports none of them. `describe_page` tells you exactly what is allowed; anything else is refused when you write it.\n\nA message arrives with readable default copy, so it can be read and rewritten **before anybody receives it**. Show it to your user before a form starts sending it.\n\nIf the message carries a link the recipient has to follow — a download, a confirmation — declare `cta_url` in `placeholders`. The copy is then built around it, and you will be stopped from later deleting the one thing the message depends on.",
       "params": {
         "page": {
           "type": "page_id",
@@ -1146,6 +1146,15 @@
         "set_l1"
       ],
       "note": "Read the group it belongs in, put the new element among its children — or leave the unwanted one out — and write that group back. There is no separate way to insert or delete."
+    },
+    {
+      "name": "Add a page and put something on it",
+      "steps": [
+        "add_page",
+        "describe_page",
+        "set_l1"
+      ],
+      "note": "The new page arrives with a heading and nothing else, so read its map and replace what is there — the same three steps as changing any other page. Tell your user the page exists and is empty before you start filling it."
     },
     {
       "name": "Put a component on a page",

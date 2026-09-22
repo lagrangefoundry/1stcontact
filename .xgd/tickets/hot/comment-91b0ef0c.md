@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:22:25.229097+00:00'
+updated_at: '2026-09-22T22:30:37.965902+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1893,5 +1893,11 @@ On the gradient: agreed it should be cheap. It's a fold axis, not a structural q
 Two notes: I ran `1c refold` on the bundle (regenerated `l1.json` from its own retained oracle — no material change, 70 nodes either way), and left the diagnostic script at `storage/tmp/diag/recover.mjs`.
 
 Want me to scope the verdict-reporting fix under EPIC-12, run the mechanism experiment first, or both?
+
+<!-- xgd-turn id="38561916-7d5e-4648-839a-8714d25e21ec-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:30:37.164462+00:00" -->
+#### You
+The latest engine update ticket just landed REQ-302 - can you tell me how many of my concerns it will address?
 
 <!-- xgd-chat-end -->
