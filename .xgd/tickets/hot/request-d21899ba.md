@@ -5,9 +5,9 @@ type: request
 title: Publish must compare and freeze assets by content identity, not content
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:29.737145+00:00'
-updated_at: '2026-09-22T23:12:29.737145+00:00'
+updated_at: '2026-09-22T23:26:33.591573+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-c7695bd0
 ---
+
 
 ## Why
 
@@ -92,3 +93,51 @@ is worth asking only once this work shows what memory is actually left.
 - Publishing a site with no asset changes reads and writes no asset bytes.
 - Peak publish memory does not grow with the number of assets.
 - A site published before this change can still be read, checked out, and re-published.
+
+## Approach (implementer's design, REQ-304)
+
+**Content identity is a column, and a key.** `site_assets` gains a `digest`
+column (SHA-256, hex) recorded by `write` and never recomputed on read. The
+bytes move to a per-site, immutable, content-addressed key —
+`sites/<siteId>/blob/<digest>` — so the draft, every revision, and the served
+site all name the same object. Assets stored before this change keep their old
+`r2_key` and read exactly as they did; the first read that needs their digest
+computes it once, writes the blob, and records both (requirement 8).
+
+**`StoredAsset` splits in two.** `StoredAsset` (name + bytes) stays the shape of
+a WRITE, because storing something means supplying it. A new `AssetRef`
+(name + digest + size) is the shape of everything else — what a snapshot holds,
+what a diff compares, what a revision freezes, what a checkout restores. A new
+port verb `assetManifest(site)` answers the refs, and `SiteWrite.assetRefs`
+writes by reference; two channels rather than a union, on the reasoning
+`RevisionContent` already gives for keeping `out` and `derived` apart.
+
+**Freezing writes a manifest.** A revision's `source/assets.json` records
+`name → {digest, size}`; no asset object is written under the revision prefix at
+all. `public-site` resolves an `assets/<name>` request through that manifest to
+the blob, falling back to the revision prefix for revisions frozen before this
+change — the shape on disk says which it is, so there is no mode to detect.
+
+**Verification.** `snapshotSha` hashes `path → digest`, so a revision frozen
+under this change verifies exactly as REQ-266 §4 intended and costs no bytes. A
+revision frozen BEFORE it carries a `sha` over the old byte listing, which only
+`byteKey` could reproduce — so such a revision is read back unverified rather
+than refused, which is the only reading the absence of a digest record can
+support and is the behaviour `fs-store` already documents for a revision with no
+log entry. Asset-less legacy revisions are unaffected: their listing is
+identical under both schemes and they still verify.
+
+**The ladder reads one picture at a time.** `ImageLadder.build` takes refs and a
+reader rather than a list of bytes, plans and renders in two bounded passes, and
+holds at most `LADDER_CONCURRENCY` sources at once. A rendition's name keeps its
+exact current value — the recorded digest truncated to 16 hex is byte-identical
+to what `renditionSha` computed — so no published rendition path moves. The
+ladder's retention of its DERIVED output is untouched; that is REQ-305.
+
+**Consequence worth naming:** because `pendingChanges` is what the per-turn site
+digest calls, this also removes the byte reads REQ-303 was raised for.
+
+**Filesystem tier.** `revisions/NNNN/` keeps the DOC-12 §4 directory shape the
+reproduction loop reads, with an `assets.json` beside it. Bytes reach it by
+filesystem copy from a per-site `blobs/<digest>` space, never through a
+JavaScript string.
