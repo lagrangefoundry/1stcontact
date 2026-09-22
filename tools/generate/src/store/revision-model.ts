@@ -63,6 +63,59 @@ export interface StoredSnapshot {
 }
 
 /**
+ * One asset named and STAMPED, with its bytes left where they are ([[REQ-303]]).
+ *
+ * WHAT A STAMP IS. An opaque string the store derives from the metadata it
+ * already holds about an object — never by reading the object. Two stamps from
+ * the SAME store are comparable; nothing compares one across stores, and nothing
+ * parses one.
+ *
+ * WHAT IT PROMISES, AND WHICH DIRECTION. Equal bytes always stamp equal, so a
+ * stamp that MOVED is always a change. The converse is only as strong as what
+ * the store recorded — which is why the change count is a floor rather than a
+ * guess, and why publish's own byte-exact diff is still the authority on what
+ * actually goes into a revision.
+ *
+ * WHAT A STORE CAN PROMISE DEPENDS ON WHAT IT KEEPS. R2 records an etag per
+ * object — the MD5 of what was put — so the D1/R2 adapter's stamp changes
+ * whenever a byte does. A filesystem records a size and
+ * a modification time, and a modification time moves when the bytes do not
+ * (a revision's copy is written at publish; the draft's original is older), so
+ * that tier stamps with the size alone and two different pictures of exactly
+ * equal length read as unchanged UNTIL a publish, whose own diff is byte-exact
+ * and is not this. That is the trade [[REQ-303]] names: the count in front of
+ * every turn is derived from what the store already knows, and the operation
+ * that actually freezes bytes still reads them.
+ */
+export interface AssetStamp {
+  /** The asset's name under `assets/`, e.g. `wordmark.svg`. */
+  name: string
+  /** Opaque, and comparable only against another stamp from the same store. */
+  stamp: string
+}
+
+/**
+ * A site's shape with its assets STAMPED rather than carried ([[REQ-303]]).
+ *
+ * THE SAME THREE PATH FAMILIES AS A SNAPSHOT — `site.json`, `pages/<name>`,
+ * `assets/<name>` — so {@link diffOutlines} answers in exactly the vocabulary
+ * {@link diffSnapshots} answers in and `1c status` reads the same either way.
+ * What is missing is the one thing a change COUNT never needed: the bytes.
+ *
+ * WHY IT IS A SECOND SHAPE AND NOT A FLAG ON THE FIRST. A `StoredSnapshot` is
+ * what a revision IS — the thing a checkout restores and a publish freezes —
+ * and it is immutable precisely because it carries content. An outline carries
+ * evidence about content instead, which is a different promise; expressing both
+ * as one type with the bytes sometimes absent would put a test for which kind
+ * you were holding into every caller of either.
+ */
+export interface SiteOutline {
+  siteJson: Record<string, unknown> | null
+  pages: StoredPage[]
+  assets: AssetStamp[]
+}
+
+/**
  * Everything a publish freezes: the definition, and the bytes it rendered to.
  *
  * The two travel together because they are one act. A revision whose `source`
@@ -157,33 +210,51 @@ function byteKey(bytes: Uint8Array): string {
 }
 
 /**
- * Flatten a snapshot to `path → comparable content`, using the same relative
+ * Flatten an outline to `path → comparable content`, using the same relative
  * paths DOC-12 §4 names: `site.json`, `pages/<name>`, `assets/<name>`.
  *
  * The paths are the store's own keys, not a filesystem's. That they read like a
  * directory listing is what keeps a change list legible to an operator who knows
  * the file-backed layout — and it is the same listing whichever adapter produced
  * it, which is the point.
+ *
+ * THE DEFINITION IS CANONICALISED AND THE ASSET IS NOT ([[REQ-303]]). A page is
+ * held as an object by both adapters and has to be compared as one; an asset is
+ * held as bytes by both and is compared through whatever evidence of those bytes
+ * the store already had. {@link snapshotEntries} is this same listing with the
+ * bytes themselves standing in for the evidence.
  */
-export function snapshotEntries(snapshot: StoredSnapshot): Map<string, string> {
+export function outlineEntries(outline: SiteOutline): Map<string, string> {
   const entries = new Map<string, string>()
-  if (snapshot.siteJson !== null) entries.set('site.json', canonicalJson(snapshot.siteJson))
-  for (const { name, page } of snapshot.pages) entries.set(`pages/${name}`, canonicalJson(page))
-  for (const { name, bytes } of snapshot.assets) entries.set(`assets/${name}`, byteKey(bytes))
+  if (outline.siteJson !== null) entries.set('site.json', canonicalJson(outline.siteJson))
+  for (const { name, page } of outline.pages) entries.set(`pages/${name}`, canonicalJson(page))
+  for (const { name, stamp } of outline.assets) entries.set(`assets/${name}`, stamp)
   return entries
 }
 
+/** The same listing over a snapshot, with each asset's own bytes as its stamp. */
+export function snapshotEntries(snapshot: StoredSnapshot): Map<string, string> {
+  return outlineEntries({
+    siteJson: snapshot.siteJson,
+    pages: snapshot.pages,
+    assets: snapshot.assets.map(({ name, bytes }) => ({ name, stamp: byteKey(bytes) })),
+  })
+}
+
 /**
- * The change list between two snapshots (DOC-12 §4).
+ * The change list between two flattened listings (DOC-12 §4).
  *
- * Pass `prev = null` for the first publish, where every path is `added`. All
+ * ONE COMPARISON, TWO SHAPES ([[REQ-303]]). A publish diffs snapshots and a
+ * change COUNT diffs outlines, and the two have to name added, modified and
+ * removed identically or `1c status` would disagree with the publish it is
+ * reporting on. The listing is the only thing either comparison ever looked at,
+ * so it is the listing they share rather than the reading of it.
+ *
+ * Pass `before` empty for the first publish, where every path is `added`. All
  * lists are sorted, so a change set is stable output rather than a reflection of
  * whatever order the store answered in.
  */
-export function diffSnapshots(prev: StoredSnapshot | null, next: StoredSnapshot): ChangeSet {
-  const before = prev === null ? new Map<string, string>() : snapshotEntries(prev)
-  const after = snapshotEntries(next)
-
+function diffEntries(before: Map<string, string>, after: Map<string, string>): ChangeSet {
   const added: string[] = []
   const modified: string[] = []
   const removed: string[] = []
@@ -197,6 +268,28 @@ export function diffSnapshots(prev: StoredSnapshot | null, next: StoredSnapshot)
   }
 
   return { added: added.sort(), modified: modified.sort(), removed: removed.sort() }
+}
+
+/**
+ * The change list between two snapshots — what a publish freezes against
+ * (DOC-12 §4). Byte-exact on both sides, because that is what a revision is.
+ */
+export function diffSnapshots(prev: StoredSnapshot | null, next: StoredSnapshot): ChangeSet {
+  return diffEntries(prev === null ? new Map() : snapshotEntries(prev), snapshotEntries(next))
+}
+
+/**
+ * The change list between two outlines — what `1c status`, `describe_site` and
+ * the per-turn digest report ([[REQ-303]]).
+ *
+ * IT NAMES THE SAME PATHS `diffSnapshots` WOULD, and for the definition it gives
+ * the same answer: `site.json` and every page are compared on their canonical
+ * content either way. Assets are compared on the store's own evidence, so this
+ * is the cheaper question and not a different one — see {@link AssetStamp} for
+ * what each tier can promise.
+ */
+export function diffOutlines(prev: SiteOutline | null, next: SiteOutline): ChangeSet {
+  return diffEntries(prev === null ? new Map() : outlineEntries(prev), outlineEntries(next))
 }
 
 /** True when a change set names nothing at all. */

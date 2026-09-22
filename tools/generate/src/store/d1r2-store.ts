@@ -8,7 +8,13 @@ import {
 import { newId } from './ids'
 import type { ChangeSlice, JournalRecord } from './journal-model'
 import { JOURNAL_WINDOW } from './journal-model'
-import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import type {
+  AssetStamp,
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 import {
   PUBLISHED_ROOT,
   publishedOutPrefix,
@@ -345,16 +351,38 @@ async function putText(
  * asset from a large revision — and the loss would show up as a checkout that
  * quietly dropped files rather than as an error.
  */
-async function listKeys(bucket: R2Bucket, prefix: string): Promise<string[]> {
-  const keys: string[] = []
+async function listObjects(bucket: R2Bucket, prefix: string): Promise<R2Object[]> {
+  const objects: R2Object[] = []
   let cursor: string | undefined
   for (;;) {
     const page = await bucket.list({ prefix, cursor })
-    for (const object of page.objects) keys.push(object.key)
+    for (const object of page.objects) objects.push(object)
     if (!page.truncated) break
     cursor = page.cursor
   }
-  return keys
+  return objects
+}
+
+/** Every key under `prefix`, for the callers that want nothing else. */
+async function listKeys(bucket: R2Bucket, prefix: string): Promise<string[]> {
+  return (await listObjects(bucket, prefix)).map((object) => object.key)
+}
+
+/**
+ * What a listing already knows about an object's content ([[REQ-303]]).
+ *
+ * THE ETAG IS THE POINT AND THE SIZE IS THE BACKSTOP. R2 records an etag at
+ * `put` — the MD5 of the bytes that landed — so it changes whenever a byte
+ * does, and it arrives in a `list()` alongside the key at no extra cost. A
+ * listing that somehow carried no etag would still distinguish two objects of
+ * different length rather than silently calling them equal.
+ *
+ * DRAFT AND REVISION STAMPS ARE COMPARABLE because a publish copies the draft's
+ * bytes into the revision's prefix with a single `put` of the same content, and
+ * the same bytes put the same way produce the same etag.
+ */
+function objectStamp(object: R2Object): string {
+  return `${object.size}:${object.etag || '-'}`
 }
 
 export function d1r2SiteStore(env: SiteStoreEnv): SiteStoreRoot {
@@ -1014,6 +1042,85 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // this ticket exists for; so does the capture endpoint reading a form's
       // frozen definition, and so does the builder's revision preview.
       return verifiedSnapshot(site, id, row.sha, { siteJson, pages, assets })
+    },
+
+    /**
+     * [[REQ-303]] — the draft with its assets stamped from R2's own listing.
+     *
+     * TWO QUERIES AND ONE LISTING, FLAT IN BYTES. The names come from
+     * `site_assets`, which is what makes an asset EXIST in this store — an
+     * object with no row is invisible, and the write path says why — and the
+     * stamps come from one `list()` over the draft's prefix, which answers an
+     * etag and a size per object without fetching one. A fifty-megabyte site and
+     * an empty one cost the same here, which is the requirement.
+     *
+     * A ROW WITH NO OBJECT STAMPS AS ABSENT rather than throwing, on
+     * `readDraftSnapshot`'s reasoning: the asset's bytes are gone, and reporting
+     * the site as it actually is — the asset then reads as changed against the
+     * revision that still holds it — is more use than a digest that refuses.
+     */
+    async draftOutline(site): Promise<SiteOutline> {
+      const [row, pages, rows, objects] = await Promise.all([
+        siteRow(site),
+        readPagesOf(site),
+        DB.prepare(`SELECT name, r2_key FROM site_assets WHERE ${OWNED} ORDER BY name`)
+          .bind(site, tenantId)
+          .all<{ name: string; r2_key: string }>(),
+        listObjects(SITES, `${draftPrefix(site)}assets/`),
+      ])
+      const stamps = new Map(objects.map((object) => [object.key, objectStamp(object)]))
+      return {
+        siteJson: row?.site_json ? decode<Record<string, unknown>>(row.site_json) : null,
+        pages,
+        assets: (rows.results ?? []).map(
+          (asset): AssetStamp => ({ name: asset.name, stamp: stamps.get(asset.r2_key) ?? '-' }),
+        ),
+      }
+    },
+
+    /**
+     * [[REQ-303]] — the same shape for a published revision, and unverified.
+     *
+     * THE ROW STILL VOUCHES FOR THE REVISION, exactly as it does in
+     * `readRevision`: objects an interrupted publish left behind are unreachable
+     * without one rather than quietly readable as a revision nobody finished.
+     * What is not done here is the digest comparison, and the port says why —
+     * verification is over the frozen BYTES, which is the cost this verb exists
+     * not to pay.
+     */
+    async revisionOutline(site, id): Promise<SiteOutline | null> {
+      const row = await DB.prepare(`SELECT id FROM site_revisions WHERE ${OWNED} AND id = ?`)
+        .bind(site, tenantId, id)
+        .first<{ id: number }>()
+      if (!row) return null
+
+      const prefix = publishedSourcePrefix(site, id)
+      const siteJsonObject = await SITES.get(`${prefix}/site.json`)
+      const siteJson = siteJsonObject
+        ? decode<Record<string, unknown>>(await siteJsonObject.text())
+        : null
+
+      const pages: StoredPage[] = []
+      for (const key of await listKeys(SITES, `${prefix}/pages/`)) {
+        const object = await SITES.get(key)
+        if (!object) continue
+        pages.push({
+          name: key.slice(`${prefix}/pages/`.length),
+          page: decode<Record<string, unknown>>(await object.text()),
+        })
+      }
+      pages.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+
+      const assets = (await listObjects(SITES, `${prefix}/assets/`))
+        .map(
+          (object): AssetStamp => ({
+            name: object.key.slice(`${prefix}/assets/`.length),
+            stamp: objectStamp(object),
+          }),
+        )
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+
+      return { siteJson, pages, assets }
     },
 
     async draftBase(site) {
