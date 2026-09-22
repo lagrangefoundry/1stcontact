@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-55
 created_by: xgd
 created_at: '2026-09-22T21:25:30.634432+00:00'
-updated_at: '2026-09-22T21:45:15.921395+00:00'
+updated_at: '2026-09-22T21:55:27.799787+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,75 @@ Which errors are you actually seeing? If it's chat sessions dying or turns faili
 <!-- xgd-chat role="user" ts="2026-09-22T21:45:15.816040+00:00" -->
 #### You
 I am seeing dashboard chat sessions constantly produce a red dot and silently die with no error - this is happening everywhere but in this project nor than any other. Other discussions I have had have pointed to context bloat - but note that its happening on new tickets with only priming and a short prompt
+
+<!-- xgd-turn id="afc5b194-959f-4e58-9357-719c31a04836-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:55:24.830209+00:00" -->
+#### Claude
+Let me reproduce the actual invocation the dashboard makes.
+
+Reproduced the invocation end to end. **Prompt size is not what's killing these sessions** — that diagnosis is wrong, and I'd stop chasing it.
+
+## The prompt is fine at the transport layer
+
+I built the exact argv the dashboard builds for `role="interactive"` and ran it against this project:
+
+```
+argv[8]  --settings             12,478 bytes
+argv[12] --append-system-prompt 179,410 bytes
+TOTAL ARGV                     192,074 bytes   (ARG_MAX on this box = 1,048,576)
+→ elapsed 4.7s, returncode 0, result: success, "OK"
+```
+
+No E2BIG, no truncation, no context error. The 179K priming turn works.
+
+## The actual silent-death path
+
+`invoker.py:1351` — `invoke_streaming` collects errors out of the JSON stream into `stream_error_events` (populated at lines 1191/1203 from `{"type":"result","is_error":true}`), but only ever *surfaces* them inside `if proc.returncode != 0:`. **If the CLI reports an error in-stream and exits 0, that error text is collected and thrown away.** The generator then ends with no exception and no text, and `ChatSessionRunner._finalize()` unconditionally writes the turn as `status="complete"` with empty content. No banner, no `⚠️` notice, no log line. Dead tab.
+
+The store confirms the fingerprint. Across all 710 session files:
+
+| assistant turns | count |
+|---|---|
+| `complete`, non-empty | 2033 |
+| `aborted`, empty | 73 |
+| **`complete`, EMPTY** | **43** |
+| `aborted`, non-empty | 42 |
+
+**35 of the 43 empty-`complete` turns are turn #1** — a brand-new session, priming plus a short prompt, exactly what you described. Sample user messages: *"Please implement this ticket following the FREE CODING protocol"*, *"Please continue"*, *"Is this chat connected?"*.
+
+And when the CLI *does* exit non-zero, the plumbing works correctly — those turns get a visible error:
+
+```
+7×  You've hit your session limit · resets 8:50pm
+4×  You've hit your monthly spend limit
+2×  API Error: 529 Overloaded
+1×  API Error: 500 Internal server error
+```
+
+So it's specifically the exit-0-with-stream-error case that vanishes. I haven't caught the CLI doing it live — that's the mechanism that fits the evidence, not something I've observed in the act.
+
+## Why this project and not the others
+
+Not the prompt — the ticket store. This project has 6,083 hot + 625 cold index entries, and the dashboard log shows `index_load_ms` of **21,000–31,000 ms**, plus a confirmed hard failure:
+
+```
+index_fcntl_lock: timed out after 30000ms waiting for exclusive lock on __cold_index__.flock
+```
+
+Separately, `/api/ai-permissions` has failed **738 times** with `DirectorySpacesNotConfiguredError` and 34 times with `PermissionSchemaError` — `…/1stcontact.git/main/.xgd/permissions.yaml` has no `directory-spaces` block, so no role's path-scoped `Edit(...)` grant can compile. That's a genuinely broken config in this project and it feeds the same `--settings` document the chat session launches with. Worth fixing regardless of the red dot.
+
+## Two things I'd change
+
+1. **Surface stream errors regardless of exit code** in `invoke_streaming` — if `stream_error_events` is non-empty, raise even on returncode 0.
+2. **Make `_finalize()` refuse to write an empty `complete` turn** — record it as an error turn instead, so a silent death can never look like a successful empty answer.
+
+Both are small and would convert every one of those 43 invisible failures into a visible message.
+
+## Housekeeping (unrelated but live)
+
+`dashboard_stderr.log` is **1.1 GB**, `dashboard.jsonl` is 238 MB, and there are 710 files in `.xgd/tmp/chat_sessions/`. Eight dashboard processes are running machine-wide, all with `ppid=1`, one per project — only pid 45740 (port 5555) serves 1stcontact, so they aren't contending here, but several are days old.
+
+Want me to take the two-part fix? It's an xgd-repo change, so it'd need its own ticket and branch there rather than going under CHAT-55 — say the word and I'll scope it.
 
 <!-- xgd-chat-end -->
