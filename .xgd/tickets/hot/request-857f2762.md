@@ -5,10 +5,10 @@ type: request
 title: Copy an existing page to a new one, content and all
 created_by: xgd
 created_at: '2026-09-22T21:50:10.208614+00:00'
-updated_at: '2026-09-22T22:14:09.124535+00:00'
+updated_at: '2026-09-22T22:18:41.529965+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
