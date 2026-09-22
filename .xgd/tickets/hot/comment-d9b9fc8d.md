@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:28:25.861493+00:00'
+updated_at: '2026-09-22T20:31:09.167231+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2929,5 +2929,29 @@ Rollback is still one statement — old headers are at `storage/backups/chat-hea
 <!-- xgd-chat role="user" ts="2026-09-22T20:28:25.053713+00:00" -->
 #### You
 I now see a message that says "The connection to this reply was lost" this message disappears
+
+<!-- xgd-turn id="fd686ced-7637-4955-b963-5c858886e92b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:31:08.948454+00:00" -->
+#### Claude
+The tail is live on the deployed version (`3f9b69de`) and already capturing. **Send one chat message now** and I'll read what the Worker actually did — that distinguishes the two candidates below.
+
+What I've established so far:
+
+**The message is a dropped connection, not an application error.** It comes from `@lagrangefoundry/webui-chat`'s `LOST_NOTICE`, raised in `follow()`'s `finally` when the frame stream ended while a turn was still open. An error *inside* the turn would look different — `router.ts` catches it and sends a `text` frame plus `done`, so you'd see italic prose in the bubble instead. You're seeing the shape that means no terminal frame ever arrived.
+
+**It disappears because the panel reconnects and adopts the bubble** — the notice is a child element rather than text spliced into the reply, specifically so a recovering host can keep writing into the same bubble. So the vanishing isn't the problem resolving; it's the retry starting.
+
+**Nothing durable was produced.** Both transcripts are untouched — the `chat_transcript` lengths are still exactly my header-fix values (253,272 and 4,498), and the `tool_transcript`s haven't moved since Sep 21 23:53. The turn isn't getting far enough to flush an audit, which the `finally` would do even for a failed turn.
+
+That leaves two candidates, and they point at different fixes:
+
+**(a) A start-up throw.** `delegationFor([BUILDER_ROLE])` runs inside `build()` — deliberately, to fail on a bad config rather than mid-conversation — but that's *before* any stream exists. A throw there is a 500, and `EventSource` sees a failed connection and auto-reconnects: appears, disappears, repeats. The "nothing produced" evidence leans this way. I already confirmed `claude_builder` is declared and both context windows resolve, so if it's this, it's the role/grant half — the builder role's `instances.json` entry or its Toolbox construction.
+
+**(b) An idle reap.** The turn SSE has **no heartbeat at all** — zero `ping` or `setInterval` in it — while the material-changes stream (`router.ts:6238`) and the tail (`6390`) both have one, with a comment saying it exists precisely to stop an intermediary reaping an idle connection. A `delegate` call is one tool call in the consultant's loop that can run a whole sub-session underneath it, emitting nothing to the parent for its duration. That's a new silence that didn't exist before this deploy, on the one stream with no keepalive.
+
+If it's (b), that's a real gap worth a ticket regardless — delegation made a pre-existing hole reachable.
+
+The tail is running as background task `bxojt6722`; I'll stop it once we have the event. Go ahead and send the message.
 
 <!-- xgd-chat-end -->
