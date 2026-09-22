@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:24:34.611142+00:00'
+updated_at: '2026-09-22T20:25:56.300309+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2892,5 +2892,36 @@ Say go and I'll apply it — it's two UPDATEs, header replaced, body after the f
 <!-- xgd-chat role="user" ts="2026-09-22T20:24:33.997808+00:00" -->
 #### You
 go
+
+<!-- xgd-turn id="e2edd747-f9bf-474a-94b9-7c9b5073c3ac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:25:55.545643+00:00" -->
+#### Claude
+Applied and verified. **Reload the builder — the chat should open now.**
+
+```
+Total queries executed: 2      Rows written: 4
+```
+
+Both envelopes now read the production ids, and a sweep of **all eight** production sessions shows index and envelope agreeing everywhere:
+
+```
+OK  chat-fa105276 | field: claude+site:site_23c1afb3…     | header: claude+site:site_23c1afb3…
+OK  chat-e3df9535 | field: claude+business:biz_33086a94…  | header: claude+business:biz_33086a94…
+… 6 more, all OK
+```
+
+**The byte accounting confirms nothing but the header moved**, which was the thing worth getting right:
+
+- The 253,272-byte transcript is **exactly the same length** — every substituted token is the same width — and its in-body stale-id counts went `6 → 4` for the site id and `6 → 6` for the business id. It lost precisely the two occurrences inside the envelope and not one of the ten in the conversation.
+- The 4,534-byte one lost **exactly 36 bytes**: the stale `backend_ref` UUID `039e3712-…` from the local run, cleared because it names a conversation on a backend this deployment doesn't have. Left in place it would have been the next failure after this one.
+
+`chat_ticket_uid` was stale as well — the envelopes pointed at `chat-50932534` and `chat-3484636f`, neither of which was ever copied to production. Both now name their own ticket.
+
+The honest summary of what went wrong: a chat names its backend in **two** places, and my §I23 repair rewrote one. `fields.*` is the index the list reads; the `<!-- xgd-session -->` envelope is the payload the session manager resumes from. That's why the symptom read as incoherent — the session listed fine and failed the moment you opened it, and the "available backends" in the error were literally the values I'd set. Both halves of that message were showing the same half-finished repair from opposite sides.
+
+I've recorded it as §I24 on EPIC-16, including the consequence for **BUG-137**: a copy-path fix that only repoints ticket fields is incomplete, and this will come straight back on the first `--chats` copy of 1st Contact or XGD.
+
+Rollback is still one statement — old headers are at `storage/backups/chat-header-before.json`.
 
 <!-- xgd-chat-end -->
