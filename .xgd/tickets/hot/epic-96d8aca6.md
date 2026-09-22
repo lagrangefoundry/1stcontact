@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-22T19:04:06.950809+00:00'
+updated_at: '2026-09-22T20:25:45.586629+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1324,3 +1324,23 @@ No session addressed to a local id remains anywhere in the store, and no duplica
 **`backend` is the field that would have been missed.** `session_id` is the obvious carrier and the one [[BUG-137]] was filed against, but `backend` holds the same id in a second derived form (`claude+site:<id>`) and is what actually binds a session to its subject. Repointing only `session_id` produces a session the builder can find and a backend reference that names nothing — a second, quieter version of the same bug. The fix under BUG-137 must rewrite both.
 
 **Still outstanding, and deliberately not run:** 1st Contact and XGD hold only empty placeholders — their `--chats` copies never ran. Running them now would land orphaned exactly as these did, because BUG-137 is unfixed. Either wait for that fix, or run them and repeat this repoint, which is mechanical now the shape is known.
+
+
+### I24 — §I23's repair fixed the index and left the payload
+
+The repointed sessions still failed on open, with `Unknown backend "claude+site:site_936dd7c9…"` naming the *old local* site id — the one §I23 recorded as gone. It was not gone, because a chat has **two** places that name its backend and §I23 rewrote one:
+
+- **`fields.session_id` / `fields.backend` on the chat ticket** — the index. What `list` reads, and what the "available backends" half of the error is built from.
+- **the `<!-- xgd-session -->` envelope at the head of the `chat_transcript` comment body** — the payload. What the session manager resumes from, carrying its own `id`, `backend`, `backend_ref` and `chat_ticket_uid`.
+
+That split is why the symptom looked incoherent: the session listed correctly and then failed the instant it was opened, and the error's own "available" list was exactly the values §I23 had set. Both halves of the message were reporting the same half-finished repair from opposite sides.
+
+`chat_ticket_uid` was stale too — `chat-50932534` and `chat-3484636f`, neither of which exists in production — so the envelope also pointed its own comment at a ticket that was never copied.
+
+**The fix is header-only, and the boundary is the point.** In `comment-fec1c7d8` the old site id occurs **6 times, 2 of them in the envelope**; the other 4, plus 6 occurrences of the old business id, are inside the conversation, where the ids were discussed in the course of the build. A find-and-replace over the body — the obvious repair — would rewrite what was said. Only the bytes before the first `-->` were replaced.
+
+Byte accounting confirms it: the 253,272-byte transcript is unchanged in length (every substituted token is the same width) and its in-body stale-id counts went 6→4 and 6→6, losing exactly the two envelope occurrences. The 4,534-byte one lost exactly 36 — the stale `backend_ref` UUID from the local run, cleared because it names a conversation on a backend this deployment does not have.
+
+All eight production sessions now agree between index and envelope. Old headers are at `storage/backups/chat-header-before.json`.
+
+**The general lesson for [[BUG-137]]:** the copy path has to rewrite the envelope too, not just the ticket fields. Whatever fix lands there is incomplete if it only repoints the index — this defect will simply reappear on the first `--chats` copy of 1st Contact or XGD.
