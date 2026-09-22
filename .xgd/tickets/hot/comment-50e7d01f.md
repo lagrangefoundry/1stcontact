@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T20:39:37.098553+00:00'
+updated_at: '2026-09-22T20:41:49.467220+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1139,5 +1139,25 @@ A framework fix means a ticket in that repo and nothing else — I won't touch i
 <!-- xgd-chat role="user" ts="2026-09-22T20:39:36.451403+00:00" -->
 #### You
 Please create the REQs in LF
+
+<!-- xgd-turn id="6e4290d9-253e-404c-87e9-7201f88f2fbb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:41:49.389441+00:00" -->
+#### Claude
+Both filed in `lagrange-framework`, as standalone REQs with no epic parent.
+
+**REQ-173 — `Shell: a leading slot in the bar…`** (`request-95163a6a`, 2 points)
+
+A `leading` config field on `mountShell` taking a `Node` or array of nodes, rendered at the start of `.shell-bar`. The part worth arguing is why `actions` isn't the answer even in spirit: an `ActionSpec` requires `onClick` and is wrapped in a `<button class="shell-action-btn">`, so a `<select>` passed as `content` would sit inside a button, inside a tab stop that does nothing, with a click handler it doesn't want. The two ends of the bar aren't symmetric in what they hold — trailing takes actions, leading takes nodes.
+
+**REQ-174 — `Shell: a full-surface view…`** (`request-13e29b3e`, 5 points)
+
+`openView(node, {onClose})` / `closeView()` / `getView()`, replacing the panels with no scrim and no `z-index`. I led with the argument you'd want an upstream maintainer to read first: hiding a div is easy and isn't the reason it belongs there — **no tab must read as selected while a view is up**, and `tabs.js` has no concept of "no active tab", so only the shell can state it. A host either reaches further into the markup or reimplements the strip. Also noted that `.shell-panel.is-fill` plus the `:has()` rule at `shell.css:229` already models "a thing that fills the content region" (REQ-61) — what's missing is host access to it without owning a panel.
+
+Both carry explicit acceptance conditions, `PUBLIC-API.md` expectations (173 adds no exported name; 174 regenerates unchanged, since they're handle methods), a `tests/test_UAT_FC_REQ-17{3,4}_*.test.js` plan sited beside the existing shell tests, and a `showcase/src/shell-demo.js` addition. They cross-reference each other and are independent — either can land alone.
+
+Two things I checked rather than assumed: there were no existing framework tickets covering either gap, and the shell copy vendored into `1stcontact/apps/control-app/dist-assets` is byte-identical to `lagrange-framework/components/webui/shell/js/src`, so this is a real omission and not version drift.
+
+REQ-298 now names both upstream tickets at the point where it documents its two selector touches, and states that neither blocks it — the workarounds ship, and each becomes a one-line change when its upstream lands. No code written in the framework repo.
 
 <!-- xgd-chat-end -->
