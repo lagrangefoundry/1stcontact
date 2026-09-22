@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:57:33.737531+00:00'
+updated_at: '2026-09-22T20:59:01.864331+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3119,5 +3119,13 @@ One correction to something I told you earlier: I said the stale ids left in the
 <!-- xgd-chat role="user" ts="2026-09-22T20:57:32.449613+00:00" -->
 #### You
 Ok this is a real problem. we can try flip and redeploy - I don'
+
+<!-- xgd-turn id="22d4e37e-ec9a-415b-8528-c692df13b497-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:59:01.796054+00:00" -->
+#### You
+I think it unlikely that this is delegation - I asked the chat "are you connected" That should not trigger delegate tool use.
+
+How much memory do I have? Presumably we can increase it?
 
 <!-- xgd-chat-end -->
