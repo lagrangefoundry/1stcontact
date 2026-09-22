@@ -5,10 +5,10 @@ type: request
 title: 'repro console: one verb instead of three, and a way to clear the history'
 created_by: EPIC-12
 created_at: '2026-09-22T20:33:22.529568+00:00'
-updated_at: '2026-09-22T23:00:39.746100+00:00'
+updated_at: '2026-09-22T23:04:13.557373+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -16,6 +16,14 @@ fields:
   needs_review: false
   epic_parent: epic-bf282b3d
   chat_comment: comment-f9e3fa64
+  commits:
+  - working_sha: 37e1e8672e8b432c4464df5ff5ce3fb1e3108c4d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0f84bb502a638e21e9269ed1f7ee46fec55e7b21
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.326
 ---
 
 # One verb, and a way to clear the history
