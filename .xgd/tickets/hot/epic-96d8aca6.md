@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-22T20:25:45.586629+00:00'
+updated_at: '2026-09-22T20:55:22.303328+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1344,3 +1344,30 @@ Byte accounting confirms it: the 253,272-byte transcript is unchanged in length 
 All eight production sessions now agree between index and envelope. Old headers are at `storage/backups/chat-header-before.json`.
 
 **The general lesson for [[BUG-137]]:** the copy path has to rewrite the envelope too, not just the ticket fields. Whatever fix lands there is incomplete if it only repoints the index — this defect will simply reappear on the first `--chats` copy of 1st Contact or XGD.
+
+
+### I25 — "The connection to this reply was lost" is the Worker dying of memory
+
+Reproduced directly against production, without the operator, by posting a turn to `/b/<biz>/api/ai/prompt` with the `bin/access-token` service credential. Two sessions, same business, same deployment:
+
+| session | chat | tools | result |
+|---|---|---|---|
+| `business-biz_33086a94…` (settings) | 4.5 KB | 3.7 KB | **200, clean** — text frames + `done` `status:complete`, 4.0 s |
+| `site-site_23c1afb3…` (site builder) | 253 KB | 2.02 MB | **200, zero bytes**, 5–15 s, connection closed with no frame |
+
+The tail names it exactly:
+
+```
+outcome    = exceededMemory
+wallTime   = 14843 ms      cpuTime = 8815 ms
+exception  = Error: Worker exceeded memory limit.
+route      = /b/biz_33086a94…/api/ai/prompt
+```
+
+**Every symptom follows from that one fact.** `streamTurn` returns its `Response` before `start()` runs, so the 200 and its headers are already on the wire when the isolate is killed — the client gets a successful response with an empty body and no terminal frame, which is precisely the condition `follow()`'s `finally` reports as lost. The `catch` that would have turned a failure into a readable `text` frame never runs, because nothing in the isolate runs. The `finally` that flushes the audit dies with it, which is why neither transcript grew by a byte. And it is perfectly deterministic — same session, same data, same death — which is the operator's "100% reproducible".
+
+**It is not delegation, not the credential, and not [[BUG-137]]'s repair.** The settings session proves the turn path, the delegation start-up validation and the Anthropic key are all healthy on this deployment. What §I24 changed was only that this session became *reachable*; the memory ceiling was always behind it, and no one had got past the `Unknown backend` refusal to meet it.
+
+**Rendering is not the problem — prompt construction is.** The browser displays the whole 253 KB transcript without difficulty (§I26's 403s are proof it rendered). What exceeds 128 MB is the Worker materialising the session to build a prompt from it.
+
+The defect is that **nothing bounds what a resume materialises**. A session grows without limit, every turn re-reads the whole archive, and the first turn that crosses the isolate's ceiling kills the conversation permanently — there is no degradation, no warning, and no error the operator can read. The fix is a windowed resume; a session that cannot be re-entered is a session that has been destroyed by its own success.
