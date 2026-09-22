@@ -11,6 +11,7 @@ import { makeMemorySite } from './support/site-factory'
 import {
   consultantRole,
   registerSettingsProviders,
+  registerBudgetProvider,
   registerMemoryProviders,
   registerSiteProviders,
   settingsRole,
@@ -66,6 +67,15 @@ async function reminderFor(
 ): Promise<string> {
   const lib = (await aiCore()) as Untyped
   const providers = new lib.PrimingProviders()
+  // THE FRAMEWORK'S DEFAULTS FIRST, THIS PROJECT'S ON TOP — `host-core.ts`'s own
+  // order, and the order is the whole of it: the project's memory bindings below
+  // deliberately REPLACE three of upstream's, so registering the shipped set
+  // afterwards would quietly put upstream's back. [[REQ-296]] is why they are
+  // needed at all — the settings role's tail now names the occupancy gauge, which
+  // is an upstream provider, so a registry of only this project's bindings can no
+  // longer load that role.
+  lib.registerDefaults(providers, {})
+  registerBudgetProvider(providers, async () => 0)
   // The box is the one double: what it stands in for — a projected manual — is
   // the subject of claims 4 and 5, against the real Toolbox, below.
   const box = { manual: async () => '## Your tools\n\n- `list_changes`' }

@@ -633,6 +633,15 @@ export const MEMORY_TRIGGER_PROVIDER = 'memory.trigger'
 export const TRANSCRIPT_POINTER_PROVIDER = 'session.transcript_pointer'
 
 /**
+ * The product tier's occupancy gauge ([[REQ-296]]; [[REQ-169]] upstream).
+ *
+ * UPSTREAM'S NAME, SPELLED HERE, for {@link SESSION_MEMORY_PROVIDER}'s reason —
+ * and spelled as a literal because the framework does not export it. Every
+ * provider name this project names lives in this file, whoever coined it.
+ */
+export const SESSION_BUDGET_PROVIDER = 'session.budget'
+
+/**
  * Bind every provider name this project's configuration may use (REQ-182).
  *
  * ONE PLACE FOR BOTH HALVES. The file that names a provider and the function that
@@ -973,6 +982,59 @@ export interface SessionMemorySource {
  * good, not what makes one possible, and a store that cannot be read is a reason
  * not to claim a record rather than a reason to refuse the client an answer.
  */
+/**
+ * The occupancy gauge in the framework's product tier, rebound to a figure that
+ * survives this host's turn boundary ([[REQ-296]]).
+ *
+ * UPSTREAM'S NAME AND UPSTREAM'S PROVIDER, for {@link SESSION_MEMORY_PROVIDER}'s
+ * reason and one further one. The shipped product mapping names this entry and
+ * puts it AFTER the cache boundary, which is the part worth adopting: entries past
+ * the marker are re-assembled every turn and ride the per-turn tail, past the
+ * message history, so a figure that changes on every turn cannot invalidate the
+ * cached prefix in front of it ([[REQ-144]]). Writing our own gauge into the
+ * reminder would have put the same number in the same place and forked the prose;
+ * writing it into `system` would have cost more than the overflow does.
+ *
+ * WHAT IS REBOUND IS THE INPUT, NOT THE WORDS. The provider itself — its three
+ * outcomes, its rounding, every sentence it renders — is the framework's, taken
+ * out of the registry and called with one field replaced. The framework's
+ * `ctx.occupancyTokens` is a field on the manager's in-memory session, and on a
+ * Worker the manager is rebuilt per request and the session resumed from the
+ * archive, so it is zero on every turn and the gauge renders nothing at all. The
+ * host keeps the figure durably instead (`session-occupancy.ts`).
+ *
+ * `ctx` FIRST, THE DURABLE FIGURE SECOND, and that order is deliberate: where the
+ * manager DOES live across turns — the `1c` CLI, one process — the framework's own
+ * measurement is the most recent thing there is, and the stored figure is at best
+ * equal to it.
+ *
+ * `registerDefaults` MUST HAVE RUN. This reads the shipped binding out of the
+ * registry rather than reimplementing it, so a caller that has not loaded the
+ * framework's defaults gets `PrimingConfigError` naming the provider — which is
+ * the right failure and is raised at start-up.
+ *
+ * @param measured the durable figure for a session, or `0` where this host keeps
+ *   none. A failed read is silence: the gauge renders nothing rather than failing
+ *   the turn it was assembled for.
+ */
+export function registerBudgetProvider(
+  providers: Untyped,
+  measured: (sessionId: string) => Promise<number>,
+): void {
+  const shipped = providers.get(SESSION_BUDGET_PROVIDER) as (ctx: Untyped) => Promise<string | null>
+  providers.register(SESSION_BUDGET_PROVIDER, async (ctx: Untyped) => {
+    let occupancy = Math.trunc(Number(ctx?.occupancyTokens) || 0)
+    if (occupancy <= 0) {
+      try {
+        occupancy = Math.trunc(Number(await measured(String(ctx?.sessionId ?? ''))) || 0)
+      } catch {
+        occupancy = 0
+      }
+    }
+    return shipped({ ...ctx, occupancyTokens: occupancy })
+  })
+}
+
 export function registerMemoryProviders(
   providers: Untyped,
   source: SessionMemorySource | null,
@@ -1062,6 +1124,25 @@ export function registerSettingsProviders(
  */
 export function registerBuilderProviders(providers: Untyped, binding: { box: Untyped }): void {
   providers.register(BUILDER_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+}
+
+/**
+ * How this host's session reaches its own tool records ([[REQ-296]]).
+ *
+ * THE FRAMEWORK'S ENTRY, THIS HOST'S WORDS. `registerDefaults` takes an override
+ * for the shipped prose precisely for a host whose artifact is reachable
+ * differently, and this one is: upstream's sentence says to *"search or read it"*
+ * without naming an instrument, because upstream cannot know there is one. Here
+ * there is — `read_work_log` on the ledger surface — and the one rule this file
+ * keeps is that a session is never told about a capability it was not granted, in
+ * either direction: pointing it at a log with no way in was why this entry was
+ * declined until now.
+ *
+ * IT IS A TEMPLATE AND NOT A STRING HERE, like every other word a session is told
+ * by hand: the prose lives in `priming.json` and this is the accessor.
+ */
+export function toolTranscriptNote(): string {
+  return template('tool-transcript-note')
 }
 
 /**

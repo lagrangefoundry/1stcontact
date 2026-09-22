@@ -73,6 +73,7 @@ import {
 } from './session-knowledge'
 import { turnDelta } from './session-delta'
 import { pendingTurns } from './session-pending'
+import { sessionOccupancy } from './session-occupancy'
 import type { DevelopmentSurface } from './development'
 import {
   DOCUMENT_DIGEST_SYSTEM,
@@ -724,6 +725,13 @@ export function workerHost(
       // thing this Worker always has is a ticket store — the transcript itself
       // lives there.
       pending: pendingTurns(tickets),
+      // HOW FULL THE CONVERSATION IS ([[REQ-296]]). Unconditional, like the
+      // pending record it sits beside and for the same reason: it depends on a
+      // ticket store and on nothing else. It is what makes the occupancy gauge
+      // and the overflow guard possible at all on this host — the framework's own
+      // copy of the figure is a field on an in-memory session, and this Worker
+      // rebuilds the manager per request.
+      occupancy: sessionOccupancy(tickets),
     },
     flush: (sessionId: string) =>
       flushAudit(env.SITES, tenantId, sessionId, audit.drain()),

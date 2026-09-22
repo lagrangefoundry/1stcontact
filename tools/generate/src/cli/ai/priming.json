@@ -38,10 +38,11 @@
     "answered. `session.summary` waited on lagrange-framework BUG-45, which is fixed in",
     "the installed code. `session.transcript_pointer` had no reader, and now has one:",
     "the `agent` surface's InspectContext lets a session read its own past turns by id.",
-    "`session.tool_transcript_note` still has none \u2014 nothing this host grants reads the",
-    "persisted TOOL record stream \u2014 so it is declined ON ITS OWN MERITS, by binding no",
-    "reader, which is upstream's own mechanism for exactly this: registered with no",
-    "reader the entry renders nothing, and the shipped mapping stays loadable.",
+    "`session.tool_transcript_note` had none either, and was declined ON ITS OWN MERITS",
+    "by binding no reader. [[REQ-296]] gives it one: `read_work_log` on the ledger",
+    "surface reads the persisted TOOL record stream by turn, so the pointer now names",
+    "an instrument this session actually has, and `templates.tool-transcript-note`",
+    "carries our words in place of the framework's for that reason.",
     "",
     "WHAT IS WORTH ADOPTING IS THE ORDER, not only the words. The tier's cache boundary",
     "sits before its last entry, so the seed a session rewrites as it works is",
@@ -134,7 +135,17 @@
     "render nothing when the switch in `delegation.json` is off \u2014 a deployment that",
     "cannot delegate must not be told how to, or it will propose a tool it has not",
     "got. Its words are in `templates.delegation-method`, which is where the",
-    "interrupted-turn signal already keeps prose a provider decides the fate of."
+    "interrupted-turn signal already keeps prose a provider decides the fate of.",
+    "",
+    "[[REQ-296]] \u2014 WHERE THE OCCUPANCY GAUGE IS, AND WHY IT IS NOT DECLARED HERE",
+    "TWICE. The consultant and the builder read it from the framework's product tier,",
+    "which names `session-budget` after its own cache boundary \u2014 so it is re-assembled",
+    "every turn and rides the per-turn tail, past the message history, which is",
+    "exactly where a figure that changes every turn belongs ([[REQ-144]]). Declaring",
+    "it in `reminders` as well would deliver two gauges. The settings role has no",
+    "product tier \u2014 its manager is built with a registry and no product \u2014 so its own",
+    "tail names the same provider once: one gauge per role, from whichever tier that",
+    "role has."
   ],
   "templates": {
     "site-line": "You are working on the site \"{slug}\". Every tool you have acts on that site and no other.",
@@ -156,7 +167,8 @@
     "page-digest-no-pages": "This site has no pages yet.",
     "page-digest-more": "\u2026and {more} more page{plural}. Call list_pages for the rest \u2014 it is cheap.",
     "page-digest-message": "a message your client's forms send, not a page anyone visits",
-    "delegation-method": "## Handing construction over\n\nYou can hand a bounded piece of building work to a builder \u2014 a second, cheaper\nsession with your construction tools and none of your judgement. It works on the\nsame site, reports back, and its conversation never enters yours.\n\nHand over work where the payload is large and the decisions are small: laying out\na page you have already settled the shape of, applying a change across several\nsections, building out a variant you have described. Keep for yourself anything\nthat is a judgement \u2014 what the site should say, which of two arrangements is\nbetter, what to do about a request you think is wrong. If you would have to\nexplain the reasoning twice to hand it over, do it yourself.\n\nWrite the brief for someone who cannot see this conversation, because they\ncannot. Say what to build, where, and what it must end up like. Name the\nconstraints you would have applied silently \u2014 they are not obvious to anyone who\nwas not here.\n\nThen say what you would have checked afterwards, and ask for exactly that. Each\ncheck should be something the builder can settle by looking at the result, and\nspecific enough that \"passed\" means something: not \"the page looks right\" but\n\"every section has a heading\" or \"the hero image is the one from the Library\".\n\nWhen the checks come back passed, believe them and move on \u2014 a short summary to\nyour client and nothing more. Re-inspecting work that has already been checked\ndoes not save the tokens, it moves them to the more expensive side, which is\nexactly the thing handing over was for. Look again where a check FAILED, or where\nit came back unanswered, and nowhere else. The result is still yours: you tell\nthe client what happened, in your words."
+    "delegation-method": "## Handing construction over\n\nYou can hand a bounded piece of building work to a builder \u2014 a second, cheaper\nsession with your construction tools and none of your judgement. It works on the\nsame site, reports back, and its conversation never enters yours.\n\nHand over work where the payload is large and the decisions are small: laying out\na page you have already settled the shape of, applying a change across several\nsections, building out a variant you have described. Keep for yourself anything\nthat is a judgement \u2014 what the site should say, which of two arrangements is\nbetter, what to do about a request you think is wrong. If you would have to\nexplain the reasoning twice to hand it over, do it yourself.\n\nWrite the brief for someone who cannot see this conversation, because they\ncannot. Say what to build, where, and what it must end up like. Name the\nconstraints you would have applied silently \u2014 they are not obvious to anyone who\nwas not here.\n\nThen say what you would have checked afterwards, and ask for exactly that. Each\ncheck should be something the builder can settle by looking at the result, and\nspecific enough that \"passed\" means something: not \"the page looks right\" but\n\"every section has a heading\" or \"the hero image is the one from the Library\".\n\nWhen the checks come back passed, believe them and move on \u2014 a short summary to\nyour client and nothing more. Re-inspecting work that has already been checked\ndoes not save the tokens, it moves them to the more expensive side, which is\nexactly the thing handing over was for. Look again where a check FAILED, or where\nit came back unanswered, and nowhere else. The result is still yours: you tell\nthe client what happened, in your words.",
+    "tool-transcript-note": "Your tool calls in this session are recorded for you, separately from the conversation, as a work log: one entry per call, holding what you called, what you called it on, and what came back. Each entry names the turn it belongs to. You never write it and you cannot change it.\n\nRead it with read_work_log \u2014 no turn named for an index of every call, a turn named for that turn's calls in full. Reach for it when you need to recover what you already did rather than doing it again: re-reading a page you read eight turns ago costs many times what asking for the record of it does. Large inputs and results are stored shortened, each marked with how much was kept of how much there was \u2014 treat a marked entry as a pointer to work you did, not as the full text of it."
   },
   "priming": [
     {
@@ -498,6 +510,10 @@
     {
       "name": "consequences-first",
       "text": "Say what a change cannot undo before you make it, never after."
+    },
+    {
+      "name": "session-budget",
+      "provider": "session.budget"
     },
     {
       "name": "turn-interrupted",
