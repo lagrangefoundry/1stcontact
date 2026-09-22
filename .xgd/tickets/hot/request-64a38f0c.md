@@ -5,9 +5,9 @@ type: request
 title: An operator console for tenant cost
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:45.407051+00:00'
-updated_at: '2026-09-22T19:09:37.570431+00:00'
+updated_at: '2026-09-22T20:01:18.173144+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -315,3 +315,25 @@ This is asserted end to end and not at the gate alone. The existing cases call
 that never passed it on was invisible to all of them: the assertion that
 matters is that a response carrying `ownsPlatformBusiness: true` reaches
 `mountBuilder` as `true`, over the same function the browser calls.
+
+
+## Superseded in part by [[REQ-298]]
+
+The console's **form** is overruled by the operator: it becomes a tab, not a
+dialog, and its content becomes a list of every site on the platform beside a
+detail pane for the selected site's business.
+
+Three statements above are withdrawn and must not reach the capability matrix:
+
+- *"It is not a tab"*, and **condition 9**.
+- **Conditions 2 and 3** — the league of tenants and the in-place row expansion.
+  The list is sites; the detail is a pane and carries the owning account and a
+  link to the published site as well as spend.
+- **Condition 8**, only insofar as it binds the registry to the console. The
+  registry survives on the detail pane.
+
+Everything else here stands and REQ-298 reuses it rather than rebuilding it: the
+`ownsPlatformBusiness` gate at both layers, `/api/admin/spend`,
+`/api/admin/spend/businesses`, the shared period parser, the spend arithmetic
+including the principal/delegated split and *nothing, never zero*, and
+`/api/businesses` carrying `ownsPlatformBusiness` through to `mountBuilder`.
