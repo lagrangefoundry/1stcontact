@@ -10,6 +10,7 @@ import type { ChangeSlice, JournalRecord } from './journal-model'
 import { JOURNAL_WINDOW } from './journal-model'
 import type {
   AssetStamp,
+  RenditionSink,
   RevisionContent,
   RevisionEntry,
   SiteOutline,
@@ -850,50 +851,50 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return (row?.highest ?? 0) + 1
     },
 
-    async writeRevision(site, entry: RevisionEntry, content: RevisionContent) {
+    /**
+     * [[REQ-305]] — take the id, then open the derived channel.
+     *
+     * THE CLAIM MOVED HERE AND GOT EARLIER, which is a strengthening of
+     * [[REQ-266]] §2 rather than a relocation of it. It used to be the first
+     * thing `writeRevision` did, and that was the front of the write while the
+     * write was one act. It is not one act any more: the delivery renditions are
+     * written before the pages that name them exist ([[REQ-305]]), so the front
+     * of the write is now this verb. A claim made at `writeRevision` would be a
+     * claim made after the losing publish had already put a site's worth of
+     * renditions into the winner's prefix.
+     *
+     * THE SINK IS A `put` PER RENDITION AND NOTHING ELSE. It holds no state, so
+     * nothing accumulates on this side either — the byte array it is handed is
+     * the caller's last reference to those bytes, and it is gone when the `put`
+     * resolves.
+     */
+    async beginRevision(site, id): Promise<RenditionSink> {
       // OWNERSHIP IS PROVEN FIRST, before a single byte is written, and the key
-      // every object below is built from is the caller's own. There is no NAME
-      // to claim any more ([[REQ-190]]): the published address IS this key, so no
+      // every object is built from is the caller's own. There is no NAME to
+      // claim any more ([[REQ-190]]): the published address IS this key, so no
       // other business can be publishing to it and there is nothing to refuse.
       // (The revision-id claim below is a different thing wearing the same word —
       // that one is about two publishes of THIS site, not two businesses.)
       if (!(await owns(site))) throw new Error(`No site '${site}' in this store.`)
 
-      /*
-       * [[REQ-266]] §3 — A PUBLISHED PREFIX IS NEVER WRITTEN INTO, and the check
-       * happens BEFORE the first `put` rather than after the last one.
-       *
-       * The primary key on `site_revisions` already refused a duplicate id, and
-       * still does — but it was evaluated by the `INSERT` at the bottom of this
-       * function, which is to say after every object of the colliding revision
-       * had already been overwritten. `put` overwrites; there is no conditional
-       * form of it. So the guard that existed was evaluated after the damage it
-       * would have prevented, and the revision the log named was a mixture of
-       * two publishes with a digest describing neither.
-       *
-       * DEFENCE IN DEPTH FOR THE CLAIM BELOW, not a substitute for it. The claim
-       * is what resolves a RACE between two publishes; this refuses a caller
-       * that arrived with an id it never minted — a retry, a replayed request, a
-       * fixture — where there is no race at all and nothing for the claim to
-       * lose.
-       */
-      const published = await DB.prepare(
-        `SELECT id FROM site_revisions WHERE ${OWNED} AND id = ?`,
-      )
-        .bind(site, tenantId, entry.id)
+      // [[REQ-266]] §3 — A PUBLISHED PREFIX IS NEVER WRITTEN INTO, checked before
+      // the claim so that a caller arriving with an id it never minted is told
+      // which of the two things went wrong. {@link writeRevision} asks the same
+      // question again for the reason its own comment gives.
+      const published = await DB.prepare(`SELECT id FROM site_revisions WHERE ${OWNED} AND id = ?`)
+        .bind(site, tenantId, id)
         .first<{ id: number }>()
-      if (published !== null) throw new RevisionExistsError(site, entry.id, 'published')
+      if (published !== null) throw new RevisionExistsError(site, id, 'published')
 
       /*
-       * [[REQ-266]] §2 — THE ID IS CLAIMED FIRST, IN A SEPARATE TABLE.
+       * [[REQ-266]] §2 — THE ID IS CLAIMED, IN A SEPARATE TABLE.
        *
-       * `nextRevision` is a read, and everything below is a write into the
+       * `nextRevision` is a read, and everything after this is a write into the
        * prefix that read named. Two publishes of one site could interleave
-       * between them, and the primary key that would eventually have caught it
-       * is fifty lines and one whole revision's worth of objects away. Inserting
-       * the claim here moves the refusal to the front: the loser of the race
-       * fails having written nothing, so there is no half-revision for anyone to
-       * discover later.
+       * between them, and the primary key that would eventually have caught it is
+       * a whole revision's worth of objects away. Claiming here moves the refusal
+       * to the front: the loser of the race fails having written nothing, so
+       * there is no half-revision for anyone to discover later.
        *
        * THE FAILURE IS RE-READ RATHER THAN PATTERN-MATCHED ON ITS MESSAGE. D1
        * reports a constraint violation as a driver error whose text is not this
@@ -906,17 +907,46 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         await DB.prepare(
           'INSERT INTO site_revision_claims (site_id, id, claimed_at) VALUES (?, ?, ?)',
         )
-          .bind(site, entry.id, new Date().toISOString())
+          .bind(site, id, new Date().toISOString())
           .run()
       } catch (err) {
         const claimed = await DB.prepare(
           `SELECT id FROM site_revision_claims WHERE ${OWNED} AND id = ?`,
         )
-          .bind(site, tenantId, entry.id)
+          .bind(site, tenantId, id)
           .first<{ id: number }>()
-        if (claimed !== null) throw new RevisionExistsError(site, entry.id, 'claimed')
+        if (claimed !== null) throw new RevisionExistsError(site, id, 'claimed')
         throw err
       }
+
+      // [[REQ-222]] — the delivery renditions. Keys are composed from the path
+      // the ladder chose, which is why `isUnsafePath` and not `isUnsafeName`
+      // guards them: a rendition legitimately carries a `d/` segment, and what
+      // must never reach a key is a component that climbs out of `out/`.
+      const out = publishedOutPrefix(site, id)
+      return async (rel: string, bytes: Uint8Array) => {
+        if (isUnsafePath(rel)) return
+        await SITES.put(`${out}/${rel}`, bytes as unknown as ArrayBuffer, {
+          httpMetadata: { contentType: contentTypeOf(rel) },
+        })
+      }
+    },
+
+    async writeRevision(site, entry: RevisionEntry, content: RevisionContent) {
+      // OWNERSHIP AND THE PUBLISHED-ID REFUSAL, ASKED AGAIN ([[REQ-266]] §3).
+      // `beginRevision` asked both and claimed the id, and a publish always goes
+      // through it — but this verb is what makes a revision EXIST, and the guard
+      // that a published prefix is never written into belongs at the act it
+      // protects as well as at the front of the sequence. Two indexed reads are
+      // the price of a caller that skipped the front and would otherwise
+      // overwrite a live revision one `put` at a time.
+      if (!(await owns(site))) throw new Error(`No site '${site}' in this store.`)
+      const published = await DB.prepare(
+        `SELECT id FROM site_revisions WHERE ${OWNED} AND id = ?`,
+      )
+        .bind(site, tenantId, entry.id)
+        .first<{ id: number }>()
+      if (published !== null) throw new RevisionExistsError(site, entry.id, 'published')
 
       const source = publishedSourcePrefix(site, entry.id)
       const out = publishedOutPrefix(site, entry.id)
@@ -946,16 +976,6 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
       for (const [rel, text] of content.out) {
         await putText(SITES, `${out}/${rel}`, text, contentTypeOf(rel))
-      }
-      // [[REQ-222]] — the delivery renditions. Keys are composed from the path
-      // the ladder chose, which is why `isUnsafePath` and not `isUnsafeName`
-      // guards them: a rendition legitimately carries a `d/` segment, and what
-      // must never reach a key is a component that climbs out of `out/`.
-      for (const [rel, bytes] of content.derived ?? []) {
-        if (isUnsafePath(rel)) continue
-        await SITES.put(`${out}/${rel}`, bytes as unknown as ArrayBuffer, {
-          httpMetadata: { contentType: contentTypeOf(rel) },
-        })
       }
       // The rendered tree carries the assets it references, exactly as the
       // filesystem writer copies `assets/` through — a published page whose

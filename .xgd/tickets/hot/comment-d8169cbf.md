@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:38:38.695393+00:00'
+updated_at: '2026-09-22T23:47:11.245270+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3178,5 +3178,13 @@ REQ-307 now carries the correction and is explicitly blocked on REQ-175. It's st
 BUG-138 is still waiting on you — cutting its branch restarts the builder, so tell me when you're between turns.
 
 Sources: [Gradual deployments](https://developers.cloudflare.com/workers/versions-and-deployments/gradual-deployments/), [Lifecycle of a Durable Object](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/), [Long-running agents](https://developers.cloudflare.com/agents/concepts/agentic-patterns/long-running-agents/)
+
+<!-- xgd-turn id="90d6ba43-9d6a-4aca-88a1-ad6afb561fbb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:47:09.268242+00:00" -->
+#### You
+Good - now my LF session just ended with a bug: *D1_ERROR: string or blob too big: SQLITE_TOOBIG*
+
+*What's behind that?*
 
 <!-- xgd-chat-end -->

@@ -19,6 +19,7 @@ import { appendChange, changesSince, draftCounter } from './journal'
 import { loadSite } from './loadSite'
 import type {
   AssetStamp,
+  RenditionSink,
   RevisionContent,
   RevisionEntry,
   SiteOutline,
@@ -178,6 +179,33 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       return Promise.resolve(nextRevisionOf(readHistory(ctx, slug).revisions))
     },
 
+    /**
+     * [[REQ-305]] — the published tree is emptied HERE, and the renditions land
+     * in it as they are rendered.
+     *
+     * THE EMPTYING MOVED AND THE WRITING DID NOT. `writeRevision` used to empty
+     * `dist/published/` at the top of its own body and write the renditions from
+     * a map at the bottom. A rendition written before that call would have been
+     * deleted by it — so the act that clears the tree has to happen before the
+     * first rendition, which is exactly what this verb is. What lands is
+     * unchanged: the same relative paths, under the same directory, beside the
+     * pages that name them.
+     *
+     * `out/` ONLY, and the revision's own directory is still emptied by
+     * `writeRevision`. A revision DIRECTORY is what a checkout reads back as a
+     * draft, and derived bytes are not part of the definition — so nothing this
+     * sink writes goes anywhere near it.
+     */
+    beginRevision(slug, _id): Promise<RenditionSink> {
+      const out = distDir(ctx, slug, 'published')
+      emptyDir(out)
+      return Promise.resolve((rel: string, bytes: Uint8Array) => {
+        ensureDir(path.dirname(path.join(out, rel)))
+        fs.writeFileSync(path.join(out, rel), bytes)
+        return Promise.resolve()
+      })
+    },
+
     async writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
       // The frozen definition, as a complete byte copy — a revision directory is
       // what `loadSite(ctx, slug, <id>)` reads, so it has to be shaped exactly
@@ -203,16 +231,12 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       // The rendered artifact. It lands where `1c serve --source published`,
       // `1c shot` and the fidelity gate already look for it, so publishing keeps
       // feeding the reproduction loop rather than only the cloud.
+      //
+      // NOT EMPTIED HERE ANY MORE ([[REQ-305]]): `beginRevision` cleared this
+      // directory and the renditions already in it were written through the sink
+      // it opened, so emptying it again would delete them.
       const out = distDir(ctx, slug, 'published')
-      emptyDir(out)
       for (const [rel, text] of content.out) writeText(path.join(out, rel), text)
-      // [[REQ-222]] — the delivery renditions, beside the pages that name them.
-      // They land under `out/` only: a revision DIRECTORY is what a checkout
-      // reads back as a draft, and derived bytes are not part of the definition.
-      for (const [rel, bytes] of content.derived ?? []) {
-        ensureDir(path.dirname(path.join(out, rel)))
-        fs.writeFileSync(path.join(out, rel), bytes)
-      }
       for (const { name, bytes } of content.source.assets) {
         ensureDir(path.join(out, 'assets'))
         fs.writeFileSync(path.join(out, 'assets', name), bytes)

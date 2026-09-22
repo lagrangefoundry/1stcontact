@@ -130,27 +130,38 @@ export interface RevisionContent {
   source: StoredSnapshot
   /** Rendered artifact, by path within the snapshot's `out/`. */
   out: Map<string, string>
-  /**
-   * [[REQ-222]] — derived BYTES, by path within the snapshot's `out/`.
-   *
-   * A SECOND CHANNEL RATHER THAN A WIDER `out`, because these are not text and
-   * `out` is. The rendered artifact is HTML and CSS — strings all the way down,
-   * written with a charset — and a delivery rendition is a JPEG. Widening `out`
-   * to `string | Uint8Array` would put a type test in both adapters' write loops
-   * and in every reader, to express something the two maps say by being two maps.
-   *
-   * THEY DO NOT TRAVEL TO `source/`. A revision's `source/` is the frozen
-   * DEFINITION — what a checkout restores — and a delivery rendition is not part
-   * of what the site is. Writing them there would mean checking out a revision
-   * grew the draft six extra copies of every photograph, each of which would then
-   * be diffed, published, and copied again.
-   *
-   * EMPTY IS THE ORDINARY CASE. A publish with no image ladder (no binding, or a
-   * site with no raster pictures) supplies an empty map, and the revision that
-   * lands is exactly the revision that landed before this existed.
-   */
-  derived?: Map<string, Uint8Array>
 }
+
+/**
+ * Where a revision's derived bytes go, one at a time ([[REQ-305]]).
+ *
+ * A SINK AND NOT A MAP, and the difference is the whole of [[REQ-305]]. Derived
+ * bytes used to travel as a `Map<string, Uint8Array>` alongside `out`, which
+ * meant the party that produced them — the image ladder — held every one of them
+ * until the revision was written. Thirteen renditions per photograph is a
+ * multiplier the 128 MB isolate does not survive on a photo-heavy site, and no
+ * count of them was ever the resource that ran out. A sink lets a rendition be
+ * written the moment it exists and its buffer released, so what the ladder holds
+ * is bounded by how many it renders at once rather than by how many the site
+ * needs.
+ *
+ * THEY DO NOT TRAVEL TO `source/`. A revision's `source/` is the frozen
+ * DEFINITION — what a checkout restores — and a delivery rendition is not part of
+ * what the site is. Writing them there would mean checking out a revision grew
+ * the draft six extra copies of every photograph, each of which would then be
+ * diffed, published, and copied again.
+ *
+ * THE PATH IS RELATIVE TO THE REVISION'S `out/`, exactly as `RevisionContent.out`
+ * keys are. The adapter composes its own key or filename from it, which is what
+ * keeps the ladder — the only caller that produces one — free of any opinion
+ * about where a revision lives.
+ *
+ * NEVER CALLED IS THE ORDINARY CASE. A publish with no image ladder (no binding,
+ * or a site with no raster pictures) opens a sink and writes nothing through it,
+ * and the revision that lands is exactly the revision that landed before this
+ * existed.
+ */
+export type RenditionSink = (path: string, bytes: Uint8Array) => Promise<void>
 
 /**
  * The live revision id, or null when nothing has been published.

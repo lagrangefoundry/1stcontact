@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-302
 created_by: xgd
 created_at: '2026-09-22T23:01:52.187218+00:00'
-updated_at: '2026-09-22T23:37:21.786339+00:00'
+updated_at: '2026-09-22T23:45:45.998972+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -196,5 +196,14 @@ REQ-274 fully green. Now REQ-275's schema pin and the three rounding tests.
 Eight of nine resolved. Now the last one — `test_UAT_AC1293`, which looks unrelated.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="8d2033fa-e400-45c8-a6ff-b3e89ebc4015-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:45:43.947375+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->

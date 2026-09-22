@@ -4,6 +4,7 @@ import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
 import { emptyJournal, nextJournal, sliceSince } from './journal-model'
 import type {
   AssetStamp,
+  RenditionSink,
   RevisionContent,
   RevisionEntry,
   SiteOutline,
@@ -230,6 +231,30 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve(nextRevisionOf(site(slug)?.history ?? []))
     },
 
+    /**
+     * [[REQ-305]] — the derived channel, opened before the renditions exist.
+     *
+     * NOTHING TO CLAIM AND NOTHING TO EMPTY, so this adapter's whole contribution
+     * is the map the sink fills. It is created here rather than at
+     * {@link writeRevision} so that `derivedRevision` answers an empty map for a
+     * publish that built no renditions and `null` only for a revision that was
+     * never begun — the same distinction the other two adapters draw between a
+     * prefix that was prepared and one that was not.
+     */
+    beginRevision(slug, id): Promise<RenditionSink> {
+      const found = require(slug)
+      const held = new Map<string, Uint8Array>()
+      found.derived.set(id, held)
+      // COPIED IN, like the snapshot below and for the same reason: a revision
+      // that shared a buffer with the caller would not be frozen. The ladder
+      // releases its own reference the moment this resolves, so the copy is the
+      // only surviving one.
+      return Promise.resolve((path: string, bytes: Uint8Array) => {
+        held.set(path, new Uint8Array(bytes))
+        return Promise.resolve()
+      })
+    },
+
     writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
       const found = require(slug)
       // Deep-copied in, so the snapshot cannot be reached through the draft it
@@ -244,12 +269,6 @@ export function memorySiteStore(): MemorySiteStore {
         })),
       })
       found.outputs.set(entry.id, new Map(content.out))
-      // [[REQ-222]] — copied in like the snapshot above, and for the same reason:
-      // a revision that shared a buffer with the caller would not be frozen.
-      found.derived.set(
-        entry.id,
-        new Map([...(content.derived ?? [])].map(([path, bytes]) => [path, new Uint8Array(bytes)])),
-      )
       found.history.push(copy(entry))
       return Promise.resolve()
     },
@@ -332,7 +351,7 @@ export function memorySiteStore(): MemorySiteStore {
       return out ? new Map(out) : null
     },
 
-    /** [[REQ-222]] — the delivery renditions a revision published. */
+    /** [[REQ-222]] — the delivery renditions a revision published, as the sink took them. */
     derivedRevision(slug, id) {
       const held = site(slug)?.derived.get(id)
       return held ? new Map(held) : null
