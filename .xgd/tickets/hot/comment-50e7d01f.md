@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T20:12:55.204458+00:00'
+updated_at: '2026-09-22T20:34:23.874587+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1107,5 +1107,11 @@ Revised. REQ-298 is now a **full-surface view**, not a tab, and REQ-297's condit
 Unchanged from the last pass: sites list ordered by cost descending with the no-spend tail last, the three detail sections (account, published link, cost) with per-section failure isolation, `GET /api/admin/sites`, and all of REQ-297's routes, gate and arithmetic reused rather than rebuilt.
 
 REQ-297's supersession note, EPIC-20's child entry, and the ticket's chat record are all corrected to match. REQ-298 is still at `draft` — say the word and I'll cut the branch and build it.
+
+<!-- xgd-turn id="39845519-5cf1-421b-8a50-9763d68872d7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:34:22.500268+00:00" -->
+#### You
+This is the *second* place the app touches shell-internal markup <-- are these missing extension hooks in the component?
 
 <!-- xgd-chat-end -->
