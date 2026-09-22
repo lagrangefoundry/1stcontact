@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:07:35.857469+00:00'
+updated_at: '2026-09-22T23:17:55.532431+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3048,5 +3048,47 @@ Every other turn or so I return to the chat to see this message:
 *I* think some partial chunks may have landed while I was away. This may be a Lagrange Framework bug - it is unacceptable and needs to be fixed.
 
 I am working in the dev environment
+
+<!-- xgd-turn id="04e546d3-ee57-456f-8a8e-d500149034ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:17:55.249796+00:00" -->
+#### Claude
+I'll trace that message back to the code that emits it.
+
+Diagnosis is conclusive. Let me record it on the epic before reporting.
+
+**It is not a framework bug. We are killing your turns ourselves** — every merge into `xgd-working` restarts the Worker the builder is served from, and the junction is RAM.
+
+## Turns really are being lost, and I can show you which
+
+`pending_turn`'s own change history on the Lagrange Foundry chat ticket records a prompt opened and then never cleared, with the same text re-opened minutes later — you re-sending. Three today, none with a `turn_spend` row, none folded into the transcript:
+
+| prompt opened (UTC) | what landed while it was in flight |
+|---|---|
+| 21:33:41 | `Merge branch 'free-REQ-298'` at **21:37:07** — rewrote `apps/control-app/src/builder/*` |
+| 22:35:11 | builder restarted at **~22:42** (`.wrangler/tmp/dev-*`, 15:42 PDT) |
+| 23:00:48 | `Merge branch 'free-REQ-299'` at **23:03:51** — rewrote `router.ts`, the Worker entry |
+
+Every turn that *survived* started after the last change and finished before the next. That's the "every other turn" cadence: your turns run 2–9 minutes now that they delegate to `claude_builder` workers, and code lands every few minutes.
+
+A record left at `status: open` with **no spend row and no fold** means the turn's `finally` never ran — so it wasn't an abort (an abort reaches `finally`, writes `turn_end`, syncs, and would have left your words in the transcript). The process holding the turn stopped existing. `wrangler dev` watches that tree, rebuilds, and replaces the Worker; in-flight requests are dropped without running any JS.
+
+## The framework is doing its part
+
+`manager.js` appends `TURN_END` from its `finally` on every exit path — complete, errored, stopped, consumer-walked-away — and awaits `sync()` in the same block. `ctx.waitUntil` (BUG-46) already holds the isolate open past a client disconnect. None of that can survive the process being replaced. The RAM junction is our own choice — `ai.ts`'s `junctions: lib.memoryJunctions()`, whose comment already states this exact exposure and names the route back: a Durable Object junction, which fits the `Junctions` port with no library change.
+
+And the message you're seeing is BUG-121 working. It's the only reason your prompt comes back at all.
+
+## What I'd do
+
+**Today, no code:** stop serving your builder from the worktree we merge into. Either hold merges while you have a turn in flight, or run `wrangler dev` from a checkout pinned to a commit with `--persist-to` pointed at the shared `.wrangler/state`. That removes the whole amplifier immediately.
+
+**The real fix:** the durable junction. That's Finding 4's standing item and it's the thing that also makes a production isolate eviction non-destructive.
+
+## One thing I haven't explained
+
+Your 23:04:41 re-send behaved differently: it ran 8m43s, spawned a worker that finished at 23:07:13, then closed `status: error` at 23:13:24. `closePending` ran, so the `finally` *did* execute — yet the transcript still didn't grow. The missing spend row is explained (spend only rides the `DONE` event); the missing fold is not, because `sync` is inside the library's `finally`. So there's a second failure where a turn that errors after real work still tells you nothing was recorded, and I don't yet know what the error was.
+
+Recorded as Finding 10 on EPIC-19. Want me to file the durable-junction ticket, and a separate one for that errored-turn fold? I haven't created either — say the word.
 
 <!-- xgd-chat-end -->
