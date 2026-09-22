@@ -5,9 +5,9 @@ type: request
 title: A turn that dies uncatchably must still report legibly to the client
 created_by: EPIC-16
 created_at: '2026-09-22T23:13:21.139160+00:00'
-updated_at: '2026-09-22T23:26:38.029327+00:00'
+updated_at: '2026-09-22T23:40:18.967069+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -75,3 +75,128 @@ should be retried is a separate question.
 - The record exists without any code in the killed isolate having run after the kill.
 - An operator can see that a given site is failing turns repeatedly without being told by the
   customer.
+
+## What was built
+
+The mechanism chosen is **record the turn's start before the stream opens and reconcile it on
+completion**. A turn's row is opened by the *route*, awaited before the `Response` exists, and
+closed in `streamTurn`'s `finally`. A row nobody closed is the durable record of a turn whose
+isolate did not survive to write its own ending — the one fact nothing inside that isolate
+could ever have recorded. No heartbeat and no sweeper: both are second mechanisms able to fail
+in the same way as the first.
+
+### The ledger — `turn_log` (D1, migration `0020`)
+
+One row per turn: `turn_id` (primary key, minted by the route), `tenant_id`, `session_id`,
+`started_at`, and a nullable `ended_at` / `outcome` / `detail`.
+
+- **`session_id` identifies both the site and the conversation**, and there is deliberately no
+  second column beside it. A session id is `site-<key>` or `business-<id>` — the documented
+  total inverse of `sessionIdFor` / `businessSessionIdFor`. With `tenant_id` beside it a row
+  names the business, the site and the conversation, which is requirement 4.
+- **NULL means no code ran after the kill**, not "unknown" and not "zero".
+- **`outcome` reuses the host's own `TurnOutcome` vocabulary** (`complete` / `aborted` /
+  `error`), which `turn_spend.outcome` and `pending_turn.status` already carry, so the three
+  records of one turn read side by side without a translation table.
+- **`detail` is scrubbed** by the same `scrub` the client-facing error frame goes through,
+  because the row is read back by an operator console and by the panel's own recovery.
+- Retained, never pruned: how often the platform kills its own turns, and whether a change made
+  it better or worse, is a question only the whole history can answer.
+
+A new table rather than an existing one. `turn_spend` is a meter whose `ended_at` is NOT NULL
+because a meter's row is written once, in full, at the end and never revised; `log_records` is
+pruned on a band, and what is being recorded here is the *absence* of a later write, which
+cannot be reconstructed once the opening row is deleted; `pending_turn` holds the customer's
+question so it can be re-sent, is one field replaced by the next turn, and says `open` both for
+a turn that is running and for a turn whose isolate died.
+
+### Two readers, two pieces of evidence
+
+*Lost* is derived, never stored, and is decided in one module (`turn-log.ts`) so a turn in
+flight and a turn that died are told apart in one place:
+
+- **For the customer**, without a clock: `live` is the junction's answer to *is a turn running*;
+  an unclosed row is the ledger's answer to *did a turn fail to write its own ending*. Both true
+  is an ordinary turn in flight. The ledger saying yes while the junction says no is a
+  contradiction only one thing produces — the isolate that opened the row is gone, taking the
+  RAM junction with it. That is exact the instant it happens.
+- **For the operator**, who reads across many sessions from an isolate holding none of their
+  junctions and so has no liveness to contradict: a ceiling, `TURN_LOST_AFTER_MS` (15 minutes),
+  past which *still running* stops being a credible account of an unclosed row.
+
+### What the customer is told (requirements 1 and 2)
+
+`/api/ai/session` — the call the panel already makes when a stream stops without a terminal
+frame — now travels back with `failed`, drawn from the ledger. The panel composes it with
+`interrupted` (BUG-121) into **one** notice rather than two: `interrupted` is about the
+customer's *words*, `failed` is about what became of the *turn*. Where the turn was killed
+before it could write the words down there is no `interrupted` at all, which is precisely the
+case that previously repainted in silence.
+
+The notice names no isolate and no memory limit — how the platform broke is the operator's
+business. It says the reply stopped, that **the connection held**, that the failure was ours
+and is recorded, and it quotes the turn id, so a customer who says *it failed again, turn_9f…*
+has done the whole of the triage that previously required reading a platform tail. An errored
+turn reads differently from a lost one because they are different facts: an errored turn knows
+why, a lost turn has no why and inventing one would be worse than the silence.
+
+The three notices in `chaseLostTurn` that claimed *the connection to that reply was lost* now
+say the reply stopped. Told the connection had dropped, a customer reloads, retries and checks
+their network — the three remedies that cannot possibly work — and the one party who could act
+never hears about it.
+
+### What the operator sees (requirement 5)
+
+`GET /api/admin/turns?business=…`, behind the same `ownsPlatformBusiness` gate and the same 404
+as the meter routes beside it, reporting the most recent turns, a tally by state, and
+`consecutiveLost` — the run of deaths counting back from the most recent. It takes **no period**
+where its neighbours do: *failing repeatedly* is a statement about consecutive turns, not about
+a window, and a period wide enough to catch a site that takes four turns a week buries one
+losing forty an hour. An open row at the head neither breaks the run nor extends it, since the
+newest row is very often a turn in flight and letting it break the count would hide a site from
+the one operator looking at it while it fails.
+
+A **Turn health** section on the operator console's detail pane renders it beside the account,
+the address and the cost, following `tenant-cost.js`'s injected-read shape. The alarm sits
+above the figures it is derived from, because a sentence placed after a grid is one the reader
+it was written for has already scrolled past. The four states are named and never summed: a
+turn the customer abandoned and a turn the platform killed are both *turns that did not
+complete*, and a figure adding them would let a busy afternoon hide an outage. Every zero is
+still shown.
+
+### Failure is never allowed to cost a turn
+
+Every path in `turn-log.ts` swallows its own failure, on `previousTurn`'s reasoning: a safety
+net that fails the thing it was protecting has made matters worse than having none. A
+deployment with no database, or one whose insert refused, behaves exactly as the route did
+before the ledger existed — `openTurn` answers `null` and the close is a no-op. A close that
+fails leaves the row open, which reads as a death that did not happen: the safe direction, since
+a ledger that over-reports failure is investigated and one that under-reports it is trusted.
+
+### Files
+
+- `db/migrations/0020_turn_log.sql`, `db/migrations/manifest.json`
+- `apps/control-app/src/turn-log.ts` — the ledger: open, close, the *lost* judgement, the two reads
+- `apps/control-app/src/router.ts` — the open before the stream, the close in the `finally`,
+  `failed` on `/api/ai/session`, `GET /api/admin/turns`
+- `apps/control-app/src/builder/turn-health.js`, `builder.css`, `config.js`, `app.js`, `api.js` —
+  the console section
+- `apps/control-app/src/builder/chat.js` — the truthful notice
+- `tests/support/d1-site-factory.ts` — the migration in the fixture list, `atHead` marker moved
+
+## Test plan
+
+- `tests/test_UAT_FC_REQ-306_a_killed_turn_leaves_a_record.workers.test.ts` — the row exists
+  before the first byte; it stays open for the duration of the turn; a completed turn closes its
+  own row; a failed turn records a scrubbed reason; a destroyed junction (an isolate death,
+  reduced to the only thing it destroys that anything can observe) is reported to the customer
+  as a failure; an ordinary conversation reports none.
+- `tests/test_UAT_FC_REQ-306_the_operator_sees_failing_turns.workers.test.ts` — a run of deaths
+  is reported as a run; abandoned and in-flight turns are not deaths; a failed turn carries its
+  reason; a quiet business reads as quiet; only a platform operator may read it.
+- `tests/test_UAT_FC_REQ-306_the_panel_says_the_turn_died.test.ts` — a died turn is not reported
+  as a dropped connection; a died turn and a kept prompt produce one notice; an errored turn says
+  why; an ordinary conversation gets no notice.
+- `tests/test_UAT_FC_REQ-306_console_turn_health.test.ts` — the run is shouted above the
+  figures; a healthy business is not shouted at; each row names the conversation and the turn; a
+  ledger that cannot be read says so and nothing else; a business with no turns reads as quiet.
