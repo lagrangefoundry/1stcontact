@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-22T01:18:47.490069+00:00'
+updated_at: '2026-09-22T17:55:19.217725+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: epic_children
 status: ongoing
 fields:
   priority: medium
@@ -20,6 +20,7 @@ fields:
   - request-b9aa241d
   - bug-f177bc6f
   - bug-583068f3
+  - bug-f65d693a
 ---
 
 ## What the client asked for
