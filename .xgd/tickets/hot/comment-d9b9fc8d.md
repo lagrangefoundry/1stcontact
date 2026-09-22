@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:17:10.709848+00:00'
+updated_at: '2026-09-22T20:17:48.717728+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2804,5 +2804,11 @@ Two things to have in hand as you go:
 **The AI key is still the invalid one** from §I22 — production returns a 401 from Anthropic on the first turn. If you don't re-supply it during this deploy, delegation won't be exercised at all, because no turn gets far enough to delegate. Re-supplying takes the probed path and fails the deploy if Anthropic refuses.
 
 Go ahead — I'll stay out of the way. Tell me what the capability report says at the end and I'll record the outcome on EPIC-16.
+
+<!-- xgd-turn id="a83696cb-7c76-470c-a5cb-afecbd4ac12b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:17:48.175433+00:00" -->
+#### You
+What is the problem with the anthropic key its the same one I have been using all along?
 
 <!-- xgd-chat-end -->
