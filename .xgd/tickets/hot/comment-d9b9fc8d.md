@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T19:04:16.141951+00:00'
+updated_at: '2026-09-22T20:08:10.261491+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2727,5 +2727,11 @@ The field worth knowing about is **`backend`**. `session_id` is the obvious carr
 - The pre-change rows are backed up at `storage/backups/chat-fix-before.json` if anything looks wrong when you open it.
 
 Go-live is still where it was: `--force` copies for Lagrange Foundry and XGD, then an address per business, then the first publish anywhere.
+
+<!-- xgd-turn id="ae4bc997-1484-4fae-aad3-2053e65062d8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:08:09.927841+00:00" -->
+#### You
+How do I deploy the code from REQ-295 to production?
 
 <!-- xgd-chat-end -->
