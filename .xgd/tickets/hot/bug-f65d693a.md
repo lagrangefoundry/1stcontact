@@ -5,9 +5,9 @@ type: bug
 title: copied conversations keep the source side's session ids and are unreachable
 created_by: EPIC-16
 created_at: '2026-09-22T17:55:18.978851+00:00'
-updated_at: '2026-09-22T18:11:28.326972+00:00'
+updated_at: '2026-09-22T18:11:28.544894+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -98,3 +98,96 @@ already there, or the ticket says how an operator clears the strays.
 `bin/copy-to-cloud --chats "<business>"` followed by opening that business in the
 destination builder shows the conversations that were copied, in the site and business
 panes they belong to, with no orphaned rows left in `tickets`.
+
+
+---
+
+## Decisions taken at implementation (BUG-137)
+
+**The rewrite is the destination's, in `POST /api/chats/import`.** Not the CLI's
+and not the export's: the destination is the only side that knows its own ids,
+and it already resolves its own business from the authorised scope — this is the
+same rule applied to one more value. It also leaves a `--backup` file
+source-faithful, so one file can be imported into any destination.
+
+**Addressing is RE-DERIVED, never patched.** `fields.session_id` and
+`fields.backend` are both derived from a site key or a business id — `site-<k>`,
+`claude+site:<k>` — by four functions in `host-core.ts` (`sessionIdFor`,
+`businessSessionIdFor`, `siteBackendName`, `businessBackendName`). The import
+reads which of the two a conversation is off its session id and then calls those
+same four functions with the DESTINATION's id. Nothing is spelled twice, so the
+mapping cannot drift from the minting — which is the class of bug this ticket is.
+
+**`fields.backend` and the session-file header are re-addressed too.** This goes
+past "rewrite `session_id`" above, and "done looks like" needs it. The carried
+record embeds the source's ids in three more places: `fields.backend`
+(`claude+site:<source site key>`), and inside the `chat_transcript` comment's
+`<!-- xgd-session -->` header — `id` (the session id again), `backend` (the same
+registry name) and `chat_ticket_uid` (the SOURCE's chat ticket uid). The manager
+resolves `session.backendName` against its backend registry when it attaches and
+throws on a name nobody registered, so fixing `session_id` alone would have moved
+the failure rather than removed it: the conversation would appear in the right
+pane with its composer frozen on *"Unknown backend
+claude+site:site_936dd7c9…"*. `backend_ref` is cleared for
+`NOT_PORTABLE_FIELDS`' own reason one layer down — it names a conversation on a
+host that was running, and the destination was running nothing. The TURNS are not
+touched: the header addresses, the turns are the record.
+
+**A session id in no form this product mints is REFUSED — 409, nothing written,
+every unreadable id named.** Chosen over "carry it with a stated rule" because a
+conversation addressed to nothing reports success and reads as data loss months
+later.
+
+**Ambiguity is refused rather than guessed**, in the words `/api/export` already
+refuses it. Three cases, all 409 with nothing written: the destination holds more
+than one site; the payload names more than one source site (or more than one
+source business); the payload carries a `site-…` conversation and the destination
+holds no site at all.
+
+**A destination conversation with nothing in it is treated as ABSENT.** This is
+the answer to "decide what happens when the destination already holds the target
+session". Empty means a blank engagement ledger and no comment carrying any
+bytes, which is exactly the session the deployed builder auto-creates the first
+time it is opened. Such a conversation is written whole WITHOUT `--force` and
+counted `created` — the destination did not hold the conversation, only a
+placeholder for it. A conversation carrying real content is still KEPT, because
+the deployed builder is where the client actually talks and REQ-294's reason for
+keeping it is unchanged.
+
+**A row stranded by a pre-fix copy is archived.** A destination chat ticket
+carrying the SOURCE-side session id this very import has just re-addressed is a
+stray from a copy made before this fix; its content is being re-imported in the
+same breath, so it is archived — the store's own removal, and every read above
+storage is built over `archived: false`. Bounded to exactly the ids this import
+re-addresses, so nothing else is ever touched. Counted as `strays` in the import's
+answer and printed by `bin/copy-to-cloud` when it is not zero. A re-run is
+therefore idempotent over what a pre-fix copy left behind.
+
+**REQ-294's own UATs are updated rather than worked around.** They seeded session
+ids (`sess-a`, `sess-shape`) in a form this product never mints, which is why its
+round trip could pass while the ids it carried addressed nothing. They now seed
+real derived ids and assert the re-addressing. BUG-137 supersedes REQ-294's
+*"one the far side already holds is KEPT and counted"* for the empty case only;
+the rule is otherwise unchanged.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-137_chat_readdress.workers.test.ts` — in workerd, over a
+real D1, through `route()`:
+
+- a site conversation and a business conversation exported from one business and
+  imported into another land under the DESTINATION's derived ids, with
+  `fields.backend` and the session-file header re-derived and `backend_ref`
+  cleared, and the turns byte-identical;
+- an auto-created empty session at the target id is written over without
+  `--force` and counted `created`, while one carrying turns is still kept;
+- a row left under a source-side id by a pre-fix copy is archived, so the
+  business ends up holding the history once and reachable;
+- a session id in no recognised form is refused 409 with nothing written;
+- a destination holding two sites, a payload naming two source sites, and a
+  `site-…` conversation arriving at a business with no site are each refused 409
+  with nothing written.
+
+`tests/test_UAT_FC_REQ-294_chats_copy.workers.test.ts` and
+`tests/test_UAT_FC_REQ-294_chats_command.test.ts` — updated for the derived ids
+and the `strays` count.
