@@ -5,9 +5,9 @@ type: request
 title: The per-turn site digest must not read asset bytes
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:02.940575+00:00'
-updated_at: '2026-09-22T23:43:08.268924+00:00'
+updated_at: '2026-09-22T23:43:30.808842+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: critical
