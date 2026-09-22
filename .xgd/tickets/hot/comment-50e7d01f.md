@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T18:33:28.478132+00:00'
+updated_at: '2026-09-22T19:49:05.144384+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1027,5 +1027,11 @@ Register the site backend **at the point of use, per request**, rather than as a
 Worth adding regardless: `attach`'s catch handles two cases — no session yet, and no API key — and a third exists that it treats as fatal. The error should at minimum name the session and the stored backend.
 
 Want me to file this as a BUG? It's outside EPIC-20's scope — that's cost, this is availability — so say the word and I'll file it standalone.
+
+<!-- xgd-turn id="6a9721f5-0e1a-4dc5-81b3-2f58769ba692-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T19:49:04.809379+00:00" -->
+#### You
+**Does Lagrange Foundry have two sites in production? NO at least there is only one I care about - the contents of the previous prod are long gone and can be deleted**
 
 <!-- xgd-chat-end -->
