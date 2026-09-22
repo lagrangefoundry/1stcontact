@@ -378,6 +378,15 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     // and nothing that could be posted back. If a self-serve creation contract
     // ever appears, it appears here first — so this is where its absence is
     // asserted, rather than in the client that would consume it.
+    //
+    // THE THIRD KEY IS [[REQ-297]]'S AND IS NOT ONE ([[DOC-42]] §7).
+    // `ownsPlatformBusiness` is a read-only fact about the SESSION — whether
+    // this caller owns the 1st Contact business, which is what decides whether
+    // the operator console has an action — and there is nothing to post back at
+    // it: the console's routes each ask the same question again for themselves,
+    // so the flag is chrome and never the gate. The list stays EXACT rather than
+    // becoming `arrayContaining`, because the whole value of this case is that a
+    // key nobody argued for cannot arrive unnoticed.
     stubJwks()
     const email = anEmail()
     await invite({ email, accountName: 'Salon', endsAt: null })
@@ -390,6 +399,6 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     )
     const body = (await response.json()) as Record<string, unknown>
 
-    expect(Object.keys(body).sort()).toEqual(['businesses', 'person'])
+    expect(Object.keys(body).sort()).toEqual(['businesses', 'ownsPlatformBusiness', 'person'])
   })
 })

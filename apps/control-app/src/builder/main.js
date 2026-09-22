@@ -74,6 +74,10 @@ if (loaded) {
   mountBuilder(root, {
     businesses: businesses.businesses,
     person: businesses.person,
+    // [[REQ-297]] — whether the operator console has an action here. A fact
+    // about the SESSION, which is what this endpoint answers, and reported by it
+    // rather than inferred from the list above.
+    ownsPlatformBusiness: businesses.ownsPlatformBusiness === true,
     aiStatus,
     // [[REQ-222]] — THE STREAMING FORM, so the builder can say how far through
     // resizing the pictures a first publish is. The non-streaming `publishSite`

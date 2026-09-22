@@ -235,12 +235,19 @@ describe('REQ-204 — where signing out sends you', () => {
     // The client has no branch left, so it needs no field — and a field nothing
     // reads is drift. This is where the one added by the first cut of this
     // ticket is kept out.
+    //
+    // THE THIRD KEY IS [[REQ-297]]'S AND IS READ. `ownsPlatformBusiness` decides
+    // whether the operator console has an action in the header, so `main.js`
+    // consumes it on every mount — which is exactly the test this case applies.
+    // It says nothing about WHICH credential the session holds, which is this
+    // ticket's own claim: it answers a question about ownership of one business,
+    // and the answer is the same whichever way the person signed in.
     const { cookie } = await aSignedInBrowser()
 
     const response = await call(BUSINESSES_PATH, { headers: { cookie } })
     const body = (await response.json()) as Record<string, unknown>
 
     expect(response.status).toBe(200)
-    expect(Object.keys(body).sort()).toEqual(['businesses', 'person'])
+    expect(Object.keys(body).sort()).toEqual(['businesses', 'ownsPlatformBusiness', 'person'])
   })
 })

@@ -169,7 +169,14 @@ import {
   ZoneApexTakenError,
 } from './zones'
 import { fidelityDeps } from './shot'
-import { d1TurnSpend, tenantSpendReport, type SpendPeriod } from './spend'
+import {
+  d1TurnSpend,
+  tenantDelegatedSpend,
+  tenantSpendDays,
+  tenantSpendLeague,
+  tenantSpendReport,
+  type SpendPeriod,
+} from './spend'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
@@ -1588,6 +1595,67 @@ export const ADMIN_DOMAINS_PATH = '/api/admin/domains'
 export const ADMIN_SPEND_PATH = '/api/admin/spend'
 
 /**
+ * Where the OPERATOR CONSOLE'S cost control reads EVERY business at once
+ * ([[REQ-297]]).
+ *
+ * `/businesses` AND NOT `/tenants`, and that is not cosmetic ([[REQ-180]] §3).
+ * `tenant` is the schema's word and stays in the column, the index and every
+ * identifier; *Business* is the product's, and it is what a person reads —
+ * including the operator, who is the one person most likely to be handed our
+ * data model by accident because they also read the schema. A path is a string
+ * a reader meets, so it uses the reader's noun.
+ *
+ * A SECOND PATH AND NOT AN OPTIONAL `business` ON THE FIRST. Making the
+ * parameter optional would have given one route two answers of different
+ * shapes — a report, or a list of reports — decided by whether a query string
+ * was present, so a caller that forgot the parameter would get a plausible
+ * answer to a question it did not ask. It would also silently relax the one
+ * refusal {@link ADMIN_SPEND_PATH} makes for its own protection: *business is
+ * required* is what stops an unscoped read being one omission away.
+ *
+ * UNDER `/spend/` BECAUSE IT IS THE SAME METER. The rows, the arithmetic and
+ * the gate are the period route's; what differs is only how many tenants are
+ * in the answer. A sibling prefix would have read as a second subject.
+ *
+ * GET AND NOTHING ELSE, for the reason the route it sits beside gives: engaged
+ * time is derived at read, so a report can neither create nor revise a row.
+ */
+export const ADMIN_BUSINESS_SPEND_PATH = '/api/admin/spend/businesses'
+
+/**
+ * The period both meter routes take, off the query string ([[REQ-293]],
+ * [[REQ-297]]).
+ *
+ * ONE PARSER FOR BOTH, because the two routes must agree about what a period IS
+ * — a league whose window meant something slightly different from the expansion
+ * opened out of it would make every comparison on the console wrong in a way
+ * nobody could see. It is a function rather than a copied block for the reason
+ * the router already applies to its gates: a rule restated twice is a rule that
+ * can drift once.
+ *
+ * BOTH ENDS OPTIONAL, ABSENT MEANING UNBOUNDED, and [[REQ-297]] deliberately did
+ * NOT change that to a thirty-day default. The meter is retained rather than
+ * pruned, so *everything this tenant has ever spent* is a question it must still
+ * answer, and a default here would quietly give a different answer to a caller
+ * who asked for all of it. The console's thirty days is the CONSOLE's default
+ * and travels in the request it makes.
+ *
+ * AN UNREADABLE STAMP IS A REFUSAL AND NOT AN IGNORED BOUND. Dropping a `from`
+ * nobody could parse would answer a DIFFERENT, wider question with no sign that
+ * it had, and the reader would take the total for the month they asked about.
+ */
+function spendPeriodOf(url: URL): { period: SpendPeriod; unreadable: 'from' | 'to' | null } {
+  const period: SpendPeriod = {}
+  for (const end of ['from', 'to'] as const) {
+    const raw = (url.searchParams.get(end) ?? '').trim()
+    if (raw === '') continue
+    if (!Number.isFinite(Date.parse(raw))) return { period, unreadable: end }
+    period[end] = raw
+  }
+  return { period, unreadable: null }
+}
+
+/**
  * The User tab's four routes ([[REQ-170]]).
  *
  * `/api/people` AND NOT `/api/admin/people`. The prefix is the decision rather
@@ -1889,6 +1957,28 @@ export interface BusinessesPayload {
     selectable: boolean
     lapse: BusinessLapse | null
   }>
+  /**
+   * Whether this session owns the 1st Contact business ([[REQ-297]], [[DOC-42]]
+   * §7).
+   *
+   * THE NAME IS THE PREDICATE'S, DELIBERATELY. Calling it `isOperator`, `isAdmin`
+   * or `level` would put on the wire the exact reading `identity.ts` forbids —
+   * *a surface that appears "because you are an admin"* — and the wire is where a
+   * later hand looks first. This says which question was asked, and the answer is
+   * `ownsPlatformBusiness`, over `memberships.role`; the `platform_operator`
+   * column is not consulted and `scope.ts` remains its only reader.
+   *
+   * IT BELONGS ON THIS ENDPOINT BECAUSE IT IS A FACT ABOUT THE SESSION, which is
+   * what this payload answers — like `person`, and unlike the plan and invoices
+   * this endpoint deliberately does not carry. It is not the account's, and it is
+   * not any one business's.
+   *
+   * AND IT IS A CONVENIENCE FOR THE CHROME, NOT THE GATE — `canFulfil`'s exact
+   * shape ([[REQ-170]]). The console's routes each ask the same question again
+   * for themselves, because a control that is merely unrendered is refused to
+   * nobody who can type a URL.
+   */
+  ownsPlatformBusiness: boolean
 }
 
 /**
@@ -1927,6 +2017,7 @@ export function businessesPayload(
   admission: Admission | null | undefined,
   scope: Scope | null,
   personName: string | null = null,
+  ownsPlatform: boolean = false,
 ): BusinessesPayload {
   if (admission?.ok) {
     return {
@@ -1937,6 +2028,7 @@ export function businessesPayload(
         selectable: b.selectable,
         lapse: b.lapse,
       })),
+      ownsPlatformBusiness: ownsPlatform,
     }
   }
   return {
@@ -1944,6 +2036,12 @@ export function businessesPayload(
     businesses: scope
       ? [{ id: scope.businessId, name: scope.businessId, selectable: true, lapse: null }]
       : [],
+    // FALSE ON THE DEV-OPEN PATH, AND THAT IS THE SAME REFUSAL
+    // `/api/admin/businesses` already makes: there is no admission there and
+    // therefore nobody who could own anything, so a loopback door onto the
+    // operator console would be a shape that reads as a feature and would
+    // eventually be relied upon.
+    ownsPlatformBusiness: false,
   }
 }
 
@@ -2860,6 +2958,13 @@ async function routeUncached(
           deps.admission?.ok
             ? displayNameFrom(await currentNameOf(identityEnv, deps.admission.user.id))
             : null,
+          // THE CHROME IS TOLD WHETHER THE OPERATOR CONSOLE EXISTS FOR IT
+          // ([[REQ-297]]). Answered here rather than inferred by the client from
+          // anything it can see — the switcher's list does not distinguish
+          // owning the 1st Contact business from merely being able to open it,
+          // and a client that guessed would draw a control whose routes then
+          // refuse it.
+          ownsPlatformBusiness(identityEnv, deps.admission),
         ),
       )
     }
@@ -3328,19 +3433,69 @@ async function routeUncached(
       }
       const business = (url.searchParams.get('business') ?? '').trim()
       if (business === '') return json(400, { error: 'business is required' })
-      const period: SpendPeriod = {}
-      for (const end of ['from', 'to'] as const) {
-        const raw = (url.searchParams.get(end) ?? '').trim()
-        if (raw === '') continue
-        if (!Number.isFinite(Date.parse(raw))) {
-          return json(400, { error: `${end} is not a readable timestamp` })
-        }
-        period[end] = raw
-      }
+      const { period, unreadable } = spendPeriodOf(url)
+      if (unreadable) return json(400, { error: `${unreadable} is not a readable timestamp` })
+      /**
+       * THREE ANSWERS IN ONE ROUND TRIP, AND THEY ARE ONE ANSWER ([[REQ-297]]).
+       * The console opens a tenant's detail as a single act, and the day rows and
+       * the delegated half are meaningless apart from the report they are a
+       * decomposition of — two more requests would let a surface paint a
+       * decomposition of a period it is no longer showing.
+       *
+       * `report` IS THE PRINCIPAL HALF and is exactly what [[REQ-293]] has always
+       * returned: the tenant's OWN turns. It is NOT the total. `delegated` is the
+       * other half and the two are never added here — a caller's true total is
+       * `usage + sum(attributed)`, and a route that folded them would remove the
+       * one distinction that makes a delegation experiment readable.
+       *
+       * `delegated` IS `null` RATHER THAN A ZEROED SHAPE for a tenant that handed
+       * nothing off, which is every tenant while the switch is off ([[REQ-295]]).
+       * Nothing, never zero.
+       */
       return json(200, {
         business,
         period: { from: period.from ?? null, to: period.to ?? null },
         report: await tenantSpendReport(env, business, period),
+        days: await tenantSpendDays(env, business, period),
+        delegated: await tenantDelegatedSpend(env, business, period),
+      })
+    }
+
+    /**
+     * GET /api/admin/spend/businesses?from=…&to=… — every tenant’s period, dearest
+     * first ([[REQ-297]]).
+     *
+     * THE QUESTION THE OPERATOR CONSOLE EXISTS FOR — *which tenant is costing us
+     * money* — and the only one on this console that cannot be asked of the route
+     * above, because it is a question about the ORDER of tenants rather than
+     * about any one of them.
+     *
+     * THE SAME GATE, THE SAME 404, and not a weaker one because the answer looks
+     * like a summary. It is a profile of every customer's spending at once, which
+     * is strictly more than the per-tenant route declines to hand over.
+     *
+     * NO `business` PARAMETER AND NO SCOPE READ. Like {@link ADMIN_BUSINESSES_PATH}
+     * this is a question about the PLATFORM rather than about the business the
+     * request happened to resolve to, and an operator comparing two tenants is
+     * asking about somebody else's meter by definition.
+     */
+    if (p === ADMIN_BUSINESS_SPEND_PATH && method === 'GET') {
+      const admission = deps.admission
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+      const { period, unreadable } = spendPeriodOf(url)
+      if (unreadable) return json(400, { error: `${unreadable} is not a readable timestamp` })
+      return json(200, {
+        period: { from: period.from ?? null, to: period.to ?? null },
+        businesses: await tenantSpendLeague(env, period),
       })
     }
 
