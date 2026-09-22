@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:19:15.289216+00:00'
+updated_at: '2026-09-22T20:21:00.776513+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2841,5 +2841,11 @@ The timeline says it was fixed within the hour:
 So the correction to my earlier advice is the useful part: **re-supplying was worth doing, but not for the reason I gave.** The real hole §I22 identified still stands — when you *don't* export the variable, the hook takes the `keep` path and prints "already on … — left alone, not probed", so a key that goes bad later is invisible to every subsequent deploy. That's the defect worth fixing, and it's about the steady state, not about this key.
 
 Delegation is now live in production on version `3f9b69de`. Want me to check the capability report rows, or confirm a delegated turn actually routes to `claude-haiku-4-5` in the spend ledger?
+
+<!-- xgd-turn id="4bda7155-aafe-45f5-89ac-9c4359d4c66e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:21:00.670763+00:00" -->
+#### You
+I still see this in the chat? *Unknown backend "claude+site:site_936dd7c92e5e14df694dd9a80433aa4f". Available backends: claude, claude+business:biz_33086a94838ac8ad14cecbb919b525c2, claude+site:site_23c1afb3739dadf62347a5008e8a7dea*
 
 <!-- xgd-chat-end -->
