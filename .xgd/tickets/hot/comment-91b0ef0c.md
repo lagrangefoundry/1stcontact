@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T21:00:32.562454+00:00'
+updated_at: '2026-09-22T21:01:20.532436+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1477,5 +1477,78 @@ The rail line is still just the unrecorded-baseline notice, unrelated to any of 
 <!-- xgd-chat role="user" ts="2026-09-22T21:00:32.059272+00:00" -->
 #### You
 You are giving me the details of the site - I don't understand the message can we start there please, what is the tool telling me
+
+<!-- xgd-turn id="2122b6da-4c5c-411f-8b65-5bc690dbb67b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:01:19.527699+00:00" -->
+#### Claude
+Fair — let me explain the report itself, not your site.
+
+## What the tool is doing
+
+It copies a website, then marks the copy. Every press of the button produces one **iteration**, and they stack up as a numbered history. "Iteration 4" is the fourth attempt on this site.
+
+To mark the copy it needs something to mark *against*. That's a stored snapshot of the real site, taken earlier. The report calls it the **reference**, or the **oracle**. It's the answer sheet.
+
+Every individual check has three possible outcomes, and the report is organised around that:
+
+| outcome | what the report calls it |
+|---|---|
+| checked, and they match | not mentioned |
+| checked, and they differ | a **delta** |
+| couldn't check it at all | **unmeasured** |
+
+That third one is the key idea. An unmeasured item isn't a pass or a fail — it's a **blind spot**. The tool is admitting it had no opinion.
+
+## Now your lines, one at a time
+
+**`unmeasured 5 ↓ 7 from iteration 3`**
+
+The headline. Five checks it was unable to perform. Seven fewer than last time. The bit in brackets — *over populations, probes* — is it telling you the comparison is like-for-like: it only counted categories both iterations recorded, so the "↓7" is honest rather than an artefact of the two reports having different shapes.
+
+**`4 axes (...), 1 band, 0 populations, 0 probes`**
+
+The same five, broken down by *kind of thing*:
+
+- **axis** — one single property being compared, like top padding or text alignment. Four of them couldn't be checked.
+- **band** — a horizontal strip of the page. One strip had nothing to compare against.
+- **population** — a group of similar elements checked together. None.
+- **probe** — a specific targeted check. None.
+
+**`23 delta(s) · not comparable with iteration 3`**
+
+Differences it *did* successfully measure. Then a warning: don't read this against last time's count. You recaptured, so the answer sheet itself changed — the number is measured against a different oracle. Comparing them would be comparing two different exams.
+
+**`7 fewer measurement(s) were skipped... the number to drive down, and it fell`**
+
+A plain-English restatement, and it's telling you which number is the score that matters. Not the delta count — the unmeasured count. The reasoning: a delta is a known problem you can go fix, but a blind spot is a place the tool can't tell you whether there's a problem. Until blind spots are low, the delta count doesn't mean much, because you don't know what it's failing to include.
+
+**The four links** — the evidence behind all of it: the real site, your copy, the pictures showing where they differ, and the structural document.
+
+**`reference ... captured <timestamp> — re-captured`**
+
+Provenance. Which answer sheet was used and when it was made. It's flagging that you replaced it this round, so *both* things changed at once — the copying engine and the thing it's being marked against. That's why the comparability warning appears twice.
+
+**`gate: structural-failure`**
+
+The single overall verdict. Not a score — it names **which situation you're in**, because the right next move differs completely between them. There are five:
+
+| verdict | meaning |
+|---|---|
+| `pass` | everything agrees, you're clear |
+| `structural-failure` | the page doesn't hold together — checked first, overrides the rest |
+| `capture-incomplete` | the answer sheet is the problem, not your copy |
+| `reproduction-wrong` | the differences are real, go fix them |
+| `unexplained-disagreement` | the picture changed and nothing can explain why |
+
+Yours is the second. It's evaluated before everything else, so a good-looking result can't override it.
+
+**The rail block** — not part of the mark at all. It's a separate safety net that checks whether work on *this* site broke one of your *other* sites. It has nothing recorded yet, so it's sitting silent.
+
+## The one-sentence version
+
+*Fourth attempt; five things I still couldn't check, which is seven better than last time; 23 differences I did find but don't compare them to last round because I changed the answer sheet; overall the page doesn't hold together structurally; and by the way nothing is watching your other sites.*
+
+Happy to go deeper on any single line — or, if the report itself is the problem rather than your understanding of it, that's a legitimate ticket for EPIC-12 and probably a better use of the next round.
 
 <!-- xgd-chat-end -->
