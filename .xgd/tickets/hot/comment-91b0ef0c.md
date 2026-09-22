@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T21:01:20.532436+00:00'
+updated_at: '2026-09-22T21:09:22.931694+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1550,5 +1550,19 @@ Yours is the second. It's evaluated before everything else, so a good-looking re
 *Fourth attempt; five things I still couldn't check, which is seven better than last time; 23 differences I did find but don't compare them to last round because I changed the answer sheet; overall the page doesn't hold together structurally; and by the way nothing is watching your other sites.*
 
 Happy to go deeper on any single line — or, if the report itself is the problem rather than your understanding of it, that's a legitimate ticket for EPIC-12 and probably a better use of the next round.
+
+<!-- xgd-turn id="f35107c0-629d-446a-be67-6d631866f22c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:09:22.865440+00:00" -->
+#### You
+What does the diagnose this button do?
+
+Why did this iteration not product a ticket for improvments?
+
+IMO the delta from the original is getting worse - can you actually take a look:
+
+1) The hero image is supposed to be tied to browser width and bottom of the fold - this works in the original and fails in complicated ways in the reproduction
+2) The hero masthead has gradated text coloring (a detail, but it is the masthead)
+3) This is the big one - the background, segment shading and text boxes are not connected to the text they move with browser resizing independently of the text itself at the right width and height I can get them to align but at any other they look terrible
 
 <!-- xgd-chat-end -->
