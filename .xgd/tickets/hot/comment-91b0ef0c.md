@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:09:25.471881+00:00'
+updated_at: '2026-09-22T22:12:02.973429+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1783,5 +1783,15 @@ Rounds 1–3 cannot distinguish these — one sample, and it predates the field.
 Then run rounds 4–6 and read the ratio off `defect_class`. It becomes a filter instead of an audit, and it answers "give it time?" with a number rather than my opinion.
 
 Want me to scope either of those under EPIC-12?
+
+<!-- xgd-turn id="e7c51917-fc35-4270-aad4-4fd476478ca6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:12:02.218616+00:00" -->
+#### You
+Wait I think you misunderstand the LOOP i am refering to is
+1 Compare
+2 Diagnose and file tickets
+3 Implement tickets
+4 GOTO 1
 
 <!-- xgd-chat-end -->
