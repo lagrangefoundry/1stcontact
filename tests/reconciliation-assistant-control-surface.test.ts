@@ -258,12 +258,19 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // which any operation could write before. It is in the authoring grant
     // rather than `ManagePages` because painting a page is authoring: a role
     // that can paint every element on a page can paint the page it sits on.
+    //
+    // [[REQ-301]] added `copy_page`, in `ManagePages` beside `add_page` — the
+    // other way a page comes into being. It reaches nothing `add_page` and
+    // `set_l1` could not already reach between them; what it removes is the
+    // page-long transcription that stood between the two, so it widens the grant
+    // by nothing and this list by one.
     expect([...writes].sort()).toEqual([
       'add_asset',
       'add_component',
       'add_page',
       'add_palette_color',
       'configure_component',
+      'copy_page',
       'publish',
       'remove_asset',
       'remove_component',

@@ -55,6 +55,7 @@ import {
   editModuleConfigure,
   editModuleRm,
   editPageAdd,
+  editPageCopy,
   editPageGet,
   editPageList,
   editPageRm,
@@ -493,6 +494,19 @@ export function l1Operations(
         path: opt(p, 'path'),
         seoMeta: obj(p, 'seo'),
         ...pageKindOf(p),
+      })
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    // [[REQ-301]] — the copy. It sits beside `add_page` because it is the other
+    // way a page comes into being, and it is the one that does not arrive empty:
+    // a copy is born holding its source's document, so it is editable the moment
+    // it exists rather than after a scaffolding step.
+    copy_page: async (p) => {
+      const out = await editPageCopy(slug, req(p, 'from'), req(p, 'page'), {
+        ...opts,
+        title: opt(p, 'title'),
+        path: opt(p, 'path'),
       })
       return { changed: out.data, message: out.human, now: out.at }
     },

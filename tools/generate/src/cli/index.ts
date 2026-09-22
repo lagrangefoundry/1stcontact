@@ -50,6 +50,7 @@ import {
   editModuleRm,
   editModuleUpgrade,
   editPageAdd,
+  editPageCopy,
   editPageGet,
   editPageList,
   editPageRm,
@@ -573,6 +574,10 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c page list <slug>
   1c page get <slug> <pageId>
   1c page add <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>]
+  1c page copy <slug> <fromPageId> <pageId> [--title <t>] [--path <p>]
+    A new page that IS <fromPageId> — its content, its page style, its components and
+    their configuration — under a new id, path and title. Images are referenced, not
+    copied. --path defaults to <pageId>, --title to the source page's (REQ-301).
   1c page update <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>]
   1c page rm <slug> <pageId> [--force]
   1c config get <slug> [<key>]
@@ -2367,6 +2372,14 @@ async function dispatchEdit(
         return editPageGet(slug, requireArg(rest[2], 'pageId'), opts)
       case 'add':
         return editPageAdd(slug, requireArg(rest[2], 'pageId'), writeOpts)
+      // [[REQ-301]] — the copy takes TWO page ids, source then new, which is why
+      // it reads its own arguments rather than sharing `add`'s single-id shape.
+      case 'copy':
+        return editPageCopy(slug, requireArg(rest[2], 'fromPageId'), requireArg(rest[3], 'pageId'), {
+          ...opts,
+          title: str('title'),
+          path: str('path'),
+        })
       case 'update':
         return editPageUpdate(slug, requireArg(rest[2], 'pageId'), writeOpts)
       case 'rm':
