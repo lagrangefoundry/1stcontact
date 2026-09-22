@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T17:50:43.914044+00:00'
+updated_at: '2026-09-22T17:51:34.613164+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2541,5 +2541,36 @@ Four tickets now queued behind the go-live — BUG-136 (smoke), plus BUG-135 and
 <!-- xgd-chat role="user" ts="2026-09-22T17:50:42.322999+00:00" -->
 #### You
 after our deployment exercise, I can't log in to the dev environment, it says: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-39370'.
+
+<!-- xgd-turn id="168ef0d1-ad60-457a-bbed-dc008b792e72-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T17:51:34.142581+00:00" -->
+#### Claude
+The `kid` is minted per-process: `access-sim` generates its RSA keypair at boot (`crypto.generateKeyPairSync`, line 188), so every restart publishes a new signing key. Your browser is holding a `CF_Authorization` cookie signed by a *previous* simulator process.
+
+Let me check whether the Worker also caches the key set, because that changes the fix.
+
+That's the system working correctly, and the fix is one page load.
+
+`bin/access-sim:160` — `const KID = 'local-dev-' + process.pid`. Your cookie was signed by simulator **pid 39370**, which is dead. The running simulator has a different pid, publishes a different `kid`, and its key genuinely doesn't match. `access.ts` force-refreshes its JWKS cache on an unseen `kid` precisely to survive rotation, so it did look — there's just nothing to find, because the key died with the process.
+
+**Re-mint:**
+
+```
+http://127.0.0.1:8799/login
+```
+
+Pick a person. That issues a fresh JWT signed by the live process and replaces the cookie. Browse `127.0.0.1:8788`, not `localhost:8788` — cookies are scoped by host and ignore the port, so the two are different cookie hosts.
+
+There is a real design tension underneath, though, and it's the one that bit you:
+
+- The **token** lasts 30 days by default, and BUG-52 chose that deliberately — *"a test session that expires inside a sitting makes every bug look like the harness running down."*
+- The **signing key** lasts until the next Ctrl-C.
+
+So a 30-day cookie is backed by a key with a process lifetime, which guarantees this failure on every simulator restart — and the error it produces (`no Access signing key matches kid …`) reads like a misconfiguration rather than "your dev server restarted". You hit it precisely because today involved restarting things repeatedly.
+
+The fix would be for the simulator to persist its keypair under `.wrangler/state` and keep the `kid` stable across restarts. The pid-in-kid comment argues a stable kid is *wrong* — but that reasoning assumes a fresh key every boot; persist the key and the argument inverts. It's consistent with the existing posture, since the client secret is already deliberately well-known and the listener binds to loopback.
+
+Want me to file that? It's small, and it removes a failure mode that will recur every single time you restart the simulator.
 
 <!-- xgd-chat-end -->
