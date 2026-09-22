@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   epic_parent: epic-96d8aca6
+  chat_comment: comment-f0f472ad
 ---
 
 `bin/copy-to-cloud --chats` ([[REQ-294]]) moves the conversations and leaves them
