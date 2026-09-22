@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T20:34:23.874587+00:00'
+updated_at: '2026-09-22T20:35:43.382929+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1113,5 +1113,25 @@ REQ-297's supersession note, EPIC-20's child entry, and the ticket's chat record
 <!-- xgd-chat role="user" ts="2026-09-22T20:34:22.500268+00:00" -->
 #### You
 This is the *second* place the app touches shell-internal markup <-- are these missing extension hooks in the component?
+
+<!-- xgd-turn id="39845519-5cf1-421b-8a50-9763d68872d7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:35:42.472626+00:00" -->
+#### Claude
+Good question — let me check whether these are genuine upstream gaps and where the component actually lives.
+
+Yes — both are genuine gaps in `webui-shell`, and I checked it isn't version drift: the copy in `dist-assets/webui/webui-shell/src` is byte-identical to `lagrange-framework/components/webui/shell/js/src`.
+
+The shell's entire public API is `mountShell` and `validateConfig` (`PUBLIC-API.md`). The host-supplied slots are `tabs`, `about`, and `actions` — and `actions` renders into `.shell-actions` at the **trailing** end only. So:
+
+**Gap 1 — no leading slot in the bar.** The business switcher has to sit *before* the tabs and there is nowhere declared for it, hence `shellBar.prepend(...)`. `actions` isn't the fix even in spirit: an `ActionSpec` requires `onClick` and is wrapped in a `<button>`, which is wrong for a composite control like a `<select>`. What's missing is `leading: Node | Node[]` — a node slot, not an action list.
+
+**Gap 2 — no full-surface view.** The shell owns `.shell-panels`, and there's no way to say "show this instead of them". This one is more clearly the shell's to own than it first looks: the awkward part of REQ-298 isn't hiding a div, it's that **no tab must read as selected** while the view is up — and the host can't state that coherently, because `tabs.js` has no concept of "no active tab". Only the shell can. Something like `shell.openView(node, {onClose})` / `closeView()` / `getView()`, which hides the panels, suppresses selection styling, keeps the strip live, and auto-closes on a tab change.
+
+Worth noting the shell already models the adjacent idea: `.shell-panel.is-fill` plus a `:has()` rule at `shell.css:229` gives a panel the whole content region. "A thing that fills the content region" exists — what's missing is host access to it without owning a panel.
+
+So REQ-298's two selector touches are standing in for two real upstream omissions, which is why the ticket says each becomes a one-line change the day either slot lands. That framing is already in the body.
+
+A framework fix means a ticket in that repo and nothing else — I won't touch its code from here. Want me to file the two REQs in `lagrange-framework`? The one thing I'd need from you: none of its six epics is about webui chrome (they're workbench, context, flags, logging, write-locks, flock), so they'd land as standalone REQs unless you'd rather they hang off one.
 
 <!-- xgd-chat-end -->
