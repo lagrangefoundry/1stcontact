@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:25:56.300309+00:00'
+updated_at: '2026-09-22T20:28:25.861493+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2923,5 +2923,11 @@ The honest summary of what went wrong: a chat names its backend in **two** place
 I've recorded it as §I24 on EPIC-16, including the consequence for **BUG-137**: a copy-path fix that only repoints ticket fields is incomplete, and this will come straight back on the first `--chats` copy of 1st Contact or XGD.
 
 Rollback is still one statement — old headers are at `storage/backups/chat-header-before.json`.
+
+<!-- xgd-turn id="fd686ced-7637-4955-b963-5c858886e92b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:28:25.053713+00:00" -->
+#### You
+I now see a message that says "The connection to this reply was lost" this message disappears
 
 <!-- xgd-chat-end -->
