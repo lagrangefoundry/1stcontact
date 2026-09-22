@@ -179,7 +179,7 @@ export interface PageState {
   message: string
   /** Whether {@link message} is a failure rather than progress. */
   failed: boolean
-  /** The address currently loaded, if any — what [run again] would re-run. */
+  /** The address currently loaded, if any — what [recapture] would re-capture. */
   url: string | null
   iterations: IterationView[]
   /** The captures on disk, so a site can be revisited without re-hitting it. */
@@ -211,12 +211,13 @@ export interface PageState {
    * THE LOADED REFERENCE IS BEHIND THE EXTRACTOR ([[BUG-120]] behaviour 4).
    *
    * `staleCaptureDetail`'s own sentence, reused rather than restated, and
-   * rendered BESIDE the two continuations rather than under the round that
-   * discovered it. It is the one fact that decides which of them is worth
-   * pressing: a refold cannot recover an axis the stored oracle never had, so
-   * against a bundle this far back [run again] re-measures a residual that may
-   * already be fixed, however many times it runs. Absent when the bundle is
-   * current, because then the choice is a free one.
+   * rendered BESIDE the chain it is about rather than under the round that
+   * discovered it. It used to be the fact that decided which continuation was
+   * worth pressing; with one verb left ([[REQ-299]] part 1) it is a fact about
+   * the rows above it instead, and no less true for that:
+   * against a bundle this far back the iterations above it cannot see an axis
+   * the stored oracle never had. Absent when the bundle is current, because
+   * then there is nothing about those numbers that needs explaining.
    */
   staleReference?: string
 }
@@ -575,7 +576,8 @@ ${reference}${verdict}${rail}${decide}${ai}</section>`
 /**
  * The console itself.
  *
- * Opens blank: a text box and a [reproduce] button, and nothing else. Every
+ * Opens blank: a text box and a [recapture] button, and nothing else — which is
+ * also the state [clear history] returns it to ([[REQ-299]] part 2). Every
  * artifact link carries `target="_blank"`, so following one never loses the
  * console — which is the point of the console being a page at all rather than a
  * sequence of printed paths.
@@ -584,46 +586,49 @@ export function renderConsolePage(state: PageState): string {
   const rows = state.iterations.map(renderIteration).join('\n')
 
   /**
-   * THE TWO CONTINUATIONS, TOGETHER AND LABELLED ([[BUG-120]]).
+   * ONE CONTINUATION, AND THE WAY TO PUT THE CHAIN DOWN ([[REQ-299]]).
    *
-   * [run again] and [recapture] are the same KIND of act — both append the next
-   * iteration to the list above and neither throws it away — and the console
-   * has always known it: both carry `data-held="1"` and both go inert under the
-   * hold, while [reproduce] does not. The page used to render them at opposite
-   * ends anyway, [recapture] pinned beside the address box where position reads
-   * "start over" and [run again] alone under the history where it reads
-   * "continue". An operator arriving at a page several iterations tall saw only
-   * the top pair, read both as restarts, and never pressed the one that would
-   * have shown them which of their landed fixes had moved the numbers.
+   * [[BUG-120]] rendered [run again] and [recapture] as one labelled group here,
+   * because they are the same KIND of act and the page had them at opposite
+   * ends of itself. [[REQ-299]] part 1 removes one of the pair: the bit that
+   * separated them — whether the reference is re-rolled before the fold — could
+   * only be answered correctly by someone who knew the schema the stored bundle
+   * was written at, which this page does not carry. So the distinguishing
+   * sentence is gone with the button it distinguished, and the heading no longer
+   * promises two.
    *
-   * So they are one group, in the place the continuation already was — under
-   * the iteration list — and what separates them is stated rather than
-   * positional: one re-folds the reference we have, the other re-rolls it.
+   * The GROUP survives, because what it is for survives and has grown: this is
+   * the place that acts on the history above it rather than on the address box,
+   * and [clear history] belongs in it for exactly the reason [recapture] does.
+   * Position is the claim — "this acts on the list" rather than "this starts
+   * something" — and it is the claim [[BUG-120]] was about.
    *
-   * ONE FORM, TWO SUBMIT BUTTONS. The grouping is structural rather than
-   * decorative: these post to different paths because they are different verbs,
-   * and `formaction` is how one form says that — the same mechanism the address
-   * row used for [recapture] before, kept so the POST targets are untouched.
-   * The hidden address is the site already loaded, which is what the address box
-   * held when [recapture] sat in it, so the request the console receives is
-   * byte-for-byte the one it received before.
+   * ONE FORM EACH, because they are different verbs posting to different paths
+   * and there is no longer a shared address for a `formaction` pair to carry.
+   * [recapture]'s hidden address is the site already loaded, which is what makes
+   * the press a continuation rather than a restart ([[REQ-272]] part 2);
+   * [clear history] carries nothing, because it is about the list and the
+   * console already knows which one it is showing.
    *
    * `data-held` is what the poller keys on ([[REQ-272]] part 1, behaviour 3):
-   * both advance the loop, and the loop does not advance until the operator says
-   * the implementation the last round asked for has landed.
+   * both carry it, and both are named in the sentence that explains the hold
+   * ([[BUG-130]] behaviour 3), because a disabled control the explanation beside
+   * it does not mention reads as a broken console.
    */
   const inert = inertAttrs(state.running ? 'running' : state.held ? 'held' : null)
   const next = state.iterations.length + 1
   const last = state.iterations.length
   const again = state.iterations.length
     ? `<section class="continue">
-  <h2>continue this chain — both of these append iteration ${next}</h2>
+  <h2>this chain — ${last} iteration${last === 1 ? '' : 's'} so far</h2>
 ${
   state.staleReference ? `  <p class="stale-reference">⚠ ${inlineCode(state.staleReference)}</p>\n` : ''
-}  <form method="post" action="/run-again">
+}  <form method="post" action="/recapture">
     <input type="hidden" name="url" value="${escapeHtml(state.url ?? '')}">
-    <p class="choice"><button data-held="1"${inert}>run again</button> <span class="effect">keeps the reference this chain already has and re-folds it — appends iteration ${next}, whose numbers are comparable with iteration ${last}'s.</span></p>
-    <p class="choice"><button data-held="1"${inert} formaction="/recapture">recapture</button> <span class="effect">re-hits the site and re-rolls the reference first — also appends iteration ${next}, but its numbers are not comparable with iteration ${last}'s and the page marks the seam.</span></p>
+    <p class="choice"><button data-held="1"${inert}>recapture</button> <span class="effect">re-hits the site and re-rolls the reference first, then folds — appends iteration ${next}, whose numbers are not comparable with iteration ${last}'s, and the page marks the seam.</span></p>
+  </form>
+  <form method="post" action="/clear">
+    <p class="choice"><button data-held="1"${inert}>clear history</button> <span class="effect">ends this chain — the ${last} iteration${last === 1 ? '' : 's'} above are moved aside on disk, not deleted, and the page returns to the blank state it opens in. The captured reference is left where it is.</span></p>
   </form>
 </section>`
     : ''
@@ -701,27 +706,38 @@ ${state.filings.groups
     : ''
 
   /**
-   * THE RESTART, ALONE IN THE RESTART POSITION ([[BUG-120]] behaviour 2).
+   * THE SAME VERB, IN THE POSITION THE RESTART OCCUPIED ([[REQ-299]] part 1).
    *
-   * [reproduce] is the only one of the three that can begin a list, so the
-   * address row holds it and nothing else — [recapture] used to sit here, and
-   * the company was the whole defect: a continuation rendered above the history
-   * reads as a restart, whatever its tooltip says.
+   * [reproduce] stood here and is retired; [recapture] takes the position
+   * rather than the position being emptied, because beginning a chain for a
+   * typed address is still a thing the page has to be able to do and this is
+   * where an address is typed.
+   *
+   * THE LABEL IS THE SAME WORD IN BOTH POSITIONS, deliberately. "re-" is
+   * slightly wrong on a blank console — there is nothing to re-do — and that is
+   * accepted: two labels for one act would put back exactly the
+   * which-one-do-I-want question [[REQ-299]] exists to remove, and `recapture`
+   * is the word the tickets and the operator already use.
+   *
+   * NOT HELD, as [reproduce] was not. The hold stops THIS chain advancing before
+   * the implementation it asked for lands ([[REQ-272]] part 1, behaviour 3), and
+   * it has no business stopping a different site being captured — which is what
+   * an inert address row would do. A press here that names the held site is
+   * refused by the console itself with the hold's own sentence.
    *
    * What it does is under it in text rather than in a `title=`, on the same
-   * terms as the two continuations: it is not one fact but two — a new address
-   * begins a list, and the address already loaded reuses the bundle on disk —
-   * and neither is guessable from the word "reproduce".
+   * terms as the continuation: it is not one fact but two — a new address
+   * begins a list, and the address already loaded appends to the one on screen.
    */
   return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>reproduction console</title><style>${STYLE}</style></head>
 <body data-version="${state.version}">
-<form method="post" action="/run">
+<form method="post" action="/recapture">
   <input name="url" value="${escapeHtml(state.url ?? '')}" placeholder="site address" autocomplete="off" autofocus>
-  <button${inertAttrs(state.running ? 'running' : null)}>reproduce</button>
+  <button${inertAttrs(state.running ? 'running' : null)}>recapture</button>
 </form>
-<p class="effect restart">starts a list rather than continuing one: a new address is captured and numbered from 1, and the site already loaded reuses the capture on disk.</p>
+<p class="effect restart">re-hits the address and re-rolls the reference before folding: a new address starts a list numbered from 1, and the address already loaded appends the next iteration to the chain below.</p>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
 ${notice}${stored}
 ${filings}

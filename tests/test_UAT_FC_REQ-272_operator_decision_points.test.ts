@@ -71,7 +71,7 @@ interface CaptureLog {
  * field and about nothing else on disk. A fake that wrote a fixed time would let
  * a console that never noticed the move pass every assertion below.
  */
-function fakeSteps(log: CaptureLog, verdict = 'reproduction-wrong'): StepRunner {
+function fakeSteps(log: CaptureLog, verdict = 'reproduction-wrong', unstamped = false): StepRunner {
   return async (step: IterationStep, cwd: string): Promise<StepResult> => {
     const out = (): string => step.argv[step.argv.indexOf('--out') + 1]
     switch (step.name) {
@@ -92,8 +92,13 @@ function fakeSteps(log: CaptureLog, verdict = 'reproduction-wrong'): StepRunner 
             url,
             host: new URL(url).hostname,
             path: '/',
-            capturedAt,
-            captureSchema: 3,
+            // A BUNDLE FROM BEFORE THE STAMP EXISTED. `unstamped` is how the
+            // third of this file's three provenance states is reached now that
+            // every press re-captures ([[REQ-299]] part 1): blanking the file
+            // after a run no longer survives the next press, because the next
+            // press rewrites it. Writing it unstamped in the first place is
+            // also the more faithful fake — it is what an older `1c` produced.
+            ...(unstamped ? {} : { capturedAt, captureSchema: 3 }),
             sections: [{ index: 1 }],
             assets: [],
           }),
@@ -198,6 +203,8 @@ async function startConsole(
     cwd?: string
     /** Holds the round open, so the page can be read — and pressed — mid-round. */
     hold?: () => Promise<void>
+    /** Capture a bundle carrying no `capturedAt` — an older `1c`'s output. */
+    unstamped?: boolean
   } = {},
 ): Promise<Fixture> {
   const cwd = opts.cwd ?? mkdtempSync(path.join(tmpdir(), 'req272-'))
@@ -205,7 +212,7 @@ async function startConsole(
   const captures: CaptureLog = { times: [] }
   const handle = await startReproConsole({
     cwd,
-    runStep: fakeSteps(captures, opts.verdict),
+    runStep: fakeSteps(captures, opts.verdict, opts.unstamped ?? false),
     runAi: fakeAi(ai, opts.outcome ?? { status: 'no-gap', summary: 'nothing to file' }, opts.hold),
     runCommand: fakeCommands({ ...(opts.gitLog === undefined ? {} : { gitLog: opts.gitLog }) }),
     env: {},
@@ -226,20 +233,22 @@ const post = (f: Fixture, route: string, body = ''): Promise<Response> =>
 const get = (f: Fixture, route: string): Promise<Response> => fetch(new URL(route, f.handle.url))
 const page = async (f: Fixture): Promise<string> => (await get(f, '/')).text()
 
-async function reproduce(f: Fixture, url = SITE): Promise<void> {
-  await post(f, '/run', new URLSearchParams({ url }).toString())
-  await f.handle.console.settled()
-}
-
-async function runAgain(f: Fixture): Promise<void> {
-  await post(f, '/run-again')
-  await f.handle.console.settled()
-}
-
+/**
+ * Press [recapture] and wait.
+ *
+ * [[REQ-299]] part 1 left one verb. `reproduce` and `again` are the same POST as
+ * `recapture`, named for the position the press came from — the address row and
+ * the control under the iteration list — because the tests below are about which
+ * press the operator made, and that is still a real distinction even though the
+ * request is now the same one.
+ */
 async function recapture(f: Fixture, url = SITE): Promise<void> {
   await post(f, '/recapture', new URLSearchParams({ url }).toString())
   await f.handle.console.settled()
 }
+
+const reproduce = recapture
+const again = recapture
 
 async function diagnose(f: Fixture, n: number): Promise<void> {
   await post(f, `/iteration/${n}/diagnose`)
@@ -327,7 +336,7 @@ describe('REQ-272 a finished iteration is idle until the operator says otherwise
     const second = await post(slow, '/iteration/1/diagnose')
     expect(second.status).toBe(409)
     // …and so is the press that would advance the loop underneath it.
-    expect((await post(slow, '/run-again')).status).toBe(409)
+    expect((await post(slow, '/recapture', new URLSearchParams({ url: SITE }).toString())).status).toBe(409)
     finish()
     await slow.handle.console.settled()
     expect(slow.ai.calls).toBe(1)
@@ -337,7 +346,7 @@ describe('REQ-272 a finished iteration is idle until the operator says otherwise
 // ── part 1, behaviour 3: the hold ────────────────────────────────────────────
 
 describe('REQ-272 the loop is held until the implementation lands', () => {
-  it('test_UAT_FC_REQ_272_run_again_is_inert_after_a_filing_and_says_what_it_waits_for', async () => {
+  it('test_UAT_FC_REQ_272_the_continuation_is_inert_after_a_filing_and_says_what_it_waits_for', async () => {
     const f = await startConsole({ outcome: FILED })
     await reproduce(f)
     await diagnose(f, 1)
@@ -354,7 +363,7 @@ describe('REQ-272 the loop is held until the implementation lands', () => {
 
     // The press that lands in the gap starts nothing — the disabled button is a
     // courtesy and the refusal is the rule.
-    await runAgain(f)
+    await again(f)
     expect(await page(f)).not.toContain('<h2>Iteration 2</h2>')
     expect(await page(f)).toContain('Press [the implementation has landed] first')
 
@@ -362,7 +371,7 @@ describe('REQ-272 the loop is held until the implementation lands', () => {
     await post(f, '/release')
     const free = await page(f)
     expect(free).not.toMatch(/held until that implementation lands/)
-    await runAgain(f)
+    await again(f)
     expect(await page(f)).toContain('<h2>Iteration 2</h2>')
   })
 
@@ -385,13 +394,13 @@ describe('REQ-272 the loop is held until the implementation lands', () => {
     const revived = await page(second)
     expect(revived).toContain('<h2>Iteration 1</h2>')
     expect(revived).toMatch(/held until that implementation lands/)
-    await runAgain(second)
+    await again(second)
     expect(await page(second)).not.toContain('<h2>Iteration 2</h2>')
 
     // The release is recorded beside the round it releases, for the same reason.
     await post(second, '/release')
     expect(existsSync(path.join(siteDir(second), 'iteration-1', AI_DIR, AI_RELEASE_FILE))).toBe(true)
-    await runAgain(second)
+    await again(second)
     expect(await page(second)).toContain('<h2>Iteration 2</h2>')
   })
 
@@ -404,7 +413,7 @@ describe('REQ-272 the loop is held until the implementation lands', () => {
     await reproduce(f)
     await diagnose(f, 1)
     expect(await page(f)).not.toMatch(/held until that implementation lands/)
-    await runAgain(f)
+    await again(f)
     expect(await page(f)).toContain('<h2>Iteration 2</h2>')
   })
 })
@@ -415,13 +424,19 @@ describe('REQ-272 re-capture moves the reference and keeps the chain', () => {
   it('test_UAT_FC_REQ_272_recapture_appends_a_marked_iteration_and_keeps_the_earlier_ones', async () => {
     const f = await startConsole({ outcome: { status: 'no-gap', summary: 'looked' } })
     await reproduce(f)
-    await runAgain(f)
+    await again(f)
     expect(await page(f)).toContain('<h2>Iteration 2</h2>')
 
-    // The chain so far refolded: one capture, two iterations, one reference.
-    expect(f.captures.times).toHaveLength(1)
-    expect(manifest(f, 2).recaptured).toBeUndefined()
-    expect(manifest(f, 2).bundleCapturedAt).toBe(f.captures.times[0])
+    // THE SEAM IS NOW THE NORM ([[REQ-299]] part 1). Two presses, two captures:
+    // with [run again] retired there is no press that refolds, so the second
+    // iteration already carries the mark that used to distinguish a re-capture
+    // from an ordinary continuation. The marking is kept for exactly the reason
+    // [[REQ-272]] part 2 introduced it — the numbers really are not comparable —
+    // and a page that stopped marking it because it had become usual would be
+    // claiming a comparability it cannot offer.
+    expect(f.captures.times).toHaveLength(2)
+    expect(manifest(f, 2).recaptured).toBe(true)
+    expect(manifest(f, 2).bundleCapturedAt).toBe(f.captures.times[1])
 
     await recapture(f)
 
@@ -438,9 +453,9 @@ describe('REQ-272 re-capture moves the reference and keeps the chain', () => {
     // THE REFERENCE REALLY MOVED, and the new iteration says so — on the page,
     // and in its own `iteration.json`, because its numbers are not comparable
     // with iteration 2's the way a refold's are.
-    expect(f.captures.times).toHaveLength(2)
+    expect(f.captures.times).toHaveLength(3)
     expect(manifest(f, 3).recaptured).toBe(true)
-    expect(manifest(f, 3).bundleCapturedAt).toBe(f.captures.times[1])
+    expect(manifest(f, 3).bundleCapturedAt).toBe(f.captures.times[2])
     expect(html).toContain('re-captured')
     expect(html).toContain("not comparable with iteration 2's")
 
@@ -450,36 +465,49 @@ describe('REQ-272 re-capture moves the reference and keeps the chain', () => {
     expect(html).toContain(bundleLabel(manifest(f, 1).bundleDir))
     expect(html).toContain(f.captures.times[0])
     expect(html).toContain(f.captures.times[1])
+    expect(html).toContain(f.captures.times[2])
   })
 
-  it('test_UAT_FC_REQ_272_a_recapture_cuts_the_resume_chain', async () => {
+  it('test_UAT_FC_REQ_272_every_continuation_cuts_the_resume_chain', async () => {
     // `session.ts`'s reset rule 1 has always said "a different bundle, OR THE
-    // SAME SITE RE-CAPTURED", and until this ticket the second half could not
-    // fire: a bundle's name is URL-derived and overwriting, so `bundleDir` is
-    // the same string either side of a re-capture. A round resumed across one
+    // SAME SITE RE-CAPTURED", and until [[REQ-272]] part 2 the second half could
+    // not fire: a bundle's name is URL-derived and overwriting, so `bundleDir`
+    // is the same string either side of a re-capture. A round resumed across one
     // would be reasoning from remembered numbers about a page that no longer
     // exists, which is the brief's one rule turned against the mechanism.
+    //
+    // [[REQ-299]] part 1 makes the rule fire on EVERY continuation, because
+    // every continuation now re-captures. That is a real cost — [[REQ-261]]'s
+    // resume no longer reaches across iterations of a chain — and it is the
+    // correct behaviour rather than a regression: the reason a resumed round
+    // cannot be trusted across a moved reference does not weaken because the
+    // reference now moves every time.
     const f = await startConsole({ outcome: { status: 'no-gap', summary: 'looked', sessionId: 'session-aaaa' } })
     await reproduce(f)
     await diagnose(f, 1)
-    await runAgain(f)
+    await again(f)
     await diagnose(f, 2)
-    expect(f.ai.resumes[1]).toBe('session-aaaa')
+    expect(f.ai.resumes[1]).toBeUndefined()
 
     await recapture(f)
     await diagnose(f, 3)
     expect(f.ai.resumes[2]).toBeUndefined()
-    expect(readSession(siteDir(f))?.capturedAt).toBe(f.captures.times[1])
+    // The record still follows the reference the last round actually measured
+    // against, so the mechanism is cutting the chain rather than being broken.
+    expect(readSession(siteDir(f))?.capturedAt).toBe(f.captures.times[2])
   })
 
   it('test_UAT_FC_REQ_272_recapture_on_a_different_site_still_starts_a_new_chain', async () => {
     // [recapture] keeps the chain because the address names the site already on
-    // the page. Typing a different one is the other verb — a new reference for a
-    // new site — and appending its first iteration to another site's chain would
-    // be a list of two unrelated things.
+    // the page. Typing a different one is a new reference for a new site, and
+    // appending its first iteration to another site's chain would be a list of
+    // two unrelated things. With one verb left ([[REQ-299]] part 1) the ADDRESS
+    // is the whole of what decides this, which is what makes it worth asserting
+    // on its own rather than as a property of a button nobody presses by
+    // accident.
     const f = await startConsole({ outcome: { status: 'no-gap', summary: 'looked' } })
     await reproduce(f)
-    await runAgain(f)
+    await again(f)
     await recapture(f, 'example.com')
 
     const html = await page(f)
@@ -545,18 +573,17 @@ describe('REQ-272 a round can tell how old the reference it is measuring against
 
     // An older bundle: no `capturedAt`, no `captureSchema`. Both absences are
     // reported as absences rather than defaulted away.
-    const old = await startConsole({ outcome: { status: 'no-gap', summary: 'looked' } })
-    await reproduce(old)
-    const bundleDir = manifest(old, 1).bundleDir
-    writeFileSync(path.join(bundleDir, 'capture.json'), JSON.stringify({ url: `https://${SITE}`, sections: [], assets: [] }))
-    // The iteration remembers the time it really ran against, so the absence has
-    // to be introduced on a fresh chain rather than retro-fitted onto this one.
-    const blind = await startConsole({ outcome: { status: 'no-gap', summary: 'looked' }, cwd: old.cwd })
-    await page(blind)
-    await post(blind, '/open', new URLSearchParams({ url: SITE }).toString())
-    await runAgain(blind)
-    await diagnose(blind, 2)
-    const blindRound = path.join(siteDir(blind), 'iteration-2', AI_DIR)
+    //
+    // THE ABSENCE IS CAPTURED, NOT RETRO-FITTED. An iteration remembers the time
+    // it really ran against, so blanking `capture.json` after a run cannot make
+    // that run read as unstamped — and since [[REQ-299]] part 1 it cannot make
+    // the NEXT run read that way either, because every press re-captures and
+    // rewrites the file. So the fake writes the bundle unstamped to begin with,
+    // which is what an older `1c` did.
+    const blind = await startConsole({ outcome: { status: 'no-gap', summary: 'looked' }, unstamped: true })
+    await reproduce(blind)
+    await diagnose(blind, 1)
+    const blindRound = path.join(siteDir(blind), 'iteration-1', AI_DIR)
     expect(readFileSync(path.join(blindRound, AI_DIGEST_FILE), 'utf8')).toContain('carries no capture time')
     expect(readFileSync(path.join(blindRound, AI_PROMPT_FILE), 'utf8')).toContain('carries no capture time')
     expect(readFileSync(path.join(blindRound, AI_DIGEST_FILE), 'utf8')).toContain('unstamped')

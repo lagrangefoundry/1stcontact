@@ -6,7 +6,7 @@
  * surface is exercisable without binding a socket, and the socket layer has
  * nothing in it worth a test of its own beyond "it binds to loopback".
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 // REUSED, NOT RESTATED. `resolveStaticFile` is the repo's single definition of
 // how a URL path becomes a file inside a directory — confinement, directory
@@ -328,12 +328,17 @@ export class ReproConsole {
    * warning about a reference that has since been re-taken — which is the one
    * moment the warning is wrong and the operator has just paid to make it wrong.
    *
-   * It is a fact about the CHOICE, not about a round. `1c gate` already reports
+   * It is a fact about a REFERENCE, not about a round. `1c gate` already reports
    * it as a coverage finding, but that is downstream of a press: the finding
    * explains an iteration that has already been paid for, and this is the same
-   * sentence put where the operator decides whether to pay. Against a bundle
-   * this far back, [run again] re-measures a residual whose fix cannot reach it
-   * however many times it runs, and only [recapture] can.
+   * sentence put beside the iterations that were measured against it.
+   *
+   * It no longer decides anything ([[REQ-299]] part 1): there was a choice here
+   * while [run again] existed, because a refold cannot recover an axis the
+   * stored oracle never had, and now every press re-rolls. It stays because it
+   * is still TRUE — the rows above it were folded against a reference this far
+   * back — and a page that stopped saying so the moment nobody had to act on it
+   * would be hiding the reason those numbers are what they are.
    */
   private staleReference(): string | undefined {
     if (this.bundleDir === undefined) return undefined
@@ -424,24 +429,22 @@ export class ReproConsole {
     return {
       n: held.n,
       /**
-       * BOTH CONTINUATIONS, NAMED ([[BUG-130]] behaviour 3).
+       * EVERY HELD CONTROL, NAMED ([[BUG-130]] behaviour 3).
        *
-       * This sentence used to name [run again] alone. [recapture] was held all
-       * the same — it carries `data-held="1"`, the poller keys on that, and
-       * [[BUG-120]] rendered the two as one group precisely because they are the
-       * same kind of act — and the wording simply predated the grouping.
-       *
-       * The omission is worst in the state that most needs the page to be
-       * straight with the operator: against a bundle behind `CAPTURE_SCHEMA`,
-       * [recapture] is the control that can move the numbers and [run again]
-       * provably cannot, so the page warned about a stale reference, offered two
-       * controls, and then explained the hold in terms of the one that is not
-       * the answer.
+       * The rule is that sentence's, not the list's: an operator meeting a
+       * disabled button has to find it in the sentence that explains the hold,
+       * or the explanation reads as being about some other button. [[BUG-130]]
+       * applied it to [run again] and [recapture]; [[REQ-299]] applies it to the
+       * controls that now exist. [recapture] is held because the next iteration
+       * exists to measure the implementation that has not landed yet;
+       * [clear history] is held with it because it carries `data-held="1"` and
+       * goes inert on the same poll, and a disabled control the sentence beside
+       * it does not mention is the defect [[BUG-130]] was.
        */
       waitingFor:
-        `Iteration ${held.n} filed ${what}. Both continuations — [run again] and [recapture] — are held ` +
-        `until that implementation lands: the next iteration exists to measure it, so running one before ` +
-        `it lands measures nothing new.`,
+        `Iteration ${held.n} filed ${what}. [recapture] is held until that implementation lands: the next ` +
+        `iteration exists to measure it, so running one before it lands measures nothing new. ` +
+        `[clear history] is held with it.`,
       releaseHref: '/release',
     }
   }
@@ -652,12 +655,20 @@ export class ReproConsole {
     if (method === 'POST' && pathname === '/open') {
       return this.open(formField(req.body ?? '', 'url') ?? '')
     }
-    if (method === 'POST' && (pathname === '/run' || pathname === '/recapture' || pathname === '/run-again')) {
-      return this.startRun(
-        pathname === '/run-again' ? undefined : formField(req.body ?? '', 'url'),
-        pathname === '/recapture',
-      )
+    /**
+     * THE ONLY VERB ([[REQ-299]] part 1).
+     *
+     * `/run` and `/run-again` were retired with the buttons that posted to them
+     * and are GONE rather than left answering: a retired route that still works
+     * is a second way to do the thing the page stopped offering, and the whole
+     * of part 1 is that there is one way. A POST to either now falls through to
+     * the 404 at the bottom of this function.
+     */
+    if (method === 'POST' && pathname === '/recapture') {
+      return this.startRun(formField(req.body ?? '', 'url'))
     }
+    // [[REQ-299]] part 2 — the chain put down, and kept.
+    if (method === 'POST' && pathname === '/clear') return this.clear()
     /**
      * THE FIRST DECISION POINT ([[REQ-272]] part 1, behaviour 2).
      *
@@ -699,20 +710,31 @@ export class ReproConsole {
     this.adopt(found.url || normalizeUrl(typedUrl), found.dir)
     this.message = this.iterations.length
       ? `Loaded ${this.url} — ${this.iterations.length} iteration(s) already on disk.`
-      : `Loaded ${this.url}. Press [run again] to reproduce it.`
+      : `Loaded ${this.url}. Press [recapture] to reproduce it.`
     this.failed = false
     return seeOther('/')
   }
 
   /**
-   * [reproduce], [recapture] and [run again], which are different verbs.
+   * [recapture], which is now the only verb ([[REQ-299]] part 1).
    *
-   * [reproduce] carries an address: it reuses that site's stored capture if
-   * there is one and starts the iteration list over at Iteration 1.
-   * [recapture] re-hits the site and re-rolls the oracle — and when the site it
-   * names is the one already on the page, it APPENDS the next iteration rather
-   * than starting a new list ([[REQ-272]] part 2). [run again] carries no
-   * address: it refolds the reference already loaded and appends.
+   * It always carries an address, from whichever of its two positions was
+   * pressed — the text box on the address row, or the hidden field under the
+   * iteration list — and it always re-hits that site and re-rolls the oracle
+   * before folding. What varies is only what the address names: the site
+   * already on the page, in which case the next iteration is APPENDED to the
+   * chain ([[REQ-272]] part 2), or a different one, in which case the list
+   * starts over at Iteration 1.
+   *
+   * THERE IS NO LONGER A PRESS THAT REUSES THE BUNDLE ON DISK. [[REQ-254]]
+   * requirement 29 made reuse the default so the reference and the fold would
+   * not move together, and [run again] made it the whole act — but whether that
+   * is the right call depends on the schema the stored bundle was written at
+   * against the schema the extractor is at now, which is not a fact the page
+   * carries. So the choice is gone and re-rolling is unconditional: every
+   * iteration the console produces is measured at the current capture schema.
+   * The stored bundle is still ADOPTED without running anything, by the
+   * `captured already` list (requirement 31) — adopting is not folding.
    *
    * A second press while a run is in flight starts nothing and says so. The
    * page disables its buttons from the poller, so this is the backstop for the
@@ -720,7 +742,7 @@ export class ReproConsole {
    * and the same is true of the hold: {@link heldBy} is checked here because the
    * disabled button is a courtesy and this is the rule.
    */
-  private startRun(typedUrl: string | undefined, forceCapture: boolean): ConsoleResponse {
+  private startRun(typedUrl: string | undefined): ConsoleResponse {
     if (this.running) return html(409, 'A run is already in progress. <a href="/">back</a>')
 
     const trimmed = typedUrl?.trim()
@@ -754,7 +776,7 @@ export class ReproConsole {
     }
 
     let recaptured = false
-    if (forceCapture && continuing) {
+    if (continuing) {
       /**
        * A RE-CAPTURE THAT KEEPS THE CHAIN ([[REQ-272]] part 2, item 1).
        *
@@ -773,27 +795,19 @@ export class ReproConsole {
       this.bundleDir = undefined
     } else if (trimmed !== undefined) {
       /**
-       * A CAPTURE ALREADY ON DISK IS REUSED, NOT RE-TAKEN (requirement 29).
+       * A DIFFERENT SITE IS A DIFFERENT CHAIN ([[REQ-299]] part 1).
        *
-       * This is requirement 15's reasoning applied to the first press rather
-       * than the second. Re-capturing re-rolls the acceptance oracle, so the
-       * reference moves at the same instant the fold does and the two become
-       * inseparable — which is the single comparison an iteration exists to
-       * make. Reusing is therefore the default; [recapture] is how someone says
-       * they meant to move the reference, and it has to be a thing they CHOSE
-       * rather than something that happened because they pressed the ordinary
-       * button a second time.
+       * The address row's press, when the address is not the one on the page.
+       * The bundle is dropped rather than looked for on disk — requirement 29's
+       * reuse is retired with [run again], and for the same reason: a fold
+       * against a stored bundle is measured at whatever schema that bundle was
+       * written at, which is not a fact this page carries.
        */
-      const reuse = forceCapture ? undefined : findStoredCapture(this.stored, trimmed)
-      if (reuse) {
-        this.adopt(reuse.url || normalizeUrl(trimmed), reuse.dir)
-      } else {
-        this.url = normalizeUrl(trimmed)
-        this.slug = slugForUrl(this.url)
-        this.bundleDir = undefined
-        this.iterations.length = 0
-        this.version += 1
-      }
+      this.url = normalizeUrl(trimmed)
+      this.slug = slugForUrl(this.url)
+      this.bundleDir = undefined
+      this.iterations.length = 0
+      this.version += 1
     }
 
     const n = this.iterations.length + 1
@@ -832,10 +846,98 @@ export class ReproConsole {
       path.join(aiDir, AI_RELEASE_FILE),
       JSON.stringify({ releasedAt: new Date().toISOString(), ticketId: held.outcome?.ticketId ?? null }, null, 2),
     )
-    this.message = `Iteration ${held.n}'s implementation is marked as landed — [run again] to measure it.`
+    this.message = `Iteration ${held.n}'s implementation is marked as landed — [recapture] to measure it.`
     this.failed = false
     this.version += 1
     return seeOther('/')
+  }
+
+  /**
+   * THE CHAIN PUT DOWN, AND KEPT ([[REQ-299]] part 2).
+   *
+   * The iteration list is the record of what this chain has learned, and it is
+   * also several screens of rows about runs the operator finished reasoning
+   * about two rounds ago. So this ends the chain — the page goes back to the
+   * blank state it opens in, and the next chain starts at Iteration 1 — without
+   * ending the evidence.
+   *
+   * IT ARCHIVES, IT DOES NOT DELETE. The chain directory holds the AI
+   * transcripts, the diffs, the ids of the gap tickets the rounds filed and what
+   * the rail said about each one. A press of a button on a page does not get to
+   * destroy that. So the directory is RENAMED, beside itself, and the operator
+   * who wants an iteration back finds it one `ls` away rather than in a location
+   * they would have to be told about. The console reads a chain at its exact
+   * slug, so the archive is invisible to the page without any filtering rule
+   * that would have to be kept true.
+   *
+   * THE REFERENCE IS NOT TOUCHED. `storage/references/<site>/` is a separate
+   * artifact with a separate lifecycle — the regression rail baselines against
+   * it, and it is what the `captured already` list offers back. Clearing the
+   * history is a statement about this page, not about that bundle.
+   *
+   * The gap registry is not touched either, and for the same kind of reason: it
+   * lives at the workspace root, above the site directory, because it is what
+   * the loop has learned across every chain rather than what this one did.
+   */
+  private clear(): ConsoleResponse {
+    if (this.running) return html(409, 'A run is already in progress. <a href="/">back</a>')
+    // The hold is checked here for the same reason it is checked in
+    // {@link startRun}: the disabled button is a courtesy and this is the rule.
+    const held = this.heldBy()
+    if (held) {
+      this.message = `${this.heldView()?.waitingFor ?? ''} Press [the implementation has landed] first.`
+      this.failed = true
+      return seeOther('/')
+    }
+    if (this.url === null) {
+      this.message = 'Nothing to clear.'
+      this.failed = false
+      return seeOther('/')
+    }
+
+    const moved = this.iterations.length
+    const live = this.siteDir
+    let archive: string | null = null
+    if (existsSync(live)) {
+      archive = this.archiveName()
+      // BEFORE the state is reset, so a rename that cannot happen leaves the
+      // page exactly as it was rather than reading empty over a chain still on
+      // disk. The throw becomes a 500 naming the OS error, which is the honest
+      // answer to "this is recoverable" turning out not to be.
+      renameSync(live, path.join(this.workspace, archive))
+    }
+
+    this.url = null
+    this.slug = ''
+    this.bundleDir = undefined
+    this.iterations.length = 0
+    this.live = null
+    this.failed = false
+    // WHERE IT WENT, ON THE PAGE. A control whose whole promise is "this is
+    // recoverable" has to say what it is recoverable from, or the promise is
+    // one the operator has to take on faith at the moment they are least able
+    // to check it.
+    this.message = archive
+      ? `History cleared — ${moved} iteration(s) moved to ${path.join(CONSOLE_WORKSPACE, archive)}. The captured reference is untouched.`
+      : 'History cleared.'
+    this.version += 1
+    return seeOther('/')
+  }
+
+  /**
+   * A free name for the chain being archived, beside the chain itself.
+   *
+   * The timestamp is what makes one clearing distinguishable from the next, and
+   * the counter is what makes two clearings within the same millisecond two
+   * archives rather than a rename onto an existing directory. Cheap, and the
+   * alternative is an operator losing a chain to a collision they could not
+   * have anticipated.
+   */
+  private archiveName(): string {
+    const stamp = `${this.slug}.cleared-${new Date().toISOString().replace(/[:.]/g, '-')}`
+    let name = stamp
+    for (let n = 2; existsSync(path.join(this.workspace, name)); n += 1) name = `${stamp}-${n}`
+    return name
   }
 
   /**

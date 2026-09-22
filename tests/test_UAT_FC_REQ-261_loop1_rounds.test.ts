@@ -248,9 +248,14 @@ const SITE = 'gigabytealchemy.ai'
  * about what the round does once started, which that change does not touch.
  */
 async function reproduce(f: Fixture): Promise<void> {
-  await post(f, '/run', new URLSearchParams({ url: SITE }).toString())
-  await f.handle.console.settled()
+  await recapture(f)
   await diagnose(f, 1)
+}
+
+/** Press [recapture] and wait — the console's one verb ([[REQ-299]] part 1). */
+async function recapture(f: Fixture): Promise<void> {
+  await post(f, '/recapture', new URLSearchParams({ url: SITE }).toString())
+  await f.handle.console.settled()
 }
 
 /** Press [diagnose this] on one iteration and wait for the round ([[REQ-272]]). */
@@ -432,8 +437,7 @@ describe('REQ-261 rounds carry context forward', () => {
     const log: AiLog = { calls: 0, prompts: [], resumes: [] }
     const f = await startConsole({ ai: fakeAi(log, { status: 'no-gap', summary: 'looked', sessionId: 'session-aaaa' }) })
     await reproduce(f)
-    await post(f, '/run-again')
-    await f.handle.console.settled()
+    await recapture(f)
     await diagnose(f, 2)
 
     expect(log.calls).toBe(2)

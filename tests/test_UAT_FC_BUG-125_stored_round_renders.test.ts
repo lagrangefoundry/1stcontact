@@ -164,7 +164,8 @@ async function roundOnDisk(tickets: Record<string, string[]>): Promise<{ cwd: st
     port: 0,
   })
   const f: Fixture = { handle, cwd }
-  await post(f, '/run', new URLSearchParams({ url: SITE }).toString())
+  // [[REQ-299]] part 1 — `[recapture]` is the console's one verb.
+  await post(f, '/recapture', new URLSearchParams({ url: SITE }).toString())
   await handle.console.settled()
   await post(f, '/iteration/1/diagnose')
   await handle.console.settled()

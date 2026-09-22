@@ -1,4 +1,4 @@
-# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261 / REQ-272 / REQ-277, [[EPIC-12]] §8)
+# repro-console — the reproduction console (REQ-254 / REQ-256 / REQ-261 / REQ-272 / REQ-277 / REQ-299, [[EPIC-12]] §8)
 
 A localhost-only dev console that runs one reproduction round end to end —
 capture a site, reproduce its home page, diff the two — and puts the three
@@ -10,28 +10,52 @@ pnpm install                   # once — the launcher needs vite, newly declare
 ./bin/repro-console --port 9000
 ```
 
-Enter an address, press **reproduce**. When the run finishes an *Iteration 1*
+Enter an address, press **recapture**. When the run finishes an *Iteration 1*
 heading appears with links — the original site, the reproduction, the diff
-images, the reproduction's own L1 document — each opening in a new tab. **run
-again** re-runs the reproduction and appends *Iteration 2* below it; earlier
-iterations stay on the page with their own artifacts.
+images, the reproduction's own L1 document — each opening in a new tab.
+**recapture** again, from the control under the list, appends *Iteration 2* below
+it; earlier iterations stay on the page with their own artifacts. **clear
+history** ends the chain and puts the page back to the blank state it opens in.
+
+## One verb ([[REQ-299]])
+
+The console used to render three controls that all meant "produce the next
+iteration" — **reproduce** (`/run`), **recapture** (`/recapture`) and **run
+again** (`/run-again`) — and only one bit varied between them: whether the
+reference bundle is re-rolled before the fold. That bit cannot be answered from
+the page. Answering it correctly needs the capture schema the stored bundle was
+written at against the schema the extractor is at now, and when those differ
+**run again** re-folds a stale bundle and cannot see any axis added since the
+bundle was rolled, with nothing on the page saying so.
+
+So there is one verb. **recapture** stands in both positions the retired pair
+occupied — beside the address box, where it begins a chain for the typed address,
+and under the iteration list, where it appends to the chain already on screen —
+and in both it re-hits the site and re-rolls the reference before folding. There
+is no longer any way to fold a stored bundle from the page: every iteration the
+console produces is measured at the current capture schema. `/run` and
+`/run-again` answer 404.
+
+The label stays **recapture** on a blank console too, where the "re-" is slightly
+wrong. Two labels for one act would put back the which-one-do-I-want question
+this exists to remove.
 
 ## The loop, and the two places it stops ([[REQ-272]])
 
 ```
-capture and compare
+recapture → capture and compare
   ── you look, then press [diagnose this]
 AI round → files a gap ticket
-  ── [run again] is HELD; you free-code the fix, then press
+  ── [recapture] is HELD; you free-code the fix, then press
      [the implementation has landed]
-run again → capture and compare
+recapture → capture and compare
   ── you look, then press [diagnose this]
 ```
 
 Both stops are the same principle: the expensive thing does not start until
 somebody has looked. A finished iteration leaves the page **idle** with its links
 live, and the round starts from **diagnose this** on that iteration and from
-nowhere else. When a round files a ticket, **run again** goes inert and says what
+nowhere else. When a round files a ticket, **recapture** goes inert and says what
 it is waiting for — the next iteration exists to measure that implementation, so
 running one before it lands measures nothing new. The release is a file beside
 the round, so the hold survives a restart of the console.
@@ -43,7 +67,7 @@ round's evidence, and finishes by **filing a gap ticket against the reproduction
 engine**. Its transcript streams onto the page underneath the iteration, and the
 ticket it filed becomes a fifth link. Then it stops: the operator free-codes the
 ticket in the ordinary way, presses **the implementation has landed**, and
-presses **run again**, which reproduces with whatever has landed since.
+presses **recapture**, which reproduces with whatever has landed since.
 
 **The round writes no code.** It is a `claude -p` process that can read and do
 nothing else: every tool that can write a file, run a command, reach the network
@@ -73,17 +97,17 @@ or ceiling" is a glance rather than an audit. A ticket read back carrying no
 class, or one outside the set, is a violation beside the status and provenance
 checks.
 
-**The reference can move, deliberately.** **run again** *refolds*: it re-derives
-the fold from the oracle the bundle already holds, so a FOLD change shows up and
-the reference stays still, which is the comparison an iteration exists to make. A
-**capture** change is invisible to a refold by construction — the axis the fix
-added is not in an oracle the old extractor wrote — so **recapture**, on the site
-already loaded, takes a fresh bundle and **appends the next iteration rather than
-starting a new list**. That iteration is marked *re-captured* on the page and in
-its `iteration.json`, because its numbers are not comparable with the one above
-it: the reference moved as well as the engine. Every iteration also shows which
-bundle it used and when that bundle was captured, so a chain whose reference
-moved half way through reads as one chain with a marked seam.
+**The reference moves every iteration, and the page says so.** A **capture**
+change is invisible to a refold by construction — the axis the fix added is not
+in an oracle the old extractor wrote — and since [[REQ-299]] there is no refold:
+**recapture**, on the site already loaded, takes a fresh bundle and **appends the
+next iteration rather than starting a new list**. Every such iteration is marked
+*re-captured* on the page and in its `iteration.json`, because its numbers are
+not comparable with the one above it: the reference moved as well as the engine.
+The marking is now the norm rather than the exception, and it stays — the page
+does not start claiming a comparability it cannot offer. Every iteration also
+shows which bundle it used and when that bundle was captured, so a chain reads as
+one chain with its seams marked.
 
 **A round knows how old its oracle is.** The digest opens with the reference's own
 `capturedAt` and `captureSchema` and the engine commits that landed after it, and
@@ -100,6 +124,12 @@ rounds — the scope and the reasoning are in
 `src/session.ts`. A resumed round is told, in as many words, that what it
 remembers is a pointer and never evidence.
 
+Since [[REQ-299]] every continuation re-captures, so the first of those cuts
+fires on **every** iteration of a chain and resume no longer reaches across one.
+That is the cut rule working, not failing: the reason a remembered number cannot
+be trusted once the reference has moved does not weaken because the reference now
+moves every time. What it costs is one round's re-reading per iteration.
+
 **The unmeasured set is the headline, not the delta count** ([[REQ-277]]). Every
 iteration leads with *how much this run did not measure* — compared axes only one
 side of the projection can read ([[REQ-274]]), bands with no counterpart
@@ -115,8 +145,26 @@ avoid adding axes. A report that does not carry one of the four parts reads as
 Across a **re-capture** the delta count is marked *not comparable* on that axis
 specifically: the oracle moved, so it is a different measurement wearing the same
 name, while the unmeasured set falling is exactly what the re-capture was for.
+Since [[REQ-299]] that is every iteration of a new chain, so the delta comparison
+is normally suppressed and the unmeasured movement is what the page reports; a
+chain already on disk from before, re-opened, still reads its refolds as
+comparable.
 The same number and the same definition lead the digest and the round's prompt,
 and the brief (§3) tells the round to drive it.
+
+**The history can be put down** ([[REQ-299]] part 2). **clear history** sits with
+the list it clears, under it rather than beside the address box, so the position
+reads *this acts on the list* rather than *this starts something*. Pressing it
+ends the chain: the page returns to the blank state and the next chain starts at
+*Iteration 1*. It **archives rather than deletes** — the chain directory under
+`storage/tmp/repro-console/repro-<site>/` is renamed to
+`repro-<site>.cleared-<timestamp>` beside itself, so the transcripts, diffs,
+filed ticket ids and rail results stay one `ls` away, and the status line names
+the archive. It does **not** touch `storage/references/<site>/`: that is a
+separate artifact with a separate lifecycle, the regression rail baselines
+against it, and the blank page still offers it back. It follows the same inert
+rules as every other control — disabled while a round runs, disabled while the
+chain is held, carrying the same `data-inert` reason the poller reads.
 
 **The console counts what it can.** Beside the evidence it writes
 `ai/evidence-digest.md` (`src/digest.ts`): asset attribution, the key census of
