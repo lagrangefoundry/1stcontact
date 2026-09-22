@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T18:31:32.055493+00:00'
+updated_at: '2026-09-22T18:33:28.478132+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -989,5 +989,43 @@ Design notes are in EPIC-20. Sequence I'd take: tool-discipline probe → packag
 <!-- xgd-chat role="user" ts="2026-09-22T18:31:31.276492+00:00" -->
 #### You
 The chat in production (the transcript you just copied Lagrange Foundry) is not working. I get this response: *Unknown backend "claude+site:site_936dd7c92e5e14df694dd9a80433aa4f". Available backends: claude, claude+site:site_23c1afb3739dadf62347a5008e8a7dea*
+
+<!-- xgd-turn id="81d49841-a865-4bc9-8a74-8f253133b389-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T18:33:27.982069+00:00" -->
+#### Claude
+Found it. Let me confirm how the session id is derived before filing.
+
+Diagnosed — and it's not the transcript I copied. That's a red herring; the error is about *registration*, not about stored data.
+
+## What's happening
+
+`CHATS` in `router.ts` caches **one `WorkerHost` per business per isolate**. Host construction is what calls `registerBackend(siteBackendName(slug), …)` at `host-core.ts:1615` — so the registry ends up holding whichever site was current **when that host was first built in that isolate**.
+
+The route then computes the backend name fresh, per request, from the *currently resolved* slug: `attach(manager, sessionId, CONSULTANT_ROLE, siteBackendName(slug))` at `host-core.ts:2495`.
+
+When those two disagree, you get exactly your error. And your "available" list confirms it — precisely **one** site backend registered, and it isn't the one being asked for.
+
+So: **the cache is keyed by business, but the thing it holds is bound to a site.** It's the same class of bug the `CHATS` comment already worries about ("IT WAS ONE PER ISOLATE, FULL STOP, AND THAT BECAME A LEAK") — fixed along the tenant axis, still open along the site axis.
+
+## The decisive check
+
+**Does Lagrange Foundry have two sites in production?** `site_23c1afb3739dadf62347a5008e8a7dea` and `site_936dd7c92e5e14df694dd9a80433aa4f`.
+
+In my local dev store every business has exactly one site, and `site_23c1afb…` doesn't exist here at all — so I can't confirm from here. If production has both under the same business, that's the bug confirmed and the mechanism is settled.
+
+## Immediate unblock
+
+Force a fresh isolate (redeploy, or just wait for eviction), then **open the Lagrange Foundry site first**, before touching any other site of that business. That should work.
+
+If it *still* fails identically on a cold isolate, my diagnosis is wrong and it's the archive path instead — `attach` rethrows when the archive holds the session, so a session whose stored header names an unresolvable backend is permanently unopenable. That's a different fix, and the cold-isolate test distinguishes them in about thirty seconds.
+
+## The fix shape
+
+Register the site backend **at the point of use, per request**, rather than as a side effect of host construction — or key `CHATS` by `(business, site)` instead of by business. The first is better: registration is idempotent overwrite, so doing it on the resolved slug each turn makes the disagreement impossible by construction rather than by cache discipline.
+
+Worth adding regardless: `attach`'s catch handles two cases — no session yet, and no API key — and a third exists that it treats as fatal. The error should at minimum name the session and the stored backend.
+
+Want me to file this as a BUG? It's outside EPIC-20's scope — that's cost, this is availability — so say the word and I'll file it standalone.
 
 <!-- xgd-chat-end -->
