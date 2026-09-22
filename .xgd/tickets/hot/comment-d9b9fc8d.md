@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:36:53.131886+00:00'
+updated_at: '2026-09-22T21:37:39.221680+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3315,5 +3315,49 @@ Recorded as §I25 on EPIC-16 with the fix shape. Want me to file it as a child t
 This is a bigger problem than I thought I am going back to the dev env to move foward with the web development while we disect this.
 
 So lets start with what it is trying to do - I don't understand why any asset bytes need to be read to send a message to the chat server?
+
+<!-- xgd-turn id="e74d9bf4-8e90-45b3-8e12-3400293a5258-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:37:38.120084+00:00" -->
+#### Claude
+Short answer: **nothing about sending a message needs them.** One field on an orientation blob needs a *number*, and the only function that could produce that number was built to answer a far stronger question.
+
+Here's the chain.
+
+## What the digest is for
+
+Every turn, before the model is called, the session is handed a "site digest" — a small factual summary of the site it's working on. It exists because of a real incident recorded in `digest-core.ts`: the consultant called `list_changes` with `since: 120` when the true change count was 76. It hadn't misread anything — it had **invented** a state marker and believed it. The fix was to stop making it remember: hand it the page shape and the counters every turn, derived fresh, never cached.
+
+That's sound, and the digest is mostly cheap. It carries: the pages, their addresses, their top-level bands, which page was last touched, the draft change counter, the live revision, and **how many changes are unpublished**.
+
+## How "how many" became "read 50 MB"
+
+That last field is the whole problem. The digest wants one integer — *"3 unpublished changes"* — so the model can say "you have unpublished work" without inventing a number.
+
+To get it, `collectSiteDigest` reuses `pendingChanges`. The stated reason is good:
+
+> It is already what `describe_site` reports and what `publish` acts on, so a second idea of "is anything unpublished" is a second answer that will eventually disagree with the one the client sees.
+
+That's correct reasoning. But `pendingChanges` wasn't written to answer *"how many"*. It was written for **publish**, where the question is *"exactly which stored paths differ from the live revision, byte for byte"* — and for publish that strength is mandatory. You're freezing a revision. An image whose content changed but kept its name and byte count must register as modified, or you ship a revision that doesn't match what you froze. The only way to know that is to compare the content.
+
+So `pendingChanges` reads the draft snapshot — `site.json`, every page, **and every asset's bytes** — flattens it to `path → comparable content`, and diffs it against the live revision. The digest then takes `.length` of three arrays and discards everything else.
+
+**A byte-exact snapshot of the entire site, to produce a count.**
+
+And the comparison itself is built badly even on its own terms: `byteKey` turns a `Uint8Array` into a string one character per byte via `out += String.fromCharCode(...)`. That's where the 8.8 seconds of CPU went. Comparing content wants a hash per asset, not a 50-million-iteration string build — that's wrong for publish too, it's just survivable there because publish happens once on a deliberate click.
+
+## The one asset thing that's legitimate
+
+Worth separating, because the digest *does* mention assets elsewhere and that part is fine: each page in the digest carries a list of the assets it references, so the model knows the hero image is `IMAGE-5` without going to look. That comes from `l1AssetReferences` walking the page JSON — names only, no bytes. Cheap and correct. Only the pending-count path touches the bytes.
+
+## So the shape of the mistake
+
+Not "assets are on the chat path" — nobody decided that. It's that a strong, expensive question was reused to obtain a weak, cheap answer, and the cost was invisible at the call site. `pendingChanges(store, slug)` reads like a metadata lookup. Nothing in its name or signature says *this materialises your entire site in memory*.
+
+The counter-question — "is anything unpublished, and against what revision" — is answerable from `site_assets` alone, which already has `name`, `size` and `r2_key` as columns, plus R2's own etags for content identity. No bytes leave storage.
+
+---
+
+One caution as you head back to dev: **this probably won't reproduce locally.** The 128 MB ceiling is a production Workers isolate limit; Node and local workerd have far more headroom, so the same code will just be slow. If LF chats fine in dev, that's not evidence the problem is gone — and publish will look fine there too, right up until it isn't.
 
 <!-- xgd-chat-end -->
