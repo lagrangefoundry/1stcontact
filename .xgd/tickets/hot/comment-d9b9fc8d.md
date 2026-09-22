@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:28:08.280839+00:00'
+updated_at: '2026-09-22T21:32:38.167897+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3239,5 +3239,73 @@ Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usa
 <!-- xgd-chat role="user" ts="2026-09-22T21:28:04.910002+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="8562459b-b8a3-4d97-bef0-8b2ff1ea3a68-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:32:37.122422+00:00" -->
+#### Claude
+Picking up the diagnosis. Tool transcript is exonerated — it OOM'd with the transcript empty, and both were restored byte-exact. So the blowup is in what the *site* backend loads at turn start. Let me find it.
+
+**Found it.** `collectSiteDigest` calls `pendingChanges` on **every turn**, and `readDraftSnapshot` reads **every asset's bytes into memory** (`publish.ts:146-153`) — just to produce a count. Let me confirm the numbers.
+
+Confirmed, and the mechanism is worse than a big read. `revision-model.ts:153`:
+
+```js
+function byteKey(bytes: Uint8Array): string {
+  let out = ''
+  for (let i = 0; i < bytes.length; i += 1) out += String.fromCharCode(bytes[i])
+  return out
+}
+```
+
+Every asset byte becomes a JS string character, one `+=` at a time. Let me confirm the production byte total.
+
+50.00 MB for LF; everything else ≤ 2.58 MB. That's the whole story. Let me see how much of it is even referenced.
+
+Everything confirms. Let me record it.
+
+Diagnosis is closed. It isn't delegation, the API key, the transcript, or my repair.
+
+## The Worker reads all 50 MB of your site's images on every chat turn
+
+`collectSiteDigest` calls `pendingChanges` each turn, which calls `readDraftSnapshot` (`tools/generate/src/publish/publish.ts:146`):
+
+```js
+for (const name of assetNames) {
+  const bytes = await store.readAsset(slug, name)   // ← all of it, every turn
+  if (bytes !== null) assets.push({ name, bytes })
+}
+```
+
+Those bytes then go through `byteKey` (`store/revision-model.ts:153`), which builds a JS string **one character per byte** — `out += String.fromCharCode(...)`, fifty million times.
+
+| business | assets | bytes | chat |
+|---|---|---|---|
+| **Lagrange Foundry** | 17 | **50.00 MB** | **OOM, every turn** |
+| Gigabyte Alchemy | 5 | 2.58 MB | fine |
+| XGD | 11 | 0.37 MB | fine |
+| 1st Contact | 6 | 0.00 MB | fine |
+
+Your own observation was the decisive one — GA works, LF doesn't — and this is why. The tail's `cpuTime=8815ms` is those fifty million concatenations; the memory is 50 MB of buffers plus 50 MB of string plus rope garbage, against a **128 MB cap that is a platform constant**. I checked wrangler's config validator: the only key it accepts under `[limits]` is `cpu_ms`. The `memory_mib` setting you may have seen belongs to Containers, a different product.
+
+**The digest never looks at the bytes.** It uses exactly two things from that result: the base revision, and `added.length + modified.length + removed.length`. It reads your entire site to produce a count.
+
+## Two things that change your plans
+
+**Publish is blocked too, and that's the bigger one.** `publishSite` takes the same snapshot and additionally calls `snapshotSha`, which joins the whole listing into one string and runs it through `TextEncoder` — bytes ≥ 0x80 become two UTF-8 bytes each, so 50 MB of images expands to ~75 MB on top of everything already live. **Lagrange Foundry cannot be published today**, chat aside. That's squarely on the go-live path.
+
+**The graceful-degradation guarantee doesn't hold.** `siteDigestSource` wraps the derivation in `try/catch` on the stated principle that "a failed read is silence, not a failed turn". An OOM kills the isolate — so the one failure mode this path actually has is the one the guard can't catch. That's why you got a 200 with an empty body instead of a readable error.
+
+## Unblocking you
+
+**12 of LF's 17 assets — 35.8 MB — are referenced nowhere in the page.** `DSC_7975.jpg` alone is 12.72 MB, and `plate-i-loop.png`, `plate-i.png`, `plate-i-hands.png`, both sketches, the Vitruvian scan and the founder portrait are all unreferenced. Pruning them takes the site to ~14 MB and should restore both chat and publish.
+
+I haven't touched them — deleting a dozen images you deliberately uploaded isn't my call, and some are plausibly staged for sections you haven't built yet. Say the word and I'll prune, or prune a named subset. Your local builder and `storage/backups/lagrange-foundry-2026-09-20.json` both still hold everything either way.
+
+Worth being clear that this buys headroom rather than fixing anything — the ceiling comes back as soon as the site grows.
+
+**REQ-285's reasoning was right and its cost model was wrong.** Reusing `pendingChanges` instead of growing a second idea of "is anything unpublished" is sound. What it didn't price is that the function was written for *publish*, where the byte-level snapshot is the point and the cost is paid once on a deliberate action — and the digest put it on the per-turn path.
+
+Recorded as §I25 on EPIC-16 with the fix shape. Want me to file it as a child ticket? It's the last real blocker on the go-live sequence, and it'll want to go to `lagrange-framework` or here depending on where you want `byteKey` fixed.
 
 <!-- xgd-chat-end -->
