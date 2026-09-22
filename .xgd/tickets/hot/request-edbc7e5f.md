@@ -6,9 +6,9 @@ title: 'renderer/fold/capture: a flow-placed run stretches to its container, the
   repairs mis-ordered siblings with negative margins, and four measurement residuals'
 created_by: repro-console:repro-gigabytealchemy-ai#4
 created_at: '2026-09-22T22:25:47.579565+00:00'
-updated_at: '2026-09-22T22:33:01.388255+00:00'
+updated_at: '2026-09-22T23:21:52.092756+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -953,3 +953,234 @@ does not carry — `instrument-no-axis`) or a glyph-position difference (subpixe
 rasterisation, at most a sibling of issue 6). Today the only way to tell is to open the
 PNG, which is the reconstruction [[DOC-19]] forbids, so this round declines to guess.
 That sentence is the next round's starting point.
+
+
+---
+
+# As built — REQ-302 free-coded implementation
+
+All seven issues are implemented. This section records what the code actually
+does where it differs from the "Proposed change" written during diagnosis, so
+the ticket matches the implementation rather than the plan.
+
+## Issue 1 — `width: fit-content`, one keyword for both placement frames
+
+**Changed:** `packages/framework/src/l1/render.ts`, `geometryRules`' `widthDecls`.
+
+A relaxed rung now emits `width: fit-content; min-width: <captured>px` instead
+of `width: auto; min-width: <captured>px`.
+
+REQ-117 wrote `auto` when every placement was absolute, where `auto` IS
+shrink-to-fit. REQ-278's flow frame emits `position: relative` on a block-level
+box, and there `auto` means "fill the containing block". `fit-content` is
+shrink-to-fit in BOTH frames and still grows with longer content, which is
+REQ-117's whole stated purpose — so one declaration serves both and no second
+code path keyed on placement was added.
+
+**Measured on the UAT fixture, both ways:** with `auto` the flow-placed
+wordmark renders **1256px** wide in a 1280px column and **1416px** in a 1440px
+one — it tracks the column. With `fit-content` it renders **686px** at both,
+which is its captured width.
+
+The two pre-existing REQ-117 tests (`req117-nowrap-width-is-a-floor.test.ts`,
+`reconciliation-nowrap-width-floor.test.ts`) were updated: each now reads the
+relaxed keyword from a single `RELAXED` constant, so the counterfactual
+stylesheet the AC-1009 test synthesises can never drift from the emitter.
+
+## Issue 2 — the anchor is recorded at the source, not sorted out in the fold
+
+**Changed:** `extract.ts` (`runsUnder`, `contentWithItemAnchor`, band assembly),
+`types.ts` (`RawBand.itemsAt`, `Section.itemsAt`), `sections.ts`
+(`sectionFromBands` re-bases the anchor onto coalesced content),
+`values-diff.ts` (new exported `runsInDocumentOrder`, used by BOTH
+`flattenCapture` and `flattenSignals`).
+
+The diagnosis located this in the fold. The root cause is upstream of it:
+`itemGroup` lifts a band's repeated rows out of the content walk and both
+projections re-appended them after ALL of the band's content. The fix records
+the emitted index the lifted subtree sat at (`itemsAt`, parallel to `items`)
+and splices the rows back in there, so the fold is handed reading order rather
+than asked to sort its way out of an inversion.
+
+Both projections read the anchor, so the two sides of a diff are ordered by one
+rule — reordering only one side would pair every run in the band against the
+wrong one.
+
+**Deliberately absent in two places**, both of which append, which is what
+every reader did before the anchor existed:
+- a bundle written before REQ-302 (no anchor recorded);
+- the geometric-slice path, where a slice is a box rather than a DOM subtree,
+  its runs were collected once from the flat root and then PARTITIONED by box,
+  and "the index this row sits at within this slice's content" is not a
+  question the walk answered.
+
+**Measured on the UAT fixture** (`req302-item-order.html`, two cards of
+different classes so the card row is not a uniform group and the walk descends
+into the first card's `<ul>`): the extractor records `itemsAt: [2, 2]` — both
+bullet rows anchored immediately after card A's copy, before `Second Card
+Heading`. Without the anchor they projected after the SECOND card's copy.
+
+## Issue 3 — `a11yRoleOf` resolves at the semantic ancestor
+
+**Changed:** `extract.ts` — new `semanticOf(el)` helper
+(`el.closest('[role],a[href],button,h1,h2,h3,h4,h5,h6,input,textarea,select,img,hr')`,
+falling back to `el`), applied at the head of `a11yRoleOf`. This is the
+resolution `hrefOf` and `headingLevelOf` already had.
+
+**Measured on `req302-semantics.html`:** `Gigabyte Alchemy` (gradient-text span
+inside `<a href="/">`) reads `a11yRole: link`; `Intentional Software` (colour
+-accent span inside `<h1>`) reads `heading`; an unwrapped `<h2>` is unchanged
+at `heading`; and a plain `<p>` still reads `generic` — walking up must not
+invent semantics for a run that has none.
+
+## Issue 4 — a flat gradient is a fill, composited with its alpha
+
+**Changed:** `extract.ts` — `gradientColors` (factored out of `gradientScrim`),
+new `flatGradientRgba`, and both `surfaceFillOf` and `surfaceGradientOf`.
+
+The diagnosis proposed reporting a `{fill, gradient, overlay}` triple at run
+scope plus a normalisation step in `values-diff.ts`. **What was built instead
+closes the asymmetry at its source**, which removes the need for both:
+
+A "gradient" whose every colour stop resolves to the SAME colour is not a
+gradient — it is a flat fill painted as a background LAYER rather than as a
+`background-color`. The two are indistinguishable on the page and were not
+indistinguishable to the extractor, which is the whole defect. So:
+
+- `surfaceFillOf` now composites a flat gradient layer at each step of the
+  surface chain, above that element's own `background-color` (a background
+  image paints on top of it) — **alpha included**, exactly as it already
+  composited a translucent `background-color`;
+- `surfaceGradientOf` no longer reports a flat gradient as a gradient. An
+  OPAQUE flat gradient still ends the walk, the way a solid fill does.
+
+This is strictly better than normalising in the comparator: the veil is
+reported once, on one axis, with its alpha, and HOW THE PAGE AUTHORED IT stops
+being something the instrument can see at all. No `values-diff.ts`
+normalisation was added, and none is needed.
+
+**Measured on the two UAT fixtures** — the same 30% `#030717` veil over the
+same hero, authored as a sibling `<div style="background: rgba(3,7,23,.3)">`
+and as `linear-gradient(#0307174d, #0307174d)` on the box itself. Both now
+report `surfaceFill: #a39e9b` and `surfaceGradient: null`. `#a39e9b` is
+`0.3 × #030717 + 0.7 × #e8dfd3` — the veil composited over what is behind it,
+which is neither of the two wrong answers the round measured (the opaque
+`#030717` from the reference side, the backstop `#e8dfd3` from the
+reproduction side). A genuine multi-colour ramp — the wordmark's
+`background-clip: text` treatment — is untouched.
+
+## Issue 5 — the four axes reach `ContentRun`, and the axis table stops
+declaring a gap it no longer has
+
+**Changed:** `types.ts` (`ContentRun.paddingTopPx` / `paddingRightPx` /
+`paddingBottomPx` / `textAlign`, all optional so pre-REQ-302 bundles parse),
+`sections.ts` (`toContentRun` copies all four beside `paddingLeftPx`),
+`value-axes.ts`.
+
+The second half matters as much as the first: while `ContentRun` could not
+answer, REQ-274's table declared the four reference-side `unsupplied`, which is
+what made them reach the gate as UNMEASURED rather than passing as clean. With
+the bundle recording them that declaration is **withdrawn** — `RUN_TYPE_A_GAP`
+is deleted and all four rows now use `sharedRun`, so both sides read the same
+way `paddingLeftPx` beside them always has. Leaving it in place would have had
+the instrument reporting a gap it no longer has, and 4-of-5-unmeasured would
+never have fallen.
+
+Presence, not truthiness: a measured `0` reaches the bundle as `0`, so a page
+that pads nothing is not mistaken for a page that could not be measured.
+
+## Issue 6 — two decimals everywhere geometry is derived
+
+**Changed:** `fold.ts` — `round2` (already present, already used for
+`lineHeightPx` / `letterSpacingPx`) replaces `Math.round` for keyframe
+`x`/`y`/`width`/`height` at all five sites; new `ceil2` for the one width that
+must round UP. `probes.ts` — the derived-offset `round` helper goes from a
+tenth of a pixel to a hundredth.
+
+`ceil2` preserves REQ-117's constraint that a nowrap floor must CONTAIN the
+measured content (`Gigabyte Alchemy` measured 685.31 and a nearest-round pinned
+it at 685, reflowing the hero title onto a second line the reference never
+had). The ceiling is now at two decimals rather than at whole pixels — a
+smaller over-allocation, still never an under-allocation.
+
+`probes.ts` is included because its offsets are DERIVED from the fold's
+keyframes: a lead rounded to a tenth puts a run that measured 149.55 back at
+149.5, and the half-pixel the fold just stopped introducing comes back one
+level down.
+
+## Issue 7 — `regionReadout`, emitted beside the crops
+
+**Changed:** `perceptual-core.ts` (new `RegionReadout`, `PROFILE_BUCKETS`,
+`regionReadout`), `perceptual.ts` (re-export; `readout` on every ranked region
+of `PerceptualDiffReport`; a `ΔRGB / |Δ| / peak col` line in
+`formatDiffReport`).
+
+This is the "what would separate it" sentence from the diagnosis, built. The
+discriminator is the SHAPE of the difference, not its size:
+
+- a **colour** residual moves the whole crop together — large flat `deltaRgb`,
+  broad `columnDiff`;
+- a **glyph-position** residual leaves the average colour almost untouched —
+  `deltaRgb` near zero — and concentrates into narrow spikes at stem edges, so
+  `columnDiff` is peaky and `rowDiff` is confined to the text band.
+
+Both profiles are bucketed to at most 64 entries so a full-width region does
+not write a thousand numbers into `regions.json`; the shape survives the
+bucketing, which is all that is read off it. The readout is measured off the
+SAME two rasters the crops are cut from, in the same loop, so the numbers and
+the PNGs can never describe different pixels.
+
+It is emitted **beside** the PNGs, not instead of them — the point is that a
+number can be read by the round that has to attribute the residual, where a PNG
+can only be looked at, which is the reconstruction DOC-19 forbids.
+
+## Both persisted fixes need a re-capture
+
+`captureSchema` is bumped **4 → 5**, and `CAPTURE_SCHEMA_AXES` gains four
+probes so a bundle written before this change is NAMED as stale rather than
+read as clean:
+
+- `paddingTopPx/paddingRightPx/paddingBottomPx` and `textAlign` on a content
+  run — plain presence probes ("the key exists"), because a measured 0 is a
+  measurement and an absent key is the projection dropping it;
+- `a11yRole resolved at the semantic ancestor` — NOT a presence question, since
+  `a11yRole` has always been written. What a pre-REQ-302 bundle carries is a
+  CONTRADICTION: a run with an `href` (or a `headingLevel`) whose role is
+  `generic`. A document cannot be in that state, so seeing the pair is proof
+  the bundle predates the fix. Not seeing it proves nothing — which is exactly
+  the asymmetry every probe in this table is documented to have: it only ever
+  REMOVES the axis from a finding;
+- `itemsAt` — asked the only way it can be, as "does any section that HAS items
+  lack the anchor", since a section with no repeated rows records no anchor
+  however new its extractor is.
+
+Issues 1, 2 (projection half), 6 and 7 take effect on `1c refold` / `1c diff`.
+Issues 3, 4 and 5 are persisted and **the operator must press recapture** for
+the corresponding deltas to clear.
+
+## Test plan — as implemented
+
+Six UAT files, 29 tests, all named `test_UAT_FC_REQ-302_*`. Verified RED by
+reverting the eleven changed source files and re-running: **23 of the 29 fail**
+without the fix. The 6 that pass are the deliberate controls and
+compatibility legs (an anchorless bundle still appends; a real multi-colour
+gradient survives; an unwrapped element is unaffected; a plain run stays
+`generic`; a current bundle is not told to re-capture).
+
+| file | issues | browser |
+|---|---|---|
+| `test_UAT_FC_REQ-302_a_flow_placed_run_shrinks_to_fit.test.ts` | 1 | one leg |
+| `test_UAT_FC_REQ-302_runs_in_document_order.test.ts` | 2 | no |
+| `test_UAT_FC_REQ-302_the_bundle_records_what_it_measured.test.ts` | 3, 5 | no |
+| `test_UAT_FC_REQ-302_fold_keeps_subpixel_geometry.test.ts` | 6 | no |
+| `test_UAT_FC_REQ-302_region_readout.test.ts` | 7 | no |
+| `test_UAT_FC_REQ-302_the_extractor_reads_the_page_as_it_is.test.ts` | 2, 3, 4, 5 | all |
+
+Four fixtures under `tests/fixtures/capture/`: `req302-semantics.html`,
+`req302-scrim-sibling.html`, `req302-scrim-gradient.html`,
+`req302-item-order.html`.
+
+The browser legs skip cleanly where Chromium cannot launch, matching the
+repo's existing convention. In an agent sandbox they run under
+`CHROMIUM_LAUNCH_ARGS=--single-process` (REQ-262 D9) — all 29 were verified
+green that way, not merely skipped.
