@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T19:56:05.105383+00:00'
+updated_at: '2026-09-22T20:02:17.577300+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1049,5 +1049,35 @@ Cazn you create me a new req that creates a special TAB with interface I am requ
 The TAB can be opened by a button on the right as you have it but it needs to behave like a tab not drop in an overlay.
 
 Are my instructions clear this time?
+
+<!-- xgd-turn id="2d752e80-d6ae-4740-ba88-ae34dfd05cdd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:02:16.639731+00:00" -->
+#### Claude
+Grounded. Writing the ticket.
+
+Both done. Ticket first, then the correction on the chat error.
+
+## REQ-298 — the console as a tab (`request-294aa45b`)
+
+Yes, clear — and filed as a new REQ that **overrules** REQ-297 rather than refining it. REQ-297's body now carries a note naming exactly which of its statements are withdrawn, so if both reconcile the matrix can't pin *"the console is not a tab"* against you.
+
+**The tab.** `webui-shell` fixes its tab list at mount and has no `addTab`, so the console is a conditional entry in the array the app builds — present only for a session owning the platform business. Your button stays exactly where it is beside the avatar and changes only what it does: `setActiveTab`, not open a dialog. The dialog chrome is deleted, not kept beside it.
+
+**One consequence I answered rather than left for you.** The business switcher is prepended into the shell bar and applies to every tab; on the console tab it applies to nothing. That was REQ-179's actual objection — a control that's present and silently ignored reads as a bug — and it doesn't stop being true because the decision went the other way. So the switcher is **disabled while the console tab is active** and restored on leaving, through the shell's own `onTabChange` seam. Same reasoning: no activity surface is posted for the console tab, since `/api/activity/surface` is business-scoped.
+
+**The interface** is `webui-list-detail` in `no-tab` mode — the component Library and People already use, so divider, collapse and split persistence aren't reimplemented. Left: one row per site across every business. Right: account, published-site link (via `hostname.ts`'s `addressForLinks`; a site with no address says so rather than rendering a dead anchor), and that business's cost detail.
+
+**One thing you didn't specify, so I decided it:** the list is ordered **cost descending, dearest business first**, sites of one business adjacent, no-spend businesses last by name. Alphabetical would answer nothing and need a sort control on day one. Say if you want it the other way.
+
+**It needs one route that doesn't exist:** `GET /api/admin/sites` — same gate, same 404. Deliberately *not* folded into `/api/admin/spend/businesses`, because a site with no spend must still be listed, and adding non-meter rows to a meter route gives one route two answers.
+
+Everything server-side from REQ-297 is reused unchanged: the `ownsPlatformBusiness` gate at both layers, both spend routes, the shared period parser, the principal/delegated split. This is a change of surface, not of meter. 8 points, on EPIC-20, at `draft`.
+
+## The chat error — my earlier diagnosis was wrong
+
+Your answer settles it, and not the way I guessed. It isn't the isolate cache. `site_936dd7c9…` is the **local** site id and `site_23c1afb3…` is production's — which is precisely **BUG-137**, already filed at `ready_to_reconcile`: `bin/copy-to-cloud --chats` carries the source side's `session_id` across, so the imported conversation names a site that doesn't exist on the destination and the backend is never registered under that name. The transcript I copied is the cause after all, just through the session header rather than the content.
+
+Since the previous prod's contents are disposable, the unblock is to **delete the two imported chat tickets** (`site-site_936dd7c9…` and `business-biz_5b101742…`) and use the native empty sessions. BUG-137's fix still matters for the next copy. Want me to do that deletion?
 
 <!-- xgd-chat-end -->
