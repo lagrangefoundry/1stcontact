@@ -5,7 +5,7 @@ type: request
 title: An operator console for tenant cost
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:45.407051+00:00'
-updated_at: '2026-09-22T20:01:18.173144+00:00'
+updated_at: '2026-09-22T20:12:26.113298+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -29,6 +29,7 @@ fields:
   version: 0.2.320
   story_points: 8
 ---
+
 
 ## Why
 
@@ -319,16 +320,22 @@ matters is that a response carrying `ownsPlatformBusiness: true` reaches
 
 ## Superseded in part by [[REQ-298]]
 
-The console's **form** is overruled by the operator: it becomes a tab, not a
-dialog, and its content becomes a list of every site on the platform beside a
-detail pane for the selected site's business.
+The console's **container** and its **content** are replaced. Its place in the
+information architecture is not.
 
-Three statements above are withdrawn and must not reach the capability matrix:
+**Condition 9 stands.** The console is not a tab, and the tab strip remains
+uniformly business-scoped. The operator accepted that argument; what they
+rejected is the overlay it was used to justify. REQ-298 keeps the header action
+in the trailing slot and makes it open a **full-surface view** that fills the
+shell's content region instead of a modal panel over a scrim.
 
-- *"It is not a tab"*, and **condition 9**.
+Withdrawn, and not to reach the capability matrix:
+
+- **The dialog** — *"an action in the shell header's trailing slot, beside the
+  account avatar, opening a dialog"*, and `modal.js` as the console's chrome.
 - **Conditions 2 and 3** — the league of tenants and the in-place row expansion.
-  The list is sites; the detail is a pane and carries the owning account and a
-  link to the published site as well as spend.
+  The list is one row per site across every business; the detail is a pane and
+  carries the owning account and a link to the published site as well as spend.
 - **Condition 8**, only insofar as it binds the registry to the console. The
   registry survives on the detail pane.
 
