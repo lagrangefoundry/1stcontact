@@ -5,10 +5,10 @@ type: request
 title: Delegate construction to a cheaper worker, behind a switch
 created_by: EPIC-20
 created_at: '2026-09-21T23:11:05.910693+00:00'
-updated_at: '2026-09-22T00:50:17.077743+00:00'
+updated_at: '2026-09-22T20:09:07.747050+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: free_coding
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
