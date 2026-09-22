@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   story_points: 8
   needs_review: false
+  chat_comment: comment-be83c49e
 ---
 
 ## Why
