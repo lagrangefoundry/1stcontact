@@ -6,15 +6,23 @@ title: A newly created page cannot be given any content — add_page produces a 
   with no L1 document and no operation can create one
 created_by: xgd
 created_at: '2026-09-22T21:49:40.012443+00:00'
-updated_at: '2026-09-22T22:26:32.016534+00:00'
+updated_at: '2026-09-22T22:31:27.103076+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-84ac02a3
+  commits:
+  - working_sha: 41ebc049ed5f28bdc3ce9e53bb65288842927031
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 94066bdfcf61f1b0260140f4c5c1f4ac1e3d891d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.324
 ---
 
 ## What I was trying to achieve
