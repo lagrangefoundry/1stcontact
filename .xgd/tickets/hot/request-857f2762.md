@@ -5,9 +5,9 @@ type: request
 title: Copy an existing page to a new one, content and all
 created_by: xgd
 created_at: '2026-09-22T21:50:10.208614+00:00'
-updated_at: '2026-09-22T22:01:09.304914+00:00'
+updated_at: '2026-09-22T22:13:16.003770+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -15,7 +15,6 @@ fields:
   priority: medium
   chat_comment: comment-7fd5af2d
 ---
-
 
 ## What I was trying to achieve
 
@@ -147,3 +146,6 @@ say nothing about whether the assistant can reach it.
 6. **Defaults**: `path` falls back to the new page id, `title` to the source's.
 7. **No new surface**: `copy_page` is declared, is in `ManagePages`, and is
    reachable from the toolbox with the grant that already exists.
+8. **One vocabulary**: `1c page copy` drives the same function and produces the
+   same page, so the CLI and the assistant cannot come to disagree about what a
+   copy is.
