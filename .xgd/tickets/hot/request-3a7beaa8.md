@@ -5,9 +5,9 @@ type: request
 title: Do not let a turn overflow its context
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:20.046378+00:00'
-updated_at: '2026-09-22T02:02:49.442560+00:00'
+updated_at: '2026-09-22T02:02:56.435787+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.317
+  story_points: 8
 ---
 
 ## Why, and why now
