@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-137
 created_by: xgd
 created_at: '2026-09-22T18:02:04.536486+00:00'
-updated_at: '2026-09-22T18:33:44.004142+00:00'
+updated_at: '2026-09-22T19:01:53.816120+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,14 @@ Now the tests. First the new BUG-137 suite:
 Now update the REQ-294 suites for the derived ids and the `strays` count:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="41364e0c-c5c7-4971-a8a8-52b207b45343-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T19:01:52.726785+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
