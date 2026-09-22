@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:13:08.207268+00:00'
+updated_at: '2026-09-22T22:18:27.562957+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1835,5 +1835,11 @@ It has no generative pressure. It found the gradient because gigabytealchemy has
 3. **Grow the corpus on purpose.** Adding site 4 isn't extra work on the side of the loop; it's the only thing that makes the loop's answer mean anything beyond three sites.
 
 Want me to scope #2 under EPIC-12? It's the one that turns "should I give it more time" from a judgement call into a reading.
+
+<!-- xgd-turn id="16b3d6e0-4e85-428d-959b-ef624371a898-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:18:27.148080+00:00" -->
+#### You
+ok so on 3 as far as I am concerned I am still trying to get confidence that the system as constructed can work. Once I have that we will expand it. But even on three sites we are really struggling. The problem is that the errors (such as issue 3) is egregious. I can understand the text color gradient being missed (except it feels like it should be trivially easy to get right) but its acceptable and fixable. But the discontinunity between text and text backgrounds feels lie a structural failure and is certainly completely unacceptable
 
 <!-- xgd-chat-end -->
