@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T20:02:17.577300+00:00'
+updated_at: '2026-09-22T20:10:36.985691+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1079,5 +1079,11 @@ Everything server-side from REQ-297 is reused unchanged: the `ownsPlatformBusine
 Your answer settles it, and not the way I guessed. It isn't the isolate cache. `site_936dd7c9…` is the **local** site id and `site_23c1afb3…` is production's — which is precisely **BUG-137**, already filed at `ready_to_reconcile`: `bin/copy-to-cloud --chats` carries the source side's `session_id` across, so the imported conversation names a site that doesn't exist on the destination and the backend is never registered under that name. The transcript I copied is the cause after all, just through the session header rather than the content.
 
 Since the previous prod's contents are disposable, the unblock is to **delete the two imported chat tickets** (`site-site_936dd7c9…` and `business-biz_5b101742…`) and use the native empty sessions. BUG-137's fix still matters for the next copy. Want me to do that deletion?
+
+<!-- xgd-turn id="8f978043-20ab-4790-9f4e-a97e4891e0ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:10:36.917281+00:00" -->
+#### You
+ok so the structural argument against a tab I understand and I am OK with a button being the entry point but I am not ok with this being an overlay - it has to take over the full screen like a tab
 
 <!-- xgd-chat-end -->
