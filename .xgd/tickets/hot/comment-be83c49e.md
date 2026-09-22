@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-298
 created_by: xgd
 created_at: '2026-09-22T20:01:55.947228+00:00'
-updated_at: '2026-09-22T21:37:46.263060+00:00'
+updated_at: '2026-09-22T22:25:36.144863+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -200,5 +200,14 @@ Inside: a two-panel list/detail over the shared `webui-list-detail` in `no-tab` 
 - Added a paragraph on the console closing when the builder is torn down.
 
 One note for you: the stray listener on port 8790 is from an earlier session, not this one. Killing PID 79585 would clear nine of those fourteen failures next run.
+
+<!-- xgd-turn id="1095598a-af11-4b78-8f69-e7f3936d6152-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:25:35.715330+00:00" -->
+#### You
+ok this landed but it needs work
+(1) It weirdly occupies the bottom half of the screen - should be the whole area
+(2) all the text appears to be unstyled default fonts
+(3) the lay our of the costs is inscrutable its impossible to tell which headings are associated with which numbers - lack of CSS again?
 
 <!-- xgd-chat-end -->
