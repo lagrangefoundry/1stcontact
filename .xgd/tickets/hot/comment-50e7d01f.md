@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T01:22:38.774447+00:00'
+updated_at: '2026-09-22T01:24:30.097819+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -935,5 +935,53 @@ Lets talk about model benchmarks - dropping to open weight models is likely to b
 My suggestion is we create a handful of packages - a business description, some assets (photos and graphics) and a handful of canned prompts. We create a test business, up load the materials and feed the prompts in one by one at the end of the process we look at the quallity of the website, the effectiveness of the discussion and the cost.
 
 Thoughts?
+
+<!-- xgd-turn id="0736ee9d-b2d0-4f58-a24a-bf139c79803a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T01:24:29.281731+00:00" -->
+#### Claude
+Good proposal, and it's the right shape. Let me check one thing first — there's a `synthetic_runs` table in D1 that might already be half of this.
+
+Right shape. Three changes and one addition.
+
+## The one thing I'd change: canned prompts measure the wrong thing
+
+A consulting session is adaptive — turn N+1 depends on what the assistant said in turn N. A fixed prompt list ignores that, so **a model that asks a good clarifying question gets punished** (its question goes unanswered, the next canned prompt barrels past it) while one that charges ahead scores well. That biases systematically against consultative behaviour, which is the product you're selling.
+
+Fix the **information**, not the text. Each package carries a **client script**: business facts, preferences, what this client cares about and won't budge on, plus a persona. Revealed on demand — answer from the script when asked, never volunteer beyond it, and when the script is silent say so the way that client would.
+
+Played by a person for a few gold runs, or a **client simulator** on a cheap model for volume. Simulator tokens are harness cost and must be excluded from the measurement, or a chatty assistant looks expensive twice.
+
+## Start with the benchmark that needs no judge
+
+**Tool discipline.** Can the model drive a 60-operation surface without malformed arguments, schema violations, loops, or giving up after an error?
+
+We already have the baseline, free: the audit ledger recorded **110 failed tool calls out of 1,100** — 10% on Opus 5, 25% on one session. A candidate's failure rate against the same surface is the best early predictor there is, needs no judge or rubric or simulator, and the ledger records it automatically.
+
+If a model can't keep JSON valid against this surface, nothing downstream matters — and you've found out for the price of one session.
+
+## Split "website quality" or it can't be scored
+
+**Mechanical, free** — and where a weaker model's regressions will actually show: does it build, does it publish, dangling references, capture succeeds, every page non-empty, palette used consistently, and the fidelity ladder's semantic deltas (reachable only via `1c gate --size`, not `capture.json`).
+
+**Judged, expensive**: on-brand copy, sensible hierarchy, would a client accept it.
+
+The rubric isn't ours to invent — DOC-46, DOC-35 and DOC-49 already state what good looks like in the product's own words.
+
+Judging discipline: judge from a **different model family**; **blind with randomised order** (a judge told which model made which site is scoring the label); judge model **pinned for the life of the benchmark**, or scores drift for reasons unrelated to the test.
+
+## The matrix, not the binary
+
+Not "all Opus vs all open-weights" — **consultant model × worker model**. An open-weights *worker* under an Opus consultant is far safer than an open-weights consultant and captures most of the saving, since construction was the bulk. 2×2 minimum.
+
+And **N runs, not one** — two live conversations diverge by the second turn. Report cost with variance, not a single figure. The Opus baseline runs are the expensive part; the candidates are cheap by definition.
+
+## What it's also for
+
+Run once it's a report; run on every change it's an asset. The same harness makes **our own prompt changes falsifiable** — today, editing the priming prose has no way to be shown better or worse, which is uncomfortable to say about the file that decides what the product is.
+
+Two practical notes: isolation has a precedent in `gutter.ts` (marked synthetic runs against a horizon, joined to nothing, torn down after) — follow it rather than invent a second. And it depends on REQ-292, or you're comparing models with the instrument that was wrong by 4.5×.
+
+Design notes are in EPIC-20. Sequence I'd take: tool-discipline probe → packages and client script on the Opus baseline to learn what a *good* score looks like → the matrix once cost is real. Want the probe as its own REQ now, and the harness later?
 
 <!-- xgd-chat-end -->
