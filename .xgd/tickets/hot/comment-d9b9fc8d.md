@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:41:15.834119+00:00'
+updated_at: '2026-09-22T20:42:48.365102+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2959,5 +2959,40 @@ The tail is running as background task `bxojt6722`; I'll stop it once we have th
 <!-- xgd-chat role="user" ts="2026-09-22T20:41:15.103718+00:00" -->
 #### You
 What is the next step this is 100% reproducible and its blocking my development
+
+<!-- xgd-turn id="ffdf9fad-c14a-4437-83a2-e8c415c94b7e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:42:48.041370+00:00" -->
+#### Claude
+The tail died between sessions before you could reproduce — that's my tooling, not the bug. It's running again (`b560m45it`), but **run it in your own terminal too** so it can't be torn down under you:
+
+```
+cd apps/control-app && npx wrangler tail --env production --format json
+```
+
+## Next step, and it's one that narrows it in 30 seconds
+
+**Send a message in the small settings chat as well as the big one.** That single comparison splits the candidates:
+
+| session | chat | tools | which |
+|---|---|---|---|
+| `chat-fa105276` | 253 KB | **2.02 MB** | Lagrange Foundry site builder — the one failing |
+| `chat-e3df9535` | 4.5 KB | 3.7 KB | the business/settings chat |
+
+- **Both fail** → it's the deploy: delegation start-up or the heartbeat-less stream. Fix is in code.
+- **Only the big one fails** → it's that session's size on resume, and delegation is a red herring. Different fix, and it's the session I just made reachable again.
+
+I'd put most weight on the second. The evidence that moved me: **nothing was flushed.** A failed turn still writes its audit — the `finally` inside the stream is held open by `waitUntil` precisely so an abandoned turn records what it managed to do. Both transcripts are still sitting at exactly the byte counts my header fix left them at. A turn that died mid-generation would have left a partial; a turn whose isolate was killed while loading a 2 MB tool transcript leaves nothing, drops the connection with no terminal frame, and does it identically every time — which is your "100% reproducible".
+
+It also fits the trajectory: before the header fix you got a clean application error (`Unknown backend`), which means the load path now gets *further* than it did. The failure moved rather than persisted.
+
+Two things I ruled out already, so you don't spend time there:
+
+- **The REQ-295 delegation UAT passes** — 7/7 in workerd against the real installed library, so start-up validation with `enabled: true` isn't trivially broken.
+- **The message itself is a dropped connection, not an error** — an in-turn failure is caught and rendered as italic text in the bubble. You're seeing the shape that means no terminal frame arrived at all.
+
+The one genuine gap I found regardless of which way this lands: the turn SSE has **no heartbeat**, while the material-changes stream and the tail both have one with a comment explaining it stops intermediaries reaping idle connections. Delegation adds long silent gaps to that stream. Worth a ticket whether or not it's today's cause — say the word and I'll file it against EPIC-16.
+
+Send the two messages and paste what the tail prints, or just tell me which one failed — either gets me to the fix.
 
 <!-- xgd-chat-end -->
