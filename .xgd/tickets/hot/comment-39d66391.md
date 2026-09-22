@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-55
 created_by: xgd
 created_at: '2026-09-22T21:25:30.634432+00:00'
-updated_at: '2026-09-22T21:30:12.026018+00:00'
+updated_at: '2026-09-22T21:45:15.921395+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,11 @@ I didn't find prompt-length failures in the logs. The only context-related hits 
 - every dispatcher poll spamming `dispatch_terminal_exclusion_unresolved` for ~50 already-`free_and_reconciled` tickets
 
 Which errors are you actually seeing? If it's chat sessions dying or turns failing, the prompt size is a plausible contributor and the trim above is the fix. If it's the dashboard stalling or timing out, that 21–31s index load and the 1.1GB log are the more likely culprits and I'd chase those instead.
+
+<!-- xgd-turn id="afc5b194-959f-4e58-9357-719c31a04836-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:45:15.816040+00:00" -->
+#### You
+I am seeing dashboard chat sessions constantly produce a red dot and silently die with no error - this is happening everywhere but in this project nor than any other. Other discussions I have had have pointed to context bloat - but note that its happening on new tickets with only priming and a short prompt
 
 <!-- xgd-chat-end -->
