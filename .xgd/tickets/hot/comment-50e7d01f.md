@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T20:35:43.382929+00:00'
+updated_at: '2026-09-22T20:39:37.098553+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1133,5 +1133,11 @@ Worth noting the shell already models the adjacent idea: `.shell-panel.is-fill` 
 So REQ-298's two selector touches are standing in for two real upstream omissions, which is why the ticket says each becomes a one-line change the day either slot lands. That framing is already in the body.
 
 A framework fix means a ticket in that repo and nothing else — I won't touch its code from here. Want me to file the two REQs in `lagrange-framework`? The one thing I'd need from you: none of its six epics is about webui chrome (they're workbench, context, flags, logging, write-locks, flock), so they'd land as standalone REQs unless you'd rather they hang off one.
+
+<!-- xgd-turn id="6e4290d9-253e-404c-87e9-7201f88f2fbb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:39:36.451403+00:00" -->
+#### You
+Please create the REQs in LF
 
 <!-- xgd-chat-end -->
