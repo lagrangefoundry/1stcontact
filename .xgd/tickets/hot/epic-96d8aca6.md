@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-22T17:55:19.217725+00:00'
+updated_at: '2026-09-22T19:04:06.950809+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -1306,3 +1306,21 @@ That branch is the steady state for every deploy after the first, so the probe c
 That also fixes `/api/status` at the same time. Both defects here are one: two places report "the AI works" from the presence of a configuration value, and neither asks the only system that can answer.
 
 Interim: re-supplying the key through `bin/deploy` takes the supplied path and probes it, failing the deploy if Anthropic refuses — which is the behaviour wanted on every deploy, not only on a rotation.
+
+
+### I23 — The orphaned conversations were repaired in place, and verified
+
+Done, and re-verified against production on 2026-09-22 rather than asserted from memory. Lagrange Foundry now holds exactly two sessions, both addressed to production ids, both carrying their transcripts:
+
+| uid | session_id | backend | transcript |
+|---|---|---|---|
+| `chat-fa105276` | `site-site_23c1afb3…` | `claude+site:site_23c1afb3…` | 253,272 B chat + 2,020,732 B tool |
+| `chat-e3df9535` | `business-biz_33086a94…` | `claude+business:biz_33086a94…` | 4,534 B chat + 3,720 B tool |
+
+No session addressed to a local id remains anywhere in the store, and no duplicate placeholder survives on either production id.
+
+**What the repair did**, in order: backed up all six affected rows to `storage/backups/chat-fix-before.json`; deleted the two auto-created empty placeholder sessions and their comments (313–317 B each, no turns); then repointed **both** `fields.session_id` and `fields.backend` on the two imported sessions.
+
+**`backend` is the field that would have been missed.** `session_id` is the obvious carrier and the one [[BUG-137]] was filed against, but `backend` holds the same id in a second derived form (`claude+site:<id>`) and is what actually binds a session to its subject. Repointing only `session_id` produces a session the builder can find and a backend reference that names nothing — a second, quieter version of the same bug. The fix under BUG-137 must rewrite both.
+
+**Still outstanding, and deliberately not run:** 1st Contact and XGD hold only empty placeholders — their `--chats` copies never ran. Running them now would land orphaned exactly as these did, because BUG-137 is unfixed. Either wait for that fix, or run them and repeat this repoint, which is mechanical now the shape is known.
