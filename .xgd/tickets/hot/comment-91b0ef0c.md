@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:12:02.973429+00:00'
+updated_at: '2026-09-22T22:13:08.207268+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1793,5 +1793,47 @@ Wait I think you misunderstand the LOOP i am refering to is
 2 Diagnose and file tickets
 3 Implement tickets
 4 GOTO 1
+
+<!-- xgd-turn id="e7c51917-fc35-4270-aad4-4fd476478ca6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T22:13:06.696617+00:00" -->
+#### Claude
+Got it — step 3 is inside the loop. Then the question is whether that loop converges, and it has one property that makes it not an ordinary optimizer:
+
+## The ruler is inside the loop
+
+Step 1 is performed by the instrument that step 3 modifies. A normal convergence argument assumes a fixed objective; this one edits its own objective every time around.
+
+Three consequences, all of which you're already seeing:
+
+**The score can't tell you you're converging.** BUG-107 took a reproduction from 1 delta to 14 with nothing about the page changing — it added role comparison, so eleven already-broken headings stopped reading as zero. Every ruler ticket does some version of that. The delta series across rounds is not a series; REQ-277 exists because of exactly this.
+
+**Most of the loop is step 1 improving itself.** 20 of 22 tickets from rounds 1–3 made the ruler trustworthy; 2 raised the ceiling. That's not a malfunction — it's what the loop does first, and it terminates when the instrument measures everything the corpus exercises.
+
+**Which is the catch:** *the corpus*, not the web.
+
+## It converges to three sites
+
+The fixed point of this loop, as it stands, is "perfect on faelan, gigabytealchemy, joyfulculinary." The rail (REQ-255) is the anti-overfit device — it re-gates all three, so a fix that special-cases one and breaks another gets caught. But it prevents regression; it doesn't manufacture generality. Add a fourth reference and the ruler queue reopens.
+
+**So yes, give it time — but time is measured in references, not rounds.** The convergence signal isn't the score on site 3. It's:
+
+> how many ruler tickets does a *newly added* reference file in its first round?
+
+If site 4 files 20 and site 8 files 3, the engine is generalizing and you stop. If site 8 still files 20, you're building a lookup table one site at a time and the loop will never end.
+
+The good news is the data already exists and nothing reads it. `gaps.ts` records, per gap class, `references: string[]` — which stored references exhibited it. A class exhibited by one site is a special case; the same class exhibited by three is engine physics. That's precisely the discrimination you need, already being written to disk, with no consumer treating it as a series.
+
+## What the loop structurally cannot do
+
+It has no generative pressure. It found the gradient because gigabytealchemy has one. Nothing in the loop will ever look for subgrid, container queries, or `@supports` fallbacks, because no reference exercises them and step 1 only compares what's in front of it. That's a corpus-selection problem, not a loop defect, and no amount of iteration touches it — the loop's ceiling is the diversity of what you feed it.
+
+## So, concretely
+
+1. **Fix the one-word verdict.** Still the cheapest thing in the system; it's what's misdirecting each round's attention right now.
+2. **Read the gap registry as a series** — ruler:ceiling ratio per round, and ruler tickets per new reference. That's the convergence readout the loop currently lacks. Small: the data is written, nothing aggregates it.
+3. **Grow the corpus on purpose.** Adding site 4 isn't extra work on the side of the loop; it's the only thing that makes the loop's answer mean anything beyond three sites.
+
+Want me to scope #2 under EPIC-12? It's the one that turns "should I give it more time" from a judgement call into a reading.
 
 <!-- xgd-chat-end -->
