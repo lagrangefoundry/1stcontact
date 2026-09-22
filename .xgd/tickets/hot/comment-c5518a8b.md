@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-295
 created_by: xgd
 created_at: '2026-09-21T23:35:42.313528+00:00'
-updated_at: '2026-09-22T00:29:20.505897+00:00'
+updated_at: '2026-09-22T00:48:55.851775+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,100 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="9510bc31-93e6-4679-9c01-3bf011c7d50a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T00:48:55.762337+00:00" -->
+#### Claude
+I'll start by reading the ticket and checking the current state of the work from the prior session.
+
+The branch and worktree exist from the prior session. Let me check their state.
+
+Work is uncommitted in the worktree. Let me read the full ticket body from disk.
+
+Now let me review all the uncommitted work from the prior session.
+
+Substantial implementation is in place. Let me check the tests and verify the framework APIs used.
+
+Let me just run the tests — that's the real question.
+
+The worktree has node_modules. Let me run the new REQ-295 tests.
+
+16/16 pass. Now the workers suite — the substantial one.
+
+Both new suites pass. Let me review the test content to confirm it's real evidence, then run the regression scope.
+
+Condition 6 is covered (the assertion is there, comment-labelled). Now the regression scope — the two modified suites plus adjacent areas.
+
+Three regressions. Let me see the first one in full.
+
+Let me check whether the BUG-67 failures are pre-existing (upstream drift) or caused by this change.
+
+Confirmed: the two BUG-67 failures are **pre-existing on clean xgd-working** (upstream framework drift). The REQ-182 one is ours and legitimate — we added `delegation.method` to both consultant orders. Let me update that test to match.
+
+Now let me widen the regression scope to the host/spend/workers suites this change touches.
+
+All pass. Let me commit this work now to protect it, then run the full suite. First a typecheck.
+
+Typecheck clean. Let me commit now to protect the work, then run the full suite.
+
+Work is safe. Now the full suite, to catch anything the targeted scope missed.
+
+19 failures. I need a baseline — let me get the failing file list and run the same suite on clean xgd-working.
+
+None of these are suites this change touches. Let me get the baseline on clean xgd-working.
+
+Baseline is **22 failures / 13 files**; our worktree is **19 / 8** — a subset, except `BUG-134_copy_two_ends`. Let me isolate that one.
+
+It passes in the main checkout but fails in the worktree. Let me confirm it's a location artifact and not our change, by running it at the pre-change commit in the same worktree.
+
+Confirmed — BUG-134 fails at the pre-change commit in the same worktree. **No regressions from REQ-295.**
+
+Let me check the two modified existing test suites before updating the ticket.
+
+Both preserve the original claim while dropping an incidental "only role" coupling. Now let me add the implementation consequences to the ticket body.
+
+Ticket body updated. Now the merge-back: lock, merge, then claim.
+
+The version scalar conflict — xgd-working moved while we worked.
+
+xgd-working advanced to 0.2.315. Per the established recipe, I'll do this the other way: merge working into the branch, bump there, then fast-forward back.
+
+Now bump on the branch so the version-carrying commit is the tip.
+
+Let me re-verify the merged state before fast-forwarding back.
+
+61/61 pass on the merged state. Now fast-forward xgd-working to the branch.
+
+Fast-forwarded cleanly. Now the `free_coded` claim.
+
+Free-coding complete. REQ-295 is at `free_coded`, both commits merged into `xgd-working`, branch and worktree cleaned up.
+
+## What landed
+
+A `builder` worker role the consultant can hand bounded construction to, running on `claude-haiku-4-5`, behind a switch that **ships off**.
+
+- **`delegation.json` + `delegation.ts`** — the switch and its validator. Its own file, not a key in `backends.json`, because `configureBackends` rejects keys it doesn't declare. Off means the surface is **never composed**, so a deployment with the switch off sends byte-for-byte the prompt the repo sent before delegation existed.
+- **`backends.json` / `prices.json`** — `claude_builder`, a second variant of the same adapter with its own model, ceiling (32000) and rates. The consultant does not move.
+- **`instances.json` / `roles.ts` / `priming.json`** — the builder's grant (the consultant's construction half, not its judgement half: no `add_page`, `delete_page`, `publish`), its own prose, its own projected manual, and the consultant's method prose for handing work over.
+- **`toolbox-core.ts`** — `l1SurfaceSet` extracted from `createL1Toolbox`. The ticket expected "an argument change rather than a refactor"; that was true of the inputs and wrong about the output, since the delegation surface builds the worker's Toolbox *itself*. Every existing caller is unchanged.
+- **`host-core.ts`** — the `DelegationRuntime` wiring, worker spend read off the junction's `turn_end` (the only place it's durable on a failed/stopped/never-reported worker), and worker tool calls audited under the worker's own session id.
+
+## Evidence
+
+23 new UATs across two suites — one on the configuration, one on the wire through the real `/api/ai/prompt` endpoint with the provider scripted at the boundary. All nine of the ticket's "what must be true" conditions are covered, including condition 6 (a worker offers `report`, never `delegate`).
+
+Three existing cases moved, none weakened: REQ-174 and REQ-239 each asserted `L1_INSTANCES` *equals* `[consultant]`, incidental to both claims; REQ-182's corpus-free order now names the new provider, which is registered unconditionally.
+
+## Verification
+
+Typecheck clean. **19 failures in the branch against a 22-failure baseline on clean `xgd-working`** — the branch's failing set is a subset, plus `BUG-134_copy_two_ends`, which I confirmed fails identically at the pre-change commit in the same worktree (a worktree-location artifact; it passes in the main checkout). No regression is attributable to this change.
+
+Two things worth flagging:
+
+- **`BUG-67` is failing on clean `xgd-working`** — upstream framework drift, not this work. `backendSettings('claude')` now carries a framework-defaulted `contextWindow`, and `configureBackends` has stopped rejecting undeclared provider names. That second one is a real loss of a start-up guard the repo was relying on; it may deserve its own ticket.
+- **This landed first relative to REQ-296.** No entry in `backends.json` declares `contextWindow`, so REQ-296 lands second and carries the responsibility to give *both* entries a declared window — the worker's included.
+
+The switch ships off, so nothing is enabled ahead of REQ-296 or a REQ-292/REQ-293 baseline. The ticket is parked at `free_coded`; promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
