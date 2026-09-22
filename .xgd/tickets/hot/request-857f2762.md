@@ -5,15 +5,20 @@ type: request
 title: Copy an existing page to a new one, content and all
 created_by: xgd
 created_at: '2026-09-22T21:50:10.208614+00:00'
-updated_at: '2026-09-22T22:13:16.003770+00:00'
+updated_at: '2026-09-22T22:14:03.181305+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-7fd5af2d
+  commits:
+  - working_sha: 7ab878e7317a50a6da18dee6f4fbe95875227b24
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.323
 ---
 
 ## What I was trying to achieve
