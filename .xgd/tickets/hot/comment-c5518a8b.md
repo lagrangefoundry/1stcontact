@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-295
 created_by: xgd
 created_at: '2026-09-21T23:35:42.313528+00:00'
-updated_at: '2026-09-22T20:24:06.362460+00:00'
+updated_at: '2026-09-22T20:27:57.293166+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -294,5 +294,49 @@ Deploy is `cd apps/control-app && npm run deploy`. It'll ship REQ-292, REQ-293, 
 Please do not worry about reconcile - leave that to me.
 
 Can you confirm that delegation is live in dev and prod
+
+<!-- xgd-turn id="7eafce50-97b3-413a-9e74-4669c19f1a92-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:27:57.225006+00:00" -->
+#### Claude
+**Yes — delegation is on in both.** I confirmed it from the artefacts rather than from the commit log.
+
+## Production — confirmed live
+
+Your deploy landed. Version `3f9b69de-69c4-4e44-9e1e-307ee3a4bae9`, uploaded **2026-09-22T20:17:10Z** — four minutes after the flip commit `d384588eaf` (20:13:14Z).
+
+I pulled the deployed script back off Cloudflare (`GET /workers/scripts/1stcontact-control-app`, 8.4 MB bundle) and read the inlined config out of it:
+
+| In the live bundle | |
+|---|---|
+| `enabled: true` | with `workers: { builder: { backend: "claude_builder" } }` |
+| `claude_builder` | `model: "claude-haiku-4-5"`, `max_tokens: 32e3` |
+| `claude` (consultant) | `model: "claude-opus-5"`, `max_tokens: 64e3` — unmoved, as intended |
+| `DelegationRuntime` | present |
+| `"claude-haiku-4-5": 2e5` | REQ-296's window table, so the worker meets a start-up guard |
+| `"IT SHIPS OFF"` | **0 occurrences** — the old prose is gone |
+
+Both `[env.production]` and the top-level block carry `name = "1stcontact-control-app"`, so there is only one deployed worker and that is it. No new secret was needed: the worker adapter reuses `deps.apiKey`, and `ANTHROPIC_API_KEY` is on the version.
+
+## Dev — on, by filesystem evidence rather than a live request
+
+`wrangler dev` is up on **127.0.0.1:8788** (workerd pid 98252, active connections). Its bundles tell the story:
+
+| `.wrangler/tmp/…/worker.js` | rebuilt | delegation |
+|---|---|---|
+| `dev-RGHkjz` | 11:45:01 | **OFF** |
+| `dev-ee3lZ9` | 11:45:22 | **OFF** |
+| `dev-05tGXb` | 11:59:30 | **OFF** |
+| `dev-8Rbike` | **13:14:05** | **ON** |
+
+The 13:14 rebuild is the hot reload that fired when I edited `delegation.json`, and nothing newer exists — so the running server is on the delegating build.
+
+The one honest caveat: I could not prove that with a request. Your `.dev.vars` sets `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD`, which is what makes `ACCESS_DEV_OPEN = "1"` inert, so the dev server refuses me at the gate the same as a stranger. If you want zero doubt, restart `./bin/1c builder` — a cold start can only read the current file.
+
+## The observation that would actually close this
+
+Config-on is not the same as delegation-happening. The proof is a turn where the spend ledger attributes tokens to `claude_builder` — open a site in the builder, ask for something constructive, and look for a worker attribution on the turn. That's the first real signal, and it's also your before/after figure now that REQ-292's undelegated baseline was overruled.
+
+No code changed this turn, so REQ-295 is untouched at `free_coded` with its 4 commits — reconcile stays yours.
 
 <!-- xgd-chat-end -->
