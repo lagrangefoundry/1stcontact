@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:30:37.965902+00:00'
+updated_at: '2026-09-22T22:32:09.480200+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1899,5 +1899,54 @@ Want me to scope the verdict-reporting fix under EPIC-12, run the mechanism expe
 <!-- xgd-chat role="user" ts="2026-09-22T22:30:37.164462+00:00" -->
 #### You
 The latest engine update ticket just landed REQ-302 - can you tell me how many of my concerns it will address?
+
+<!-- xgd-turn id="38561916-7d5e-4648-839a-8714d25e21ec-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T22:32:09.033128+00:00" -->
+#### Claude
+Read it. Short answer: **both of your concrete concerns, and it speaks directly to the third.**
+
+## Your two named issues
+
+**The text/background discontinuity — Issue 2.** The round diagnosed it further than I did, and found the actual mechanism. The fold emits Sanctum's three `✓` bullets *after* XGD's three, then drags them back up the page:
+
+```
+0.15.11.0  '✓'   y: -946 @320,  -824 @375,  -460 @768…
+0.15.11.1  'Completely on-device…'   y: -950, -828, -464…
+```
+
+Those compile to `margin-top: -946px` and get **interpolated between rungs** — so at 500px the `✓` row is pulled to −708 while the paragraph above it has wrapped to a height nobody sampled. They land on top of each other. Correct at the six captured widths, wrong everywhere else.
+
+That's the cause of my "83% cross-depth, inside promoted regions" signature — I had the shape, the round had the reason. Its proposed fix is the right one: order flow-promoted siblings by reading order, and *refuse to emit a negative `y` at all* — if the pass wants one, it has mis-ordered, and a fold residual is the honest output. It also explicitly warns not to fix this by reverting REQ-278.
+
+**The gradient — Issue 1, and I had it wrong.** I told you L1 has no axis for it. It does — `gradient` on `renderedTextBox`, captured. The defect is that a flow-placed run whose width was relaxed to a floor stretches to its container, so the gradient's `60%` stop is painted across the wrong width (685px shrink-to-fit vs. the full column).
+
+Your instinct was right: it's **"a one-declaration renderer change with the largest measured payoff"** — 58.4% of the ranked score and 10 of the 20 deltas. It's the cheapest item in the ticket and the biggest.
+
+## Your third concern — can the system work
+
+This ticket is the best evidence yet that it can, and for reasons beyond the two fixes:
+
+- The **loop filed it** (`created_by: repro-console:repro-gigabytealchemy-ai#4`), with `defect_class` populated — first real data through REQ-276.
+- It accounts for **100% of the ranked score** (609.22 + 127.69 + 306.56 = 1043.47) and all 23 deltas. Nothing is hand-waved.
+- Issue 7 is 29.4% marked `cannot-tell`, with what would separate it named. It didn't invent an attribution.
+- It flags that Issue 5 will **raise** the delta count and that this is the instrument sharpening — REQ-277's discipline held under pressure to look good.
+- It sequences by dependency: Issue 1 changes 15 runs' widths, so Issue 2's collision set must be re-measured after.
+
+And the reading I'd weight most: **all seven residuals are `ruler` or `unknown`. Zero `ceiling`. Not one `l1-cannot-express`.** Nothing this round found needed a new L1 capability. The expressive power of the format isn't the bottleneck — fold, renderer and capture correctness is. For "is the approach sound," that's the good answer.
+
+## What it doesn't cover
+
+**The one-word verdict.** The round hit it exactly — *"`gate.json` says `l1Pass: false` with `layout.pass: true` and `layout.findings: []`, so nothing in `gate.json` itself says what failed — the answer is only in `1c l1-gate`"* — wrote it down as an aside, and did not file it as a residual.
+
+I should also soften what I said last turn: the round **worked around it in one round** by going and running `l1-gate` itself. So it's less of a blocker than I claimed — the cost is that every round re-derives it, and that a real defect got observed and dropped rather than filed.
+
+**Convergence measurement** — the per-round ruler:ceiling ratio and per-new-site ticket count. Out of scope for an engine ticket, and still nothing reads the gap registry as a series.
+
+---
+
+So: two of two concrete concerns, addressed well and in the right order. The residue is that the loop is producing excellent per-round diagnosis and no cross-round signal about whether it's converging.
+
+Want me to scope the verdict-reporting gap under EPIC-12 — it's now a defect the loop itself observed and let go?
 
 <!-- xgd-chat-end -->
