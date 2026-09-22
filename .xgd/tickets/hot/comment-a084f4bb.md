@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T18:56:52.907595+00:00'
+updated_at: '2026-09-22T19:00:22.269234+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -234,5 +234,11 @@ The gate will pass. I checked the local D1 directly: `martin@westhead.me` (`usr_
 **It will open empty, and that's correct.** `SELECT COUNT(*) FROM turn_spend` is `0` in that database, so Business cost renders *"No business has a measured turn in this period."* — the ticket's "absent rather than zero". Rows only appear as the AI host records real turns.
 
 Tell me what you see after Step 3 and we'll go from there.
+
+<!-- xgd-turn id="f0908c92-c7ea-4233-a8fa-354320f2be96-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T19:00:21.848447+00:00" -->
+#### You
+Ok good I am now properly logged in, but I see no Console button
 
 <!-- xgd-chat-end -->
