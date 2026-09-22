@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:28:13.136608+00:00'
+updated_at: '2026-09-22T23:35:18.513225+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3140,5 +3140,11 @@ Two small edits. The day separators come free once `ts` is flowing.
 `xgd branch cut BUG-138` switches branches in `/Users/martin/lagrangefoundry/1stcontact` — the tree `wrangler dev` is serving. Per Finding 10, that rewrites files under the dev server and restarts it, which will kill whatever turn you have running. That's the whole thing we just diagnosed, so I'm not going to do it blind.
 
 Say when you're between turns and I'll cut it and free-code BUG-138 straight away. If you'd rather I set up the pinned-checkout arrangement first so this stops being a question at all, I can do that instead — it's config, not code, so it doesn't need a branch.
+
+<!-- xgd-turn id="a34b5420-865c-47ed-9139-8228f2a09dbf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:35:17.835003+00:00" -->
+#### You
+One boundary I wrote into the ticket explicitly: **the turn will not resume across a deploy.** The model loop was running in an isolate that no longer exists. What you get is that the client's words, the partial reply, and the tool records for work that actually landed all survive and fold into a coherent transcript — so nobody reconstructs anything, and a deploy costs the rest of one answer. Driving a turn from *inside* the DO so it outlives its request is a much larger question; I kept it out of scope rather than smuggling it in. <-- is preservation across a deploy possible - I think we need that
 
 <!-- xgd-chat-end -->
