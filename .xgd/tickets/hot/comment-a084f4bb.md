@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T18:34:45.998279+00:00'
+updated_at: '2026-09-22T18:53:59.261645+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -165,5 +165,11 @@ I haven't started it — detached listeners can't be killed from this sandbox af
 **One caveat: it will open empty.** `turn_spend` has **0 rows** in that local database, so Business cost will read *"No business has a measured turn in this period."* That's the correct rendering rather than a fault — it's the ticket's own "absent rather than zero", and its `## Depends on`: REQ-292 and REQ-293, with nothing to render until a period of records exists. There's no seeder for `turn_spend`; rows are only written by the AI host as turns actually happen (`recordTurnSpend`), so the table fills once you use the assistant against this local database — or if you point it at one that already has records.
 
 If you genuinely want it as a tab rather than a header action, that contradicts the ticket body and REQ-179's uniformity argument, so it's a re-scope decision for you rather than something I should quietly change.
+
+<!-- xgd-turn id="5373e84b-6bb5-44c8-a19d-330847a2b161-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T18:53:58.902169+00:00" -->
+#### You
+ok you will need to help me through this a step at a time. I had to kill -9 the old builder. It is now running but I am not logged in. going back to the access-sim does not help - I can see the 1rts contact site in the builder, but I have no buisness selector and my avatar button shows ?
 
 <!-- xgd-chat-end -->
