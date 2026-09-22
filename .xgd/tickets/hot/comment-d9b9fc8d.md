@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:12:25.141208+00:00'
+updated_at: '2026-09-22T21:12:45.841310+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3199,5 +3199,11 @@ If the turn completes, you're unblocked **on Lagrange Foundry**, with the actual
 The one thing I'd avoid is switching tenant *first* and leaving this undiagnosed, because the same ceiling is waiting on whichever site you move to — just further away. Gigabyte Alchemy is already at 2.58 MB of assets and a 6 KB session; it's the same road, earlier on.
 
 Say go and I'll run the trim now.
+
+<!-- xgd-turn id="8e570adb-4eb7-4031-85f5-ea773c095a59-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:12:44.408750+00:00" -->
+#### You
+Chat works fine on Gigabyte alchemy - its LF that breaks it
 
 <!-- xgd-chat-end -->
