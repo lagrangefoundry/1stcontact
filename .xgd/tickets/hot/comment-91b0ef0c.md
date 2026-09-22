@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:35:21.951086+00:00'
+updated_at: '2026-09-22T20:53:04.137389+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1331,5 +1331,17 @@ Good - thanks
 <!-- xgd-chat role="assistant" ts="2026-09-22T20:35:21.444829+00:00" -->
 #### Claude
 REQ-299 is parked in `draft` under EPIC-12 — nothing cut, nothing coded. Whenever you want it built, just say so.
+
+<!-- xgd-turn id="c01ca82e-6dcb-4bdf-ae18-b060f8ad486e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:53:04.062054+00:00" -->
+#### You
+What does this mean:
+
+gate: **structural-failure**
+
+```
+regression rail: the regression rail — not yet recorded — no baseline at storage/rail/baseline.json; record one with `repro-rail record`
+```
 
 <!-- xgd-chat-end -->
