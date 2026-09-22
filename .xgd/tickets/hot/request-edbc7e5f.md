@@ -6,7 +6,7 @@ title: 'renderer/fold/capture: a flow-placed run stretches to its container, the
   repairs mis-ordered siblings with negative margins, and four measurement residuals'
 created_by: repro-console:repro-gigabytealchemy-ai#4
 created_at: '2026-09-22T22:25:47.579565+00:00'
-updated_at: '2026-09-22T23:21:52.092756+00:00'
+updated_at: '2026-09-22T23:52:33.868674+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -1184,3 +1184,94 @@ The browser legs skip cleanly where Chromium cannot launch, matching the
 repo's existing convention. In an agent sandbox they run under
 `CHROMIUM_LAUNCH_ARGS=--single-process` (REQ-262 D9) — all 29 were verified
 green that way, not merely skipped.
+
+
+---
+
+# As built — what closing these seven cost elsewhere
+
+Five of the seven fixes change an answer that an EARLIER ticket's evidence had
+pinned. In every case below the earlier capability is still true and still
+proven; what moved is the specific number or the specific live example its test
+happened to be written against. Recording it here because a reader of this
+ticket should not have to discover from a diff that REQ-302 reached into six
+other test files, and because one of the repairs required a small production
+change of its own.
+
+Nine tests across six files failed on the first full sweep after the seven
+fixes landed. All nine are this category. None was a defect introduced by
+REQ-302, and none was repaired by weakening what it tested.
+
+## The one production consequence — `diffManifests` needed a seam (REQ-274)
+
+**Changed:** `values-diff.ts` — new optional `DiffOptions.declaredUnmeasured`,
+forwarded to the `observedUnmeasuredAxes(expected, actual, declared)` call.
+
+Issue 5 does not merely record four axes; it withdraws the last entry in
+`UNMEASURED_AXES`, so that table is now **empty**. REQ-274's capability is "a
+compared axis the table can read on only ONE side is REPORTED as unmeasured
+rather than passing as clean", and its evidence was necessarily written against
+whatever live gap existed at the time — these four. Closing the last gap left
+that test with no live example to drive the reporting path with.
+
+The axis table's own function already took its declared list as a parameter;
+`diffManifests` was the one step that did not forward it. Adding that forward
+lets REQ-274 declare a synthetic one-sided axis and prove the reporting path on
+it directly. **Production callers pass nothing and get the live table,
+unchanged** — this adds a test seam, not a second behaviour.
+
+The alternative was to leave a measurement gap open on purpose so that a test
+about gap-REPORTING would keep having one to look at. That is backwards: the
+declaration exists so a gap can be seen and then closed, and an empty
+`UNMEASURED_AXES` is what "all five instances are closed" looks like. REQ-274's
+assertion on the live table is now `[]` and is documented as that success
+condition, with the shape of a row still pinned against whatever the table
+declares if it ever declares one again.
+
+## Issue 6's precision change moves three pinned numbers
+
+`req265-line-box-and-placeholder-ink.test.ts`, `req88-surface-shape-and-fontface.test.ts`
+(two tests). Each pinned a whole-pixel result of the geometry the fold now
+writes at two decimals:
+
+- REQ-265's line-box top moves `83` → **`82.5`**. What REQ-265 pins is the
+  DISTINCTION — the line-box top rather than the content-area top — so the test
+  now asserts `82.5` **and** separately asserts it is not the `79` content-area
+  value it replaced, which is the invariant stated in a way the fold's precision
+  cannot move again.
+- REQ-88's text-leaf width goes from `Math.ceil` to ceiling-at-two-decimals. The
+  invariant REQ-88 pins is the DIRECTION — a text box rounds up, never down,
+  because rounding down reflows it — and the finer grid makes the
+  over-allocation smaller without weakening it.
+- REQ-88's box-leaf test proves a surface box rounds NEAREST where a text leaf
+  ceils. Its fixture's `896.4` ceils and rounds to the same value at two
+  decimals and so no longer discriminates; the fixture moves to `896.401`,
+  which rounds down to `896.4` where a ceiling would give `896.41`. The
+  distinction the UAT exists for is restored, one decimal place further in.
+
+## Issue 5's schema bump un-pins a live constant (REQ-275)
+
+`test_UAT_FC_REQ-275_capture_completeness_audit.test.ts` asserted
+`CAPTURE_SCHEMA === 4`. REQ-302 stamps 5. That UAT is about REQ-275's four axes
+coming out of ONE mechanical pass and sharing ONE bump — a property of the
+schema-4 group, which stays true however far the stamp advances. It now asserts
+`>= 4` and keeps its real assertion (the four axes whose `since === 4`)
+untouched. Pinning the live number would make every later capture change look
+like a REQ-275 regression.
+
+## Issue 1's keyword change is read from one constant (REQ-117)
+
+Covered under Issue 1 above and repeated here for completeness:
+`req117-nowrap-width-is-a-floor.test.ts` and
+`reconciliation-nowrap-width-floor.test.ts` now read the relaxed keyword from a
+single `RELAXED` constant, so the counterfactual stylesheet the AC-1009 test
+synthesises cannot drift from the emitter.
+
+## Not a consequence
+
+`reconciliation-system-knowledge-base.test.ts`'s
+`test_UAT_AC1293_status_reports_the_corpus_size_and_each_artefact` also failed
+on that sweep. It asserts a count read from the live ticket store, and the
+sweep was running while this ticket's own body was being written. It passes in
+isolation with all seven fixes in place. Recorded here only so the next reader
+of that sweep log does not re-triage it.
