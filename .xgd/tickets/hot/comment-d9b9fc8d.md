@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:00:47.887003+00:00'
+updated_at: '2026-09-22T21:11:34.092455+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3163,5 +3163,11 @@ Let me **back up the tool transcript in full and truncate it**, then re-run my p
 Either outcome is worth having, and neither costs you the conversation. Want me to run it?
 
 Independently of that, the real fix is a **windowed resume** — nothing bounds what a session materialises, so every conversation eventually reaches the turn that kills it, with no degradation and no readable error. Say the word and I'll file it against EPIC-16; it's a framework-side change, so it'll want a ticket in `lagrange-framework` rather than code here.
+
+<!-- xgd-turn id="4ea05d3d-e820-4dd9-bc30-ed07fadeb8a8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T21:11:34.014977+00:00" -->
+#### You
+Do you want me to just choose a different tenant?
 
 <!-- xgd-chat-end -->
