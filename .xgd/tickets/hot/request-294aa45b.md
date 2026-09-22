@@ -5,9 +5,9 @@ type: request
 title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T20:36:37.209993+00:00'
+updated_at: '2026-09-22T20:41:39.047663+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -104,7 +104,12 @@ offers a trailing `actions` slot and no leading one. There is likewise no
 declared slot for a view that replaces the panels, and inventing a helper to
 hide that would make two exceptions look like none. So they are a list of
 exactly two, each with a comment saying which upstream gap it stands in — and
-the day `webui-shell` grows either slot, each is a one-line change.
+both gaps are now filed against the component itself: `lagrange-framework`
+**REQ-173** (a `leading` slot in the bar) and **REQ-174** (`openView` /
+`closeView`, which is also the only place "no tab reads as selected" can be
+stated, since `tabs.js` has no concept of none active). Neither blocks this
+ticket; the day either lands, the touch it stands in for becomes a one-line
+change.
 
 ### Getting out of it
 
