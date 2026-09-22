@@ -5,7 +5,7 @@ type: request
 title: Delegate construction to a cheaper worker, behind a switch
 created_by: EPIC-20
 created_at: '2026-09-21T23:11:05.910693+00:00'
-updated_at: '2026-09-21T23:48:16.254403+00:00'
+updated_at: '2026-09-22T00:47:17.395758+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -199,3 +199,135 @@ not conflict in substance, but whichever lands second is responsible for the
 worker entry carrying **both** — a worker backend without a declared window is
 exactly the case REQ-296's guard cannot protect, and it would read as
 configured rather than as missed.
+
+
+## What it turned out to take
+
+The shape above held. Four things it implies were not named in it, and each is
+load-bearing enough that a reader of this ticket should not have to find it in
+the diff.
+
+### The worker's rates, not just its model
+
+"A second entry in `backends.json`" implies a second entry in `prices.json`,
+because condition 7 ends in **REQ-293's split by model** and a split by model is
+priced by the name that actually ran. `prices.json` is keyed provider-then-model
+and a lookup that fell back to the `claude` family would price a worker's Haiku
+tokens at Opus rates — a confidently wrong figure, which is the one thing that
+file exists to avoid. So `claude_builder` is keyed there as itself.
+
+### `l1SurfaceSet`, extracted rather than reused
+
+The ticket expected "an argument change rather than a refactor", on the grounds
+that `createL1Toolbox` already takes `role` and `config`. That is true of the
+inputs and wrong about the output: the delegation surface builds each worker's
+Toolbox **itself** — which is exactly what makes "the worker's authority is its
+role's grant" a framework floor rather than this host's discipline — so what the
+host must supply is a list of surfaces and a grant, not a finished Toolbox.
+
+`createL1Toolbox`'s body is therefore split in two: `l1SurfaceSet` does the
+assembly and `createL1Toolbox` becomes the one-line Toolbox construction on top
+of it. Every existing caller is unchanged. Writing a second assembly for the
+worker was the alternative, and it is how the travelling-grant merge, the
+appended manual and the narrowing-to-what-was-composed would have come to
+disagree — with a worker holding authority nobody granted it as the symptom.
+
+Each role gets its **own** call: a Toolbox binds each surface to the grant it
+was constructed with, so handing the consultant's L1 instance to a worker would
+re-bind it to the worker's narrower grant and quietly take capabilities off the
+consultant.
+
+### Two start-up checks, not one
+
+Condition 9 asks for a worker bound to an undeclared backend to fail at
+start-up. The same argument applies to a worker role bound to a role **this host
+cannot build** — it would otherwise surface as a runtime `unknown_role` refusal
+at the first delegation, which is the same configuration mistake discovered in
+the same customer's conversation. Both are checked, both name the offending key,
+and both are checked **even with the switch off**, so that flipping it is a
+decision rather than an experiment.
+
+### Attribution is read off the junction, and the audit sink is set past the API
+
+Condition 7's "on every exit path" is satisfiable only from the junction. The
+manager takes a turn's attributions, clears them, and writes them onto the
+`turn_end` record it appends from its own `finally` — durable for the worker
+that failed, the worker that was stopped, and the turn the client walked away
+from. They are **not** on the terminal event, which carries the turn's own
+spend. So the caller reads the last `turn_end`, and only where the delegation
+surface was composed at all. Both sources are named in that order, so the day
+upstream puts `attributed` on the terminal event this needs no change.
+
+Condition 8 costs one line that reaches past the framework's API: the worker's
+Toolbox is constructed by the delegation surface, and `Toolbox` takes its audit
+sink at construction, which the surface does not pass on. The attribution itself
+is already correct — the surface builds the worker's Toolbox with its own
+session id and role — so the host supplies the sink and nothing else. The
+upstream fix is one option on `WorkerConfig`; until it exists this is the honest
+shape, and it is one line so it is cheap to delete.
+
+### One property worth naming: the worker's prefix is cacheable
+
+Every worker this deployment opens sends an **identical** stable prefix — the
+builder's prose plus its own projected manual. Which site it is on and what is
+currently on that site are volatile and ride the reminder tier. A worker lives
+one turn, so nothing is lost by delivering them there, and putting them in the
+prefix would give every delegation a prefix of its own — which on a lever whose
+whole purpose is cost would be the saving spent on itself.
+
+## Evidence
+
+Two suites, 23 cases, named for the conditions above.
+
+- `tests/test_UAT_FC_REQ-295_delegation_config.test.ts` (16) — the switch as a
+  document: it ships off, a worker bound to an undeclared backend or an
+  unbuildable role is refused by name, a malformed one is refused at the key
+  that is wrong; the worker's model, ceiling and rates; the builder grant being
+  the construction half and taking nothing from the consultant; the builder role
+  loading with its own prose and providers and reusing none of the other roles'
+  entries; the method entry rendering nothing with the switch off and the
+  shipped words with it on.
+- `tests/test_UAT_FC_REQ-295_delegation.workers.test.ts` (7) — the wire, through
+  the real `/api/ai/prompt` endpoint with the provider scripted at the boundary:
+  conditions 1 and 2 on the tools actually offered; 3, 5 and 6 on the worker's
+  first request — the configured model and ceiling, the builder's prose, a grant
+  that is a subset of the caller's plus `report` and no `delegate`; 4 on what
+  comes back; 7 twice, once for a worker that reported and once for a worker
+  that never did; 8 on the audited session id.
+
+Three existing cases moved, none weakened. `REQ-174` and `REQ-239` each asserted
+`Object.keys(L1_INSTANCES)` **equals** `[consultant]` — incidental to both
+claims, which are that the renamed key is present and the old one absent
+(REQ-174) and that the settings role is *not* there (REQ-239); both now assert
+that directly. `REQ-182`'s corpus-free order now names `delegation.method`
+alongside `site.manual`; its claim is that every name the order declares is one
+`registerSiteProviders` binds, and the new one is bound unconditionally — which
+is what lets the switch decide what it *renders* rather than whether the role
+loads at all.
+
+## Verification
+
+Typecheck clean. Full suite in the branch worktree: 19 failures, against a
+**22-failure baseline on clean `xgd-working`** — the branch's failing set is a
+subset of the baseline's, plus `BUG-134_copy_two_ends`, which fails identically
+at the pre-change commit in the same worktree (it shells out to
+`bin/copy-to-cloud` and is a worktree-location artifact). No regression is
+attributable to this change.
+
+Two of the baseline failures are worth naming because they sit in this ticket's
+own area and are **upstream drift, not this work**: `BUG-67` now sees
+`backendSettings('claude')` carry a framework-defaulted `contextWindow` and sees
+`configureBackends` accept an undeclared provider name. Both fail the same way
+on clean `xgd-working`.
+
+## On the file shared with REQ-296
+
+This lands **first**: no entry in `backends.json` declares `contextWindow`, and
+the value `BUG-67` observes is the framework's own default rather than this
+repository's. So REQ-296 is the one landing second, and the responsibility that
+ticket carries is to give **both** entries a declared window — the worker's
+included, since a worker backend without one is exactly the case its guard
+cannot protect.
+
+The switch ships **off**, so nothing here is enabled ahead of REQ-296 or ahead
+of a REQ-292/REQ-293 baseline.
