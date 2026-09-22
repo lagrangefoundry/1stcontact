@@ -5,9 +5,9 @@ type: request
 title: Copy an existing page to a new one, content and all
 created_by: xgd
 created_at: '2026-09-22T21:50:10.208614+00:00'
-updated_at: '2026-09-22T22:14:03.181305+00:00'
+updated_at: '2026-09-22T22:14:09.124535+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -19,6 +19,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.323
+  story_points: 3
 ---
 
 ## What I was trying to achieve
