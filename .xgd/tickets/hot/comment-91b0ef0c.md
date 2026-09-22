@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:24:46.883841+00:00'
+updated_at: '2026-09-22T20:31:45.071960+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1276,5 +1276,15 @@ Step 4 goes *after* because `[recapture]` overwrites `storage/references/gigabyt
 **Expect iteration 4's numbers to be worse.** Five previously-invisible axes become countable. That's the instrument sharpening, not the reproduction degrading — the number to watch is the unmeasured set, which REQ-277 made the headline.
 
 One open item from before the break, if you want it: the brief still doesn't tell a round that `content-robustness FAIL (287 findings)` is a known, deferred gap (REQ-278), so round 4 is likely to spend its budget re-deriving that conclusion.
+
+<!-- xgd-turn id="01f5d007-def3-479d-bb66-5e695c1fe317-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:31:44.475137+00:00" -->
+#### You
+Could we simplify this can you create a ticket to just remove the buttons that say run again and reproduce?
+
+Can you also give me a button to clear the history - I like to see the history, but its long and confusing I also want to clear it at the start of a new test.
+
+Please give me a REQ for these?
 
 <!-- xgd-chat-end -->
