@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:22:33.233693+00:00'
+updated_at: '2026-09-22T20:24:46.883841+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1222,5 +1222,59 @@ The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yo
 <!-- xgd-chat role="user" ts="2026-09-22T20:22:32.689119+00:00" -->
 #### You
 Sorry, I am returning to this after a break, can you remind me where we are?
+
+<!-- xgd-turn id="47c6a7c7-8932-4751-8162-170b7e9a9474-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:24:45.390722+00:00" -->
+#### Claude
+Checked the tickets, the tree, and the console's run directory rather than going from the transcript.
+
+## Nothing in EPIC-12 has moved since 20 Sep
+
+The repo has gone 0.2.296 → **0.2.321**, but every one of those commits is elsewhere — AI delegation, the control-app operator console, chat copy, smoke checks. The reproduction work is exactly where you left it.
+
+## The 19 children
+
+| | |
+|---|---|
+| **17 at `ready_to_reconcile`** | REQ-254/255/256/261/262/272/274/275/276/277/278, BUG-104/112/113/114/120 — all landed, all queued |
+| **2 at `free_coded`** | **BUG-125** (stored round crashes the page, v0.2.290) · **BUG-130** (held vs. working button, v0.2.296) |
+| **1 at `draft`** | DOC-53 — the session KB doc, complete, nothing to build |
+
+I verified both `free_coded` fixes are actually in the tree, not just ticketed: `readOutcome` now routes through `normaliseOutcome`, and `page.ts` emits `data-inert`.
+
+That 17-ticket reconcile queue is the one piece of housekeeping worth noticing. It doesn't block you — the code is all on `xgd-working` — but it's a large backlog to promote in one go.
+
+## The console is frozen mid-hold
+
+```
+repro-gigabytealchemy-ai/   iteration-1  iteration-2  iteration-3
+iteration-3/implemented.json   ← still absent
+```
+
+So the hold from REQ-271 is still on. And the oracle hasn't moved:
+
+```
+all three references : unstamped (schema 1)
+CAPTURE_SCHEMA today : 4
+storage/rail/        : still does not exist
+```
+
+## To pick up where we stopped
+
+```
+1. restart the console          ← your running instance predates BUG-125 and BUG-130
+2. [the implementation has landed]   on iteration 3 — lifts the hold
+3. [recapture]                  — NOT [run again]
+4. ./bin/repro-rail record      — after the recapture, not before
+```
+
+Step 3 is the one that matters. Your bundle is schema 1 against an extractor at 4; `[run again]` re-folds from that same frozen bundle, so the five capture-side axes added across 0.2.238–0.2.256 are unreachable however many times you press it. `[recapture]` appends iteration 4 and keeps the chain — it's not a restart despite where it sits on the page (that's BUG-120, landed; the wording should read better now).
+
+Step 4 goes *after* because `[recapture]` overwrites `storage/references/gigabytealchemy.ai/index` — one of the rail's own three references. A baseline recorded now would be stale the moment you press it.
+
+**Expect iteration 4's numbers to be worse.** Five previously-invisible axes become countable. That's the instrument sharpening, not the reproduction degrading — the number to watch is the unmeasured set, which REQ-277 made the headline.
+
+One open item from before the break, if you want it: the brief still doesn't tell a round that `content-robustness FAIL (287 findings)` is a known, deferred gap (REQ-278), so round 4 is likely to spend its budget re-deriving that conclusion.
 
 <!-- xgd-chat-end -->
