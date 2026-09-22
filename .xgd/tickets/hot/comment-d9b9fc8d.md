@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T21:42:08.295781+00:00'
+updated_at: '2026-09-22T21:44:17.859959+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3365,5 +3365,63 @@ One caution as you head back to dev: **this probably won't reproduce locally.** 
 <!-- xgd-chat role="user" ts="2026-09-22T21:42:08.078121+00:00" -->
 #### You
 That's fine - but I see two problems: (1) we need to keep the digest calculation cheap agreed lets do that (2) separately I am worried that our "publish" function will blow the memory budget pretty fast on a real site - LF is one page with 5 images (and no photos btw). A real site could have a dozen pages with twice that number of images on each - and I would not call that big...
+
+<!-- xgd-turn id="fd49ae66-fcc1-4176-8d5e-4b37be304031-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T21:44:17.793282+00:00" -->
+#### Claude
+You're right, and it's worse than the arithmetic suggests. Let me check what publish actually holds at once.
+
+Your instinct is right, and there's a multiplier in there you haven't seen yet. Let me give you the arithmetic.
+
+You're right, and it's worse than a dozen pages of images. LF isn't a fat outlier — it's just the first site to reach a ceiling every site is walking toward.
+
+## What publish holds at once
+
+Nothing in the pipeline streams. Each stage materialises the whole site and hands it to the next:
+
+| held | size |
+|---|---|
+| `previous` — the live revision read back whole, **asset bytes included** | N |
+| `draft` — the same again for the draft | N |
+| `ladder.derived` — `new Map<string, Uint8Array>()`, **every rendition accumulated** | ~0.7 N |
+| `snapshotSha(draft)` — the listing joined into one string, then UTF-8 encoded | ~1.5 N |
+
+Peak is roughly **4× the site**, and two of those copies are there before any resizing starts.
+
+## The multiplier you haven't seen
+
+`DELIVERY_WIDTHS` is `[320, 640, 960, 1280, 1600, 1920]`. A JPEG or PNG wider than 1920 gets six rungs in its own format plus seven in WebP — **13 renditions per photograph**, every one retained in `derived` until `writeRevision`.
+
+## There is a guard, and it measures the wrong resource
+
+This is the part worth your attention. `LADDER_MAX_RENDITIONS = 1200` was derived with genuine care — 5 subrequests per rendition against the platform's 10,000-per-invocation limit, deliberately leaving headroom. It's a good guard against the wrong failure. Its own header says:
+
+> At thirteen renditions for a full-ladder photograph it admits about 90 pictures — several times the 20–40 a photo-heavy small-business site holds … **no ordinary client will ever meet this.**
+
+Ninety pictures is ~270 MB of source in `draft` alone — **more than twice the isolate, before a single pixel is resized.** So the cap admits a site about an order of magnitude past where memory dies, and the failure it was explicitly written to prevent — *"a publish that dies most of the way through with a platform error naming nothing the client did"* — is exactly what happens, with `LadderTooLargeError` never firing.
+
+The reasoning was careful about the limit it could see and silent about the one it couldn't.
+
+**The real ceiling is around 20–25 MB of source assets — call it 10–15 photographs, not 90.** That's an estimate from the 4N peak against ~100 MB usable, but it's the right order. Your dozen pages at ten images each isn't near the edge; it's several times past it.
+
+## Why bytes are held, and why they needn't be
+
+Two questions are conflated throughout: *what is the content* versus *what is the content's identity*. Publish only ever needs the second — to diff, to hash, to decide what to copy. Identity can be a per-asset digest recorded at upload, beside the `size` column `site_assets` already has. Then:
+
+- **`diffSnapshots` compares digests** — no bytes. This also retires `byteKey` for every caller, not just the digest's.
+- **`snapshotSha` hashes the listing of `path → digest`** — no bytes.
+- **`writeRevision` copies no image bytes at all**, if assets are content-addressed. A revision becomes a manifest of digests, and re-publish costs only what changed.
+- **The ladder streams** — render, write to R2, drop the buffer. `derived` exists only so the manifest can ask `derived.has(job.path)`; a `Set<string>` of landed paths answers that while retaining nothing.
+
+That takes publish from O(site) to O(largest single asset) — the only shape that survives growth. Whether it can then stay on the request path at all, versus a Queue or Workflow, I'd defer until the streaming work shows what's left.
+
+## Proposed split
+
+- **A** (urgent, unblocks LF chat): digest stops calling `pendingChanges`; count and base revision from metadata. Small, isolated, ships alone.
+- **B**: per-asset digest at upload, content-addressed assets; diff/sha/writeRevision stop reading bytes; `byteKey` retired.
+- **C**: ladder streams instead of accumulating; add a byte-based refusal beside the rendition-count one.
+
+Recorded as §I26 on EPIC-16. A is a contained change I can scope and free-code now while you work in dev. B is the real architectural one and wants its own design pass — it changes how assets are stored, so it'll touch the upload path and want a migration for existing sites. Want me to start on A?
 
 <!-- xgd-chat-end -->
