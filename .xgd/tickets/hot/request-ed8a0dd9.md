@@ -5,9 +5,9 @@ type: request
 title: Delegate construction to a cheaper worker, behind a switch
 created_by: EPIC-20
 created_at: '2026-09-21T23:11:05.910693+00:00'
-updated_at: '2026-09-22T20:09:07.747050+00:00'
+updated_at: '2026-09-22T20:13:01.050895+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -25,6 +25,7 @@ fields:
   version: 0.2.316
   story_points: 8
 ---
+
 
 ## Why
 
@@ -173,32 +174,43 @@ and touch the caller rather than the worker.
 
 ## Sequence
 
-This should land **after** REQ-292 and REQ-293 are reconciled and a week of
-records exists, so that the before and after are measured on the same
-instrument. Building it earlier is acceptable; enabling the switch before there
-is a baseline is not, because the saving it exists to produce would then be
-unobservable.
+This was planned to land **after** REQ-292 and REQ-293 were reconciled and a
+week of records existed, so that the before and after were measured on the same
+instrument. It was built earlier, which was always acceptable, and then enabled
+earlier too — see *The shipped default* below. The before-figure is therefore
+this ticket's modelling rather than a week of the meter's own records, and that
+is a trade the operator made knowingly.
 
 
-## The shipped default is off
+## The shipped default is on
 
-`delegation.json` ships with the feature **disabled**, and that is a property of
-this ticket rather than of whoever deploys it. Two reasons, and the second is
-the urgent one:
+`delegation.json` ships with the feature **enabled**, and that is a property of
+this ticket rather than of whoever deploys it. It shipped **disabled** first,
+for two reasons, and both have since been settled:
 
-- **Nothing may be enabled before there is a baseline.** The saving this exists
-  to produce is unobservable until REQ-292 and REQ-293 are reconciled and a
-  period of records exists to compare against.
 - **A worker's context window is smaller than the caller's.** `claude-haiku-4-5`
   carries 200k against `claude-opus-5`'s 1M, and the measured Lagrange Foundry
-  build already reached roughly 300k tokens resident. **REQ-296** declares
-  `contextWindow` per backend entry and adds the host-side guard that ends a
-  turn before the provider errors. Until that lands, a worker opened on the
-  smaller window is a session with nothing between it and an overflow.
+  build already reached roughly 300k tokens resident. **Discharged.** REQ-296
+  has landed: every `backends.json` entry now resolves a declared window or
+  start-up refuses, so a worker opened on the smaller one meets the host-side
+  guard rather than a provider error in the middle of a customer's turn.
+- **Nothing may be enabled before there is a baseline.** REQ-292 and REQ-293
+  were to run for a period on the undelegated shape first, so that the saving
+  had a before-figure. **Overruled**, by the operator and deliberately: the
+  before-figure is the modelling above, and a week spent measuring what
+  construction costs is a week spent paying it. The first records the meter
+  collects are delegated ones, and the saving is read against the model rather
+  than against a measured baseline.
 
-So this ticket may be **built and merged** in full ahead of REQ-296 — the switch
-is what makes that safe. What it may not do is ship enabled, and a deployment
-that turns it on before REQ-296 is a deployment that has skipped the guard.
+**Off remains a supported state, and it is still the rollback.** Turning the
+switch back off must leave a deployment indistinguishable from this repository
+before delegation existed — same tools offered, same prompt, same behaviour —
+so the off path stays asserted in full. What changed is that "off" is now a
+document a test must **install** rather than one it can obtain by configuring
+nothing, because the bundled document no longer supplies it; a test that
+compares the delegating shape against the undelegated one has to install the
+disabled document for its baseline half or it compares the delegating shape
+against itself.
 
 ## One file this shares with REQ-296
 
@@ -338,5 +350,6 @@ ticket carries is to give **both** entries a declared window — the worker's
 included, since a worker backend without one is exactly the case its guard
 cannot protect.
 
-The switch ships **off**, so nothing here is enabled ahead of REQ-296 or ahead
-of a REQ-292/REQ-293 baseline.
+The switch ships **on**. Nothing here is enabled ahead of REQ-296 — its guard
+is already in place — and the REQ-292/REQ-293 baseline was traded away knowingly
+rather than overlooked.
