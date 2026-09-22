@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T18:22:33.203763+00:00'
+updated_at: '2026-09-22T18:31:51.042205+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -108,5 +108,32 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="ef412e5c-db99-4e3b-9939-6e369b1363fc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T18:31:50.146697+00:00" -->
+#### Claude
+REQ-297 is complete and at `free_coded`.
+
+**What landed** (`be385cd90f`, v0.2.318, on `xgd-working`):
+
+- **`console.js`** — chrome and a registry, no subject of its own. Opens as a dialog in the shell header's trailing slot beside the account avatar (not a tab; the strip stays uniformly business-scoped). With no controls registered it renders as an empty console with an explicit "no controls registered" line — asserted, not incidental. A control that throws while mounting is reported in its own section and doesn't take the console down.
+- **`tenant-cost.js`** — the first registered control: the league table, row expansion, and the period input.
+- **Gate** — `ownsPlatformBusiness`, never an admin level; `platform_operator` keeps `scope.ts` as its only reader. `/api/businesses` gains `ownsPlatformBusiness` for the chrome; every console route asks again for itself and answers 404 otherwise.
+- **Routes** — new `/api/admin/spend/businesses` for the league (fan-out of scoped `tenantSpendReport` reads, not an unscoped sweep). `/api/admin/spend` widened rather than duplicated: `days` and `delegated` join REQ-293's `report` in one round trip. Shared period parser; absent ends still mean unbounded; the 30-day default is the console's and travels in the request.
+- **Delegated split** — priced by `costMicros` against the worker's own backend, model resolved from `backends.json` at read with the caveat stated. Own spend and delegated spend are two labelled figures, never summed.
+- **Nothing, never zero** throughout — absent tenant, absent day, absent delegated figure.
+
+**Tests** — all run in the foreground and passing:
+- `test_UAT_FC_REQ-297_operator_console.test.ts` — 13 passed
+- `test_UAT_FC_REQ-297_tenant_cost.workers.test.ts` — 9 passed
+- REQ-180 / REQ-204 businesses-payload key cases updated for the third key — 14 passed
+- Adjacent regression (REQ-292/293 spend, REQ-179/180 chrome and endpoints, REQ-204 sign-out) — 64 passed
+- Builder chrome and composition suites — 42 passed
+- `tsc --noEmit -p apps/control-app` clean
+
+**Ticket body** — preserved verbatim and extended with four sections under *How it is built* covering decisions the UATs assert but the original scope didn't state: the two routes and why the expansion isn't a third, the tenant name being a left join, formatting in one place, and a failing control not closing the console. Also fixed a stale `/api/admin/spend/tenants` in a route doc comment.
+
+Branch merged (fast-forward) and cleaned; story points 8. It's parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
