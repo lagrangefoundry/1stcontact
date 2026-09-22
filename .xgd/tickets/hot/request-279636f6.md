@@ -6,9 +6,9 @@ title: A newly created page cannot be given any content — add_page produces a 
   with no L1 document and no operation can create one
 created_by: xgd
 created_at: '2026-09-22T21:49:40.012443+00:00'
-updated_at: '2026-09-22T22:03:11.332663+00:00'
+updated_at: '2026-09-22T22:26:32.016534+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -56,5 +56,7 @@ Any one of these:
 ## Related
 
 A companion request has been filed for a page-copy operation. That one is a convenience; this one is a blocker, and copy is worth little until this is fixed.
+
+-
 
 -
