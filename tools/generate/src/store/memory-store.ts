@@ -2,7 +2,13 @@ import { assembleSite } from './assemble'
 import { assertWritableAssetNames } from './asset-name'
 import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
 import { emptyJournal, nextJournal, sliceSince } from './journal-model'
-import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import type {
+  AssetStamp,
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 import { nextRevisionOf, verifiedSnapshot } from './revision-model'
 import type {
   DraftSnapshot,
@@ -272,6 +278,42 @@ export function memorySiteStore(): MemorySiteStore {
       const entry = found.history.find((r: RevisionEntry) => r.id === id)
       if (entry === undefined) return snapshot
       return verifiedSnapshot(slug, id, entry.sha, snapshot)
+    },
+
+    /**
+     * [[REQ-303]] — the draft with its assets stamped by LENGTH.
+     *
+     * THE SAME PROMISE THE FILESYSTEM MAKES, deliberately. This adapter holds
+     * the bytes in a Map and could hash them for nothing, and hashing them would
+     * make it the only tier that sees a same-length replacement — so the suites
+     * that run a body of assertions over both backends would be asserting two
+     * different behaviours and calling it one. The tier that can do better is
+     * the one with an etag it did not have to compute.
+     */
+    draftOutline(slug): Promise<SiteOutline> {
+      const found = site(slug)
+      if (!found) return Promise.resolve({ siteJson: null, pages: [], assets: [] })
+      return Promise.resolve({
+        siteJson: found.siteJson ? copy(found.siteJson) : null,
+        pages: pageNames(found).map((name) => ({ name, page: copy(found.pages.get(name)!) })),
+        assets: [...found.assets.keys()].sort().map((name) => ({
+          name,
+          stamp: String(found.assets.get(name)!.byteLength),
+        })),
+      })
+    },
+
+    /** [[REQ-303]] — the same shape for a frozen revision, and unverified. */
+    revisionOutline(slug, id): Promise<SiteOutline | null> {
+      const held = site(slug)?.snapshots.get(id)
+      if (!held) return Promise.resolve(null)
+      return Promise.resolve({
+        siteJson: copy(held.siteJson),
+        pages: held.pages.map((p: StoredPage) => ({ name: p.name, page: copy(p.page) })),
+        assets: held.assets.map(
+          (a: StoredAsset): AssetStamp => ({ name: a.name, stamp: String(a.bytes.byteLength) }),
+        ),
+      })
     },
 
     draftBase(slug) {

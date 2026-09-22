@@ -17,7 +17,13 @@ import { readDraftBase, writeDraftBase } from './base'
 import { appendHistory, readHistory } from './history'
 import { appendChange, changesSince, draftCounter } from './journal'
 import { loadSite } from './loadSite'
-import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import type {
+  AssetStamp,
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 import { nextRevisionOf, verifiedSnapshot } from './revision-model'
 import type {
   DraftSnapshot,
@@ -252,6 +258,69 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       const entry = readHistory(ctx, slug).revisions.find((r) => r.id === id)
       if (entry === undefined) return snapshot
       return verifiedSnapshot(slug, id, entry.sha, snapshot)
+    },
+
+    /**
+     * [[REQ-303]] — the draft with its assets stamped by SIZE, from the
+     * directory entry rather than from the file.
+     *
+     * `statSync` AND NOT `readFileSync`, which is the whole verb. A change count
+     * is derived before every model call, and reading fifty megabytes of
+     * pictures to produce a number is what killed the isolate in the cloud tier;
+     * this tier is not where that happened, but a port verb whose cost differs
+     * by adapter is a verb whose callers learn which one they have.
+     *
+     * SIZE AND NOT MTIME, even though a directory entry offers both. A
+     * revision's copy of an asset is written at publish and the draft's original
+     * is older, so a stamp carrying a modification time would report every asset
+     * modified the moment it was published. Size is the one thing a directory
+     * entry knows that BOTH copies agree about when the bytes agree.
+     */
+    draftOutline(slug): Promise<SiteOutline> {
+      const dir = assetsDir(slug)
+      return Promise.resolve({
+        siteJson: pathExists(siteJsonPath(slug))
+          ? readJson<Record<string, unknown>>(siteJsonPath(slug))
+          : null,
+        pages: listFilesRel(pagesDir(slug))
+          .filter((rel) => rel.endsWith('.json'))
+          .map((rel) => ({
+            name: rel,
+            page: readJson<Record<string, unknown>>(path.join(pagesDir(slug), rel)),
+          })),
+        assets: listFilesRel(dir).map(
+          (rel): AssetStamp => ({
+            name: rel,
+            stamp: String(fs.statSync(path.join(dir, rel), { throwIfNoEntry: false })?.size ?? -1),
+          }),
+        ),
+      })
+    },
+
+    /** [[REQ-303]] — the same shape for a revision directory, and unverified. */
+    revisionOutline(slug, id): Promise<SiteOutline | null> {
+      const dir = revisionDir(ctx, slug, id)
+      if (!pathExists(dir)) return Promise.resolve(null)
+      const assets = path.join(dir, 'assets')
+      return Promise.resolve({
+        siteJson: pathExists(path.join(dir, 'site.json'))
+          ? readJson<Record<string, unknown>>(path.join(dir, 'site.json'))
+          : null,
+        pages: listFilesRel(path.join(dir, 'pages'))
+          .filter((rel) => rel.endsWith('.json'))
+          .map((rel) => ({
+            name: rel,
+            page: readJson<Record<string, unknown>>(path.join(dir, 'pages', rel)),
+          })),
+        assets: listFilesRel(assets).map(
+          (rel): AssetStamp => ({
+            name: rel,
+            stamp: String(
+              fs.statSync(path.join(assets, rel), { throwIfNoEntry: false })?.size ?? -1,
+            ),
+          }),
+        ),
+      })
     },
 
     draftBase(slug) {

@@ -1,6 +1,11 @@
 import type { LoadResult } from './assemble'
 import type { ChangeSlice, JournalRecord } from './journal-model'
-import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import type {
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 
 /**
  * The `SiteStore` port (REQ-142): everything the structured-edit surface needs
@@ -249,6 +254,44 @@ export interface SiteStore {
 
   /** A revision's frozen definition, or null when the store holds no such revision. */
   readRevision(site: string, id: number): Promise<StoredSnapshot | null>
+
+  /**
+   * The DRAFT's shape with its assets stamped rather than read ([[REQ-303]]).
+   *
+   * WHY THE PORT ANSWERS THIS AND NOT THE CALLER. "How many files differ from
+   * what is published?" used to be answered by reading the whole site twice —
+   * every draft asset's bytes and every published asset's bytes — to produce a
+   * number. On a fifty-megabyte site in a 128 MB Workers isolate that is fatal,
+   * and it ran before every model call. Only the adapter knows what it already
+   * holds that stands in for content (an etag R2 recorded at `put`, a size a
+   * directory entry carries), so only the adapter can answer the question
+   * without opening anything.
+   *
+   * THE COST IS FLAT IN ASSET BYTES. A site with fifty megabytes of pictures
+   * answers this in the same memory as a site with none — which is the whole
+   * requirement, and the reason this is a verb rather than a helper over
+   * {@link SiteStore.listAssets} and {@link SiteStore.readAsset}.
+   *
+   * A SITE THIS STORE DOES NOT HOLD IS AN EMPTY OUTLINE, exactly as
+   * `readDraftSnapshot` answers an empty snapshot: the absence of a draft is a
+   * question {@link SiteStore.version} answers, and answering it twice in two
+   * shapes is how two callers come to disagree about it.
+   */
+  draftOutline(site: string): Promise<SiteOutline>
+
+  /**
+   * The same shape for a published revision, or null when there is no such
+   * revision ([[REQ-303]]).
+   *
+   * IT DOES NOT VERIFY THE REVISION, and {@link SiteStore.readRevision} still
+   * does. Verification is {@link snapshotSha} over the frozen bytes, which is
+   * the cost this verb exists to avoid; what it protects is a revision being
+   * SERVED or RESTORED, and nothing here is either. A count that differs by one
+   * because a published object was tampered with is not the failure that
+   * detector is for, and paying fifty megabytes a turn to rule it out is how the
+   * digest came to kill the isolate.
+   */
+  revisionOutline(site: string, id: number): Promise<SiteOutline | null>
 
   /**
    * The revision the current draft descends from, or null before any publish.

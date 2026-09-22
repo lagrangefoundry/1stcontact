@@ -50,9 +50,17 @@ export type {
 } from './site-store'
 export { StoreConflictError } from './site-store'
 
-export type { ChangeSet, RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+export type {
+  AssetStamp,
+  ChangeSet,
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 export {
   canonicalJson,
+  diffOutlines,
   diffSnapshots,
   PUBLISHED_ROOT,
   publishedOutPrefix,
@@ -61,6 +69,7 @@ export {
   isEmptyChangeSet,
   liveRevisionOf,
   nextRevisionOf,
+  outlineEntries,
   snapshotEntries,
   snapshotSha,
   verifiedSnapshot,

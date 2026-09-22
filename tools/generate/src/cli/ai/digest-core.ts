@@ -202,10 +202,29 @@ export interface DigestSource {
  * `describe_page` per page would be the cost this exists to remove, paid by the
  * host instead of by the model.
  *
+ * AND NONE OF THE FIVE OPENS AN ASSET ([[REQ-303]]). The site's pictures are
+ * named here, never read: what a page references comes out of the page's own
+ * definition, and what is unpublished comes out of the store's own record of
+ * its objects. So a turn against a site with fifty megabytes of photographs
+ * costs what a turn against an empty one costs.
+ *
  * `pendingChanges` IS REUSED RATHER THAN APPROXIMATED. It is already what
  * `describe_site` reports and what `publish` acts on, so a second idea of "is
  * anything unpublished" is a second answer that will eventually disagree with
  * the one the client sees.
+ *
+ * AND IT NOW COSTS WHAT A DIGEST CAN AFFORD ([[REQ-303]]). Reusing it was right
+ * and is not being reversed; what it did not price is that the function was
+ * written for publish, where a byte-exact snapshot of the whole site is the
+ * point and the cost is paid once on a deliberate act. On this path it ran
+ * before every model call, read every draft asset's bytes AND every published
+ * asset's bytes, and flattened both through a string built one character per
+ * byte — so a business with fifty megabytes of pictures lost chat entirely:
+ * `exceededMemory` against a 128 MB isolate, every turn, with no error reaching
+ * the client, because an OOM kills the isolate and {@link siteDigestSource}'s
+ * `catch` never runs. The two values taken off the result — the live revision
+ * and a count — never looked at a byte, and `pendingChanges` does not read one
+ * now.
  */
 export async function collectSiteDigest(
   slug: string,

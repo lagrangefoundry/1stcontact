@@ -6,6 +6,7 @@ import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 import type { ValidationError } from '@1stcontact/site-schema'
 import type { ChangeSet, RevisionEntry, StoredSnapshot } from '../store/revision-model'
 import {
+  diffOutlines,
   diffSnapshots,
   isEmptyChangeSet,
   liveRevisionOf,
@@ -154,12 +155,38 @@ export async function readDraftSnapshot(
   return { siteJson, pages, assets }
 }
 
-/** The draft's differences from the live revision, as `1c status` reports them. */
+/**
+ * The draft's differences from the live revision, as `1c status`,
+ * `describe_site` and the per-turn digest report them.
+ *
+ * IT READS NO ASSET BYTES ([[REQ-303]]). It used to: a byte-exact snapshot of
+ * the whole draft and of the whole live revision, flattened through a string
+ * built one character per byte, to produce a revision id and a count of files.
+ * That is a fine price for a publish, which is a deliberate act that freezes
+ * bytes; it is a fatal one on the path that runs before every model call, and a
+ * customer with fifty megabytes of pictures lost chat entirely to it —
+ * `exceededMemory` against a 128 MB isolate, every turn, with no error reaching
+ * the client because an OOM leaves nothing to catch.
+ *
+ * THE QUESTION WAS NEVER ABOUT THE BYTES. Both callers use the same two values:
+ * which revision is live, and how many paths differ from it. So the draft and
+ * the revision are read as OUTLINES — the same three path families, with each
+ * asset carrying whatever evidence of its content the store already had — and
+ * the comparison is {@link diffOutlines}, which names added, modified and
+ * removed in exactly the vocabulary {@link diffSnapshots} does.
+ *
+ * ONE ANSWER STILL, WHICH IS WHY IT IS THIS FUNCTION THAT CHANGED and not the
+ * digest alone. A cheap count beside the existing expensive one would be a
+ * second idea of "is anything unpublished", and a second idea eventually
+ * disagrees with the one the client is looking at.
+ */
 export async function pendingChanges(store: SiteStore, slug: string): Promise<PendingChanges> {
   const live = liveRevisionOf(await store.revisions(slug))
-  const previous = live === null ? null : await store.readRevision(slug, live)
-  const draft = await readDraftSnapshot(store, slug)
-  return { baseRevision: live, ...diffSnapshots(previous, draft) }
+  const [previous, draft] = await Promise.all([
+    live === null ? Promise.resolve(null) : store.revisionOutline(slug, live),
+    store.draftOutline(slug),
+  ])
+  return { baseRevision: live, ...diffOutlines(previous, draft) }
 }
 
 /** The publish log, newest first. */
