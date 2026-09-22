@@ -5,16 +5,24 @@ type: request
 title: Delegate construction to a cheaper worker, behind a switch
 created_by: EPIC-20
 created_at: '2026-09-21T23:11:05.910693+00:00'
-updated_at: '2026-09-22T00:47:17.395758+00:00'
+updated_at: '2026-09-22T00:48:25.681212+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c5518a8b
+  commits:
+  - working_sha: 78e6a5463ba9a1006e8f886cbf837dd480c0221f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a401e917c2e6b86f1872e85d181abc03fb01f365
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.316
 ---
 
 ## Why
