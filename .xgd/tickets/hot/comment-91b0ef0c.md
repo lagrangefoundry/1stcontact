@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:55:46.209850+00:00'
+updated_at: '2026-09-22T22:57:12.829982+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1958,5 +1958,94 @@ I have had trouble understanding your one-word verdict I guess have been assumin
 Tell me how this verdict is expected to work and what you think it should look like?
 
 **Convergence measurement** — the per-round ruler:ceiling ratio and per-new-site ticket count. Out of scope for an engine ticket, and still nothing reads the gap registry as a series. <-- explain how this is related to the verdict and whether we can qualitatively measure the distance
+
+<!-- xgd-turn id="5476341b-5d98-4faa-98ab-056ea99b546c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T22:57:11.551548+00:00" -->
+#### Claude
+Two good questions. Let me take the verdict first, because your reframe changes what it should be.
+
+## What the verdict is today
+
+It isn't an acceptance verdict, despite reading like one. It's REQ-94's **cross-gate reconciliation classifier** — five values that describe *which instrument disagreed with which*:
+
+| verdict | what it means |
+|---|---|
+| `pass` | eye and structure agree, no delta above the value floor |
+| `structural-failure` | `l1-gate` failed |
+| `capture-incomplete` | pixels moved, and coverage says the capture didn't record the substance |
+| `reproduction-wrong` | pixels moved, coverage is clean, and the value gates name how |
+| `unexplained-disagreement` | pixels moved and nothing else saw it — a framework gap |
+
+That's a well-designed instrument for finding **holes in the ruler**. `unexplained-disagreement` exists purely to catch "an axis that moves pixels which the value manifest does not carry." It was never designed to answer *your* question.
+
+## Why it said one word on iteration 4
+
+It's smaller than I implied. The structural branch does produce a real diagnosis — but only by mining `onSample`:
+
+```ts
+diagnosis = collisions.length
+  ? `The acceptance gate failed: the SERVED document collides with itself at N captured width(s) — …`
+  : 'The acceptance gate failed: the reproduction is not geometrically faithful to the oracle.'
+```
+
+On-sample **passed** on iteration 4 (0 findings at all six widths), so `collisions.length === 0` and it fell through to the generic sentence. The off-sample and content-robustness failures were sitting in the same `l1Gate` object, unread. The comment above that branch even explains the exact failure mode it was written to prevent — it just only covers one of the four probes.
+
+So: not a design flaw, an incomplete branch. Roughly fifteen lines.
+
+## What it should look like
+
+Three consumers want different things, and one word serves none:
+
+- **the round** — where to spend the next hour
+- **you** — where to look, so your eyeball judgement is cheap
+- **the loop's own health** — do the instruments agree with each other
+
+For the round, the fix is mechanical: every probe reports its own state and its own worst named item.
+
+```
+structural  FAIL   fidelity PASS 0.9px · on-sample PASS · off-sample FAIL 2 @500px · robustness FAIL 116 @ 6 widths
+perceptual  PASS   mean 0.52/255 · 0.38% over · top region 609.22 "Gigabyte Alchemy"
+values      FAIL   23 deltas · worst HIGH 3100 a11yRole · unmeasured 5 (4 axes + 1 band)
+```
+
+**For you, the useful decomposition is different — and the engine already computes it.** The three envelope probes are exactly three "would you notice?" classes:
+
+| probe | when it's visible |
+|---|---|
+| on-sample | **now** — at a captured width, with the real copy |
+| off-sample | **on resize** — at a width between rungs |
+| content-robustness | **on edit** — when the copy changes |
+
+On iteration 4 that reads: *nothing is wrong at the widths you'll look at; two things break if you drag the window; 116 break if the copy grows.*
+
+That is the verdict you actually want, because it separates **"does it look ok to me"** — which is on-sample plus perceptual, and today is green — from **"will it still look ok to a customer who resizes or edits it"**, which is a product decision that belongs to you, not a FAIL the gate issues on your behalf.
+
+Keep the binary, though — don't throw it away. It's load-bearing for the regression rail ("no worse than before" across all stored references must stay machine-decided). Just stop letting it stand in for acceptance.
+
+## How this connects to convergence
+
+Directly, and it's the more interesting half.
+
+**The verdict cannot measure distance, by construction.** It's per-iteration and non-comparable across rounds, because the ruler changes underneath it — BUG-107 took a reproduction from 1 delta to 14 with nothing about the page changing. Every ruler ticket does some version of that. So no series built from the verdict means anything.
+
+But your reframe supplies the missing invariant. **If you are the acceptance authority, your judgement is the one quantity immune to ruler changes.** The gate's numbers move every time the instrument sharpens; "looks ok to me" doesn't.
+
+So the distance measure is **agreement between your verdict and the gate's**, and its two failure modes are precisely the two things worth knowing:
+
+- gate says FAIL, you say *looks fine* → the ruler is strict about something that doesn't matter, or measuring the wrong thing
+- gate says PASS, you say *that's wrong* → a blind spot; something real is invisible to the score
+
+**Driving that disagreement to zero is what "the instrument is trustworthy" means** — which is what EPIC-19 was reaching for, and it's cheap: one judgement per iteration, from someone already looking at the page.
+
+And it subsumes the ratio I proposed. Ruler tickets should fall as the disagreement closes; if they don't, the instrument work is self-generating and you'll see it in the series rather than infer it.
+
+## The blocker
+
+**The console never records your verdict.** I checked — nothing in `session.ts` or `iteration.ts` captures an operator judgement. You're in the loop, but your judgement isn't an input to it, so the one quantity that could measure convergence is being thrown away every round.
+
+That's the ticket I'd write, and it's small: a per-iteration operator verdict, stored beside the gate's, plus a readout of the two series. It makes "should I give it more time" a reading, and it costs you one click.
+
+Want me to scope that under EPIC-12 — together with the probe-level readout, since they're the same surface?
 
 <!-- xgd-chat-end -->
