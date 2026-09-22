@@ -149,7 +149,16 @@ describe('BUG-52 — a refusal is no longer a default', () => {
       businesses: await fetchBusinesses(failing as never),
     }))
     expect(result.status).toEqual({ ai: true, message: null })
-    expect(result.businesses).toEqual({ person: null, businesses: [] })
+    // THE THIRD FIELD IS [[REQ-297]]'S AND THE CLAIM IS UNCHANGED: these are the
+    // defaults a failed origin falls back to, stated exactly. An origin that
+    // could not answer has not said this session owns the platform business, so
+    // the operator console is absent here for the same reason the switcher is
+    // empty — nobody was asked, and being untold is not ownership.
+    expect(result.businesses).toEqual({
+      person: null,
+      businesses: [],
+      ownsPlatformBusiness: false,
+    })
     expect(seen).toEqual([])
   })
 })

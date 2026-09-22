@@ -308,11 +308,35 @@ export async function postSurface(surface, fetchImpl = fetch) {
   }
 }
 
+/**
+ * What {@link fetchBusinesses} answers when it could not ask ([[REQ-297]]).
+ *
+ * ONE STATEMENT OF THE SHAPE AND NOT TWO LITERALS, because its two callers are
+ * the two ways this call fails — a non-OK response and a caught failure — and
+ * they must agree about every field. They did not have to before, when the
+ * shape was two facts either could restate correctly by accident; a third field
+ * is how a duplicated literal starts quietly disagreeing with its twin.
+ *
+ * A FACTORY AND NOT A SHARED CONSTANT. What it returns reaches `mountBuilder`
+ * as the session's own `businesses`, and a single array handed to every refused
+ * caller is one in-place sort away from a refusal in one tab rewriting the
+ * refusal in another. A fresh object per call costs nothing on a path that has
+ * just failed a round trip.
+ *
+ * `ownsPlatformBusiness` IS STATED RATHER THAN LEFT OUT. The mount defaults it
+ * to `false` and would reach the same answer, but the default is there to cover
+ * a host that does not pass the flag at all — not to cover this module
+ * forgetting it. A session we could not ask about does not own the platform
+ * business, and saying so is what keeps the failure mode of every path through
+ * here "no console" rather than "an offered one".
+ */
+const noSession = () => ({ person: null, businesses: [], ownsPlatformBusiness: false })
+
 export async function fetchBusinesses(fetchImpl = fetch) {
   try {
     const res = await send(fetchImpl, '/api/businesses')
     if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
-    if (!res.ok) return { person: null, businesses: [] }
+    if (!res.ok) return noSession()
     const body = await res.json()
     return {
       // `person` AND NOT `account` ([[REQ-194]]). This half has always been who
@@ -321,6 +345,24 @@ export async function fetchBusinesses(fetchImpl = fetch) {
       // keyboard.
       person: body?.person ?? null,
       businesses: Array.isArray(body?.businesses) ? body.businesses : [],
+      /**
+       * THE THIRD FACT THIS ENDPOINT ANSWERS, AND CARRYING IT IS THE WHOLE JOB
+       * ([[REQ-297]]).
+       *
+       * This function rebuilds its result from named fields rather than
+       * returning the parsed body, which is right — the shape the builder
+       * mounts on is this module's statement and not the wire's. The cost is
+       * that a fact the endpoint gained and this list did not is dropped
+       * silently, between a server that answered `true` and a gate that was
+       * correct, and the operator console was missing with every part of it
+       * working.
+       *
+       * `=== true` HERE AND AGAIN AT THE MOUNT, on purpose. An endpoint that
+       * omits the field, or answers something truthy that is not a boolean, is
+       * a session we were not told owns the platform business — which is not
+       * the same fact as one that does, and must not round up to it.
+       */
+      ownsPlatformBusiness: body?.ownsPlatformBusiness === true,
     }
   } catch (error) {
     // EXCEPT A REFUSED ONE ([[BUG-52]]). "No switcher and an unscoped session"
@@ -329,7 +371,7 @@ export async function fetchBusinesses(fetchImpl = fetch) {
     // are then indistinguishable — an empty switcher and an avatar with no
     // account behind it reads as a deleted account rather than an expired login.
     if (isSessionEnded(error)) throw error
-    return { person: null, businesses: [] }
+    return noSession()
   }
 }
 

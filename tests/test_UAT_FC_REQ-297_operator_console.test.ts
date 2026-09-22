@@ -21,7 +21,9 @@
  *   1. THE CONSOLE HAS NO CONTENT OF ITS OWN. It is chrome and a registry; with
  *      nothing registered it says so, and it renders a control it has never
  *      heard of. A console that knew what a tenant was could not do either.
- *   2. THE ACTION IS GATED ON OWNING THE PLATFORM BUSINESS, and it is not a tab.
+ *   2. THE ACTION IS GATED ON OWNING THE PLATFORM BUSINESS, and it is not a tab
+ *      — and the fact it is gated on TRAVELS, from the endpoint that answers it,
+ *      through the reader the browser calls, to the chrome that renders on it.
  *   3. THE LIST IS THE SERVER'S ORDER, one row per tenant, four columns.
  *   4. A ROW EXPANDS to per-day figures and to TWO labelled figures that are
  *      never added into one, each naming its models.
@@ -35,6 +37,7 @@ import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 import { consoleActions, openOperatorConsole } from '../apps/control-app/src/builder/console.js'
+import { fetchBusinesses } from '../apps/control-app/src/builder/api.js'
 import {
   dollars,
   periodOfDays,
@@ -297,6 +300,88 @@ describe('REQ-297 — the action is gated on owning the platform business', () =
   })
 })
 
+// ── 2b: the flag arrives ─────────────────────────────────────────────────────
+
+/**
+ * A `/api/businesses` response, exactly as the route composes it.
+ *
+ * THE THIRD FIELD IS THE POINT. A fixture carrying only what a case reads would
+ * be a fixture that cannot catch a reader dropping a field, which is the defect
+ * these cases exist for.
+ */
+const businessesResponse = (ownsPlatformBusiness: boolean) => ({
+  ok: true,
+  status: 200,
+  json: async () => ({
+    person: { name: 'Martin', email: 'operator@example.test' },
+    businesses: [{ id: 'biz_platform', name: '1st Contact', selectable: true, lapse: null }],
+    ownsPlatformBusiness,
+  }),
+})
+
+describe('REQ-297 — the flag reaches the chrome that renders on it', () => {
+  it('test_UAT_FC_REQ-297_the_reader_carries_ownership_through_to_the_mount', async () => {
+    // THE SEAM, AND WHY IT NEEDS A CASE OF ITS OWN. Every case above hands the
+    // gate a flag that is already in hand. `fetchBusinesses` rebuilds its result
+    // from NAMED fields, so a fact the endpoint answers and that list does not
+    // name is dropped between a server saying `true` and a gate that is correct
+    // — which is a console that is missing with every part of it working.
+    const owner = await fetchBusinesses((async () => businessesResponse(true)) as never)
+    expect(owner.ownsPlatformBusiness).toBe(true)
+    // The two facts that were always carried are still carried: this is a third
+    // field, not a replacement shape.
+    expect(owner.person).toEqual({ name: 'Martin', email: 'operator@example.test' })
+    expect(owner.businesses).toHaveLength(1)
+
+    // AND IT IS THE SESSION'S ANSWER, not a constant: a session that does not
+    // own the platform business reads back false over the same function.
+    const other = await fetchBusinesses((async () => businessesResponse(false)) as never)
+    expect(other.ownsPlatformBusiness).toBe(false)
+
+    // NOT MERELY PRESENT — CONSEQUENTIAL. What the reader answers is what the
+    // gate is asked, over `main.js`'s own expression, so the two cannot drift.
+    expect(consoleActions({ ownsPlatformBusiness: owner.ownsPlatformBusiness === true })).toHaveLength(1)
+    expect(consoleActions({ ownsPlatformBusiness: other.ownsPlatformBusiness === true })).toEqual([])
+  })
+
+  it('test_UAT_FC_REQ-297_a_session_that_could_not_be_asked_about_owns_nothing', async () => {
+    // BOTH REFUSAL PATHS, AND THEY MUST AGREE. A non-OK response and a caught
+    // failure are the two ways this call fails; a third field is exactly how one
+    // refusal literal starts quietly disagreeing with its twin.
+    const refused = await fetchBusinesses((async () => ({ ok: false, status: 500 })) as never)
+    expect(refused.ownsPlatformBusiness).toBe(false)
+    expect(refused.person).toBeNull()
+    expect(refused.businesses).toEqual([])
+
+    // A REJECTED FETCH THAT IS NOT A SESSION FAILURE. `send` turns a rejection
+    // into a SessionEndedError, which this function rethrows ([[BUG-52]]); what
+    // reaches the `catch` and returns is a body that would not parse.
+    const unparseable = await fetchBusinesses(
+      (async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('nope') } })) as never,
+    )
+    expect(unparseable.ownsPlatformBusiness).toBe(false)
+
+    // AND THE REFUSAL IS NOT SHARED STATE. Each caller gets its own, so one
+    // refused load cannot rewrite another's through an in-place sort.
+    expect(refused.businesses).not.toBe(unparseable.businesses)
+
+    // AN ENDPOINT THAT OMITS THE FIELD IS A SESSION WE WERE NOT TOLD ABOUT, and
+    // that does not round up to ownership — nor does anything merely truthy.
+    const silent = await fetchBusinesses(
+      (async () => ({ ok: true, status: 200, json: async () => ({ person: null, businesses: [] }) })) as never,
+    )
+    expect(silent.ownsPlatformBusiness).toBe(false)
+    const truthy = await fetchBusinesses(
+      (async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ person: null, businesses: [], ownsPlatformBusiness: 'yes' }),
+      })) as never,
+    )
+    expect(truthy.ownsPlatformBusiness).toBe(false)
+  })
+})
+
 // ── 3, 4, 5: the control ─────────────────────────────────────────────────────
 
 describe('REQ-297 — tenant cost, the first control', () => {
@@ -528,5 +613,62 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-297 — the console in the builder chrome
     expect(
       plain.shell.element.querySelector(`[data-action="${CONFIG.CONSOLE_ACTION_ID}"]`),
     ).toBeNull()
+  })
+
+  it('test_UAT_FC_REQ-297_a_server_that_says_true_puts_a_console_in_the_header', async () => {
+    // THE WHOLE PATH, IN ONE CASE. The case above hands `mountBuilder` the flag
+    // directly, which is what let a reader that never passed it on stay
+    // invisible: the server answered `true`, the gate was right, the shell
+    // renders every action it is given, and the header had no Console. So this
+    // one starts where the browser starts — a response off the wire — and ends
+    // where the operator looks.
+    const { mountBuilder } = await import('../apps/control-app/src/builder/app.js')
+    const { fetchBusinesses } = await import('../apps/control-app/src/builder/api.js')
+
+    for (const owns of [true, false]) {
+      document.body.replaceChildren()
+      const root = document.createElement('div')
+      document.body.append(root)
+
+      const session = await fetchBusinesses((async () => businessesResponse(owns)) as never)
+      // `main.js`'s expression, restated here because that module imports three
+      // absolute URLs only a browser resolves and cannot itself be imported.
+      const app = mountBuilder(root, {
+        businesses: session.businesses,
+        person: session.person,
+        ownsPlatformBusiness: session.ownsPlatformBusiness === true,
+        loadSites: async () => [],
+        chatTransport: {
+          openSession: async () => ({ sessionId: 's', turns: [], ready: true }),
+          streamPrompt: async function* () {
+            yield { kind: 'done' }
+          },
+        },
+        libraryTransport: {
+          list: async () => ({ material: [] }),
+          item: async () => ({ body: '' }),
+          save: async () => ({}),
+          fileUrl: () => '',
+          upload: async () => ({}),
+        },
+        paletteTransport: { get: async () => ({ palette: {}, usage: {} }), write: async () => ({}) },
+      })
+      await settle()
+
+      const button = app.shell.element.querySelector(
+        `[data-action="${CONFIG.CONSOLE_ACTION_ID}"]`,
+      )
+      if (owns) {
+        expect(button, 'a server answering true must put a Console in the header').toBeTruthy()
+        expect((button as HTMLElement).textContent).toContain(CONFIG.CONSOLE_LABEL)
+      } else {
+        expect(button, 'a server answering false must leave the header alone').toBeNull()
+      }
+      // The account avatar is present either way: the console's absence is the
+      // console's, and never a header that failed to draw.
+      expect(
+        app.shell.element.querySelector(`[data-action="${CONFIG.ACCOUNT_ACTION_ID}"]`),
+      ).toBeTruthy()
+    }
   })
 })
