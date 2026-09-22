@@ -5,16 +5,21 @@ type: request
 title: Do not let a turn overflow its context
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:20.046378+00:00'
-updated_at: '2026-09-22T02:01:54.185742+00:00'
+updated_at: '2026-09-22T02:02:49.442560+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-21653830
+  commits:
+  - working_sha: 80fd5d224b5cd6cc401ca7d8088e6207a2ed35c4
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.317
 ---
 
 ## Why, and why now
