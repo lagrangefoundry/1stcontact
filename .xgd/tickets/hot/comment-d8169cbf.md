@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:47:11.245270+00:00'
+updated_at: '2026-09-22T23:50:36.253486+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3186,5 +3186,46 @@ Sources: [Gradual deployments](https://developers.cloudflare.com/workers/version
 Good - now my LF session just ended with a bug: *D1_ERROR: string or blob too big: SQLITE_TOOBIG*
 
 *What's behind that?*
+
+<!-- xgd-turn id="90d6ba43-9d6a-4aca-88a1-ad6afb561fbb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:50:32.473456+00:00" -->
+#### Claude
+That number is the answer — let me confirm the limit and check whether anything is supposed to bound it.
+
+Your tool transcript outgrew D1's row limit. Concretely:
+
+| | bytes |
+|---|---|
+| `comment-ca74b1b7` — LF session tool transcript | **2,162,212** |
+| D1 ceiling for a string, BLOB, or row | **2,000,000** |
+
+Upstream predicted this in writing. `tool_transcript.js` caps each call at `DEFAULT_TOOL_MAX_BYTES = 5800` per side — input and result separately, ~11.7 KB per record — and then says:
+
+> *"a record is bounded at twice this plus the heading — **the only bound on the artifact, since there is no total cap**. If that becomes a problem the levers are to lower this or to add a total bound eliding the oldest records; neither is here now."*
+
+It became a problem. The LF conversation has run since 2026-09-20 with heavy tool use, and an append-only artifact in a single D1 row has exactly one ending.
+
+## What it takes down with it
+
+The archive writes the tool transcript **first** (`.809`) and the prose transcript **second** (`.851`). So when `append_body` throws, the pass dies before the prose write. Your chat transcript is stuck at 272,554 bytes, last folded **23:00:09** — and it's now 23:50. Three turns have been attempted since; none of them exist anywhere.
+
+Then the failure propagates: `sync()` is inside `promptStream`'s `finally`, so the D1 error replaces whatever the turn was carrying, the turn surfaces as `error`, `closePending` records that, and nothing folds. Which means every one of those turns comes back as *"nothing of it was recorded"* — and will keep doing so. **This isn't an interruption, it's a bricked session.** Every future turn fails identically at the same line.
+
+It also closes out the loose end from Finding 10: the 23:04:41 turn that ran 8m43s, spawned a delegation worker, then errored with no fold and no spend row. Same cause — it was the first turn after the artifact crossed the line.
+
+The sting is that a **debugging aid is taking the conversation down with it.** The prose transcript — the thing you actually read — is 272 KB and nowhere near any limit. It's being lost because a tool-call log it doesn't depend on overflowed a row.
+
+Two notes on the numbers: the last *successful* write was already at 2.16 MB, so local `workerd` tolerates slightly more than production D1 will — this session was over the published ceiling before it started failing. And the prose transcript is on the same trajectory, just an order of magnitude slower.
+
+## Your session is recoverable
+
+Nothing is corrupt. Elide the oldest records from that comment body until it's under the ceiling and the archive starts folding again — you'd lose old tool-call detail, not a word of the conversation. I haven't touched it; it's your data and your live session.
+
+Want me to:
+1. **Unblock it now** — trim `comment-ca74b1b7` down to fit, so your next turn lands.
+2. **File the bug** — the artifact needs a total bound (elide oldest) and the prose fold needs to stop being hostage to the tool fold. That second half is arguably upstream's, since the ordering is in `ticket_store.js`.
+
+Say which, and BUG-138's branch is still parked waiting for a gap between turns.
 
 <!-- xgd-chat-end -->
