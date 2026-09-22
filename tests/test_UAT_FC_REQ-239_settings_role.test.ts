@@ -175,6 +175,14 @@ describe('REQ-239 AC4 — the grant travels with the surface', () => {
     // a grant nothing can check. The property the ticket wanted is unchanged —
     // the settings surface and nothing else — and the `.workers` suite proves it
     // on the wire, which is where it is worth proving.
-    expect(Object.keys(L1_INSTANCES)).toEqual([CONSULTANT_ROLE])
+    //
+    // ABSENCE RATHER THAN A ROLE COUNT ([[REQ-295]]). This read `toEqual([
+    // CONSULTANT_ROLE])` while the consultant was the only role with an L1
+    // grant. The claim was never about how many roles there are — it is that the
+    // SETTINGS role is not one of them — and a delegated worker now has an entry
+    // here for the opposite reason: its surfaces are the ones `instances.json` is
+    // validated against, so its grant is exactly the kind a key here can check.
+    expect(Object.keys(L1_INSTANCES)).toContain(CONSULTANT_ROLE)
+    expect(Object.keys(L1_INSTANCES)).not.toContain(SETTINGS_ROLE)
   })
 })

@@ -38,11 +38,34 @@
     "The adapter sends model, max_tokens, system, messages, tools and stream only.",
     "That matters for this model: Opus 5 removes budget_tokens, temperature, top_p",
     "and top_k, and refuses an assistant prefill, so a request carrying any of them",
-    "would 400. There is nothing here for it to refuse."
+    "would 400. There is nothing here for it to refuse.",
+    "",
+    "`claude_builder` IS A SECOND VARIANT OF THE SAME ADAPTER ([[REQ-295]]), not a",
+    "second provider. The framework's name list is open precisely for this — a host",
+    "running its delegated sessions on a cheaper model registers a variant and",
+    "configures that name's model here — and `ClaudeAPIBackend` reads its settings",
+    "under the name it was CONSTRUCTED with while reading the shipped floor under",
+    "the `claude` family. So this entry alone decides what a worker runs on, and",
+    "nothing about the line above it moves: the consultant keeps opus-5 and its",
+    "64000, because a delegation that quietly changed the caller's model would be",
+    "the one change this whole lever must not make.",
+    "",
+    "32000 rather than 64000, and the asymmetry is deliberate. The ceiling exists",
+    "because the consultant's smallest legitimate write is a whole page and Opus 5",
+    "shares max_tokens between thinking and reply. A worker writes pages too, so it",
+    "needs real room — but it is doing bounded, named pieces of work rather than",
+    "holding a whole engagement, and a ceiling is the one bound a delegation has on",
+    "a single turn. Billing is per token actually generated, so this costs nothing",
+    "until it is used."
   ],
 
   "claude": {
     "model": "claude-opus-5",
     "max_tokens": 64000
+  },
+
+  "claude_builder": {
+    "model": "claude-haiku-4-5",
+    "max_tokens": 32000
   }
 }

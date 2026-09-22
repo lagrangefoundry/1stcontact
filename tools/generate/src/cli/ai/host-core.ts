@@ -61,9 +61,12 @@
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import {
+  BUILDER_ROLE,
+  builderRole,
   CONSULTANT_ROLE,
   consultantRole,
   LEGACY_ROLE_NAMES,
+  registerBuilderProviders,
   registerMemoryProviders,
   registerSettingsProviders,
   registerSiteProviders,
@@ -71,6 +74,7 @@ import {
   settingsRole,
   type TurnSignal,
 } from './roles'
+import { delegationFor } from './delegation'
 import {
   settingsInstanceConfig,
   settingsSurfaceFor,
@@ -86,7 +90,7 @@ import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import type { LibraryDeps } from './library-core'
-import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
+import { createL1Toolbox, l1SurfaceSet, type AiLibrary, type L1Operations } from './toolbox-core'
 import { siteDigestSource } from './digest-core'
 import { configureProjectBackends, PROJECT_BACKEND, projectBackendModel } from './backends'
 import { turnSpendRecord, type RecordTurnSpend } from './spend-core'
@@ -1015,6 +1019,34 @@ async function runTool(box: Untyped, name: string, input: Record<string, unknown
 }
 
 /**
+ * The tools a backend is built with, projected from a Toolbox ([[REQ-295]]).
+ *
+ * A PROJECTION OF THE ENABLED OPERATIONS, never a second list: a capability the
+ * instance does not grant is never offered, and `run` refuses it again if it
+ * somehow arrives. The handler does nothing but hand the call over — validation,
+ * gating, invocation, provenance and audit all live behind `run`.
+ *
+ * ONE FUNCTION BECAUSE THERE ARE NOW THREE BACKENDS. The site's, the business's
+ * and — since delegation — every worker's, and all three want exactly this. Three
+ * copies of a projection is how one of them silently stops matching its box.
+ */
+function toolSet(lib: Untyped, box: Untyped): Untyped[] {
+  const schemas = box.schemas() as Record<
+    string,
+    { description: string; properties: Record<string, unknown>; required: string[] }
+  >
+  return Object.entries(schemas).map(
+    ([name, spec]) =>
+      new lib.Tool(
+        name,
+        spec.description,
+        { properties: spec.properties, required: spec.required },
+        (input: Record<string, unknown>) => runTool(box, name, input),
+      ),
+  )
+}
+
+/**
  * The reads a session gets on ITSELF ([[REQ-283]]).
  *
  * THE DECLARATION IS UPSTREAM'S AND NOTHING HERE RESTATES IT. `agent_surface.json`
@@ -1102,6 +1134,15 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // document rather than the constructor options that also exist.
   configureProjectBackends(lib)
 
+  // AND WHETHER THIS DEPLOYMENT DELEGATES ([[REQ-295]]), beside it and for the
+  // same reason: both are start-up questions, both are documents, and both are
+  // answered before anything is constructed that reads them. The call validates
+  // as well as reads — a worker role bound to a backend `backends.json` does not
+  // declare, or one this host cannot build, fails HERE naming the offending key
+  // rather than at the first delegation, which would be a configuration mistake
+  // discovered in the middle of a customer's conversation.
+  const delegation = delegationFor([BUILDER_ROLE])
+
   // Constructing the Toolbox is where a CONFIGURATION failure surfaces — a group
   // the surface does not declare, an operation the class does not implement — so
   // it happens once, here, rather than mid-turn as a tool error the model would
@@ -1123,6 +1164,93 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // drawing but not measure one is a shape nobody asked for. So the deps are
   // built once here and both consumers read them.
   const fidelity = deps.fidelity ? deps.fidelity(slug) : null
+
+  // -- delegation: construction on a cheaper session ([[REQ-295]]) -----------
+  //
+  // THE MANAGER IS LATE-BOUND, and it has to be: the manager resolves a backend,
+  // the backend carries a Toolbox, the Toolbox carries the delegation surface,
+  // and the surface drives the manager. That cycle is real rather than an
+  // accident of ordering, which is why the framework's runtime takes a CALLABLE
+  // here — this holder is the whole of what breaks it.
+  let manager: Untyped = null
+
+  // `undefined` WHEN THIS DEPLOYMENT DOES NOT DELEGATE, and everything below
+  // hangs off that one value. Off means the surface is never composed — not
+  // composed-and-refusing — so the consultant's manual never mentions `delegate`,
+  // its method prose renders nothing, no worker role is registered and no second
+  // backend is built. That is the same structural absence a missing browser, a
+  // missing renderer and a missing ticket store already have here, and it is what
+  // makes the switch a rollback rather than a new state to debug.
+  const workerSettings = delegation.enabled ? delegation.workers[BUILDER_ROLE] : undefined
+
+  // The worker's OWN surfaces — its own L1 instance and its own camera, never the
+  // consultant's. A Toolbox BINDS each surface to the grant it was built with, so
+  // sharing an instance across the two roles would re-bind the consultant's L1
+  // surface to the worker's narrower grant and silently take capabilities off the
+  // conversation. See {@link l1SurfaceSet}.
+  //
+  // WHAT IT COMPOSES IS THE L1 SURFACE, THE CAMERA AND THE MANUAL, and
+  // deliberately nothing else: no knowledge corpus, no ledger, no catalogue, no
+  // session context. A worker is handed a bounded piece of work and reports; the
+  // corpus is the consultant's method, the ledger and the catalogue are the
+  // ENGAGEMENT's, and a worker writing to either would be a second author on a
+  // record that exists to say what the consultant and their client settled.
+  const worker = workerSettings
+    ? await l1SurfaceSet(
+        slug,
+        { ...opts, actor: 'ai' },
+        {
+          role: BUILDER_ROLE,
+          lib: deps.lib,
+          store: deps.store,
+          extraOps: deps.extraOps ?? {},
+          measurer: fidelity ? browserMeasurer(fidelity) : null,
+          assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
+          addresses: deps.addresses ? () => deps.addresses!(slug) : null,
+          extraSurfaces: fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : [],
+        },
+      )
+    : null
+
+  const runtime =
+    worker && workerSettings
+      ? new lib.DelegationRuntime({
+          manager: () => manager,
+          // WHICH SESSION IS CALLING, answered at the moment of the call rather
+          // than captured — the same shape and the same reason the Toolbox's own
+          // audit attribution takes one. This host has exactly one session per
+          // site, so the answer is derived rather than tracked.
+          caller: () => sessionIdFor(slug),
+          workers: {
+            [BUILDER_ROLE]: new lib.WorkerConfig({
+              backend: workerSettings.backend,
+              surfaces: worker.surfaces,
+              // ONLY THE HOST KNOWS HOW TO BUILD AN ADAPTER, which is why this is
+              // a callback at all. The toolbox handed over is the FRAMEWORK'S —
+              // composed from the surfaces above plus its own report operation,
+              // and granted from the builder role's `tools` — so the worker's
+              // authority is settled before this runs and nothing here can widen
+              // it.
+              build: ({ toolbox, backend }: { toolbox: Untyped; backend: string }) => {
+                auditWorker(toolbox, deps.audit ?? null)
+                return new lib.ClaudeAPIBackend({
+                  ...(modelClient ? { client: modelClient } : {}),
+                  ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+                  // THE CONFIGURED NAME AND NOT THE DERIVED ONE. The framework
+                  // registers this adapter under a per-session name so the manager
+                  // resolves it like any other, but `ClaudeAPIBackend` reads its
+                  // settings under the name it was CONSTRUCTED with — so passing
+                  // the configured one is what makes `backends.json`'s
+                  // `claude_builder` entry the thing that decides the model and
+                  // the ceiling.
+                  name: backend,
+                  tools: toolSet(lib, toolbox),
+                })
+              },
+            }),
+          },
+        })
+      : null
 
   // -- the session's own memory ([[REQ-283]]) --------------------------------
   //
@@ -1284,6 +1412,29 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
         ...(deps.extraSurfaces ?? []),
+        // HANDING WORK OVER ([[REQ-295]]), where this deployment delegates.
+        //
+        // ADDITIVE AND NOTHING ELSE. It composes BESIDE the consultant's `l1` and
+        // `fidelity` entries and removes nothing: the consultant can still author
+        // a page itself, and delegating is a decision it makes per piece of work
+        // rather than a capability it lost. The narrower design — moving
+        // construction out of the consultant so delegation is compulsory — is
+        // held in reserve for what REQ-293 measures.
+        //
+        // ITS GRANT TRAVELS WITH IT, like the ledger's and the catalogue's and
+        // unlike fidelity's, for `image-core.ts`'s reason: `instances.json` is
+        // validated in CI against the declarations THIS repository hands the
+        // validator, so a key there for a surface composed per deployment would
+        // be a grant nothing can check. The scope axis is `when_unset: error`, so
+        // the helper is also the one thing that cannot be got wrong by hand.
+        ...(runtime
+          ? [
+              {
+                surface: new lib.DelegationToolbox(runtime),
+                granted: lib.delegationInstanceConfig(runtime.roleNames()),
+              },
+            ]
+          : []),
         // THE SESSION'S OWN CONTEXT ([[REQ-283]]), where this host keeps one.
         // Its grant travels with it, like the ledger's and the catalogue's and
         // unlike fidelity's, for the reason `image-core.ts` states: the
@@ -1351,14 +1502,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // through the registry, and registration is an idempotent overwrite, so the
   // instance a manager caches is always the one built with this site's tools.
   //
-  // The tools are a PROJECTION of the enabled operations, not a second list: a
-  // capability the instance does not grant is never offered, and `run` refuses it
-  // again if it somehow arrives. The handler does nothing but hand the call over —
-  // validation, gating, invocation, provenance and audit all live behind `run`.
-  const schemas = box.schemas() as Record<
-    string,
-    { description: string; properties: Record<string, unknown>; required: string[] }
-  >
+  // The tools are a PROJECTION of the enabled operations — see {@link toolSet}.
   lib.registerBackend(
     siteBackendName(slug),
     () =>
@@ -1369,15 +1513,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         // the environment and an absent key still fails at FIRST USE with the
         // library's own message rather than at construction.
         ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-        tools: Object.entries(schemas).map(
-          ([name, spec]) =>
-            new lib.Tool(
-              name,
-              spec.description,
-              { properties: spec.properties, required: spec.required },
-              (input: Record<string, unknown>) => runTool(box, name, input),
-            ),
-        ),
+        tools: toolSet(lib, box),
       }),
   )
 
@@ -1418,6 +1554,11 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     slug,
     box,
     signal: () => signals.get(key),
+    // [[REQ-295]] — WHETHER THE CONSULTANT IS TOLD HOW TO HAND WORK OVER, which
+    // is the same question as whether it was given the tool. With the switch off
+    // the entry renders nothing, so the prompt is byte-for-byte what this host
+    // sent before delegation existed.
+    delegating: runtime !== null,
     // [[REQ-285]] — THE PAGE ARRIVES WITH THE TURN. Built once per manager and
     // DERIVED AFRESH on every turn it is delivered ([[BUG-128]]): it used to keep
     // the derivation against the draft's write version, which does not move when
@@ -1507,7 +1648,36 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   named[CONSULTANT_ROLE] = role
   for (const legacy of LEGACY_ROLE_NAMES) named[legacy] = role
 
-  return new lib.SessionManager(named, deps.archive, {
+  // AND THE WORKER'S ROLE, where this deployment delegates ([[REQ-295]]).
+  //
+  // IN THE SAME MAP, because the framework opens a worker with
+  // `manager.createSession(role, …)` — so the worker's priming is assembled by
+  // the ordinary path and it reads the builder's prose, never the consultant's.
+  //
+  // THE MANUAL IS PROJECTED FROM THE WORKER'S OWN BOX, which is what the second
+  // Toolbox below is for. It composes exactly what a worker gets — the surfaces
+  // above, plus the report operation the framework adds to every worker — so the
+  // tool list a worker is PRIMED with is the tool list it actually has. Building
+  // it here rather than per delegation is what keeps that prefix identical across
+  // every worker this deployment opens, and therefore cacheable.
+  if (worker && runtime) {
+    registerBuilderProviders(providers, {
+      box: new lib.Toolbox(
+        [...worker.surfaces, new lib.DelegationToolbox(runtime, { workerSession: '' })],
+        {
+          ...worker.granted,
+          [lib.DELEGATION_SURFACE]: {
+            groups: [lib.REPORT_GROUP],
+            scope: { [lib.DELEGATION_ROLE_AXIS]: [] },
+          },
+        },
+        { role: BUILDER_ROLE },
+      ),
+    })
+    named[BUILDER_ROLE] = builderRole(lib, providers, worker.granted)
+  }
+
+  manager = new lib.SessionManager(named, deps.archive, {
     ...(deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir }),
     // BOTH HALVES, EXPLICITLY (DOC-22 §10). The manager defaults the registry and
     // the product tier *together*, because a product mapping names providers and
@@ -1524,6 +1694,38 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     // delivered where it is actually read: in the seed, every turn.
     maxPrimingChars: MAX_PRIMING_CHARS,
   })
+  // ASSIGNED AND THEN RETURNED, rather than returned directly ([[REQ-295]]). The
+  // delegation runtime above holds `() => manager`, so this assignment is what
+  // closes the cycle; returning the expression would leave the holder null for
+  // the life of the manager and every delegation refusing for want of one.
+  return manager
+}
+
+/**
+ * Record a worker's tool calls where the caller's are recorded ([[REQ-295]]).
+ *
+ * CONDITION 8, AND THE ONE PLACE THIS HOST REACHES PAST THE FRAMEWORK'S API. The
+ * worker's Toolbox is constructed by the delegation surface — deliberately, since
+ * that is what makes the worker's authority its role's grant rather than this
+ * host's discipline — and `Toolbox` takes its audit sink at construction, which
+ * the surface does not pass on. There is no other seam: the record is built
+ * inside `run`, from the grant and the declaration, and anything reconstructed
+ * out here would be a second, poorer opinion about what happened.
+ *
+ * IT IS SAFE BECAUSE THE FIELD IS READ PER CALL rather than captured, and it is
+ * WORTH DOING because the alternative is a blind spot exactly where an auditor
+ * most needs sight: which side of a delegation changed a customer's site. The
+ * attribution itself is already right — the surface builds the worker's Toolbox
+ * with its own session id and role — so this supplies the sink and nothing else.
+ *
+ * The upstream fix is one option on `WorkerConfig`; until it exists this is the
+ * honest shape, and it is one line so it is cheap to delete.
+ */
+function auditWorker(
+  toolbox: Untyped,
+  sink: ((record: { asObject(): Untyped }) => void) | null,
+): void {
+  if (sink) toolbox._audit = sink
 }
 
 /**
@@ -1615,25 +1817,13 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
     role: SETTINGS_ROLE,
   })
 
-  const schemas = box.schemas() as Record<
-    string,
-    { description: string; properties: Record<string, unknown>; required: string[] }
-  >
   lib.registerBackend(
     businessBackendName(businessId),
     () =>
       new lib.ClaudeAPIBackend({
         ...(modelClient ? { client: modelClient } : {}),
         ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-        tools: Object.entries(schemas).map(
-          ([name, spec]) =>
-            new lib.Tool(
-              name,
-              spec.description,
-              { properties: spec.properties, required: spec.required },
-              (input: Record<string, unknown>) => runTool(box, name, input),
-            ),
-        ),
+        tools: toolSet(lib, box),
       }),
   )
 
@@ -1850,7 +2040,25 @@ async function closePending(
 async function writeTurnSpend(
   deps: HostDeps,
   meta: Record<string, unknown> | undefined,
-  facts: { session: string; turn: string; startedAt: string; role: string; outcome: string },
+  facts: {
+    session: string
+    turn: string
+    startedAt: string
+    role: string
+    outcome: string
+    /**
+     * What this turn caused ELSEWHERE — a delegated worker's requests
+     * ([[REQ-295]]), or absent on a host that does not delegate.
+     *
+     * READ OFF THE JUNCTION BY THE CALLER, for the reason the comment below
+     * records: the manager puts `attributed` on the junction's `turn_end` record
+     * and not on the terminal event, so a turn's own meta cannot carry it. The
+     * read is the caller's because only the caller holds the manager, and it is
+     * skipped entirely where the surface was never composed — a host that cannot
+     * delegate must not pay a log read per turn to be told so.
+     */
+    attributed?: unknown[] | null
+  },
 ): Promise<void> {
   if (!deps.recordTurnSpend) return
   try {
@@ -1866,10 +2074,19 @@ async function writeTurnSpend(
       // does not carry: its whole job is to say which of that meta's keys ARE
       // spend, and a delegated worker's requests are not this turn's spend —
       // they are a second party's, attributed to the turn that caused them
-      // (REQ-148 §8). Taken from the raw meta so the record can hold it the day
-      // it arrives there; today the manager puts it on the junction's
-      // `turn_end` and not on this event, and this product delegates nothing.
-      ...(Array.isArray(meta?.attributed) ? { attributed: meta.attributed } : {}),
+      // (REQ-148 §8).
+      //
+      // TWO SOURCES, IN THAT ORDER ([[REQ-295]]). The raw meta first, so the
+      // record holds it the day the terminal event starts carrying it; the
+      // caller's junction read second, which is where the manager actually puts
+      // it today — `turn_end` gets `attributed`, `doneEvent` does not. Whichever
+      // answers is the same list from the same place; naming both is what stops
+      // this needing a change when upstream closes the gap.
+      ...(Array.isArray(meta?.attributed)
+        ? { attributed: meta.attributed }
+        : facts.attributed?.length
+          ? { attributed: facts.attributed }
+          : {}),
     } as Record<string, unknown>
     const record = turnSpendRecord(spend, {
       session: facts.session,
@@ -1886,6 +2103,55 @@ async function writeTurnSpend(
   } catch {
     // See above. Deliberately swallowed.
   }
+}
+
+/**
+ * The junction record kind that closes a turn.
+ *
+ * A LITERAL, matched rather than restated — the same liberty {@link TOOL_ACTIVITY}
+ * and {@link DONE} already take with upstream's vocabulary, and for the same
+ * reason: it is a string on the wire either way, `/core` does not re-export it,
+ * and naming it here is what stops the one comparison this file makes against
+ * that vocabulary being a bare string buried mid-function.
+ */
+const TURN_END = 'turn_end'
+
+/**
+ * What the turn that just closed handed off, and what that cost ([[REQ-295]]).
+ *
+ * WHY THE JUNCTION AND NOT THE TERMINAL EVENT. The manager takes the turn's
+ * attributions, clears them, and writes them onto the `turn_end` record it
+ * appends from its own `finally` — so they are durable on every exit path,
+ * including the worker that failed, the worker that was stopped and the turn the
+ * client walked away from, which is precisely condition 7. They are NOT on
+ * `doneEvent`, which carries the turn's own spend and its status. This reads the
+ * place the fact actually is.
+ *
+ * THE LAST `turn_end` IS THIS TURN'S. It is read from the `finally` that closes
+ * the stream, and returning the manager's generator runs its `finally` first —
+ * so the record exists by the time this looks for it, and nothing later can have
+ * been appended.
+ *
+ * READING THE WHOLE LOG IS THE FRAMEWORK'S OWN IDIOM here (`readFrom(0)` is what
+ * the delegation surface's stop watch does, every hundred milliseconds), and this
+ * runs once per turn and only where delegation is composed at all.
+ *
+ * A MISSING JUNCTION IS `null`, NOT A THROW. This is called from a `finally`
+ * beside the meter, and a reader that took the turn down would be worse than the
+ * figure it was fetching.
+ */
+function turnAttributions(manager: Untyped, sessionId: string): unknown[] | null {
+  try {
+    const [records] = manager.logFor(sessionId).readFrom(0) as [Array<Record<string, unknown>>]
+    for (let at = records.length - 1; at >= 0; at -= 1) {
+      if (records[at]?.kind !== TURN_END) continue
+      const attributed = records[at].attributed
+      return Array.isArray(attributed) ? attributed : null
+    }
+  } catch {
+    // No junction, no attribution to read.
+  }
+  return null
 }
 
 /**
@@ -2310,6 +2576,11 @@ export async function* streamPrompt(
       startedAt: spendStartedAt,
       role: CONSULTANT_ROLE,
       outcome,
+      // AND WHAT IT HANDED OFF ([[REQ-295]]). Asked only where this deployment
+      // composes the delegation surface at all: with the switch off there can be
+      // no attribution, and a host that cannot delegate should not pay a junction
+      // read per turn to be told so.
+      attributed: manager.roles[BUILDER_ROLE] ? turnAttributions(manager, sessionId) : null,
     })
   }
 }

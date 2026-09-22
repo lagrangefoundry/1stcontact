@@ -190,7 +190,16 @@ describe('REQ-174 — the assistant is told it is a consultant', () => {
   it('test_UAT_FC_REQ-174_the_grant_and_the_corpus_purpose_are_the_consultants', () => {
     // `instances.json` is keyed by role name, so the rename has to move the key
     // with it or every session fails to construct a Toolbox at all.
-    expect(Object.keys(L1_INSTANCES)).toEqual([CONSULTANT_ROLE])
+    //
+    // THE KEY, NOT THE KEY COUNT ([[REQ-295]]). This read `toEqual([
+    // CONSULTANT_ROLE])` while the consultant was the only role with an L1 grant;
+    // the delegated worker now has one too, and that is not what the rename is
+    // about. What the rename IS about is both halves below: the new name is
+    // present and the old one is nowhere.
+    expect(Object.keys(L1_INSTANCES)).toContain(CONSULTANT_ROLE)
+    for (const legacy of LEGACY_ROLE_NAMES) {
+      expect(Object.keys(L1_INSTANCES)).not.toContain(legacy)
+    }
 
     // The role's purpose primes knowledge retrieval (step 2 of the landscape).
     // It said the role "looks after" a website, which is the custodial register

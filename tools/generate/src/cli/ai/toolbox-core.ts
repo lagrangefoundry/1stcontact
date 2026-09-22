@@ -808,11 +808,46 @@ export function bufferedAuditSink(): BufferedAuditSink {
 export async function createL1Toolbox(
   slug: string,
   opts: GlobalOptions = {},
+  options: Parameters<typeof l1SurfaceSet>[2] & {
+    audit?: ((record: { asObject(): AuditLine }) => void) | null
+    session?: string | null
+  },
+): Promise<Untyped> {
+  const { surfaces, granted } = await l1SurfaceSet(slug, opts, options)
+  return new options.lib.Toolbox(surfaces, granted, {
+    audit: options.audit ?? null,
+    session: options.session ?? null,
+    role: options.role ?? CONSULTANT_ROLE,
+  })
+}
+
+/**
+ * The surfaces one site and one role compose, and the grant they are held to
+ * ([[REQ-295]]).
+ *
+ * EXTRACTED FROM {@link createL1Toolbox} RATHER THAN COPIED, and the reason is
+ * the delegation surface's contract. It builds a worker's Toolbox ITSELF — that
+ * is what makes "the worker's authority is its role's grant" a framework floor
+ * rather than this host's discipline — so what the host supplies is a list of
+ * SURFACES and a grant, not a finished Toolbox. Every rule below then applies to
+ * a worker exactly as it applies to a consultant: the same travelling-grant
+ * merge, the same manual appended last, the same narrowing to what was actually
+ * composed. A second assembly written for the worker is how those three would
+ * come to disagree, and the symptom would be a worker with authority nobody
+ * granted it.
+ *
+ * THE SURFACE INSTANCES ARE THIS CALL'S, never shared with another. A Toolbox
+ * BINDS each surface to the grant it was constructed with, so handing the
+ * consultant's own L1 instance to a worker would re-bind it to the worker's
+ * narrower grant and quietly take capabilities off the consultant. Each role
+ * gets its own call.
+ */
+export async function l1SurfaceSet(
+  slug: string,
+  opts: GlobalOptions = {},
   {
     role = CONSULTANT_ROLE,
     config = null,
-    audit = null,
-    session = null,
     lib: injectedLib,
     store,
     extraOps = {},
@@ -823,8 +858,6 @@ export async function createL1Toolbox(
   }: {
     role?: string
     config?: Record<string, unknown> | null
-    audit?: ((record: { asObject(): AuditLine }) => void) | null
-    session?: string | null
     /** The AI library. Supplied by the host — see {@link AiLibrary}. */
     lib: AiLibrary
     /**
@@ -887,7 +920,7 @@ export async function createL1Toolbox(
      */
     extraSurfaces?: Array<{ surface: Untyped; granted?: Record<string, unknown> }>
   },
-): Promise<Untyped> {
+): Promise<{ surfaces: Untyped[]; granted: Record<string, unknown> }> {
   const lib = injectedLib
   const L1Toolbox = await l1ToolboxClass(lib)
   const instance = config ?? (L1_INSTANCES[role] as Record<string, unknown> | undefined)
@@ -947,5 +980,5 @@ export async function createL1Toolbox(
     Object.entries(granted).filter(([surfaceName]) => composed.has(surfaceName)),
   )
 
-  return new lib.Toolbox(surfaces, granted, { audit, session, role })
+  return { surfaces, granted }
 }

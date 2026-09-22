@@ -15,5 +15,20 @@
     "fidelity": {
       "groups": ["SeeSite"]
     }
+  },
+
+  "builder": {
+    "l1": {
+      "groups": [
+        "ReadSite",
+        "AuthorPages",
+        "ManageComponents",
+        "MeasureDrawings",
+        "DrawImages"
+      ]
+    },
+    "fidelity": {
+      "groups": ["SeeSite"]
+    }
   }
 }

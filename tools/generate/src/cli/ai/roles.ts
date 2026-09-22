@@ -72,6 +72,33 @@ export const CONSULTANT_ROLE = 'consultant'
 export const SETTINGS_ROLE = 'settings'
 
 /**
+ * The worker's role — this project's THIRD, and the first that is not a
+ * conversation ([[REQ-295]]).
+ *
+ * NOBODY OPENS ONE. A `builder` session is opened by the framework's delegation
+ * surface when the consultant hands a piece of construction over, runs for
+ * exactly one turn, reports, and is gone. That is why it is absent from what
+ * `aiStatus` reports: the panel lists conversations a person can start, and this
+ * is not one.
+ *
+ * ITS GRANT IS `instances.json`'s `builder` ENTRY and nothing else, which is the
+ * whole invariant the delegation surface rests on: the brief is open prose and
+ * **no phrasing of it can widen what the worker may do**, because authority comes
+ * from the role's `tools` rather than from the goal. The entry is the
+ * consultant's construction half — ReadSite, AuthorPages, ManageComponents,
+ * MeasureDrawings, DrawImages, and SeeSite — and deliberately not ManagePages,
+ * WriteConfig or ManagePalette: creating and deleting pages, the site's
+ * configuration and its palette are the consultant's judgement, not the
+ * builder's hands.
+ *
+ * THE CONSULTANT LOSES NOTHING TO IT. Its own grant is unchanged and delegating
+ * is a decision it makes per piece of work, not a capability it gave up. The
+ * narrower design — moving construction OUT of the consultant so delegation is
+ * compulsory — is held in reserve for what REQ-293 measures.
+ */
+export const BUILDER_ROLE = 'builder'
+
+/**
  * Role names this project used to write, and still reads (REQ-174).
  *
  * THE RENAME IS ACCEPTED ON READ RATHER THAN MIGRATED, and only one of the two
@@ -168,6 +195,28 @@ export const PRODUCT_ENTRY = 'product-system'
 export const SETTINGS_ROLE_ENTRY = 'settings-role'
 
 /**
+ * What the BUILDER is ([[REQ-295]]).
+ *
+ * ONE STATIC ENTRY, like the settings role's and for the same reason: neither of
+ * the consultant's two entries is true of a session that never speaks to the
+ * client. `consultant-role` is a register — form a view, argue for it, lead —
+ * and a worker that argued with its brief would be duplicating the judgement it
+ * was handed the work to avoid paying for. `product-system` is closer, but half
+ * of it (never expose the vocabulary to the client, what the client can see) is
+ * about a conversation this session does not have.
+ *
+ * THE PROSE IS NOT OPTIONAL, and that is the point of it existing at all. Tool
+ * schemas tell a worker what it may call. They do not tell it what this product
+ * considers finished, that the site is the fact and the brief only an intention,
+ * that a refusal is a useful answer where a plausible substitute is not, or —
+ * load-bearing — that a check it did not make must never come back passed. That
+ * last one is what the caller's whole saving rests on: a consultant that cannot
+ * trust a verdict re-inspects everything, and the tokens have then been moved to
+ * the expensive side rather than saved.
+ */
+export const BUILDER_ROLE_ENTRY = 'builder-role'
+
+/**
  * One entry as the configuration file writes it, before normalisation.
  *
  * `text` may be a list of lines, which is the only liberty this host takes with
@@ -235,6 +284,40 @@ export function settingsPrimingConfig(): Record<string, unknown> {
 }
 
 /**
+ * The builder's configuration, plus the grant its workers are held to
+ * ([[REQ-295]]).
+ *
+ * `tools` IS HERE AND NOWHERE ELSE, and it is the one thing this project has
+ * never put on a role before. The delegation surface builds each worker's
+ * Toolbox from its ROLE'S `tools` — that is what makes "the brief cannot widen
+ * the worker" true rather than aspirational — so the grant has to travel on the
+ * role object rather than, as every other grant in this host does, on the
+ * Toolbox the host constructs.
+ *
+ * IT IS PASSED IN RATHER THAN READ FROM `instances.json` HERE. The grant that
+ * reaches a worker is the one NARROWED to the surfaces this deployment actually
+ * composed — a deployment with no browser composes no fidelity surface, and a
+ * grant naming one the Toolbox never registered refuses to construct. That
+ * narrowing is `l1SurfaceSet`'s, so the host does it once and hands the answer
+ * here; deriving it a second time from the document is exactly how the two would
+ * come to disagree.
+ *
+ * WHAT IS IN EACH TIER. The stable prefix is the role's prose and its own
+ * projected manual, so every worker this deployment opens sends an IDENTICAL
+ * cacheable prefix. Which site it is on and what is currently on that site are
+ * volatile and ride the reminder tier — a worker lives one turn, so nothing is
+ * lost by delivering them there, and putting them in the prefix would give every
+ * delegation a prefix of its own.
+ */
+export function builderPrimingConfig(tools: Record<string, unknown>): Record<string, unknown> {
+  return {
+    priming: (primingDocument.builder_priming as RawEntry[]).map(normalise),
+    reminders: (primingDocument.builder_reminders as RawEntry[]).map(normalise),
+    tools,
+  }
+}
+
+/**
  * The text of one static entry, by name (REQ-182).
  *
  * The read path for anything that needs to know what a session is actually told
@@ -257,6 +340,9 @@ export function primingText(name: string): string {
     // should not have to know which role's list holds the answer.
     primingDocument.settings_priming,
     primingDocument.settings_reminders,
+    // AND THE THIRD ROLE'S ([[REQ-295]]), on the same terms.
+    primingDocument.builder_priming,
+    primingDocument.builder_reminders,
   ] as RawEntry[][]
   for (const entry of lists.flat()) {
     if (entry.name !== name) continue
@@ -464,6 +550,34 @@ export const BUSINESS_MANUAL_PROVIDER = 'business.manual'
 export const BUSINESS_LINE_PROVIDER = 'business.line'
 
 /**
+ * The worker's own manual ([[REQ-295]]).
+ *
+ * A THIRD NAME FOR THE SAME PROJECTION, for {@link BUSINESS_MANUAL_PROVIDER}'s
+ * reason and with a sharper consequence here: the consultant and the builder run
+ * in the SAME manager, off the same registry, and their grants are deliberately
+ * different. One name would mean one of them reading the other's tool list —
+ * which for this pair is the precise failure the split grant exists to prevent.
+ */
+export const BUILDER_MANUAL_PROVIDER = 'builder.manual'
+
+/**
+ * How the consultant hands work over, or nothing at all ([[REQ-295]]).
+ *
+ * A PROVIDER RATHER THAN A `text:` ENTRY, and that is what makes the switch a
+ * true rollback. With delegation off the surface is never composed, so the
+ * consultant has no `delegate` tool — and prose telling it how to use one is
+ * then an instruction to reach for a capability it has not got, which a model
+ * will offer, apologise for, or probe for. `null` drops the entry and its
+ * separator, so the prompt a deployment with the switch off sends is byte-for-byte
+ * what this repository sent before delegation existed.
+ *
+ * REGISTERED EITHER WAY. Both of the consultant's declared orders name this entry
+ * unconditionally, so a registry that omitted it could not load the role at all —
+ * the same reason the memory and digest providers are registered without a source.
+ */
+export const DELEGATION_METHOD_PROVIDER = 'delegation.method'
+
+/**
  * The seed entry in the framework's product tier, rebound to this host's record
  * ([[REQ-283]]).
  *
@@ -567,9 +681,32 @@ export function registerSiteProviders(
      * entry rather than a heading over nothing.
      */
     digest?: (() => Promise<SiteDigest | null>) | null
+    /**
+     * Whether this deployment composes the delegation surface ([[REQ-295]]).
+     *
+     * BOUND HERE RATHER THAN IN A SEAM OF ITS OWN, because the entry it fills is
+     * consultant-tier and is exactly the kind of fact this function already
+     * binds: `site.manual` says what this session can do, and this says what it
+     * should do with one of those tools. Both of the consultant's declared
+     * orders name the entry unconditionally, so the name is registered either
+     * way; what it RENDERS is the switch.
+     *
+     * A VALUE AND NOT A CALLBACK, unlike the two signals beside it. Which
+     * surfaces a deployment composes is settled when the manager is built and
+     * cannot change under a running conversation — and the entry sits in the
+     * CACHED prefix, so a provider that could answer differently per turn would
+     * be a volatile entry in a stable tier.
+     *
+     * DEFAULTS TO OFF, which is the safe direction: a host that forgot it sends
+     * the prompt this repository sent before delegation existed.
+     */
+    delegating?: boolean
   },
 ): void {
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+  providers.register(DELEGATION_METHOD_PROVIDER, async () =>
+    delegationMethod(binding.delegating === true),
+  )
   providers.register(SITE_LINE_PROVIDER, async () => siteLine(binding.slug))
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
   providers.register(CORPUS_DELTA_PROVIDER, async () => binding.signal()?.delta ?? null)
@@ -907,6 +1044,44 @@ export function registerSettingsProviders(
 }
 
 /**
+ * Bind the one name the builder's configuration adds ([[REQ-295]]).
+ *
+ * ONE, because everything else a worker is told it shares with the consultant
+ * and reads under the consultant's own names: `site.line` says which site, and
+ * `site.digest` says what is currently on it. Those are facts about the SITE, and
+ * both roles are on the same one in the same manager — a second binding would be
+ * a second answer to a question that has one.
+ *
+ * REGISTERED ONLY WHERE THERE IS A WORKER TO REGISTER IT FOR. The builder role is
+ * loaded only when this deployment composes the delegation surface, and
+ * `rolesFromMapping` validates a role's providers when that role is loaded — so
+ * with the switch off there is no role naming this name and nothing to bind.
+ *
+ * @param box the worker's Toolbox — the one its own tools are projected from,
+ *   which is NOT the consultant's. See {@link BUILDER_MANUAL_PROVIDER}.
+ */
+export function registerBuilderProviders(providers: Untyped, binding: { box: Untyped }): void {
+  providers.register(BUILDER_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+}
+
+/**
+ * How the consultant hands work over, or `null` ([[REQ-295]]).
+ *
+ * THE WORDS ARE THE CONFIGURATION'S AND THE CONDITION IS THE CODE'S, which is the
+ * split this file keeps everywhere — see {@link interruptedSignal}, whose prose
+ * lives in the same `templates` block for the same reason.
+ *
+ * `null` DROPS THE ENTRY AND ITS SEPARATOR, which is the whole of what makes the
+ * switch a rollback: a deployment that does not compose the delegation surface
+ * sends byte-for-byte the prompt this host sent before delegation existed. Prose
+ * telling a session how to use a tool it has not got is an instruction to reach
+ * for one, and a model will offer it, apologise for it, or probe for it.
+ */
+export function delegationMethod(delegating: boolean): string | null {
+  return delegating ? template('delegation-method') : null
+}
+
+/**
  * The consultant's role, built by the framework's own loader (REQ-182).
  *
  * LOADED, NOT CONSTRUCTED, and that is the point of the change. Building `Entry`
@@ -944,6 +1119,31 @@ export function settingsRole(lib: Untyped, providers: Untyped): Untyped {
     { providers },
   )
   return roles[SETTINGS_ROLE]
+}
+
+/**
+ * The builder's role, built by the same loader ([[REQ-295]]).
+ *
+ * THROUGH `rolesFromMapping` FOR THE REASON BOTH OF THE OTHERS ARE, plus one this
+ * role has on its own: it is the first whose `tools` field is READ. That field
+ * has been carried by every role since roles existed and consumed by nothing at
+ * all; the delegation surface builds each worker's Toolbox from it, so a grant
+ * that does not match the surfaces the worker was configured with is a start-up
+ * failure here rather than a worker that opens with the wrong authority.
+ *
+ * @param tools the grant, already narrowed to the surfaces this deployment
+ *   composed — see {@link builderPrimingConfig}.
+ */
+export function builderRole(
+  lib: Untyped,
+  providers: Untyped,
+  tools: Record<string, unknown>,
+): Untyped {
+  const roles = lib.rolesFromMapping(
+    { roles: { [BUILDER_ROLE]: builderPrimingConfig(tools) } },
+    { providers },
+  )
+  return roles[BUILDER_ROLE]
 }
 
 /** What {@link registerCorpusProviders} needs out of the `ai-knowledge` bridge. */

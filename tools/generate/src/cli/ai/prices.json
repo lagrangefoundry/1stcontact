@@ -39,7 +39,17 @@
     "THE NUMBERS ARE PUBLISHED LIST RATES AT THE TIME OF WRITING and carry no",
     "contracted discount. They are configuration: correcting one is an edit here,",
     "and a past period's bill does not move when they change, because",
-    "`cost_micros` is settled at write time and stored."
+    "`cost_micros` is settled at write time and stored.",
+    "",
+    "A REGISTERED VARIANT IS ITS OWN KEY ([[REQ-295]]). `claude_builder` is a second",
+    "variant of the `claude` adapter running a cheaper model, and what a spend",
+    "record carries is the name that actually ran — `turn_spend.backend` for the",
+    "turn's own requests, and the `backend` of each entry in its `attributed` list",
+    "for a delegated worker's. So the variant is keyed here as itself rather than",
+    "folded under `claude`: pricing by the name that ran is the whole point of the",
+    "two-level key, and a lookup that fell back to the family would price whatever",
+    "a variant was configured with at the family's rates — which is the confidently",
+    "wrong figure this file exists to avoid."
   ],
 
   "claude": {
@@ -54,6 +64,15 @@
       "output": 15,
       "cache_read": 0.3,
       "cache_write": 3.75
+    }
+  },
+
+  "claude_builder": {
+    "claude-haiku-4-5": {
+      "input": 1,
+      "output": 5,
+      "cache_read": 0.1,
+      "cache_write": 1.25
     }
   },
 

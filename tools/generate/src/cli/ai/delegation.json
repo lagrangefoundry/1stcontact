@@ -1,0 +1,45 @@
+{
+  "about": [
+    "Whether this deployment hands construction to a cheaper worker, and which",
+    "backend each worker role runs on ([[REQ-295]]).",
+    "",
+    "WHY A FILE OF ITS OWN AND NOT A KEY IN `backends.json`. That file's keys are",
+    "the FRAMEWORK'S schema: `configureBackends` validates the whole document at",
+    "start-up and rejects a key it does not declare, so an `enabled` flag there",
+    "would fail the very validation the file exists to pass. It is not a key in",
+    "`instances.json` either — that document says what a ROLE may do, and whether",
+    "a deployment composes the delegation surface at all is a fact about the",
+    "deployment rather than about any role's authority.",
+    "",
+    "WHAT `enabled: false` MEANS, and it is the whole of the rollback story. The",
+    "delegation surface is NEVER COMPOSED — not composed-and-refusing. That is the",
+    "shape this repository already gives a missing browser, a missing image",
+    "renderer and a missing ticket store: absent rather than present-and-throwing,",
+    "so the manual never mentions it, the method prose renders nothing, and the",
+    "model cannot propose, apologise for or probe for an operation it has not got.",
+    "A deployment with the switch off is indistinguishable from this repository",
+    "before delegation existed, which is what makes turning it off a true rollback",
+    "rather than a new state to debug.",
+    "",
+    "IT SHIPS OFF. The saving this exists to produce is only observable against a",
+    "baseline, and REQ-292's meter has to have run for a period on the undelegated",
+    "shape before the after-figure means anything. Building it early is fine;",
+    "enabling it before there is a baseline is what would waste the measurement.",
+    "",
+    "DEPLOYMENT-WIDE, READ AT START-UP. Per-tenant control is deliberately out of",
+    "scope, but `workers` is a MAP rather than a pair of scalars so that adding a",
+    "scope later is an extension of this document rather than a rewrite of it.",
+    "",
+    "A worker role bound to a backend `backends.json` does not declare is refused",
+    "at start-up naming the role and the backend, rather than at the first",
+    "delegation — which is the same rule `configureBackends` applies one file over,",
+    "and for the same reason: a configuration failure discovered mid-conversation",
+    "is a configuration failure discovered by a customer."
+  ],
+
+  "enabled": false,
+
+  "workers": {
+    "builder": { "backend": "claude_builder" }
+  }
+}

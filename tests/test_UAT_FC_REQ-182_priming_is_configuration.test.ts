@@ -24,6 +24,7 @@ import {
 } from '../tools/generate/src/cli/ai/host-core'
 import {
   consultantRole,
+  DELEGATION_METHOD_PROVIDER,
   MANUAL_PROVIDER,
   primingConfig,
   primingText,
@@ -434,6 +435,12 @@ describe('REQ-182 — a host with no corpus loads the other declared order', () 
     const names = (primingConfig(false).priming as { provider?: string }[])
       .map((e) => e.provider)
       .filter((p): p is string => typeof p === 'string')
-    expect(names).toEqual([MANUAL_PROVIDER])
+    // BOTH, AND BOTH BOUND ([[REQ-295]]). The claim this case makes is that every
+    // provider the corpus-free order NAMES is one `registerSiteProviders` binds —
+    // an order naming a name nothing registered cannot load the role at all. The
+    // delegation method entry joined that order, and it is registered on the same
+    // call and unconditionally, precisely so that the switch decides what it
+    // RENDERS rather than whether the role loads.
+    expect(names).toEqual([DELEGATION_METHOD_PROVIDER, MANUAL_PROVIDER])
   })
 })
