@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-299
 created_by: xgd
 created_at: '2026-09-22T21:30:38.078707+00:00'
-updated_at: '2026-09-22T22:59:08.652970+00:00'
+updated_at: '2026-09-22T23:04:37.833529+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -129,5 +129,50 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="7fc7264e-267a-4f32-906a-a0f80c8c35c2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T23:04:36.158717+00:00" -->
+#### Claude
+BUG-134 passes once the directory exists — worktree setup, not my change. My branch's failures now match the pre-existing baseline exactly. Let me check the commit convention.
+
+Now verifying every UAT traces to ticket-body language before setting status.
+
+Two were line-wrap false negatives. Only the blank-console no-op lacks body language — adding it now.
+
+Now setting status and recording the commit.
+
+A version bump is required. Checking what the gate expects.
+
+The gate allocates the version itself. Running it.
+
+The merge lock is held by another ticket. Checking whether that process is still alive.
+
+REQ-298's merge finished and released the lock. Proceeding.
+
+Merged cleanly. Now verifying the console suites still pass post-merge on `xgd-working`, in the foreground.
+
+Moved. Verifying final state and releasing the lock.
+
+REQ-299 is free-coded, merged, and closed out.
+
+**Status:** `free_coded` · version `0.2.326` · commits `37e1e86` (the change) + `0f84bb5` (gate's version bump) · branch merged into `xgd-working` and cleaned up.
+
+**Part 1 — one verb.** `/run` and `/run-again` are gone from the router; both now 404. `startRun` lost its `forceCapture` parameter and the requirement-29 reuse branch, so every press re-captures. `recapture` renders in both positions the retired pair occupied — address row and under the iteration list — with the same label in both.
+
+**Part 2 — clear history.** New `/clear` route. It renames `storage/tmp/repro-console/repro-<site>/` to `repro-<site>.cleared-<timestamp>` beside itself, *before* resetting any state, so a rename that fails leaves the page over a chain still on disk rather than reading empty. `storage/references/` and the workspace-level gap registry are untouched. The control sits with the history it clears, carries `data-held="1"`, and is named in the hold sentence per BUG-130's rule.
+
+**Tests.** 8 new UATs in `tests/test_UAT_FC_REQ-299_one_verb_and_a_clearable_history.test.ts`; 11 existing console suites migrated. All 12 suites — 116 tests — pass post-merge on `xgd-working`.
+
+Full-suite result: 14 failures on the branch, all pre-existing. I confirmed this against a baseline run on the unmodified tree (AC1058, AC960, AC977, BUG-124×4, BUG-64, REQ-273×5). The one apparent extra, BUG-134, was a missing `.xgd/tmp/` in the fresh worktree — it passes once the directory exists.
+
+**Ticket body** now records the supersessions (BUG-120's group, BUG-130's sentence, REQ-254 reqs 15 and 29), the implementation details I settled, the blank-console no-op case, and two costs worth your attention:
+
+1. **REQ-261's resume no longer reaches across a chain.** `session.ts` cuts on a moved reference; the reference now moves every iteration. Each round pays full reading cost. The rule is working, not failing — but the optimisation is dead on the happy path.
+2. **REQ-277's "instrument sharpened" reading is suppressed on new chains.** The delta count is marked not-comparable across a seam and every iteration now carries one. The unmeasured headline still crosses the seam and still reports direction; chains already on disk still render their refolds as comparable.
+
+Neither is a defect — both follow from "every press re-rolls", which the ticket asks for explicitly. But if either is worse than you expected, they're the parts worth revisiting.
+
+One thing I did that's worth flagging: `xgd branch lock` was blocked by REQ-298's merge lock. I waited rather than clearing someone else's lock, and it released on its own after two minutes.
 
 <!-- xgd-chat-end -->
