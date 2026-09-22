@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-21T00:07:01.432120+00:00'
+updated_at: '2026-09-22T23:07:35.857469+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3036,5 +3036,17 @@ The fix removed the coupling between filing and *how* the dev server was launche
 ## Ticket housekeeping
 
 EPIC-19 now carries **Finding 9** with the three children that were missing from the thread — **REQ-288** (the `translateXPct`/`translateYPct` transform, with the Lagrange Foundry caption-plaque case and the wrapping-column reason pinned keyframes can't track it), plus **REQ-287** and **BUG-131** from last night.
+
+<!-- xgd-turn id="04e546d3-ee57-456f-8a8e-d500149034ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:07:35.790481+00:00" -->
+#### You
+Every other turn or so I return to the chat to see this message:
+
+*That turn was interrupted and nothing of it was recorded — not even your message, until now. It is back in the box below, ready to send again.*
+
+*I* think some partial chunks may have landed while I was away. This may be a Lagrange Framework bug - it is unacceptable and needs to be fixed.
+
+I am working in the dev environment
 
 <!-- xgd-chat-end -->
