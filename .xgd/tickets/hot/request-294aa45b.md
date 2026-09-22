@@ -5,10 +5,10 @@ type: request
 title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T21:32:49.411415+00:00'
+updated_at: '2026-09-22T21:37:21.467526+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   priority: high
@@ -16,8 +16,12 @@ fields:
   story_points: 8
   needs_review: false
   chat_comment: comment-be83c49e
+  commits:
+  - working_sha: 0a0465bd79ff80020af1a700bc4a1d1173d118c5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.322
 ---
-
 
 ## Why
 
