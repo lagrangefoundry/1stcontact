@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-299
 created_by: xgd
 created_at: '2026-09-22T21:30:38.078707+00:00'
-updated_at: '2026-09-22T22:27:00.520208+00:00'
+updated_at: '2026-09-22T22:57:04.127410+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -102,5 +102,23 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="7e2bf804-b7a9-4314-b8be-d36756f30c75-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T22:57:03.763910+00:00" -->
+#### Claude
+Background jobs died as warned. Let me verify state and re-run tests in the foreground.
+
+All work intact. Running every console suite in the foreground.
+
+Only prose and the 404 assertion remain. Now the full suite in the foreground.
+
+14 failures, none in the console. Confirming they're pre-existing by running those same files against the unmodified tree.
+
+Baseline has 17; my branch has 14. One name appears on my branch but not baseline — `BUG-134`. Checking it directly.
+
+Environment gap in the fresh worktree — `.xgd/tmp/` doesn't exist there. Confirming.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
