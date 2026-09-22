@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T20:17:48.717728+00:00'
+updated_at: '2026-09-22T20:19:15.289216+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2810,5 +2810,36 @@ Go ahead — I'll stay out of the way. Tell me what the capability report says a
 <!-- xgd-chat role="user" ts="2026-09-22T20:17:48.175433+00:00" -->
 #### You
 What is the problem with the anthropic key its the same one I have been using all along?
+
+<!-- xgd-turn id="a83696cb-7c76-470c-a5cb-afecbd4ac12b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T20:19:14.658794+00:00" -->
+#### Claude
+Nothing is wrong with it — you're right, and my "still invalid" line was stale. I carried §I22 forward without re-checking whether the stored value had been replaced since, which the deployment list I'd already pulled showed it had.
+
+**I probed your key directly against Anthropic just now:**
+
+```
+length: 108   prefix: sk-ant-api03-N…   no embedded whitespace
+GET https://api.anthropic.com/v1/models  →  http_status=200
+```
+
+So the key in `~/Documents/secrets/1c.dev.env` is live, correctly formed, and accepted. §I22's 401 was real when it was observed, but "the API key is invalid" described **the copy stored on the Worker at that moment**, not the key you hold. Those are different values, and only one of them was ever in question.
+
+The timeline says it was fixed within the hour:
+
+| When (UTC) | What |
+|---|---|
+| 2026-09-21 21:40:18 | code deploy — the build that produced the 401 |
+| *(during that session)* | first chat turn returns `authentication_error` |
+| 2026-09-21 22:56:25 / :30 | **two Secret Changes** — the repair |
+| 2026-09-22 20:16:58 / 20:17:02 | two Secret Changes |
+| 2026-09-22 20:17:12 | **code deploy, 100%** — your deploy, just now |
+
+**Your deploy went out and the key was verified on the way.** The hook takes the `push` branch whenever `ANTHROPIC_API_KEY` is set in your environment, and on that branch the probe runs *before* the push and before any upload — a refusal aborts the deploy with "Anthropic does not accept it". Two secrets were pushed at 20:16:58 and 20:17:02, then code uploaded at 20:17:12. Since `bin/deploy` stops before uploading anything if a hook exits non-zero, the upload happening at all means the probe passed.
+
+So the correction to my earlier advice is the useful part: **re-supplying was worth doing, but not for the reason I gave.** The real hole §I22 identified still stands — when you *don't* export the variable, the hook takes the `keep` path and prints "already on … — left alone, not probed", so a key that goes bad later is invisible to every subsequent deploy. That's the defect worth fixing, and it's about the steady state, not about this key.
+
+Delegation is now live in production on version `3f9b69de`. Want me to check the capability report rows, or confirm a delegated turn actually routes to `claude-haiku-4-5` in the spend ledger?
 
 <!-- xgd-chat-end -->
