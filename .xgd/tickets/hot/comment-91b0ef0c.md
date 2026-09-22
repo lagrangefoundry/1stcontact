@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T20:53:43.238807+00:00'
+updated_at: '2026-09-22T20:55:58.454995+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1382,5 +1382,35 @@ That's BUG-114 working as designed — it distinguishes a rail you turned off, a
 Every round so far has run with the rail inert. Nothing has been checking that the fixes landing for gigabytealchemy haven't degraded faelan or joyfulculinary.
 
 `./bin/repro-rail record` fixes it — but the sequencing from before still holds: **record it after the recapture, not now.** Recapture re-rolls `storage/references/gigabytealchemy.ai/index`, which is one of the three references the rail baselines against. A baseline recorded against the current bundle would be stale the moment you press the button.
+
+<!-- xgd-turn id="d571bbab-5949-4a7b-9ac5-67ee94106a57-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T20:55:58.196325+00:00" -->
+#### You
+Let me paste you a chunk: 
+
+Iteration 4
+
+**unmeasured 5** ↓ 7 from iteration 3 (over populations, probes — the parts both reports carry)
+4 axes (element.paddingTopPx, element.paddingRightPx, element.paddingBottomPx, element.textAlign), 1 band, 0 populations, 0 probes
+
+23 delta(s) · not comparable with iteration 3: the reference moved, so this count is measured against a different oracle
+
+7 fewer measurement(s) were skipped this iteration. The unmeasured set is the number to drive down, and it fell.
+
+- the original site
+- the reproduction
+- the diff images
+- the L1 document
+
+reference `gigabytealchemy.ai/index` captured 2026-09-22T20:38:02.849Z — re-captured, so these numbers are not comparable with iteration 3's; the reference moved as well as the engine.
+
+gate: **structural-failure**
+
+```
+regression rail: the regression rail — not yet recorded — no baseline at storage/rail/baseline.json; record one with `repro-rail record`
+```
+
+You need to raise the level tyou are explaining things - I am not familiar with the code
 
 <!-- xgd-chat-end -->
