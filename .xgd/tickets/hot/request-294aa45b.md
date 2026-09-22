@@ -5,9 +5,9 @@ type: request
 title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T22:23:43.504230+00:00'
+updated_at: '2026-09-22T22:54:26.477818+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -467,3 +467,5 @@ route it proves survives unchanged.
 - `apps/control-app/src/builder/builder.css` — the view's rules, the two panels',
   and the tenant-cost section's; the console's entry in the modal-panel `:has()`
   exclusion list removed, since it is no longer a dialog.
+
+-
