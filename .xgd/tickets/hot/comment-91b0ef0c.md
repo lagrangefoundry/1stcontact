@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-22T22:07:28.269543+00:00'
+updated_at: '2026-09-22T22:09:25.471881+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1740,5 +1740,48 @@ Say which and I'll write them.
 REQ-278 landed some time ago
 
 But you are still a level of abstraction lower than I am trying to get you. You are talking about fixes to the repro-engine, which is great we should make them. I am talking about the console loop - how do we get the AI to spot and fix these issues...will it do so and I just need to give it time?
+
+<!-- xgd-turn id="49cd364e-55af-4642-9706-d12fe5601d38-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-22T22:09:24.954205+00:00" -->
+#### Claude
+Right — REQ-278 landed; I was reading a stale note.
+
+Let me answer the actual question. **It will spot them. It will not fix them. Those are two different loops and only one of them is running.**
+
+## Spotting: yes, and it already has what it needs
+
+The round isn't confined to the gate's axes. Its prompt hands it `raw.html` — labelled *"the ground truth"* — plus both screenshots and the bundle. So the gradient case is not out of reach: a round can read the reference's CSS, see a `background-clip: text` the comparator has no axis for, and report it. Nothing about that requires the gate to have measured it first.
+
+And REQ-276 just gave it the vocabulary to say so. `instrument-no-axis` — *"the comparator has no axis for the property, so a real difference is invisible to the score rather than reported as small"* — is precisely that defect, in a closed set, with a queue attached. The round is asked at filing time, while it still holds the evidence.
+
+So the blind-spot worry I raised last turn was wrong at this level. The loop is not descending a gradient it can't feel; it has ground truth in hand.
+
+## Fixing: no, by construction
+
+The console **files**. A free-coding session **lands**. The console never edits the engine — it edits the reproduction and writes tickets about the engine.
+
+That means time alone gets you a longer queue, not a better engine. Whatever converges here is the thing draining the queue, and that thing is not in the loop. If your question is "can I leave it running and come back to a better engine" — no, not without a drain.
+
+## Will waiting pay off? The number that answers it doesn't exist yet
+
+EPIC-19's audit is the only data: of the 22 defects rounds 1–3 filed, **two raised the product's ceiling and twenty made the ruler trustworthy.**
+
+That 10:1 is the entire question, and it has two readings:
+
+- **Fixed startup cost.** You're building an instrument before you can use it. The ratio decays, ceiling work takes over, and waiting is correct.
+- **Self-generating.** Each axis you add reveals the next one missing. The ratio holds, and waiting buys you a permanently growing ruler queue.
+
+Rounds 1–3 cannot distinguish these — one sample, and it predates the field. I checked: **no ticket in the repo carries a `defect_class` yet.** REQ-276 was built to produce exactly this series and has zero data through it.
+
+## So: two things before you wait
+
+1. **Fix the one-word verdict.** This is the loop defect, not an engine one. The round's attention goes where the gate points it, and four probes collapsed into `structural-failure` point nowhere — that's what bought three rounds of sub-pixel work at ~$7 each. Cheapest intervention in the system.
+
+2. **Drain the ruler queue out of band.** REQ-275 enumerates missing axes mechanically in one pass. The loop discovers them one per round. If the 20:2 ratio is real, doing REQ-275 *outside* the loop is what frees the loop's rounds to spend on the ceiling — which is the thing you actually want it doing.
+
+Then run rounds 4–6 and read the ratio off `defect_class`. It becomes a filter instead of an audit, and it answers "give it time?" with a number rather than my opinion.
+
+Want me to scope either of those under EPIC-12?
 
 <!-- xgd-chat-end -->
