@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T19:49:05.144384+00:00'
+updated_at: '2026-09-22T19:56:05.105383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1033,5 +1033,21 @@ Want me to file this as a BUG? It's outside EPIC-20's scope — that's cost, thi
 <!-- xgd-chat role="user" ts="2026-09-22T19:49:04.809379+00:00" -->
 #### You
 **Does Lagrange Foundry have two sites in production? NO at least there is only one I care about - the contents of the previous prod are long gone and can be deleted**
+
+<!-- xgd-turn id="2d752e80-d6ae-4740-ba88-ae34dfd05cdd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T19:56:05.017599+00:00" -->
+#### You
+**Does Lagrange Foundry have two sites in production? NO at least there is only one I care about - the contents of the previous prod are long gone and can be deleted**
+
+But we need to talk about the console. I am a little frustrated - I asked for a special tab and got overrulled. the overlay is insufficient for this - it will be a complex interface that needs to operate as a tab - I could spend time arguing the advantages and disadvantages of a special UI tab that cuts across businesses  but actually I just want you to do it. 
+
+Secondly the interface that I need in the TAB is a two panel interface with a list of all the siteson the left and a detail page on the right which shows the account, a link to any published site and cost details for that business. <-- this is a change, I did not make this clear, this overrules and replaces what was built.
+
+Cazn you create me a new req that creates a special TAB with interface I am requesting.
+
+The TAB can be opened by a button on the right as you have it but it needs to behave like a tab not drop in an overlay.
+
+Are my instructions clear this time?
 
 <!-- xgd-chat-end -->
