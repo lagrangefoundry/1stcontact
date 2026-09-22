@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-297
 created_by: xgd
 created_at: '2026-09-22T00:52:24.494760+00:00'
-updated_at: '2026-09-22T18:31:51.042205+00:00'
+updated_at: '2026-09-22T18:32:50.802605+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -135,5 +135,11 @@ REQ-297 is complete and at `free_coded`.
 **Ticket body** — preserved verbatim and extended with four sections under *How it is built* covering decisions the UATs assert but the original scope didn't state: the two routes and why the expansion isn't a third, the tenant name being a left join, formatting in one place, and a failing control not closing the console. Also fixed a stale `/api/admin/spend/tenants` in a route doc comment.
 
 Branch merged (fast-forward) and cleaned; story points 8. It's parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="1fd61261-31bc-47c6-8c57-a16ce33b67a5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T18:32:50.148270+00:00" -->
+#### You
+What do I need to do to see it in the UI - I was expecting a new tab?
 
 <!-- xgd-chat-end -->
