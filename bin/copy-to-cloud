@@ -69,12 +69,35 @@
 # and `/api/chats/import`, matched to each other the way the site pair is — so a
 # --site copy still carries a site and nothing else.
 #
+# THE FAR SIDE RE-ADDRESSES WHAT ARRIVES (BUG-137). A conversation is addressed
+# by a session id derived from the thing it is about — `site-<site id>` or
+# `business-<business id>` — and NEITHER id means anything across the crossing:
+# the business id is minted independently on each side (which is why this command
+# matches businesses by NAME), and the site id is minted fresh by the import. So
+# the destination re-derives every address from its own two ids before writing.
+# A history it cannot place is REFUSED rather than written somewhere nothing can
+# ask for it: a session id in no form this product mints, conversations about
+# more than one site, a site conversation arriving at a business holding no site,
+# or a destination holding more than one site. Nothing is written in any of them.
+#
 # RUN IT TWICE AND NOTHING DOUBLES. Conversations are matched by session id and
 # each is written whole or not at all. One the far side already holds is KEPT
 # and counted rather than refused, which is deliberately not --site's 409: a
 # history is many objects, and refusing the set because one member is present
 # would stop every later conversation from ever landing. --force replaces such a
 # conversation; without it the far side's own turns are never overwritten.
+#
+# AN EMPTY SESSION IS NOT A CONVERSATION (BUG-137). The deployed builder creates
+# one the first time it is opened, so the far side holds a blank `site-…` and
+# `business-…` before any copy runs. Those are written over without --force —
+# keeping them would preserve the emptiness in place of the history and report
+# success doing it. Anything carrying a single byte of ledger, transcript or tool
+# record is a conversation and is kept.
+#
+# AND A ROW AN EARLIER COPY STRANDED IS CLEARED UP. Copies made before BUG-137
+# left chat tickets under the LOCAL side's session ids — in the right tenant,
+# transcripts intact, unreachable. A re-run re-addresses their content and
+# archives the stray, reporting the count as `strays`. Nothing else is touched.
 #
 # --backup works for it too, writing the source side's conversation export to a
 # file and touching the destination not at all.
@@ -114,7 +137,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,109p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,132p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 

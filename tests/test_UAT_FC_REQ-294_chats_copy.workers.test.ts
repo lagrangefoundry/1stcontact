@@ -7,7 +7,11 @@ import { CURSOR_FIELD } from '../apps/control-app/src/session-delta'
 import { PENDING_FIELD } from '../apps/control-app/src/session-pending'
 import { FRAME_FIELD } from '../apps/control-app/src/ledger'
 import { ticketStoreFor, type Ticket, type TicketStore } from '../apps/control-app/src/tickets'
-import { applySchema, ensureTenant } from './support/d1-site-factory'
+import {
+  businessSessionIdFor,
+  sessionIdFor,
+} from '../tools/generate/src/cli/ai/host-core'
+import { applySchema, ensureTenant, seedTenantSite } from './support/d1-site-factory'
 
 /**
  * REQ-294 — `GET /api/chats/export` and `POST /api/chats/import`, the second
@@ -54,6 +58,20 @@ function routerEnv(): RouterEnv {
 async function business(id: string): Promise<Scope> {
   await ensureTenant(id)
   return { businessId: id }
+}
+
+/**
+ * A registered business holding one site, and that site's key.
+ *
+ * NEEDED SINCE [[BUG-137]]: a conversation is addressed by a session id derived
+ * from a site key or a business id, and the destination re-derives it from its
+ * own. A suite seeding `sess-a` was carrying an address the product never mints
+ * and could not notice that neither id survived the crossing — which is exactly
+ * how this pair shipped with its round trip green.
+ */
+async function businessWithSite(id: string): Promise<{ scope: Scope; site: string }> {
+  await ensureTenant(id)
+  return { scope: { businessId: id }, site: (await seedTenantSite(id)).site }
 }
 
 const storeFor = (scope: Scope): Promise<TicketStore> => ticketStoreFor(routerEnv(), scope)
@@ -158,7 +176,8 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     // fields and comments — because the copy command feeds one straight into the
     // other with nothing in between to translate.
     const scope = await business('req294-shape')
-    await seedChat(scope, 'sess-shape')
+    const session = businessSessionIdFor('req294-shape')
+    await seedChat(scope, session)
 
     const got = await exportChats(scope)
     expect(got.status).toBe(200)
@@ -177,10 +196,10 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
       'status',
       'title',
     ])
-    expect(chats[0].sessionId).toBe('sess-shape')
+    expect(chats[0].sessionId).toBe(session)
     expect(chats[0].body).toContain('Decision 1')
     expect(chats[0].comments).toEqual([
-      { kind: TRANSCRIPT, body: '# session sess-shape\n\n- user: make the hero warmer\n' },
+      { kind: TRANSCRIPT, body: `# session ${session}\n\n- user: make the hero warmer\n` },
     ])
   })
 
@@ -199,7 +218,8 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     // half of the decision and is asserted in the same breath so the two cannot
     // be confused for one rule.
     const scope = await business('req294-pointers')
-    await seedChat(scope, 'sess-pointers')
+    const session = businessSessionIdFor('req294-pointers')
+    await seedChat(scope, session)
 
     const got = await exportChats(scope)
     const chats = got.body.chats as ChatsPayload['chats']
@@ -208,7 +228,10 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     for (const name of NOT_PORTABLE_FIELDS) expect(fields).not.toHaveProperty(name)
     // The standing note, the session id and the backend are the conversation.
     expect(fields[FRAME_FIELD]).toContain('the palette is settled')
-    expect(fields.session_id).toBe('sess-pointers')
+    expect(fields.session_id).toBe(session)
+    // THE EXPORT CARRIES THE SOURCE'S ADDRESS, UNTOUCHED ([[BUG-137]]). The
+    // re-addressing is the destination's, so a `--backup` file stays faithful to
+    // the builder it was read from and can be imported into any destination.
     expect(fields.backend).toBe('claude-api')
   })
 
@@ -217,24 +240,35 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     // businesses rather than one, because a copy's two ends are two stores and
     // re-importing over the source would pass even if the export were being
     // ignored entirely.
-    const source = await business('req294-source')
-    const target = await business('req294-target')
-    await seedChat(source, 'sess-a', { tool: '## read_ticket\n\nmaterial-3\n' })
-    await seedChat(source, 'sess-b', { ledger: '### Decision 1\n\nDrop the carousel.\n' })
+    const source = await businessWithSite('req294-source')
+    const target = await businessWithSite('req294-target')
+    // ONE OF EACH KIND OF CONVERSATION, which is what a business really holds:
+    // the settings conversation, addressed by the business's id, and the site's,
+    // addressed by the site's key ([[REQ-239]]). Both ids differ on the two
+    // sides, so the destination re-derives each from its own ([[BUG-137]]).
+    await seedChat(source.scope, businessSessionIdFor('req294-source'), {
+      tool: '## read_ticket\n\nmaterial-3\n',
+    })
+    await seedChat(source.scope, sessionIdFor(source.site), {
+      ledger: '### Decision 1\n\nDrop the carousel.\n',
+    })
 
-    const exported = await exportChats(source)
+    const exported = await exportChats(source.scope)
     expect(exported.status).toBe(200)
     expect((exported.body.chats as unknown[]).length).toBe(2)
 
-    const landed = await importChats(target, exported.body)
+    const landed = await importChats(target.scope, exported.body)
     expect(landed.status).toBe(200)
-    expect(landed.body).toEqual({ created: 2, replaced: 0, kept: 0, comments: 3 })
+    expect(landed.body).toEqual({ created: 2, replaced: 0, kept: 0, comments: 3, strays: 0 })
 
     // READ BACK THROUGH THE STORE, not through the route that wrote them: the
     // claim is that the destination really holds these conversations, which a
     // route echoing its own input could satisfy without writing anything.
-    const held = await chatsHeldBy(target)
-    expect(held.map((h) => h.ticket.fields.session_id)).toEqual(['sess-a', 'sess-b'])
+    const held = await chatsHeldBy(target.scope)
+    expect(held.map((h) => h.ticket.fields.session_id)).toEqual([
+      businessSessionIdFor('req294-target'),
+      sessionIdFor(target.site),
+    ])
     expect(held[1].ticket.body).toContain('Drop the carousel.')
     expect(held[0].ticket.fields[FRAME_FIELD]).toContain('the palette is settled')
     // The transcript arrived, and so did the tool record stream beside it —
@@ -244,9 +278,10 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     expect(commentsOfKind(held[0].comments, TOOL_TRANSCRIPT)[0].body).toContain('material-3')
 
     // TENANCY AND UIDS ARE THE DESTINATION'S. The copy carries a session id,
-    // which means the same thing on both sides; a ticket uid does not, and
-    // carrying one would be carrying the source's address.
-    const sourceHeld = await chatsHeldBy(source)
+    // which is the one value both sides can agree on how to READ — each side
+    // derives its own from its own ids ([[BUG-137]]). A ticket uid is not even
+    // that, and carrying one would be carrying the source's address outright.
+    const sourceHeld = await chatsHeldBy(source.scope)
     expect(held[0].ticket.uid).not.toBe(sourceHeld[0].ticket.uid)
 
     // AND THE DESTINATION'S OWN CURSOR IS NOT PLANTED BY THE COPY — the other
@@ -266,12 +301,12 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
       business: 'somewhere-else',
       chats: [
         {
-          sessionId: 'sess-planted',
-          title: 'sess-planted',
+          sessionId: businessSessionIdFor('biz_somewhere_else'),
+          title: 'a hand-written history',
           status: 'open',
           body: '### Decision 1\n\nCarried by hand.\n',
           fields: {
-            session_id: 'sess-planted',
+            session_id: businessSessionIdFor('biz_somewhere_else'),
             [CURSOR_FIELD]: JSON.stringify({ at: '2020-01-01T00:00:00Z', seen: [] }),
             [PENDING_FIELD]: JSON.stringify({ text: 'stale', at: '', status: 'open' }),
           },
@@ -302,7 +337,7 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     // ever landing.
     const source = await business('req294-twice-source')
     const target = await business('req294-twice-target')
-    await seedChat(source, 'sess-twice')
+    await seedChat(source, businessSessionIdFor('req294-twice-source'))
 
     const exported = await exportChats(source)
     expect((await importChats(target, exported.body)).body).toMatchObject({ created: 1, kept: 0 })
@@ -318,7 +353,7 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
 
     const again = await importChats(target, exported.body)
     expect(again.status).toBe(200)
-    expect(again.body).toEqual({ created: 0, replaced: 0, kept: 1, comments: 0 })
+    expect(again.body).toEqual({ created: 0, replaced: 0, kept: 1, comments: 0, strays: 0 })
 
     const held = await chatsHeldBy(target)
     // ONE conversation, ONE transcript — not two of either.
@@ -336,7 +371,7 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     // comment of that kind would make which one loads depend on scan order.
     const source = await business('req294-force-source')
     const target = await business('req294-force-target')
-    await seedChat(source, 'sess-force', {
+    await seedChat(source, businessSessionIdFor('req294-force-source'), {
       transcript: '# session sess-force\n\n- user: the local version\n',
       ledger: '### Decision 1\n\nThe local ledger.\n',
     })
@@ -351,7 +386,7 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     })
 
     const forced = await importChats(target, { ...exported.body, force: true })
-    expect(forced.body).toEqual({ created: 0, replaced: 1, kept: 0, comments: 1 })
+    expect(forced.body).toEqual({ created: 0, replaced: 1, kept: 0, comments: 1, strays: 0 })
 
     const held = await chatsHeldBy(target)
     expect(held).toHaveLength(1)
@@ -376,12 +411,13 @@ describe('REQ-294 — the Worker reads a conversation history out of the store i
     expect(got.body.chats).toEqual([])
 
     const target = await business('req294-empty-target')
-    await seedChat(target, 'sess-untouched')
+    await seedChat(target, businessSessionIdFor('req294-empty-target'))
     expect((await importChats(target, got.body)).body).toEqual({
       created: 0,
       replaced: 0,
       kept: 0,
       comments: 0,
+      strays: 0,
     })
     expect(await chatsHeldBy(target)).toHaveLength(1)
   })

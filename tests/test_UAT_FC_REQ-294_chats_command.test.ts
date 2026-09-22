@@ -81,7 +81,7 @@ function twoBuilders(sides: Record<string, Side>) {
     if (parsed.pathname.endsWith(CLASS_ROUTES.chats.write)) {
       const a = side.importAnswer ?? {
         status: 200,
-        body: { created: 2, replaced: 0, kept: 0, comments: 2 },
+        body: { created: 2, replaced: 0, kept: 0, comments: 2, strays: 0 },
       }
       return answer(a.status, a.body)
     }
@@ -90,24 +90,37 @@ function twoBuilders(sides: Record<string, Side>) {
   return { impl, calls }
 }
 
-/** The history a builder's chats export answers with. */
+/**
+ * The history a builder's chats export answers with.
+ *
+ * ADDRESSED THE WAY THE PRODUCT REALLY ADDRESSES A CONVERSATION ([[BUG-137]]):
+ * `site-<site key>` for the site's, `business-<business id>` for the settings
+ * one, both naming the LOCAL side's ids. What this suite asserts is that the
+ * command posts what it read with nothing in between to translate it — the
+ * re-addressing is the far side's, and `chat-copy.ts`'s own suite is where it is
+ * proved.
+ */
 const HISTORY = {
   business: 'biz_local',
   chats: [
     {
-      sessionId: 'sess-a',
-      title: 'sess-a',
+      sessionId: 'business-biz_local',
+      title: 'the settings conversation',
       status: 'open',
       body: '### Decision 1\n\nSerif wordmark.\n',
-      fields: { session_id: 'sess-a', frame: 'the palette is settled' },
+      fields: {
+        session_id: 'business-biz_local',
+        backend: 'claude+business:biz_local',
+        frame: 'the palette is settled',
+      },
       comments: [{ kind: 'chat_transcript', body: '- user: make the hero warmer\n' }],
     },
     {
-      sessionId: 'sess-b',
-      title: 'sess-b',
+      sessionId: 'site-site_local',
+      title: 'Lagrange Foundry — initial website build',
       status: 'open',
       body: '### Decision 1\n\nDrop the carousel.\n',
-      fields: { session_id: 'sess-b' },
+      fields: { session_id: 'site-site_local', backend: 'claude+site:site_local' },
       comments: [{ kind: 'chat_transcript', body: '- user: too busy\n' }],
     },
   ],
@@ -170,7 +183,7 @@ describe('REQ-294 — a conversation history crosses on its own pair of routes',
     // it — the same obligation the site pair carries.
     expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ chats: HISTORY.chats })
     expect(result.read).toBe(2)
-    expect(result.landed).toEqual({ created: 2, replaced: 0, kept: 0, comments: 2 })
+    expect(result.landed).toEqual({ created: 2, replaced: 0, kept: 0, comments: 2, strays: 0 })
   })
 
   it('test_UAT_FC_REQ-294_force_reaches_the_payload_and_absent_means_no', async () => {

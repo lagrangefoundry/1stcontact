@@ -934,7 +934,13 @@ export async function run(argv: string[]): Promise<void> {
               // the one place the operator learns `--force` is what replaces.
               `  kept    ${result.landed.kept}` +
               `${result.landed.kept > 0 ? ' (already there; --force replaces)' : ''}\n` +
-              `  comments ${result.landed.comments}`
+              `  comments ${result.landed.comments}` +
+              // ONLY WHEN THERE WERE ANY ([[BUG-137]]). A copy made before that
+              // fix left rows under the SOURCE's session ids, unreachable where
+              // they sat; this run re-addressed their content and archived them.
+              // Ordinarily zero, and a line reading `strays 0` on every copy
+              // would be noise about a repair nobody needs to think about.
+              `${result.landed.strays > 0 ? `\n  strays  ${result.landed.strays} (stranded by an earlier copy; archived)` : ''}`
             : `copied '${result.to.name}' ${ends.source} → ${ends.destination}\n` +
               `  from    ${result.from.id}\n` +
               `  to      ${result.to.id}\n` +

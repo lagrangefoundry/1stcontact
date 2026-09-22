@@ -35,7 +35,7 @@ import {
   setPreference,
 } from './acceptances'
 import { eventsOf, type EventEnv } from './events'
-import { readChats, writeChats, type ChatsPayload } from './chat-copy'
+import { ChatAddressError, readChats, writeChats, type ChatsPayload } from './chat-copy'
 import { payloadToWrite, readSiteDraft, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
 import type {
@@ -2684,6 +2684,26 @@ async function routeUncached(
    * comes from the authorised scope and never from the payload; `payload.business`
    * names where the conversations were read and addresses nothing here.
    *
+   * AND IT RESOLVES ITS OWN SITE TOO, WHICH IS [[BUG-137]]. A conversation is
+   * addressed by a session id DERIVED from the thing it is about — `site-<site
+   * key>` or `business-<business id>` — and neither id survives a crossing: a
+   * business's is minted independently on each side, and the destination's site
+   * key is minted fresh by `/api/import`. Carried through unchanged, every
+   * imported conversation named a site and a business that do not exist here;
+   * the rows landed in the right tenant with their transcripts intact and
+   * nothing could ever ask for them, while the operator was told the copy had
+   * succeeded. So this route hands `writeChats` the two ids this destination
+   * actually has and the payload's addresses are re-derived from them — the same
+   * treatment `tenant_id` already got, applied to the id hidden inside a derived
+   * key.
+   *
+   * THE SITE IS RESOLVED THE WAY THE SITE PAIR RESOLVES IT, and refused on the
+   * same ambiguity in the same words: a business holding more than one site has
+   * no unambiguous site for a conversation to be re-addressed onto, and a first
+   * match would put one site's history in another's pane. `null` — a business
+   * holding no site — is an ordinary state and only refused if a conversation
+   * about a site actually arrives.
+   *
    * RE-RUNNING IT IS THE ORDINARY WAY TO USE IT, and this time the sentence is
    * true without a footnote. Conversations are matched by `session_id` and each
    * is written whole or not at all, so a second copy adds no ticket, no comment
@@ -2705,9 +2725,36 @@ async function routeUncached(
           error: 'A conversation history must carry a `chats` array. Nothing was written.',
         })
       }
-      return json(200, await writeChats(store, { ...payload, chats }))
+      const sites = await (deps.store ?? storeFor)(env, scoped)
+      const held = await sites.siteKeys('site')
+      if (held.length > 1) {
+        return json(409, {
+          error:
+            `This business holds ${held.length} sites, so there is no unambiguous ` +
+            'site to re-address these conversations onto. Nothing was written.',
+          sites: held.length,
+        })
+      }
+      return json(
+        200,
+        await writeChats(
+          store,
+          { ...payload, chats },
+          { businessId: scoped.businessId, siteKey: held[0] ?? null },
+        ),
+      )
     } catch (err) {
       if (err instanceof NoBusinessError) throw err
+      // 409 AND NOT 400 ([[BUG-137]]). The request is well formed and the caller
+      // meant exactly what it sent — what it cannot do is say where these
+      // conversations belong HERE. That is a conflict with the state of this
+      // destination, which is what 409 already means on both import routes, and
+      // is the same distinction `/api/import` draws between its own 409 and
+      // BUG-84's 403: a question about this side's state, not advice to re-form
+      // the request.
+      if (err instanceof ChatAddressError) {
+        return json(409, { error: scrub(err.message), sessions: err.sessions })
+      }
       if (err instanceof CommandError) {
         return json(400, { error: scrub(err.message), ...err.toEnvelope() })
       }
