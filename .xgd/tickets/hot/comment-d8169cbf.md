@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:50:36.253486+00:00'
+updated_at: '2026-09-22T23:52:09.414111+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3227,5 +3227,11 @@ Want me to:
 2. **File the bug** — the artifact needs a total bound (elide oldest) and the prose fold needs to stop being hostage to the tool fold. That second half is arguably upstream's, since the ordering is in `ticket_store.js`.
 
 Say which, and BUG-138's branch is still parked waiting for a gap between turns.
+
+<!-- xgd-turn id="a069e3c6-b527-49d2-bbe6-02eddfd8131d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T23:52:06.827043+00:00" -->
+#### You
+How will chat cope with a fix max size?
 
 <!-- xgd-chat-end -->
