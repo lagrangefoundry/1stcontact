@@ -5,7 +5,7 @@ type: request
 title: 'Console: a full-surface view with a sites list beside a business detail'
 created_by: EPIC-20
 created_at: '2026-09-22T20:01:03.576610+00:00'
-updated_at: '2026-09-22T20:41:39.047663+00:00'
+updated_at: '2026-09-22T21:02:14.254805+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -314,3 +314,133 @@ is written against them.
   for a non-owner, one row per site, the address resolved through `hostname.ts`,
   a site with no address, and a site whose business row is missing still present
   with no name.
+
+
+## What was built, and where it differs from the text above
+
+The sections above are the spec as agreed and are unchanged. This section is the
+implementation record: the decisions taken while building it, and — named
+explicitly, because reconciliation reads this body as authoritative — the two
+places where a statement above turned out to be false about the codebase.
+
+### Two statements above are superseded by this section
+
+1. **"This is the second place this app touches shell-internal markup."** Not
+   quite. `app.js`'s `blockTabs`, `blockForPublish` and `blockEverything` all
+   already `querySelector('.shell-panels')`. The true statement, and the one the
+   code comment makes, is narrower: there are exactly two places that **insert a
+   surface** into the shell's internals — the business switcher prepended into
+   `.shell-bar`, and the console appended into `.shell-content`. The block
+   helpers only set `inert` and place a banner beside the panels; they add no
+   surface and survive any markup change that keeps the class name.
+
+2. **"A site whose business has no `tenants` row is present with no business
+   name."** Not constructible. `sites.tenant_id` is a foreign key with
+   `ON DELETE CASCADE`, and D1 enforces it — a deleted business takes its sites
+   with it, so the state this sentence describes cannot exist. The `LEFT JOIN`
+   to `tenants` stays, as defence against that constraint being relaxed rather
+   than against today's data, and the ticket's *intent* — an inner join would
+   drop exactly the row worth noticing — is asserted at the join where it **is**
+   reachable: `tenants.owner_account_id` carries no foreign key (the pair would
+   be a cycle), so a business can name an account row that no longer answers.
+   The UAT constructs that, and a second case covers the other absence: the
+   platform business, whose `owner_account_id` is `NULL` because it is nobody's
+   customer. The two are worded differently on screen, because a blank cell
+   would make an ordinary fact and a fault indistinguishable.
+
+### Decisions taken while building
+
+**A section is handed the selection, not just its element.** The registry entry
+is `{id, label, mount(container, selection)}` rather than `mount(container)`.
+REQ-297's controls mounted once and closed over their own subject; a section is
+re-mounted every time the operator picks a different row, so the subject cannot
+be closed over — it has to arrive. `selection` is `{site, period}`: which row,
+and over what window.
+
+**No tab reads as selected — done through the shell's own mechanism, not through
+the root class.** The root class (`builder-shell--console`, the same form as the
+existing `builder-shell--no-business` and `builder-shell--publishing`) hides the
+panels, in one CSS rule, as specified. Suppressing the tab's *selected styling*
+that way would have meant mirroring `.shell-tab.is-active` under two different
+`data-tabstyle` values and silently ceasing to mirror them the day upstream adds
+a third. So the console removes exactly what the shell sets — the `is-active`
+class and `aria-selected` — and restores exactly what it found. That also makes
+a **screen reader** told the truth rather than left with a tab claiming to be
+current while its panel is off screen, which the styling-only approach could not
+do.
+
+**The header action carries `aria-pressed` while the view is up**, because the
+way in has genuinely become a toggle.
+
+**Ordering, stated precisely.** The ranked head is the league's *own* order,
+read as a position rather than re-derived from its figures — `tenantSpendLeague`
+already decides what `null` means in a ranking of money and that decision belongs
+beside the arithmetic. The tail is every business the league does not mention,
+ordered by name. Within one business the order is the route's, oldest site first,
+because nothing about a site other than its business is a reason to rank it. When
+the meter cannot be read at all, every row is in the tail — that is the rule, not
+a fallback, so there is no second ordering to keep in step.
+
+**The two reads fail differently, because they matter differently.** A failing
+`/api/admin/sites` empties the list and says why: without it there are no rows. A
+failing `/api/admin/spend/businesses` leaves the list standing with no cost beside
+any row and a notice — an operator who came to see what we have published should
+not be shown nothing because the meter was unavailable.
+
+**`GET /api/admin/sites` lists `kind = 'site'` and not every row in the table.** A
+portal is authored under the same business and is not what a public hostname
+reaches — `siteOf` already draws that line. Listing portals would put a permanent
+*no public address* row beside every business and bury the one signal that column
+exists to carry: the customer site that was built and never published.
+
+**The three headline figures came with the pane.** REQ-297's league read cost,
+engaged hours and cost per engaged hour across every tenant; with the ranking now
+carried by the list, the same three facts about one business sit at the top of its
+detail. Dropping them would have made the re-housing a loss of information rather
+than a change of container.
+
+**`switcher.setEnabled(on)` remembers what it found.** An account with nothing
+selectable already has a permanently disabled switcher (REQ-179 reopen); naively
+re-enabling on close would hand that account a working control onto businesses it
+may not enter. A UAT covers it.
+
+**The split position persists under `STORAGE_KEYS.console`** — prefixed with the
+console's own stable id, exactly as each tab's state is prefixed with its tab's.
+
+### What changed in REQ-297's own suite
+
+`tests/test_UAT_FC_REQ-297_operator_console.test.ts` lost the cases asserting the
+dialog, the league table and the expanding row — the three things this ticket
+supersedes — and kept the gate, the `ownsPlatformBusiness` path from the wire to
+the chrome, the two meter path literals, and the money/window formatters. The
+deleted claims are not gone from the matrix: the container is asserted by
+`test_UAT_FC_REQ-298_console_view` and the content by
+`test_UAT_FC_REQ-298_console_panes`, both against the shipped modules.
+`tests/test_UAT_FC_REQ-297_tenant_cost.workers.test.ts` is untouched — every
+route it proves survives unchanged.
+
+### Files
+
+- `apps/control-app/src/directory.ts` — **new.** `platformSites(env)`: the join
+  over `sites`/`tenants`/`accounts`, with each site's address resolved through
+  `hostname.ts` as a fan-out.
+- `apps/control-app/src/router.ts` — `ADMIN_SITES_PATH` and its handler.
+- `apps/control-app/src/builder/console.js` — rewritten: the full-surface view.
+  `modal.js` is no longer imported; no key is bound, which is the whole of
+  "Escape does not close it".
+- `apps/control-app/src/builder/platform-sites.js` — **new.** The two-panel body:
+  the list, the ordering, and the detail pane with its section registry, plus the
+  account and address sections.
+- `apps/control-app/src/builder/tenant-cost.js` — reduced from the league control
+  to the cost section; `dollars`, `hours` and `periodOfDays` are unchanged and are
+  now shared with the list.
+- `apps/control-app/src/builder/business.js` — `setEnabled` on the switcher.
+- `apps/control-app/src/builder/app.js` — `consoleSections` replaces
+  `consoleControls`; `openConsole` is the latch and owns the switcher hooks.
+- `apps/control-app/src/builder/api.js` — `fetchPlatformSites`.
+- `apps/control-app/src/builder/config.js` — the console's constants moved above
+  `STORAGE_KEYS` (which now derives a key from the console's id), plus the view's
+  and the pane's own labels; the league table's vocabulary removed.
+- `apps/control-app/src/builder/builder.css` — the view's rules, the two panels',
+  and the tenant-cost section's; the console's entry in the modal-panel `:has()`
+  exclusion list removed, since it is no longer a dialog.
