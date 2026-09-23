@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-312
 created_by: xgd
 created_at: '2026-09-23T18:02:52.600472+00:00'
-updated_at: '2026-09-23T20:13:12.463392+00:00'
+updated_at: '2026-09-23T20:19:45.526504+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -124,5 +124,53 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="29619d5f-70e3-4eab-9be5-1760ef5a2c2c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T20:19:45.007556+00:00" -->
+#### Claude
+All regression batches pass. Now correcting the ticket where the implementation taught me the spec's actual constraints:
+
+The operator edited the ticket since — route 1 confirmed in their own words. Let me read their version in full and amend only what's missing.
+
+Now the version bump and commit:
+
+Now merging back into `xgd-working`:
+
+Confirmed pre-existing and unrelated — site traversal is untouched by my diff. Let me verify the merged tree is green where that local data isn't present:
+
+REQ-312 is free-coded and landed on `xgd-working` as `f62cf1b`, ticket at `free_coded`, 18 story points, branch cleaned up.
+
+## What shipped
+
+**The WOFF2 container, written here** (`tools/generate/src/fonts/woff2.ts`) — the load-bearing piece, because the ticket's original premise turned out false: `github.com/google/fonts` ships TTF only, so there is no upstream `woff2` to mirror. Only the null transform is used (version 3 for `glyf`/`loca`, 0 elsewhere), so every table goes to Brotli literally. **Each file is decoded back and compared table-by-table before it is written** — a file that doesn't invert is never served, its family reported as a gap instead. Two differences are the spec's own `MUST`s (`DSIG` dropped, `head.flags` bit 11 set); everything else — glyphs, `name`, copyright — is byte-identical. No new dependency; Node's built-in Brotli.
+
+I validated my reading of the format against a **real gstatic `woff2`**: header, known-tag indices, `UIntBase128`, and the `transformLength`-iff-transformed rule all parse exactly, and `directory_end + totalCompressedSize == file length` to the byte. That's a third-party encoder as oracle, not my own fixture.
+
+**`1c fonts mirror --repo <checkout>`** → `fonts/platform.json` (committed manifest: family, path, size, digest, pinned to a catalogue and an upstream sha) plus gitignored staged bytes. Incremental, retains entries for families gone upstream, reports every failure by name. **`1c fonts publish`** sends them to `platform/fonts/` over the R2 REST API, digest-checked and resumable; the Cloudflare account resolver moved out of `kb.ts` so both release-time verbs share one credential.
+
+**`1c fonts check`** resolves a platform-origin `src` against the manifest. Tiers are indexed **separately** — five authored entries are Google families the mirror also holds, so one index across both would refuse to load the registry at all. It also joins catalogue to mirror, and reports an unpopulated mirror plainly rather than failing a fresh clone.
+
+**`public-site`** serves `/_fonts/…` ahead of the site grammar (a platform font belongs to no site, so the cross-tenant guard would correctly refuse it on a bound customer domain) — immutable, `Access-Control-Allow-Origin: *`, per-family licence beside the bytes, aggregate index at the root.
+
+Smoke-tested end to end on real Roboto: 488KB TTF → 230KB woff2, clean inversion, re-run transferred nothing.
+
+**20 UATs** (15 node through the real CLI, 5 in workerd through the real Worker). Regression scope green: fonts, catalogue generator, kb, public-site serving, CLI hygiene, naming, site-schema.
+
+## Two things to flag
+
+**A pre-existing failure in your local checkout, not from this change.** `1c fonts check` and `tests/req101-font-registry.test.ts` throw in `/Users/martin/lagrangefoundry/1stcontact` because `storage/sandbox/joyfulculinary/draft/pages/home.json` pins `carousel` v1, below that module's v3 migration floor. `loadSite` throws inside `collectFontUsages`. I confirmed my diff touches no site-traversal code (the only `for` loop I changed is `indexByFamily`'s), and the same tests pass in a worktree without that untracked local data. I left it alone — it's local site data, outside this ticket.
+
+**The real transfer hasn't been run.** The machinery is proved against a checkout fixture; populating production is the GB-scale dependency fetch your build-toolset framing deliberately separates out. When you want it:
+
+```
+git clone --depth 1 https://github.com/google/fonts ~/google-fonts
+1c fonts mirror --repo ~/google-fonts     # hours of CPU, ~1.35GB out
+1c fonts publish
+```
+
+Until then `1c fonts check` says `*** NOT POPULATED — 1935 documented families have no bytes behind them ***`.
+
+Ticket body is current: I preserved your edits (route 1 in your words, the sizing/annual-refresh reasoning), settled the serving origin that was marked "still open", and added the invertibility precision plus behaviour bullets for everything the UATs assert. REQ-313 (`use_font`) is now unblocked — it writes the `src` using the same path definition the check resolves.
 
 <!-- xgd-chat-end -->
