@@ -5,9 +5,9 @@ type: request
 title: A durable junction, so a deploy does not have to wait for an empty house
 created_by: EPIC-19
 created_at: '2026-09-22T23:27:12.118848+00:00'
-updated_at: '2026-09-23T02:36:51.693800+00:00'
+updated_at: '2026-09-23T18:14:03.384010+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-95bc3b15
@@ -100,10 +100,80 @@ the turn's words and work survive and the conversation stays coherent, so the
 client re-asks rather than reconstructs. Driving a turn from inside the DO so it
 survives its originating request is a separate and much larger question.
 
+## What the port needs that it does not have
+
+The junction's storage port is SYNCHRONOUS — `exists`, `size`, `read`,
+`readMeta` all return values rather than promises, because one record layer has
+to serve a file, an isolate's RAM and a Durable Object alike. That is what makes
+a DO the answer rather than D1, R2 or KV; it is also the one thing an adapter
+whose substrate is reached over the network cannot satisfy from inside the port.
+
+So the adapter is a mirror plus a write-behind: every read is answered
+synchronously from an in-isolate mirror — upstream's own `MemoryJunctionStorage`,
+composed rather than reimplemented, which is what keeps the O(delta) discipline a
+single implementation — and every write lands in the mirror synchronously and is
+queued, in order, to the object. The residual exposure is one flush rather than
+one turn.
+
+Filling that mirror is the ONE piece of asynchrony the port gains, and it needs a
+seam:
+
+- A junctions store may carry `prepare(sessionId): Promise<void>`, which the
+  host awaits at each session entry point — open, open-business, stream, tail.
+  A store without the method (the file junction, `memoryJunctions()`) is
+  untouched by it, so this costs the Node host and the `1c` CLI nothing.
+- It never throws. A store that cannot be reached is a durability failure and
+  not a conversational one: the session still opens, still replays, still takes
+  a turn.
+- A storage that has not adopted its object never writes to it — so an
+  unreachable object degrades to exactly today's behaviour rather than to a
+  `seed` overwriting a real junction with an archive replay.
+- The junction's queued writes drain on the same `flush` the audit sink already
+  rides, so the route's existing `ctx.waitUntil` covers both tiers without a
+  second hook in every caller.
+
+## What the binding has to get right
+
+The binding is not one declaration, and each part of it fails quietly rather
+than loudly if it is wrong:
+
+- It is declared in BOTH the top-level block and `[env.production]`, because a
+  named environment inherits neither vars nor bindings. Forgetting the second
+  gives a deployed Worker that sees no binding, runs on RAM, and loses exactly
+  the turns this ticket is about while local dev keeps them.
+- Both halves provision the class with `new_sqlite_classes`, not `new_classes`.
+  The key-value storage the other migration selects has no synchronous SQL, so
+  the class could not implement the port it exists for — and a class cannot be
+  moved between the two afterwards.
+- Wrangler resolves a binding's `class_name` against the entry module `main`
+  names. The DO class is exported from `worker.ts` and not `index.ts`, on
+  purpose: it imports the workerd built-in `cloudflare:workers`, and the node
+  suites that import `index.ts` must never reach it. The Worker-side adapter
+  imports only its TYPES, which erase, so the router stays loadable in Node.
+- A UAT pins those four together, so the config the repository deploys and the
+  config the suites prove are the same config.
+
+Two existing suites mounted `index.ts` through this same `wrangler.toml` via
+`unstable_dev`. That worked only while nothing in the config needed an export
+`index.ts` lacks; a Durable Object binding does. They now mount the real entry,
+which both resolves the class and closes the divergence — `worker.ts` re-exports
+`index.ts`'s default handler verbatim, so every route they exercise is the same
+route.
+
 ## Where it touches
 
-- `apps/control-app/src/ai.ts` — `junctions:` is the one line that changes.
-- A new DO class plus its `wrangler.toml` binding and migration.
+- `apps/control-app/src/ai.ts` — `junctions:` is the one line that changes, plus
+  the `flush` that now drains both tiers.
+- A new DO class (`junction-do.ts`) and the Worker-side adapter (`junctions.ts`),
+  plus the `wrangler.toml` binding and migration in both environments.
+- `apps/control-app/src/worker.ts` — re-exports the class from the entry
+  wrangler resolves against.
 - `apps/control-app/src/router.ts` — the DO namespace has to reach `workerHost`.
-
-/tmp/claude-501/req307-corr.md
+- `tools/generate/src/cli/ai/host-core.ts` — the `prepare` seam at the four
+  session entry points.
+- `tools/generate/src/cli/assets.ts` — the generated AI worker bundle has to
+  re-export `MemoryJunctionStorage` and `SessionLog`, the two halves of the port
+  the adapter composes.
+- `vitest.workers.config.mts` — the workers suite runs the REAL Durable Object
+  on miniflare's SQLite rather than a stand-in, because what is under test is
+  that a turn survives the isolate that wrote it.
