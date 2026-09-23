@@ -2,7 +2,7 @@ import { contactFormTemplateRefs, emailPageRefusal, emailPagesOf } from '@1stcon
 import { renderSiteFiles } from '../render/render'
 import { EMPTY_LADDER, type ImageLadder, type LadderProgressReporter } from './ladder'
 import { InvalidDefinitionError, NoPublicAddressError } from '../cli/errors'
-import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
+import type { AssetRef, SiteStore, StoredPage } from '../store/site-store'
 import type { ValidationError } from '@1stcontact/site-schema'
 import type {
   ChangeSet,
@@ -133,30 +133,37 @@ export interface PublishOptions {
 }
 
 /**
- * The draft, as a frozen snapshot: `site.json`, every page, every asset's BYTES.
+ * The draft, as a snapshot: `site.json`, every page, every asset's IDENTITY.
  *
- * Assets are read into memory rather than referenced, because that is what makes
- * a revision immutable — a snapshot that pointed at the draft's `logo.svg` would
- * silently change the day someone replaced it.
+ * IT READS NO ASSET BYTES ([[REQ-304]]). It used to read every one of them, on
+ * the argument that only a byte copy makes a revision immutable — *"a snapshot
+ * that pointed at the draft's `logo.svg` would silently change the day someone
+ * replaced it"*. That danger was real and the remedy was aimed at the wrong
+ * thing: what made the pointer unsafe was that a NAME was the address. A content
+ * digest is an address that cannot be made to mean something else, so the
+ * snapshot points at immutable content and a site's whole definition costs a
+ * listing.
+ *
+ * THE COST OF THE OLD SHAPE, since this function is where it was paid: a 50 MB
+ * site materialised 50 MB here, again inside `snapshotSha`, and again for the
+ * live revision it was compared against — against a 128 MB isolate, on a path
+ * that also runs before every model turn.
+ *
+ * A NAME THAT LISTS BUT HAS NO CONTENT IS SKIPPED BY THE STORE, not here. The
+ * old loop dropped an asset whose bytes were gone so the snapshot would record
+ * the site as it actually is, and the missing asset would appear in the change
+ * list as a removal; {@link SiteStore.assetManifest} answers a listing with the
+ * same property, which is why there is nothing left to filter.
  */
 export async function readDraftSnapshot(
   store: SiteStore,
   slug: string,
 ): Promise<StoredSnapshot> {
-  const [siteJson, pages, assetNames] = await Promise.all([
+  const [siteJson, pages, assets] = await Promise.all([
     store.readSiteJson(slug),
     store.readPages(slug),
-    store.listAssets(slug),
+    store.assetManifest(slug),
   ])
-  const assets: StoredAsset[] = []
-  for (const name of assetNames) {
-    const bytes = await store.readAsset(slug, name)
-    // A name that lists but does not read is an asset whose bytes are gone. It is
-    // skipped rather than thrown on: the snapshot then records the site as it
-    // actually is, and the missing asset shows up in the change list as a
-    // removal, which is a great deal more use than a publish that refuses.
-    if (bytes !== null) assets.push({ name, bytes })
-  }
   return { siteJson, pages, assets }
 }
 
@@ -402,7 +409,12 @@ export async function publishSite(
   // a record of what was actually built, so a `srcset` can only ever name bytes
   // this same call has already written.
   const ladder = opts.ladder
-    ? await opts.ladder.build(draft.assets, { onProgress: opts.onLadderProgress, open })
+    ? await opts.ladder.build(
+        // [[REQ-304]] — the LISTING plus a reader, never the site's bytes. The
+        // ladder reads one picture at a time out of the draft it is publishing.
+        { assets: draft.assets, read: (name) => store.readAsset(slug, name) },
+        { onProgress: opts.onLadderProgress, open },
+      )
     : EMPTY_LADDER
   const rendered = await renderSiteFiles(snapshot.result.value, { delivery: ladder.manifest })
   const entry: RevisionEntry = {
@@ -471,7 +483,7 @@ export async function checkoutRevision(
   // `write` replaces by name and removes by name, and a page the revision never
   // had would otherwise survive a checkout as a file nobody asked for.
   const keepPages = new Set(wanted.pages.map((p: StoredPage) => p.name))
-  const keepAssets = new Set(wanted.assets.map((a: StoredAsset) => a.name))
+  const keepAssets = new Set(wanted.assets.map((a: AssetRef) => a.name))
   const [currentPages, currentAssets] = await Promise.all([
     store.readPages(slug),
     store.listAssets(slug),
@@ -481,7 +493,11 @@ export async function checkoutRevision(
     siteJson: wanted.siteJson ?? undefined,
     pages: wanted.pages,
     removePages: currentPages.map((p) => p.name).filter((name) => !keepPages.has(name)),
-    assets: wanted.assets,
+    // [[REQ-304]] — RESTORED BY REFERENCE. A revision names its assets by
+    // content and the store already holds that content, so restoring a site's
+    // pictures is a pointer move: checking out a year-old revision of a 50 MB
+    // site reads none of it.
+    assetRefs: wanted.assets,
     removeAssets: currentAssets.filter((name) => !keepAssets.has(name)),
   })
   await store.setDraftBase(slug, target)

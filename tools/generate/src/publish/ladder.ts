@@ -14,7 +14,7 @@ import {
 } from '@1stcontact/framework/worker'
 import { contentTypeOf } from '../store/content-type'
 import type { RenditionSink } from '../store/revision-model'
-import type { StoredAsset } from '../store/site-store'
+import type { AssetRef } from '../store/site-store'
 
 /**
  * The delivery width ladder, built at publish (REQ-222).
@@ -56,21 +56,15 @@ import type { StoredAsset } from '../store/site-store'
  * read in a bucket listing. It is not a security boundary: the bucket prefix is
  * — [[REQ-219]]'s cache is tenant-prefixed for exactly that reason, and these
  * names never leave a revision's own `out/`.
+ *
+ * IT IS A PREFIX OF THE STORE'S OWN DIGEST NOW ([[REQ-304]]), rather than a
+ * second SHA-256 taken here. That is not merely one hash saved per picture: the
+ * ladder had to hold a whole photograph to compute it, which is the retention
+ * this ticket removes. The VALUE is unchanged — the store records the full
+ * SHA-256 of exactly the same bytes — so every rendition keeps the path it
+ * already had and no published `srcset` moves.
  */
 const RENDITION_SHA_LENGTH = 16
-
-/** The SHA-256 of some bytes, hex, truncated to a rendition name's share. */
-async function renditionSha(bytes: Uint8Array): Promise<string> {
-  // `bytes.buffer` is NOT used: a Uint8Array may be a VIEW onto a larger buffer,
-  // and hashing the whole buffer would give a digest for bytes this asset does
-  // not contain — identical content would then hash differently depending on how
-  // it was read, which defeats the entire point of a content address.
-  const digest = await crypto.subtle.digest('SHA-256', bytes.slice())
-  return [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, RENDITION_SHA_LENGTH)
-}
 
 /** A picture's intrinsic dimensions. */
 export interface ImageSize {
@@ -371,7 +365,33 @@ export interface LadderBuild {
  * byte-identical to today's.
  */
 export interface ImageLadder {
-  build(assets: readonly StoredAsset[], opts?: LadderBuildOptions): Promise<LadderBuild>
+  build(source: LadderSource, opts?: LadderBuildOptions): Promise<LadderBuild>
+}
+
+/**
+ * The pictures a ladder is built over, and how to get one ([[REQ-304]]).
+ *
+ * A LISTING PLUS A READER, RATHER THAN A LIST OF BYTES. The ladder used to take
+ * every asset on the site with its content attached, which meant the caller had
+ * already materialised the whole site before the first pixel was measured — the
+ * single largest of the four copies a publish held live. What the ladder
+ * actually needs is to know WHICH pictures there are (to plan, and to refuse
+ * informatively before it starts) and to have ONE of them at a time.
+ *
+ * THE READER IS BY NAME AND NOT BY DIGEST, because that is the question the
+ * store answers cheapest on every adapter — it is the draft being published, and
+ * a draft is addressed by name. The ref's digest is used for what only a digest
+ * can do: naming the rendition.
+ *
+ * A PICTURE THAT WILL NOT READ IS DROPPED, exactly as one that will not decode
+ * is. Both mean the same thing to a visitor — this photograph is served at its
+ * own width — and neither is a reason to refuse a publish.
+ */
+export interface LadderSource {
+  /** Every asset on the site, by name and content identity. */
+  assets: readonly AssetRef[]
+  /** One asset's bytes, or null when the store no longer holds them. */
+  read(name: string): Promise<Uint8Array | null>
 }
 
 /** What a caller may ask of one ladder build. */
@@ -432,8 +452,6 @@ async function pooled<T>(
 
 /** One rendition the plan decided to ask for. */
 interface RenditionJob {
-  asset: StoredAsset
-  contentType: string
   width: number
   /** The delivery format, or undefined for the source's own. */
   type?: string
@@ -441,9 +459,17 @@ interface RenditionJob {
   path: string
 }
 
-/** One picture's whole plan: what it measures, and every rung it wants. */
+/**
+ * One picture's whole plan: what it measures, and every rung it wants.
+ *
+ * IT HOLDS NO BYTES ([[REQ-304]]). A plan is what the publish intends to build;
+ * the picture itself is read when a phase needs it and released when that phase
+ * is done with it, so the plan for a hundred photographs is a hundred small
+ * objects rather than a hundred photographs.
+ */
 interface PicturePlan {
-  asset: StoredAsset
+  asset: AssetRef
+  contentType: string
   size: ImageSize
   /** The source-format rungs, ascending. */
   own: RenditionJob[]
@@ -497,6 +523,13 @@ interface PicturePlan {
  * total of zero — which is what lets the builder stay quiet instead of warning
  * about a resize that is not going to happen.
  *
+ * NEITHER PHASE HOLDS THE SITE ([[REQ-304]]). Each reads one picture, does
+ * everything that picture's bytes are needed for, and lets go — so what is live
+ * at any moment is at most {@link LADDER_CONCURRENCY} sources, whether the site
+ * has three photographs or three hundred. The price is that a picture is read
+ * twice, once per phase, which is one bucket read against a transform. (What the
+ * ladder still accumulates is its OUTPUT; that is [[REQ-305]].)
+ *
  * THE MANIFEST IS A RECORD OF WHAT LANDED. An entry is written only from
  * renditions whose path is in `landed`, because a `srcset` candidate the bucket
  * does not hold is a 404 on the one request the page cannot recover from — and the
@@ -509,20 +542,25 @@ interface PicturePlan {
  * which is why its ladder includes the source's own width as something encoded.
  */
 export async function buildImageLadder(
-  assets: readonly StoredAsset[],
+  source: LadderSource,
   sizer: ImageSizer,
   opts: LadderBuildOptions = {},
 ): Promise<LadderBuild> {
+  const { assets } = source
+
   // ---- 0. Weigh the pictures ([[REQ-305]]) ---------------------------------
   //
-  // BEFORE THE PLATFORM IS ASKED ANYTHING. The weight is `bytes.length` summed
-  // over the pictures this module would ladder, so the cheapest ceiling is the
-  // first one checked and a site that cannot be carried costs no subrequest to
-  // refuse. `isLadderedAsset` is the same predicate the plan applies below — a
-  // weight that counted the vectors and the documents would name a number the
-  // client cannot act on by changing their photographs.
+  // BEFORE THE PLATFORM IS ASKED ANYTHING, AND BEFORE A PICTURE IS READ. The
+  // weight is summed over the pictures this module would ladder, so the cheapest
+  // ceiling is the first one checked and a site that cannot be carried costs no
+  // subrequest — and, since [[REQ-304]], no bucket read — to refuse. The size
+  // comes off the {@link AssetRef} the listing already carried rather than off
+  // `bytes.length`, which is the same number without the site in hand.
+  // `isLadderedAsset` is the same predicate the plan applies below — a weight
+  // that counted the vectors and the documents would name a number the client
+  // cannot act on by changing their photographs.
   const pictures = assets.filter((asset) => isLadderedAsset(asset.name))
-  const weight = pictures.reduce((total, asset) => total + asset.bytes.length, 0)
+  const weight = pictures.reduce((total, asset) => total + asset.size, 0)
   if (weight > LADDER_MAX_SOURCE_BYTES) {
     throw new LadderTooHeavyError(pictures.length, weight, LADDER_MAX_SOURCE_BYTES)
   }
@@ -532,24 +570,35 @@ export async function buildImageLadder(
   // The measures run through the same pool the renders do. They are free at the
   // platform but they are still a round trip each, and a site's worth of them in
   // series is the same open-ended silence the renders were.
+  //
+  // [[REQ-304]] — ONE PICTURE IS READ, PLANNED, ASKED ABOUT AND RELEASED. The
+  // bytes are needed three times here — to measure, to plan, and to ask `held`
+  // whether each rung costs anything — and all three happen while this picture
+  // is the one in hand, so what the phase holds is bounded by
+  // {@link LADDER_CONCURRENCY} pictures rather than by the site.
   const plans: (PicturePlan | null)[] = new Array(assets.length).fill(null)
+  const free: number[] = new Array(assets.length).fill(0)
   await pooled(
     assets.map((asset, index) => async (): Promise<void> => {
       // SVG is resolution-independent and GIF is animated; both are served as
       // they are, and anything else unknown is left alone rather than guessed at.
+      // Asked BEFORE the read, so a site's PDFs and vectors cost nothing at all.
       if (!isLadderedAsset(asset.name)) return
+      const bytes = await source.read(asset.name)
+      // A picture whose bytes have gone gets no ladder, exactly as one that
+      // cannot be decoded does. Both mean "served at its own width".
+      if (bytes === null) return
       const contentType = contentTypeOf(asset.name)
-      const size = await sizer.measure(asset.bytes, contentType)
+      const size = await sizer.measure(bytes, contentType)
       if (size === null) return
 
       const widths = deliveryWidthsFor(size.width)
       if (widths.length === 0) return
 
       const extension = extensionOfAsset(asset.name)
-      const sha = await renditionSha(asset.bytes)
-      const own = widths.map((width) => ({
-        asset,
-        contentType,
+      // The store's own digest, truncated — see {@link RENDITION_SHA_LENGTH}.
+      const sha = asset.digest.slice(0, RENDITION_SHA_LENGTH)
+      const own: RenditionJob[] = widths.map((width) => ({
         width,
         path: renditionPath(sha, width, extension),
       }))
@@ -565,8 +614,6 @@ export async function buildImageLadder(
         alternatives.push({
           type,
           jobs: alternativeDeliveryWidthsFor(size.width).map((width: number) => ({
-            asset,
-            contentType,
             width,
             type,
             path: renditionPath(sha, width, altExtension),
@@ -574,7 +621,19 @@ export async function buildImageLadder(
         })
       }
 
-      plans[index] = { asset, size, own, alternatives }
+      plans[index] = { asset, contentType, size, own, alternatives }
+
+      // WHAT IS ALREADY HELD IS NOT WORK, and the difference is the client's
+      // whole experience of this: the same plan, reported as a minute's resizing
+      // the first time and as nothing at all every time after. Asked here, while
+      // the picture is in hand, rather than in a second pass that would have to
+      // read every one of them again.
+      if (!sizer.held) return
+      const held = sizer.held.bind(sizer)
+      const rungs = [...own, ...alternatives.flatMap((a) => a.jobs)]
+      for (const rung of rungs) {
+        if (await held(bytes, contentType, rung.width, rung.type)) free[index] += 1
+      }
     }),
     LADDER_CONCURRENCY,
     () => {},
@@ -588,66 +647,69 @@ export async function buildImageLadder(
     throw new LadderTooLargeError(planned.length, jobs.length, LADDER_MAX_RENDITIONS)
   }
 
-  // WHAT IS ALREADY HELD IS NOT WORK, and the difference is the client's whole
-  // experience of this: the same plan, reported as a minute's resizing the first
-  // time and as nothing at all every time after.
-  let outstanding = jobs.length
-  if (sizer.held) {
-    const held = sizer.held.bind(sizer)
-    let free = 0
-    await pooled(
-      jobs.map((job) => () => held(job.asset.bytes, job.contentType, job.width, job.type)),
-      LADDER_CONCURRENCY,
-      (isHeld) => {
-        if (isHeld) free += 1
-      },
-    )
-    outstanding = jobs.length - free
+  const progress: LadderProgress = {
+    total: jobs.length - free.reduce((sum, n) => sum + n, 0),
+    done: 0,
   }
-
-  const progress: LadderProgress = { total: outstanding, done: 0 }
   opts.onProgress?.({ ...progress })
 
   // ---- 3. Render, bounded, writing each rendition out ----------------------
   //
-  // THE SINK IS OPENED HERE AND NOT BEFORE. Both ceilings are behind us, so a
-  // publish that was going to be refused has asked for nothing: no id taken, no
-  // tree emptied, no byte written. It is opened even when the plan is empty,
-  // because a publish's destination has one lifecycle whether or not this
-  // deployment can build renditions — see {@link SiteStore.beginRevision}.
+  // POOLED OVER PICTURES RATHER THAN OVER RUNGS ([[REQ-304]]). Every rendition
+  // of one photograph is made from the same source bytes, so reading them once
+  // and rendering that picture's whole ladder before moving on is both fewer
+  // reads and — the reason it changed — a bound on what is held: at most
+  // {@link LADDER_CONCURRENCY} sources at a time, whatever the site's size.
+  //
+  // IT IS THE SAME CEILING ON THE SAME AMBITION. A picture with thirteen rungs
+  // renders them in series where they used to interleave with other pictures';
+  // the number in flight is unchanged and so is the total work.
+  //
+  // THE SINK IS OPENED HERE AND NOT BEFORE ([[REQ-305]]). Both ceilings are
+  // behind us, so a publish that was going to be refused has asked for nothing:
+  // no id taken, no tree emptied, no byte written. It is opened even when the
+  // plan is empty, because a publish's destination has one lifecycle whether or
+  // not this deployment can build renditions — see
+  // {@link SiteStore.beginRevision}.
   const sink = opts.open ? await opts.open() : null
 
   const landed = new Set<string>()
   await pooled(
-    jobs.map((job) => async (): Promise<string | null> => {
-      const bytes = await sizer.resize(job.asset.bytes, job.contentType, job.width, job.type)
-      // A rung that would not render is dropped and the rest of the ladder
-      // stands: fewer choices for the browser, never a broken candidate.
-      if (bytes === null) return null
-      // WRITTEN INSIDE THE JOB, WHICH IS THE WHOLE OF [[REQ-305]]. The awaited
-      // write is the last thing done with `bytes`, so the only reference to a
-      // rendition dies with the job that made it and the pool's own ceiling is
-      // the ceiling on rendition memory. Returning the bytes to be collected —
-      // which is what this did — made the ladder hold every rendition the site
-      // needed, and thirteen per photograph is not a quantity the isolate has.
-      await sink?.(job.path, bytes)
-      return job.path
+    planned.map((plan) => async (): Promise<void> => {
+      const bytes = await source.read(plan.asset.name)
+      if (bytes === null) return
+      for (const job of [...plan.own, ...plan.alternatives.flatMap((a) => a.jobs)]) {
+        const rendered = await sizer.resize(bytes, plan.contentType, job.width, job.type)
+        // A rung that would not render is dropped and the rest of the ladder
+        // stands: fewer choices for the browser, never a broken candidate.
+        if (rendered !== null) {
+          // WRITTEN INSIDE THE JOB, WHICH IS THE WHOLE OF [[REQ-305]]. The
+          // awaited write is the last thing done with `rendered`, so the only
+          // reference to a rendition dies with the rung that made it and the
+          // pool's own ceiling is the ceiling on rendition memory. Collecting
+          // them — which is what this did — made the ladder hold every rendition
+          // the site needed, and thirteen per photograph is not a quantity the
+          // isolate has.
+          await sink?.(job.path, rendered)
+          landed.add(job.path)
+        }
+        // REPORTED AGAINST THE OUTSTANDING TOTAL, and clamped, because a
+        // rendition the plan counted as free may still be rendered here — `held`
+        // answered before this phase began, and nothing promises the two agree.
+        // A bar that read 7/5 would be a worse report than one that sat at 5/5
+        // for a moment.
+        const done = Math.min(progress.done + 1, progress.total)
+        // AND ONLY WHEN IT MOVED. A republish's total is zero, so every clamped
+        // completion would otherwise emit an identical frame — a stream of
+        // frames saying nothing, down a connection whose whole purpose is to say
+        // something.
+        if (done === progress.done) continue
+        progress.done = done
+        opts.onProgress?.({ ...progress })
+      }
     }),
     LADDER_CONCURRENCY,
-    (path) => {
-      if (path !== null) landed.add(path)
-      // REPORTED AGAINST THE OUTSTANDING TOTAL, and clamped, because a rendition
-      // the plan counted as free may still be rendered here — `held` answered
-      // before this phase began, and nothing promises the two agree. A bar that
-      // read 7/5 would be a worse report than one that sat at 5/5 for a moment.
-      const done = Math.min(progress.done + 1, progress.total)
-      // AND ONLY WHEN IT MOVED. A republish's total is zero, so every clamped
-      // completion would otherwise emit an identical frame — a stream of frames
-      // saying nothing, down a connection whose whole purpose is to say something.
-      if (done === progress.done) return
-      progress.done = done
-      opts.onProgress?.({ ...progress })
-    },
+    () => {},
   )
 
   const manifest: Record<string, ImageDelivery> = {}
@@ -684,5 +746,5 @@ export async function buildImageLadder(
 
 /** An {@link ImageLadder} over a sizer. */
 export function imageLadder(sizer: ImageSizer): ImageLadder {
-  return { build: (assets, opts) => buildImageLadder(assets, sizer, opts) }
+  return { build: (source, opts) => buildImageLadder(source, sizer, opts) }
 }

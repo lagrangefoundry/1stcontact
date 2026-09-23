@@ -1,9 +1,13 @@
 import {
+  blobKey,
+  encodeAssetManifest,
+  publishedAssetManifestKey,
   publishedOutPrefix,
   publishedSourcePrefix,
   type RevisionContent,
   type RevisionEntry,
 } from '../../tools/generate/src/store/revision-model'
+import type { SiteStore } from '../../tools/generate/src/store/site-store'
 import { memorySiteStore, type MemorySiteSeed } from '../../tools/generate/src/store/memory-store'
 import { publishSite } from '../../tools/generate/src/publish/publish'
 import type { ImageLadder } from '../../tools/generate/src/publish/ladder'
@@ -140,11 +144,20 @@ export interface PublishedFixture {
  * of a real render rather than invented HTML — the bytes are the product's, and
  * only their destination is the fixture's business.
  */
-export function seedPublished(
+export async function seedPublished(
   fixture: PublishedFixture,
   siteKey: string,
   id: number,
   content: RevisionContent,
+  /**
+   * Where the asset bytes a manifest names come from ([[REQ-304]]).
+   *
+   * THE STORE THAT PUBLISHED IT, in every real use: a revision records WHICH
+   * content each asset was, and the bytes live once per site under
+   * {@link blobKey}. A caller seeding a revision by hand (no assets, or
+   * assertions about the URL grammar alone) may omit it.
+   */
+  blobs?: SiteStore,
   /**
    * [[REQ-305]] — the delivery renditions, which no longer travel with `content`.
    *
@@ -156,7 +169,7 @@ export function seedPublished(
    * the product never populates.
    */
   derived?: ReadonlyMap<string, Uint8Array>,
-): void {
+): Promise<void> {
   const out = publishedOutPrefix(siteKey, id)
   for (const [rel, text] of content.out) {
     fixture.bucket.objects.set(`${out}/${rel}`, Buffer.from(text, 'utf8'))
@@ -166,9 +179,6 @@ export function seedPublished(
   // restores what the site is, and a rendition is not part of that.
   for (const [rel, bytes] of derived ?? []) {
     fixture.bucket.objects.set(`${out}/${rel}`, Buffer.from(bytes))
-  }
-  for (const { name, bytes } of content.source.assets) {
-    fixture.bucket.objects.set(`${out}/assets/${name}`, Buffer.from(bytes))
   }
 
   const source = publishedSourcePrefix(siteKey, id)
@@ -184,8 +194,25 @@ export function seedPublished(
       Buffer.from(JSON.stringify(page, null, 2), 'utf8'),
     )
   }
-  for (const { name, bytes } of content.source.assets) {
-    fixture.bucket.objects.set(`${source}/assets/${name}`, Buffer.from(bytes))
+
+  /*
+   * [[REQ-304]] — THE MANIFEST, AND ONE COPY OF EACH CONTENT.
+   *
+   * A revision used to carry a copy of every asset under BOTH `source/assets/`
+   * and `out/assets/`, and this fixture wrote both because that is what the
+   * adapter wrote. Asset bytes are content-addressed now: one object per
+   * content, per site, named by every revision that froze it — so what a
+   * revision holds is `assets.json`, and this mirrors that rather than
+   * restating a layout that no longer exists.
+   */
+  fixture.bucket.objects.set(
+    publishedAssetManifestKey(siteKey, id),
+    Buffer.from(encodeAssetManifest(content.source.assets), 'utf8'),
+  )
+  for (const ref of content.source.assets) {
+    const bytes = blobs ? await blobs.readBlob(siteKey, ref.digest) : null
+    if (bytes === null) continue
+    fixture.bucket.objects.set(blobKey(siteKey, ref.digest), Buffer.from(bytes))
   }
 
   // Live is the HIGHEST id, derived exactly as the real query derives it — a
@@ -256,7 +283,7 @@ export async function publishInto(
   }
   const content: RevisionContent = { source, out }
   const derived = store.derivedRevision(slug, result.id) ?? new Map<string, Uint8Array>()
-  seedPublished(fixture, slug, result.id, content, derived)
+  await seedPublished(fixture, slug, result.id, content, store, derived)
   return { id: result.id, content, derived }
 }
 

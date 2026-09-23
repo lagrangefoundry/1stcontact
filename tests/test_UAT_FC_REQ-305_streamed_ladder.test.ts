@@ -16,6 +16,7 @@ import type { SiteStore } from '../tools/generate/src/store/site-store'
 import { memorySiteStore } from '../tools/generate/src/store'
 import { starterHomePage } from '../tools/generate/src/cli/scaffold'
 import { siteSeed } from './support/site-seed'
+import { ladderSource } from './support/ladder-source'
 
 /**
  * REQ-305 — the ladder streams its renditions, and refuses on bytes.
@@ -114,10 +115,24 @@ function heavyPictures(count: number, total: number) {
   })
 }
 
+/**
+ * `buildImageLadder` over pictures a case is holding ([[REQ-304]]).
+ *
+ * The ladder takes a LISTING and a reader rather than the site's bytes, so a
+ * case that invents pictures says so once here instead of at every call.
+ */
+async function buildFrom(
+  assets: readonly { name: string; bytes: Uint8Array }[],
+  sizer: ImageSizer,
+  opts?: LadderBuildOptions,
+): ReturnType<typeof buildImageLadder> {
+  return buildImageLadder(await ladderSource(assets), sizer, opts)
+}
+
 describe('REQ-305 a rendition is written and released, never accumulated', () => {
   it('test_UAT_FC_REQ-305_holds_no_more_rendition_bytes_than_its_concurrency_allows', async () => {
     const { sizer, sink, state } = accountedSizer()
-    const build = await buildImageLadder(pictures(30), sizer, { open: async () => sink })
+    const build = await buildFrom(pictures(30), sizer, { open: async () => sink })
 
     // THE SITE'S LADDER IS LARGE: thirty pictures at thirteen rungs each.
     expect(state.written).toBe(390)
@@ -140,7 +155,7 @@ describe('REQ-305 a rendition is written and released, never accumulated', () =>
   it('test_UAT_FC_REQ-305_the_sink_receives_exactly_the_renditions_the_manifest_names', async () => {
     const seen: string[] = []
     const { sizer } = accountedSizer()
-    const build = await buildImageLadder(pictures(2), sizer, {
+    const build = await buildFrom(pictures(2), sizer, {
       open: async () => async (path) => {
         seen.push(path)
       },
@@ -164,7 +179,7 @@ describe('REQ-305 a rendition is written and released, never accumulated', () =>
       resize: async (_bytes, _type, width) =>
         width === 640 ? null : new Uint8Array(RENDITION_BYTES),
     }
-    const build = await buildImageLadder(pictures(1), sizer, {
+    const build = await buildFrom(pictures(1), sizer, {
       open: async () => async (path) => {
         seen.push(path)
       },
@@ -181,10 +196,10 @@ describe('REQ-305 a rendition is written and released, never accumulated', () =>
     // ordering both: the order of `sources` is the browser's selection mechanism,
     // so a manifest that agreed on membership and not on order would be a
     // different site.
-    const written = await buildImageLadder(pictures(3), accountedSizer().sizer, {
+    const written = await buildFrom(pictures(3), accountedSizer().sizer, {
       open: async () => async () => {},
     })
-    const bare = await buildImageLadder(pictures(3), accountedSizer().sizer)
+    const bare = await buildFrom(pictures(3), accountedSizer().sizer)
     expect(written.manifest).toEqual(bare.manifest)
     expect(JSON.stringify(written.manifest)).toBe(JSON.stringify(bare.manifest))
   })
@@ -210,7 +225,7 @@ describe('REQ-305 a publish that would exhaust memory is refused in the site’s
     const { sizer, state } = accountedSizer()
     const watched = watchedOpen()
 
-    const err = await buildImageLadder(heavy, sizer, watched).catch((e) => e)
+    const err = await buildFrom(heavy, sizer, watched).catch((e) => e)
     expect(err).toBeInstanceOf(LadderTooHeavyError)
 
     // IT NAMES THE SITE'S OWN FACTS AND A REMEDY THE CLIENT CAN CARRY OUT, because
@@ -240,7 +255,7 @@ describe('REQ-305 a publish that would exhaust memory is refused in the site’s
       bytes: new Uint8Array(LADDER_MAX_SOURCE_BYTES + 1024 * 1024),
     }
     const { sizer, sink } = accountedSizer()
-    const build = await buildImageLadder([brochure, ...pictures(1)], sizer, {
+    const build = await buildFrom([brochure, ...pictures(1)], sizer, {
       open: async () => sink,
     })
     expect(Object.keys(build.manifest)).toEqual(['photo0.jpg'])
@@ -252,14 +267,14 @@ describe('REQ-305 a publish that would exhaust memory is refused in the site’s
     // renditions than one request can carry, so the subrequest guard is what
     // refuses it — kept, not replaced.
     const many = pictures(Math.ceil(LADDER_MAX_RENDITIONS / 13) + 1)
-    const light = await buildImageLadder(many, accountedSizer().sizer).catch((e) => e)
+    const light = await buildFrom(many, accountedSizer().sizer).catch((e) => e)
     expect(light).toBeInstanceOf(LadderTooLargeError)
 
     // AND A SITE OVER BOTH IS TOLD THE FACT THAT WAS GOING TO KILL IT. Weight is
     // checked first because it costs nothing to compute and because it is the
     // ceiling that actually fires.
     const both = heavyPictures(200, LADDER_MAX_SOURCE_BYTES * 2)
-    const heavy = await buildImageLadder(both, accountedSizer().sizer).catch((e) => e)
+    const heavy = await buildFrom(both, accountedSizer().sizer).catch((e) => e)
     expect(heavy).toBeInstanceOf(LadderTooHeavyError)
   })
 })
@@ -372,11 +387,11 @@ describe('REQ-305 the publish opens one destination, and a refused publish opens
     // about — a client shown "this will take a minute" every time has been taught
     // to ignore the one time it means something.
     const seeded = siteWith({ 'hero.jpg': new Uint8Array(64).fill(7) })
-    const first = await buildImageLadder([{ name: 'hero.jpg', bytes: new Uint8Array(64).fill(7) }], accountedSizer().sizer)
+    const first = await buildFrom([{ name: 'hero.jpg', bytes: new Uint8Array(64).fill(7) }], accountedSizer().sizer)
 
     const frames: { total: number; done: number }[] = []
     const { sizer, sink } = accountedSizer()
-    const republish = await buildImageLadder(
+    const republish = await buildFrom(
       [{ name: 'hero.jpg', bytes: new Uint8Array(64).fill(7) }],
       { ...sizer, held: async () => true },
       { open: async () => sink, onProgress: (p) => frames.push(p) },

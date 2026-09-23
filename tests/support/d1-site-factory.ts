@@ -165,8 +165,15 @@ const MIGRATIONS = [
   // rather than in the one assertion that is about spend — except that it would
   // not even do that, because the host swallows a meter failure on purpose. The
   // symptom would be a silently unmetered suite, which is worse.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0019_turn_spend.sql?raw'),
+  // [[REQ-304]] — `site_assets.digest`, an asset's content identity. Applied
+  // here for every reason above, and one of its own: the store records a digest
+  // on EVERY asset write and reads one back on every question about what a site
+  // holds, so a suite that skipped this file would fail on an unknown column in
+  // the first `asset add` it made and in every publish, diff and change count
+  // thereafter — which reads as a query bug and is not one.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0020_asset_digest.sql?raw'),
 ]
 
 /**
@@ -259,14 +266,18 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-292]]'s `idx_turn_spend_tenant`, the turn meter's period read. It used to
+ * [[REQ-304]]'s `site_assets.digest`, an asset's content identity. It used to
  * ask for `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
- * re-opens exactly that hole. `sqlite_master` answers on a database with no
- * such object at all — an empty result, not an error — which is what lets one
- * query serve both "already migrated" and "nothing here yet", exactly as
- * `PRAGMA table_info` did.
+ * re-opens exactly that hole.
+ *
+ * `pragma_table_info` RATHER THAN `sqlite_master`, BECAUSE THE LAST FILE ADDS A
+ * COLUMN. An `ALTER TABLE ADD COLUMN` leaves no row in `sqlite_master` to ask
+ * about — the table's entry is unchanged — so the marker has to be read from the
+ * table's shape. Both forms answer with an empty result rather than an error on
+ * a database that has nothing at all, which is what lets one query serve both
+ * "already migrated" and "nothing here yet".
  *
  * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0017` creates a
  * table and then two indexes; asking for the table would answer "at head" for a
@@ -281,8 +292,10 @@ export async function applySchema(): Promise<void> {
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_turn_spend_tenant')
+  const row = await DB.prepare(
+    "SELECT name FROM pragma_table_info('site_assets') WHERE name = ?",
+  )
+    .bind('digest')
     .first<{ name: string }>()
   return row !== null
 }

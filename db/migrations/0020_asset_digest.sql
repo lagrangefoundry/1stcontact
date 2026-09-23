@@ -1,0 +1,42 @@
+-- REQ-304 — AN ASSET IS IDENTIFIED BY ITS CONTENT, NOT BY ITS CONTENT.
+--
+-- THE FAULT THIS CLOSES. Publish asked *what is this asset* whenever the only
+-- thing it needed was *which asset is this*. Deciding whether a picture changed,
+-- hashing a definition, and freezing a revision are all answerable from a
+-- digest; all three read the whole picture instead, so that `byteKey` could turn
+-- it into a JavaScript string one character per byte and compare two of them
+-- with `===`. Against a 128 MB isolate that put the ceiling at roughly twenty
+-- megabytes of source assets — a dozen photographs — and a real client was
+-- already past it and unable to publish at all.
+--
+-- ONE COLUMN, BESIDE THE THREE THAT WERE ALREADY THERE. `site_assets` records
+-- what an asset is called, where its bytes are and how many there are; what was
+-- missing was which bytes they are. It is recorded when the asset is WRITTEN and
+-- never recomputed on read, which is what makes "does this site have unpublished
+-- changes?" cost one indexed query rather than a bucket's worth of reads.
+--
+-- NULLABLE, AND THAT IS THE MIGRATION. Every row that exists predates this and
+-- cannot be given a digest here: the digest is of the BYTES, and the bytes are
+-- in R2, which SQL cannot reach. Asking operators to re-upload every picture on
+-- every live site is not a thing this product may ask. So a NULL means "not
+-- established yet", and `d1r2-store`'s `backfillDigest` fills it the first time
+-- anything asks what that asset is — one read of one asset, once in its life,
+-- after which the row is indistinguishable from one written today.
+--
+-- `r2_key` STAYS AND CHANGES MEANING FOR NEW ROWS ONLY. An asset written from
+-- now on lives at `sites/<siteId>/blob/<digest>` — one immutable object per
+-- content, named by the draft, by every revision that froze it, and by the
+-- served site, which is what makes publishing a site whose pictures are
+-- unchanged move none of them. Rows written before this keep the key they have
+-- and go on reading from it, because nothing reconstructs a key for a row: the
+-- column IS the pointer. The backfill above repoints one when it fills its
+-- digest.
+--
+-- NO INDEX ON IT, DELIBERATELY. Nothing looks an asset UP by digest: reads are
+-- by `(site_id, name)`, which is the primary key, and the digest is carried back
+-- with the row. An index would be a second structure to maintain for a query
+-- nobody makes.
+--
+-- LAST STATEMENT IN THE FILE, which is what the test harness's `atHead` marker
+-- asks about.
+ALTER TABLE site_assets ADD COLUMN digest TEXT;

@@ -1,4 +1,4 @@
-import type { StoredAsset, StoredPage } from './site-store'
+import type { AssetRef, StoredPage } from './site-store'
 
 /**
  * The revision model (REQ-149) — worker-safe, and deliberately so.
@@ -52,14 +52,20 @@ export interface RevisionEntry {
  * A complete site definition, frozen — the store-level equivalent of DOC-12's
  * `revisions/NNNN/` directory.
  *
- * It carries asset BYTES rather than names, because a revision is immutable and
- * an immutable thing that points at a mutable one is not immutable. The draft's
- * `logo.svg` may be replaced tomorrow; revision 3's copy of it may not.
+ * IT CARRIES ASSET IDENTITIES RATHER THAN ASSET BYTES ([[REQ-304]]). It used to
+ * carry the bytes, on the argument that *"a revision is immutable and an
+ * immutable thing that points at a mutable one is not immutable"* — which is
+ * correct about the danger and wrong about the remedy. What made the draft's
+ * `logo.svg` unsafe to point at was that its NAME was the address, and a name
+ * can be made to mean different bytes tomorrow. A content digest cannot: it
+ * names one set of bytes for as long as the digest exists. So a snapshot points
+ * at immutable things by pointing at what they ARE, and a whole site's
+ * definition costs a listing rather than a site.
  */
 export interface StoredSnapshot {
   siteJson: Record<string, unknown> | null
   pages: StoredPage[]
-  assets: StoredAsset[]
+  assets: AssetRef[]
 }
 
 /**
@@ -123,8 +129,9 @@ export interface SiteOutline {
  * serves nothing, which is worse than a publish that failed outright.
  *
  * `out` holds only the RENDERED text (`index.html`, `theme.css`, a page per
- * slug). Assets are not repeated here — the store copies them across from
- * `source.assets`, exactly as the filesystem writer copies `assets/` through.
+ * slug). Assets are not repeated here: `source.assets` names them by content
+ * ([[REQ-304]]) and the store resolves each digest against bytes it already
+ * holds, so freezing a revision whose pictures are unchanged moves none of them.
  */
 export interface RevisionContent {
   source: StoredSnapshot
@@ -213,13 +220,6 @@ export function canonicalJson(value: unknown): string {
   return `{${entries.join(',')}}`
 }
 
-/** Bytes, as a comparable string. Latin-1 per byte — never decoded as text. */
-function byteKey(bytes: Uint8Array): string {
-  let out = ''
-  for (let i = 0; i < bytes.length; i += 1) out += String.fromCharCode(bytes[i])
-  return out
-}
-
 /**
  * Flatten an outline to `path → comparable content`, using the same relative
  * paths DOC-12 §4 names: `site.json`, `pages/<name>`, `assets/<name>`.
@@ -231,9 +231,17 @@ function byteKey(bytes: Uint8Array): string {
  *
  * THE DEFINITION IS CANONICALISED AND THE ASSET IS NOT ([[REQ-303]]). A page is
  * held as an object by both adapters and has to be compared as one; an asset is
- * held as bytes by both and is compared through whatever evidence of those bytes
- * the store already had. {@link snapshotEntries} is this same listing with the
- * bytes themselves standing in for the evidence.
+ * compared through whatever evidence of its bytes the store already had, which
+ * is what a stamp is.
+ *
+ * AN ASSET'S COMPARABLE CONTENT IS ITS IDENTITY, NEVER ITS CONTENT
+ * ([[REQ-304]]). A snapshot's stamp used to be `byteKey(bytes)` — the whole
+ * picture as a JavaScript string, one character per byte — which answered the
+ * same question at fifty million times the cost and is why a 50 MB site could
+ * not be published or even described. The property that matters is unchanged and
+ * is the reason a digest is the right substitute: two assets compare equal
+ * exactly when their bytes are identical, so an asset whose content changed
+ * while its name and size stayed the same is still reported as modified.
  */
 export function outlineEntries(outline: SiteOutline): Map<string, string> {
   const entries = new Map<string, string>()
@@ -243,12 +251,18 @@ export function outlineEntries(outline: SiteOutline): Map<string, string> {
   return entries
 }
 
-/** The same listing over a snapshot, with each asset's own bytes as its stamp. */
+/**
+ * The same listing over a snapshot, with each asset's own DIGEST as its stamp
+ * ([[REQ-304]]).
+ *
+ * A snapshot carries {@link AssetRef}s rather than bytes, so the evidence the
+ * outline asks for is already in hand and no asset is read to produce it.
+ */
 export function snapshotEntries(snapshot: StoredSnapshot): Map<string, string> {
   return outlineEntries({
     siteJson: snapshot.siteJson,
     pages: snapshot.pages,
-    assets: snapshot.assets.map(({ name, bytes }) => ({ name, stamp: byteKey(bytes) })),
+    assets: snapshot.assets.map(({ name, digest }) => ({ name, stamp: digest })),
   })
 }
 
@@ -320,6 +334,13 @@ export const REVISION_SHA_LENGTH = 12
  * change (as it must be — it moves a URL) and iteration order can never perturb
  * the result. `crypto.subtle` rather than `node:crypto`, because this runs in
  * workerd as often as in Node.
+ *
+ * IT READS NO ASSET BYTES ([[REQ-304]]). The listing an asset contributes is its
+ * content DIGEST, so the string hashed here is bounded by the number of files a
+ * site has rather than by how large they are. It used to be the concatenation of
+ * every picture on the site as text, put through `TextEncoder` — which doubles
+ * every byte ≥ 0x80 on the way — and was the single largest allocation a publish
+ * made.
  */
 export async function snapshotSha(snapshot: StoredSnapshot): Promise<string> {
   const listing = [...snapshotEntries(snapshot)]
@@ -421,13 +442,31 @@ export class RevisionExistsError extends Error {
  * verification is one recomputation and one string comparison. That it needed no
  * new machinery is the strongest evidence the detector was built and simply
  * never wired up.
+ *
+ * `manifested` IS THE ONE THING [[REQ-304]] ADDED, AND IT IS A FACT ABOUT THE
+ * STORED REVISION RATHER THAN A MODE. A revision frozen before content
+ * addressing recorded a `sha` over the old listing, in which an asset
+ * contributed its whole content as a latin-1 string; only `byteKey` could
+ * reproduce that, and `byteKey` is what this ticket retires. So such a revision
+ * is read back UNVERIFIED rather than refused — the same reading `fs-store`
+ * already takes for a revision with no log entry at all, and the only one the
+ * absence of a digest record can support. Refusing instead would fail a restore
+ * on data that is in fact intact, which is the worse of the two errors by a long
+ * way.
+ *
+ * AN ASSET-LESS REVISION IS UNAFFECTED EITHER WAY, which is why the carve-out is
+ * narrower than it first reads. With no assets the two listings are identical
+ * character for character, so every such revision — however old — still
+ * verifies, and the integrity guarantee holds for all of them.
  */
 export async function verifiedSnapshot(
   site: string,
   id: number,
   expected: string,
   snapshot: StoredSnapshot,
+  manifested: boolean,
 ): Promise<StoredSnapshot> {
+  if (!manifested && snapshot.assets.length > 0) return snapshot
   const actual = await snapshotSha(snapshot)
   if (actual !== expected) throw new RevisionIntegrityError(site, id, expected, actual)
   return snapshot
@@ -474,6 +513,113 @@ export function publishedPrefix(siteId: string, id: number): string {
 /** Where a revision's RENDERED output lives — what `public-site` serves from. */
 export function publishedOutPrefix(siteId: string, id: number): string {
   return `${publishedPrefix(siteId, id)}/out`
+}
+
+/**
+ * Where one asset's bytes live: `sites/<siteId>/blob/<digest>` ([[REQ-304]]).
+ *
+ * ONE OBJECT PER CONTENT, PER SITE, FOR EVER. The draft points at it, every
+ * revision that froze that content points at it, and the served site reads it —
+ * so publishing a site whose pictures are unchanged moves no picture, and a
+ * checkout of a year-old revision costs a pointer rather than a copy. The key
+ * used to be the asset's NAME under a mutable draft prefix and again under every
+ * revision's prefix, which is why a publish wrote every photograph twice and a
+ * site's storage grew with its publish count rather than with its content.
+ *
+ * IMMUTABLE BY CONSTRUCTION, WHICH IS WHAT MAKES THE SHARING SAFE. The key is
+ * the content, so a `put` can only ever write what is already there; replacing a
+ * draft asset writes a NEW blob and leaves the old one addressing exactly the
+ * bytes the revisions that named it were frozen with.
+ *
+ * UNDER THE SITE'S OWN ROOT, so erasure ([[DOC-37]]) reaches it: `forget()`
+ * already deletes everything under `sites/<siteId>/`, which is why blobs are
+ * placed there rather than in a bucket-wide content space that no site's
+ * teardown could sweep.
+ *
+ * NEVER DELETED SHORT OF THAT. A blob no draft names may still be the content of
+ * a published revision, and nothing here can know which — so a replaced asset
+ * leaves its old blob behind. That is storage spent to keep history restorable,
+ * and reclaiming it is a sweep over live revisions that belongs with the rest of
+ * retention policy rather than in a store verb.
+ */
+export function blobKey(siteId: string, digest: string): string {
+  return `${PUBLISHED_ROOT}/${siteId}/blob/${digest}`
+}
+
+/**
+ * Where a revision's ASSET MANIFEST lives ([[REQ-304]]).
+ *
+ * `name → { digest, size }`, and it is what replaces the copy of every asset
+ * that used to sit under a revision's `source/assets/`. It is part of the frozen
+ * DEFINITION — which assets the site had, and which content each of them was —
+ * and the bytes it names are reached through {@link blobKey}.
+ *
+ * ITS PRESENCE IS ALSO THE ANSWER TO "was this revision frozen under content
+ * addressing?", which is what {@link verifiedSnapshot}'s `manifested` argument
+ * carries. That is deliberately a fact about the stored shape rather than a flag
+ * somebody had to remember to set: a revision either has a manifest or it does
+ * not, and reading what is there cannot drift from what was written.
+ *
+ * WRITTEN EVEN WHEN A SITE HAS NO ASSETS, so absence means one thing only.
+ */
+export function publishedAssetManifestKey(siteId: string, id: number): string {
+  return `${publishedSourcePrefix(siteId, id)}/assets.json`
+}
+
+/** The name an asset manifest takes inside a revision, on any adapter. */
+export const ASSET_MANIFEST_NAME = 'assets.json'
+
+/**
+ * A revision's asset manifest, as it is written ([[REQ-304]]).
+ *
+ * A RECORD KEYED BY NAME AND NOT A LIST, because every reader of it is asking
+ * the same question — *what content is the asset called `hero.jpg`?* — and a
+ * list would make each of them scan. `public-site` asks it once per image
+ * request; being able to answer with a property access rather than a search is
+ * the difference between a lookup and a loop on the serving path.
+ *
+ * THE CODEC IS HERE AND NOT IN THE ADAPTERS, for the reason the whole module
+ * exists: three stores and one Worker write and read this, and a shape they each
+ * spelled for themselves is a shape they can each get subtly wrong.
+ */
+export interface StoredAssetManifest {
+  assets: Record<string, { digest: string; size: number }>
+}
+
+/** A manifest's bytes, from the refs it records. Sorted, so it is stable. */
+export function encodeAssetManifest(assets: readonly AssetRef[]): string {
+  const record: StoredAssetManifest['assets'] = {}
+  for (const { name, digest, size } of [...assets].sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    record[name] = { digest, size }
+  }
+  return JSON.stringify({ assets: record }, null, 2)
+}
+
+/**
+ * The refs a manifest records, sorted by name.
+ *
+ * TOLERANT OF NOTHING. A manifest that does not parse, or whose entries are not
+ * a digest and a length, is not a manifest this store wrote — and answering with
+ * a partial listing would produce a revision missing assets nobody asked it to
+ * drop. It answers `null`, which every caller reads as "this revision was not
+ * frozen with one".
+ */
+export function decodeAssetManifest(text: string): AssetRef[] | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return null
+  }
+  const assets = (parsed as StoredAssetManifest | null)?.assets
+  if (assets === null || typeof assets !== 'object') return null
+  const refs: AssetRef[] = []
+  for (const [name, entry] of Object.entries(assets)) {
+    const { digest, size } = (entry ?? {}) as { digest?: unknown; size?: unknown }
+    if (typeof digest !== 'string' || typeof size !== 'number') return null
+    refs.push({ name, digest, size })
+  }
+  return refs.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 }
 
 /**

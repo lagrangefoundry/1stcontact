@@ -12,6 +12,7 @@ export type { Root, RenderChannel, StoreContext } from './paths'
 export { padRevision } from './revision-model'
 export {
   siteDir,
+  blobsDir,
   draftDir,
   revisionsDir,
   revisionDir,
@@ -42,13 +43,16 @@ export type { SiteParts } from './assemble'
 export { assembleSite } from './assemble'
 
 export type {
+  AssetRef,
   DraftSnapshot,
   SiteStore,
   SiteWrite,
   StoredAsset,
   StoredPage,
 } from './site-store'
-export { StoreConflictError } from './site-store'
+export { MissingContentError, StoreConflictError } from './site-store'
+
+export { CONTENT_DIGEST_LENGTH, contentDigest, isContentDigest } from './digest'
 
 export type {
   AssetStamp,
@@ -59,9 +63,14 @@ export type {
   StoredSnapshot,
 } from './revision-model'
 export {
+  ASSET_MANIFEST_NAME,
+  blobKey,
   canonicalJson,
+  decodeAssetManifest,
   diffOutlines,
   diffSnapshots,
+  encodeAssetManifest,
+  publishedAssetManifestKey,
   PUBLISHED_ROOT,
   publishedOutPrefix,
   publishedPrefix,

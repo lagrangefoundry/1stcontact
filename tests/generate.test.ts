@@ -11,7 +11,7 @@ import {
   cmdRevisions,
 } from '../tools/generate/src/cli/commands'
 import { InvalidDefinitionError } from '../tools/generate/src/cli/errors'
-import { loadSite, listFilesRel, sameBytes } from '../tools/generate/src/store'
+import { ASSET_MANIFEST_NAME, loadSite, listFilesRel, sameBytes } from '../tools/generate/src/store'
 
 /**
  * UATs for REQ-9 — the `1c` CLI: file-backed site storage, versioning, and the
@@ -31,10 +31,23 @@ afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
-/** True when two directory trees are byte-identical (same files, same bytes). */
+/**
+ * True when two directory trees are byte-identical (same files, same bytes).
+ *
+ * THE ASSET MANIFEST IS DISREGARDED ([[REQ-304]]). A revision directory carries
+ * an `assets.json` recording which CONTENT each of its assets was; a draft has
+ * no such file, because a draft is whatever is on disk right now and has nothing
+ * to be faithful to. The property these cases pin — every file of the
+ * definition, copied through byte for byte — is unchanged; the manifest is the
+ * extra record of identity that makes the copy verifiable, and comparing it
+ * against a draft that cannot have one would be asserting that freezing records
+ * nothing.
+ */
 function dirsIdentical(a: string, b: string): boolean {
-  const fa = listFilesRel(a)
-  const fb = listFilesRel(b)
+  const definition = (dir: string): string[] =>
+    listFilesRel(dir).filter((rel) => rel !== ASSET_MANIFEST_NAME)
+  const fa = definition(a)
+  const fb = definition(b)
   if (fa.join('\n') !== fb.join('\n')) return false
   return fa.every((rel) => sameBytes(path.join(a, rel), path.join(b, rel)))
 }

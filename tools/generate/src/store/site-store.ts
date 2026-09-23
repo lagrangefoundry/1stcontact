@@ -80,6 +80,37 @@ export interface StoredAsset {
 }
 
 /**
+ * One asset as a NAME and a CONTENT IDENTITY — never its bytes ([[REQ-304]]).
+ *
+ * WHY THIS EXISTS BESIDE {@link StoredAsset} RATHER THAN REPLACING IT. Storing
+ * something means supplying it, so a WRITE is unavoidably bytes. Everything
+ * else a caller does with an asset — deciding whether it changed, hashing a
+ * definition, freezing a revision, restoring one — asks *which content is this*
+ * and never *what is the content*. Those are two different questions and this
+ * repository had one type answering both, which is why a publish read fifty
+ * megabytes in order to compare two strings.
+ *
+ * TWO TYPES RATHER THAN ONE WITH AN OPTIONAL `bytes`. An optional field is a
+ * thing every reader has to test for and every writer has to remember to fill,
+ * and the one case it would exist to serve — "I have the bytes anyway" — is the
+ * case that must not be allowed to spread. This is the same argument
+ * {@link RevisionContent} already makes for keeping `out` and `derived` apart.
+ *
+ * THE DIGEST IS THE ADDRESS AND THE SIZE IS NOT. `size` is carried because it
+ * is free (every store already records it) and because a listing is the one
+ * place a caller genuinely wants it; nothing compares on it, because two
+ * different pictures of the same length are not the same picture.
+ */
+export interface AssetRef {
+  /** The asset's name under `assets/`, e.g. `wordmark.svg`. */
+  name: string
+  /** SHA-256 of the bytes, lowercase hex. See `digest.ts`. */
+  digest: string
+  /** How many bytes the asset is. */
+  size: number
+}
+
+/**
  * One whole change to a site's draft.
  *
  * Every member is optional and an empty write is legal (it does nothing). What
@@ -96,6 +127,27 @@ export interface SiteWrite {
   removePages?: string[]
   /** Write these asset bytes, creating or replacing each by name. */
   assets?: StoredAsset[]
+  /**
+   * Write these assets BY CONTENT, creating or replacing each by name
+   * ([[REQ-304]]).
+   *
+   * A SECOND CHANNEL RATHER THAN A WIDER `assets`, on {@link RevisionContent}'s
+   * reasoning for keeping `out` and `derived` apart: a union would put a type
+   * test in every adapter's write loop to express something two fields say by
+   * being two fields.
+   *
+   * WHAT IT IS FOR. A checkout restores a revision's assets onto the draft, and
+   * a revision holds digests rather than bytes — so the restore is a pointer
+   * move, and a site whose pictures are unchanged is checked out without one of
+   * them being read. The digest must be one the store already holds bytes for;
+   * it always is, because the only source of a ref is a store that stored it.
+   *
+   * REFUSED WHEN THE STORE HOLDS NO SUCH CONTENT. A ref naming a digest nothing
+   * was ever written under is a caller with a stale or invented revision, and
+   * the honest answer is a refusal rather than an asset row pointing at
+   * nothing — the same rule {@link SiteWrite.assets} follows for an unsafe name.
+   */
+  assetRefs?: readonly AssetRef[]
   /** Remove these assets by name. Removing one that is absent is not an error. */
   removeAssets?: string[]
   /**
@@ -149,6 +201,37 @@ export class StoreConflictError extends Error {
   }
 }
 
+/**
+ * A write by reference refused because the store holds no such content
+ * ([[REQ-304]]).
+ *
+ * WHAT IT MEANS WHEN IT FIRES. A {@link SiteWrite.assetRefs} entry named a
+ * digest nothing was ever stored under. The only legitimate source of a ref is a
+ * store that stored the bytes, so this is a caller holding a revision from
+ * somewhere else, or a blob that teardown has already swept — and the honest
+ * answer is a refusal rather than an asset row that lists and then 404s, which
+ * is the exact failure {@link UnsafeAssetNameError} was introduced to stop being
+ * silent.
+ *
+ * IT NAMES BOTH THE ASSET AND THE DIGEST, because neither alone is actionable:
+ * the name says which picture on the site is affected and the digest says which
+ * content the revision expected it to be.
+ */
+export class MissingContentError extends Error {
+  readonly name = 'MissingContentError'
+  readonly assetName: string
+  readonly digest: string
+
+  constructor(site: string, assetName: string, digest: string) {
+    super(
+      `Site '${site}' holds no content ${digest}, which '${assetName}' was ` +
+        'restored by reference from. The revision naming it cannot be checked out.',
+    )
+    this.assetName = assetName
+    this.digest = digest
+  }
+}
+
 /** A site's current draft, plus a token that changes whenever the draft does. */
 export interface DraftSnapshot {
   /**
@@ -193,8 +276,48 @@ export interface SiteStore {
   /** Asset names under the draft's `assets/`, sorted. */
   listAssets(site: string): Promise<string[]>
 
+  /**
+   * Every draft asset as a {@link AssetRef} — name, content digest, size —
+   * sorted by name, and reading NO asset bytes ([[REQ-304]]).
+   *
+   * THE VERB THE PORT WAS MISSING. `listAssets` answers what a site HAS and
+   * `readAsset` answers what one IS; there was no way to ask what one *is
+   * identified as*, so every caller that needed identity — the diff, the
+   * revision digest, the per-turn site digest — had to read the content and
+   * derive it. That is a byte-for-byte cost to answer a fixed-size question,
+   * paid on a path that runs before every model call.
+   *
+   * THE DIGEST IS RECORDED, NOT RECOMPUTED, wherever the adapter has somewhere
+   * to record it: D1 keeps a column beside `name`, `r2_key` and `size`. The
+   * filesystem adapter has no such place that could not drift from the files
+   * themselves — an operator editing `draft/assets/` by hand is the whole point
+   * of that tier — so it derives each digest from the file, one file at a time,
+   * and memoises on the file's own mtime and size. Either way the answer is the
+   * same and nothing here holds more than one asset at once.
+   */
+  assetManifest(site: string): Promise<AssetRef[]>
+
   /** One asset's bytes, or null when the store holds no such asset. */
   readAsset(site: string, name: string): Promise<Uint8Array | null>
+
+  /**
+   * One asset's bytes BY CONTENT, or null when the store holds no such content
+   * ([[REQ-304]]).
+   *
+   * THE READ THAT GOES WITH {@link AssetRef}. `readAsset` answers *what is the
+   * site's `logo.svg` right now*, which is the draft's question; a revision
+   * holds content identities, so serving revision 3's page needs *what were
+   * these particular bytes* — and the two answers differ precisely when someone
+   * has replaced the file, which is exactly the case a frozen revision exists
+   * to survive.
+   *
+   * IT IS NOT A SECOND WAY TO READ A DRAFT ASSET. Nothing derives a digest in
+   * order to call this: a caller has a ref because a snapshot gave it one.
+   *
+   * CONTENT IS NEVER OVERWRITTEN, so what comes back is what was frozen, for as
+   * long as the site exists. See {@link blobKey}.
+   */
+  readBlob(site: string, digest: string): Promise<Uint8Array | null>
 
   /** The site's change count. Zero for a site nothing has been written to. */
   counter(site: string): Promise<number>

@@ -8,6 +8,7 @@ import {
 import { newId } from './ids'
 import type { ChangeSlice, JournalRecord } from './journal-model'
 import { JOURNAL_WINDOW } from './journal-model'
+import { contentDigest } from './digest'
 import type {
   AssetStamp,
   RenditionSink,
@@ -17,6 +18,10 @@ import type {
   StoredSnapshot,
 } from './revision-model'
 import {
+  blobKey,
+  decodeAssetManifest,
+  encodeAssetManifest,
+  publishedAssetManifestKey,
   PUBLISHED_ROOT,
   publishedOutPrefix,
   publishedSourcePrefix,
@@ -24,13 +29,13 @@ import {
   verifiedSnapshot,
 } from './revision-model'
 import type {
+  AssetRef,
   DraftSnapshot,
   SiteStore,
   SiteWrite,
-  StoredAsset,
   StoredPage,
 } from './site-store'
-import { StoreConflictError } from './site-store'
+import { MissingContentError, StoreConflictError } from './site-store'
 
 /**
  * {@link SiteStore} over Cloudflare D1 and R2 — REQ-143, DOC-12 §7 phase 2.
@@ -455,9 +460,24 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
    */
   const draftPrefix = (siteKey: string): string => `draft/${siteKey}/`
 
-  /** The R2 key for one draft asset. */
-  const assetKey = (siteKey: string, name: string): string =>
-    `${draftPrefix(siteKey)}assets/${name}`
+  /**
+   * The R2 key one asset's bytes live at — its CONTENT, never its name
+   * ([[REQ-304]]).
+   *
+   * WHAT THIS REPLACES. The key used to be `draft/<siteKey>/assets/<name>`, and
+   * a publish then wrote the same bytes twice more, under the revision's
+   * `source/assets/<name>` and `out/assets/<name>`. So a site's storage grew
+   * with its publish count rather than with its content, and a publish moved
+   * every photograph on the site whether or not any of them had changed. One
+   * content-addressed object is named by the draft, by every revision that froze
+   * it, and by the served site — which is what makes freezing free.
+   *
+   * ASSETS WRITTEN BEFORE THIS KEEP THEIR OWN KEY, recorded in `site_assets.r2_key`
+   * and read straight back from it; nothing here reconstructs a key for a row,
+   * so nothing needs to know which era a row is from. The first read that needs
+   * such a row's DIGEST moves it (see {@link backfillDigest}), once.
+   */
+  const assetKey = (siteKey: string, digest: string): string => blobKey(siteKey, digest)
 
   /**
    * The clause every child-table read is scoped by — the business barrier,
@@ -517,6 +537,77 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       .bind(siteKey, tenantId)
       .all<{ name: string }>()
     return (results ?? []).map((r) => r.name)
+  }
+
+  /**
+   * Give one asset stored before [[REQ-304]] its content identity — once.
+   *
+   * WHY A BACKFILL AND NOT A MIGRATION. The digest is of the BYTES, and the
+   * bytes are in R2; a SQL migration cannot reach them. The alternative was
+   * asking operators to re-upload every picture on every live site, which is not
+   * a thing this product may ask.
+   *
+   * WHAT IT COSTS, AND WHEN. One read of one asset, the first time anything asks
+   * what that asset IS — a publish, a change count, a checkout. Never again
+   * afterwards: the digest goes in the column and the row is repointed at the
+   * content-addressed key, so the asset is indistinguishable from one written
+   * today. One asset is in hand at a time, which is the same bound the rest of
+   * this ticket holds to.
+   *
+   * THE BYTES ARE COPIED TO THE BLOB KEY AND THE OLD OBJECT IS LEFT ALONE. A
+   * revision frozen before this change still names `out/assets/<name>` under its
+   * own prefix and must go on resolving; deleting the draft's old object would
+   * cost nothing today and would be one more thing to have been wrong about.
+   *
+   * A ROW WHOSE BYTES HAVE GONE ANSWERS `null` AND IS OMITTED FROM THE LISTING,
+   * which is the same reading `readDraftSnapshot` used to apply by skipping an
+   * asset that would not read: the snapshot records the site as it actually is,
+   * and the absence shows up as a removal in the change list.
+   */
+  const backfillDigest = async (
+    siteKey: string,
+    row: { name: string; r2_key: string },
+  ): Promise<AssetRef | null> => {
+    const object = await SITES.get(row.r2_key)
+    if (!object) return null
+    const bytes = new Uint8Array(await object.arrayBuffer())
+    const digest = await contentDigest(bytes)
+    await SITES.put(blobKey(siteKey, digest), bytes as unknown as ArrayBuffer, {
+      httpMetadata: { contentType: contentTypeOf(row.name) },
+    })
+    await DB.prepare(
+      `UPDATE site_assets SET digest = ?, r2_key = ? WHERE ${OWNED} AND name = ?`,
+    )
+      .bind(digest, blobKey(siteKey, digest), siteKey, tenantId, row.name)
+      .run()
+    return { name: row.name, digest, size: bytes.byteLength }
+  }
+
+  /**
+   * Every asset this site holds, by name, content digest and size.
+   *
+   * ONE INDEXED QUERY AND NO BUCKET READ, which is the whole of [[REQ-304]]'s
+   * first requirement: the digest was recorded when the asset was written, so
+   * asking what a site's assets ARE costs the same for a 50 MB site as for an
+   * empty one. The only reads here are the one-off backfills above, and each of
+   * them happens exactly once in a site's life.
+   */
+  const assetManifestOf = async (siteKey: string): Promise<AssetRef[]> => {
+    const { results } = await DB.prepare(
+      `SELECT name, r2_key, digest, size FROM site_assets WHERE ${OWNED} ORDER BY name`,
+    )
+      .bind(siteKey, tenantId)
+      .all<{ name: string; r2_key: string; digest: string | null; size: number }>()
+    const refs: AssetRef[] = []
+    for (const row of results ?? []) {
+      if (row.digest !== null) {
+        refs.push({ name: row.name, digest: row.digest, size: row.size })
+        continue
+      }
+      const filled = await backfillDigest(siteKey, row)
+      if (filled !== null) refs.push(filled)
+    }
+    return refs
   }
 
   const readPagesOf = async (siteKey: string): Promise<StoredPage[]> => {
@@ -645,6 +736,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // that costs the most to diagnose. Checking the whole set up here also
       // means a change set is one act: it cannot half-land.
       assertWritableAssetNames(change.assets)
+      assertWritableAssetNames(change.assetRefs)
 
       // R2 is written OUTSIDE the transaction, because it has none to join.
       // Bytes first, metadata second: an object with no row is invisible and
@@ -652,10 +744,29 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // then 404s. Neither ordering is atomic across the two stores — that is a
       // property of R2, not a shortcut taken here — so the failure mode is
       // chosen rather than left to chance.
+      //
+      // [[REQ-304]] — THE KEY IS THE CONTENT, so a `put` here can only ever
+      // write bytes that are already what that key means. Replacing a picture
+      // writes a NEW object and leaves the old one addressing exactly the bytes
+      // every revision that froze it was frozen with.
+      const written: AssetRef[] = []
       for (const { name, bytes } of change.assets ?? []) {
-        await SITES.put(assetKey(siteId, name), bytes as unknown as ArrayBuffer, {
+        const digest = await contentDigest(bytes)
+        await SITES.put(assetKey(siteId, digest), bytes as unknown as ArrayBuffer, {
           httpMetadata: { contentType: contentTypeOf(name) },
         })
+        written.push({ name, digest, size: bytes.byteLength })
+      }
+
+      // [[REQ-304]] — WRITING BY REFERENCE MOVES NO BYTES AT ALL. A checkout
+      // restores a revision's pictures by repointing rows at content the store
+      // already holds; `head` is what makes the refusal honest rather than
+      // producing a row that lists and then 404s.
+      for (const ref of change.assetRefs ?? []) {
+        if ((await SITES.head(assetKey(siteId, ref.digest))) === null) {
+          throw new MissingContentError(site, ref.name, ref.digest)
+        }
+        written.push({ ...ref })
       }
 
       const now = new Date().toISOString()
@@ -682,13 +793,14 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
           DB.prepare('DELETE FROM site_pages WHERE site_id = ? AND name = ?').bind(siteId, name),
         )
       }
-      for (const { name, bytes } of change.assets ?? []) {
+      for (const { name, digest, size } of written) {
         statements.push(
           DB.prepare(
-            'INSERT INTO site_assets (site_id, name, r2_key, content_type, size) ' +
-              'VALUES (?, ?, ?, ?, ?) ON CONFLICT (site_id, name) DO UPDATE SET ' +
-              'r2_key = excluded.r2_key, content_type = excluded.content_type, size = excluded.size',
-          ).bind(siteId, name, assetKey(siteId, name), contentTypeOf(name), bytes.byteLength),
+            'INSERT INTO site_assets (site_id, name, r2_key, content_type, size, digest) ' +
+              'VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (site_id, name) DO UPDATE SET ' +
+              'r2_key = excluded.r2_key, content_type = excluded.content_type, ' +
+              'size = excluded.size, digest = excluded.digest',
+          ).bind(siteId, name, assetKey(siteId, digest), contentTypeOf(name), size, digest),
         )
       }
       for (const name of change.removeAssets ?? []) {
@@ -748,6 +860,10 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return assetNames(site)
     },
 
+    async assetManifest(site) {
+      return assetManifestOf(site)
+    },
+
     async readAsset(site, name) {
       // A READ ANSWERS `null`, WHERE A WRITE THROWS ([[REQ-246]]). The write is
       // being ASKED to store something and has to say it did not; a read is
@@ -759,6 +875,22 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         .first<{ r2_key: string }>()
       if (!row) return null
       const object = await SITES.get(row.r2_key)
+      if (!object) return null
+      return new Uint8Array(await object.arrayBuffer())
+    },
+
+    /**
+     * [[REQ-304]] — one asset's bytes by CONTENT.
+     *
+     * The key is built from the digest and the site's own key, never from
+     * anything a request supplied, so this cannot address an object outside this
+     * site's own blob space. A digest that is not one is a key nothing was ever
+     * put under, which reads back as `null` — the same answer an unknown name
+     * gets, and the only one that discloses nothing.
+     */
+    async readBlob(site, digest) {
+      if (!(await owns(site))) return null
+      const object = await SITES.get(blobKey(site, digest))
       if (!object) return null
       return new Uint8Array(await object.arrayBuffer())
     },
@@ -968,24 +1100,44 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // to keep the shape that made that possible.
       assertWritableAssetNames(content.source.assets)
 
-      for (const { name, bytes } of content.source.assets) {
-        await SITES.put(`${source}/assets/${name}`, bytes as unknown as ArrayBuffer, {
-          httpMetadata: { contentType: contentTypeOf(name) },
-        })
+      /*
+       * [[REQ-304]] — A MANIFEST, NOT A COPY OF EVERY PICTURE.
+       *
+       * This loop used to `put` every asset on the site under `source/assets/`
+       * and again, below, under `out/assets/` — so publishing a 50 MB site
+       * moved 100 MB, whether or not a single picture had changed, and every
+       * revision cost another copy of the lot. The bytes are content-addressed
+       * now and already in the bucket, so freezing them is recording WHICH
+       * content each name was.
+       *
+       * EVERY REF IS PROVEN TO RESOLVE FIRST. A manifest naming content the
+       * bucket does not hold is a revision that lists and cannot be restored —
+       * exactly what the ordering rules at the top of this function exist to
+       * prevent — so the refusal happens before the manifest is written rather
+       * than being discovered by whoever tries to check it out.
+       */
+      for (const ref of content.source.assets) {
+        if ((await SITES.head(blobKey(site, ref.digest))) === null) {
+          throw new MissingContentError(site, ref.name, ref.digest)
+        }
       }
+      await putText(
+        SITES,
+        publishedAssetManifestKey(site, entry.id),
+        encodeAssetManifest(content.source.assets),
+        'application/json',
+      )
 
       for (const [rel, text] of content.out) {
         await putText(SITES, `${out}/${rel}`, text, contentTypeOf(rel))
       }
-      // The rendered tree carries the assets it references, exactly as the
-      // filesystem writer copies `assets/` through — a published page whose
-      // images resolved only while the draft still held them would be a site
-      // that decays.
-      for (const { name, bytes } of content.source.assets) {
-        await SITES.put(`${out}/assets/${name}`, bytes as unknown as ArrayBuffer, {
-          httpMetadata: { contentType: contentTypeOf(name) },
-        })
-      }
+      // THE RENDERED TREE NO LONGER CARRIES A COPY OF THE ASSETS ([[REQ-304]]).
+      // It used to, so that *"a published page whose images resolved only while
+      // the draft still held them"* could not decay — a real requirement met by
+      // the most expensive available means. What actually makes a published page
+      // durable is that the bytes it names cannot change, and a content address
+      // gives that for one object rather than one per revision. `public-site`
+      // resolves `assets/<name>` through the manifest written above.
 
       // LAST. The row is what makes the revision exist — `revisions()` reads it
       // and `liveRevisionOf` derives live from it — so writing it only after
@@ -1039,16 +1191,47 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       }
       pages.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
-      const assets: StoredAsset[] = []
-      for (const key of await listKeys(SITES, `${prefix}/assets/`)) {
-        const object = await SITES.get(key)
-        if (!object) continue
-        assets.push({
-          name: key.slice(`${prefix}/assets/`.length),
-          bytes: new Uint8Array(await object.arrayBuffer()),
-        })
+      /*
+       * [[REQ-304]] — THE MANIFEST, OR THE OBJECTS A REVISION FROZEN BEFORE IT
+       * LEFT BEHIND.
+       *
+       * The shape that is actually in the bucket decides, which is why there is
+       * no mode to detect and no flag anyone can forget to set. A revision
+       * frozen under content addressing has one small `assets.json` and its
+       * asset bytes live once per site; a revision frozen before it has a copy
+       * of every picture under its own prefix and no manifest.
+       *
+       * THE OLDER SHAPE IS READ ONE ASSET AT A TIME AND NONE OF IT IS RETAINED:
+       * what comes out is the same listing of identities either way, so nothing
+       * above this function can tell which it got. Each such asset's content
+       * also joins the blob space as it is read, which is what lets a revision
+       * published before this change still be CHECKED OUT — the restore is by
+       * reference, and a reference has to resolve.
+       *
+       * IT COSTS ONE PASS AND ONLY UNTIL THE SITE IS PUBLISHED AGAIN. The next
+       * publish freezes a manifest, and every read after that is one small
+       * object.
+       */
+      const manifestObject = await SITES.get(publishedAssetManifestKey(site, id))
+      const manifested = manifestObject !== null
+      let assets = manifested ? decodeAssetManifest(await manifestObject.text()) : null
+      if (assets === null) {
+        assets = []
+        for (const key of await listKeys(SITES, `${prefix}/assets/`)) {
+          const object = await SITES.get(key)
+          if (!object) continue
+          const name = key.slice(`${prefix}/assets/`.length)
+          const bytes = new Uint8Array(await object.arrayBuffer())
+          const digest = await contentDigest(bytes)
+          if ((await SITES.head(blobKey(site, digest))) === null) {
+            await SITES.put(blobKey(site, digest), bytes as unknown as ArrayBuffer, {
+              httpMetadata: { contentType: contentTypeOf(name) },
+            })
+          }
+          assets.push({ name, digest, size: bytes.byteLength })
+        }
+        assets.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
       }
-      assets.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
       // [[REQ-266]] §4 — WHAT CAME BACK IS WHAT WENT IN, OR NOTHING COMES BACK.
       // The row vouches for the revision's EXISTENCE and the objects carry its
@@ -1061,7 +1244,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // `checkoutRevision` reads a revision through here, which is the restore
       // this ticket exists for; so does the capture endpoint reading a form's
       // frozen definition, and so does the builder's revision preview.
-      return verifiedSnapshot(site, id, row.sha, { siteJson, pages, assets })
+      return verifiedSnapshot(site, id, row.sha, { siteJson, pages, assets }, manifested)
     },
 
     /**
@@ -1083,17 +1266,31 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       const [row, pages, rows, objects] = await Promise.all([
         siteRow(site),
         readPagesOf(site),
-        DB.prepare(`SELECT name, r2_key FROM site_assets WHERE ${OWNED} ORDER BY name`)
+        DB.prepare(`SELECT name, r2_key, digest FROM site_assets WHERE ${OWNED} ORDER BY name`)
           .bind(site, tenantId)
-          .all<{ name: string; r2_key: string }>(),
+          .all<{ name: string; r2_key: string; digest: string | null }>(),
         listObjects(SITES, `${draftPrefix(site)}assets/`),
       ])
       const stamps = new Map(objects.map((object) => [object.key, objectStamp(object)]))
       return {
         siteJson: row?.site_json ? decode<Record<string, unknown>>(row.site_json) : null,
         pages,
+        // THE RECORDED DIGEST IS THE STAMP ([[REQ-304]]). The column was written
+        // when the asset was, so identity is already in the row this query had to
+        // run anyway — and it is the SAME stamp `revisionOutline` reads out of a
+        // manifest, which is what makes a draft and the revision it descends from
+        // comparable without either side reading an object.
+        //
+        // A ROW WITH NO DIGEST PREDATES THE COLUMN and is stamped from the
+        // listing exactly as every row was before, so a site that has not been
+        // written to since the migration reports what it always did. Nothing is
+        // backfilled here: this verb exists not to read assets, and the first
+        // question that genuinely needs an identity fills the column instead.
         assets: (rows.results ?? []).map(
-          (asset): AssetStamp => ({ name: asset.name, stamp: stamps.get(asset.r2_key) ?? '-' }),
+          (asset): AssetStamp => ({
+            name: asset.name,
+            stamp: asset.digest ?? stamps.get(asset.r2_key) ?? '-',
+          }),
         ),
       }
     },
@@ -1131,14 +1328,32 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       }
       pages.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
-      const assets = (await listObjects(SITES, `${prefix}/assets/`))
-        .map(
-          (object): AssetStamp => ({
-            name: object.key.slice(`${prefix}/assets/`.length),
-            stamp: objectStamp(object),
-          }),
-        )
-        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+      /*
+       * THE MANIFEST, OR THE OBJECTS A REVISION FROZEN BEFORE IT LEFT BEHIND
+       * ([[REQ-304]]) — the same fork `readRevision` takes, decided the same way,
+       * by the shape that is actually in the bucket.
+       *
+       * A MANIFESTED REVISION STAMPS WITH THE DIGEST IT FROZE, which is one small
+       * object read whatever the site weighs, and is the same stamp the draft
+       * carries in its own row. A revision frozen before this change has a copy
+       * of every picture under its own prefix and stamps from the listing, as it
+       * always did — and against a digest-stamped draft every asset then reads as
+       * changed, which is the conservative direction the stamp contract allows
+       * and lasts exactly until the site is published once more.
+       */
+      const manifestObject = await SITES.get(publishedAssetManifestKey(site, id))
+      const manifested = manifestObject === null ? null : decodeAssetManifest(await manifestObject.text())
+      const assets: AssetStamp[] =
+        manifested !== null
+          ? manifested.map((ref): AssetStamp => ({ name: ref.name, stamp: ref.digest }))
+          : (await listObjects(SITES, `${prefix}/assets/`))
+              .map(
+                (object): AssetStamp => ({
+                  name: object.key.slice(`${prefix}/assets/`.length),
+                  stamp: objectStamp(object),
+                }),
+              )
+              .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
       return { siteJson, pages, assets }
     },
