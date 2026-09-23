@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T02:45:09.844696+00:00'
+updated_at: '2026-09-23T02:47:35.861276+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3286,5 +3286,56 @@ Want me to file that, and unblock your LF session by trimming `comment-ca74b1b7`
 A challenge that I am discovering that I wanted to raise with you at this point: creating a good website with these tools is entirely possible and it is totally in my ballpark. I have spent the last year building software with AI, and doing very little else. So this is totally my wheelhouse. What is concerning me is that it is seeming to take quite a long time. We talked about building a website in 405 hours and chuckled about how Wickes claims you can have a site up in five minutes. I am thinking that four or five hours is a severe underestimate of what is really needed particularly if you are creating a site at any scale.
 
 Part of this of course is to do with the fact that we are debugging as we go and so things that were painful for me will be much more straightforward for my customers. But I am still left with the feeling that this may be a longer experience than we really gave a credit for and that has two consequences. First of all it means that we are going to spend more on AI than we have so far been thinking. I am less concerned about this after spending some of today and yesterday looking at trends and (Towing) and where token cost is likely to go. I think we have a certain capability level and the cost of providing support to customers at that level will fall over overtime possibly quite quickly particularly with weight models coming up behind us. The other problem that I think is more serious is the amount of time a customer is going to be prepared to put into their website. I think we need to make sure that the AI experience is as seamless as possible that is the only thing we can do to make this faster. I guess we also need to train the AI or at least give the AI the right context and tools and documentation so that creating website is something that they can really bring to the four
+
+<!-- xgd-turn id="7f26cf92-3e69-4f34-971a-2f1681b91d86-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:47:34.367900+00:00" -->
+#### Claude
+This deserves numbers rather than my impressions, and we happen to have the ledger. Let me measure your actual session.
+
+Your instinct is right, but the ledger says something more specific than "it takes longer." I classified all 85 user turns in the LF transcript.
+
+## What the 85 turns actually were
+
+| | turns | share |
+|---|---|---|
+| Building the site — creative, editorial, structural | ~35 | 41% |
+| Product defects you hit and reported | ~28 | 33% |
+| Re-sends caused by the lost-turn bug | ~6 | 7% |
+| **Correction loops — the AI did something other than what you meant** | ~14 | 16% |
+
+Only two in five turns were building your site. That's the number behind the feeling.
+
+## So what's the real estimate
+
+Metered turns today: **$1.27 each, 4.5 min each** (delegating turns: 8.9 min, $1.83; non-delegating: 1.6 min, $0.89). At 85 turns that's ~$108 and ~6.4 hours of pure model time for this site.
+
+Strip the 34 turns that were defects and re-sends — genuinely transient — and a customer building *this* site faces ~49 turns: **~$62 and ~3.7 hours of model time**, plus their own reading and deciding time on top. Call it 6–8 hours elapsed.
+
+So 4–5 hours wasn't absurd. It was optimistic by a factor of about 1.5, not 5 — and that's for a site with custom plaques, generated plate imagery, multiple candidate styles and a thesis section. Most customers are not building this.
+
+## The 16% is the part that doesn't go away
+
+The defects will. The correction loops won't, and your own transcript names their causes precisely:
+
+**Turns 40–42** — "you removed the title and the top rule that I liked", then "No no — I meant for you to keep LAGRANGE FOUNDRY at the top", twice. Three turns, ~12 minutes, ~$4, to move a masthead. The consultant took a narrow instruction as licence for a structural rewrite.
+
+**Turns 51–54** — the caption-and-point-A saga. Four turns of "that's not where I put it" because the consultant was describing a change it hadn't looked at. It has `SeeSite`; it wasn't using it to *check*, only to *report*.
+
+**Turn 82** — and this is the one I'd put first: *"I don't really understand what A is and I can't picture B so lets try this, could you rough up new, unreachable pages in those two new styles."* **You had to invent that move.** The consultant offered three styles in prose and asked you to pick between things you could not see. The right default is that a stylistic choice is always *built and shown*, never described and voted on. That single change collapses a 3-turn loop into 1.
+
+## Your cost intuition is supported by your own numbers, and it points the same way
+
+On the big turns: **1.5M cache-read tokens against 116K fresh input** — context is ~93% cached. The marginal cost of a turn is output and cache-creation, not context length.
+
+That matters strategically: *making the consultant do more per turn is cheap*. Building three roughed-up pages instead of writing three paragraphs about them costs output tokens, which are falling, to save correction rounds, which cost customer patience — the one thing that isn't falling. The trade you identified is real and the economics already favour it.
+
+## The thing I'd add to your list
+
+Latency is its own AX problem, separate from turn count. Your delegating turns run **8.6 and 9.1 minutes**. Nine minutes of waiting is fine if you can see pages appearing and intolerable if the pane looks idle — and right now it frequently *is* broken rather than slow, which teaches you to distrust the quiet. Making long turns legible is cheap and buys back perceived time without touching the model at all.
+
+So: seamlessness, yes — but concretely it's *show don't ask*, *look before you claim*, *edit narrowly by default*, and *make waiting legible*. Not more training. Better defaults.
+
+Want me to write this up as Finding 11 on EPIC-19? The turn-classification is worth keeping, and it gives us a baseline to measure against once the defects are gone — right now we'd be guessing whether anything improved.
 
 <!-- xgd-chat-end -->
