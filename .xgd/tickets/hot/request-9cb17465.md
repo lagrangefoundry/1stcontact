@@ -6,10 +6,10 @@ title: The font catalogue has no generator — it cannot be refreshed or trusted
   stay current
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:31.288893+00:00'
-updated_at: '2026-09-23T18:26:34.285272+00:00'
+updated_at: '2026-09-23T18:27:26.800540+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-b9b27697
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   chat_comment: comment-0e70aa37
   story_points: 5
+  commits:
+  - working_sha: 00675d47ba672e45c84e15bf54f26c6abd9c8d36
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8b6319652f9cbfcb4b83a11c6c561c4f2fde114d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.343
 ---
 
 ## The gap
