@@ -15,6 +15,7 @@ fields:
   skipped_commits:
   - b8ad690c13ebfa3166f51c53043d3fab1ea9441e
   - 625e291b9e1f81e0f5e114d4c12aa9b5f1e82727
+  - 71232922504524349ae7a355c086b916a6b124d2
   orphan_commits: []
 result: running
 ---
