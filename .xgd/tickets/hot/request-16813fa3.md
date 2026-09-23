@@ -5,9 +5,9 @@ type: request
 title: A turn that dies uncatchably must still report legibly to the client
 created_by: EPIC-16
 created_at: '2026-09-22T23:13:21.139160+00:00'
-updated_at: '2026-09-23T03:02:26.031461+00:00'
+updated_at: '2026-09-23T03:02:42.258704+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -235,3 +235,5 @@ being moved: a migration that has already been applied somewhere cannot be renam
 recorded name ceasing to match the file. The test fixture applies both, in number order, and
 `atHead` — the marker that asks whether the LAST migration has run — moved to this ticket's
 `idx_turn_log_tenant` because this ticket's file is now the last one.
+
+-
