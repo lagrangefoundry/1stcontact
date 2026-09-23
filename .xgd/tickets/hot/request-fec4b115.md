@@ -6,6 +6,31 @@ title: 'The font catalogue promises 1,941 families whose bytes do not exist: mir
   + registry platform tier'
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:55.065108+00:00'
+updated_at: '2026-09-23T22:20:20.061028+00:00'
+completed_at: null
+last_field_updated: body
+status: free_coded
+fields:
+  priority: high
+  epic_parent: epic-b9b27697
+  auto_merge_back: true
+  needs_review: false
+  chat_comment: comment-d77dd94e
+  commits:
+  - working_sha: f62cf1b0f7359261cb025f176d659fb656c65998
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.344
+  story_points: 18
+---
+
+uid: request-fec4b115
+id: REQ-312
+type: request
+title: 'The font catalogue promises 1,941 families whose bytes do not exist: mirror
+  + registry platform tier'
+created_by: EPIC-21
+created_at: '2026-09-23T03:18:55.065108+00:00'
 updated_at: '2026-09-23T21:51:44.600572+00:00'
 completed_at: null
 last_field_updated: status
@@ -225,34 +250,116 @@ pair of files that can disagree.
 origin exists to avoid, and the manifest's digests are what let the repo describe bytes it
 does not carry.
 
-## The serving origin — SETTLED 2026-09-23
+## The serving origin — RE-REVIEWED AND SETTLED 2026-09-23 (`COMMENT-3711`)
+
+**A site is self-contained: every font it serves comes from its own domain.**
+
+> **Operator:** *"I think it is highly desirable that a site is self-contained and everything
+> it needs comes from its domain."*
+
+An earlier reading of this section had a page carry an **absolute platform-origin URL**, on
+the grounds that the renderer's root-relative → document-relative rewrite ruled a
+root-relative path out. `COMMENT-3711` sent that back, correctly: that rewrite rules out
+root-relative paths **for a server that only answers at the origin root** — it does not
+choose a host. Four things then favour the site's own domain, and none of them was weighed
+the first time:
+
+1. **A shared origin buys no cache reuse.** Every major browser has partitioned the HTTP
+   cache by top-level site since ~2020. *"The visitor already has this face from another
+   tenant"* has not been true for years. The year-long immutable caching is still right;
+   what it does not deliver is sharing across sites.
+2. **A second origin costs a connection** — DNS, TCP and TLS before the first font byte, on
+   the path that decides whether text paints in the real face or a fallback.
+3. **CORS stops being load-bearing.** Same-origin, a font is an ordinary subresource.
+4. **No third-party request from a visitor's browser** — the thing the German Google-Fonts
+   judgments were about, and the thing our customers, who are small businesses, get asked
+   about.
+
+### The question the re-review asked, and its answer
+
+`COMMENT-3711` named hostname stability as the one real argument for a platform origin — an
+absolute self-host URL baked into rendered bytes goes stale when a site later binds or
+changes a custom domain — and asked whether pages are re-rendered when a binding changes.
+
+**They are not.** Published pages are pre-rendered bytes in R2, and `attachCustomHosts` /
+`releaseCustomHosts` are pure `site_domains` writes: one D1 batch, no re-render, no
+republish. An absolute self-host URL in a page therefore WOULD be stranded by a later
+domain change.
+
+So neither absolute form survives. **The `src` is root-relative and names no host at all**
+(`/_fonts/<slug>/<file>.woff2`) — same-origin by construction, and immune to a rebinding
+because there is no hostname in it to go stale.
+
+### What that costs, and it is the whole of the cost
+
+The renderer reduces a root-relative `url()` to a document-relative one so a snapshot is
+relocatable (REQ-109), and every page sits flat at its snapshot root — so `/_fonts/x` is
+read as `<snapshot-root>/_fonts/x`. The invariant that follows is owed by every serving
+surface:
+
+> **Every channel that serves a rendered snapshot must answer `_fonts/…` at that snapshot's
+> own root.**
+
+That is four roots, not one, and each resolves the tail through the same one function:
+
+| Root | Server |
+|---|---|
+| `/` — a bound customer domain, and the apex | `public-site` |
+| `/site/<key>/` — the platform's own host | `public-site` |
+| `/preview/<key>/<channel>/` and `/portal/` | `control-app` |
+| the directory the capture fixture binds an origin over | `startServe` (`1c shot`, `1c aligned-crops`, module conformance) |
+
+The second of those is the one the first reading would have broken outright: a whole channel
+404ing every font. The third is the one that matters most day to day — an operator picks a
+font in the builder, and a preview that cannot answer for it shows them a fallback face
+while telling them they chose Roboto. Nothing else in the system can see that failure: the
+manifest is right, the page validates, and `1c fonts check` passes.
+
+### The rest of the arrangement, unchanged
 
 - **R2 layout**: `platform/fonts/<slug>/<file>` in the existing `1stcontact-sites` bucket.
-  No new bucket and no new binding: `sites/` is that bucket's only other key root, so the
-  prefix cannot collide, and both Workers that need it already hold the binding.
-- **Serving path**: `public-site` answers `GET /_fonts/…` from that prefix, matched ahead of
-  the site route grammar exactly as `/api/download/…` already is. `_fonts` is a reserved
-  first segment, so no published page can shadow it.
-- **Answered before the site grammar, and that is not an optimisation.** A platform font
-  belongs to no site, so resolving it through `siteOfRoute` would put it to the cross-tenant
-  guard — which on a bound customer domain is *required* to refuse anything that is not this
-  host's site. Correct answer to that question, wrong answer to this one.
-- **What is served there**: `/_fonts/<slug>/<file>.woff2`, each family's own licence file at
-  `/_fonts/<slug>/OFL.txt`, and the aggregate index at `/_fonts/LICENSES.txt`.
-- **Cacheable for a year and readable cross-origin.** The bytes are immutable — a file's
-  name changes when its content does — and `Access-Control-Allow-Origin: *` is what lets one
-  shared copy serve every tenant's own domain at all, since a font is a CORS-restricted
-  subresource whatever its cache headers say.
-- **The `src` a page carries is an absolute platform-origin URL**, not a root-relative path.
-  This is forced rather than preferred: the renderer reduces a root-relative `url()` to a
-  *document-relative* one so a snapshot stays relocatable, which would turn `/_fonts/x` into
-  `_fonts/x` and break every page not at the site root. Absolute `https://` URLs pass
-  through untouched.
-- **The check matches on the path, never on the host.** A platform `src` is recognised by
-  its `/_fonts/` path, so one site definition checks clean against a local preview, a
-  staging deployment and production with no configuration — and moving the mirror to a
-  dedicated hostname later is a configuration change rather than a code change. The
-  hostname itself stays deployment configuration; `use_font` ([[REQ-313]]) writes it.
+  One copy, no per-tenant duplication; takedown is still a registry flip plus a purge. No new
+  bucket and no new binding: `sites/` is that bucket's only other key root, so the prefix
+  cannot collide, and both Workers that need it already hold the binding.
+- **Matched ahead of the site route grammar**, exactly as `/api/download/…` is. `_fonts` is a
+  reserved first segment of a *snapshot*, so no published page can shadow it.
+- **Answered before the cross-tenant guard, and that is not an optimisation.** A platform
+  font belongs to no site, so resolving `/site/<key>/_fonts/x` through `siteOfRoute` would
+  ask whether this host may serve *that site* — and on a bound customer domain the correct
+  answer to that question is "no", which is the wrong answer to this one. Nothing leaks by
+  skipping it: the bytes are identical for every tenant and the key in the path selects none
+  of them. The guard still refuses the site's own pages, which is what keeps the exemption
+  scoped to `_fonts` rather than a hole in the guard.
+- **What is served at each root**: `_fonts/<slug>/<file>.woff2`, each family's own licence
+  file at `_fonts/<slug>/OFL.txt`, and the aggregate index at `_fonts/LICENSES.txt`.
+- **Cacheable for a year on the published channels.** The bytes are immutable — a file's name
+  changes when its content does. `Access-Control-Allow-Origin: *` is kept although it is no
+  longer load-bearing: it costs nothing and still covers the case that genuinely is
+  cross-origin, a preview served from a different host than the one a page finally lives on.
+  A preview's own copy is not cached immutably — every other byte that router returns is
+  stamped uncacheable, and a font is not the place to make an exception.
+- **The preview's byte source is injected, because the two runtimes share nothing below it.**
+  Deployed, it is the R2 binding. In the Node builder transport `env.SITES` is a Proxy that
+  throws by design, and the bytes are the staged mirror on the operator's own disk — a
+  different reader, not a different code path, so it arrives as a `RouterDeps` entry beside
+  the store and the ladder rather than as a branch in the route.
+- **The check matches on the path and admits no host.** One site definition checks the same
+  against a local preview, a staging deployment and production — and a page can never carry a
+  hostname that a later domain change strands. `use_font` ([[REQ-313]]) writes the `src`
+  through the same one definition the check and all four servers resolve it with.
+
+### Off-origin fonts are refused, not merely discouraged
+
+Self-containment is a **checked** property. A font `src` naming any host — `fonts.gstatic.com`,
+a CDN, or this platform's own hostname — is a violation in its own right
+(`off-origin-font`), reported with its own sentence. One rule covers all three, because from
+the visitor's browser they are the same fact: a third-party request, made before any text
+can paint, disclosing their IP to somebody the customer never named.
+
+Reported separately because the alternative is worse than silence. With no host admitted, an
+absolute `src` falls to the site tier and surfaces as *"the registry does not list
+`Roboto[wght].woff2`"* — true, about the wrong problem, and with the wrong obvious fix
+(register the file, rather than stop fetching it from somebody else).
 
 ## How the bytes reach R2
 
@@ -307,12 +414,30 @@ obligation; the index makes it auditable.
   entries are Google families the mirror also holds, so a registry indexed across both tiers
   would refuse to load at all; a site `src` resolves against the site tier and a platform
   `src` against the platform tier.
-- A platform font is served so one shared copy can serve every tenant's own domain: readable
-  cross-origin, cacheable for a year, and reachable on a customer's host as on the
+- A platform font is served so one shared copy can serve every tenant's own domain:
+  cacheable for a year, readable cross-origin, and reachable on a customer's host as on the
   platform's own.
-- A platform `src` is recognised by its path and not its host, so one site definition checks
-  clean in a local preview and in production alike. A site-relative path is never read as a
-  platform reference, whatever its tail looks like.
+- **A page's font `src` names no host.** It is root-relative, so a site is self-contained,
+  no visitor's browser makes a third-party request for a face, and no published page carries
+  a hostname that a later domain binding could strand.
+- **Every channel that serves a rendered snapshot answers `_fonts/…` at that snapshot's own
+  root** — the two `public-site` serves (`/` on a bound domain or the apex, and
+  `/site/<key>/` on the platform's host), the `control-app` preview and portal roots, and the
+  directory the capture fixture binds an origin over. All four resolve the tail through one
+  shared definition, so none can come to disagree about what a platform font path is.
+- **The cross-tenant guard does not refuse a platform font.** A bound customer domain serves
+  `/site/<another key>/_fonts/…` and still refuses `/site/<another key>/`'s own pages.
+- A preview shows the face the operator actually chose, reading it from R2 when deployed and
+  from the staged mirror on disk in the Node builder transport — so picking a font in the
+  builder does not render as a fallback while the builder says otherwise.
+- A path the mirror does not hold is a 404 at every root, never a fall-through into the
+  renderer or the site grammar.
+- **A font `src` naming any host is a violation** (`off-origin-font`), reported as what it is
+  rather than as a missing registry entry — whether the host is a third party's, Google's, or
+  this platform's own.
+- A platform `src` is recognised by its path, and a site-relative path is never read as a
+  platform reference whatever its tail looks like — so a site cannot claim the platform
+  tier's licence clearance for bytes it holds itself.
 - A page referencing a platform-origin `src` for a *file* the mirrored family does not hold
   fails the check naming the file, the same way an unregistered site file does.
 - The font origin is read-only and reaches no site: a path the mirror does not hold is a
@@ -328,9 +453,10 @@ obligation; the index makes it auditable.
 - Delisted and sandboxed families are excluded — the live list is the authority.
 - Sizing is measured above, not estimated. Storage is not the constraint; the format
   decision and correctness of what is served are.
-- The serving origin is settled above. `use_font` ([[REQ-313]]) writes the `src` and
-  `1c fonts check` resolves it; both share one definition of the path shape, so neither can
-  drift from the other.
+- The serving origin was re-reviewed on `COMMENT-3711` and settled as same-origin,
+  root-relative. `use_font` ([[REQ-313]]) writes the `src`, all four snapshot roots serve it
+  and `1c fonts check` resolves it; every one of them shares a single definition of the path
+  shape, so none can drift from the others.
 - **Running the real 1,941-family transfer is an operator action, not part of this ticket's
   code landing.** The machinery is proved end to end against a checkout fixture; populating
   production is a GB-scale dependency fetch taken deliberately, which is the whole point of
