@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:12:29.678515+00:00'
+updated_at: '2026-09-23T18:23:13.661912+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -488,5 +488,11 @@ Current shape of the control:
 Font loading is now bounded to a fixed cacheable set; typing fetches nothing.
 
 Ticket slate stands at DOC-56, REQ-310 through REQ-314, with 311 → 312 → 313 the path that unblocks the beta. REQ-311 is still the one to start on — want me to cut the branch?
+
+<!-- xgd-turn id="f52bf100-4083-419f-9763-916b909dd915-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T18:23:12.699392+00:00" -->
+#### You
+No you are an EPic you create tickets not code please - is 314 updated?
 
 <!-- xgd-chat-end -->
