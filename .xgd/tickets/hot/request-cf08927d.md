@@ -5,9 +5,9 @@ type: request
 title: The image ladder must stream renditions and refuse on bytes, not subrequests
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:52.642548+00:00'
-updated_at: '2026-09-23T02:44:07.122738+00:00'
+updated_at: '2026-09-23T02:44:19.263926+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.331
+  story_points: 5
 ---
 
 ## Why
