@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T02:47:35.861276+00:00'
+updated_at: '2026-09-23T02:51:46.549307+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3337,5 +3337,11 @@ Latency is its own AX problem, separate from turn count. Your delegating turns r
 So: seamlessness, yes — but concretely it's *show don't ask*, *look before you claim*, *edit narrowly by default*, and *make waiting legible*. Not more training. Better defaults.
 
 Want me to write this up as Finding 11 on EPIC-19? The turn-classification is worth keeping, and it gives us a baseline to measure against once the defects are gone — right now we'd be guessing whether anything improved.
+
+<!-- xgd-turn id="0036d4d0-3ce2-431f-8151-99e8c2dc53bb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:51:43.463432+00:00" -->
+#### You
+I agree the latency is a problem. It may be just something we have to deal with. But the other thing is the site is not complete, and in my view it is small. Most of the small business sites I am looking at would be multiples of this size. Now fair enough I would say probably a majority of the time is being spent on styling and layout and a small business probably has most of the text that it needs at least to get started so once you have the styling and layout the other pages maybe come quickly... I think we just need to see. This is an important aspect of the beta test and I really need the tool to be not breaking for that test to be meaningful
 
 <!-- xgd-chat-end -->
