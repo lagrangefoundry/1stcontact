@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T23:14:51.616529+00:00'
+updated_at: '2026-09-23T23:40:27.636940+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -760,5 +760,16 @@ So: **production works after those four steps; local dev has no story.** That ga
 One other thing worth knowing: `platform-fonts.json` is a **static import** (`ai/platform-fonts.ts:36`), so it's baked into the worker bundle. After step 2 you need a builder restart or a redeploy before `use_font` sees a populated mirror.
 
 Want me to file the local-dev gap as a request under the epic? The obvious shape is a `--local` target on `fonts publish` that writes miniflare's R2 state directly, probably paired with `--only` so you stage a handful of families rather than 1.35GB into `.wrangler/state`. I'd rather scope that as a ticket than have you find it by hitting a 404 in the builder.
+
+<!-- xgd-turn id="c1cc5bf4-4bf4-4efd-a05a-d10c7dd1c107-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T23:40:25.989366+00:00" -->
+#### You
+How long will 2 take? - is that 1900 lines?
+
+Can you give me a couple of extra tools then:
+bin/deploy --fonts
+
+And that should deploy to dev or prod as directed please
 
 <!-- xgd-chat-end -->
