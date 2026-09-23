@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:16:41.620681+00:00'
+updated_at: '2026-09-23T02:18:16.694492+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -102,5 +102,43 @@ Once that's settled, the natural area-1 shape is three pieces — corpus ingest 
 <!-- xgd-chat role="user" ts="2026-09-23T02:16:41.220492+00:00" -->
 #### You
 This sounds way complicated - our AI is supposed to be the chooser here - why do we have to constrain its choices? We dont' trust it? Its the same model that is going to make the curation decision that makes the usage call
+
+<!-- xgd-turn id="2d882f83-14ef-4263-9d1f-f9eb0391a56a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:18:15.705615+00:00" -->
+#### Claude
+You're right, and the curation artifact should go. I was designing a human dropdown — 1,700 options is a problem for a `<select>`, not for a model that already knows type. And a hand-written list of 50 families is a taste judgment frozen at authoring time, which rots, while the model's judgment at call time doesn't.
+
+The part that isn't curation, and does have to stay:
+
+**Licence status is a fact, not a taste call.** The model can't verify whether a family is OFL, and getting it wrong ships an unlicensed font to a customer site. That gate stays — but it's a lookup, not a constraint on choice, and it isn't distrust of the model any more than giving it a filesystem API instead of asking it to recall file contents is distrust.
+
+And once you frame it that way, the menu dissolves for a second reason I'd missed: **the real constraint was never "which fonts may it choose from", it's "are the bytes actually served".** If the model picks Cormorant Garamond and no `.woff2` is on the origin, the page silently falls back to a serif stack. That's an acquisition question, not a choice question — and the answer is just "mirror everything".
+
+## Revised area 1
+
+**Mirror the whole OFL/Apache corpus. Curate nothing.**
+
+- A few hundred MB in R2 is free, and eager-mirroring kills cold-start latency, removes a runtime dependency on Google's servers at authoring time, and avoids leaking which tenant is building what.
+- The registry becomes **generated, not hand-written** — derived from upstream metadata, one entry per family, `redistribute_in_product: true` where the licence field says OFL or Apache 2.0, excluded otherwise. No human writes taste into it.
+- The model picks any family it wants. If it resolves, it's licensed and served, because those are the only two things in the mirror.
+
+The licence fact is genuinely queryable rather than something I'd have to assert family-by-family: the `google/fonts` repo carries a per-family `METADATA.pb` with an explicit licence field and the licence text in the family directory. So "is this clear to redistribute" is a read, not a judgment.
+
+The only metadata worth carrying alongside is what the model can't infer and would otherwise get wrong as a *fact*: which weights and variable axes actually ship. Referencing weight 300 of a family that only ships 400/700 is a silent fallback, same failure as a missing file. Category, pairing hints, metric class — dropped. That was taste, and it's the model's.
+
+The storage fork is unchanged, and if anything more clear-cut now: a full-corpus mirror makes shared-serve obviously right over N per-tenant copies, and takedown stays a flag flip.
+
+Updating the ticket.
+
+Ticket revised — area 1 is now "mirror the whole corpus, curate nothing", with a decision-log entry recording why the menu was dropped so reconciliation can trace it.
+
+Area 1 reduces to three mechanical pieces, none of which involve anyone's taste:
+
+1. **Mirror + generated registry** — pull the OFL/Apache corpus into a platform R2 prefix, generate `fonts/registry.yaml` entries from upstream `METADATA.pb`, ship `LICENSES.txt`.
+2. **Resolution + axes metadata** — `l1FontFaceSchema` resolves a family handle against the mirror; carry shipped weights/axes so a bad weight reference fails loudly instead of falling back silently.
+3. **Re-point the five capture-derived families** at canonical mirror copies, closing their `REVIEW_REQUIRED` actions.
+
+Still blocked on the storage fork — shared platform origin vs. copy-on-select. That's the one call I need from you, and it's load-bearing for area 3.
 
 <!-- xgd-chat-end -->
