@@ -165,8 +165,16 @@ const MIGRATIONS = [
   // rather than in the one assertion that is about spend — except that it would
   // not even do that, because the host swallows a meter failure on purpose. The
   // symptom would be a silently unmetered suite, which is worse.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0019_turn_spend.sql?raw'),
+  // [[REQ-306]] — `turn_log`, one row per turn OPENED BEFORE THE TURN. Applied
+  // here for every reason above, and one of its own: the prompt route now writes
+  // a row before it returns its `Response`, so a suite that skipped this file
+  // would fail on a missing table on the critical path of every turn — except
+  // that it would not even do that, because the ledger swallows its own failure
+  // on purpose. The symptom would be a suite in which nothing is ever recorded
+  // as lost, which is indistinguishable from the feature working.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0020_turn_log.sql?raw'),
 ]
 
 /**
@@ -259,7 +267,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-292]]'s `idx_turn_spend_tenant`, the turn meter's period read. It used to
+ * [[REQ-306]]'s `idx_turn_log_tenant`, the turn ledger's per-tenant read. It used to
  * ask for `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -282,7 +290,7 @@ export async function applySchema(): Promise<void> {
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
   const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_turn_spend_tenant')
+    .bind('idx_turn_log_tenant')
     .first<{ name: string }>()
   return row !== null
 }

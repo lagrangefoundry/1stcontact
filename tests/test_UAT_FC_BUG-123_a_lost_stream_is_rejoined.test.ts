@@ -304,7 +304,12 @@ describe('BUG-123 a stream that drops mid-turn is rejoined', () => {
     await panel.getChat().send('Change the heading.')
     await settle()
 
-    expect(painted(panel).at(-1)).toContain('The connection to that reply was lost')
+    // THE SENTENCE CHANGED UNDER [[REQ-306]], THE PROPERTY DID NOT. What this
+    // test is about is that the stall is EXPLAINED rather than left silent, and
+    // that is still exactly what is asserted. The wording no longer claims the
+    // connection dropped, because in the incident REQ-306 comes from it demonstrably
+    // had not — the isolate running the turn was killed and the socket was fine.
+    expect(painted(panel).at(-1)).toContain('That reply stopped before the turn finished')
   })
 
   it.skipIf(!live)('test_UAT_FC_BUG-123_a_recovery_for_a_conversation_left_behind_is_dropped', async () => {

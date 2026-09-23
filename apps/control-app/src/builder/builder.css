@@ -4083,3 +4083,135 @@ body {
   margin: 0;
   color: var(--shell-danger, #b91c1c);
 }
+
+/* ---------------------------------------------------------------------------
+ * Turn health ([[REQ-306]]) — the console detail pane's fourth section.
+ *
+ * IT BORROWS THE COST SECTION'S SHAPE DELIBERATELY. A row of labelled counts
+ * over a headed grid of rows is exactly what the pane above it already is, and
+ * two sections of one pane that laid out the same kind of answer differently
+ * would read as two surfaces sharing a container.
+ *
+ * THE ALARM IS THE ONE THING THAT IS NOT QUIET. Everything else on this console
+ * is a figure an operator reads when they go looking; this is the sentence that
+ * has to find them, because the incident it exists for ran for a period with
+ * nobody looking. It is the only rule here that uses the danger colour, and it
+ * is the only one that carries a rule and a fill rather than sitting on the
+ * pane's own background.
+ * ------------------------------------------------------------------------- */
+.builder-turn-health {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.builder-turn-health__alarm {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--shell-danger, #b91c1c);
+  border-radius: var(--shell-radius, 8px);
+  color: var(--shell-danger, #b91c1c);
+  font-weight: 600;
+}
+
+/* One row read across, like the cost section's headline: five facets of one
+   answer, not five unrelated numbers read down. */
+.builder-turn-health__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.builder-turn-health__count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.builder-turn-health__subheading {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-turn-health__figure {
+  margin: 0;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.builder-turn-health__heading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-turn-health__recent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  /* Bounded for the day table's reason: the identifiers are long, and a row
+     stretched across a dragged-open pane puts a turn id half a screen from the
+     state it describes. */
+  max-width: 56em;
+}
+
+/* Rows and heading share ONE definition, which is what stops the heading
+   drifting off the columns it names. The two identifier columns are wider
+   because that is what they hold. */
+.builder-turn-health__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 1.6fr);
+  gap: 8px;
+  align-items: baseline;
+  text-align: left;
+}
+
+.builder-turn-health__cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.builder-turn-health__head .builder-turn-health__cell {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-turn-health__head {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--shell-border, #e4e4e7);
+  margin-bottom: 2px;
+}
+
+/* A turn that died is the row an operator is scanning for, so it is the one row
+   that is not the same colour as its neighbours. */
+.builder-turn-health__row[data-state='lost'],
+.builder-turn-health__row[data-state='error'] {
+  color: var(--shell-danger, #b91c1c);
+}
+
+.builder-turn-health__detail {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--shell-danger, #b91c1c);
+}
+
+.builder-turn-health__empty,
+.builder-turn-health__loading {
+  margin: 0;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-turn-health__error {
+  margin: 0;
+  color: var(--shell-danger, #b91c1c);
+}

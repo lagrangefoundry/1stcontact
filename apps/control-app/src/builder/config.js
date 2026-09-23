@@ -657,3 +657,54 @@ export const TENANT_COST_DELEGATED = 'Delegated spend'
 export const TENANT_COST_DELEGATED_NONE = 'Nothing was delegated in this period.'
 export const TENANT_COST_UNPRICED = (turns) =>
   `${turns} turn${turns === 1 ? '' : 's'} had no price, so the cost beside it is a floor.`
+
+/**
+ * The turn-health section of the console's detail pane ([[REQ-306]]).
+ *
+ * WHAT THIS SECTION IS FOR, and why its words matter more than most. A whole
+ * tenant failed every turn for a period, and the only trace was a platform tail
+ * entry somebody eventually went and looked for. The operator's own surfaces
+ * said nothing. So the sentence that has to land here is *this site is failing
+ * right now*, and it has to be readable without first understanding what a turn
+ * is or what happens inside one.
+ *
+ * `TURN_HEALTH_LOST` IS THE LOAD-BEARING WORD. A lost turn is one whose isolate
+ * died without running the code that would have recorded its end — but *isolate*
+ * is our word for our problem, and the operator's question is whether the
+ * customer got an answer. *Died* says what happened to the turn; the
+ * `consecutiveLost` line beside it says whether it is still happening.
+ *
+ * THE FOUR STATES ARE NAMED SEPARATELY AND NEVER SUMMED. A turn the customer
+ * abandoned and a turn the platform killed are both *turns that did not
+ * complete*, and a surface that added them would let a busy afternoon hide an
+ * outage. Keyed by the state the route reports, so a UAT addresses
+ * `[data-state="lost"]` rather than the words currently in it.
+ */
+export const TURN_HEALTH_LABEL = 'Turn health'
+export const TURN_HEALTH_READING = 'Reading the turn ledger…'
+export const TURN_HEALTH_NONE = 'This business has taken no turns.'
+export const TURN_HEALTH_STATES = {
+  complete: 'Completed',
+  aborted: 'Abandoned',
+  error: 'Failed',
+  lost: 'Died',
+  open: 'In flight',
+}
+/**
+ * The alarm, and the only sentence on this pane that is allowed to be loud.
+ *
+ * IT NAMES A RUN AND NOT A TOTAL, because that is the difference between a site
+ * that had a bad hour last week and a site that is broken as the operator reads
+ * it — and the incident this ticket comes from was the second wearing the
+ * appearance of the first.
+ */
+export const TURN_HEALTH_FAILING = (runLength) =>
+  `The last ${runLength} turn${runLength === 1 ? '' : 's'} of this business died ` +
+  'without finishing. Something is killing them; the customer is being told nothing.'
+export const TURN_HEALTH_RECENT = 'Most recent turns'
+export const TURN_HEALTH_COLUMNS = {
+  started: 'Started',
+  session: 'Conversation',
+  state: 'Ended',
+  turn: 'Turn',
+}

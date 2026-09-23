@@ -177,6 +177,14 @@ import {
   tenantSpendReport,
   type SpendPeriod,
 } from './spend'
+import {
+  openTurn,
+  sessionTurnFailure,
+  tenantTurns,
+  turnHealth,
+  type OpenTurn,
+  type TurnLogOutcome,
+} from './turn-log'
 import { platformSites } from './directory'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
@@ -1651,6 +1659,33 @@ export const ADMIN_BUSINESS_SPEND_PATH = '/api/admin/spend/businesses'
  * of.
  */
 export const ADMIN_SITES_PATH = '/api/admin/sites'
+
+/**
+ * How one business's recent turns ended — the OPERATOR CONSOLE'S health section
+ * ([[REQ-306]]).
+ *
+ * THE QUESTION IT ANSWERS is the ticket's fifth requirement verbatim: *is this
+ * site failing turns repeatedly, and can I see that without a customer telling
+ * me*. A whole tenant failed every turn for a period and the only trace was a
+ * Cloudflare tail entry somebody went looking for. A number on the console is
+ * what that absence costs to fix.
+ *
+ * THE SAME GATE AND THE SAME 404 as the meter routes beside it. The answer names
+ * somebody else's conversations and how often this platform broke them, which is
+ * strictly no more shareable than what they spent.
+ *
+ * NO PERIOD PARAMETER, WHERE ITS NEIGHBOURS TAKE ONE, and the asymmetry is the
+ * ticket's point rather than an omission. *Failing repeatedly* is a statement
+ * about consecutive turns, not about a window: a site that takes four turns a
+ * week and lost all four is as broken as one that lost forty in an hour, and a
+ * period wide enough to catch the first buries the second. So this reads the
+ * most recent N turns and reports the run of losses at the head of them.
+ *
+ * GET AND NOTHING ELSE. The one fact this surface is about — a row nobody
+ * closed — is recorded by its absence, so there is nothing here anybody could
+ * write that would be evidence of anything.
+ */
+export const ADMIN_TURNS_PATH = '/api/admin/turns'
 
 /**
  * The period both meter routes take, off the query string ([[REQ-293]],
@@ -3539,6 +3574,49 @@ async function routeUncached(
     }
 
     /**
+     * GET /api/admin/turns?business=… — how that business's recent turns ended
+     * ([[REQ-306]]).
+     *
+     * THE TRANSPORT AND NOT THE JUDGEMENT. What "lost" means — a row nobody
+     * closed, long enough ago that *still running* has stopped being credible —
+     * belongs to `turn-log.ts` and is spelled there once, beside the ceiling it
+     * depends on. A route that derived it here would be a second opinion about
+     * the one fact this whole ticket turns on.
+     *
+     * IT REPORTS THE ROWS AND THE TALLY, NOT ONE OR THE OTHER. The tally is what
+     * makes a pattern visible at a glance — `consecutiveLost` most of all, since
+     * a run at the head of the list is what *failing right now* looks like — and
+     * the rows are what let an operator carry a session id and a turn id to the
+     * incident without reconstructing it from a platform tail, which is
+     * requirement 4.
+     *
+     * BEHIND `ownsPlatformBusiness`, AND 404 RATHER THAN 403, on
+     * {@link ADMIN_ZONES_PATH}'s reasoning exactly.
+     */
+    if (p === ADMIN_TURNS_PATH && method === 'GET') {
+      const admission = deps.admission
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+      const business = (url.searchParams.get('business') ?? '').trim()
+      if (business === '') return json(400, { error: 'business is required' })
+      const health = turnHealth(await tenantTurns(env, business))
+      return json(200, {
+        business,
+        counts: health.counts,
+        consecutiveLost: health.consecutiveLost,
+        turns: health.turns,
+      })
+    }
+
+    /**
      * GET /api/admin/spend/businesses?from=…&to=… — every tenant’s period, dearest
      * first ([[REQ-297]]).
      *
@@ -5322,6 +5400,34 @@ async function routeUncached(
     }
 
     /**
+     * WHAT BECAME OF THE LAST TURN OF A CONVERSATION BEING RE-OPENED ([[REQ-306]]).
+     *
+     * THE HALF OF THIS TICKET THE CUSTOMER SEES. A panel whose stream stopped
+     * without a terminal frame re-opens the conversation to find out what
+     * happened; before the ledger there was nothing to find, so it repainted in
+     * silence and the only thing on screen said the connection had been lost —
+     * which was not true and was not actionable. This travels back with the
+     * conversation, on the request the panel already makes, so the notice it
+     * paints is drawn from a database rather than from a guess about a socket.
+     *
+     * ON THE SESSION ROUTE AND NOT A ROUTE OF ITS OWN, for the reason the route
+     * below gives about `/api/ai/session` being the one place a conversation is
+     * opened: a second call would be a second answer about one conversation,
+     * able to describe a fold this one is no longer showing.
+     *
+     * IT TAKES `live` FROM THE ANSWER IT IS DECORATING. That is the whole
+     * judgement — see `sessionTurnFailure` — and taking it from anywhere else
+     * would be asking two different isolates the same question.
+     */
+    const turnFailure = async (opened: { sessionId: string; live?: boolean }) =>
+      sessionTurnFailure(
+        env.DB ? env : null,
+        requireScope().businessId,
+        opened.sessionId,
+        opened.live === true,
+      )
+
+    /**
      * The assistant's two calls (REQ-122 / REQ-127), now in workerd (REQ-146).
      *
      * THIN, exactly as the Node origin's were. Both are transports over
@@ -5355,7 +5461,7 @@ async function routeUncached(
         const businessHost = await chatHost(env, requireScope(), deps, url.origin)
         const opened = await openBusinessSession({}, businessHost.deps)
         await businessHost.flush(opened.sessionId)
-        return json(200, opened)
+        return json(200, { ...opened, failed: await turnFailure(opened) })
       }
       const site = body.site
       if (typeof site !== 'string' || site === '') {
@@ -5368,7 +5474,7 @@ async function routeUncached(
       // does it: the buffer is per host, and leaving records in it would
       // attribute them to whatever turn drained next.
       await host.flush(session.sessionId)
-      return json(200, session)
+      return json(200, { ...session, failed: await turnFailure(session) })
     }
 
     if (p === '/api/ai/prompt' && method === 'POST') {
@@ -5381,7 +5487,25 @@ async function routeUncached(
         return json(400, { error: 'text is required' })
       }
       const host = await chatHost(env, requireScope(), deps, url.origin)
-      return streamTurn(host, sessionId, text, scrub, ctx)
+      /**
+       * THE LEDGER IS OPENED HERE, AND *HERE* IS THE WHOLE OF IT ([[REQ-306]]).
+       *
+       * BEFORE THE `Response` EXISTS, awaited, on the route's own critical path.
+       * `streamTurn` hands back its response before `start()` runs, so once it
+       * has returned there is no code left whose running is guaranteed — an
+       * isolate killed mid-stream never reaches the `catch`, never reaches the
+       * `finally`, and leaves the client a 200 with an empty body. Every other
+       * record of a turn this system keeps is written after the model call and
+       * therefore dies with it. This one is written before anything can go
+       * wrong, which is the only way a turn's END can be recorded by its absence.
+       *
+       * IT COSTS ONE INSERT AND CANNOT COST THE TURN. `openTurn` swallows its own
+       * failure and answers `null`, on which the close is a no-op — so a
+       * deployment with no database, or a database that refused, behaves exactly
+       * as this route did before the ledger existed.
+       */
+      const ledger = await openTurn(env.DB ? env : null, requireScope().businessId, sessionId)
+      return streamTurn(host, sessionId, text, scrub, ctx, ledger)
     }
 
     /**
@@ -6008,6 +6132,17 @@ async function routeUncached(
  * out with the first byte, so there is no status code left to change — the panel
  * has to be told in the channel it is already reading, and a dropped socket
  * would render as a turn that simply stopped.
+ *
+ * AND AN UNCATCHABLE END BECOMES AN UNCLOSED ROW ([[REQ-306]]). Every paragraph
+ * above assumes some line of this function still runs; an isolate killed
+ * mid-stream — `exceededMemory` is what happened, but a CPU-time overrun or an
+ * eviction is the same shape — runs none of them. No `catch`, so no frame. No
+ * `finally`, so no audit, no meter, no `turn_end`. The client is left a 200 with
+ * an empty body and the operator is left a platform tail entry to go and find.
+ * The `ledger` this now takes was opened by the ROUTE before the `Response`
+ * existed, precisely so that the ONE thing which cannot be written from inside a
+ * dead isolate — that the turn ended at all — is recorded by the absence of the
+ * close below rather than by the presence of anything.
  */
 function streamTurn(
   host: WorkerHost,
@@ -6015,6 +6150,7 @@ function streamTurn(
   text: string,
   scrub: (text: string) => string,
   ctx?: RouteContext,
+  ledger?: OpenTurn | null,
 ): Response {
   const encoder = new TextEncoder()
   const frame = (event: unknown): Uint8Array =>
@@ -6047,8 +6183,28 @@ function streamTurn(
           // The reader is gone. Nothing to say and nobody to say it to.
         }
       }
+      /**
+       * HOW THIS TURN ENDED, FOR THE LEDGER ([[REQ-306]]).
+       *
+       * `aborted` UNTIL SOMETHING SAYS OTHERWISE, which is `streamPrompt`'s own
+       * initial value for the same variable and for the same reason: a turn
+       * whose consumer walks away runs neither the success path nor the error
+       * path, and the honest word for what it managed is the one that does not
+       * claim either.
+       *
+       * OFF THE TERMINAL FRAME AND NOT OFF A SECOND JUDGEMENT. The library
+       * already decided what became of the turn and stamps it on the `done`
+       * event's `meta.status`; reading it here is transcription, so the ledger
+       * and the meter cannot disagree about one turn.
+       */
+      let outcome: TurnLogOutcome = 'aborted'
+      let detail: string | null = null
       try {
         for await (const event of streamPrompt(sessionId, text, {}, host.deps)) {
+          if (event.kind === 'done') {
+            const status = typeof event.meta?.status === 'string' ? event.meta.status : ''
+            outcome = status === 'error' ? 'error' : status === 'aborted' ? 'aborted' : 'complete'
+          }
           controller.enqueue(frame(event))
         }
       } catch (err) {
@@ -6058,11 +6214,33 @@ function streamTurn(
             : err instanceof Error
               ? err.message
               : String(err)
+        outcome = 'error'
+        // SCRUBBED FOR THE LEDGER TOO, and not only for the client. The row is
+        // read back by an operator surface and by the panel's own recovery, so a
+        // credential in the message would have been persisted rather than merely
+        // shown once.
+        detail = scrub(message)
         // The backend is the one component here that holds the credential, so
         // this is the error path most likely to carry it — AC4.
         tell({ kind: 'text', content: `\n\n_${scrub(message)}_` })
         tell({ kind: 'done' })
       } finally {
+        /**
+         * THE LEDGER'S OTHER HALF ([[REQ-306]]), first in the block and beside
+         * the audit flush for the audit flush's stated reason: it is inside the
+         * stream, so it happens while the isolate is still alive, and it is in a
+         * `finally`, so an abandoned turn is closed as abandoned rather than left
+         * looking like a death. What makes it worth anything is that it is the
+         * half that CAN fail to run — a row still open long after it was written
+         * is the record of an isolate that did not survive to reach this line,
+         * and nothing inside that isolate could ever have written that down.
+         */
+        try {
+          await ledger?.close(outcome, detail)
+        } catch {
+          // Deliberately swallowed, like the flush below: a ledger is a safety
+          // net, and a net that fails the turn has made matters worse.
+        }
         // Durable before the response ends. A failure to write the audit must
         // not also fail the turn the operator already had — the records are
         // gone either way, and taking the answer with them helps nobody.
