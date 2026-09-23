@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T23:47:00.321790+00:00'
+updated_at: '2026-09-23T23:48:12.738581+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -823,5 +823,33 @@ One flag on the ticket: it assumes you want `--fonts` composable with the existi
 <!-- xgd-chat role="user" ts="2026-09-23T23:46:59.671302+00:00" -->
 #### You
 is the dev environment bin/deploy --env dev
+
+<!-- xgd-turn id="35e30292-28cb-499c-bc82-e29377205379-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T23:48:10.589052+00:00" -->
+#### Claude
+Let me check rather than assume — there may be a dev worker I haven't seen.
+
+Definitive answer from wrangler itself. Let me get that fact into the ticket body, since UATs have to trace to it.
+
+No — `bin/deploy --env dev` fails. I ran it rather than reasoned about it:
+
+```
+✘ [ERROR] Processing wrangler.toml configuration:
+    - No environment found in configuration with name "dev".
+      The available configured environment names are: ["production"]
+```
+
+**There is exactly one deployed environment, `production`.** Both apps define it with the same worker name as their top-level config, so `[env.production]` and the default are the same worker.
+
+Worth knowing how this fails, because it's quiet: `bin/deploy`'s `worker_name()` just greps `wrangler.toml` for `[env.<name>]`. An undefined env resolves to an *empty* name, so the script announces `control-app → (--env dev)` with a blank before wrangler refuses it. And `--env staging` is in `bin/deploy`'s own usage comment at line 59 — that comment documents a shape the configuration has never had.
+
+So the dev environment isn't a deployment at all. It's `1c builder` — `wrangler dev` on the top-level config, against miniflare's own D1 and R2 under `.wrangler/state`.
+
+That confirms REQ-315's target rather than changing it, and I've appended the finding to the ticket body so the implementing session has it as traceable language. It does sharpen one thing: **at the dev target, `--fonts` is a local seed, not a deploy.** Nothing uploads, no worker publishes, bytes land in a SQLite store on your disk. The flag belongs on `bin/deploy` because that's where you'd look for "get this to an environment", but the help text should say which of the two things each target actually does rather than let "deploy" cover both.
+
+I also noted that if you ever do want a real `[env.dev]` Worker, that's its own ticket — and it's an argument for selecting the local seed by an explicit flag rather than by the absence of `--env`, so the dev target keeps working when a dev Worker arrives.
+
+Given that, your fastest path to seeing fonts locally is still blocked on REQ-315 being built. The mirror itself you can start whenever — `./bin/1c fonts mirror --repo <dir> --quality 9` gets you the staged corpus in under 10 minutes instead of 90.
 
 <!-- xgd-chat-end -->
