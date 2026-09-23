@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:07:12.435653+00:00'
+updated_at: '2026-09-23T18:11:05.544417+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -444,5 +444,13 @@ Three things I worked through that follow from it rather than being in your ask 
 **Empty results need to distinguish two cases.** Your web-developer requirement implies it: someone typing `Helvetica` has asked a reasonable question, and an empty list answers it misleadingly. Spec'd so a known commercial family explains that per-licensee webfont licences can't be shared across customer sites, and points at the upload path. That needs a small hand-maintained list of famous unavailable names — it can't come from the catalogue, which by construction only knows what we *do* have.
 
 One question I resolved by following your wording literally: matching is **prefix**, so `Ar` → Archivo, Arimo, Arsenal, Arvo. That means typing `mono` won't surface the monospace families. If you want substring or category matching too, say so and I'll add it — but prefix is what you described and I didn't want to quietly widen it.
+
+<!-- xgd-turn id="16d27cf8-6f92-49e6-bc21-8784b272e79d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T18:11:04.895316+00:00" -->
+#### You
+Good questions:
+I only want to render the curated list in fonts - if you go looking by name you need to know what you are looking for. Is that managable?
+Of you can suggest other filters in addition to prefix that are worth including then sure, but lets not let it get too complicated
 
 <!-- xgd-chat-end -->
