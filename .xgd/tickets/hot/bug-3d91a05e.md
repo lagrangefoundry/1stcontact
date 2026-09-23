@@ -6,9 +6,9 @@ title: Turn times and day separators are dropped on the way to the panel, so onl
   the live turn is stamped
 created_by: EPIC-19
 created_at: '2026-09-22T23:27:35.161946+00:00'
-updated_at: '2026-09-23T02:31:06.302874+00:00'
+updated_at: '2026-09-23T02:39:26.827170+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-95bc3b15
@@ -56,20 +56,40 @@ own clock when the composer submits.
 - Every turn replayed from the transcript carries the time it happened, formatted
   by the same scheme a live turn uses — because it is the same call.
 - Day separators appear throughout the history, wherever consecutive turns fall
-  on different local calendar days, not only near the end.
+  on different local calendar days, not only near the end. A separator is a
+  statement about the turns below it, so it is emitted ABOVE the first turn of
+  each day rather than merely somewhere in the thread.
 - The time shown is the turn's own recorded moment, taken from the transcript,
   never the moment the page was loaded. A conversation reloaded tomorrow shows
-  the same times it showed today.
+  the same times it showed today. The moment is carried the whole way — never
+  recomputed at read time, which would be the defect wearing the fix's clothes.
 - A turn whose record carries no usable timestamp renders as it does now — no
-  time, no separator — rather than showing a wrong one or failing the mount.
+  time, no separator — rather than showing a wrong one or failing the mount. It
+  takes no part in day-boundary detection either, so the days that open are the
+  days that are actually known, and the turn itself is still painted.
 - The words handed back after an interrupted or unaccounted turn ([[BUG-121]],
   [[BUG-122]]) are stamped with the moment they were SENT, which the pending
   record and the sent-prompt entry each already keep, rather than with the moment
-  they were painted back.
+  they were painted back. These are the messages most likely to be days old by
+  the time they are handed back, so they open the day they were sent on.
+- A turn still IN FLIGHT when the page loads is dated the same way. It is the one
+  turn the replay loop never appends — the transcript's last assistant turn is
+  seeded into the resumed bubble instead, so the half already written and the
+  half still coming are one message — and so it would otherwise be the only
+  bubble in the thread dated by whenever the tail happened to drain. Worst for
+  the turn most likely to need it: a reattach whose `turn_end` is already past
+  the cursor drains at once, making "now" the reload rather than the reply.
+  `webui-chat`'s `resume` already takes the turn's metadata for exactly this; the
+  seed passes it.
+- Notices in the panel's own voice ("that turn was interrupted…") are not turns
+  and stay unstamped, as they always have been.
 
 ## Where it touches
 
-- `tools/generate/src/cli/ai/host-core.ts` — `ChatTurn` gains the field;
-  `storedTranscript` stops discarding it.
+- `tools/generate/src/cli/ai/host-core.ts` — `ChatTurn` gains the field, optional
+  because a record may carry no moment; `storedTranscript` stops discarding it,
+  omitting rather than emptying it so "absent" means one thing on the wire.
 - `apps/control-app/src/builder/chat.js` — the replay passes it, as do
-  `paintInterrupted` and `paintUnsent`.
+  `paintInterrupted`, `paintUnsent`, and the seed handed to `resume`. One helper
+  decides once what "no moment" looks like, so the four call sites cannot each
+  decide it differently.
