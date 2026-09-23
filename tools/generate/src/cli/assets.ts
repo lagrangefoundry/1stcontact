@@ -515,6 +515,15 @@ const AI_WORKER_EXPORTS = [
   // `ai.ts`, so that a rename of the port's constructors surfaces as a
   // typecheck failure rather than as a request the provider refuses.
   'imageBlock',
+  // [[REQ-307]] — the two halves of the junction port a Durable Object adapter
+  // needs. `MemoryJunctionStorage` is COMPOSED by `junctions.ts` rather than
+  // reimplemented: it is the chunk-list-plus-offset-index mirror that keeps
+  // appends O(delta), and a second copy of that discipline in this repository
+  // would be the quadratic-append regression waiting to happen. `SessionLog` is
+  // what a `Junctions.open` must hand back, and a junctions store that
+  // constructed something else would not be one.
+  'MemoryJunctionStorage',
+  'SessionLog',
   'memoryJunctions',
   'registerBackend',
   // [[REQ-208]] — the plugin layer ([[REQ-139]]). A tool surface packaged to be

@@ -103,3 +103,20 @@ export class AssetGate extends WorkerEntrypoint<Env> {
     return takeAsset(this.env, siteKey, token, assetKey)
   }
 }
+
+/**
+ * The session junction's Durable Object ([[REQ-307]]) — re-exported, not defined.
+ *
+ * IT IS HERE FOR THE REASON EVERYTHING ELSE IN THIS FILE IS. `junction-do.ts`
+ * imports `cloudflare:workers` for the `DurableObject` base class, so it can only
+ * be loaded inside the runtime; the roughly sixty node suites that import
+ * `index.ts` must never reach it. The Worker-side ADAPTER (`junctions.ts`) does
+ * not import it at runtime at all — only its types, which erase — so the router
+ * stays loadable in Node while the class stays loadable only where it can run.
+ *
+ * WRANGLER FINDS A DURABLE OBJECT CLASS BY EXPORT FROM `main`, which this file
+ * is, and `wrangler.toml` names it in both environments beside a
+ * `new_sqlite_classes` migration. It ADDS NO BEHAVIOUR: everything it does is
+ * `junction-do.ts`'s.
+ */
+export { SessionJunction } from './junction-do'

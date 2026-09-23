@@ -39,6 +39,18 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [
     cloudflareTest({
+      /**
+       * THE ENTRY THE DEPLOYED WORKER USES, named here for ONE reason
+       * ([[REQ-307]]): a Durable Object binding resolves its `className` against
+       * the main module's exports, and `SessionJunction` is exported from
+       * `worker.ts`. Pointing this at a test-only module that re-exported the
+       * class would run the suites against a second assembly of this Worker —
+       * the shape wrangler builds is the shape the junction UATs should prove.
+       *
+       * It changes nothing for the suites that do not use it: every test here
+       * imports the module it exercises directly and calls it, exactly as before.
+       */
+      main: './apps/control-app/src/worker.ts',
       miniflare: {
         compatibilityDate: '2025-07-01',
         compatibilityFlags: ['nodejs_compat'],
@@ -60,6 +72,24 @@ export default defineConfig({
         // one of the three verbs it honours — so a UAT can publish a real
         // photograph and assert the widths that actually came out.
         images: { binding: 'IMAGES' },
+        // SESSION_JUNCTION — the live junction, made durable ([[REQ-307]]).
+        //
+        // A REAL DURABLE OBJECT AND NOT A STAND-IN, which is the whole reason
+        // these UATs run in this project rather than the node one. What is under
+        // test is that a turn's records survive the isolate that wrote them, and
+        // a hand-written fake for the thing that is supposed to be durable would
+        // prove the fake. Miniflare gives the class its own SQLite, so `since`,
+        // `append` and `replace` are exercised against the API the deployed
+        // object has.
+        // `useSQLite` IS THE `new_sqlite_classes` MIGRATION, said here.
+        // `ctx.storage.sql` is the whole reason a Durable Object can satisfy the
+        // junction's synchronous port at all, and a class provisioned without it
+        // throws on the first statement — so the two declarations have to agree,
+        // and a suite that ran on key-value storage would prove nothing about the
+        // object this repository deploys.
+        durableObjects: {
+          SESSION_JUNCTION: { className: 'SessionJunction', useSQLite: true },
+        },
       },
     }),
   ],
