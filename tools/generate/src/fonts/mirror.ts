@@ -74,6 +74,36 @@ export function mirrorDir(cwd: string): string {
   return path.join(cwd, MIRROR_DIR_REL)
 }
 
+/**
+ * Read one staged mirrored file off disk, or `null` when it is not there
+ * ([[REQ-312]], `COMMENT-3711`).
+ *
+ * THE NODE-SIDE COUNTERPART OF THE R2 READER, and it exists for the same reason
+ * the builder's asset fetcher does: a page's font `src` names no host, so every
+ * surface that serves a rendered snapshot has to answer for `_fonts/…` at its own
+ * root — including the two that run in Node, the builder transport and the
+ * capture fixture. Deployed those bytes are in R2; here they are the staged copy
+ * `1c fonts mirror` wrote and `1c fonts publish` will upload, so a preview shows
+ * the face the operator picked without a network call or a populated bucket.
+ *
+ * CONFINED TO THE MIRROR, and the guard is not decoration. The path arrives from a
+ * URL; `platformFontTarget` has already refused a component that looks like
+ * traversal, and this refuses anything that resolves outside the directory anyway
+ * — the same belt-and-braces `resolveStaticFile` applies to every other tree this
+ * repo serves.
+ */
+export function readStagedPlatformFont(cwd: string, relPath: string): Uint8Array | null {
+  const root = mirrorDir(cwd)
+  const abs = path.resolve(root, relPath)
+  if (abs !== root && !abs.startsWith(root + path.sep)) return null
+  if (!pathExists(abs)) return null
+  try {
+    return new Uint8Array(readFileSync(abs))
+  } catch {
+    return null // a directory, or something unreadable — neither is a font
+  }
+}
+
 /** Whether this checkout has a populated platform mirror at all. */
 export function manifestExists(cwd: string): boolean {
   return pathExists(manifestPath(cwd))

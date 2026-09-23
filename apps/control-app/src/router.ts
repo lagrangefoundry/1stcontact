@@ -44,6 +44,12 @@ import type {
 } from '../../../tools/generate/src/publish/ladder'
 import { ladderFor } from './image-ladder'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
+import {
+  previewFontTarget,
+  r2PlatformFonts,
+  servePreviewPlatformFont,
+  type PlatformFontReader,
+} from './platform-fonts'
 import { previewPath, publicSiteUrl } from './public-url'
 // [[BUG-97]] — the draft channel answers the gated download too, so the link a
 // preview submission mails is one the operator can actually open.
@@ -1258,6 +1264,22 @@ export interface RouterDeps {
    *
    * ABSENT IS THE ORDINARY CASE and resolves to the `BROWSER` binding.
    */
+  /**
+   * Where a preview reads the platform font mirror from ([[REQ-312]],
+   * `COMMENT-3711`).
+   *
+   * INJECTABLE BECAUSE THE TWO RUNTIMES SHARE NOTHING BELOW IT. A page's font
+   * `src` names no host, so every surface serving a rendered snapshot has to
+   * answer `_fonts/…` at its own root — and this app is two of them. Deployed,
+   * the bytes are in R2 through the `SITES` binding. In the Node builder
+   * transport `env.SITES` is a Proxy that throws by design, and the bytes are the
+   * staged mirror on the operator's disk; that is a different reader, not a
+   * different code path, so it arrives here rather than as a branch in the route.
+   *
+   * ABSENT RESOLVES TO THE BINDING. `null` says this deployment has no mirror to
+   * read, and a preview font then 404s exactly as an unpublished mirror does.
+   */
+  platformFonts?: (env: RouterEnv) => PlatformFontReader | null
   launch?: BrowserLauncher
   /**
    * The transport the image generator is reached through ([[REQ-208]]).
@@ -2463,6 +2485,17 @@ async function routeUncached(
   // value out of this table is `scrub(...)`" a rule with a single subject —
   // which is the rule the boundary UAT actually checks for.
   const scrub = redactor(secretsOf(env))
+
+  /**
+   * The platform font mirror this deployment previews against ([[REQ-312]],
+   * `COMMENT-3711`). Resolved once, beside the other injected seams, so the two
+   * snapshot roots below ask the same reader — `??` and not `||`, because `null`
+   * from a deps entry is the deliberate *"this deployment has no mirror"* and a
+   * falsy test would hand it the binding instead.
+   */
+  const platformFonts = deps.platformFonts
+    ? deps.platformFonts(env)
+    : r2PlatformFonts(env.SITES)
 
   /**
    * The business this request runs in, or a refusal ([[DOC-42]] §10.1).
@@ -5787,7 +5820,7 @@ async function routeUncached(
       // `portalFallbackStore` is an in-memory adapter with one site in it and no
       // business to collide inside; the name it seeds under is a local label,
       // not a row in the multi-tenant schema [[DOC-45]] §6 is about.
-      return servePreview(portalStore, authored ?? PORTAL_SLUG, 'draft', rel)
+      return servePreview(portalStore, authored ?? PORTAL_SLUG, 'draft', rel, platformFonts)
     }
 
     const preview = p.match(/^\/preview\/([^/]+)\/([^/]+)(\/.*)?$/)
@@ -5945,7 +5978,13 @@ async function routeUncached(
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
       }
-      return servePreview(await openStore(), site, channel as PreviewChannel, preview[3] ?? '/')
+      return servePreview(
+        await openStore(),
+        site,
+        channel as PreviewChannel,
+        preview[3] ?? '/',
+        platformFonts,
+      )
     }
 
     // Not a route: the build artifacts, or a genuine 404 from the binding that
@@ -6870,13 +6909,33 @@ async function deliverDraftArtifact(
   return new Response(served.body, { status: 200, headers })
 }
 
-/** Render `rel` out of a draft-side channel and answer with it. */
+/**
+ * Render `rel` out of a draft-side channel and answer with it.
+ *
+ * `fonts` IS THE PREVIEW'S SNAPSHOT ROOT ANSWERING FOR `_fonts/…` ([[REQ-312]],
+ * `COMMENT-3711`), and it is a parameter rather than something this function
+ * reaches for. A page's font `src` names no host — it is root-relative, reduced
+ * by the renderer to a reference against the page's own directory — so the bytes
+ * ask for the face at whatever root they are served at, and the two roots that
+ * serve a PAGE here are the ones that pass a reader. The gated-artifact caller
+ * passes none: what it resolves is a key the gate handed it out of the site's own
+ * assets, and a platform font is not one of those.
+ *
+ * ASKED BEFORE THE RENDERER, because `_fonts` is a reserved first segment of a
+ * snapshot and no draft can hold a page or an asset there — so there is nothing
+ * for it to shadow, and going to the renderer first would only cost a load.
+ */
 async function servePreview(
   store: SiteStore,
   site: string,
   channel: PreviewChannel,
   rel: string,
+  fonts?: PlatformFontReader | null,
 ): Promise<Response> {
+  const fontPath = fonts ? previewFontTarget(rel) : null
+  if (fonts && fontPath) {
+    return (await servePreviewPlatformFont(fontPath, fonts)) ?? text(404, 'Not found')
+  }
   let file
   try {
     file = await previewRenderer(store).file(site, channel, rel)

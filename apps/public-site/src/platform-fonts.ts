@@ -1,46 +1,67 @@
 /**
- * [[REQ-312]] — the platform font origin.
+ * [[REQ-312]] — the shared platform font mirror, served **on the site's own
+ * domain**.
  *
- * `/_fonts/…` is the one place every tenant's pages load a platform font from.
- * One shared copy, not a copy per site: fonts are small, but copying them around
- * gets fiddly in the way that rots, and shared serving turns a font takedown from
- * an N-tenant sweep with N rebuilds into a registry flip plus a purge.
+ * `_fonts/…` is where every tenant's pages load a platform font from. One shared
+ * copy in R2, not a copy per site: fonts are small, but copying them around gets
+ * fiddly in the way that rots, and shared storage turns a font takedown from an
+ * N-tenant sweep with N rebuilds into a registry flip plus a purge.
  *
  * WHAT IS SERVED HERE
- *   `/_fonts/<slug>/<file>.woff2`  the face
- *   `/_fonts/<slug>/OFL.txt`       that family's own licence notice, beside its
- *                                  bytes, because OFL requires the notice to
- *                                  travel with the distribution
- *   `/_fonts/LICENSES.txt`         the aggregate index over every mirrored family
+ *   `<root>/_fonts/<slug>/<file>.woff2`  the face
+ *   `<root>/_fonts/<slug>/OFL.txt`       that family's own licence notice, beside
+ *                                        its bytes, because OFL requires the
+ *                                        notice to travel with the distribution
+ *   `<root>/_fonts/LICENSES.txt`         the aggregate index over every family
  *
- * ANSWERED BEFORE THE SITE GRAMMAR, and that is not an optimisation. A platform
- * font belongs to no site, so resolving it through `siteOfRoute` would ask the
- * cross-tenant guard a question it has no business answering — and get the wrong
- * answer on a bound customer domain, where that guard exists to refuse anything
- * that is not this host's site. `_fonts` is therefore a reserved first segment:
- * no published page can shadow it, and the leading underscore keeps it out of the
- * space of names a person would give a page.
+ * `<root>` IS THE SNAPSHOT ROOT AND THIS WORKER HAS TWO OF THEM (`COMMENT-3711`).
+ * A page's `src` is root-relative and the renderer reduces it to a
+ * document-relative reference so a snapshot is relocatable (`relativizeUrl`,
+ * REQ-109) — so the SAME bytes ask for `_fonts/x` from `/` on a bound customer
+ * domain and from `/site/<key>/` on the platform's own host. Answering only the
+ * first would 404 every font on the second, which is why the match is made on the
+ * parsed route's path rather than on the request pathname: the grammar has already
+ * taken the root off, whichever root it was, and has already refused the traversal
+ * and percent-encoding cases.
  *
- * IMMUTABLE AND CROSS-ORIGIN, which is what makes one copy enough. A mirrored
- * file's name changes when upstream's bytes do — the manifest pins both — so it
- * can be cached for a year; and `Access-Control-Allow-Origin: *` is what lets
- * `alicesplumbing.com` load a face from the platform's origin at all, since a
- * font is a CORS-restricted subresource whatever its cache headers say.
+ * ANSWERED BEFORE THE CROSS-TENANT GUARD, and that is not an optimisation. A
+ * platform font belongs to no site, so resolving `/site/<key>/_fonts/x` through
+ * `siteOfRoute` would ask whether this host may serve THAT SITE — and on a bound
+ * customer domain the correct answer to that question is "no", which is the wrong
+ * answer to this one. Nothing leaks by skipping it: the bytes are the same for
+ * every tenant and the key in the path selects none of them. `_fonts` is a
+ * reserved first segment of a snapshot, so no published page can shadow it, and
+ * the leading underscore keeps it out of the space of names a person would give a
+ * page.
+ *
+ * IMMUTABLE, AND THAT IS WHAT MAKES ONE COPY ENOUGH. A mirrored file's name
+ * changes when upstream's bytes do — the manifest pins both — so it can be cached
+ * for a year. `Access-Control-Allow-Origin: *` is no longer load-bearing now that
+ * a font is an ordinary same-origin subresource, and is kept only for the case
+ * that still is cross-origin: a preview served from a different host than the one
+ * the page will finally live on.
  */
-
 import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
-import { parsePlatformFontSrc, platformFontKey } from '../../../packages/site-schema/src/fonts'
+import { platformFontKey, platformFontTarget } from '../../../packages/site-schema/src/fonts'
+import type { Route } from './routes'
 
 /**
- * The mirror-relative path this request addresses, or `null` when it addresses no
+ * The mirror-relative path this ROUTE addresses, or `null` when it addresses no
  * platform font.
  *
- * ONE SPELLING, and it is the same function `1c fonts check` resolves a page's
- * `src` with. A second parser here is how a page comes to reference a font the
- * gate passed and this Worker has never heard of.
+ * IT TAKES THE PARSED ROUTE AND NOT THE PATHNAME, which is what makes one rule
+ * cover both of this Worker's snapshot roots — see the module note. `apex` and
+ * `asset` are the two kinds that carry a snapshot-relative path; a `redirect` or
+ * a `not-found` addresses no byte at all, so neither can be a font.
+ *
+ * ONE SPELLING: {@link platformFontTarget} is the same function `1c fonts check`
+ * resolves a page's `src` with, and the same one the builder preview answers on.
+ * A second parser here is how a page comes to reference a font the gate passed
+ * and this Worker has never heard of.
  */
-export function platformFontTarget(pathname: string): string | null {
-  return parsePlatformFontSrc(pathname)
+export function platformFontOfRoute(parsed: Route): string | null {
+  if (parsed.kind !== 'apex' && parsed.kind !== 'asset') return null
+  return platformFontTarget(parsed.path)
 }
 
 /** A year — see the module note on why these bytes may be cached for one. */

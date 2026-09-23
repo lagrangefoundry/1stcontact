@@ -28,7 +28,7 @@ import {
   type StoredAssetManifest,
 } from '../../../tools/generate/src/store/revision-model'
 import { DOWNLOAD_PATH, gateTarget, handleGate, notFound, type GateEnv } from './gate'
-import { platformFontTarget, servePlatformFont } from './platform-fonts'
+import { platformFontOfRoute, servePlatformFont } from './platform-fonts'
 import { handleLead, LEAD_PATH, type LeadEnv } from './lead'
 import {
   parseRoute,
@@ -236,12 +236,21 @@ export default {
      * this host may serve it, and on a bound customer domain the correct answer to
      * that question is "no", which is the wrong answer to this one.
      *
+     * IT IS MATCHED ON THE PARSED ROUTE AND NOT ON THE PATHNAME (`COMMENT-3711`).
+     * A page's font `src` names no host and is reduced by the renderer to a
+     * reference against the page's own directory, so the same bytes ask for
+     * `_fonts/x` from `/` on a bound customer domain and from `/site/<key>/` on
+     * this product's own host. `parseRoute` is what has already taken whichever
+     * root off — along with the traversal and percent-encoding refusals — so
+     * asking it is the only way this cannot come to disagree with the server that
+     * resolves every other byte about where a snapshot begins.
+     *
      * It reads the edge cache above and is stored by the block below on exactly
      * the same terms as a page, which is the whole benefit of sitting here: the
      * most-requested shared bytes on the platform get the same warm path, and the
      * `rootSite` lookup a page needs is never made for them.
      */
-    const platformFont = platformFontTarget(url.pathname)
+    const platformFont = platformFontOfRoute(parseRoute(url.pathname))
     const response = platformFont
       ? await servePlatformFont(platformFont, request, env.SITES)
       : await route(request, {

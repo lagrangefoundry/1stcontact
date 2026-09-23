@@ -6,7 +6,8 @@ import { platformFontKey } from '../packages/site-schema/src/fonts'
 import { applySchema } from './support/d1-site-factory'
 
 /**
- * [[REQ-312]] — the platform font origin: `/_fonts/…`, served to every tenant.
+ * [[REQ-312]] — the platform font mirror, served on **the site's own domain**
+ * (`COMMENT-3711`).
  *
  * WHAT WAS TRUE BEFORE. `public-site` resolved every byte it served against a
  * SITE. There was no path by which shared platform bytes could be reached at all,
@@ -31,8 +32,21 @@ import { applySchema } from './support/d1-site-factory'
  *     a megabyte of immutable font on every visit;
  *   - `LICENSES.txt` unreachable, leaving the OFL notice undistributed;
  *   - `_fonts` resolving through the site grammar, where a bound customer host is
- *     REQUIRED to refuse anything that is not its own site.
+ *     REQUIRED to refuse anything that is not its own site;
+ *   - **the second snapshot root going unanswered.** This is the falsifier the
+ *     same-origin decision added. A page's `src` names no host, so the renderer
+ *     reduces it to a reference against the page's own directory — and the same
+ *     bytes are served at `/` on a bound domain AND at `/site/<key>/` on this
+ *     product's host. A rule matching only the origin root 404s every font on the
+ *     second, which is a whole channel rendering in a fallback face.
  */
+
+/**
+ * A site key that exists only as a URL segment. Nothing publishes under it: every
+ * case below either asks for a font (which belongs to no site) or asserts the
+ * cross-tenant refusal (which never reaches a store).
+ */
+const SITE_KEY = 'site_0123456789abcdef'
 
 const SLUG = 'headingfont'
 const FILE = 'HeadingFont-Regular.woff2'
@@ -66,6 +80,18 @@ beforeAll(async () => {
   await env.SITES.put(platformFontKey(`${SLUG}/${FILE}`), FONT_BYTES)
   await env.SITES.put(platformFontKey(`${SLUG}/OFL.txt`), LICENCE_TEXT)
   await env.SITES.put(platformFontKey('LICENSES.txt'), INDEX_TEXT)
+
+  // `alicesplumbing.com` IS A BOUND CUSTOMER DOMAIN, and it is bound to a site
+  // that is NOT `SITE_KEY` — which is what arms the cross-tenant guard for the
+  // case below. Written as the row the schema holds rather than through
+  // `control-app`'s writer: this suite bundles `public-site`, and what is under
+  // test is how the SERVER reads a binding, not how one is made.
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO site_domains (id, site_id, host, kind, status, canonical, created_at) " +
+      "VALUES ('dom_alice', 'site_alice', 'alicesplumbing.com', 'custom', 'active', 1, ?)",
+  )
+    .bind(new Date().toISOString())
+    .run()
 })
 
 describe('REQ-312 — the platform font origin', () => {
@@ -118,6 +144,43 @@ describe('REQ-312 — the platform font origin', () => {
     // R2 key is built by concatenation.
     const traversal = await call('https://1stcontact.io', '/_fonts/../sites/secret/rev/0001/out/index.html')
     expect(traversal.status).toBe(404)
+  })
+
+  it('test_UAT_FC_REQ-312_the_face_is_served_at_every_snapshot_root', async () => {
+    // THE SAME-ORIGIN DECISION'S OWN FALSIFIER (`COMMENT-3711`). A page's `src`
+    // names no host: it is root-relative, and the renderer reduces it to a
+    // reference against the page's own directory so a snapshot is relocatable. So
+    // a page served under `/site/<key>/` asks for its face at
+    // `/site/<key>/_fonts/…` — a path the origin-root rule never matched, which
+    // would leave every font on that channel 404ing.
+    const prefixed = await call('https://1stcontact.io', `/site/${SITE_KEY}/_fonts/${SLUG}/${FILE}`)
+    expect(prefixed.status, 'the /site/<key>/ channel serves the face').toBe(200)
+    expect(new Uint8Array(await prefixed.arrayBuffer())).toEqual(FONT_BYTES)
+    expect(prefixed.headers.get('content-type')).toBe('font/woff2')
+
+    // AND THE LICENCE TRAVELS WITH IT THERE TOO, at that root's own `_fonts/`.
+    const licence = await call('https://1stcontact.io', `/site/${SITE_KEY}/_fonts/${SLUG}/OFL.txt`)
+    expect(licence.status).toBe(200)
+    expect(await licence.text()).toContain('SIL OPEN FONT LICENSE')
+  })
+
+  it('test_UAT_FC_REQ-312_the_cross_tenant_guard_does_not_refuse_a_platform_font', async () => {
+    // A PLATFORM FONT BELONGS TO NO SITE, so the guard that makes a bound customer
+    // domain refuse `/site/<somebody else's key>/` must not be asked about it.
+    // `alicesplumbing.com` is bound to its own site here; a page of that site still
+    // carries `_fonts/…`, and the guard's correct "no" to the site question would
+    // be the wrong answer to the font one.
+    const guarded = await call(
+      'https://alicesplumbing.com',
+      `/site/${SITE_KEY}/_fonts/${SLUG}/${FILE}`,
+    )
+    expect(guarded.status, 'the guard does not reach the font').toBe(200)
+    expect(new Uint8Array(await guarded.arrayBuffer())).toEqual(FONT_BYTES)
+
+    // AND IT STILL REFUSES THE SITE ITSELF, which is what proves the exemption is
+    // scoped to `_fonts` rather than a hole in the guard.
+    const page = await call('https://alicesplumbing.com', `/site/${SITE_KEY}/index.html`)
+    expect(page.status, "a bound host still refuses another tenant's page").toBe(404)
   })
 
   it('test_UAT_FC_REQ-312_a_head_returns_the_headers_without_the_body', async () => {

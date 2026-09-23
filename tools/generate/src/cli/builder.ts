@@ -9,6 +9,7 @@ import { fsSiteStore } from '../store'
 import type { TenantSiteStore } from '../store/d1r2-store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
 import { cmdList, ctxOf, type GlobalOptions } from './commands'
+import { readStagedPlatformFont } from '../fonts/mirror'
 import { resolveStaticFile } from './static-file'
 import { contentTypeOf } from '../store/content-type'
 
@@ -145,6 +146,21 @@ function depsFor(ctx: StoreContext): RouterDeps {
      * exactly the statement being made.
      */
     addresses: () => null,
+    /**
+     * THE STAGED MIRROR ON DISK, BECAUSE THERE IS NO R2 HERE ([[REQ-312]],
+     * `COMMENT-3711`).
+     *
+     * A page's font `src` names no host, so the preview's own snapshot root has
+     * to answer for `_fonts/…` or the operator is shown a fallback face while
+     * being told they chose Roboto. Deployed that is the `SITES` bucket; here
+     * `env.SITES` is a Proxy that throws by design, and the honest source is the
+     * copy `1c fonts mirror` staged in this workspace. An unpopulated mirror
+     * simply has no bytes and the font 404s — the same absence `1c fonts check`
+     * reports as *NOT POPULATED*, seen from the preview.
+     */
+    platformFonts: () => ({
+      read: async (path: string) => readStagedPlatformFont(ctx.cwd, path),
+    }),
   }
 }
 
