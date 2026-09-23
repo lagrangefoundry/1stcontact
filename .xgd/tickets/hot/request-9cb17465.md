@@ -6,9 +6,9 @@ title: The font catalogue has no generator — it cannot be refreshed or trusted
   stay current
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:31.288893+00:00'
-updated_at: '2026-09-23T18:10:07.077602+00:00'
+updated_at: '2026-09-23T18:25:01.832959+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -100,3 +100,84 @@ Upstream carries no **style descriptors** — nothing says "geometric", "humanis
 query retrieves the category slate rather than a precise match. Enriching entries with
 style descriptors is separate follow-up work and must not be done by inventing
 descriptions.
+---
+
+## What was built
+
+Two commands, deliberately separate. The catalogue is the evidence and [[DOC-56]] is the
+advertisement, so a refresh can be inspected and committed before the thing that tells the
+assistant what it may serve moves.
+
+### `1c fonts catalogue [--json] [--metadata <url|file>] [--repo <url|dir>]`
+
+Rebuilds `fonts/catalogue.json` and `fonts/CATALOGUE.md`. Existence comes from the live
+family list; licence comes from each family's own `METADATA.pb`. `--metadata` and `--repo`
+point the same build at a saved snapshot of the live list or at a checkout already on disk,
+so a refresh can be re-run and inspected without pulling the sources again.
+
+**How the ~2,031 `METADATA.pb` files are read.** A blobless partial clone
+(`--filter=blob:none --no-checkout --depth 1`) followed by a sparse checkout naming only
+`METADATA.pb` — ~5 MB and a couple of seconds, against a repository of many gigabytes of
+font binaries, and against the two thousand round trips that fetching them individually
+would be. It needs `git` on PATH; a clone that fails says so and writes nothing.
+
+**The join is on the name each `METADATA.pb` declares for itself.** `licence_source`
+records that file's repo-relative path (`ofl/roboto/METADATA.pb`) rather than a word for a
+kind of guess — there are no guesses left to name, and a path is checkable. Two files
+declaring one family name is not resolved by order: both are dropped and the family falls
+out as undeterminable.
+
+**The renamed `Edu` families are excluded, as the rule requires.** Reading each family's own
+`METADATA.pb` does not rescue them — their repository directories still carry the
+pre-rename names, and the live service serves `Edu NSW ACT Cursive` from a directory that
+does not exist in `google/fonts` at all. Six live families therefore leave the catalogue and
+are named in the report and in the file's own caveats. 1,946 live → **1,940 catalogued**,
+**1,935** in [[DOC-56]].
+
+**`classifications` and `subsets` are sorted.** Upstream's order for both is unstable
+between responses, and an unsorted copy would make every refresh a diff — which would
+defeat the no-change-no-write rule below. `designers` is *not* sorted: attribution order is
+upstream's own statement about who did what.
+
+**`retrieved` only advances when the records changed**, so a refresh that found nothing new
+leaves both files byte-identical and produces no commit.
+
+### `1c fonts doc [--json] [--stdout]`
+
+Projects [[DOC-56]]'s body from `fonts/catalogue.json` and writes it into the document.
+
+**The target is found by what it declares** — the system-KB `doc` ticket carrying
+`fields.source: fonts/catalogue.json` — not by a hard-coded uid, so the generator and the
+document agree by construction. No such document, or more than one, is a refusal rather
+than a guess. `--stdout` prints the body instead of writing it.
+
+**Only OFL 1.1 and Apache 2.0 families appear.** The five UFL 1.0 families stay in the
+catalogue and out of the document: their modification terms are cleared per family, and the
+document is read as permission.
+
+**Group assignment is ordered, and the order is the rule**: Symbols, then Noto, then Slab
+Serif, then category. A Noto symbol font is a symbol font; a slab upstream files under
+`Display` is still found by a slab query. Slab Serif comes from upstream's `stroke`, which
+is not its `category`.
+
+**An unchanged document is not rewritten.** The ticket store strips trailing whitespace on
+write, so the comparison normalises it — a byte comparison would call every run a change
+and commit the document on every invocation.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-311_font_catalogue_generator.test.ts`, driven through the CLI's real
+entry point against fixture sources on disk (a saved metadata document and a
+checkout-shaped directory) so the parse, join, writes and exit code are exercised without
+depending on Google's uptime:
+
+1. the catalogue is rebuilt from upstream, carrying every field of the record shape;
+2. licence is not resolved by directory name — a directory whose slug disagrees with the
+   family name still resolves, and a family no `METADATA.pb` declares is excluded and named;
+3. delisted families are dropped and reported, and additions are reported;
+4. unreachable upstream — on either side — fails and leaves the existing catalogue byte-identical;
+5. an unchanged refresh rewrites nothing, including `retrieved`; a real licence change is named;
+6. the projected document carries only servable families, splits Slab Serif / Symbols / Noto
+   out of category, and breaks each group into sub-headings of 22 by usage;
+7. the document is written once and not again;
+8. the document target is resolved by its declared source, and zero or two candidates refuse.
