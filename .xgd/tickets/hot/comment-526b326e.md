@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-313
 created_by: xgd
 created_at: '2026-09-23T18:03:41.076903+00:00'
-updated_at: '2026-09-23T20:50:40.268903+00:00'
+updated_at: '2026-09-23T20:51:16.652329+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -108,5 +108,14 @@ Now let me run a broader regression across the areas this touches.
 Now the workers project (the Worker-side bundle must still load the surface).
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="2c49b7d8-59c5-4376-a769-48c4f80fd7a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T20:51:15.958614+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
