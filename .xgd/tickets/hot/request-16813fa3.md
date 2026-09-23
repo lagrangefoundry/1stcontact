@@ -5,9 +5,9 @@ type: request
 title: A turn that dies uncatchably must still report legibly to the client
 created_by: EPIC-16
 created_at: '2026-09-22T23:13:21.139160+00:00'
-updated_at: '2026-09-23T03:02:21.183317+00:00'
+updated_at: '2026-09-23T03:02:26.031461+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -29,6 +29,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.339
+  story_points: 5
 ---
 
 ## Why
