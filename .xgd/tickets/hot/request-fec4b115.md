@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-b9b27697
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d77dd94e
 ---
 
 ## The gap
