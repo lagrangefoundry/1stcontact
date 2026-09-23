@@ -6,9 +6,9 @@ title: 'The editor font control: 30 curated faces, and a query box that reaches 
   1,941'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:38.760798+00:00'
-updated_at: '2026-09-23T18:07:00.605172+00:00'
+updated_at: '2026-09-23T18:12:23.738914+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   priority: low
@@ -43,9 +43,17 @@ is asking someone to choose a typeface from a list of words, which is not how an
 picks type.
 
 **Typing — the whole mirror.** A text box sits at the **top of the dropdown**. Typing
-`Ar` replaces the curated 30 with the **top 30 families beginning with `Ar`, alphabetically**
-— Archivo, Arimo, Arsenal, Arvo, and so on — each again rendered in its own face. The
-curated list is the empty-query state and nothing more.
+`Ar` replaces the curated 30 with the **top 30 families matching `Ar`, alphabetically** —
+Archivo, Arimo, Arsenal, Arvo, and so on. The curated list is the empty-query state and
+nothing more.
+
+**Search results are listed in the UI face, not their own** (operator direction,
+2026-09-22): *"I only want to render the curated list in fonts — if you go looking by name
+you need to know what you are looking for."* Someone typing `Archivo` is committed to
+Archivo; the preview earns its cost in browse mode, not lookup mode.
+
+**The selected family is rendered in its own face on the closed control**, however it was
+chosen. That face is already loaded — it is applied to the page — so it costs nothing.
 
 **The search reaches the entire mirror, not the shortlist.** That is the point of the
 control. There is no "advanced" toggle, no second screen, no preference to find: typing is
@@ -53,13 +61,31 @@ the only gesture, and it is available the moment the dropdown opens.
 
 ### Matching
 
-- **Prefix match on the family name**, as directed. `Ar` → families starting `Ar`.
+- **Word-prefix match**: a family matches when *any word* of its name begins with the
+  query. `Ar` → Archivo, Arimo, Arvo. `Mono` → Roboto Mono, JetBrains Mono, Space Mono.
+  `Sans` → Open Sans, DM Sans, Noto Sans.
+
+  This keeps strict-prefix predictability — no surprising mid-word hits — while matching
+  how people type a distinguishing word. Plain string-prefix would answer `mono` with
+  nothing, which is the common case rather than an edge one.
 - **Case-insensitive**, and tolerant of spacing — `playfair` matches `Playfair Display`.
-- **Alphabetical** order when a query is present. Popularity orders the curated default;
-  it does not order search results, because someone typing a prefix is looking for a
-  specific name rather than a popular one.
+- **Alphabetical** order when a query is present. Popularity orders the curated default; it
+  does not order results, because someone typing a name is looking for a specific family
+  rather than a popular one.
 - **Capped at 30**, with the cap made visible when more match — a silent truncation reads
   as "that is all there is".
+
+### Category chips
+
+One row of six toggles, from data the catalogue already carries: **Sans Serif, Serif, Slab
+Serif, Display, Handwriting, Monospace**. They narrow whichever list is showing — curated
+or query results.
+
+"Show me the serifs" is the dominant browse intent and this is the whole of it.
+
+**Deliberately excluded**, to keep a font picker from becoming a query builder: variable-axis
+filter, weight-availability filter, script/subset filter, popularity-sort toggle, fuzzy
+matching. The script filter is the first to revisit if a non-Latin site needs it.
 
 ### When nothing matches
 
@@ -72,29 +98,24 @@ sites, and point at the upload path where they supply their own and attest to th
 The list of known-but-unavailable families is a small, explicitly maintained set — it is
 not derivable from the catalogue, which by construction contains only what we *do* carry.
 
-## Rendering names in their own face — the real constraint
+## Rendering previews — bounded by construction
 
-Thirty families rendered in thirty faces means loading thirty fonts, and another thirty on
-each search. At unmodified upstream `woff2` that is roughly 1–2.5MB per list.
+Previews are confined to the fixed curated 30, which bounds this entirely.
 
-- **Load only what is visible.** Rows fetch their face as they scroll into view rather than
-  the whole list at once; a dropdown showing eight rows loads eight fonts.
-- **Never block on a preview.** `font-display: swap` or `optional`, so a row renders in a
-  fallback immediately and upgrades when its face arrives. A font control that stalls while
-  previewing is worse than one that previews late.
-- **Debounce the query** so typing `Archivo` does not fetch six successive result sets.
+- **A known, fixed set** — roughly 1–1.5MB of unmodified upstream `woff2`, cacheable across
+  sessions and, because platform fonts are shared-served ([[REQ-312]]), across tenants.
+  First open pays; every later one does not.
+- **No per-keystroke font loading.** Results render in the UI face, so typing fetches
+  nothing. The debounce-and-fetch-storm problem does not arise.
+- **Load only visible rows**, and **never block on a preview** — `font-display: swap`, so a
+  row renders in a fallback immediately and upgrades when its face arrives.
 
-**Open decision — preview subsets.** A name-only subset would be ~1–3KB against a 30–80KB
-full face, which is the difference between a snappy control and a slow one. But [[REQ-312]]
-deliberately mirrors **unmodified upstream `woff2`** to stay clear of OFL's Reserved Font
-Name clause, and subsetting is arguably modification. Three ways out, to be chosen
-knowingly rather than by accident:
-
-1. Full upstream faces, lazily loaded — no licence question, more bytes.
-2. Generated name-only preview subsets — fast, but reopens the RFN question [[REQ-312]]
-   closed.
-3. Server-rendered name images — no font loading in the browser at all, but new
-   infrastructure and a second rendering path to keep true to the mirror.
+**This closes an open question rather than deferring it.** An earlier draft weighed
+name-only preview subsets against full faces, because per-query previews needed to be
+cheap — and subsetting is arguably modification under OFL's Reserved Font Name clause,
+which [[REQ-312]] avoids by mirroring unmodified upstream `woff2`. With previews confined
+to a cached fixed set, **full upstream faces are affordable and the subsetting question
+does not arise.** The mirror stays unmodified.
 
 ## Selection of the curated 30
 
@@ -120,17 +141,21 @@ used. It has no effect on the assistant, which addresses the full mirror through
   in its own face.
 - The query box is present and focusable as soon as the dropdown opens — reaching the full
   mirror takes no discovery.
-- Typing `Ar` replaces the curated list with up to 30 families whose names begin with `Ar`,
-  in alphabetical order, each rendered in its own face.
+- Typing `Ar` replaces the curated list with up to 30 families matching `Ar`, alphabetically.
+- Query results are listed in the UI face, not in their own faces.
+- Word-prefix matching: `Mono` returns Roboto Mono, JetBrains Mono and Space Mono; `Ar`
+  returns Archivo, Arimo and Arvo but not Cardo.
 - Matching is case-insensitive and space-tolerant: `playfair` finds `Playfair Display`.
-- Clearing the query restores the curated 30.
+- Clearing the query restores the curated 30, rendered in their own faces.
 - A family in the mirror but outside the shortlist is selectable through the query box.
 - When more than 30 families match, the control says so rather than silently truncating.
 - A query matching a known commercial family that we cannot serve explains why and points
   at the upload path, rather than showing an empty list.
-- A row renders in a fallback face immediately and upgrades when its own face loads; the
-  control never blocks on a preview.
-- Only faces for visible rows are fetched.
+- A category chip narrows whichever list is showing; chips combine with a query.
+- The closed control renders the selected family in its own face, however it was chosen.
+- A curated row renders in a fallback face immediately and upgrades when its own face
+  loads; the control never blocks on a preview.
+- Only faces for visible curated rows are fetched. Typing fetches no faces.
 - Choosing a family binds it by the same path `use_font` uses — one binding mechanism, not
   two.
 - The shortlist has no effect on what the assistant may choose.
