@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T02:51:46.549307+00:00'
+updated_at: '2026-09-23T02:53:07.460217+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3343,5 +3343,49 @@ Want me to write this up as Finding 11 on EPIC-19? The turn-classification is wo
 <!-- xgd-chat role="user" ts="2026-09-23T02:51:43.463432+00:00" -->
 #### You
 I agree the latency is a problem. It may be just something we have to deal with. But the other thing is the site is not complete, and in my view it is small. Most of the small business sites I am looking at would be multiples of this size. Now fair enough I would say probably a majority of the time is being spent on styling and layout and a small business probably has most of the text that it needs at least to get started so once you have the styling and layout the other pages maybe come quickly... I think we just need to see. This is an important aspect of the beta test and I really need the tool to be not breaking for that test to be meaningful
+
+<!-- xgd-turn id="0036d4d0-3ce2-431f-8151-99e8c2dc53bb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:53:06.599500+00:00" -->
+#### Claude
+That reframes the size bug, and not in a good way. The LF site has **three pages**.
+
+```
+2,162,212 bytes of tool transcript  ÷  85 turns   ≈  25 KB per turn
+                                    ÷   3 pages   ≈ 720 KB per page
+D1 ceiling 2,000,000 bytes          →  ~79 turns, or ~2.8 pages
+```
+
+**A session gets about 80 turns or about 3 pages before it bricks its own archive.** You're describing beta sites at multiples of this size. On today's code, every beta tester hits that wall — most of them before they finish their first site, and the bigger the site the sooner it arrives.
+
+So this isn't a bug we happened to find. It's the beta's hard ceiling, and it's the thing standing between you and the measurement you actually want.
+
+## Your amortisation hypothesis is the right question, and it rests on the newest code in the product
+
+It's plausible — styling and layout are front-loaded, text is the customer's to supply, pages 4–12 should be cheaper than pages 1–3. But notice what turns 82–85 were: creating those new pages. And the code they exercised is hours old — **REQ-301 "copy a page to a new one, content and all" landed 15:13 today; REQ-300 "a newly added page arrives with an L1 document" at 15:26.** Turn 83 was you reporting that a new page arrives with no interior, turn 84 that existing pages weren't backfilled.
+
+The multi-page path is simultaneously the load-bearing assumption of your economics and the least-proven part of the product. I'd exercise it deliberately before the beta rather than discover its shape during one — build a 10-page site yourself and watch where the turns go. That's a day, and it either confirms the curve bends down or tells you the beta would have measured the wrong thing.
+
+There's also a compounding detail: styling and layout are exactly what generate tool calls. So the front-loaded phase is also the transcript-dense phase. Whatever amortisation exists in *turns* doesn't help the artifact — it fills fastest precisely when the customer is most engaged.
+
+## Beta-readiness, ranked
+
+1. **Unbounded artifacts.** Tool transcript, prose transcript, summary log — all append-only into a 2 MB D1 row. This is the ceiling. Nothing else matters until it's gone.
+2. **The coupling.** The prose fold dying because the tool fold failed is what turned a size limit into a dead session rather than a degraded one.
+3. **Durable junction (REQ-307).** Deploys drain safely on Cloudflare, so the dev-only amplifier won't follow you to beta — but isolate eviction under memory pressure will, and a 2 MB transcript with images in flight *is* memory pressure.
+4. **The correction-loop defaults** — show-don't-ask, look-before-you-claim, edit-narrowly. Not breakage; turn count. Worth doing before beta because it's what you'll be measuring.
+5. **BUG-138.** Cosmetic.
+
+Latency I'd agree to live with for now, on one condition: make it legible. Nine silent minutes and nine broken minutes are indistinguishable today, and after this week you've learned to read silence as failure. Your beta testers will learn the same thing faster.
+
+## I've been asking permission too often
+
+You've told me what you need. Here's what I'd do, in order, starting now:
+
+- **Trim `comment-ca74b1b7`** so your LF session lives again — you're blocked on it this minute.
+- **File the unbounded-artifact bug** covering all three artifacts plus the coupling, and free-code it.
+- Fold the turn classification and these numbers into EPIC-19 as Finding 11, since it's the baseline the beta gets measured against.
+
+Say go and I'll start with the trim. The only thing I still need timing on is the branch cut, since that restarts the builder under you.
 
 <!-- xgd-chat-end -->
