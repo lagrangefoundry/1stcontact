@@ -28,6 +28,7 @@ import {
   type StoredAssetManifest,
 } from '../../../tools/generate/src/store/revision-model'
 import { DOWNLOAD_PATH, gateTarget, handleGate, notFound, type GateEnv } from './gate'
+import { platformFontTarget, servePlatformFont } from './platform-fonts'
 import { handleLead, LEAD_PATH, type LeadEnv } from './lead'
 import {
   parseRoute,
@@ -226,15 +227,32 @@ export default {
       if (hit) return hit
     }
 
-    const response = await route(request, {
-      store,
-      bucket: env.SITES,
-      root: await rootSite(url, store, env.APEX_SITE_KEY),
-      sessionId,
-      sessions: new D1SessionReader(env.DB),
-      turnstileSitekey: env.TURNSTILE_SITEKEY,
-      assets: manifestReader(store, env.SITES),
-    })
+    /*
+     * THE SHARED PLATFORM FONT MIRROR ([[REQ-312]]), AND IT BELONGS TO NO SITE.
+     *
+     * Answered here rather than inside `route` because every other byte this
+     * Worker serves is resolved against a site — and a platform font is not one.
+     * Sending it through `siteOfRoute` would ask the cross-tenant guard whether
+     * this host may serve it, and on a bound customer domain the correct answer to
+     * that question is "no", which is the wrong answer to this one.
+     *
+     * It reads the edge cache above and is stored by the block below on exactly
+     * the same terms as a page, which is the whole benefit of sitting here: the
+     * most-requested shared bytes on the platform get the same warm path, and the
+     * `rootSite` lookup a page needs is never made for them.
+     */
+    const platformFont = platformFontTarget(url.pathname)
+    const response = platformFont
+      ? await servePlatformFont(platformFont, request, env.SITES)
+      : await route(request, {
+          store,
+          bucket: env.SITES,
+          root: await rootSite(url, store, env.APEX_SITE_KEY),
+          sessionId,
+          sessions: new D1SessionReader(env.DB),
+          turnstileSitekey: env.TURNSTILE_SITEKEY,
+          assets: manifestReader(store, env.SITES),
+        })
 
     // Only successful responses are stored. A 404 is the answer for both "never
     // existed" and "not published yet", and the second stops being true the

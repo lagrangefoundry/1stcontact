@@ -69,6 +69,12 @@ import {
 import { cmdCapturePage, cmdCaptureList, combineAudits, runCaptureAudit, createPlaywrightDriver } from './capture'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import { cmdFontsCatalogue, formatCatalogueReport } from './font-catalogue'
+import {
+  cmdFontsMirror,
+  cmdFontsPublish,
+  formatMirrorReport,
+  formatPublishReport,
+} from './font-mirror'
 import { cmdFontsDoc, formatFontDocReport } from './font-doc'
 import {
   cmdColors,
@@ -614,6 +620,21 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     a family the live list no longer carries is dropped and named. Unreachable upstream fails
     and leaves the existing catalogue untouched; a run that changes nothing rewrites nothing.
     --metadata and --repo point the same build at a saved snapshot or an existing checkout.
+  1c fonts mirror --repo <google/fonts checkout> [--ref <sha>] [--only <slug,…>] [--quality <0-11>] [--json]
+    Mirror every OFL 1.1 / Apache 2.0 family in the catalogue into fonts/mirror/ as woff2, and
+    write the platform tier to fonts/platform.json (REQ-312). The upstream ships TTF only, so
+    each release file is repackaged into the WOFF2 container — brotli, null transform, no
+    subsetting and no renaming — and a file that does not reverse back to the upstream bytes is
+    not written. Incremental: a family whose upstream bytes and staged output are both unchanged
+    is not re-read or re-compressed, so a re-run against an unchanged catalogue transfers
+    nothing. A family gone from upstream is reported and its manifest entry RETAINED, because a
+    live site may be serving it. The staged bytes are gitignored; the manifest is committed and
+    is the pin that makes two builds of the same commit serve the same faces.
+  1c fonts publish [--dry-run] [--json]
+    Upload the staged mirror to the platform R2 prefix, where public-site serves it from
+    /_fonts/ (REQ-312). Needs CLOUDFLARE_API_TOKEN — the same credential 1c kb build uses;
+    the account is discovered from the token. Digest-checked per object, so an interrupted
+    publish resumes by being re-run and an unchanged mirror transfers nothing.
   1c fonts doc [--json] [--stdout]
     Project DOC-56's body from fonts/catalogue.json and write it into the system-KB document
     that declares fonts/catalogue.json as its source. Only OFL 1.1 and Apache 2.0 families
@@ -2217,9 +2238,49 @@ export async function run(argv: string[]): Promise<void> {
         }
         return
       }
+      // [[REQ-312]] — the mirror is acquired like a dependency, so `mirror` and
+      // `publish` are two verbs and not one: converting 2.5GB of upstream binaries
+      // and pushing the result to R2 are separately resumable, and an operator
+      // inspects the manifest between them.
+      if (sub === 'mirror') {
+        try {
+          const report = cmdFontsMirror({
+            cwd: process.cwd(),
+            repo: typeof flags.repo === 'string' ? flags.repo : undefined,
+            ref: typeof flags.ref === 'string' ? flags.ref : undefined,
+            only:
+              typeof flags.only === 'string'
+                ? flags.only.split(',').map((s) => s.trim()).filter((s) => s !== '')
+                : undefined,
+            quality: typeof flags.quality === 'string' ? Number(flags.quality) : undefined,
+            onProgress: json ? undefined : (line) => console.error(line),
+          })
+          if (json) console.log(JSON.stringify({ ok: report.failures.length === 0, data: report }, null, 2))
+          else console.log(formatMirrorReport(report))
+          if (report.failures.length > 0) process.exitCode = 1
+        } catch (err) {
+          fail(err, json)
+        }
+        return
+      }
+      if (sub === 'publish') {
+        try {
+          const report = await cmdFontsPublish({
+            cwd: process.cwd(),
+            dryRun: flags['dry-run'] === true,
+            onProgress: json ? undefined : (line) => console.error(line),
+          })
+          if (json) console.log(JSON.stringify({ ok: report.missing.length === 0, data: report }, null, 2))
+          else console.log(formatPublishReport(report))
+          if (report.missing.length > 0) process.exitCode = 1
+        } catch (err) {
+          fail(err, json)
+        }
+        return
+      }
       if (sub !== 'check') {
         console.error(
-          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc.\n\n` + USAGE,
+          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc, mirror, publish.\n\n` + USAGE,
         )
         process.exitCode = 1
         return
