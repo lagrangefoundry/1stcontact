@@ -68,6 +68,8 @@ import {
 } from './edit'
 import { cmdCapturePage, cmdCaptureList, combineAudits, runCaptureAudit, createPlaywrightDriver } from './capture'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
+import { cmdFontsCatalogue, formatCatalogueReport } from './font-catalogue'
+import { cmdFontsDoc, formatFontDocReport } from './font-doc'
 import {
   cmdColors,
   cmdColorsAssign,
@@ -152,6 +154,47 @@ export type {
   FontWarning,
   ViolationKind,
 } from './fonts'
+export {
+  cmdFontsCatalogue,
+  formatCatalogueReport,
+  joinFamilies,
+  diffCatalogue,
+  readCatalogue,
+  renderCatalogueMarkdown,
+  parseMetadataPb,
+  parseLiveMetadata,
+  indexMetadataDir,
+  familySlug,
+  caveatsFor,
+  defaultSources,
+  REDISTRIBUTABLE_LICENCES,
+  CATALOGUE_JSON_REL,
+  CATALOGUE_MD_REL,
+  LICENCE_NAMES,
+} from './font-catalogue'
+export type {
+  Catalogue,
+  CatalogueEntry,
+  CatalogueAxis,
+  CatalogueChange,
+  CatalogueReport,
+  CatalogueSources,
+  ExcludedFamily,
+  LicenceIndex,
+  LiveFamily,
+} from './font-catalogue'
+export {
+  cmdFontsDoc,
+  formatFontDocReport,
+  projectFontDoc,
+  resolveFontDocTicket,
+  groupOf,
+  entryLine,
+  DOC_GROUPS,
+  GROUP_SIZE,
+  DOC_SOURCE_VALUE,
+} from './font-doc'
+export type { FontDocProjection, FontDocReport, DocTicketRef } from './font-doc'
 export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
 export { startServe } from './serve'
@@ -563,6 +606,21 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     is not true. Outstanding licence actions are reported but do not fail. Scans every
     site tree the file store can address, because a licence attaches to the font, not
     to the site.
+  1c fonts catalogue [--json] [--metadata <url|file>] [--repo <url|dir>]
+    Rebuild fonts/catalogue.json and fonts/CATALOGUE.md from upstream (REQ-311). Existence
+    comes from fonts.google.com/metadata/fonts; licence is read from each family's own
+    METADATA.pb in github.com/google/fonts, never inferred from a directory name. A family
+    whose licence cannot be determined is excluded and named in the report, never defaulted;
+    a family the live list no longer carries is dropped and named. Unreachable upstream fails
+    and leaves the existing catalogue untouched; a run that changes nothing rewrites nothing.
+    --metadata and --repo point the same build at a saved snapshot or an existing checkout.
+  1c fonts doc [--json] [--stdout]
+    Project DOC-56's body from fonts/catalogue.json and write it into the system-KB document
+    that declares fonts/catalogue.json as its source. Only OFL 1.1 and Apache 2.0 families
+    appear — the document is read as permission. Grouped by category with Slab Serif, Symbols
+    and Noto split out, then sub-headings of 22 families by usage, because KB chunking is
+    heading-anchored and a retrieval should return a slate rather than one family.
+    --stdout prints the body instead of writing the document.
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -2130,8 +2188,39 @@ export async function run(argv: string[]): Promise<void> {
     case 'fonts': {
       const json = flags.json === true
       const sub = rest[0]
+      // REQ-311 — `catalogue` and `doc` join `check`. They are separate verbs
+      // rather than one refresh because the catalogue is the evidence and the
+      // document is the advertisement: a refresh is inspected and committed
+      // before the thing that tells the assistant what it may serve moves.
+      if (sub === 'catalogue') {
+        try {
+          const report = await cmdFontsCatalogue({
+            cwd: process.cwd(),
+            metadata: typeof flags.metadata === 'string' ? flags.metadata : undefined,
+            repo: typeof flags.repo === 'string' ? flags.repo : undefined,
+          })
+          if (json) console.log(JSON.stringify({ ok: true, data: report }, null, 2))
+          else console.log(formatCatalogueReport(report))
+        } catch (err) {
+          fail(err, json)
+        }
+        return
+      }
+      if (sub === 'doc') {
+        try {
+          const report = cmdFontsDoc({ cwd: process.cwd(), stdout: flags.stdout === true })
+          if (flags.stdout === true) console.log(report.body)
+          else if (json) console.log(JSON.stringify({ ok: true, data: report }, null, 2))
+          else console.log(formatFontDocReport(report))
+        } catch (err) {
+          fail(err, json)
+        }
+        return
+      }
       if (sub !== 'check') {
-        console.error(`Unknown fonts subcommand '${sub ?? ''}'. Expected: check.\n\n` + USAGE)
+        console.error(
+          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc.\n\n` + USAGE,
+        )
         process.exitCode = 1
         return
       }
