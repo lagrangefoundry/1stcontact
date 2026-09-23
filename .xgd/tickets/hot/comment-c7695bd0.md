@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-304
 created_by: xgd
 created_at: '2026-09-22T23:15:22.212360+00:00'
-updated_at: '2026-09-23T02:35:01.436151+00:00'
+updated_at: '2026-09-23T03:01:36.672684+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -162,5 +162,42 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="85bd5536-8770-4d81-a48e-8d2047ee27ed-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T03:01:36.315354+00:00" -->
+#### Claude
+I'll re-establish the current state before doing anything.
+
+Typechecks clean across all packages. Now the test suite:
+
+None of the 12 touch the store/publish/ladder surface. Confirming REQ-304's own tests and the whole store/publish surface:
+
+The implementation is complete and green. Two UATs pin behaviour that's a technical consequence of the design but isn't named in the body yet — adding that language before finalising:
+
+Now moving the ticket to `free_coded` and cleaning up the branch:
+
+REQ-304 is complete and at `free_coded`.
+
+## What landed
+
+Assets are now addressed by content identity rather than by their bytes.
+
+- **`site_assets` gains a `digest` column** (SHA-256, hex), recorded by `write` and never recomputed on read. Bytes live at a per-site immutable key `sites/<siteId>/blob/<digest>`, so the draft, every revision, and the served site all name the same object. Migration `0020_asset_digest.sql`.
+- **`StoredAsset` split into two channels**: `StoredAsset` (name + bytes) stays the shape of a *write*; a new `AssetRef` (name + digest + size) is what a snapshot holds, a diff compares, a revision freezes, and a checkout restores. New port verb `assetManifest(site)`; `SiteWrite.assetRefs` writes by reference.
+- **`diffSnapshots` and `snapshotSha` read no asset bytes** — the sha hashes `path → digest`. `byteKey` is deleted.
+- **Freezing a revision writes a manifest** (`source/assets.json`), not asset objects. `public-site` resolves `assets/<name>` through it, falling back to the revision prefix for pre-change revisions — the on-disk shape says which, so there's no mode flag.
+- **Legacy compatibility**: an asset stored before this change acquires its digest on first read; a revision frozen before this change reads back *unverified* rather than refused (only `byteKey` could reproduce its old sha). Asset-less legacy revisions still verify.
+- **The ladder takes refs + a reader**, holds at most `LADDER_CONCURRENCY` sources, and rendition names are byte-identical to what `renditionSha` produced — no published path moved.
+
+## Verification
+
+Typechecks clean across all five packages. Full suite: **5498 passed, 21 failed**. I confirmed all 21 are unrelated to this work — 9 are load-only flakes (pass in isolation), and of the 12 genuine failures, none touch the store/publish/ladder surface. Two I checked against a pre-merge baseline worktree and traced to local uncommitted state (`PLATFORM_ADMINS` in your `wrangler.toml`; an untracked `.claude/` dir inside `account-portal` causing an `EISDIR`); the rest are other sessions' in-flight work (a new `Delegate` tool, `/api/chats/export` routes, font registry, port 8790 already bound). The nine REQ-304-surface test files all pass.
+
+## Ticket
+
+I appended one paragraph to the body before finalising, naming two behaviours the UATs pin that the design forces but the original body didn't state: writing by reference can name content the store lacks (refused outright, naming asset *and* digest, recording nothing), and a ladder that reads its own pictures can find one absent (dropped as an undecodable one already is, rather than failing the publish).
+
+Commits `6b494d1302` and `9d725c6e76`, merged to `xgd-working`, version 0.2.334, 13 story points. Branch cleaned, lock released. Ready for you to promote to `ready_to_reconcile` when you're satisfied.
 
 <!-- xgd-chat-end -->
