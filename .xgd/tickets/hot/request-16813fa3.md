@@ -5,7 +5,7 @@ type: request
 title: A turn that dies uncatchably must still report legibly to the client
 created_by: EPIC-16
 created_at: '2026-09-22T23:13:21.139160+00:00'
-updated_at: '2026-09-22T23:40:18.967069+00:00'
+updated_at: '2026-09-23T02:49:01.414958+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -200,3 +200,13 @@ a ledger that over-reports failure is investigated and one that under-reports it
 - `tests/test_UAT_FC_REQ-306_console_turn_health.test.ts` — the run is shouted above the
   figures; a healthy business is not shouted at; each row names the conversation and the turn; a
   ledger that cannot be read says so and nothing else; a business with no turns reads as quiet.
+
+### Two existing UATs pinned the sentence this ticket removes
+
+`test_UAT_FC_BUG-46_a_failed_rejoin_leaves_the_turn_and_the_pane_intact` and
+`test_UAT_FC_BUG-123_a_host_with_no_reopen_is_unchanged_but_not_silent` both asserted the
+notice verbatim: *the connection to that reply was lost*. Requirement 2 says the customer
+must not be told the connection dropped when it did not, so the assertions were updated to
+the new sentence — a wording supersession, not a behavioural one. What each test is actually
+about is unchanged and still asserted: a panel that cannot find out what became of a turn
+says so rather than going quiet. Both tests carry a note recording why the string moved.
