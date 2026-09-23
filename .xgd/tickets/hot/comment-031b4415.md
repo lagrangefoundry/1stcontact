@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:56:11.641517+00:00'
+updated_at: '2026-09-23T18:58:32.925097+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -565,5 +565,35 @@ I've noted option 1 as the conservative default but haven't selected it — it's
 <!-- xgd-chat role="user" ts="2026-09-23T18:56:11.407335+00:00" -->
 #### You
 what is the performance hit that we are concerned about? We need to download and convert these how often? Anually? They are part of the deploy but since they only change infrequently we only need to upload them infrequently (if our deploy tools are smart enough) and at the end of the day we serve the ones we use - which is true anyway so it will cost us what a few hundred MB of R2 storage - I'm not sure what the discussion here is of course we pull everything
+
+<!-- xgd-turn id="80392f69-9171-487f-9b55-d5bbbd6827af-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T18:58:32.174466+00:00" -->
+#### Claude
+You're right — there is no performance hit, and I framed a non-issue as a decision. Concretely:
+
+- **Visitor-facing: zero.** A page serves the two faces it uses. 1,941 in R2 is invisible to it.
+- **Storage: ~$0.02/month.** 1.35 GB at R2's ~$0.015/GB-month. **Egress is free on R2**, so serving costs nothing per request beyond read ops.
+- **Deploy: untouched.** The mirror is R2 objects, not Worker bundle — it persists across deploys independently, so it doesn't interact with the 10MB bundle limit or need smart deploy tooling. It's a data population step, not a build step.
+- **Convert: once per refresh.** 3,808 files, well under an hour on one machine.
+
+**Cadence:** upstream added 202 families in 2024, 122 in 2025, 42 so far in 2026 — so ~120–200/year. **Annual is fine**, with an ad-hoc run whenever we want something new. The case that actually warrants attention isn't additions, it's a family *removed* upstream, because a live site may be serving it — which is why the ticket already requires removals be reported rather than silently dropped.
+
+Also taking "we need to download and convert these" as settling the format question — that's route 1, converting repo TTFs ourselves, which was the conservative default. Recording it as decided rather than leaving three options open.
+
+The script died before writing, so the update re-applied the previous body — no changes lost, but none applied either. Let me check the actual headings.
+
+Encoding mismatch on the captured body — em-dashes mangled, so the match failed silently. Redoing with explicit UTF-8 and verifying each edit applies.
+
+REQ-312 updated and verified — that MISS was my check string, not the content.
+
+**Now settled in the ticket:**
+
+- **Format** — convert upstream TTFs to woff2 ourselves. Compression and container change, no glyph removed, no name altered, so the Reserved Font Name clause doesn't bite. gstatic's woff2 rejected explicitly (they're Google's subsets), as is subsetting by us.
+- **Sizing** — reframed as a corrected fact, not a gate. ~$0.02/month, no egress, R2 objects rather than bundle content so deploys neither re-upload nor wait on it. **Pull everything** recorded as your decision.
+- **Cadence** — annual refresh, with ad-hoc runs. Rationale in the ticket: ~120–200 families added per year, and falling a few months behind just means a family the assistant can't name yet.
+- **Behaviour** gained three testable lines — same faces from the same commit, a refresh leaves already-served faces byte-identical, a deploy doesn't re-upload or wait.
+
+**One question left in REQ-312:** the serving origin — which hostname and path shape platform fonts serve from. REQ-313's `use_font` writes that `src` and `1c fonts check` resolves it, so both wait on it. It's the last unsettled item across the whole epic.
 
 <!-- xgd-chat-end -->
