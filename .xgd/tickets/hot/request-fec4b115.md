@@ -6,18 +6,22 @@ title: 'The font catalogue promises 1,941 families whose bytes do not exist: mir
   + registry platform tier'
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:55.065108+00:00'
-updated_at: '2026-09-23T20:17:06.663598+00:00'
+updated_at: '2026-09-23T20:18:52.866519+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-b9b27697
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d77dd94e
+  commits:
+  - working_sha: f62cf1b0f7359261cb025f176d659fb656c65998
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.344
 ---
-
 
 ## The gap
 
