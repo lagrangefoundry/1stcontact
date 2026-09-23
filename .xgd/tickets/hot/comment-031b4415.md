@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T20:17:10.637296+00:00'
+updated_at: '2026-09-23T21:13:22.659530+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -643,5 +643,11 @@ The only real cost is that each site's *edge* cache holds its own copy — but p
 I updated its body twice this session — the format decision (convert TTFs ourselves), the cadence, and the sizing reframe — and it was already `free_coding`. The edits made it *more* determined rather than less, and one replaced the open "woff2 problem" section with a settled answer, so it shouldn't invalidate work in progress. But whoever's coding it should know the contract moved under them.
 
 Given that, how do you want the serving decision recorded? I'd rather not edit 312 a third time mid-flight. Options: put it in EPIC-21 and let REQ-313 pick it up from there, file it as its own small ticket, or go ahead and amend 312 if you'd prefer it all in one place.
+
+<!-- xgd-turn id="24ed5a62-5781-4604-9e25-2d0614401e5a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T21:13:21.892142+00:00" -->
+#### You
+put it in 312 and I will tell it to re-review
 
 <!-- xgd-chat-end -->
