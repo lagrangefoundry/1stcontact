@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T21:15:55.929060+00:00'
+updated_at: '2026-09-23T23:10:57.831277+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -684,5 +684,11 @@ My comment preserves their reasoning and argues four things they didn't weigh:
 That turns on a question I flagged rather than assumed: **are pages re-rendered and republished when a domain binding changes?** If yes, the staleness window is bounded by a step that already happens and the objection mostly dissolves. If no, they're right as written. Worth having the re-review answer that first — it decides the whole thing.
 
 Storage is unaffected either way: one copy, one prefix, takedown still a flip and a purge. Only the host in the `src` changes.
+
+<!-- xgd-turn id="78ba8174-1b92-4400-ad78-e4122caa8e17-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T23:10:57.757428+00:00" -->
+#### You
+Are fonts now available? Do I need to do a build how do I get these changes to the dev environment?
 
 <!-- xgd-chat-end -->
