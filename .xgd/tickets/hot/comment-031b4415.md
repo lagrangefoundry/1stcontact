@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T23:40:27.636940+00:00'
+updated_at: '2026-09-23T23:45:23.075789+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -771,5 +771,51 @@ Can you give me a couple of extra tools then:
 bin/deploy --fonts
 
 And that should deploy to dev or prod as directed please
+
+<!-- xgd-turn id="c1cc5bf4-4bf4-4efd-a05a-d10c7dd1c107-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T23:45:22.770325+00:00" -->
+#### Claude
+Let me get you real numbers rather than a guess.
+
+Now let me check what "dev" means in this repo's deploy vocabulary before scoping.
+
+Answering the timing question first, then scoping the tool.
+
+## How long step 2 takes
+
+Not 1,900 lines — **1,940 families**, which is **3,808 font files, 2.45 GB of TTF** (REQ-312 measured that from the recursive OFL tree and put the table in its body).
+
+I benchmarked the actual conversion. `sfntToWoff2` is Node's `brotliCompressSync` at `BROTLI_QUALITY = 11` — brotli's maximum — single-threaded, plus a full round-trip decode verification on every file.
+
+**~0.65 MB/s**, consistent across a 1.4 MB and a 15 MB sample. So:
+
+> **2.45 GB ÷ 0.65 MB/s ≈ 65 minutes of brotli — call it 75–90 minutes wall clock** with parsing, round-trip verification, hashing and writes.
+
+It's incremental and digest-checked, so that's one-time and a re-run is near-free. But it's an hour and a half before you see a font.
+
+**There's a cliff you should know about.** On the 15 MB sample:
+
+| quality | time | output |
+|---|---|---|
+| q11 (default) | 23.6 s | 4.56 MB |
+| q10 | 10.7 s | 4.63 MB |
+| **q9** | **1.2 s** | 4.97 MB |
+
+q9 is ~20× faster for ~9% more bytes. `1c fonts mirror --repo <dir> --quality 9` would finish in **under 10 minutes**. For getting fonts in front of you today that is obviously the right trade; for the production corpus it obviously isn't. The flag already exists — nothing tells you the cliff is there, which is how the default quietly costs 90 minutes when you wanted 5.
+
+## bin/deploy --fonts
+
+Filed as **REQ-315** under EPIC-21 — *"bin/deploy --fonts, and a dev target the font mirror never had"*. Scoped, not coded: this session is the epic, so the branch cut belongs to the child.
+
+Two things I found while scoping that shaped it:
+
+**It can't be a per-app deploy hook.** `bin/deploy` iterates apps, and two of them serve `_fonts/…` — but there's one bucket and the mirror isn't per-app. As a hook it would publish 1.35 GB twice; digest-checking means the second pass transfers nothing, but it still re-reads and re-hashes the whole corpus. So `--fonts` is a repo-level target, once per invocation.
+
+**"Dev" is the half that doesn't exist.** Production is just `1c fonts publish` with a door on it — same REST API, same token, already incremental and resumable. But local dev needs the objects written into miniflare's R2 state (SQLite + a `blobs/` dir under `.wrangler/state/v3/r2/<bucket>/`), and **that state is per app directory** — `apps/control-app/.wrangler/state` and `apps/public-site/.wrangler/state` are separate stores. So "the local bucket" is two locations. Seeding only control-app leaves a locally-served published site 404ing the same fonts the preview next to it renders fine.
+
+I defaulted it to `--env production` to match the rest of `bin/deploy`, with the local target selected explicitly — a deploy script that silently wrote a local store when you meant the cloud would be the wrong way round. Say if you'd rather it defaulted the other way.
+
+One flag on the ticket: it assumes you want `--fonts` composable with the existing `--dry-run` and `--env`, not a separate subcommand. That's the cheaper read of "as directed" but it's a guess about your intent.
 
 <!-- xgd-chat-end -->
