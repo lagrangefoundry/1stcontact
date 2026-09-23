@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-312
 created_by: xgd
 created_at: '2026-09-23T18:02:52.600472+00:00'
-updated_at: '2026-09-23T21:52:29.984325+00:00'
+updated_at: '2026-09-23T22:11:23.680446+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -178,5 +178,33 @@ Ticket body is current: I preserved your edits (route 1 in your words, the sizin
 <!-- xgd-chat role="user" ts="2026-09-23T21:52:29.541767+00:00" -->
 #### You
 Please review **COMMENT-3711 attached to this ticket and add it to your scope**
+
+<!-- xgd-turn id="47005f79-1832-4e53-be2d-7ee63be253a4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T22:09:10.125520+00:00" -->
+#### Claude
+I'll read the comment and the current ticket state first.
+
+Design is settled. Cutting the branch.
+
+Now the schema layer — the one definition of what a platform font path is.
+
+Consolidating the duplicated `platformFontSrc` into the schema's single definition.
+
+Now `public-site`: answer `_fonts/…` at each snapshot root, not only the origin root.
+
+Now the disk-backed reader for the Node transports, beside the mirror that stages the bytes.
+
+Now wire the router: the deps seam and the interception inside `servePreview`.
+
+Now pass the reader from the two page roots (preview and portal).
+
+Now the Node builder transport injects the disk reader, and the capture fixture answers the same path.
+
+Now the checker: report an off-origin font `src` with its own sentence.
+
+Now the tests — updating the existing REQ-312 UATs for the new shape and adding coverage for both snapshot roots.
+
+Good har
 
 <!-- xgd-chat-end -->
