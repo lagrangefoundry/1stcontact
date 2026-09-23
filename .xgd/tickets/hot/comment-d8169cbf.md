@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T03:07:21.793268+00:00'
+updated_at: '2026-09-23T03:08:42.974078+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3450,5 +3450,47 @@ One thing I won't do without you: **trimming `comment-ca74b1b7`.** Your LF sessi
 on 1 are you suggesting that we discard transcript content - hmm - I am pretty uncomfortable with that. In my view one of the core strengths of XGD is the massive powerful product knowledge base that the AI has access to from every stored conversation - nothing is thrown away.
 
 I think the problem here is that we are trying to store a CLOB in a db - I knew there was going to be a limit there - can we discuss alternative storage - at least for the prose - old tooling runs I am not so worried about but the text is gold.
+
+<!-- xgd-turn id="c6c866ae-c2ba-43cd-a69a-64926628fe98-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T03:08:42.887226+00:00" -->
+#### Claude
+Two corrections, then the real answer.
+
+I proposed *rolling* for the prose — new comment, nothing dropped — and eliding only for tool records. But your principle applied uniformly is better: if rolling works, nothing needs discarding at all.
+
+More importantly: **this isn't an XGD limit, it's the D1 adapter's.** The same transcript through `file_archive.js` — which is what XGD proper uses — has no ceiling. A git-backed store writes a file. The 2 MB wall exists only because this Worker's ticket store is D1-backed. Your "nothing is thrown away" principle isn't in tension with the architecture; it's in tension with one adapter.
+
+## Three shapes, and you've named the problem correctly
+
+**Roll across comments.** Comments are already tickets in their own right, and a ticket can have many. A session gets `chat_transcript` 1, 2, 3…; the archive appends to the newest and the reader concatenates. No new binding, no new store, every byte kept, CAS preserved per segment. This is the cheapest thing that satisfies your principle, and it's a day of work.
+
+**R2 log segments.** One object per fold increment; D1 keeps the manifest. This is the honest answer at scale. Worth noting you already *had* an R2 archive and moved off it — `ai.ts` records why: *"R2 has no append and the read-modify-write had to be written somewhere."* Log segments dodge exactly that objection: you never rewrite an object, you PUT a new one and never touch it again. So the reason you left doesn't apply to this shape. Cost is a second store in the read path and list-and-get to reassemble.
+
+**Segmented rows in D1.** Rolling, but below the comment abstraction. More invasive than rolling for no advantage over it.
+
+I'd roll now and move to R2 segments when a session outgrows rolling — which, at ~2 MB per page, is a real horizon rather than a theoretical one, but not this month.
+
+**The one non-trivial bit:** the transcript format ends with an `<!-- xgd-chat-end -->` sentinel, so you can't naively concatenate segment bodies — you'd have a sentinel mid-stream. Either segments join before parsing, or the format learns about segmentation. That's a format question, which makes it upstream's, and it's pinned by a conformance corpus across two languages. It's the part I'd want scoped properly rather than improvised.
+
+## A separate find, worth fixing whichever shape we pick
+
+```js
+async _hasToolTranscript(ctx) {
+  return Boolean(await this.archive.toolTranscript(ctx.sessionId))
+}
+```
+
+`toolTranscript()` returns the entire body as a string. So **every turn's seed assembly pulls 2.16 MB out of D1 to compute a yes/no.** That's not the size bug, it's just waste, and it gets worse as the artifact grows regardless of how we store it.
+
+## On tool runs
+
+Agreed they're the less precious half — but if rolling keeps them for free, keep them. The only real argument for bounding that artifact was read cost, and the read cost turns out to be the boolean bug above rather than the artifact itself. Fix that and there's no reason to discard tool history either.
+
+## Where that leaves the work
+
+Most of this is upstream's: the comment-addressing, the sentinel/format question, the apply-ordering coupling, and the boolean read all live in `ticket_store.js` and `manager.js`. Our side is the adapter wiring and whichever store we point it at.
+
+Shall I file it that way — one upstream REQ for the archive's segmentation and the coupling, one here for the storage choice — and get going? And I still need your go on trimming `comment-ca74b1b7`; your LF session has three variants in it you haven't chosen between, and it's dead until something moves.
 
 <!-- xgd-chat-end -->
