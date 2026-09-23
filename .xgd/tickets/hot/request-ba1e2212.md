@@ -5,10 +5,10 @@ type: request
 title: A durable junction, so a deploy does not have to wait for an empty house
 created_by: EPIC-19
 created_at: '2026-09-22T23:27:12.118848+00:00'
-updated_at: '2026-09-22T23:38:19.568011+00:00'
+updated_at: '2026-09-23T02:36:51.693800+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
