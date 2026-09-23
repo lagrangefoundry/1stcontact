@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-313
 created_by: xgd
 created_at: '2026-09-23T18:03:41.076903+00:00'
-updated_at: '2026-09-23T20:51:16.652329+00:00'
+updated_at: '2026-09-23T20:54:27.705248+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -117,5 +117,42 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="2c49b7d8-59c5-4376-a769-48c4f80fd7a3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T20:54:26.741932+00:00" -->
+#### Claude
+Now the ticket body gains the language the remaining UATs trace to.
+
+Now the version bump and commit.
+
+Done — REQ-313 is `free_coded` on `xgd-working` (`b89dfbcb0e`, merged as `d097673ee4`).
+
+## What landed
+
+**`use_font(family, weights?, styles?)`** — declared in `l1-surface.json` under **`AuthorPages`**, implemented in `toolbox-core.ts`, writing through `editDocumentSet` (the same single write path `set_page_style` uses). `ManageAssets` stays ungranted: the surface gains a source of content without gaining a way to fetch one — no parameter takes a URL, a path or a byte.
+
+Decisions I made, all recorded on the ticket body:
+
+- **`src` is site-relative `/_fonts/<slug>/<file>.woff2`.** REQ-312's `public-site` answers that prefix ahead of the site grammar on *every* host it serves, so one spelling reaches the mirror from a local preview, staging, `1stcontact.io` and a bound customer domain — nothing pins a hostname into a page, and same-origin removes CORS.
+- **One resource entry per weight × style.** The renderer emits `font-weight` only when set, so a face bound without one matches 400 alone. A variable family binds its single file once per weight, each carrying its own `weight`; the `@font-face` descriptor pins the `wght` axis. No renderer change.
+- **Every page by default**, `page` narrows it. Email pages are skipped and the result says which — a mail client has no web fonts, so the email target refuses `resources` outright.
+- **Refusals**: `NOT_FOUND` names the family and lists near-named ones we do serve; `CONFLICT` when the page already serves that family from its own assets (the tenant's bytes on the tenant's attestation — not ours to swap); `ENVIRONMENT` when the mirror was never populated. An unshipped weight is *not* a refusal — the nearest is bound and both the substitution and the family's real weights come back.
+
+**`1c fonts index`** projects `fonts/platform.json` (joined to the catalogue for category, named weights, axis ranges) into `platform-fonts.json`, which the toolbox imports as data — `use_font` runs in a Worker with no filesystem, the same reason `l1-surface.json` is a static import. `1c fonts mirror` now runs it too, so it is not a remembered step, and `1c fonts check` gained **`stale-font-index`**, because that drift is visible from nowhere else.
+
+**Knowledge corrections** at source: the `"or a font"` clause is out of the fetching absence (and it now says a typeface is explicitly *not* one of these), and the `servedFontFamily` rule `REF-l1.md:604` is projected from gained its resolution — kept inside the projection's 240-char budget, which is what silently dropped the rule from the reference on my first attempt.
+
+## Tests
+
+12 UATs in `tests/test_UAT_FC_REQ-313_use_font.test.ts`, driving the real chain: `1c fonts mirror` over a fixture `google/fonts` checkout with real TrueType bytes → `1c fonts index` → `use_font` via `l1Operations` over a real fs store → `1c fonts check` passes. Assertions read the page JSON the store wrote.
+
+I also added `use_font` to the two enumerated write-set gates (`REQ-126`, `reconciliation-assistant-control-surface`) with notes — those lists exist so a new write cannot appear as a diff nobody read.
+
+Full node suite: **4234 passed, 16 failed**. I verified all 16 are pre-existing by stashing and re-running the same files on the unmodified tree — identical 9 files / 16 tests (filing-service ports, build-deploy smoke, webui scope, `Delegate` in the conversation grant, `tenant-cost.js` vocabulary). Workers suite: **1342 passed**, and `wrangler deploy --dry-run` bundles.
+
+## One thing to know
+
+`fonts/platform.json` does not exist yet — REQ-312 landed the mirror *code*, not the bytes. So the committed index is `{"mirror":null,"families":[]}` and `use_font` currently refuses every family with the `ENVIRONMENT` sentence. It becomes live the moment someone runs `1c fonts mirror --repo <google/fonts checkout>` and `1c fonts publish`; the index is written by the mirror, so nothing else needs doing.
 
 <!-- xgd-chat-end -->
