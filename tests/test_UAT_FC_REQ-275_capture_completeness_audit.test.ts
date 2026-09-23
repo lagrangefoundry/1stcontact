@@ -212,7 +212,13 @@ describe('REQ-275 — the completeness probe', () => {
    * schema bumps ONCE for the four, not four times.
    */
   it('test_UAT_FC_REQ_275_the_four_landed_axes_share_one_schema_bump', () => {
-    expect(CAPTURE_SCHEMA).toBe(4)
+    // REQ-302 bumped the stamp to 5, so the CURRENT schema is no longer pinned
+    // here — that was incidental to what this UAT is about. What it is about is
+    // that REQ-275's four axes came out of ONE mechanical pass and share ONE
+    // bump, which is a property of the schema-4 group and stays true however far
+    // the stamp advances afterwards. Pinning the live number instead would make
+    // every later capture change look like a REQ-275 regression.
+    expect(CAPTURE_SCHEMA).toBeGreaterThanOrEqual(4)
     const landed = CAPTURE_SCHEMA_AXES.filter((a) => a.since === 4).map((a) => a.axis)
     expect(landed).toEqual(['newTab', 'controlName', 'formMethod', 'required'])
 

@@ -554,6 +554,26 @@ export interface ContentRun extends ElementGeometry {
   accentBox?: Box | null
   /** Computed left padding/indent in px. */
   paddingLeftPx?: number
+  /**
+   * REQ-302 — the other three padding sides and the run's own text-align.
+   *
+   * REQ-64 added all four axes to {@link RawRun} and taught the comparator to
+   * read them, but the projection to this interface copied `paddingLeftPx` and
+   * dropped the rest, so a reference bundle could not answer four questions the
+   * reproduction side answers on every run. They were the bulk of one gate run's
+   * `unmeasuredAxes`: four axes × every matched run, compared nowhere.
+   *
+   * Optional so pre-REQ-302 bundles still parse; a bundle written before the
+   * change reports them through {@link CAPTURE_SCHEMA_AXES} rather than reading
+   * as a measured zero.
+   */
+  paddingTopPx?: number
+  /** REQ-302 — see {@link paddingTopPx}. */
+  paddingRightPx?: number
+  /** REQ-302 — see {@link paddingTopPx}. */
+  paddingBottomPx?: number
+  /** REQ-302 — the run's normalized text-align. See {@link paddingTopPx}. */
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (nearest painted
    *  ancestor background), null on the band. Surfaces a slightly-off panel colour
    *  the text-colour comparison misses. Optional so pre-fill bundles still parse. */
@@ -613,6 +633,19 @@ export interface Section {
   layout: Layout
   content: ContentRun[]
   items: SectionItem[]
+  /**
+   * REQ-302 — the index within {@link content} each {@link items} row belongs
+   * at, parallel to `items`.
+   *
+   * Repeated rows are lifted out of the content walk by the extractor's
+   * item-group detection, and were then re-appended after all of the section's
+   * content — so a card whose bullet list was the band's one detected group had
+   * its bullets emitted after a LATER card's copy. Everything downstream that
+   * reads a section's runs as reading order inherited that inversion. The anchor
+   * is what lets a reader put them back; absent on a bundle written before
+   * REQ-302, where appending is all that can be done. See `runsInDocumentOrder`.
+   */
+  itemsAt?: number[]
   /** REQ-47 — text-free rendered elements (form controls, dividers) in this section. */
   fields: Field[]
 }

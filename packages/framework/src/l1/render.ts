@@ -2378,17 +2378,27 @@ function geometryRules(
   /**
    * The width declaration(s) for one rung.
    *
-   * `width: auto` is not decoration — it is what keeps the ladder working. The
+   * The reset is not decoration — it is what keeps the ladder working. The
    * rungs are cumulative overrides of the SAME property: the rule at 320px stays
    * in force at 1280px and is simply overridden by the rules above it. Renaming
    * the upper rungs to `min-width` stops them overriding anything, which leaves
    * the lowest rung's *interpolation* live far outside the segment it was fitted
    * to — `calc(-836.545px + 314.545vw)` is 343px at 375px wide and 3190px at
-   * 1280px. Resetting `width` to `auto` on the same rung restores the override
-   * and hands sizing to shrink-to-fit, with the captured value as the floor.
+   * 1280px. Resetting `width` on the same rung restores the override and hands
+   * sizing to shrink-to-fit, with the captured value as the floor.
+   *
+   * REQ-302 — the reset is `fit-content`, NOT `auto`. REQ-117 wrote `auto` when
+   * every placement was absolute, where `auto` IS shrink-to-fit. REQ-278's flow
+   * frame emits `position: relative` on a block-level box, and there `auto` means
+   * "fill the containing block" — so a relaxed flow-placed run stretched to its
+   * column (686px of captured wordmark rendered at 1192px) and a
+   * `background-clip: text` gradient was painted across the wrong area, leaving
+   * the glyphs stranded in the flat head of the ramp. `fit-content` is
+   * shrink-to-fit in BOTH frames and still grows with longer content, which is
+   * REQ-117's whole stated purpose, so one declaration serves both.
    */
   const widthDecls = (atPx: number, value: string): string[] =>
-    relaxed(atPx) ? [`width: auto`, `min-width: ${value}`] : [`width: ${value}`]
+    relaxed(atPx) ? [`width: fit-content`, `min-width: ${value}`] : [`width: ${value}`]
 
   /** Held (non-interpolated) declarations for one keyframe. */
   const decls = (kf: L1Geometry['keyframes'][number]): string[] => {
