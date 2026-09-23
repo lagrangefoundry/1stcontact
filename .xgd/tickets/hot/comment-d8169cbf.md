@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T02:53:07.460217+00:00'
+updated_at: '2026-09-23T02:58:21.462940+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3387,5 +3387,13 @@ You've told me what you need. Here's what I'd do, in order, starting now:
 - Fold the turn classification and these numbers into EPIC-19 as Finding 11, since it's the baseline the beta gets measured against.
 
 Say go and I'll start with the trim. The only thing I still need timing on is the branch cut, since that restarts the builder under you.
+
+<!-- xgd-turn id="d478c0cb-83d4-4665-8914-a784bdaa97f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:58:20.516130+00:00" -->
+#### You
+Actually it has one page - there are three versions when we choose one the others will be deleted - that is another pattern we need to discuss huge innovation that came for free - we can create multiple versions of the customer site and compare. Much stronger than trying to work with text.
+
+Do we have a solution to 1 yet? I have lost track of that - thanks for re-raising it - also I don't understand 2
 
 <!-- xgd-chat-end -->
