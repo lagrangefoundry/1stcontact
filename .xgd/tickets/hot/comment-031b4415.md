@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:26:41.417125+00:00'
+updated_at: '2026-09-23T18:29:13.599352+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -523,5 +523,41 @@ Full slate under the epic: DOC-56 (catalogue), REQ-311 (generator), REQ-312 (mir
 Please take a look at your child REQ-312 it has questions - on running the mirror - that should be part of the system build - not sure its something we want/need to do every build but it needs to be in that tool set just like any other dependency.
 
 Please answer any questions from 312 that you feel confident about in its ticket. bring anything else back here.
+
+<!-- xgd-turn id="3e4f2bea-7909-4179-a8fc-97d7026ae99a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T18:29:11.724209+00:00" -->
+#### Claude
+The ticket's open points aren't flagged as questions — let me pull them out, and verify a couple empirically rather than reason about them.
+
+TTF only — **no woff2 in the repo at all.** Inter ships two variable TTFs at 1.78MB; Lato ships 18 static TTFs at 11.9MB. Let me size the whole corpus properly rather than extrapolate from three families.
+
+Measured. Now updating REQ-312 with what I can settle, including two corrections to facts I'd asserted.
+
+REQ-312 updated. **Answered in the ticket:**
+
+- **Build integration** — your direction written in: a `1c fonts mirror` verb in the release toolset alongside `1c kb build`, acquired like a dependency rather than rebuilt like an artifact. Not per-build, pinned to a catalogue version so two deployments from the same commit serve the same faces, incremental, and an unpopulated mirror reports itself rather than silently serving nothing.
+- **Registry placement** — platform entries go in a *separate generated file*, not `fonts/registry.yaml`. That file is nine hand-authored entries carrying the reasoning behind each licence judgement; 1,941 generated entries would drown it and make diffs unreadable.
+- **Licence text** — every upstream family ships its own `OFL.txt` (2,379 across the tree). Mirror each alongside its family's bytes so the notice travels with the font, plus an aggregate index at the origin root.
+
+**Two things I had wrong, now corrected in the ticket:**
+
+**The `woff2` premise was false.** `github.com/google/fonts` ships **TTF only** — `ofl/inter` is two variable TTFs and no woff2; the whole OFL tree has 3,808 TTFs and zero woff2. The woff2 everyone uses comes from `fonts.gstatic.com`, and **those are Google's unicode-range subsets**. So "mirror unmodified upstream woff2" — which REQ-312 specified and REQ-314's preview decision leans on — isn't a thing that exists.
+
+**Sizing was off by an order of magnitude.** Not "a few hundred MB": **2.45 GB of TTF, ~1.35 GB converted to woff2.** And preferring variable files saves nothing (2.44 vs 2.45 GB) — families that ship variable mostly ship *only* variable, so there are no redundant statics to drop. That optimisation is closed.
+
+## Bringing back to you
+
+**1. The woff2 route — needs your call.** Three options, written into the ticket unselected:
+
+- **Convert repo TTFs ourselves.** Compression and container change only, no glyph removed, no name altered — the strongest position on Reserved Font Name. Costs a conversion step and the most bytes.
+- **Mirror gstatic's woff2.** Far smaller, and it's what google-webfonts-helper and thousands of self-hosting sites do — but they're Google's subsets, so we'd be redistributing a modified version, which is the exact question the first option avoids.
+- **Convert and subset ourselves.** Smallest, most controlled, most clearly a modification.
+
+I've noted option 1 as the conservative default but haven't selected it — it's a licence-posture decision, not a technical one.
+
+**2. The serving origin.** Which hostname and path shape platform fonts serve from. Both REQ-313's `use_font` (writes the `src`) and `1c fonts check` (resolves it) depend on this, so it wants settling before either starts.
+
+**3. Worth a sanity check given the size.** "Ship everything for the AI" was decided when I thought this was a few hundred MB. At 1.35 GB it's still cheap in R2 terms, and I'd still mirror everything — but you should know the real number before it's treated as settled.
 
 <!-- xgd-chat-end -->
