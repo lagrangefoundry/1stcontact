@@ -417,8 +417,11 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve({
         siteJson: copy(held.siteJson),
         pages: held.pages.map((p: StoredPage) => ({ name: p.name, page: copy(p.page) })),
+        // A SNAPSHOT HOLDS IDENTITIES, NOT BYTES ([[REQ-304]]), so the size the
+        // draft stamps with is already recorded here and no asset is read to
+        // produce this listing.
         assets: held.assets.map(
-          (a: StoredAsset): AssetStamp => ({ name: a.name, stamp: String(a.bytes.byteLength) }),
+          (a: AssetRef): AssetStamp => ({ name: a.name, stamp: String(a.size) }),
         ),
       })
     },

@@ -99,20 +99,41 @@ describe.each(SITE_BACKENDS)('REQ-304 over the $name store', ({ make }) => {
   })
 
   it('test_UAT_FC_REQ-304_a_picture_replaced_in_place_is_reported_modified', async () => {
-    // REQUIREMENT 2's CRUX, on every adapter. A name and a length are not an
-    // identity. Two different photographs of the same length under one name must
-    // not read as unchanged — the store would otherwise freeze a revision
-    // describing a picture nobody uploaded.
+    // REQUIREMENT 2's CRUX. A name and a length are not an identity: two
+    // different photographs of the same length under one name must not read as
+    // unchanged, or a publish would freeze a revision describing a picture
+    // nobody uploaded.
+    //
+    // ASSERTED AT THE FREEZE, WHICH IS WHERE THE HARM WOULD BE, and where the
+    // property holds on EVERY adapter. The comparison a publish makes is over
+    // {@link snapshotEntries} — a listing of digests — so it is byte-exact
+    // without reading a byte.
+    //
+    // AND NOT THROUGH `pendingChanges` HERE, because these two tiers DERIVE an
+    // asset's stamp rather than recording it ([[REQ-303]]): a directory on an
+    // operator's disk is not this store's to own, and the memory adapter mirrors
+    // its promise deliberately so that a suite run over both asserts one
+    // behaviour. Their cheap change COUNT is a floor, which is the trade
+    // [[REQ-303]] names. The tier that records identity at write — D1/R2, the
+    // one a client's site actually lives on — answers this exactly and without
+    // reading either version, and its twin asserts that
+    // (`test_UAT_FC_REQ-304_an_asset_changed_in_place_is_still_reported_modified`).
     const site = make({ assets: { 'hero.png': picture(1) } })
     try {
-      await publishSite(site.store, site.slug, {})
-      expect((await pendingChanges(site.store, site.slug)).modified).toEqual([])
+      const first = await publishSite(site.store, site.slug, {})
 
       const replacement = picture(200)
       expect(replacement.byteLength).toBe(4096) // same name, same size…
       await site.store.write(site.slug, { assets: [{ name: 'hero.png', bytes: replacement }] })
 
-      expect((await pendingChanges(site.store, site.slug)).modified).toEqual(['assets/hero.png'])
+      const second = await publishSite(site.store, site.slug, {})
+      expect(second.published).toBe(true)
+      expect(second.id).toBe(first.id + 1)
+      expect(second.changes.modified).toEqual(['assets/hero.png'])
+
+      // AND THE REVISION DESCRIBES THE PICTURE THAT WAS ACTUALLY UPLOADED.
+      const frozen = await site.store.readRevision(site.slug, second.id)
+      expect(frozen!.assets[0].digest).toBe(await contentDigest(replacement))
     } finally {
       await site.dispose()
     }
@@ -378,7 +399,7 @@ describe('REQ-304 — the ladder reads one picture at a time', () => {
       },
       sizer(),
     )
-    for (const key of built.derived.keys()) {
+    for (const key of built.landed) {
       expect(key.startsWith(`assets/d/${digest.slice(0, 16)}-`)).toBe(true)
     }
     expect(built.manifest['hero.png'].renditions.length).toBeGreaterThan(0)

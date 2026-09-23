@@ -1266,17 +1266,31 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       const [row, pages, rows, objects] = await Promise.all([
         siteRow(site),
         readPagesOf(site),
-        DB.prepare(`SELECT name, r2_key FROM site_assets WHERE ${OWNED} ORDER BY name`)
+        DB.prepare(`SELECT name, r2_key, digest FROM site_assets WHERE ${OWNED} ORDER BY name`)
           .bind(site, tenantId)
-          .all<{ name: string; r2_key: string }>(),
+          .all<{ name: string; r2_key: string; digest: string | null }>(),
         listObjects(SITES, `${draftPrefix(site)}assets/`),
       ])
       const stamps = new Map(objects.map((object) => [object.key, objectStamp(object)]))
       return {
         siteJson: row?.site_json ? decode<Record<string, unknown>>(row.site_json) : null,
         pages,
+        // THE RECORDED DIGEST IS THE STAMP ([[REQ-304]]). The column was written
+        // when the asset was, so identity is already in the row this query had to
+        // run anyway — and it is the SAME stamp `revisionOutline` reads out of a
+        // manifest, which is what makes a draft and the revision it descends from
+        // comparable without either side reading an object.
+        //
+        // A ROW WITH NO DIGEST PREDATES THE COLUMN and is stamped from the
+        // listing exactly as every row was before, so a site that has not been
+        // written to since the migration reports what it always did. Nothing is
+        // backfilled here: this verb exists not to read assets, and the first
+        // question that genuinely needs an identity fills the column instead.
         assets: (rows.results ?? []).map(
-          (asset): AssetStamp => ({ name: asset.name, stamp: stamps.get(asset.r2_key) ?? '-' }),
+          (asset): AssetStamp => ({
+            name: asset.name,
+            stamp: asset.digest ?? stamps.get(asset.r2_key) ?? '-',
+          }),
         ),
       }
     },
@@ -1314,14 +1328,32 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       }
       pages.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
-      const assets = (await listObjects(SITES, `${prefix}/assets/`))
-        .map(
-          (object): AssetStamp => ({
-            name: object.key.slice(`${prefix}/assets/`.length),
-            stamp: objectStamp(object),
-          }),
-        )
-        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+      /*
+       * THE MANIFEST, OR THE OBJECTS A REVISION FROZEN BEFORE IT LEFT BEHIND
+       * ([[REQ-304]]) — the same fork `readRevision` takes, decided the same way,
+       * by the shape that is actually in the bucket.
+       *
+       * A MANIFESTED REVISION STAMPS WITH THE DIGEST IT FROZE, which is one small
+       * object read whatever the site weighs, and is the same stamp the draft
+       * carries in its own row. A revision frozen before this change has a copy
+       * of every picture under its own prefix and stamps from the listing, as it
+       * always did — and against a digest-stamped draft every asset then reads as
+       * changed, which is the conservative direction the stamp contract allows
+       * and lasts exactly until the site is published once more.
+       */
+      const manifestObject = await SITES.get(publishedAssetManifestKey(site, id))
+      const manifested = manifestObject === null ? null : decodeAssetManifest(await manifestObject.text())
+      const assets: AssetStamp[] =
+        manifested !== null
+          ? manifested.map((ref): AssetStamp => ({ name: ref.name, stamp: ref.digest }))
+          : (await listObjects(SITES, `${prefix}/assets/`))
+              .map(
+                (object): AssetStamp => ({
+                  name: object.key.slice(`${prefix}/assets/`.length),
+                  stamp: objectStamp(object),
+                }),
+              )
+              .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
       return { siteJson, pages, assets }
     },
