@@ -6,16 +6,21 @@ title: Turn times and day separators are dropped on the way to the panel, so onl
   the live turn is stamped
 created_by: EPIC-19
 created_at: '2026-09-22T23:27:35.161946+00:00'
-updated_at: '2026-09-23T02:39:26.827170+00:00'
+updated_at: '2026-09-23T02:42:01.072918+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-21e571fb
+  commits:
+  - working_sha: 0ba1b604f6889678c8841f1fe434c0828ec23ac5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.335
 ---
 
 ## What happens
