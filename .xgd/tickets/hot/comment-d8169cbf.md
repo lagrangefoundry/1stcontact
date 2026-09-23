@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T02:59:28.518672+00:00'
+updated_at: '2026-09-23T03:07:21.793268+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3442,5 +3442,13 @@ That's the coupling: two independent artifacts sharing one failure path, ordered
 Filing the unbounded-artifacts bug covering all three artifacts plus the coupling, then free-coding it. I'll flag which half needs an upstream ticket once I've read how much of the fix can sit on our side of the port.
 
 One thing I won't do without you: **trimming `comment-ca74b1b7`.** Your LF session is dead until it happens, it's a destructive edit to your working data, and you have three variants in there you haven't chosen between yet. Say go and it's a minute.
+
+<!-- xgd-turn id="c6c866ae-c2ba-43cd-a69a-64926628fe98-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T03:07:21.303730+00:00" -->
+#### You
+on 1 are you suggesting that we discard transcript content - hmm - I am pretty uncomfortable with that. In my view one of the core strengths of XGD is the massive powerful product knowledge base that the AI has access to from every stored conversation - nothing is thrown away.
+
+I think the problem here is that we are trying to store a CLOB in a db - I knew there was going to be a limit there - can we discuss alternative storage - at least for the prose - old tooling runs I am not so worried about but the text is gold.
 
 <!-- xgd-chat-end -->
