@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:26:56.362516+00:00'
+updated_at: '2026-09-23T02:36:13.224446+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -254,5 +254,13 @@ Real numbers: OFL 1,906 · Apache 35 · UFL 5 (need individual clearing — modi
 **One finding for the build:** joining the live family list to licence directories by slug is unreliable — six `Edu *` families were renamed upstream (`Edu NSW ACT Cursive` → `edunswactfoundation`) and failed the join. I resolved them by prefix and marked them `licence_source: prefix-inference`, but the production ingest must read each family's own `METADATA.pb`. Also: the repo has 2,056 directories against 1,946 live — the gap is delisted/sandboxed families that must not be mirrored.
 
 The catalogue is currently a one-off pull; the generator that reproduces it still needs committing, which is now item 1 on the build list. And the storage fork is still the thing blocking `use_font`.
+
+<!-- xgd-turn id="82fd43cb-09a9-4140-adb4-a83285b27172-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:36:12.243415+00:00" -->
+#### You
+We already have search technology we don't have to invent a new one. This should just go into the knowledge base that's what I was saying.
+
+OK can you lay out here what needs to be built?
 
 <!-- xgd-chat-end -->
