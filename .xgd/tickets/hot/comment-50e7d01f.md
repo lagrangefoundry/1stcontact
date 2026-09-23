@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:53:58.101653+00:00'
+updated_at: '2026-09-23T02:56:49.465556+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1352,5 +1352,29 @@ Say "create the ticket" and I'll cut it under EPIC-20 and start with that auth c
 <!-- xgd-chat role="user" ts="2026-09-23T02:53:57.287284+00:00" -->
 #### You
 Can you create a document to capture the design - I'm not ready for construction tickets yet we have a lot on deck right now
+
+<!-- xgd-turn id="03007dca-92c7-4a9e-b997-1c8c9339e3ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:56:49.385451+00:00" -->
+#### Claude
+`doc` is a first-class ticket type here and it's where the project's design records live (DOC-2, DOC-13, DOC-21…). Writing it there rather than as a loose file, so future tickets can cite it as `[[DOC-NN]]`.
+
+**DOC-55** — *Model Trust Benchmark — scripted client sessions, judged by eye* (`doc-93931da0`, kind `architecture`, subject EPIC-20). Status `open`, marked design-only at the top so nobody reads it as scheduled work.
+
+What it captures:
+
+- **The question** — the quality half of the model-substitution decision, which the meter can't answer.
+- **The rejected interrogator**, with the reason stated generally: a cheap judge fails in the same directions as the cheap candidates, so it flatters exactly what it should eliminate.
+- **The script**, including why *"give me a strong recommendation"* is load-bearing — it converts the script's inability to react into a fair test, and makes hedging self-punishing.
+- **Three scripts** — one with scripted pushback, one text-only, one full-fat — and why each differs.
+- **Fixtures**: harvest structure and specificity from real sites; facts transplanted, identity regenerated. The describe→`ai-imagegen` pipeline, why the description's lossiness *is* the anonymity guarantee, and regenerating livery with the fictional identity rather than redacting it.
+- **Inside the product, tenant per test** — plus the two things your design removed: no run tagging needed (`tenant_id` is already the scope column on `turn_spend`), and the site-snapshot question dissolves. Live watching is free via `/api/ai/reattach`.
+- **The never-edit rule**, with the reason it exists — the example-site use pulls against the measurement, and forking after scoring costs nothing.
+- **Scoring explicitly deferred**, with a note that whatever we settle on after the first runs gets written back here.
+- **Three open questions**, with the `requireScope()` one flagged as the only unknown that changes the size of the job.
+
+Also added a short pointer section on EPIC-20 so the epic doesn't lose the thread, and saved a note on the build-thin-then-look preference.
+
+Nothing built, no branch, no construction tickets.
 
 <!-- xgd-chat-end -->
