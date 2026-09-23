@@ -6,18 +6,22 @@ title: 'The assistant cannot obtain a font: use_font, and the knowledge that say
   it cannot'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:21.329714+00:00'
-updated_at: '2026-09-23T20:53:02.432770+00:00'
+updated_at: '2026-09-23T20:53:49.394557+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-b9b27697
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-526b326e
+  commits:
+  - working_sha: b89dfbcb0e427371a31db6c7fba031e1e7f48245
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.345
 ---
-
 
 ## The gap
 
