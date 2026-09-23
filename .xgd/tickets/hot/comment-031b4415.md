@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:05:52.015859+00:00'
+updated_at: '2026-09-23T18:07:12.435653+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -428,5 +428,21 @@ Here's what I want for user access to fonts:
 If I have a web developer come in and they really know what font they need, and we have it, I do not want our UX to prevent them from accessing it.
 
 Can you update REQ-314 with that model please?
+
+<!-- xgd-turn id="74ae1e7e-fe9d-4968-ac1c-2dfc9563e9cc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T18:07:10.669379+00:00" -->
+#### Claude
+REQ-314 updated with your model — curated 30 rendered in their own faces, query box at the top of the dropdown, prefix match alphabetical capped at 30, reaching the whole mirror with no mode switch.
+
+Three things I worked through that follow from it rather than being in your ask — flagging so you can cut any of them:
+
+**Rendering names in their own face has a real cost.** Thirty faces per list is ~1–2.5MB at unmodified upstream `woff2`, and another thirty on each keystroke-settled query. Spec'd as: fetch only visible rows, `font-display: swap` so a row never blocks, debounce the query.
+
+**That surfaces an open decision I couldn't settle myself.** A name-only preview subset is ~1–3KB versus a 30–80KB full face — the difference between snappy and sluggish. But REQ-312 deliberately mirrors *unmodified* upstream woff2 to stay clear of OFL's Reserved Font Name clause, and subsetting is arguably modification. I've written the three options (full lazy faces / preview subsets / server-rendered name images) as a decision to take knowingly rather than picking one and having it contradict REQ-312.
+
+**Empty results need to distinguish two cases.** Your web-developer requirement implies it: someone typing `Helvetica` has asked a reasonable question, and an empty list answers it misleadingly. Spec'd so a known commercial family explains that per-licensee webfont licences can't be shared across customer sites, and points at the upload path. That needs a small hand-maintained list of famous unavailable names — it can't come from the catalogue, which by construction only knows what we *do* have.
+
+One question I resolved by following your wording literally: matching is **prefix**, so `Ar` → Archivo, Arimo, Arsenal, Arvo. That means typing `mono` won't surface the monospace families. If you want substring or category matching too, say so and I'll add it — but prefix is what you described and I didn't want to quietly widen it.
 
 <!-- xgd-chat-end -->
