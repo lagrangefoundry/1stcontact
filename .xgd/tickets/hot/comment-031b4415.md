@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T23:48:12.738581+00:00'
+updated_at: '2026-09-23T23:58:40.977853+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -851,5 +851,11 @@ That confirms REQ-315's target rather than changing it, and I've appended the fi
 I also noted that if you ever do want a real `[env.dev]` Worker, that's its own ticket — and it's an argument for selecting the local seed by an explicit flag rather than by the absence of `--env`, so the dev target keeps working when a dev Worker arrives.
 
 Given that, your fastest path to seeing fonts locally is still blocked on REQ-315 being built. The mirror itself you can start whenever — `./bin/1c fonts mirror --repo <dir> --quality 9` gets you the staged corpus in under 10 minutes instead of 90.
+
+<!-- xgd-turn id="289bc1eb-28c4-482d-bee8-0f402d068e09-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T23:58:40.527879+00:00" -->
+#### You
+ok lets back up. What has to happen for fonts to be visible to the dev system
 
 <!-- xgd-chat-end -->
