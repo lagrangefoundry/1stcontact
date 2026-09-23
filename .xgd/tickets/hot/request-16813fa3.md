@@ -5,7 +5,7 @@ type: request
 title: A turn that dies uncatchably must still report legibly to the client
 created_by: EPIC-16
 created_at: '2026-09-22T23:13:21.139160+00:00'
-updated_at: '2026-09-23T02:49:01.414958+00:00'
+updated_at: '2026-09-23T02:52:06.145229+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -85,7 +85,7 @@ isolate did not survive to write its own ending — the one fact nothing inside 
 could ever have recorded. No heartbeat and no sweeper: both are second mechanisms able to fail
 in the same way as the first.
 
-### The ledger — `turn_log` (D1, migration `0020`)
+### The ledger — `turn_log` (D1, migration `0021`)
 
 One row per turn: `turn_id` (primary key, minted by the route), `tenant_id`, `session_id`,
 `started_at`, and a nullable `ended_at` / `outcome` / `detail`.
@@ -175,7 +175,7 @@ a ledger that over-reports failure is investigated and one that under-reports it
 
 ### Files
 
-- `db/migrations/0020_turn_log.sql`, `db/migrations/manifest.json`
+- `db/migrations/0021_turn_log.sql`, `db/migrations/manifest.json`
 - `apps/control-app/src/turn-log.ts` — the ledger: open, close, the *lost* judgement, the two reads
 - `apps/control-app/src/router.ts` — the open before the stream, the close in the `finally`,
   `failed` on `/api/ai/session`, `GET /api/admin/turns`
@@ -210,3 +210,13 @@ must not be told the connection dropped when it did not, so the assertions were 
 the new sentence — a wording supersession, not a behavioural one. What each test is actually
 about is unchanged and still asserted: a panel that cannot find out what became of a turn
 says so rather than going quiet. Both tests carry a note recording why the string moved.
+
+### The migration is `0021`, not `0020`
+
+[[REQ-304]]'s `0020_asset_digest.sql` landed on the working branch while this one was open, so
+the two collided at merge. `wrangler d1 migrations apply` orders by FILENAME, so a shared
+number is an ordering it cannot resolve. This ticket's file renumbered rather than REQ-304's
+being moved: a migration that has already been applied somewhere cannot be renamed without the
+recorded name ceasing to match the file. The test fixture applies both, in number order, and
+`atHead` — the marker that asks whether the LAST migration has run — moved to this ticket's
+`idx_turn_log_tenant` because this ticket's file is now the last one.
