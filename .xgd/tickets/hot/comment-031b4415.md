@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:11:05.544417+00:00'
+updated_at: '2026-09-23T18:12:29.678515+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -452,5 +452,41 @@ One question I resolved by following your wording literally: matching is **prefi
 Good questions:
 I only want to render the curated list in fonts - if you go looking by name you need to know what you are looking for. Is that managable?
 Of you can suggest other filters in addition to prefix that are worth including then sure, but lets not let it get too complicated
+
+<!-- xgd-turn id="16d27cf8-6f92-49e6-bc21-8784b272e79d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T18:12:29.085983+00:00" -->
+#### Claude
+Yes — and it simplifies three things at once.
+
+**Manageable, and better than manageable.** A fixed 30 is a *known* set, so it's cacheable across sessions and — because platform fonts are shared-served — across tenants. First load is ~1–1.5MB, every load after that is free. More importantly it kills the keystroke-fetch problem entirely: no debouncing preview loads, no fetch storm while someone types `Archivo`.
+
+**And it closes the open decision I flagged.** The RFN/subset question only existed because per-query previews needed to be cheap. With previews confined to a fixed cached 30, full unmodified upstream `woff2` is clearly right — REQ-312's mirror stays untouched and there's no modification question to answer.
+
+Your reasoning holds up on its own too: someone typing `Archivo` is committed to Archivo. The preview earns its cost in browse mode, not lookup mode.
+
+One cheap addition: **the closed control can render the *selected* family in its own face**, whether it came from the curated list or the query box. That face is already loaded — it's on the page — so it costs nothing and the control never looks like it forgot what you picked.
+
+## Filters worth adding — two, and I'd stop there
+
+**1. Word-prefix instead of strict string-prefix.** Match when *any word* in the family name starts with the query. `Ar` → Archivo, Arimo, Arvo, unchanged. `Mono` → Roboto Mono, JetBrains Mono, Space Mono. `Sans` → Open Sans, DM Sans, Noto Sans. This is the same predictable prefix semantics — no surprising mid-word hits — and it handles the way people actually type a distinguishing word. It also fixes the `mono` case I flagged last turn, properly.
+
+**2. Category chips.** One row of six toggles from data the catalogue already has: Sans Serif, Serif, Slab Serif, Display, Handwriting, Monospace. "Show me the serifs" is the dominant browse intent and this is the whole of it. Chips narrow whichever list is showing — curated or query results.
+
+**What I'd leave out**, so it doesn't creep: variable-axis filter, weight-availability filter, script/subset filter, popularity-sort toggle, fuzzy matching. Each is defensible alone; together they turn a font picker into a database query builder. The script filter is the one I'd revisit first if a non-Latin site needs it.
+
+REQ-314 updated. The preview-scope change earned its keep — it removed a section rather than adding one, and the subsetting decision is now closed rather than deferred.
+
+Current shape of the control:
+
+- **Empty query** — ~30 curated families, each in its own face
+- **Typing** — up to 30 word-prefix matches, alphabetical, in the UI face
+- **Six category chips** — narrow whichever list is showing
+- **Closed control** — selected family in its own face, free since it's on the page
+- **Unavailable commercial names** — explained, not answered with an empty list
+
+Font loading is now bounded to a fixed cacheable set; typing fetches nothing.
+
+Ticket slate stands at DOC-56, REQ-310 through REQ-314, with 311 → 312 → 313 the path that unblocks the beta. REQ-311 is still the one to start on — want me to cut the branch?
 
 <!-- xgd-chat-end -->
