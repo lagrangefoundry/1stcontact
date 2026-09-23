@@ -5,9 +5,12 @@ import { encodePng, pngDimensions } from '../tools/generate/src/cli/png'
 import { publishSite } from '../tools/generate/src/publish/publish'
 import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
 import {
+  blobKey,
+  publishedAssetManifestKey,
   publishedOutPrefix,
   publishedSourcePrefix,
   PUBLISHED_ROOT,
+  type StoredAssetManifest,
 } from '../tools/generate/src/store/revision-model'
 import { applySchema } from './support/d1-site-factory'
 import { starterHomePage } from '../tools/generate/src/cli/scaffold'
@@ -126,6 +129,33 @@ async function keysUnder(prefix: string, bucket: R2Bucket = env.SITES): Promise<
   return listed.objects.map((o) => o.key).sort()
 }
 
+/**
+ * The key a `srcset` candidate is actually served from ([[REQ-304]]).
+ *
+ * TWO KINDS OF CANDIDATE, AND THEY LIVE IN DIFFERENT PLACES. A DERIVED rendition
+ * (`assets/d/…`) is this revision's own output and sits under its `out/` prefix,
+ * exactly as it always did. The SOURCE-format fallback is one of the client's own
+ * uploaded pictures, and those are addressed by content now: one object per
+ * content, per site, named by the draft and by every revision that froze it — so
+ * a publish moves no picture at all, and what the revision records is WHICH
+ * content each name was.
+ *
+ * RESOLVED THROUGH THE MANIFEST THE PUBLISH WROTE, which is also what
+ * `public-site` reads to serve the request. Deriving the digest here by hashing
+ * the fixture's bytes would be a second implementation of the address, and would
+ * pass even if the publish had written no manifest at all.
+ */
+async function servedKey(siteKey: string, id: number, src: string): Promise<string> {
+  const out = publishedOutPrefix(siteKey, id)
+  if (!src.startsWith('assets/') || src.startsWith('assets/d/')) return `${out}/${src}`
+  const object = await env.SITES.get(publishedAssetManifestKey(siteKey, id))
+  expect(object, `revision ${id} froze no asset manifest`).not.toBeNull()
+  const manifest = JSON.parse(await object!.text()) as StoredAssetManifest
+  const entry = manifest.assets[src.slice('assets/'.length)]
+  expect(entry, `${src} is not in revision ${id}'s manifest`).toBeDefined()
+  return blobKey(siteKey, entry.digest)
+}
+
 /** Full hex SHA-256, which is what the shared rendition cache keys with. */
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes.slice())
@@ -208,7 +238,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     expect(candidates.map((c) => c.width)).toEqual([320, 640, 960, 1000])
 
     for (const candidate of candidates) {
-      const object = await env.SITES.get(`${out}/${candidate.src}`)
+      const object = await env.SITES.get(await servedKey(siteKey, result.id, candidate.src))
       expect(object, `${candidate.src} was named but not written`).not.toBeNull()
       // THE ASSERTION THE NODE SUITE CANNOT MAKE: the bytes really are that wide.
       const bytes = new Uint8Array(await object!.arrayBuffer())
@@ -226,7 +256,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     const candidates = srcsetOf(html)
     expect(candidates.map((c) => c.width)).toEqual([320, 600])
     for (const candidate of candidates) {
-      const object = await env.SITES.get(`${out}/${candidate.src}`)
+      const object = await env.SITES.get(await servedKey(siteKey, result.id, candidate.src))
       const bytes = new Uint8Array(await object!.arrayBuffer())
       expect(pngDimensions(bytes).width).toBeLessThanOrEqual(600)
     }
@@ -247,10 +277,26 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     const { store, slug } = await siteWithAPicture(await picture(1000, 500))
     const result = await publishSite(store, slug, { ladder: realLadder() })
     const siteKey = slug
-    // `source/` is what a checkout reads back. Only the picture the client
-    // actually uploaded is in it.
-    const frozen = await keysUnder(`${publishedSourcePrefix(siteKey, result.id)}/assets/`)
-    expect(frozen).toEqual([`${publishedSourcePrefix(siteKey, result.id)}/assets/hero.png`])
+    // `source/` is what a checkout reads back, and it names only the picture the
+    // client actually uploaded — never a rendition.
+    //
+    // IT NAMES IT RATHER THAN HOLDING IT ([[REQ-304]]). The frozen definition is
+    // an `assets.json` recording which CONTENT each asset was; the bytes live
+    // once per site and are pointed at by every revision that froze them, which
+    // is what makes publishing a site whose pictures are unchanged move none of
+    // them. So the assertion is on the manifest's ENTRIES, and on the content it
+    // names really being in the bucket — a manifest naming nothing would be a
+    // revision that lists and cannot be restored.
+    const manifest = JSON.parse(
+      await (await env.SITES.get(publishedAssetManifestKey(siteKey, result.id)))!.text(),
+    ) as StoredAssetManifest
+    expect(Object.keys(manifest.assets)).toEqual(['hero.png'])
+    expect(
+      await env.SITES.head(blobKey(siteKey, manifest.assets['hero.png'].digest)),
+    ).not.toBeNull()
+    // And no copy of it under the revision's own prefix, which is the storage
+    // this ticket stopped spending.
+    expect(await keysUnder(`${publishedSourcePrefix(siteKey, result.id)}/assets/`)).toEqual([])
   })
 
   it('caches renditions in a bucket no published URL resolves into', async () => {
@@ -346,8 +392,11 @@ describe('REQ-222 — a deployment with no Images binding', () => {
     expect(html).toContain('src="assets/hero.png"')
     expect(html).not.toContain('srcset')
     expect(await keysUnder(`${out}/assets/d/`)).toEqual([])
-    // And the picture itself is still published, unchanged.
-    expect(await env.SITES.get(`${out}/assets/hero.png`)).not.toBeNull()
+    // And the picture itself is still published, unchanged — resolved through
+    // the revision's manifest to the content it names ([[REQ-304]]).
+    expect(
+      await env.SITES.get(await servedKey(siteKey, result.id, 'assets/hero.png')),
+    ).not.toBeNull()
   })
 })
 
@@ -413,7 +462,7 @@ describe('REQ-222 — typed sources, through the real binding', () => {
     // than a second copy of the WebP ladder.
     for (const candidate of srcsetOf(html)) {
       expect(candidate.src.endsWith('.png'), candidate.src).toBe(true)
-      const object = await env.SITES.get(`${out}/${candidate.src}`)
+      const object = await env.SITES.get(await servedKey(siteKey, result.id, candidate.src))
       const bytes = new Uint8Array(await object!.arrayBuffer())
       expect(pngDimensions(bytes).width, candidate.src).toBe(candidate.width)
     }

@@ -54,10 +54,13 @@ import { cmdNew, cmdPublish, cmdRender } from '../tools/generate/src/cli/command
 import { startServe, type ServeHandle } from '../tools/generate/src/cli'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
 import {
+  blobKey,
   distDir,
   draftDir,
   fsSiteStore,
+  publishedAssetManifestKey,
   publishedOutPrefix,
+  PUBLISHED_ROOT,
   readJson,
   writeJson,
 } from '../tools/generate/src/store'
@@ -234,9 +237,18 @@ class FakeBucket {
 
   constructor(private readonly objects: Map<string, Buffer>) {}
 
-  /** Keys read that name bytes inside a revision's rendered output. */
+  /**
+   * Keys read inside this site's published space.
+   *
+   * IT IS THE WHOLE SPACE AND NOT JUST `rev/…/out/` ([[REQ-304]]). Serving one
+   * of a site's own uploaded assets is two reads now — the live revision's
+   * asset manifest, then the content the manifest names, which lives once per
+   * site rather than once per revision — and a filter that only admitted the
+   * revision's own prefix would report that a picture was served without
+   * reading anything.
+   */
   get snapshotReads(): string[] {
-    return this.readKeys.filter((k) => k.includes('/rev/'))
+    return this.readKeys.filter((k) => k.startsWith(`${PUBLISHED_ROOT}/${SLUG}/`))
   }
 
   async get(key: string) {
@@ -314,7 +326,7 @@ async function publishToBucket(): Promise<void> {
   for (const rel of listRendered(distDir(ctx, SLUG, 'published'))) {
     out.set(rel, readFileSync(path.join(distDir(ctx, SLUG, 'published'), rel), 'utf8'))
   }
-  seedPublished(published, SLUG, result.id, { source, out })
+  await seedPublished(published, SLUG, result.id, { source, out }, store)
 }
 
 /** Every rendered file under `dir`, as store-relative paths. */
@@ -331,6 +343,25 @@ function listRendered(dir: string, prefix = ''): string[] {
 /** The stored key of one object inside the live revision's rendered output. */
 function publishedKey(rel: string): string {
   return `${publishedOutPrefix(SLUG, liveRevision)}/${rel}`
+}
+
+/** The live revision's asset manifest — read to resolve any `assets/<name>`. */
+function manifestKey(): string {
+  return publishedAssetManifestKey(SLUG, liveRevision)
+}
+
+/**
+ * The key one of the site's own assets is actually served from ([[REQ-304]]).
+ *
+ * Derived from the SAME digest the store recorded, read back out of the manifest
+ * the publish wrote, so this cannot drift from what the product does: a fixture
+ * that hashed the file itself would be a second implementation of the address.
+ */
+function assetBlobKey(name: string): string {
+  const manifest = JSON.parse(storedText(manifestKey())) as {
+    assets: Record<string, { digest: string }>
+  }
+  return blobKey(SLUG, manifest.assets[name].digest)
 }
 
 function storedText(key: string): string {
@@ -451,13 +482,23 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       { label: 'snapshot root', url: `${base}/`, rel: 'index.html', type: 'text/html' },
       { label: 'stylesheet', url: `${base}/theme.css`, rel: 'theme.css', type: 'text/css' },
       { label: 'asset', url: `${base}/assets/logo.svg`, rel: 'assets/logo.svg', type: 'image/svg+xml' },
-    ]
+    ].map((c) => ({
+      ...c,
+      // [[REQ-304]] — rendered output is read from the revision's own key; one
+      // of the site's OWN assets is resolved through that revision's manifest
+      // to the content it names, which is where the bytes live.
+      key: () => (c.rel.startsWith('assets/') ? assetBlobKey(c.rel.slice('assets/'.length)) : publishedKey(c.rel)),
+      reads: () =>
+        c.rel.startsWith('assets/')
+          ? [manifestKey(), assetBlobKey(c.rel.slice('assets/'.length))]
+          : [publishedKey(c.rel)],
+    }))
     for (const c of deployed) {
       const { res, bucket } = await call(c.url)
       expect(res.status, c.label).toBe(200)
       expect(res.headers.get('content-type'), c.label).toContain(c.type)
-      expect(await res.text(), c.label).toBe(storedText(publishedKey(c.rel)))
-      expect(bucket.snapshotReads, c.label).toEqual([publishedKey(c.rel)])
+      expect(await res.text(), c.label).toBe(storedText(c.key()))
+      expect(bucket.snapshotReads, c.label).toEqual(c.reads())
     }
   })
 
@@ -493,7 +534,11 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       expect(await res.text(), rel).toBe('Not Found')
       // Not eligible at all: the exact key was the only candidate tried, so no
       // `.html` sibling could have been returned under the asset's type.
-      expect(bucket.snapshotReads, rel).toEqual([publishedKey(rel)])
+      // An `assets/…` name is looked for in the manifest first and is not there,
+      // so the revision's own key space is tried and answers nothing either.
+      expect(bucket.snapshotReads, rel).toEqual(
+        rel.startsWith('assets/') ? [manifestKey(), publishedKey(rel)] : [publishedKey(rel)],
+      )
       expect(parseRoute(`${base}/${rel}`), rel).toMatchObject({ htmlFallback: undefined })
     }
 
@@ -522,10 +567,13 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       expect(await res.text(), rel).toBe('Not Found')
       // The mapping really was consulted and still found nothing — it resolves a
       // page that exists, it never invents one.
-      expect(bucket.snapshotReads, rel).toEqual([
-        publishedKey(rel),
-        publishedKey(`${rel}.html`),
-      ])
+      // The manifest is read ONCE per request however many candidates are
+      // tried — it is memoised for the life of the request.
+      expect(bucket.snapshotReads, rel).toEqual(
+        rel.startsWith('assets/')
+          ? [manifestKey(), publishedKey(rel), publishedKey(`${rel}.html`)]
+          : [publishedKey(rel), publishedKey(`${rel}.html`)],
+      )
     }
   })
 

@@ -59,6 +59,28 @@ export function revisionsDir(ctx: StoreContext, slug: string): string {
   return path.join(siteDir(ctx, slug), 'revisions')
 }
 
+/**
+ * The site's content-addressed asset store: `blobs/<digest>` ([[REQ-304]]).
+ *
+ * BESIDE `draft/` AND `revisions/`, NEVER INSIDE EITHER, for the reason
+ * `.draft-base.json` sits at the site root: it is not part of any snapshot, so a
+ * capture of the draft cannot pick it up and it cannot perturb byte-identity or
+ * a change list.
+ *
+ * WHY THE FILE TIER HAS ONE AT ALL. A revision names its assets by content, and
+ * a checkout restores them by that name — so there has to be somewhere a digest
+ * resolves to bytes even after the draft has been edited past them. Making the
+ * two tiers agree on that is what keeps `publish.ts` one implementation rather
+ * than one with a branch in it.
+ *
+ * WRITE-ONCE AND NEVER SWEPT HERE EITHER (see `blobKey`): the digest IS the
+ * name, so a write can only ever put back what is already there, and a blob no
+ * draft names may still be some revision's content.
+ */
+export function blobsDir(ctx: StoreContext, slug: string): string {
+  return path.join(siteDir(ctx, slug), 'blobs')
+}
+
 export function revisionDir(ctx: StoreContext, slug: string, id: number): string {
   return path.join(revisionsDir(ctx, slug), padRevision(id))
 }

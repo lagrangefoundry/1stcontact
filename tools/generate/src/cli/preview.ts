@@ -199,7 +199,11 @@ export class PreviewRenderer {
 
     const snapshot = await this.store.readRevision(slug, id)
     if (snapshot === null) return null
-    const assets = new Map(snapshot.assets.map((a) => [a.name, a.bytes]))
+    // [[REQ-304]] — the revision names its assets by CONTENT, so the lookup
+    // resolves a digest rather than carrying every picture on the site in this
+    // object. One asset is read when one asset is requested, which is what a
+    // preview of a page actually needs.
+    const assets = new Map(snapshot.assets.map((a) => [a.name, a.digest]))
     return {
       result: assembleSite({
         slug,
@@ -213,7 +217,10 @@ export class PreviewRenderer {
       // A revision cannot change, so its stamp is its id — which makes the
       // render cache permanent for it rather than merely warm.
       stamp: `revision:${id}`,
-      asset: (name) => Promise.resolve(assets.get(name) ?? null),
+      asset: async (name) => {
+        const digest = assets.get(name)
+        return digest === undefined ? null : this.store.readBlob(slug, digest)
+      },
     }
   }
 

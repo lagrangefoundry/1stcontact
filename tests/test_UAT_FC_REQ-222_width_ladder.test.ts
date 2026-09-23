@@ -22,9 +22,26 @@ import { publishSite } from '../tools/generate/src/publish/publish'
 import { starterHomePage } from '../tools/generate/src/cli/scaffold'
 import { memorySiteStore } from '../tools/generate/src/store'
 import { siteSeed } from './support/site-seed'
+import { ladderSource } from './support/ladder-source'
 import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import worker, { type Env as PublicEnv } from '../apps/public-site/src/index'
 import { emptyPublished, publishInto, type PublishedFixture } from './fixtures/published-site'
+
+/**
+ * `buildImageLadder` over pictures a case is holding ([[REQ-304]]).
+ *
+ * The ladder takes a listing and a reader now rather than a list of bytes — see
+ * {@link ladderSource} — and every case below is about what the ladder DOES with
+ * a picture rather than about where the picture came from, so the adaptation is
+ * made once here instead of at each of them.
+ */
+async function buildFrom(
+  assets: readonly { name: string; bytes: Uint8Array }[],
+  sizer: ImageSizer,
+  opts?: Parameters<typeof buildImageLadder>[2],
+): ReturnType<typeof buildImageLadder> {
+  return buildImageLadder(await ladderSource(assets), sizer, opts)
+}
 
 /**
  * REQ-222 — the delivery width ladder, and the `srcset`/`sizes` the renderer
@@ -371,7 +388,7 @@ describe('REQ-222 building the ladder', () => {
 
   it('renders each rung and records it, with the original last', async () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 })
-    const built = await buildImageLadder(jpeg(), renderer)
+    const built = await buildFrom(jpeg(), renderer)
     expect(renderer.resized).toEqual([320, 640, 960])
     const entry = built.manifest['hero.jpg']
     expect(entry.width).toBe(1000)
@@ -381,7 +398,7 @@ describe('REQ-222 building the ladder', () => {
   })
 
   it('writes every rendition it named, and names every rendition it wrote', async () => {
-    const built = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    const built = await buildFrom(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
     // ACROSS EVERY FORMAT, not just the source's. A typed `<source>`'s candidates
     // are chosen by the same browser through the same mechanism, so a WebP
     // candidate the bucket does not hold is the same 404 — and it is the one a
@@ -393,7 +410,7 @@ describe('REQ-222 building the ladder', () => {
   })
 
   it('puts renditions under a derived segment inside the revision output', async () => {
-    const built = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    const built = await buildFrom(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
     for (const path of built.derived.keys()) {
       expect(path.startsWith('assets/d/')).toBe(true)
     }
@@ -406,15 +423,15 @@ describe('REQ-222 building the ladder', () => {
     // ladder's own job is the name, and the name is why an unchanged picture
     // republishes for nothing: identical bytes at an identical width produce an
     // identical address, so the sizer's cache answers before any transform.
-    const same = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
-    const again = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    const same = await buildFrom(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    const again = await buildFrom(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
     expect([...again.derived.keys()].sort()).toEqual([...same.derived.keys()].sort())
     expect(again.manifest).toEqual(same.manifest)
   })
 
   it('gives edited bytes a different address, so nothing serves a stale rendition', async () => {
-    const before = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
-    const after = await buildImageLadder(
+    const before = await buildFrom(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    const after = await buildFrom(
       [{ name: 'hero.jpg', bytes: new TextEncoder().encode('different bytes entirely') }],
       fakeRenderer({ width: 1000, height: 500 }),
     )
@@ -424,21 +441,21 @@ describe('REQ-222 building the ladder', () => {
   })
 
   it('gives a picture the renderer cannot read no ladder, and no failed publish', async () => {
-    const built = await buildImageLadder(jpeg(), fakeRenderer(null))
+    const built = await buildFrom(jpeg(), fakeRenderer(null))
     expect(built.manifest).toEqual({})
     expect(built.derived.size).toBe(0)
   })
 
   it('drops a rung that would not render and keeps the rest of the ladder', async () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 }, { failAt: [640] })
-    const built = await buildImageLadder(jpeg(), renderer)
+    const built = await buildFrom(jpeg(), renderer)
     expect(built.manifest['hero.jpg'].renditions.map((r) => r.width)).toEqual([320, 960, 1000])
     expect([...built.derived.keys()].some((k) => k.includes('-640.'))).toBe(false)
   })
 
   it('never measures a vector or an animation', async () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 })
-    const built = await buildImageLadder(
+    const built = await buildFrom(
       [
         { name: 'wordmark.svg', bytes: SOURCE },
         { name: 'spinner.gif', bytes: SOURCE },
@@ -498,7 +515,7 @@ describe('REQ-222 publish builds the ladder and the pages name it', () => {
     const derived = store.derivedRevision(slug, result.id)
     expect([...(derived ?? new Map()).keys()].sort()).toEqual([
       ...(await (async () => {
-        const built = await buildImageLadder([{ name: 'hero.jpg', bytes: SOURCE }], fakeRenderer({ width: 1000, height: 500 }))
+        const built = await buildFrom([{ name: 'hero.jpg', bytes: SOURCE }], fakeRenderer({ width: 1000, height: 500 }))
         return [...built.derived.keys()].sort()
       })()),
     ])
@@ -1052,7 +1069,7 @@ describe('REQ-222 the ladder builds both formats', () => {
 
   it('encodes every alternative rung and records it in its own source', async () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 })
-    const built = await buildImageLadder(jpeg(), renderer)
+    const built = await buildFrom(jpeg(), renderer)
     // The source format, unchanged and still capped strictly below the source.
     expect(renderer.resized).toEqual([320, 640, 960])
     // And WebP, including the source's own width, because it has no free rung.
@@ -1074,7 +1091,7 @@ describe('REQ-222 the ladder builds both formats', () => {
 
   it('drops an alternative format the renderer could not encode, and keeps the ladder', async () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 }, { failFormat: 'image/webp' })
-    const built = await buildImageLadder(jpeg(), renderer)
+    const built = await buildFrom(jpeg(), renderer)
     const entry = built.manifest['hero.jpg']
     // The source-format ladder is untouched: a deployment whose binding cannot
     // encode WebP publishes exactly the page it published before.
@@ -1084,7 +1101,7 @@ describe('REQ-222 the ladder builds both formats', () => {
   })
 
   it('offers no alternative for a WebP original', async () => {
-    const built = await buildImageLadder(
+    const built = await buildFrom(
       [{ name: 'logo.webp', bytes: SOURCE }],
       fakeRenderer({ width: 1000, height: 500 }),
     )
@@ -1118,7 +1135,7 @@ describe('REQ-222 the publish is rationed to what one request can carry', () => 
         return new TextEncoder().encode('bytes')
       },
     }
-    await buildImageLadder(manyPictures(4), sizer)
+    await buildFrom(manyPictures(4), sizer)
     expect(peak).toBeGreaterThan(1)
     // And bounded, so a large site does not open an unbounded number at once.
     expect(peak).toBeLessThanOrEqual(LADDER_CONCURRENCY)
@@ -1129,7 +1146,7 @@ describe('REQ-222 the publish is rationed to what one request can carry', () => 
     // dies most of the way through with a platform error naming nothing the
     // client did. So it refuses in advance, in terms the client can act on.
     const pictures = manyPictures(Math.ceil(LADDER_MAX_RENDITIONS / 10) + 1)
-    const err = await buildImageLadder(pictures, fakeRenderer({ width: 4000, height: 2000 })).catch(
+    const err = await buildFrom(pictures, fakeRenderer({ width: 4000, height: 2000 })).catch(
       (e) => e,
     )
     expect(err).toBeInstanceOf(LadderTooLargeError)
@@ -1164,7 +1181,7 @@ describe('REQ-222 the publish reports how far through resizing it is', () => {
     // is the failure the reporting exists to prevent.
     const frames: { total: number; done: number }[] = []
     const renderer = fakeRenderer({ width: 1000, height: 500 })
-    await buildImageLadder(jpeg, renderer, { onProgress: (p) => frames.push(p) })
+    await buildFrom(jpeg, renderer, { onProgress: (p) => frames.push(p) })
     // The first frame is the plan: a total, nothing done. The denominator is real
     // because the ladder planned before it rendered.
     expect(frames[0]).toEqual({ total: 7, done: 0 })
@@ -1183,7 +1200,7 @@ describe('REQ-222 the publish reports how far through resizing it is', () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 })
     const held: ImageSizer = { ...renderer, held: async () => true }
     const frames: { total: number; done: number }[] = []
-    const built = await buildImageLadder(jpeg, held, { onProgress: (p) => frames.push(p) })
+    const built = await buildFrom(jpeg, held, { onProgress: (p) => frames.push(p) })
     expect(frames[0]).toEqual({ total: 0, done: 0 })
     // And the ladder is still complete — "nothing to build" is not "nothing to
     // serve": the renditions exist, they just cost nothing this time.
@@ -1196,7 +1213,7 @@ describe('REQ-222 the publish reports how far through resizing it is', () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 })
     expect(renderer.held).toBeUndefined()
     const frames: { total: number; done: number }[] = []
-    await buildImageLadder(jpeg, renderer, { onProgress: (p) => frames.push(p) })
+    await buildFrom(jpeg, renderer, { onProgress: (p) => frames.push(p) })
     expect(frames[0].total).toBe(7)
   })
 

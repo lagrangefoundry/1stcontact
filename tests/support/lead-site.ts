@@ -513,12 +513,23 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
   ]
 
   const siteKey = await store.createDraft()
-  const assets = Object.entries(options.draftAssets ?? {}).map(([name, body]) => ({
-    name,
-    bytes: new TextEncoder().encode(body),
-  }))
-  const siteContent = { siteJson, pages, assets }
-  await store.write(siteKey, siteContent)
+  await store.write(siteKey, {
+    siteJson,
+    pages,
+    assets: Object.entries(options.draftAssets ?? {}).map(([name, body]) => ({
+      name,
+      bytes: new TextEncoder().encode(body),
+    })),
+  })
+  /*
+   * THE SNAPSHOT NAMES ITS ASSETS BY CONTENT ([[REQ-304]]).
+   *
+   * A revision holds identities rather than bytes, so the fixture asks the store
+   * what it just stored rather than restating it: the digests have to be the
+   * ones the store recorded, because `writeRevision` refuses a reference to
+   * content it does not hold and `snapshotSha` is taken over exactly these.
+   */
+  const siteContent = { siteJson, pages, assets: await store.assetManifest(siteKey) }
 
   /**
    * A PUBLISHED SITE HAS A PUBLIC ADDRESS, because [[REQ-238]] makes one required

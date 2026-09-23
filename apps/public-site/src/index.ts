@@ -22,6 +22,11 @@ import {
  * object.
  */
 import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
+import {
+  blobKey,
+  publishedAssetManifestKey,
+  type StoredAssetManifest,
+} from '../../../tools/generate/src/store/revision-model'
 import { DOWNLOAD_PATH, gateTarget, handleGate, notFound, type GateEnv } from './gate'
 import { handleLead, LEAD_PATH, type LeadEnv } from './lead'
 import {
@@ -132,6 +137,16 @@ const PUBLISHED_CACHE = 'public, max-age=60'
 const DERIVED_PREFIX = 'assets/d/'
 const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable'
 
+/**
+ * The path prefix a site's own uploaded assets are served under.
+ *
+ * NAMED HERE BECAUSE TWO RULES NOW TURN ON IT ([[REQ-304]]): which paths carry
+ * the immutable cache ({@link DERIVED_PREFIX}, a strictly narrower prefix), and
+ * which resolve through a revision's asset manifest rather than against the
+ * revision's own key space.
+ */
+const ASSETS_PREFIX = 'assets/'
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     /*
@@ -218,6 +233,7 @@ export default {
       sessionId,
       sessions: new D1SessionReader(env.DB),
       turnstileSitekey: env.TURNSTILE_SITEKEY,
+      assets: manifestReader(store, env.SITES),
     })
 
     // Only successful responses are stored. A 404 is the answer for both "never
@@ -340,6 +356,55 @@ interface Serving {
   /** The session this request carries for THIS host, or null. */
   sessionId: string | null
   sessions: SessionReader
+  /**
+   * One site's live revision asset manifest, or null when it has none
+   * ([[REQ-304]]).
+   *
+   * GATHERED PER REQUEST AND MEMOISED, on `D1SiteStore.live`'s reasoning: one
+   * request may ask twice (the HEAD path, then the GET path), and two reads of
+   * one small object to answer one question is the cost this indirection must
+   * not have. It is a FIELD rather than a module-level cache because a cache
+   * that outlived the request would go on answering with a revision that is no
+   * longer live.
+   */
+  assets(siteKey: string, outPrefix: string): Promise<StoredAssetManifest | null>
+}
+
+/**
+ * The per-request manifest reader {@link Serving.assets} is.
+ *
+ * THE KEY IS BUILT FROM THE STORE'S ANSWER AND NEVER FROM THE REQUEST. The
+ * revision id comes from `live`, which reads D1, and the site key has already
+ * been through the route grammar and the cross-host guard — so no URL, however
+ * crafted, can steer this at an object outside the revision it names.
+ *
+ * `outPrefix` IS TAKEN AS EVIDENCE THE SITE RESOLVES, not used to build the key:
+ * the caller has one because `resolve` answered, which is the same read `live`
+ * is memoised from.
+ */
+function manifestReader(store: SiteStore, bucket: R2Bucket): Serving['assets'] {
+  const pending = new Map<string, Promise<StoredAssetManifest | null>>()
+  return (siteKey, outPrefix) => {
+    const cached = pending.get(outPrefix)
+    if (cached) return cached
+    const read = (async (): Promise<StoredAssetManifest | null> => {
+      const live = await store.live(siteKey)
+      if (live === null) return null
+      const object = await bucket.get(publishedAssetManifestKey(siteKey, live))
+      if (object === null) return null
+      try {
+        const parsed = JSON.parse(await object.text()) as StoredAssetManifest | null
+        return parsed && typeof parsed.assets === 'object' ? parsed : null
+      } catch {
+        // A manifest that does not parse is not one this store wrote. Serving
+        // falls back to the revision's own key space, which is the same answer
+        // a revision with no manifest gets — never a 500 on a customer's page.
+        return null
+      }
+    })()
+    pending.set(outPrefix, read)
+    return read
+  }
 }
 
 /**
@@ -472,6 +537,48 @@ function redirect(location: string): Response {
   return new Response(null, { status: 301, headers: new Headers({ location }) })
 }
 
+/**
+ * The R2 key one of a revision's candidate paths actually resolves to
+ * ([[REQ-304]]).
+ *
+ * WHY THERE IS AN INDIRECTION AT ALL. A publish used to write a copy of every
+ * picture on the site under each revision's own `out/assets/`, so `<prefix>/<path>`
+ * was the whole answer — at the price of moving the entire site's bytes on every
+ * publish, whether or not anything had changed, and keeping a copy per revision
+ * for ever. Asset bytes live once per site now, addressed by content, and the
+ * revision records WHICH content each name was. Resolving that is one small
+ * object read, and it is what makes freezing a revision free.
+ *
+ * ONLY `assets/<name>` IS RESOLVED THIS WAY, and the two exclusions are both
+ * deliberate. A page, a stylesheet or anything else under the revision prefix is
+ * rendered output and belongs to that revision alone. A DERIVED rendition
+ * (`assets/d/…`) is already content-addressed in its own name and is written per
+ * revision by the ladder, so it needs no manifest and must not pay for one.
+ *
+ * A REVISION WITH NO MANIFEST FALLS BACK TO THE PREFIX, which is how revisions
+ * published before this change go on being served: their copies are still there,
+ * still immutable, and still exactly what they were. Nothing detects a mode —
+ * the bucket's own shape decides, and a site that republishes once stops taking
+ * the fallback for ever.
+ *
+ * MEMOISED FOR THE LIFE OF THE REQUEST, on `D1SiteStore.live`'s reasoning: a
+ * page with ten pictures is ten requests, but a request that asks twice — the
+ * HEAD path and then the GET path — must not read twice.
+ */
+async function assetKeyOf(
+  serving: Serving,
+  siteKey: string,
+  prefix: string,
+  candidate: string,
+): Promise<string> {
+  if (!candidate.startsWith(ASSETS_PREFIX) || candidate.startsWith(DERIVED_PREFIX)) {
+    return `${prefix}/${candidate}`
+  }
+  const manifest = await serving.assets(siteKey, prefix)
+  const digest = manifest?.assets[candidate.slice(ASSETS_PREFIX.length)]?.digest
+  return digest === undefined ? `${prefix}/${candidate}` : blobKey(siteKey, digest)
+}
+
 /** Fetch one object out of the snapshot the route names. */
 async function serve(
   request: Request,
@@ -505,7 +612,9 @@ async function serve(
       // length that would be served and a HEAD promising it would be lying.
       // Everything else keeps the metadata-only read it always had.
       if (isHtml(contentTypeOf(candidate))) continue
-      const head = await serving.bucket.head(`${prefix}/${candidate}`)
+      const head = await serving.bucket.head(
+        await assetKeyOf(serving, target.siteKey, prefix, candidate),
+      )
       if (head === null) continue
       // Typed from the key that answered, never from the requested path: a
       // fallback hit is HTML, and `/whitepapers` carries no extension to guess
@@ -518,7 +627,9 @@ async function serve(
   }
 
   for (const candidate of candidates) {
-    const object = await serving.bucket.get(`${prefix}/${candidate}`)
+    const object = await serving.bucket.get(
+      await assetKeyOf(serving, target.siteKey, prefix, candidate),
+    )
     if (object === null) continue
     const contentType = contentTypeOf(candidate)
     headers.set('content-type', contentType)

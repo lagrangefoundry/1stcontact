@@ -570,7 +570,12 @@ describe('REQ-190 — the object store follows the keys', () => {
     await fill(business.store, business.siteKey, 'Forgetful')
     await publishSite(business.store, business.siteKey, { message: 'r1' })
     const siteKey = business.siteKey
-    expect(await keysUnder(`draft/${siteKey}/`)).not.toHaveLength(0)
+    // UNDER THE SITE'S OWN PUBLISHED ROOT ([[REQ-304]]). An asset's bytes are
+    // addressed by their CONTENT now, at `sites/<siteKey>/blob/<digest>` — one
+    // object named by the draft, by every revision that froze it and by the
+    // served site — so the draft prefix holds nothing of a site written today.
+    // What erasure has to reach is unchanged and is asserted below: everything
+    // this site owns, under either prefix.
     expect(await keysUnder(`sites/${siteKey}/`)).not.toHaveLength(0)
 
     await business.store.forget(siteKey)

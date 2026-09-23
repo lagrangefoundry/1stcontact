@@ -7,6 +7,7 @@ import {
 import { importSite } from '../tools/generate/src/store/import-site'
 import { memorySiteStore } from '../tools/generate/src/store/memory-store'
 import { StoreConflictError } from '../tools/generate/src/store/site-store'
+import { blobKey } from '../tools/generate/src/store/revision-model'
 import {
   applySchema,
   DEFAULT_TENANT,
@@ -255,24 +256,26 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
     // R2 holds the object with the content type the store derived, so a response
     // built from it is labelled without a second guess at the extension.
     //
-    // THE KEY IS `draft/<siteId>/assets/…` ([[REQ-190]]). It used to be
-    // `draft/<tenant>/<slug>/assets/…`, which recorded both the name the site
-    // might be renamed away from and the business it might be moved out of, in
-    // every object it owned — so a move was an object-store copy. The key is
-    // asked of the store rather than composed from `DEFAULT_TENANT` and `slug`,
-    // which is the same discipline the published fixture follows: a test that
-    // rebuilt the layout by hand would prove only that someone copied it right
-    // once.
+    // THE KEY IS THE ASSET'S CONTENT ([[REQ-304]]). It used to be
+    // `draft/<siteId>/assets/<name>` — which was already an improvement on
+    // `draft/<tenant>/<slug>/…`, because a rename or a move copied nothing — and
+    // it is now `sites/<siteId>/blob/<digest>`: one immutable object per
+    // content, named by the draft, by every revision that freezes it and by the
+    // served site, so a publish moves no picture at all. The key is DERIVED FROM
+    // THE STORE'S OWN ANSWER rather than composed here, which is the same
+    // discipline the published fixture follows: a test that rebuilt the layout
+    // by hand would prove only that someone copied it right once.
     const { SITES } = storeEnv()
     // THE FIXTURE'S `slug` IS THE KEY ([[REQ-236]]) — `makeD1Site` returns what
-    // `createDraft` minted, so there is nothing left to ask the store for. The
-    // layout is still not rebuilt by hand from a tenant and a name, which is the
-    // discipline the paragraph above is about.
+    // `createDraft` minted, so there is nothing left to ask the store for.
     const siteId = slug
-    const object = await SITES.get(`draft/${siteId}/assets/mark.svg`)
+    const manifest = new Map(
+      (await store.assetManifest(slug)).map((a) => [a.name, a.digest]),
+    )
+    const object = await SITES.get(blobKey(siteId, manifest.get('mark.svg')!))
     expect(object).not.toBeNull()
     expect(object!.httpMetadata?.contentType).toBe('image/svg+xml')
-    expect((await SITES.get(`draft/${siteId}/assets/photo.png`))!.httpMetadata
+    expect((await SITES.get(blobKey(siteId, manifest.get('photo.png')!)))!.httpMetadata
       ?.contentType).toBe('image/png')
 
     // An unknown name is null, and so is one that tries to leave the assets

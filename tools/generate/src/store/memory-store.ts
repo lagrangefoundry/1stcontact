@@ -1,16 +1,18 @@
 import { assembleSite } from './assemble'
 import { assertWritableAssetNames } from './asset-name'
+import { contentDigest } from './digest'
 import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
 import { emptyJournal, nextJournal, sliceSince } from './journal-model'
 import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
 import { nextRevisionOf, verifiedSnapshot } from './revision-model'
 import type {
+  AssetRef,
   DraftSnapshot,
   SiteStore,
   SiteWrite,
-  StoredAsset,
   StoredPage,
 } from './site-store'
+import { MissingContentError } from './site-store'
 
 /**
  * {@link SiteStore} with nothing behind it (REQ-142).
@@ -47,7 +49,23 @@ interface MemorySite {
   siteJson: Record<string, unknown> | null
   /** Page definitions by store name (`home.json`). Load order is name order. */
   pages: Map<string, Record<string, unknown>>
+  /** The draft's assets, by name. */
   assets: Map<string, Uint8Array>
+  /**
+   * Every content this site has ever held, by digest — the in-memory blob space
+   * ([[REQ-304]]).
+   *
+   * WHY AN ADAPTER WITH A `Map` NEEDS ONE AT ALL. A revision holds asset
+   * REFERENCES now, so the bytes a frozen revision names have to be reachable by
+   * digest after the draft has moved on. Holding them under the draft's name
+   * would make revision 3's logo change the day someone replaced it, which is
+   * exactly what freezing exists to prevent.
+   *
+   * NEVER PRUNED, for {@link blobKey}'s reason: a digest no draft names may
+   * still be a published revision's content, and a Map that dropped it would
+   * make that revision unreadable.
+   */
+  blobs: Map<string, Uint8Array>
   journal: JournalFile
   /** Bumped on every write; the whole of `DraftSnapshot.stamp`. */
   revision: number
@@ -105,6 +123,42 @@ function copy<T>(value: T): T {
 export function memorySiteStore(): MemorySiteStore {
   const sites = new Map<string, MemorySite>()
 
+  /**
+   * The digest of bytes this store is already holding, computed once.
+   *
+   * A `WeakMap` KEYED ON THE BUFFER ITSELF, so the memo cannot outlive what it
+   * describes and cannot be stale: every write stores a fresh copy, so an
+   * entry's key IS the content it answers for. This is what lets {@link seed}
+   * stay synchronous — a test fixture seeds a site in one statement — while
+   * digests, which need `crypto.subtle` and therefore a promise, are derived at
+   * the first question that actually needs one.
+   */
+  const digests = new WeakMap<Uint8Array, string>()
+
+  /** This content's digest, deriving and recording the blob on first ask. */
+  const digestOf = async (found: MemorySite, bytes: Uint8Array): Promise<string> => {
+    const known = digests.get(bytes)
+    if (known !== undefined) return known
+    const digest = await contentDigest(bytes)
+    digests.set(bytes, digest)
+    // SELF-HEALING RATHER THAN WRITE-ONLY. Whatever route the bytes arrived by —
+    // `write`, `seed`, a checkout — the blob space learns about them the first
+    // time anything asks what they are, so a freeze can always resolve a ref it
+    // was just handed.
+    if (!found.blobs.has(digest)) found.blobs.set(digest, bytes)
+    return digest
+  }
+
+  /** Every draft asset as a ref, sorted by name. Reads no bytes twice. */
+  const manifestOf = async (found: MemorySite): Promise<AssetRef[]> => {
+    const refs: AssetRef[] = []
+    for (const name of [...found.assets.keys()].sort()) {
+      const bytes = found.assets.get(name)!
+      refs.push({ name, digest: await digestOf(found, bytes), size: bytes.byteLength })
+    }
+    return refs
+  }
+
   const site = (slug: string): MemorySite | undefined => sites.get(slug)
 
   /** The site, or the one that has to exist for a write to mean anything. */
@@ -122,6 +176,7 @@ export function memorySiteStore(): MemorySiteStore {
         siteJson: copy(seed.siteJson),
         pages: new Map(Object.entries(copy(seed.pages))),
         assets: new Map(Object.entries(seed.assets ?? {}).map(([n, b]) => [n, b.slice()])),
+        blobs: new Map(),
         journal: emptyJournal(),
         revision: 0,
         history: [],
@@ -176,11 +231,26 @@ export function memorySiteStore(): MemorySiteStore {
       // left the assets directory. Both are the same refusal now, from the same
       // statement of which names are refused.
       assertWritableAssetNames(change.assets)
+      assertWritableAssetNames(change.assetRefs)
       const found = require(slug)
       if (change.siteJson !== undefined) found.siteJson = copy(change.siteJson)
       for (const { name, page } of change.pages ?? []) found.pages.set(name, copy(page))
       for (const name of change.removePages ?? []) found.pages.delete(name)
-      for (const { name, bytes } of change.assets ?? []) found.assets.set(name, bytes.slice())
+      for (const { name, bytes } of change.assets ?? []) {
+        const held = bytes.slice()
+        found.assets.set(name, held)
+        // The blob space learns the content here rather than at the first read,
+        // because this is the one moment the bytes are certainly new.
+        await digestOf(found, held)
+      }
+      // [[REQ-304]] — restoring by content. Nothing is copied but a pointer: the
+      // bytes this digest names are already held, because the only source of a
+      // ref is a store that stored it.
+      for (const ref of change.assetRefs ?? []) {
+        const bytes = found.blobs.get(ref.digest)
+        if (bytes === undefined) throw new MissingContentError(slug, ref.name, ref.digest)
+        found.assets.set(ref.name, bytes)
+      }
       for (const name of change.removeAssets ?? []) found.assets.delete(name)
       found.revision += 1
     },
@@ -190,8 +260,18 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve(found ? [...found.assets.keys()].sort() : [])
     },
 
+    async assetManifest(slug): Promise<AssetRef[]> {
+      const found = site(slug)
+      return found ? manifestOf(found) : []
+    },
+
     readAsset(slug, name) {
       const bytes = site(slug)?.assets.get(name)
+      return Promise.resolve(bytes ? bytes.slice() : null)
+    },
+
+    readBlob(slug, digest) {
+      const bytes = site(slug)?.blobs.get(digest)
       return Promise.resolve(bytes ? bytes.slice() : null)
     },
 
@@ -226,16 +306,23 @@ export function memorySiteStore(): MemorySiteStore {
 
     writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
       const found = require(slug)
+      // [[REQ-304]] — EVERY REF MUST RESOLVE BEFORE THE REVISION EXISTS. A
+      // manifest naming content the store does not hold is a revision that
+      // lists and cannot be restored, which is the state `writeRevision`'s
+      // "one act" rule exists to prevent.
+      for (const ref of content.source.assets) {
+        if (!found.blobs.has(ref.digest)) {
+          throw new MissingContentError(slug, ref.name, ref.digest)
+        }
+      }
       // Deep-copied in, so the snapshot cannot be reached through the draft it
       // was taken from. A revision that moved when its draft did would not be a
-      // revision.
+      // revision — and the assets need no copying at all now, because a digest
+      // IS immutable: the bytes it names cannot become different bytes.
       found.snapshots.set(entry.id, {
         siteJson: copy(content.source.siteJson),
         pages: content.source.pages.map((p) => ({ name: p.name, page: copy(p.page) })),
-        assets: content.source.assets.map((a) => ({
-          name: a.name,
-          bytes: new Uint8Array(a.bytes),
-        })),
+        assets: content.source.assets.map((a) => ({ ...a })),
       })
       found.outputs.set(entry.id, new Map(content.out))
       // [[REQ-222]] — copied in like the snapshot above, and for the same reason:
@@ -255,10 +342,7 @@ export function memorySiteStore(): MemorySiteStore {
       const snapshot: StoredSnapshot = {
         siteJson: copy(held.siteJson),
         pages: held.pages.map((p: StoredPage) => ({ name: p.name, page: copy(p.page) })),
-        assets: held.assets.map((a: StoredAsset) => ({
-          name: a.name,
-          bytes: new Uint8Array(a.bytes),
-        })),
+        assets: held.assets.map((a: AssetRef) => ({ ...a })),
       }
 
       // [[REQ-266]] §4 — VERIFIED HERE TOO, EVEN THOUGH NOTHING CAN TAMPER WITH
@@ -271,7 +355,11 @@ export function memorySiteStore(): MemorySiteStore {
       // against.
       const entry = found.history.find((r: RevisionEntry) => r.id === id)
       if (entry === undefined) return snapshot
-      return verifiedSnapshot(slug, id, entry.sha, snapshot)
+      // ALWAYS `manifested` HERE, and it is a statement rather than a shortcut:
+      // this adapter holds nothing that predates [[REQ-304]], so every revision
+      // in it was frozen by content and every one of them is verifiable. The
+      // two persistent adapters pass what they actually found.
+      return verifiedSnapshot(slug, id, entry.sha, snapshot, true)
     },
 
     draftBase(slug) {
