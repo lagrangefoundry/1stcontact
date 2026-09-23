@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:21:25.417278+00:00'
+updated_at: '2026-09-23T02:23:31.512090+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -208,5 +208,11 @@ Ticket updated with your direction, the gap findings, and the five-item build li
 The headline for you: **the central deliverable isn't a font library, it's `use_font`.** The mirror is necessary but inert — without a tool in `consultant`/`builder`, the assistant still can't reach it, and today it's stuck asking customers to download fonts by hand.
 
 One call still needed: shared platform origin vs. copy-on-select. That's now genuinely blocking, since `use_font` can't be written without knowing what `src` it emits. My recommendation stands — shared-serve platform fonts, per-site uploads — but it's yours to make. Give me that and I'll file the sub-tickets and start on the mirror.
+
+<!-- xgd-turn id="2224878b-61c9-4b4d-b251-df0215c822be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:23:31.007492+00:00" -->
+#### You
+I think the font list should be documented are you really sure that you know all 1700 fonts on the list?
 
 <!-- xgd-chat-end -->
