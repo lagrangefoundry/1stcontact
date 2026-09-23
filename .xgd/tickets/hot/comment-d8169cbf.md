@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T02:58:21.462940+00:00'
+updated_at: '2026-09-23T02:59:28.518672+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3395,5 +3395,52 @@ Say go and I'll start with the trim. The only thing I still need timing on is th
 Actually it has one page - there are three versions when we choose one the others will be deleted - that is another pattern we need to discuss huge innovation that came for free - we can create multiple versions of the customer site and compare. Much stronger than trying to work with text.
 
 Do we have a solution to 1 yet? I have lost track of that - thanks for re-raising it - also I don't understand 2
+
+<!-- xgd-turn id="d478c0cb-83d4-4665-8914-a784bdaa97f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:59:27.614666+00:00" -->
+#### Claude
+Let me get the ordering exactly right before I explain 2.
+
+Correcting my arithmetic, since it changes the conclusion: **one page, not three.** So it's ~2.1 MB of tool transcript for a *single* page taken to near-final quality. The ceiling isn't reached at three pages — it's reached inside the first one.
+
+## The variants pattern, and why it's entangled with the bug
+
+You're right that it's a real innovation, and it's the generalised form of the move you invented in turn 82. The reason it beats text is that you're not evaluating a *description* of a site — you're evaluating the site. There's no translation step for either party to get wrong, which is exactly where turns 40–42 and 51–54 went.
+
+But notice what it costs: three variants is roughly three times the tool traffic for one page. **The pattern you want to lean into is the thing that filled the artifact.** So bounding the transcript isn't hygiene — it's the precondition for doing variants at all, let alone at beta scale.
+
+And it's currently improvised. "Unreachable pages" is a workaround, which is why turns 83–84 were you reporting that new pages arrive empty and don't get backfilled. First-class support looks like: fork a page into N variants, compare, promote one, discard the rest — and the discard is also the natural moment to reclaim their tool records. Worth its own ticket; I'd want to scope it properly rather than bolt it onto the size fix.
+
+## 1 — no, we don't have a solution. We have a design
+
+Nothing filed, nothing coded. You hadn't said go, and I stopped. The design is:
+
+- **Tool transcript** — total bound, elide oldest, visible marker at the cut. This is the lever upstream already named in `tool_transcript.js` ("add a total bound eliding the oldest records").
+- **Prose transcript** — *roll*, don't elide. New comment when the current one nears the ceiling. Keeps the addressable-by-turn-id route the seed's transcript pointer promises; costs a reader that walks N comments.
+- **Summary log** — same class of bug, found early. The `framing` field is capped and enforced; the append-only log isn't.
+
+## 2 — the coupling, in four lines
+
+`TicketSessionArchive.apply()`:
+
+```js
+async apply(sessionId, records) {
+  const chatUid = await this._findOrCreateChat(sessionId, records)
+  await this._applyTools(chatUid, records)          // ← tool transcript FIRST
+  const comment = await this._transcriptComment(chatUid)
+  await this._c.update({ patch: { body: session.toFile() } })   // ← prose SECOND
+}
+```
+
+One pass writes both artifacts. The tool transcript goes first. When its `append_body` throws `SQLITE_TOOBIG`, the exception propagates out of line 3 and **lines 4–5 never run** — so your conversation, 272 KB and nowhere near any limit, is never written.
+
+That's the coupling: two independent artifacts sharing one failure path, ordered so that the one that matters least can veto the one that matters most. It's what turned "a debugging log got too big" into "the session is dead". Fix is either order (prose first) or isolation (each write survives the other's failure, and a failed tool append is reported, not fatal) — and it lives in upstream's `ticket_store.js`, same file.
+
+## What I'm doing now
+
+Filing the unbounded-artifacts bug covering all three artifacts plus the coupling, then free-coding it. I'll flag which half needs an upstream ticket once I've read how much of the fix can sit on our side of the port.
+
+One thing I won't do without you: **trimming `comment-ca74b1b7`.** Your LF session is dead until it happens, it's a destructive edit to your working data, and you have three variants in there you haven't chosen between yet. Say go and it's a minute.
 
 <!-- xgd-chat-end -->
