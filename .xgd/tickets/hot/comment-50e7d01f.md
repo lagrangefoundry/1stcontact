@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:36:06.538604+00:00'
+updated_at: '2026-09-23T02:39:43.425588+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1258,5 +1258,13 @@ So each cell of the matrix yields three numbers without extra instrumentation: *
 2. **Is the score a rubric or a gut call?** You said you and I look at it and score it, which I think is right for run one. But if the three axes are stated up front — quality of ideas, quality of the site, quality of the conversation — then run five is comparable to run one. Unstated criteria drift, and drift silently, and the whole point is comparing across months.
 
 Want me to scope this as a ticket under EPIC-20? I'd hold off writing the scripts until you've answered those two, but the shape — three businesses, one with scripted pushback, one text-only, 2–3 runs each, cost from the meter, rubric scored by us — is settled enough to write down.
+
+<!-- xgd-turn id="a130a793-32a4-4188-b5a0-737f2d95f2da-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:39:42.358031+00:00" -->
+#### You
+What I want to do is to actually capture some real business websites and then change all the details so that they are unrecognizable. That will that will ensure we have all the details we need but we won't actually be building websites for real businesses.
+
+We can talk about how rigorous to make the score I think we should actually just build the testing infrastructure first and see how it performs. I don't think this needs to be over designed I do think that if models don't do well on this it will become obvious. This is also potentially a mechanism for us to create some example sites. Which is something that we need.
 
 <!-- xgd-chat-end -->
