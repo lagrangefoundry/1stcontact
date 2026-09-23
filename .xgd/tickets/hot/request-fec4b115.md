@@ -6,9 +6,9 @@ title: 'The font catalogue promises 1,941 families whose bytes do not exist: mir
   + registry platform tier'
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:55.065108+00:00'
-updated_at: '2026-09-23T22:21:40.064623+00:00'
+updated_at: '2026-09-23T22:21:47.235267+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -25,7 +25,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.346
-  story_points: 18
+  story_points: 21
 ---
 
 uid: request-fec4b115
