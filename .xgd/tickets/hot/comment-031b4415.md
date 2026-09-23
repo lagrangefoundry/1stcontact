@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:23:31.512090+00:00'
+updated_at: '2026-09-23T02:26:56.362516+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -214,5 +214,45 @@ One call still needed: shared platform origin vs. copy-on-select. That's now gen
 <!-- xgd-chat role="user" ts="2026-09-23T02:23:31.007492+00:00" -->
 #### You
 I think the font list should be documented are you really sure that you know all 1700 fonts on the list?
+
+<!-- xgd-turn id="2224878b-61c9-4b4d-b251-df0215c822be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:26:54.760691+00:00" -->
+#### Claude
+You're right to push on that, and the honest answer is **no — I don't know all 1,700.**
+
+I know maybe 100–300 confidently — the ones that appear constantly in real web code. Beyond that it degrades fast: most of the Noto family (hundreds of entries, largely non-Latin scripts), a long tail of display faces from individual designers, and anything added after my training cutoff, which I can't see at all. If I claimed otherwise I'd be guessing at names.
+
+Let me get the actual list rather than keep estimating.
+
+That sample settles it. Of those 40 I could genuinely describe maybe a third — `antonio`, `arvo`, `cairo`, `dosis`, `oswald`, `pacifico`, `leaguespartan`, a few variants of families I know. `ancizarserif`, `baumans`, `beiruti`, `borel`, `drsugiyama`, `keaniaone`, `novaoval`, `pliant`, `vampiroone`, the whole `playwrite*` set — I'd be inventing descriptions.
+
+And my "~1,700+" was wrong too. Let me get the real metadata rather than slugs.
+
+Now I have real numbers. Generating the documented catalogue.
+
+Six families failed the directory join — the `Edu *` set was renamed upstream (`Edu NSW ACT Cursive` → `edunswactfoundation`). All `edu*` directories sit under `ofl/`, so they're OFL, but it's a real finding: **joining live metadata to licence by directory slug is not reliable**, and the production ingest must read each family's own `METADATA.pb` instead.
+
+Catalogue written. Now correcting the ticket — this changes the design, not just the numbers.
+
+You were right to challenge it, and the claim didn't survive contact with the data.
+
+**What I got wrong:** I don't know the corpus. Sampling 40 non-Noto families, I could describe about a third. My "~1,700+" was wrong — it's **1,946** live families, 1,941 of them redistributable under OFL/Apache. And **20 post-date my training cutoff**, so they're invisible to recall no matter how confident I sound.
+
+**Written:**
+- `fonts/catalogue.json` — 1,946 records: family, licence, category, weights, variable axes, subsets, designers, popularity rank, date added
+- `fonts/CATALOGUE.md` — human summary, methodology, caveats
+
+Real numbers: OFL 1,906 · Apache 35 · UFL 5 (need individual clearing — modification terms differ). 558 variable. 212 Noto. By category: Sans Serif 720, Display 468, Handwriting 358, Serif 349, Monospace 51.
+
+**Two design corrections follow, and they matter more than the numbers:**
+
+1. **The assistant needs `search_fonts`, not just `use_font`.** A corpus the model can't enumerate is one it won't use — left to recall it reaches for the same forty faces and every tenant site looks the same, while 1,900 licensed families sit unused. That was the actual risk in my "resolver, not a catalogue" position.
+
+2. **Category is an index, not taste.** I cut it alongside pairing hints as "the model's job". Wrong — you can't query a corpus you can't describe. Category, weights, axes and subsets are carried. Pairing hints stay out; those genuinely are taste.
+
+**One finding for the build:** joining the live family list to licence directories by slug is unreliable — six `Edu *` families were renamed upstream (`Edu NSW ACT Cursive` → `edunswactfoundation`) and failed the join. I resolved them by prefix and marked them `licence_source: prefix-inference`, but the production ingest must read each family's own `METADATA.pb`. Also: the repo has 2,056 directories against 1,946 live — the gap is delisted/sandboxed families that must not be mirrored.
+
+The catalogue is currently a one-off pull; the generator that reproduces it still needs committing, which is now item 1 on the build list. And the storage fork is still the thing blocking `use_font`.
 
 <!-- xgd-chat-end -->
