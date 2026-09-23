@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:29:13.599352+00:00'
+updated_at: '2026-09-23T18:56:11.641517+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -559,5 +559,11 @@ I've noted option 1 as the conservative default but haven't selected it — it's
 **2. The serving origin.** Which hostname and path shape platform fonts serve from. Both REQ-313's `use_font` (writes the `src`) and `1c fonts check` (resolves it) depend on this, so it wants settling before either starts.
 
 **3. Worth a sanity check given the size.** "Ship everything for the AI" was decided when I thought this was a few hundred MB. At 1.35 GB it's still cheap in R2 terms, and I'd still mirror everything — but you should know the real number before it's treated as settled.
+
+<!-- xgd-turn id="80392f69-9171-487f-9b55-d5bbbd6827af-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T18:56:11.407335+00:00" -->
+#### You
+what is the performance hit that we are concerned about? We need to download and convert these how often? Anually? They are part of the deploy but since they only change infrequently we only need to upload them infrequently (if our deploy tools are smart enough) and at the end of the day we serve the ones we use - which is true anyway so it will cost us what a few hundred MB of R2 storage - I'm not sure what the discussion here is of course we pull everything
 
 <!-- xgd-chat-end -->
