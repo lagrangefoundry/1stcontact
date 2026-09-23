@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:58:32.925097+00:00'
+updated_at: '2026-09-23T20:15:40.858256+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -595,5 +595,13 @@ REQ-312 updated and verified — that MISS was my check string, not the content.
 - **Behaviour** gained three testable lines — same faces from the same commit, a refresh leaves already-served faces byte-identical, a deploy doesn't re-upload or wait.
 
 **One question left in REQ-312:** the serving origin — which hostname and path shape platform fonts serve from. REQ-313's `use_font` writes that `src` and `1c fonts check` resolves it, so both wait on it. It's the last unsettled item across the whole epic.
+
+<!-- xgd-turn id="0334efaa-a0e0-47d1-a3b1-81515c529cee-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T20:15:40.006593+00:00" -->
+#### You
+312 is in-flight!
+
+What is your recommendation on where things are served from. I think it is highly desirable that a site is self-contained and everything it needs comes from its domain - is that problematic?
 
 <!-- xgd-chat-end -->
