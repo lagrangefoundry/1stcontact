@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-302
 created_by: xgd
 created_at: '2026-09-22T23:01:52.187218+00:00'
-updated_at: '2026-09-23T00:09:29.383371+00:00'
+updated_at: '2026-09-23T22:11:30.162996+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -350,5 +350,15 @@ Two things you should know:
 2. **`xgd ticket move-to-free-coded` has a gate gap worth a separate ticket** (in the `xgd` repo, not here — I didn't file it since you didn't ask). It rejected my first attempt claiming version 0.2.332 was "already published" by a foreign commit. It wasn't: the tip was a plain single-parent *ticket auto-commit for my own ticket* sitting on top of my merge. The gate accepts tip-is-my-ancestor and tip-is-my-merge-commit (BUG-1119) but not tip-is-a-ticket-commit-above-my-merge. I worked around it by bumping again and running merge+gate in one atomic step — but since the gate itself writes tickets, this will recur for anyone whose merge is followed by a ticket auto-commit.
 
 Issues 3, 4 and 5 are persisted changes: **the corresponding deltas won't clear until you press recapture.** `captureSchema` is bumped 4→5 so pre-existing bundles are now named as stale rather than read as clean.
+
+<!-- xgd-turn id="70edd17b-c64a-48f6-9846-81308ae524f0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-22T22:29:35.089513+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
