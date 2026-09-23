@@ -378,6 +378,51 @@ binding = "BROWSER"
 [images]
 binding = "IMAGES"
 
+# The session junction, made durable ([[REQ-307]]) — one Durable Object per
+# conversation, holding the records of the turn that is open right now.
+#
+# WHAT IT IS FOR. The junction is the only place a turn's records live while the
+# turn is open: the archive deliberately lags by a whole open turn, because
+# folding half a turn splits one reply in two. Until this binding existed that
+# junction was RAM scoped to one isolate (`ai.ts`), so an isolate evicted under
+# memory pressure — or a `wrangler dev` reload, which is the same event with a
+# different cause — destroyed the turn outright: no `turn_end`, no fold, no
+# spend row, and [[BUG-121]]'s pending record left at `open`. A restart must cost
+# the client the rest of the answer and nothing else.
+#
+# WHY A DURABLE OBJECT AND NOT D1, R2 OR KV. The junction's storage port is
+# SYNCHRONOUS — `exists`, `size`, `append` and `read` all return values rather
+# than promises, because one record layer serves a file, an isolate's RAM and
+# this alike — and `ctx.storage.sql` is the only durable API on this platform
+# underneath which that holds. The DO also restores the junction's other
+# assumption, a single writer per session, which DOC-21 §1.1 rejected an
+# in-memory hub over. Upstream's `junction_memory.js` names exactly this as the
+# route back, and says it "needs no change here, which is the point of making
+# storage a port".
+#
+# `new_sqlite_classes` AND NOT `new_classes`, and it is not interchangeable: the
+# key-value storage the other migration selects has no synchronous SQL, so the
+# class would be unable to implement the port it exists for. A class cannot be
+# moved between the two afterwards.
+#
+# ABSENT IS AN ORDINARY STATE, not a boot failure — `router.ts` falls back to
+# `memoryJunctions()`, which is this Worker exactly as it behaved before. That
+# is what keeps the suites and the `1c` CLI unaffected by a binding neither has.
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings — the rule every other binding in this file records. The
+# failure of forgetting it here is quiet rather than loud, which is worse: the
+# deployed Worker would see no binding, run on RAM, and lose exactly the turns
+# this ticket is about while local dev kept them. A UAT pins the two sides
+# together.
+[[durable_objects.bindings]]
+name = "SESSION_JUNCTION"
+class_name = "SessionJunction"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SessionJunction"]
+
 # Workers AI — the embedding model behind the project knowledge base (REQ-159).
 #
 # ONE MODEL ON BOTH SIDES, which is a correctness property rather than a
@@ -474,3 +519,11 @@ binding = "IMAGES"
 [env.production.ai]
 binding = "AI"
 
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-307]]).
+[[env.production.durable_objects.bindings]]
+name = "SESSION_JUNCTION"
+class_name = "SessionJunction"
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["SessionJunction"]

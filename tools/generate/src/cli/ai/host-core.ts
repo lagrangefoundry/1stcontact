@@ -473,6 +473,16 @@ export interface HostDeps {
    * the library's file junction and is Node's; passing neither takes the
    * library's own default, which is a MACHINE location (`~/.xgd/sessions/live`)
    * and wrong for both hosts.
+   *
+   * IT MAY CARRY ONE METHOD THE PORT ITSELF DOES NOT ([[REQ-307]]):
+   * `prepare(sessionId): Promise<void>`, awaited by {@link prepareJunction}
+   * below at each entry point here. The port is synchronous by design — every
+   * read `SessionLog` makes returns a value rather than a promise, which is what
+   * lets one record layer serve a file, an isolate's RAM and a Durable Object
+   * alike — so an adapter whose substrate is reached over the network has
+   * nowhere inside the port to fill itself from. This is that place, and it is
+   * the ONLY asynchrony the port gains. A store without the method — the file
+   * junction, `memoryJunctions()` — is untouched by it.
    */
   junctions?: Untyped
 
@@ -2081,6 +2091,27 @@ async function storedTranscript(
  * archive when no junction exists, and `createSession` records its home ref. The
  * shape of the decision is unchanged.
  */
+/**
+ * Let the junction store fill itself for this session, if it needs to ([[REQ-307]]).
+ *
+ * WHY IT IS CALLED AT EVERY ENTRY POINT AND NOT AT MANAGER CONSTRUCTION. A
+ * manager is built once per site per process and then reused, so a hook there
+ * would fill the store once and never notice the object moving on. In a Worker
+ * that is not hypothetical: two requests for one session need not land in the
+ * same isolate, and an isolate that has been idle holds a mirror as old as the
+ * last turn it drove. Asking per entry point costs one round trip for a delta
+ * that is usually empty, and removes a whole class of stale-mirror question.
+ *
+ * NEVER THROWS, because a store that could not be reached is a DURABILITY
+ * failure and not a conversational one: the session still opens, still replays
+ * and still takes a turn, exactly as it did when the junction was RAM. The
+ * adapter reports the failure where it happened and degrades itself; this is
+ * only the seam.
+ */
+async function prepareJunction(deps: HostDeps, sessionId: string): Promise<void> {
+  await deps.junctions?.prepare?.(sessionId)
+}
+
 async function attach(
   manager: Untyped,
   sessionId: string,
@@ -2496,6 +2527,9 @@ export async function openSession(
   // the store, so it holds for any isolate, at any time, whether or not this
   // call was the one that opened the session.
   const sessionId = sessionIdFor(slug)
+  // BEFORE THE MANAGER, because building one opens this session's junction and
+  // the store has to be holding this session's bytes by then ([[REQ-307]]).
+  await prepareJunction(deps, sessionId)
   let manager: Untyped
   try {
     manager = await managerFor(slug, opts, deps)
@@ -2558,6 +2592,8 @@ export async function openBusinessSession(
   if (!deps.settings) throw new UnknownSessionError(BUSINESS_SESSION_PREFIX)
   const businessId = deps.settings.businessId
   const sessionId = businessSessionIdFor(businessId)
+  // [[REQ-307]], for {@link openSession}'s reason.
+  await prepareJunction(deps, sessionId)
   let manager: Untyped
   try {
     manager = await managerForBusiness(businessId, deps)
@@ -2624,6 +2660,9 @@ export async function* streamPrompt(
    * through is what that means, and taking the early return is what stops a
    * reader having to work out which half of a long function applies.
    */
+  // [[REQ-307]] — ahead of the branch, because both halves below drive a turn
+  // and a turn's records are the whole of what this ticket makes durable.
+  await prepareJunction(deps, sessionId)
   const business = businessForSession(sessionId, deps)
   if (business) {
     const settingsManager = await managerForBusiness(business, deps)
@@ -2931,6 +2970,9 @@ export async function* tailSession(
   // THE SETTINGS CONVERSATION IS TAILED THE SAME WAY ([[REQ-239]]). A reload
   // during a turn is a reload during a turn whatever the turn was about, and the
   // projection below is over junction records, which carry no site.
+  // [[REQ-307]] — a tailer reads the junction and nothing else, so an isolate
+  // that has never held this session has nothing to replay until it does.
+  await prepareJunction(deps, sessionId)
   const business = businessForSession(sessionId, deps)
   const slug = business ? null : await siteForSession(sessionId, deps)
   if (!business && !slug) throw new UnknownSessionError(sessionId)

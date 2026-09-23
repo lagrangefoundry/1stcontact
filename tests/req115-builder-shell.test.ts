@@ -193,7 +193,18 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
     // a membership and a live grant behind that address, every request below
     // would be refused 403 by `index.ts` before a route ran.
     seedIdentity(REPO, 'uat@westhead.me')
-    worker = await unstable_dev('apps/control-app/src/index.ts', {
+    // THE ENTRY `main` NAMES, not the module under it ([[REQ-307]]). This used
+    // to mount `index.ts` while reading the same `wrangler.toml`, which worked
+    // only for as long as nothing in that config needed an export `index.ts`
+    // does not have. A Durable Object binding does: wrangler resolves
+    // `class_name` against the entry module, and `SessionJunction` is exported
+    // from `worker.ts` — deliberately, because it imports the workerd built-in
+    // `cloudflare:workers` and the roughly sixty node suites that import
+    // `index.ts` must never reach it. Mounting the real entry resolves the class
+    // AND closes the divergence: the shape wrangler deploys is now the shape
+    // this AC proves. Nothing else changes — `worker.ts` re-exports `index.ts`'s
+    // default handler verbatim, so every route below is the same route.
+    worker = await unstable_dev('apps/control-app/src/worker.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {
         ACCESS_TEAM_DOMAIN: access.teamDomain,

@@ -572,6 +572,26 @@ export function workerHost(
    * conversation that refuses to run.
    */
   recordTurnSpend: HostDeps['recordTurnSpend'] = null,
+  /**
+   * Where this session's live records are kept ([[REQ-307]]), or `null` for the
+   * in-isolate junction this Worker ran on until now.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, and here the reason is the one
+   * `recordTurnSpend` above states rather than an import-graph one: what it
+   * takes is a Durable Object namespace, and {@link WorkerAiEnv} declares
+   * `SITES` and the API key and nothing else, deliberately — it is the AI host's
+   * environment, not the Worker's. Widening it so one binding could reach this
+   * line would make every future reader of that type wonder what else the
+   * assistant touches.
+   *
+   * NULL IS ORDINARY, like every wire above it, and it is what a deployment with
+   * no `[[durable_objects.bindings]]` entry gets: `memoryJunctions()`, which is
+   * this Worker exactly as it behaved before — the `1c` CLI's permanent state,
+   * and every suite's. What it costs is the thing the ticket is about: an
+   * isolate evicted mid-turn loses the turn, because the only copy of a live
+   * turn's prose and tool records is that isolate's RAM.
+   */
+  junctions: Untyped | null = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -626,7 +646,24 @@ export function workerHost(
       // changes is the ONE record that need not wait for the drain: `pending`
       // below writes the client's words before the model is called, so the
       // question outlives an interruption even though the answer does not.
-      junctions: lib.memoryJunctions(),
+      // THE JUNCTION IS DURABLE WHERE THIS DEPLOYMENT HAS ONE ([[REQ-307]]), and
+      // the paragraphs above are what that closes. `junctions.ts` implements the
+      // same `JunctionStorage` port over a Durable Object per session — single
+      // writer, synchronous SQLite, which is why upstream named a DO as the route
+      // back and said it "needs no change here, which is the point of making
+      // storage a port". A turn's records become durable as they are appended
+      // instead of when it closes, so an isolate replaced mid-turn leaves a
+      // junction the next attach reconciles: the dangling turn is closed
+      // `aborted`, everything it managed to record is folded into the transcript,
+      // and [[BUG-121]]'s `recorded: true` notice — the sentence telling the
+      // client their reply is a fragment — becomes reachable instead of
+      // theoretical.
+      //
+      // WHAT IT STILL DOES NOT DO is resume the turn. The model loop was running
+      // in an isolate that no longer exists and nothing can continue it. What
+      // this buys is that the turn's words and work survive and the conversation
+      // stays coherent, so the client re-asks rather than reconstructs.
+      junctions: junctions ?? lib.memoryJunctions(),
       audit: audit.sink,
       // Absent is fine and must stay fine: the backend's factory is lazy, so a
       // deployment with no key still opens the session, still replays the
@@ -733,7 +770,15 @@ export function workerHost(
       // rebuilds the manager per request.
       occupancy: sessionOccupancy(tickets),
     },
-    flush: (sessionId: string) =>
-      flushAudit(env.SITES, tenantId, sessionId, audit.drain()),
+    // TWO TIERS DRAINED BY ONE CALL ([[REQ-307]]). The route already awaits this
+    // where it matters — inside the `ctx.waitUntil` that holds the isolate open
+    // past a client that walked away — so the junction's queued writes ride the
+    // same promise the audit flush does rather than needing a second hook in
+    // every caller. The junction goes FIRST because it is the record of what was
+    // said; neither may reject, for the reason `streamTurn` states.
+    flush: async (sessionId: string) => {
+      await junctions?.flush?.(sessionId)
+      await flushAudit(env.SITES, tenantId, sessionId, audit.drain())
+    },
   }
 }

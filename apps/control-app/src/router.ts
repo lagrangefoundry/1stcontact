@@ -81,6 +81,11 @@ import {
   workerHost,
   type WorkerHost,
 } from './ai'
+// [[REQ-307]] — the junction port over a Durable Object. Imported for the
+// FACTORY and the namespace's shape only; the Durable Object CLASS lives in
+// `junction-do.ts`, which imports the workerd built-in `cloudflare:workers` and
+// so is reachable from `worker.ts` alone (see the note at the top of that file).
+import { durableJunctions, type JunctionNamespace } from './junctions'
 import { imageSurface } from './imagegen'
 // [[REQ-273]] — filing a defect in THIS software. The surface, the HTTP reach to
 // the project that builds it, and the one place a deployment's address becomes a
@@ -835,6 +840,24 @@ function chatHost(
         // `1c` CLI's permanent state — a conversation that runs and is not
         // metered — rather than to a builder that will not talk.
         env.DB ? d1TurnSpend(env, tenantId) : null,
+        // WHERE THIS SESSION'S LIVE RECORDS ARE KEPT ([[REQ-307]]). Assembled
+        // here for the reason the meter above it is: what it takes is a binding,
+        // and `WorkerAiEnv` declares the AI host's environment rather than the
+        // Worker's.
+        //
+        // BOUND ONCE PER HOST, WHICH IS ONCE PER ISOLATE PER BUSINESS, and that
+        // is the right lifetime rather than merely a convenient one: the store
+        // holds an in-isolate mirror of each session it has prepared, and a
+        // store built per request would re-read every session's whole stream on
+        // every turn. Addressing is by SESSION id, so two businesses sharing an
+        // isolate can no more reach each other's junction than they can reach
+        // each other's tickets.
+        //
+        // NULL WHERE THERE IS NO BINDING, which is the ordinary degradation this
+        // whole call is written in: no Durable Object means `memoryJunctions()`
+        // and this Worker exactly as it behaved before — every suite, and the
+        // `1c` CLI, permanently.
+        env.SESSION_JUNCTION ? durableJunctions(env.SESSION_JUNCTION) : null,
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -997,6 +1020,26 @@ export interface RouterEnv
    * {@link defaultIndexer} asks it rather than testing this field.
    */
   AI?: { run(model: string, input: unknown): Promise<unknown> }
+  /**
+   * The session junction, made durable ([[REQ-307]]) — one Durable Object per
+   * session, holding the records of the turn that is open right now.
+   *
+   * WHY IT IS A BINDING AND NOT A TABLE. The junction's storage port is
+   * SYNCHRONOUS — `exists`, `size`, `append`, `read` all return values rather
+   * than promises, because one record layer has to serve a file, an isolate's
+   * RAM and this alike — and a Durable Object is the only durable store on this
+   * platform with a synchronous API underneath it (`ctx.storage.sql`). D1, R2
+   * and KV are not, which is precisely why this is a DO rather than one of them.
+   * It is also the only one that restores the junction's other assumption, a
+   * single writer per session, which DOC-21 §1.1 rejected an in-memory hub over.
+   *
+   * OPTIONAL, and absent stays an ordinary state rather than a boot failure, for
+   * the reason {@link RouterEnv.BROWSER} is optional: a deployment without it
+   * runs on `memoryJunctions()` and behaves exactly as this Worker did before —
+   * every conversation opens, replays and takes turns. What it does not survive
+   * is an isolate evicted mid-turn, which is the exposure the binding closes.
+   */
+  SESSION_JUNCTION?: JunctionNamespace
   /**
    * Cloudflare Images ([[REQ-219]]), which this route needs for one thing:
    * reading the HEIC an iPhone produces ([[REQ-221]]).

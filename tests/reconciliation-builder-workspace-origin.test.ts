@@ -809,7 +809,13 @@ describe('story-e674c60a control-app front', () => {
     // a membership and a live grant behind that address, every request below
     // would be refused 403 by `index.ts` before a route ran.
     seedIdentity(REPO, 'uat@westhead.me')
-    worker = await unstable_dev('apps/control-app/src/index.ts', {
+    // THE ENTRY `main` NAMES ([[REQ-307]]) — see the note at the same call in
+    // `req115-builder-shell.test.ts`. Wrangler resolves a Durable Object
+    // binding's `class_name` against the entry module, and `SessionJunction` is
+    // exported from `worker.ts` rather than `index.ts` on purpose. `worker.ts`
+    // re-exports `index.ts`'s default handler verbatim, so every route below is
+    // the same route.
+    worker = await unstable_dev('apps/control-app/src/worker.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {
         BUILDER_ORIGIN: builder.url.replace(/\/$/, ''),
@@ -921,7 +927,8 @@ describe('story-e674c60a origin failure reporting', () => {
     const access = await startAccessTeam()
     const admitted = await access.headers()
 
-    const unconfigured = await unstable_dev('apps/control-app/src/index.ts', {
+    // [[REQ-307]] — the entry `main` names, for the reason stated at the call above.
+    const unconfigured = await unstable_dev('apps/control-app/src/worker.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {
         TENANT_ID: '',
