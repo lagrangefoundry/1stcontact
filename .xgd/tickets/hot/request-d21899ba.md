@@ -5,9 +5,9 @@ type: request
 title: Publish must compare and freeze assets by content identity, not content
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:29.737145+00:00'
-updated_at: '2026-09-22T23:26:34.824433+00:00'
+updated_at: '2026-09-23T00:18:23.447772+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -140,3 +140,5 @@ digest calls, this also removes the byte reads REQ-303 was raised for.
 reproduction loop reads, with an `assets.json` beside it. Bytes reach it by
 filesystem copy from a per-site `blobs/<digest>` space, never through a
 JavaScript string.
+
+-
