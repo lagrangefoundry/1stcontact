@@ -5,16 +5,24 @@ type: request
 title: A durable junction, so a deploy does not have to wait for an empty house
 created_by: EPIC-19
 created_at: '2026-09-22T23:27:12.118848+00:00'
-updated_at: '2026-09-23T18:14:03.384010+00:00'
+updated_at: '2026-09-23T18:16:55.464424+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-b4335002
+  commits:
+  - working_sha: a7d374844450b7713957d5d08c8e74fffe2b25c4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c8f7b28f8a6c0cccd01ba69f242da2e5da3bdcc5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.341
 ---
 
 ## What this is for
