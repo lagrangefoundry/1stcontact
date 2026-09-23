@@ -5,16 +5,30 @@ type: request
 title: A turn that dies uncatchably must still report legibly to the client
 created_by: EPIC-16
 created_at: '2026-09-22T23:13:21.139160+00:00'
-updated_at: '2026-09-23T02:52:06.145229+00:00'
+updated_at: '2026-09-23T03:02:21.183317+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-b5491bd4
+  commits:
+  - working_sha: 1e054221f24abdded3ed92181c234aba4d3f132b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: f0b48980400461a5277718061ab0ed64c19bf7db
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 40b5ae79727109005103245462bb15197749d16b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 78b52cefea8f89680d7139de91a237adac859d5d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.339
 ---
 
 ## Why
