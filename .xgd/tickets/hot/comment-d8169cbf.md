@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T03:10:28.147143+00:00'
+updated_at: '2026-09-23T03:12:46.458745+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3498,5 +3498,38 @@ Shall I file it that way — one upstream REQ for the archive's segmentation and
 <!-- xgd-chat role="user" ts="2026-09-23T03:10:27.524561+00:00" -->
 #### You
 Cool, can you create REQs in LF for this work please?
+
+<!-- xgd-turn id="75f19326-1976-4406-b8af-0fc3cbf5fcf5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T03:12:46.135747+00:00" -->
+#### Claude
+Filing them now — upstream in lagrange-framework for the archive's own shape, and one here for our storage substrate.
+
+Filed. I read "LF" as lagrange-framework for the upstream half — say the word if you meant something else and I'll move them.
+
+**lagrange-framework**
+
+| | |
+|---|---|
+| **REQ-176** | Archived session artifacts must segment, so no store's value ceiling can end a conversation |
+| **BUG-66** | A failed tool-transcript write takes the prose transcript with it, and the turn after it |
+| **BUG-67** | Seed assembly reads the whole tool transcript to answer whether one exists |
+
+**1stcontact** (child of EPIC-19)
+
+| | |
+|---|---|
+| **REQ-309** | Session transcripts must outgrow D1's 2 MB value ceiling without discarding a byte |
+
+REQ-176 carries your principle explicitly — there's a *"What must not be the answer"* section saying eliding the oldest content is off the table, and that the ceiling is the store's to declare rather than the archive's to guess, so a file-backed archive keeps one segment forever and only a bounded store segments at all.
+
+REQ-309 records the two shapes in order — roll across comments first, R2 log segments when that's outgrown — and includes the note that the objection which retired the old R2 archive ("R2 has no append") doesn't apply to log segments, since nothing is ever rewritten.
+
+BUG-66 is the one I'd ship first regardless of everything else. It's small, independent, and it's the difference between a session that degrades and a session that dies. Segmentation removes today's trigger; the coupling would still be there waiting for the next store failure.
+
+Two things still parked on you:
+
+- **The trim.** Your LF session is dead with three unchosen variants in it. REQ-309 names the repair, but that's the proper fix — you're blocked this minute and the trim is a minute's work.
+- **BUG-138's branch**, which restarts the builder under you.
 
 <!-- xgd-chat-end -->
