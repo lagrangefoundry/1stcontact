@@ -6,7 +6,7 @@ title: 'The font catalogue promises 1,941 families whose bytes do not exist: mir
   + registry platform tier'
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:55.065108+00:00'
-updated_at: '2026-09-23T18:57:13.188762+00:00'
+updated_at: '2026-09-23T18:58:12.876089+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -45,9 +45,8 @@ rebuilds; shared serving makes it a registry flip plus a purge.
 Every OFL 1.1 / Apache 2.0 family in `fonts/catalogue.json`, mirrored into a **shared
 platform R2 prefix** and served from a platform origin.
 
-- **Format: OPEN — see "The woff2 problem" below.** An earlier draft of this ticket
-  specified "unmodified upstream release `woff2`". **That was wrong: the upstream repo
-  ships no `woff2` at all.** The decision this ticket rested on has to be retaken.
+- **`woff2`, converted by us from the upstream TTFs.** See "Format" below — the upstream
+  repo ships no `woff2`, so this is a conversion step we own rather than bytes we mirror.
 - **Variable where the family ships variable** — though this saves nothing in bytes; see
   sizing.
 - **Eager, not on demand.** Removes cold-start latency on first use of a family, removes a
@@ -80,32 +79,23 @@ The existing four violation kinds keep their meaning for the site tier. The gate
 matters — a `distribution: product` site referencing a font whose
 `redistribute_in_product` is not `true` — is unchanged and still fires.
 
-## The woff2 problem — OPEN, needs an operator decision
+## Format — convert upstream TTFs to `woff2` ourselves
+
+**Settled 2026-09-23.** Operator: *"We need to download and convert these."*
 
 `github.com/google/fonts` ships **TTF only**. Verified: `ofl/inter` contains two variable
 TTFs (1.78MB) and no `woff2`; `ofl/lato` contains 18 static TTFs (11.9MB). Across the whole
-OFL tree there are 3,808 TTF/OTF files and zero `woff2`.
+OFL tree there are 3,808 TTF/OTF files and zero `woff2`. An earlier draft of this ticket
+specified "unmodified upstream release `woff2`", which does not exist as a thing to mirror.
 
-The `woff2` files the web actually uses are served by `fonts.gstatic.com`, and **those are
-subsetted by Google per unicode-range**. So "unmodified upstream woff2" does not exist as a
-thing to mirror, and the Reserved Font Name reasoning this ticket and [[REQ-314]] both lean
-on rests on a premise that is false.
+So we convert. **This is compression and a container change — no glyph removed, no name
+altered** — which keeps us clear of OFL's Reserved Font Name clause, since the font is not
+modified in any sense that clause is about.
 
-Three routes, and the choice is a licence-posture decision as much as a technical one:
-
-1. **Mirror repo TTFs and convert to `woff2` ourselves.** Compression and container change
-   only — no glyph removed, no name altered. The strongest RFN position, since the font is
-   not modified in any sense the clause is about. Costs a conversion step in the toolchain
-   and the most bytes.
-2. **Mirror `fonts.gstatic.com` `woff2`.** Smallest by far and universal practice — this is
-   what `google-webfonts-helper` and thousands of self-hosting sites do. But the bytes are
-   Google's subsets, so we would be redistributing a modified version, which is exactly the
-   question route 1 avoids.
-3. **Convert and subset ourselves.** Smallest and most controlled, and the most clearly a
-   modification.
-
-No route is selected. Route 1 is the conservative default if no other consideration
-intervenes.
+Rejected: mirroring `fonts.gstatic.com`'s `woff2`. Smaller and common practice, but those
+bytes are Google's per-unicode-range **subsets**, so serving them would mean redistributing
+a modified version — the exact question converting ourselves avoids. Subsetting by us is
+rejected for the same reason.
 
 ## Sizing — measured, and larger than first stated
 
@@ -124,8 +114,14 @@ Plus the Apache tree (44 families), which is small by comparison.
 2.45 GB. Families that ship variable overwhelmingly ship *only* variable, so the statics are
 not duplicates waiting to be dropped. That optimisation is closed.
 
-This is a GB-scale dependency, which is what makes the build-integration decision below
-matter.
+**None of this is a performance concern, and the cost is negligible.** ~1.35 GB in R2 is
+about $0.02/month at ~$0.015/GB-month, R2 charges no egress, and a visitor downloads only
+the one or two faces their page uses — which was already true before any of this. The
+mirror is R2 objects rather than bundle content, so it does not interact with the Worker
+bundle limit and persists across deploys independently of them.
+
+Sizing is recorded here because the earlier figure was wrong, not because it gates
+anything. **Operator decision (2026-09-23): pull everything.**
 
 ## How the mirror runs — part of the system build toolset
 
@@ -138,8 +134,13 @@ So the mirror is **acquired like a dependency, not rebuilt like an artifact**:
 - A verb in the build toolset — `1c fonts mirror` — alongside `1c kb build` and the other
   release-time commands, so an operator provisioning a deployment reaches it the same way
   they reach everything else.
-- **Not run on every build.** At GB scale a per-build fetch is not viable, and there is no
-  reason for one: the corpus changes when upstream does, not when our code does.
+- **Not run on every build.** The corpus changes when upstream does, not when our code
+  does. Upstream added 202 families in 2024, 122 in 2025 and 42 so far in 2026 — roughly
+  120–200 a year — so an **annual refresh** is ample, with an ad-hoc run whenever something
+  new is wanted sooner. Nothing breaks by being a few months behind: a family not yet
+  pulled is simply one the assistant cannot name yet.
+- **Populating R2 is not deploying a bundle.** Mirrored objects persist independently of
+  Worker deploys, so a deploy neither re-uploads them nor waits on them.
 - **Pinned and reproducible.** The mirror is pinned to a catalogue version so two
   deployments built from the same commit serve the same faces. An unpinned mirror would
   make a site's typography depend on the day it was built.
@@ -183,6 +184,8 @@ obligation; the index makes it auditable.
 - A family removed upstream is reported rather than silently dropped — a live site may be
   serving it.
 - Two deployments built from the same commit serve the same faces.
+- A refresh that adds families leaves already-served faces byte-identical.
+- A deploy does not re-upload the mirror and does not wait on it.
 - A deployment whose mirror has never been populated reports that plainly rather than
   serving nothing silently.
 - Each mirrored family's licence file is served alongside its bytes.
@@ -196,6 +199,6 @@ obligation; the index makes it auditable.
 - Delisted and sandboxed families are excluded — the live list is the authority.
 - Sizing is measured above, not estimated. Storage is not the constraint; the format
   decision and correctness of what is served are.
-- **Open, not settled here:** the `woff2` route (above), and the serving origin — which
-  hostname and path shape platform fonts are served from. `use_font` ([[REQ-313]]) writes
-  that `src` and `1c fonts check` resolves it, so both depend on it.
+- **Still open:** the serving origin — which hostname and path shape platform fonts are
+  served from. `use_font` ([[REQ-313]]) writes that `src` and `1c fonts check` resolves it,
+  so both depend on it. This is the last unsettled question in this ticket.
