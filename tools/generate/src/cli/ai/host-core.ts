@@ -228,6 +228,25 @@ export const DNS_CHANGED = 'dns_changed'
 export interface ChatTurn {
   role: 'user' | 'assistant'
   markdown: string
+  /**
+   * When the turn happened, ISO-8601 — the moment the panel stamps it with
+   * ([[BUG-138]]).
+   *
+   * CARRIED, NOT COMPUTED, and that is the whole of why it is a field. The panel
+   * stamps a live turn from its own clock, which is right exactly once: at the
+   * instant it happens. Replayed turns are history, some of them days of it, and
+   * a clock reading is the one number that is certainly wrong for them — so the
+   * moment travels with the turn, from the `ts="…"` the transcript markup has
+   * carried on every marker since it was written, through the fold that keeps it
+   * on every turn it projects, to here.
+   *
+   * OPTIONAL BECAUSE A RECORD MAY NOT HAVE ONE — a turn folded from a stream that
+   * carried no timestamp, or a transcript written before the markup did. Absent,
+   * the panel renders the turn exactly as it did before stamps existed: no time,
+   * no part in day-boundary detection, no error. Degrading to the old appearance
+   * is what keeps a bad or missing value cheaper than a wrong one.
+   */
+  ts?: string
 }
 
 /** What `/api/ai/session` answers with. */
@@ -2035,10 +2054,23 @@ async function storedTranscript(
     if ((await manager.archive.list()).includes(sessionId)) throw err
     return null
   }
-  const turns = (read.session.turns as { role: string; content: string }[]).map((turn) => ({
-    role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
-    markdown: turn.content,
-  }))
+  const turns = (read.session.turns as { role: string; content: string; ts?: string }[]).map(
+    (turn) => ({
+      role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
+      markdown: turn.content,
+      // WHEN, AND NOT ONLY WHAT ([[BUG-138]]). The fold puts a `ts` on every turn
+      // it projects — a user turn takes its `turn_start`'s, an assistant turn its
+      // first delta's — and this mapping is the last place that fact exists before
+      // the wire. Dropping it here left the panel with no moment to stamp a
+      // replayed turn with and nothing to detect a day boundary from, which is
+      // exactly the bare history the ticket describes.
+      //
+      // OMITTED RATHER THAN EMPTY when the record carries none, so `ts` absent
+      // means "this turn has no moment" on the wire as it does in the type — an
+      // empty string would be a value the panel had to know to disbelieve.
+      ...(typeof turn.ts === 'string' && turn.ts !== '' ? { ts: turn.ts } : {}),
+    }),
+  )
   return { turns, cursor: read.cursor, live: read.live === true }
 }
 

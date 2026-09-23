@@ -333,6 +333,27 @@ export function createChatPanel(options = {}) {
   }
 
   /**
+   * The turn metadata for a recorded moment, or nothing at all ([[BUG-138]]).
+   *
+   * WHY EVERY STAMPED CALL GOES THROUGH ONE FUNCTION. `appendMessage`'s third
+   * argument is an open envelope, and the difference between passing `undefined`
+   * and passing `{ ts: undefined }` is the difference between "this turn has no
+   * moment" and "this turn has a moment, which is nothing" — the first renders as
+   * the panel always did, the second is a metadata object the component now has
+   * to carry and disbelieve. Deciding that once, here, is what keeps the four
+   * call sites below from each deciding it differently.
+   *
+   * THE PANEL'S CLOCK IS NEVER THE ANSWER HERE. Every caller has a moment the
+   * record itself keeps: the transcript's `ts`, the interrupted record's `at`, the
+   * sent-prompt entry's `at`. Substituting `now` for a missing one would date
+   * history by the reload, which is the defect rather than a fallback for it —
+   * so an absent moment stays absent.
+   */
+  function at(ts) {
+    return typeof ts === 'string' && ts !== '' ? { ts } : undefined
+  }
+
+  /**
    * A turn of this conversation that did not finish ([[BUG-121]]).
    *
    * THE FAILURE THIS IS FOR. The operator typed a long message, watched a reply
@@ -364,7 +385,12 @@ export function createChatPanel(options = {}) {
       note('That turn was interrupted — the reply above is not all of it. Ask again to pick it up.')
       return
     }
-    chat.appendMessage('user', interrupted.text)
+    // STAMPED WITH WHEN IT WAS SENT, NOT WHEN IT WAS PAINTED ([[BUG-138]]). The
+    // record was written as the turn opened and has carried `at` ever since; the
+    // moment this bubble reaches the screen is a reload, possibly days later, and
+    // dating their words by it would put the operator's message after the
+    // conversation it was part of.
+    chat.appendMessage('user', interrupted.text, at(interrupted.at))
     note(
       'That turn was interrupted and nothing of it was recorded — not even your message, ' +
         'until now. It is back in the box below, ready to send again.',
@@ -406,7 +432,11 @@ export function createChatPanel(options = {}) {
    */
   function paintUnsent(entries, sent) {
     if (entries.length === 0 || !chat) return
-    for (const entry of entries) chat.appendMessage('user', entry.text)
+    // EACH WITH ITS OWN SUBMIT MOMENT ([[BUG-138]]), which `sentPrompts` has kept
+    // on every entry since it started keeping them. These are the messages most
+    // likely to be days old — they survive precisely because no transcript
+    // accounts for them — so the clock is furthest from right here.
+    for (const entry of entries) chat.appendMessage('user', entry.text, at(entry.at))
     note(
       entries.length === 1
         ? 'That message is in no transcript — nothing of the turn it was sent to survived, ' +
@@ -562,7 +592,12 @@ export function createChatPanel(options = {}) {
     const resuming = session.live === true && typeof transport.streamReattach === 'function'
     const seed = resuming && turns.at(-1)?.role === 'assistant' ? turns.at(-1) : null
     for (const turn of seed ? turns.slice(0, -1) : turns) {
-      chat.appendMessage(turn.role, turn.markdown)
+      // WITH THE MOMENT IT HAPPENED ([[BUG-138]]). This is the call that stamps a
+      // turn and opens a day, and for the whole of the history it was made with
+      // two arguments — so the scheme worked for the one turn the panel had
+      // stamped from its own clock and for nothing behind it. One argument is the
+      // entire fix on this side; `ts` reaching here is the other half.
+      chat.appendMessage(turn.role, turn.markdown, at(turn.ts))
     }
     // `ready` is independent of the transcript: a builder with no API key still
     // has every earlier conversation, and the operator is owed both the history
@@ -590,6 +625,14 @@ export function createChatPanel(options = {}) {
     Promise.resolve(
       chat.resume(watchForWrites(transport.streamReattach(id, session.cursor), told), {
         markdown: seed?.markdown ?? '',
+        // THE SEEDED TURN IS A TRANSCRIPT TURN TOO ([[BUG-138]]). It is not
+        // appended by the loop above — it is handed to `resume` so the half
+        // already written and the half still coming are one message — and without
+        // its moment it would be the one turn in the thread dated by whenever the
+        // tail happened to drain. Which is worst for the turn that most often
+        // needs it: a reattach whose `turn_end` is already past the cursor drains
+        // at once, so "now" is the reload rather than the reply.
+        meta: at(seed?.ts),
       }),
     ).catch(() => {
       // A rejoin that fails costs the live tail and nothing else: the transcript
