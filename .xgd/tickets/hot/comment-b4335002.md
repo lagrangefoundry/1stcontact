@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-307
 created_by: xgd
 created_at: '2026-09-23T02:27:18.697107+00:00'
-updated_at: '2026-09-23T18:06:10.593101+00:00'
+updated_at: '2026-09-23T18:17:42.017951+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -135,5 +135,73 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="9b6655e3-8f46-44db-bbb7-de02b404bedb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T18:17:39.981137+00:00" -->
+#### Claude
+I'll pick up where the prior session left off — check the branch state and what's still outstanding.
+
+Work is in place but uncommitted. Let me review the diff and verify the state.
+
+Good — on the branch worktree. Let me review the core implementation.
+
+Implementation looks complete. Let me run the tests.
+
+Both typecheck clean. Now the broader regression scope — full suite, as the prior session established a baseline.
+
+Let me verify this failure set is pre-existing by baselining against the unmodified tree.
+
+Identical — all 15 failures are pre-existing, unrelated to REQ-307. Restoring the work:
+
+Now let me check every UAT is motivated by ticket body language.
+
+All seven behaviour UATs map to existing body language. But four binding UATs and several touched files are technical consequences not yet written down. Let me read the exact body and extend it.
+
+The body has a stray temp-path line from an earlier session. Let me extend it and clean that up.
+
+Now bump the version and commit.
+
+Now lock and merge back into `xgd-working`.
+
+The operator has uncommitted changes in the `xgd-working` worktree that collide. Let me look before touching anything.
+
+My changes append to different regions of that file; the operator's edits are a live production-config repair. I'll snapshot them, stash, merge, restore, and verify byte-identical.
+
+Version conflict — `xgd-working` advanced to 0.2.339 while I was working. Let me redo the bump on the branch so the commit carries the correct final version.
+
+Now restore the operator's uncommitted work and verify it came back intact.
+
+Both present. Let me re-run the REQ-307 UATs against the merged tree.
+
+All green post-merge. Now record the ticket as `free_coded`.
+
+Another session published 0.2.340 while I worked. Let me check the current tip and re-bump.
+
+The merge commit (not my work commit) introduced 0.2.340. Let me re-bump so a recorded SHA carries it.
+
+Now record story points and clean up the branch.
+
+REQ-307 is free-coded and landed on `xgd-working`.
+
+## What shipped
+
+A `SessionJunction` Durable Object (one per session, on `ctx.storage.sql`) implementing the same synchronous `JunctionStorage` port `memoryJunctions()` does — exactly the route `junction_memory.js`'s own header names, so no `lagrange-framework` change was needed.
+
+Because the port is synchronous and a DO stub is not, the adapter is a **mirror plus write-behind**: reads answer off upstream's own `MemoryJunctionStorage` (composed, not reimplemented, so appends stay O(delta)), writes land in the mirror synchronously and queue in order to the object. Filling that mirror is the one asynchrony the port gains — an optional `prepare(sessionId)` the host awaits at its four session entry points. A store without the method is untouched, so the Node host and `1c` CLI are unaffected. No binding → `memoryJunctions()`, exactly today's behaviour.
+
+## Verification
+
+- **7 workers UATs** against a real miniflare Durable Object (not a stand-in — what's under test is that a turn survives the isolate that wrote it): survival across isolate replacement, durability-on-append, dangling turn closed `aborted` with the client told, conversation continuity, O(delta) appends, port round-trip, and no-binding fallback.
+- **4 binding UATs** pinning the config: declared in both top-level *and* `[env.production]` (a named environment inherits nothing — getting this wrong fails silently in production only), `new_sqlite_classes` on both, and the class exported from the entry `main` names.
+- Typecheck clean on both packages. Full suite: 15 failures, **byte-identical to the baseline** I measured by stashing the work — all pre-existing, none related.
+
+## Two things worth flagging
+
+**A latent test/deploy divergence, now closed.** Two suites mounted `index.ts` through this same `wrangler.toml` via `unstable_dev`. That only worked while the config needed no export `index.ts` lacks — a DO binding does. They now mount `worker.ts`, the real entry, so the shape wrangler deploys is the shape the ACs prove.
+
+**Your uncommitted work.** `xgd-working` had your live EPIC-16 production-config repair (`PLATFORM_ADMINS`, `SERVICE_TOKEN_IDENTITIES`) uncommitted in `wrangler.toml`, which blocked the merge. I snapshotted it, stashed, merged, restored, and verified the restored diff is identical line-for-line — it's still sitting uncommitted exactly as you left it, now alongside the new binding blocks. Worth committing when you get a chance.
+
+The version needed two bumps: `xgd-working` advanced under me mid-merge, and the merge-conflict resolution rather than my work commit ended up introducing 0.2.340 — so there's a small follow-up bump commit to 0.2.341. Both SHAs are on `fields.commits`. Ticket is parked at `free_coded`; promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
