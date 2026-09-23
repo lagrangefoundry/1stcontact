@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-304
 created_by: xgd
 created_at: '2026-09-22T23:15:22.212360+00:00'
-updated_at: '2026-09-23T02:28:16.812640+00:00'
+updated_at: '2026-09-23T02:35:01.436151+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,14 @@ Now lock and merge back to `xgd-working`:
 Merged. Now I'll update the ticket body to reflect the final implementation, then move it to `free_coded`.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="85bd5536-8770-4d81-a48e-8d2047ee27ed-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:35:00.463295+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
