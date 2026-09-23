@@ -6,10 +6,10 @@ title: 'renderer/fold/capture: a flow-placed run stretches to its container, the
   repairs mis-ordered siblings with negative margins, and four measurement residuals'
 created_by: repro-console:repro-gigabytealchemy-ai#4
 created_at: '2026-09-22T22:25:47.579565+00:00'
-updated_at: '2026-09-22T23:52:33.868674+00:00'
+updated_at: '2026-09-23T00:06:27.289199+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - renderer-wrong
@@ -21,6 +21,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-2a742332
+  commits:
+  - working_sha: 0137b752bfe87d5a666d2f7cd52a1476583067bb
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 68166ee04043a9102fdc76f535a070257a889391
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.332
 ---
 
 Loop 1, iteration **4** of `repro-gigabytealchemy-ai` against the stored bundle
