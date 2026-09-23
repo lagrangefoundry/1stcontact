@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T03:12:46.458745+00:00'
+updated_at: '2026-09-23T20:28:32.222028+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3531,5 +3531,11 @@ Two things still parked on you:
 
 - **The trim.** Your LF session is dead with three unchosen variants in it. REQ-309 names the repair, but that's the proper fix — you're blocked this minute and the trim is a minute's work.
 - **BUG-138's branch**, which restarts the builder under you.
+
+<!-- xgd-turn id="3e260777-a277-4b66-80e2-90111128b8aa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T20:28:32.123381+00:00" -->
+#### You
+ok can you review where we are with these tickets and whether we are ready to get production working again?
 
 <!-- xgd-chat-end -->
