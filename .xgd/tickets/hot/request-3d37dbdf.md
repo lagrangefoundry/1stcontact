@@ -6,9 +6,9 @@ title: 'The assistant cannot obtain a font: use_font, and the knowledge that say
   it cannot'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:21.329714+00:00'
-updated_at: '2026-09-23T20:53:49.394557+00:00'
+updated_at: '2026-09-23T20:53:53.901716+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.345
+  story_points: 5
 ---
 
 ## The gap
