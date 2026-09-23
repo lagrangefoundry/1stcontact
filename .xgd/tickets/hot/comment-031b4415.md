@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T03:03:01.538408+00:00'
+updated_at: '2026-09-23T03:04:46.784009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -315,5 +315,44 @@ I'd suggest doing A–B first for exactly that reason — it's the cheapest way 
 `kb/system/REF-fonts.md ` <-- we have been working with tickets can you have a ticket that gets updated with this for consistency?
 
 I was assuming this would be platform wide and shared - fonts may be small but copying them around is just going to get fiddly - per tenant fonts are user-uploaded and their responsibility to meet the license requirements for, yes?
+
+<!-- xgd-turn id="160d4cf5-fbf6-4787-bd32-f23536d1ca60-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T03:04:46.161723+00:00" -->
+#### Claude
+Two answers.
+
+## On the KB doc and tickets
+
+`REF-*` files are **deliberately ticketless** — that's an existing convention, not an oversight. `index.ts:1367` says it outright: *"a projection has no ticket, so an operator who cannot find `REF-l1` in the ticket store needs to be told it was generated, not looked for."* `kb-projection.ts` is emphatic about why: *"A machine-readable fact is generated from its source of truth, never authored. A projected document is not a document anybody maintains, and it cannot be stale."*
+
+`kb/system/` holds both kinds — `DOC-*` exported from doc tickets, `REF-*` written by `writeProjections()`. And the corpus already pairs them: `REF-l1` is the projected vocabulary, `DOC-23` is the authored doc about the L1 substrate.
+
+So the consistent shape here is that same pair, and it gets you the ticket you're asking for:
+
+- **`REF-fonts.md`** — projected from `fonts/catalogue.json`, ticketless like its siblings. 1,946 families is not something a person maintains, and it'd go stale the day Google adds one.
+- **A new `DOC-nn` font policy ticket** — what's licensed and why, the platform/tenant tier split, the upload attestation, takedown. That's genuinely authored, it's what the assistant should retrieve when a customer asks "can I use my own font?", and it's the thing that gets updated.
+
+If you'd rather the catalogue itself be ticket-backed, that's a change to the projection convention — happy to do it, but flagging it rather than quietly breaking the rule.
+
+## On the storage fork — taking that as decided
+
+**Platform-wide and shared.** Agreed, and your reasoning is the right one: copying bytes around gets fiddly, and it's fiddly in exactly the way that rots.
+
+On tenant uploads — **yes, with one caveat worth stating once.** The tenant uploads, the tenant attests they hold the licence, and liability sits with them. But we're still the party serving the bytes from our infrastructure, so an attestation shifts *liability* without removing our *obligation to act* on a valid takedown notice. That's the pair: area 2's attestation gives us the record of who claimed what, area 3 gives us the mechanism when a claim turns out false.
+
+Good consequence of your decision: the platform tier is cleared by construction (OFL/Apache only), so **area 3 is essentially about the tenant-upload tier** — which is per-site, where deletion was always a per-tenant action. That collapses the "N-tenant sweep" problem I was worried about. The residual platform case is narrow: a family withdrawn upstream or an OFL licence dispute, handled by a registry flip plus a purge.
+
+Ticket is consistent now — tier decision recorded, stale fork references cleaned, area 3 rewritten to reflect that it mostly collapsed.
+
+**Where EPIC-21 stands:** nothing is blocked. The build is A (catalogue generator) → B (`REF-fonts` projection) + B2 (font-policy DOC ticket) → C (mirror) → E (`use_font`) → F (knowledge correction), with D/G/H alongside.
+
+Two things I'd want your call on before filing sub-tickets:
+
+1. **The projection convention** — I've kept `REF-fonts` ticketless and put the ticket on the policy doc instead. If you actually want the catalogue itself ticket-backed, say so and I'll do it, but it breaks the "generated facts have no ticket" rule that `kb-projection.ts` argues for at length.
+
+2. **How to slice the sub-tickets.** I'd suggest three: *A+B+B2* (catalogue and knowledge — independently useful, and it tests whether KB retrieval over the catalogue returns good slates before any bytes get mirrored), *C+D+G* (mirror, registry tier, gate), *E+F* (the tool and its knowledge correction). H standalone whenever the editor work comes up.
+
+The first slice is the one I'd start on — it's the cheapest way to find out whether retrieval beats recall here, and a poor result would change the chunking design before the mirror is built.
 
 <!-- xgd-chat-end -->
