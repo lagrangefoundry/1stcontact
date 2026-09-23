@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:49:56.948406+00:00'
+updated_at: '2026-09-23T02:53:58.101653+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1346,5 +1346,11 @@ That's the first thing I'd check, because it's the only unknown that changes the
 Everything else is: a script format (ordered turns plus an asset manifest), a runner that creates the tenant, uploads the material, walks the turns, and a `README` stating the never-edit rule. Scoring stays undesigned until we've watched three of them.
 
 Say "create the ticket" and I'll cut it under EPIC-20 and start with that auth check.
+
+<!-- xgd-turn id="03007dca-92c7-4a9e-b997-1c8c9339e3ca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:53:57.287284+00:00" -->
+#### You
+Can you create a document to capture the design - I'm not ready for construction tickets yet we have a lot on deck right now
 
 <!-- xgd-chat-end -->
