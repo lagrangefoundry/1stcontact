@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T03:08:42.974078+00:00'
+updated_at: '2026-09-23T03:10:28.147143+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3492,5 +3492,11 @@ Agreed they're the less precious half — but if rolling keeps them for free, ke
 Most of this is upstream's: the comment-addressing, the sentinel/format question, the apply-ordering coupling, and the boolean read all live in `ticket_store.js` and `manager.js`. Our side is the adapter wiring and whichever store we point it at.
 
 Shall I file it that way — one upstream REQ for the archive's segmentation and the coupling, one here for the storage choice — and get going? And I still need your go on trimming `comment-ca74b1b7`; your LF session has three variants in it you haven't chosen between, and it's dead until something moves.
+
+<!-- xgd-turn id="75f19326-1976-4406-b8af-0fc3cbf5fcf5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T03:10:27.524561+00:00" -->
+#### You
+Cool, can you create REQs in LF for this work please?
 
 <!-- xgd-chat-end -->
