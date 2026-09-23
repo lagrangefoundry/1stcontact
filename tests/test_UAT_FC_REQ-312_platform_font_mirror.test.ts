@@ -37,8 +37,10 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
 import {
+  fontSrcNamesHost,
   parsePlatformFontSrc,
-  platformFontUrl,
+  platformFontSrc,
+  platformFontTarget,
   validateFontRegistry,
   type PlatformFontManifest,
 } from '../packages/site-schema/src/index'
@@ -52,8 +54,12 @@ import { run } from '../tools/generate/src/cli/index'
 /** A REAL TrueType font, already committed to this repository. */
 const UPSTREAM_TTF = fileURLToPath(new URL('./fixtures/capture/heading-font.ttf', import.meta.url))
 
-/** The platform origin a deployment would write into a page's `src`. */
-const ORIGIN = 'https://1stcontact.io'
+/**
+ * A host a page must NOT name (`COMMENT-3711`). Kept as a constant because the
+ * off-origin refusal is now a case in its own right rather than the shape every
+ * platform `src` used to have.
+ */
+const ELSEWHERE = 'https://1stcontact.io'
 
 const TODAY = '2026-09-23'
 const REF = '0123456789abcdef0123456789abcdef01234567'
@@ -442,7 +448,7 @@ describe('REQ-312 — `1c fonts check` resolves the platform tier', () => {
           fonts: [
             {
               family: 'Heading Font',
-              src: platformFontUrl(ORIGIN, 'headingfont/HeadingFont-Regular.woff2'),
+              src: platformFontSrc('headingfont/HeadingFont-Regular.woff2'),
             },
           ],
         },
@@ -477,7 +483,7 @@ describe('REQ-312 — `1c fonts check` resolves the platform tier', () => {
         {
           slug: 'alice',
           fonts: [
-            { family: 'Absent Face', src: platformFontUrl(ORIGIN, 'absentface/AbsentFace-Regular.woff2') },
+            { family: 'Absent Face', src: platformFontSrc('absentface/AbsentFace-Regular.woff2') },
           ],
         },
       ],
@@ -502,7 +508,7 @@ describe('REQ-312 — `1c fonts check` resolves the platform tier', () => {
         {
           slug: 'alice',
           fonts: [
-            { family: 'Heading Font', src: platformFontUrl(ORIGIN, 'headingfont/HeadingFont-Black.woff2') },
+            { family: 'Heading Font', src: platformFontSrc('headingfont/HeadingFont-Black.woff2') },
           ],
         },
       ],
@@ -532,7 +538,7 @@ describe('REQ-312 — `1c fonts check` resolves the platform tier', () => {
             { family: 'Heading Font', src: '/assets/heading-local.woff2' },
             {
               family: 'Heading Font',
-              src: platformFontUrl(ORIGIN, 'headingfont/HeadingFont-Regular.woff2'),
+              src: platformFontSrc('headingfont/HeadingFont-Regular.woff2'),
             },
           ],
         },
@@ -607,19 +613,88 @@ describe('REQ-312 — `1c fonts check` resolves the platform tier', () => {
     if (authored.ok) expect(authored.value.fonts.every((f) => f.tier === 'site')).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-312_a_platform_src_is_recognised_by_its_path_and_not_its_host', () => {
-    // One site definition has to check clean against a local preview, a staging
-    // deployment and production. Pinning a hostname would make a site's conformance
-    // a property of whichever deployment last wrote it.
+  it('test_UAT_FC_REQ-312_a_platform_src_names_no_host_at_all', () => {
+    // SAME-ORIGIN (`COMMENT-3711`). The `src` a page carries is root-relative, so
+    // one site definition checks the same against a local preview, a staging
+    // deployment and production — and, the reason this is a refusal and not merely
+    // a convention, a page can never carry a hostname that a later domain binding
+    // strands, since binding a domain re-renders nothing.
     const file = 'headingfont/HeadingFont-Regular.woff2'
-    for (const origin of ['https://1stcontact.io', 'http://127.0.0.1:8787', 'https://alicesplumbing.com']) {
-      expect(parsePlatformFontSrc(platformFontUrl(origin, file))).toBe(file)
+    expect(platformFontSrc(file)).toBe(`/_fonts/${file}`)
+    expect(parsePlatformFontSrc(platformFontSrc(file))).toBe(file)
+
+    // AN ABSOLUTE URL IS NOT A PLATFORM REFERENCE, whichever host it names —
+    // including this platform's own. Reading one as a platform reference would
+    // hand the tier's licence clearance to bytes a third party serves.
+    for (const origin of [ELSEWHERE, 'http://127.0.0.1:8787', 'https://fonts.gstatic.com']) {
+      expect(parsePlatformFontSrc(`${origin}/_fonts/${file}`), origin).toBeNull()
+      expect(fontSrcNamesHost(`${origin}/_fonts/${file}`), origin).toBe(true)
     }
+    // Protocol-relative is an absolute URL wearing a relative shape — the one
+    // spelling a bare leading-slash test would let through.
+    expect(parsePlatformFontSrc(`//1stcontact.io/_fonts/${file}`)).toBeNull()
+    expect(fontSrcNamesHost(`//1stcontact.io/_fonts/${file}`)).toBe(true)
+
     // And a site-relative path is NOT a platform reference, however its tail looks
     // — otherwise a site could claim the platform tier's clearance for its own bytes.
     expect(parsePlatformFontSrc('/assets/_fonts/headingfont/HeadingFont-Regular.woff2')).toBeNull()
     expect(parsePlatformFontSrc('assets/heading.woff2')).toBeNull()
-    expect(parsePlatformFontSrc('https://evil.example/_fonts/../../etc/passwd')).toBeNull()
+    expect(fontSrcNamesHost('/assets/heading.woff2')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-312_the_same_path_resolves_at_every_snapshot_root', () => {
+    // THE INVARIANT THE SAME-ORIGIN DECISION CREATES (`COMMENT-3711`). The renderer
+    // reduces the root-relative `src` to a reference against the page's own
+    // directory, so the byte is asked for at whatever root the snapshot is served
+    // at — `/` on a bound domain, `/site/<key>/` on the platform's host,
+    // `/preview/<key>/<channel>/` in the builder, a directory under the capture
+    // fixture. Every one of those arrives here as the same snapshot-relative tail,
+    // which is why one function answers for all four and none of them needs to know
+    // the others' depth.
+    const file = 'headingfont/HeadingFont-Regular.woff2'
+    expect(platformFontTarget(`_fonts/${file}`)).toBe(file)
+    expect(platformFontTarget('_fonts/LICENSES.txt')).toBe('LICENSES.txt')
+
+    // A page or asset of the site's own is not a font, and traversal is refused
+    // rather than reasoned about — the key is built by concatenation on every one
+    // of those four serving sides.
+    expect(platformFontTarget('index.html')).toBeNull()
+    expect(platformFontTarget('assets/_fonts/x.woff2')).toBeNull()
+    expect(platformFontTarget('_fonts/../sites/secret/index.html')).toBeNull()
+    expect(platformFontTarget('_fonts/')).toBeNull()
+  })
+
+  it('test_UAT_FC_REQ-312_a_font_loaded_from_another_host_is_a_violation', () => {
+    // *"A site is self-contained and everything it needs comes from its domain"* is
+    // CHECKED, not preferred (`COMMENT-3711`). A face fetched from anywhere else is
+    // a third-party request from the visitor's browser, made before any text can
+    // paint, disclosing their IP to somebody the customer never named.
+    const cwd = workspace({
+      catalogue: [HEADING],
+      sites: [
+        {
+          slug: 'alice',
+          fonts: [
+            {
+              family: 'Heading Font',
+              src: `${ELSEWHERE}/_fonts/headingfont/HeadingFont-Regular.woff2`,
+            },
+          ],
+        },
+      ],
+    })
+    mirror(cwd, checkout([HEADING]))
+
+    const report = cmdFontsCheck(cwd)
+    expect(report.pass).toBe(false)
+    const violation = report.violations.find((v) => v.kind === 'off-origin-font')
+    expect(violation, 'an off-origin font is a violation in its own right').toBeDefined()
+    // REPORTED AS WHAT IT IS. Before, an absolute `src` fell to the site tier and
+    // surfaced as *"the registry does not list HeadingFont-Regular.woff2"* — true,
+    // about the wrong problem, and with the wrong obvious fix.
+    expect(violation!.message).toContain(ELSEWHERE)
+    expect(report.violations.some((v) => v.kind === 'unregistered-file')).toBe(false)
+    expect(violation!.hint).toContain('/_fonts/')
   })
 })
 

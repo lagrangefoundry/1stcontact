@@ -173,80 +173,147 @@ export function validateFontRegistry(candidate: unknown): FontRegistryResult {
 // ── The platform tier ([[REQ-312]]) ──────────────────────────────────────────
 
 /**
- * Where a platform font is addressed, in the two vocabularies that reach it.
+ * Where a platform font is addressed — **on the site's own domain, always**.
  *
- * ONE SPELLING, STATED ONCE, because three parties have to agree about it and
- * they are in three different programs: `1c fonts mirror` writes the bytes,
- * `public-site` serves them, and `1c fonts check` decides whether a page's `src`
- * is one. A second definition anywhere is a way for a page to reference a font
- * the gate thinks is fine and the server has never heard of.
+ * SAME-ORIGIN, AND THAT IS A DECISION AND NOT AN ACCIDENT ([[REQ-312]],
+ * `COMMENT-3711`). A page could have named a platform host outright, and for a
+ * while this module composed exactly that URL. The operator's requirement — *"a
+ * site is self-contained and everything it needs comes from its domain"* — is
+ * decisive, and four things stand behind it: a shared origin buys no cache reuse
+ * now that every major browser partitions the HTTP cache by top-level site; a
+ * second origin costs a DNS/TCP/TLS handshake on the path that decides whether
+ * text paints in the real face or a fallback; CORS stops being load-bearing when
+ * the font is an ordinary same-origin subresource; and a visitor's browser makes
+ * no third-party request at all, which is the thing a small business gets asked
+ * about after the German Google-Fonts judgments.
  *
- * `_fonts` is a RESERVED FIRST SEGMENT of the public site's route grammar, so no
- * published page can shadow it, and the leading underscore keeps it out of the
- * space of names a person would give a page.
+ * SO THE `src` NAMES NO HOST, AND CANNOT. It is ROOT-RELATIVE, which also settles
+ * the objection that sent this back for review: an absolute URL naming the site's
+ * own public host would be baked into pre-rendered bytes sitting in R2, and
+ * binding or changing a custom domain is a pure `site_domains` write that
+ * re-renders nothing (`attachCustomHosts`) — so those bytes would go on naming a
+ * hostname that had moved. A reference that names no host cannot go stale.
+ *
+ * WHAT THAT COSTS, STATED HERE BECAUSE IT IS THE WHOLE OF THE COST. The renderer
+ * reduces a root-relative `url()` to a document-relative one (`relativizeUrl`,
+ * REQ-109) so a snapshot is relocatable, and every page sits flat at its snapshot
+ * root — so `/_fonts/x` is read as `<snapshot-root>/_fonts/x`. The invariant that
+ * follows is the one every serving surface owes:
+ *
+ *   **Every channel that serves a rendered snapshot must answer `_fonts/…` at
+ *   that snapshot's own root.**
+ *
+ * That is four roots, not one: `/` on a bound customer domain and on the apex,
+ * `/site/<key>/` on the platform's own host, `/preview/<key>/<channel>/` in the
+ * builder, and the directory the capture fixture binds an origin over. Each
+ * resolves the tail through {@link platformFontTarget} and hands back the same
+ * one shared copy; none of them copies a byte per tenant.
+ *
+ * ONE SPELLING, STATED ONCE, because four parties have to agree about it and they
+ * are in four different programs: `1c fonts mirror` writes the bytes, `use_font`
+ * writes the `src`, the servers above answer for it, and `1c fonts check` decides
+ * whether a page's `src` is one. A second definition anywhere is a way for a page
+ * to reference a font the gate passed and no server has heard of.
+ *
+ * `_fonts` is a RESERVED FIRST SEGMENT of a snapshot, so no published page can
+ * shadow it, and the leading underscore keeps it out of the space of names a
+ * person would give a page.
  */
-export const PLATFORM_FONT_PATH_PREFIX = '/_fonts/'
+export const PLATFORM_FONT_SEGMENT = '_fonts'
+
+/** The root-relative prefix a page's `src` carries: `/_fonts/`. */
+export const PLATFORM_FONT_PATH_PREFIX = `/${PLATFORM_FONT_SEGMENT}/`
 
 /** The R2 key prefix the mirror publishes under, in the bucket sites are served from. */
 export const PLATFORM_FONT_KEY_PREFIX = 'platform/fonts/'
 
-/** The aggregate licence index, at the origin root: `/_fonts/LICENSES.txt`. */
+/** The aggregate licence index, at each snapshot root: `_fonts/LICENSES.txt`. */
 export const PLATFORM_LICENCE_INDEX = 'LICENSES.txt'
 
 /**
- * The mirror-relative path a font `src` addresses, or `null` when it addresses
- * no platform font at all.
+ * The mirror-relative tail of an already-stripped `_fonts/` path, or `null` when
+ * it addresses nothing servable.
  *
- * IT MATCHES ON THE PATH AND NEVER ON THE HOST, and that is the point. The same
- * site definition has to check clean against a local preview, a staging
- * deployment and production, and pinning a hostname here would make a site's
- * conformance a property of which deployment last wrote it. Moving the mirror to
- * a dedicated hostname later is then a configuration change rather than a change
- * to this rule.
- *
- * A relative `src` is NOT a platform reference even when its tail looks like one:
- * a site-relative path resolves inside the site's own assets, and reading it as a
- * platform address would let a site claim the platform tier's clearance for bytes
- * it holds itself.
+ * The key is built by concatenation on every serving side, so a component that
+ * merely LOOKS like traversal is refused outright rather than reasoned about.
  */
-export function parsePlatformFontSrc(src: string): string | null {
-  const trimmed = src.trim()
-  if (trimmed === '') return null
-
-  // The pathname is taken by string surgery rather than by `new URL`, because
-  // this module is deliberately environment-free — it is imported by the Node
-  // CLI, by a Worker and by the browser builder, and the set of globals all three
-  // agree on is smaller than it looks.
-  let pathname: string
-  const scheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.exec(trimmed)
-  if (scheme) {
-    const afterAuthority = trimmed.indexOf('/', scheme[0].length)
-    if (afterAuthority < 0) return null // scheme://host with no path at all
-    pathname = trimmed.slice(afterAuthority).split(/[?#]/, 1)[0]
-  } else if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
-    pathname = trimmed.split(/[?#]/, 1)[0]
-  } else {
-    return null
-  }
-
-  if (!pathname.startsWith(PLATFORM_FONT_PATH_PREFIX)) return null
+function mirrorTail(encodedTail: string): string | null {
   let rest: string
   try {
-    rest = decodeURIComponent(pathname.slice(PLATFORM_FONT_PATH_PREFIX.length))
+    rest = decodeURIComponent(encodedTail)
   } catch {
     return null // malformed percent-encoding addresses nothing
   }
-  // The key is built by concatenation on the serving side, so a component that
-  // merely LOOKS like traversal is refused rather than reasoned about.
   if (rest === '' || rest.split('/').some((s) => s === '' || s === '.' || s === '..')) return null
   if (rest.includes('\\') || rest.includes('\0')) return null
   return rest
 }
 
-/** `roboto/Roboto[wdth,wght].woff2` → the absolute URL a page's `src` carries. */
-export function platformFontUrl(origin: string, path: string): string {
-  const base = origin.replace(/\/+$/, '')
-  return `${base}${PLATFORM_FONT_PATH_PREFIX}${path.split('/').map(encodeURIComponent).join('/')}`
+/**
+ * THE SERVING SIDE'S QUESTION: this path, already reduced to its snapshot root,
+ * addresses which mirrored file — or none.
+ *
+ * It takes a SNAPSHOT-RELATIVE path (`_fonts/roboto/X.woff2`, no leading slash)
+ * rather than a request pathname, because the four roots in the module note above
+ * sit at four different depths and the only thing they share is what is left
+ * after the root is taken off. Each caller knows its own root; none of them needs
+ * to know the others'.
+ */
+export function platformFontTarget(snapshotPath: string): string | null {
+  const prefix = `${PLATFORM_FONT_SEGMENT}/`
+  if (!snapshotPath.startsWith(prefix)) return null
+  return mirrorTail(snapshotPath.slice(prefix.length))
+}
+
+/**
+ * THE AUTHORING SIDE'S QUESTION: the mirror-relative path this `src` addresses,
+ * or `null` when it addresses no platform font.
+ *
+ * ROOT-RELATIVE ONLY, and the refusal of everything else is the point rather than
+ * a limitation. An absolute URL is a request to a host, and the module note above
+ * is why no page may make one; reading `https://anywhere/_fonts/x` as a platform
+ * reference would hand the platform tier's licence clearance to bytes a third
+ * party serves. {@link fontSrcNamesHost} is how that case is reported, so it is
+ * refused with its own sentence rather than disappearing into *"no such asset"*.
+ *
+ * A relative `src` is NOT a platform reference either, even when its tail looks
+ * like one: it resolves inside the site's own assets, and reading it as a platform
+ * address would let a site claim the platform tier's clearance for bytes it holds
+ * itself.
+ */
+export function parsePlatformFontSrc(src: string): string | null {
+  const trimmed = src.trim()
+  // `//host/path` is protocol-relative — an absolute URL wearing a relative
+  // shape, and the one spelling that would slip past a bare leading-slash test.
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null
+  const pathname = trimmed.split(/[?#]/, 1)[0]
+  if (!pathname.startsWith(PLATFORM_FONT_PATH_PREFIX)) return null
+  return mirrorTail(pathname.slice(PLATFORM_FONT_PATH_PREFIX.length))
+}
+
+/**
+ * Whether this `src` sends the visitor's browser to another host.
+ *
+ * WHY THIS IS ASKED OF EVERY FONT `src` AND NOT ONLY OF `_fonts/` ONES. The
+ * property the operator asked for is that a site is self-contained; a face pulled
+ * from `fonts.gstatic.com`, from a CDN, or from the platform's own hostname is the
+ * same fact from the visitor's point of view — a third-party request, made before
+ * any text can paint, disclosing their IP to somebody the customer never named.
+ * One rule covers all three, and it is checked rather than preferred.
+ *
+ * The scheme is matched by string surgery rather than by `new URL`, because this
+ * module is deliberately environment-free — it is imported by the Node CLI, by a
+ * Worker and by the browser builder, and the set of globals all three agree on is
+ * smaller than it looks.
+ */
+export function fontSrcNamesHost(src: string): boolean {
+  const trimmed = src.trim()
+  return trimmed.startsWith('//') || /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)
+}
+
+/** `roboto/Roboto[wdth,wght].woff2` → the root-relative `src` a page carries. */
+export function platformFontSrc(path: string): string {
+  return `${PLATFORM_FONT_PATH_PREFIX}${path.split('/').map(encodeURIComponent).join('/')}`
 }
 
 /** `roboto/Roboto[wdth,wght].woff2` → the R2 key holding those bytes. */

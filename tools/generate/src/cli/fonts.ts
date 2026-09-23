@@ -58,7 +58,12 @@ import type {
   Page,
   PlatformFontManifest,
 } from '@1stcontact/site-schema'
-import { parsePlatformFontSrc, platformRegistryEntries, validateFontRegistry } from '@1stcontact/site-schema'
+import {
+  fontSrcNamesHost,
+  parsePlatformFontSrc,
+  platformRegistryEntries,
+  validateFontRegistry,
+} from '@1stcontact/site-schema'
 import {
   catalogueExists,
   loadCatalogue,
@@ -157,9 +162,10 @@ export interface FontUsage {
   /**
    * Which tier this reference addresses, decided by the `src` alone.
    *
-   * `'platform'` when the path is the platform origin's — see
-   * `parsePlatformFontSrc`, which matches on the PATH and never on the host, so a
-   * site definition checks the same against a local preview and production.
+   * `'platform'` when the `src` is the mirror's root-relative path — see
+   * `parsePlatformFontSrc`, which admits no host at all, so a site definition
+   * checks the same against a local preview, a staging deployment and production,
+   * and a page can never name an origin that later moves.
    */
   tier: FontTier
   /**
@@ -167,6 +173,8 @@ export interface FontUsage {
    * the site tier, the mirror-relative `<slug>/<file>` for the platform tier.
    */
   file: string
+  /** Whether this `src` sends the visitor's browser to another host — see `off-origin-font`. */
+  offOrigin: boolean
 }
 
 /** A font file present in the source trees, with every location holding it. */
@@ -193,6 +201,22 @@ export type ViolationKind =
    * separate broken promises.
    */
   | 'documented-not-mirrored'
+  /**
+   * A page's font `src` names a host ([[REQ-312]], `COMMENT-3711`).
+   *
+   * THE PROPERTY IS THAT A SITE IS SELF-CONTAINED. A face fetched from
+   * `fonts.gstatic.com`, from a CDN, or from this platform's own hostname is the
+   * same fact seen from the visitor's browser: a third-party request, made before
+   * any text can paint, disclosing their IP to somebody the customer never named
+   * — which is the thing the German Google-Fonts judgments were about and the
+   * thing a small business gets asked about. It is also how a page comes to carry
+   * a hostname that later moves, since binding a custom domain re-renders nothing.
+   *
+   * Every font a site serves therefore comes from the site's own domain: its own
+   * assets, or the platform mirror at `/_fonts/…`, which every serving surface
+   * answers for at its own snapshot root.
+   */
+  | 'off-origin-font'
   /**
    * The corpus the assistant reads is not the corpus the mirror holds ([[REQ-313]]).
    *
@@ -330,6 +354,7 @@ export function collectFontUsages(cwd: string): FontUsage[] {
               src: face.src,
               tier: platformPath === null ? 'site' : 'platform',
               file: platformPath ?? assetBasename(face.src),
+              offOrigin: fontSrcNamesHost(face.src),
             })
           }
         }
@@ -484,6 +509,26 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
 
   for (const usage of usages) {
     const siteRef = `${usage.root}/${usage.slug}`
+
+    // REPORTED WITH ITS OWN SENTENCE, and reported FIRST. `parsePlatformFontSrc`
+    // admits no host, so an absolute `src` falls to the site tier and would
+    // otherwise surface as *"the registry does not list `Roboto[wght].woff2`"* —
+    // a true statement about the wrong problem, and one whose obvious fix is to
+    // register the file rather than to stop fetching it from somebody else.
+    if (usage.offOrigin) {
+      violations.push({
+        kind: 'off-origin-font',
+        usage,
+        message: `${siteRef} loads '${usage.family}' from another host: ${usage.src}`,
+        hint:
+          "A site serves every font from its own domain — no third-party request from a visitor's browser, " +
+          'and no hostname baked into published bytes that a later domain change would strand. Use the ' +
+          'platform mirror (`/_fonts/<family>/<file>.woff2`, which every surface answers at its own root) ' +
+          'or an asset the site holds itself.',
+      })
+      continue
+    }
+
     const platformRef = usage.tier === 'platform'
     const entry = (platformRef ? platformTier : siteTier).get(usage.family)
 

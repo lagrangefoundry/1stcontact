@@ -28,6 +28,9 @@
  * rather than two.
  */
 import http from 'node:http'
+import { platformFontTarget } from '@1stcontact/site-schema'
+import { readStagedPlatformFont } from '../fonts/mirror'
+import { contentTypeOf } from '../store/content-type'
 import { resolveStaticFile, sendFile } from './static-file'
 import type { RenderChannel, Root, StoreContext } from '../store'
 import { distDir } from '../store'
@@ -59,7 +62,7 @@ export function startServe(slug: string, opts: ServeOptions = {}): Promise<Serve
   const rootDir = distDir(ctx, slug, channel)
 
   const server = http.createServer((req, res) => {
-    void serveRequest(rootDir, req, res)
+    void serveRequest(rootDir, ctx.cwd, req, res)
   })
 
   return new Promise((resolve) => {
@@ -73,11 +76,36 @@ export function startServe(slug: string, opts: ServeOptions = {}): Promise<Serve
 
 async function serveRequest(
   rootDir: string,
+  cwd: string,
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): Promise<void> {
   try {
     const url = new URL(req.url ?? '/', 'http://localhost')
+    /**
+     * `_fonts/…` AT THIS TREE'S OWN ROOT ([[REQ-312]], `COMMENT-3711`).
+     *
+     * A page's font `src` names no host, so the rendered bytes ask for the face
+     * relative to wherever they are being served — and this origin is one of the
+     * roots that serves them. Without this a capture is taken in a fallback face
+     * while the page says otherwise, which makes the fidelity surface lie about
+     * the one axis it is most often asked to judge.
+     *
+     * OUT OF THE STAGED MIRROR AND NOT OUT OF `rootDir`. The bytes are shared
+     * platform ones and are deliberately not copied into any site's output; an
+     * unpopulated mirror has none, and the request 404s exactly as it would
+     * against an unpublished one.
+     */
+    const font = platformFontTarget(url.pathname.replace(/^\/+/, ''))
+    if (font) {
+      const bytes = readStagedPlatformFont(cwd, font)
+      if (!bytes) {
+        res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
+        return
+      }
+      res.writeHead(200, { 'content-type': contentTypeOf(font) }).end(Buffer.from(bytes))
+      return
+    }
     const file = await resolveStaticFile(rootDir, url.pathname)
     if (file === 'forbidden') {
       res.writeHead(403).end('Forbidden')

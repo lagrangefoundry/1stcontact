@@ -32,7 +32,7 @@
  */
 
 import type { PlatformLicence } from '@1stcontact/site-schema'
-import { PLATFORM_FONT_PATH_PREFIX, parsePlatformFontSrc } from '@1stcontact/site-schema'
+import { parsePlatformFontSrc, platformFontSrc } from '@1stcontact/site-schema'
 import index from './platform-fonts.json'
 import { CommandError } from '../errors'
 
@@ -179,10 +179,13 @@ export function faceFor(
   return null
 }
 
-/** `roboto/Roboto[wdth,wght].woff2` → the `src` a page carries. */
-export function platformFontSrc(path: string): string {
-  return `${PLATFORM_FONT_PATH_PREFIX}${path.split('/').map(encodeURIComponent).join('/')}`
-}
+/**
+ * `platformFontSrc` IS THE SCHEMA'S AND IS RE-EXPORTED, NOT RESTATED ([[REQ-312]],
+ * `COMMENT-3711`). This module held its own one-line copy, which was the second
+ * definition of a spelling that four programs have to agree about — and the review
+ * that made the `src` root-relative would have had to find both.
+ */
+export { platformFontSrc }
 
 // ── what a call resolves to ──────────────────────────────────────────────────
 
