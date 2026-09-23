@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-312
 created_by: xgd
 created_at: '2026-09-23T18:02:52.600472+00:00'
-updated_at: '2026-09-23T20:19:45.526504+00:00'
+updated_at: '2026-09-23T21:52:29.984325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -172,5 +172,11 @@ git clone --depth 1 https://github.com/google/fonts ~/google-fonts
 Until then `1c fonts check` says `*** NOT POPULATED — 1935 documented families have no bytes behind them ***`.
 
 Ticket body is current: I preserved your edits (route 1 in your words, the sizing/annual-refresh reasoning), settled the serving origin that was marked "still open", and added the invertibility precision plus behaviour bullets for everything the UATs assert. REQ-313 (`use_font`) is now unblocked — it writes the `src` using the same path definition the check resolves.
+
+<!-- xgd-turn id="47005f79-1832-4e53-be2d-7ee63be253a4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T21:52:29.541767+00:00" -->
+#### You
+Please review **COMMENT-3711 attached to this ticket and add it to your scope**
 
 <!-- xgd-chat-end -->
