@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:23:57.886202+00:00'
+updated_at: '2026-09-23T18:26:41.417125+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -515,5 +515,13 @@ Confirmed from the store — REQ-314 body is 7,844 chars with all the changes pr
 Title is now *"The editor font control: 30 curated faces, and a query box that reaches all 1,941"*, priority low, parented to EPIC-21.
 
 Full slate under the epic: DOC-56 (catalogue), REQ-311 (generator), REQ-312 (mirror + registry tier), REQ-313 (`use_font` + knowledge correction), REQ-314 (editor control), plus REQ-310 outside the epic for the KB projection cleanup.
+
+<!-- xgd-turn id="3e4f2bea-7909-4179-a8fc-97d7026ae99a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T18:26:39.631877+00:00" -->
+#### You
+Please take a look at your child REQ-312 it has questions - on running the mirror - that should be part of the system build - not sure its something we want/need to do every build but it needs to be in that tool set just like any other dependency.
+
+Please answer any questions from 312 that you feel confident about in its ticket. bring anything else back here.
 
 <!-- xgd-chat-end -->
