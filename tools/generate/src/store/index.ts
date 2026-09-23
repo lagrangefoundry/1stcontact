@@ -54,12 +54,20 @@ export { MissingContentError, StoreConflictError } from './site-store'
 
 export { CONTENT_DIGEST_LENGTH, contentDigest, isContentDigest } from './digest'
 
-export type { ChangeSet, RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+export type {
+  AssetStamp,
+  ChangeSet,
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 export {
   ASSET_MANIFEST_NAME,
   blobKey,
   canonicalJson,
   decodeAssetManifest,
+  diffOutlines,
   diffSnapshots,
   encodeAssetManifest,
   publishedAssetManifestKey,
@@ -70,6 +78,7 @@ export {
   isEmptyChangeSet,
   liveRevisionOf,
   nextRevisionOf,
+  outlineEntries,
   snapshotEntries,
   snapshotSha,
   verifiedSnapshot,

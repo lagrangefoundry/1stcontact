@@ -510,6 +510,115 @@ export function extractRect(src: Raster, box: RegionBox): { raster: Raster; box:
   return { raster: { data: out, width: w, height: h, channels: c }, box: { x, y, w, h } }
 }
 
+/**
+ * REQ-302 (issue 7) — a NUMERIC readout of one region's two crops.
+ *
+ * A ranked region says "these pixels differ and here is the score." It does not
+ * say WHY, and for a class of residual the rest of the instrument is silent
+ * about — same text on both sides, boxes agreeing to a quarter-pixel, zero
+ * values-diff deltas — the only way left to tell was to open the two PNGs and
+ * look, which is the reconstruction-from-a-screenshot that DOC-19 forbids. One
+ * measured round left 306.56 of 1043.47 ranked score (29.4%) unattributed for
+ * exactly that reason and wrote down what would separate it. This is that.
+ *
+ * The discriminator is the SHAPE of the difference, not its size:
+ *
+ * - A **colour** residual (a paint axis the comparator does not carry) moves the
+ *   whole crop the same way: {@link deltaRgb} is large and {@link columnDiff} is
+ *   broad and flat.
+ * - A **glyph-position** residual (subpixel rasterisation, a half-pixel shift)
+ *   leaves the average colour almost untouched — {@link deltaRgb} near zero —
+ *   and concentrates the difference into narrow spikes at stem edges, so
+ *   {@link columnDiff} is peaky and {@link rowDiff} is confined to the text band.
+ *
+ * Both profiles are bucketed to at most {@link PROFILE_BUCKETS} entries so a
+ * full-width region does not write a thousand numbers into `regions.json`; the
+ * shape survives the bucketing, which is all that is being read off it.
+ */
+export interface RegionReadout {
+  /** Per-channel mean over the crop, 0..255, each side. */
+  meanRgb: { ref: [number, number, number]; actual: [number, number, number] }
+  /** Signed per-channel mean difference, `actual - ref`. Near zero ⇒ not a hue difference. */
+  deltaRgb: [number, number, number]
+  /** Mean |Δ| over all channels and pixels — the same units as `meanDiff`. */
+  meanAbsDiff: number
+  /** The largest single-bucket column difference. Peaky ⇒ a positional residual. */
+  peakColumnDiff: number
+  /** Column-wise mean max-channel difference, left to right, bucketed. */
+  columnDiff: number[]
+  /** Row-wise mean max-channel difference, top to bottom, bucketed. */
+  rowDiff: number[]
+}
+
+/** Maximum entries in either {@link RegionReadout} profile. */
+export const PROFILE_BUCKETS = 64
+
+/** Mean of each bucket when `values` is squeezed into at most `buckets` of them. */
+function bucketed(values: number[], buckets: number): number[] {
+  if (values.length <= buckets) return values.map(round)
+  const out: number[] = []
+  for (let b = 0; b < buckets; b++) {
+    const from = Math.floor((b * values.length) / buckets)
+    const to = Math.max(from + 1, Math.floor(((b + 1) * values.length) / buckets))
+    let sum = 0
+    for (let i = from; i < to; i++) sum += values[i]
+    out.push(round(sum / (to - from)))
+  }
+  return out
+}
+
+/**
+ * Measure one region's two crops. Pure — takes decoded rasters and a box, so it
+ * is the same computation whether a caller has PNGs on disk or not.
+ *
+ * The two rasters are the FULL images (already cropped to their common
+ * rectangle by {@link computeDiff}'s caller); `box` selects the region, exactly
+ * as the crop triptych does, so the numbers describe the same pixels the PNGs do.
+ */
+export function regionReadout(ref: Raster, actual: Raster, box: RegionBox): RegionReadout {
+  const a = extractRect(ref, box).raster
+  const b = extractRect(actual, box).raster
+  const w = Math.min(a.width, b.width)
+  const h = Math.min(a.height, b.height)
+  const sums: [number, number, number] = [0, 0, 0]
+  const sumsB: [number, number, number] = [0, 0, 0]
+  const colMax = new Array<number>(w).fill(0)
+  const rowMax = new Array<number>(h).fill(0)
+  let absTotal = 0
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const ia = (y * a.width + x) * a.channels
+      const ib = (y * b.width + x) * b.channels
+      let maxCh = 0
+      for (let c = 0; c < 3; c++) {
+        const va = a.data[ia + c]
+        const vb = b.data[ib + c]
+        sums[c] += va
+        sumsB[c] += vb
+        const d = Math.abs(vb - va)
+        absTotal += d
+        if (d > maxCh) maxCh = d
+      }
+      colMax[x] += maxCh
+      rowMax[y] += maxCh
+    }
+  }
+  const px = Math.max(1, w * h)
+  const meanA: [number, number, number] = [round(sums[0] / px), round(sums[1] / px), round(sums[2] / px)]
+  const meanB: [number, number, number] = [round(sumsB[0] / px), round(sumsB[1] / px), round(sumsB[2] / px)]
+  const cols = colMax.map((v) => v / Math.max(1, h))
+  const rows = rowMax.map((v) => v / Math.max(1, w))
+  const columnDiff = bucketed(cols, PROFILE_BUCKETS)
+  return {
+    meanRgb: { ref: meanA, actual: meanB },
+    deltaRgb: [round(meanB[0] - meanA[0]), round(meanB[1] - meanA[1]), round(meanB[2] - meanA[2])],
+    meanAbsDiff: round(absTotal / (px * 3)),
+    peakColumnDiff: round(columnDiff.length ? Math.max(...columnDiff) : 0),
+    columnDiff,
+    rowDiff: bucketed(rows, PROFILE_BUCKETS),
+  }
+}
+
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 export function stripUndefined<T extends object>(o: T): Partial<T> {

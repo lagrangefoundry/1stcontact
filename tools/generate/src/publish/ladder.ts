@@ -13,6 +13,7 @@ import {
   type ImageRendition,
 } from '@1stcontact/framework/worker'
 import { contentTypeOf } from '../store/content-type'
+import type { RenditionSink } from '../store/revision-model'
 import type { AssetRef } from '../store/site-store'
 
 /**
@@ -206,6 +207,52 @@ export const LADDER_CONCURRENCY = 6
 export const LADDER_MAX_RENDITIONS = 1200
 
 /**
+ * The most SOURCE bytes of pictures one publish will carry.
+ *
+ * THE SECOND CEILING, AND THE ONE THAT ACTUALLY FIRES. {@link LADDER_MAX_RENDITIONS}
+ * is a real guard against a real limit, and it is a distant one: at thirteen
+ * renditions for a full-ladder photograph it admits about ninety pictures. Ninety
+ * pictures is on the order of 270 MB of source — more than twice the 128 MB
+ * isolate a Worker gets, before anything is resized. So the subrequest ceiling
+ * admits a site roughly an order of magnitude past where memory dies, and the
+ * failure the module exists to prevent — *a publish that dies most of the way
+ * through with a platform error naming nothing the client did* — is exactly what
+ * happened, with {@link LadderTooLargeError} never firing. That reasoning was
+ * careful about the limit it could see and silent about the one it could not.
+ *
+ * WHAT IS ACTUALLY RETAINED, now that renditions are streamed ([[REQ-305]]). A
+ * rendition is written and released, so the renditions cost at most
+ * {@link LADDER_CONCURRENCY} of them at once — a few megabytes, and bounded by a
+ * constant rather than by the site. What is NOT bounded by a constant is the
+ * SOURCES: every picture's original bytes are in the draft snapshot the publish
+ * is holding, they are read again as the previous revision for the change list,
+ * and each one is passed to `measure` and to `resize` for every rung. So the
+ * quantity worth a ceiling is the total weight of the pictures, and it is known
+ * exactly — from `bytes.length`, before a single transform.
+ *
+ * THE ARITHMETIC. 128 MB of isolate. The publish holds the draft's sources (S)
+ * and, on every publish after the first, the previous revision's snapshot read
+ * for the diff (~S again), so the pictures are paid for roughly twice before a
+ * transform runs. At S = 32 MB that is 64 MB — half the isolate — leaving the
+ * other half for the render, the runtime, and the handful of renditions in
+ * flight. A ceiling sized to land near 128 MB would be a ceiling with nothing
+ * left for the publish it is protecting.
+ *
+ * WHAT 32 MB ADMITS, in the terms a client would recognise: about forty pictures
+ * prepared for the web (~800 KB each), twenty at 1.6 MB, ten straight off a phone
+ * at 3 MB. A photo-heavy small-business site holds twenty to forty pictures, so a
+ * site whose images have been through any export step fits comfortably — and a
+ * site that uploaded forty camera originals is refused, in its own terms, with a
+ * remedy. That site is precisely the one that dies today.
+ *
+ * IT COUNTS THE PICTURES AND NOT THE ASSET LIBRARY. A PDF or a font in the same
+ * snapshot weighs on the same isolate, but it is not something this module
+ * decided to do anything with, and a refusal that blamed a client's pictures for
+ * a document's weight would name a remedy that does not work.
+ */
+export const LADDER_MAX_SOURCE_BYTES = 32 * 1024 * 1024
+
+/**
  * Raised when a site's ladder is larger than one publish can carry.
  *
  * IT NAMES THE SITE'S OWN FACTS — how many pictures, how many renditions, and the
@@ -223,6 +270,42 @@ export class LadderTooLargeError extends Error {
     super(
       `This site has ${pictures} picture${pictures === 1 ? '' : 's'} needing ` +
         `${renditions} delivery renditions, and one publish can build ${limit}. ` +
+        `Removing some pictures, or replacing the largest with smaller ones, will let it publish.`,
+    )
+  }
+}
+
+/** Megabytes, to one decimal place — how a client reads a weight. */
+function megabytes(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1)
+}
+
+/**
+ * Raised when a site's pictures weigh more than one publish can hold
+ * ([[REQ-305]]).
+ *
+ * A SIBLING OF {@link LadderTooLargeError} AND NOT A REPLACEMENT OF IT. Both
+ * limits are real and a site can meet either: one is about how many requests a
+ * publish may make, the other about how much a publish may hold. Collapsing them
+ * into one number would mean picking whichever bound happened to be tighter for
+ * the site in front of us and reporting the wrong fact about the other.
+ *
+ * IT NAMES THE SITE'S OWN FACTS, for the reason {@link LadderTooLargeError} gives:
+ * how many pictures, what they weigh, and what one publish can carry. A client
+ * can act on all three and can act on none of a memory budget. The remedy is
+ * theirs and is the same one, because it is the one that works — fewer pictures,
+ * or pictures that are smaller to begin with.
+ */
+export class LadderTooHeavyError extends Error {
+  readonly name = 'LadderTooHeavyError'
+  constructor(
+    readonly pictures: number,
+    readonly bytes: number,
+    readonly limit: number,
+  ) {
+    super(
+      `This site has ${pictures} picture${pictures === 1 ? '' : 's'} weighing ` +
+        `${megabytes(bytes)} MB, and one publish can carry ${megabytes(limit)} MB of pictures. ` +
         `Removing some pictures, or replacing the largest with smaller ones, will let it publish.`,
     )
   }
@@ -252,13 +335,22 @@ export interface LadderBuild {
   /** What the renderer writes into each `<img>`. */
   manifest: ImageDeliveryManifest
   /**
-   * The derived bytes, by path within the revision's `out/`.
+   * The renditions that landed, as paths within the revision's `out/`
+   * ([[REQ-305]]).
    *
-   * They go to `out/` and NOT to `source/`: a checkout restores what the site
-   * IS, and a delivery rendition is not part of that. So a revision serves its
-   * ladder and a checkout never grows six copies of a photograph.
+   * PATHS AND NOT BYTES, and that is the whole of [[REQ-305]]. This used to be a
+   * `Map<string, Uint8Array>` held until the revision was written, which put
+   * thirteen renditions per photograph in the isolate at once. The bytes are
+   * handed to a {@link RenditionSink} as they are produced and released; what is
+   * kept is the one thing the manifest actually needs to be decided, which is
+   * WHICH rungs landed — a question about paths that was being answered by
+   * retaining megabytes.
+   *
+   * THEY ARE `out/` PATHS AND NOT `source/` ONES: a checkout restores what the
+   * site IS, and a delivery rendition is not part of that. So a revision serves
+   * its ladder and a checkout never grows six copies of a photograph.
    */
-  derived: Map<string, Uint8Array>
+  landed: ReadonlySet<string>
 }
 
 /**
@@ -306,10 +398,29 @@ export interface LadderSource {
 export interface LadderBuildOptions {
   /** Told the total once the plan is known, then told each completion. */
   onProgress?: LadderProgressReporter
+  /**
+   * Where renditions go, opened once — AFTER the plan is accepted and before the
+   * first rendition is rendered ([[REQ-305]]).
+   *
+   * A FACTORY AND NOT A SINK, because the ordering is the point. Opening a
+   * revision's derived channel is not free and not harmless — the adapters take
+   * the revision's id there, and one of them empties the tree it is about to
+   * write into — so a ladder that opened it and then refused would have done
+   * damage on behalf of a publish that never happened. Asking for the sink only
+   * once both ceilings are cleared keeps *refuse before writing anything* a
+   * property of the code rather than of the order two statements happen to be in.
+   *
+   * ABSENT MEANS RENDER AND REPORT, KEEP NOTHING. A caller with no revision to
+   * write — a test asking what a site's ladder WOULD be — gets the manifest and
+   * the landed set, and the bytes are released exactly as they are when a sink is
+   * present. It is not a degraded mode; it is the same pipeline with the write
+   * left out.
+   */
+  open?: () => Promise<RenditionSink>
 }
 
 /** Nothing rendered: the manifest is empty and every `<img>` is emitted as it is. */
-export const EMPTY_LADDER: LadderBuild = { manifest: {}, derived: new Map() }
+export const EMPTY_LADDER: LadderBuild = { manifest: {}, landed: new Set() }
 
 /**
  * A pool over `jobs`, at most `limit` in flight, in order of completion.
@@ -369,10 +480,16 @@ interface PicturePlan {
 /**
  * Build the ladder for a snapshot's assets.
  *
- * THREE PHASES, AND THE SPLIT IS THE LATENCY ANSWER. It plans every picture
- * first, then checks the plan against what one request can carry, then renders —
- * with a bounded number in flight rather than one at a time.
+ * FOUR PHASES, AND THE SPLIT IS THE LATENCY ANSWER AND THE MEMORY ANSWER. It
+ * weighs the site, plans every picture, checks the plan against what one request
+ * can carry, then renders — with a bounded number in flight rather than one at a
+ * time, and writing each one out rather than keeping it.
  *
+ *   0. WEIGH THE PICTURES ([[REQ-305]]). Their total source weight against
+ *      {@link LADDER_MAX_SOURCE_BYTES}. It is `bytes.length` and nothing else, so
+ *      it costs no round trip and happens before any measurement — the cheapest
+ *      refusal comes first, and a site that cannot be carried is told so without
+ *      the platform being asked a single question.
  *   1. MEASURE AND PLAN. Measuring is what caps a ladder at the source, and it is
  *      free at the platform (`.info()` is documented as such), so it happens for
  *      every picture before anything is encoded. What comes out is the exact list
@@ -382,10 +499,23 @@ interface PicturePlan {
  *   2. REFUSE INFORMATIVELY IF IT IS TOO LARGE. See {@link LADDER_MAX_RENDITIONS}.
  *      This is before any rendition is written, so a site over the ceiling
  *      publishes nothing rather than dying halfway with a platform error.
- *   3. RENDER, AT MOST {@link LADDER_CONCURRENCY} AT ONCE. Sequentially, wall-clock
- *      is the SUM of every transform on the site; bounded, it is that sum divided
- *      by the ceiling. Nothing else about the work changes — every rendition is
- *      still built, and a rung that fails still drops out alone.
+ *   3. RENDER, AT MOST {@link LADDER_CONCURRENCY} AT ONCE, AND WRITE EACH ONE OUT.
+ *      Sequentially, wall-clock is the SUM of every transform on the site;
+ *      bounded, it is that sum divided by the ceiling. Nothing else about the work
+ *      changes — every rendition is still built, and a rung that fails still drops
+ *      out alone.
+ *
+ * TWO CEILINGS, BECAUSE THERE ARE TWO RESOURCES, and a site can meet either. One
+ * bounds how many requests a publish makes ({@link LADDER_MAX_RENDITIONS}); the
+ * other bounds how much it holds ({@link LADDER_MAX_SOURCE_BYTES}). The weight is
+ * checked first because it is free to compute and because it is the one that
+ * actually fires — so a site over both is told the fact that was going to kill it.
+ *
+ * NOTHING IS ACCUMULATED ([[REQ-305]]). A rendition is rendered, written through
+ * the sink, and its buffer released inside the job that produced it — so what this
+ * function holds at its peak is {@link LADDER_CONCURRENCY} renditions, whatever
+ * the site's size. What survives a job is its PATH, which is all the manifest
+ * needed from it.
  *
  * THE PLAN SUBTRACTS WHAT IS ALREADY HELD, through the sizer's optional `held`.
  * That is what makes the *first* publish the slow one and says so honestly: a
@@ -401,8 +531,8 @@ interface PicturePlan {
  * ladder still accumulates is its OUTPUT; that is [[REQ-305]].)
  *
  * THE MANIFEST IS A RECORD OF WHAT LANDED. An entry is written only from
- * renditions that are in `derived`, because a `srcset` candidate the bucket does
- * not hold is a 404 on the one request the page cannot recover from — and the
+ * renditions whose path is in `landed`, because a `srcset` candidate the bucket
+ * does not hold is a 404 on the one request the page cannot recover from — and the
  * browser will have chosen it precisely because it was the best fit.
  *
  * THE ORIGINAL IS THE TOP RUNG OF THE SOURCE-FORMAT LADDER. It is already in
@@ -417,6 +547,23 @@ export async function buildImageLadder(
   opts: LadderBuildOptions = {},
 ): Promise<LadderBuild> {
   const { assets } = source
+
+  // ---- 0. Weigh the pictures ([[REQ-305]]) ---------------------------------
+  //
+  // BEFORE THE PLATFORM IS ASKED ANYTHING, AND BEFORE A PICTURE IS READ. The
+  // weight is summed over the pictures this module would ladder, so the cheapest
+  // ceiling is the first one checked and a site that cannot be carried costs no
+  // subrequest — and, since [[REQ-304]], no bucket read — to refuse. The size
+  // comes off the {@link AssetRef} the listing already carried rather than off
+  // `bytes.length`, which is the same number without the site in hand.
+  // `isLadderedAsset` is the same predicate the plan applies below — a weight
+  // that counted the vectors and the documents would name a number the client
+  // cannot act on by changing their photographs.
+  const pictures = assets.filter((asset) => isLadderedAsset(asset.name))
+  const weight = pictures.reduce((total, asset) => total + asset.size, 0)
+  if (weight > LADDER_MAX_SOURCE_BYTES) {
+    throw new LadderTooHeavyError(pictures.length, weight, LADDER_MAX_SOURCE_BYTES)
+  }
 
   // ---- 1. Measure and plan -------------------------------------------------
   //
@@ -506,7 +653,7 @@ export async function buildImageLadder(
   }
   opts.onProgress?.({ ...progress })
 
-  // ---- 3. Render, bounded --------------------------------------------------
+  // ---- 3. Render, bounded, writing each rendition out ----------------------
   //
   // POOLED OVER PICTURES RATHER THAN OVER RUNGS ([[REQ-304]]). Every rendition
   // of one photograph is made from the same source bytes, so reading them once
@@ -517,7 +664,16 @@ export async function buildImageLadder(
   // IT IS THE SAME CEILING ON THE SAME AMBITION. A picture with thirteen rungs
   // renders them in series where they used to interleave with other pictures';
   // the number in flight is unchanged and so is the total work.
-  const derived = new Map<string, Uint8Array>()
+  //
+  // THE SINK IS OPENED HERE AND NOT BEFORE ([[REQ-305]]). Both ceilings are
+  // behind us, so a publish that was going to be refused has asked for nothing:
+  // no id taken, no tree emptied, no byte written. It is opened even when the
+  // plan is empty, because a publish's destination has one lifecycle whether or
+  // not this deployment can build renditions — see
+  // {@link SiteStore.beginRevision}.
+  const sink = opts.open ? await opts.open() : null
+
+  const landed = new Set<string>()
   await pooled(
     planned.map((plan) => async (): Promise<void> => {
       const bytes = await source.read(plan.asset.name)
@@ -526,7 +682,17 @@ export async function buildImageLadder(
         const rendered = await sizer.resize(bytes, plan.contentType, job.width, job.type)
         // A rung that would not render is dropped and the rest of the ladder
         // stands: fewer choices for the browser, never a broken candidate.
-        if (rendered !== null) derived.set(job.path, rendered)
+        if (rendered !== null) {
+          // WRITTEN INSIDE THE JOB, WHICH IS THE WHOLE OF [[REQ-305]]. The
+          // awaited write is the last thing done with `rendered`, so the only
+          // reference to a rendition dies with the rung that made it and the
+          // pool's own ceiling is the ceiling on rendition memory. Collecting
+          // them — which is what this did — made the ladder hold every rendition
+          // the site needed, and thirteen per photograph is not a quantity the
+          // isolate has.
+          await sink?.(job.path, rendered)
+          landed.add(job.path)
+        }
         // REPORTED AGAINST THE OUTSTANDING TOTAL, and clamped, because a
         // rendition the plan counted as free may still be rendered here — `held`
         // answered before this phase began, and nothing promises the two agree.
@@ -549,7 +715,7 @@ export async function buildImageLadder(
   const manifest: Record<string, ImageDelivery> = {}
   for (const plan of planned) {
     const renditions: ImageRendition[] = plan.own
-      .filter((job) => derived.has(job.path))
+      .filter((job) => landed.has(job.path))
       .map((job) => ({ src: job.path, width: job.width }))
     if (renditions.length === 0) continue
     // The source itself, last and widest — the bytes `src` already names.
@@ -561,10 +727,10 @@ export async function buildImageLadder(
     // worse than no `<source>` at all.
     const sources: ImageDeliverySource[] = []
     for (const alternative of plan.alternatives) {
-      const landed = alternative.jobs
-        .filter((job) => derived.has(job.path))
+      const rungs = alternative.jobs
+        .filter((job) => landed.has(job.path))
         .map((job) => ({ src: job.path, width: job.width }))
-      if (landed.length >= 2) sources.push({ type: alternative.type, renditions: landed })
+      if (rungs.length >= 2) sources.push({ type: alternative.type, renditions: rungs })
     }
 
     manifest[plan.asset.name] = {
@@ -575,7 +741,7 @@ export async function buildImageLadder(
     }
   }
 
-  return { manifest, derived }
+  return { manifest, landed }
 }
 
 /** An {@link ImageLadder} over a sizer. */

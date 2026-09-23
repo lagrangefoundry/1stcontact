@@ -85,6 +85,14 @@ function toContentRun(r: RawRun): ContentRun {
     gradient: normalizeGradient(r.gradientCss),
     borderLeft,
     paddingLeftPx: r.paddingLeftPx,
+    // REQ-302 — the other three sides and the run's text-align, beside the one
+    // side that was being kept. The browser measures all four (REQ-64) and this
+    // projection used to throw three away, so nothing downstream could recover
+    // them and the comparator's four matching axes had only one side to read.
+    paddingTopPx: r.paddingTopPx,
+    paddingRightPx: r.paddingRightPx,
+    paddingBottomPx: r.paddingBottomPx,
+    textAlign: r.textAlign,
   }
   // REQ-88 — carried only alongside a real accent, and only when a *different*
   // element paints it; an accent on the run's own box needs no separate rect.
@@ -240,9 +248,21 @@ function sectionFromBands(bands: RawBand[], signals: RawSignals, urlToLocal: (ur
   const box = bands.reduce<Box>((acc, b) => unionBox(acc, b.box), head.box)
   const background = backgroundOf(head, urlToLocal)
   const content: ContentRun[] = bands.flatMap((b) => toContentRuns(b.content))
-  const items: SectionItem[] = bands.flatMap((b) =>
-    b.items.map((runs) => ({ content: toContentRuns(runs) })),
-  )
+  // REQ-302 — each item row's index within the COALESCED content, so the section
+  // can still say where its repeated rows belong after several bands' content
+  // has been concatenated in front of them. A band with no anchor (the
+  // geometric-slice path) contributes its own content length, which appends —
+  // the behaviour before the anchor existed.
+  const items: SectionItem[] = []
+  const itemsAt: number[] = []
+  let contentOffset = 0
+  for (const b of bands) {
+    b.items.forEach((runs, k) => {
+      items.push({ content: toContentRuns(runs) })
+      itemsAt.push(contentOffset + (b.itemsAt?.[k] ?? b.content.length))
+    })
+    contentOffset += b.content.length
+  }
   const fields: Field[] = bands.flatMap((b) => (b.fields ?? []).map(toField))
   const layout: Layout = {
     textOverImage: background.kind === 'image' && content.length > 0,
@@ -252,7 +272,7 @@ function sectionFromBands(bands: RawBand[], signals: RawSignals, urlToLocal: (ur
     contentMaxWidthPx: signals.containerMaxWidthPx,
     contentAnchorRatio: head.contentAnchorRatio ?? null,
   }
-  return { box, screenshot: box, background, layout, content, items, fields }
+  return { box, screenshot: box, background, layout, content, items, itemsAt, fields }
 }
 
 export function buildSections(

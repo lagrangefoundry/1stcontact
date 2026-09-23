@@ -192,15 +192,25 @@ describe('REQ-88 — a card takes the captured surface rect; a mirrored face bin
       for (const kf of leaf!.geometry.keyframes) {
         expect(kf.width, `${f.text} @${kf.at} must contain its own glyphs`).toBeGreaterThanOrEqual(f.width)
       }
-      // ...and no wider than necessary — the smallest integer that still fits.
-      expect(leaf!.geometry.keyframes[0].width).toBe(Math.ceil(f.width))
+      // ...and no wider than necessary — the smallest value AT THE FOLD'S OWN
+      // PRECISION that still fits. REQ-302 moved that precision from a whole
+      // pixel to a hundredth of one, so this is `ceil` to two decimals rather
+      // than `Math.ceil`. The invariant REQ-88 pins is the direction — a text
+      // box rounds UP, never down, because rounding down reflows it — and the
+      // finer grid makes the over-allocation smaller without weakening it.
+      expect(leaf!.geometry.keyframes[0].width).toBe(Math.ceil(f.width * 100) / 100)
     }
   })
 
   it('test_UAT_FC_REQ-88_a_box_leaf_keeps_nearest_rounding', () => {
     // Only text can reflow. A surface box has no such constraint, so it stays on
     // nearest rounding and does not creep outward a pixel at a time.
-    const SURFACE = { x: 88, y: 2119, width: 896.4, height: 332.4 }
+    //
+    // REQ-302 — the fixture's fractions moved into the THIRD decimal place. The
+    // fold now writes two decimals, so `896.4` rounds and ceils to the same
+    // 896.4 and no longer discriminates; `896.401` rounds DOWN to 896.4 where a
+    // ceiling would give 896.41, which is the distinction this UAT exists for.
+    const SURFACE = { x: 88, y: 2119, width: 896.401, height: 332.404 }
     const doc = foldToL1(
       multiFrom((w) => [
         band(w),
@@ -210,8 +220,13 @@ describe('REQ-88 — a card takes the captured surface rect; a mirrored face bin
     )
     const card = cards(doc).find((b) => b.axes?.surfaceFill === '#f8f5f2')
     const kf = frameAt(card!, 1280)
-    expect(kf.width).toBe(896)
-    expect(kf.height).toBe(332)
+    // Rounded DOWN at the fold's precision — a text leaf on the same numbers
+    // would ceil to 896.41 / 332.41.
+    expect(kf.width).toBe(896.4)
+    expect(kf.height).toBe(332.4)
+    expect(kf.width, 'a box leaf does not ceil the way a text leaf does').not.toBe(
+      Math.ceil(SURFACE.width * 100) / 100,
+    )
   })
 
   it('test_UAT_FC_REQ-88_a_face_file_table_joins_a_run_stack_on_its_primary_token', () => {

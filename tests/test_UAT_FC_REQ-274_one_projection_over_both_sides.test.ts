@@ -55,6 +55,7 @@ import {
   type RawSignals,
   type Section,
   type SectionValues,
+  type UnmeasuredAxis,
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
@@ -80,6 +81,15 @@ function refRun(over: Partial<ContentRun> = {}): ContentRun {
     borderLeft: { widthPx: 4, color: '#f5e6a3' },
     accentBox: { x: 32, y: 100, width: 4, height: 56 },
     paddingLeftPx: 24,
+    // REQ-302 — the four REQ-64 Type-A axes, which `ContentRun` now records. The
+    // comment on the reproduction fixture below used to read "the four the
+    // reference cannot record. Present here, and only here"; the reference can
+    // record them, so this fixture must carry them or the two-sided coverage
+    // check below is asserting a gap that no longer exists.
+    paddingTopPx: 12,
+    paddingRightPx: 24,
+    paddingBottomPx: 12,
+    textAlign: 'left',
     surfaceFill: '#e8dfd3',
     surfaceGradient: null,
     renderedTextBox: { x: 40, y: 104, width: 420, height: 48 },
@@ -147,7 +157,8 @@ function rawRun(over: Partial<RawRun> = {}): RawRun {
     borderLeftColor: '#f5e6a3',
     accentBox: { x: 32, y: 100, width: 4, height: 56 },
     paddingLeftPx: 24,
-    // REQ-64 — the four the reference cannot record. Present here, and only here.
+    // REQ-64 — the four Type-A run axes. Present on BOTH fixtures since REQ-302
+    // added them to `ContentRun`; this side alone carried them before that.
     paddingTopPx: 12,
     paddingRightPx: 24,
     paddingBottomPx: 12,
@@ -453,44 +464,71 @@ describe('REQ-274 — one declaration site for every value axis', () => {
       },
     ])
 
-    // And the live table's own answer: REQ-64's four Type-A text-run axes, which
-    // the comparator has compared since REQ-64 and the reference has never been
-    // able to supply. The FIFTH instance of the category the four earlier fixes
-    // each closed one at a time.
-    expect(UNMEASURED_AXES.map((u) => u.axis).sort()).toEqual([
-      'paddingBottomPx',
-      'paddingRightPx',
-      'paddingTopPx',
-      'textAlign',
-    ])
+    // And the live table's own answer. This used to be REQ-64's four Type-A
+    // text-run axes — the FIFTH instance of the category the four earlier fixes
+    // each closed one at a time. REQ-302 closed it, and it was the last one, so
+    // the honest answer today is NONE.
+    //
+    // That is the success condition for this whole module, not the loss of a
+    // fixture: the declaration exists so a gap can be seen and then closed, and
+    // an empty list is what "all of them are closed" looks like. The mechanism
+    // is proven by the synthetic table above, which is why it was written
+    // against a table that is not the live one — precisely so this assertion
+    // could go to zero without taking the evidence with it.
+    expect(UNMEASURED_AXES.map((u) => u.axis).sort()).toEqual([])
+
+    // The shape of a live row is still pinned, against whatever the table
+    // declares if it ever declares one again — so a future gap cannot arrive
+    // malformed just because none is open today.
     for (const u of UNMEASURED_AXES) {
-      expect(u.scope).toBe('element')
-      expect(u.side).toBe('reference')
-      expect(u.reason).toMatch(/ContentRun does not record it/)
+      expect(['manifest', 'section', 'element']).toContain(u.scope)
+      expect(['reference', 'reproduction']).toContain(u.side)
+      expect(u.reason.length).toBeGreaterThan(0)
     }
   })
 
   it('test_UAT_FC_REQ-274_the_diff_reports_the_unmeasured_axis_it_ran_into', () => {
-    // The fact reaches the report, off the REAL projections: the reproduction's
-    // run carries `paddingTopPx: 12` and `textAlign: 'left'`, the reference's
-    // carries neither, and the comparator therefore compared neither. It is not
-    // a delta — nobody measured a difference — but it is no longer nothing.
-    const expected = flattenCapture(capture())
+    // The fact reaches the report, off the REAL projections. This was written
+    // against `paddingTopPx` — the reproduction carried 12, the reference could
+    // carry nothing, and the comparator therefore compared neither. REQ-302
+    // closed that gap, so the gap is DECLARED here instead of borrowed from the
+    // live table (`declaredUnmeasured`, the same parameter `unmeasuredAxesOf`
+    // has always taken, forwarded one step into `diffManifests`).
+    //
+    // What is being proven is unchanged and is not about padding: a declared
+    // one-sided axis that the comparison actually RAN INTO reaches the report.
+    // Borrowing a live gap only ever made the evidence hostage to that gap
+    // staying open, which is the opposite of what the module is for.
+    const DECLARED: readonly UnmeasuredAxis[] = [
+      {
+        axis: 'paddingTopPx',
+        scope: 'element',
+        side: 'reference',
+        reason: 'the reference-side projection has no reader for this axis yet',
+      },
+    ]
+
+    const expected = flattenCapture(capture({ sections: [refSection({ content: [refRun({ paddingTopPx: undefined })] })] }))
     const actual = flattenSignals(signals(), 'draft:fixture')
 
-    expect(expected.elements[0].paddingTopPx, 'the reference cannot record it').toBeUndefined()
-    expect(actual.elements[0].paddingTopPx, 'the reproduction does').toBe(12)
+    // The precondition the declaration describes: one side carries the value
+    // and the other does not.
+    expect(expected.elements[0].paddingTopPx, 'this side cannot supply it').toBeUndefined()
+    expect(actual.elements[0].paddingTopPx, 'and this side can').toBe(12)
 
-    const report = diffManifests(expected, actual)
-    expect(report.unmeasuredAxes.map((u) => u.axis).sort()).toEqual([
-      'paddingBottomPx',
-      'paddingRightPx',
-      'paddingTopPx',
-      'textAlign',
-    ])
-    // The axes produced no delta then and produce none now: this reports what
-    // was NOT measured, and never manufactures a defect out of the gap.
-    expect(report.deltas.filter((d) => /padding(Top|Right|Bottom)Px|textAlign/.test(d.property))).toEqual([])
+    const report = diffManifests(expected, actual, { declaredUnmeasured: DECLARED })
+    expect(report.unmeasuredAxes.map((u) => u.axis)).toEqual(['paddingTopPx'])
+    expect(report.unmeasuredAxes[0].reason).toMatch(/no reader for this axis yet/)
+
+    // It reports what was NOT measured and never manufactures a defect out of
+    // the gap — the half that keeps an unmeasured axis a report fact rather
+    // than a verdict.
+    expect(report.deltas.filter((d) => /paddingTopPx/.test(d.property))).toEqual([])
+
+    // And the counterweight, on the same pair of manifests: with nothing
+    // declared, nothing is reported. The row comes from the declaration, not
+    // from the comparator noticing an absence on its own.
+    expect(diffManifests(expected, actual, { declaredUnmeasured: [] }).unmeasuredAxes).toEqual([])
   })
 
   it('test_UAT_FC_REQ-274_the_gate_says_so_rather_than_reading_clean', () => {
@@ -500,7 +538,21 @@ describe('REQ-274 — one declaration site for every value axis', () => {
     // pass rung no longer claims there is nothing outstanding, and it names the
     // axes rather than counting them, because "1 axis unmeasured" is not
     // actionable and "the reference records no text-run padding" is.
-    const report = diffManifests(flattenCapture(capture()), flattenSignals(signals(), 'draft:fixture'))
+    // REQ-302 — the declared gap, for the reason given on the UAT above: the
+    // live table no longer has one, and the behaviour under test is the gate's,
+    // not the table's.
+    const DECLARED: readonly UnmeasuredAxis[] = [
+      {
+        axis: 'paddingTopPx',
+        scope: 'element',
+        side: 'reference',
+        reason: 'the reference-side projection has no reader for this axis yet',
+      },
+    ]
+    const expected = flattenCapture(capture({ sections: [refSection({ content: [refRun({ paddingTopPx: undefined })] })] }))
+    const report = diffManifests(expected, flattenSignals(signals(), 'draft:fixture'), {
+      declaredUnmeasured: DECLARED,
+    })
     const gate = gateOn(report)
 
     expect(gate.verdict).toBe('pass')
@@ -509,7 +561,7 @@ describe('REQ-274 — one declaration site for every value axis', () => {
     expect(gate.values.unmeasuredAxes.map((u) => u.axis)).toContain('paddingTopPx')
     expect(gate.nextStep).not.toBe('Nothing outstanding from this gate.')
     expect(gate.nextStep).toMatch(/could only be read on ONE side of the projection/)
-    expect(gate.nextStep).toMatch(/ContentRun does not record it/)
+    expect(gate.nextStep).toMatch(/no reader for this axis yet/)
 
     // And the operator reading the terminal sees it on the values block, not
     // only in the JSON — the trip BUG-111 exists to remove.

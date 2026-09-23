@@ -158,6 +158,17 @@ export async function seedPublished(
    * assertions about the URL grammar alone) may omit it.
    */
   blobs?: SiteStore,
+  /**
+   * [[REQ-305]] — the delivery renditions, which no longer travel with `content`.
+   *
+   * A SEPARATE ARGUMENT BECAUSE THEY ARE A SEPARATE ACT NOW. A real publish
+   * writes each rendition through the sink `beginRevision` opened, as it is
+   * rendered, and `RevisionContent` carries only what the final act freezes. A
+   * fixture relocating a publish's output therefore has two things to relocate,
+   * and saying so is more honest than keeping a field on the content type that
+   * the product never populates.
+   */
+  derived?: ReadonlyMap<string, Uint8Array>,
 ): Promise<void> {
   const out = publishedOutPrefix(siteKey, id)
   for (const [rel, text] of content.out) {
@@ -166,7 +177,7 @@ export async function seedPublished(
   // [[REQ-222]] — the delivery renditions, beside the pages that name them and
   // under `out/` only. They are NOT copied into `source/` below: a checkout
   // restores what the site is, and a rendition is not part of that.
-  for (const [rel, bytes] of content.derived ?? []) {
+  for (const [rel, bytes] of derived ?? []) {
     fixture.bucket.objects.set(`${out}/${rel}`, Buffer.from(bytes))
   }
 
@@ -241,7 +252,12 @@ export async function publishInto(
    * them at the keys the real publish chose rather than at keys it invented.
    */
   ladder?: ImageLadder,
-): Promise<{ id: number; content: RevisionContent }> {
+): Promise<{
+  id: number
+  content: RevisionContent
+  /** [[REQ-305]] — the renditions this publish streamed, beside the content it froze. */
+  derived: ReadonlyMap<string, Uint8Array>
+}> {
   let store = fixture.drafts.get(slug)
   if (!store) {
     store = memorySiteStore()
@@ -265,13 +281,10 @@ export async function publishInto(
   if (source === null || out === null) {
     throw new Error(`publish produced no revision for '${slug}'`)
   }
-  const content: RevisionContent = {
-    source,
-    out,
-    derived: store.derivedRevision(slug, result.id) ?? undefined,
-  }
-  await seedPublished(fixture, slug, result.id, content, store)
-  return { id: result.id, content }
+  const content: RevisionContent = { source, out }
+  const derived = store.derivedRevision(slug, result.id) ?? new Map<string, Uint8Array>()
+  await seedPublished(fixture, slug, result.id, content, store, derived)
+  return { id: result.id, content, derived }
 }
 
 /** A revision entry with the boring fields filled in, for a fixture's convenience. */

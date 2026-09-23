@@ -31,6 +31,7 @@ import {
   deriveRegions,
   extractRect,
   nodeScaleFor,
+  regionReadout,
   resolveRegionNodes,
   round,
   type CoreDiffResult,
@@ -42,6 +43,7 @@ import {
   type RegionNode,
   type RegionNodeOptions,
   type RegionNodes,
+  type RegionReadout,
 } from './perceptual-core'
 
 /**
@@ -56,6 +58,7 @@ export {
   deriveRegions,
   extractRect,
   nodeScaleFor,
+  regionReadout,
   resolveRegionNodes,
   type CoreDiffResult,
   type DiffRegion,
@@ -66,6 +69,7 @@ export {
   type RegionNode,
   type RegionNodeOptions,
   type RegionNodes,
+  type RegionReadout,
 }
 
 // ── image I/O (the shell around the codec) ────────────────────────────────────
@@ -228,6 +232,19 @@ export interface PerceptualDiffReport {
     crops: { ref: string; actual: string; diff: string }
     /** BUG-99 — the manifest records under this region. Absent when no manifest was supplied. */
     nodes?: RegionNodes
+    /**
+     * REQ-302 — the numbers behind the two crops: per-channel means and signed
+     * delta, and the column/row difference profiles.
+     *
+     * Emitted beside the PNGs, not instead of them, and for the same reason the
+     * PNGs are emitted at all — except that a number can be read by the round
+     * that has to attribute the residual, and a PNG can only be looked at. A
+     * region whose two sides carry the same text, agree on their boxes and
+     * produce no values-diff delta is otherwise unattributable; `deltaRgb` near
+     * zero with a peaky `columnDiff` says "glyph position", a large flat
+     * `deltaRgb` says "a colour axis nothing compares". See {@link RegionReadout}.
+     */
+    readout: RegionReadout
   })[]
 }
 
@@ -358,7 +375,14 @@ export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> 
         cmdCrop({ input: actualImage, box: b, out: oursCrop }),
         cmdCrop({ input: diffPng, box: b, out: diffCrop }),
       ])
-      regionsWithCrops.push({ ...region, crops: { ref: refCrop, actual: oursCrop, diff: diffCrop } })
+      regionsWithCrops.push({
+        ...region,
+        crops: { ref: refCrop, actual: oursCrop, diff: diffCrop },
+        // REQ-302 — measured off the SAME two rasters the crops are cut from, in
+        // the same loop, so the numbers and the PNGs can never describe different
+        // pixels (the failure BUG-99's comment above guards against for leads).
+        readout: regionReadout(refR, actR, b),
+      })
     }
 
     const report: PerceptualDiffReport = {
@@ -399,7 +423,16 @@ export function formatDiffReport(report: PerceptualDiffReport): string {
     // most informative thing this report can say, so it is said here rather than
     // left for whoever opens `regions.json`.
     const lead = r.nodes ? `\n       ref: ${describeLead(r.nodes.ref[0])} · ours: ${describeLead(r.nodes.actual[0])}` : ''
-    return line + lead
+    // REQ-302 — the shape of the difference, said here rather than left in
+    // `regions.json`. It is the line that separates "a colour nothing compares"
+    // from "the glyphs moved", which is the question a region with matching
+    // leads and no values delta otherwise leaves open.
+    const d = r.readout.deltaRgb
+    const readout =
+      `\n       ΔRGB ${d[0] >= 0 ? '+' : ''}${d[0]},${d[1] >= 0 ? '+' : ''}${d[1]},` +
+      `${d[2] >= 0 ? '+' : ''}${d[2]} · |Δ| ${r.readout.meanAbsDiff.toFixed(1)} · ` +
+      `peak col ${r.readout.peakColumnDiff.toFixed(1)}`
+    return line + lead + readout
   })
   return `${head}\n${band}\n${rows.join('\n')}`
 }

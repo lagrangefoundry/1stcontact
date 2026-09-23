@@ -18,7 +18,14 @@ import { contentDigest } from './digest'
 import { appendHistory, readHistory } from './history'
 import { appendChange, changesSince, draftCounter } from './journal'
 import { loadSite } from './loadSite'
-import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import type {
+  AssetStamp,
+  RenditionSink,
+  RevisionContent,
+  RevisionEntry,
+  SiteOutline,
+  StoredSnapshot,
+} from './revision-model'
 import {
   ASSET_MANIFEST_NAME,
   decodeAssetManifest,
@@ -295,6 +302,33 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       return Promise.resolve(nextRevisionOf(readHistory(ctx, slug).revisions))
     },
 
+    /**
+     * [[REQ-305]] — the published tree is emptied HERE, and the renditions land
+     * in it as they are rendered.
+     *
+     * THE EMPTYING MOVED AND THE WRITING DID NOT. `writeRevision` used to empty
+     * `dist/published/` at the top of its own body and write the renditions from
+     * a map at the bottom. A rendition written before that call would have been
+     * deleted by it — so the act that clears the tree has to happen before the
+     * first rendition, which is exactly what this verb is. What lands is
+     * unchanged: the same relative paths, under the same directory, beside the
+     * pages that name them.
+     *
+     * `out/` ONLY, and the revision's own directory is still emptied by
+     * `writeRevision`. A revision DIRECTORY is what a checkout reads back as a
+     * draft, and derived bytes are not part of the definition — so nothing this
+     * sink writes goes anywhere near it.
+     */
+    beginRevision(slug, _id): Promise<RenditionSink> {
+      const out = distDir(ctx, slug, 'published')
+      emptyDir(out)
+      return Promise.resolve((rel: string, bytes: Uint8Array) => {
+        ensureDir(path.dirname(path.join(out, rel)))
+        fs.writeFileSync(path.join(out, rel), bytes)
+        return Promise.resolve()
+      })
+    },
+
     async writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
       // The frozen definition. A revision directory is what
       // `loadSite(ctx, slug, <id>)` reads, so it has to be shaped exactly like a
@@ -335,21 +369,17 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       // The rendered artifact. It lands where `1c serve --source published`,
       // `1c shot` and the fidelity gate already look for it, so publishing keeps
       // feeding the reproduction loop rather than only the cloud.
+      //
+      // NOT EMPTIED HERE ANY MORE ([[REQ-305]]): `beginRevision` cleared this
+      // directory and the renditions already in it were written through the sink
+      // it opened, so emptying it again would delete them.
       const out = distDir(ctx, slug, 'published')
-      emptyDir(out)
       for (const [rel, text] of content.out) writeText(path.join(out, rel), text)
-      // [[REQ-222]] — the delivery renditions, beside the pages that name them.
-      // They land under `out/` only: a revision DIRECTORY is what a checkout
-      // reads back as a draft, and derived bytes are not part of the definition.
-      for (const [rel, bytes] of content.derived ?? []) {
-        ensureDir(path.dirname(path.join(out, rel)))
-        fs.writeFileSync(path.join(out, rel), bytes)
-      }
       // The rendered tree carries the assets it references — `1c serve
       // --source published` and the fidelity gate serve THIS directory off
       // disk, so an `<img>` that resolved only while the draft held the file
       // would be a published site that decays. Cloned out of the blob space
-      // like the revision's own copy.
+      // like the revision's own copy ([[REQ-304]]).
       for (const ref of content.source.assets) {
         placeBlob(slug, ref, path.join(out, 'assets', ref.name))
       }
@@ -418,6 +448,69 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       const entry = readHistory(ctx, slug).revisions.find((r) => r.id === id)
       if (entry === undefined) return snapshot
       return verifiedSnapshot(slug, id, entry.sha, snapshot, manifested)
+    },
+
+    /**
+     * [[REQ-303]] — the draft with its assets stamped by SIZE, from the
+     * directory entry rather than from the file.
+     *
+     * `statSync` AND NOT `readFileSync`, which is the whole verb. A change count
+     * is derived before every model call, and reading fifty megabytes of
+     * pictures to produce a number is what killed the isolate in the cloud tier;
+     * this tier is not where that happened, but a port verb whose cost differs
+     * by adapter is a verb whose callers learn which one they have.
+     *
+     * SIZE AND NOT MTIME, even though a directory entry offers both. A
+     * revision's copy of an asset is written at publish and the draft's original
+     * is older, so a stamp carrying a modification time would report every asset
+     * modified the moment it was published. Size is the one thing a directory
+     * entry knows that BOTH copies agree about when the bytes agree.
+     */
+    draftOutline(slug): Promise<SiteOutline> {
+      const dir = assetsDir(slug)
+      return Promise.resolve({
+        siteJson: pathExists(siteJsonPath(slug))
+          ? readJson<Record<string, unknown>>(siteJsonPath(slug))
+          : null,
+        pages: listFilesRel(pagesDir(slug))
+          .filter((rel) => rel.endsWith('.json'))
+          .map((rel) => ({
+            name: rel,
+            page: readJson<Record<string, unknown>>(path.join(pagesDir(slug), rel)),
+          })),
+        assets: listFilesRel(dir).map(
+          (rel): AssetStamp => ({
+            name: rel,
+            stamp: String(fs.statSync(path.join(dir, rel), { throwIfNoEntry: false })?.size ?? -1),
+          }),
+        ),
+      })
+    },
+
+    /** [[REQ-303]] — the same shape for a revision directory, and unverified. */
+    revisionOutline(slug, id): Promise<SiteOutline | null> {
+      const dir = revisionDir(ctx, slug, id)
+      if (!pathExists(dir)) return Promise.resolve(null)
+      const assets = path.join(dir, 'assets')
+      return Promise.resolve({
+        siteJson: pathExists(path.join(dir, 'site.json'))
+          ? readJson<Record<string, unknown>>(path.join(dir, 'site.json'))
+          : null,
+        pages: listFilesRel(path.join(dir, 'pages'))
+          .filter((rel) => rel.endsWith('.json'))
+          .map((rel) => ({
+            name: rel,
+            page: readJson<Record<string, unknown>>(path.join(dir, 'pages', rel)),
+          })),
+        assets: listFilesRel(assets).map(
+          (rel): AssetStamp => ({
+            name: rel,
+            stamp: String(
+              fs.statSync(path.join(assets, rel), { throwIfNoEntry: false })?.size ?? -1,
+            ),
+          }),
+        ),
+      })
     },
 
     draftBase(slug) {

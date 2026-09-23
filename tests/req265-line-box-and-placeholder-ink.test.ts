@@ -221,10 +221,16 @@ describe("REQ-265 — a text run's box is the line box it occupies", () => {
     const node = nodes.find((n) => n.kind === 'text' && n.text === 'Gigabyte Alchemy')
     expect(node, 'the wordmark folded to a text leaf').toBeDefined()
     const kf = (node!.geometry as { keyframes: Array<{ at: number; y: number }> }).keyframes
-    // The ticket's stated right answer: y = 83, not the 79 the content-area rect
-    // used to hand over. Rendered at that top, the 90px line box centres the 97px
-    // content area back onto the reference's own 79.
-    for (const k of kf) expect(k.y, `keyframe at ${k.at}`).toBe(83)
+    // The ticket's stated right answer: the line-box top, not the 79 the
+    // content-area rect used to hand over. Rendered at that top, the 90px line
+    // box centres the 97px content area back onto the reference's own 79.
+    //
+    // REQ-302 — the value is 82.5 rather than 83 because the fold now writes
+    // derived geometry at two decimals instead of rounding to a whole pixel.
+    // What REQ-265 pins is unchanged and is the DISTINCTION, not the integer:
+    // the line-box top, which is 3.5px below the content-area top it replaced.
+    for (const k of kf) expect(k.y, `keyframe at ${k.at}`).toBe(82.5)
+    for (const k of kf) expect(k.y, `keyframe at ${k.at} is not the content area`).not.toBe(79)
   })
 })
 

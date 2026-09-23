@@ -5,13 +5,16 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-22T23:17:37.342481+00:00'
+updated_at: '2026-09-22T23:27:35.835186+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: epic_children
 status: ongoing
 fields:
   priority: medium
   chat_comment: comment-d8169cbf
+  epic_children:
+  - request-ba1e2212
+  - bug-3d91a05e
 ---
 
 ## What this epic is for
