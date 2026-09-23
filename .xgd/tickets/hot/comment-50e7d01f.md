@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:41:01.444864+00:00'
+updated_at: '2026-09-23T02:48:51.287178+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1308,5 +1308,13 @@ How to snapshot the finished site per run. The transcript and the cost both expo
 Everything else I'd leave undesigned, as you said. No scoring schema, no rubric in code, no UI. A run produces a directory: assets in, transcript out, site snapshot, cost figures. We look at three of those and *then* decide what scoring deserves to be formalised.
 
 Want me to scope this as a ticket under EPIC-20? I'd write it as: script format (ordered turns + asset manifest), a runner against the real HTTP path so the meter fires, artifact capture per run, and the never-edit rule stated in the body — with scoring explicitly deferred. Say the word and I'll cut it and start.
+
+<!-- xgd-turn id="684ff537-6501-4f89-b553-5b41c2015ca2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:48:49.118580+00:00" -->
+#### You
+Yeah we can generate AI photos if the example site we use as a picture of the owner standing next to the van we get our AI description tool to take a description of it we feed that back into the picture tool and we get a picture of an owner standing in front of a van which is completely unrecognizable from where we started
+
+On your final point we build this inside the tool. This is not an external exercise the draft website needs to appear in the preview screen next to the transcript as if a customer generated it. The chat tooling that we have supports back End insertion so the chat does not have to go through a browser but it means that I could watch on a browser as the tool is doing its thing and see the site being built as it is being created. That is what I want to create. So for each test we create a new tenant simple as that.
 
 <!-- xgd-chat-end -->
