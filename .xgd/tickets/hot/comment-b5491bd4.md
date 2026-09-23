@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-306
 created_by: xgd
 created_at: '2026-09-22T23:16:41.395237+00:00'
-updated_at: '2026-09-23T02:58:28.406193+00:00'
+updated_at: '2026-09-23T03:02:58.428735+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -166,5 +166,34 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="b2252093-9e19-4362-a187-bc5db819b850-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T03:02:58.125340+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me check the current state.
+
+Merged state is verified. Now completing the ticket lifecycle.
+
+The gate hit a false positive: our version bump is on xgd-working, but ticket auto-commits landed on top afterwards, so the tip is neither our commit nor a merge. Taking the gate's own remedy — re-bump and recommit.
+
+Ticket auto-commits from other sessions land every ~20–60s, and the gate takes ~10s, so the tip-ownership check is a race. Chaining the bump, commit, and gate into one invocation to minimise the window.
+
+The gate passed. Now recording story points, noting the extra bump commits in the body, and cleaning up the branch.
+
+REQ-306 is complete and at `free_coded`.
+
+**What was finished this session** — the implementation and merge had already landed in the prior session; what remained was verification and the ticket lifecycle:
+
+- **Verified the merged state.** The merge resolved a migration collision (REQ-304 took `0020`, so this ticket's renumbered to `0021`) and touched real code, so I re-ran the tests against `xgd-working` rather than trusting the branch run: all 19 REQ-306 UATs pass, as do the 47 tests in the adjacent BUG-46 / BUG-123 / REQ-304 files — the two whose wording this ticket supersedes, and the ticket that shares the migration sequence.
+- **Cleared `move-to-free-coded`'s version gate.** It rejected the first two attempts. The gate recognises only two shapes for "the tip is mine" — a tip that is an ancestor of a claimed SHA, or a merge commit carrying one — and concurrent sessions land ticket auto-commits on `xgd-working` every 20–60s, so the tip was a third party's commit and the version this ticket had itself published read as foreign. Two re-bumps (the gate's own remedy) and chaining bump→commit→gate into one invocation won the race.
+- **Recorded it.** Ticket at `free_coded`, `story_points: 5`, `version: 0.2.339`, four SHAs. The body now explains that three of the four are one-line `package.json` bumps and why each exists, so reconciliation doesn't read them as unaccounted work.
+- **Branch cleaned** — worktree removed, branch deleted, merge lock released.
+
+Two things worth flagging:
+
+**The version gate has a real gap in the branch-per-ticket flow.** Its `_tip_is_own` check can't recognise "the tip descends from my SHA, and the commit that introduced this version is mine" — which is the ordinary state whenever anything lands after your merge. With an active dispatcher this is a losing race by default, costing a version number per attempt. That's an `xgd` defect, not a `1stcontact` one, so I haven't filed anything; say the word if you want a ticket raised against the xgd project.
+
+**Pre-existing uncommitted changes remain in the tree** (`apps/control-app/ACCESS.md`, `wrangler.toml`, plus untracked `db/ops/`, `fonts/`, `storage/`). These were there before this session started and aren't mine — I staged only `package.json` on each bump and left them untouched.
 
 <!-- xgd-chat-end -->
