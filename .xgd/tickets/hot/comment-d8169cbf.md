@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-22T23:53:49.848001+00:00'
+updated_at: '2026-09-23T02:45:09.844696+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3278,5 +3278,13 @@ Capping the tool transcript alone buys the prose transcript years of headroom, s
 My recommendation: elide the tool transcript, roll the prose one, break the coupling, and treat the summary log as the same bug found early.
 
 Want me to file that, and unblock your LF session by trimming `comment-ca74b1b7` now? Both are still waiting on you, as is BUG-138's branch.
+
+<!-- xgd-turn id="7f26cf92-3e69-4f34-971a-2f1681b91d86-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:45:08.702822+00:00" -->
+#### You
+A challenge that I am discovering that I wanted to raise with you at this point: creating a good website with these tools is entirely possible and it is totally in my ballpark. I have spent the last year building software with AI, and doing very little else. So this is totally my wheelhouse. What is concerning me is that it is seeming to take quite a long time. We talked about building a website in 405 hours and chuckled about how Wickes claims you can have a site up in five minutes. I am thinking that four or five hours is a severe underestimate of what is really needed particularly if you are creating a site at any scale.
+
+Part of this of course is to do with the fact that we are debugging as we go and so things that were painful for me will be much more straightforward for my customers. But I am still left with the feeling that this may be a longer experience than we really gave a credit for and that has two consequences. First of all it means that we are going to spend more on AI than we have so far been thinking. I am less concerned about this after spending some of today and yesterday looking at trends and (Towing) and where token cost is likely to go. I think we have a certain capability level and the cost of providing support to customers at that level will fall over overtime possibly quite quickly particularly with weight models coming up behind us. The other problem that I think is more serious is the amount of time a customer is going to be prepared to put into their website. I think we need to make sure that the AI experience is as seamless as possible that is the only thing we can do to make this faster. I guess we also need to train the AI or at least give the AI the right context and tools and documentation so that creating website is something that they can really bring to the four
 
 <!-- xgd-chat-end -->
