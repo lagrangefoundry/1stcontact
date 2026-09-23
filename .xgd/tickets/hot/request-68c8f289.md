@@ -5,9 +5,9 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-23T23:45:02.265998+00:00'
+updated_at: '2026-09-23T23:47:58.888307+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-b9b27697
@@ -105,3 +105,35 @@ near-free — but only if the first run is allowed to finish.
 Mirroring, conversion, the manifest, the projection and the serving paths are all
 [[REQ-312]] and [[REQ-313]] and are not reopened here. This is the operator's door onto work
 that already exists, plus the one target that was never built.
+
+
+## "Dev" is local, and that is not a preference — it is the only thing it can mean
+
+Checked against wrangler rather than assumed. `bin/deploy --env dev` **fails**:
+
+```
+✘ [ERROR] Processing wrangler.toml configuration:
+    - No environment found in configuration with name "dev".
+      The available configured environment names are: ["production"]
+```
+
+`bin/deploy`'s `worker_name()` greps `wrangler.toml` for `[env.<name>]`, so an undefined
+environment resolves to an empty worker name and the step announces `app → (--env dev)`
+before wrangler refuses it. `--env staging` — named in `bin/deploy`'s own usage comment at
+line 59 — has the same problem: the comment documents a shape the configuration has never
+had.
+
+**There is exactly one deployed environment, `production`, and both apps define it with the
+same worker name as their top-level config.** So this repo's dev environment is not a
+deployment at all: it is `1c builder` — `wrangler dev` reading the top-level config, against
+miniflare's own D1 and R2 under `.wrangler/state`.
+
+That settles the target and it also makes the naming honest: **`--fonts` at the dev target is
+a local seed, not a deploy.** Nothing is uploaded, no worker is published, and the bytes land
+in a SQLite store on the operator's disk. The flag lives on `bin/deploy` because that is
+where an operator looks for "get this to an environment", and the help text should say
+plainly which of the two things each target does rather than let "deploy" cover both.
+
+If a `[env.dev]` Worker is ever wanted, it is its own ticket and this one does not presume
+it: a dev target added here must keep working when it arrives, which is an argument for
+selecting the local seed by an explicit flag rather than by the absence of `--env`.
