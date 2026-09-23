@@ -6,7 +6,7 @@ title: 'The assistant cannot obtain a font: use_font, and the knowledge that say
   it cannot'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:21.329714+00:00'
-updated_at: '2026-09-23T20:28:03.718443+00:00'
+updated_at: '2026-09-23T20:53:02.432770+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -17,6 +17,7 @@ fields:
   needs_review: false
   chat_comment: comment-526b326e
 ---
+
 
 ## The gap
 
@@ -107,6 +108,9 @@ tier already holds it.
 - A family the page already serves from its own assets is refused rather than repointed.
 - On a deployment whose mirror was never populated, `use_font` says so plainly rather than
   reporting every family as unknown.
+- One call serves the typeface on every page of the site, so no page is left painting a
+  fallback because somebody stopped counting.
+- A message page is left alone, and said to have been.
 
 ## How it is built
 
@@ -137,6 +141,19 @@ Defaults, when the call names none: the weights the family ships intersected wit
 `normal` alone. The result reports the whole of what the family ships, which is how the
 assistant learns what else it can ask for.
 
+### One call serves the whole site
+
+`resources` is a document key, so a face is served per page — and a typeface is a property
+of a site, not of a page. Binding page by page would be correct and would leave the fifth
+page painting a fallback because somebody stopped at four, which is the silent failure this
+ticket exists to end. So `page` is optional: leaving it out serves the face on every page,
+and naming one narrows it back.
+
+An **email page is skipped**, and the result says which. A mail client has no web fonts at
+all, so the email target refuses `resources` outright; binding one would fail the whole
+call over a page nobody meant to include, and skipping it silently would leave a caller
+believing the site was served.
+
 ### The assistant's oracle is a projection of the mirror
 
 `fonts/platform.json` is the mirror's manifest: every family, path, size and two digests
@@ -150,9 +167,15 @@ category, licence, the faces with their paths, and the variable axes. The toolbo
 it as data, for the reason `l1-surface.json` is imported as data (REQ-146): a Worker has no
 `readFileSync` and no module path.
 
-`1c fonts check` verifies the projection is current whenever the manifest exists, so an
-index left behind by a refreshed mirror is a reported violation rather than an assistant
-binding paths that 404.
+`1c fonts mirror` writes it in the same breath as the manifest, so it is not a step anybody
+has to remember; `1c fonts index` remains its own verb because a refreshed *catalogue*
+changes the projection without changing a byte of the mirror, and picking that up must not
+cost 2.5GB of upstream binaries.
+
+`1c fonts check` verifies the projection is current whenever the manifest exists — a new
+`stale-font-index` violation — so an index left behind by a refreshed mirror is reported
+rather than left to an assistant binding paths that 404. That drift is visible from nowhere
+else: the manifest is right, the origin is right, and the page validates.
 
 ### What comes back
 
