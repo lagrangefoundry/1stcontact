@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-22T21:49:53.670994+00:00'
+updated_at: '2026-09-23T02:34:47.933687+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1204,5 +1204,21 @@ The tokens are retained per row — principal in columns, delegate inside the JS
 Delegation ships off (REQ-295), so `attributed` is NULL on every production row today. The split is proven by UAT (`test_UAT_FC_REQ-292_a_delegated_workers_spend_is_kept_whole`), not yet by a real delegation.
 
 Recorded on EPIC-20 as a dated verification section; nothing else in the body touched.
+
+<!-- xgd-turn id="6705794b-37a9-469f-bbce-800f169ed30b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:34:46.130023+00:00" -->
+#### You
+I want to go back to benchmarks because I wanted to push back hard on some of the things that you said. I do not believe that a test is going to be effective if you have a cheap model trying to be the interrogator. What do we end up testing? How well the cheap model can drive the expensive one? That's rubbish. What we need is a script that does not change the same input every single time. The script needs to be carefully designed so that it does not impact the model's ability to create something good but that's a matter of opening asking the right questions in the right way. That's a matter of script design not a problem with scripts in general for example I imagine this would go something like this:
+
+1. Upload a bunch of assets describing the buisness, photos of the team, the van, the logo the owner - description of the USP, the services, the pricing...
+
+2. Open question on messaging - "please read the attached assets and suggest an appropriate messaging for this business. Give me a strong recommendation."
+
+3. Close messaging question, open Hero section question: "that's great, let's go with your recommendation on messaging. Now let's talk about the hero what do you suggest for the hero section? Give me a strong recommendation."
+
+4. "I love that please create it. Now what would you put in the next section"
+
+We do something like this for a few rounds with loose direction asking the AI for its recommendations and then we have one or two questions at the end around again open questions around styling and fonts and layout we ask Chris recommendations we agree with them we ask for them to be implemented. Then at the end the evaluation is an intelligent one you and I look at the transcripts you and I look at the final site and we score it. Did the AI come up with good ideas did the AI come up with a good site how are we with the end result how happy are we with the discussion and the way it went. We do that with a few scripts on our favorite models and actually I'm quite excited to try op. 5 which is our current fa but also do this with fable and sonnet five just to see how they differ. This is not a statistical test but I think it will give us enormous information about whether a model is red enough enough to be given to our customers. If we have let's say three example scripts for different kinds of businesses that we have run a few times with models that we trust and know what to expect I think bum I think bum open weight models will betray themselves very quickly
 
 <!-- xgd-chat-end -->
