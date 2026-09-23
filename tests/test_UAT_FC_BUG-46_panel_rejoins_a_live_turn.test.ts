@@ -242,7 +242,13 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-46 the pane rejoins a turn in flight', ()
     expect(painted(panel)).toEqual([
       'Change the heading.',
       'I have started editing. ',
-      '_The connection to that reply was lost. Reload the builder to see where the turn got to._',
+      // REWORDED BY [[REQ-306]] AND ASSERTED VERBATIM STILL. The claim this
+      // panel is entitled to make is that the reply stopped, not that the
+      // connection went — it has no evidence of the latter, and telling a
+      // customer their network failed sends them to the one remedy that cannot
+      // work. The property under test — that a panel which cannot find out says
+      // so rather than going quiet — is untouched.
+      '_That reply stopped before the turn finished. Reload the builder to see where the turn got to._',
     ])
   })
 

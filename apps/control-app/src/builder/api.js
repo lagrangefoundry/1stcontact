@@ -1703,6 +1703,28 @@ export async function fetchTenantSpend(business, period = {}, fetchImpl = fetch)
 }
 
 /**
+ * How one business's recent turns ended ([[REQ-306]]).
+ *
+ * `/api/admin/` AND NOT `scoped()`, on {@link fetchTenantSpend}'s reasoning: this
+ * is asked about whichever business the console has selected, not about the one
+ * the operator's own request resolved to.
+ *
+ * NO PERIOD, WHERE THE METER TAKES ONE. The route reports the most recent turns
+ * and the run of losses at the head of them, because *failing repeatedly* is a
+ * statement about consecutive turns rather than about a window — see the route's
+ * own note. Sending one would be a parameter that changed no answer.
+ */
+export async function fetchTenantTurns(business, fetchImpl = fetch) {
+  const path = `/api/admin/turns?business=${encodeURIComponent(business)}`
+  const res = await send(fetchImpl, path, {})
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `GET ${path} → ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
  * Every site on the platform, with whose it is and where it is ([[REQ-298]]).
  *
  * `/api/admin/` AND NOT `scoped()`, on {@link fetchTenantCost}'s reasoning

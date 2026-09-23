@@ -25,6 +25,7 @@ import {
 import { consoleActions, openOperatorConsole } from './console.js'
 import { accountSection, addressSection, mountPlatformSites } from './platform-sites.js'
 import { tenantCostSection } from './tenant-cost.js'
+import { turnHealthSection } from './turn-health.js'
 import { mountEditor } from './editor.js'
 import { mountImageEditor } from './image-editor.js'
 import { isEditablePicture } from './picture-kind.js'
@@ -148,7 +149,7 @@ export function mountBuilder(root, options = {}) {
      * pane-to-section; keeping both would be two registries for one surface,
      * which is the complexity this project's standards name outright.
      */
-    consoleSections = [accountSection(), addressSection(), tenantCostSection()],
+    consoleSections = [accountSection(), addressSection(), tenantCostSection(), turnHealthSection()],
     /**
      * The sites of the SELECTED business.
      *

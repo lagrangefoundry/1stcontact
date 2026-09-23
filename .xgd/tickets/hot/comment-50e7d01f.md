@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:48:51.287178+00:00'
+updated_at: '2026-09-23T02:49:56.948406+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1316,5 +1316,35 @@ Want me to scope this as a ticket under EPIC-20? I'd write it as: script format 
 Yeah we can generate AI photos if the example site we use as a picture of the owner standing next to the van we get our AI description tool to take a description of it we feed that back into the picture tool and we get a picture of an owner standing in front of a van which is completely unrecognizable from where we started
 
 On your final point we build this inside the tool. This is not an external exercise the draft website needs to appear in the preview screen next to the transcript as if a customer generated it. The chat tooling that we have supports back End insertion so the chat does not have to go through a browser but it means that I could watch on a browser as the tool is doing its thing and see the site being built as it is being created. That is what I want to create. So for each test we create a new tenant simple as that.
+
+<!-- xgd-turn id="684ff537-6501-4f89-b553-5b41c2015ca2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:49:55.247991+00:00" -->
+#### Claude
+Both halves of that photo pipeline already exist in-repo: the Awareness `describe` seam and the `ai-imagegen` plugin (REQ-208, plain `fetch`, Worker-safe). So it's wiring, not new capability.
+
+And the description is the right anonymizer for a reason worth stating: **text cannot encode a likeness.** Identity can't survive the round trip even if you wanted it to — you get composition, framing, mood, "man in his fifties in a polo shirt beside a white transit," and nothing that could be traced to a person. That's a stronger guarantee than editing a photo.
+
+One leak to close: descriptions *can* carry identity through text-in-image — van livery with the real phone number, a logo, a name badge. Rather than scrub those out, regenerate them with the **new fictional identity**, so the van says the fictional name. Cleaner than redaction, and it gives you a consistent fictional world instead of a blanked-out one.
+
+## Inside the tool — you're right, and my framing was wrong
+
+I proposed an external runner driving the HTTP API. That tests the API, not the product. Scripted turns inserted at the back end, in a real session, with the preview painting beside the transcript, is testing the thing customers actually get — including every part of the pipeline an external runner would have stepped around.
+
+**The live-watching already works.** `/api/ai/reattach` was built for BUG-46 — a client that reloaded mid-turn — and it takes the cursor `/api/ai/session` hands out, resuming the tail at exactly the fold offset. Its own note says the turn "is driven by whoever started it and is entirely unaffected either way." That's precisely the property you need: you open the test tenant's chat in a browser, it joins a turn the runner started, you watch the site being built, and your watching doesn't perturb the run. No new code.
+
+**A tenant per test removes work I proposed last turn.** I suggested tagging sessions with a `script_id`/`run_id` so runs stayed recoverable from `turn_spend`. Unnecessary — `tenant_id` *is* the scope column on that table, so a tenant per run means cost, tokens and engaged hours for a run are already a single scoped query. `POST /api/admin/businesses` creates it. Forget the tagging.
+
+It also settles the site-snapshot question I raised: the site is the tenant's own state and persists. Screenshots are still worth taking for side-by-side comparison months later, but that's a convenience, not an architectural decision.
+
+## The one thing that could turn wiring into a new surface
+
+`/api/ai/prompt` resolves its tenant through `requireScope()` on the request. So the question is how the runner authenticates *as* the test tenant when there's no browser and no operator sat in front of it. If there's an existing operator or service path that resolves scope for a named business, this is pure wiring. If there isn't, that's a small new surface — and it's the only place I can see this costing more than the glue.
+
+That's the first thing I'd check, because it's the only unknown that changes the size of the job.
+
+Everything else is: a script format (ordered turns plus an asset manifest), a runner that creates the tenant, uploads the material, walks the turns, and a `README` stating the never-edit rule. Scoring stays undesigned until we've watched three of them.
+
+Say "create the ticket" and I'll cut it under EPIC-20 and start with that auth check.
 
 <!-- xgd-chat-end -->

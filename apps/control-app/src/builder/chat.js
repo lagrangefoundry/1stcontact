@@ -354,6 +354,44 @@ export function createChatPanel(options = {}) {
   }
 
   /**
+   * What the origin's ledger says became of the last turn ([[REQ-306]]).
+   *
+   * THE SENTENCE THIS REPLACES was *the connection to this reply was lost*, and
+   * it was not true. The connection was fine; the turn died — the isolate
+   * running it was killed mid-stream, so the reply simply stopped arriving and
+   * neither the error frame nor the audit was ever written. Told the connection
+   * had dropped, a customer reloads, retries and blames their network, which is
+   * the one remedy that cannot possibly work.
+   *
+   * IT NAMES NO ISOLATE AND NO MEMORY LIMIT. What the customer needs is that the
+   * failure was ours, that it is recorded, and what to do next. How the platform
+   * broke is the operator's console's business and not theirs.
+   *
+   * IT QUOTES THE TURN'S ID, which is the one piece of machinery worth handing
+   * over: it is the key of the row an operator can look the incident up by, so a
+   * customer who says *it failed again, turn_9f…* has done the whole of the
+   * triage that previously required reading a platform tail.
+   *
+   * `error` READS DIFFERENTLY FROM `lost`, because they are different facts. An
+   * errored turn told the stream why and closed properly; only a panel that
+   * reloaded after it missed the message, so the message is what it is owed. A
+   * lost turn has no why — nothing survived to write one — and pretending
+   * otherwise would be inventing a cause.
+   */
+  function failureNotice(failed) {
+    const reference = failed?.turn ? ` (${failed.turn})` : ''
+    if (failed?.state === 'error') {
+      return `That turn failed before it finished${reference}${
+        failed.detail ? `: ${failed.detail}` : '.'
+      }`
+    }
+    return (
+      `That turn stopped before it finished — the connection held, the reply did not${reference}. ` +
+      'It was our failure, it has been recorded, and asking again is worth a try.'
+    )
+  }
+
+  /**
    * A turn of this conversation that did not finish ([[BUG-121]]).
    *
    * THE FAILURE THIS IS FOR. The operator typed a long message, watched a reply
@@ -377,12 +415,25 @@ export function createChatPanel(options = {}) {
    * overwriting it to hand back an older message would lose the newer one. When
    * there is a draft the message is still on screen to copy from.
    */
-  function paintInterrupted(interrupted) {
-    if (!interrupted || !chat) return
+  function paintInterrupted(interrupted, failed) {
+    if (!chat) return
+    // A DEATH WITH NO PENDING RECORD IS STILL A DEATH ([[REQ-306]]). The record
+    // of the client's words is written by the turn itself, just before the model
+    // is called; a turn killed before it reached that line leaves the ledger's
+    // row and nothing else. Saying nothing here is how the original incident
+    // looked from the customer's side.
+    if (!interrupted) {
+      if (failed) note(failureNotice(failed))
+      return
+    }
     if (interrupted.recorded) {
       // The prompt and the fragment are both above already. What is missing is
       // the fact that the reply stopped rather than ended.
-      note('That turn was interrupted — the reply above is not all of it. Ask again to pick it up.')
+      note(
+        failed
+          ? failureNotice(failed) + ' The reply above is not all of it; ask again to pick it up.'
+          : 'That turn was interrupted — the reply above is not all of it. Ask again to pick it up.',
+      )
       return
     }
     // STAMPED WITH WHEN IT WAS SENT, NOT WHEN IT WAS PAINTED ([[BUG-138]]). The
@@ -392,8 +443,9 @@ export function createChatPanel(options = {}) {
     // conversation it was part of.
     chat.appendMessage('user', interrupted.text, at(interrupted.at))
     note(
-      'That turn was interrupted and nothing of it was recorded — not even your message, ' +
-        'until now. It is back in the box below, ready to send again.',
+      (failed ? failureNotice(failed) + ' ' : 'That turn was interrupted and ') +
+        'nothing of it was recorded — not even your message, until now. ' +
+        'It is back in the box below, ready to send again.',
     )
     // NOT AWAITED, like the rejoin below it: the composer's rich editor loads
     // asynchronously and this function is part of a synchronous swap. A failure
@@ -603,7 +655,7 @@ export function createChatPanel(options = {}) {
     // has every earlier conversation, and the operator is owed both the history
     // and the reason it is frozen.
     if (session.ready === false) note(session.error || 'The assistant is not available.')
-    paintInterrupted(session.interrupted)
+    paintInterrupted(session.interrupted, session.failed)
     // AFTER IT, AND RECONCILED AGAINST THE SAME TWO THINGS ([[BUG-122]]): the
     // transcript just painted, and the record the origin is already handing back.
     // A submission either of them accounts for is dropped rather than repeated.
@@ -685,12 +737,19 @@ export function createChatPanel(options = {}) {
    *     on" — which is why the whole conversation is redrawn rather than the
    *     bubble patched.
    *
-   * AND IT SAYS NOTHING ON THE WAY PAST. A repaint that succeeded needs no
-   * narration: either the reply is now whole, or the origin's own `interrupted`
-   * notice is in the transcript being painted ([[BUG-121]]) and says the true
-   * thing — *the reply above is not all of it* — better than a second sentence
-   * from here would. The panel speaks only when it has genuinely failed, which
-   * is the one outcome the operator cannot see for themselves.
+   * AND IT ADDS NO NARRATION OF ITS OWN. A repaint that succeeded needs none:
+   * either the reply is now whole, or `paint` has already said the true thing
+   * about it from what the ORIGIN reported — `interrupted` ([[BUG-121]]) for the
+   * words, and `failed` ([[REQ-306]]) for the fact that the turn died rather
+   * than the socket. A second sentence composed here would be this pane guessing
+   * at a conversation the origin has just described.
+   *
+   * WHICH IS WHY THE NOTICES BELOW NO LONGER MENTION A CONNECTION ([[REQ-306]]).
+   * They fire when the pane could not re-read the conversation AT ALL, so the
+   * only honest claim left is that the reply stopped — not that a socket
+   * dropped, which is the thing that demonstrably had not happened in the
+   * incident this ticket comes from and which sends a customer to check their
+   * network instead of telling us.
    *
    * BOUNDED, because the origin may be the thing that is broken. A few attempts,
    * spaced, and then a sentence in the conversation rather than a pane that
@@ -703,13 +762,16 @@ export function createChatPanel(options = {}) {
       // better than the silence this ticket exists to end. Only this pane's own
       // hosts pass `reopen`; a caller that predates it behaves exactly as it did
       // before, minus the stall being unexplained.
-      note('The connection to that reply was lost. Reload the builder to see where the turn got to.')
+      note(
+        'That reply stopped before the turn finished. Reload the builder to see where the ' +
+          'turn got to.',
+      )
       return
     }
     if (chases >= RECOVERY_CHASES) {
       note(
-        'The connection to that reply keeps dropping and the conversation could not be ' +
-          're-read. Reload the builder to see where the turn got to.',
+        'Replies in this conversation keep stopping before they finish, and the conversation ' +
+          'could not be re-read. Reload the builder to see where the turn got to.',
       )
       return
     }
@@ -783,7 +845,7 @@ export function createChatPanel(options = {}) {
         return
       }
       note(
-        'The connection to that reply was lost and the conversation could not be re-read' +
+        'That reply stopped before the turn finished, and the conversation could not be re-read' +
           `${failure?.message ? ` (${failure.message})` : ''}. ` +
           'Reload the builder to see where the turn got to.',
       )

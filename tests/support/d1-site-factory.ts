@@ -172,8 +172,19 @@ const MIGRATIONS = [
   // holds, so a suite that skipped this file would fail on an unknown column in
   // the first `asset add` it made and in every publish, diff and change count
   // thereafter — which reads as a query bug and is not one.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0020_asset_digest.sql?raw'),
+  // [[REQ-306]] — `turn_log`, one row per turn OPENED BEFORE THE TURN. Applied
+  // here for every reason above, and one of its own: the prompt route now writes
+  // a row before it returns its `Response`, so a suite that skipped this file
+  // would fail on a missing table on the critical path of every turn — except
+  // that it would not even do that, because the ledger swallows its own failure
+  // on purpose. The symptom would be a suite in which nothing is ever recorded
+  // as lost, which is indistinguishable from the feature working.
+  // NUMBERED 0021 BECAUSE [[REQ-304]] TOOK 0020 while this branch was open, and
+  // `wrangler d1 migrations apply` orders by filename: two files sharing a
+  // number is an ordering the tool cannot resolve.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0021_turn_log.sql?raw'),
 ]
 
 /**
@@ -266,7 +277,7 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-304]]'s `site_assets.digest`, an asset's content identity. It used to
+ * [[REQ-306]]'s `idx_turn_log_tenant`, the turn ledger's per-tenant read. It used to
  * ask for `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
@@ -292,10 +303,8 @@ export async function applySchema(): Promise<void> {
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare(
-    "SELECT name FROM pragma_table_info('site_assets') WHERE name = ?",
-  )
-    .bind('digest')
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+    .bind('idx_turn_log_tenant')
     .first<{ name: string }>()
   return row !== null
 }
