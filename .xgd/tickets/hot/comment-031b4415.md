@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T21:13:22.659530+00:00'
+updated_at: '2026-09-23T21:15:55.929060+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -649,5 +649,40 @@ Given that, how do you want the serving decision recorded? I'd rather not edit 3
 <!-- xgd-chat role="user" ts="2026-09-23T21:13:21.892142+00:00" -->
 #### You
 put it in 312 and I will tell it to re-review
+
+<!-- xgd-turn id="24ed5a62-5781-4604-9e25-2d0614401e5a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T21:15:53.892348+00:00" -->
+#### Claude
+Body has grown to 18,401 chars — the implementer has been adding to it. Let me see the current structure before touching anything.
+
+The implementer has already added a **"The serving origin — SETTLED 2026-09-23"** section. Reading what they decided before I touch it.
+
+They settled it the other way — shared platform origin, absolute platform-host URLs — with real reasoning. I'm not going to overwrite that; I'll preserve it, mark it under re-review, and put your preference beside it with the analysis.
+
+No concurrent edit since I read it — safe to write.
+
+REQ-312 moved into the reconcile pipeline between my read and my write — body is now frozen and the update was rejected. Let me check where it is and whether a comment still lands.
+
+`ready_to_reconcile` with a commit — the work is done and queued. Body is frozen, but `add-comment` is a separate object. Posting the re-review there.
+
+REQ-312 reached `ready_to_reconcile` between my read and my write — body frozen, update rejected. The re-review is posted as **COMMENT-3711** instead.
+
+**Important: they settled the serving origin the other way from your preference.** The ticket records it as SETTLED — shared platform origin at `/_fonts/…`, `Access-Control-Allow-Origin: *`, and pages carrying an **absolute platform-host URL**. So when you send it back to re-review, that's the decision to reopen.
+
+My comment preserves their reasoning and argues four things they didn't weigh:
+
+1. **A shared origin buys no cache reuse** — browsers have partitioned the HTTP cache by top-level site since ~2020. Their year-long immutable caching is right; the cross-site sharing it implies isn't there.
+2. **A second origin costs DNS + TCP + TLS** before the first font byte, on the path that decides whether text paints in the real face.
+3. **CORS stops being load-bearing** — they need `Access-Control-Allow-Origin: *` *because* it's cross-origin.
+4. **Third-party requests from visitors' browsers** — the same GDPR exposure that got Google Fonts embedding ruled against in German courts. Our origin is a better third party than Google's, still a third party from the customer's site's view.
+
+**Their "forced" claim doesn't hold as stated.** They argue the absolute platform URL is forced because the renderer rewrites root-relative `url()` to document-relative. That's sound and rules out root-relative paths — but an absolute URL naming *the site's own* host passes through untouched by the identical rule. The constraint picks the URL's form, not whose domain it names. Their cross-tenant-guard objection is likewise already handled by their own mechanism: matching `/_fonts/` ahead of the site grammar works on a bound customer domain too.
+
+**The one genuine argument for their choice, which they didn't make:** hostname stability. An absolute self-host URL baked into a rendered page goes stale if a site later binds or changes a custom domain.
+
+That turns on a question I flagged rather than assumed: **are pages re-rendered and republished when a domain binding changes?** If yes, the staleness window is bounded by a step that already happens and the objection mostly dissolves. If no, they're right as written. Worth having the re-review answer that first — it decides the whole thing.
+
+Storage is unaffected either way: one copy, one prefix, takedown still a flip and a purge. Only the host in the `src` changes.
 
 <!-- xgd-chat-end -->
