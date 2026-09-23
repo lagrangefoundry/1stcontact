@@ -5,10 +5,10 @@ type: request
 title: Publish must compare and freeze assets by content identity, not content
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:29.737145+00:00'
-updated_at: '2026-09-23T03:01:07.460015+00:00'
+updated_at: '2026-09-23T20:25:44.901301+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
