@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:36:13.224446+00:00'
+updated_at: '2026-09-23T02:37:58.046486+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -262,5 +262,50 @@ The catalogue is currently a one-off pull; the generator that reproduces it stil
 We already have search technology we don't have to invent a new one. This should just go into the knowledge base that's what I was saying.
 
 OK can you lay out here what needs to be built?
+
+<!-- xgd-turn id="82fd43cb-09a9-4140-adb4-a83285b27172-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:37:57.602904+00:00" -->
+#### Claude
+Right — the KB already has retrieval. Let me check how it's built before laying this out.
+
+You're right — no new search surface. `kb/system/` already has the whole path: authored markdown → `1c kb build` embeds with `@cf/baai/bge-small-en-v1.5` → heading-anchored chunks, bundle-resident, byte-identical per tenant. The catalogue is just another corpus document. `search_fonts` is dropped.
+
+One constraint I found while checking that: embeddings are float32 at **1536 bytes/chunk**, and the whole system corpus is currently 357 chunks / 548KB. A chunk per family would add ~2.9MB of embeddings plus ~1.2MB of metadata to a bundle-resident index — likely bundle-breaking. Grouping families under headings (~20 per chunk, ~100 chunks, ~200KB) is both affordable and better suited: a query for "geometric sans" should return *a slate of candidates*, not one family. `system-knowledge.ts` notes the index could move to R2 if per-family granularity is ever wanted — the port exists.
+
+## What needs to be built
+
+**A. Catalogue generator** — `1c fonts catalogue`. Pulls the family list and metadata, resolves licence by reading each family's own `METADATA.pb` (the slug join is unreliable — six `Edu *` families are renamed upstream), excludes delisted/sandboxed families (2,056 repo dirs vs 1,946 live), writes `fonts/catalogue.json`. Replaces the one-off pull I did today.
+
+**B. KB corpus projection** — generate `kb/system/REF-fonts.md` from the catalogue, authored so headings group families into useful retrieval slates. `1c kb build` then picks it up with **no change to KB machinery**. This is what makes the corpus reachable by the assistant.
+
+**C. The mirror** — fetch woff2 for the 1,941 redistributable families into a platform R2 prefix; serve them; ship `LICENSES.txt` for the OFL notice obligation.
+
+**D. Generated registry entries** — extend `fonts/registry.yaml` with a platform tier from the catalogue, so provenance covers mirrored bytes.
+
+**E. `use_font`** — the one new tool, in a group `consultant`/`builder` actually carry. Binds a family into the page's `resources.fonts`, returns the handle to paint, refuses legibly when a family isn't mirrored, reports which weights/axes actually ship.
+
+**F. Knowledge correction** — drop the "or a font" clause from `l1-surface.json:1242`; update `REF-l1.md:604`. Left as-is, they teach the assistant a font is something it must be given, and it won't reach for the tool.
+
+**G. `1c fonts check` platform tier** — resolve a platform-origin `src` instead of reporting `unregistered-file`.
+
+**H. Editor dropdown <100** — curated shortlist, editor-only, does not gate the assistant.
+
+**Dependencies:** A → B, D, H. A → C. C + storage fork → E → F. C/D → G.
+
+**Unblocked now:** A, B, H, and F's text edits. **Blocked on the storage fork:** E, and C's layout — you need the bytes somewhere either way, but the prefix shape is the fork.
+
+Recording this.
+
+Ticket updated — `search_fonts` dropped, KB projection is now item B, and the assistant surface narrows to `use_font` alone.
+
+Net of the three corrections you've made, area 1 is smaller than where I started: **one new tool, one new KB document, a generator, and a mirror.** Everything else was me inventing machinery that already exists.
+
+Two things I'd want from you before filing sub-tickets:
+
+1. **The storage fork** — still blocking E, and shaping C. Shared platform origin vs. copy-on-select.
+2. **Whether A–B go first as a standalone ticket.** They're unblocked, they're independently useful (the assistant gets font *knowledge* even before it gets hands), and they'd let us see whether KB retrieval over the catalogue actually returns good slates before committing to the mirror.
+
+I'd suggest doing A–B first for exactly that reason — it's the cheapest way to test the premise that retrieval beats recall here, and if the slates come back poor, that changes the chunking design before any bytes get mirrored.
 
 <!-- xgd-chat-end -->
