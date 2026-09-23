@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T03:20:14.939576+00:00'
+updated_at: '2026-09-23T18:05:52.015859+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -416,5 +416,17 @@ EPIC-21 raised to high with the blocking note.
 **One thing DOC-56 is weak at, flagged in the ticket rather than papered over:** upstream carries no style descriptors — nothing says "geometric" or "humanist". Family names are proper nouns, so a style query retrieves the category slate rather than a precise match. Enrichment is follow-up work, and it shouldn't be done by inventing descriptions.
 
 I'd start on REQ-311 — it's unblocked, and the mirror in REQ-312 reads the catalogue it produces. Want me to cut the branch?
+
+<!-- xgd-turn id="74ae1e7e-fe9d-4968-ac1c-2dfc9563e9cc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T18:05:51.188170+00:00" -->
+#### You
+Here's what I want for user access to fonts:
+1) a drop down with (say) 30 of our favourite fonts with the names written in the fonts
+2) a text box at the top of the drop down. If I start to type, say the letters "Ar" in the text box the 30 curated fonts are replaced with the top 30 font families listed alphabetically begining with Ar. 
+
+If I have a web developer come in and they really know what font they need, and we have it, I do not want our UX to prevent them from accessing it.
+
+Can you update REQ-314 with that model please?
 
 <!-- xgd-chat-end -->
