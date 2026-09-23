@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:19:29.061793+00:00'
+updated_at: '2026-09-23T02:21:25.417278+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -148,5 +148,65 @@ Still blocked on the storage fork — shared platform origin vs. copy-on-select.
 So look heres what I think we should do: ship everything for the AI - for the human drop down in the editor we choose a curated list of <100
 
 What needs to be built? The production AI doesn't know where to find any fonts?
+
+<!-- xgd-turn id="3c088d7e-0cb7-4523-a3d9-5382da741ae2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:21:24.057224+00:00" -->
+#### Claude
+Let me actually check what the production assistant can do about fonts today before answering that.
+
+Your split is right, and it's the version I should have landed on: the dropdown is a human affordance, not a constraint on the AI. Recording that.
+
+On your second question — I checked, and it's worse than not knowing where to find them. **The production AI cannot obtain a font at all.**
+
+## What the production assistant can do with fonts today
+
+`tools/generate/src/cli/ai/instances.json` defines two production instances, `consultant` and `builder`. Both get `ReadSite` (which holds `list_assets` / `get_asset`) and `AuthorPages`. Neither gets **`ManageAssets`** — the group holding `add_asset` / `remove_asset`.
+
+So in production it can:
+- **see** fonts already on the site (`list_assets`)
+- **write** `fontFamily` into L1, and write a `resources.fonts` face
+
+It cannot get a font onto the site. And `add_asset` wouldn't help even if it were granted — `toolbox-core.ts:262` notes it "reads a file off the operator's disk", so it's structurally a dev-machine tool, not just role-gated.
+
+The surface is explicit about the consequence. `l1-surface.json:1242`:
+
+> You cannot go and get a file — not from a URL, not from a machine, not from anywhere. What you CAN do is ask for one… so when you need a photograph, a logo **or a font**, ASK FOR IT HERE
+
+and `REF-l1.md:604`:
+
+> A painted font family must resolve to a face the page serves or name a generic every browser has, or **it silently paints the browser default** rather than anything chosen.
+
+So the AI's only font path in production is *asking the customer to go download a font and drop it in the chat*. Otherwise it paints a `fontFamily` that silently resolves to the browser default. That's the gap — the model's taste is fine, it has no hands.
+
+## What needs to be built
+
+**1. The mirror and the generated registry.** Ingest the OFL/Apache corpus into a platform R2 prefix; generate registry entries from upstream `METADATA.pb`; serve `LICENSES.txt`. This is just "the bytes exist".
+
+**2. A font tool for the assistant — a resolver, not a catalogue.** This is the actual missing piece, and it should stay small. Don't put 1,700 family names in context; the model already knows what Playfair Display is. The tool is:
+
+- `use_font("Playfair Display", weights: [400, 700])` → binds the face into the page's `resources.fonts`, returns the handle to paint
+- refuses legibly when the family isn't in the mirror, so the model picks another instead of silently painting a generic
+- the response reports which weights/axes actually ship, so asking for 300 of a family that ships 400/700 is a stated correction rather than a silent fallback
+
+That's the whole surface. It mirrors your framing exactly — the AI doesn't need a menu, it needs the bytes to exist and a way to bind them.
+
+**3. The curated <100 for the editor dropdown.** A separate, editor-only artifact. Explicitly does not gate the assistant — same mirror underneath, two front doors.
+
+**4. Knowledge correction.** `l1-surface.json:1242` and `REF-l1.md:604` both currently tell the assistant a font is something it must be given. Once the tool exists, those are wrong and will keep it from using the tool. The "or a font" clause comes out of 1242.
+
+**5. `1c fonts check` learns the platform tier** — resolve a platform-origin `src` rather than flagging it `unregistered-file`.
+
+## Still blocking
+
+The storage fork. It's now directly in the way of piece 2, because `use_font` has to write a concrete `src` and what it writes *is* the fork — a shared platform origin URL, or a copy into `draft/assets/`. I'd go shared-serve for platform fonts, per-site for uploads, on the takedown argument. But I need that call before this is buildable.
+
+Updating the ticket now.
+
+Ticket updated with your direction, the gap findings, and the five-item build list. Decision log records both turns of the curation question so reconciliation doesn't re-litigate it.
+
+The headline for you: **the central deliverable isn't a font library, it's `use_font`.** The mirror is necessary but inert — without a tool in `consultant`/`builder`, the assistant still can't reach it, and today it's stuck asking customers to download fonts by hand.
+
+One call still needed: shared platform origin vs. copy-on-select. That's now genuinely blocking, since `use_font` can't be written without knowing what `src` it emits. My recommendation stands — shared-serve platform fonts, per-site uploads — but it's yours to make. Give me that and I'll file the sub-tickets and start on the mirror.
 
 <!-- xgd-chat-end -->
