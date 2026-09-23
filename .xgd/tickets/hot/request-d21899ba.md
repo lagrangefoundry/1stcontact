@@ -5,16 +5,24 @@ type: request
 title: Publish must compare and freeze assets by content identity, not content
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:29.737145+00:00'
-updated_at: '2026-09-23T02:57:44.757582+00:00'
+updated_at: '2026-09-23T03:01:01.211979+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c7695bd0
+  commits:
+  - working_sha: 6b494d130221f485a0549457ab13bb53e90a4748
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9d725c6e7636a6211d9bb59cf14958858250ddca
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.334
 ---
 
 ## Why
