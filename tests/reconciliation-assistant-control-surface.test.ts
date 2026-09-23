@@ -264,6 +264,14 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // `set_l1` could not already reach between them; what it removes is the
     // page-long transcription that stood between the two, so it widens the grant
     // by nothing and this list by one.
+    //
+    // [[REQ-313]] added `use_font`, in `AuthorPages` beside `set_page_style`. It
+    // is the first operation that brings anything into the site from OUTSIDE it,
+    // and what it can bring is closed by construction: the platform's own mirrored
+    // corpus, addressed by family name and by nothing else. No parameter takes a
+    // URL, a path or a byte, so the surface gains a source of content without
+    // gaining a way to fetch one — which is why `ManageAssets` stays ungranted
+    // rather than being opened to cover the same need.
     expect([...writes].sort()).toEqual([
       'add_asset',
       'add_component',
@@ -282,6 +290,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
       'set_page_style',
       'set_palette_color',
       'update_page',
+      'use_font',
       'write_image',
     ])
 

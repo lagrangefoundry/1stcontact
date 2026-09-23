@@ -75,6 +75,7 @@ import {
   formatMirrorReport,
   formatPublishReport,
 } from './font-mirror'
+import { cmdFontsIndex, formatIndexReport } from '../fonts/index-build'
 import { cmdFontsDoc, formatFontDocReport } from './font-doc'
 import {
   cmdColors,
@@ -630,6 +631,12 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     nothing. A family gone from upstream is reported and its manifest entry RETAINED, because a
     live site may be serving it. The staged bytes are gitignored; the manifest is committed and
     is the pin that makes two builds of the same commit serve the same faces.
+  1c fonts index [--json]
+    Project fonts/platform.json into the corpus the assistant reads (REQ-313), joined to
+    fonts/catalogue.json for the category, named weights and axis ranges the mirror has no
+    reason to hold. Writes tools/generate/src/cli/ai/platform-fonts.json, which use_font
+    imports as data because it runs in a Worker with no filesystem. Re-run it after every
+    1c fonts mirror; 1c fonts check fails when the two have drifted apart.
   1c fonts publish [--dry-run] [--json]
     Upload the staged mirror to the platform R2 prefix, where public-site serves it from
     /_fonts/ (REQ-312). Needs CLOUDFLARE_API_TOKEN — the same credential 1c kb build uses;
@@ -2278,9 +2285,23 @@ export async function run(argv: string[]): Promise<void> {
         }
         return
       }
+      // [[REQ-313]] — the assistant's half of the mirror. A separate verb from
+      // `mirror` because it is cheap, pure and re-runnable: it reads two files
+      // already on disk and writes one, so an operator who has only refreshed the
+      // catalogue can re-project without touching 2.5GB of upstream binaries.
+      if (sub === 'index') {
+        try {
+          const report = cmdFontsIndex(process.cwd())
+          if (json) console.log(JSON.stringify({ ok: true, data: report }, null, 2))
+          else console.log(formatIndexReport(report))
+        } catch (err) {
+          fail(err, json)
+        }
+        return
+      }
       if (sub !== 'check') {
         console.error(
-          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc, mirror, publish.\n\n` + USAGE,
+          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc, mirror, index, publish.\n\n` + USAGE,
         )
         process.exitCode = 1
         return

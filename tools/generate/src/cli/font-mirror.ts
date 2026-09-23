@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { pathExists } from '../store/fsutil'
 import { CommandError } from './errors'
+import { cmdFontsIndex } from '../fonts/index-build'
 import { runMirror, MANIFEST_REL, MIRROR_DIR_REL, type MirrorReport } from '../fonts/mirror'
 import { runPublish, type PublishReport } from '../fonts/publish'
 
@@ -105,7 +106,7 @@ function todayUtc(): string {
 export function cmdFontsMirror(options: MirrorCommandOptions = {}): MirrorReport {
   const cwd = options.cwd ?? process.cwd()
   const checkout = requireCheckout(options.repo)
-  return runMirror({
+  const report = runMirror({
     cwd,
     checkout,
     ref: resolveRef(checkout, options.ref),
@@ -114,6 +115,23 @@ export function cmdFontsMirror(options: MirrorCommandOptions = {}): MirrorReport
     today: options.today ?? todayUtc(),
     onProgress: options.onProgress,
   })
+  /*
+   * [[REQ-313]] — AND THE ASSISTANT'S PROJECTION, IN THE SAME BREATH.
+   *
+   * `use_font` serves a face by writing a path this manifest recorded, and it
+   * reads those paths out of a projection rather than out of the manifest itself,
+   * because it runs in a Worker with no filesystem. A mirror refreshed without
+   * re-projecting therefore leaves the assistant binding paths the origin no
+   * longer serves — a failure visible from nowhere, since the manifest is right
+   * and the origin is right and the page validates.
+   *
+   * So it is not a step anybody has to remember. `1c fonts index` still exists as
+   * its own verb, because a refreshed CATALOGUE changes the projection without
+   * changing a single byte of the mirror, and that must not cost 2.5GB of upstream
+   * binaries to pick up.
+   */
+  cmdFontsIndex(cwd)
+  return report
 }
 
 export async function cmdFontsPublish(options: {

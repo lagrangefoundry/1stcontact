@@ -145,7 +145,7 @@ export const L1_STRUCTURAL_RULES = {
   uniqueNodeIds: 'a node id must be unique',
   /** Every URL a page paints from must be a served asset or an http(s) address, because the value is emitted into markup and into a stylesheet where a smuggled scheme would be live. */
   allowedUrlScheme: 'a URL must be http/https or site-relative',
-  /** A painted font family must resolve to a face the page serves or name a generic every browser has, or it silently paints the browser default rather than anything chosen. */
+  /** A painted font family must resolve to a face the page serves — `use_font` serves one from the platform's font library — or name a generic every browser has, or it silently paints the browser default rather than anything chosen. */
   servedFontFamily: 'a painted font family must resolve to a served face or name a generic',
   /** An asset a page references must be one the site actually holds, or the page renders a broken image and says nothing about why. */
   heldAssetReference: 'an asset reference must name an asset the site holds',

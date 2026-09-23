@@ -497,6 +497,15 @@ describe('REQ-126 — the surface documents itself', () => {
     // and `set_l1` could not already reach between them — its whole claim is
     // that it does in one call what would otherwise be a page-long transcription
     // — so it widens the grant by nothing and the surface by one operation.
+    //
+    // [[REQ-313]] added `use_font`, in `AuthorPages` beside `set_page_style`. It
+    // is the first operation that brings something into the site from OUTSIDE it,
+    // which is why its place on this list matters more than the count: what it can
+    // bring in is closed by construction — the platform's own mirrored corpus,
+    // named by family and nothing else — and there is no parameter through which
+    // a URL, a path or a byte could arrive. `ManageAssets`, whose `add_asset`
+    // reads a file off the operator's disk, remains ungranted to both production
+    // instances, so this does not widen that hole; it makes one unnecessary.
     expect(writes).toEqual([
       'add_asset',
       'add_component',
@@ -515,6 +524,7 @@ describe('REQ-126 — the surface documents itself', () => {
       'set_page_style',
       'set_palette_color',
       'update_page',
+      'use_font',
       'write_image',
     ])
   })
