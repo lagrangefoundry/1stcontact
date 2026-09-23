@@ -5,9 +5,9 @@ type: request
 title: Publish must compare and freeze assets by content identity, not content
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:29.737145+00:00'
-updated_at: '2026-09-23T03:01:01.211979+00:00'
+updated_at: '2026-09-23T03:01:07.460015+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.334
+  story_points: 13
 ---
 
 ## Why
