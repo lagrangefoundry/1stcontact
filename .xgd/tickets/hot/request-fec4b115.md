@@ -6,7 +6,7 @@ title: 'The font catalogue promises 1,941 families whose bytes do not exist: mir
   + registry platform tier'
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:55.065108+00:00'
-updated_at: '2026-09-23T18:28:57.666992+00:00'
+updated_at: '2026-09-23T18:38:11.253861+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -45,9 +45,10 @@ rebuilds; shared serving makes it a registry flip plus a purge.
 Every OFL 1.1 / Apache 2.0 family in `fonts/catalogue.json`, mirrored into a **shared
 platform R2 prefix** and served from a platform origin.
 
-- **Format: OPEN — see "The woff2 problem" below.** An earlier draft of this ticket
-  specified "unmodified upstream release `woff2`". **That was wrong: the upstream repo
-  ships no `woff2` at all.** The decision this ticket rested on has to be retaken.
+- **Format: route 1 — mirror the repo TTFs and convert to `woff2` ourselves.** See "The
+  woff2 problem" below, where the route is selected and the conversion pinned down. An
+  earlier draft of this ticket specified "unmodified upstream release `woff2`"; that was
+  wrong, because the upstream repo ships no `woff2` at all.
 - **Variable where the family ships variable** — though this saves nothing in bytes; see
   sizing.
 - **Eager, not on demand.** Removes cold-start latency on first use of a family, removes a
@@ -80,7 +81,7 @@ The existing four violation kinds keep their meaning for the site tier. The gate
 matters — a `distribution: product` site referencing a font whose
 `redistribute_in_product` is not `true` — is unchanged and still fires.
 
-## The woff2 problem — OPEN, needs an operator decision
+## The woff2 problem — SETTLED 2026-09-23 (route 1)
 
 `github.com/google/fonts` ships **TTF only**. Verified: `ofl/inter` contains two variable
 TTFs (1.78MB) and no `woff2`; `ofl/lato` contains 18 static TTFs (11.9MB). Across the whole
@@ -91,7 +92,8 @@ subsetted by Google per unicode-range**. So "unmodified upstream woff2" does not
 thing to mirror, and the Reserved Font Name reasoning this ticket and [[REQ-314]] both lean
 on rests on a premise that is false.
 
-Three routes, and the choice is a licence-posture decision as much as a technical one:
+Three routes were on the table, and the choice is a licence-posture decision as much as a
+technical one:
 
 1. **Mirror repo TTFs and convert to `woff2` ourselves.** Compression and container change
    only — no glyph removed, no name altered. The strongest RFN position, since the font is
@@ -104,8 +106,36 @@ Three routes, and the choice is a licence-posture decision as much as a technica
 3. **Convert and subset ourselves.** Smallest and most controlled, and the most clearly a
    modification.
 
-No route is selected. Route 1 is the conservative default if no other consideration
-intervenes.
+**Route 1 is selected**, as the ticket's own conservative default, and one further
+consideration pushes the same way: route 2's bytes are the *same provenance class* as the
+five capture-derived `REVIEW_REQUIRED` entries [[EPIC-21]] expects this mirror to close
+("hash-named capture mirrors with unverified subset/delivery provenance"). Mirroring
+gstatic would reproduce the state we are trying to leave.
+
+### What "convert" means concretely, and why it is not a modification
+
+WOFF2 is a **container**, not a different font. The conversion is:
+
+- The upstream `sfnt` table data, brotli-compressed, with the **null glyf/loca transform**
+  (transform version 3 — the WOFF2 specification's own provision for storing those tables
+  untransformed).
+- **No subsetting, no re-naming, no table removal, no re-hinting.** Every glyph, the whole
+  `name` table and the embedded copyright string survive byte for byte.
+- **Reversible.** Decompressing the result reproduces the upstream `.ttf` exactly, and the
+  mirror proves this on every file it writes rather than asserting it — a file whose
+  round-trip does not reproduce the upstream bytes is not written.
+
+That reversibility is the argument: a transformation that is losslessly invertible has not
+modified the font, it has packaged it. It is the same relationship a `.zip` of the font has
+to the font.
+
+### No new dependency for the conversion
+
+The encoder is written here, over Node's built-in brotli. The alternative was `wawoff2`, a
+1.4MB emscripten WASM blob. The WOFF2 container format is frozen, so a from-scratch encoder
+has a maintenance cost near zero, and it keeps a GB-scale build step off the supply chain.
+The round-trip check above is also the encoder's own test: it is verified against real
+upstream fonts, not against a fixture of its own making.
 
 ## Sizing — measured, and larger than first stated
 
@@ -149,6 +179,15 @@ So the mirror is **acquired like a dependency, not rebuilt like an artifact**:
   must say so plainly — the same way an operator who has never run `1c kb build` gets a
   null KB rather than a KB that silently answers nothing.
 
+### Upstream is read from a checkout, not from ten thousand HTTP requests
+
+`1c fonts mirror` reads a `google/fonts` checkout from disk. Acquiring 2.45 GB across
+~3,800 files by individual HTTPS request is the slowest and least reliable way to obtain
+it — `raw.githubusercontent.com` rate-limits an unauthenticated caller within minutes —
+and a checkout is what "acquired like a dependency" already means everywhere else. The
+checkout's own commit is what the mirror pins to and records, so the provenance of every
+mirrored byte is a git sha rather than "whatever the CDN served that afternoon".
+
 ## Where the platform entries live — a separate generated file
 
 Platform entries do **not** go into `fonts/registry.yaml`. That file is hand-authored, it
@@ -160,6 +199,58 @@ Instead: a **separate generated file** carrying the platform tier, which `1c fon
 loads alongside the authored registry. One producer each, no file that is half-generated
 and half-authored. `fonts/registry.yaml` keeps describing the site tier and stays
 reviewable by a person.
+
+That file is **`fonts/platform.json`** — the sibling of `fonts/catalogue.json`, generated
+JSON beside generated JSON, and the single artifact that carries the platform tier: what
+was mirrored, from which upstream commit, at what size and digest. It is the manifest the
+mirror writes, the provenance record the check reads, and the pin that makes two builds of
+the same commit serve the same faces. There is not a second file restating it as registry
+entries — the platform tier is *derived* from this manifest when the check loads it, so
+there is no pair of files that can disagree.
+
+**The bytes are not in the repository.** `fonts/platform.json` is committed; the staged
+`woff2` under `fonts/mirror/` is not — a GB of fonts in git is the thing a shared origin
+exists to avoid. The manifest is the record; R2 is where the bytes live.
+
+## The serving origin — SETTLED 2026-09-23
+
+- **R2 layout**: `platform/fonts/<slug>/<file>` in the existing `1stcontact-sites` bucket.
+  No new bucket and no new binding: `sites/` is that bucket's only other key root, so the
+  prefix cannot collide, and both Workers that need it already hold the binding.
+- **Serving path**: `public-site` answers `GET /_fonts/…` from that prefix, matched ahead
+  of the site route grammar exactly as `/api/download/…` already is. `_fonts` is a reserved
+  first segment, so no published page can shadow it.
+- **What is served there**: `/_fonts/<slug>/<file>.woff2`, each family's own licence file at
+  `/_fonts/<slug>/<licence-file>`, and the aggregate index at `/_fonts/LICENSES.txt`.
+- **Cacheable forever and readable cross-origin.** The bytes are immutable — a family's file
+  name changes when its content does — so they are served with a one-year immutable cache
+  lifetime and `Access-Control-Allow-Origin: *`, which is what lets one shared copy serve
+  every tenant's own domain instead of a copy per tenant.
+- **The `src` a page carries is an absolute platform-origin URL**, not a root-relative path.
+  This is forced rather than preferred: the renderer reduces a root-relative `url()` to a
+  *document-relative* one so a snapshot stays relocatable, which would turn `/_fonts/x` into
+  `_fonts/x` and break every page not at the site root. Absolute `https://` URLs pass
+  through untouched.
+- **The check matches on the path, never on the host.** `1c fonts check` recognises a
+  platform `src` by its `/_fonts/` path, so one site definition checks clean against a local
+  preview, a staging deployment and production without configuration — and moving the mirror
+  to a dedicated hostname later is a configuration change rather than a code change.
+
+## How the bytes reach R2
+
+`1c fonts publish` uploads the staged mirror to the platform prefix over Cloudflare's R2
+REST API, using the same `CLOUDFLARE_API_TOKEN` (and the same account discovery) that
+`1c kb build` already uses — one credential for the release-time toolset, not a second.
+
+It is deliberately **not** routed through a Worker endpoint the way a site payload is. That
+rule exists because a site is a *store* with schema semantics, and a second writer could
+disagree with the first about what a site is made of. A platform font is an opaque byte
+object in a prefix that nothing else writes, so there is no second opinion to have — and a
+Worker upload path for a GB of fonts would be an endpoint built for one caller.
+
+It is **incremental and resumable**: an object whose digest already matches the manifest is
+skipped, so an interrupted publish resumes by re-running and a re-publish of an unchanged
+mirror transfers nothing.
 
 ## Licence text — per family, plus an index
 
@@ -188,6 +279,19 @@ obligation; the index makes it auditable.
 - Each mirrored family's licence file is served alongside its bytes.
 - `fonts/registry.yaml` is not rewritten by the mirror; the platform tier is a separate
   generated file.
+- A mirrored file reverses to its upstream `.ttf` byte for byte — the mirror proves the
+  conversion took nothing away rather than asserting it, and a file that fails to reverse
+  is not written.
+- The same family name may exist in both tiers without colliding. Five of the nine authored
+  entries are Google families the mirror also holds, so a registry that indexed family names
+  across both tiers would refuse to load at all; a site `src` resolves against the site tier
+  and a platform `src` against the platform tier.
+- A platform font is served so that one shared copy can serve every tenant's own domain:
+  cacheable indefinitely and readable cross-origin.
+- `1c fonts check` recognises a platform `src` by its path rather than its host, so one site
+  definition checks clean in a local preview and in production alike.
+- A page referencing a platform-origin `src` for a *file* the mirrored family does not hold
+  fails the check naming the file, the same way an unregistered site file does.
 
 ## Notes
 
@@ -196,6 +300,10 @@ obligation; the index makes it auditable.
 - Delisted and sandboxed families are excluded — the live list is the authority.
 - Sizing is measured above, not estimated. Storage is not the constraint; the format
   decision and correctness of what is served are.
-- **Open, not settled here:** the `woff2` route (above), and the serving origin — which
-  hostname and path shape platform fonts are served from. `use_font` ([[REQ-313]]) writes
-  that `src` and `1c fonts check` resolves it, so both depend on it.
+- The serving origin's hostname is deployment configuration, not a constant compiled into
+  the toolchain — `use_font` ([[REQ-313]]) writes the URL and this ticket supplies the path
+  shape and the resolver both ends share.
+- **Running the real 1,941-family transfer is an operator action, not part of this ticket's
+  code landing.** The machinery is proved end to end against a checkout fixture; populating
+  production is a GB-scale dependency fetch taken deliberately, which is the whole point of
+  the build-toolset framing above.
