@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T03:04:46.784009+00:00'
+updated_at: '2026-09-23T03:15:34.199733+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -354,5 +354,17 @@ Two things I'd want your call on before filing sub-tickets:
 2. **How to slice the sub-tickets.** I'd suggest three: *A+B+B2* (catalogue and knowledge — independently useful, and it tests whether KB retrieval over the catalogue returns good slates before any bytes get mirrored), *C+D+G* (mirror, registry tier, gate), *E+F* (the tool and its knowledge correction). H standalone whenever the editor work comes up.
 
 The first slice is the one I'd start on — it's the cheapest way to find out whether retrieval beats recall here, and a poor result would change the chunking design before the mirror is built.
+
+<!-- xgd-turn id="0dbd09e7-2482-4b20-8061-02477837b6d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T03:15:33.787165+00:00" -->
+#### You
+Unfortunately it is the rule that is broken - this is something we need to clean up. The system kb should be doc tickets of kind system_kb. We used to use docs that is dead - its not dead in xgd btw the change hasn't propagated that far but 1c's kbs should not be populated from docs - if it is please create an REQ for me to follow up and fix please
+
+Do you understand how system_kb tickets work? We could have a separate font kb if you like but I would still like the catalog in a ticket where is is easy for the xgd artificer to inspect and reference.
+
+ok this is our next priority, it is blocking the Lagrange Foundry site...and the beta.
+
+Are you ready to create tickets?
 
 <!-- xgd-chat-end -->
