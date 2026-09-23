@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T23:10:57.831277+00:00'
+updated_at: '2026-09-23T23:14:51.616529+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -690,5 +690,75 @@ Storage is unaffected either way: one copy, one prefix, takedown still a flip an
 <!-- xgd-chat role="user" ts="2026-09-23T23:10:57.757428+00:00" -->
 #### You
 Are fonts now available? Do I need to do a build how do I get these changes to the dev environment?
+
+<!-- xgd-turn id="78ba8174-1b92-4400-ad78-e4122caa8e17-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T23:14:51.549942+00:00" -->
+#### Claude
+I'll check what actually landed rather than infer from the ticket state.
+
+Both REQ-312 and REQ-313 landed. Now checking whether the bytes actually exist and how they reach dev.
+
+Two more things that decide the answer — how the projection reaches the worker, and whether DOC-56 is embedded.
+
+Checked the code, the artifacts, and the serving path. Here's where it actually stands.
+
+## Are fonts available? No — the code is all there, none of the data is
+
+All three requests landed on `xgd-working`:
+
+| | |
+|---|---|
+| `00675d47ba` | REQ-311 — catalogue generator + DOC-56 |
+| `f62cf1b0f7` | REQ-312 — mirror, registry tier, origin |
+| `b02340216a` | REQ-312 follow-up — same-origin `_fonts/…` at every snapshot root (your COMMENT-3711 direction won) |
+| `b89dfbcb0e` | REQ-313 — `use_font` |
+
+But every artifact those commands *produce* is empty or absent:
+
+- `fonts/mirror/` — **does not exist** (gitignored staging dir, never created)
+- `fonts/platform.json` — **does not exist** (the manifest, tracked)
+- `tools/generate/src/cli/ai/platform-fonts.json` — `{"mirror":null,"families":[]}`
+- `kb/system/DOC-56.md` — **not exported**, so not embedded either
+
+So today the assistant has neither the knowledge nor the bytes. `use_font` returns its `ENVIRONMENT` refusal ("mirror unpopulated" — exactly the case REQ-313 built for), and any `_fonts/…` request 404s.
+
+## What you need to run
+
+Four steps. Handing them over rather than running them — the first is a 2.5GB download, the third writes production R2.
+
+```bash
+# 1. once, and kept — deliberately not done by a build verb (~2.5GB)
+git clone --depth 1 https://github.com/google/fonts ~/lagrangefoundry/google-fonts
+
+# 2. convert TTF→woff2 into fonts/mirror/, write fonts/platform.json,
+#    and auto-run `fonts index` to write the projection use_font reads
+./bin/1c fonts mirror --repo ~/lagrangefoundry/google-fonts
+
+# 3. upload to R2 bucket 1stcontact-sites under platform/fonts/
+#    needs CLOUDFLARE_API_TOKEN — the 1c_Admin_Token, same one kb build uses
+./bin/1c fonts publish
+
+# 4. so the assistant knows what it can serve
+./bin/1c kb export && ./bin/1c kb build
+```
+
+Step 2 is the long one. Steps 2 and 3 are both incremental and digest-checked, so an interrupted run resumes by re-running.
+
+## Getting it to dev — and this is the problem
+
+**`bin/deploy` has no fonts hook.** `fonts publish` is a standalone release-toolset step, like `1c kb build`. That's by design, and it matches what you asked for — acquired like a dependency, not rebuilt every deploy.
+
+**But there is no path to the local dev environment at all.** `1c fonts publish` writes the *cloud* bucket over the R2 REST API. `1c builder` defaults to local `wrangler dev`, where `env.SITES` is miniflare's own R2 under `.wrangler/state` — which publish never touches. So after running all four steps, your local builder previews will still 404 every platform font.
+
+`1c builder --remote` would work, but `dev-env.ts:199` is explicit that `--remote` points at the **deployed D1 and R2** — that's editing production data, not a dev mode you'd want to sit in.
+
+The one thing that *does* read local disk is the Node builder transport (`builder.ts:161`, reading the staged `fonts/mirror/`), and its own header says it is test infrastructure and not a hosting path.
+
+So: **production works after those four steps; local dev has no story.** That gap isn't in any of REQ-311/312/313 — it fell between the mirror ticket (which owned publish) and the serving change (which owned the reader seam).
+
+One other thing worth knowing: `platform-fonts.json` is a **static import** (`ai/platform-fonts.ts:36`), so it's baked into the worker bundle. After step 2 you need a builder restart or a redeploy before `use_font` sees a populated mirror.
+
+Want me to file the local-dev gap as a request under the epic? The obvious shape is a `--local` target on `fonts publish` that writes miniflare's R2 state directly, probably paired with `--only` so you stage a handful of families rather than 1.35GB into `.wrangler/state`. I'd rather scope that as a ticket than have you find it by hitting a 404 in the builder.
 
 <!-- xgd-chat-end -->
