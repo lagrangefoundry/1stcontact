@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-313
 created_by: xgd
 created_at: '2026-09-23T18:03:41.076903+00:00'
-updated_at: '2026-09-23T18:09:32.094965+00:00'
+updated_at: '2026-09-23T20:20:37.282279+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,15 @@ These I'll decide myself unless you object:
 - **What a call binds.** Variable family → one face per requested style, no `weight` (the axis range covers it); static family → one face per requested weight × style. `l1FontFaceSchema` carries a single optional `weight`/`style` per entry, so the shipped range comes back in the *result* rather than the binding. An unmirrored family is a `NOT_FOUND` refusal naming it; an unshipped weight returns the weights that do ship.
 - **Group.** `use_font` joins `AuthorPages` rather than getting its own — it is a page write in the same sense `set_page_style` is, and both production instances already carry it. `ManageAssets` stays ungranted.
 - **Knowledge corrections** land at source: the `"or a font"` clause in `l1-surface.json`'s "Fetching a picture, or any file, yourself" absence, and the `servedFontFamily` doc comment in `packages/site-schema/src/l1/validate.ts:148` that REF-l1.md:604 is projected from.
+
+<!-- xgd-turn id="62d26545-5a61-4b4d-b6b6-108b5e2223cb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T20:20:36.459894+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
