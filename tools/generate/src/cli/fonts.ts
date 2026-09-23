@@ -26,13 +26,45 @@
  * `licence.redistribute_in_product`, and it fires only for a site declaring
  * `config.distribution: "product"` — the "may I ship this to 10,000 customer
  * sites" question, which has a different answer from "may I use this here".
+ *
+ * TWO TIERS SINCE [[REQ-312]]. A page may now point at the shared platform mirror
+ * instead of at its own `draft/assets/`, and before this the check reported that
+ * as `unregistered-file` — it resolved every `src` to an asset basename and looked
+ * for it on disk, so the one arrangement the platform tier exists to make possible
+ * was the one arrangement it failed. A `src` whose path is the platform origin's
+ * resolves against `fonts/platform.json`; everything else resolves exactly as it
+ * did, and the product-distribution gate is untouched.
+ *
+ * THE TIERS ARE INDEXED SEPARATELY AND THAT IS LOAD-BEARING. Five authored
+ * entries — Cinzel, Lato, Oswald, Raleway, Karla — are families the mirror also
+ * holds, so a single index over both would find a duplicate family and refuse to
+ * load the registry at all. "Which Lato?" is answered by where the bytes are
+ * served from, and nothing else can answer it.
+ *
+ * AND THE MIRROR IS CHECKED AGAINST THE DOCUMENT. [[DOC-56]] tells the assistant
+ * a family is available to serve; a family it names with nothing behind it is the
+ * failure this whole ticket exists to prevent, so the catalogue the document is
+ * generated from is joined to the mirror here.
  */
 
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { parse as parseYaml } from 'yaml'
-import type { FontRegistry, FontRegistryEntry, L1FontFace, Page } from '@1stcontact/site-schema'
-import { validateFontRegistry } from '@1stcontact/site-schema'
+import type {
+  FontRegistry,
+  FontRegistryEntry,
+  FontTier,
+  L1FontFace,
+  Page,
+  PlatformFontManifest,
+} from '@1stcontact/site-schema'
+import { parsePlatformFontSrc, platformRegistryEntries, validateFontRegistry } from '@1stcontact/site-schema'
+import {
+  catalogueExists,
+  loadCatalogue,
+  redistributableFamilies,
+} from '../fonts/catalogue'
+import { loadPlatformManifest, MANIFEST_REL } from '../fonts/mirror'
 import { listDirs, listFilesRel, pathExists } from '../store/fsutil'
 import { draftDir, type Root, type StoreContext } from '../store/paths'
 import { loadSite } from '../store/loadSite'
@@ -121,7 +153,18 @@ export interface FontUsage {
   pageSlug: string
   family: string
   src: string
-  /** `src` reduced to the asset basename the registry's `files[].path` records. */
+  /**
+   * Which tier this reference addresses, decided by the `src` alone.
+   *
+   * `'platform'` when the path is the platform origin's — see
+   * `parsePlatformFontSrc`, which matches on the PATH and never on the host, so a
+   * site definition checks the same against a local preview and production.
+   */
+  tier: FontTier
+  /**
+   * `src` reduced to the key its tier's registry records: an asset basename for
+   * the site tier, the mirror-relative `<slug>/<file>` for the platform tier.
+   */
   file: string
 }
 
@@ -138,6 +181,17 @@ export type ViolationKind =
   | 'unregistered-file'
   | 'unprovenanced-file'
   | 'redistribution-not-permitted'
+  /**
+   * The catalogue documents a family the mirror does not hold ([[REQ-312]]).
+   *
+   * [[DOC-56]] is generated from the catalogue and tells the assistant those
+   * families are available to serve, so this is the document and the mirror
+   * disagreeing — a promise with nothing behind it, which is the failure the
+   * platform tier was built to end. It fires only once the mirror has been
+   * populated at all; an empty mirror is reported as absent rather than as 1,900
+   * separate broken promises.
+   */
+  | 'documented-not-mirrored'
 
 export interface FontViolation {
   kind: ViolationKind
@@ -156,9 +210,27 @@ export interface FontWarning {
   actions: string[]
 }
 
+/** What the platform tier is, as this run found it. */
+export interface PlatformTierState {
+  /** Whether `fonts/platform.json` exists at all. */
+  populated: boolean
+  /** Families the mirror holds. */
+  families: number
+  /** Redistributable families the catalogue documents, or `null` with no catalogue. */
+  documented: number | null
+  /** Documented families the mirror does not hold, sorted. */
+  missing: string[]
+  /** The catalogue the mirror was pinned to, when it is populated. */
+  catalogueRetrieved?: string
+  /** The upstream commit the bytes were taken at. */
+  upstreamRef?: string
+}
+
 export interface FontsCheckReport {
   pass: boolean
   registryPath: string
+  /** The platform mirror's state — absent is an answer, and a reported one. */
+  platform: PlatformTierState
   /** Families in the registry, whether referenced or not. */
   registered: string[]
   /** Every font reference found across every site, in scan order. */
@@ -176,16 +248,31 @@ export function assetBasename(src: string): string {
   return tail
 }
 
-/** Index the registry by family. A duplicated family is a registry authoring bug. */
-function indexByFamily(registry: FontRegistry): Map<string, FontRegistryEntry> {
+/**
+ * Index one tier's entries by family.
+ *
+ * PER TIER, never across both: the two tiers legitimately hold the same family
+ * name (five of the nine authored entries are Google families the mirror also
+ * carries), and one index over them would call that a conflict and refuse to load
+ * anything. Within a tier a duplicate is still exactly what it always was — an
+ * authoring bug in the site tier, a generator bug in the platform tier.
+ */
+function indexByFamily(
+  entries: readonly FontRegistryEntry[],
+  tier: FontTier,
+  source: string,
+): Map<string, FontRegistryEntry> {
   const byFamily = new Map<string, FontRegistryEntry>()
-  for (const entry of registry.fonts) {
+  for (const entry of entries) {
     if (byFamily.has(entry.family)) {
       throw new CommandError({
         code: 'CONFLICT',
-        message: `Font registry declares family '${entry.family}' more than once.`,
-        path: REGISTRY_REL,
-        hint: 'Merge the duplicate entries — one family, one provenance record.',
+        message: `The ${tier} font tier declares family '${entry.family}' more than once.`,
+        path: source,
+        hint:
+          tier === 'site'
+            ? 'Merge the duplicate entries — one family, one provenance record.'
+            : 'The platform tier is generated; re-run `1c fonts mirror` rather than editing it.',
       })
     }
     byFamily.set(entry.family, entry)
@@ -216,6 +303,11 @@ export function collectFontUsages(cwd: string): FontUsage[] {
         for (const page of site.pages as Page[]) {
           const fonts: L1FontFace[] = page.l1?.resources?.fonts ?? []
           for (const face of fonts) {
+            // The tier is a property of the `src` and of nothing else. A page
+            // pointing at the platform origin is asking the platform tier to
+            // account for the bytes; a page pointing anywhere else is asking its
+            // own site to.
+            const platformPath = parsePlatformFontSrc(face.src)
             usages.push({
               root,
               slug,
@@ -223,7 +315,8 @@ export function collectFontUsages(cwd: string): FontUsage[] {
               pageSlug: page.slug,
               family: face.family,
               src: face.src,
-              file: assetBasename(face.src),
+              tier: platformPath === null ? 'site' : 'platform',
+              file: platformPath ?? assetBasename(face.src),
             })
           }
         }
@@ -279,25 +372,79 @@ export function collectFontFilesOnDisk(cwd: string): FontFileOnDisk[] {
 }
 
 /**
- * Join every site's font references — and every font file on disk — against the
- * registry.
+ * The platform tier as this checkout holds it, including the two ways it can be
+ * absent — no mirror, or no catalogue to check one against.
  *
- * Four failures, each answering a different question:
- *   - `unregistered-family` — a page names a font we cannot account for at all.
+ * ABSENCE IS AN ANSWER AND IT IS SAID OUT LOUD. A fresh clone has no mirror,
+ * because the bytes are a build product rather than repository content, and a gate
+ * that failed over that would fail on every clone. What must not happen is the
+ * absence being silent: a deployment serving no platform fonts and a deployment
+ * whose mirror was never populated look identical from the outside, and only one
+ * of them is a mistake.
+ */
+export function platformTierState(
+  cwd: string,
+  manifest: PlatformFontManifest | null,
+): PlatformTierState {
+  const held = new Set((manifest?.families ?? []).map((f) => f.slug))
+  const documented = catalogueExists(cwd) ? redistributableFamilies(loadCatalogue(cwd)) : null
+
+  return {
+    populated: manifest !== null,
+    families: manifest?.families.length ?? 0,
+    documented: documented?.length ?? null,
+    missing: (documented ?? [])
+      .filter((f) => !held.has(f.slug))
+      .map((f) => f.family)
+      .sort((a, b) => a.localeCompare(b)),
+    ...(manifest ? { catalogueRetrieved: manifest.catalogue.retrieved, upstreamRef: manifest.upstream.ref } : {}),
+  }
+}
+
+/**
+ * Join every site's font references — and every font file on disk — against both
+ * tiers of the registry.
+ *
+ * Five failures, each answering a different question:
+ *   - `unregistered-family` — a page names a font we cannot account for at all,
+ *                             in the tier its `src` addresses.
  *   - `unregistered-file`   — we know the family, but not this particular file
  *                             (a weight added by hand escapes the record).
  *   - `unprovenanced-file`  — bytes are in the tree that no entry records, even
  *                             though nothing references them yet.
  *   - `redistribution-not-permitted` — the site ships as product and the licence
  *                             does not permit that, or has not been resolved.
+ *   - `documented-not-mirrored` — [[DOC-56]] offers a family the mirror does not
+ *                             hold, so the catalogue and the bytes disagree.
  */
 export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
   const registry = loadFontRegistry(cwd)
-  const byFamily = indexByFamily(registry)
+  const siteTier = indexByFamily(registry.fonts, 'site', REGISTRY_REL)
+  const manifest = loadPlatformManifest(cwd)
+  const platformEntries = manifest ? platformRegistryEntries(manifest) : []
+  const platformTier = indexByFamily(platformEntries, 'platform', MANIFEST_REL)
   const usages = collectFontUsages(cwd)
 
   const violations: FontViolation[] = []
   const actionSites = new Map<string, Set<string>>()
+
+  const platform = platformTierState(cwd, manifest)
+  // Only once the mirror exists at all. An unpopulated mirror is REPORTED as
+  // unpopulated — one plain sentence, the way `1c assets` reports a KB that was
+  // never built — rather than as one broken promise per documented family.
+  if (platform.populated && platform.missing.length > 0) {
+    const named = platform.missing.slice(0, 8).join(', ')
+    const rest = platform.missing.length > 8 ? `, and ${platform.missing.length - 8} more` : ''
+    violations.push({
+      kind: 'documented-not-mirrored',
+      message:
+        `${platform.missing.length} famil${platform.missing.length === 1 ? 'y' : 'ies'} documented in the font ` +
+        `catalogue ${platform.missing.length === 1 ? 'is' : 'are'} not in the platform mirror: ${named}${rest}.`,
+      hint:
+        'The assistant is told these are available to serve, so a page may reference one and get nothing. ' +
+        'Re-run `1c fonts mirror` against a current checkout, or take them out of the catalogue.',
+    })
+  }
 
   const registeredFiles = new Set(registry.fonts.flatMap((e) => e.files.map((f) => f.path)))
   const filesOnDisk = collectFontFilesOnDisk(cwd)
@@ -313,14 +460,20 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
 
   for (const usage of usages) {
     const siteRef = `${usage.root}/${usage.slug}`
-    const entry = byFamily.get(usage.family)
+    const platformRef = usage.tier === 'platform'
+    const entry = (platformRef ? platformTier : siteTier).get(usage.family)
 
     if (!entry) {
       violations.push({
         kind: 'unregistered-family',
         usage,
-        message: `${siteRef} references unregistered font family '${usage.family}'.`,
-        hint: `Add a '${usage.family}' entry to ${REGISTRY_REL} recording foundry, source, download date and licence.`,
+        message: platformRef
+          ? `${siteRef} references '${usage.family}' from the platform font origin, which the mirror does not hold.`
+          : `${siteRef} references unregistered font family '${usage.family}'.`,
+        hint: platformRef
+          ? `The platform mirror serves no '${usage.family}'. Mirror it with \`1c fonts mirror\` if the catalogue ` +
+            'offers it, or point the page at a font the site holds itself.'
+          : `Add a '${usage.family}' entry to ${REGISTRY_REL} recording foundry, source, download date and licence.`,
       })
       continue
     }
@@ -329,8 +482,12 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
       violations.push({
         kind: 'unregistered-file',
         usage,
-        message: `${siteRef} serves '${usage.file}' for family '${usage.family}', which the registry does not list.`,
-        hint: `Add { path: ${usage.file} } to the '${usage.family}' files list, or point the page at a registered file.`,
+        message: platformRef
+          ? `${siteRef} serves '${usage.file}' for platform family '${usage.family}', which the mirror does not hold.`
+          : `${siteRef} serves '${usage.file}' for family '${usage.family}', which the registry does not list.`,
+        hint: platformRef
+          ? `The mirror holds: ${entry.files.map((f) => f.path).slice(0, 6).join(', ')}. Point the page at one of them.`
+          : `Add { path: ${usage.file} } to the '${usage.family}' files list, or point the page at a registered file.`,
       })
     }
 
@@ -357,13 +514,14 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
   const warnings: FontWarning[] = [...actionSites.entries()].map(([family, sites]) => ({
     family,
     usedBy: [...sites].sort(),
-    actions: byFamily.get(family)?.actions ?? [],
+    actions: siteTier.get(family)?.actions ?? [],
   }))
 
   return {
     pass: violations.length === 0,
     registryPath: registryPath(cwd),
-    registered: registry.fonts.map((f) => f.family),
+    platform,
+    registered: [...registry.fonts.map((f) => f.family), ...platformEntries.map((f) => f.family)],
     usages,
     filesOnDisk,
     violations,
@@ -375,11 +533,31 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
 export function formatFontsReport(report: FontsCheckReport): string {
   const lines: string[] = []
   const sites = new Set(report.usages.map((u) => `${u.root}/${u.slug}`))
+  const total = report.registered.length
+  const site = total - report.platform.families
   lines.push(
-    `fonts check — ${report.registered.length} registered famil${report.registered.length === 1 ? 'y' : 'ies'}, ` +
+    `fonts check — ${total} registered famil${total === 1 ? 'y' : 'ies'} ` +
+      `(${site} site, ${report.platform.families} platform), ` +
       `${report.usages.length} reference(s) across ${sites.size} site(s), ` +
       `${report.filesOnDisk.length} font file(s) on disk`,
   )
+
+  // The same shape `1c assets` uses to report a knowledge base nobody built. A
+  // deployment with no mirror serves no platform font, and the operator has to be
+  // able to tell that from a deployment that simply uses none.
+  if (!report.platform.populated) {
+    lines.push('')
+    lines.push(
+      `platform mirror  *** NOT POPULATED — ${report.platform.documented ?? 'the catalogued'} documented famil` +
+        `${report.platform.documented === 1 ? 'y has' : 'ies have'} no bytes behind ` +
+        `${report.platform.documented === 1 ? 'it' : 'them'}. Run \`1c fonts mirror\`. ***`,
+    )
+  } else {
+    lines.push(
+      `platform mirror  ${report.platform.families} famil${report.platform.families === 1 ? 'y' : 'ies'}, ` +
+        `catalogue ${report.platform.catalogueRetrieved}, upstream ${report.platform.upstreamRef}`,
+    )
+  }
 
   if (report.violations.length > 0) {
     lines.push('')
