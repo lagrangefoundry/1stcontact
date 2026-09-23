@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-313
 created_by: xgd
 created_at: '2026-09-23T18:03:41.076903+00:00'
-updated_at: '2026-09-23T20:20:37.282279+00:00'
+updated_at: '2026-09-23T20:50:40.268903+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,31 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="62d26545-5a61-4b4d-b6b6-108b5e2223cb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T20:50:39.914837+00:00" -->
+#### Claude
+REQ-312 landed while I was reading (`f62cf1b0f7` — mirror, platform tier, `/_fonts/` origin), so the dependency is satisfied. Proceeding.
+
+Now let me scope the ticket before cutting the branch.
+
+Now the committed (empty) index and the surface declaration.
+
+Now the `use_font` implementation in `toolbox-core.ts`.
+
+Now add the `fonts` parameter to `l1Operations` and the bound toolbox class.
+
+Now the drift check in `1c fonts check`.
+
+Now the knowledge correction at its source in `validate.ts`, then regenerate `REF-l1.md`.
+
+Now the UAT suite.
+
+Now let me run a broader regression across the areas this touches.
+
+Now the workers project (the Worker-side bundle must still load the surface).
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
