@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:37:58.046486+00:00'
+updated_at: '2026-09-23T03:03:01.538408+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -307,5 +307,13 @@ Two things I'd want from you before filing sub-tickets:
 2. **Whether A–B go first as a standalone ticket.** They're unblocked, they're independently useful (the assistant gets font *knowledge* even before it gets hands), and they'd let us see whether KB retrieval over the catalogue actually returns good slates before committing to the mirror.
 
 I'd suggest doing A–B first for exactly that reason — it's the cheapest way to test the premise that retrieval beats recall here, and if the slates come back poor, that changes the chunking design before any bytes get mirrored.
+
+<!-- xgd-turn id="160d4cf5-fbf6-4787-bd32-f23536d1ca60-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T03:03:01.203788+00:00" -->
+#### You
+`kb/system/REF-fonts.md ` <-- we have been working with tickets can you have a ticket that gets updated with this for consistency?
+
+I was assuming this would be platform wide and shared - fonts may be small but copying them around is just going to get fiddly - per tenant fonts are user-uploaded and their responsibility to meet the license requirements for, yes?
 
 <!-- xgd-chat-end -->
