@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:39:43.425588+00:00'
+updated_at: '2026-09-23T02:41:01.444864+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1266,5 +1266,47 @@ Want me to scope this as a ticket under EPIC-20? I'd hold off writing the script
 What I want to do is to actually capture some real business websites and then change all the details so that they are unrecognizable. That will that will ensure we have all the details we need but we won't actually be building websites for real businesses.
 
 We can talk about how rigorous to make the score I think we should actually just build the testing infrastructure first and see how it performs. I don't think this needs to be over designed I do think that if models don't do well on this it will become obvious. This is also potentially a mechanism for us to create some example sites. Which is something that we need.
+
+<!-- xgd-turn id="a130a793-32a4-4188-b5a0-737f2d95f2da-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:41:01.103257+00:00" -->
+#### Claude
+Agreed on both. Let me check one thing that decides how much infrastructure this actually is.
+
+Everything the runner needs is already an HTTP endpoint — that makes this much thinner than I expected:
+
+| Need | Exists |
+|---|---|
+| Upload assets | `POST /api/material` (multipart, with `role`) |
+| Open a session | `POST /api/ai/session` |
+| Send a scripted turn | `POST /api/ai/prompt` (SSE) |
+| Capture the transcript | `GET /api/chats/export` |
+| Cost + tokens for the run | `GET /api/admin/spend?business=…` |
+
+So there's no new product surface to build. The work is a script format, a runner that walks it, and artifact capture. That's small enough to build and learn from, which is your point.
+
+## On harvesting real sites — agreed, with one line drawn
+
+What you're actually taking from a real site is **structure and specificity**: that a plumber has four service tiers and an awkward call-out fee, that the USP is "we clean up after ourselves," that the pricing page has a weird exception. That's the thing invented businesses never have, it's why generic briefs can't discriminate between models, and it isn't anyone's property.
+
+The identity layer is different, and photos especially. You can perturb a name, a town, a phone number — you cannot anonymize a photograph of a real person's face by renaming the business. And that matters more here than in a normal test, because you've just said these runs become **example sites we show to prospects**. A real plumber's team photo ending up on our marketing site is a different category of problem from a benchmark artifact.
+
+So the rule I'd hold: **facts transplanted, identity regenerated.** Text details get perturbed; names, faces, logos and town get replaced outright with generated or licensed imagery. Same asset *density* — which is what you're after — without carrying anyone's identity through.
+
+## The dual use is good, and it needs one piece of discipline
+
+Using the runs as example sites is a real win — it turns a cost we were going to pay anyway into something we need. But it creates a pull worth naming now, because it's cheap to prevent and expensive to unwind: once a run is destined for marketing, we'll want to nudge it. Fix the bad headline, re-prompt the weak section. And the moment we do that, the transcript no longer measures what the model did unaided.
+
+One rule fixes it: **a benchmark run is never edited.** Score it as it came out. If we want to ship one as an example, fork it afterwards and polish the fork. Costs nothing, and it keeps the measurement honest while still giving you the sites.
+
+It also means the **Opus runs are the example-site source**, not the cheap-model runs — which is fine, since those are the ones we'd want to show anyway.
+
+## One thing to decide before I build
+
+How to snapshot the finished site per run. The transcript and the cost both export cleanly today; the site is live state, and comparing four models means looking at four sites side by side, possibly weeks later after the underlying framework has moved. Options are a screenshot set, a published preview per run, or an export of the site's revision. I'd lean to pinning the revision id and taking screenshots — cheap, and it survives.
+
+Everything else I'd leave undesigned, as you said. No scoring schema, no rubric in code, no UI. A run produces a directory: assets in, transcript out, site snapshot, cost figures. We look at three of those and *then* decide what scoring deserves to be formalised.
+
+Want me to scope this as a ticket under EPIC-20? I'd write it as: script format (ordered turns + asset manifest), a runner against the real HTTP path so the meter fires, artifact capture per run, and the never-edit rule stated in the body — with scoring explicitly deferred. Say the word and I'll cut it and start.
 
 <!-- xgd-chat-end -->
