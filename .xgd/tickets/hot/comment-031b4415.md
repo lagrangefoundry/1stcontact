@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T02:18:16.694492+00:00'
+updated_at: '2026-09-23T02:19:29.061793+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -140,5 +140,13 @@ Area 1 reduces to three mechanical pieces, none of which involve anyone's taste:
 3. **Re-point the five capture-derived families** at canonical mirror copies, closing their `REVIEW_REQUIRED` actions.
 
 Still blocked on the storage fork — shared platform origin vs. copy-on-select. That's the one call I need from you, and it's load-bearing for area 3.
+
+<!-- xgd-turn id="3c088d7e-0cb7-4523-a3d9-5382da741ae2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:19:28.436543+00:00" -->
+#### You
+So look heres what I think we should do: ship everything for the AI - for the human drop down in the editor we choose a curated list of <100
+
+What needs to be built? The production AI doesn't know where to find any fonts?
 
 <!-- xgd-chat-end -->
