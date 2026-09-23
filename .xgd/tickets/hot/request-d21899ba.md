@@ -5,7 +5,7 @@ type: request
 title: Publish must compare and freeze assets by content identity, not content
 created_by: EPIC-16
 created_at: '2026-09-22T23:12:29.737145+00:00'
-updated_at: '2026-09-23T02:27:47.372047+00:00'
+updated_at: '2026-09-23T02:57:44.757582+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -141,6 +141,15 @@ reproduction loop reads, with an `assets.json` beside it. Bytes reach it by
 filesystem copy from a per-site `blobs/<digest>` space, never through a
 JavaScript string.
 
--
-
--
+**Two consequences the design forces, pinned rather than left to discover.**
+Writing a revision *by reference* makes it possible to name content the store
+does not hold, which the byte-carrying write could not: such a write is refused
+outright — naming both the asset and the digest, because neither alone is
+actionable — and records no asset, rather than admitting a row that lists and
+then 404s. This is the same rule an unsafe asset name already follows, and it is
+what requirement 9's integrity guarantee means once identity, not content, is
+what a write supplies. Symmetrically, a ladder that READS its pictures rather
+than being handed them can now find one absent: a picture that will not read is
+dropped from the ladder exactly as one that will not decode already is — served
+at its own width — because to a visitor the two are the same thing, and neither
+is a reason to refuse a publish.
