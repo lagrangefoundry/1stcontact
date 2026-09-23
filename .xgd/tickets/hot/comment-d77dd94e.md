@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-312
 created_by: xgd
 created_at: '2026-09-23T18:02:52.600472+00:00'
-updated_at: '2026-09-23T19:02:47.540100+00:00'
+updated_at: '2026-09-23T20:13:12.463392+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -115,5 +115,14 @@ Now the UATs:
 Now the serving UAT, against the real Worker in workerd:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="29619d5f-70e3-4eab-9be5-1760ef5a2c2c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T20:13:10.884675+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
