@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T20:28:32.222028+00:00'
+updated_at: '2026-09-23T20:30:40.195446+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3537,5 +3537,58 @@ Two things still parked on you:
 <!-- xgd-chat role="user" ts="2026-09-23T20:28:32.123381+00:00" -->
 #### You
 ok can you review where we are with these tickets and whether we are ready to get production working again?
+
+<!-- xgd-turn id="3e260777-a277-4b66-80e2-90111128b8aa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T20:30:39.355931+00:00" -->
+#### Claude
+Time has passed and work has landed that I didn't do. Let me get the full picture.
+
+Reviewed. Short answer: **no, not ready** — and the reason is narrow and specific.
+
+## What landed since we filed
+
+| | status |
+|---|---|
+| REQ-307 durable junction | implemented, merged `a7d3748` 09-23 11:14, `ready_to_reconcile` |
+| BUG-138 turn timestamps | implemented, merged `0ba1b60` 09-22 19:40, `ready_to_reconcile` |
+| REQ-306 record a turn before it can die | implemented, merged 09-22 19:49 |
+
+**A correction I owe you on REQ-307.** I said the synchronous port forced the manager to run inside the DO, and that "junction in a DO" and "driver in a DO" were the same work. The implementation found a third way: a mirror plus write-behind — reads answer off upstream's own `MemoryJunctionStorage`, writes land in the mirror synchronously and queue in order to the object, with an async `prepare()` at each session entry point. The driver stays in the Worker. That's better than what I scoped, and it means a deploy still drains in-flight requests safely, so **upstream REQ-175 (turn resumption) drops from blocker to nice-to-have.**
+
+One thing I'd want quantified before calling it done: write-behind implies a window where records are in the mirror but not yet in the DO. If the isolate dies in that window, those records are gone. I haven't read the queue drain closely enough to say how wide it is — worth someone checking.
+
+## What hasn't landed — and it's the one that matters
+
+| | status |
+|---|---|
+| REQ-309 — D1's 2 MB ceiling (1stcontact) | **draft** |
+| lagrange-framework REQ-176 — artifact segmentation | **draft** |
+| lagrange-framework BUG-66 — the coupling | **draft** |
+| lagrange-framework BUG-67 — whole-body read for a boolean | **draft** |
+
+Nothing has been done about the thing that actually killed your session.
+
+## Why that blocks production specifically
+
+**Production D1 is stricter than what we've been testing against.** Local `workerd` accepted 2,162,212 bytes. Production's documented ceiling is 2,000,000. So a production session bricks *earlier* than the one we watched die — we have never run a session to the ceiling under production rules, and it would fail harder when we did.
+
+**And BUG-66 means it doesn't degrade, it dies.** When the tool transcript hits the wall, `apply()` loses the prose write too, the error surfaces as the turn's own failure, and every subsequent turn fails identically. That's the difference between "we stopped keeping tool logs" and "the conversation ended".
+
+**Your LF session is still dead.** Nothing folded since 2026-09-22T23:00:09; pending record sitting at `status: error`. Twenty-one hours, unchanged.
+
+## Minimum to call it ready
+
+1. **BUG-66 first.** Small, independent of everything else, and the best safety-per-unit-effort we have — it converts total loss into partial loss even if the ceiling stays exactly where it is.
+2. **REQ-176 + REQ-309** — the actual ceiling fix, roll-across-comments.
+3. **Repair any already-oversized session** — LF locally, and whatever production holds.
+
+BUG-67 is hygiene, not a blocker. REQ-175 no longer blocks, per the correction above.
+
+## The thing I can't see from here
+
+Whether production already has sessions at or near the ceiling. If any do, they're either dead already or one turn from it, and a deploy won't fix them — they need repair. I can find out with a read-only `wrangler d1 execute --remote` counting body lengths per transcript comment, but that touches production and I'd rather you said go first.
+
+Also flagging before any deploy: `apps/control-app/wrangler.toml` is modified and uncommitted, and it's the file carrying the new `SessionJunction` binding and its `v1` migration.
 
 <!-- xgd-chat-end -->
