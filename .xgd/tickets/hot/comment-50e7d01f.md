@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:34:47.933687+00:00'
+updated_at: '2026-09-23T02:36:06.538604+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1220,5 +1220,43 @@ I want to go back to benchmarks because I wanted to push back hard on some of th
 4. "I love that please create it. Now what would you put in the next section"
 
 We do something like this for a few rounds with loose direction asking the AI for its recommendations and then we have one or two questions at the end around again open questions around styling and fonts and layout we ask Chris recommendations we agree with them we ask for them to be implemented. Then at the end the evaluation is an intelligent one you and I look at the transcripts you and I look at the final site and we score it. Did the AI come up with good ideas did the AI come up with a good site how are we with the end result how happy are we with the discussion and the way it went. We do that with a few scripts on our favorite models and actually I'm quite excited to try op. 5 which is our current fa but also do this with fable and sonnet five just to see how they differ. This is not a statistical test but I think it will give us enormous information about whether a model is red enough enough to be given to our customers. If we have let's say three example scripts for different kinds of businesses that we have run a few times with models that we trust and know what to expect I think bum I think bum open weight models will betray themselves very quickly
+
+<!-- xgd-turn id="6705794b-37a9-469f-bbce-800f169ed30b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T02:36:05.330496+00:00" -->
+#### Claude
+You're right, and the objection is sharper than "cheap model, bad judgment." An interrogator has to *decide what to say next*, and that decision is itself the thing under test. A weak interrogator asks weak follow-ups, never challenges a thin recommendation, and accepts a bad hero section — so the expensive model never gets stressed and scores well for it. Worse, it fails *in the same directions* as the cheap models we're trying to catch, so it flatters exactly the candidates it should be eliminating. You can't measure with a ruler made of the thing you're measuring. Drop it.
+
+## The rigidity is the instrument, not a compromise
+
+The thing I'd make explicit in your design, because it's doing more work than it looks: **"Give me a strong recommendation" is load-bearing and must be in every script.** It converts the script's inability to react into a fair test.
+
+Consider what happens to a hedging model. It replies "great — who's your target customer? what's your budget?" and the script, which cannot see that, says *"I love that, please create it."* The model now has to build something from nothing. It looks incoherent, and the transcript reads badly, and that is the **correct** score — because it was told to make a recommendation and it didn't. Without that instruction the same trap would be unfair to a model making a reasonable clarifying move. With it, hedging is disobedience and the script punishes it automatically.
+
+That's your "betray themselves very quickly" mechanism, and it's structural rather than something the grader has to notice. Weak models get impaled on turn 3 without anyone judging them.
+
+Same for a bad idea: script says "I love that, build it," and the site comes out bad. That's signal, not a broken run. Don't engineer around it.
+
+## Three things I'd change or add
+
+**One of the scripts should push back.** Every script you sketched is agreeable — it measures *can the model generate and execute good ideas unprompted*. But your builder chat's real users disagree constantly, and taking correction is a different capability that a fully-agreeable script can't see. Scripted, not adaptive: at a fixed turn, "Actually no — my customers are mostly over 60 and that reads far too young. Try again." Determinism intact, second axis covered. Models that quietly re-skin the same idea and call it new will show up immediately.
+
+**Separate vision from judgment.** Photos of the team, the van, the logo make one script a vision test as much as a judgment test, and open-weight candidates vary from decent to none there. Make one of the three text-only assets (written USP, service list, pricing) so that when a model fails you can tell *which* thing failed. The photo-heavy one still matters — it's the real product — but it shouldn't be the only one.
+
+**Run each pair 2–3 times.** You called it right that this isn't statistical, but same script plus same model still gives different sites, and you need to distinguish "this model is bad" from "that run was unlucky." Three runs is enough to see whether a failure is characteristic, and it's cheap.
+
+## The cost axis comes for free now
+
+This is the part I'd have missed a week ago. Each script run *is* a session, so `turn_spend` prices it exactly — real dollars, real token counters, per model, over an identical fixed workload. And `spend-report-core` gives engaged hours on the same rows.
+
+So each cell of the matrix yields three numbers without extra instrumentation: **your quality score, settled cost, engaged time.** That turns "is Fable good enough" into "Fable scored 7/10 at 40% of Opus's cost on the same three jobs" — which is the actual decision, and the one this epic has been unable to state in those terms since it opened. Worth adding a `script_id` / `run_id` tag to the session so the runs are recoverable from the table later; that's a small write-path change, not a schema fight.
+
+## Two questions that change the work
+
+1. **Who writes the fictional businesses?** I'd generate assets with Opus and then you edit them — but they need to be *specific* (real pricing, a real USP, an awkward constraint) because generic businesses let a weak model succeed on platitudes. A vague brief is a benchmark that can't discriminate.
+
+2. **Is the score a rubric or a gut call?** You said you and I look at it and score it, which I think is right for run one. But if the three axes are stated up front — quality of ideas, quality of the site, quality of the conversation — then run five is comparable to run one. Unstated criteria drift, and drift silently, and the whole point is comparing across months.
+
+Want me to scope this as a ticket under EPIC-20? I'd hold off writing the scripts until you've answered those two, but the shape — three businesses, one with scripted pushback, one text-only, 2–3 runs each, cost from the meter, rubric scored by us — is settled enough to write down.
 
 <!-- xgd-chat-end -->
