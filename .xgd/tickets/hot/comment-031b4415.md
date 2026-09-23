@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T00:03:49.053194+00:00'
+updated_at: '2026-09-23T02:16:41.620681+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -96,5 +96,11 @@ Ticket updated — titled **"Fonts: platform library, tenant uploads, and takedo
 **The one thing I need from you before area 1 can be built:** shared platform origin vs. copy-on-select. I've recommended shared-serve for platform fonts, per-site for uploads, but it's your call and it's the kind of decision that's painful to reverse once tenants hold assets.
 
 Once that's settled, the natural area-1 shape is three pieces — corpus ingest + registry tier, the curated menu artifact with its design metadata, and re-pointing the five capture-derived families at canonical copies. Say the word and I'll file them as separate requests.
+
+<!-- xgd-turn id="2d882f83-14ef-4263-9d1f-f9eb0391a56a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T02:16:41.220492+00:00" -->
+#### You
+This sounds way complicated - our AI is supposed to be the chooser here - why do we have to constrain its choices? We dont' trust it? Its the same model that is going to make the curation decision that makes the usage call
 
 <!-- xgd-chat-end -->
