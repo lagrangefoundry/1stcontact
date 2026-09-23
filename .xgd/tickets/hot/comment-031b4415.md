@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T23:45:23.075789+00:00'
+updated_at: '2026-09-23T23:47:00.321790+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -817,5 +817,11 @@ Two things I found while scoping that shaped it:
 I defaulted it to `--env production` to match the rest of `bin/deploy`, with the local target selected explicitly — a deploy script that silently wrote a local store when you meant the cloud would be the wrong way round. Say if you'd rather it defaulted the other way.
 
 One flag on the ticket: it assumes you want `--fonts` composable with the existing `--dry-run` and `--env`, not a separate subcommand. That's the cheaper read of "as directed" but it's a guess about your intent.
+
+<!-- xgd-turn id="35e30292-28cb-499c-bc82-e29377205379-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T23:46:59.671302+00:00" -->
+#### You
+is the dev environment bin/deploy --env dev
 
 <!-- xgd-chat-end -->
