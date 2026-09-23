@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T03:15:34.199733+00:00'
+updated_at: '2026-09-23T03:20:14.939576+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -366,5 +366,55 @@ Do you understand how system_kb tickets work? We could have a separate font kb i
 ok this is our next priority, it is blocking the Lagrange Foundry site...and the beta.
 
 Are you ready to create tickets?
+
+<!-- xgd-turn id="0dbd09e7-2482-4b20-8061-02477837b6d9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T03:20:12.615896+00:00" -->
+#### Claude
+Let me verify the mechanism before I answer that, rather than claim I understand it.
+
+Yes — and I verified rather than assuming, because my earlier answer to you was wrong on exactly this point.
+
+**How `system_kb` tickets work** (confirmed in `kb.ts`):
+
+1. A doc ticket — `type: doc`, `fields.doc_kind: system_kb`.
+2. `1c kb export` → `readDocTickets()` shells `xgd ticket list --type doc --view --json --no-limit`, filters on `inSystemKb()`, writes `kb/system/<ID>.md` with frontmatter + body. Tickets lacking the field are reported as *"not in the KB"*; a ticket that opts out or is deleted has its file swept.
+3. `1c kb build` chunks **heading-anchored** and embeds via Workers AI `bge-small-en-v1.5` → `kb/system/chunks/`.
+4. Bundle-resident; `system-knowledge.ts` opens it in workerd from three bundle values.
+
+**And you're right about what's broken.** The `DOC-*` path is already ticket-backed — it reads the ticket store directly, no doc files involved. The violation is the **second corpus producer**: `writeProjections()` (REQ-165) derives `REF-l1`, `REF-surface`, `REF-behaviors` from code and writes them straight into `kb/system/` with no ticket, sweeping its own namespace. `index.ts:1367` even documents the consequence — *"an operator who cannot find `REF-l1` in the ticket store needs to be told it was generated, not looked for."* That's the rule I cited back at you as if it were settled policy. Filing the REQ.
+
+**Useful consequence for the catalogue:** since chunking is heading-anchored, **one doc ticket with ~100 group headings gives exactly the ~100-chunk granularity** I costed earlier. So the catalogue goes in a single ticket — easy for the artificer to `xgd ticket get` — and chunks correctly for free. No separate font KB needed unless you want one later.
+
+Before I generate the catalogue doc — the metadata had `stroke` and `classifications` fields I didn't use. Checking whether they carry style signal, because font names are proper nouns and embed poorly for style queries.
+
+`stroke` adds **Slab Serif** (30 families) which `category` doesn't have, and `classifications` adds **Symbols** (22). No style descriptors though — nothing says "geometric" or "humanist". Noting that as an enrichment follow-up rather than inventing it. Generating the doc body:
+
+92 sub-headings ≈ 92 chunks, 90KB body — lands exactly on the granularity target. Creating the ticket slate.
+
+DOC-56 created. Now the REQs.
+
+Now linking them into the epic.
+
+Tickets created.
+
+| | | |
+|---|---|---|
+| **DOC-56** | The fonts 1st Contact can serve | `doc_kind: system_kb` — 1,941 families under 92 group headings, plus what the assistant may do with them |
+| **REQ-311** | Catalogue generator | high · **unblocked** |
+| **REQ-312** | Mirror + registry platform tier | high · **unblocked** |
+| **REQ-313** | `use_font` + knowledge correction | high · needs REQ-312 |
+| **REQ-314** | Editor shortlist <100 | low |
+| **REQ-310** | KB projections bypass the ticket store | medium · the cleanup you asked for |
+
+EPIC-21 raised to high with the blocking note.
+
+**On REQ-310** — you were right and I had it backwards. The `DOC-*` path is already ticket-backed (`readDocTickets()` shells `xgd ticket list --type doc`). The violation is `writeProjections()`, a *second* corpus producer that writes `REF-l1`/`REF-surface`/`REF-behaviors` straight into `kb/system/` with no ticket, plus a namespace partition that exists only to stop the two producers deleting each other's files. The REQ keeps the generate-from-code property — that part of `kb-projection.ts` is still right — but changes the sink to the ticket body so export stays the single producer.
+
+**On DOC-56 and a separate font KB** — I went with one ticket in the system KB. Heading-anchored chunking means its 92 group headings give the ~92-chunk granularity the bundle affords, so the container and the retrieval shape agree for free. A separate font KB would be a new `knowledge_bases.json` entry and buys nothing yet; easy to split out later if the corpus grows.
+
+**One thing DOC-56 is weak at, flagged in the ticket rather than papered over:** upstream carries no style descriptors — nothing says "geometric" or "humanist". Family names are proper nouns, so a style query retrieves the category slate rather than a precise match. Enrichment is follow-up work, and it shouldn't be done by inventing descriptions.
+
+I'd start on REQ-311 — it's unblocked, and the mirror in REQ-312 reads the catalogue it produces. Want me to cut the branch?
 
 <!-- xgd-chat-end -->
