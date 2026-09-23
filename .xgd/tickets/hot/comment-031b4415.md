@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T18:23:13.661912+00:00'
+updated_at: '2026-09-23T18:23:57.886202+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -494,5 +494,26 @@ Ticket slate stands at DOC-56, REQ-310 through REQ-314, with 311 → 312 → 313
 <!-- xgd-chat role="user" ts="2026-09-23T18:23:12.699392+00:00" -->
 #### You
 No you are an EPic you create tickets not code please - is 314 updated?
+
+<!-- xgd-turn id="f52bf100-4083-419f-9763-916b909dd915-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T18:23:56.375287+00:00" -->
+#### Claude
+Understood — Epic scopes and files tickets; implementation happens in the request tickets. I won't offer to cut branches again.
+
+Yes, REQ-314 is updated. Verifying from the store rather than from my own write:
+
+Confirmed from the store — REQ-314 body is 7,844 chars with all the changes present:
+
+- **Interaction model** — curated 30 in their own faces; query results in the UI face, with your direction quoted
+- **Matching** — word-prefix (`Mono` → Roboto Mono, JetBrains Mono, Space Mono), case- and space-tolerant, alphabetical, capped at 30
+- **Category chips** — six toggles, plus the explicit exclusion list so it doesn't creep
+- **Rendering previews — bounded by construction** — replaced the old constraint section; the subsetting decision is closed, not deferred
+- **When nothing matches** — commercial families explained rather than shown as empty
+- **Behaviour** — 17 testable statements for UAT tracing, including "typing fetches no faces"
+
+Title is now *"The editor font control: 30 curated faces, and a query box that reaches all 1,941"*, priority low, parented to EPIC-21.
+
+Full slate under the epic: DOC-56 (catalogue), REQ-311 (generator), REQ-312 (mirror + registry tier), REQ-313 (`use_font` + knowledge correction), REQ-314 (editor control), plus REQ-310 outside the epic for the KB projection cleanup.
 
 <!-- xgd-chat-end -->
