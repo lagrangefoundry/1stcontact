@@ -65,6 +65,7 @@ import {
   redistributableFamilies,
 } from '../fonts/catalogue'
 import { loadPlatformManifest, MANIFEST_REL } from '../fonts/mirror'
+import { indexIsCurrent, INDEX_REL } from '../fonts/index-build'
 import { listDirs, listFilesRel, pathExists } from '../store/fsutil'
 import { draftDir, type Root, type StoreContext } from '../store/paths'
 import { loadSite } from '../store/loadSite'
@@ -192,6 +193,18 @@ export type ViolationKind =
    * separate broken promises.
    */
   | 'documented-not-mirrored'
+  /**
+   * The corpus the assistant reads is not the corpus the mirror holds ([[REQ-313]]).
+   *
+   * `use_font` serves a face by writing a path the mirror recorded, and it reads
+   * those paths out of a projection rather than out of the manifest — a Worker has
+   * no filesystem, so the manifest cannot be read at call time. A mirror refreshed
+   * without re-running `1c fonts index` therefore leaves the assistant binding
+   * paths that 404, and nothing else in the system can see that: the manifest is
+   * right, the origin is right, and the page validates. This comparison is the
+   * only place the drift is visible.
+   */
+  | 'stale-font-index'
 
 export interface FontViolation {
   kind: ViolationKind
@@ -443,6 +456,17 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
       hint:
         'The assistant is told these are available to serve, so a page may reference one and get nothing. ' +
         'Re-run `1c fonts mirror` against a current checkout, or take them out of the catalogue.',
+    })
+  }
+
+  // [[REQ-313]] — and the projection the assistant reads must be the mirror it was
+  // taken from. Only when there IS a mirror: an empty projection beside an empty
+  // mirror is a fresh clone agreeing with itself.
+  if (platform.populated && !indexIsCurrent(cwd)) {
+    violations.push({
+      kind: 'stale-font-index',
+      message: `${INDEX_REL} does not match ${MANIFEST_REL}: the assistant's font corpus is out of date.`,
+      hint: 'Run `1c fonts index`. Until then `use_font` may refuse a mirrored family, or bind a path the origin no longer serves.',
     })
   }
 

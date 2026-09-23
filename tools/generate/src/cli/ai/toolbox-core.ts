@@ -68,6 +68,14 @@ import {
   editStatus,
   type CopyTargetOptions,
 } from '../edit'
+import {
+  PLATFORM_FONT_INDEX,
+  mergeFontFaces,
+  paintableStack,
+  resolveFont,
+  type FontFaceEntry,
+  type PlatformFontIndex,
+} from './platform-fonts'
 import { CONSULTANT_ROLE } from './roles'
 import {
   MeasureUnavailableError,
@@ -326,6 +334,21 @@ export function l1Operations(
    * where there is no business, no database and no address to have.
    */
   addresses: (() => Promise<readonly unknown[]>) | null = null,
+  /**
+   * The platform font corpus this build ships ([[REQ-313]]).
+   *
+   * A PARAMETER RATHER THAN A BARE IMPORT because it is a BUILD ARTIFACT and not
+   * a constant: `1c fonts index` rewrites it every time the mirror is refreshed,
+   * so what `use_font` may serve is a property of the deployment in exactly the
+   * sense `measurer` and `assetUrl` above are. Defaulted to the projection this
+   * bundle carries, so no existing caller changes and the Worker needs no wiring.
+   *
+   * AN EMPTY CORPUS IS AN ORDINARY STATE, not a misconfiguration — the font bytes
+   * are a build product and a fresh checkout has none. `resolveFont` says so in a
+   * sentence rather than reporting every family as unknown, which is the same
+   * choice `1c fonts check` makes about an unpopulated mirror.
+   */
+  fonts: PlatformFontIndex = PLATFORM_FONT_INDEX,
 ): L1Operations {
   /** Measure one of the site's own drawings, or say why nothing could be. */
   const measure = async (name: string) => {
@@ -485,6 +508,139 @@ export function l1Operations(
     set_page_style: async (p) => {
       const out = await editDocumentSet(slug, req(p, 'page'), obj(p, 'style') ?? {}, opts)
       return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
+    },
+
+    /**
+     * Serve a platform typeface on the site ([[REQ-313]]).
+     *
+     * THE GAP THIS CLOSES. Every other operation here could already paint a
+     * `fontFamily`; none of them could make one resolve. The assistant's only
+     * route to a face it did not already have was asking the client to go and
+     * download one, and the alternative it reached for instead was painting a
+     * name — which does not fail, it paints the browser default.
+     *
+     * NO NEW WRITE PATH. The faces are merged into `resources.fonts` and written
+     * through {@link editDocumentSet}, the same call `set_page_style` makes, so
+     * validation, atomicity and the change log are the site's existing ones. What
+     * is new is the DECISION — which family, which files — and that lives in
+     * `platform-fonts.ts` as pure data and pure functions, because it is the half
+     * a Worker can hold.
+     *
+     * EVERY PAGE BY DEFAULT. `resources` is a document key, so a face is served
+     * per page; a typeface, meanwhile, is a property of a site. Binding page by
+     * page would be correct and would leave the fifth page painting a fallback
+     * because somebody stopped at four, which is the silent failure this ticket
+     * exists to end. Naming a page narrows it back.
+     *
+     * AN EMAIL PAGE IS SKIPPED AND SAID TO BE. A mail client has no web fonts, so
+     * the email target refuses `resources` outright — binding one would be a
+     * refusal of the whole call over a page nobody meant to include.
+     *
+     * A FAMILY THE SITE ALREADY SERVES ITSELF IS REFUSED, not repointed. Those
+     * bytes are the tenant's, under the tenant's attestation; swapping them for
+     * the platform's would change what a client serves without anyone deciding
+     * to, and the two are not the same file.
+     */
+    use_font: async (p) => {
+      const resolution = resolveFont(fonts, {
+        family: req(p, 'family'),
+        ...(Array.isArray(p.weights) ? { weights: p.weights.map(Number) } : {}),
+        ...(Array.isArray(p.styles) ? { styles: p.styles.map(String) } : {}),
+      })
+      const named = opt(p, 'page')
+      const listed = ((await editPageList(slug, opts)).data as {
+        pages: { id: unknown; kind: string }[]
+      }).pages
+      if (named !== undefined && !listed.some((page) => String(page.id) === named)) {
+        throw new CommandError({
+          code: 'NOT_FOUND',
+          message: `Page '${named}' not found in site '${slug}'.`,
+          hint: 'List the pages and name one of those, or leave `page` out to serve the face on all of them.',
+        })
+      }
+      const targets = listed.filter((page) => (named === undefined ? true : String(page.id) === named))
+      const mailed = targets.filter((page) => page.kind === 'email').map((page) => String(page.id))
+      if (named !== undefined && mailed.length > 0) {
+        throw new CommandError({
+          code: 'SCHEMA_INVALID',
+          message: `'${named}' is an email page, and a mail client cannot load a web font.`,
+          hint: 'Set a message in fonts every mail client has. Serve the typeface on the web pages instead.',
+        })
+      }
+
+      const bound: string[] = []
+      const already: string[] = []
+      let now: number | undefined
+      for (const page of targets) {
+        const pageId = String(page.id)
+        // Skipped, and SAID TO BE SKIPPED in the result below. A message a mail
+        // client renders cannot load a web font at all, so the email target
+        // refuses `resources` outright; silently passing over one would leave a
+        // caller believing every page of the site had been served.
+        if (page.kind === 'email') continue
+        const document = (
+          (await editDocumentGet(slug, pageId, opts)).data as {
+            document: { resources?: { fonts?: FontFaceEntry[] } }
+          }
+        ).document
+        const existing = document.resources?.fonts ?? []
+        const merge = mergeFontFaces(existing, resolution.faces)
+        if (merge.conflict) {
+          throw new CommandError({
+            code: 'CONFLICT',
+            message: `Page '${pageId}' already serves '${resolution.family.family}' from the site's own files.`,
+            hint: 'That face is the client\'s own, on their word that they hold a licence for it — it is not ours to replace. Paint the family they gave you, or choose a different one from the library.',
+          })
+        }
+        if (!merge.changed) {
+          already.push(pageId)
+          continue
+        }
+        const out = await editDocumentSet(
+          slug,
+          pageId,
+          { resources: { ...(document.resources ?? {}), fonts: merge.fonts } },
+          opts,
+        )
+        now = out.at
+        bound.push(pageId)
+      }
+
+      return {
+        fontFamily: paintableStack(resolution.family),
+        family: resolution.family.family,
+        bound: resolution.faces.map((face) => ({
+          weight: face.weight,
+          style: face.style,
+          src: face.src,
+        })),
+        pages: {
+          served: bound,
+          alreadyServing: already,
+          ...(mailed.length > 0 ? { notAWebPage: mailed } : {}),
+        },
+        ships: {
+          weights: resolution.family.weights,
+          italic: resolution.family.italic,
+          ...(resolution.family.axes ? { axes: resolution.family.axes } : {}),
+        },
+        ...(resolution.unavailableWeights.length > 0 ||
+        resolution.italicUnavailable ||
+        resolution.substitutedWeights.length > 0
+          ? {
+              unavailable: {
+                ...(resolution.unavailableWeights.length > 0
+                  ? { weights: resolution.unavailableWeights }
+                  : {}),
+                ...(resolution.italicUnavailable ? { italic: true } : {}),
+                ...(resolution.substitutedWeights.length > 0
+                  ? { servedInstead: resolution.substitutedWeights }
+                  : {}),
+              },
+            }
+          : {}),
+        now: now ?? (await opts.store.counter(slug)),
+      }
     },
 
     add_page: async (p) => {
@@ -730,10 +886,11 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
           measurer: DrawingMeasurer | null = null,
           assetUrl: ((handle: string) => string) | null = null,
           addresses: (() => Promise<readonly unknown[]>) | null = null,
+          fonts: PlatformFontIndex = PLATFORM_FONT_INDEX,
         ) {
           super(L1_DECLARATION)
           for (const [op, run] of Object.entries(
-            l1Operations(slug, opts, extra, measurer, assetUrl, addresses),
+            l1Operations(slug, opts, extra, measurer, assetUrl, addresses, fonts),
           )) {
             ;(this as unknown as Params)[op] = run
           }

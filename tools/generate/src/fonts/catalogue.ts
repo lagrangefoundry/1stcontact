@@ -20,7 +20,7 @@ import { pathExists } from '../store/fsutil'
 /** Where the catalogue lives, relative to the repo root. */
 export const CATALOGUE_REL = path.join('fonts', 'catalogue.json')
 
-/** One family, in the fields the mirror reads. */
+/** One family, in the fields the mirror and the assistant index read. */
 export interface CatalogueFamily {
   family: string
   slug: string
@@ -29,7 +29,22 @@ export interface CatalogueFamily {
   /** `ofl/roboto/METADATA.pb` — the file the licence above was read from. */
   licence_source: string
   variable: boolean
-  axes?: { tag: string }[]
+  /**
+   * The axes a variable family carries, with the range each covers ([[REQ-313]]).
+   *
+   * `min`/`max` are read here and not only by the assistant index because the
+   * range is the whole difference between "this family ships 400 and 700" and
+   * "any weight between 100 and 900 is real" — which is what decides whether a
+   * `use_font` call for weight 550 resolves to a file or is answered with the
+   * weights that exist.
+   */
+  axes?: { tag: string; min?: number; max?: number }[]
+  /** [[REQ-313]] — the catalogue's classification, e.g. `Sans Serif`. */
+  category?: string
+  /** [[REQ-313]] — the static weights the family names. */
+  weights?: number[]
+  /** [[REQ-313]] — whether a true italic ships, as against a synthesised slant. */
+  italic?: boolean
 }
 
 export interface Catalogue {

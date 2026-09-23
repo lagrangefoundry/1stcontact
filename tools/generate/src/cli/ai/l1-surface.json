@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 13,
+  "surface_version": 14,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -151,6 +151,15 @@
       "from": "what is there now",
       "axis": "the axis this moves along",
       "delta": "how far it moves, in the drawing’s own units"
+    },
+    "font_binding": {
+      "fontFamily": "the value to write into an element's `fontFamily` — the family with a fallback after it. Use this exactly as given rather than the bare name: a stack with a fallback in it cannot silently paint the browser default, which is the whole failure this guards against",
+      "family": "the family's own name, as the site now serves it",
+      "bound": "the faces now served: which weight, which style, and the file each is drawn from",
+      "pages": "the pages this was served on — every page of the site unless you named one. A page already serving it is listed separately and was not rewritten, and so is any message page: a mail client cannot load a web font, so an email page is left alone and said to have been",
+      "ships": "what this family actually has: every weight it names, whether a true italic exists, and the variable axes it carries with the range each covers. Read it — it is how you learn what else you may ask for",
+      "unavailable": "anything you asked for that this family does not have, and what was served instead. Absent when everything you asked for exists",
+      "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else. Unchanged when the family was already served"
     }
   },
   "errors": {
@@ -448,6 +457,41 @@
       "errors": [
         "NOT_FOUND",
         "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "use_font",
+      "tool": "use_font",
+      "effect": "write",
+      "summary": "Serve a typeface on the site, so a page can actually be painted in it.",
+      "description": "**Painting a font family that nothing serves does not fail — it paints the browser's default.** So a typeface has to be SERVED before it is painted, and this is what serves one. Name the family and it is bound to the page, and the result gives you the exact value to write into `fontFamily`. Write that value, not the bare name: it carries a fallback, which is what stops a page silently rendering in something nobody chose.\n\n**The typefaces are the platform's own and are already licensed.** There is a large library of them — ask the knowledge base which ones there are and what each is like, exactly as you would ask it any other design question. Do not ask your client to go and find a font that is in that library; they have one already.\n\n**Naming a family we do not serve is refused, by name.** That is an ordinary answer and not a failure — read it, pick another, and carry on. Never paint a family this refused.\n\n**It tells you what the family actually ships.** Ask for a weight a family does not have and you are told what it does have rather than quietly given something else; the result lists every weight and every variable axis, so you learn what else you can ask for by asking once.\n\n**Say nothing to the client about licensing a font they uploaded themselves.** A typeface from this library is cleared; a file a client sent you is theirs, on their word, and you are not the one who checked it.\n\nBinding the same family twice changes nothing and adds nothing — it is safe to call when you are not sure whether a page already serves a face.",
+      "params": {
+        "family": {
+          "type": "string",
+          "required": true,
+          "description": "The family's name, exactly as it is spelled in the library — e.g. `Playfair Display`."
+        },
+        "page": {
+          "type": "page_id",
+          "description": "Serve it on one page only. Leave it out to serve it on every page of the site, which is almost always what a typeface is for — a site that sets one page in a face and the rest in a fallback is the mistake this saves you from."
+        },
+        "weights": {
+          "type": "array",
+          "description": "The weights to serve, as numbers — `[400, 700]` for regular and bold. Left out, a regular and a bold are served where the family has them. A weight the family does not ship is answered rather than obeyed."
+        },
+        "styles": {
+          "type": "array",
+          "description": "`normal`, `italic`, or both. Left out, upright only. Ask for `italic` when you mean to set words in it — without it a browser slants the upright face by hand, which is not the same letters."
+        }
+      },
+      "returns": {
+        "shape": "font_binding"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID",
+        "ENVIRONMENT"
       ]
     },
     {
@@ -1038,10 +1082,11 @@
       "group": "AuthorPages",
       "effect": "write",
       "title": "Changing what is on a page",
-      "description": "Change any element on a page: its words, its pictures, how it is laid out, how it looks — and what is there at all. Read an element before you replace it; a replacement is the whole element, not a patch. The page the elements sit on is painted here too — its background and the type it serves are the page's, not any one element's.",
+      "description": "Change any element on a page: its words, its pictures, how it is laid out, how it looks — and what is there at all. Read an element before you replace it; a replacement is the whole element, not a patch. The page the elements sit on is painted here too — its background and the type it serves are the page's, not any one element's. The typefaces themselves come from the platform's own library: `use_font` serves one, and only a served face paints.",
       "operations": [
         "set_l1",
-        "set_page_style"
+        "set_page_style",
+        "use_font"
       ]
     },
     {
@@ -1174,6 +1219,15 @@
       "note": "Read the group before you write in it. You are amending what is there, so knowing its shape is what stops you inventing a field name the site does not have."
     },
     {
+      "name": "Set a page in a new typeface",
+      "steps": [
+        "use_font",
+        "describe_page",
+        "set_l1"
+      ],
+      "note": "Serve the face first, then paint it. The other order paints a name nothing draws, and nothing reports that — the page simply comes out in the browser's default. Write the `fontFamily` value the binding gives you, not the family name you typed."
+    },
+    {
       "name": "Draw an image and use it",
       "steps": [
         "write_image",
@@ -1239,7 +1293,7 @@
     },
     {
       "name": "Fetching a picture, or any file, yourself",
-      "note": "You cannot go and get a file — not from a URL, not from a machine, not from anywhere. What you CAN do is ask for one: the client can drop a file straight onto this conversation and choose “Site asset”, and it arrives in the site's list of images ready to use, usually before their next message. So when you need a photograph, a logo or a font, ASK FOR IT HERE and say what you need it for. Do not send anyone to a separate asset manager or builder screen to add it; that is not where this happens. You can also DRAW an image — see `write_image` — but read what that says about when not to. A file that arrives this way brings a written description of what it shows, held with the material it came from rather than on the file itself — so when you place a picture your client sent, read that description and write it onto the element as what the picture shows."
+      "note": "You cannot go and get a file — not from a URL, not from a machine, not from anywhere. What you CAN do is ask for one: the client can drop a file straight onto this conversation and choose “Site asset”, and it arrives in the site's list of images ready to use, usually before their next message. So when you need a photograph or a logo, ASK FOR IT HERE and say what you need it for. Do not send anyone to a separate asset manager or builder screen to add it; that is not where this happens. You can also DRAW an image — see `write_image` — but read what that says about when not to. A file that arrives this way brings a written description of what it shows, held with the material it came from rather than on the file itself — so when you place a picture your client sent, read that description and write it onto the element as what the picture shows. **A TYPEFACE IS NOT ONE OF THESE.** The platform holds a large library of licensed fonts and `use_font` serves one on the site, so a font is something you fetch for yourself — never something to send a client looking for."
     },
     {
       "name": "Making a new kind of component",
