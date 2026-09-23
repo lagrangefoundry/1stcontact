@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T20:15:40.858256+00:00'
+updated_at: '2026-09-23T20:17:10.637296+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -603,5 +603,45 @@ REQ-312 updated and verified — that MISS was my check string, not the content.
 312 is in-flight!
 
 What is your recommendation on where things are served from. I think it is highly desirable that a site is self-contained and everything it needs comes from its domain - is that problematic?
+
+<!-- xgd-turn id="0334efaa-a0e0-47d1-a3b1-81515c529cee-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-23T20:17:09.209600+00:00" -->
+#### Claude
+Noted on 312 being in-flight — let me check what state I edited into.
+
+REQ-312 status is `free_coding` — actively being worked. Let me note that, then look at how site assets actually serve today.
+
+Status is `free_coding` — so I edited REQ-312's body while someone was coding against it. Flagging that below.
+
+## Recommendation: serve from the site's own domain
+
+**Not problematic — it's the better design, and I conflated two independent decisions earlier.**
+
+*Where bytes are stored* and *what origin the browser fetches them from* are separable. You can have **one shared R2 copy** served **through every site's own domain**. No copying, and the visitor never talks to a second host.
+
+Four reasons same-origin actively wins, beyond your self-containment preference:
+
+1. **The shared-CDN argument is dead.** All major browsers have partitioned the HTTP cache by top-level site since ~2020. "The visitor already has Roboto cached from another site" hasn't been true for years. A shared font origin buys *zero* cache reuse — it only costs.
+
+2. **A second origin costs a connection.** DNS + TCP + TLS before the first font byte, on the critical path for text rendering. Same-origin rides the connection that's already open.
+
+3. **CORS disappears.** `@font-face` fetches are CORS-restricted and need `crossorigin` plus correct `Access-Control-Allow-Origin`. Same-origin sidesteps it entirely — one fewer thing to misconfigure per domain.
+
+4. **Privacy.** No third-party request from the visitor's browser at all. German courts have found Google Fonts CDN usage a GDPR violation specifically because it leaks visitor IPs to a third party. Our own platform origin would be less bad, but still third-party *from the site's perspective*.
+
+**It also fits what's already built.** `public-site` owns every published byte and already serves `assets/` via a per-revision digest manifest and content-addressed `assets/d/`. Platform fonts become one more prefix on machinery that exists — the route resolves to the shared platform R2 prefix instead of the per-site one.
+
+**Concretely:** one stored copy, N serving paths. Site requests `/<site>/assets/f/<hash>.woff2`; the route reads the shared object. I'd follow `assets/d/`'s precedent and make it **content-addressed** — immutable `max-age`, and a refresh that changes bytes cache-busts itself rather than needing a version scheme.
+
+Takedown is unaffected: one stored object still means flip-and-purge, not an N-site sweep.
+
+The only real cost is that each site's *edge* cache holds its own copy — but partitioning makes that true regardless, and edge cache is cheap.
+
+## On REQ-312 being in-flight
+
+I updated its body twice this session — the format decision (convert TTFs ourselves), the cadence, and the sizing reframe — and it was already `free_coding`. The edits made it *more* determined rather than less, and one replaced the open "woff2 problem" section with a settled answer, so it shouldn't invalidate work in progress. But whoever's coding it should know the contract moved under them.
+
+Given that, how do you want the serving decision recorded? I'd rather not edit 312 a third time mid-flight. Options: put it in EPIC-21 and let REQ-313 pick it up from there, file it as its own small ticket, or go ahead and amend 312 if you'd prefer it all in one place.
 
 <!-- xgd-chat-end -->
