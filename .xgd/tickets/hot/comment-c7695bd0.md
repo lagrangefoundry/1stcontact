@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-304
 created_by: xgd
 created_at: '2026-09-22T23:15:22.212360+00:00'
-updated_at: '2026-09-23T00:19:27.140442+00:00'
+updated_at: '2026-09-23T01:57:35.108359+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,14 @@ Now bump the version and commit on the branch:
 Now merge the current `xgd-working` (carrying REQ-305) into my branch so conflict resolution happens here:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="fe3a4d23-fc84-4040-acfa-53c5acc6a35f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-23T01:57:34.391186+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
