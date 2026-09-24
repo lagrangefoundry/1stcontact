@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T01:41:54.306609+00:00'
+updated_at: '2026-09-24T17:42:33.949168+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3834,5 +3834,23 @@ REQ-315 amended. Title and status untouched (`draft`, still EPIC-21's child), no
 The per-app `.wrangler/state` split is flagged as **not verified** — §K might collapse it to one store with a shared `--persist-to`, but whether two `wrangler dev` processes can safely share one persist directory is an open question, so REQ-315's existing "be honest about which surfaces answer" requirement stands in full.
 
 Still on your desk from last turn: whether to file the two §K tickets (the local deploy target, and the `bin/dev up/down/reap` supervisor with its lsof-based reaper).
+
+<!-- xgd-turn id="0130e44f-201e-4a25-a5a7-46b3d76d121e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T17:42:33.099751+00:00" -->
+#### You
+```
+✘ [ERROR] The Workers runtime failed to start. There was likely a problem with the workerd binary or your configuration.
+
+  Runtime stderr:
+  *** Fatal uncaught kj::Exception: workerd/util/sqlite.c++:844: failed: SENTRY_DO SQLite failed;
+  dbErrorMessage(prepareResult, db) = table _cf_ALARM has 3 columns but 2 values were supplied:
+  SQLITE_ERROR
+  stack: 1015927cf 101596a7b 100649af3 100612f0b 100612943 1005d7443 1006445bf 1006470e3 1005b3ec3
+  10310260f 103102937 1031011a3 103100f63 1005a08f3 1876384e3
+
+```
+
+Do I need to run a migration? Remind me how to do it?
 
 <!-- xgd-chat-end -->
