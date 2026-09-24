@@ -5,9 +5,9 @@ type: request
 title: 'Exactly one workerd: pin wrangler and miniflare together, and check it'
 created_by: EPIC-16
 created_at: '2026-09-24T19:08:41.228133+00:00'
-updated_at: '2026-09-24T23:15:15.670882+00:00'
+updated_at: '2026-09-24T23:16:06.344071+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -184,3 +184,140 @@ builds the check that guard calls.
   Only the dependency declaration and the header comment quoted above are touched.
 - **Recovering a store that has already been migrated forward.** There is no supported
   downgrade. The check exists so the situation does not arise.
+
+
+---
+
+## What landed
+
+Commit `bc07664b9d` (`0.2.348 → 0.2.349`).
+
+### 1. Exact pins, in four manifests and in the lockfile
+
+`wrangler` → `4.111.0` and `miniflare` → `4.20260710.0`, caret removed, in root
+`package.json`, `apps/control-app`, `apps/public-site` and `tools/generate`. The
+2026-09-24 resolution the ticket records as "already applied" was uncommitted in the
+operator's working tree; it is carried forward here as part of the pin, together with
+`pnpm-workspace.yaml`'s `minimumReleaseAgeExclude` entries and the re-resolved
+`pnpm-lock.yaml`.
+
+**The lockfile's own `specifier:` lines were pinned too**, not just the manifests. The
+manifest is what a human edits; the lockfile is what `pnpm install --frozen-lockfile`
+enforces, so a pinned manifest whose lockfile still records a caret is a pin no install
+has ever been asked to honour. A UAT asserts both.
+
+**Consequence: `pnpm install` must run after this lands.** Changing a specifier makes
+`node_modules` lag the committed lockfile, which is exactly [[REQ-44]]'s `lockfile-drift`
+finding — so until an install runs, `1c capture` / `shot` / `diff` / `gate` /
+`aligned-crops` / `values-diff` / `adopt-gaps` refuse with exit 6. Reported honestly by
+the existing preflight rather than worked around.
+
+### 2. `tools/generate/src/cli/workerd.ts` — the third preflight
+
+The shape the ticket asks for, beside [[REQ-44]]'s and [[REQ-144]]'s: a pure
+`checkWorkerd(opts)` returning a `WorkerdReport`, an `assertOneWorkerd(command, opts)`
+throwing `CommandError` with `EXIT_CODES.ENVIRONMENT` (exit 6), and an injectable
+`scan` seam so the suite never mutates a real `node_modules`.
+
+**It reads the installed tree, not the lockfile.** The lockfile says what *should* be on
+disk; a virtual store keeps orphaned versions long after nothing links them. `scanWorkerd`
+walks the resolution graph breadth-first from every workspace importer, so a
+`workerd@…` directory surviving in `node_modules/.pnpm` with no dependant is correctly
+not a finding — it is not a runtime anything can reach. [[REQ-44]] owns the other half.
+
+**The unit of the walk is a `node_modules` directory, not a package directory.** pnpm
+parks a dependency BESIDE its dependant — `wrangler` and the `workerd` it declares both
+sit in `.pnpm/wrangler@<v>/node_modules/`, and Node finds the second by walking up out of
+the first. A first implementation looked under `wrangler/node_modules` and found nothing
+at all, which reads exactly like a clean tree: the loudest possible way to be wrong, since
+silence is what success looks like. The nested npm/yarn layout is followed too, and a UAT
+covers each.
+
+**Workspace importers are discovered, not listed** — read from `pnpm-workspace.yaml`'s
+`packages:` globs, so a fifth workspace package that starts declaring a runtime is covered
+by existing rather than by someone remembering to extend a constant. Deliberately a
+few lines of line-matching and not a YAML parser: a dependency bought for one list of
+globs, in a module whose whole subject is dependencies that were not worth their cost.
+
+**Zero copies is not a finding.** "Exactly one" is the invariant, but a tree with no
+`workerd` at all is an *uninstalled* tree, which [[REQ-44]] already reports exactly. Two
+checks refusing the same tree for different reasons is how an operator comes to fix the
+wrong one first.
+
+#### What the refusal says
+
+A split shows up on more rows than an operator can edit — `wrangler` carries its own
+`miniflare`, and `@cloudflare/unenv-preset` takes `workerd` as a peer. Every row is
+reported (dropping them would hide that both generations are genuinely live), grouped by
+version, with the editable ones first and annotated with the manifests that declare them:
+
+```
+ENVIRONMENT: '1c reset' cannot run: 2 versions of `workerd` resolve in this tree.
+  - workerd 1.20260630.1 — brought by miniflare@4.20260630.0, declared in package.json, tools/generate/package.json
+  - workerd 1.20260630.1 — brought by wrangler@4.106.0, declared in package.json, apps/control-app/package.json, apps/public-site/package.json
+  - workerd 1.20260630.1 — brought by @cloudflare/unenv-preset@2.16.1
+  - workerd 1.20260710.1 — brought by miniflare@4.20260710.0, declared in package.json, tools/generate/package.json
+  - workerd 1.20260710.1 — brought by wrangler@4.111.0, declared in package.json, apps/control-app/package.json, apps/public-site/package.json
+  - workerd 1.20260710.1 — brought by @cloudflare/unenv-preset@2.16.1
+`.wrangler/state` is workerd's own store and workerd migrates that schema forward
+silently the first time it opens it. […] there is no supported way back.
+  hint: Pin `wrangler` and `miniflare` to exact versions that agree on one workerd.
+  They are declared in package.json, apps/control-app/package.json,
+  apps/public-site/package.json, tools/generate/package.json. Then run `pnpm install`
+  and retry.
+```
+
+That is not a constructed example: it is the real output, captured from the free-REQ-316
+worktree, whose `node_modules` happened to hold exactly the 2026-09-24 skew.
+
+#### Where it is gated
+
+At dispatch, immediately after [[REQ-44]]'s `assertInstall` and before the `switch`, so
+the refusal arrives before anything opens the store — the migration is effectively one-way,
+and a check that fires afterwards has watched the damage happen. Ordered after
+`assertInstall` because an uninstalled tree resolves no workerd at all and should be told
+to install first.
+
+`WORKERD_GATED_COMMANDS` is `builder`, `reset`, `fonts seed`, `fonts mirror`.
+`fonts` is keyed WITH its subcommand (`workerdGateKey(command, rest[0])`) because only two
+of its seven open a store — `seed` writes the local R2 bucket and `mirror` seeds at its
+tail ([[REQ-315]]) — while `check`, `catalogue`, `doc`, `index` and `publish` read files or
+talk to the R2 REST API. Verified end to end against the real CLI in the skewed worktree:
+`1c reset` and `1c fonts seed` exited 6 with the table above; `1c fonts check` and
+`1c fonts doc` exited 0 in the same tree.
+
+### 3. `fonts/seed.ts`'s header, corrected
+
+The quoted claim — *"declaring it only makes an existing fact importable"* — is replaced
+with what declaring it actually created (a second, independently floating resolution), why
+the dependency cannot be removed (wrangler's `exports` map does not expose `Miniflare`),
+and what now constrains it (exact pins plus `cli/workerd.ts`).
+
+## Test plan — as implemented
+
+`tests/test_UAT_FC_REQ-316_one_workerd.test.ts`, 16 UATs against synthetic `node_modules`
+trees and the live checkout.
+
+*The declaration:* every manifest declares both packages exactly; no workspace manifest
+floats `wrangler`, `miniflare` or `workerd`; the lockfile records exact specifiers.
+
+*The check:* one runtime passes silently for every gated command; two are named with what
+brought each; transitive bringers are reported but carry no manifest; the refusal names
+every version, its bringer, the manifests and `pnpm install`, and travels `ENVIRONMENT`/6;
+an orphaned store version is not a finding; an uninstalled tree is left to [[REQ-44]]; the
+gate refuses the four store-openers and never the file-only verbs; the subcommand selects
+the gate for `fonts`; workspace packages are discovered from `pnpm-workspace.yaml`; both
+the pnpm sibling and the nested npm layout are walked; and the gate is wired into the
+dispatch preamble rather than into three command bodies.
+
+*This checkout:* one last UAT asserts the invariant against the tree the suite runs in —
+the thing nothing asserted on 2026-09-24. It is `skipIf`-gated at collection on
+[[REQ-44]]'s own drift signal, because a `node_modules` that lags its lockfile has no
+settled resolution to be right or wrong about.
+
+Regression scope run green: `req44-install-preflight`, `reconciliation-1c-install-preflight`,
+`test_UAT_FC_REQ-144_deploy_scripts`, `test_UAT_FC_REQ-315_font_mirror_dev_target`,
+`test_UAT_FC_REQ-253_dev_server_refuses_a_stale_database`, `generate`,
+`reconciliation-1c-cli-output-hygiene`, `reconciliation-1c-aligned-crops-sandbox-routing`,
+`naming`, `ci-workflow`, `deploy-workflow`, `public-site`. `tsc --noEmit` clean for
+`tools/generate`.
