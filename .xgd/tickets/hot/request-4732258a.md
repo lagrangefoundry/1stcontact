@@ -6,16 +6,21 @@ title: 'The editor font control: 30 curated faces, and a query box that reaches 
   1,941'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:38.760798+00:00'
-updated_at: '2026-09-24T07:20:23.363980+00:00'
+updated_at: '2026-09-24T18:00:27.597866+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: low
   epic_parent: epic-b9b27697
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c8fb9044
+  commits:
+  - working_sha: 00ae98e652a42325e936cfd16429cb21c614148c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.348
 ---
 
 ## The gap
