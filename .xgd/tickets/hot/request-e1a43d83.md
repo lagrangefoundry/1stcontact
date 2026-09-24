@@ -6,7 +6,7 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-24T23:00:43.620939+00:00'
+updated_at: '2026-09-24T23:32:48.574920+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   priority: medium
 ---
+
 
 
 ## What this is for
@@ -123,11 +124,29 @@ else.
   nothing is archived, and the client's words are not lost: they are recoverable
   into the composer, which is what this pane's `remember` and the composer's
   recall already exist for.
-- **The bound is generous.** ~32,000 characters — several thousand words of typed
-  prose, and around a sixtieth of D1's 2,000,000-byte value ceiling. This is not
-  a storage guard with a safety margin; it is the point past which a message has
-  stopped being a message. The figure is the one thing here worth confirming
-  rather than inheriting.
+- **The bound is 16,000 characters, and it is a product judgement rather than a
+  storage guard.** Once REQ-176's segmenting lands the store's ceiling is no
+  longer what sets this; the limit is the point past which a message has stopped
+  being a message. Calibration, measured on real content in this repository — a
+  pasted line averages about 50 characters across source, CSS, commented code and
+  wrapped prose alike, and 500 lines of prose is 4,165 words:
+
+  | paste | characters | words | pages |
+  |---|---|---|---|
+  | a normal message | 100-400 | 20-70 | - |
+  | a long, careful message | ~1,000 | ~170 | 1/3 |
+  | 50 lines - everything about a business, in paragraphs | ~2,500 | ~420 | 1 |
+  | **16,000 limit — about 320 lines** | 16,000 | ~2,700 | **5** |
+  | 500 lines | 20,000-27,000 | ~4,200 | 8 |
+  | a brand-guidelines document | 30,000-90,000 | 5,000-15,000 | 10-30 |
+
+  So a 500-line paste is refused, deliberately: eight pages is a document by any
+  reading. The asymmetry decides the figure — a false refusal costs the client one
+  drag-and-drop, while a false accept loses the knowledge-base entry permanently.
+  Anything from 12,000 to 32,000 is defensible, so the figure lives in one named
+  constant and is a one-line change.
+- **The message states no number.** A figure in the sentence invites bargaining
+  and counting; what the client needs is the gesture that works.
 - **Two enforcement points.** The composer, so the client is told before anything
   is sent; and `POST /api/ai/prompt`, beside its existing `text is required`
   check, so a direct caller gets the same refusal and the same sentence. The
@@ -149,5 +168,7 @@ bubble and an empty assistant bubble have been painted. Two consequences:
 
 Refusing *before* the composer clears — the better shape, where the client sees
 the sentence with their own text still in front of them and no bubbles are painted
-at all — needs a declared maximum on `mountChat`, which is upstream's to add.
-Worth having; not worth waiting for.
+at all — needs a declared maximum on `mountChat`. That is
+**lagrange-framework REQ-177**, raised from here. Worth having; not worth waiting
+for, so this ticket ships the in-repo shape and adopts the composer bound when it
+arrives.
