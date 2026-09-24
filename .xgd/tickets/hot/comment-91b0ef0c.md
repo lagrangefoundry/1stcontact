@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-24T18:49:57.123788+00:00'
+updated_at: '2026-09-24T19:00:49.985513+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2154,5 +2154,11 @@ or start the builder the way the repo does — `pnpm dev:control`, i.e. `./bin/1
 One thing worth noting for EPIC-16: this sharpens the shared-`--persist-to` question REQ-315's amendment flagged. The hazard isn't just concurrent access or in-tree version skew — a globally-installed CLI is enough to poison a shared store, and no `package.json` pin can see it.
 
 Want me to file a child ticket for a guard — `1c builder` refusing to spawn a wrangler whose workerd doesn't match the workspace's? It's small and testable, and it would have caught this at launch rather than as a runtime fatal.
+
+<!-- xgd-turn id="785e62f3-a33e-44f2-a5b6-2e1905ba50a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T19:00:49.830020+00:00" -->
+#### You
+I can't find the process in a terminal it must've been backgrounded
 
 <!-- xgd-chat-end -->
