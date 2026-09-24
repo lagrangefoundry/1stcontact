@@ -23,6 +23,9 @@ importers:
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
+      miniflare:
+        specifier: ^4.20260630.0
+        version: 4.20260710.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -102,6 +105,9 @@ importers:
       '@1stcontact/site-schema':
         specifier: workspace:*
         version: link:../../packages/site-schema
+      miniflare:
+        specifier: ^4.20260630.0
+        version: 4.20260710.0
       playwright:
         specifier: ^1.61.1
         version: 1.61.1

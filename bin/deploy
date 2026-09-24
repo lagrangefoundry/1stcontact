@@ -52,11 +52,30 @@
 # is safe to look at. A secret hook script therefore contains the name and the
 # push, never the value; see bin/deploy.d/secrets/README.md.
 #
+# THE FONT MIRROR IS A TARGET, NOT A HOOK ([[REQ-315]]). Two apps serve
+# `_fonts/…` but there is ONE bucket and the mirror is not per-app, so running it
+# as a hook would re-read and re-hash 1.35GB once per app to transfer nothing the
+# second time. `--fonts` is therefore its own invocation and deploys the mirror
+# and NOTHING ELSE: a font corpus and a Worker have completely different costs
+# and cadences, and naming what you want moved is cheaper than a flag that
+# silently adds an hour to a code deploy. `bin/deploy` with no flag still means
+# the apps.
+#
+#   --fonts --env production   `1c fonts publish` — the cloud bucket, over the R2
+#                              REST API, with the CLOUDFLARE_API_TOKEN the rest
+#                              of the release toolset already uses.
+#   --fonts --env dev          `1c fonts seed` — the miniflare store `wrangler
+#                              dev` reads, on this machine. The same prefix and
+#                              the same key function, so `r2PlatformFonts(
+#                              env.SITES)` serves local dev unchanged.
+#
 # Usage:
 #   bin/deploy                       # every app, --env production
 #   bin/deploy public-site           # one app
 #   bin/deploy --dry-run             # rehearse everything
 #   bin/deploy --env staging control-app
+#   bin/deploy --fonts               # the platform font mirror, to the cloud
+#   bin/deploy --fonts --env dev     # …and to local dev, where the work is done
 #
 # Exit codes: 0 success; 1 anything else (a failed hook, a failed upload).
 
@@ -68,12 +87,17 @@ cd "$repo_root"
 
 dry_run=0
 env_name="production"
+fonts=0
 requested=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)
       dry_run=1
+      shift
+      ;;
+    --fonts)
+      fonts=1
       shift
       ;;
     --env)
@@ -89,9 +113,20 @@ while [[ $# -gt 0 ]]; do
 bin/deploy — deploy the Workers, and report what moved.
 
   bin/deploy [--dry-run] [--env <name>] [app...]
+  bin/deploy --fonts [--dry-run] [--env production|dev] [app...]
 
 With no app named, every apps/*/ Worker is deployed. `--dry-run` runs the same
 path and uploads nothing.
+
+`--fonts` deploys the staged platform font mirror AND NOTHING ELSE — a 1.35GB
+corpus and a Worker move on different schedules, so each is named. At
+`--env production` that is the cloud R2 bucket; at `--env dev` it is the
+miniflare store `wrangler dev` reads on this machine, under the same prefix and
+the same key function, so local dev serves the same bytes through the same code.
+There is one cloud bucket but `.wrangler/state` is per app directory, so naming
+apps narrows the dev target and is refused for production. Stage the mirror
+first with `1c fonts mirror` — and for a dev seed pass `--quality 9` to it,
+which is roughly 20x faster than the default for about 9% more bytes.
 
 Hooks (any executable file, sorted, run before the app's upload):
   bin/deploy.d/migrate/   schema migrations
@@ -149,6 +184,54 @@ else
 fi
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+
+# THE FONT TARGET ([[REQ-315]]). It delegates to `1c fonts` rather than
+# reimplementing a delivery, the same way the app deploys delegate to wrangler:
+# the object set, the prefix, the key function, the digest check and the report
+# are all one implementation, and the only thing this file decides is which of
+# the two destinations was asked for. An incomplete mirror exits non-zero there,
+# which stops this before anything claims to have shipped.
+deploy_fonts() {
+  local cmd=("$repo_root/bin/1c" fonts)
+  case "$env_name" in
+    production)
+      # ONE BUCKET. A named app would imply the mirror is per-app, and publishing
+      # it twice would re-read and re-hash the whole corpus to transfer nothing.
+      if [[ ${#requested[@]} -gt 0 ]]; then
+        echo "bin/deploy: --fonts --env production publishes one bucket, so it takes no app name." >&2
+        echo "            (--env dev writes a store per app, and there an app name narrows it.)" >&2
+        exit 1
+      fi
+      cmd+=(publish)
+      ;;
+    dev)
+      cmd+=(seed)
+      if [[ ${#requested[@]} -gt 0 ]]; then
+        cmd+=(--app "$(IFS=,; echo "${requested[*]}")")
+      fi
+      ;;
+    *)
+      echo "bin/deploy: --fonts knows two environments, 'production' and 'dev' — not '$env_name'." >&2
+      exit 1
+      ;;
+  esac
+  if [[ $dry_run -eq 1 ]]; then
+    cmd+=(--dry-run)
+  fi
+  step "platform fonts → $env_name"
+  "${cmd[@]}"
+}
+
+# BEFORE THE CAPABILITY REPORT IS EVEN CREATED, because no hook runs on this
+# path and a report with no rows is not a report — it is an empty section that
+# reads as a clean bill of health for probes that never happened.
+if [[ $fonts -eq 1 ]]; then
+  if [[ $dry_run -eq 1 ]]; then
+    echo "DRY RUN — what would move is reported, and nothing is written."
+  fi
+  deploy_fonts
+  exit 0
+fi
 
 # The deployed Worker's name for an environment. Read out of wrangler.toml rather
 # than assumed to equal the directory: `name` under [env.<name>] overrides the
