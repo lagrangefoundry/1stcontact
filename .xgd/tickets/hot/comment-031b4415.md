@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-24T00:08:54.247853+00:00'
+updated_at: '2026-09-24T00:10:40.005301+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -929,5 +929,53 @@ We are not talking about routing round the 90 min process that is running - if y
 Once that process is completed I want to understand how I get my dev system to see the fonts - and BTW the AI should not need to know what environment its in (nor should the browser) this should all just work.
 
 I really cannot make head nor tail of your answers you keep trying to short cut this thing I'm waiting for stop doing that. Lets discuss the state of the world in which that command has completed please
+
+<!-- xgd-turn id="a2c3bb43-6868-46be-b997-4fb4adcdae47-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T00:10:39.082251+00:00" -->
+#### Claude
+Understood — full corpus, full quality, no shortcuts. Let me check what the world actually looks like the moment that finishes, because there's something in it I want to verify before I describe it.
+
+Right — full corpus, and I'll describe the world it lands in. I checked one thing first, and it changes the picture.
+
+Not routing around it. Here's the world when it finishes.
+
+## You're right about the principle, and the code already agrees
+
+I verified all three:
+
+- **The browser never knows.** The `src` is root-relative `/_fonts/…`, reduced to document-relative by the renderer. No host, no environment.
+- **The AI never knows.** `use_font` calls `resolveFont(fonts, …)` against a bundled projection. No environment in the call, nothing it could read to find one.
+- **The router never knows.** `r2PlatformFonts(env.SITES)` is one line serving both runtimes. Under `wrangler dev`, `env.SITES` *is* miniflare's local R2.
+
+Every consumer is already blind. **One thing is environment-specific and it's the wrong one: the supply.** `1c fonts publish` speaks only the cloud REST API, so production gets bytes and dev doesn't.
+
+## The part I checked, which is worse than I'd been saying
+
+`cmdFontsIndex` builds the projection from `fonts/platform.json` — **the staged manifest**. And `use_font` resolves against it with **no runtime check that any byte exists**. The `ENVIRONMENT` refusal fires on exactly one condition: `families.length === 0`.
+
+So when your run completes:
+
+| | now | when the mirror finishes |
+|---|---|---|
+| projection | empty | 1,940 families, in **every** environment |
+| `use_font` in dev | refuses honestly | **succeeds**, binds `/_fonts/roboto/…` |
+| browser | fallback face, and you were told why | fallback face, and **nothing says so** |
+
+**Dev gets worse when the mirror completes**, not better. It trades an honest refusal for a confident bind that 404s — the exact silent fallback-face failure REQ-312 was built to prevent, surviving in the one environment you actually work in.
+
+The projection is a build-time global. The bytes are per-environment. That mismatch is the whole defect, and it can't be fixed at the consumer end without teaching someone where they are — which is the thing that mustn't happen.
+
+## So what has to happen is one movement, on the supply side
+
+The staged mirror at `fonts/mirror/` has to reach the local miniflare R2 that `env.SITES` resolves to, under the same `platform/fonts/` prefix and key function publish already uses. Local disk to local disk — no network, no compression, no conversion. The expensive work is done and sitting there.
+
+And per your principle it shouldn't be a step you remember. There's precedent in the code for exactly this: `1c fonts mirror` already auto-runs `cmdFontsIndex` at the end, specifically so a refreshed corpus can't leave the assistant binding paths that aren't served. The local bytes are the same class of follow-on. A mirror run that leaves your own dev environment unable to serve what it just spent 90 minutes converting hasn't finished.
+
+Whether it lands as a final step of `fonts mirror`, a seed on `1c builder` startup, or a target on `bin/deploy --fonts`, the acceptance is the same: **mirror completes, you start the builder, fonts work — nothing extra typed, no environment chosen.**
+
+I've put all of this in REQ-315, replacing the "operator selects a target" framing it had.
+
+One thing still genuinely open, and it's yours to call: `fonts/mirror/` is 1.35 GB, and seeding miniflare's R2 means a second copy on disk. Live with 2.7 GB, or have the dev path read the staged directory directly through the `platformFonts` seam that already exists in `RouterDeps` — which avoids the copy but means dev and prod read through different implementations of the same interface.
 
 <!-- xgd-chat-end -->
