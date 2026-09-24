@@ -5,10 +5,10 @@ type: request
 title: VOID — misfiled, refiled in lagrange-framework
 created_by: EPIC-19
 created_at: '2026-09-24T23:31:41.289581+00:00'
-updated_at: '2026-09-24T23:32:04.881622+00:00'
+updated_at: '2026-09-24T23:32:13.807328+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   priority: medium
   auto_merge_back: true
