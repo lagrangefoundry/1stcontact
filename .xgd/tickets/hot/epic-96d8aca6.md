@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-24T19:08:41.452192+00:00'
+updated_at: '2026-09-24T23:02:48.071178+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -1739,3 +1739,113 @@ the dev target is not really a deploy.
 
 REQ-315 is EPIC-21's child, not this epic's. This section records the interaction;
 amending REQ-315's own body is that epic's call.
+
+
+---
+
+## §M — Version skew is a data-loss hazard for §K's single store, and `1c ps` (2026-09-24)
+
+### M1 — `workerd` owns the store's schema, and migrates it forward silently
+
+Measured, from an incident this morning. The builder refused to start:
+
+```
+*** Fatal uncaught kj::Exception: workerd/util/sqlite.c++:844: failed: SENTRY_DO
+SQLite failed; table _cf_ALARM has 3 columns but 2 values were supplied
+```
+
+Neither remedy an operator would reach for is the right one. `_cf_ALARM` is not in
+D1, so `wrangler d1 migrations apply` does nothing; a `[[migrations]]` block declares
+Durable Object class renames, not workerd's internal table schemas. The cause is that
+**the on-disk schema of `.wrangler/state` is owned by `workerd`, which migrates it
+forward on open, silently — no log line, no version stamp.**
+
+The skew came from two independently-floating semver ranges each dragging their own
+`workerd`: `wrangler ^4.106.0` → workerd 1.20260630.1, and the separately-declared
+`miniflare ^4.20260630.0` → workerd 1.20260710.1. The newer one, reached through
+`tools/generate/src/fonts/seed.ts` (which imports `Miniflare` as a library to write
+the R2 persist directory), ran `ALTER TABLE _cf_ALARM ADD COLUMN actor_name TEXT`
+against the R2 stores at 00:18–00:20. The older one died reading them at 10:43.
+
+Two properties make this worse than an annoyance:
+
+- **The migration is one-way.** workerd does not remove the column it added.
+- **Recovery was free only because of which table was hit.** `_cf_ALARM` held zero
+  rows and was alone in an 8 KB `metadata.sqlite`, so deleting the file was a
+  complete fix. The same skew landing on `_mf_objects` would have cost 6,904 objects
+  and ~2 GB of blobs, with no undo.
+
+### M2 — Which is why it is a precondition of §K, not adjacent hygiene
+
+§K puts **three** kinds of `workerd`-bringing consumer on one store: `wrangler dev`
+(workerd via wrangler's pin), the font seeder (via its own `miniflare`), and
+`@cloudflare/vitest-pool-workers` in tests (via its own bundled wrangler). That is
+exactly the configuration that broke this morning.
+
+Combine it with **K2** — the operator's decision that the dev environment holds *the
+only copy* of the dev data — and version skew stops being an annoyance and becomes
+data loss. §K therefore owes the store a guard **on entry**: `bin/dev up` must refuse
+to start when more than one `workerd` resolves in the tree, *before* anything opens
+the store, rather than trusting the lockfile to stay honest.
+
+[[REQ-316]] builds the pin and the check. §K wires it into the entry point. There is
+no third ticket here: the constraint is design context for §K, and its code half is
+already owned.
+
+Also worth correcting in passing: `seed.ts`'s header asserts *"Miniflare is not a new
+dependency in the tree — it is what `wrangler` already is underneath; declaring it
+only makes an existing fact importable."* Declaring it separately made it a second,
+independently-floating resolution — which is the defect. REQ-316 carries that
+correction.
+
+### M3 — `1c ps`, requested 2026-09-24
+
+The ask: **list every server this project has running, with its PID and port.**
+
+It is **§K6's reaper minus the killing** — the same survey, the same table, the same
+identity rules. `reap` is `ps` plus a verb, and `down`'s requirement to *verify* the
+ports are free rather than assume the signal landed is a `ps` read. So it belongs in
+the supervisor ticket rather than a ticket of its own.
+
+**It must be built on `lsof`, per K5.** `ps aux` returns zero lines under the agent
+sandbox while `lsof -nP -iTCP -sTCP:LISTEN` and `lsof -a -p <pid> -d cwd -Fn` both
+work. A `ps`-based implementation would serve the operator and be unusable by the
+agent that produced four of the eight measured zombies.
+
+**It must answer `reset.ts`'s objection rather than walk past it.** `reset.ts:131`
+already documents a deliberate rejection of exactly this mechanism:
+
+> A CONNECT, NOT A PID FILE OR A PROCESS SCAN. … A pid file can be stale; a process
+> scan matches another checkout's server, which is a different store entirely.
+
+That reasoning is correct for the question *reset* asks — "is something holding my
+store open" — and a connect is the right test for it. `1c ps` asks a different
+question — "what is running here, and what would I stop" — which a connect cannot
+answer at all, because it yields no PID. The objection to a process scan is answered,
+not ignored, by keying rows on **cwd**: a listener whose working directory is another
+checkout is reported as that checkout's, never as this one's. The two probes coexist
+and neither replaces the other. `1c ps` does not change `1c reset`'s refusal test.
+
+**It should return a value, not print one**, following `filingStatus`
+(`filing.ts:471`) and its stated reason: the old filing signal was a `console.log`
+from the command that in the failing case was never run, so returning the state lets
+a banner render it, a UAT assert it, and a future surface read it without three
+descriptions of one fact. `1c ps`'s table is the same kind of thing — `bin/dev down`
+and `reap` are its other readers.
+
+**The port→service map cannot be the identity.** Four of the eight zombies measured
+in K4 hold ports no constant names (8712, 8722, 8733, 8795). A row must stay legible
+with an unrecognised port — naming the cwd and saying the service is unknown — rather
+than being omitted, because an unnamed listener in this repo's tree is precisely what
+the operator has never been able to see. The known band today is 8710 (repro console),
+8787 (public-site), 8788 (builder), 8790 (filing), 8799 (access-sim), 24678 (Vite HMR).
+
+**The classification is the useful column**, because it is what decides whether a row
+is safe to stop: this checkout / an `.xgd` worktree of this repo / a sibling project /
+undeterminable. K4's sweep found eleven of this repo's own and six belonging to
+sibling projects; conflating them is how a reaper becomes dangerous.
+
+**It must report what it could not determine.** `lsof` will not return a cwd for a
+process owned by another user, and a detached listener started from an agent sandbox
+survives `kill -9` from inside it. A survey that silently omits what it cannot see,
+or a reaper that claims a kill it did not achieve, is worse than one that says so.
