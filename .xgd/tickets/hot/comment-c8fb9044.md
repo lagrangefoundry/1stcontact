@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-314
 created_by: xgd
 created_at: '2026-09-23T18:03:35.670032+00:00'
-updated_at: '2026-09-24T07:12:20.133734+00:00'
+updated_at: '2026-09-24T07:43:09.645015+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -77,5 +77,35 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="a6eda3b7-9b58-4b11-b6fa-72ff8919eef1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T07:43:09.090290+00:00" -->
+#### Claude
+I have the full picture now. Let me record the design decisions on the ticket and start.
+
+Now let me build. First the data layer:
+
+Now the shortlist and browse corpus:
+
+Now the schema side — the `font` descriptor and its write:
+
+Now the binding in `editCopySet` — through `use_font`'s own resolver:
+
+Now the `/api/fonts` route, next to `/api/copy`:
+
+Now the client. The search rule first:
+
+Now the font popup:
+
+Now the field row, modelled on `color-field.js`:
+
+Now the `api.js` transport and the editor/app wiring:
+
+Now the stylesheet:
+
+Clean. Now the UAT suite:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
