@@ -6,9 +6,9 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-23T03:12:32.825619+00:00'
+updated_at: '2026-09-24T23:00:43.620939+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-95bc3b15
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   priority: medium
 ---
+
 
 ## What this is for
 
@@ -97,3 +98,56 @@ again, ahead of any of the work above.
 - `apps/control-app/src/ai.ts` — `sessionArchive`, the adapter over the ticket store.
 - `apps/control-app/src/tickets.ts` — the D1 ticket store's comment handling, if
   many comments of one kind need addressing by order.
+
+## A message too long to store is refused at the front door
+
+Decided 2026-09-24. lagrange-framework REQ-176 left one question to this host:
+what becomes of a single turn larger than the ceiling, which no segment can hold.
+The answer is that a client never gets to make one.
+
+There is no reason to put a long document in a chat message. The builder already
+takes documents — the **Background information** drop area (*"Brand guidelines,
+notes, reports. I'll use these to understand your business; they won't appear on
+your site."*), and a drop into the conversation itself is one of its two entry
+points. Material arriving that way is better off than pasted text in every
+respect: it is described, it is labelled (`DOC-n`), it stays in the Library to be
+reused, and it is indexed into the client's knowledge base so the consultant can
+retrieve it in a later session. Pasted text lives in one transcript and nowhere
+else.
+
+- A message over the bound is **refused, and the client is told why in a sentence
+  that names what to do instead** — to the effect of *"That's too long to send as
+  a message. Save it as a text file and drop it in as Background information —
+  I'll read it from there, and it stays in your Library."*
+- The refusal is **not a truncation and not a failed turn.** Nothing is sent,
+  nothing is archived, and the client's words are not lost: they are recoverable
+  into the composer, which is what this pane's `remember` and the composer's
+  recall already exist for.
+- **The bound is generous.** ~32,000 characters — several thousand words of typed
+  prose, and around a sixtieth of D1's 2,000,000-byte value ceiling. This is not
+  a storage guard with a safety margin; it is the point past which a message has
+  stopped being a message. The figure is the one thing here worth confirming
+  rather than inheriting.
+- **Two enforcement points.** The composer, so the client is told before anything
+  is sent; and `POST /api/ai/prompt`, beside its existing `text is required`
+  check, so a direct caller gets the same refusal and the same sentence. The
+  route's answer is the contract; the composer's is the courtesy.
+
+### The one non-obvious constraint
+
+`webui-chat`'s composer **clears the box before the submit handler runs**, and
+deliberately: *"the text has been accepted by the session the moment it is
+submitted... leaving it in the box would invite sending it twice."* So a refusal
+inside this host's `sendPrompt` arrives after the draft is gone and after the user
+bubble and an empty assistant bubble have been painted. Two consequences:
+
+- The refusal can be delivered as the assistant's reply for that turn, from a
+  stub stream — but that stream **must end with a proper terminal event**. A
+  stream that simply stops is what `onTurnLost` exists to detect, and it would
+  chase a turn that never existed (BUG-123).
+- `setInputMarkdown` is exposed, so the text can be put back in the box.
+
+Refusing *before* the composer clears — the better shape, where the client sees
+the sentence with their own text still in front of them and no bubbles are painted
+at all — needs a declared maximum on `mountChat`, which is upstream's to add.
+Worth having; not worth waiting for.
