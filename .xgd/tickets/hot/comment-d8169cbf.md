@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-23T20:30:40.195446+00:00'
+updated_at: '2026-09-24T19:13:21.625287+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3590,5 +3590,15 @@ BUG-67 is hygiene, not a blocker. REQ-175 no longer blocks, per the correction a
 Whether production already has sessions at or near the ceiling. If any do, they're either dead already or one turn from it, and a deploy won't fix them — they need repair. I can find out with a read-only `wrangler d1 execute --remote` counting body lengths per transcript comment, but that touches production and I'd rather you said go first.
 
 Also flagging before any deploy: `apps/control-app/wrangler.toml` is modified and uncommitted, and it's the file carrying the new `SessionJunction` binding and its `v1` migration.
+
+<!-- xgd-turn id="33a44adb-cb86-4680-8306-cf444de5c742-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T19:13:21.538258+00:00" -->
+#### You
+I just hit this in dev:
+
+*D1_ERROR: string or blob too big: SQLITE_TOOBIG*
+
+*Can you remind we where we are with the fix for this?*
 
 <!-- xgd-chat-end -->
