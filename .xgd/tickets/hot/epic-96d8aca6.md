@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-22T23:13:33.661197+00:00'
+updated_at: '2026-09-24T00:03:50.060434+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1381,3 +1381,124 @@ The defect is that **nothing bounds what a resume materialises**. A session grow
 -
 
 -
+
+
+---
+
+## §J — A deployed `dev` environment (2026-09-23)
+
+The operator asked whether live-changing code can be separated from the development
+environment, and specifically for `bin/deploy --env dev` so that a snapshot reaches
+dev on their command. Findings, read off the tree rather than recalled.
+
+### J1 — The flag already exists. The script needs nothing.
+
+`bin/deploy` takes `--env <name>` today, defaults it to `production`, exports it to
+every hook as `DEPLOY_ENV`, composes `npx wrangler deploy --env "$env_name"`, and
+reads the deployed Worker's name out of `[env.<name>].name` rather than assuming it
+equals the directory. Its own `--help` already advertises `bin/deploy --env staging
+control-app`. So the ask is satisfied by the script as written; what is missing is an
+environment for it to point at.
+
+### J2 — The parity UAT already guards a new environment, for free.
+
+`tests/test_UAT_FC_REQ-144_deploy_scripts.test.ts` iterates **every** named
+environment in each app's `wrangler.toml` — `for (const envName of envNames)` — and
+fails when one does not restate every top-level var and binding. So the moment
+`[env.dev]` is added it is held to the same completeness rule as `[env.production]`,
+with a message naming exactly what is missing. This is the single biggest reason the
+work is tractable: the failure mode a second environment usually introduces (a
+binding silently absent, because a named environment inherits nothing) is already
+mechanically caught.
+
+Its one exemption is `ACCESS_DEV_OPEN`, and it is scoped to `config.envs.production`
+(`test_UAT_FC_REQ-145_build_artifacts.test.ts:84`). That is correct for production
+and a **gap for dev**: nothing would stop `ACCESS_DEV_OPEN` being restated under
+`[env.dev.vars]`, and a deployed Worker with that var set has no Access gate at all.
+The assertion must become "no named environment names it", not "production does not".
+
+### J3 — `bin/deploy --env dev` is dangerous TODAY, and this is the one thing that
+must be fixed before the flag is used.
+
+`bin/deploy.d/migrate/10-d1-site-store` honours `DEPLOY_ENV` but names the database
+**literally**, three times:
+
+    npx wrangler d1 execute 1stcontact --env "$DEPLOY_ENV" --remote --json ...
+    npx wrangler d1 migrations list 1stcontact --env "$DEPLOY_ENV" --remote
+    npx wrangler d1 migrations apply 1stcontact --env "$DEPLOY_ENV" --remote
+
+That positional is the database's own name, not the binding's. So `bin/deploy --env
+dev` would verify and apply migrations against **production's** D1 while uploading
+code to dev. The hook must resolve the name from the env's own `d1_databases` block,
+the way it already resolves `migrations_dir` from a single declaration.
+
+`bin/migration-manifest` is fine — it takes `--env` and reports per-environment — but
+it scrapes `migrations_dir` and *errors* when more than one distinct value is
+declared, on the stated principle that the blocks must agree. A third block under
+`[env.dev]` must therefore declare the same `migrations_dir`, which it should.
+
+`bin/build` also hardcodes `--env production` for its per-app `wrangler deploy
+--dry-run --outdir dist`, for a good reason (a config error that only exists under
+the deployed environment is the class of bug it exists to catch). With two deployed
+environments that reasoning now asks for `bin/build --env <name>`, or a build that
+rehearses both.
+
+### J4 — What must be provisioned, and what comes free.
+
+Account-side, one-time:
+
+| | |
+|---|---|
+| D1 | one new database. **18 migrations against an empty database** — the easy case, and the same argument §H made for the rebaseline |
+| R2 | two buckets (`SITES`, `BLOBS`) |
+| Rate limiter | a second `namespace_id` — an opaque handle chosen per binding, not a secret |
+| Durable Object | **free**: a new Worker name gets its own namespace, and `[[env.dev.migrations]]` replays the tag from an empty store |
+| Browser / Images / AI | **free**: account-level bindings, no per-environment resource |
+| Secrets | **not free, but already automated**: secrets are per-script, so all four must be pushed again. The hooks already do this through `--env`, so exporting the values and running `bin/deploy --env dev` pushes and *probes* them |
+
+`apps/public-site`'s `LEAD_INTAKE` and `ASSET_GATE` are service bindings naming
+`1stcontact-control-app` by literal name. Under `[env.dev]` they must name the **dev**
+control-app, or a lead captured on dev is written into production's database by a
+Worker that never appears in the dev deploy.
+
+### J5 — The decisions, which are the actual work.
+
+1. **Hostnames and Access.** Access attaches to a hostname, so dev needs its own
+   application on its own hostname and therefore its own `ACCESS_AUD` — that value is
+   per-application. `ACCESS_TEAM_DOMAIN` is shared. The allow-list is the one
+   `ACCESS.md` records.
+2. **`workers_dev` inheritance.** `apps/public-site/wrangler.toml` sets `workers_dev
+   = true` at the top level, and `workers_dev` **is** inherited by a named environment
+   — the control-app's own comment records this as the exception to the rule. An
+   `[env.dev]` silent about it ships a guessable `*.workers.dev` hostname that no
+   Access policy covers, serving the dev public site and `/api/lead`. This is
+   [[EPIC-17]] item 12 in a second instance.
+3. **`SESSION_COOKIE_DOMAIN`.** Production sets it to `1stcontact.io`. If dev lives at
+   a subdomain of that zone and restates the same value, a dev session and a
+   production session share one cookie. This is the sharpest trap in the set, because
+   the parity UAT will *demand* the var be restated and cannot know the correct value
+   differs.
+4. **Turnstile.** A second widget scoped to the dev hostnames, or every dev lead 503s
+   — `lead.ts` fails closed for anonymous callers (§I).
+5. **`TENANT_ID`.** Dev needs its own platform business id; the production value names
+   a row in production's database.
+6. **Seeding dev with content.** `CLOUD_ORIGIN` in `tools/generate/src/cli/copy.ts` is
+   the constant `https://app.1stcontact.io`. `--origin` overrides only the **local**
+   end, so `bin/copy-to-cloud` cannot today address a second deployment. A
+   `--cloud-origin` (or an `--env`-selected one) is what makes dev seedable from the
+   laptop, and it is small.
+7. **`bin/smoke`** knows only the production origins.
+
+### J6 — Assessment
+
+The flag is done; the environment is a day's careful configuration, most of which is
+mechanical and guarded by an existing test. Three items are genuine code changes and
+should not be skipped: the migrate hook's hardcoded database name (J3, a
+production-data hazard), the `ACCESS_DEV_OPEN` assertion widening to every named
+environment (J2), and a cloud-origin flag on the copy pair (J5.6). `bin/build --env`
+is a fourth, smaller one.
+
+The ordering that keeps it safe: fix the migrate hook **first**, then declare
+`[env.dev]` and let the parity UAT tell you what is missing, then provision, then
+`bin/deploy --dry-run --env dev` — which reaches Cloudflare and lists migrations
+without applying them — and only then the real run.
