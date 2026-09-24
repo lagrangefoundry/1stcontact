@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T19:03:09.732777+00:00'
+updated_at: '2026-09-24T19:04:12.128045+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4157,5 +4157,11 @@ Three things still open from this session:
 3. **Record the §K constraint** — a shared `--persist-to` is only safe while every process touching it resolves the same workerd. Today is the worked example.
 
 Which would you like?
+
+<!-- xgd-turn id="c545cb4c-0254-47be-bd58-07050f29f8c8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T19:04:11.899145+00:00" -->
+#### You
+Can you explain 1 and 3 please
 
 <!-- xgd-chat-end -->
