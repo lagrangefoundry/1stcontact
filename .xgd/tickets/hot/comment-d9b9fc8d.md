@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T17:44:39.518535+00:00'
+updated_at: '2026-09-24T18:35:50.498133+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3915,5 +3915,11 @@ Deleting fixes today; the skew re-poisons the state the next time anything runs 
 ## One note for EPIC-16
 
 This lands directly on the question I flagged as **not verified** in REQ-315's amendment yesterday — whether two `wrangler dev` processes can share one `--persist-to` directory. This incident sharpens it: the hazard isn't only concurrent access, it's **version** skew. A shared persist directory is safe only while every process touching it is the same wrangler build, which makes `@cloudflare/vitest-pool-workers` dragging its own wrangler a standing risk to any single-store design. Say the word and I'll record it in §K as a constraint on the shared-store option.
+
+<!-- xgd-turn id="ecfbd1a8-5d1c-4dfe-9fb3-8d5e00b4f7b9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T18:35:49.862508+00:00" -->
+#### You
+Sure please run it
 
 <!-- xgd-chat-end -->
