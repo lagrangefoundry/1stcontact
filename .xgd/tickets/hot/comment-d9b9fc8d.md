@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-22T23:13:46.666106+00:00'
+updated_at: '2026-09-24T00:00:22.169536+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3463,5 +3463,17 @@ Two things I recorded on the epic but didn't file:
 
 - **Whether publish belongs on the request path at all**, versus a Queue or Workflow. Worth asking against measurements after 304 and 305, not against today's numbers.
 - **The 35.8 MB of unreferenced LF assets.** Still your call, still not done. It'd likely restore chat and publish ahead of REQ-303 — but you've moved to dev, so it's no longer blocking you, and I'd rather not delete a dozen images on my own initiative.
+
+<!-- xgd-turn id="3626bdbe-3824-418c-9e84-720553e45eed-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:00:20.266226+00:00" -->
+#### You
+Right now we have one environment - production.
+
+Can we separate live changing code from the development environment?
+
+I think I want a bin/deploy --env dev so I have control over when a snapshot goes to dev
+
+How hard is that?
 
 <!-- xgd-chat-end -->
