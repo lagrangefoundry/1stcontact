@@ -6,10 +6,10 @@ title: 'The editor font control: 30 curated faces, and a query box that reaches 
   1,941'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:38.760798+00:00'
-updated_at: '2026-09-23T18:12:23.738914+00:00'
+updated_at: '2026-09-24T07:20:23.363980+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: low
   epic_parent: epic-b9b27697
@@ -165,3 +165,95 @@ used. It has no effect on the assistant, which addresses the full mirror through
 Lower than [[REQ-311]], [[REQ-312]] and [[REQ-313]]. Those three unblock the assistant,
 which is what the Lagrange Foundry site and the beta need. This one improves a human
 surface that has no fonts to show until the mirror exists.
+---
+
+## Implementation — decisions taken while building (2026-09-24)
+
+### Six chips are derivable after all, from `stroke`
+
+The brief said the six chips come "from data the catalogue already carries", and
+the projection the assistant reads (`platform-fonts.json`) carries only
+`category`, which has five values — no Slab Serif. The catalogue itself carries
+a second field, `stroke`, and 30 families declare `stroke: "Slab Serif"`. So the
+sixth chip is real data, one join away.
+
+`1c fonts index` now carries a `slab` flag onto the family it projects, derived
+from that field. It is one boolean on a generated artifact rather than a second
+artifact, for the reason the projection already states about itself: one
+generated file cannot disagree with itself, two can.
+
+All 30 slab families are classified `Serif`, so **Slab Serif is a refinement of
+Serif, not a sibling**: the Serif chip shows slabs too. Hiding Roboto Slab from
+"Serif" because a narrower chip exists would be a lie about what Roboto Slab is.
+
+### Where the corpus reaches the browser
+
+One request, not one per keystroke. `GET /api/fonts` answers the whole browse
+corpus once — every family's name, its category and its slab flag, the curated
+rows with the mirror path of the face that previews them, and the
+known-but-unserved list. Roughly 70KB uncompressed, fetched lazily the first
+time a dropdown opens and held for the session.
+
+**Matching happens in the browser**, which is what makes typing instant and what
+keeps the origin out of a debounce loop. It is one rule in one module
+(`font-search.js`) with one consumer, rather than a rule split across a client
+that draws and an origin that filters.
+
+A STALE CORPUS CANNOT PRODUCE A BAD WRITE, which is the difference from the
+Library's catalogue and the reason this one is allowed to travel separately from
+the descriptors. The mirror is a build artifact; the write side resolves the
+chosen family against the same index server-side and refuses an unknown one with
+a sentence. The worst a stale list can do is offer a family that has since been
+dropped, and the answer to choosing it is a clean refusal rather than a bad page.
+
+### The corpus the Node builder serves is the workspace's own
+
+`RouterDeps.fontIndex` joins `platformFonts` as an injected reader. Deployed it
+is the projection the bundle carries; in the `1c` builder it is
+`buildIndex(cwd)` over the workspace's own `fonts/platform.json` — which is
+where that transport already reads preview font BYTES from. The two have to
+agree about what is mirrored, and reading them from one place is how.
+
+### Binding goes through `use_font`'s own resolver
+
+`editCopySet` intercepts a `fontFamily` change before the node is touched:
+`resolveFont` resolves the family against the same index, `mergeFontFaces`
+merges the faces into the page's own `resources.fonts`, and only then does
+`applyCopyFields` write the paintable stack onto the run's `axes.fontFamily`.
+Both functions are `use_font`'s, imported rather than restated — so a family a
+page already serves from its own files is refused here in the same sentence, and
+choosing a family the page already paints writes nothing.
+
+The weights bound are the family's defaults plus the run's own current weight,
+and italic is bound when the run is already italic and the family ships one —
+so choosing a family never silently re-weights or de-italicises the words.
+
+### The face a preview row is drawn in resolves at the preview's own root
+
+The dropdown composes `_fonts/<path>` against the preview iframe's `baseURI`,
+which is the same root the page's own faces resolve at. No new serving route,
+no second spelling, and a preview face that resolves is proof the page's will.
+
+### What is not built
+
+- **`1c fonts check` does not gain a shortlist rule.** The rot guard is a UAT
+  against `fonts/catalogue.json`, which is committed and therefore runs in CI on
+  a checkout with no mirror; widening the check report would put the same
+  guarantee somewhere it only runs when a mirror happens to be populated.
+- **The unserved list carries open substitutes** (`Helvetica → Arimo`,
+  `Times New Roman → Tinos`…) beyond what the brief asked for. A developer told
+  only "we cannot serve that" has to go looking; told "we cannot serve that, and
+  the metric-compatible open face is Arimo" they are done.
+
+## Behaviour — additions to the list above
+
+- Selecting a family in a run's editor binds its faces to that page's
+  `resources.fonts` and paints the run in it, in one Save.
+- Selecting the family the run already uses writes nothing.
+- Selecting a family the page already serves from its own uploaded files is
+  refused with the reason, rather than repointed at the platform's bytes.
+- The corpus the control offers is the one the deployment actually serves: a
+  checkout with no mirror offers nothing and says so, rather than listing
+  families whose bytes do not exist.
+- Every curated family resolves to a family the catalogue carries.
+- The Serif chip includes slab serifs; the Slab Serif chip narrows to them.
