@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-24T00:03:50.060434+00:00'
+updated_at: '2026-09-24T00:23:48.779374+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1502,3 +1502,143 @@ The ordering that keeps it safe: fix the migrate hook **first**, then declare
 `[env.dev]` and let the parity UAT tell you what is missing, then provision, then
 `bin/deploy --dry-run --env dev` — which reaches Cloudflare and lists migrations
 without applying them — and only then the real run.
+
+
+---
+
+## §K — One local dev environment, deployed to rather than edited into (2026-09-23)
+
+§J answered a question the operator did not ask. It is kept because a cloud
+staging environment remains a real option and its findings are accurate, but it is
+**not** this section's subject. What was actually asked for is a **local** dev
+environment, isolated from the working tree, that the scripts treat as a deploy
+target — and a single command to start, stop and clean up all of it.
+
+### K1 — What is in place, stated correctly
+
+The current problem is not "there is only production". It is that **locally there
+is no boundary at all**.
+
+`pnpm dev` runs `./bin/1c builder`, which composes (`dev-env.ts:184`)
+`wrangler dev --port 8788` plus the env-file layering. Three consequences:
+
+- **No `--env`**, so it reads the **top-level** `wrangler.toml` block —
+  `d1-migrations.ts:82` states this explicitly as why it reads the top-level block
+  too. That block carries `ACCESS_DEV_OPEN = "1"`.
+- **`wrangler dev` watches.** Every save rebuilds and reloads, so the running
+  Worker and the file being edited are the same bytes, continuously. A
+  half-finished function or a just-written migration is immediately what serves.
+- **State persists to `apps/control-app/.wrangler/state`** — `reset.ts:17` calls it
+  "the whole of what survives a restart … There is no second place."
+
+### K2 — The operator's correction, recorded because it closes a question
+
+Asked whether a deployed dev environment should share `.wrangler/state` or get its
+own, the operator's answer was that the question is malformed. The new environment
+**REPLACES** today's arrangement entirely. There is **ONE** local dev environment;
+the way to use it is to run a deploy; it holds **THE ONLY COPY** of the dev data.
+There is therefore nothing to share with and no seeding fork. `.wrangler/state`
+does not become a second store — it becomes this environment's store.
+
+This also settles a scoping question that must be explicit because it reaches
+several files: `bin/dev up` becomes the **only** way to run the dev environment.
+`pnpm dev` / `pnpm dev:control` stop being entry points, and `1c builder` becomes
+something `bin/dev up` calls rather than something an operator types. `dev-env.ts`,
+the root `package.json` scripts and any doc that says "run `pnpm dev`" are in scope.
+
+### K3 — The isolation mechanism, and why most of it already exists
+
+`wrangler dev` has no `--no-watch`, so the freeze cannot come from a flag. It comes
+from **what is watched**: point it at a snapshot directory that nothing writes to
+except the next deploy, and the environment is frozen by construction.
+
+Three of the four pieces are already built:
+
+1. **The ceremony.** `bin/deploy --env <name>` already parses, exports `DEPLOY_ENV`
+   to the migrate and secrets hooks, reads the Worker name from `[env.<name>].name`
+   and prints the capability report. The "looks like a cloud deploy" requirement is
+   satisfied by using this path, not by imitating it.
+2. **The artifact.** `bin/build` stage 4 runs `wrangler deploy --env production
+   --dry-run --outdir dist` and leaves a complete bundled Worker at
+   `apps/control-app/dist/worker.js`. It exists on disk today, purely as a
+   typecheck gate, and **nothing consumes it**. That bundle is the snapshot.
+3. **The runner.** The installed wrangler's `dev` accepts `--no-bundle`,
+   `--persist-to`, `--env` and `--port` (verified against `wrangler dev --help`).
+
+What is missing is **the terminal verb**. `bin/deploy` ends in `npx wrangler
+deploy`, which uploads. The script's own header says *"ONE CODE PATH. `--dry-run`
+is a TARGET, not a different script."* It already has the concept of a target; what
+it lacks is a **target table** — given an environment, how do I ship to it — rather
+than a hardcoded upload. Adding that is the honest version of this change and is
+what keeps the hooks, their ordering and the capability report identical between a
+cloud deploy and a local one.
+
+A consequence worth naming: `d1-migrations.ts` deliberately reads the **top-level**
+block because that is what `wrangler dev` reads. Once the dev target is
+`--env dev`, that reasoning inverts and it must follow the environment.
+
+### K4 — The moving parts, and the zombies they leave (measured, 2026-09-23)
+
+A sweep of every listener in the dev port band on the operator's machine, attributed
+by each process's working directory:
+
+| port | proc | cwd | |
+|---|---|---|---|
+| 8788 | workerd | `1stcontact/apps/control-app` | builder |
+| 8790 | node | `1stcontact` | filing server |
+| 8799 | node | `1stcontact` | access-sim |
+| 8712, 8722, 8733 | node | `1stcontact` | **orphans** |
+| 8711, 8719, 8723 | node | `.xgd/worktrees/…/free-REQ-254` | **orphans, worktree gone** |
+| 8795 | node | `.xgd/worktrees/…/free-BUG-124` | **orphan, worktree gone** |
+| 8889 | python | `/private/tmp/…/garbage-…/test_UAT_FC_REQ_706_stop_port_3` | **orphan, dir deleted** |
+| 8766/67/91/93/94, 8888 | python | sibling repos | not this repo's to reap |
+
+**Three** listeners are the dev environment. **Eight** are this repo's zombies.
+Nothing has ever reclaimed them and they have plainly been accumulating for a long
+time. Note also that 8711 and 8712 are occupied — exactly what `filing.ts:116`
+predicted when it chose 8790 over them ("8711 and 8712 are routinely taken on a
+working machine"); they are taken by this repo's own strays.
+
+### K5 — `ps` IS BLOCKED; THE REAPER MUST BE BUILT ON `lsof`
+
+Measured, not assumed: `ps aux` returns **zero lines** under the agent sandbox,
+while `lsof -nP -iTCP -sTCP:LISTEN` works, and `lsof -a -p <pid> -d cwd -Fn` returns
+a usable working directory. The table in K4 was built entirely with the latter.
+
+A reaper written against `ps` would work for the operator and be unusable by any
+agent — which is precisely the condition that produced four of the eight zombies.
+The **cwd is also the right identity key**: it separates this repo's strays from
+lagrange-framework's and xgd's cleanly, so the reaper is safe by construction
+rather than by a hand-maintained port allowlist.
+
+### K6 — The commands
+
+- **`bin/dev up`** — build the snapshot, run the migrate hook against the local
+  store, start builder, public-site, filing and access-sim, write a pidfile per
+  service.
+- **`bin/dev down`** — stop everything named in the pidfile, then *verify the ports
+  are free* rather than assuming the signal landed.
+- **`bin/dev reap`** — the backstop. Every listener in the band whose cwd is under
+  this repo **or under an `.xgd` worktree of it**, and which is not in the current
+  pidfile, is listed and killed. `--dry-run` first, per this repo's convention.
+
+`reap` is not redundant with `down`: `down` will always be incomplete. A worktree
+torn down mid-session takes its pidfile with it, so `down` can never be run there —
+four of the eight zombies arrived exactly that way. That is a permanent condition
+to have a backstop for, not a bug to fix.
+
+`reap` must also **report what it could not kill**. A detached listener started from
+an agent sandbox survives `kill -9` from inside it; only the operator can stop
+those, and a reaper that claimed success would be lying.
+
+### K7 — Assessment
+
+Materially easier than §J: no provisioning, no Access application, no `ACCESS_AUD`,
+no Turnstile, no DNS, no secrets, no `SESSION_COOKIE_DOMAIN` trap. The account-side
+80% of the cloud version does not exist here.
+
+The snapshot deploy is about half a day; `up`/`down`/`reap` about another half, most
+of it a pidfile convention and an lsof sweep. There is no clever part. §J3's
+hardcoded database name in `bin/deploy.d/migrate/10-d1-site-store` is still worth
+fixing on the way past, since it becomes live the moment any second environment
+exists.
