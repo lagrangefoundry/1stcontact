@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-24T00:00:53.116658+00:00'
+updated_at: '2026-09-24T00:08:54.247853+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -919,5 +919,15 @@ Two honesty flags on that. I have **not** run the put — the key shape comes fr
 Every path needs the 2.45 GB clone first, because `requireCheckout` wants a real `ofl/` tree on disk. Worth trying a `--filter=blob:none --sparse` clone with just the families you want — the mirror only reads the files the catalogue names, so it may well work and would turn that download into minutes. I haven't tested it, so treat it as promising rather than known.
 
 If you want, I can scope the sparse-checkout question and the `--only`-plus-local-seed recipe into REQ-315 so the implementing session proves both rather than rediscovering them.
+
+<!-- xgd-turn id="a2c3bb43-6868-46be-b997-4fb4adcdae47-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:08:52.637475+00:00" -->
+#### You
+We are not talking about routing round the 90 min process that is running - if you are - STOP!
+
+Once that process is completed I want to understand how I get my dev system to see the fonts - and BTW the AI should not need to know what environment its in (nor should the browser) this should all just work.
+
+I really cannot make head nor tail of your answers you keep trying to short cut this thing I'm waiting for stop doing that. Lets discuss the state of the world in which that command has completed please
 
 <!-- xgd-chat-end -->
