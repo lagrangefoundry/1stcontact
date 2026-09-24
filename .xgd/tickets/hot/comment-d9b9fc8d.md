@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T19:04:12.128045+00:00'
+updated_at: '2026-09-24T19:05:29.018808+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4163,5 +4163,82 @@ Which would you like?
 <!-- xgd-chat role="user" ts="2026-09-24T19:04:11.899145+00:00" -->
 #### You
 Can you explain 1 and 3 please
+
+<!-- xgd-turn id="c545cb4c-0254-47be-bd58-07050f29f8c8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T19:05:28.358429+00:00" -->
+#### Claude
+Let me check one thing so I describe the options accurately rather than from assumption.
+
+Both, properly — and one correction to what I said, because I checked.
+
+# 1. Coupling wrangler and miniflare
+
+## The chain that produced today's crash
+
+`seed.ts` needs `Miniflare` **as a library** — it opens the R2 persist directory and writes objects into it directly, rather than going through a running `wrangler dev`. So it declares `miniflare` as its own dependency.
+
+That's where the problem enters:
+
+```
+wrangler  ^4.111.0        ──pulls──> workerd 1.20260710.1
+miniflare ^4.20260710.0   ──pulls──> workerd 1.20260710.1
+```
+
+Two **independent** semver ranges, each dragging its own `workerd`. And `workerd` is what owns the on-disk SQLite schema of `.wrangler/state`. They agree right now because I set them to, not because anything constrains them to. A `pnpm update`, a transitive bump, or a fresh install on another machine at a different moment can split them again — and the failure surfaces hours later as a fatal startup error naming an internal table you've never heard of.
+
+**Correction to my last message:** I suggested "have `seed.ts` reach miniflare through wrangler." I checked — wrangler's `exports` map is only `.`, `./experimental-config`, and `./package.json`. `Miniflare` appears in its type declarations but is not a public export. That option doesn't exist; the separate dependency is unavoidable.
+
+## What's actually available
+
+The invariant you want is plain: **exactly one `workerd` resolves in the tree.** Three ways to get there, and they're complementary rather than competing:
+
+| approach | effect | cost |
+|---|---|---|
+| **pnpm `overrides`** pinning `workerd` | forces every consumer onto one build regardless of who asks | an override is a claim that the forced combination works; you'd be running wrangler against a workerd its authors didn't pin |
+| **Exact-pin both** (drop the `^`) | they move only when you move them, together | manual bumps forever, and still nothing *asserts* they agree — floating becomes manual, not safe |
+| **A guard** — test or CI check asserting one `workerd` | doesn't prevent drift | converts silent store corruption into a loud failure at install/CI |
+
+There are currently no `overrides` or `resolutions` anywhere in the repo — `pnpm.overrides` is null and `pnpm-workspace.yaml` has none. So whichever you pick is a new mechanism.
+
+My recommendation is **exact-pin + guard**. The override is tempting because it's one line, but it works by overruling wrangler's own pin, which trades a visible failure for an invisible one. The guard is the part that earns its keep: it's the only option that makes a future skew *announce itself*.
+
+# 3. The §K constraint
+
+## Why today changes the question
+
+In REQ-315's amendment I flagged an open question and marked it **not verified**: can two `wrangler dev` processes share one `--persist-to` directory? The hazard I had in mind was the obvious one — **concurrency**. Two processes writing one SQLite store, lock contention, WAL interleaving.
+
+Today surfaced a second hazard that wasn't on the table, and it's nastier because it isn't about simultaneity at all:
+
+**The store's schema is owned by `workerd`, and `workerd` silently migrates it forward on open.** A newer workerd opening the store runs `ALTER TABLE` and upgrades it. No warning, no log line. An older workerd opening it *afterwards* dies at startup with `table _cf_ALARM has 3 columns but 2 values were supplied` — an internal table, unrelated to your code, with nothing pointing at the real cause. The processes never have to run at the same time.
+
+So the constraint is:
+
+> A shared `--persist-to` is safe only while **every process that opens it resolves the same `workerd`** — and that is not automatic, because each consumer brings its own.
+
+## Why this is a precondition of §K, not a footnote
+
+§K's design has **three different kinds of consumer** on one store:
+
+- `wrangler dev` for builder and public-site — workerd via wrangler's pin
+- `seed.ts`, which `bin/dev up` will invoke to seed fonts — workerd via its own `miniflare`
+- `@cloudflare/vitest-pool-workers` in tests — workerd via its own bundled wrangler
+
+That's exactly the configuration that broke this morning. Which makes the invariant from item 1 **a prerequisite for §K**, not separate hygiene — that's why I've been pairing them.
+
+## The part that makes it sharp
+
+The migration is effectively one-way. workerd won't remove the column it added. For this specific table you *could* hand-run `ALTER TABLE _cf_ALARM DROP COLUMN actor_name` (your sqlite3 is 3.51, which supports it), but that's hand-editing an internal schema on a guess about what the older binary expects — not a recovery procedure you'd want to depend on.
+
+Now put that against **K2**, which is your own decision recorded in the epic: the dev environment holds **the only copy** of the dev data, with nothing to share with and no seeding fork.
+
+Combine the two and a single accidental run of the wrong binary permanently upgrades the store that holds your only dev data. Today the recovery was free because the only casualty was `_cf_ALARM` with zero rows, sitting in a `metadata.sqlite` that contained nothing else — I could delete it outright. That was luck about which table workerd happened to change. The same skew hitting a store whose schema change lands on `_mf_objects` would have cost you 6,904 objects and ~2 GB of blobs with no undo.
+
+So what §K should record isn't just "pin your versions." It's that **the single-store, single-copy decision in K2 raises the cost of version skew from an annoyance to data loss**, and therefore §K owes the store a guard on entry — `bin/dev up` refusing to start if more than one `workerd` resolves — rather than trusting the lockfile to stay honest.
+
+---
+
+Want me to write that into §K, and file item 1 as its own ticket?
 
 <!-- xgd-chat-end -->
