@@ -5,9 +5,9 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-24T02:07:43.509481+00:00'
+updated_at: '2026-09-24T02:07:48.575386+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-b9b27697
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.347
+  story_points: 5
 ---
 
 ## The tools the font mirror shipped without
