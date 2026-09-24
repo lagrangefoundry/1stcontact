@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T22:59:28.835492+00:00'
+updated_at: '2026-09-24T23:03:11.774154+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4295,5 +4295,50 @@ I also want to discuss the dev tools - something I would really like is:
 bin/1c ps 
 
 That would list all the 1c project servers running with PIDs and port numbers
+
+<!-- xgd-turn id="9d89bc76-6986-4182-89f1-8050eafc7637-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T23:03:11.397968+00:00" -->
+#### Claude
+§M appended to EPIC-16. No code touched, no new tickets.
+
+## Item 3 is not a code change — so no ticket
+
+I described it badly last turn. Item 3 was *recording* the constraint in the epic, which is documentation — done now as §M. The code half of it is already owned: **REQ-316** builds the pin and the preflight check, and a session has picked it up (status is `free_coding` as of this session). What §K adds is one wiring clause — `bin/dev up` calls that check **before** anything opens the store — and that belongs in §K's own ticket, not a third one.
+
+The substance worth having written down is why it's a *precondition* rather than hygiene: §K puts three different workerd-bringing consumers on one store, K2 declares that store the only copy, and the migration is one-way. This morning's recovery was free purely because of which table workerd happened to touch — `_cf_ALARM`, zero rows, alone in an 8 KB file I could delete. The same skew landing on `_mf_objects` costs 6,904 objects and ~2 GB of blobs with no undo.
+
+## What's left
+
+**In flight or parked:**
+
+| | |
+|---|---|
+| REQ-316 | `free_coding` — a session has it |
+| REQ-291 | `free_coded` — migration content-hash check, awaiting your promotion |
+| everything else filed | `ready_to_reconcile` (REQ-289/290/294/295/303–306/315, BUG-134–137) |
+
+**Unfiled — the two §K tickets.** Offered three times now, still open:
+
+1. **The local dev target** — target table in `bin/deploy`, `[env.dev]`, the snapshot from `bin/build`'s existing-but-unused bundle, `d1-migrations.ts` following the environment, §J3's hardcoded database name fixed on the way past, and the workerd guard on entry.
+2. **The supervisor** — `1c ps`, `bin/dev up/down/reap`, and retiring `pnpm dev` (which §L says is a *separate* step, so it's the tail of this one or a third ticket if you'd rather).
+
+**Unfiled — the older staging children 1–6** in the epic's Children list, which predate all of this and are cloud-side (§J territory).
+
+## `1c ps`
+
+It's §K6's reaper minus the killing — same survey, same table, same identity rules. `reap` is `ps` plus a verb, and `down`'s "verify the ports are actually free" is a `ps` read. So I'd fold it into the supervisor ticket rather than file it alone.
+
+Three things about it that aren't obvious, now in §M3:
+
+**It has to be lsof, and that's already settled by measurement.** `ps aux` returns zero lines under the agent sandbox; `lsof -nP -iTCP -sTCP:LISTEN` plus `lsof -a -p <pid> -d cwd -Fn` work, and that's how K4's table was built. A ps-based version serves you and is unusable by the agent that created four of the eight zombies.
+
+**There's an existing decision it has to answer rather than contradict.** `reset.ts:131` explicitly rejects this mechanism — *"A CONNECT, NOT A PID FILE OR A PROCESS SCAN … a process scan matches another checkout's server, which is a different store entirely."* That's right for the question *reset* asks ("is something holding my store open"), and a connect can't answer yours at all, because it yields no PID. The objection is answered by keying on **cwd**: a listener in another checkout gets reported as that checkout's. Both probes stay; neither replaces the other.
+
+**The port→service map can't be the identity.** Four of the eight zombies hold ports no constant names — 8712, 8722, 8733, 8795. A row has to stay legible with an unrecognised port (name the cwd, say the service is unknown) rather than be dropped, because an unnamed listener in this repo's tree is exactly what you've never been able to see. And it must say what it *couldn't* determine: lsof won't return a cwd for another user's process, and a sandbox-detached listener survives `kill -9` from inside the sandbox.
+
+The column that earns its keep is the classification — this checkout / an `.xgd` worktree of it / a sibling project / undeterminable. K4 found eleven of this repo's own against six belonging to sibling repos, and conflating those is how a reaper becomes dangerous.
+
+Want me to file the two §K tickets now, with `1c ps` inside the second?
 
 <!-- xgd-chat-end -->
