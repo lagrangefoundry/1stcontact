@@ -5,7 +5,7 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-24T02:03:36.013215+00:00'
+updated_at: '2026-09-24T02:05:37.320308+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -397,6 +397,10 @@ every `apps/*/wrangler.toml` naming the platform bucket gets a store, and one th
 declares it is never handed one. The report lists each store it wrote, because a surface
 absent from that list will 404 the fonts the one beside it renders. `--app <name,…>`
 narrows it, and naming an app that does not serve platform fonts is refused.
+
+`uploaded` scales with the stores, because those really are separate writes — but
+**`bytes` is counted once**: seeding a second app does not make the corpus twice the
+size, and that number is what an operator checks against their disk.
 
 ### A mirror run seeds the local stores at its tail
 
