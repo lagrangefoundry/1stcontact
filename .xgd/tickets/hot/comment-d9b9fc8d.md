@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:12:59.732078+00:00'
+updated_at: '2026-09-24T00:14:43.791039+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3549,5 +3549,73 @@ Can you explain what this really means and how it differs from what is currently
 And just to be clear - I am not talking about a cloud environment - I am talking about the same thing I run on my laptop - all I want is isolation between the code that is constantly being edited and what is running in the environment
 
 AND from the point of view of the scripts I would like it to "look" like a cloud deploy
+
+<!-- xgd-turn id="ffd3e949-b660-443a-aa7d-e4b2cccab18f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T00:14:43.373657+00:00" -->
+#### Claude
+You're describing something quite different from §J, and much easier. Let me first say what's actually in place, because the honest answer is that **the problem isn't "only one environment" — it's that locally there's no boundary at all.**
+
+## What's in place today
+
+`pnpm dev` runs `./bin/1c builder`, which composes (`tools/generate/src/cli/dev-env.ts:184`):
+
+```
+wrangler dev --port 8788 <env-file layering>
+```
+
+Three consequences:
+
+- **No `--env`**, so it reads the **top-level** `wrangler.toml` block — `d1-migrations.ts:82` states this explicitly as the reason it reads the top-level block too. That block carries `ACCESS_DEV_OPEN = "1"`.
+- **`wrangler dev` watches.** Every save rebuilds and reloads. The running Worker and the file you're editing are the same bytes, continuously.
+- **State persists to `apps/control-app/.wrangler/state`** — D1, R2, DO. `reset.ts:17` calls it "the whole of what survives a restart: every site, page, change journal, asset, published revision, chat transcript, ticket, tenant, user and audit record. There is no second place."
+
+So there's exactly one local world, and it's welded to your working tree. Mid-edit — a half-finished function, a syntax error, a migration you just wrote — is instantly what's serving. That's the thing you want to cut.
+
+## What you're asking for, mechanically
+
+A second local target whose **source is frozen at the moment you deploy to it**. `wrangler dev` has no `--no-watch`, so the freeze can't come from a flag — it has to come from *what it's watching*. Point it at a snapshot directory that nothing writes to except `bin/deploy --env dev`, and it's frozen by construction.
+
+## Most of the pieces already exist
+
+**1. The flag and the ceremony.** `bin/deploy --env dev` already parses, already exports `DEPLOY_ENV` to the migrate and secrets hooks, already reads the Worker name from `[env.dev].name`, already prints the capability report. Nothing to add for the "looks like a cloud deploy" requirement — it *is* that path.
+
+**2. The snapshot artifact already exists and nothing consumes it.** `bin/build` stage 4 runs:
+
+```
+npx wrangler deploy --env production --dry-run --outdir dist
+```
+
+There is a complete bundled Worker sitting at `apps/control-app/dist/worker.js` on your disk right now. It's built purely as a typecheck gate and then thrown away. That bundle is the snapshot.
+
+**3. Wrangler can run it in isolation.** I checked the installed version — `--no-bundle`, `--persist-to`, `--env`, and `--port` all exist. So the runner is:
+
+```
+wrangler dev --no-bundle --env dev --persist-to .dev-env/state --port 8888
+```
+
+## What's genuinely missing
+
+**One thing: the terminal verb.** `bin/deploy` ends in `npx wrangler deploy`, which uploads. A local target needs a different ending.
+
+That's the only real architectural question, and the script's own header frames it well — *"ONE CODE PATH. `--dry-run` is a TARGET, not a different script."* It already has the concept of a target; what it lacks is a **target table** (given an env, how do I ship to it) instead of a hardcoded `wrangler deploy`. Adding that is the honest version of this change, and it's what keeps the hooks, the ordering, and the capability report identical across cloud and local — which is precisely what you asked for.
+
+## The decisions
+
+1. **Does dev get its own data, or share `.wrangler/state`?** This is the biggest one. Separate (`--persist-to .dev-env/state`) is true isolation — you can `1c reset` your edit loop without touching dev — but dev then starts empty and needs seeding. Shared means the *code* is isolated and the *data* isn't. I'd guess separate is what you want, but it's a real fork and it changes whether day one includes a seed step.
+
+2. **Process lifecycle.** `wrangler dev` is a long-running server, so `bin/deploy --env dev` has to start/replace one. That needs a pidfile and a `bin/deploy --env dev --stop`. Worth knowing: detached listeners started from an agent sandbox survive `kill -9` — only you can stop them — so the lifecycle has to be operator-legible, not clever.
+
+3. **Ports.** 8788 (`1c builder`), 8790, 8799 and 24678 (Vite HMR) are spoken for; dev needs two more.
+
+4. **`[env.dev]` triggers the parity UAT** — which is good, it'll enumerate exactly what's missing — but it also means `d1-migrations.ts`, which deliberately reads the top-level block because "`wrangler dev` reads the top-level block", would be looking at the wrong place for the dev target. Real touchpoint, small fix.
+
+5. **`ACCESS_DEV_OPEN`.** For a localhost dev deployment you probably still want the gate open, but it must be a deliberate `[env.dev.vars]` choice — and REQ-145's assertion currently only guards production.
+
+## How hard
+
+**Far easier than §J.** No D1 to provision, no buckets, no Access application, no `ACCESS_AUD`, no Turnstile widget, no DNS, no secrets, no `SESSION_COOKIE_DOMAIN` trap. The hard 80% of the cloud version was all account-side and it evaporates. What's left is a target abstraction in `bin/deploy`, an `[env.dev]` block, a pidfile, and a port — call it **half a day**, with the migrate hook's hardcoded database name (§J3) still worth fixing on the way past, since it's a live footgun the moment any second env exists.
+
+Want me to record this as §K on the epic — §J answered the cloud question and should stay, but it's not what you're after — and then scope it as a REQ?
 
 <!-- xgd-chat-end -->
