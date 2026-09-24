@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-24T00:23:48.779374+00:00'
+updated_at: '2026-09-24T00:29:12.988033+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1642,3 +1642,99 @@ of it a pidfile convention and an lsof sweep. There is no clever part. §J3's
 hardcoded database name in `bin/deploy.d/migrate/10-d1-site-store` is still worth
 fixing on the way past, since it becomes live the moment any second environment
 exists.
+
+
+---
+
+## §L — Retirement is its own step, and what §K does to [[REQ-315]] (2026-09-23)
+
+### L1 — The old path is deleted separately, after the new one is proved
+
+Settled by the operator: **everything we have goes** — `pnpm dev`, `pnpm dev:control`
+and `1c builder` as an operator entry point — **but the deletion is a separate step
+so the replacement can be proved first.**
+
+That is a sequencing requirement, not a preference, and it shapes the tickets. The
+new environment must be able to run **beside** the old one for as long as it takes to
+trust it, which means:
+
+- the replacement must not require `.wrangler/state` to move or change shape on day
+  one, because the old path reads the same store;
+- the new ports must not be the old ports, so both can be up at once;
+- nothing is removed from `package.json` or `dev-env.ts` in the first ticket.
+
+Folding the deletion into the build ticket would defeat the purpose: that ticket
+could not close until the old path was gone, which is exactly the pressure the
+operator asked to remove.
+
+### L2 — [[REQ-315]] anticipated this ticket, and §K resolves its open choice
+
+REQ-315 (`bin/deploy --fonts, and a dev target the font mirror never had`, draft,
+under EPIC-21) verified that `bin/deploy --env dev` fails — *"No environment found in
+configuration with name 'dev'"* — and built its framing on it: **"this repo's dev
+environment is not a deployment at all"**, therefore `--fonts` at the dev target is
+**"a local seed, not a deploy"**. It then hedged explicitly against this section:
+
+> If a `[env.dev]` Worker is ever wanted, it is its own ticket and this one does not
+> presume it … an argument for selecting the local seed by an explicit flag rather
+> than by the absence of `--env`.
+
+That hedge was well-judged. §K is the ticket it hedged against, and its arrival makes
+REQ-315 **simpler**, not harder.
+
+**What changes for REQ-315:**
+
+1. **The "seed, not a deploy" framing dissolves.** Under §K a local seed *is* a
+   deploy, `bin/deploy --fonts --env dev` reads literally, and the help text no
+   longer has to apologise for the asymmetry. The explicit-flag hedge can be dropped.
+2. **§K decides REQ-315's open implementation choice, and decides it against the
+   cheaper-looking option.** REQ-315 offers two buildable shapes and leaves the
+   choice to the implementing session:
+   - *seed miniflare's local R2* — costs ~1.35 GB of second copy and "a seeding step
+     whose freshness has to be reasoned about";
+   - *a loopback origin beside the builder* — "no copy and no staleness", costs a
+     second process.
+
+   §K inverts both costs. The second process stops being a cost because
+   `bin/dev up/down/reap` owns processes by design. But the loopback origin reads
+   `fonts/mirror/` **live out of the working tree**, which makes the fonts the one
+   part of the environment that is not frozen — the exact property §K exists to
+   abolish. And "freshness that has to be reasoned about" stops being a worry,
+   because deploying is *when freshness is decided*.
+
+   **Under §K, seeding the store is the consistent choice and the loopback origin
+   becomes actively wrong**, despite being the more attractive of the two on
+   REQ-315's own terms. This is worth recording precisely because it reverses on
+   arrival of context REQ-315 could not have.
+3. **Its acceptance criterion gains an implementation site.** REQ-315 asks that
+   "after a mirror completes, the operator starts the builder and fonts work, having
+   typed nothing extra and having chosen no environment", and is openly unsure where
+   that belongs — "a final step of `1c fonts mirror`, a seed on `1c builder` startup,
+   or an explicit target". Under §K the answer is not open: fonts are part of what
+   `bin/deploy --env dev` puts **into** the environment, and `bin/dev up` is the
+   single start command.
+4. **An open question §K may close for free.** REQ-315 flags that `.wrangler/state`
+   is **per app directory**, so "the local bucket" is two stores and seeding
+   control-app alone leaves a locally-served published site 404ing the fonts the
+   preview beside it renders. If §K points both wrangler processes at one
+   `--persist-to`, that problem disappears. **Whether two `wrangler dev` processes can
+   safely share one persist directory is NOT verified** and must be established
+   before it is relied on.
+
+**What does not change:** the `PlatformFontReader` interface decision, the finding
+that the Worker cannot read the host disk under `nodejs_compat`, the brotli quality
+cliff and mirror cost, and the production publish path.
+
+### L3 — Sequencing
+
+REQ-315 **must not wait** for §K. It has a live driver §K does not: the moment
+`1c fonts mirror` completes, the projection fills in every environment while local
+bytes exist in none, so local dev trades an honest refusal for a confident bind that
+404s — REQ-312's own failure mode, in the environment the work is done in.
+
+It should, however, be implemented **as if §K is coming**: take the store-seeding
+shape, drop the explicit-flag hedge, and do not invest in help text explaining that
+the dev target is not really a deploy.
+
+REQ-315 is EPIC-21's child, not this epic's. This section records the interaction;
+amending REQ-315's own body is that epic's call.
