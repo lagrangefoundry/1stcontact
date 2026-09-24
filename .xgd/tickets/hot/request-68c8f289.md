@@ -5,7 +5,7 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-23T23:47:58.888307+00:00'
+updated_at: '2026-09-24T00:10:23.303801+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -137,3 +137,70 @@ plainly which of the two things each target does rather than let "deploy" cover 
 If a `[env.dev]` Worker is ever wanted, it is its own ticket and this one does not presume
 it: a dev target added here must keep working when it arrives, which is an argument for
 selecting the local seed by an explicit flag rather than by the absence of `--env`.
+
+
+## The state of the world once `1c fonts mirror` has completed
+
+Framed against the run actually finishing with the full corpus at the default quality,
+because that is when this ticket's absence starts to cost something rather than merely
+being missing.
+
+### Nothing in the product asks what environment it is in, and nothing should
+
+Verified, because it is the premise the rest of this rests on:
+
+- **The browser never knows.** A page's font `src` is root-relative `/_fonts/…` and the
+  renderer reduces it to a document-relative reference (`relativizeUrl`, REQ-109). It names
+  no host and carries no environment. [[REQ-312]] settled this and it is correct.
+- **The assistant never knows.** `use_font` calls `resolveFont(fonts, …)` against the
+  projection this bundle carries. There is no environment in the call, no branch on one, and
+  nothing it could read to find one.
+- **The router never knows.** `r2PlatformFonts(env.SITES)` is one line for both runtimes.
+  Under `wrangler dev`, `env.SITES` *is* miniflare's local R2. The code is already identical.
+
+**One thing is environment-specific and it is the wrong one: the delivery of the bytes.**
+`1c fonts publish` speaks only the cloud R2 REST API, so production is given a mirror and
+local dev is not. Every consumer is correctly blind; the supply is not.
+
+### And the projection makes that gap actively harmful
+
+`cmdFontsIndex` builds the projection from **`fonts/platform.json` — the STAGED manifest** —
+and `use_font` resolves against it with **no runtime check that any byte exists**. The
+`ENVIRONMENT` refusal fires on one condition only: `idx.families.length === 0`.
+
+So the moment the mirror finishes:
+
+| | before the mirror | after the mirror |
+|---|---|---|
+| projection | empty | 1,940 families, in **every** environment |
+| `use_font` in local dev | refuses honestly — *"this deployment serves no platform fonts"* | **succeeds**, and binds `/_fonts/roboto/…` |
+| the browser | shows a fallback face, and was told why | shows a fallback face, and **nothing anywhere says so** |
+
+**Local dev gets worse, not better, when the mirror completes.** It trades an honest refusal
+for a confident bind that 404s — which is precisely the silent fallback-face failure
+[[REQ-312]] was written to prevent, surviving in the one environment the work is done in.
+
+The projection is a build-time global; the bytes are per-environment. That mismatch is the
+whole defect, and it cannot be closed at the consumer end without teaching somebody where
+they are — which is the thing that must not happen.
+
+### So the requirement is the supply side, and it is one movement
+
+The staged mirror at `fonts/mirror/` must reach the local miniflare R2 that `env.SITES`
+resolves to, under the same `platform/fonts/` prefix and the same key function
+`1c fonts publish` writes. Local disk to local disk — no network, no compression, no
+conversion; the expensive work is already done and on disk by then.
+
+### It should not be a step anybody has to remember
+
+`1c fonts mirror` already decided this question once, for the projection: `cmdFontsIndex`
+runs at the end of a mirror run precisely so that a refreshed corpus cannot leave the
+assistant binding paths that are no longer served. **The local bytes are the same class of
+follow-on and deserve the same treatment** — a mirror run that leaves the operator's own dev
+environment unable to serve what it just spent ninety minutes converting has not finished.
+
+Whether that lands as a final step of `1c fonts mirror`, as a seed on `1c builder` startup,
+or as an explicit target reachable from `bin/deploy --fonts`, the acceptance is the same:
+**after a mirror completes, the operator starts the builder and fonts work, having typed
+nothing extra and having chosen no environment.** An explicit target may still exist for
+re-seeding, but it is not how the ordinary case is reached.
