@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:11:12.209641+00:00'
+updated_at: '2026-09-24T00:12:59.732078+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3539,5 +3539,15 @@ Can you explain what this really means and how it differs from what is currently
 <!-- xgd-chat role="user" ts="2026-09-24T00:11:10.926756+00:00" -->
 #### You
 Can you explain what this really means and how it differs from what is currently in place?
+
+<!-- xgd-turn id="ffd3e949-b660-443a-aa7d-e4b2cccab18f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:12:59.142717+00:00" -->
+#### You
+Can you explain what this really means and how it differs from what is currently in place?
+
+And just to be clear - I am not talking about a cloud environment - I am talking about the same thing I run on my laptop - all I want is isolation between the code that is constantly being edited and what is running in the environment
+
+AND from the point of view of the scripts I would like it to "look" like a cloud deploy
 
 <!-- xgd-chat-end -->
