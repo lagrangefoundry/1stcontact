@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T23:29:49.451123+00:00'
+updated_at: '2026-09-24T23:33:11.295321+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3735,5 +3735,48 @@ Separately: Lagrange Foundry is still bricked at `comment-ca74b1b7`, and the non
 <!-- xgd-chat role="user" ts="2026-09-24T23:29:49.081136+00:00" -->
 #### You
 PLease file the ticket - what is an appropriate limit? can you calibrate me - what would a 500 line paste be?
+
+<!-- xgd-turn id="5f905bf7-d341-4341-b302-abab9cbefb1c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T23:33:11.208731+00:00" -->
+#### Claude
+Let me get real numbers rather than estimate.
+
+Real numbers first — a 500-line paste, measured on actual content in this repo:
+
+Filed into the wrong repo — I dropped the `XGD_PROJECT_ROOT` override. Fixing that.
+
+Now filed in the right repo:
+
+**lagrange-framework REQ-177** — *"The composer must refuse an over-long submission before it clears the box."* It specifies an optional maximum on `mountChat`, refusal before `clear()` runs, the sentence supplied by the host (the component can't know why the bound exists), all three submit intents covered, and leaves two things to design: characters vs UTF-8 bytes, and whether to warn on approach rather than only refuse at the line.
+
+I filed it into 1stcontact first by mistake — that one is REQ-317, now retitled VOID and `abandoned`.
+
+## Calibration
+
+Measured on real content in this repo, not estimated. A pasted line averages **~50 characters** — and it barely varies by content type: TypeScript 41, CSS 38, heavily-commented JS 52, wrapped markdown prose 54.
+
+| paste | characters | words | pages |
+|---|---|---|---|
+| a normal chat message | 100–400 | 20–70 | — |
+| a long, careful message | ~1,000 | ~170 | ⅓ |
+| 50 lines — everything about a business, in paragraphs | ~2,500 | ~420 | 1 |
+| **proposed limit — ~320 lines** | **16,000** | **~2,700** | **5** |
+| **500-line paste** | **20,000–27,000** | **~4,200** | **8** |
+| a brand-guidelines document | 30,000–90,000 | 5,000–15,000 | 10–30 |
+
+**A 500-line paste is 20–27 KB — eight pages, ~4,200 words.** That's the number you asked for, and it's the one that settles the question: eight pages is a document by any reading, so I'd refuse it.
+
+## Recommendation: 16,000 characters
+
+Three reasons, in order of weight:
+
+1. **The asymmetry decides it.** A false refusal costs the client one drag-and-drop. A false accept loses the knowledge-base entry *permanently* — that text is in one transcript, unlabelled, unindexed, unreusable. When the costs are that lopsided, set the line on the strict side.
+2. **Nobody typing hits it.** 16,000 is 40× a long, careful message. It clears a 40-item product list with descriptions, and a small site's full page copy.
+3. **It's not a storage guard.** Once REQ-176's segmenting lands, D1's ceiling stops being the constraint — so the number shouldn't be derived from it with a safety margin. 16,000 is the point where "message" becomes "document", which is a different question with a different answer.
+
+Anything from 12,000 to 32,000 is defensible; it's one named constant and a one-line change. The one thing I'd hold firm on: **the message states no number** — a figure invites counting and bargaining, and what the client needs is the gesture that works.
+
+All of this is recorded in REQ-309, including the table, so the implementing session inherits the reasoning rather than re-deriving it. Say if you'd rather 500 lines squeezed through and I'll move it to 32,000.
 
 <!-- xgd-chat-end -->
