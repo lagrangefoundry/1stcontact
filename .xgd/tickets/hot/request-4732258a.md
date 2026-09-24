@@ -6,10 +6,10 @@ title: 'The editor font control: 30 curated faces, and a query box that reaches 
   1,941'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:38.760798+00:00'
-updated_at: '2026-09-24T18:00:59.726827+00:00'
+updated_at: '2026-09-24T19:27:10.102268+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: low
   epic_parent: epic-b9b27697
