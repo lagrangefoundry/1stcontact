@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-24T18:48:55.598402+00:00'
+updated_at: '2026-09-24T23:31:55.293330+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1486,5 +1486,11 @@ Proposed line, in the register of the other three:
 Two notes on scope before I touch anything. This isn't config-only — the prose is `priming.json`, but the provider registration is `roles.ts`, so it's a code change and wants the full free-coding protocol. And REQ-295 is `ready_to_reconcile`; adding to it now means its body needs the motivating language before any UAT lands. Cleaner as a small child of EPIC-20 — but that's your call, and you'd need to say so explicitly for me to file one.
 
 Want me to cut the branch and do it under REQ-295?
+
+<!-- xgd-turn id="c1ee10f0-f952-4a53-9e6c-9b42ffb2ada5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T23:31:54.675534+00:00" -->
+#### You
+Can you review the questions in the transcript of REQ-174 and answer anything you feel confident about in the ticket and bring anything else here to discuss please?
 
 <!-- xgd-chat-end -->
