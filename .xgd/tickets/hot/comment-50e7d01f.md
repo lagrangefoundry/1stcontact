@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-23T02:56:49.465556+00:00'
+updated_at: '2026-09-24T18:40:46.673304+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1376,5 +1376,11 @@ What it captures:
 Also added a short pointer section on EPIC-20 so the epic doesn't lose the thread, and saved a note on the build-thin-then-look preference.
 
 Nothing built, no branch, no construction tickets.
+
+<!-- xgd-turn id="d60e69e2-dff2-48af-bb89-f68c2a91eeb9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T18:40:46.498716+00:00" -->
+#### You
+Can you take a look at the tickets that have landed and the code and confirm that the delegate model is in-place? What guidance do we give the pirmary on delegate use?
 
 <!-- xgd-chat-end -->
