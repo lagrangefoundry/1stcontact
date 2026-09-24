@@ -690,7 +690,10 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
         // narrower than a string, so the surface is not widened with it.
         // REQ-140's colour is narrower still: it admits only a reference into a
         // palette the site itself declares.
-        expect(['string', 'enum', 'integer', 'boolean', 'color'], argv.join(' ')).toContain(
+        expect(
+          ['string', 'enum', 'integer', 'boolean', 'color', 'font'],
+          argv.join(' '),
+        ).toContain(
           field.type,
         )
         if (field.type === 'enum') {

@@ -2,6 +2,7 @@ import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchCopy, saveCopy } from './api.js'
 import { colorHex, colorLabel, isColorField, mountColorField } from './color-field.js'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
+import { isFontField, mountFontField } from './font-field.js'
 import { isImagePicker, mountImagePicker } from './image-picker.js'
 import { copyFontFaces, previewScale, previewVarFor, readPageStyle } from './page-style.js'
 
@@ -86,6 +87,17 @@ export function mountEditor(doc, options = {}) {
      * bare document) should get, rather than a module that fails to load.
      */
     colors = {},
+    /**
+     * [[REQ-314]] — how a font field asks for a typeface.
+     *
+     * One function, already bound by `app.js` to the corpus transport and to
+     * the frame the preview faces resolve against. Absent, a font field still
+     * renders and still opens nothing — the same shape `colors` above takes, and
+     * for the same reason: a suite driving `mountEditor` against a bare document
+     * should get a control that does nothing rather than a module that fails to
+     * load.
+     */
+    openFont = null,
   } = options
   const { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR } = api
   const pageId = pageIdOf(doc, L1_EDIT_PAGE_ATTR)
@@ -162,6 +174,7 @@ export function mountEditor(doc, options = {}) {
       pictures: loaded.pictures,
       shadeHex: colors.shadeHex,
       openPicker: (value) => (colors.open ? colors.open(value) : Promise.resolve(null)),
+      openFont: (value) => (openFont ? openFont(value) : Promise.resolve(null)),
       // The panel behind a run, and the route to it. The origin resolves which
       // ancestor that is, because it is the only side holding the tree — the
       // client has one clicked element and no way to walk a definition.
@@ -305,8 +318,13 @@ function defaultModal(spec) {
   // is answered there too without this learning about it.
   const pickerFields = spec.schema.filter(isImagePicker)
   const colorFields = spec.schema.filter(isColorField)
+  // [[REQ-314]] — a third control this dialog draws itself, on the same rule the
+  // two above are split by: the descriptor, not the segment kind. A `font`
+  // field's closed list is the platform's mirror rather than anything in the
+  // descriptor, so there is nothing for `mountFields` to render it from.
+  const fontFields = spec.schema.filter(isFontField)
   const formFields = spec.schema.filter(
-    (field) => !isImagePicker(field) && !isColorField(field),
+    (field) => !isImagePicker(field) && !isColorField(field) && !isFontField(field),
   )
   // THE CATALOGUE TRAVELS WITH THE DESCRIPTORS ([[REQ-282]]), from the same
   // response, for the reason the palette does: a client that fetched the
@@ -396,7 +414,7 @@ function defaultModal(spec) {
   // axis you set rather than words you write — so they share the region under
   // the box, and a segment exposing only a colour still gets a sheet.
   let sheet = null
-  if (propertyFields.length || colorFields.length) {
+  if (propertyFields.length || colorFields.length || fontFields.length) {
     sheet = document.createElement('div')
     sheet.className = 'builder-modal__props'
     panel.append(sheet)
@@ -414,6 +432,18 @@ function defaultModal(spec) {
       palette: spec.palette,
       shadeHex: spec.shadeHex,
       openPicker: (value) => spec.openPicker(value),
+    }),
+  )
+
+  // [[REQ-314]] — the typeface, under the colour and above the typed axes,
+  // which is where the derivation puts it: `copyFieldsOf` emits colour, then
+  // font, then size and weight, and a control drawn by this dialog rather than
+  // by the component must not silently reorder the list the derivation chose.
+  const fonts = fontFields.map((field) =>
+    mountFontField(sheet, {
+      field,
+      value: spec.values[field.name],
+      openPicker: (value) => spec.openFont(value),
     }),
   )
 
@@ -465,7 +495,7 @@ function defaultModal(spec) {
    * true here, where the change map is built, rather than depending on a
    * component's reporting staying narrow.
    */
-  const owned = [...pickers, ...colors]
+  const owned = [...pickers, ...colors, ...fonts]
   const stagedValues = () => ({
     ...(fields?.getValues() ?? {}),
     ...(properties?.getValues() ?? {}),

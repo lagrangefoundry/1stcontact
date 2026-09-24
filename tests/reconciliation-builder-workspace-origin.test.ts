@@ -396,6 +396,14 @@ describe('story-e674c60a builder origin', () => {
       // for every rule it states.
       { route: '/api/palette', url: '/api/palette?site=alpha', ok: true },
       { route: '/api/palette', url: '/api/palette', ok: false },
+
+      // The font corpus ([[REQ-314]]). A read with no parameters, because the
+      // platform font tier is shared-served and the answer is the same for every
+      // site. Cacheability matters for the same reason the palette's does: the
+      // control draws its list from exactly this response, and an operator who
+      // has just had a mirror refreshed underneath them must not go on being
+      // offered families the deployment no longer holds.
+      { route: '/api/fonts', url: '/api/fonts', ok: true },
       {
         route: '/api/palette',
         url: '/api/palette',

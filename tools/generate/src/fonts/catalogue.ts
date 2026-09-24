@@ -41,6 +41,15 @@ export interface CatalogueFamily {
   axes?: { tag: string; min?: number; max?: number }[]
   /** [[REQ-313]] — the catalogue's classification, e.g. `Sans Serif`. */
   category?: string
+  /**
+   * [[REQ-314]] — the catalogue's SECOND classification axis, e.g. `Slab Serif`.
+   *
+   * `category` and `stroke` are independent and both are the catalogue's own:
+   * every family the catalogue calls `stroke: Slab Serif` it also calls
+   * `category: Serif`. Read here because the editor's font control offers a slab
+   * chip, and the alternative to reading it is guessing from the family name.
+   */
+  stroke?: string
   /** [[REQ-313]] — the static weights the family names. */
   weights?: number[]
   /** [[REQ-313]] — whether a true italic ships, as against a synthesised slant. */

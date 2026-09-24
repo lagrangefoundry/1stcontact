@@ -115,6 +115,9 @@ function familyOf(
     // classification; `Display` is the honest placeholder for "unclassified", and
     // it falls back to `sans-serif` in a painted stack.
     category: catalogued?.category ?? 'Display',
+    // [[REQ-314]] — carried only where it is true, so an ordinary family's
+    // projection is byte-identical to what it was before the chip existed.
+    ...(catalogued?.stroke === 'Slab Serif' ? { slab: true as const } : {}),
     licence: entry.licence as PlatformLicence,
     weights: weightsOf(catalogued, faces),
     italic: catalogued?.italic ?? faces.some((f) => f.style === 'italic'),

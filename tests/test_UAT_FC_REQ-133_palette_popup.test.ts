@@ -666,7 +666,7 @@ describe('REQ-133 the palette popup', () => {
       // reference into a palette the site declares, so a hex is refused by the
       // write side rather than merely absent from the control (REQ-140's own
       // refusal criterion proves it). Free hex still lives in the popup alone.
-      expect(['string', 'integer', 'boolean', 'enum', 'color']).toContain(field.type)
+      expect(['string', 'integer', 'boolean', 'enum', 'color', 'font']).toContain(field.type)
       if (field.type === 'enum') expect(Array.isArray(field.enum)).toBe(true)
     }
     // And no value it reports is a hex the operator could have typed.

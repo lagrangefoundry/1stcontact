@@ -50,6 +50,11 @@ import {
   servePreviewPlatformFont,
   type PlatformFontReader,
 } from './platform-fonts'
+import {
+  PLATFORM_FONT_INDEX,
+  type PlatformFontIndex,
+} from '../../../tools/generate/src/cli/ai/platform-fonts'
+import { browseCorpus } from '../../../tools/generate/src/fonts/shortlist'
 import { previewPath, publicSiteUrl } from './public-url'
 // [[BUG-97]] — the draft channel answers the gated download too, so the link a
 // preview submission mails is one the operator can actually open.
@@ -1280,6 +1285,16 @@ export interface RouterDeps {
    * read, and a preview font then 404s exactly as an unpublished mirror does.
    */
   platformFonts?: (env: RouterEnv) => PlatformFontReader | null
+  /**
+   * Which font families this deployment serves ([[REQ-314]]).
+   *
+   * INJECTABLE FOR THE REASON {@link platformFonts} IS: the projection the
+   * bundle carries is a build artifact that describes the mirror the BUILD saw,
+   * and the Node builder transport serves a mirror staged in somebody's
+   * workspace — one it may have refreshed since. Reading the workspace's own is
+   * how the list of families and the availability of their bytes stay one fact.
+   */
+  fontIndex?: (env: RouterEnv) => PlatformFontIndex
   launch?: BrowserLauncher
   /**
    * The transport the image generator is reached through ([[REQ-208]]).
@@ -2496,6 +2511,21 @@ async function routeUncached(
   const platformFonts = deps.platformFonts
     ? deps.platformFonts(env)
     : r2PlatformFonts(env.SITES)
+
+  /**
+   * The corpus the editor's font control browses and a chosen family is
+   * resolved against ([[REQ-314]]).
+   *
+   * INJECTED BESIDE {@link platformFonts} AND FOR THE SAME REASON, which is the
+   * whole point of it sitting on this line. That entry says which BYTES this
+   * deployment can serve; this one says which FAMILIES it holds, and the two
+   * disagreeing is exactly the failure both exist to prevent — a control that
+   * lists Roboto over a mirror with no Roboto in it offers a choice that 404s.
+   * Deployed they are the R2 bucket and the projection this bundle carries; in
+   * the Node builder transport they are the staged mirror on disk and an index
+   * built from that same workspace.
+   */
+  const fontIndex = deps.fontIndex ? deps.fontIndex(env) : PLATFORM_FONT_INDEX
 
   /**
    * The business this request runs in, or a refusal ([[DOC-42]] §10.1).
@@ -5626,6 +5656,33 @@ async function routeUncached(
     }
 
     /**
+     * `GET /api/fonts` — the corpus the editor's font control browses
+     * ([[REQ-314]]).
+     *
+     * ONE ANSWER, ONCE. Every family the deployment serves, the curated thirty
+     * with the face each previews in, and the famous names we cannot serve —
+     * roughly 70KB, fetched the first time a dropdown opens and held for the
+     * session. The alternative, a query per keystroke, puts a round trip between
+     * a person and the letter they just typed, and buys nothing: MATCHING IS THE
+     * CLIENT'S (`font-search.js`), which is what makes typing instant and keeps
+     * one matching rule with one consumer instead of a client that draws and an
+     * origin that filters.
+     *
+     * IT DOES NOT TRAVEL WITH THE DESCRIPTORS the way the Library's catalogue
+     * does, and the difference is that a stale copy here cannot produce a bad
+     * write. The mirror is a build artifact; `editCopySet` resolves the chosen
+     * family against this same index on the way in and refuses an unknown one
+     * with a sentence. The worst a stale list can do is offer a family that has
+     * since been dropped, and the answer to choosing it is a clean refusal.
+     *
+     * NOT SCOPED TO A SITE, because the platform tier is not: these are the
+     * shared faces every tenant is served from one copy ([[REQ-312]]).
+     */
+    if (p === '/api/fonts' && method === 'GET') {
+      return json(200, browseCorpus(fontIndex))
+    }
+
+    /**
      * The copy modal's two calls (REQ-117 / DOC-28 §4).
      *
      * Both are thin transports over `editCopyGet` / `editCopySet` — the same
@@ -5639,6 +5696,9 @@ async function routeUncached(
       ...(await edit()),
       module: read('module'),
       slot: read('slot'),
+      // [[REQ-314]] — the SAME corpus `/api/fonts` listed, so a family the
+      // control offered and a family the write side will accept are one set.
+      fonts: fontIndex,
       })
 
       if (method === 'GET') {

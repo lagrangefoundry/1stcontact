@@ -239,6 +239,11 @@ describe('REQ-135 — text properties', () => {
       // new row is the continuation §9 named, not a reordering of the type
       // controls.
       'color',
+      // REQ-314 put the FAMILY beside the rest of the type. It sits between the
+      // colour and the size for the same reason the colour sits after the
+      // words: the coarsest decision first, and a family is coarser than a
+      // size. The claim is still the one above — the words stay first.
+      'fontFamily',
       'fontSizePx',
       'fontWeight',
       'italic',
@@ -261,8 +266,12 @@ describe('REQ-135 — text properties', () => {
     // types (DOC-28 §3). REQ-140's `color` joins them and is closed by the same
     // argument — the only value it admits is a reference into a palette this
     // site declares, so it cannot name a colour the site does not already have.
+    // REQ-314's `font` joins them on the same terms: the value is a family
+    // NAME drawn from the platform's mirror, and the write side resolves it
+    // against that mirror and refuses a name it does not hold — so it cannot
+    // name a typeface the deployment does not serve, and it cannot carry CSS.
     for (const field of fields) {
-      expect(['string', 'integer', 'boolean', 'enum', 'color']).toContain(field.type)
+      expect(['string', 'integer', 'boolean', 'enum', 'color', 'font']).toContain(field.type)
       if (field.type === 'enum') expect(field.enum!.length).toBeGreaterThan(0)
     }
   })

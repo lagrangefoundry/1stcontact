@@ -671,7 +671,10 @@ describe('story-37a3921b — the copy-edit write path', () => {
         // string, which is why widening this set does not widen the surface.
         // REQ-140's colour is narrower still: it admits only a reference into a
         // palette the site itself declares.
-        expect(['string', 'enum', 'integer', 'boolean', 'color'], argv.join(' ')).toContain(
+        expect(
+          ['string', 'enum', 'integer', 'boolean', 'color', 'font'],
+          argv.join(' '),
+        ).toContain(
           field.type,
         )
         if (field.type === 'enum') {

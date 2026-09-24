@@ -22,6 +22,14 @@ import {
   type L1SegmentFieldOptions,
   L1_EMAIL_TARGET,
 } from '@1stcontact/site-schema'
+import {
+  mergeFontFaces,
+  paintableStack,
+  resolveFont,
+  PLATFORM_FONT_INDEX,
+  type FontFaceEntry,
+  type PlatformFontIndex,
+} from './ai/platform-fonts'
 import { pendingChanges } from '../publish/publish'
 // The Astro-free framework entry, deliberately not the barrel (REQ-143). The
 // barrel re-exports the module registry, which imports two `.astro` components
@@ -627,6 +635,18 @@ export interface CopyTargetOptions extends EditOptions {
   module?: string
   /** The named slot within that instance. */
   slot?: string
+  /**
+   * The platform font corpus a chosen family is resolved against ([[REQ-314]]).
+   *
+   * A PARAMETER FOR THE REASON `createL1Operations` TAKES ONE: the projection is
+   * a BUILD ARTIFACT that `1c fonts index` rewrites whenever the mirror is
+   * refreshed, so which families exist is a property of the deployment rather
+   * than a constant. Defaulted to the projection this bundle carries, so no
+   * existing caller changes; the Node builder transport passes the workspace's
+   * own, which is where it already reads preview font BYTES from — those two
+   * have to agree about what is mirrored.
+   */
+  fonts?: PlatformFontIndex
 }
 
 /**
@@ -909,6 +929,82 @@ export async function editCopyGet(
 }
 
 /**
+ * Bind the typeface a `fontFamily` change asked for, and rewrite the value the
+ * node will receive into the stack that paints it ([[REQ-314]]).
+ *
+ * ONE BINDING MECHANISM, NOT TWO. `resolveFont` and `mergeFontFaces` are
+ * `use_font`'s own — imported, never restated — so a family chosen by a person
+ * in the editor lands in `resources.fonts` in exactly the shape a family chosen
+ * by the assistant does, is refused by the same sentence when the platform does
+ * not serve it, and hits the same conflict when the page already serves that
+ * family from the tenant's own uploaded files. A second binder here would be a
+ * second opinion about what serving a font means, and the two would be free to
+ * disagree the first time either changed.
+ *
+ * MUTATES `values` IN PLACE, replacing the family name the control posted with
+ * the paintable stack. The control is choosing a TYPEFACE and posts a name; the
+ * axis holds a CSS stack, and the generic fallback on the end of it is what
+ * stops a page painting in whatever the browser felt like if a face fails to
+ * load. Composing it here rather than in the client means the client cannot get
+ * it wrong and cannot drift from what `use_font` writes.
+ *
+ * CHOOSING WHAT IS ALREADY CHOSEN WRITES NOTHING. The modal posts every staged
+ * field rather than only the touched ones, so a save that edited the words
+ * carries the run's current family too; binding on that would rewrite the run's
+ * captured stack to ours and add faces to a page that never asked for them. The
+ * field is simply dropped, on the same rule `rangeError` states: a control binds
+ * a change, never the status quo.
+ *
+ * THE WEIGHTS BOUND ARE THE FAMILY'S DEFAULTS PLUS THE RUN'S OWN. A run set in
+ * 600 that is given a new family must still be able to draw 600, and `use_font`'s
+ * default pair alone would leave it synthesising one; italic is added only when
+ * the run is already italic, so choosing a family never silently slants words
+ * that were upright.
+ */
+function bindChosenFamily(
+  page: Record<string, unknown>,
+  node: L1Node,
+  values: Record<string, unknown>,
+  fonts: PlatformFontIndex,
+): void {
+  const asked = values.fontFamily
+  if (typeof asked !== 'string' || asked.trim() === '') return
+
+  const axes = (node.axes ?? {}) as {
+    fontFamily?: string
+    fontWeight?: number
+    fontStyle?: string
+  }
+  const held = axes.fontFamily?.split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') ?? ''
+  if (held.toLowerCase() === asked.trim().toLowerCase()) {
+    delete values.fontFamily
+    return
+  }
+
+  const weights = [...new Set([400, 700, ...(axes.fontWeight ? [axes.fontWeight] : [])])]
+  const resolution = resolveFont(fonts, {
+    family: asked,
+    weights,
+    styles: axes.fontStyle === 'italic' ? ['normal', 'italic'] : ['normal'],
+  })
+
+  const l1 = (page.l1 ?? {}) as { resources?: { fonts?: FontFaceEntry[] } }
+  const existing = l1.resources?.fonts ?? []
+  const merge = mergeFontFaces(existing, resolution.faces)
+  if (merge.conflict) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `This page already serves '${resolution.family.family}' from its own uploaded files.`,
+      hint: "That face is the client's own, on their word that they hold a licence for it — it is not ours to replace. Choose a different family, or ask in chat to swap the uploaded one out.",
+    })
+  }
+  if (merge.changed) l1.resources = { ...(l1.resources ?? {}), fonts: merge.fonts }
+
+  // The STACK, never the bare name: see the function note.
+  values.fontFamily = paintableStack(resolution.family)
+}
+
+/**
  * Apply one modal's worth of copy changes.
  *
  * **One invocation is one diff** (DOC-28 §11): the whole change map is applied,
@@ -937,6 +1033,11 @@ export async function editCopySet(
   const options = await segmentOptions(node, slug, page, base, opts)
   const label = labelOf(node)
   const wasValues = copyFieldsOf(node, options)?.values ?? {}
+
+  // [[REQ-314]] — a chosen typeface, bound before the node is touched. See
+  // {@link bindChosenFamily}: this is the step that makes the editor's font
+  // control and `use_font` one binding mechanism rather than two.
+  bindChosenFamily(page, node, values, opts.fonts ?? PLATFORM_FONT_INDEX)
 
   const applied = applyCopyFields(node, values, options)
   if (!applied.ok) {
