@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-24T18:47:26.764752+00:00'
+updated_at: '2026-09-24T18:48:55.598402+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1448,5 +1448,43 @@ Verification recorded on EPIC-20. No code touched.
 <!-- xgd-chat role="user" ts="2026-09-24T18:47:25.940530+00:00" -->
 #### You
 Is it worth a sentence in the reminder too?
+
+<!-- xgd-turn id="95a2bd35-f0df-4b9f-bf59-4cffe00046b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T18:48:54.795254+00:00" -->
+#### Claude
+Good question — and the answer turns on what a reminder is *for*. Let me check the mechanics before I answer.
+
+The gauge is already in the per-turn tail — upstream's product-tier entry, after the cache boundary, rebound to our occupancy reader. Let me see what it actually renders.
+
+The gauge is the framework's prose with three outcomes, already in the tail — and it measures *context occupancy*, not spend. Let me check the standing reminders, since three of the nine are pure behaviour.
+
+Yes — and the codebase tells you both that it qualifies and exactly what shape it has to take.
+
+## Why it qualifies
+
+Three of the nine reminders are pure standing behaviour, and they share a shape: **one line correcting a drift the model reliably has**, explicitly *not* a summary of the method. The `method` reminder states the house rule in its own text:
+
+> "…the rest of your method is in your knowledge base, **not in these lines**."
+
+So the bar isn't "does it carry state" — `act-rather-than-narrate` carries none. The bar is *is there a default behaviour worth one corrective line*. For delegation there plainly is: the consultant is already holding the context, and calling `set_l1` is cheaper **in effort** than writing a brief, exactly when it's dearer in tokens. That's the same species of drift as narrating instead of acting.
+
+Cost isn't the argument against it. It sits past the cache boundary, so it invalidates nothing; ~20 tokens × ~117 round trips ≈ $0.01 a session, against a lever modelled at roughly half the session.
+
+## One correction to what I said last turn
+
+I said the model doesn't see the bill. More precisely: it already gets a per-turn **occupancy** gauge — upstream's product-tier entry, rebound at `roles.ts:1020` to our durable figure, rendering in the tail with three outcomes. What it doesn't see is *spend*. That distinction matters here, because it means the slot is already proven and the gauge is about overflow, not cost.
+
+## The shape it must take
+
+It has to be a **provider, not a `text:` entry** — this is the thing that would get got wrong. With `enabled: false` a text entry would still render, telling the consultant to hand work to a builder it has no `delegate` tool for. That's precisely the failure `delegationMethod()` was built as a provider to prevent, and it would silently break the rollback property. So: a second name beside `DELEGATION_METHOD_PROVIDER`, registered at the same site (`roles.ts:716`), `null` when not delegating.
+
+Proposed line, in the register of the other three:
+
+> Prefer handing settled construction to a builder over building it yourself — your judgement is the scarce thing, not your typing.
+
+Two notes on scope before I touch anything. This isn't config-only — the prose is `priming.json`, but the provider registration is `roles.ts`, so it's a code change and wants the full free-coding protocol. And REQ-295 is `ready_to_reconcile`; adding to it now means its body needs the motivating language before any UAT lands. Cleaner as a small child of EPIC-20 — but that's your call, and you'd need to say so explicitly for me to file one.
+
+Want me to cut the branch and do it under REQ-295?
 
 <!-- xgd-chat-end -->
