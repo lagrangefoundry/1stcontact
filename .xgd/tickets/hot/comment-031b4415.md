@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-23T23:58:40.977853+00:00'
+updated_at: '2026-09-24T00:00:53.116658+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -857,5 +857,67 @@ Given that, your fastest path to seeing fonts locally is still blocked on REQ-31
 <!-- xgd-chat role="user" ts="2026-09-23T23:58:40.527879+00:00" -->
 #### You
 ok lets back up. What has to happen for fonts to be visible to the dev system
+
+<!-- xgd-turn id="289bc1eb-28c4-482d-bee8-0f402d068e09-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T00:00:52.177602+00:00" -->
+#### Claude
+Let me trace every link in the chain and check the state of each, rather than give you a partial list.
+
+Backing up — here's the whole chain, with what I verified about each link.
+
+**Two independent tracks have to both complete.** The bytes must be servable at `_fonts/…` on the local origin, *and* the assistant has to know it can serve fonts. Neither is currently true, and they fail differently.
+
+## Track A — the bytes
+
+| # | Step | State |
+|---|---|---|
+| 1 | `git clone --depth 1 https://github.com/google/fonts <dir>` | **missing** — 2.45 GB |
+| 2 | `1c fonts mirror --repo <dir>` → `fonts/mirror/` + `fonts/platform.json` | **not run** — 75–90 min at default q11, ~10 min at `--quality 9` |
+| 3 | `1c fonts index` → `cli/ai/platform-fonts.json` | **not run** (auto-runs inside step 2); currently `{"mirror":null,"families":[]}` |
+| 4 | **bytes into local miniflare R2** | ⛔ **no mechanism exists** |
+| 5 | restart `1c builder` | picks up the new projection via wrangler's re-bundle |
+
+**Step 4 is the blocker.** `1c fonts publish` only speaks the cloud R2 REST API. Nothing writes `apps/control-app/.wrangler/state/v3/r2/1stcontact-sites/`, which is what `env.SITES` resolves to under `wrangler dev`. That's REQ-315.
+
+## Track B — the assistant's knowledge
+
+| # | Step | State |
+|---|---|---|
+| 6 | `1c kb export` | **needed** — `1c kb status` reports *"9 ticket(s) carry doc_kind: system_kb — the corpus is stale"*; DOC-56 (`doc-f4754375`) is not in `kb/system/` |
+| 7 | `1c kb build` | **needed** — requires `1c_Admin_Token` + `NODE_USE_ENV_PROXY=1` |
+| 8 | `1c assets` | **needed** — inlines the KB into `src/generated/kb.js` (`assets.ts:131`); without it the worker's static `import { KB }` carries the old corpus |
+| 9 | restart builder | |
+
+The tracks are independent, and that matters: finishing B alone means the assistant confidently knows about 1,940 families and every `use_font` call returns, from `platform-fonts.ts:257`:
+
+```
+ENVIRONMENT: This deployment serves no platform fonts: the font mirror was never built.
+```
+
+Finishing A alone means the bytes serve fine but nothing reaches for them.
+
+## What unblocks you today, without REQ-315
+
+`1c fonts mirror` takes `--only <slugs>`, and `wrangler r2 object put` has `--local --persist-to` — which writes exactly the store `1c builder` reads. So a few families can go in by hand:
+
+```bash
+./bin/1c fonts mirror --repo <dir> --only roboto,lato,oswald --quality 9
+
+npx wrangler r2 object put \
+  "1stcontact-sites/platform/fonts/roboto/Roboto[wdth,wght].woff2" \
+  --file "fonts/mirror/roboto/Roboto[wdth,wght].woff2" \
+  --local --persist-to apps/control-app/.wrangler/state
+```
+
+~10–20 objects for three families instead of 3,808 for the corpus, and it exercises the entire path end to end.
+
+Two honesty flags on that. I have **not** run the put — the key shape comes from `platformFontKey` (`platform/fonts/` + mirror-relative path, `fonts.ts:228`) and the state directory is confirmed present, but I can't verify the round trip until a mirror is staged. And `publish` also ships each family's `OFL.txt` plus an aggregate `LICENSES.txt`; a font will *render* without them, but `1c fonts check` won't be satisfied.
+
+## The one gate you can't route around
+
+Every path needs the 2.45 GB clone first, because `requireCheckout` wants a real `ofl/` tree on disk. Worth trying a `--filter=blob:none --sparse` clone with just the families you want — the mirror only reads the files the catalogue names, so it may well work and would turn that download into minutes. I haven't tested it, so treat it as promising rather than known.
+
+If you want, I can scope the sparse-checkout question and the `--only`-plus-local-seed recipe into REQ-315 so the implementing session proves both rather than rediscovering them.
 
 <!-- xgd-chat-end -->
