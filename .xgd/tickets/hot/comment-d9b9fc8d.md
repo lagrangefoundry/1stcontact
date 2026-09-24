@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:27:30.323776+00:00'
+updated_at: '2026-09-24T00:29:27.420390+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3714,5 +3714,67 @@ Yes everything we have goes - can we delete in a separate step so we can prove t
 Yes everything we have goes - can we delete in a separate step so we can prove this works first tho
 
 Also please read REQ315 we are trying to patch a gap in the provision of fonts in the dev environment - the changes here might cause that approach to change?
+
+<!-- xgd-turn id="9ec451de-8ed6-47fd-bd27-df892ebf3949-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T00:29:26.304228+00:00" -->
+#### Claude
+REQ-315 read. Yes — it collides, and interestingly: **REQ-315 explicitly anticipated this exact ticket and hedged against it.**
+
+## What REQ-315 assumed
+
+It verified, and built its framing on, this:
+
+> `bin/deploy --env dev` **fails** … There is exactly one deployed environment, `production` … So this repo's dev environment is not a deployment at all: it is `1c builder`.
+
+From which it concluded **"`--fonts` at the dev target is a local seed, not a deploy"**, and that the help text should say plainly which of the two things each target does. It then hedged:
+
+> If a `[env.dev]` Worker is ever wanted, it is its own ticket and this one does not presume it: a dev target added here must keep working when it arrives, which is **an argument for selecting the local seed by an explicit flag rather than by the absence of `--env`**.
+
+That hedge is well-judged, and §K is the ticket it was hedging against.
+
+## What §K changes
+
+**1. The central framing dissolves — in REQ-315's favour.** Under §K, `[env.dev]` exists, `bin/deploy --env dev` works, and a local seed *is* a deploy. The apologetic "say plainly that dev isn't really a deploy" help text becomes unnecessary, and so does the explicit-flag hedge: `bin/deploy --fonts --env dev` reads naturally and means exactly what it says. REQ-315 gets **simpler**, not harder.
+
+**2. §K picks between REQ-315's two open shapes — and it picks option 1.** This is the substantive one. REQ-315 leaves the choice to the implementing session:
+
+- *Option 1, seed miniflare's R2* — costs a second copy (~1.35 GB) and "a seeding step whose freshness has to be reasoned about"
+- *Option 2, loopback origin beside the builder* — "no copy and no staleness", costs a second process
+
+§K inverts both cost arguments. The second process stops being a cost, because `bin/dev up/down/reap` now owns processes — that's its whole job. But option 2 reads `fonts/mirror/` **live from the working tree**, which makes the fonts the one part of the environment that isn't frozen. That's precisely the property §K exists to abolish. And "a seeding step whose freshness has to be reasoned about" stops being a worry, because *deploy* is when freshness is decided — that's what deploying means.
+
+So under §K: **option 1 is the consistent choice, and option 2 becomes actively wrong** despite looking cheaper. Worth writing down, because on REQ-315's own terms option 2 is the more attractive of the two.
+
+**3. REQ-315's acceptance criterion gets an implementation site it didn't have.** It asks that "after a mirror completes, the operator starts the builder and fonts work, having typed nothing extra and having chosen no environment", and is visibly unsure where that belongs — "whether that lands as a final step of `1c fonts mirror`, as a seed on `1c builder` startup, or as an explicit target". Under §K there's an obvious answer: fonts are part of what `bin/deploy --env dev` puts into the environment, and `bin/dev up` is the single start command. The question stops being open.
+
+**4. One thing §K might fix for free, and I'm not certain of it.** REQ-315 flags that `.wrangler/state` is per-app, so "the local bucket" is two locations and seeding control-app alone leaves a locally-served published site 404ing. If §K's `--persist-to` points both wrangler processes at one dev-env state directory, that problem disappears. Whether two `wrangler dev` processes can safely share one persist directory I haven't verified — it's a real open question, not a claim.
+
+**What doesn't change:** the `PlatformFontReader` interface decision, the Worker-can't-read-disk finding, the brotli quality cliff, and the production path. All still stand.
+
+## Sequencing
+
+REQ-315 should **not** wait for §K. It has a live driver §K doesn't: the moment the mirror finishes, local dev gets *worse* — an honest refusal becomes a confident bind that 404s. That's time-sensitive; §K isn't.
+
+But it should be implemented as if §K is coming: pick option 1, drop the explicit-flag hedge, and don't invest in help text explaining that dev isn't really a deploy.
+
+Let me record this.
+
+§L recorded on EPIC-16.
+
+**Where this leaves the ticket set** — two under EPIC-16, shaped by your "prove it first" constraint:
+
+**REQ-A — the local dev environment.** The target table in `bin/deploy` (so `--env dev` ships locally through the same hooks, ordering and capability report), `[env.dev]` in both apps, the snapshot from `bin/build`'s existing-but-unused bundle, `bin/dev up/down/reap` with the lsof-based reaper, and §J3's hardcoded database name fixed on the way past. Runs on **new ports, beside the old path** — nothing removed from `package.json` or `dev-env.ts`.
+
+**REQ-B — retire the old path.** `pnpm dev`, `pnpm dev:control`, `1c builder` as an entry point, and the docs that name them. Gated on A being trusted.
+
+I've kept them at two rather than four because A's pieces land in the same files and share one behaviour; B is separate precisely because folding it in would mean A can't close until the deletion happens, which is the pressure you asked to remove.
+
+Two things I'm deliberately not doing without a word from you:
+
+- **Creating the tickets.** Say the word and I'll file both.
+- **Amending REQ-315.** It's EPIC-21's child and may have a session on it. The §L analysis is recorded on EPIC-16 where it's discoverable, but if you'd rather I append the "take the store-seeding shape, drop the hedge" note to REQ-315 directly, I'll do that instead — I just didn't want to edit another epic's ticket underneath it.
+
+One open question worth resolving before A is implemented rather than during: **can two `wrangler dev` processes share a single `--persist-to` directory?** If yes, REQ-315's per-app split-store problem disappears as a side effect and the dev env has one coherent store. If no, A inherits that split and has to be honest about which surfaces answer. I haven't verified it either way.
 
 <!-- xgd-chat-end -->
