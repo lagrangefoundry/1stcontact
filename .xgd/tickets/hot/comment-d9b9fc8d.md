@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T19:09:23.291673+00:00'
+updated_at: '2026-09-24T22:59:28.835492+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4282,5 +4282,18 @@ I left **EPIC-16's Children section** untouched. The `epic_parent` field links i
 And I haven't touched **item 3** — recording the §K constraint — since you only approved item 1. That's still open, along with filing the two §K tickets themselves.
 
 Want me to do item 3 now, and fold the Children update in with it?
+
+<!-- xgd-turn id="9d89bc76-6986-4182-89f1-8050eafc7637-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T22:59:28.560857+00:00" -->
+#### You
+Item 3 is a code change? Then you should create a ticket for it?
+
+What is left on our list?
+
+I also want to discuss the dev tools - something I would really like is:
+bin/1c ps 
+
+That would list all the 1c project servers running with PIDs and port numbers
 
 <!-- xgd-chat-end -->
