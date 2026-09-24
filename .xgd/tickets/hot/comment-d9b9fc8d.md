@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:00:22.169536+00:00'
+updated_at: '2026-09-24T00:04:09.904158+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3475,5 +3475,57 @@ Can we separate live changing code from the development environment?
 I think I want a bin/deploy --env dev so I have control over when a snapshot goes to dev
 
 How hard is that?
+
+<!-- xgd-turn id="3626bdbe-3824-418c-9e84-720553e45eed-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T00:04:08.613453+00:00" -->
+#### Claude
+Epic updated (§J). No code touched, no tickets created.
+
+## The flag already exists
+
+`bin/deploy --env dev` works today. The script takes `--env`, defaults it to `production`, exports it to every hook as `DEPLOY_ENV`, composes `wrangler deploy --env "$env_name"`, and reads the Worker's name out of `[env.<name>].name` rather than assuming the directory. Its own `--help` already advertises `bin/deploy --env staging control-app`.
+
+So the ask is satisfied by the script as written. What's missing is an environment for it to point at.
+
+## ⚠️ But running it today would migrate production
+
+`bin/deploy.d/migrate/10-d1-site-store` honours `DEPLOY_ENV` and then names the database **literally**, three times:
+
+```
+npx wrangler d1 migrations apply 1stcontact --env "$DEPLOY_ENV" --remote
+```
+
+That positional is the database's own name, not the binding's. `bin/deploy --env dev` would apply migrations to **production's D1** while uploading code to dev. This is the finding the epic recorded back in September as a staging hazard — it's now on the critical path and has to be fixed before the flag is used once.
+
+## The good news: a test already does most of the guarding
+
+`test_UAT_FC_REQ-144_deploy_scripts.test.ts` loops over **every** named environment and fails when one doesn't restate every top-level var and binding. The moment `[env.dev]` exists it's held to the same completeness rule as production, with a message naming exactly what's missing. The classic second-environment failure — a binding silently absent because named environments inherit nothing — is already mechanically caught.
+
+One hole: the `ACCESS_DEV_OPEN` guard is scoped to `config.envs.production`. Nothing would stop it being restated under `[env.dev.vars]`, and a deployed Worker with that var set has no Access gate at all. That assertion needs widening to every named environment.
+
+## What's free, what isn't
+
+**Free:** the Durable Object namespace (new Worker name gets its own, migrations replay from empty), Browser/Images/AI (account-level), and the secret pushes — the hooks already do those through `--env`, and they *probe* on the way.
+
+**Provision:** one D1 (18 migrations against an empty database, the easy case), two R2 buckets, a second rate-limit `namespace_id`.
+
+**Watch:** `public-site`'s `LEAD_INTAKE`/`ASSET_GATE` name `1stcontact-control-app` literally. Under `[env.dev]` they must name the dev control-app, or a lead captured on dev lands in production's database via a Worker that never appears in the dev deploy.
+
+## The decisions that are the real work
+
+1. **Access** attaches to a hostname, so dev needs its own application and therefore its own `ACCESS_AUD` (per-application; team domain is shared).
+2. **`workers_dev` IS inherited** by named environments — public-site sets it `true` at top level, so `[env.dev]` silent about it ships an unguarded `*.workers.dev` hostname serving `/api/lead`.
+3. **`SESSION_COOKIE_DOMAIN`** is the sharpest trap: production sets `1stcontact.io`, and the parity UAT will *demand* dev restate the var while being unable to know the correct value differs. Same cookie across both environments if you copy it.
+4. **Turnstile** needs a second widget or every dev lead 503s.
+5. **Seeding dev** — `CLOUD_ORIGIN` is a hardcoded constant in `copy.ts`; `--origin` overrides only the local end, so `copy-to-cloud` can't address a second deployment yet. Small, but it's what makes dev usable.
+
+## How hard
+
+**A day's careful configuration**, most of it mechanical and guarded by an existing test. Four genuine code changes: the migrate hook's database name (the hazard), the `ACCESS_DEV_OPEN` assertion, a cloud-origin flag on the copy pair, and `bin/build --env` (it hardcodes `--env production` for its dry-run bundle, for a good reason that now asks for two).
+
+Safe ordering: fix the migrate hook first → declare `[env.dev]` and let the parity UAT enumerate what's missing → provision → `bin/deploy --dry-run --env dev`, which reaches Cloudflare and *lists* migrations without applying → then the real run.
+
+Want me to file these as children? I'd fold them into one REQ for the four code changes plus one for the environment declaration and provisioning — the migrate-hook fix is arguably its own urgent bug since it's a live footgun regardless of whether dev ever exists.
 
 <!-- xgd-chat-end -->
