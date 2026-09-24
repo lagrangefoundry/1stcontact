@@ -5,7 +5,7 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-24T00:16:42.250148+00:00'
+updated_at: '2026-09-24T01:41:36.711710+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -108,6 +108,15 @@ that already exists, plus the one target that was never built.
 
 
 ## "Dev" is local, and that is not a preference — it is the only thing it can mean
+
+> **⚠️ SUPERSEDED IN PART — see "Amendment: §K gives dev a real deploy target" at the
+> foot of this ticket.** The verification in this section is correct as of the date it
+> was written and should be kept: `bin/deploy --env dev` did fail, and `[env.dev]` did
+> not exist. What no longer holds is the conclusion drawn from it — that a dev target
+> can only ever be a local seed rather than a deploy. EPIC-16 §K commits to declaring
+> `[env.dev]` and giving `bin/deploy` a local target, which is precisely the ticket
+> this section hedged against. Read the amendment before acting on the framing or the
+> explicit-flag argument below.
 
 Checked against wrangler rather than assumed. `bin/deploy --env dev` **fails**:
 
@@ -229,7 +238,10 @@ a hosting path. Reaching for it from the `wrangler dev` builder is a dead end.
 
 ### The two shapes that are buildable
 
-Either satisfies the decision; the implementing session chooses and records why.
+**The choice is now made: take shape 1, seed the store.** Both remain buildable and the
+reasoning below is unchanged and worth reading, but the implementing session no longer
+picks between them — EPIC-16 §K supplies context that reverses the cost comparison. See
+the amendment at the foot of this ticket for why.
 
 1. **Seed miniflare's local R2.** The staged mirror is written into
    `.wrangler/state/v3/r2/1stcontact-sites/` under the same `platform/fonts/` prefix and the
@@ -252,3 +264,101 @@ Either satisfies the decision; the implementing session chooses and records why.
   untouched. If any of them gains knowledge of an environment, the change is wrong.
 - Absent bytes return `null` and 404 identically in both, so a missing family fails the same
   way everywhere rather than one environment throwing and another going quiet.
+
+
+## Amendment: §K gives dev a real deploy target (2026-09-23)
+
+Recorded from [[EPIC-16]] §K/§L, after the operator asked for an isolated local
+environment reached by `bin/deploy --env dev`. This ticket **anticipated** that request
+and hedged against it explicitly; the hedge was well-judged, and the arrival of the
+thing it hedged against makes this ticket **simpler**, not harder. Nothing here enlarges
+the scope.
+
+### What EPIC-16 §K commits to
+
+A **local deployment target**: `[env.dev]` declared in both apps, `bin/deploy` gaining a
+target table so `--env dev` ships through the same hooks, the same ordering and the same
+capability report as production, and a `bin/dev up/down/reap` supervisor that owns the
+processes. The distinguishing property is that the dev environment runs a **snapshot**
+— the bundle `bin/build` already produces and currently discards — rather than watching
+the working tree. It is frozen at the moment of deploy by construction.
+
+It is a separate ticket and this one does not depend on it.
+
+### 1. The "seed, not a deploy" framing dissolves
+
+Under §K a local seed *is* a deploy. `bin/deploy --fonts --env dev` reads literally and
+means what it says.
+
+Two consequences for what this ticket builds:
+
+- **Drop the explicit-flag hedge.** The argument for "selecting the local seed by an
+  explicit flag rather than by the absence of `--env`" existed only to survive the
+  arrival of a `[env.dev]` Worker. `--env dev` selects the dev target, the same way
+  `--env production` selects production, and that keeps working when §K lands.
+- **Do not invest in help text explaining that the dev target is not really a deploy.**
+  The asymmetry the help text was asked to apologise for is being removed. Describe both
+  targets in the same voice.
+
+### 2. The open implementation choice is closed — against the cheaper-looking option
+
+"The two shapes that are buildable" offers store-seeding and a loopback origin, and
+leaves the choice open. §K settles it, and it is worth recording *why*, because the
+decision reverses on context this ticket could not have had:
+
+| this ticket's cost argument | what §K does to it |
+|---|---|
+| loopback origin: *"no copy and no staleness"* | it reads `fonts/mirror/` **live out of the working tree**, making the fonts the one part of the environment that is not frozen — the exact property §K exists to abolish |
+| loopback origin: costs a second process | stops being a cost; `bin/dev up/down/reap` owns processes by design |
+| store-seeding: *"a seeding step whose freshness has to be reasoned about"* | stops being a worry; **deploying is when freshness is decided**, which is what a deploy target means |
+| store-seeding: ~1.35 GB second copy on disk | unchanged, and now the price of the property the environment is being built to have |
+
+**Take shape 1 — seed miniflare's local R2 under the same `platform/fonts/` prefix and
+the same `platformFontKey`.** `r2PlatformFonts(env.SITES)` then serves dev unchanged:
+not merely the same interface but the same implementation, which is the strongest
+available statement that dev and production agree.
+
+### 3. The acceptance criterion gains an implementation site
+
+This ticket asks that *"after a mirror completes, the operator starts the builder and
+fonts work, having typed nothing extra and having chosen no environment"*, and is openly
+unsure where that belongs — "a final step of `1c fonts mirror`, a seed on `1c builder`
+startup, or an explicit target".
+
+Under §K the answer is no longer open in principle: **fonts are part of what
+`bin/deploy --env dev` puts into the environment**, and `bin/dev up` becomes the single
+start command.
+
+But §K is not built yet and this ticket must not wait for it (see sequencing below), so
+the acceptance is unchanged and the landing site stays the implementing session's call.
+What §K adds is a direction: whatever is built now should be a **callable seeding
+operation** that `bin/deploy --env dev` can later invoke as one step among its others,
+rather than logic buried in `1c builder`'s startup or in `1c fonts mirror`'s tail where
+a deploy target cannot reach it.
+
+### 4. An open question §K may close for free — not verified
+
+This ticket flags that `.wrangler/state` is **per app directory**, so "the local bucket"
+is two stores, and seeding control-app alone leaves a locally-served published site
+404ing the fonts the preview beside it renders.
+
+If §K points both `wrangler dev` processes at a single `--persist-to` directory, that
+problem disappears as a side effect. **Whether two `wrangler dev` processes can safely
+share one persist directory is NOT verified.** Do not rely on it. Until it is
+established, this ticket's existing requirement stands in full: whichever store the
+local target writes, it must be honest about which surfaces will then answer.
+
+### 5. Sequencing: this ticket does not wait
+
+**Implement this now, as if §K is coming.** It has a live driver §K does not: the moment
+`1c fonts mirror` completes, the projection fills in every environment while local bytes
+exist in none, so local dev trades an honest refusal for a confident bind that 404s —
+[[REQ-312]]'s own failure mode, surviving in the one environment the work is done in.
+That cost is incurred on mirror completion, not on §K's schedule.
+
+### What this amendment does not change
+
+The `PlatformFontReader` interface decision; the finding that the Worker cannot read the
+host disk under `nodejs_compat` and that `readStagedPlatformFont` is therefore a dead end
+under `wrangler dev`; the brotli quality cliff and the mirror's cost; the production
+publish path; and everything under "What is not negotiable either way".
