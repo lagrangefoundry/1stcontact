@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T22:55:00.056682+00:00'
+updated_at: '2026-09-24T23:01:41.164898+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3695,5 +3695,39 @@ Separately: the Lagrange Foundry session is still bricked and the non-destructiv
 <!-- xgd-chat role="user" ts="2026-09-24T22:54:59.831386+00:00" -->
 #### You
 There is no need for users to dump large text CLOBs into the chat - for anything large, they can upload it as a document. So I think the UI should reject large messages and return a message saying something like: "please put that content into a text document and upload it"
+
+<!-- xgd-turn id="a3ce77d3-49a0-4713-99c7-73dd179274fd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T23:01:40.537455+00:00" -->
+#### Claude
+Let me check the current state of REQ-176 and find where a size check would actually live.
+
+Both tickets are `draft`, so their bodies are editable. Recording the decision on the upstream open question and on the 1c side.
+
+Now the 1c side, appended to REQ-309.
+
+Recorded in both places. One finding changes where the clean version of this has to live.
+
+## The decision, as written down
+
+**lagrange-framework REQ-176** — its last open question is now closed. A turn bigger than the ceiling is refused at submission and never reaches the archive. Three things I kept explicit so the agent doesn't over-read it: the packing rule is unchanged and still never discards, the framework must *not* assume every host refuses (the over-ceiling segment stays a defined outcome, not an invariant), and that failure should name the artifact and segment rather than leaving `SQLITE_TOOBIG` as the whole account. The four earlier decisions don't depend on it, so it's work removed. Body updated and mirrored into the chat thread where the questions were asked.
+
+**REQ-309** — the 1c half, folded in rather than filed separately, since it's the same ceiling expressed at the front door.
+
+The wording can name a real control: the **Background information** drop area — *"Brand guidelines, notes, reports. I'll use these to understand your business; they won't appear on your site."* — and a drop into the conversation is already one of its two entry points. Which makes the refusal an upgrade rather than a restriction: an uploaded document is described, labelled `DOC-n`, kept in the Library, and **indexed into the client's knowledge base**, so the consultant can retrieve it in a later session. Pasted text lives in one transcript and nowhere else.
+
+I proposed **~32,000 characters** — several thousand words, about a sixtieth of D1's ceiling. Deliberately not a storage guard with a margin; it's the point where a message stops being a message. That figure is the one thing worth your confirmation rather than inheritance.
+
+## The constraint worth knowing
+
+`webui-chat`'s composer **clears the box before the submit handler runs**, and says why: *"the text has been accepted by the session the moment it is submitted… leaving it in the box would invite sending it twice."*
+
+So a refusal inside our `sendPrompt` lands *after* the draft is gone and after the user bubble and an empty assistant bubble are painted. It still works — deliver the sentence as that turn's reply, put the text back with `setInputMarkdown` — with one trap I've pinned in the ticket: **the stub stream must end with a proper terminal event**, or `onTurnLost` chases a turn that never existed (BUG-123).
+
+The version you actually want — client sees the sentence with their text still in front of them, nothing painted at all — needs a declared maximum on `mountChat`, which is upstream's. Worth having, not worth waiting for, so REQ-309 specifies the in-repo shape and notes the refinement.
+
+**I haven't filed the upstream composer ticket** — say the word and it's one REQ in lagrange-framework.
+
+Separately: Lagrange Foundry is still bricked at `comment-ca74b1b7`, and the non-destructive re-home is still unrun.
 
 <!-- xgd-chat-end -->
