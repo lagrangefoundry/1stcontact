@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-314
 created_by: xgd
 created_at: '2026-09-23T18:03:35.670032+00:00'
-updated_at: '2026-09-24T17:36:22.623426+00:00'
+updated_at: '2026-09-24T18:01:23.681739+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -116,5 +116,38 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="f2126791-6352-4d48-9c66-ba6c2204f5b1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T18:01:22.987370+00:00" -->
+#### Claude
+Now the merge back.
+
+REQ-314 is landed and at `free_coded`.
+
+## What I completed
+
+The prior session had written the implementation but died before it ran the suite. I picked up the uncommitted work in the `free-REQ-314` worktree, finished verification, fixed what the suite found, and landed it.
+
+**Fixes I made this session:**
+
+1. **`BUG-70` audit regression** — `.builder-font__row` and `.builder-font__swap` declared `font: inherit` with nothing after it, so the audit ("every text-bearing control the builder creates is sized") caught them. All four of the control's buttons now take `--builder-control-font-size` rather than a repeated literal (`__current` and `__search` were carrying 13px/14px literals).
+2. **`REQ-135` field list** — the run's descriptor list gained `fontFamily` between `color` and `fontSizePx`; updated the assertion with the reason for the position.
+3. **Closed-type assertions** — five suites each independently assert "every control is one of the closed types, so none can express CSS". Four already admitted `font` from the prior session; `REQ-135`'s did not. Added it with the justification: the value is a family *name*, resolved against the mirror by the write side.
+
+**Verification (all foreground):**
+
+| Check | Result |
+|---|---|
+| `tests/test_UAT_FC_REQ-314_font_control.test.ts` | 14 passed |
+| Full node project (518 files) | 505 passed, 8 failed |
+| Full workers project | 157 files, 1346 tests, all passed |
+| `tsc --noEmit` × 5 packages | clean |
+
+The 8 failing node files are **exactly the pre-existing baseline** — I ran the same set on `xgd-working` before touching anything and confirmed each one already failed there (mostly loopback-socket tests, `REQ-273`/`BUG-124`, that can't bind in this sandbox). Two flakes I initially mis-attributed turned out environmental: `BUG-134` failed only because the fresh worktree had no `.xgd/tmp`, and `reconciliation-builder-workspace-chrome` AC960 was order-dependent — both pass now.
+
+**Landed:** commit `00ae98e652` → merged to `xgd-working` as `971e7e64e2`, version `0.2.348`, `story_points: 8`, branch and worktree cleaned. Ticket body appended with where the row sits, why the five closed-type assertions widened, and the BUG-70 note.
+
+**One thing worth knowing:** `tools/generate/src/cli/ai/platform-fonts.json` is committed as an empty placeholder; your local copy in the main checkout is the real 593KB projection, generated before this change and so **without the `slab` flag**. The Slab Serif chip will be empty until you re-run `1c fonts index`.
 
 <!-- xgd-chat-end -->
