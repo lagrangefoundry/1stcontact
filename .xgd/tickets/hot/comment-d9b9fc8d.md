@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T17:42:33.949168+00:00'
+updated_at: '2026-09-24T17:44:39.518535+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3852,5 +3852,68 @@ Still on your desk from last turn: whether to file the two §K tickets (the loca
 ```
 
 Do I need to run a migration? Remind me how to do it?
+
+<!-- xgd-turn id="0130e44f-201e-4a25-a5a7-46b3d76d121e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T17:44:39.218329+00:00" -->
+#### Claude
+Let me look at the actual state before answering — `_cf_ALARM` is a workerd-internal table, which points somewhere other than migrations.
+
+Two wrangler versions in the store. Let me pin down which one wrote the state.
+
+Found it — and it's narrow. Let me check what a fix would cost before recommending one.
+
+No migration — neither kind. This is version skew in your local miniflare state, and the fix is deleting two empty 8 KB files.
+
+## Why it isn't a migration
+
+**`wrangler d1 migrations apply`** won't help: `_cf_ALARM` isn't in your D1 database. It's miniflare's own per-Durable-Object bookkeeping table, created by workerd inside each object's `metadata.sqlite`.
+
+**A `[[migrations]]` block in `wrangler.toml`** won't either: those declare DO class renames and `new_sqlite_classes`. They don't touch workerd's internal table schemas.
+
+## What actually happened
+
+You have two wrangler versions in the tree:
+
+| version | where |
+|---|---|
+| **4.106.0** | the workspace — root, control-app, public-site all resolve to it |
+| **4.111.0** | pulled in transitively by `@cloudflare/vitest-pool-workers@0.18.5` |
+
+The newer one ran `ALTER TABLE _cf_ALARM ADD COLUMN actor_name TEXT` against the R2 metadata stores. You can see the ALTER signature in the schema — `actor_name` sits outside the original `CREATE`'s closing paren:
+
+```sql
+CREATE TABLE _cf_ALARM (
+  actor_id TEXT PRIMARY KEY,
+  scheduled_time INTEGER
+, actor_name TEXT) WITHOUT ROWID
+```
+
+Now 4.106.0's workerd does an unnamed 2-value `INSERT` into that 3-column table and dies.
+
+The blast radius is exactly two files. Of the eight `metadata.sqlite` stores across both apps, **only the two R2 ones have the third column** — cache, `do`, d1 and images are all still 2-column. The timing matches: the R2 stores were last written at **2026-09-24 00:18 / 00:20**, everything else at **10:43** today.
+
+I have not confirmed which 4.111.0 invocation did it — that it was vitest-pool-workers is inference from the version being in the tree, not something I verified.
+
+## The fix
+
+Both files are 8192 bytes, contain the single table `_cf_ALARM`, and have **zero rows**:
+
+```bash
+rm apps/control-app/.wrangler/state/v3/r2/miniflare-R2BucketObject/metadata.sqlite \
+   apps/public-site/.wrangler/state/v3/r2/miniflare-R2BucketObject/metadata.sqlite
+```
+
+workerd recreates them on next start. **Your R2 data is not in these files and is untouched** — the object index lives in the hashed siblings (6,904 objects in `1stcontact-sites`, 791 in `1stcontact-material`) and the bytes live in the blob dirs (~2 GB across both apps). Nothing to re-seed.
+
+Want me to run it?
+
+## The recurrence
+
+Deleting fixes today; the skew re-poisons the state the next time anything runs under 4.111.0. Two durable options — bump the workspace to `^4.111.0` so both agree, or give the test runner its own `--persist-to` so it never touches the dev store. The first is less machinery; the second is the one §K would want anyway.
+
+## One note for EPIC-16
+
+This lands directly on the question I flagged as **not verified** in REQ-315's amendment yesterday — whether two `wrangler dev` processes can share one `--persist-to` directory. This incident sharpens it: the hazard isn't only concurrent access, it's **version** skew. A shared persist directory is safe only while every process touching it is the same wrangler build, which makes `@cloudflare/vitest-pool-workers` dragging its own wrangler a standing risk to any single-store design. Say the word and I'll record it in §K as a constraint on the shared-store option.
 
 <!-- xgd-chat-end -->
