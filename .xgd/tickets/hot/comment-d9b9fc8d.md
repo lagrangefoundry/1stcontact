@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:14:43.791039+00:00'
+updated_at: '2026-09-24T00:21:47.966188+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3617,5 +3617,15 @@ That's the only real architectural question, and the script's own header frames 
 **Far easier than §J.** No D1 to provision, no buckets, no Access application, no `ACCESS_AUD`, no Turnstile widget, no DNS, no secrets, no `SESSION_COOKIE_DOMAIN` trap. The hard 80% of the cloud version was all account-side and it evaporates. What's left is a target abstraction in `bin/deploy`, an `[env.dev]` block, a pidfile, and a port — call it **half a day**, with the migrate hook's hardcoded database name (§J3) still worth fixing on the way past, since it's a live footgun the moment any second env exists.
 
 Want me to record this as §K on the epic — §J answered the cloud question and should stay, but it's not what you're after — and then scope it as a REQ?
+
+<!-- xgd-turn id="c9edd0cf-b4a6-4c6b-87b9-c0da6fb37b68-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:21:47.685355+00:00" -->
+#### You
+**Does dev get its own data, or share **`.wrangler/state`**?** This is the biggest one. Separate (`--persist-to .dev-env/state`) is true isolation — you can `1c reset` your edit loop without touching dev — but dev then starts empty and needs seeding. Shared means the *code* is isolated and the *data* isn't. I'd guess separate is what you want, but it's a real fork and it changes whether day one includes a seed step. <-- share with what? This will REPLACE ENTIRELY what we do today there will be one local dev environmment to use it I will run a deploy. It will have THE ONLY COPY of the dev env data because it is the ONLY DEV ENV
+
+So the other thing here I want are simple commands that start and stop the whole dev env. the access-sim, the filing server, the builder etc etc seems like there are a huge number of moving parts I want a single command that will run them and stop them all
+
+I also want a reaper command that will find and kill zombies that were missed
 
 <!-- xgd-chat-end -->
