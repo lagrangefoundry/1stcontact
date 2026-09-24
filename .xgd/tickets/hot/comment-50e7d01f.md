@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-24T23:31:55.293330+00:00'
+updated_at: '2026-09-24T23:38:20.892506+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1492,5 +1492,41 @@ Want me to cut the branch and do it under REQ-295?
 <!-- xgd-chat role="user" ts="2026-09-24T23:31:54.675534+00:00" -->
 #### You
 Can you review the questions in the transcript of REQ-174 and answer anything you feel confident about in the ticket and bring anything else here to discuss please?
+
+<!-- xgd-turn id="c1ee10f0-f952-4a53-9e6c-9b42ffb2ada5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T23:38:20.490448+00:00" -->
+#### Claude
+I'll read REQ-174 in the framework repo — ticket body plus any comment transcript.
+
+Reading the actual shell source so my answers are grounded rather than inherited from the transcript.
+
+Everything checks out, plus two things the transcript didn't have. Writing the answers into the ticket body — it's still `draft`, and UATs have to trace to body language.
+
+All five questions answered in REQ-174's body, still at `draft`, with the acceptance conditions and test plan extended to match. No code touched, no branch cut.
+
+## The five decisions
+
+| | answer | why |
+|---|---|---|
+| **1. Fill vs "the box the panel had"** | Fill **unconditionally**, on the view's own height chain keyed to the root attribute | "Same box as the active tab's panel" would make the same view fill or not fill depending on which tab happened to be live. Also drops the dependency on the fill `:has()` |
+| **2. Sizing hook** | (a) — `shell-view` class on the host's node, removed on close | A wrapper buys nothing: the shell would *still* impose fill layout on the host's node via `> *`, while adding a level that makes `getView()` and host selectors disagree with the DOM |
+| **3. Interception in `tabs.js`** | Yes, a hook before `select()` — and the sub-case is now body language | Confirmed `select()` early-returns on re-selecting the live tab (`tabs.js:85`), so dismissal must not be conditional on `select()` proceeding |
+| **4. `setActiveTab` closes the view** | Yes, same path, same ordering | One rule for "the selection moved". Otherwise a view sits over a panel that quietly changed underneath it |
+| **5. `openView` returns** | `{node, close}`, `close()` idempotent and a **no-op once replaced** | A stale handle closing somebody else's view is the bug that shape exists to prevent |
+
+I also reversed **"What to build" item 3**, which was mine and was wrong. Styling-only suppression leaves `aria-selected="true"` on a tab whose panel is off screen — the surface lies to precisely the reader who can't see it lying. And jsdom applies no stylesheet, so a CSS-only suppression makes the claim unassertable. It's now DOM state: remove `is-active`, set `aria-selected="false"`, restore exactly what was found.
+
+## Four things for you
+
+**I overruled the ticket's own "not in scope" line.** It said no change to the fill machinery. Condition 9 now scopes the fill selectors with `:not([data-view])`, because a plainly-written hide rule *cannot* win against an eight-class `:has()` selector — order doesn't enter into it. Panel behaviour is unchanged and condition 12 pins that. But it is an edit to landed REQ-61 machinery, so if you'd rather it stayed untouched, the alternative is `!important` or an inline style inside the component that owns both rules — both worse, and both worth your nod rather than my assumption.
+
+**The transcript's "defect in their version" is stale, and the correction matters.** It described 1st Contact's hide rule as a live bug. It *was* one — but already found by eye and fixed: commit `32a2667dc6` is literally *"fix(console): fill the region"*, and `console.js:124-150` now documents the whole specificity argument and ships an inline style instead. So the observation is real evidence rather than spec-derived, which is why condition 9 leads with it. Both console commits are correctly on REQ-298's `fields.commits` — no bookkeeping gap there.
+
+**Conditions 2 and 12 cannot be verified in this sandbox.** They're layout claims, so `bin/project/check-layout` is the only instrument — and it's Playwright-driven and *skips* (exit 0) when Playwright isn't on the path, which it isn't here, and Chromium won't launch anyway. So whoever builds this will add the case and see it skip. Verifying it is your action, not theirs. Accept "verified where it can be", or do you want Playwright installed in the framework repo first?
+
+**REQ-173 has landed** (`free_coded`, and `leading` is live in `index.js`/`config.js`/README). So REQ-174 is the last selector 1st Contact holds against the shell. When it lands, `console.js`'s exception becomes a one-line change — that's a 1stcontact ticket, and I won't file one without you saying so. File it now, or wait until REQ-174 is actually in the shared store?
+
+Decision 2 is the one I'd most readily be overruled on — it's reversible and the least load-bearing of the five.
 
 <!-- xgd-chat-end -->
