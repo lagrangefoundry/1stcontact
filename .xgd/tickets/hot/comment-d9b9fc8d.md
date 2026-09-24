@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T19:01:58.645255+00:00'
+updated_at: '2026-09-24T19:03:09.732777+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4099,5 +4099,63 @@ Done in 216ms using pnpm v11.9.0
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="331baef1-b877-4536-994f-2e59a6ac6118-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T19:03:09.230582+00:00" -->
+#### Claude
+"Already up to date" in 216 ms means it didn't re-resolve — which shouldn't happen after a spec change. Let me check ground truth.
+
+It did work — "Already up to date" just meant no downloads were needed, since 4.111.0 was already in the store. Now the check that actually matters:
+
+Fixed and verified — and the evidence confirms the diagnosis was right.
+
+## Result
+
+**One workerd in the tree: `1.20260710.1`.** The old generation is gone entirely — the lockfile lost 116 lines and gained 8, which is the duplicate 4.106.0 / 1.20260630.1 subtree being collapsed out.
+
+```
+wrangler@4.111.0        -> workerd 1.20260710.1, miniflare 4.20260710.0
+miniflare@4.20260710.0  -> workerd 1.20260710.1
+```
+
+`npx wrangler --version` → `4.111.0`.
+
+## The live proof
+
+You've evidently started control-app since installing, and the store state shows exactly what the theory predicted:
+
+| store | before | now |
+|---|---|---|
+| control-app R2 metadata | deleted by me | **regenerated**, 3-col |
+| control-app cache / do / d1 / images | 2-col | **auto-ALTERed to 3-col** |
+| public-site cache / d1 | 2-col | still 2-col — not started yet |
+
+So the new workerd migrates 2→3 **forward, silently, without incident**. The crash only ever existed in the backwards direction — new writer, old reader. With a single workerd resolved, that direction no longer exists. public-site will migrate the same way on its first start.
+
+## Changeset
+
+```
+ apps/control-app/package.json |   2 +-
+ apps/public-site/package.json |   2 +-
+ package.json                  |   4 +-
+ pnpm-lock.yaml                | 124 +++---------------------------
+ pnpm-workspace.yaml           |  16 +++---
+ tools/generate/package.json   |   2 +-
+```
+
+Uncommitted, and config-only — no code touched, so nothing here needs the free-coding path.
+
+## What this does not fix
+
+The two ranges are still **independent**. `wrangler ^4.111.0` and `miniflare ^4.20260710.0` are separate specs that happen to agree today; nothing stops the next install floating one without the other, and you'd get the same crash with different version numbers. The durable fix is to couple them — a pnpm `overrides` pin on `workerd`, or have `seed.ts` reach miniflare through wrangler instead of declaring its own dependency. That's a change to REQ-315 code which is already `ready_to_reconcile`, so I've left it.
+
+Three things still open from this session:
+
+1. **Couple wrangler↔miniflare** so the skew can't return — wants a ticket.
+2. **File the §K tickets** (local deploy target; `bin/dev up/down/reap`) — offered twice, still unfiled.
+3. **Record the §K constraint** — a shared `--persist-to` is only safe while every process touching it resolves the same workerd. Today is the worked example.
+
+Which would you like?
 
 <!-- xgd-chat-end -->
