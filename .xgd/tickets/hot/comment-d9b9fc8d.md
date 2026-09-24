@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:21:47.966188+00:00'
+updated_at: '2026-09-24T00:24:03.958782+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3627,5 +3627,78 @@ Want me to record this as §K on the epic — §J answered the cloud question an
 So the other thing here I want are simple commands that start and stop the whole dev env. the access-sim, the filing server, the builder etc etc seems like there are a huge number of moving parts I want a single command that will run them and stop them all
 
 I also want a reaper command that will find and kill zombies that were missed
+
+<!-- xgd-turn id="c9edd0cf-b4a6-4c6b-87b9-c0da6fb37b68-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T00:24:02.908605+00:00" -->
+#### Claude
+You're right — I invented a fork that doesn't exist. If it replaces `pnpm dev`, there's no second store to share with; `.wrangler/state` just *becomes* the dev env's data, and it's the only copy. Scratch that question.
+
+Let me go find the actual moving parts, since that's now the substance.
+
+You're right on both counts, and the reaper case makes itself — I went and looked at what's listening on your machine right now.
+
+## What's actually running
+
+| port | proc | cwd |
+|---|---|---|
+| **8788** | workerd | `1stcontact/apps/control-app` ← **builder** |
+| **8790** | node | `1stcontact` ← **filing server** |
+| **8799** | node | `1stcontact` ← **access-sim** |
+| 8712 | node | `1stcontact` |
+| 8722 | node | `1stcontact` |
+| 8733 | node | `1stcontact` |
+| 8711 | node | `.xgd/worktrees/…/free-REQ-254` |
+| 8719 | node | `.xgd/worktrees/…/free-REQ-254` |
+| 8723 | node | `.xgd/worktrees/…/free-REQ-254` |
+| 8795 | node | `.xgd/worktrees/…/free-BUG-124` |
+| 8889 | python | `/private/tmp/…/garbage-…/test_UAT_FC_REQ_706_stop_port_3` |
+| 8766/67/91/93/94, 8888 | python | sibling repos — not yours to reap |
+
+**Three** of those are the dev environment. **Eight** are zombies from this repo: three in the main checkout, four holding ports from `free-REQ-254` and `free-BUG-124` worktrees that no longer exist, and one from a deleted pytest temp dir — whose test is literally named `stop_port`. Nothing has ever cleaned these up, and they've clearly been accumulating for a long time.
+
+Also note 8711/8712 are taken, which `filing.ts:116` explicitly predicted: *"8711 and 8712 are routinely taken on a working machine."* They're taken by your own orphans.
+
+## An implementation constraint I found by accident
+
+**`ps` is completely blocked in this sandbox** — `ps aux` returns zero lines. But `lsof` works fine, including `lsof -a -p <pid> -d cwd`, which is how I built that table. So the reaper has to be **lsof-based, not ps-based**, or it'll work for you and be unusable by any agent — which is precisely the situation that produced four of those zombies. The cwd is also the right identity key: it cleanly separates *this repo's* strays from lagrange-framework's and xgd's, so the reaper can be safe by construction rather than by a port allowlist.
+
+## The shape
+
+Three commands, one process table:
+
+- **`bin/dev up`** — build the snapshot, run the migrate hook against the local store, start builder + public-site + filing + access-sim, write a pidfile per service
+- **`bin/dev down`** — stop everything in the pidfile, verify the ports are actually free
+- **`bin/dev reap`** — the backstop: every listener in the band whose cwd is under this repo *or under a `.xgd` worktree of it*, and which isn't in the current pidfile, gets listed and killed. `--dry-run` first, since that's this repo's convention.
+
+`reap` exists because `down` will always be incomplete — the four worktree zombies prove it. A worktree gets torn down mid-session and takes the pidfile with it, so `down` can never be run. That's not a bug to fix, it's a permanent condition to have a backstop for.
+
+One thing to know up front: nohup'd/detached listeners started from an agent sandbox survive `kill -9` from inside it — only you can stop those. So `reap` will need to report what it couldn't kill rather than claim success.
+
+## Difficulty
+
+Lower than either previous estimate. The snapshot deploy is the half-day I described; `up`/`down`/`reap` is maybe another half-day, and most of it is a pidfile convention plus an lsof sweep. There's no clever part.
+
+The one thing that *is* a real question, and it's a scoping question not a technical one: **does `bin/dev up` become the only way to run the dev env, deleting `pnpm dev` and `pnpm dev:control`?** You said it replaces what we do today, so I'll take that as yes — which means `1c builder` stops being an entry point and becomes something `bin/dev up` calls. Worth being explicit because it touches `dev-env.ts`, the `package.json` scripts, and anything in the docs that tells someone to run `pnpm dev`.
+
+Let me record this on the epic and then scope it.
+
+§K is on EPIC-16 (line 1509), with §J kept and explicitly marked as answering a different question.
+
+**Summary of what changed in my understanding this turn:**
+
+- The "share or separate" question was malformed — there's one dev env, it holds the only copy, `.wrangler/state` simply becomes its store.
+- `bin/dev up` replaces `pnpm dev` outright; `1c builder` stops being an entry point. I've written that into §K2 as explicit scope because it reaches `dev-env.ts`, the root `package.json` scripts, and the docs.
+- The reaper isn't a nice-to-have. Eight zombies from this repo are live on your machine right now, four of them holding ports from worktrees that no longer exist, and they're squatting on 8711/8712 — the exact ports `filing.ts` refused to use because they're "routinely taken on a working machine."
+- The reaper must be lsof-based: `ps` returns nothing under the agent sandbox, so a ps-based implementation would be unusable by the very thing that creates most of the orphans.
+
+**Scoping.** I'd fold this into **two** REQs, not four:
+
+1. **The local deploy target** — the target table in `bin/deploy`, `[env.dev]`, the snapshot from `bin/build`'s existing bundle, `d1-migrations.ts` following the environment, and §J3's hardcoded database name fixed on the way past.
+2. **`bin/dev up/down/reap`** — process lifecycle, pidfiles, the lsof sweep, and retiring `pnpm dev`.
+
+They're separable — the target is useful without the supervisor, and the supervisor would be useful today even against the current watch-mode builder — but they land in the same files and I'd expect to do them back to back.
+
+Want me to create those two, or would you rather one ticket?
 
 <!-- xgd-chat-end -->
