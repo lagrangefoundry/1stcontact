@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T19:17:03.244410+00:00'
+updated_at: '2026-09-24T19:37:41.364710+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3645,5 +3645,11 @@ That's a minute's work and unblocks the session today.
 2. **REQ-176 + REQ-309** — rolling segments proper.
 
 Tell me to go and I'll do the re-home now. The branch cut for the code work still restarts the builder under you, so I'll want a gap for that — but the repair doesn't touch the tree.
+
+<!-- xgd-turn id="150c6317-22a2-453b-92a2-ba569a9b1df6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T19:37:40.682832+00:00" -->
+#### You
+REQ-176 has come back with a list of questions in its transcript can you read them and answer those you are confident about in the ticket - bring anything you need confirmation about back here for discussion please
 
 <!-- xgd-chat-end -->
