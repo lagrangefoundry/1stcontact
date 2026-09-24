@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T19:13:21.625287+00:00'
+updated_at: '2026-09-24T19:17:03.244410+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3600,5 +3600,50 @@ I just hit this in dev:
 *D1_ERROR: string or blob too big: SQLITE_TOOBIG*
 
 *Can you remind we where we are with the fix for this?*
+
+<!-- xgd-turn id="33a44adb-cb86-4680-8306-cf444de5c742-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T19:17:02.958659+00:00" -->
+#### Claude
+Nothing has landed. Here's the state, checked just now.
+
+## The tickets are exactly where we left them
+
+| | filed | status |
+|---|---|---|
+| **LF REQ-176** `request-5ec30472` — artifacts must segment | 09-23 03:11 | **draft** |
+| **LF BUG-66** `bug-78285a39` — the coupling | 09-23 03:11 | **draft** |
+| **LF BUG-67** `bug-1dd21e5d` — whole-body read for a boolean | 09-23 03:12 | **draft** |
+| **REQ-309** `request-e1a43d83` — D1 storage (1c) | 09-23 03:11 | **draft** |
+
+And the framework code is unchanged — `apply()` still writes the tool transcript first, `_applyTools` still `append_body`s with no total bound.
+
+## It's the same session, still dead
+
+Not a new occurrence. `comment-ca74b1b7` — the tool transcript for **Lagrange Foundry** (`chat-50932534`) — is frozen at **2,162,212 bytes**, last written `2026-09-22T23:00:09Z`. Your pending turn on that ticket right now:
+
+```json
+{"text":"Could you check to see if you have access to fonts now?",
+ "at":"2026-09-24T18:49:34.492Z","status":"error"}
+```
+
+So that conversation has been bricked for ~44 hours and every turn you send it fails identically at the same line. Other sessions are fine (`worker-builder-1-msskzt` wrote normally 20 minutes ago) — it's only the one that crossed the ceiling.
+
+**Why it stalled: I ended the last two turns asking your go-ahead on the trim and on a window to cut a branch, and then stopped.** That was the wrong call — you were blocked the whole time.
+
+## A repair that keeps every byte
+
+I looked for something better than trimming, since you objected to discarding. `_commentOfKind` returns the **first** comment of a kind, so splitting into two `tool_transcript` comments is unreliable — the archive would likely keep appending to the full one.
+
+What does work, with no code change: **re-home the 2.16 MB body onto a comment of a different kind** (`tool_transcript_archived_1`) and leave `tool_transcript` holding a short pointer line. Appends resume on a near-empty body, not a byte is lost, the old records stay queryable in D1, and it's the rolling design done by hand — so the eventual reader inherits it rather than working around it.
+
+That's a minute's work and unblocks the session today.
+
+## Then the real fix
+
+1. **BUG-66** first — the coupling. Small, independent, and it's what turns "a debug log got too big" into "the conversation ended". Worth landing even if the ceiling never moves.
+2. **REQ-176 + REQ-309** — rolling segments proper.
+
+Tell me to go and I'll do the re-home now. The branch cut for the code work still restarts the builder under you, so I'll want a gap for that — but the repair doesn't touch the tree.
 
 <!-- xgd-chat-end -->
