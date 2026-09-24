@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-24T18:40:46.673304+00:00'
+updated_at: '2026-09-24T18:44:32.928136+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1382,5 +1382,65 @@ Nothing built, no branch, no construction tickets.
 <!-- xgd-chat role="user" ts="2026-09-24T18:40:46.498716+00:00" -->
 #### You
 Can you take a look at the tickets that have landed and the code and confirm that the delegate model is in-place? What guidance do we give the pirmary on delegate use?
+
+<!-- xgd-turn id="d60e69e2-dff2-48af-bb89-f68c2a91eeb9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T18:44:31.948928+00:00" -->
+#### Claude
+I'll read the ticket and then go after the code rather than the claims.
+
+REQ-295 is at `ready_to_reconcile` with four commits. Now the code.
+
+`enabled: true` — it shipped on. But `instances.json` shows no `delegation` entry on the consultant, so that must be composed in code. Let me find it.
+
+That's the bundle. Let me find the actual 1stcontact source wiring.
+
+The wiring is real. Let me read the host construction and the guidance prose in parallel.
+
+Wiring confirmed end to end. Now the guidance — that's the second half of your question.
+
+All verified. Let me record this on the epic.
+
+Confirmed — traced against the source, not against the tickets. And one thing has changed since we last spoke.
+
+## It's in place, and the switch ships **on**
+
+`delegation.json` now carries `"enabled": true`. REQ-295 was filed to ship *off*; the document states both reasons that changed:
+
+- **Discharged**: REQ-296's guard landed, so a worker on the smaller 200k window now meets a budget guard rather than a provider error halfway through a customer's turn.
+- **Overruled**: the wait-for-a-baseline condition — on the grounds that a week spent measuring what construction costs is a week of paying it. The before-figure is the modelling; the switch remains the rollback.
+
+| Piece | Where |
+|---|---|
+| Switch, validated at start-up | `delegation.json` + `delegation.ts` |
+| Worker model — `claude-haiku-4-5`, 32k ceiling | `backends.json` → `claude_builder` |
+| Builder's narrowed grant | `instances.json` → `builder` |
+| Runtime + adapter closure | `host-core.ts` ~1253–1355 |
+| Consultant's method prose | `priming.json` → `templates/delegation-method` |
+| Builder's own role prose | `priming.json` → `builder_priming` |
+| UATs | `test_UAT_FC_REQ-295_delegation{,_config}.test.ts` |
+
+Three things that could have been got wrong and weren't: the consultant's grant is genuinely **additive** (`instances.json` still lists all eight L1 groups — option (a) as filed); **off means never composed**, so `delegationMethod()` returns `null` and the prompt is byte-for-byte pre-delegation; and the worker gets **its own L1 instance and camera**, because a Toolbox binds each surface to the grant it was built with — sharing one would have silently narrowed the consultant's own tools.
+
+## The guidance
+
+`templates/delegation-method`, sitting third in the consultant's priming and **before the cache boundary** — so it's in the cached prefix and costs nothing per turn. Four points:
+
+1. **What to hand over** — large payload, small decisions. Keep judgement. The test is operational: *"if you would have to explain the reasoning twice to hand it over, do it yourself."*
+2. **Write the brief for someone who cannot see this conversation, because they cannot** — and name the constraints you'd have applied silently.
+3. **`accept` is whatever you'd have checked afterwards**, specific enough that "passed" means something: not "the page looks right" but "every section has a heading".
+4. **Believe a passed check and move on.** With the reason attached, which is the load-bearing part: re-inspecting checked work doesn't save the tokens, it moves them to the more expensive side.
+
+The builder's half carries the matching obligation — never claim a check it skipped, *"the one failure that costs more than doing nothing at all: the consultant stops looking precisely where they should have looked."*
+
+## The gap
+
+**Nothing gives the consultant a per-turn reason to delegate.** The prose is in the cached prefix, read once; there's no reminder in the per-turn tail and no cost signal it can perceive. `delegate` returns the worker's usage — so it learns what a delegation cost *after* choosing to make one, never what its own turn is costing. The model still doesn't see the bill.
+
+That was accepted knowingly when you picked (a) over the narrowed grant, on the grounds it's measurable. So the first question after a week of real sessions is REQ-293's split-by-model: a low delegated share means the prose is the lever and option (b) is the fallback.
+
+Worth noting the cheaper intervention is now half-built — REQ-296 wired `registerBudgetProvider` and the occupancy figure exists. Putting spend beside it would give the consultant an incentive it can *perceive*, and it's the same mechanism a usage cap needs, so those two want designing together. Neither is filed; say the word.
+
+Verification recorded on EPIC-20. No code touched.
 
 <!-- xgd-chat-end -->
