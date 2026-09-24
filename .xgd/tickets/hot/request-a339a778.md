@@ -5,9 +5,9 @@ type: request
 title: 'Exactly one workerd: pin wrangler and miniflare together, and check it'
 created_by: EPIC-16
 created_at: '2026-09-24T19:08:41.228133+00:00'
-updated_at: '2026-09-24T23:15:10.390500+00:00'
+updated_at: '2026-09-24T23:15:15.670882+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.349
+  story_points: 3
 ---
 
 ## What broke, on 2026-09-24
