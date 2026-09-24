@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T18:48:04.086564+00:00'
+updated_at: '2026-09-24T18:48:53.930495+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4043,5 +4043,48 @@ Still unrecorded: the §K constraint, which this incident now states much more s
 <!-- xgd-chat role="user" ts="2026-09-24T18:48:02.976670+00:00" -->
 #### You
 We discussed rathionalizing the server launch and management can we go back to that conversation, where is it?
+
+<!-- xgd-turn id="a5224431-1df1-4db4-8381-f3b4bb7e50a8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T18:48:53.657074+00:00" -->
+#### Claude
+It's **EPIC-16 §K** — `epic-96d8aca6`, dated 2026-09-23. Let me pull it up.
+
+It's **EPIC-16 §K — "One local dev environment, deployed to rather than edited into"**, written 2026-09-23. Ticket `epic-96d8aca6`.
+
+```bash
+xgd ticket get epic-96d8aca6
+```
+
+It's a long epic (~122k chars, sections §A–§L), so §K is well down it. The three relevant sections are contiguous at the end:
+
+- **§J** — a *deployed cloud* dev environment. Kept, but explicitly not what you asked for.
+- **§K** — the local one. The actual conversation.
+- **§L** — retirement sequencing, and what §K does to REQ-315.
+
+## Where it got to
+
+**The premise.** Locally there's no boundary at all. `pnpm dev` → `1c builder` → `wrangler dev --port 8788` with no `--env`, so it reads the top-level `wrangler.toml` block (carrying `ACCESS_DEV_OPEN = "1"`), watches the working tree, and persists to `apps/control-app/.wrangler/state`.
+
+**Your correction, recorded in K2.** Asked whether a deployed dev environment should share `.wrangler/state` or get its own, you said the question was malformed: the new environment **replaces** today's arrangement. One local dev environment, reached by running a deploy, holding the only copy of the dev data. That pulled `dev-env.ts`, the root `package.json` scripts, and every "run `pnpm dev`" doc into scope.
+
+**The mechanism (K3).** `wrangler dev` has no `--no-watch`, so the freeze comes from *what* is watched — point it at a snapshot nothing writes to except the next deploy. Three of four pieces exist: `bin/deploy`'s ceremony, `bin/build` stage 4's bundle at `apps/control-app/dist/worker.js` (built today purely as a typecheck gate, consumed by nothing), and wrangler's `--no-bundle`/`--persist-to`/`--env`/`--port`. What's missing is a **target table** in `bin/deploy` — given an environment, how do I ship to it — instead of a hardcoded `npx wrangler deploy`.
+
+**The measured part (K4/K5).** A port sweep found three listeners that are the dev environment and **eight** that are this repo's zombies, four from `.xgd` worktrees that no longer exist. And `ps aux` returns zero lines under the agent sandbox while `lsof` works — so the reaper must be built on `lsof`, keyed on each process's cwd.
+
+**The commands (K6).** `bin/dev up` / `down` / `reap`, where `reap` is a permanent backstop rather than redundancy: a worktree torn down mid-session takes its pidfile with it, so `down` can never be run there.
+
+**Estimate (K7).** About half a day for the snapshot deploy, half for `up`/`down`/`reap`. No provisioning, no Access, no DNS — the account-side 80% of §J doesn't exist here.
+
+## Status: nothing filed
+
+I've confirmed it — **§K has no tickets**. The epic's Children section lists REQ-289 and REQ-290 as filed and then a "Still unfiled" list that predates §K and doesn't mention it. I offered to file the two (local deploy target; `bin/dev` supervisor) at the end of my first message this session and again a few messages back; it's still open.
+
+Two things from today's work want folding in when you do:
+
+1. **The workerd-skew constraint** — a shared `--persist-to` is only safe while every process touching it resolves the same workerd, and a direct `miniflare` dependency silently breaks that. This morning's `_cf_ALARM` crash is the proof.
+2. **The wrangler bump is half-applied** — four `package.json` files and `pnpm-workspace.yaml` are changed, `pnpm-lock.yaml` is not. You still need to run `pnpm install` in your own terminal.
+
+Want me to file the §K tickets now?
 
 <!-- xgd-chat-end -->
