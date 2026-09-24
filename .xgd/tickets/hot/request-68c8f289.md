@@ -5,7 +5,7 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-24T00:10:23.303801+00:00'
+updated_at: '2026-09-24T00:16:42.250148+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -204,3 +204,51 @@ or as an explicit target reachable from `bin/deploy --fonts`, the acceptance is 
 **after a mirror completes, the operator starts the builder and fonts work, having typed
 nothing extra and having chosen no environment.** An explicit target may still exist for
 re-seeding, but it is not how the ordinary case is reached.
+
+
+## Decision: the interface is fixed, the implementation is not
+
+**Settled by the operator: any delivery is acceptable so long as it is the same interface.**
+That interface is `PlatformFontReader` — `read(path): Promise<Uint8Array | null>` — already
+declared in both `apps/control-app/src/platform-fonts.ts` and injected through
+`RouterDeps.platformFonts`. Nothing above it may learn which environment it is in, which is
+the constraint the rest of this ticket exists to hold.
+
+### One shape is ruled out, and it must not be re-attempted
+
+**The Worker cannot read the filesystem, so a disk-backed reader cannot run under
+`wrangler dev`.** `compatibility_flags = ["nodejs_compat"]` shims Node APIs inside workerd;
+it does not open the host disk. This repo already settled the same question the same way:
+the system KB is inlined into `src/generated/kb.js` ([[REQ-158]]) *because* the Worker cannot
+read `kb/system/`, and `1c assets` writes that file unconditionally so a static import
+resolves on a machine that never built one.
+
+`readStagedPlatformFont` therefore works **only** in the Node builder transport
+(`tools/generate/src/cli/builder.ts`), which its own header calls test infrastructure and not
+a hosting path. Reaching for it from the `wrangler dev` builder is a dead end.
+
+### The two shapes that are buildable
+
+Either satisfies the decision; the implementing session chooses and records why.
+
+1. **Seed miniflare's local R2.** The staged mirror is written into
+   `.wrangler/state/v3/r2/1stcontact-sites/` under the same `platform/fonts/` prefix and the
+   same `platformFontKey`. `r2PlatformFonts(env.SITES)` then serves dev **unchanged** — not
+   merely the same interface but the same implementation, and therefore the strongest
+   possible statement that dev and production agree. Costs a second copy of the corpus on
+   disk (~1.35 GB) and a seeding step whose freshness has to be reasoned about.
+
+2. **A loopback origin beside the builder.** `1c builder` serves `fonts/mirror/` on a local
+   port and injects a fetch-backed `PlatformFontReader`. No copy and no staleness — the
+   staged bytes are read where they already are — at the cost of a second process the builder
+   owns, and a second implementation of the interface that must be held to the same
+   behaviour, including `null` for an absent object.
+
+### What is not negotiable either way
+
+- The reader is selected by **wiring**, not by a branch inside a route or inside the
+  assistant. `RouterDeps.platformFonts` is that wiring and already exists.
+- `use_font`, the renderer, the page's `src`, the toolbox manual and the browser are
+  untouched. If any of them gains knowledge of an environment, the change is wrong.
+- Absent bytes return `null` and 404 identically in both, so a missing family fails the same
+  way everywhere rather than one environment throwing and another going quiet.
