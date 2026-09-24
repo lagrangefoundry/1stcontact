@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-24T00:10:40.005301+00:00'
+updated_at: '2026-09-24T00:15:41.202799+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -977,5 +977,11 @@ Whether it lands as a final step of `fonts mirror`, a seed on `1c builder` start
 I've put all of this in REQ-315, replacing the "operator selects a target" framing it had.
 
 One thing still genuinely open, and it's yours to call: `fonts/mirror/` is 1.35 GB, and seeding miniflare's R2 means a second copy on disk. Live with 2.7 GB, or have the dev path read the staged directory directly through the `platformFonts` seam that already exists in `RouterDeps` — which avoids the copy but means dev and prod read through different implementations of the same interface.
+
+<!-- xgd-turn id="0295bcea-e34b-400f-bfbd-3c0157e9934e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:15:40.112098+00:00" -->
+#### You
+So long as its the same interface I don't care how its served
 
 <!-- xgd-chat-end -->
