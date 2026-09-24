@@ -72,8 +72,10 @@ import { cmdFontsCatalogue, formatCatalogueReport } from './font-catalogue'
 import {
   cmdFontsMirror,
   cmdFontsPublish,
+  cmdFontsSeed,
   formatMirrorReport,
   formatPublishReport,
+  seedAfterMirror,
 } from './font-mirror'
 import { cmdFontsIndex, formatIndexReport } from '../fonts/index-build'
 import { cmdFontsDoc, formatFontDocReport } from './font-doc'
@@ -630,7 +632,11 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     is not re-read or re-compressed, so a re-run against an unchanged catalogue transfers
     nothing. A family gone from upstream is reported and its manifest entry RETAINED, because a
     live site may be serving it. The staged bytes are gitignored; the manifest is committed and
-    is the pin that makes two builds of the same commit serve the same faces.
+    is the pin that makes two builds of the same commit serve the same faces. Seeds the local
+    dev stores when it finishes (REQ-315), so a mirror is followed by 1c builder and nothing
+    else. --quality is a CLIFF and not a dial: brotli 11 (the default, and what a production
+    publish wants) runs the full corpus in roughly 75-90 minutes, while --quality 9 is about
+    20x faster for some 9% more bytes, which is the right trade for a local dev seed.
   1c fonts index [--json]
     Project fonts/platform.json into the corpus the assistant reads (REQ-313), joined to
     fonts/catalogue.json for the category, named weights and axis ranges the mirror has no
@@ -642,6 +648,14 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     /_fonts/ (REQ-312). Needs CLOUDFLARE_API_TOKEN — the same credential 1c kb build uses;
     the account is discovered from the token. Digest-checked per object, so an interrupted
     publish resumes by being re-run and an unchanged mirror transfers nothing.
+  1c fonts seed [--app <name,…>] [--dry-run] [--json]
+    The same staged mirror, written into the local miniflare R2 store wrangler dev reads
+    (REQ-315) — the same platform/fonts/ prefix and the same key function publish uses, so
+    r2PlatformFonts(env.SITES) serves local dev unchanged. Nothing is uploaded: the bytes
+    land on this machine. .wrangler/state is per app directory, so every app declaring the
+    bucket is seeded by default and the report names which stores answer; --app narrows it.
+    Digest-checked per object, so a re-seed of an unchanged mirror moves nothing. Run at the
+    tail of 1c fonts mirror already — this verb is for re-seeding.
   1c fonts doc [--json] [--stdout]
     Project DOC-56's body from fonts/catalogue.json and write it into the system-KB document
     that declares fonts/catalogue.json as its source. Only OFL 1.1 and Apache 2.0 families
@@ -2251,8 +2265,9 @@ export async function run(argv: string[]): Promise<void> {
       // inspects the manifest between them.
       if (sub === 'mirror') {
         try {
+          const cwd = process.cwd()
           const report = cmdFontsMirror({
-            cwd: process.cwd(),
+            cwd,
             repo: typeof flags.repo === 'string' ? flags.repo : undefined,
             ref: typeof flags.ref === 'string' ? flags.ref : undefined,
             only:
@@ -2262,8 +2277,25 @@ export async function run(argv: string[]): Promise<void> {
             quality: typeof flags.quality === 'string' ? Number(flags.quality) : undefined,
             onProgress: json ? undefined : (line) => console.error(line),
           })
-          if (json) console.log(JSON.stringify({ ok: report.failures.length === 0, data: report }, null, 2))
-          else console.log(formatMirrorReport(report))
+          // [[REQ-315]] — AND THE LOCAL DEV STORES, IN THE SAME BREATH, for the
+          // reason `cmdFontsMirror` already re-projects at its own tail: the
+          // projection it just refreshed fills in EVERY environment, so from
+          // this moment `use_font` binds `/_fonts/…` paths that local dev cannot
+          // answer unless the bytes are put where `wrangler dev` reads them.
+          // The operator starts the builder and fonts work, having typed nothing
+          // extra and having chosen no environment.
+          //
+          // HERE RATHER THAN INSIDE `cmdFontsMirror`, which is synchronous and
+          // whose callers are: opening a local store is async, and `1c fonts
+          // mirror` IS this dispatch. `seedAfterMirror` is the callable
+          // operation, so `bin/deploy --fonts --env dev` invokes the same one.
+          const seeded = await seedAfterMirror(cwd, json ? () => {} : (line) => console.error(line))
+          if (json) {
+            console.log(JSON.stringify({ ok: report.failures.length === 0, data: { ...report, seed: seeded } }, null, 2))
+          } else {
+            console.log(formatMirrorReport(report))
+            if (seeded) console.log(formatPublishReport(seeded))
+          }
           if (report.failures.length > 0) process.exitCode = 1
         } catch (err) {
           fail(err, json)
@@ -2275,6 +2307,29 @@ export async function run(argv: string[]): Promise<void> {
           const report = await cmdFontsPublish({
             cwd: process.cwd(),
             dryRun: flags['dry-run'] === true,
+            onProgress: json ? undefined : (line) => console.error(line),
+          })
+          if (json) console.log(JSON.stringify({ ok: report.missing.length === 0, data: report }, null, 2))
+          else console.log(formatPublishReport(report))
+          if (report.missing.length > 0) process.exitCode = 1
+        } catch (err) {
+          fail(err, json)
+        }
+        return
+      }
+      // [[REQ-315]] — the other delivery. `publish` writes the cloud bucket over
+      // the R2 REST API; `seed` writes the miniflare store `wrangler dev` reads,
+      // so the environment the work is done in serves the same bytes through the
+      // same `r2PlatformFonts(env.SITES)` the deployed Worker uses.
+      if (sub === 'seed') {
+        try {
+          const report = await cmdFontsSeed({
+            cwd: process.cwd(),
+            dryRun: flags['dry-run'] === true,
+            apps:
+              typeof flags.app === 'string'
+                ? flags.app.split(',').map((s) => s.trim()).filter((s) => s !== '')
+                : undefined,
             onProgress: json ? undefined : (line) => console.error(line),
           })
           if (json) console.log(JSON.stringify({ ok: report.missing.length === 0, data: report }, null, 2))
@@ -2301,7 +2356,7 @@ export async function run(argv: string[]): Promise<void> {
       }
       if (sub !== 'check') {
         console.error(
-          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc, mirror, index, publish.\n\n` + USAGE,
+          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc, mirror, index, publish, seed.\n\n` + USAGE,
         )
         process.exitCode = 1
         return

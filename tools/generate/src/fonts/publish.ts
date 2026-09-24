@@ -25,6 +25,7 @@ import path from 'node:path'
 import { PLATFORM_LICENCE_INDEX, platformFontKey, type PlatformFontManifest } from '@1stcontact/site-schema'
 import { pathExists } from '../store/fsutil'
 import { CLOUDFLARE_API, resolveAccountId } from '../cli/cloudflare-account'
+import { CommandError, type ErrorCode } from '../cli/errors'
 import { LICENCE_INDEX_FILE, loadPlatformManifest, mirrorDir } from './mirror'
 import { sha256 } from './upstream'
 
@@ -67,6 +68,22 @@ export interface PublishOptions {
   onProgress?: (line: string) => void
 }
 
+/**
+ * One local miniflare R2 store, and the app whose `wrangler dev` reads it
+ * ([[REQ-315]]).
+ *
+ * DECLARED HERE, beside the report that carries it, rather than in `seed.ts`:
+ * the two targets share one report type and one formatter precisely so that an
+ * operator reads the same account of a run whichever of them delivered it, and
+ * a type the report references cannot live downstream of the report.
+ */
+export interface LocalStore {
+  /** App directory name, e.g. `control-app`. */
+  app: string
+  /** Repo-relative persist directory the store was written to. */
+  persist: string
+}
+
 export interface PublishReport {
   bucket: string
   /** Objects sent by this run. */
@@ -77,13 +94,38 @@ export interface PublishReport {
   missing: string[]
   bytes: number
   dryRun: boolean
+  /**
+   * Which local stores were written — present only for the dev target
+   * ([[REQ-315]]).
+   *
+   * REPORTED BECAUSE THE LOCAL BUCKET IS NOT ONE PLACE. `.wrangler/state` is per
+   * app directory, so a seed that wrote one store leaves every other surface
+   * 404ing the fonts the one beside it renders. Saying which stores answer is
+   * the difference between that being a fact and being a surprise.
+   */
+  stores?: LocalStore[]
 }
 
 /** The bucket platform fonts are served from — the one public-site already reads. */
 export const PLATFORM_BUCKET = '1stcontact-sites'
 
-/** Raised when the mirror cannot be published, with what to do about it. */
-export class PublishError extends Error {}
+/**
+ * Raised when the mirror cannot be delivered, with what to do about it.
+ *
+ * A {@link CommandError} SINCE [[REQ-315]], and that is a correction rather than
+ * a refinement. A plain `Error` reaches the CLI's `fail()` as an unrecognised
+ * throw and is printed `INTERNAL: …` — which tells an operator the tool has a
+ * bug, when what actually happened is that they have not run `1c fonts mirror`
+ * yet. Now that `bin/deploy --fonts` is a door an operator opens, the refusal on
+ * the other side of it has to read as one; and the two targets have to read the
+ * same, since they differ only in where the bytes go.
+ */
+export class PublishError extends CommandError {
+  constructor(message: string, code: ErrorCode = 'NOT_FOUND') {
+    super({ code, message })
+    this.name = 'PublishError'
+  }
+}
 
 /**
  * Upload the staged mirror.
@@ -126,6 +168,7 @@ export async function runPublish(options: PublishOptions): Promise<PublishReport
       'Publishing the font mirror needs R2: set CLOUDFLARE_API_TOKEN (the same credential ' +
         '`pnpm deploy:*` and `1c kb build` use). The account is discovered from the token, so ' +
         'CLOUDFLARE_ACCOUNT_ID is only needed to override that.',
+      'ENVIRONMENT',
     )
   }
   const accountId = await resolveAccountId(apiToken, env)

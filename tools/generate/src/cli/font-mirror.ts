@@ -15,6 +15,7 @@ import { CommandError } from './errors'
 import { cmdFontsIndex } from '../fonts/index-build'
 import { runMirror, MANIFEST_REL, MIRROR_DIR_REL, type MirrorReport } from '../fonts/mirror'
 import { runPublish, type PublishReport } from '../fonts/publish'
+import { localStores, runSeed } from '../fonts/seed'
 
 export interface MirrorCommandOptions {
   cwd?: string
@@ -146,6 +147,61 @@ export async function cmdFontsPublish(options: {
   })
 }
 
+/**
+ * [[REQ-315]] — the same mirror, delivered to the environment the work is done in.
+ *
+ * A SECOND DELIVERY, NOT A SECOND MIRROR. `publish` and `seed` differ in exactly
+ * one thing — where the bytes are put — and share the object set, the prefix, the
+ * key function, the digest check, the report and the formatter. See `seed.ts` for
+ * why the local store is written through miniflare's own `R2Bucket` rather than
+ * through its on-disk format.
+ */
+export async function cmdFontsSeed(options: {
+  cwd?: string
+  dryRun?: boolean
+  apps?: string[]
+  onProgress?: (line: string) => void
+} = {}): Promise<PublishReport> {
+  return runSeed({
+    cwd: options.cwd ?? process.cwd(),
+    dryRun: options.dryRun,
+    apps: options.apps,
+    onProgress: options.onProgress,
+  })
+}
+
+/**
+ * Seed the local stores at the tail of a mirror run, reporting rather than
+ * failing ([[REQ-315]]).
+ *
+ * NOT A STEP ANYBODY HAS TO REMEMBER, for the reason `cmdFontsMirror` already
+ * runs `1c fonts index` at its own tail: a mirror that leaves the operator's own
+ * dev environment unable to serve what it just spent an hour and a half
+ * converting has not finished. The projection and the local bytes are the same
+ * class of follow-on, and the projection is what makes the omission harmful —
+ * it fills in every environment at once, so `use_font` starts binding paths
+ * local dev cannot answer at the exact moment the mirror completes.
+ *
+ * AND A FAILURE HERE DOES NOT FAIL THE MIRROR. The expensive, resumable work is
+ * already on disk and its manifest is written; a store that could not be opened
+ * is an ordinary local condition — no `apps/` tree at all, in a consumer that
+ * vendors only the tool — and losing a mirror run over it would be trading the
+ * whole thing for the convenience. `1c fonts seed` re-runs it.
+ */
+export async function seedAfterMirror(
+  cwd: string,
+  onProgress: (line: string) => void = () => {},
+): Promise<PublishReport | null> {
+  if (localStores(cwd).length === 0) return null
+  try {
+    return await runSeed({ cwd, onProgress })
+  } catch (err) {
+    onProgress(`  local dev stores not seeded: ${(err as Error).message}`)
+    onProgress('  run `1c fonts seed` to retry — the mirror itself is complete.')
+    return null
+  }
+}
+
 const mb = (bytes: number): string => `${(bytes / 1_000_000).toFixed(1)}MB`
 
 /** Human rendering of a mirror run — what moved, what did not, and what is missing. */
@@ -177,13 +233,22 @@ export function formatMirrorReport(report: MirrorReport): string {
   return lines.join('\n')
 }
 
-/** Human rendering of a publish run. */
+/**
+ * Human rendering of a publish OR a seed run — one account of a delivery,
+ * whichever target made it ([[REQ-315]]).
+ *
+ * The stores are listed by name because the local bucket is per app directory:
+ * a surface absent from this list will 404 the fonts the one above it renders,
+ * and that has to be readable here rather than discovered in a browser.
+ */
 export function formatPublishReport(report: PublishReport): string {
+  const local = report.stores !== undefined
   const lines = [
-    `fonts publish — ${report.dryRun ? 'DRY RUN: ' : ''}${report.uploaded} object(s) ` +
+    `fonts ${local ? 'seed' : 'publish'} — ${report.dryRun ? 'DRY RUN: ' : ''}${report.uploaded} object(s) ` +
       `${report.dryRun ? 'would be sent' : 'sent'}, ${report.unchanged} already current, ${mb(report.bytes)} staged`,
-    `  bucket: ${report.bucket}`,
+    `  bucket: ${report.bucket}${local ? ' (local — miniflare, on this machine)' : ''}`,
   ]
+  for (const store of report.stores ?? []) lines.push(`  ${store.app.padEnd(14)} ${store.persist}`)
   if (report.missing.length > 0) {
     lines.push('')
     lines.push(

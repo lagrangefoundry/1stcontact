@@ -371,14 +371,31 @@ describe('REQ-312 — the platform font mirror', () => {
   it('test_UAT_FC_REQ-312_the_mirror_is_not_wired_into_the_build_or_the_deploy', () => {
     // Populating R2 is not deploying a bundle. The mirror is ~1.35GB of objects
     // that persist across deploys, so a deploy must neither re-upload them nor
-    // wait on them — and the way that stays true is that no build or deploy step
-    // invokes the mirror at all. It is acquired like a dependency, on its own verb.
+    // wait on them.
+    //
+    // AMENDED BY [[REQ-315]], which gave `bin/deploy` a `--fonts` TARGET. The
+    // property this pins is unchanged and the mechanism is not: it used to be
+    // that no deploy step invoked the mirror AT ALL, and it is now that none
+    // does UNLESS ASKED. `--fonts` deploys the mirror and nothing else — it
+    // exits before a single app is deployed — so an ordinary `bin/deploy` still
+    // neither re-uploads the corpus nor waits on it, which is the whole of what
+    // the original statement was protecting. `bin/build` reaches it by no path
+    // at all, then as now.
     const repoRoot = path.resolve(__dirname, '..')
-    for (const script of ['bin/build', 'bin/deploy']) {
-      const text = readFileSync(path.join(repoRoot, script), 'utf8')
-      expect(text, `${script} does not run the mirror`).not.toContain('fonts mirror')
-      expect(text, `${script} does not publish the mirror`).not.toContain('fonts publish')
-    }
+
+    const build = readFileSync(path.join(repoRoot, 'bin/build'), 'utf8')
+    expect(build, 'bin/build does not run the mirror').not.toContain('fonts mirror')
+    expect(build, 'bin/build does not deliver the mirror').not.toContain('fonts')
+
+    // Every font delivery on `bin/deploy` is inside the `--fonts` target, and
+    // that target is reached from exactly one guarded place.
+    const deploy = readFileSync(path.join(repoRoot, 'bin/deploy'), 'utf8')
+    expect(deploy, 'the fonts target is opt-in').toMatch(/if \[\[ \$fonts -eq 1 \]\]/)
+    expect(
+      deploy.split('deploy_fonts').length - 1,
+      'deploy_fonts is defined once and called once, from the --fonts guard',
+    ).toBe(2)
+
     // And the staged bytes are not repository content that a bundle could sweep up.
     const gitignore = readFileSync(path.join(repoRoot, '.gitignore'), 'utf8')
     expect(gitignore).toContain(`/${MIRROR_DIR_REL}/`)
