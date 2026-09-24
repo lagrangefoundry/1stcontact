@@ -5,9 +5,9 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-24T01:51:36.463295+00:00'
+updated_at: '2026-09-24T02:03:36.013215+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-b9b27697
@@ -363,3 +363,119 @@ The `PlatformFontReader` interface decision; the finding that the Worker cannot 
 host disk under `nodejs_compat` and that `readStagedPlatformFont` is therefore a dead end
 under `wrangler dev`; the brotli quality cliff and the mirror's cost; the production
 publish path; and everything under "What is not negotiable either way".
+
+## As landed (2026-09-23)
+
+Shape 1, as the amendment directs: the staged mirror is written into miniflare's local
+R2 under the same `platform/fonts/` prefix and the same `platformFontKey`, so
+`r2PlatformFonts(env.SITES)` serves dev unchanged.
+
+### The delivery is `1c fonts seed`, and it is publish's twin
+
+`tools/generate/src/fonts/seed.ts` is a second **delivery**, not a second mirror. It
+shares `platformObjects` (so the object set is the manifest's, never a directory walk),
+the prefix, the key function, the digest check, the `PublishReport` and
+`formatPublishReport` with `1c fonts publish`. The two differ in exactly one thing —
+where the bytes go.
+
+**Written through miniflare's own `R2Bucket` API**, against the same persist directory
+`wrangler dev` opens (`.wrangler/state/v3/r2`). Not through its on-disk format, which is
+a SQLite store whose filename is an opaque Durable Object id plus content-addressed
+blobs — reverse-engineering that would be a second implementation of a private layout.
+Not through `wrangler r2 object put --local` per object either, for the reason
+`publish.ts` already records about process-spawn cost at this scale. `miniflare` is
+declared as a dependency of `tools/generate` and of the root; it is not new in the tree,
+being what `wrangler` already is underneath.
+
+Measured on the real corpus: **5,498 objects / 855 MB in 29 s**, and a re-seed of an
+unchanged mirror in 20 s moving nothing.
+
+### Every app that declares the bucket is seeded, and the report names them
+
+`.wrangler/state` is per app directory, so the default is **discovered, not listed**:
+every `apps/*/wrangler.toml` naming the platform bucket gets a store, and one that never
+declares it is never handed one. The report lists each store it wrote, because a surface
+absent from that list will 404 the fonts the one beside it renders. `--app <name,…>`
+narrows it, and naming an app that does not serve platform fonts is refused.
+
+### A mirror run seeds the local stores at its tail
+
+`1c fonts mirror` already re-projects at its tail so a refreshed corpus cannot leave the
+assistant binding paths that 404; the local bytes get the same treatment for the same
+reason. So the acceptance holds today, without waiting for §K: **after a mirror
+completes, the operator starts the builder and fonts work, having typed nothing extra
+and having chosen no environment.**
+
+`seedAfterMirror` is the callable operation the amendment asks for, so
+`bin/deploy --fonts --env dev` invokes the same one rather than a parallel path. It sits
+in the CLI's `fonts mirror` dispatch rather than inside `cmdFontsMirror`, which is
+synchronous and whose callers are; opening a local store is async. **A failure there does
+not fail the mirror** — the expensive resumable work is already on disk and its manifest
+written, so a store that could not be opened is reported and `1c fonts seed` re-runs it.
+
+### `bin/deploy --fonts` deploys the mirror and nothing else
+
+A 1.35 GB corpus and a Worker move on different schedules, so each is named: `--fonts`
+exits before a single app is deployed, and `bin/deploy` with no flag still means the
+apps. No hook runs on that path, so **no capability section is printed** — a report with
+no rows reads as a clean bill of health for probes that never happened.
+
+- `--fonts --env production` → `1c fonts publish`, unchanged. Defaulted, as the rest of
+  `bin/deploy` defaults.
+- `--fonts --env dev` → `1c fonts seed`.
+- **Two environments and no third.** `--env staging` is refused naming both, rather than
+  picking a target by accident — it is named in `bin/deploy`'s own usage comment and has
+  never existed in either app's configuration.
+- **An app name narrows the dev target and is refused for production.** There is one
+  cloud bucket and the mirror is not per-app; locally `.wrangler/state` is per app, so
+  there the same name means something.
+- `--dry-run` reports what would move and writes nothing, on both targets — the same
+  shape publish's rehearsal already takes, rather than being quietly more precise than
+  the real run on one target only.
+
+### The quality cliff is told, not discovered
+
+Both the `1c fonts mirror` usage text and the "no mirror staged" refusal name it: brotli
+11 costs 75–90 minutes over the full corpus, `--quality 9` is roughly 20× faster for
+about 9% more bytes, which is the right trade for a dev seed and the wrong one for a
+production publish. `bin/deploy --help` says it too, since that is where an operator
+about to seed is looking.
+
+### Two corrections made in passing, recorded because they change existing behaviour
+
+**`PublishError` is now a `CommandError`** (`NOT_FOUND` by default; `ENVIRONMENT` for a
+missing `CLOUDFLARE_API_TOKEN`, `INTERNAL` for a failed write). As a plain `Error` it
+reached the CLI's `fail()` as an unrecognised throw and printed `INTERNAL: There is no
+platform font mirror…`, which tells an operator the tool has a bug when what happened is
+that they have not mirrored yet. Now that `bin/deploy --fonts` is a door an operator
+opens, the refusal behind it has to read as one — and both targets have to read the same,
+since they differ only in where the bytes go. This changes `1c fonts publish`'s exit code
+for those conditions from 1 to 3 and 6.
+
+**[[REQ-312]]'s `test_UAT_FC_REQ-312_the_mirror_is_not_wired_into_the_build_or_the_deploy`
+is amended, deliberately and loudly.** It asserted that `bin/deploy` contains no
+`fonts mirror` / `fonts publish` invocation at all, and this ticket makes that false by
+design. The property it was protecting is unchanged — *an ordinary deploy neither
+re-uploads the corpus nor waits on it* — and only the mechanism moves: from *no deploy
+step invokes the mirror* to *none does unless asked*. The UAT now pins that: `bin/build`
+reaches the mirror by no path at all, and every font delivery on `bin/deploy` is inside
+the `--fonts` target, reached from exactly one guarded place that exits before any app is
+deployed. Wording the new code around the old string assertion was rejected: it would
+have left that UAT passing while false, which is the drift the matrix exists to prevent.
+
+### Out of scope, unchanged
+
+`use_font`, the renderer, the page's `src`, the toolbox manual and the browser are
+untouched; nothing above the `PlatformFontReader` seam learns which environment it is in.
+No `[env.dev]` is declared and no Worker is deployed for dev — that is EPIC-16 §K's
+ticket, and `--env dev` here keeps working when it arrives.
+
+### Test plan
+
+`tests/test_UAT_FC_REQ-315_font_mirror_dev_target.test.ts` (13 UATs). Every observation
+is the **served bytes**: each opens the seeded store with a fresh miniflare instance —
+the same `R2Bucket` API `wrangler dev` hands the Worker — and reads back through
+`r2PlatformFonts` / `servePreviewPlatformFont`, the readers the deployed Worker uses. A
+report claiming an object was written is precisely the evidence this ticket exists
+because nobody had. `bin/deploy --fonts` is driven as an operator drives it: the real
+script, from a shell, at the repo root.
