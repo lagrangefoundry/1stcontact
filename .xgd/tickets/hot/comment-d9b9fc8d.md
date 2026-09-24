@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:26:27.136366+00:00'
+updated_at: '2026-09-24T00:27:30.323776+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3706,5 +3706,13 @@ Want me to create those two, or would you rather one ticket?
 <!-- xgd-chat role="user" ts="2026-09-24T00:26:26.919553+00:00" -->
 #### You
 Yes everything we have goes - can we delete in a separate step so we can prove this works first tho
+
+<!-- xgd-turn id="9ec451de-8ed6-47fd-bd27-df892ebf3949-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:27:30.232959+00:00" -->
+#### You
+Yes everything we have goes - can we delete in a separate step so we can prove this works first tho
+
+Also please read REQ315 we are trying to patch a gap in the provision of fonts in the dev environment - the changes here might cause that approach to change?
 
 <!-- xgd-chat-end -->
