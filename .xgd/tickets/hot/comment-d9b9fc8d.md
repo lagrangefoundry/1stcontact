@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T18:36:29.486782+00:00'
+updated_at: '2026-09-24T18:36:49.491997+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3955,5 +3955,11 @@ The skew itself is untouched, so this recurs the next time anything runs under 4
 Say which and I'll scope it properly — that's a dependency change, so it wants a ticket and a branch rather than an edit in place.
 
 I also haven't yet recorded the §K constraint I flagged last message — that a shared `--persist-to` is only safe while every process touching it is the same wrangler build. Today's failure is the evidence for it. Want that added to EPIC-16 §K?
+
+<!-- xgd-turn id="330e9067-33e6-4921-af50-8272d33fe3f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T18:36:47.835023+00:00" -->
+#### You
+sure please bump the version
 
 <!-- xgd-chat-end -->
