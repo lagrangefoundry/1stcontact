@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-24T00:15:41.202799+00:00'
+updated_at: '2026-09-24T00:16:48.764606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -983,5 +983,26 @@ One thing still genuinely open, and it's yours to call: `fonts/mirror/` is 1.35 
 <!-- xgd-chat role="user" ts="2026-09-24T00:15:40.112098+00:00" -->
 #### You
 So long as its the same interface I don't care how its served
+
+<!-- xgd-turn id="0295bcea-e34b-400f-bfbd-3c0157e9934e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T00:16:47.357454+00:00" -->
+#### Claude
+That resolves it — but let me check one thing, because the option I offered may not be buildable as described.
+
+Confirmed, and it kills the option I offered: **the worker can't read the disk.** `nodejs_compat` shims Node APIs, it doesn't give workerd host filesystem access — and this repo already settled the question, since the KB is inlined into `src/generated/kb.js` (REQ-158) for exactly that reason. Only the Node builder transport can read `fonts/mirror/` directly, and that's test infrastructure.
+
+So "same interface" narrows to two buildable shapes, and `PlatformFontReader` is the interface in both:
+
+- **Seed miniflare's R2** — uses `r2PlatformFonts` *unchanged*, so it's not merely the same interface, it's the same implementation. Costs a second 1.35 GB on disk.
+- **Sidecar origin** — `1c builder` serves `fonts/mirror/` on a loopback port; a fetch-backed `PlatformFontReader` is injected in dev. No copy, one extra process.
+
+Recorded that as the decision in REQ-315.
+
+REQ-315 now carries the decision: `PlatformFontReader` is fixed, the implementation is the child's call, and the disk-backed-reader dead end is written down so nobody re-attempts it.
+
+Not negotiable either way, and recorded as such: the reader is selected by wiring (`RouterDeps.platformFonts`, which already exists), never by a branch in a route or in the assistant; `use_font`, the renderer, the `src` and the browser are untouched; and absent bytes return `null` and 404 identically in both, so a missing family fails the same way everywhere.
+
+The ticket is in `draft` and unassigned — it needs a session to cut a branch and build it. Say the word and I'll get one started, or leave it queued if you'd rather see the mirror land first.
 
 <!-- xgd-chat-end -->
