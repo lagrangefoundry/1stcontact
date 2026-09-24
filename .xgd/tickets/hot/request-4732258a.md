@@ -6,9 +6,9 @@ title: 'The editor font control: 30 curated faces, and a query box that reaches 
   1,941'
 created_by: EPIC-21
 created_at: '2026-09-23T03:19:38.760798+00:00'
-updated_at: '2026-09-24T18:00:34.694758+00:00'
+updated_at: '2026-09-24T18:00:59.726827+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: low
@@ -263,3 +263,5 @@ no second spelling, and a preview face that resolves is proof the page's will.
   families whose bytes do not exist.
 - Every curated family resolves to a family the catalogue carries.
 - The Serif chip includes slab serifs; the Slab Serif chip narrows to them.
+
+-
