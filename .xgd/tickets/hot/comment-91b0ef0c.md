@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-24T19:04:21.785562+00:00'
+updated_at: '2026-09-24T19:05:14.170146+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2236,5 +2236,11 @@ lsof -n | grep control-app/.wrangler/state    # who owns the store
 ```
 
 Want me to kill the four stale consoles and the 4.106.0 tail? And my offer from last turn still stands — a ticket under EPIC-12 for a launch-time guard that refuses to start when the runtime and the persisted state disagree, which would have turned this into a one-line refusal instead of a fatal.
+
+<!-- xgd-turn id="726d66c3-290b-4483-a5f6-562c25725032-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T19:05:13.626135+00:00" -->
+#### You
+Please kill all of them and let me start a fresh one
 
 <!-- xgd-chat-end -->
