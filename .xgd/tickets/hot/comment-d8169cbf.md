@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T23:01:41.164898+00:00'
+updated_at: '2026-09-24T23:29:49.451123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3729,5 +3729,11 @@ The version you actually want — client sees the sentence with their text still
 **I haven't filed the upstream composer ticket** — say the word and it's one REQ in lagrange-framework.
 
 Separately: Lagrange Foundry is still bricked at `comment-ca74b1b7`, and the non-destructive re-home is still unrun.
+
+<!-- xgd-turn id="5f905bf7-d341-4341-b302-abab9cbefb1c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T23:29:49.081136+00:00" -->
+#### You
+PLease file the ticket - what is an appropriate limit? can you calibrate me - what would a 500 line paste be?
 
 <!-- xgd-chat-end -->
