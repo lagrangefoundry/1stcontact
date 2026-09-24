@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T19:06:51.485120+00:00'
+updated_at: '2026-09-24T19:09:23.291673+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4246,5 +4246,41 @@ Want me to write that into §K, and file item 1 as its own ticket?
 <!-- xgd-chat role="user" ts="2026-09-24T19:06:47.869234+00:00" -->
 #### You
 on 1 lets go with your recommendation - want to create a ticket?
+
+<!-- xgd-turn id="09775cb4-764d-47e6-8428-f157b83f3fcb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T19:09:23.179032+00:00" -->
+#### Claude
+`req44-install-preflight` looks like the existing precedent for this kind of guard. Let me check it.
+
+Strong precedent found — there's already a preflight family (`preflight.ts` REQ-44, `shared-store.ts` REQ-144). Let me see how they gate so the ticket names the right home.
+
+Now I have enough to scope it properly.
+
+**REQ-316** — *"Exactly one workerd: pin wrangler and miniflare together, and check it"* (`request-a339a778`), `draft`, priority high, parented to EPIC-16.
+
+## What's in it
+
+**The failure, traced.** Today's crash verbatim, plus the table showing `wrangler ^4.106.0 → workerd 1.20260630.1` against `miniflare ^4.20260630.0 → workerd 1.20260710.1`, and the key fact an operator can't discover from the error: **the schema of `.wrangler/state` is owned by workerd, and workerd migrates it forward silently on open.** No log line, no version stamp. It also records that the two obvious remedies — `d1 migrations apply` and a `[[migrations]]` block — are both wrong, so nobody re-derives that.
+
+**The ruled-out fix, checked rather than assumed.** wrangler's `exports` map is `.`, `./experimental-config`, `./package.json`; `Miniflare` is in the type declarations but is not a public export. So "just don't declare miniflare" is a dead end and the fix has to be a constraint.
+
+**The two parts.** Exact pins across the four manifests, and a third preflight in the family that already exists — `preflight.ts` (REQ-44) and `shared-store.ts` (REQ-144), whose header supplies the governing rule: *fail at build time, naming the component and the command that fixes it*. Same shape: pure `check…`, an `assert…` throwing `CommandError` with `EXIT_CODES.ENVIRONMENT`, and a resolver seam so tests never touch a real `node_modules`.
+
+The behaviour clauses are written to be traceable, since UATs have to motivate from them — silent on success; on failure name **every version found and which declared dependency brought each**; name the remedy; fire **before** the store is opened; and gate per-command (`1c builder`, `1c fonts seed`, `1c reset`) per REQ-44's `COMMAND_DEPS` rule rather than globally.
+
+**Why not `overrides`,** recorded because it's the tempting one-liner: it works by overruling wrangler's own pin, so you'd run wrangler against a runtime its authors didn't ship it with — trading a visible failure for an invisible one.
+
+**The §K argument**, which is the part that makes this a precondition rather than hygiene: §K puts three different workerd-bringing consumers on one store, §K2 declares that store the only copy, and the migration is one-way. Today's recovery was free *only because of which table workerd happened to touch* — `_cf_ALARM`, zero rows, alone in its file. The same skew on `_mf_objects` costs 6,904 objects and ~2 GB with no undo.
+
+It also flags that `seed.ts`'s header comment — *"Miniflare is not a new dependency in the tree"* — should be corrected as part of the work, since it asserts something the lockfile can contradict.
+
+## Two things I deliberately didn't do
+
+I left **EPIC-16's Children section** untouched. The `epic_parent` field links it structurally, but that section is hand-maintained prose currently listing REQ-289/290 plus an unfiled list that predates §K. Adding REQ-316 there means editing the epic body, which I'd rather do in one pass together with item 3.
+
+And I haven't touched **item 3** — recording the §K constraint — since you only approved item 1. That's still open, along with filing the two §K tickets themselves.
+
+Want me to do item 3 now, and fold the Children update in with it?
 
 <!-- xgd-chat-end -->
