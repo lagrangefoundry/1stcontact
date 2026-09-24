@@ -14,6 +14,7 @@ fields:
   needs_review: false
   auto_merge_back: true
   epic_parent: epic-96d8aca6
+  chat_comment: comment-e7cff699
 ---
 
 ## What broke, on 2026-09-24
