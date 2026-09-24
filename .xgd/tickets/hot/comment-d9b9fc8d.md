@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T01:39:20.968360+00:00'
+updated_at: '2026-09-24T01:41:54.306609+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3808,5 +3808,31 @@ Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usa
 <!-- xgd-chat role="user" ts="2026-09-24T01:39:20.813300+00:00" -->
 #### You
 PLease amend REQ-315
+
+<!-- xgd-turn id="aa360021-9063-4935-8c7b-0d343d660cbb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T01:41:53.527631+00:00" -->
+#### Claude
+REQ-315 amended. Title and status untouched (`draft`, still EPIC-21's child), nothing else edited, no code touched.
+
+## What I changed
+
+**Three surgical edits, all preserving what was there.**
+
+**1. A banner under the superseded heading.** `## "Dev" is local, and that is not a preference…` now opens with a pointer to the amendment, and — importantly — says the *verification* in that section should be kept. `bin/deploy --env dev` genuinely did fail and `[env.dev]` genuinely didn't exist; those are facts with a date on them. What no longer holds is the conclusion drawn from them.
+
+**2. The open implementation choice is closed.** *"Either satisfies the decision; the implementing session chooses and records why"* becomes **take shape 1, seed the store** — with the two shapes and their reasoning left intact below it, because the reasoning is still worth reading.
+
+**3. A new `## Amendment: §K gives dev a real deploy target` at the foot**, five parts: the framing dissolving, the choice being closed, the acceptance criterion gaining a direction, the unverified persist-directory question, and sequencing.
+
+## The two things worth your attention
+
+**The cost comparison reverses, and I made that explicit in a table.** On REQ-315's own terms the loopback origin is the more attractive option — "no copy and no staleness" against 1.35 GB and a freshness question. §K flips both: the loopback reads `fonts/mirror/` live out of the working tree, which makes fonts the one unfrozen part of an environment built to be frozen; and "freshness to be reasoned about" stops being a worry because deploying *is* when freshness is decided. I wrote the reversal out rather than just stating the conclusion, since an implementing session reading only the original section would reasonably pick the other one.
+
+**I did not let §K's arrival soften the acceptance criterion.** §K answers "where does the seeding live" in principle — it's a step of `bin/deploy --env dev` — but §K isn't built, and REQ-315 has a driver §K doesn't: the moment `1c fonts mirror` completes, local dev trades an honest refusal for a confident bind that 404s. So the acceptance is unchanged and the landing site stays the implementing session's call. What the amendment adds is a direction: build a **callable seeding operation** a deploy target can later invoke, rather than logic buried in `1c builder` startup or `1c fonts mirror`'s tail where a deploy target can't reach it.
+
+The per-app `.wrangler/state` split is flagged as **not verified** — §K might collapse it to one store with a shared `--persist-to`, but whether two `wrangler dev` processes can safely share one persist directory is an open question, so REQ-315's existing "be honest about which surfaces answer" requirement stands in full.
+
+Still on your desk from last turn: whether to file the two §K tickets (the local deploy target, and the `bin/dev up/down/reap` supervisor with its lsof-based reaper).
 
 <!-- xgd-chat-end -->
