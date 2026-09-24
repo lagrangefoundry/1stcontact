@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-e562ef0f
 ---
 
 ## The tools the font mirror shipped without
