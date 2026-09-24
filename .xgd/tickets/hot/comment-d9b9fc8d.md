@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T18:35:50.498133+00:00'
+updated_at: '2026-09-24T18:36:29.486782+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3921,5 +3921,39 @@ This lands directly on the question I flagged as **not verified** in REQ-315's a
 <!-- xgd-chat role="user" ts="2026-09-24T18:35:49.862508+00:00" -->
 #### You
 Sure please run it
+
+<!-- xgd-turn id="ecfbd1a8-5d1c-4dfe-9fb3-8d5e00b4f7b9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T18:36:28.903417+00:00" -->
+#### Claude
+Deleted. Cleaning up the orphaned WAL/shm sidecars and verifying the data survived:
+
+Done. Both poisoned stores are gone and no 3-column `_cf_ALARM` remains anywhere.
+
+## What was removed
+
+Four files per the two stores — the two `metadata.sqlite` (8192 bytes each, single table `_cf_ALARM`, zero rows) plus their orphaned `-shm`/`-wal` sidecars, which would otherwise have been stale WAL state pointing at a database that no longer exists. workerd recreates all of it, 2-column, on next start.
+
+## What survived
+
+| store | objects |
+|---|---|
+| control-app `1stcontact-sites` | 6,904 |
+| control-app `1stcontact-material` | 791 |
+| public-site `1stcontact-sites` | 5,498 |
+
+Blob directories unchanged at 907M / 231M / 829M. Every remaining `_cf_ALARM` across both apps is back to 2 columns.
+
+One thing worth noting from the check: a `wrangler tail --env production` was running (pid 20406), under 4.106.0. That's a production log tailer and never touches local state, so the delete was safe with it up — but it does mean the failing run and the tail are the same wrangler, which rules out the tail as the thing that ALTERed the tables.
+
+Try the builder again — it should start clean.
+
+## Still outstanding
+
+The skew itself is untouched, so this recurs the next time anything runs under 4.111.0. The two options from before stand: bump the workspace to `^4.111.0`, or give the test runner its own `--persist-to`. I'd take the version bump — it's a one-line change to three `package.json` files and removes the hazard rather than routing around it, whereas the separate persist dir leaves two workerd builds writing two divergent stores on the same disk.
+
+Say which and I'll scope it properly — that's a dependency change, so it wants a ticket and a branch rather than an edit in place.
+
+I also haven't yet recorded the §K constraint I flagged last message — that a shared `--persist-to` is only safe while every process touching it is the same wrangler build. Today's failure is the evidence for it. Want that added to EPIC-16 §K?
 
 <!-- xgd-chat-end -->
