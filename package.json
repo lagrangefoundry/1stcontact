@@ -1,6 +1,6 @@
 {
   "name": "1stcontact",
-  "version": "0.2.348",
+  "version": "0.2.349",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
@@ -25,10 +25,10 @@
     "@vitest/coverage-v8": "^4.1.9",
     "concurrently": "^9.1.0",
     "jsdom": "^25.0.1",
-    "miniflare": "^4.20260630.0",
+    "miniflare": "4.20260710.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9",
-    "wrangler": "^4.106.0",
+    "wrangler": "4.111.0",
     "yaml": "^2.5.0"
   }
 }
