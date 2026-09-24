@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:29:27.420390+00:00'
+updated_at: '2026-09-24T00:44:14.494604+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3776,5 +3776,11 @@ Two things I'm deliberately not doing without a word from you:
 - **Amending REQ-315.** It's EPIC-21's child and may have a session on it. The §L analysis is recorded on EPIC-16 where it's discoverable, but if you'd rather I append the "take the store-seeding shape, drop the hedge" note to REQ-315 directly, I'll do that instead — I just didn't want to edit another epic's ticket underneath it.
 
 One open question worth resolving before A is implemented rather than during: **can two `wrangler dev` processes share a single `--persist-to` directory?** If yes, REQ-315's per-app split-store problem disappears as a side effect and the dev env has one coherent store. If no, A inherits that split and has to be honest about which surfaces answer. I haven't verified it either way.
+
+<!-- xgd-turn id="d4fc2176-3342-4895-8a15-79f329c878a2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:44:13.329140+00:00" -->
+#### You
+PLease amend REQ-315
 
 <!-- xgd-chat-end -->
