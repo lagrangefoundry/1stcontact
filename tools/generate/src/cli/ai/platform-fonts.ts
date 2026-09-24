@@ -65,6 +65,22 @@ export interface IndexedFamily {
   slug: string
   /** The catalogue's classification — `Serif`, `Sans Serif`, `Monospace`, … */
   category: string
+  /**
+   * A SLAB serif, which `category` cannot say ([[REQ-314]]).
+   *
+   * The catalogue classifies on two independent fields: `category` — the five
+   * values this projection already carries — and `stroke`, where 30 families
+   * declare `Slab Serif`. Every one of those 30 is categorised `Serif`, so slab
+   * is a REFINEMENT of serif and not a sixth category; carrying it as a flag
+   * says exactly that, where a sixth `category` value would have had to take
+   * Roboto Slab out of `Serif` to make room for it.
+   *
+   * IT IS HERE AND NOT IN A SECOND ARTIFACT for the reason this module states
+   * about the projection generally: a second generated file describing the same
+   * catalogue would be free to disagree with this one. The editor's font control
+   * is the only reader today; `use_font` neither reads it nor is narrowed by it.
+   */
+  slab?: true
   licence: PlatformLicence
   /** The static weights the family names. A variable `wght` axis widens this. */
   weights: number[]
@@ -100,14 +116,14 @@ export const PLATFORM_FONT_INDEX: PlatformFontIndex = index as PlatformFontIndex
  * `'lato'` and `"LATO"` name one family. A model that types a family out of the
  * knowledge base in the wrong case has not made a mistake worth a refusal.
  */
-function fold(raw: string): string {
+export function foldFamily(raw: string): string {
   return raw.trim().replace(/^["']|["']$/g, '').trim().toLowerCase()
 }
 
 /** The family this index holds under that name, or `null`. */
 export function findFamily(idx: PlatformFontIndex, name: string): IndexedFamily | null {
-  const wanted = fold(name)
-  return idx.families.find((f) => fold(f.family) === wanted) ?? null
+  const wanted = foldFamily(name)
+  return idx.families.find((f) => foldFamily(f.family) === wanted) ?? null
 }
 
 /**
@@ -120,11 +136,11 @@ export function findFamily(idx: PlatformFontIndex, name: string): IndexedFamily 
  * cleverer is a search engine, and the search engine is the knowledge base.
  */
 export function nearbyFamilies(idx: PlatformFontIndex, name: string, limit = 6): string[] {
-  const wanted = fold(name)
+  const wanted = foldFamily(name)
   const words = new Set(wanted.split(/\s+/).filter((w) => w.length > 2))
   const scored: { family: string; score: number }[] = []
   for (const family of idx.families) {
-    const folded = fold(family.family)
+    const folded = foldFamily(family.family)
     let score = 0
     for (const word of folded.split(/\s+/)) if (words.has(word)) score += 10
     if (score === 0 && folded.startsWith(wanted.slice(0, 4)) && wanted.length >= 4) score = 1
@@ -380,8 +396,8 @@ export function mergeFontFaces(
   resolved: readonly ResolvedFace[],
 ): FontMerge {
   const family = resolved[0]?.family ?? ''
-  const wanted = fold(family)
-  const mine = existing.filter((e) => fold(e.family) === wanted)
+  const wanted = foldFamily(family)
+  const mine = existing.filter((e) => foldFamily(e.family) === wanted)
   if (mine.some((e) => parsePlatformFontSrc(e.src) === null)) {
     return { fonts: [...existing], changed: false, conflict: true }
   }
@@ -391,7 +407,7 @@ export function mergeFontFaces(
   const fonts = [...existing]
   let changed = false
   for (const face of resolved) {
-    const at = fonts.findIndex((e) => fold(e.family) === wanted && key(e) === key(face))
+    const at = fonts.findIndex((e) => foldFamily(e.family) === wanted && key(e) === key(face))
     const entry: FontFaceEntry = {
       family: face.family,
       src: face.src,

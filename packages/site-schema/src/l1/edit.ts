@@ -175,6 +175,14 @@ export function replaceL1Node(
  * one shape that could smuggle an arbitrary value in — is refused outright.
  * Inventing a colour is a palette edit, which is a different command.
  *
+ * REQ-314's `'font'` is the second whose closed list is not in the descriptor,
+ * and it is closed somewhere else entirely: the value is a family NAME, and what
+ * makes it admissible is that the platform's font mirror holds it — a corpus of
+ * ~1,900 families that the write side resolves the name against and refuses with
+ * a sentence when it cannot ({@link applyCopyFields} defers to it). Carrying
+ * that list in the descriptor would put the whole mirror in every response to
+ * every segment, to answer a question the write side has to ask again anyway.
+ *
  * REQ-135 is the first entry that describes an **axis** rather than content, and
  * the two differ in a way the write side has to respect: an axis can be
  * responsive (`l1TextResponsiveSchema`), so what the user sets is a
@@ -185,7 +193,7 @@ export interface L1FieldDescriptor {
   /** Value key — also the key of the change map a Save produces. */
   name: string
   label: string
-  type: 'string' | 'enum' | 'integer' | 'boolean' | 'color'
+  type: 'string' | 'enum' | 'integer' | 'boolean' | 'color' | 'font'
   /**
    * The closed option list, present iff `type === 'enum'`. `mountFields` renders
    * it as a select and refuses anything outside it; {@link applyCopyFields}
@@ -470,8 +478,20 @@ const TEXT_SIZE_MAX_PX = 128
  * withdraw the weight control from the entire site.
  */
 function primaryFamily(stack: string | undefined): string | undefined {
+  return namedFamily(stack)?.toLowerCase()
+}
+
+/**
+ * The first family of a run's stack, **in the case the document spells it**.
+ *
+ * {@link primaryFamily} lowercases, because the only thing it is used for is
+ * comparison. The control shows this value to a person and posts it back, so it
+ * has to be the name the mirror knows — `Playfair Display`, not
+ * `playfair display`.
+ */
+function namedFamily(stack: string | undefined): string | undefined {
   const first = stack?.split(',')[0]?.trim().replace(/^['"]|['"]$/g, '')
-  return first === undefined || first === '' ? undefined : first.toLowerCase()
+  return first === undefined || first === '' ? undefined : first
 }
 
 /** Every declared face for the family this run asks for. */
@@ -547,8 +567,22 @@ function typographyFields(
 ): { fields: L1FieldDescriptor[]; values: Record<string, L1FieldValue> } {
   const faces = facesFor(fonts, axes.fontFamily)
   const weights = weightChoices(faces, axes.fontWeight)
-  const fields: L1FieldDescriptor[] = [...sizeField(axes.fontSizePx)]
-  const values: Record<string, L1FieldValue> = {}
+  // FIRST IN THE SHEET ([[REQ-314]]). Which typeface the words are set in is the
+  // largest change available on this surface — every other control here adjusts
+  // the face it chooses — and a person looking for it reads down from the top.
+  //
+  // THE VALUE IS THE FAMILY, NOT THE STACK. `axes.fontFamily` holds a whole CSS
+  // stack as captured; the control is choosing between typefaces, and offering
+  // `"Satoshi, Helvetica Neue, Arial, sans-serif"` as the current value would
+  // show the fallbacks as though they were part of the choice. The same
+  // first-family rule the weight control already depends on is what reads it.
+  const fields: L1FieldDescriptor[] = [
+    { name: 'fontFamily', label: 'Font', type: 'font' },
+    ...sizeField(axes.fontSizePx),
+  ]
+  const values: Record<string, L1FieldValue> = {
+    fontFamily: namedFamily(axes.fontFamily) ?? '',
+  }
 
   if (axes.fontSizePx !== undefined) values.fontSizePx = axes.fontSizePx
 
@@ -1126,6 +1160,19 @@ function typeError(field: L1FieldDescriptor, value: unknown): string | null {
   // {@link colorError}'s question, and it needs the palette to answer it.
   if (field.type === 'color') return null
   if (typeof value !== 'string') return `Field '${field.name}' must be a string.`
+  // A font is a family NAME, and the closed list it is drawn from is the font
+  // mirror rather than anything in this descriptor — so there is nothing for
+  // this side to check at all. Whether the platform serves the name is resolved
+  // against the corpus by the caller, which is the only side that holds one.
+  //
+  // THE EMPTY STRING IS NOT A REFUSAL, and that matters more than it looks. A
+  // run that declares no family INHERITS one, so the derivation reports `''`
+  // for it — and the modal posts every staged field rather than only the
+  // touched ones, which means a save that only edited the words carries that
+  // `''` back. Refusing it would make the colour, the size and the words
+  // unsavable on every inheriting run on the site. It is a no-op instead, on
+  // the same rule `fontWeight` states: the control binds a change, never the
+  // status quo.
   if (field.type === 'enum' && !field.enum?.includes(value)) {
     return `'${value}' is not one of this segment's ${field.name} options.`
   }
@@ -1247,6 +1294,7 @@ function colorError(
 
 /** The field names {@link writeTypography} owns on a `text` node (REQ-135). */
 const TYPOGRAPHY_FIELDS: ReadonlySet<string> = new Set([
+  'fontFamily',
   'fontSizePx',
   'fontWeight',
   'italic',
@@ -1337,6 +1385,23 @@ function writeTypography(
   const target = node as { axes?: Record<string, unknown>; responsive?: Record<string, unknown> }
   const axes = (target.axes ??= {})
 
+  if (name === 'fontFamily') {
+    // WRITTEN VERBATIM, and what arrives is a whole CSS STACK rather than the
+    // family name the control offered ([[REQ-314]]). The caller resolves the
+    // chosen family against the font mirror, binds its faces into the page's own
+    // `resources.fonts` and hands the paintable stack down — which is the same
+    // pair of steps `use_font` performs, through the same two functions, so a
+    // family chosen in the editor and one chosen by the assistant land
+    // identically. A run that only ever received a bare name would paint with no
+    // generic fallback behind it.
+    const next = String(value)
+    // See {@link typeError}: an inheriting run derives `''` and posts it back
+    // on every save, and writing it would replace an inherited family with an
+    // empty declaration — which paints nothing and is not what anyone asked for.
+    if (next === '' || axes.fontFamily === next) return false
+    axes.fontFamily = next
+    return true
+  }
   if (name === 'fontSizePx') {
     const next = value as number
     const current = axes.fontSizePx as number | undefined

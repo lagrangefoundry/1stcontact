@@ -4215,3 +4215,208 @@ body {
   margin: 0;
   color: var(--shell-danger, #b91c1c);
 }
+
+/*
+ * The font row and the font picker ([[REQ-314]]).
+ *
+ * THE ROW borrows the colour row's metrics outright rather than inventing its
+ * own: both sit in the parameter sheet, both are "a thing you set, shown as what
+ * it currently is, opening a dialog to change it", and two sizes of one idea
+ * reads as two different ideas. What it does not borrow is the swatch — a
+ * typeface's swatch is the words themselves, set in it.
+ *
+ * THE PICKER is a list rather than a grid, because a row has to be wide enough
+ * to show a family name at a size you can judge a face by. A grid of tiles would
+ * fit more rows on screen and would make every one of them unreadable, which is
+ * the whole reason this control exists rather than a `<select>`.
+ */
+.builder-font {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+}
+
+.builder-font__label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  opacity: 0.82;
+}
+
+.builder-font__current {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.builder-font__current:hover {
+  border-color: var(--shell-accent);
+}
+
+/*
+ * The selected family, in its own face, at a size you can actually judge.
+ *
+ * `font-family` is set INLINE by the control because it is DATA — the site's
+ * typeface, not the theme's — which is the same reason the colour chip's colour
+ * is inline. The face itself is already resolvable in this document: the editing
+ * box copies the frame's own `@font-face` rules in so it can mirror the page.
+ */
+.builder-font__face {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.builder-font__current:disabled {
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.builder-font__current:disabled:hover {
+  border-color: var(--shell-border);
+}
+
+.builder-font__search {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+}
+
+.builder-font__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.builder-font__chip {
+  padding: 3px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/*
+ * A pressed chip is filled, not merely outlined. `aria-pressed` carries the
+ * state to a screen reader; this is the same statement for everybody else, and
+ * a toggle whose two states differ only in border colour is a toggle people
+ * press twice to find out what it did.
+ */
+.builder-font__chip.is-on {
+  border-color: var(--shell-accent);
+  background: var(--shell-accent);
+  color: var(--shell-bg);
+}
+
+.builder-font__status {
+  margin: 0 0 6px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.builder-font__list {
+  max-height: 46vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.builder-font__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--shell-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  text-align: left;
+  cursor: pointer;
+}
+
+.builder-font__row:hover {
+  background: var(--shell-hover, rgba(127, 127, 127, 0.12));
+}
+
+.builder-font__row.is-selected {
+  border-color: var(--shell-accent);
+}
+
+.builder-font__name {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/*
+ * A previewed row is set larger, because judging a typeface at 15px is judging
+ * a typeface by its colour on the page rather than by its shapes. Only curated
+ * rows carry this class — a search result is listed in the UI face, deliberately
+ * (see `font-popup.js`).
+ */
+.builder-font__name--face {
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.builder-font__kind {
+  flex: 0 0 auto;
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+/*
+ * The "we cannot serve that" note. Body text rather than a tooltip, for the
+ * reason the lock reason beside it is: a hover affordance hides the answer from
+ * exactly the reader who needs it, and does not exist at all on touch.
+ */
+.builder-font__note {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.builder-font__note p {
+  margin: 0 0 4px;
+}
+
+.builder-font__note p:last-child {
+  margin-bottom: 0;
+}
+
+.builder-font__swap {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--shell-accent);
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  text-decoration: underline;
+  cursor: pointer;
+}

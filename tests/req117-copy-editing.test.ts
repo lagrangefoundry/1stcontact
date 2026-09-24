@@ -427,7 +427,7 @@ describe('REQ-117 — copy editing, end to end', () => {
     // REQ-135 widened the set; the invariant is that widening it never adds a
     // control a user can type CSS into, so the assertion is the membership rather
     // than a single type.
-    const SAFE_TYPES = ['string', 'enum', 'integer', 'boolean', 'color']
+    const SAFE_TYPES = ['string', 'enum', 'integer', 'boolean', 'color', 'font']
     for (const addr of ['0.0.0', '0.0.1']) {
       const got = await cli(cwd, 'copy', 'get', 'acme', 'home', addr)
       for (const field of got.data!.fields as Array<{ type: string; enum?: string[] }>) {

@@ -543,6 +543,36 @@ export async function saveCopy(target, values, place, fetchImpl = fetch) {
 }
 
 /**
+ * The corpus the font control browses ([[REQ-314]]).
+ *
+ * FETCHED ONCE PER SESSION AND HELD, which is why the memo lives here rather
+ * than in the popup: a popup-scoped cache would be thrown away with every dialog
+ * and would put a 70KB request between the operator and the second font they
+ * looked at. It is also why the call takes no site — the platform font tier is
+ * shared-served ([[REQ-312]]), so the answer is the same for every site in the
+ * account.
+ *
+ * A FAILED LOAD IS NOT MEMOISED. Holding a rejected promise would make one
+ * flaky request the permanent state of the control for the life of the tab;
+ * clearing it means the next dialog simply asks again.
+ */
+let fontCorpus = null
+
+export async function fetchFonts(fetchImpl = fetch) {
+  if (!fontCorpus) {
+    fontCorpus = (async () => {
+      const res = await send(fetchImpl, scoped('/api/fonts'))
+      if (!res.ok) throw new Error('The font list could not be loaded.')
+      return res.json()
+    })().catch((err) => {
+      fontCorpus = null
+      throw err
+    })
+  }
+  return fontCorpus
+}
+
+/**
  * The site's palette, with per-entry usage counts (REQ-133).
  *
  * The counts come back with the palette rather than being asked for separately,

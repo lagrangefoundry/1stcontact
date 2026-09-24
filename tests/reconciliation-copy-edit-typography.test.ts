@@ -255,13 +255,21 @@ interface Field {
  * The shapes of control this surface is capable of offering, and no other.
  *
  * REQ-140 added `'color'` as the fifth — see
- * `packages/site-schema/src/l1/edit.ts:187`, where the union is declared, and
- * `:170`, which notes it is the first entry whose value is not a scalar. The
+ * `packages/site-schema/src/l1/edit.ts`, where the union is declared, and the
+ * note above it that it is the first entry whose value is not a scalar. The
  * set stays CLOSED; it simply has one more member than it did when AC-991 was
  * first written, and a colour is still a pick from a palette the site declares
  * rather than anything that could carry code.
+ *
+ * [[REQ-314]] added `'font'` as the sixth, on the same terms. Its value is a
+ * family NAME and the closed list it is drawn from is the platform's font
+ * mirror rather than anything in the descriptor — ~1,900 families, which is why
+ * the list is not carried on the wire — so the widest thing the control can
+ * express is "a typeface this platform already serves". Anything else is
+ * refused by the origin when it resolves the name, which is the same shape the
+ * colour field's palette check takes.
  */
-const CONTROL_SHAPES = ['string', 'enum', 'integer', 'boolean', 'color']
+const CONTROL_SHAPES = ['string', 'enum', 'integer', 'boolean', 'color', 'font']
 
 describe('story-37a3921b — how a run of copy is set, through the same write path', () => {
   let cwd: string
@@ -336,18 +344,25 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
 
   it('test_UAT_AC1117_a_copy_region_reports_how_the_run_is_set_beside_its_words', async () => {
     // AC-1117 — the words first, and beside them the parameters: colour as a
-    // palette pick (REQ-140), size as a bounded whole number, weight as a closed
+    // palette pick (REQ-140), the typeface as a pick from the platform's font
+    // mirror ([[REQ-314]]), size as a bounded whole number, weight as a closed
     // pick, italic as a yes/no, and capitalisation as the keyword list the
     // parameter itself admits.
+    //
+    // THE TYPEFACE LEADS THE PARAMETERS, under the colour and above the axes
+    // that adjust it: it is the largest change available on this surface, since
+    // every other control here adjusts the face it chooses.
     const fields = await fieldsOf(A_HEADLINE)
     expect(fields.map((f) => f.name)).toEqual([
       'text',
       'color',
+      'fontFamily',
       'fontSizePx',
       'fontWeight',
       'italic',
       'textTransform',
     ])
+    expect(fields.find((f) => f.name === 'fontFamily')!.type).toBe('font')
 
     const size = fields.find((f) => f.name === 'fontSizePx')!
     // A whole number carrying its INCLUSIVE bounds — a range the caller can read
@@ -383,12 +398,15 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
       if (field.type === 'enum') expect(field.enum!.length, field.name).toBeGreaterThan(0)
     }
 
-    // Nothing else about the run is exposed: not its family, and nothing
-    // geometric — even though the run carries both. (Colour WAS withheld here
-    // until REQ-140 gave it a control of its own; it is asserted as an offered
-    // field above rather than as a withheld one.)
+    // Nothing geometric about the run is exposed, even though the run carries
+    // it. (Colour WAS withheld here until REQ-140 gave it a control of its own,
+    // and the FAMILY until [[REQ-314]] gave it one; both are asserted as offered
+    // fields above rather than as withheld ones. Neither widened what a person
+    // can express — a colour is a pick from the site's palette and a family is a
+    // pick from the platform's mirror — which is the property this list is
+    // guarding, rather than the size of the list itself.)
     const names = fields.map((f) => f.name)
-    for (const withheld of ['fontFamily', 'letterSpacingPx', 'lineHeightPx', 'geometry']) {
+    for (const withheld of ['letterSpacingPx', 'lineHeightPx', 'geometry']) {
       expect(names, withheld).not.toContain(withheld)
     }
     expect(draftAxes(A_HEADLINE)).toMatchObject({ color: '#f6f7f4', fontFamily: SATOSHI_STACK })
@@ -407,6 +425,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     expect(system.map((f) => f.name)).toEqual([
       'text',
       'color',
+      'fontFamily',
       'fontSizePx',
       'italic',
       'textTransform',
@@ -420,6 +439,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     expect(slotFields.map((f) => f.name)).toEqual([
       'text',
       'color',
+      'fontFamily',
       'fontSizePx',
       'fontWeight',
       'italic',
@@ -641,7 +661,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     // is held back.
     const reported = await valuesOf(A_FULL)
     expect(Object.keys(reported).sort()).toEqual(
-      ['fontSizePx', 'fontWeight', 'italic', 'text', 'textTransform'].sort(),
+      ['fontFamily', 'fontSizePx', 'fontWeight', 'italic', 'text', 'textTransform'].sort(),
     )
     const noop = await set(A_FULL, reported)
     expect(noop.ok).toBe(true)
@@ -797,7 +817,10 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
       ...pageRooted.map((addr) => [addr]),
       [A_SLIDE, '--module', 'gallery', '--slot', 'slide'],
     ]
-    const seen = { string: 0, enum: 0, integer: 0, boolean: 0, color: 0 } as Record<string, number>
+    const seen = Object.fromEntries(CONTROL_SHAPES.map((shape) => [shape, 0])) as Record<
+      string,
+      number
+    >
     for (const [addr, ...scope] of reads) {
       const got = await get(addr, ...scope)
       expect(got.ok, addr).toBe(true)

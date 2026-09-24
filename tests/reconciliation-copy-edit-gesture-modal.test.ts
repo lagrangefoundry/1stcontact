@@ -363,7 +363,12 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       // only value it admits is a reference into a palette the site declares, so
       // it cannot express a colour — let alone markup — that the site does not
       // already hold.
-      expect(['string', 'enum', 'integer', 'boolean', 'color']).toContain(field.type)
+      // [[REQ-314]] added `font`, and it carries the claim the same way: the
+      // value is a family NAME, checked against the platform's font mirror by the
+      // write side, so the widest thing it can express is "a typeface we already
+      // serve" — and the refusal for anything else is the origin's, not the
+      // control's.
+      expect(['string', 'enum', 'integer', 'boolean', 'color', 'font']).toContain(field.type)
     }
 
     if (!WEBUI_INSTALLED) {

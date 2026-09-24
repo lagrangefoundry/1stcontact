@@ -77,7 +77,7 @@ import {
   formatPublishReport,
   seedAfterMirror,
 } from './font-mirror'
-import { cmdFontsIndex, formatIndexReport } from '../fonts/index-build'
+import { buildIndex, cmdFontsIndex, formatIndexReport } from '../fonts/index-build'
 import { cmdFontsDoc, formatFontDocReport } from './font-doc'
 import {
   cmdColors,
@@ -2392,6 +2392,13 @@ export async function run(argv: string[]): Promise<void> {
           ...editOptions(global),
           module: typeof flags.module === 'string' ? flags.module : undefined,
           slot: typeof flags.slot === 'string' ? flags.slot : undefined,
+          // [[REQ-314]] — THIS WORKSPACE'S corpus, not the one the build saw.
+          // `1c` runs in a checkout whose mirror the operator refreshes with
+          // `1c fonts mirror`, and the bundled projection describes whichever
+          // mirror existed when the package was built. Choosing a typeface has
+          // to be resolved against the families this workspace actually holds,
+          // which is what the builder transport reads for the same reason.
+          fonts: buildIndex(ctxOf(global).cwd),
         }
         if (sub === 'get') {
           emit(await editCopyGet(slug, pageId, addr, scope), json)

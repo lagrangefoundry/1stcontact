@@ -9,7 +9,9 @@ import { fsSiteStore } from '../store'
 import type { TenantSiteStore } from '../store/d1r2-store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
 import { cmdList, ctxOf, type GlobalOptions } from './commands'
-import { readStagedPlatformFont } from '../fonts/mirror'
+import { MANIFEST_REL, readStagedPlatformFont } from '../fonts/mirror'
+import { buildIndex } from '../fonts/index-build'
+import type { PlatformFontIndex } from './ai/platform-fonts'
 import { resolveStaticFile } from './static-file'
 import { contentTypeOf } from '../store/content-type'
 
@@ -161,7 +163,47 @@ function depsFor(ctx: StoreContext): RouterDeps {
     platformFonts: () => ({
       read: async (path: string) => readStagedPlatformFont(ctx.cwd, path),
     }),
+    /**
+     * THE WORKSPACE'S OWN CORPUS, FOR THE REASON THE READER ABOVE IS THE
+     * WORKSPACE'S OWN MIRROR ([[REQ-314]]).
+     *
+     * The projection this bundle carries describes the mirror the BUILD saw;
+     * the line above serves bytes out of the mirror this WORKSPACE holds, and an
+     * operator who has re-run `1c fonts mirror` since has made those two
+     * different things. A font control listing families whose bytes are not
+     * there — or omitting families that are — is the one failure both entries
+     * exist to prevent, so they read the same workspace.
+     */
+    fontIndex: () => workspaceFontIndex(ctx.cwd),
   }
+}
+
+/**
+ * The index for one workspace, rebuilt when its manifest moves.
+ *
+ * KEYED ON THE MANIFEST'S MTIME rather than merely on the directory, because a
+ * long-running `1c builder` is exactly the process an operator refreshes a
+ * mirror underneath — and a cache that never noticed would go on offering the
+ * previous corpus for the life of the session. A `stat` per request is the whole
+ * cost of noticing; parsing two megabytes of JSON per request is what it buys
+ * out of.
+ */
+const FONT_INDEXES = new Map<string, { at: number; index: PlatformFontIndex }>()
+
+function workspaceFontIndex(cwd: string): PlatformFontIndex {
+  let at = 0
+  try {
+    at = fs.statSync(path.join(cwd, MANIFEST_REL)).mtimeMs
+  } catch {
+    // No manifest is an ORDINARY STATE — a fresh checkout has no mirror — and
+    // `buildIndex` answers it with an empty corpus and a null pin. Cached under
+    // mtime 0 so populating one is noticed on the next request.
+  }
+  const held = FONT_INDEXES.get(cwd)
+  if (held && held.at === at) return held.index
+  const index = buildIndex(cwd)
+  FONT_INDEXES.set(cwd, { at, index })
+  return index
 }
 
 /**

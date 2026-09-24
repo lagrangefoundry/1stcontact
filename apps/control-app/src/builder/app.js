@@ -37,6 +37,7 @@ import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
 import { createPageIndex } from './pages.js'
 import { createDisplayPanel } from './panel.js'
+import { openFontPopup } from './font-popup.js'
 import { openPalettePopup } from './palette-popup.js'
 import { createUploadOverlay } from './upload.js'
 import {
@@ -51,6 +52,7 @@ import {
   subjectAction,
 } from './toolbar.js'
 import {
+  fetchFonts,
   fetchMaterialItem,
   fetchPages,
   fetchPalette,
@@ -1035,6 +1037,24 @@ export function mountBuilder(root, options = {}) {
         open: (value) => openPalette(currentSite, { mode: 'pick', value }),
         shadeHex,
       },
+      /**
+       * [[REQ-314]] — the typeface seam.
+       *
+       * `previewBase` IS THE FRAME'S OWN URL, and that is what makes the curated
+       * previews resolve. A page's font `src` names no host: it is root-relative
+       * and the renderer reduces it to a reference against the page's own
+       * directory, so `_fonts/…` means *"at whatever root these bytes are being
+       * served from"* — which for this operator, right now, is the preview
+       * channel in the frame beside the dialog. Resolving against it is how the
+       * dropdown draws a family in exactly the face the page would paint it in.
+       */
+      openFont: (value) =>
+        openFontPopup({
+          host: shell.element,
+          value,
+          loadCorpus: () => fetchFonts(),
+          previewBase: panel.frame?.contentDocument?.baseURI ?? '',
+        }),
       // The origin has already re-rendered the edit channel by the time a save
       // resolves, so the frame only has to reload — and reloading fires `load`,
       // which re-binds against the new document.
