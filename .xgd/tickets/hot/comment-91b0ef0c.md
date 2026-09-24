@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-24T19:05:14.170146+00:00'
+updated_at: '2026-09-24T19:06:37.055832+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2242,5 +2242,63 @@ Want me to kill the four stale consoles and the 4.106.0 tail? And my offer from 
 <!-- xgd-chat role="user" ts="2026-09-24T19:05:13.626135+00:00" -->
 #### You
 Please kill all of them and let me start a fresh one
+
+<!-- xgd-turn id="726d66c3-290b-4483-a5f6-562c25725032-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T19:06:36.675713+00:00" -->
+#### Claude
+Re-enumerating first — some PIDs shifted between my earlier calls.
+
+Killing the six consoles and the stale 4.106.0 tail tree. Leaving the 8788 builder alone.
+
+I can't do it — the sandbox blocks signalling processes outside it (`kill 4639 failed: operation not permitted`). All ten are still alive. You'll need to run the kill yourself; let me get you an accurate command.
+
+All ten are still running — I can enumerate and inspect, but not signal. Here's the command set, with PIDs verified just now.
+
+## Run this
+
+```bash
+# 1. the six repro-consoles (+ the sh wrapper for 1917)
+kill -TERM 1915 1917 3453 4639 18161 56507 64976
+
+# 2. the stale wrangler 4.106.0 tail tree (running from deleted files)
+kill -TERM 20406 20440 20448
+
+# 3. orphaned strays — see note below
+kill -TERM 40805 54092 87773
+```
+
+Verify, then escalate anything that ignored TERM:
+
+```bash
+pgrep -fl "repro-console.mjs|wrangler.*tail|access-sim|1c.mjs filing"
+# survivors:  kill -9 <pid> ...
+```
+
+Then a fresh one — port 8710 is free:
+
+```bash
+./bin/repro-console          # http://127.0.0.1:8710
+```
+
+## What block 3 is
+
+| PID | what | why it's safe |
+|---|---|---|
+| 40805 | `access-sim --builder :49409` | target port 49409 isn't listening — its builder is dead |
+| 54092 | `access-sim --builder :49705` | same, 49705 is dead |
+| 87773 | `1c filing` on :8795 | runs from the stale `free-BUG-124` worktree |
+
+## What I deliberately left out
+
+**The 8788 builder** — PIDs 30951 / 31026 / 31086 and its workerd children 31148 / 31207. This is the healthy one on wrangler 4.111.0 with the new workerd, and it's the only process holding your control-app store open. Killing it is what you'd do to *restart*, not to clean up.
+
+**`1c filing` on :8790** (PID 79585) — runs from the main checkout and is what lets the builder file tickets. Kill it and the builder starts warning it can't.
+
+**Two access-sims I couldn't prove orphaned** — PID 9488 (:8799) and 77862 (:49999). Neither carries a `--builder` flag, so I can't tell from the command line whether one is paired with your running builder. Add them to block 3 if you know they aren't.
+
+One correction to my last message: I said the failing runtime was already fixed by your 11:44 install, and that still holds — but note the four `free-REQ-254` consoles were a second, independent breakage (no `node_modules` resolvable from that worktree at all). Clearing them removes that confusion too, so the fresh console on 8710 will be the only one answering.
+
+Once it's up, the EPIC-12 guard ticket I offered is still worth filing — say the word and I'll scope it.
 
 <!-- xgd-chat-end -->
