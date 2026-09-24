@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T18:36:49.491997+00:00'
+updated_at: '2026-09-24T18:40:19.082928+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3961,5 +3961,81 @@ I also haven't yet recorded the §K constraint I flagged last message — that a
 <!-- xgd-chat role="user" ts="2026-09-24T18:36:47.835023+00:00" -->
 #### You
 sure please bump the version
+
+<!-- xgd-turn id="330e9067-33e6-4921-af50-8272d33fe3f9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T18:40:18.846337+00:00" -->
+#### Claude
+`^4.106.0` already permits 4.111.0 — the lockfile is what's holding it down. But there's a complication worth checking first: `workerd` is what actually writes `_cf_ALARM`, and it arrives via both wrangler *and* miniflare.
+
+Root `miniflare` already resolves to **4.20260710.0** while `wrangler` sits at **4.106.0** — that's the skew, and it's in your own declarations, not just a transitive. Let me confirm who opens the store.
+
+Culprit is precise — and it's not vitest. `tools/generate/src/fonts/seed.ts` opens miniflare directly against the dev store.
+
+Confirmed — and the seeder's own header documents the assumption that broke:
+
+> *"Miniflare is not a new dependency in the tree — it is what `wrangler` already is underneath; declaring it only makes an existing fact importable."*
+
+Declaring it separately made it a **second, independently-floating resolution**. Let me check branch state before changing anything.
+
+REQ-315 is already `ready_to_reconcile` — the seeder shipped. So this bump is fixing a live defect in it, not hygiene. Making the change:
+
+pnpm wants to purge `node_modules` entirely. Let me find out why before letting it.
+
+Two things stopped me, and one of them changes the recommendation. Let me get the full picture.
+
+Updating the release-age exclude list too — leaving it pinned to the old generation while `package.json` demands the new one would be incoherent:
+
+I've made the declaration changes but **could not complete the install** — I'm blocked, and one thing I found argues you should look before finishing it.
+
+## What's done
+
+| file | change |
+|---|---|
+| `package.json` | `wrangler ^4.106.0 → ^4.111.0`, `miniflare ^4.20260630.0 → ^4.20260710.0` |
+| `apps/control-app/package.json` | `wrangler ^4.111.0` |
+| `apps/public-site/package.json` | `wrangler ^4.111.0` |
+| `tools/generate/package.json` | `miniflare ^4.20260710.0` |
+| `pnpm-workspace.yaml` | `minimumReleaseAgeExclude` moved to the 1.20260710.1 generation |
+
+**`pnpm-lock.yaml` is unchanged.** The tree is half-applied — anything running `--frozen-lockfile` will now fail.
+
+## Why I stopped
+
+`pnpm install` aborted with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`. The cause isn't the TTY:
+
+- `node_modules` was built against the **global** store, `/Users/martin/Library/pnpm/store/v11` (1.2 GB)
+- from my sandbox that path is **not writable** — I confirmed with a touch test
+- so pnpm resolves the store to a project-local `.pnpm-store/` (578 MB, already there and untracked — it's in your `git status`), sees the mismatch, and wants to purge `node_modules` and rebuild
+
+If I forced it, I'd rebuild ~1.5 GB into a project-local store, and your next `pnpm install` from your own terminal would want to purge it straight back. That thrash isn't worth it. **Run it yourself:**
+
+```bash
+pnpm install
+```
+
+## The thing worth a look first
+
+The reason wrangler sat at 4.106.0 was never inertia — `^4.106.0` has permitted 4.111.0 all along. It was held by the lockfile, and your `minimumReleaseAgeExclude` names that exact generation:
+
+```yaml
+- miniflare@4.20260630.0
+- workerd@1.20260630.1
+- wrangler@4.106.0
+```
+
+That's a deliberate release-age gate with a hand-picked exemption list. I've moved it forward, but `minimumReleaseAge` itself is currently **unset** in both `pnpm-workspace.yaml` and global config — so the gate is inactive and the list is vestigial. If you disabled it deliberately, fine. If it went missing in a pnpm 11 settings migration, the bump is entering a release generation your policy would have gated. Your call, but I didn't want to walk past it.
+
+## The corrected diagnosis
+
+I was wrong last message to finger vitest-pool-workers. The actual culprit is **`tools/generate/src/fonts/seed.ts`** — REQ-315's own seeder, which is already `ready_to_reconcile`. It imports `Miniflare` directly and opens `apps/*/.wrangler/state` at `r2Persist`. Root `miniflare` resolves to **4.20260710.0** (workerd 1.20260710.1) while `wrangler dev` runs **4.106.0** (workerd 1.20260630.1). The seeder ran at 00:18–00:20, ALTERed `_cf_ALARM`, and this morning's builder died on it. Only R2 stores were hit because R2 is all the seeder touches.
+
+The seeder's header states the premise that broke:
+
+> *"Miniflare is not a new dependency in the tree — it is what `wrangler` already is underneath; declaring it only makes an existing fact importable."*
+
+Declaring it made it a **second, independently-floating resolution**. The version bump realigns them today, but nothing stops them drifting apart at the next install — the two ranges are independent. A durable fix would couple them (a `resolutions`/`overrides` pin, or having the seeder get miniflare through wrangler rather than declaring its own). That's a code change in already-reconciling REQ-315 territory, so I've left it alone.
+
+Still unrecorded: the §K constraint, which this incident now states much more sharply — a shared `--persist-to` is only safe while every process touching it resolves the same **workerd**, and a direct miniflare dependency silently breaks that. Want me to write it into EPIC-16 §K?
 
 <!-- xgd-chat-end -->
