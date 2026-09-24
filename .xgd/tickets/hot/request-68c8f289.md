@@ -5,10 +5,10 @@ type: request
 title: bin/deploy --fonts, and a dev target the font mirror never had
 created_by: EPIC-21
 created_at: '2026-09-23T23:45:02.265998+00:00'
-updated_at: '2026-09-24T01:41:36.711710+00:00'
+updated_at: '2026-09-24T01:51:36.463295+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-b9b27697
   auto_merge_back: true
