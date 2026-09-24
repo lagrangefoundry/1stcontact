@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-24T18:43:54.721672+00:00'
+updated_at: '2026-09-24T18:49:57.123788+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2065,5 +2065,94 @@ Want me to scope that under EPIC-12 — together with the probe-level readout, s
 ```
 
 Recapture is giving me this error?
+
+<!-- xgd-turn id="e396a033-968b-407a-af97-d0e2bcaf15df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T18:49:55.323118+00:00" -->
+#### Claude
+Let me look at what recapture actually spawns and what local state exists.
+
+Found the likely culprit — workerd bumped 1.20260630.1 → 1.20260710.1 in the uncommitted changes. Let me confirm against the persisted state and find `SENTRY_DO`.
+
+Interesting — there's a `wrangler-state-backup-BUG-45`, so this class has bitten before. Let me check that ticket and the actual versions.
+
+`SENTRY_DO` isn't ours — let me find who owns it and what recapture actually spawns.
+
+Shell globbing bit me — let me redo those searches properly.
+
+`SENTRY` appears nowhere in our code — only in two prior ticket comments. This has been hit before. Let me read both.
+
+This exact error was diagnosed yesterday in another session — but the durable fix has since been half-applied, which is probably why it's back. Let me check the current state rather than assume.
+
+Only **one** wrangler (4.111.0) is installed now — so yesterday's "two versions" explanation no longer holds. Let me find what recapture actually spawns and which binary it reaches.
+
+A global Homebrew wrangler is on PATH — separate binary, own workerd. Let me check its version and whether the pipeline reaches it.
+
+Homebrew wrangler is **4.38.0** — far older, and it would do exactly the 2-value insert. Let me confirm which step reaches it.
+
+The rail's **tests** phase runs vitest-pool-workers, which does start workerd. Let me find every workerd binary in play and check which understands the 3-column schema.
+
+Decisive. Let me confirm who actually invokes the PATH wrangler.
+
+Let me pin down which step in recapture starts a Workers runtime.
+
+One more check — whether the `1c` steps themselves open the same store the builder uses.
+
+Diagnosed. Let me grab one last detail for the writeup.
+
+Not a migration, and not your code. **Two different workerd builds are sharing one local state directory**, and the older one can't read what the newer one wrote.
+
+## The proof
+
+`_cf_ALARM` is workerd's own per-Durable-Object bookkeeping table. Cloudflare added a third column (`actor_name`) to it in a recent build. I checked both binaries directly:
+
+| binary | knows `actor_name`? | its INSERT |
+|---|---|---|
+| workspace `workerd 1.20260710.1` | yes (4 hits) | `INSERT INTO _cf_ALARM VALUES(?, ?, ?)` |
+| `/opt/homebrew/bin/wrangler` → **4.38.0** | **no** (0 hits) | `VALUES(?, ?)` |
+
+And the state on disk has already been upgraded — **all five** of `apps/control-app`'s stores are now 3-column, touched today at 10:43 and 11:42:
+
+```
+cache / d1 / do / images / r2   →  _cf_ALARM has 3 columns
+```
+
+So: three-column table, two-value insert, fatal. Exactly the error text.
+
+## Why yesterday's explanation no longer applies
+
+The other session blamed a pnpm-internal skew (workspace on 4.106.0, `vitest-pool-workers` dragging 4.111.0) and suggested deleting two R2 files. That's been overtaken — your uncommitted bump to `package.json` / `pnpm-workspace.yaml` moved the whole workspace to **4.111.0**, and only that one version now resolves anywhere in the tree, including for the test pool.
+
+The skew that's left isn't in `node_modules` at all. It's on your **PATH** — a Homebrew wrangler from Sep 2025. Deleting the state files wouldn't have helped either, because the new runtime just recreates them 3-column and the old binary hits the same wall on its next start.
+
+## Why it looks like recapture caused it
+
+Recapture's `1c repro --sandbox` / `1c render` steps open `apps/control-app/.wrangler/state/v3/r2` through the **workspace** Miniflare (`R2_PERSIST_REL`, `fonts/seed.ts:69`) — the same directory `wrangler dev` uses. That's what upgraded the schema at 11:42.
+
+So recapture is the *trigger*: it upgrades the store, and a `wrangler dev` builder running on the Homebrew binary dies the moment it next touches it. The cause is the old binary.
+
+**One caveat** — I couldn't confirm which process actually emitted the error (`ps` is blocked in my sandbox), so that last step is inference from the version evidence, not something I watched happen. Check it in the terminal that failed:
+
+```bash
+which wrangler && wrangler --version      # 4.38.0 → that's the one
+```
+
+## The fix
+
+Nothing in the repo invokes bare `wrangler` — `1c builder` spawns `npx` with `cwd` set to the app dir, and all the package scripts go through `pnpm --filter ... exec`, so every in-repo path already resolves 4.111.0. The old binary only gets reached if you type `wrangler` yourself.
+
+So either remove it:
+
+```bash
+brew uninstall wrangler     # or: brew unlink wrangler
+```
+
+or start the builder the way the repo does — `pnpm dev:control`, i.e. `./bin/1c builder` — and never bare `wrangler dev`.
+
+**Don't delete the state.** It's correct for the current runtime, and `_cf_ALARM` has zero rows in every store anyway, so there was never data at stake.
+
+One thing worth noting for EPIC-16: this sharpens the shared-`--persist-to` question REQ-315's amendment flagged. The hazard isn't just concurrent access or in-tree version skew — a globally-installed CLI is enough to poison a shared store, and no `package.json` pin can see it.
+
+Want me to file a child ticket for a guard — `1c builder` refusing to spawn a wrangler whose workerd doesn't match the workspace's? It's small and testable, and it would have caught this at launch rather than as a runtime fatal.
 
 <!-- xgd-chat-end -->
