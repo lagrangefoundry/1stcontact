@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T19:42:14.891415+00:00'
+updated_at: '2026-09-24T22:55:00.056682+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3689,5 +3689,11 @@ The alternative is refusing it at the junction with something the client can see
 My lean: refuse at the junction. A visible "too big, split it" is a product with an edge; a silently bricked conversation is the thing we're already living with. But it's your call on what a client sees, so I've told the agent to build the packing rule and leave the over-ceiling turn in its own segment for now — nothing in 1–4 depends on the answer, so they can start immediately.
 
 Separately: the Lagrange Foundry session is still bricked and the non-destructive re-home from my last message is still unrun. Say the word and I'll do it while this lands.
+
+<!-- xgd-turn id="a3ce77d3-49a0-4713-99c7-73dd179274fd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T22:54:59.831386+00:00" -->
+#### You
+There is no need for users to dump large text CLOBs into the chat - for anything large, they can upload it as a document. So I think the UI should reject large messages and return a message saying something like: "please put that content into a text document and upload it"
 
 <!-- xgd-chat-end -->
