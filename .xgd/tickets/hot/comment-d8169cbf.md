@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T19:37:41.364710+00:00'
+updated_at: '2026-09-24T19:42:14.891415+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3651,5 +3651,43 @@ Tell me to go and I'll do the re-home now. The branch cut for the code work stil
 <!-- xgd-chat role="user" ts="2026-09-24T19:37:40.682832+00:00" -->
 #### You
 REQ-176 has come back with a list of questions in its transcript can you read them and answer those you are confident about in the ticket - bring anything you need confirmation about back here for discussion please
+
+<!-- xgd-turn id="150c6317-22a2-453b-92a2-ba569a9b1df6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T19:42:14.449198+00:00" -->
+#### Claude
+Questions read. Let me verify the claims they rest on before I answer.
+
+All four claims check out: `comment()` takes no `fields` (`ticketing/js/src/store.js:336`), `comments()` sorts by uid (`:365`), `tool_transcript.js` has no header or sentinel, and `FileArchive` writes `session.toFile()` verbatim. Answering.
+
+Five questions. I answered four in the ticket and held one for you.
+
+**Written into REQ-176's body** under *Decisions on the design questions* (nothing replaced — the five original sections are intact), and repeated as a user turn in the chat transcript where the agent asked, so it's unblocked either way:
+
+**1 — Join format: self-contained segments**, as they recommended. The deciding argument isn't aesthetics, it's the ticket's own no-migration clause: `FileArchive` writes `session.toFile()` and nothing else (`file_archive.js:58`), so a one-segment sequence *must* equal `toFile()` byte-for-byte or every body already in a store becomes a special case. Byte slices fail that.
+
+**2 — Declare the ceiling on `TicketStore` in `components/ticketing`**, value supplied by the host. They were right that a seam exercised only by a test double is drift. No byte count goes in the framework; D1's 2,000,000 stays in REQ-309.
+
+**4 — Summary log is in scope.** The ticket already says so; `framing` stays a field on the first segment (capped at 4000 B, `summary.js:81`).
+
+## Where I overrode them — worth your eye
+
+**3 — segment ordering.** Their plan was `comment(...)` then an `update(...)` to set a `segment` field. I rejected it: that's two writes for one fact, and a failure between them leaves a segment with no index, which reads as 0 and collides with the real first segment. That is precisely the shape of BUG-66, filed alongside this ticket — we'd be fixing the coupling in one artifact while building it into another.
+
+Instead the index goes *in* the segment: a `segment` key in the `xgd-session` header, which Q1 just made present on every segment anyway. Atomic by construction, no change to ticketing's `comment` op, absent reads as 0. Cost: `tool_transcript` has no header today (confirmed — no `xgd-session` or sentinel anywhere in `tool_transcript.js`), so it grows a minimal one that the join strips. I told them to come back rather than fall back to comment-then-update if that proves unworkable.
+
+Their supporting claims all checked out, by the way: `comment()` genuinely takes no `fields` (`store.js:336`) and `comments()` genuinely sorts by uid (`store.js:365`), which for `comment-<hex>` is arbitrary — so ordering did need an explicit answer.
+
+## Question 5 — for you
+
+**What should happen when a single turn is larger than the ceiling?** It can't be packed into any segment. Tool records can't reach it (individually capped at ~2×5800 B), but a client pasting a few MB of text can.
+
+Their plan: give it a segment of its own and let that segment exceed the ceiling — ceiling governs packing, not content. Honest, but it means the D1 write still fails for that turn, i.e. the exact session-ending failure this ticket exists to remove, just far rarer.
+
+The alternative is refusing it at the junction with something the client can see — "that message is too large, split it" — which is a product decision about 1st Contact, not a framework one, and a separate ticket.
+
+My lean: refuse at the junction. A visible "too big, split it" is a product with an edge; a silently bricked conversation is the thing we're already living with. But it's your call on what a client sees, so I've told the agent to build the packing rule and leave the over-ceiling turn in its own segment for now — nothing in 1–4 depends on the answer, so they can start immediately.
+
+Separately: the Lagrange Foundry session is still bricked and the non-destructive re-home from my last message is still unrun. Say the word and I'll do it while this lands.
 
 <!-- xgd-chat-end -->
