@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-24T07:13:19.289181+00:00'
+updated_at: '2026-09-24T07:21:35.066702+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1010,5 +1010,34 @@ The ticket is in `draft` and unassigned — it needs a session to cut a branch a
 <!-- xgd-chat role="user" ts="2026-09-24T07:13:18.936798+00:00" -->
 #### You
 I have to go to bed now, will the fonts be available to the dev consultant in the morning?
+
+<!-- xgd-turn id="ea4d647b-a58a-46c7-8f9f-c6008f5ce67f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-24T07:21:33.339555+00:00" -->
+#### Claude
+Yes — it will now. It would not have been, and the reason was worse than a missing step.
+
+## What I found
+
+The mirror finished at 17:39 — **1,932 families, 829 MB staged**, `platform.json` written, projection regenerated to 1,931 families. That part went fine.
+
+But **the entire `1c` CLI was dead on this checkout.** REQ-315's commit (`0e8e48c276`) added a top-level `miniflare` import to `fonts/seed.ts`, which `cli/index.ts` imports eagerly — so every subcommand failed, `1c builder` included. `package.json` and `pnpm-lock.yaml` both declare it correctly; `pnpm install` just hadn't run since the commit. You'd have started the builder in the morning and got a stack trace, not a font.
+
+`pnpm install` couldn't run here — `pnpm store path` resolves to a repo-local `.pnpm-store/v11` while `node_modules/.modules.yaml` records `~/Library/pnpm/store/v11`, so pnpm wanted to purge and rebuild the whole modules directory. I linked the two symlinks pnpm would have created, into the `4.20260710.0` copy already extracted in `.pnpm`. **Worth a real `pnpm install` when you're awake** — the symlinks are correct but the store mismatch is still there.
+
+## What I then ran, and verified
+
+| | |
+|---|---|
+| `1c fonts seed` | 1,832 sent + 9,164 already current, 854.7 MB — **5,498 `platform/fonts/…` keys in both `control-app` and `public-site`** local R2, confirmed by querying `_mf_objects` directly |
+| `1c kb export` | DOC-56 exported, 98 KB |
+| `1c kb build` | 12 documents, **465 chunks** (was 357) |
+| `1c assets` | 13 documents, 1,634 KB inlined into `kb.js` |
+
+Both dev serving paths are covered: the Node builder transport reads the staged `fonts/mirror/` off disk directly, and `wrangler dev`'s `env.SITES` now has the seeded objects.
+
+**In the morning: start the builder.** If one is already running, restart it — `platform-fonts.json` and `kb.js` are static imports baked into the bundle.
+
+Two notes. `tools/generate/src/cli/ai/platform-fonts.json` is modified and `fonts/platform.json` is untracked — generated artifacts from the mirror run, your call whether they get committed, and I left them alone since REQ-312/315 are already past. And I recorded the dependency finding as **COMMENT-3742** on REQ-315, including a suggestion for reconcile: a dynamic import of `miniflare` inside the seed verb would mean a missing dev-only dependency fails that one verb rather than taking the dev environment down with it.
 
 <!-- xgd-chat-end -->
