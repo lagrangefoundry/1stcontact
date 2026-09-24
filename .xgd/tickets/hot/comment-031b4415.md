@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-21
 created_by: xgd
 created_at: '2026-09-22T23:59:00.257742+00:00'
-updated_at: '2026-09-24T00:16:48.764606+00:00'
+updated_at: '2026-09-24T07:13:19.289181+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1004,5 +1004,11 @@ REQ-315 now carries the decision: `PlatformFontReader` is fixed, the implementat
 Not negotiable either way, and recorded as such: the reader is selected by wiring (`RouterDeps.platformFonts`, which already exists), never by a branch in a route or in the assistant; `use_font`, the renderer, the `src` and the browser are untouched; and absent bytes return `null` and 404 identically in both, so a missing family fails the same way everywhere.
 
 The ticket is in `draft` and unassigned — it needs a session to cut a branch and build it. Say the word and I'll get one started, or leave it queued if you'd rather see the mirror land first.
+
+<!-- xgd-turn id="ea4d647b-a58a-46c7-8f9f-c6008f5ce67f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T07:13:18.936798+00:00" -->
+#### You
+I have to go to bed now, will the fonts be available to the dev consultant in the morning?
 
 <!-- xgd-chat-end -->
