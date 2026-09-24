@@ -18,7 +18,7 @@
   "dependencies": {
     "@1stcontact/framework": "workspace:*",
     "@1stcontact/site-schema": "workspace:*",
-    "miniflare": "^4.20260630.0",
+    "miniflare": "4.20260710.0",
     "playwright": "^1.61.1",
     "vite": "^8.1.0"
   },

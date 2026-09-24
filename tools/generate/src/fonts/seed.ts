@@ -37,9 +37,22 @@
  *     is hours, and none of what wrangler adds applies to putting bytes at a key.
  *
  * So this drives the same `R2Bucket` API the Worker itself calls, against the
- * same persist directory `wrangler dev` opens. Miniflare is not a new dependency
- * in the tree — it is what `wrangler` already is underneath; declaring it only
- * makes an existing fact importable.
+ * same persist directory `wrangler dev` opens.
+ *
+ * AND THE DECLARATION IS NOT FREE, WHICH THIS COMMENT ONCE DENIED ([[REQ-316]]).
+ * It used to read: *"Miniflare is not a new dependency in the tree — it is what
+ * `wrangler` already is underneath; declaring it only makes an existing fact
+ * importable."* True of the CODE and false of the RESOLUTION. Naming `miniflare`
+ * in a manifest creates a SECOND, independently floating range over the same
+ * runtime, and on 2026-09-24 the two drifted a generation apart: this seeder's
+ * newer `workerd` migrated both apps' `.wrangler/state` forward, and the older
+ * one behind `wrangler dev` then died at the next `1c builder` inside workerd's
+ * own `_cf_ALARM` table. Reaching `Miniflare` through `wrangler` instead is not
+ * available — its `exports` map is `"."`, `"./experimental-config"` and
+ * `"./package.json"` only — so the separate dependency stays, and what makes it
+ * safe is a constraint rather than a removal: both are pinned to EXACT versions
+ * in all four manifests, and `cli/workerd.ts` refuses every store-opening
+ * command while more than one `workerd` resolves.
  *
  * THE LOCAL BUCKET IS NOT ONE PLACE. `.wrangler/state` is per app directory, so
  * `apps/control-app/` and `apps/public-site/` hold separate stores of the same

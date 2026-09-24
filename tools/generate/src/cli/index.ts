@@ -91,6 +91,7 @@ import { cmdGate, formatGateReport } from './gate'
 import type { SeverityTier } from './capture/values-diff'
 import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
+import { assertOneWorkerd, workerdGateKey } from './workerd'
 import {
   assertIndexSeam as assertIndexSeamImpl,
   assertSharedStore as assertSharedStoreImpl,
@@ -327,6 +328,23 @@ export {
   INSTALLED_LOCKFILE_REL,
 } from './preflight'
 export type { PreflightFinding, PreflightReport, PreflightOptions, Resolver } from './preflight'
+export {
+  assertOneWorkerd,
+  checkWorkerd,
+  scanWorkerd,
+  workerdGateKey,
+  workspaceManifests,
+  WORKERD,
+  WORKERD_GATED_COMMANDS,
+  WORKERD_PIN_COMMAND,
+} from './workerd'
+export type {
+  WorkerdFinding,
+  WorkerdInstance,
+  WorkerdOptions,
+  WorkerdReport,
+  WorkerdScan,
+} from './workerd'
 export {
   assertIndexSeam,
   assertSharedStore,
@@ -792,6 +810,18 @@ export async function run(argv: string[]): Promise<void> {
   if (command !== undefined) {
     try {
       assertInstall(command)
+      // [[REQ-316]] — and then: does exactly one `workerd` resolve? Here, beside
+      // its neighbour, because the same argument applies twice over. The fault
+      // is about the workspace rather than the verb; and this one in particular
+      // has to land BEFORE the command runs, because `.wrangler/state` is
+      // workerd's own store and the first version to open it migrates the schema
+      // forward with no way back. A check that fired afterwards would have
+      // watched the damage happen.
+      //
+      // ORDER MATTERS, AND IT IS THIS ONE. An uninstalled tree resolves no
+      // workerd at all, so `assertInstall` speaks first and names the install;
+      // the skew check is about a tree that IS installed, twice over.
+      assertOneWorkerd(workerdGateKey(command, rest[0]), { repoRoot: repoRoot() })
     } catch (err) {
       fail(err, flags.json === true)
       return
