@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-24T00:24:03.958782+00:00'
+updated_at: '2026-09-24T00:26:27.136366+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3700,5 +3700,11 @@ Let me record this on the epic and then scope it.
 They're separable — the target is useful without the supervisor, and the supervisor would be useful today even against the current watch-mode builder — but they land in the same files and I'd expect to do them back to back.
 
 Want me to create those two, or would you rather one ticket?
+
+<!-- xgd-turn id="8fbbc30b-2cec-4d7a-8f73-7ba3a413534e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-24T00:26:26.919553+00:00" -->
+#### You
+Yes everything we have goes - can we delete in a separate step so we can prove this works first tho
 
 <!-- xgd-chat-end -->
