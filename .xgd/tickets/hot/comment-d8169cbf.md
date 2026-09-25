@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T23:16:04.165598+00:00'
+updated_at: '2026-09-25T23:22:02.460228+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3979,5 +3979,13 @@ bin/dev up
 And to stop being reachable by merges, serve from the frozen snapshot on 8789 (`1c dev serve`) rather than 8788 — with access-sim pointed at it.
 
 All of this is Finding 12 on EPIC-19, with the measurements. **No ticket filed yet** — Defect A is ours and small (hold the namespace, get the stub per use, drain inside the request); Defect B is upstream's; and `bin/dev up` not serving the snapshot is a third, arguably the one that would have prevented today. Say which of those you want filed and I'll do it.
+
+<!-- xgd-turn id="55513572-80a9-4554-baa2-43d4ce71a8d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:22:01.712396+00:00" -->
+#### You
+ok so I need bugs for A and B and this mess with dev up etc.
+
+Lets be really clear I want all the stuff that starts up servers that read the changing code base deleted - I need to know what I'm running that was the whole point of buidling the dev server and I still don't even when I start it up as instructed it is running the wrong thing. That last ticket should be a child of EPIC-16
 
 <!-- xgd-chat-end -->
