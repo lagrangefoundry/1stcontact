@@ -7,10 +7,10 @@ title: 'capture/values-diff: a placeholder-only control is captured with no typo
   that paints nothing can never be paired'
 created_by: repro-console:repro-gigabytealchemy-ai#5
 created_at: '2026-09-23T02:30:12.030295+00:00'
-updated_at: '2026-09-25T02:02:08.325329+00:00'
+updated_at: '2026-09-25T02:05:19.453372+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - capture-loses-it
@@ -20,6 +20,20 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-1c3b9d80
+  commits:
+  - working_sha: cbcde4aef74d2407545decdf5694b91e3552d000
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: f697f337eaf567667a90b117fca02deae4027674
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 817277dfbb6a3b062f65051031c35ce5726d7b56
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1ad07cd6bf825264e4d082519782494c962a17db
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.352
 ---
 
 Loop 1, iteration **5** of `repro-gigabytealchemy-ai` against the stored bundle
