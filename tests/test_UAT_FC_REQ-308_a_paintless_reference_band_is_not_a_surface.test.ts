@@ -409,15 +409,21 @@ describe('REQ-308 — the round’s headline number says why it fell', () => {
     // Not a permanent row. A report carrying no reclassified band says nothing
     // about it, which is the same discipline every other part here follows — and
     // a report predating the field cannot say, which is not the same as zero.
-    const quiet = unmeasuredOf({
-      values: { unmeasuredAxes: [], unpairedSections: 1, unpairedActualSections: 0, unmatched: 0, unpairedActual: 0, nonSurfaceSections: 0 },
-    })
+    const base = {
+      unmeasuredAxes: [],
+      unpairedSections: 1,
+      unpairedActualSections: 0,
+      unmatched: 0,
+      unpairedActual: 0,
+      notComparableAxes: [],
+    }
+    const quiet = unmeasuredOf({ values: { ...base, nonSurfaceSections: 0 } })
     expect(quiet.parts.find((p) => p.id === 'bands')?.detail).toBeUndefined()
     expect(breakdownOf(quiet)).toMatch(/1 band,/)
 
-    const older = unmeasuredOf({
-      values: { unmeasuredAxes: [], unpairedSections: 1, unpairedActualSections: 0, unmatched: 0, unpairedActual: 0 },
-    })
+    // …and a report written before the field existed says nothing either: the
+    // only variable here is `nonSurfaceSections`, so the headline is unchanged.
+    const older = unmeasuredOf({ values: base })
     expect(older.parts.find((p) => p.id === 'bands')?.detail).toBeUndefined()
     expect(headlineOf(older)).toBe('unmeasured 1')
   })
