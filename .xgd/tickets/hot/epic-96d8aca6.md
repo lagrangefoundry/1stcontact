@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-24T23:02:48.071178+00:00'
+updated_at: '2026-09-25T02:04:37.349968+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -26,6 +26,8 @@ fields:
   - request-cf08927d
   - request-16813fa3
   - request-a339a778
+  - request-30178935
+  - request-0359a45d
 ---
 
 ## What the client asked for
@@ -1849,3 +1851,21 @@ sibling projects; conflating them is how a reaper becomes dangerous.
 process owned by another user, and a detached listener started from an agent sandbox
 survives `kill -9` from inside it. A survey that silently omits what it cannot see,
 or a reaper that claims a kill it did not achieve, is worse than one that says so.
+
+
+### M4 — Filed (2026-09-24)
+
+- [[REQ-318]] **A local dev environment that is deployed to, not edited into** — the
+  `bin/deploy` target table, `[env.dev]`, the snapshot from `bin/build`'s existing
+  unused bundle, `d1-migrations.ts` following the environment, the §M2 workerd guard on
+  entry, and §J3's hardcoded database name. Covers §K1–§K3, §K7.
+- [[REQ-319]] **`bin/dev up`, `down` and `reap`, and `1c ps` to see what is running** —
+  the supervisor and the reaper, with `1c ps` as the survey both read. Covers §K4–§K6
+  and §M3.
+
+**Retirement is deliberately unfiled.** §L1 makes it a sequencing requirement that the
+deletion of `pnpm dev`, `pnpm dev:control` and `1c builder`-as-entry-point be a separate
+step *after* the replacement is proved. Folding it into either ticket above would mean
+that ticket could not close until the old path was gone — exactly the pressure the
+operator asked to remove. It is filed when REQ-318 and REQ-319 are trusted, and both
+tickets say so in their Boundaries.
