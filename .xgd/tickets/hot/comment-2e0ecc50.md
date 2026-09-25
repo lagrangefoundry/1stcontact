@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-310
 created_by: xgd
 created_at: '2026-09-25T00:36:08.891458+00:00'
-updated_at: '2026-09-25T00:42:08.787947+00:00'
+updated_at: '2026-09-25T00:46:36.299527+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -80,5 +80,12 @@ I'd take the second. It is the rule `bin/kb-release` already argues for itself: 
 - **DOC-56 carries `fields.projected: false` today** while being projected by `1c fonts doc`. Looks like an authoring slip; ticket-store-only fix, no code.
 
 **Test impact:** `tests/test_UAT_FC_REQ-165_projected_reference.test.ts` splits cleanly — the first `describe` (~190 lines, the corpus-file sink and the two-namespace sweep) gets rewritten against a stubbed ticket store; the second (~120 lines, whether each projection actually says what its source says) is sink-agnostic and survives untouched. `test_UAT_FC_BUG-48_*` only exercises `l1VocabularyGaps` and is unaffected.
+
+<!-- xgd-turn id="1b68e1d7-9cbb-4f56-b41a-aeb6e11e4c67-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T00:46:35.753848+00:00" -->
+#### You
+1 - just create the doc tickets please
+Once the sink is a ticket, regenerating on every `1c kb export` means `bin/kb-release`** commits to the ticket store**, and a new clock appears: code → ticket body (the existing `1c assets` skew check only covers corpus → index). <-- confused we are talking about the sources being tickets not the sinks. What do you mean?
 
 <!-- xgd-chat-end -->
