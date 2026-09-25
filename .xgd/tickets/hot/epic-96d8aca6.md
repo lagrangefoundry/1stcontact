@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T20:16:27.195367+00:00'
+updated_at: '2026-09-25T20:34:28.265315+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1906,18 +1906,44 @@ rather than a surprise: the rule is `ours && !managed`, and a service nothing
 holds a pidfile for is by definition unmanaged. It is what makes "kill everything
 that is running" a single command.
 
-### N2 — `bin/dev up` does not start the deployed environment
+### N2 — `bin/dev up` does not start the deployed environment, and nothing decided that
 
-`DEV_SERVICES` starts `1c builder` on **8788** — the old watch-mode path — not
-`1c dev serve` on **8789**. That is §L1 honoured exactly: the two are meant to run
-side by side against the same store until the replacement is trusted. The
-consequence for an operator is that **`up` and `serve` are two commands, not one**,
-and `serve` runs in the foreground with no pidfile (deliberately — `up` owns the
-service set and its bookkeeping).
+`DEV_SERVICES` starts `1c builder` on **8788** — the old watch path — and has no row
+for `1c dev serve` on **8789**. So `up` and `serve` are two commands, and `serve` runs
+in the foreground with no pidfile.
 
-Worth stating because the natural reading of "start the dev environment" is that
-`up` covers it. It covers the *supporting* services; the deployed Worker is
-`1c dev serve`.
+**This is a gap between the two tickets rather than a design position, and it is worth
+recording as one.** [[REQ-319]] landed first (0.2.354) and its service list named the
+builder because at that moment 8789 did not exist; its Boundaries defer to
+[[REQ-318]] — *"deciding the dev environment's ports is REQ-318's"*. [[REQ-318]]
+landed next (0.2.355), created 8789, and deferred straight back: *"`dev serve` starts
+nothing else and records no pidfile: `dev up` owns the set of services"*, with a
+Boundary reading *"No process supervision for `dev serve` — `bin/dev up/down/reap` is
+the sibling ticket's subject."* Each ticket correctly names the other as the owner of
+the line "and `up` starts it", and the line was never written.
+
+**§L1 does not forbid it.** §L1 requires the old path to keep working until the
+replacement is proved, which means both servers up at once — and `up` starting both
+8788 and 8789 *is* that, more completely than starting only 8788. What §L1 forbids is
+`serve` *replacing* `builder` in the service list, which is the retirement step.
+
+**Two things to settle before adding the row**, neither of them blocking:
+
+- **`serve`'s two refusals** — local D1 behind `db/migrations/`, and more than one
+  `workerd` — are currently in the operator's face and would become *"spawned but
+  nothing answered on 8789 — see the log"*. Largely moot in practice: `up` runs
+  `bin/deploy --env dev` first, which runs the workerd guard on entry and the migrate
+  hook, so both conditions have already been tested and reported by the time any
+  service starts.
+- **Two workerds on one `.wrangler/state`.** §K2 and §L1 both assume the old and new
+  paths run side by side against the same bytes, and §M2's invariant is about two
+  *versions*, which is not this case. But concurrent access to the one copy of the dev
+  data by two processes is the thing to watch during the prove-it period, and it is an
+  argument for starting them deliberately rather than for not starting them.
+
+The pidfile mechanics carry over unchanged: `1c dev serve` is a node wrapper that
+spawns `npx wrangler`, exactly as `1c builder` is, so `down`'s SIGTERM-then-verify is
+already built for that shape.
 
 ### N3 — access-sim fronts 8788, not the deployed environment
 
