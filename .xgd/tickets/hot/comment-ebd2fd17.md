@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-142
 created_by: xgd
 created_at: '2026-09-25T04:44:35.194629+00:00'
-updated_at: '2026-09-25T17:25:44.706874+00:00'
+updated_at: '2026-09-25T20:09:47.728179+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,14 @@ References live in the main checkout (gitignored). The harness takes `MEASURE_RO
 §10.6 reproduces **exactly** — every escape count, worst-overhang, placement figure, region count and fidelity delta in the ticket matches this run. Checking the lock again.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="e56238dc-0323-4235-891f-2fafd5100796-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T20:09:46.870782+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
