@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-25T22:48:28.534328+00:00'
+updated_at: '2026-09-25T23:13:43.213080+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1138,3 +1138,16 @@ markers in `package.json` and the dev server built against them
 the builder outright rather than only restarting it. And every request is logged
 twice, with two `dev-*` build directories both rebuilding — there appear to be
 two `wrangler dev` instances against `apps/control-app`.
+
+
+**Correction to the last observation above.** The doubled request lines are NOT
+two `wrangler dev` instances against `apps/control-app`. `bin/dev up` starts four
+services (filing, builder, public site, access-sim), and the second wrangler is
+the public site on 8787 — a different Worker, with its own bindings and no
+`SESSION_JUNCTION`. The duplicate lines carry the SAME `trace_id`, so one request
+is being emitted twice by the app logger, not served twice. Worth tidying, but it
+is cosmetic and nothing in this finding depends on it. The conflict-markers
+observation stands: at 22:35 the dev server built against a root `package.json`
+holding `<<<<<<< HEAD` and failed outright (`Expected string in JSON but found
+"<<"`), so a half-finished merge in the served checkout can break the builder
+rather than only restart it.
