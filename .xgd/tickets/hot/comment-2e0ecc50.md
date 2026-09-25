@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-310
 created_by: xgd
 created_at: '2026-09-25T00:36:08.891458+00:00'
-updated_at: '2026-09-25T01:16:39.948393+00:00'
+updated_at: '2026-09-25T01:18:20.521118+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -190,5 +190,22 @@ Two things I didn't touch, both yours to call:
 <!-- xgd-chat role="user" ts="2026-09-25T01:16:39.884056+00:00" -->
 #### You
 PLea\se fix EPIC-21
+
+<!-- xgd-turn id="30e8710f-d04b-4a96-8954-7d8e902d76ff-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T01:18:19.468193+00:00" -->
+#### Claude
+Three places in EPIC-21 cite the withdrawn rule, not just the decision log. Fixing all three.
+
+EPIC-21 corrected in four places — the decision log was only one of them:
+
+1. **§"The catalogue lives in a ticket"** (line ~114) said *"That rule is itself the defect; see REQ-310."* Now DOC-56's ticket-hood rests on its own reasons — inspectable by the artificer, 92 chunk-sized headings — and the paragraph states that both things hold at once: DOC-56 is a doc ticket with a generated body, and `REF-l1`/`REF-surface`/`REF-behaviors` stay ticketless projections.
+2. **The ticket table** row for REQ-310 now reads *"rejected 2026-09-25 · Investigated and closed: generated documentation needs no ticket, so `REF-*` stay as they are."*
+3. **The superseded 2026-09-22 entry** is marked `REVERSED 2026-09-25, see below` in its heading, with the original text left intact — a decision log should record what was decided then, not be rewritten.
+4. **A dated reversal entry** appended at the end of the log, quoting your call, naming what it withdraws, and stating that DOC-56 is unaffected. It also restores the rule that now stands: a projection is *paired* with an authored doc ticket (`REF-l1` with DOC-23), the epic's own earlier position.
+
+Frontmatter survived the body write — `status: underway`, all six `epic_children` intact, `last_field_updated: body`.
+
+One stale line I noticed and left alone, since it's unrelated to this: the Status section still ends *"Ready to start on REQ-311. No sub-tickets filed yet"* while the table above lists REQ-311 through REQ-314 as filed. Say the word if you want it trued up.
 
 <!-- xgd-chat-end -->
