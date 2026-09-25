@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-310
 created_by: xgd
 created_at: '2026-09-25T00:36:08.891458+00:00'
-updated_at: '2026-09-25T00:48:41.169142+00:00'
+updated_at: '2026-09-25T01:01:52.507765+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,11 @@ Three notes on what I chose:
 - **Don't run `1c kb build` or `bin/kb-release` until the code lands.** With these tickets existing and `writeProjections()` still writing files, an export produces six documents where three belong — DOC-57/58/59 beside their `REF-*` twins, near-identical text competing in retrieval. Harmless as long as nothing rebuilds in between.
 
 DOC-56's `projected: false` I left alone — separate from what you asked for, still worth a one-field fix whenever.
+
+<!-- xgd-turn id="836a5831-ff47-4bf6-971d-78da8282f780-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T01:01:51.958115+00:00" -->
+#### You
+This ticket was create to ensure that the source documents for the system kb are exclusively kind: system_kb DOC tickets. I'm not sure about the other files you are refering to - can we just start with that requirement first please
 
 <!-- xgd-chat-end -->
