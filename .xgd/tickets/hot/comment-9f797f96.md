@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-143
 created_by: xgd
 created_at: '2026-09-25T04:44:37.634512+00:00'
-updated_at: '2026-09-25T20:09:43.655824+00:00'
+updated_at: '2026-09-25T20:13:36.014965+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -188,5 +188,46 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="49848802-cc4d-4708-b576-845775dea170-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:13:34.985202+00:00" -->
+#### Claude
+I'll pick up where the prior turn left off — the commit landed, so the question is whether the ticket transition completed.
+
+Commit is complete with its version bump; the remaining working-tree changes are all other sessions'. Let me verify the tests still pass at the current tip and check the body's UAT motivation.
+
+12 UATs pass at the current tip, and version 0.2.356 is still unclaimed. Let me confirm §8 motivates every UAT before promoting.
+
+All twelve UATs are motivated by §8. Now promoting the ticket.
+
+Version gate race — the four ticket auto-commits landed after my commit, so the tip carries 0.2.356 on a commit my SHA doesn't reach. Let me check the command's options.
+
+Omitting `--version` lets the gate allocate and commit the bump under its own lock — the designed path for this race.
+
+Promoted. Let me verify the recorded state and release the stale session lock.
+
+Lock released (the exit code is just `ls` confirming the file is gone). Let me run the full touched-suite scope for a clean final report.
+
+80/80 pass. Free-coding of BUG-143 is complete. Let me check whether my existing memory on the version gate needs refining, since the mechanism here was slightly different from how I'd recorded it.
+
+BUG-143's free-coding is complete. The prior turn had landed the commit but not the ticket transition — that's what I finished.
+
+**What was already done** (commit `26f5491165`, `[FREE-CODED]`, on `xgd-working`): 17 files, +1340/−111 — the `backedBy` schema axis and its `backingSurfaceExists` validator rule, the `escape` finding and containment derivation in `evaluateLayout`, `viewportHeight` as an evaluator parameter, per-segment `offSampleWidths`, and the gate/repro wiring. Plus 12 UATs in `test_UAT_FC_BUG-143_surface_containment_height_axis.test.ts`.
+
+**What I did this turn:**
+
+1. **Verified** the work at the current tip — nothing but ticket auto-commits had landed since, so no code drift. The 12 BUG-143 UATs pass, and the full touched-suite scope is **80/80 passing** across 8 files.
+2. **Confirmed every UAT is motivated by body language.** All twelve map onto §8's appendix, including the four behaviours that were technical consequences rather than direct asks: the refused dangling backing name (§8.1), the undeclared-document derivation path and the unanimity rule that keeps a reflow from reading as an escape (§8.2), and `chooseRecovery` deliberately *not* pricing escapes (§8.5).
+3. **Hit the version gate race and resolved it.** `--version 0.2.356` was rejected — the four chat-transcript auto-commits sitting on top of my commit each carry that version in `package.json`, so the tip held it on a commit unreachable from my SHA. Omitting `--version` let the gate allocate `0.2.357` under its own lock and commit the bump itself.
+4. **Promoted to `free_coded`** with both SHAs recorded (`26f5491165` plus the gate's own bump `5fdccec7da`) and `story_points: 5`.
+5. **Released the stale session lock** left by the prior turn's now-dead process.
+
+Two notes worth your attention:
+
+- The prior session worked **unbranched** directly on the `xgd-working` checkout rather than cutting `free-BUG-143`. The work landed cleanly and the gate confirms both SHAs are ancestors of `xgd-working`, so there's nothing to repair — but it means the session lock was held across turn boundaries, which is why it needed manual release.
+- §8.8 records honestly where the measured outcome **differs from §5's exploratory estimate**: off-sample reports 2 escapes at 637px rather than the predicted 14 at 500px, because the landed derivation requires a surface to cover a run at *every* captured width before counting as its backing. And this particular bundle does not fail at an uncaptured height — the height axis is exercised, but the evidence that a wrong height response is *caught* rests on the synthetic `heightBlindPage` UAT, not on the real capture. Both are deliberate decisions, not shortfalls, and are documented as such rather than tuned away.
+
+The ticket is at `free_coded` and parked. Promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
