@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   story_points: 3
   epic_parent: epic-96d8aca6
+  chat_comment: comment-be8a438f
 ---
 
 Parent: [[EPIC-16]]. Scoped in [[EPIC-16]] §K4–§K6; `1c ps` asked for by the operator
