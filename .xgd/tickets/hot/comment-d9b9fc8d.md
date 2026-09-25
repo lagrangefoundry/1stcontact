@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:36:16.060596+00:00'
+updated_at: '2026-09-25T21:39:03.891934+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4758,5 +4758,13 @@ Note 8789 is currently dead — `1c dev serve` isn't running. Not needed for the
 It does **not** address fault 2. There's no command today meaning *"the environment changed — restart what needs restarting"*; `down && up` is the intuitive spelling and is a no-op for anything `up` didn't start. That belongs with REQ-322, which is already changing `DEV_SERVICES`.
 
 Both recorded: **EPIC-16 §N8**, and the append-hazard evidence appended to **BUG-146** so the implementing session doesn't ship a fix that still leaves an operator advised to append to the secrets file.
+
+<!-- xgd-turn id="0dfeda2f-6dab-407d-9fba-38730ce73bbf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T21:39:03.354664+00:00" -->
+#### You
+I am using the repro console so I don't want to use reap
+
+I think the confusion here is that dev down does not bring the builder down - can I have a bug for that too please?
 
 <!-- xgd-chat-end -->
