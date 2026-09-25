@@ -6,7 +6,7 @@ title: 'repro console / xgd: the round is told to append to an existing class ti
   and all five such tickets are frozen against appends'
 created_by: repro-console:repro-gigabytealchemy-ai#5
 created_at: '2026-09-23T02:35:21.574251+00:00'
-updated_at: '2026-09-25T02:04:33.841951+00:00'
+updated_at: '2026-09-25T02:31:03.684340+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -213,3 +213,37 @@ is silently dropped.
 `xgd ticket add-comment --created-by`, written to the comment's own frontmatter,
 is a change to the `xgd` CLI and belongs in that repository. Behaviour 1's
 first-line marker is the in-repo answer that does not depend on it.
+
+
+---
+
+## What landed
+
+Commit `2d37a5a4c2372550e14420862ab0054def3e7a0c` on `free-BUG-140`, as `[FREE-CODED]`.
+
+- **`tools/repro-console/src/append-route.ts`** (new) — the three routes and
+  the status sets they are derived from, read off `xgd`'s own `immutable`
+  rules rather than guessed, plus the round-marker helper.
+- **`ai.ts`** — `KnownGap` carries the live status and the route; the
+  "Classes that already have a ticket" block names all three routes, writes this
+  round's marker out literally, and gives each class its own instruction.
+- **`console.ts`** — `routeGaps()` reads every class ticket back before the
+  prompt is built; `confirm()` runs the status/provenance/class checks only on
+  a `filed` round's own ticket and on `bugTickets`, and charges an
+  `appended` round with `appendEvidence()` instead; the duplicate-class check
+  is suppressed when the predecessor is settled.
+- **`gaps.ts`** — `priorTicketIds` and succession under `supersedes`.
+- **`run.ts`** — `parseJsonArrayOutput`, because `xgd ticket comments
+  --json` prints a bare array and the object parser silently could not read it.
+- **the brief** — §6 gains "Appending to a class that already has a ticket";
+  §7's `appended` example matches it.
+
+24 UATs in `tests/test_UAT_FC_BUG-140_the_append_route.test.ts`, each making
+both directions of its claim. `tests/test_UAT_FC_REQ-256_ai_iteration.test.ts`
+gained a `ticket comments` branch in its stand-in `xgd` so its appended round
+still models a well-behaved one.
+
+The sibling-repo half is filed as **BUG-1448** in `xgd`: `add-comment` with a
+`--created-by` written to the comment's own frontmatter. Nothing here depends
+on it landing — the prose marker is the in-repo answer, and the console reads the
+comment body for it.
