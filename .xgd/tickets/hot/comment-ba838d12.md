@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-324
 created_by: xgd
 created_at: '2026-09-25T22:54:12.731033+00:00'
-updated_at: '2026-09-25T23:26:00.574956+00:00'
+updated_at: '2026-09-25T23:28:22.083509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -47,5 +47,14 @@ Now the UAT file:
 Now restructure the fixture so the panels are themselves flowed (as the reference's bands do), and fix the two reader helpers:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="7c6291fd-e6c4-4b23-9088-81676904c5a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:28:20.888027+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
