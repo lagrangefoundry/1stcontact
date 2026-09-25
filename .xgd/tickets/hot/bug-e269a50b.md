@@ -6,10 +6,10 @@ title: 'repro console / xgd: the round is told to append to an existing class ti
   and all five such tickets are frozen against appends'
 created_by: repro-console:repro-gigabytealchemy-ai#5
 created_at: '2026-09-23T02:35:21.574251+00:00'
-updated_at: '2026-09-25T02:31:47.415367+00:00'
+updated_at: '2026-09-25T02:38:44.198593+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   defect_class:
   - harness
