@@ -5,9 +5,9 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-25T23:25:51.860494+00:00'
+updated_at: '2026-09-25T23:26:34.555470+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -1168,3 +1168,23 @@ builder while believing he was on the frozen one, which is why a merge three
 minutes into his turn could reach him at all. Same shape as this epic's other
 adoption gaps: the capability is built, and the path everyone actually runs does
 not use it.
+
+
+### Finding 12 — filed (2026-09-25)
+
+- [[BUG-149]] — **Defect A**, here. The Durable Object stub is captured in
+  `DurableJunctionStorage`'s constructor and reused across requests, which workerd
+  refuses; `prepare` catches, `adopted` goes false, and `queue()` drops every write
+  in silence. [[REQ-307]] is live only on the first request a fresh isolate handles.
+  Measured: 4 of 17 post-seed turns reached the object. Child of this epic.
+- lagrange-framework **BUG-69** — **Defect B**, upstream. `transcript()` reads the
+  archive only `if (!log.exists())`, so a junction that is behind hides a complete
+  archive — from the panel AND from `seedDialogue`. Filed there; no code here.
+- [[BUG-150]] — **the reason a merge could reach a live turn at all**, filed under
+  [[EPIC-16]] because it finishes that epic's §L1. `bin/dev up` builds the frozen
+  snapshot and then starts the watching builder; every entry point that serves from
+  the changing tree goes.
+
+The three are ordered by what they cost. BUG-150 stops the restarts. BUG-149 makes a
+restart survivable. BUG-69 makes a junction that is behind harmless rather than
+destructive. None of them substitutes for another.
