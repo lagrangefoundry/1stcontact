@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T21:05:41.096172+00:00'
+updated_at: '2026-09-25T21:12:14.069865+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2445,5 +2445,91 @@ Two things worth flagging:
 <!-- xgd-chat role="user" ts="2026-09-25T21:05:40.976218+00:00" -->
 #### You
 ok 142 and 143 have landed - if I rerun the capture and diagnosis will the issue get fixed?
+
+<!-- xgd-turn id="41f339a2-5d33-4704-9767-5e8caa67c0ff-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T21:12:12.559912+00:00" -->
+#### Claude
+I'll check what actually landed rather than going off the ticket statuses.
+
+Both landed. Now the question is what they actually do — let me look at the diffs and then run it.
+
+Both landed, and the merge commit shows BUG-142 integrated BUG-143's detector into the nested model. Now let me actually run it rather than reason about it.
+
+Bundle is at captureSchema 6 = current, recaptured 02:20 today. So these are fold-only fixes — a refold should suffice. Let me verify on a copy.
+
+Stored `l1.json` is the old flat document — 70 nodes, depth 1, zero `backedBy`, zero owning containers. That's a stale fold. Let me refold it and see what the new engine produces.
+
+Fix is real — depth 3, 14 owning containers, 44 runs with `backedBy`, cards nested inside bands. Now the gate.
+
+Fidelity is now perfect at rest (maxΔ 0.0px, was 0.89px). But it still fails — let me find out whether the remaining findings are *escapes* (your defect) or text-on-text overlaps.
+
+The detector works and reports in exactly the vocabulary you wanted. Two more checks — whether height is genuinely fixed, and what the residue is.
+
+`viewportResponse` is now zero nodes — previously it was on almost every panel. Let me check that against the old fold, and see what the rendered page does.
+
+One more thing worth knowing — the residue all names `card-5`.
+
+Ownership is sound — `backedBy` counts match actual children, so `card-5` isn't mis-assigned; it's just a card with 10 children. Here's the answer.
+
+## Short answer: press **[run again]** — the main fix applies without the AI, and it is partly done
+
+BUG-142 is a **fold** fix, and the console refolds at the start of every iteration (`iteration.ts:127`, step 2 of `refold → repro → page → render → gate`). So the fix reaches your next iteration mechanically. Diagnosis isn't what closes it.
+
+And no re-capture is needed: your bundle is `captureSchema 6`, which is current. `[run again]` is the right button this time.
+
+## What I actually ran
+
+I copied the reference, refolded it with the landed engine, and gated it.
+
+| | before | after |
+|---|---|---|
+| document shape | 70 nodes, **depth 1** | 70 nodes, **depth 3** |
+| owning containers | 0 | **14** |
+| runs declaring a backing surface | 0 | **44** |
+| at-rest fidelity | 0.89px | **0.0px, 0 residuals** |
+| findings when only *height* changes | — | **identical at 768 and 1536 — at every width** |
+
+Bands now contain their cards, cards contain their runs. Ownership is structural, and I checked it's honest: `backedBy` counts match actual children.
+
+**The vertical-resize half of your complaint is gone.** That's the strongest result — the probe now varies viewport height, and no finding differs between the short and tall sample at any width. Panels and text move together because one declaration is shared by nesting rather than 62 nodes each computing their own reaction.
+
+## What still fails, and it's now specific
+
+```
+sample-fidelity     PASS   maxΔ 0.0px
+on-sample           PASS   0 findings at all 12 captured samples
+off-sample          FAIL   20 escapes + 4 overlaps
+content-robustness  FAIL   32 escapes + 186 overlaps
+```
+
+The escapes read like this now:
+
+> `637x768: 'Open source and community-driven' is no longer covered by its backing surface card-5 — 56px below its bottom edge`
+
+Two residues, both bounded:
+
+- **Off-rung widths** — every one of the 20 escapes is on `card-4` or `card-5`, the two cards with 9–10 children. Their content reflows at interior widths and the panel's height doesn't grow to follow. Clean at all 12 captured widths, broken at 506 and 637.
+- **Content growth** — 32 escapes, all the same two long paragraphs, overrunning both their card and their band by 146px / 50px.
+
+So: same class, two specific panels, with a px number attached. Not the whole page coming apart.
+
+## Yes — the AI can now see it
+
+That's the change that matters for your loop. Six rounds filed six per-axis value tickets because the instrument reported `layout.pass: true, findings: []`. It now reports named escapes with the surface id and the overhang, so a diagnosis round is worth spending — it will land on this class rather than on sub-pixel deltas.
+
+## One correction
+
+Last turn I told you the old document had panels carrying a height response and **zero** text runs carrying one. That was wrong — 49 of 53 text runs carried their own. The diagnosis held (two layers, nothing binding them, aligned only by coincidence), but the specific proof I gave didn't: the real defect was 62 nodes each declaring an *independent* height reaction, which is what the nesting fix replaces with one.
+
+## What I'd do
+
+1. **[run again]** on gigabytealchemy — it refolds, and you should see the cards stop detaching on vertical resize immediately.
+2. **Then [diagnose]**, which is now worth the ~$7: the escapes are in `gate.json` and named.
+3. `./bin/repro-rail record` — still no baseline, and the engine has just changed more than at any point so far.
+
+My refolded copy is at `.xgd/tmp/ga/index` with its `gate.json`, if you want to read the 52 escapes before spending a round. The stored reference is untouched — still the stale fold until the console refolds it.
+
+Want me to append a §14 to EPIC-12 recording this verification? §13 currently says iterating on this bundle can't find the defect, which the two landed tickets have made false.
 
 <!-- xgd-chat-end -->
