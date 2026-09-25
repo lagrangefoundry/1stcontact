@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:50:02.014859+00:00'
+updated_at: '2026-09-25T21:07:58.454293+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4600,5 +4600,11 @@ Noted, and the memory sharpened — the rule was already there and I drifted pas
 - No installs or migrations needed. It starts from a tree where `1c workerd` reports one version and the KB is currently coherent.
 
 **Still unfiled and deliberately so:** the retirement step (§M4), which now also carries §N4 — the public site being started from `pnpm dev` rather than served from the snapshot `bin/deploy --env dev` already writes for it. It stays unfiled until REQ-318, REQ-319 and now REQ-322 are trusted in use.
+
+<!-- xgd-turn id="011c17d2-af84-4659-a850-c5c2f57f74a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T21:07:57.938264+00:00" -->
+#### You
+I have a problem, I reloaded the builder app and I am logged out - access sim does not log me in?
 
 <!-- xgd-chat-end -->
