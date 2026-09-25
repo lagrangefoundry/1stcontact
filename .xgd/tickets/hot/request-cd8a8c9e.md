@@ -5,10 +5,10 @@ type: request
 title: 'repro console: the controls and the progress report at one end'
 created_by: EPIC-12
 created_at: '2026-09-25T21:37:20.771961+00:00'
-updated_at: '2026-09-25T23:12:02.851977+00:00'
+updated_at: '2026-09-25T23:12:56.390467+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -16,6 +16,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-4df16ee9
+  commits:
+  - working_sha: ce6a15c035235d17a737c4bdc65b9509a5c3d512
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.365
 ---
 
 ## The problem
