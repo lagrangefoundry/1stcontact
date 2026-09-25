@@ -89,10 +89,9 @@ NOT seeded, deliberately:
 
 To sign in as any of them, without a Cloudflare account:
 
-  ./bin/access-sim --print-env > .dev.vars.local
+  ./bin/access-sim --print-env > apps/control-app/.dev.vars.local
   ./bin/access-sim &
-  cd apps/control-app && npx wrangler dev --port 8788 \
-    --env-file .dev.vars --env-file ../../.dev.vars.local
+  ./bin/1c builder
 
   then open http://127.0.0.1:8799/login
 
