@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-142
 created_by: xgd
 created_at: '2026-09-25T04:44:35.194629+00:00'
-updated_at: '2026-09-25T16:54:42.251450+00:00'
+updated_at: '2026-09-25T17:25:44.706874+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -81,5 +81,45 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="0601e4bc-479f-4e24-b5cb-9cbfee12992b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T17:25:44.286796+00:00" -->
+#### Claude
+I'll start by getting the current state of the ticket and the working tree.
+
+Ticket body is complete (including §10/§11 implementation notes). The branch has all code changes + the UAT file uncommitted, nothing committed yet. Let me check the work state.
+
+UAT file is written with all 11 tests §11 describes. Now let me run them.
+
+All 11 BUG-142 UATs pass. Now the 12 modified suites.
+
+All 12 modified suites pass. Now a broader regression sweep — fold.ts and probes.ts are core.
+
+Vitest caps CLI filter args (~7). I'll run the full node suite instead — truest regression picture.
+
+None are fold/L1/recovery suites. Verifying they're pre-existing by reverting just my three source files and re-running the same 8.
+
+All 8 fail identically without my edits — confirmed pre-existing (socket/port, Cloudflare KB, upstream framework, builder vocabulary). Restoring my changes.
+
+Restored. Now typecheck and the workers project.
+
+Typecheck clean, both vitest projects ran in the full sweep. Now the version bump and commit.
+
+xgd-working advanced to 0.2.355 while this branch sat at 0.2.354. Taking the merge lock first, then merging forward.
+
+BUG-143's session holds the lock. I'll commit on the branch now (no lock needed) and retry the lock after. First a sanity review of the diff.
+
+Diff is clean and matches §10.8's list exactly (12 superseded suites). Committing the code.
+
+Code committed. Now waiting for BUG-143's session to release the merge lock.
+
+Lock still held (~26 min). While waiting, let me verify §10.6's reported measurements are reproducible rather than taking them on trust.
+
+References live in the main checkout (gitignored). The harness takes `MEASURE_ROOT` — let me re-run it against my branch to verify §10.6's numbers.
+
+§10.6 reproduces **exactly** — every escape count, worst-overhang, placement figure, region count and fidelity delta in the ticket matches this run. Checking the lock again.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
