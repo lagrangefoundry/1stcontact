@@ -6,9 +6,9 @@ title: 'perceptual/region ranker: the top lead is the band, not the run, and onl
   one side can offer a band as an element'
 created_by: repro-console:repro-gigabytealchemy-ai#7
 created_at: '2026-09-25T21:46:49.867054+00:00'
-updated_at: '2026-09-25T23:33:55.476111+00:00'
+updated_at: '2026-09-25T23:34:01.687167+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.367
+  story_points: 3
 ---
 
 # perceptual/region ranker: the top lead is the band, not the run, and only one side can offer a band as an element
