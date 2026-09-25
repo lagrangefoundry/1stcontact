@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T23:48:41.106800+00:00'
+updated_at: '2026-09-25T23:51:17.290001+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4115,5 +4115,75 @@ Thank you.
 I'd like to have a conversation that goes back to your core responsibility the Webb builder experience. As I work with the AI on websites I find that I am impressed with the AIS understanding and design capabilities. However only when pressed to do so. I have to ask what would you do here? Is this really a premium site? What do we have to do to make this better? My users are not going to in general do that. Related to this is what I would call the executive function of the website construction. Again I am an experienced by coda I work with AI is in and out building software so it is not surprising or problematic for me to have to drive the website creation. However, my typical user will not know how to build a website will not know the appropriate steps to go through. We have some documentation on this and some thoughts we have a playbook that the AI has access to but never referenced in my discussion with it. I want to discuss Rily the user experience here so I have no doubt that we can improve the coaching that we give to the AI but I wonder if there are other things that we could or should do. Part of the challenge here is that I want to support flexibility as well as structure.
 
 We want the AI to be adaptable, if the AI is talking to a novice who does not know how to spell HTML then they should use appropriate language, similarly if they are talking to someone experienced in the domain they should use different language. And both users are going to be frustrated if the AI talks in the wrong way. The same is true of the executive function. If I am creating a site a highly structured approach that puts me through hoops that I don't necessarily want to go through or want to go through in that particular order represents of challenge for me. So what I'm trying to go is we need to introduce structure we need to find ways to make the AI be more proactive. I need the AI to take the lead, offer opinions and so on there are things we could put in the reminder prompts to do that. I'm also wondering about some kind of shared to do list that could be used to hold joint tasks and manage the project. It could be pre-populated with expected steps but it could be visited in different orders and we could entirely skip steps if we don't need to so in that sense it could provide a flexible structure if it was created in the right way. What ideas do you have here? Are you aware of any examples of this kind of thing being done? There are 1 million examples of AI chat but most of them are much more simplistic and entirely responsive. How do we get the AI to take the lead when it needs to
+
+<!-- xgd-turn id="93b39cdf-3cb0-4ba4-a58a-f140dbc908f8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:51:15.673708+00:00" -->
+#### Claude
+Your message arrived twice — possibly the same delivery problem we spent this morning on, so here's the short version of what I found, then new ground.
+
+Same message arrived twice — possibly this morning's delivery fault, so: the short version of what I measured last time, then something better I found since.
+
+**Recap.** Across your 102-turn Lagrange Foundry engagement: 1,017 tool calls, 43 of them knowledge retrievals, **none about method**. `KnowledgeGet` ran 21 times — 13 for `REF-l1`, the rest for client material. `DOC-33` was never fetched. Behaviourally: 24 turns offer options and 45 ask a direct question, but only **2 of 102 contain any process or ordering language**. And the consultant wrote its engagement memory 106 times (61 standing-note rewrites, 45 decisions) into an artifact **the client cannot see**, inventing an `OPEN:` block in free text to hold exactly the to-do list you're describing.
+
+## The new finding: the playbook isn't unread. It's unrepresentable.
+
+I went into DOC-33 and then compared it against the artifact it's meant to produce.
+
+DOC-33 §3.4 specifies every ledger entry as `### <decision name>   [<section>]`, filed under eleven named sections. §3.5 names them: `Session`, `Business`, `Audience`, `Offer`, `Objectives`, `Inheritance`, `Capabilities`, `Brand`, `Site`, `Parked`, `Client calls`. The very first is:
+
+> `## Session — stage, act, sittings, scope band`
+
+Your actual ledger is **45 flat entries titled "Decision 1" … "Decision 45"**. Zero section tags. Zero stage tracking. No `Session` section, no `Parked`, no `Client calls`.
+
+That is not a compliance failure. **`record_decision` has nowhere to put a section, a state, or a stage.** A consultant who had DOC-33 memorised could not comply with §3.4, because the tool has no field for it. The playbook specifies a structured instrument; what got built is a text box and a numbered list.
+
+So the honest diagnosis shifts. Last turn I said method loses to mechanism because mechanism has a forcing function. True — but the deeper reason is that **the method has no place to live.** It can't be written down where it would be read back.
+
+## You already designed the flexible structure. In writing. In detail.
+
+This is the part worth sitting with, because it means you're not inventing — you're instantiating.
+
+**§2 — two levels.** *"The client sees four acts — legible progress, natural break points. The AI tracks eleven stages — finer gates, each with an explicit exit condition."* That is precisely "structure that isn't hoops": coarse and legible for the human, fine-grained for the machine.
+
+**§5 — four starting points, one flow.** *"These are **not four scripts**. They differ in what is already decided, not in what needs deciding. Intake writes every decision into the ledger marked **inherited** or **open**. The main flow then visits only the open ones."*
+
+That is your shared to-do list, already specified. "Pre-populated with expected steps" = §6's *produces* lists. "Visited in different orders" = gates rather than sequence. "Entirely skip steps" = marked `inherited` or parked with a reason. You described DOC-33 §5 from scratch, without having it in front of you, which is a good sign the design is right.
+
+**§7 is the coaching you were about to write into the reminders.** §7.1 options-not-iterations — *"a client who cannot say what they want can reliably say which of three they prefer, and the why is the valuable part."* §7.4 the one-push rule. And §7.2, which is your register problem answered exactly:
+
+> **Never leave them staring at a blank question.** *"What's your brand personality?"* produces silence or boilerplate. *"You come across as more careful than flashy — is that right, or do you want to feel more ambitious than that?"* produces an answer.
+
+None of it was ever loaded.
+
+## What I'd build — four changes, and they're small
+
+**1. `record_decision` gains `section` and `state`.** Sections from §3.5; state from `inherited | open | locked | parked | client-call`. One change makes §3.4, §5's whole routing mechanism and §7.4's record all representable at once. Everything else follows from it.
+
+**2. One stage/act field on the engagement.** The playbook's own `Session` section. It is the smallest possible change and the one that matters most, because **leading requires knowing where you are** — a model with no representation of stage can only react. When you press it, you are supplying the position verbally; that's why it performs.
+
+**3. The per-turn digest carries act, stage, the stage's gate, and that stage's open decisions.** Not the playbook — its ~200-token projection. That distinction is the whole trick: injecting DOC-33 would cost you 740 lines of context; injecting *where you are in it* costs nothing. You already have the channel and the proof it works — the consultant demonstrably works from `page-digest` because a digest is fact, whereas `act-rather-than-narrate` is advice and gets ignored.
+
+**4. A client-facing surface: four acts, and what's open.** §2 already promises the client sees four acts. Today they see nothing.
+
+## How this answers "how do we make it lead"
+
+Not by asking it to. **A gate is a checkable condition; leadership falls out of it.** "You are in stage 1; its gate is one primary conversion action with a destination; it is not met" is a *fact* that produces a question with no exhortation anywhere. That's the same forcing function that makes `translateYPct` get looked up reliably: the omission costs something immediately.
+
+And it is the right shape for both your users. The novice gets four legible acts and a consultant who always has a next move. You get to jump to stage 7 and mark stages 3–5 inherited — which the playbook explicitly permits, because §5's routing is about *what is already decided*, not about order.
+
+For register specifically, I'd still add the recorded, client-visible, client-correctable field I suggested last time. §7.2 tells the AI how to ask without vocabulary; it doesn't tell it how high to pitch. Inference from silence is a coin-flip every turn, and both wrong answers lose you the user.
+
+## Two honest problems
+
+DOC-33's timings (Act I in 45–60 minutes) assume a booked consultation. Your LF engagement ran **days, across many sittings and several lost sessions**. The playbook anticipates that — *"acts may span sittings"* — but nothing in the tooling counts sittings or resumes at an act boundary, which is exactly where §4 says context should be rebuilt.
+
+And DOC-33 §5 wants ingestion to run **before** the session, with a vision pass, so the opener can be specific. I didn't verify whether that exists; in your LF session the reference-site captures happened live, mid-conversation, which is not what §5 describes.
+
+## What I need from you
+
+Last turn's question still stands — **per-engagement or per-site?** Your sites outlive conversations. A new one now matters more: DOC-33 §2 says *"Act I is limb-agnostic and runs once per client, ever."* Once per **client**, not per site. If that's still the intent, the ledger's identity is the business and not the chat, and that decides the data model before any of the above gets built.
+
+Push back on the shape and I'll file it — I'd expect three tickets under EPIC-19: the decision schema (§3.5 + §5 states), stage/act in the digest, and the client-facing act surface. The register field probably rides with the third.
 
 <!-- xgd-chat-end -->
