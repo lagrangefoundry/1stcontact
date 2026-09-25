@@ -5,10 +5,10 @@ type: request
 title: bin/dev up, down and reap, and 1c ps to see what is running
 created_by: EPIC-16
 created_at: '2026-09-25T02:04:22.932236+00:00'
-updated_at: '2026-09-25T04:30:32.014500+00:00'
+updated_at: '2026-09-25T04:31:27.136113+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   needs_review: false
@@ -16,6 +16,14 @@ fields:
   story_points: 3
   epic_parent: epic-96d8aca6
   chat_comment: comment-be8a438f
+  commits:
+  - working_sha: 55e4fca6c3088b13f50c2e215570542812428587
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1ebf31ff19e445f4a4e746768a279ef34480aa1a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.354
 ---
 
 Parent: [[EPIC-16]]. Scoped in [[EPIC-16]] §K4–§K6; `1c ps` asked for by the operator
