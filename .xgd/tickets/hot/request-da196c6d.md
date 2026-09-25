@@ -6,9 +6,9 @@ title: The system KB has two corpus producers and only one goes through the tick
   store
 created_by: EPIC-21
 created_at: '2026-09-23T03:18:06.625158+00:00'
-updated_at: '2026-09-23T03:18:06.625158+00:00'
+updated_at: '2026-09-25T01:07:49.715305+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -81,3 +81,40 @@ Consequences to settle in design:
 ## Not in scope
 
 The `project` KB, which is a different source (tenant D1) and a different landscape.
+
+
+## Decision — 2026-09-25: not needed, generated documentation stays ticketless
+
+Operator: *"I'm ok with automatically generated documentation — I think there is nothing here
+that is needed."* The projected reference stays as it is. `writeProjections()` keeps writing
+`REF-l1`, `REF-surface` and `REF-behaviors` straight into `kb/system/`, with no ticket, and the
+two-producer namespace partition in `exportCorpus()` stays with it.
+
+This reverses the 2026-09-22 direction recorded in [[EPIC-21]]'s decision log ("the projection
+convention is the defect, not the exception"), which is what filed this ticket. The rule that
+stands instead is EPIC-21's *earlier* one: a projection is paired with an authored doc ticket
+(`REF-l1` with [[DOC-23]]) rather than being one.
+
+Investigated before the reversal, and worth keeping because it is what any future attempt has to
+handle:
+
+- The move itself is small and mostly deletion — `writeProjections()`, `projectedDocument()`,
+  `corpusMembership()`, `isProjected()`/`PROJECTED_PREFIX`, the sweep exception in
+  `exportCorpus()`, and `KbStatus.projected`. `1c fonts doc` ([[REQ-311]], `font-doc.ts`) is a
+  working precedent for the ticket sink: resolve the target by `fields.source`, write with
+  `xgd ticket update --body-file -`, compare bodies with trailing whitespace normalised because
+  the store strips it on write.
+- `ProjectedDoc.source` cannot serve as the resolver key. `REF-surface` declares
+  "the declared control surface (version 14)" — prose carrying the version, so a surface bump
+  would orphan the ticket. A stable key (the source path) and the reader-facing prose are two
+  different values.
+- `REF-surface`'s title is derived from `l1-surface.json`'s own title, so a ticket owning the
+  title stops that propagating unless the generator writes `--title` too.
+- The generator would have to run somewhere, and `xgd ticket update` auto-commits — so a build
+  (`bin/kb-release`) would produce ticket-store commits where today it only writes gitignored
+  output under `kb/system/`.
+- Nothing reads `fields.projected`; it is frontmatter documentation, not a mechanism.
+
+Three doc tickets (DOC-57/58/59) were created during the investigation to receive the projected
+bodies and have been archived. [[DOC-56]] still carries `fields.projected: false` while being
+projected by `1c fonts doc` — a one-field inaccuracy, unrelated to this decision.
