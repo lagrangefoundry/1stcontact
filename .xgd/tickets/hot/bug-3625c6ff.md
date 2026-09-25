@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-94cc7600
 ---
 
 # Builder chat: the durable junction never writes, because the Durable Object stub is cached across requests
