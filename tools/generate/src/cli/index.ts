@@ -100,11 +100,15 @@ import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
 import { assertOneWorkerd, checkWorkerd, workerdGateKey } from './workerd'
 import {
+  DEV_SERVICES,
+  devDeploySkipped,
   devDown,
   devReap,
+  devRestart,
   devUp,
   formatDown,
   formatReap,
+  formatRestart,
   formatUp,
   readDevPidfiles,
 } from './dev'
@@ -351,6 +355,7 @@ export {
   classifyCwd,
   devProcessTable,
   formatProcessTable,
+  listenerPidsOnPort,
   inDevPortBand,
   knownPort,
   listenerCwds,
@@ -369,13 +374,18 @@ export type {
 export {
   DEV_SERVICES,
   devDeploy,
+  devDeploySkipped,
   devDown,
+  devPidfilePids,
   devReap,
+  devRestart,
+  devSelection,
   devStateDir,
   devTable,
   devUp,
   formatDown,
   formatReap,
+  formatRestart,
   formatUp,
   pidAlive,
   readDevPidfiles,
@@ -387,6 +397,7 @@ export type {
   DevDownOutcome,
   DevPidfile,
   DevReapOutcome,
+  DevRestartOutcome,
   DevService,
   DevStarted,
   DevUpOutcome,
@@ -511,16 +522,25 @@ Usage:
     when the tree is fine, which is how \`bin/deploy --env dev\` uses it: the guard in
     front of the only copy of the dev data.
 
-  1c dev up | down | reap | serve [--dry-run] [--json]  (\`bin/dev\` is the launcher)
+  1c dev up | down | reap | restart | serve [<service>…] [--dry-run] [--json]
+      (\`bin/dev\` is the launcher; <service> is one or more of ${DEV_SERVICES.map((s) => s.name).join(' | ')})
     up    Deploys to the local dev target (REQ-318's \`bin/deploy --env dev\`, skipped
           with a line while that target does not exist), then starts filing, the
           builder, the public site and access-sim in dependency order and records a
-          pidfile per service under storage/tmp/dev. A service already answering is
-          left alone rather than duplicated.
-    down  SIGTERMs what the pidfiles name, then VERIFIES the ports are free through
-          \`1c ps\` rather than assuming the signal landed. Exits non-zero when a port
-          it was asked to free is still answering, and removes that service's pidfile
-          so \`reap\` inherits it.
+          pidfile per service under storage/tmp/dev, naming BOTH the process it
+          spawned and the one found holding the port once it answered. A service
+          already answering is left alone rather than duplicated. Name one or more
+          services to start only those, which skips the deploy.
+    down  SIGTERMs the PROCESS GROUP of what the pidfiles name, then VERIFIES the
+          ports are free through \`1c ps\` rather than assuming the signal landed. The
+          group, not the pid, because \`1c builder\` and \`pnpm … dev\` are wrappers
+          whose grandchild holds the socket, and signalling the wrapper left \`workerd\`
+          running ([[BUG-147]]). Exits non-zero when a port it was asked to free is
+          still answering, and removes that service's pidfile so \`reap\` inherits it.
+    restart down then up for the named services — an env-file change only takes effect
+          on a process started after it, and this is the spelling of that. It deploys
+          nothing, and starts nothing when \`down\` left a port answering: \`up\` would
+          read that as \`already up\` and leave the stale process in place.
     serve Runs the DEPLOYED snapshot ([[REQ-318]]): \`wrangler dev --no-bundle\` against
           apps/control-app/.dev-snapshot, on port ${DEV_SERVE_PORT} — not 8788, so it
           runs beside the old path against the same store. It is FROZEN by
@@ -1667,18 +1687,53 @@ export async function run(argv: string[]): Promise<void> {
       // three of them read.
       const root = repoRoot()
       const sub = rest[0]
+      // `bin/dev up builder` / `down builder` / `restart builder` — a SINGLE service,
+      // which is what an operator needs when an env file changed and only a process
+      // started after it reads the new value ([[BUG-147]]). Validated here, where
+      // argv is: a typo would otherwise restrict the call to nothing and report a
+      // SUCCESSFUL NO-OP, which is the same class of silence this ticket is about,
+      // so an unrecognised name is a failure that names the services that exist.
+      const named = rest.slice(1)
+      if (sub === 'up' || sub === 'down' || sub === 'restart') {
+        const unknown = named.filter((name) => !DEV_SERVICES.some((service) => service.name === name))
+        if (unknown.length > 0) {
+          fail(
+            new CommandError({
+              code: 'NOT_FOUND',
+              message: `Unknown dev service ${unknown.map((name) => `'${name}'`).join(', ')}.`,
+              hint: `Known services: ${DEV_SERVICES.map((service) => service.name).join(', ')}.`,
+            }),
+            flags.json === true,
+          )
+          return
+        }
+      }
+      const only = named.length > 0 ? named : undefined
       if (sub === 'up') {
-        const outcome = await devUp({ repoRoot: root })
+        const outcome = await devUp({
+          repoRoot: root,
+          only,
+          // NAMING A SERVICE IS NOT ASKING FOR A DEPLOY. Rebuilding the whole local
+          // target to start one process is not what was asked for, and the deploy is
+          // what `bin/dev up` with no argument is for.
+          deploy: only === undefined ? undefined : devDeploySkipped(`starting ${only.join(', ')} only`),
+        })
         console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatUp(outcome))
         if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
         return
       }
       if (sub === 'down') {
-        const outcome = await devDown({ repoRoot: root })
+        const outcome = await devDown({ repoRoot: root, only })
         console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatDown(outcome))
         // A PORT THAT IS STILL ANSWERING IS A FAILED `down`, and the exit code has
         // to say so: the caller that matters is a script teeing up a fresh start,
         // and it would otherwise proceed into a port collision.
+        if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
+        return
+      }
+      if (sub === 'restart') {
+        const outcome = await devRestart({ repoRoot: root, only })
+        console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatRestart(outcome))
         if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
         return
       }

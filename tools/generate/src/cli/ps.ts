@@ -434,6 +434,46 @@ export function listenerCwds(pids: readonly number[], run: LsofRunner = lsof): M
 }
 
 /**
+ * The pid(s) holding a LISTENING socket on `port`.
+ *
+ * WHY `bin/dev up` NEEDS THIS AND CANNOT USE THE BAND SWEEP BELOW. `up` records
+ * what it started so that `down` can stop it, and for two of the four services the
+ * process it SPAWNED is a wrapper whose grandchild ends up holding the socket
+ * ([[BUG-147]]: `1c builder` → `wrangler dev` → `workerd`). The pid that matters
+ * is therefore only knowable by asking who has the port — a question about ONE
+ * port, so it is one focused `lsof` rather than a band-wide sweep plus a working
+ * directory pass over every row on the machine.
+ *
+ * MORE THAN ONE PID IS POSSIBLE AND ALL OF THEM ARE RETURNED. A parent that handed
+ * the socket to a child can still hold the descriptor, and a caller deciding what
+ * to record wants the set rather than this function's guess at which member of it
+ * is the real server.
+ *
+ * AN `lsof` THAT CANNOT ANSWER YIELDS AN EMPTY LIST rather than throwing, because
+ * every caller is recording a fact about a service it has already started
+ * successfully — the port answered. Failing the start over the bookkeeping would
+ * turn a degraded answer into a lost service.
+ */
+export function listenerPidsOnPort(port: number, run: LsofRunner = lsof): number[] {
+  let sockets: LsofSocket[]
+  try {
+    sockets = parseLsofSockets(run(['-nP', '-sTCP:LISTEN', '-Fpcn', `-iTCP:${port}`]))
+  } catch {
+    return []
+  }
+  const pids: number[] = []
+  for (const s of sockets) {
+    const split = splitListenName(s.name)
+    // The port is re-checked rather than trusted from the filter: `-iTCP:<port>`
+    // matches a port at EITHER end of a socket, and a LISTEN row for a different
+    // port would otherwise be read as this one's.
+    if (split === null || split.port !== port) continue
+    if (!pids.includes(s.pid)) pids.push(s.pid)
+  }
+  return pids
+}
+
+/**
  * What is running, attributed and classified.
  *
  * `managedPids` COMES FROM THE CALLER rather than being read here, because the

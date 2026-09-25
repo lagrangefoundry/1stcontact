@@ -8,6 +8,7 @@ import {
   type DevListener,
   type DevProcessTable,
   knownPort,
+  listenerPidsOnPort,
   type GitRunner,
   type LsofRunner,
 } from './ps'
@@ -103,10 +104,34 @@ export function devStateDir(repoRoot: string): string {
   return path.join(repoRoot, 'storage', 'tmp', 'dev')
 }
 
-/** What `bin/dev up` recorded about a service it started. */
+/**
+ * What `bin/dev up` recorded about a service it started.
+ *
+ * TWO PIDS, BECAUSE A SERVICE IS NOT ALWAYS THE PROCESS `up` SPAWNED. `1c builder`
+ * starts `wrangler dev`, which forks `workerd`, and it is the GRANDCHILD that ends
+ * up holding the port; `pnpm --filter … dev` has the same shape. Recording only
+ * the spawned pid meant `down` signalled a wrapper and `1c ps` could not recognise
+ * the listener as anything `bin/dev` had started ([[BUG-147]]). Both facts are
+ * kept and each is used for what it is good for: the wrapper names the process
+ * GROUP to signal, the listener names the process that is actually serving.
+ */
 export interface DevPidfile {
   readonly name: string
+  /**
+   * The pid `up` SPAWNED, and — because `up` spawns detached — the id of the
+   * process group every descendant of it inherits.
+   */
   readonly pid: number
+  /**
+   * The pid holding {@link port} when the port started answering, which is
+   * `pid` itself for a service that is a single process (filing, access-sim).
+   *
+   * `null` MEANS NOT RESOLVED, WHICH IS NOT THE SAME AS "IT IS THE WRAPPER": a
+   * pidfile written before the port answered, one written by an older version, or
+   * an `lsof` that would not say all arrive here as `null`, and a reader must fall
+   * back to {@link pid} rather than conclude anything from it.
+   */
+  readonly listenerPid: number | null
   readonly port: number
   readonly startedAt: string
   /** Where the service's output went, absolute. */
@@ -141,6 +166,7 @@ export function readDevPidfiles(repoRoot: string): DevPidfile[] {
       records.push({
         name: typeof raw.name === 'string' ? raw.name : path.basename(name, '.pid'),
         pid: raw.pid,
+        listenerPid: typeof raw.listenerPid === 'number' ? raw.listenerPid : null,
         port: raw.port,
         startedAt: typeof raw.startedAt === 'string' ? raw.startedAt : '',
         log: typeof raw.log === 'string' ? raw.log : '',
@@ -153,18 +179,41 @@ export function readDevPidfiles(repoRoot: string): DevPidfile[] {
   return records
 }
 
-/** Record a started service. */
-export function writeDevPidfile(repoRoot: string, rec: Omit<DevPidfile, 'file'>): string {
+/**
+ * Record a started service.
+ *
+ * `listenerPid` IS OPTIONAL BECAUSE `up` WRITES TWICE. The first write happens the
+ * moment the child exists, so a crash while waiting for the port still leaves the
+ * spawned pid recorded; the second happens once the port answers and the process
+ * holding it can be asked for. Omitted is recorded as `null` — not resolved.
+ */
+export function writeDevPidfile(
+  repoRoot: string,
+  rec: Omit<DevPidfile, 'file' | 'listenerPid'> & { listenerPid?: number | null },
+): string {
   const dir = devStateDir(repoRoot)
   fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, `${rec.name}.pid`)
-  fs.writeFileSync(file, `${JSON.stringify(rec, null, 2)}\n`)
+  fs.writeFileSync(file, `${JSON.stringify({ listenerPid: null, ...rec }, null, 2)}\n`)
   return file
 }
 
 /** Forget a service. Absent is success: the point is that it is not recorded. */
 export function removeDevPidfile(repoRoot: string, name: string): void {
   fs.rmSync(path.join(devStateDir(repoRoot), `${name}.pid`), { force: true })
+}
+
+/**
+ * Every pid a pidfile names — the process `up` spawned, and the one holding the
+ * port when they are not the same process.
+ *
+ * WRITTEN ONCE BECAUSE TWO READERS NEED THE SAME ANSWER. `1c ps` matches a
+ * LISTENER's pid against this set to decide whether a row is something `bin/dev`
+ * started, and `down` tests both for liveness before it decides a service has
+ * already gone. Either one reading `pid` alone is the [[BUG-147]] defect.
+ */
+export function devPidfilePids(rec: DevPidfile): number[] {
+  return rec.listenerPid === null || rec.listenerPid === rec.pid ? [rec.pid] : [rec.pid, rec.listenerPid]
 }
 
 /** Does this pid still exist? Signal 0 asks without delivering anything. */
@@ -190,17 +239,45 @@ export interface DevContext {
   git?: GitRunner
   /** Injected for the same reason `lsof` is: it is a syscall, not our code. */
   answers?: (port: number) => Promise<boolean>
+  /** Who holds a port. The same boundary as `lsof`, and injected for that reason. */
+  listenerPids?: (port: number) => number[]
   /** Seam for tests that must not wait in real time. */
   sleep?: (ms: number) => Promise<void>
+  /** The table of services, when it is not {@link DEV_SERVICES}. */
+  services?: readonly DevService[]
+  /**
+   * Service NAMES this call is restricted to, or `undefined` for all of them.
+   *
+   * SO ONE SERVICE CAN BE RESTARTED ([[BUG-147]]). An env-file change only takes
+   * effect on a process started after it, and an operator who can only stop the
+   * whole environment cannot act on that — while `reap`, the other way to reach a
+   * single stale listener, takes every unmanaged listener in the project with it.
+   */
+  only?: readonly string[]
 }
 
 const realSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
-/** The survey `1c ps` prints, with this repo's pidfiles folded in. */
+/** The services this call is about — {@link DevContext.only} applied, or all of them. */
+export function devSelection(ctx: DevContext): readonly DevService[] {
+  const all = ctx.services ?? DEV_SERVICES
+  const only = ctx.only
+  return only === undefined ? all : all.filter((s) => only.includes(s.name))
+}
+
+/**
+ * The survey `1c ps` prints, with this repo's pidfiles folded in.
+ *
+ * EVERY PID A PIDFILE NAMES IS MANAGED, not just the spawned one. `devProcessTable`
+ * matches a LISTENER's pid against this set, and for the builder and the public
+ * site the listener is a grandchild of what `up` spawned — so passing only `pid`
+ * made `1c ps` report a service `up` had started as belonging to nobody, which is
+ * the signal an operator reads before reaching for `reap` ([[BUG-147]]).
+ */
 export function devTable(ctx: DevContext): DevProcessTable {
   return devProcessTable({
     repoRoot: ctx.repoRoot,
-    managedPids: readDevPidfiles(ctx.repoRoot).map((r) => r.pid),
+    managedPids: readDevPidfiles(ctx.repoRoot).flatMap(devPidfilePids),
     lsof: ctx.lsof,
     git: ctx.git,
   })
@@ -273,7 +350,10 @@ export function devDeploy(opts: {
 
 export interface DevStarted {
   readonly name: string
+  /** The process `up` spawned. */
   readonly pid: number
+  /** The process found holding {@link port}, or `null` when `lsof` would not say. */
+  readonly listenerPid: number | null
   readonly port: number
   readonly log: string
 }
@@ -303,14 +383,14 @@ export interface DevUpOutcome {
  */
 export async function devUp(
   ctx: DevContext & {
-    services?: readonly DevService[]
     /** Per-service budget for the port to start answering. */
     timeoutMs?: number
     deploy?: DevDeployStep
   },
 ): Promise<DevUpOutcome> {
-  const services = ctx.services ?? DEV_SERVICES
+  const services = devSelection(ctx)
   const answers = ctx.answers ?? ((port: number) => portAnswers(port))
+  const listeners = ctx.listenerPids ?? ((port: number) => listenerPidsOnPort(port))
   const sleep = ctx.sleep ?? realSleep
   const timeoutMs = ctx.timeoutMs ?? 60_000
   const deploy = ctx.deploy ?? devDeploy({ repoRoot: ctx.repoRoot })
@@ -351,16 +431,26 @@ export async function devUp(
       failed.push({ name: service.name, port: service.port, detail: 'spawned with no pid' })
       continue
     }
-    writeDevPidfile(ctx.repoRoot, {
-      name: service.name,
-      pid,
-      port: service.port,
-      startedAt: new Date().toISOString(),
-      log,
-    })
+    const startedAt = new Date().toISOString()
+    writeDevPidfile(ctx.repoRoot, { name: service.name, pid, port: service.port, startedAt, log })
     const up = await waitForPort(service.port, timeoutMs, answers, sleep)
-    if (up) started.push({ name: service.name, pid, port: service.port, log })
-    else
+    if (up) {
+      // THE PORT ANSWERING IS THE MOMENT THE LISTENER CAN BE ASKED FOR, and the
+      // only moment: before it there is nothing holding the socket, and `up` has
+      // just waited for exactly this. The pidfile is rewritten rather than written
+      // once, so that a service that never answers still leaves the spawned pid
+      // behind for `reap` to find ([[BUG-147]]).
+      const listenerPid = chooseListenerPid(listeners(service.port), pid)
+      writeDevPidfile(ctx.repoRoot, {
+        name: service.name,
+        pid,
+        listenerPid,
+        port: service.port,
+        startedAt,
+        log,
+      })
+      started.push({ name: service.name, pid, listenerPid, port: service.port, log })
+    } else
       failed.push({
         name: service.name,
         port: service.port,
@@ -372,6 +462,21 @@ export async function devUp(
   }
 
   return { deploy, started, alreadyUp, failed, ok: deploy.ok && failed.length === 0 }
+}
+
+/**
+ * Which of the pids on a port to record as THE listener.
+ *
+ * PREFER ONE THAT IS NOT THE WRAPPER, because that is the whole point: for the
+ * builder and the public site the process `up` spawned does not hold the socket,
+ * and the pid worth recording is the descendant that does. When the wrapper IS the
+ * listener — filing and access-sim are single node processes — recording it says
+ * so explicitly, which is a different fact from `null`'s "nobody could be asked".
+ */
+function chooseListenerPid(pids: readonly number[], wrapper: number): number | null {
+  const other = pids.find((pid) => pid !== wrapper)
+  if (other !== undefined) return other
+  return pids.includes(wrapper) ? wrapper : null
 }
 
 /** Poll until `port` answers, or the budget runs out. */
@@ -389,9 +494,24 @@ async function waitForPort(
   }
 }
 
+/**
+ * The pids of one service, as a report reads them.
+ *
+ * BOTH, WHEN THEY DIFFER, because an operator looking at a stuck builder has to be
+ * able to see that the thing holding the port is not the thing `up` spawned — that
+ * is the whole of [[BUG-147]], and a report that named one number could not show
+ * it. One number when the service is a single process, which is most of them.
+ */
+function describePids(rec: { pid: number; listenerPid: number | null }): string {
+  return rec.listenerPid === null || rec.listenerPid === rec.pid
+    ? `pid ${rec.pid}`
+    : `pid ${rec.pid} → listener ${rec.listenerPid}`
+}
+
 export function formatUp(outcome: DevUpOutcome): string {
   const lines: string[] = [outcome.deploy.line]
-  for (const s of outcome.started) lines.push(`  started  ${s.name.padEnd(12)} ${s.port}  pid ${s.pid}  → ${s.log}`)
+  for (const s of outcome.started)
+    lines.push(`  started  ${s.name.padEnd(12)} ${s.port}  ${describePids(s)}  → ${s.log}`)
   for (const a of outcome.alreadyUp)
     lines.push(
       `  already  ${a.name.padEnd(12)} ${a.port}  something was answering, so it was left alone` +
@@ -401,7 +521,9 @@ export function formatUp(outcome: DevUpOutcome): string {
   return (
     `${outcome.ok ? 'The dev environment is up.' : 'The dev environment did not come up.'}\n` +
     `${lines.join('\n')}\n\n` +
-    `\`1c ps\` lists what is running; \`bin/dev down\` stops it.`
+    `\`1c ps\` lists what is running; \`bin/dev down\` stops it and \`bin/dev restart <service>\`\n` +
+    `stops and starts one of them — which is what an env-file change needs, since it only\n` +
+    `takes effect on a process started after it.`
   )
 }
 
@@ -434,7 +556,8 @@ export interface DevDownOutcome {
 export async function devDown(ctx: DevContext): Promise<DevDownOutcome> {
   const kill = ctx.kill ?? process.kill.bind(process)
   const sleep = ctx.sleep ?? realSleep
-  const records = readDevPidfiles(ctx.repoRoot)
+  const only = ctx.only
+  const records = readDevPidfiles(ctx.repoRoot).filter((r) => only === undefined || only.includes(r.name))
   const stopped: DevPidfile[] = []
   const alreadyStopped: DevPidfile[] = []
 
@@ -442,24 +565,21 @@ export async function devDown(ctx: DevContext): Promise<DevDownOutcome> {
   // filing, so the dependents go down first and nothing spends its last moments
   // reporting that its upstream has vanished.
   for (const rec of [...records].reverse()) {
-    if (!pidAlive(rec.pid, kill)) {
-      alreadyStopped.push(rec)
-    } else {
-      try {
-        kill(rec.pid, 'SIGTERM')
-        stopped.push(rec)
-      } catch (err) {
-        alreadyStopped.push(rec)
-        void err
-      }
-    }
+    if (stopService(rec, kill)) stopped.push(rec)
+    else alreadyStopped.push(rec)
     removeDevPidfile(ctx.repoRoot, rec.name)
   }
 
   const ports = new Set(records.map((r) => r.port))
+  // A NAMED SERVICE'S PORT IS VERIFIED WHETHER OR NOT A PIDFILE CLAIMED IT.
+  // `bin/dev down builder` is half of a restart, and the question that half has to
+  // answer is whether the port is free — not whether a file happened to name it.
+  // Unnamed, the behaviour is unchanged: with nothing recorded there is nothing to
+  // verify and no `lsof` is run.
+  if (only !== undefined) for (const service of devSelection(ctx)) ports.add(service.port)
   if (ports.size > 0) await sleep(700)
-  const table = devTable(ctx)
-  const stillListening = table.listeners.filter((l) => l.ours && ports.has(l.port))
+  const table = ports.size > 0 ? devTable(ctx) : null
+  const stillListening = (table?.listeners ?? []).filter((l) => l.ours && ports.has(l.port))
 
   return {
     stopped,
@@ -469,19 +589,128 @@ export async function devDown(ctx: DevContext): Promise<DevDownOutcome> {
   }
 }
 
+/**
+ * SIGTERM one service — the process GROUP, not just the pid.
+ *
+ * `up` SPAWNS WITH `detached: true`, WHICH MAKES THE SPAWNED PROCESS A GROUP
+ * LEADER, and for the builder and the public site the listener is a grandchild
+ * inside that group. `kill(pid, …)` signals the leader alone, after which whether
+ * `workerd` dies is wrangler's signal propagation — something `down` neither
+ * controls nor verifies, and which was measurably not happening ([[BUG-147]]).
+ * `kill(-pid, …)` signals every member, which is the only call that reaches the
+ * process actually serving.
+ *
+ * A NEGATIVE PID CANNOT REACH A GROUP THIS DID NOT START. A process group's id is
+ * its leader's pid, so `kill(-P)` either finds the group led by P — the process
+ * `up` spawned — or finds nothing and throws. It cannot land on some unrelated
+ * group even when the pidfile is stale and P has been recycled.
+ *
+ * THE RECORDED LISTENER IS SIGNALLED TOO WHEN IT IS NOT THE LEADER. A group signal
+ * reaches it in every arrangement measured, but a descendant that called `setsid`
+ * for itself would be outside the group and nothing here can ask which — so the pid
+ * the port resolved to gets its own SIGTERM. `down` is polite either way: a second
+ * SIGTERM is not an escalation, and `reap` remains the only thing that escalates.
+ */
+function stopService(rec: DevPidfile, kill: KillFn): boolean {
+  const alive = devPidfilePids(rec).filter((pid) => pidAlive(pid, kill))
+  if (alive.length === 0) return false
+  let signalled = false
+  try {
+    kill(-rec.pid, 'SIGTERM')
+    signalled = true
+  } catch {
+    // No such group: the leader has gone and taken the group's identity with it.
+    // Whatever is left of the service is signalled by pid below.
+  }
+  for (const pid of alive) {
+    if (signalled && pid === rec.pid) continue
+    try {
+      kill(pid, 'SIGTERM')
+      signalled = true
+    } catch {
+      // It went away between the liveness test and the signal, which is the
+      // outcome being asked for.
+    }
+  }
+  return signalled
+}
+
 export function formatDown(outcome: DevDownOutcome): string {
   const lines: string[] = []
-  for (const s of outcome.stopped) lines.push(`  stopped  ${s.name.padEnd(12)} ${s.port}  pid ${s.pid}`)
+  for (const s of outcome.stopped) lines.push(`  stopped  ${s.name.padEnd(12)} ${s.port}  ${describePids(s)}`)
   for (const s of outcome.alreadyStopped)
-    lines.push(`  gone     ${s.name.padEnd(12)} ${s.port}  pid ${s.pid} was already not running`)
+    lines.push(`  gone     ${s.name.padEnd(12)} ${s.port}  ${describePids(s)} was already not running`)
   if (lines.length === 0) lines.push('  nothing was recorded as running.')
   if (outcome.ok) return `The dev environment is down.\n${lines.join('\n')}`
   return (
     `The dev environment is NOT fully down.\n${lines.join('\n')}\n\n` +
     `Still answering:\n${outcome.stillListening.map((l) => l.line).join('\n')}\n\n` +
-    `Their pidfiles have been removed, so \`bin/dev reap --dry-run\` now lists them and\n` +
-    `\`bin/dev reap\` escalates to SIGKILL.`
+    `\`bin/dev down <service>\` retries one of them — the whole process group this time,\n` +
+    `so a listener that is a grandchild of what \`up\` spawned is included. Their pidfiles\n` +
+    `have been removed, so \`bin/dev reap --dry-run\` also lists them and \`bin/dev reap\`\n` +
+    `escalates to SIGKILL — which takes every unmanaged listener in the project with it.`
   )
+}
+
+// ── restart ──────────────────────────────────────────────────────────────────
+
+/**
+ * The deploy line for a call that is about processes rather than the environment.
+ *
+ * `restart` DEPLOYS NOTHING, and says so rather than silently skipping. It exists
+ * because an env file changed and the process reading it has to be replaced; running
+ * [[REQ-318]]'s `bin/deploy --env dev` on the way would rebuild a snapshot nobody
+ * asked about, and for a single named service it would rebuild the whole environment
+ * to restart one process. `bin/dev up` is where a deploy belongs.
+ */
+export function devDeploySkipped(reason: string): DevDeployStep {
+  return { ran: false, ok: true, line: `  deploy: SKIPPED — ${reason}` }
+}
+
+export interface DevRestartOutcome {
+  readonly down: DevDownOutcome
+  /** `null` when `down` left a port answering, because nothing was started. */
+  readonly up: DevUpOutcome | null
+  readonly ok: boolean
+}
+
+/**
+ * Stop the selected services, then start them again.
+ *
+ * COMPOSED FROM THE TWO VERBS AND OWNING NO MECHANISM OF ITS OWN, because the
+ * operator's need is not a third behaviour — it is *"the environment changed,
+ * restart what reads it"*, which had no spelling at all ([[BUG-147]]) and which an
+ * env-file change makes unavoidable, since a new value only reaches a process
+ * started after it. Spelling the sequence as one verb is the whole contribution;
+ * reimplementing either half would be a second code path.
+ *
+ * IT REFUSES TO START WHEN `down` LEFT A PORT ANSWERING. `up`'s rule for a live
+ * port is to leave it alone, so starting anyway would report the process that
+ * would not stop as `already answering, left alone` — which is exactly the silent
+ * carry-over that made this defect invisible. Reporting a failed `down` and
+ * starting nothing is the honest answer, and `1c ps` then says whose the port is.
+ */
+export async function devRestart(
+  ctx: DevContext & { timeoutMs?: number; deploy?: DevDeployStep },
+): Promise<DevRestartOutcome> {
+  const down = await devDown(ctx)
+  if (!down.ok) return { down, up: null, ok: false }
+  const up = await devUp({
+    ...ctx,
+    deploy: ctx.deploy ?? devDeploySkipped('`restart` replaces processes; `bin/dev up` is what deploys'),
+  })
+  return { down, up, ok: up.ok }
+}
+
+export function formatRestart(outcome: DevRestartOutcome): string {
+  if (outcome.up === null) {
+    return (
+      `${formatDown(outcome.down)}\n\n` +
+      `Nothing was started: a port that is still answering would be read as \`already up\`,\n` +
+      `leaving the process that would not stop in place and reporting it as fine.`
+    )
+  }
+  return `${formatDown(outcome.down)}\n\n${formatUp(outcome.up)}`
 }
 
 // ── reap ─────────────────────────────────────────────────────────────────────
