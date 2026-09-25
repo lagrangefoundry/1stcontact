@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T02:30:23.140045+00:00'
+updated_at: '2026-09-25T02:36:08.557912+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2311,5 +2311,93 @@ I really want to drill into this because I said it appeared structural and you s
 
 1. I want to check that you understand the problem that I'm describing
 2. Are we sure that the AI can detect this issue - there's no point in iterating if we are burning cycles to fix something the system just can't see?
+
+<!-- xgd-turn id="c0ead942-9a2c-4b3b-ab34-0e3b804b63eb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T02:36:07.318696+00:00" -->
+#### Claude
+I have a mechanical answer to both questions. Short version: **you were right and I was wrong — it is structural, in a precise and provable sense — and no, the system cannot currently see it.**
+
+## 1. The problem, restated in engine terms
+
+The served document for iteration 6 is **two independent layers with nothing binding them**:
+
+```
+0    root
+ 0.0 … 0.13   14 painted panels   ← section-band-1..5, section-bg-0, card-0..7
+ 0.14 … 0.19   6 containers        ← every word on the page
+```
+
+58 nodes are `place: flow`. 14 are absolute. The 14 are exactly the backgrounds, shading and card boxes. There is no parent/child link, no ownership field — at rest they line up **only because their coordinates happen to coincide**.
+
+I measured what happens when that coincidence is disturbed:
+
+| perturbation | result |
+|---|---|
+| copy grows 15% | **0 of 14 panels move; 46 of 53 text runs move, up to 161px.** 8 runs leave their panel, worst overhang 99px |
+| width 500px (between rungs) | **14 of 69 runs escape their backing surface, worst overhang 576px** |
+| width 900px | 3 escape, 25px |
+| **viewport height** | see below — worse |
+
+Height is the cleanest proof. 13 of the 14 panels carry `viewportResponse: {yFactor: 1}`. **Zero text nodes carry one** — they structurally cannot, because the validator forbids `place: flow` + `yFactor` (`flowPlacementHasNoYResponse`), and recovery explicitly drops the y-response when it promotes a node to flow. In the rendered HTML that reads as **91 `vh` references, every one on a pinned panel and none on any text**:
+
+```css
+transform: translateY(calc(100vh - 800px))
+```
+
+Drag the window 200px taller and every band moves 200px while every word stays exactly where it was. That's not emergent — the document says so in as many words.
+
+**Why it's structural rather than a bug in a pass:** two individually-defensible decisions compose into it. `keepsAbsolute()` (REQ-278) deliberately never flows a backing surface — its comment says *"at rest the recovered flow reproduces the captured positions, so the fill still lands behind the runs it was painted for."* "At rest" is carrying the whole argument. And flow promotion drops the y-response. So one layer tracks height and content, the other tracks neither, and nothing reconciles them.
+
+**But it is not an L1 ceiling.** `L1ContainerNode` already has `axes?: l1SurfaceAxesSchema` — *"REQ-98 — the shared surface group: a container paints AND lays out."* The primitive for "a panel that paints a fill and contains its children in flow" exists. The fold just doesn't use it here: `fold.ts:1865` does `boxes.push(node)` — a flat sibling with keyframes and no children.
+
+## 2. Can the AI see it? No — and the reason is worth knowing
+
+**Three independent blindfolds, any one of which would be sufficient.**
+
+**The detector excludes this node class by name.** `evaluateLayout` builds its collision set as:
+
+```ts
+const solid = ctx.leaves.filter(l =>
+  l.kind !== 'slot' &&
+  !(l.kind === 'box' && isSynthesizedSurfaceId(l.id)) &&   // ← bands, bgs, cards
+  ...)
+```
+
+Backgrounds and cards are filtered out *before* the only geometric check runs. And there is no containment check anywhere — `envelopeAt()` is the single function all three probes use, and the envelope is defined as sibling-overlap plus horizontal-clip. A backing surface is not a participant in any assertion the engine makes.
+
+**The probe runs at the exact failing width and reports clean.** `offSample` samples two widths — 500 and 900 — and passes both. At 500px, 14 runs are off their panel by up to 576px. It evaluated that geometry and said nothing.
+
+**Height is not a variable at all.** `evaluateLayout(doc, width, {contentScale, epsilonPx})`. There is no height parameter in the envelope model. Each width carries exactly one `atHeight` sample. The half of your complaint about vertical resize isn't undetected — it's unmodelled.
+
+And what the round is actually handed says the opposite of the truth. Iteration 6's `gate.json`:
+
+```json
+"layout": { "pass": true, "findings": [] },
+"perceptual": { "meanDiff": 0.22, "regions": 0 },
+"values": { "deltas": 4, "worstTier": "LOW" }
+```
+
+The brief's priority order is content-completeness → semantics → value deltas → pixel regions. **Resize survival appears nowhere on that list.** `structural-failure` gets one line: *"diagnose the fold or the probes."*
+
+**The empirical check agrees.** Six iterations, six filed tickets — half-leading, form padding, a fabricated band fill, negative-y siblings, placeholder typography. Every one a per-axis value detail. Not one about this. The rounds have been going exactly where the instrument pointed.
+
+## 3. What I got wrong
+
+Two turns ago I told you this was a bounded defect — "recovery doesn't recurse into its own bands," 83% cross-depth inside promoted regions. That analysis was about the *text-on-text* overlaps in `content-robustness`, which is a different phenomenon from the one you're describing. I answered a question you hadn't asked and used it to tell you your instinct was wrong. The thing you're actually pointing at — panels detached from their content — has no detector at all.
+
+## 4. So: don't iterate on this
+
+Another round costs ~$7 and cannot find it. The engine would have to change before the loop can even see the defect, which inverts the usual order — normally the loop finds the gap and a free-coded fix closes it.
+
+The work I'd scope, in order:
+
+1. **A containment probe.** For each synthesized surface, record the runs it backs at rest, then assert containment at off-rung widths, under content growth, and — new axis — at varied viewport height. Today that relationship exists nowhere, so this needs the fold to record ownership, not just the probe to guess it.
+2. **Fold sections as `L1ContainerNode` with `axes`**, so the panel *is* the parent of its content and containment is true by construction rather than by coordinate coincidence. This is the real fix and it's the larger one.
+3. **Height as a probe axis**, and `offSample` at more than two widths.
+
+Item 1 is the one that unblocks the loop — once it exists, a round can find and file this class itself.
+
+Want me to scope these as children of EPIC-12? My probe scripts are at `.xgd/tmp/bandprobe.mjs` and `bandprobe2.mjs` if you want to re-run the numbers. Nothing committed — investigation only.
 
 <!-- xgd-chat-end -->
