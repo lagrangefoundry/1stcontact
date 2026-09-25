@@ -819,7 +819,10 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
 
     expect(result.code).toBe(1)
     expect(result.err).toContain('nonsense')
-    expect(result.err).toContain('usage: 1c kb <build|export|status>')
+    // The list grew a verb with [[REQ-322]] — `ensure`, the stage `bin/build` and
+    // `bin/kb-release` both run — and this AC's property is that the usage is
+    // printed, not which verbs it happens to name today.
+    expect(result.err).toContain('usage: 1c kb <build|ensure|export|status>')
     expect(result.out).toBe('')
 
     const after = existsSync(kbRoot()) ? readdirSync(kbRoot()).sort() : []

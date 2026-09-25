@@ -133,10 +133,11 @@ import {
   resetPlan,
 } from './reset'
 import {
-  buildKb,
   ensureConfig,
   exportCorpus,
+  kbEnsure,
   kbStatus,
+  runKbBuild,
   writeProjections,
   DOC_KIND_FIELD,
   MEMBER_KIND,
@@ -552,6 +553,11 @@ System knowledge base (REQ-123) — what the builder AI knows, as a release arte
     awareness map. Needs CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN for the
     embedding model; the map's paragraphs come from the Claude Code CLI when no
     ANTHROPIC_API_KEY is set.
+  1c kb ensure     build only if the index is behind its corpus — the KB stage
+                   \`bin/build\` runs, which is why building the thing is one
+                   command and not two (REQ-322). A coherent index costs no
+                   credential and no request; \`--force\` builds regardless, which
+                   is what \`bin/kb-release\` runs.
   1c kb export     the corpus only — no embedding, no credentials
                    (both producers: opted-in doc tickets, and the generated
                     REF-* reference projected from the code)
@@ -1771,28 +1777,19 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       if (sub === 'build') {
-        // Before the build, so the projections are indexed, chunked and mapped
-        // like any other corpus member — the assistant is not meant to know
-        // which of its knowledge was written and which was generated.
-        //
-        // The declaration is scaffolded FIRST because a projection asserts its
-        // own membership from it: written against no declaration on a fresh
-        // checkout, it would carry no membership fields and then be excluded by
-        // the declaration the build was about to write.
-        ensureConfig()
-        writeProjections()
-        const r = await buildKb()
-        console.log(
-          `index:  ${r.documents} document(s), ${r.embedded} embedded\n` +
-            `chunks: ${r.chunks}\n` +
-            `map:    ${r.territories} territories, ${r.accessPoints} access point(s), ` +
-            `written by ${r.describer}`,
-        )
-        if (r.doorless.length) {
-          // Named, never silent: a territory with no validated access point is a
-          // region of the corpus the map describes but cannot route to.
-          console.log(`        no way in: ${r.doorless.join(', ')}`)
-        }
+        // The three steps and the reason for their order live in `runKbBuild`,
+        // which is also what `1c kb ensure` runs (REQ-322) — so the two commands
+        // cannot come to differ about what building the KB means.
+        console.log((await runKbBuild()).report)
+        return
+      }
+      if (sub === 'ensure') {
+        // `bin/build`'s KB stage and `bin/kb-release`'s build, as one verb
+        // (REQ-322). It decides whether a build is needed; the decision is
+        // `requireCoherentKb` — the same check `1c assets` refuses on — so a
+        // build that passes this stage cannot be refused by the next one.
+        const outcome = await kbEnsure({ force: rest.includes('--force') })
+        console.log(outcome.report)
         return
       }
       if (sub === 'status') {

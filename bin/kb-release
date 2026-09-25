@@ -28,6 +28,21 @@
 # command; and `1c assets` refuses a corpus its index does not cover, which is the
 # backstop for every path that does not come through here. See [[DOC-39]] §3.3.
 #
+# ONE IMPLEMENTATION, TWO ENTRY POINTS ([[REQ-322]]). `bin/build` now builds the
+# KB too — the operator should not have to remember which of two commands they
+# need — and the way it does that is `1c kb ensure`, the stage this script runs
+# with `--force`. It is a CALLER of that stage and not a second spelling of it, on
+# the argument `bin/deploy` already makes about `--dry-run`: "a rehearsal that took
+# a different route would prove nothing about the real thing." What this script
+# still is, and `bin/build` is not, is the KB-ONLY path: rebuilding the index
+# without a full preflight and typecheck is a real thing to want.
+#
+# `--force` is the whole difference. `bin/build`'s stage asks whether the index is
+# behind before spending a credential; this command's subject IS rebuilding it, so
+# it does not ask. Both refuse a missing CLOUDFLARE_API_TOKEN in the same place and
+# in the same words, which is the property that makes one stage with two entries
+# better than two stages.
+#
 # Usage:
 #   bin/kb-release            # build the KB, then inline it
 #   bin/kb-release --status   # what is built and how current, without building
@@ -53,10 +68,11 @@ for arg in "$@"; do
       cat <<'EOF'
 bin/kb-release — build the system KB and inline it into the control app.
 
-  bin/kb-release           `1c kb build` then `1c assets`, stopping at the first failure
+  bin/kb-release           `1c kb ensure --force` then `1c assets`, stopping at the first failure
   bin/kb-release --status  `1c kb status` only — what is built, and how current
 
-`1c kb build` exports the corpus, writes the projected reference, builds the
+`1c kb ensure --force` is the stage `bin/build` runs, told not to ask whether the
+index is behind: it exports the corpus, writes the projected reference, builds the
 document and chunk indexes and generates the awareness map. `1c assets` inlines
 the result, and refuses to inline a corpus its index does not cover.
 
@@ -76,8 +92,12 @@ step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 # Both stages, always, and never one of them. Running the first alone is exactly
 # how this checkout reached the state BUG-48 describes: a corpus refreshed at
 # 11:53 beside an index stamped the previous midnight, inlined together at 17:40.
+#
+# THE SAME VERB `bin/build` RUNS (REQ-322), with `--force` because this command's
+# subject is the rebuild itself. Not `1c kb build` directly: two callers reaching
+# past the shared stage into what it wraps is how the stage stops being shared.
 step "Build the knowledge base"
-"$repo_root/bin/1c" kb build
+"$repo_root/bin/1c" kb ensure --force
 
 step "Inline it into the control app"
 "$repo_root/bin/1c" assets

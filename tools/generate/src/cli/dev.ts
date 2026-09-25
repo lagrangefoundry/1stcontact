@@ -56,12 +56,21 @@ export interface DevService {
  * THE ORDER IS A DEPENDENCY ORDER, not a preference. `1c builder` starts a filing
  * listener of its own unless one is already answering, so filing goes first and
  * the builder then finds it rather than forking a second one whose lifetime
- * nothing records. `bin/access-sim` proxies to the builder, so it goes after.
+ * nothing records. `bin/access-sim` proxies to whichever server it fronts, so it
+ * goes last — and since REQ-322 that server is `1c dev serve`, which therefore
+ * has to be started before it.
+ *
+ * BOTH SERVERS, NOT ONE ([[REQ-322]], EPIC-16 §L1). `1c dev serve` runs the
+ * DEPLOYED snapshot and `1c builder` watches the source tree, on two ports the
+ * {@link KNOWN_SERVICES} table names; §L1 requires the old path to keep working
+ * until the replacement is proved, so `up` starts both rather than choosing.
+ * Retiring the builder is a later step and deleting its row here is how that step
+ * will begin — it is not this one.
  *
  * EACH ENTRY INVOKES THE EXISTING ENTRY POINT rather than reimplementing it.
- * `pnpm dev:public`, `1c builder`, `1c filing` and `bin/access-sim` all survive
- * this ticket untouched as operator entry points; `bin/dev up` is a fifth caller
- * of them, not a replacement for what they do.
+ * `pnpm dev:public`, `1c builder`, `1c filing`, `1c dev serve` and
+ * `bin/access-sim` all survive this ticket untouched as operator entry points;
+ * `bin/dev up` is a further caller of them, not a replacement for what they do.
  */
 export const DEV_SERVICES: readonly DevService[] = [
   {
@@ -75,6 +84,16 @@ export const DEV_SERVICES: readonly DevService[] = [
     port: knownPort('builder'),
     argv: ['bin/1c', 'builder'],
     what: 'the builder — wrangler dev on apps/control-app',
+  },
+  {
+    // `dev` is the name the {@link KNOWN_SERVICES} table already gives this
+    // port, and the name is the pidfile's stem — so `down` and `reap` cover this
+    // service with no further change, which is why the table is the one place a
+    // port is declared.
+    name: 'dev',
+    port: knownPort('dev'),
+    argv: ['bin/1c', 'dev', 'serve'],
+    what: 'the deployed dev environment — wrangler dev on the snapshot bin/deploy --env dev wrote',
   },
   {
     name: 'public-site',
@@ -278,13 +297,40 @@ export interface DevStarted {
   readonly log: string
 }
 
+/**
+ * WHY A SERVICE THAT REFUSED IS NOT A SERVICE THAT NEVER ANSWERED ([[REQ-322]]).
+ *
+ * `1c dev serve` DECLINES TO START on a local D1 behind `db/migrations/`, and
+ * `1c builder` on more than one resolvable `workerd` — each with a message that
+ * names the repair. Detached, both look identical to a server still warming up:
+ * the port does not answer. Reported as a timeout, the operator reads "slow" and
+ * waits, or re-runs `up`, and the sentence that told them what to fix is sitting
+ * in a log file nobody has been pointed at.
+ *
+ * So the wait watches the CHILD as well as the port. A process that has exited is
+ * a decision, not a delay, and it is reported as one — with its exit code, and
+ * with the log named, because the reason it gave is already written there.
+ */
+export type DevFailureKind =
+  /** Could not be spawned at all — no process was ever created. */
+  | 'spawn'
+  /** Exited before the port answered: it declined, with a reason in its log. */
+  | 'refused'
+  /** Still running, but the port never answered inside the budget. */
+  | 'timeout'
+
 export interface DevUpOutcome {
   readonly deploy: DevDeployStep
   readonly started: readonly DevStarted[]
   /** Already answering when `up` looked — left alone rather than duplicated. */
   readonly alreadyUp: readonly { name: string; port: number }[]
   /** Spawned, but the port never answered. */
-  readonly failed: readonly { name: string; port: number; detail: string }[]
+  readonly failed: readonly {
+    name: string
+    port: number
+    kind: DevFailureKind
+    detail: string
+  }[]
   readonly ok: boolean
 }
 
@@ -317,7 +363,7 @@ export async function devUp(
 
   const started: DevStarted[] = []
   const alreadyUp: { name: string; port: number }[] = []
-  const failed: { name: string; port: number; detail: string }[] = []
+  const failed: { name: string; port: number; kind: DevFailureKind; detail: string }[] = []
 
   const logDir = devStateDir(ctx.repoRoot)
   fs.mkdirSync(logDir, { recursive: true })
@@ -329,6 +375,10 @@ export async function devUp(
     }
     const log = path.join(logDir, `${service.name}.log`)
     let pid: number | undefined
+    // Set by the child's own `exit` event, which still arrives after `unref()`:
+    // that drops the handle's claim on the event loop, not the handle. This loop
+    // is awaiting sleeps, so the loop is alive to deliver it.
+    let exit: { code: number | null; signal: NodeJS.Signals | null } | null = null
     try {
       const fd = fs.openSync(log, 'a')
       const child = spawn(service.argv[0], [...service.argv.slice(1)], {
@@ -337,18 +387,27 @@ export async function devUp(
         stdio: ['ignore', fd, fd],
       })
       fs.closeSync(fd)
+      child.on('exit', (code, signal) => {
+        exit = { code, signal }
+      })
       child.unref()
       pid = child.pid
     } catch (err) {
       failed.push({
         name: service.name,
         port: service.port,
+        kind: 'spawn',
         detail: `could not spawn ${service.argv.join(' ')} — ${err instanceof Error ? err.message : String(err)}`,
       })
       continue
     }
     if (pid === undefined) {
-      failed.push({ name: service.name, port: service.port, detail: 'spawned with no pid' })
+      failed.push({
+        name: service.name,
+        port: service.port,
+        kind: 'spawn',
+        detail: 'spawned with no pid',
+      })
       continue
     }
     writeDevPidfile(ctx.repoRoot, {
@@ -358,33 +417,64 @@ export async function devUp(
       startedAt: new Date().toISOString(),
       log,
     })
-    const up = await waitForPort(service.port, timeoutMs, answers, sleep)
-    if (up) started.push({ name: service.name, pid, port: service.port, log })
-    else
-      failed.push({
-        name: service.name,
-        port: service.port,
-        // THE LOG IS NAMED IN THE FAILURE, because a service that was spawned and
-        // never answered has already written the reason somewhere, and the
-        // operator's next question is where.
-        detail: `spawned as pid ${pid} but nothing answered on ${service.port} within ${Math.round(timeoutMs / 1000)}s — see ${log}`,
-      })
+    const outcome = await waitForPort(service.port, timeoutMs, answers, sleep, () => exit)
+    if (outcome === 'up') {
+      started.push({ name: service.name, pid, port: service.port, log })
+      continue
+    }
+    // THE LOG IS NAMED IN BOTH FAILURES, because a service that was spawned and
+    // did not come up has already written the reason somewhere, and the
+    // operator's next question is where. What differs is whether there is a
+    // reason to look for at all.
+    failed.push(
+      outcome === 'exited'
+        ? {
+            name: service.name,
+            port: service.port,
+            kind: 'refused',
+            detail:
+              `${service.argv.join(' ')} exited ${exitDescription(exit)} without answering on ` +
+              `${service.port} — it declined to start, and the reason it gave is in ${log}`,
+          }
+        : {
+            name: service.name,
+            port: service.port,
+            kind: 'timeout',
+            detail: `spawned as pid ${pid} but nothing answered on ${service.port} within ${Math.round(timeoutMs / 1000)}s — see ${log}`,
+          },
+    )
   }
 
   return { deploy, started, alreadyUp, failed, ok: deploy.ok && failed.length === 0 }
 }
 
-/** Poll until `port` answers, or the budget runs out. */
+/** How an exited child is named in the report — code, or the signal that killed it. */
+function exitDescription(exit: { code: number | null; signal: NodeJS.Signals | null } | null): string {
+  if (exit === null) return 'immediately'
+  if (exit.signal !== null) return `on ${exit.signal}`
+  return `with code ${exit.code ?? 0}`
+}
+
+/**
+ * Poll until `port` answers, the child exits, or the budget runs out.
+ *
+ * THE PORT IS CHECKED FIRST ON EVERY PASS, including after an exit is seen. A
+ * wrapper that hands the port to a grandchild and then exits itself is a real
+ * shape — and it has started the service, whatever its own exit code was. Asking
+ * about the exit before asking about the port would report that as a refusal.
+ */
 async function waitForPort(
   port: number,
   timeoutMs: number,
   answers: (port: number) => Promise<boolean>,
   sleep: (ms: number) => Promise<void>,
-): Promise<boolean> {
+  exited: () => { code: number | null; signal: NodeJS.Signals | null } | null = () => null,
+): Promise<'up' | 'exited' | 'timeout'> {
   const deadline = Date.now() + timeoutMs
   for (;;) {
-    if (await answers(port)) return true
-    if (Date.now() >= deadline) return false
+    if (await answers(port)) return 'up'
+    if (exited() !== null) return 'exited'
+    if (Date.now() >= deadline) return 'timeout'
     await sleep(300)
   }
 }
@@ -397,7 +487,12 @@ export function formatUp(outcome: DevUpOutcome): string {
       `  already  ${a.name.padEnd(12)} ${a.port}  something was answering, so it was left alone` +
         ` (\`1c ps\` says whose it is)`,
     )
-  for (const f of outcome.failed) lines.push(`  FAILED   ${f.name.padEnd(12)} ${f.port}  ${f.detail}`)
+  for (const f of outcome.failed) {
+    // REFUSED AND FAILED ARE DIFFERENT WORDS ON PURPOSE (REQ-322): one says a
+    // reason exists and where it is, the other says nobody knows yet.
+    const label = f.kind === 'refused' ? 'REFUSED ' : 'FAILED  '
+    lines.push(`  ${label} ${f.name.padEnd(12)} ${f.port}  ${f.detail}`)
+  }
   return (
     `${outcome.ok ? 'The dev environment is up.' : 'The dev environment did not come up.'}\n` +
     `${lines.join('\n')}\n\n` +
