@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-24T23:38:20.892506+00:00'
+updated_at: '2026-09-25T03:12:44.295023+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1528,5 +1528,11 @@ I also reversed **"What to build" item 3**, which was mine and was wrong. Stylin
 **REQ-173 has landed** (`free_coded`, and `leading` is live in `index.js`/`config.js`/README). So REQ-174 is the last selector 1st Contact holds against the shell. When it lands, `console.js`'s exception becomes a one-line change — that's a 1stcontact ticket, and I won't file one without you saying so. File it now, or wait until REQ-174 is actually in the shared store?
 
 Decision 2 is the one I'd most readily be overruled on — it's reversible and the least load-bearing of the five.
+
+<!-- xgd-turn id="deda04c0-2771-46ca-a34f-e052f349c678-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T03:12:43.747370+00:00" -->
+#### You
+Can you take a look at today's work in the dev environment for Lagrange Framework - is the delegate being used?
 
 <!-- xgd-chat-end -->
