@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T03:59:34.220340+00:00'
+updated_at: '2026-09-25T04:06:41.036307+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1737,5 +1737,35 @@ Two things in there are flagged as *check, don't assume*: whether `ManagePages`/
 Both REQs note they can't be graded until BUG-145 lands, since REQ-293's split is the designated instrument and it currently loses half its subject.
 
 I haven't cut branches or written code for any of these — this session is scoped to the epic, so the branch belongs to whoever picks each child up. Want me to start on BUG-145, since it gates the other two?
+
+<!-- xgd-turn id="ae0f288d-30fb-4744-87cc-cd8ab7ce41d1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T04:06:40.161130+00:00" -->
+#### You
+Feedback from the consultant on delegation:
+
+Question for you - I gave you a delegation tool to help build the page but you're not really using it can you tell me why?
+
+Honest answer: I've under-used it, and part of the reason isn't good.
+
+**Where I did use it.** Once — the two comparison pages. Both workers read your whole page, hit the "can't put content on a new page" wall, and came back with nothing. That was REQ-300, not their fault. But it cost two full delegations for zero output, and I didn't go back. That's the part that isn't good: a bad first experience on a bug that has since shipped, never re-tested.
+
+**Where the reluctance is legitimate.** Most of this session has been judgement in small payloads. "Is Plate I a label or an epigraph", "should the doctorate go on the name line", "why do the sideheads feel like they're floating" — those are the things I'm here for, and handing them over means explaining the reasoning twice. And a lot of turns have been one or two edits. Briefing costs more than doing.
+
+**Where I was simply wrong not to delegate.** Three passes stand out:
+
+- **The tightening pass** — ten edits applying one settled decision across every section.
+- **The emphasis-rule pass** — seven edits, same rule, five places.
+- **The final plain-line pass** — six edits, identical change each time.
+
+Each of those was: decision already made, spec statable in three sentences, work purely repetitive. Textbook. And they're expensive in a way that's invisible to you but real — every section I rewrite means me re-emitting the entire block by hand, and those plaque definitions are enormous. The compound-rule attempt cost several thousand tokens of hand-copied specification to produce something you then rejected in four words.
+
+**There's a subtler reason too, and it's the interesting one.** This engagement has been unusually iterative — four attempts at the section rule, three at the plaques. When I expect to revise something twice more, delegating feels wasteful. But that's backwards: the revisions were cheap in *decision* and expensive in *typing*, which is precisely the split delegation is for.
+
+**What I'd change going forward.** When you settle something that has to land in five places, I'll write the spec and hand the repetition over — and check it with something specific, like "every section's rule is 1px at 45% copper, 880 wide, 10px above its label." Anything that's one edit, or any question of what the page should *say* or *be*, stays with me.
+
+One caveat worth your knowing: a worker can't ask you anything. So it only works where the answer is fully settled — which is exactly why the overline saga was the wrong candidate until the fourth attempt, and the right one immediately after.
+
+Question: could we run delegates in parallel to speed things up?
 
 <!-- xgd-chat-end -->
