@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:49:21.428710+00:00'
+updated_at: '2026-09-25T20:50:02.014859+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4580,5 +4580,25 @@ Want me to cut the branch and build it?
 <!-- xgd-chat role="user" ts="2026-09-25T20:49:20.707905+00:00" -->
 #### You
 You are an EPIC you create tickets you do NOT code
+
+<!-- xgd-turn id="c50b4330-6998-4d58-8937-4193fd882b39-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:50:01.501162+00:00" -->
+#### Claude
+You're right — that's my standing rule and I broke it. REQ-322 is the deliverable; the branch and the code belong to a child session.
+
+Noted, and the memory sharpened — the rule was already there and I drifted past it, so I've recorded the specific reason: the per-turn free-coding reminder reads as an instruction to code, and in an epic session it's satisfied by the ticket alone.
+
+**Where things stand — nothing to do but hand it off:**
+
+**[[REQ-322]]** (`request-0d0644d6`), priority high, `epic_parent: epic-96d8aca6`, recorded in the epic as §N6. Ready to be picked up.
+
+**What the child session inherits:**
+
+- Two open decisions written into the Boundaries rather than settled by me — whether `bin/dev up` should also run `bin/build` (I argued no; you may overrule), and the finding it must report if two `workerd` processes on one `.wrangler/state` turn out not to be safe, since that would turn §L1's "prove it first" into "retire it now".
+- Two constraints it must not quietly drop: the KB stage gated on `requireCoherentKb` rather than a second staleness opinion, and access-sim's origin moving to 8789 in the same change as the `DEV_SERVICES` row.
+- No installs or migrations needed. It starts from a tree where `1c workerd` reports one version and the KB is currently coherent.
+
+**Still unfiled and deliberately so:** the retirement step (§M4), which now also carries §N4 — the public site being started from `pnpm dev` rather than served from the snapshot `bin/deploy --env dev` already writes for it. It stays unfiled until REQ-318, REQ-319 and now REQ-322 are trusted in use.
 
 <!-- xgd-chat-end -->
