@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-24T23:33:11.295321+00:00'
+updated_at: '2026-09-25T00:07:22.122191+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3778,5 +3778,11 @@ Three reasons, in order of weight:
 Anything from 12,000 to 32,000 is defensible; it's one named constant and a one-line change. The one thing I'd hold firm on: **the message states no number** — a figure invites counting and bargaining, and what the client needs is the gesture that works.
 
 All of this is recorded in REQ-309, including the table, so the implementing session inherits the reasoning rather than re-deriving it. Say if you'd rather 500 lines squeezed through and I'll move it to 32,000.
+
+<!-- xgd-turn id="d11acfdb-9abe-41e7-8337-28e66fccd6b9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T00:07:22.020833+00:00" -->
+#### You
+16000 seems generous - lets go with that - it will be up to us (adopting project) to set the limit...
 
 <!-- xgd-chat-end -->
