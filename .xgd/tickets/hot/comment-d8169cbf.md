@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T23:42:45.813003+00:00'
+updated_at: '2026-09-25T23:48:41.106800+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4105,5 +4105,15 @@ A visible plan can become the wizard you're avoiding — so cap it, seed it most
 One genuine open question I'd want your answer to before designing: **should the list be per-engagement or per-site?** Your sites outlive conversations, and the LF engagement has spanned days and several sessions. If it's per-site, it becomes the durable project record and survives a lost conversation — which, given what we spent today on, is worth something.
 
 Happy to turn this into tickets under EPIC-19 when you've pushed back on it — I'd guess three: the shared open/settled list with its surface, project state in the per-turn digest, and recorded register. But I'd rather argue about the shape first.
+
+<!-- xgd-turn id="93b39cdf-3cb0-4ba4-a58a-f140dbc908f8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:48:40.853389+00:00" -->
+#### You
+Thank you.
+
+I'd like to have a conversation that goes back to your core responsibility the Webb builder experience. As I work with the AI on websites I find that I am impressed with the AIS understanding and design capabilities. However only when pressed to do so. I have to ask what would you do here? Is this really a premium site? What do we have to do to make this better? My users are not going to in general do that. Related to this is what I would call the executive function of the website construction. Again I am an experienced by coda I work with AI is in and out building software so it is not surprising or problematic for me to have to drive the website creation. However, my typical user will not know how to build a website will not know the appropriate steps to go through. We have some documentation on this and some thoughts we have a playbook that the AI has access to but never referenced in my discussion with it. I want to discuss Rily the user experience here so I have no doubt that we can improve the coaching that we give to the AI but I wonder if there are other things that we could or should do. Part of the challenge here is that I want to support flexibility as well as structure.
+
+We want the AI to be adaptable, if the AI is talking to a novice who does not know how to spell HTML then they should use appropriate language, similarly if they are talking to someone experienced in the domain they should use different language. And both users are going to be frustrated if the AI talks in the wrong way. The same is true of the executive function. If I am creating a site a highly structured approach that puts me through hoops that I don't necessarily want to go through or want to go through in that particular order represents of challenge for me. So what I'm trying to go is we need to introduce structure we need to find ways to make the AI be more proactive. I need the AI to take the lead, offer opinions and so on there are things we could put in the reminder prompts to do that. I'm also wondering about some kind of shared to do list that could be used to hold joint tasks and manage the project. It could be pre-populated with expected steps but it could be visited in different orders and we could entirely skip steps if we don't need to so in that sense it could provide a flexible structure if it was created in the right way. What ideas do you have here? Are you aware of any examples of this kind of thing being done? There are 1 million examples of AI chat but most of them are much more simplistic and entirely responsive. How do we get the AI to take the lead when it needs to
 
 <!-- xgd-chat-end -->
