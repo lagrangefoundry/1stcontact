@@ -2225,9 +2225,12 @@ async function closePending(
  * whatever error the turn was already carrying — the operator would be shown a
  * database failure in place of the model's own.
  *
- * A TURN THAT MEASURED NOTHING WRITES NOTHING, decided by
+ * A TURN THAT ACCOUNTED FOR NOTHING WRITES NOTHING, decided by
  * {@link turnSpendRecord} rather than here, so every host gets the rule instead
- * of every host restating it.
+ * of every host restating it. ACCOUNTED FOR rather than MEASURED since
+ * [[BUG-145]]: a turn that handed work to a worker is answerable for that
+ * worker's bill whether or not its own meta ever arrived, so the attribution
+ * below is a second reason for a row to exist and not merely a field on one.
  */
 async function writeTurnSpend(
   deps: HostDeps,
@@ -2901,9 +2904,16 @@ export async function* streamPrompt(
     // this line's: a turn cut off MID-GENERATION never produces a terminal
     // event, so `spendMeta` is undefined and the requests already sent are
     // accounted for nowhere this host can reach — the adapter's own per-segment
-    // ledger has them and the manager's `turn_end` does not. Nothing is written,
-    // which is the honest answer rather than the convenient one: a row of zeros
-    // would claim the turn was free.
+    // ledger has them and the manager's `turn_end` does not. Nothing of the
+    // CALLER'S is written, which is the honest answer rather than the convenient
+    // one: a row of zeros would claim the turn was free.
+    //
+    // WHAT IT STILL RECOVERS ([[BUG-145]]): what that turn handed off. The
+    // manager writes `attributed` onto `turn_end` from its own `finally`, so it
+    // survives exactly the exits the terminal meta does not — and it is now a
+    // reason for the row to exist rather than a field discarded with it. Such a
+    // row carries four zero counters and a NULL cost, which is what says the
+    // caller's own spend was never observed rather than that it was nil.
     await writeTurnSpend(deps, spendMeta, {
       session: sessionId,
       turn: spendTurn,
