@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T04:11:31.269265+00:00'
+updated_at: '2026-09-25T04:22:58.904463+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1834,5 +1834,13 @@ Three things I'd file, in this order — say which you want:
 1. **BUG** — unreported checks indistinguishable from failures; caller can't see per-check verdicts, and a multi-sentence `accept` entry should be refused or split where the caller can still fix it.
 2. **REQ** — parallel fan-out, scoped to disjoint pages first.
 3. **Re-test** delegation now REQ-300 has shipped — no ticket needed, it's the next repetitive pass.
+
+<!-- xgd-turn id="a0d0ffeb-e0d3-4d99-a1f4-5bfd0a9fad92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T04:22:58.599808+00:00" -->
+#### You
+Lets park parallel for now and just get it working
+
+You are moving a little fast for me, help me understand exactly what is going wrong and how you are proposing to fix it - what does accepted=false mean? Are requests being rejected? Do we need to provide more feedback to the primary from the delegate as to what it actually did?
 
 <!-- xgd-chat-end -->
