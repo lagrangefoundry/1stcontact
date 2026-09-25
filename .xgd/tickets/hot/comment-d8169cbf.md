@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T22:55:03.759958+00:00'
+updated_at: '2026-09-25T23:16:04.165598+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3928,5 +3928,56 @@ I'll look at the data before theorising.
 <!-- xgd-chat role="user" ts="2026-09-25T22:55:01.156153+00:00" -->
 #### You
 please continue
+
+<!-- xgd-turn id="d3b7bb45-3279-4107-8cab-5b74a4f28ae7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:16:03.775753+00:00" -->
+#### Claude
+I'll investigate the data now.
+
+Diagnosis complete. Let me record it on the epic before reporting.
+
+I have the full picture. **Nothing is lost from storage** — but your premise was wrong in a way that explains everything.
+
+## Your session is intact; a bad copy was shown in front of it
+
+The archive holds **102 exchanges, 332,827 bytes**, ending cleanly on the 22:02→22:11 pair. Every word is there.
+
+What the panel painted instead was the Durable Object's junction, which holds **89**. Two defects compose.
+
+**Defect A — REQ-307's durable junction is inert on every request except the first after a restart.** The dev log carries this once per prompt:
+
+```
+junction durable:site-site_936dd7c…: could not be prepared — Error: Cannot perform
+I/O on behalf of a different request. … (I/O type: OutgoingFactory)
+```
+
+`DurableJunctionStorage` caches the `DurableObjectStub` it got on first use, and workerd forbids using an I/O object from one request's context in another's. So the stub works for exactly the request that created it and throws for every later one. `prepare` catches, sets `adopted = false`, and `queue()` returns early when `!adopted` — appends land in the in-isolate mirror and **never reach the object**. The class comment calls that "degrades to `memoryJunctions()`", which is accurate and is the problem: it degrades to the exact failure REQ-307 was built to remove, silently.
+
+Measured: **17 exchanges were added after the junction was seeded; 4 of them reached the object.** Thirteen lived only in RAM.
+
+**Defect B — a junction that exists beats a more complete archive.** Upstream's `manager.transcript()` reads the archive only `if (!log.exists())`. The object's junction does exist, so on reload the panel is painted from the 89-turn junction and the 102-turn transcript is never consulted. A lossy junction doesn't merely fail to protect the conversation — **it hides the good copy.** That is the "entire session so far disappeared".
+
+## What actually killed the turn — and why it could reach you
+
+22:20:10 the turn opened. **22:23:28 the merge of `free-BUG-145` into `xgd-working` rewrote `host-core.ts`, `spend-core.ts`, `spend.ts` and `router.ts`; wrangler rebuilt and replaced the Worker at 22:23:2x.** Three minutes in. Finding 10, third occurrence. At 22:35 another merge left `<<<<<<< HEAD` in the root `package.json` and the dev server built against it — `Expected string in JSON but found "<<"` — so a half-finished merge can break the builder outright, not just restart it.
+
+**On "it should be running from the dev-install":** REQ-318 landed and works — `bin/deploy --env dev` bundles to `.dev-snapshot/` and `1c dev serve` runs `wrangler dev --no-bundle` against it on **8789**, frozen by construction. `bin/dev up` builds that snapshot (mtime 21:40:07) and then starts `bin/1c builder` — plain watching `wrangler dev` on 8788 — and never `1c dev serve`. Nothing was listening on 8789. You were on the watching builder believing you were on the frozen one. Same shape as this epic's other adoption gaps.
+
+**No tickets were filed.** Zero `xgd ticket create` commits between 15:15 and 15:32 PDT. The turn died before it got there, so that work needs re-asking — and your five-part message is preserved in `pending_turn`, which is BUG-121 doing its job.
+
+## Get your panel back — provably lossless
+
+The object's junction is a strict subset of the archive (all four of its live turns appear there verbatim), so discarding it makes `transcript()` re-seed from the archive and restores all 102. It needs the server down, so it's yours to run:
+
+```
+bin/dev down
+rm apps/control-app/.wrangler/state/v3/do/1stcontact-control-app-SessionJunction/185825265b6bb3f1c791ac9e7d244b45096bc3c76eab7e8c096ef09d851698f5.sqlite
+bin/dev up
+```
+
+And to stop being reachable by merges, serve from the frozen snapshot on 8789 (`1c dev serve`) rather than 8788 — with access-sim pointed at it.
+
+All of this is Finding 12 on EPIC-19, with the measurements. **No ticket filed yet** — Defect A is ours and small (hold the namespace, get the stub per use, drain inside the request); Defect B is upstream's; and `bin/dev up` not serving the snapshot is a third, arguably the one that would have prevented today. Say which of those you want filed and I'll do it.
 
 <!-- xgd-chat-end -->
