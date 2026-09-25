@@ -5,10 +5,10 @@ type: request
 title: 'Exactly one workerd: pin wrangler and miniflare together, and check it'
 created_by: EPIC-16
 created_at: '2026-09-24T19:08:41.228133+00:00'
-updated_at: '2026-09-24T23:16:06.344071+00:00'
+updated_at: '2026-09-25T00:34:51.397678+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   needs_review: false
