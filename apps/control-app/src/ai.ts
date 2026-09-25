@@ -28,7 +28,7 @@
  * than enforced: the key sits outside `draft/`, and nothing in the router
  * derives an R2 root from a request. `TicketSessionArchive` is what DOC-10 §8
  * specifies instead — the session homed in a `chat` ticket found or created by
- * `fields.session_id`, the whole session file in one `chat_transcript` comment,
+ * `fields.session_id`, the whole session file in its `chat_transcript` comments,
  * the ticket body left alone because it is the AI-maintained summary's home
  * (REQ-171), and writes compare-and-set so a concurrent fold conflicts loudly
  * rather than losing the later increment silently.
@@ -46,6 +46,16 @@
  * rewritten per turn, and a D1 row is bounded where an R2 object was not. The
  * fix for the day either hurts is a message-granular archive behind the same
  * port, not a bespoke schema here.
+ *
+ * THE SECOND OF THOSE HURT, AND IT WAS ANSWERED WHERE IT WAS PREDICTED
+ * ([[REQ-309]]). A live session reached 2,162,212 bytes of `tool_transcript` over
+ * 85 turns and every archive write after that returned `SQLITE_TOOBIG` — no turn
+ * recorded, the conversation dead. The fix is the one named above rather than a
+ * bespoke schema here: lagrange-framework REQ-176 made an archived artifact a
+ * *sequence* of comments behind the same port, and made the ceiling the store's to
+ * declare. This host declares D1's (`tickets.ts`) and wires the alarm
+ * ({@link sessionArchive}); the segmenting itself appears nowhere in this file,
+ * because it belongs to the archive and not to the runtime under it.
  *
  * THE AUDIT STAYS IN R2, at `audit/<tenant>/<session>/<n>.json` — outside
  * `draft/`, per DOC-12 §7. That is not an inconsistency with the paragraph
@@ -105,9 +115,88 @@ const lib = aiLib as unknown as Untyped
  * store handed in here is already bound to one account by `forTenant`, so there
  * is no argument anywhere on this path that could name another — the same rule
  * `tickets.ts` states and `knowledge.ts` inherits.
+ *
+ * IT SEGMENTS BECAUSE THE STORE SAYS SO, NOT BECAUSE THIS FILE ASKS ([[REQ-309]]).
+ * lagrange-framework REQ-176 made an archived artifact a sequence of bodies and
+ * made the ceiling the store's to declare; `tickets.ts` declares D1's. So there is
+ * still nothing to implement here, which is the second time this adapter has
+ * disappeared rather than moved — and the paragraph in this file's header that
+ * says *"a D1 row is bounded where an R2 object was not"* has been answered
+ * upstream, by the message-granular archive it named as the fix.
+ *
+ * WHAT IS WIRED IS THE ALARM. See {@link reportArtifactError}.
  */
 export function sessionArchive(tickets: TicketStore): Untyped {
-  return new lib.TicketSessionArchive(tickets)
+  return new lib.TicketSessionArchive(tickets, {
+    onArtifactError: (report: ArtifactErrorReport) => reportArtifactError(tickets, report),
+  })
+}
+
+/** A failed artifact write, as the component reports it (lagrange-framework BUG-66). */
+interface ArtifactErrorReport {
+  artifact: string
+  sessionId: string
+  error: Error & { code?: string; segment?: number; bytes?: number; ceiling?: number }
+}
+
+/**
+ * Say, where an operator will see it, that a conversation is no longer being kept
+ * ([[REQ-309]]).
+ *
+ * THE FAILURE THIS IS FOR, and it is the whole reason this ticket exists. A
+ * session's `tool_transcript` crossed D1's row limit, every archive write after
+ * that returned `SQLITE_TOOBIG`, and the only sign anybody got was a conversation
+ * that stopped recording. Segmenting is what stops that happening by growth; this
+ * is what stops the next cause of it being silent.
+ *
+ * WIRED EVEN THOUGH THE COMPONENT ALREADY REPORTS. Unwired, `writeArtifacts` leaves
+ * the report on `lastArtifactError` and writes a `console.warn` — honest, but
+ * anonymous: it cannot say which substrate this was, what ceiling this deployment
+ * declared, or whether that ceiling is the thing to change. Those are facts about the HOST, and
+ * this is the only place that holds all three. An operator reading `warn` without
+ * them has to come and read this file to know what to do, which is the difference
+ * between a log line and one they can act on.
+ *
+ * `error` AND NOT `warn`. Workers Logs reads severity off the console channel
+ * (`log.ts` states this), and an artifact that is no longer being kept is not a
+ * degraded nicety — it is the product's memory of a client's conversation going
+ * unwritten. The component is right to warn, because it does not know what the
+ * artifact is worth to its host; here it is worth an error.
+ *
+ * IT CANNOT FAIL THE TURN, and does not try to. `reportArtifactError` upstream
+ * catches a reporter that throws — *"it is the alarm: it must not become a second
+ * way for the tool artifact to take the conversation down"* — and nothing here
+ * would throw anyway. The turn is unaffected either way; what changes is whether
+ * anybody finds out.
+ */
+function reportArtifactError(tickets: TicketStore, report: ArtifactErrorReport): void {
+  const { artifact, sessionId, error } = report
+  // Named separately because a `SegmentWriteError` carries WHICH segment and HOW
+  // BIG, and those two numbers are what tell a ceiling apart from a quota: a
+  // segment at the declared ceiling means the ceiling is the constraint, and one
+  // far below it means something else refused.
+  //
+  // THE LEAD SAYS "COULD NOT WRITE" AND NOT "REFUSED", deliberately. A failed
+  // artifact write reaches here for any reason the store had — a value ceiling, a
+  // quota, a lost compare-and-set, a transient error — and this host knows which
+  // substrate it was and not which of those happened. Naming a cause it cannot know
+  // would send an operator to the wrong place with more confidence than a bare
+  // `warn` did; the sentence below tells them how to tell the cases apart instead.
+  const where =
+    typeof error?.segment === 'number'
+      ? ` (segment ${error.segment}, ${error.bytes ?? '?'} bytes)`
+      : ''
+  const code = error?.code ? ` [${error.code}]` : ''
+  console.error(
+    `archive: the D1 ticket store could not write the ${artifact}${where} of session ` +
+      `${JSON.stringify(sessionId)}${code} — ${error?.message ?? String(error)}. ` +
+      `This deployment declares a ${tickets.max_value_bytes}-byte value ceiling and ` +
+      'segments each artifact to fit it, so a failure at or near that figure means a ' +
+      'single turn larger than one segment; one well below it is the store saying ' +
+      "something else. This session's other artifacts were attempted independently " +
+      '(lagrange-framework BUG-66); this one was not written, so the conversation ' +
+      'reads short until a later write succeeds.',
+  )
 }
 
 /**

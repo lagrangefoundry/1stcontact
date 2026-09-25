@@ -67,6 +67,7 @@ interface ValuesBlock {
   unmatched?: unknown
   unpairedActual?: unknown
   sectionsNotComparable?: unknown
+  notComparableAxes?: unknown
 }
 
 /** A number the report actually carries, or `null` for "it does not say". */
@@ -81,18 +82,39 @@ function sum(a: number | null, b: number | null): number | null {
   return a === null || b === null ? null : a + b
 }
 
+/** `scope.axis` for one `{scope, axis}` row, or null when it is not one. */
+function axisName(entry: unknown): string | null {
+  const axis = (entry as { axis?: unknown })?.axis
+  const scope = (entry as { scope?: unknown })?.scope
+  if (typeof axis !== 'string') return null
+  return typeof scope === 'string' ? `${scope}.${axis}` : axis
+}
+
 /** The axes' own names, so "3 axes" can be taken back to which three. */
 function axisNames(value: unknown): string | undefined {
   if (!Array.isArray(value) || !value.length) return undefined
-  const named = value
-    .map((entry) => {
-      const axis = (entry as { axis?: unknown; scope?: unknown })?.axis
-      const scope = (entry as { scope?: unknown })?.scope
-      if (typeof axis !== 'string') return null
-      return typeof scope === 'string' ? `${scope}.${axis}` : axis
-    })
-    .filter((name): name is string => name !== null)
+  const named = value.map(axisName).filter((name): name is string => name !== null)
   return named.length ? named.join(', ') : undefined
+}
+
+/**
+ * BUG-139 — the declined measurements, named WITH their reasons.
+ *
+ * The axes above are named without one because the reason is a property of the
+ * instrument and is the same on every run; a declination's reason is about THIS
+ * page's own bands (`§0 sits inside this band`) and is the whole of what the
+ * round can act on, so it travels with the name.
+ */
+function declinedNames(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const out: string[] = []
+  for (const entry of value) {
+    const name = axisName(entry)
+    if (!name) continue
+    const reason = (entry as { reason?: unknown })?.reason
+    out.push(typeof reason === 'string' && reason.trim() ? `${name} — ${reason}` : name)
+  }
+  return out
 }
 
 /**
@@ -105,14 +127,14 @@ function axisNames(value: unknown): string | undefined {
  * |---|---|---|
  * | axes | `values.unmeasuredAxes` | a compared axis only one side of the projection can read ([[REQ-274]]) |
  * | bands | `values.unpairedSections` + `values.unpairedActualSections` | a section with no counterpart, so its section-level values were never compared ([[BUG-111]]) |
+ * | populations | `values.unmatched` + `values.unpairedActual` | an element on either side that paired with nothing ([[BUG-106]]) |
+ * | probes | `values.sectionsNotComparable` + `values.notComparableAxes` | a measurement the run declared it could not make at all ([[BUG-102]], [[BUG-139]]) |
  *
  * `values.nonSurfaceSections` ([[REQ-308]]) is NOT a fifth part and is not summed
  * into `bands`: a reference band that paints nothing is one no fold could ever
  * emit a counterpart for, so it is not a measurement anybody failed to make. It
  * is named on the `bands` part instead, because a total that quietly got smaller
  * reads as progress the reproduction did not make.
- * | populations | `values.unmatched` + `values.unpairedActual` | an element on either side that paired with nothing ([[BUG-106]]) |
- * | probes | `values.sectionsNotComparable` | a measurement the run declared it could not make at all ([[BUG-102]]) |
  *
  * Nothing here is new measurement — [[REQ-277]] is explicit that changing what
  * the gate measures is out of scope. It is arithmetic over numbers the gate
@@ -133,9 +155,28 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
   const bands = sum(countOf(values.unpairedSections), countOf(values.unpairedActualSections))
   const populations = sum(countOf(values.unmatched), countOf(values.unpairedActual))
   // A reason is one probe that did not run; its absence is the probe running.
-  // Unlike the three above this cannot be silent: the field is optional BECAUSE
-  // absent means "the sections were comparable", which is a measurement.
-  const probes = typeof values.sectionsNotComparable === 'string' && values.sectionsNotComparable.trim() ? 1 : 0
+  // The field is optional BECAUSE absent means "the sections were comparable",
+  // which is a measurement.
+  const globalRefusal = typeof values.sectionsNotComparable === 'string' && values.sectionsNotComparable.trim() ? 1 : 0
+  // BUG-139 — and the per-band refusals beside it, which are the same fact at a
+  // finer grain: [[REQ-270]]'s anchor guard declining one band's `contentAnchor`
+  // is exactly "a measurement the run declared it could not make", and it used to
+  // land in none of the four parts. So the round's headline now moves when the
+  // comparator stops declining, which is the only thing that makes the refusal
+  // worth a round's attention.
+  //
+  // SILENT when the field is missing, unlike its sibling above, and the asymmetry
+  // is the point: the gate writes `notComparableAxes` on EVERY run (`[]` when it
+  // declined nothing), so an absent field can only be a report written before it
+  // existed. Reading that silence as zero would make the field's ARRIVAL read as
+  // the unmeasured count going up — the same false-progress inversion, one layer
+  // out, that `compareSets` below refuses for the other three parts.
+  const declined = declinedNames(values.notComparableAxes)
+  const probes = sum(globalRefusal, countOf(values.notComparableAxes))
+  const probeDetail = [
+    ...(globalRefusal ? [String(values.sectionsNotComparable)] : []),
+    ...declined,
+  ].join(' · ')
   // REQ-308 — not a part of the set, and deliberately not summed into `bands`:
   // it is the reason a band LEFT the set. `null` (a report predating the field)
   // reads as nothing to say, which is what it is.
@@ -169,7 +210,7 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
       label: 'probes',
       one: 'probe',
       count: probes,
-      ...(probes ? { detail: String(values.sectionsNotComparable) } : {}),
+      ...(probeDetail ? { detail: probeDetail } : {}),
     },
   ]
   const known = parts.filter((part) => part.count !== null)

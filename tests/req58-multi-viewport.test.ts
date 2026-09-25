@@ -193,6 +193,8 @@ const report = (deltas: ValueDelta[]): ValuesDiffReport => ({
   // not a filler: these cells are about the multi-viewport formatter, and none of
   // them stands in for a page whose two sides segment differently.
   unpairedSections: [],
+  // BUG-139 — nor for a page that DECLINED one band's measurement.
+  notComparableAxes: [],
   unpairedActualSections: [],
 })
 

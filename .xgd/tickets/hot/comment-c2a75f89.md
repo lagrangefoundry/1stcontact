@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-309
 created_by: xgd
 created_at: '2026-09-25T00:34:49.801855+00:00'
-updated_at: '2026-09-25T01:36:55.316701+00:00'
+updated_at: '2026-09-25T01:48:42.928149+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -152,5 +152,46 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="85903ae7-a658-4872-a418-06fe48837a9f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T01:48:41.268853+00:00" -->
+#### Claude
+Background jobs die here — noted. Running the full suite in the foreground.
+
+Now the full suite in the foreground:
+
+Baseline confirms it: the same 8 files and same 15 tests fail without my changes. Restoring.
+
+Clean. Now the commit.
+
+Committed. Now the free-coded promotion — status and commit sha on the ticket:
+
+`status: free_coded`, both commits recorded, version `0.2.350` allocated by the gate. Cleaning up the branch:
+
+REQ-309 is free-coded and merged back. `status: free_coded`, version `0.2.350`, commits `7138ce2b97` + the gate's version bump `a805db9f92`, branch torn down.
+
+## What shipped
+
+The storage half is a **figure**, not a mechanism — lagrange-framework REQ-176 made an archived artifact a sequence of comments and made the ceiling the store's to declare, so the segmenting, packing, position markers and join appear nowhere in this repo:
+
+- **`tickets.ts`** declares `VALUE_CEILING_BYTES` (1,900,000) on the store's base handle, forwarded to every scoped store. It sits 100 KB below D1's documented 2,000,000 because that figure bounds a *row*, and a body packed to exactly the limit is a row over it — refused on the very fold the segmenting exists to survive. `max_value_bytes` is now on the `TicketStore` interface, since it's the half of the store's contract nobody invokes and therefore the half that could be renamed silently.
+- **No migration.** REQ-176 writes no marker at index 0 and rolls an open segment already over the ceiling, so the dead Lagrange Foundry session is repaired by the declaration alone. A UAT plants an over-ceiling comment and takes a turn against it: a second segment opens, the original stays byte-for-byte, the join reads both in order.
+- **`ai.ts`** wires BUG-66's report channel to `console.error` with what the component can't know — substrate, artifact, segment, size, declared ceiling. It names no *cause*, because the host knows the substrate and not whether a ceiling, a quota, a lost CAS or a transient error refused.
+- **`chat-copy.ts`** was a live bug I found rather than one the ticket named: `writeComments` kept one comment per kind, first one wins, so a segmented transcript would have landed with all but one segment discarded, silently, reported as success. It now lands a sequence per kind, zipped by ordinal, every transcript segment re-addressed, destination surplus archived so a re-copy can't splice an older tail on.
+
+The front door: `MAX_PROMPT_CHARS` = 16,000 at `POST /api/ai/prompt` before the host, ledger or turn exists, and REQ-177's `maxSubmissionChars` on `mountChat` so the composer refuses ahead of the clear. **No stub-stream path was written** — `postEventStream` already renders a refused response's `error` as the assistant's reply with a terminal event, and `sent.remember` already keeps the words. Figure and sentence stated once per side of the wire, held equal by a UAT, plus one pinning the sentence to a drop area that actually exists.
+
+## Verification
+
+18 new UATs, all passing. The storage suite drives the **real D1 store at the real declared figure with real 1.9 MB bodies** — a suite with its own smaller ceiling would prove the component works and leave the one missing line untested. Falsified: deleting `maxValueBytes` fails all six.
+
+Full suite: 5,646 passed, 15 failing across 8 files. I baselined that by copying my files aside and `git checkout --`-ing them — **the identical 8 files and 15 tests fail on the clean tree**, so none is mine.
+
+## Two things for you
+
+1. **I widened REQ-146's error-scrub guard.** It rejected any `error: <identifier>`, including a constant written out in quotes. It now admits a `const` whose initializer is string literals and `+` only; I probed it to confirm `err.message` and template interpolations are still rejected. Recorded in the ticket body.
+
+2. **Two UATs regressed with the reinstall, not with this work** — `test_UAT_FC_BUG-64_a_genuinely_live_turn_still_gates_the_composer` (a submit during a streaming turn now reaches `sendPrompt` instead of the queue) and `test_UAT_AC1058_only_granted_site_operations_are_offered` (a `Delegate` tool from the newly shipped `delegation_toolbox.js` appears in the offered list). Both look like in-repo defects and aren't. I haven't filed anything — say the word and I'll raise them in `lagrange-framework`.
 
 <!-- xgd-chat-end -->

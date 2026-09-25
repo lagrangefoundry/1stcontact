@@ -708,3 +708,36 @@ export const TURN_HEALTH_COLUMNS = {
   state: 'Ended',
   turn: 'Turn',
 }
+
+/**
+ * The longest message the composer will submit, in characters ([[REQ-309]]).
+ *
+ * HERE RATHER THAN IN `chat.js` FOR THIS FILE'S OWN REASON: the sentence beside it
+ * is user-visible, and *"a label string must never appear as a literal anywhere
+ * else in the repo"*. The figure travels with the sentence because the two are one
+ * decision — a bound whose explanation lived somewhere else would be a bound
+ * somebody could change without reading what the client is told about it.
+ *
+ * THE SAME FIGURE `router.ts` REFUSES AT, held equal by a UAT rather than by an
+ * import: this file is browser JavaScript and cannot import the Worker's
+ * TypeScript, which is the arrangement {@link SIGN_OUT_HREF} already lives under.
+ * `router.ts` carries the whole of WHY it is 16,000 — a product judgement about
+ * when a paste has become a document, not a storage guard — and this is the same
+ * judgement enforced a step earlier, before `webui-chat` clears the box.
+ */
+export const CHAT_MAX_SUBMISSION_CHARS = 16_000
+
+/**
+ * What a client is told when a message is refused for length ([[REQ-309]]).
+ *
+ * IT NAMES THE GESTURE AND NOT THE THRESHOLD. Material dropped into
+ * {@link UPLOAD_AREAS}' background area is described, labelled, kept in the Library
+ * and indexed so a later session can retrieve it; pasted text lives in one
+ * transcript and nowhere else. So the client being redirected is being sent
+ * somewhere better, and the sentence says so rather than reporting a limit they
+ * exceeded — and it states **no number**, because a figure invites bargaining and
+ * counting when what they need is the gesture that works.
+ */
+export const CHAT_OVER_LONG_MESSAGE =
+  "That's too long to send as a message. Save it as a text file and drop it in as " +
+  "Background information — I'll read it from there, and it stays in your Library."

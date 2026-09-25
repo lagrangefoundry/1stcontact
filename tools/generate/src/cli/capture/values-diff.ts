@@ -690,6 +690,25 @@ export interface ValuesDiffReport {
    */
   unmeasuredAxes: UnmeasuredAxis[]
   /**
+   * BUG-139 — the per-scope measurements this run DECLINED, lifted out of
+   * {@link sectionPairing} for the reason {@link unpairedSections} was: the fact
+   * lived only in that array, and `gate.json` neither summarises it nor is read
+   * by anything that would. So REQ-270's anchor refusal — the correct call, and
+   * the one that hides the single section value on an overlapping-header page an
+   * eye would actually check — cost nothing in the unmeasured count the round is
+   * told to drive down, and a refusal that costs nothing is a refusal no round
+   * is ever paid to fix.
+   *
+   * Distinct from {@link sectionsNotComparable}, which is the WHOLE per-section
+   * pass declining at once (the flat-L1 degenerate case) and stands in for every
+   * band; these are one axis on one band, on a pairing that otherwise compared
+   * fine. Both are the same kind of fact and the console counts them together.
+   *
+   * Derived from the same pass that decides it, never recomputed, so the count
+   * cannot disagree with the rows it summarises.
+   */
+  notComparableAxes: NotComparableAxis[]
+  /**
    * BUG-102 — set when section-level values could not be compared AT ALL, with the
    * reason. A report fact, never a delta: a segmentation difference is not by itself
    * a fidelity defect, and a permanent diagnostic row would make `1c values-diff`
@@ -745,6 +764,34 @@ export interface UnpairedSection {
 }
 
 /**
+ * BUG-139 — one measurement this run DECLINED to make, on one scope.
+ *
+ * REQ-270's anchor guard is the first of these: rather than compare two numbers
+ * taken over different populations of runs it declines, and writes the refusal
+ * onto the pairing row. That was the whole of the fact, and `sectionPairing` is
+ * an array no consumer of `gate.json` opens — so a run that explicitly said it
+ * could not measure something was counted, downstream, as having measured it and
+ * found nothing wrong. The refusal now leaves the same array in a shape a
+ * consumer that only COUNTS declinations can read, exactly as [[BUG-111]] lifted
+ * the unpaired bands out of it.
+ *
+ * `{scope, axis}` deliberately mirrors {@link UnmeasuredAxis}: the two facts are
+ * the same kind of fact one level apart — an axis nothing could read, and an
+ * axis this scope could not be read ON — and a reader that can name one names
+ * the other with no new format. `scope` is the `§n` band label rather than
+ * {@link UnmeasuredAxis}'s manifest level, because a declination is per-band:
+ * the page's OTHER bands compared that axis fine.
+ */
+export interface NotComparableAxis {
+  /** `§n` of the band whose axis was not compared. */
+  scope: string
+  /** The axis that was declined on it. */
+  axis: string
+  /** Why, in the comparator's own words. */
+  reason: string
+}
+
+/**
  * REQ-308 — a reference band that paints nothing, and is therefore not a surface
  * any reproduction could have a counterpart for. See
  * {@link ValuesDiffReport.nonSurfaceSections}.
@@ -752,6 +799,14 @@ export interface UnpairedSection {
 export interface NonSurfaceSection extends UnpairedSection {
   /** Why this band is not counted as unpaired, in the operator's terms. */
   reason: string
+}
+
+/**
+ * One line per declination, for a report a human reads — the sibling of
+ * `unmeasuredAxisLabel`, deliberately the same shape of line.
+ */
+export function notComparableAxisLabel(a: NotComparableAxis): string {
+  return `${a.scope}.${a.axis} (not compared: ${a.reason})`
 }
 
 /**
@@ -3121,6 +3176,15 @@ export function diffManifests(
   // bands the join claimed. Identity, not index: `pairSectionsByGeometry` keys by
   // POSITION in its input while `§n` is the manifest's own `index`, and a manifest
   // with non-contiguous section indices would mismatch the two.
+  // BUG-139 — and the same lift for the declinations, one row over. An unpaired
+  // band and a declined axis on a band that DID pair are the same silence: the
+  // pairing row says it, nothing the gate writes carries it, and the round reads
+  // the gate. `contentAnchor` is named rather than inferred from the flag, because
+  // the axis is what an operator acts on — a second declined axis would push its
+  // own name here rather than widening the meaning of this one.
+  const notComparableAxes: NotComparableAxis[] = sectionPairing
+    .filter((p) => p.anchorComparable === false)
+    .map((p) => ({ scope: p.label, axis: 'contentAnchor', reason: p.anchorReason ?? '' }))
   const claimedActual = new Set<SectionValues>()
   for (const m of sectionMatches.values()) claimedActual.add(m.section)
   const unpairedActualSections: UnpairedSection[] = flatRepro
@@ -3251,6 +3315,12 @@ export function diffManifests(
     // had nothing to compare it with. Not the whole declaration, which is true
     // of every comparison and would put a permanent row on every report.
     unmeasuredAxes: observedUnmeasuredAxes(expected, actual, opts.declaredUnmeasured),
+    // BUG-139 — the declinations, ALWAYS carried, empty when this run declined
+    // nothing. Unconditional where `sectionsNotComparable` below is conditional,
+    // because an empty array is the measurement "asked, and nothing was declined"
+    // and its absence is then unambiguously a report written before this existed —
+    // which the console reads as cannot-say rather than as none.
+    notComparableAxes,
     ...(sectionsNotComparable ? { sectionsNotComparable } : {}),
   }
 }

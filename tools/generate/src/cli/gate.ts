@@ -94,6 +94,9 @@ import type { GateReport, GateVerdict, GateFloor } from './gate-core'
 // REQ-274 — one formatter for an unmeasured axis, beside the declaration it
 // comes from, so the terminal row and the JSON row cannot describe it differently.
 import { unmeasuredAxisLabel } from './capture/value-axes'
+// BUG-139 — and one for a DECLINED measurement, beside the type it comes from,
+// for the same reason.
+import { notComparableAxisLabel } from './capture/values-diff'
 
 const VERDICT_LABEL: Record<GateVerdict, string> = {
   pass: 'PASS',
@@ -195,6 +198,19 @@ export function formatGateReport(report: GateReport, ref: string): string {
           wrap(
             `⚠ ${report.values.unmeasuredAxes.length} compared axis/axes readable on ONE side only — ` +
               `${report.values.unmeasuredAxes.map(unmeasuredAxisLabel).join('; ')}`,
+            '               ',
+          ),
+        ]
+      : []),
+    // BUG-139 — the measurements this run DECLINED, per band. The row above is
+    // about the instrument (an axis nothing can read); this one is about this
+    // page (an axis that could not be read HERE, on a band that otherwise
+    // compared fine). Silent on a run that declined nothing, like both rows above.
+    ...(report.values.notComparableAxes.length
+      ? [
+          wrap(
+            `⚠ ${report.values.notComparableAxes.length} per-band measurement(s) DECLINED rather than compared — ` +
+              `${report.values.notComparableAxes.map(notComparableAxisLabel).join('; ')}`,
             '               ',
           ),
         ]

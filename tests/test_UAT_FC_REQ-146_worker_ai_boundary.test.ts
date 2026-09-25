@@ -322,9 +322,39 @@ describe('REQ-146 — what the Worker may import, and what it may say', () => {
       fs.readFileSync(path.join(workerSrc, 'router.ts'), 'utf8'),
     )
     const raw = [...router.matchAll(/error:\s*([A-Za-z_.$][\w.$]*)/g)].map((m) => m[1])
-    // Every `error:` value built from a variable must be the scrubbed one.
+    /**
+     * A NAME THIS FILE DEFINES AS A STRING LITERAL IS NOT A LEAK ([[REQ-309]]).
+     *
+     * The property being defended is that nothing DYNAMIC escapes unscrubbed — an
+     * SDK that put the request it tried to send into the error it threw. A constant
+     * whose whole value is written here in quotes cannot carry a secret, because
+     * there is nothing in it that came from anywhere else.
+     *
+     * THE GUARD USED TO REJECT ONE ANYWAY, and the pressure to work around it was
+     * exactly wrong: the only ways past were to inline the sentence at the call
+     * site — losing the named constant that makes a client-facing string say the
+     * same thing in one place — or to wrap it in `scrub()`, which would be a
+     * redaction pass over bytes this file authored, teaching the next reader that
+     * `scrub` means something it does not.
+     *
+     * SO THE ADMISSION IS A PROPERTY AND NOT A LIST. `OVER_LONG_PROMPT_MESSAGE` is
+     * not named here; what is admitted is any `const` whose initializer is string
+     * literals and `+` and nothing else. A constant built from a template with an
+     * interpolation in it, or from another value, is still rejected — which is where
+     * a leak could actually hide.
+     */
+    const literalConst = (name: string): boolean => {
+      const declared = new RegExp(
+        `const\\s+${name}\\s*=\\s*((?:'[^']*'|"[^"]*")(?:\\s*\\+\\s*(?:'[^']*'|"[^"]*"))*)\\s*(?:\\n|$)`,
+      ).exec(router)
+      return declared !== null
+    }
+    // Every `error:` value built from a variable must be the scrubbed one — or a
+    // constant this file spells out in full, per the note above.
     for (const name of raw) {
-      expect(['scrub'], `unscrubbed error value: ${name}`).toContain(name.split('(')[0])
+      const bare = name.split('(')[0]
+      if (literalConst(bare)) continue
+      expect(['scrub'], `unscrubbed error value: ${name}`).toContain(bare)
     }
     expect(router).not.toMatch(/error:\s*err\.message/)
     expect(router).not.toMatch(/error:\s*message\b/)
