@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T21:19:56.858975+00:00'
+updated_at: '2026-09-25T21:19:58.004595+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -2013,3 +2013,21 @@ belongs with the retirement step rather than as its own ticket.
 §N4 (the public site is not served from its snapshot) is explicitly left out of it: `up`
 already starts the public site, so it costs no remembered step, and it is a freeze gap
 that belongs with retirement.
+
+
+### N7 — Measured while walking the runbook (2026-09-25)
+
+- [[BUG-146]] **`.dev.vars.local` is outside the env-file layering, so access-sim can
+  never sign anyone in.** A valid simulator token is ignored on both 8788 and 8789:
+  `.dev.vars` blanks the Access pair, so `isUnconfiguredLocalDev` holds and the gate and
+  `admit` are both skipped — correctly. What fails is the documented way OUT of dev-open
+  mode: `bin/access-sim` tells the operator to write `.dev.vars.local`, and
+  `devEnvLayering` names only `.dev.vars` and the secrets file, so no launcher reads it.
+  On this machine it is also 0 bytes, and the two faults are indistinguishable from the
+  outside. The ticket folds in a third trap on the same path — `1c dev serve`'s banner
+  prints `localhost:8789` while `CF_Authorization` is host-scoped to `127.0.0.1`.
+
+**This is the first thing §N's runbook actually cost**, and it is worth §N keeping: the
+dev environment came up clean by every measure `1c ps`, `1c workerd` and `bin/deploy`
+take, and was still unusable as any person. None of the three signals this epic added
+would have caught it, because none of them looks at identity.
