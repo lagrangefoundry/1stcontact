@@ -57,6 +57,13 @@ interface ValuesBlock {
   unpairedActualSections?: number
   unmeasuredAxes?: Array<{ axis: string; scope: string; side: string; reason: string }>
   sectionsNotComparable?: string
+  /**
+   * BUG-139 — the per-band measurements the run DECLINED. Optional HERE and
+   * required on the real report: a case that says nothing about declinations gets
+   * the empty array the real `1c` writes (below), because absent means "this
+   * report is too old to speak for them" and none of these cases is that.
+   */
+  notComparableAxes?: Array<{ scope: string; axis: string; reason: string }>
 }
 
 /** What the fake `1c` has done, so a test can assert against it. */
@@ -118,7 +125,12 @@ function fakeSteps(log: OneCLog, gates: ValuesBlock[]): StepRunner {
             diagnosis: 'the pixels disagree',
             nextStep: 'diagnose the fold',
             perceptual: { meanDiff: 0.7, pctOverThreshold: 0.3, regions: 0 },
-            values,
+            // BUG-139 — the real gate writes `notComparableAxes` on EVERY run, so
+            // the stand-in does too. A case that states none means "nothing was
+            // declined", which is what `[]` says; leaving the key out would say
+            // "this report cannot speak for declinations", which is a different
+            // claim and not the one any case here is making.
+            values: { notComparableAxes: [], ...values },
             coverage: { mirroredImages: 0, referencedImages: 0, unreferencedImages: [], sections: 1, findings: [] },
           }),
         )

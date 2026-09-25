@@ -138,6 +138,7 @@ export type {
   UnpairedObject,
   SectionPairing,
   UnpairedSection,
+  NotComparableAxis,
   DiffOptions,
   StateProjection,
   MultiStateCapture,

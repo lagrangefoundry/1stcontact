@@ -112,6 +112,10 @@ const NO_DELTAS = {
   unpairedActual: [],
   unpairedSections: [],
   unpairedActualSections: [],
+  // BUG-139 — nothing was DECLINED on these fixtures either, and the empty array
+  // is the claim rather than a filler: a layout collision is what these cells are
+  // about, and none of them stands in for a page whose bands overlap.
+  notComparableAxes: [],
 }
 const NO_COLLISIONS: EnvelopeReport = { pass: true, byWidth: [] }
 
