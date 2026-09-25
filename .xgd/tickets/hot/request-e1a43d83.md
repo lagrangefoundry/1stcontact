@@ -6,7 +6,7 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-24T23:32:48.574920+00:00'
+updated_at: '2026-09-25T00:07:58.970850+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   priority: medium
 ---
+
 
 
 
@@ -143,8 +144,12 @@ else.
   So a 500-line paste is refused, deliberately: eight pages is a document by any
   reading. The asymmetry decides the figure — a false refusal costs the client one
   drag-and-drop, while a false accept loses the knowledge-base entry permanently.
-  Anything from 12,000 to 32,000 is defensible, so the figure lives in one named
-  constant and is a one-line change.
+  **16,000 confirmed by the operator 2026-09-24**, on the calibration above, as
+  this project's judgement and not a value inherited from anywhere: REQ-177 names
+  no default and no figure appears in the framework, so this constant is the only
+  place the number exists. 12,000 to 32,000 was the defensible range considered;
+  it is recorded as the reasoning, not as a range still open. One named constant,
+  a one-line change if the beta says otherwise.
 - **The message states no number.** A figure in the sentence invites bargaining
   and counting; what the client needs is the gesture that works.
 - **Two enforcement points.** The composer, so the client is told before anything
