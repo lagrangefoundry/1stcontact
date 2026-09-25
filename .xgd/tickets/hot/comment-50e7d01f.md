@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T04:22:58.904463+00:00'
+updated_at: '2026-09-25T04:25:27.918701+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1842,5 +1842,83 @@ Three things I'd file, in this order — say which you want:
 Lets park parallel for now and just get it working
 
 You are moving a little fast for me, help me understand exactly what is going wrong and how you are proposing to fix it - what does accepted=false mean? Are requests being rejected? Do we need to provide more feedback to the primary from the delegate as to what it actually did?
+
+<!-- xgd-turn id="a0d0ffeb-e0d3-4d99-a1f4-5bfd0a9fad92-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T04:25:27.204609+00:00" -->
+#### Claude
+Fair — let me slow down and check one thing properly before I answer, because your third question is the one I haven't actually verified: what the consultant *receives* back.
+
+I need to correct something I told you. Let me verify the detail first.
+
+One correction to make to the record first — I overstated this to you.
+
+First, the correction: I told you two workers "did the work correctly and were recorded as having failed." Only **one** was. I've fixed that on both tickets.
+
+## What `accepted=false` means
+
+It's one boolean with a narrow meaning: *every check you asked for came back `passed`*. In code:
+
+```
+accepted = outcome === 'reported' && checks.every(c => c.verdict === 'passed')
+```
+
+A check can come back three ways — `passed`, `failed` (with a reason), or `unreported`, meaning the worker never answered it. `accepted` is false if any check is `failed` **or** `unreported`, or if the worker never reported at all.
+
+**The thing to be clear about: nothing is undone.** The worker writes to the site through the same `set_l1` the consultant uses, and those writes are committed as they happen. `ya6wkq`'s 18 element changes and `u4ej95`'s 2 are on the site right now. `accepted: false` means **"unverified — you still have an inspection to make"**. It does not mean rejected, reverted, or discarded. That's the design's stated intent, and it's working as intended.
+
+## Are requests being rejected?
+
+Two different things here, and only one is a rejection.
+
+**Yes — for two workers on 09-22, and this was real.** Every `set_l1` and `set_page_style` they attempted was refused by the host: `NOT_FOUND — Page 'stylea' has no L1 document`. `set_l1` replaces an existing element; it cannot create a root on an empty page. Those two delegations genuinely produced nothing because the platform wouldn't let them write. That's REQ-300, which has shipped and has never been re-tested.
+
+**No — for the other three.** Zero failed tool calls for `u4ej95` and `ya6wkq`; `msskzt` had one failed `set_page_style` out of 68 calls. The writes went in fine. Nothing about `accepted: false` rejects anything.
+
+## Do we need more feedback from the delegate to the primary?
+
+**No — and my earlier proposal was wrong. I've withdrawn it.** I went and read what the consultant actually receives:
+
+```
+summary    — the worker's prose
+changed    — the list of what it changed
+decisions  — decisions it recorded
+checks     — every asked check, each passed / failed+reason / unreported
+accepted, outcome, session, role, backend, usage
+```
+
+The per-check verdicts are already there and already distinguish "never answered" from "failed". The consultant already got the summary and the changed-list. I proposed surfacing information that was already surfaced.
+
+## So what is actually going wrong
+
+Corrected tally of the five failures:
+
+| worker | writes | asked check answered? | `accepted: false` correct? |
+|---|---|---|---|
+| q73amk | 0 — all refused | no | **yes** (REQ-300) |
+| tql0pf | 0 — all refused | no | **yes** (REQ-300) |
+| qen037 | — | never reported (`silent`) | **yes** |
+| ya6wkq | 18, none failed | **no** | **yes** |
+| u4ej95 | 2, none failed | yes, in parts | **no — artifact** |
+
+`accepted: false` was **correct in four of five**. Two real problems remain, and they're narrow:
+
+**1. The consultant writes compound checks.** It put four checks into one `accept` string. The worker answered all four, verbatim, as separate items — and exact-string pairing scored 0 of 1. That's `u4ej95`: verified work reported as unverified. **One case.**
+
+**2. The worker answers checks it invented.** `ya6wkq` was asked *"the pages `home` and `stylea` have zero changes recorded against them — verify with list_changes"* and replied with `WORDMARK 40px with proportional tracking`, `HEADLINE 92px…` and four more descriptions of its own work. It never answered the question. Here `unreported` did exactly its job.
+
+Both are the same shape: **a malformed check turns into a silent `unreported` later, instead of being refused at the moment it's offered.** So the fix is symmetric — refuse a multi-sentence `accept` entry when the consultant offers it (while it can still split it), and refuse a `passed` entry that answers no requested check when the worker offers it (so it's made to answer the real question).
+
+## One thing that isn't a code fix
+
+The consultant told you its workers "came back with nothing". For those two, that's false — twenty element changes landed and stayed, and it held the summary and changed-list when it said it. So part of this is what it **remembered** (one `accepted: false`) rather than what it was **told**. Worth knowing before we spend engineering on the information path, because that piece isn't on the information path.
+
+## What I'd do to just get it working
+
+1. **Re-test first, no code.** REQ-300 has shipped. Two of the five failures were that blocker, and nobody has tried since. That's the cheapest information available.
+2. **Then the two refusals above** — one bug, both sides of the seam.
+3. **Leave REQ-321 on hold.** Four of five `accepted: false` results were honest, so "the consultant is irrationally reluctant" is no longer a safe premise.
+
+Want me to file that bug, and does the re-test happen in your next session or should I set something up?
 
 <!-- xgd-chat-end -->
