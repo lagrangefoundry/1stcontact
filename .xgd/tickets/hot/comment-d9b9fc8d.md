@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:39:30.228910+00:00'
+updated_at: '2026-09-25T20:41:24.656718+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4554,5 +4554,25 @@ ok so I want to simplify further can you create me a ticket so that:
 2) build builds the kb too
 
 I don't want to have to remember any more steps that I need to :-)
+
+<!-- xgd-turn id="fde73ca0-e8c4-476d-aa66-d889d078bfd1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:41:23.502616+00:00" -->
+#### Claude
+Creating one ticket — both asks fold into a single "fewer steps to remember" change.
+
+**[[REQ-322]]** (`request-0d0644d6`) — *"`bin/dev up` starts the deployed environment, and `bin/build` builds the KB"*, priority high, filed under EPIC-16 and recorded as §N6. One ticket, not two: both are the same repair — a step you have to remember is a step that gets forgotten — applied to the two commands either side of `bin/deploy`.
+
+**On (1),** the ticket adds the `1c dev serve` row to `DEV_SERVICES` and drags one consequence in with it: **access-sim's origin has to move to 8789 in the same change.** `up` starts access-sim with no argument, so it fronts the old watch builder — and leaving that while `up` also starts 8789 gives you the worst of both: two servers up, and the one you reach through Access is the one being retired. It isn't cosmetic, because `ACCESS_DEV_OPEN = "1"` means a direct hit on 8789 can only ever reach *1st Contact*, so anything on another business **must** arrive through the simulator. Reaching the old path through Access becomes the thing that takes a flag — the retiring path carries the inconvenience.
+
+**On (2),** the one design call I made rather than asking: the KB stage is **gated on staleness, not run unconditionally.** `1c kb build` needs `CLOUDFLARE_API_TOKEN` and a network round trip, and making every build pay that would be a real regression for the many builds that touch no KB document. So: index covers the corpus → one line, nothing done, no token read; index behind → build it, then `1c assets`; index behind with no usable token → **fail there**, naming the token, instead of letting the build walk into `1c assets`'s refusal. Same refusal, one stage earlier, with the fix named. The staleness test is `requireCoherentKb` itself, not a second opinion — a second one is free to disagree with the one that gates the inline, and then build passes and ship refuses. `bin/kb-release` survives as the KB-only path but becomes a *caller* of that stage rather than a second spelling of it.
+
+**One thing I left as a boundary for you to overrule.** I did *not* make `bin/dev up` run `bin/build`. That would collapse the whole thing to one command, which is clearly the direction you're pushing — but `up` is also how you restart after a crash, and paying a full preflight-and-typecheck to get a port back seemed the wrong trade. It's written as an explicit open question in the Boundaries, so say the word and I'll flip it.
+
+Your steps after this lands: `bin/build` → `bin/deploy --env dev` → `bin/dev up`. Three, and none of them conditional on what you happened to edit. (Two, if you overrule that boundary.)
+
+The repro console stays out, as asked — it's genuinely independent and still visible to `1c ps`/`down`/`reap`.
+
+Want me to cut the branch and build it?
 
 <!-- xgd-chat-end -->
