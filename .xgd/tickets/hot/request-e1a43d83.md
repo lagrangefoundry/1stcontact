@@ -6,7 +6,7 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-25T01:26:54.353567+00:00'
+updated_at: '2026-09-25T01:32:01.446933+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -254,3 +254,21 @@ that boundary.
   the ceiling this deployment declared, and leaves the operator to tell the cases
   apart from those figures. Asserting a cause it cannot know would send them somewhere
   wrong with more confidence than the anonymous report it replaced.
+
+
+### One guard had to be widened
+
+`REQ-146`'s structural guard requires every `error:` value in `router.ts` built from a
+variable to be the scrubbed one, which is right: the leak it defends against arrives
+from below, as an SDK that puts the request it tried to send into the error it threw.
+A named constant whose whole value is written in that file in quotes cannot carry a
+secret, and the guard rejected one anyway — so the only ways past it were to inline
+the refusal sentence at the call site, losing the single named constant that makes the
+route and the composer say the same thing, or to wrap it in `scrub()`, which would be
+a redaction pass over bytes the file authored and would teach the next reader that
+`scrub` means something it does not.
+
+The guard now admits any `const` whose initializer is string literals and `+` and
+nothing else. It is a property and not an exemption list: a constant built from a
+template with an interpolation in it, or from another value, is still rejected —
+which is where a leak could actually hide.
