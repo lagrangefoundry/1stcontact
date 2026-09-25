@@ -5,9 +5,9 @@ type: request
 title: Take element authoring off the consultant so construction must be delegated
 created_by: EPIC-20
 created_at: '2026-09-25T03:59:12.140415+00:00'
-updated_at: '2026-09-25T03:59:12.140415+00:00'
+updated_at: '2026-09-25T04:11:10.267477+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-0923bb64
@@ -126,3 +126,54 @@ be reverted by a release is one nobody will try.
 
 That last measurement depends on **BUG-145** — the split currently loses half its
 subject, so until that lands there is no instrument fit to grade this change.
+
+
+---
+
+## HOLD — this ticket's premise is materially weakened (2026-09-24, same evening)
+
+Do not implement this as written. The reasoning above is *"the consultant will not
+delegate, so remove the capability to do otherwise"*. Evidence gathered after
+filing shows the unwillingness is largely **earned and misattributed**, not
+dispositional.
+
+Of six delegations ever, **one was accepted**:
+
+- **Two** were genuinely blocked by REQ-300 — every write refused with *"Page
+  'stylea' has no L1 document"*, because `set_l1` replaces an existing element and
+  cannot bootstrap an empty page. That has shipped and has **never been
+  re-tested**.
+- **Three** were recorded `accepted: false` while the worker **did the work
+  correctly**. `reconcile` pairs the caller's `accept` entries to the worker's
+  report by exact normalised string, and on all five 09-22 delegations the
+  consultant passed **one entry containing several concatenated checks**. A worker
+  answering them as separate items cannot ever match. `u4ej95` reported 4 passes
+  against 1 compound ask (0 pairs); `ya6wkq` reported 6 against 1 (0 pairs).
+- **One** — 09-24, with **six discrete checks** — paired 6 of 6 and was accepted.
+
+So the consultant observed an 83% rejection rate that was mostly an artifact of
+its own brief-writing meeting a brittle pairing rule, on top of a real blocker
+since fixed. **Compelling use of a mechanism with that observed record is the
+wrong order of operations.**
+
+### What to do first, in order
+
+1. Make an `unreported` check visible to the caller as distinct from a failed one.
+   Today both collapse into one `accepted: false` that reads identically, so a
+   caller cannot tell "I asked badly" from "the worker botched it".
+2. Re-test delegation now that REQ-300 has shipped.
+3. Run the free experiment: the consultant has independently articulated the
+   correct policy and committed to it. The next settled-decision-in-several-places
+   pass tests whether that holds. If it decays, this ticket ships on evidence.
+
+### If it does proceed, adopt the consultant's boundary instead
+
+Replace the element-authoring cut above with the rule the consultant stated
+itself: **a settled decision that has to land in several places goes to a worker;
+anything that is one edit, or any question of what the page should say or be,
+stays.** It is framed on what is *settled* rather than what is *numerous*, which
+is the distinction that matters given the constraint this ticket did not record:
+**a worker cannot ask the client anything.** Forcing unsettled, iterative
+work — four attempts at one section rule, three at the plaques — through a worker
+that cannot ask a question would be a regression, and the grant-only cut above
+cannot tell the two apart.
