@@ -50,6 +50,7 @@
  */
 
 import { mountChat } from '@lagrangefoundry/webui-chat'
+import { CHAT_MAX_SUBMISSION_CHARS, CHAT_OVER_LONG_MESSAGE } from './config.js'
 import { streamChatPrompt, streamChatReattach } from './api.js'
 import { sentPrompts } from './sent-prompts.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
@@ -603,6 +604,20 @@ export function createChatPanel(options = {}) {
       id: `${CHAT_ID_PREFIX}${next}`,
       emptyText: EMPTY_TEXT,
       toolPane: true,
+      // REFUSED BEFORE THE BOX IS CLEARED ([[REQ-309]]). lagrange-framework
+      // REQ-177 enforces this ahead of `clear()`, which is the only place a
+      // refusal can still leave the client where they were: the text stays put,
+      // nothing is painted, no turn opens, and `sendPrompt`, `onQueue` and
+      // `onInterject` below are not called — because nothing was submitted.
+      //
+      // BOTH OPTIONS ARE OURS AND THE COMPONENT HAS NO DEFAULT FOR EITHER. That is
+      // the right division: the panel cannot know why a bound exists or what to do
+      // instead, and a figure it invented would be a product decision made by a
+      // widget. Absent them there is no bound at all, which is what a build
+      // predating REQ-177 falls back to — and the route still refuses, so the
+      // client gets the same sentence one step later rather than none.
+      maxSubmissionChars: CHAT_MAX_SUBMISSION_CHARS,
+      overLongText: CHAT_OVER_LONG_MESSAGE,
       ...(storage ? { storage } : {}),
       sendPrompt: (text) => {
         const wire = expandPrompt(text)

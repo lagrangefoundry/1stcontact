@@ -783,6 +783,48 @@ export interface ProductTypePack {
   }
 }
 
+/**
+ * D1's documented maximum for a single string, BLOB **or row** ([[REQ-309]]).
+ *
+ * WRITTEN DOWN SO THE FIGURE BELOW CAN BE READ AS A DERIVATION rather than as a
+ * number somebody picked. This is the substrate's limit, stated by Cloudflare;
+ * {@link VALUE_CEILING_BYTES} is what this store declares to its callers, and the
+ * difference between the two is the point.
+ */
+export const D1_MAX_ROW_BYTES = 2_000_000
+
+/**
+ * The value ceiling this store DECLARES, in bytes ([[REQ-309]]).
+ *
+ * WHAT READS IT. lagrange-framework REQ-176 made an archived session artifact a
+ * *sequence* of bodies rather than one body that only grows, and it made the
+ * ceiling the store's to declare: `TicketSessionArchive` reads `max_value_bytes`
+ * off the client it was given and packs each segment to fit, opening a new comment
+ * when the open one would go over. A store that declares nothing keeps one body
+ * forever, which is correct for a filesystem and was fatal here — a live
+ * consultant session reached 2,162,212 bytes of `tool_transcript` over 85 turns
+ * and from that moment every archive write failed `SQLITE_TOOBIG`, so no turn was
+ * recorded and the session was dead. This one line is the whole of this host's
+ * side of that fix: the segmenting, the packing, the position markers and the join
+ * are the component's, and none of them is restated here.
+ *
+ * WHY IT IS *BELOW* {@link D1_MAX_ROW_BYTES} AND NOT EQUAL TO IT. That figure is
+ * documented as the maximum for a string, a BLOB *or a row*, and a comment is a
+ * row: the body travels beside a uid, a subject uid, a `kind`, a status, a version
+ * and two timestamps. A body packed to exactly the documented limit is therefore a
+ * ROW over it, and the refusal would arrive at the one moment the segmenting exists
+ * to prevent — on the fold that crossed the boundary. 100 KB of headroom is orders
+ * of magnitude more than a comment's own columns can occupy, and what it costs is one
+ * extra comment per 38 MB of conversation — which is not a cost anybody will measure.
+ *
+ * IT BOUNDS A SEGMENT AND NEVER THE CONVERSATION. Nothing is elided to fit: a
+ * session that outgrows this gets another comment, and a reader gets every byte
+ * back in order. The one thing a ceiling cannot absorb is a single turn larger
+ * than the whole of it, which is why this product refuses an over-long message at
+ * the front door rather than at the store — see `MAX_PROMPT_CHARS` in `router.ts`.
+ */
+export const VALUE_CEILING_BYTES = D1_MAX_ROW_BYTES - 100_000
+
 /** The bindings the ticket store needs. `BLOBS` is NOT `SITES` — see above. */
 export interface TicketStoreEnv {
   DB: D1Database
@@ -841,6 +883,14 @@ export function ticketStoreBase(
     // pre-scoped blob store in would be the one wiring mistake the component's
     // single wiring point exists to make impossible.
     blobs: new R2BlobStore(env.BLOBS),
+    // THE SUBSTRATE'S CEILING, DECLARED ONCE, HERE ([[REQ-309]]). This is the one
+    // place in the product that knows what the store is made of, so it is the only
+    // place that can honestly answer how big a value may get —
+    // {@link VALUE_CEILING_BYTES} states the reasoning. Forwarded verbatim to every
+    // scoped store by `forTenant`, which is why it is declared on the base handle
+    // rather than per tenant: the ceiling is a property of D1, and one business's
+    // is not another's to differ from.
+    maxValueBytes: VALUE_CEILING_BYTES,
     ...(opts.changePollMs == null ? {} : { changePollMs: opts.changePollMs }),
   })
 }
@@ -936,6 +986,21 @@ export async function ticketStoreFor(
  * would silence a typo as readily as it silences the missing types.
  */
 export interface TicketStore {
+  /**
+   * The largest single value this store will hold, in bytes ([[REQ-309]]).
+   *
+   * NOT AN OP, AND NAMED HERE ANYWAY. Everything else on this interface is
+   * something the product calls; this is something the product is *read for* —
+   * `TicketSessionArchive` looks for exactly this property on the client it was
+   * handed and segments its artifacts to fit. Leaving it untyped would leave the
+   * one half of the store's contract that nobody invokes as the one half nobody
+   * can see, and a rename upstream would surface as a conversation that quietly
+   * stopped segmenting rather than as a compile error.
+   *
+   * snake_case because the component's contract is snake_case — it sits beside
+   * `append_body`, not beside a TypeScript field this repository chose the name of.
+   */
+  readonly max_value_bytes: number
   create(a: {
     type: string
     title: string

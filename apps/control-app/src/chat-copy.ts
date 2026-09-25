@@ -651,24 +651,47 @@ export async function writeChats(
 }
 
 /**
- * Land one conversation's comments, matched by kind.
+ * Land one conversation's comments, matched by kind — a SEQUENCE per kind.
  *
  * BY KIND AND NOT BY POSITION, because kind is what the library reads them back
- * by: `TicketSessionArchive` walks a chat ticket's comments looking for the one
- * whose `fields.kind` is `chat_transcript`. A second comment of that kind would
- * make which transcript a session loads depend on scan order.
+ * by: `TicketSessionArchive` selects a chat ticket's comments by `fields.kind`.
  *
- * REPLACED IN PLACE RATHER THAN ADDED BESIDE, for exactly that reason. A
- * `force` re-copy of a conversation the destination already holds must leave it
- * holding one transcript, not two.
+ * AND BY *ONE KIND, MANY COMMENTS*, WHICH IT DID NOT USED TO BE ([[REQ-309]]).
+ * This function held one comment per kind, first one wins, and said why: a second
+ * comment of a kind would have made which transcript a session loads depend on scan
+ * order. lagrange-framework REQ-176 replaced that premise — an archived artifact is
+ * now a *sequence* of comments of one kind, each declaring its own position in its
+ * own bytes, because a single body cannot outgrow a store's value ceiling and a
+ * conversation must be able to. Against that, keying by kind alone was no longer a
+ * safeguard but a shredder: a segmented transcript arrived at the destination with
+ * every segment but one discarded, silently, and the copy reported success. Which
+ * is the *same* "nothing is thrown away" clause as the storage half, failing on the
+ * path that moves a conversation between deployments.
+ *
+ * ZIPPED BY ORDINAL, AND THAT NEEDS NO KNOWLEDGE OF THE SEGMENT FORMAT. Each body
+ * carries its own index, so which destination row receives which source body does
+ * not matter — what matters is that the destination ends up holding the same SET of
+ * bodies. So the nth comment of a kind takes the nth carried body, whatever order
+ * either side happens to list in, and this file keeps no copy of a marker syntax
+ * that belongs to the component. (`orderSegments` upstream recovers the reading
+ * order from the bodies for exactly this reason.)
+ *
+ * SURPLUS AT THE DESTINATION IS ARCHIVED, which is the other half of "replaced in
+ * place". A `--force` re-copy of a conversation the destination already holds must
+ * leave it holding the SOURCE's conversation — not the source's spliced onto the
+ * tail of a longer one it held before, which is what leaving a stale segment 3
+ * behind would produce the moment the archive joined them.
  *
  * AND THE SESSION FILE'S HEADER IS RE-ADDRESSED ON THE WAY IN ([[BUG-137]]).
  * That comment is not opaque bytes: it carries the session id a third time, the
  * backend name the manager resolves against its registry when it attaches, and
  * the uid of the chat ticket the session is homed on — all three the source's.
  * See {@link reAddressTranscript}, which touches the header and nothing below it.
- * Every other kind, `tool_transcript` included, is carried untouched: they are
- * records of what happened rather than statements about where it lives.
+ * It is applied to EVERY transcript segment, because a segment is a complete
+ * session file carrying its own copy of that header — self-contained precisely so
+ * that a body already in a store is a conforming sequence of one. Every other kind,
+ * `tool_transcript` included, is carried untouched: they are records of what
+ * happened rather than statements about where it lives.
  */
 async function writeComments(
   store: TicketStore,
@@ -676,21 +699,38 @@ async function writeComments(
   comments: ChatComment[],
   place: ReAddressed,
 ): Promise<number> {
-  const existing = new Map<string, Ticket>()
+  const existing = new Map<string, Ticket[]>()
   for (const comment of (await store.comments({ uid })).comments) {
     const kind = String((comment.fields ?? {}).kind ?? '')
-    if (kind !== '' && !existing.has(kind)) existing.set(kind, comment)
+    if (kind === '') continue
+    const rows = existing.get(kind)
+    if (rows === undefined) existing.set(kind, [comment])
+    else rows.push(comment)
   }
+  // How many of each kind the carried record has claimed. What is left past that
+  // mark is the surplus, which is why the archiving pass below needs no second read
+  // of the store and no knowledge of which rows it wrote.
+  const taken = new Map<string, number>()
   let written = 0
   for (const comment of comments) {
     const kind = String(comment.kind ?? '').trim()
     if (kind === '') continue
     const carried = String(comment.body ?? '')
     const body = kind === TRANSCRIPT_KIND ? reAddressTranscript(carried, place, uid) : carried
-    const there = existing.get(kind)
+    const at = taken.get(kind) ?? 0
+    const there = (existing.get(kind) ?? [])[at]
     if (there === undefined) await store.comment({ uid, kind, body })
     else await store.update({ uid: there.uid, patch: { body } })
+    taken.set(kind, at + 1)
     written += 1
+  }
+  // ARCHIVED AND NOT DELETED, on the same reasoning the stray chat row above is:
+  // the operator can still reach what was there if this copy turns out to be the
+  // mistake. What it must not do is stay where the archive would read it.
+  for (const [kind, rows] of existing) {
+    for (const surplus of rows.slice(taken.get(kind) ?? 0)) {
+      await store.archive({ uid: surplus.uid })
+    }
   }
   return written
 }
