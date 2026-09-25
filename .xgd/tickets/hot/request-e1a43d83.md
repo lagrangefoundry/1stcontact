@@ -6,7 +6,7 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-25T01:32:01.446933+00:00'
+updated_at: '2026-09-25T01:33:04.290774+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -272,3 +272,13 @@ The guard now admits any `const` whose initializer is string literals and `+` an
 nothing else. It is a property and not an exemption list: a constant built from a
 template with an interpolation in it, or from another value, is still rejected —
 which is where a leak could actually hide.
+
+
+### The sentence names a control, so the control is pinned
+
+The refusal works by sending the client somewhere better, and it names that somewhere
+by its label. Rename the drop area and the sentence points at a thing that is not on
+the screen — a client told to use a control that does not exist is worse off than one
+told only that their message was too long. So the sentence is held to the drop area's
+actual label, and to the promise that area's own hint makes, by the same test that
+holds the two sides of the wire equal.
