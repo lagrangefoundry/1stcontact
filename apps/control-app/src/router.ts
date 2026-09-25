@@ -191,6 +191,7 @@ import {
   tenantSpendDays,
   tenantSpendLeague,
   tenantSpendReport,
+  tenantTurnCosts,
   type SpendPeriod,
 } from './spend'
 import {
@@ -3750,7 +3751,19 @@ async function routeUncached(
      * a run at the head of the list is what *failing right now* looks like — and
      * the rows are what let an operator carry a session id and a turn id to the
      * incident without reconstructing it from a platform tail, which is
-     * requirement 4.
+     * requirement 4. Those two identifiers still travel on the wire though the
+     * console stopped printing them as columns ([[REQ-320]]): a correlation is
+     * performed somewhere, and dropping the fields would be deciding for every
+     * future reader that it never will be.
+     *
+     * AND IT JOINS THE METER TO THE LEDGER ([[REQ-320]]). `turn_log` knows when a
+     * turn began and how it ended and nothing about money; `turn_spend` holds the
+     * cost under the same `turn_id`. The join is HERE rather than in either
+     * module, because `turn-log.ts` owning a read of the meter — or `spend.ts` a
+     * read of the ledger — would make two tables' worth of vocabulary one
+     * module's business for the sake of one surface. The cost is the turn's TOTAL,
+     * its own spend plus what it attributed to any worker, which is the figure
+     * that stops a delegating turn reading as the cheapest thing on the pane.
      *
      * BEHIND `ownsPlatformBusiness`, AND 404 RATHER THAN 403, on
      * {@link ADMIN_ZONES_PATH}'s reasoning exactly.
@@ -3770,11 +3783,19 @@ async function routeUncached(
       const business = (url.searchParams.get('business') ?? '').trim()
       if (business === '') return json(400, { error: 'business is required' })
       const health = turnHealth(await tenantTurns(env, business))
+      const costs = await tenantTurnCosts(
+        env,
+        business,
+        health.turns.map((turn) => turn.turn),
+      )
       return json(200, {
         business,
         counts: health.counts,
         consecutiveLost: health.consecutiveLost,
-        turns: health.turns,
+        // ABSENT AND NOT ZERO, all the way to the wire. A turn in flight, a turn
+        // that died, and a turn that failed before its terminal meta arrived have
+        // no meter row at all, and `null` is what the surface renders as a dash.
+        turns: health.turns.map((turn) => ({ ...turn, costMicros: costs[turn.turn] ?? null })),
       })
     }
 

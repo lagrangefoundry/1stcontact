@@ -702,11 +702,57 @@ export const TURN_HEALTH_FAILING = (runLength) =>
   `The last ${runLength} turn${runLength === 1 ? '' : 's'} of this business died ` +
   'without finishing. Something is killing them; the customer is being told nothing.'
 export const TURN_HEALTH_RECENT = 'Most recent turns'
+/**
+ * The columns of the recent-turn table — three, since [[REQ-320]].
+ *
+ * WHAT WENT AND WHY. *Conversation* and *Turn* were an identifier repeated
+ * unchanged down every row of a pane that is already scoped to one business, and
+ * an opaque turn id that named nothing an operator could act on. Neither ever
+ * answered a question; between them they took most of the width, which is what
+ * left no room for the one figure this table is read for.
+ *
+ * WHAT THE THREE ANSWER, IN THE ORDER A READER ASKS THEM: *was this recently*,
+ * *did it work*, *what did it cost*. Nothing else about a turn is worth a column
+ * — a reason is a sentence and sits beneath its row, and an identifier belongs
+ * wherever a correlation is actually performed.
+ *
+ * KEYED BY A STABLE ID, exactly as {@link TENANT_COST_DAY_COLUMNS} is: a UAT
+ * addresses `[data-column="cost"]` rather than a position in a row, and that
+ * stays true of a table one edit away from being a different width again.
+ */
 export const TURN_HEALTH_COLUMNS = {
   started: 'Started',
-  session: 'Conversation',
   state: 'Ended',
-  turn: 'Turn',
+  cost: 'Cost',
+}
+/**
+ * When a turn started, in the zone of the person reading it ([[REQ-320]]).
+ *
+ * THE LOCAL ZONE AND NOT THE STORED ONE. The ledger keeps ISO-8601 in UTC, which
+ * is right for a row that will be compared against another machine's row and
+ * wrong for the only question this column is ever asked: *was this recently*. An
+ * operator who has to subtract seven hours before answering that does not answer
+ * it — so the conversion happens here, once, on the way to the screen.
+ *
+ * THE BROWSER'S OWN ZONE, NOT A CONFIGURED ONE. This runs in the reader's
+ * browser with the reader present, so `toLocaleString` already knows both their
+ * zone and their locale, and a configured zone would be a second opinion about a
+ * fact the platform it runs on has.
+ *
+ * TO THE SECOND, WHICH IS NOT DECORATION. Recent turns routinely sit seconds
+ * apart — a retry, a delegation, a sweep — and a minute-resolution stamp renders
+ * two distinct turns as one moment, which is the specific confusion this table
+ * exists to prevent.
+ *
+ * A STAMP THAT WILL NOT PARSE IS PRINTED VERBATIM and never as a dash or as
+ * *Invalid Date*: it is still the text the ledger holds, which is what somebody
+ * diagnosing it needs, and this function's job is to be readable rather than to
+ * judge the row.
+ */
+export const TURN_HEALTH_STARTED = (startedAt) => {
+  const at = Date.parse(startedAt)
+  if (!Number.isFinite(at)) return `${startedAt ?? ''}`
+  return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
 }
 
 /**
