@@ -6,16 +6,24 @@ title: 'bin/dev down cannot stop the builder: up records the wrapper''s pid, not
   listener''s'
 created_by: EPIC-16
 created_at: '2026-09-25T21:46:45.739941+00:00'
-updated_at: '2026-09-25T23:16:58.289978+00:00'
+updated_at: '2026-09-25T23:17:57.818622+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-2a55bc9f
+  commits:
+  - working_sha: c0ea850b13dc3a4524a4f3db319d941438813ce7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7eb13614b210b6366d139338da3b9abeab77bda5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.366
 ---
 
 ## What happens
