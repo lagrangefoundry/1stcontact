@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:18:57.681942+00:00'
+updated_at: '2026-09-25T21:20:09.346789+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4665,5 +4665,30 @@ Shall I file this as a bug under EPIC-16? It's a real defect with two parts wort
 <!-- xgd-chat role="user" ts="2026-09-25T21:18:57.448193+00:00" -->
 #### You
 Yes file the bug - does the bug need to be fixed before I can log in?
+
+<!-- xgd-turn id="0d9b83bc-0fd4-4d90-befe-5db00b76f6b9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T21:20:08.728497+00:00" -->
+#### Claude
+No — you can log in today without it. Filing now.
+
+**[[BUG-146]]** (`bug-3868705d`), priority high, filed under EPIC-16 and recorded as §N7.
+
+**No — you don't need the fix to log in.** The workaround works today, and the reason it works is the same mechanism the bug is about: the secrets file *is* in the layering, and it's loaded **last**. `devEnvLayering`'s own comment pins the direction — *"Wrangler parses these with `override: true`, so the last file wins"* — so values put there beat `.dev.vars`'s blanks.
+
+```bash
+./bin/access-sim --print-env >> ~/Documents/secrets/1c.dev.env
+bin/dev down && bin/dev up          # plus restart your 1c dev serve
+```
+
+Then browse **`http://127.0.0.1:8799`** — with Access switched on, the simulator is the only thing that can sign you in, and `127.0.0.1` is the cookie host. Not `localhost`, and not the builder port directly.
+
+Two things that make this cheaper than it looks: **no redeploy is needed for 8789**, because env-files are read at server start and aren't baked into the snapshot — the freeze doesn't cover them. And the three keys `--print-env` emits aren't credentials (`wrangler.toml` states it: the team domain is public, the AUD is an identifier), so the secrets file is an odd home but a harmless one.
+
+What the fix buys you later is not the login — it's that `.dev.vars.local` becomes the file access-sim already tells you to write, instead of a file nothing reads.
+
+**Worth flagging from the diagnosis:** the environment came up clean by every measure this epic added. `1c ps` showed five healthy services, `1c workerd` reported one version, `bin/deploy --env dev` ran its hooks and guard without complaint — and it was unusable as any person. None of those three signals looks at identity, which is why the runbook in §N got you to a green board and a dead builder. I've recorded that in the epic rather than just the ticket.
+
+Once you're in, the open question from REQ-322 is still yours to settle: whether `bin/dev up` should also run `bin/build`.
 
 <!-- xgd-chat-end -->
