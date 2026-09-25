@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T03:54:43.788912+00:00'
+updated_at: '2026-09-25T03:59:34.220340+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1699,5 +1699,43 @@ Can I also get an REQ to change the console display of the costs:
 There is a log of turns at the bottom of the screen - it shows me NOTHING useful. Can we make it (1) show the timestamp in the local timezone (2) Remove conversation and turn they are of literally no use (3) add the cost of the turn
 
 Then create a REQ for your 1 **Take the bulk construction tools off the consultant**
+
+<!-- xgd-turn id="8460eed5-f865-44ee-8c2d-a955ba49b062-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T03:59:33.896347+00:00" -->
+#### Claude
+Three tickets. First let me find the actual console turn log so the REQ describes the real thing.
+
+Found the real surface. `dollars(micros)` already exists and already renders absence as a dash — the REQ should reuse it. Filing.
+
+The grant model is group-based, so the "narrowed grant" is one line — but I need to know which group holds the write tools.
+
+`AuthorPages` bundles `set_l1` with `use_font` — so the one-line grant edit would remove a tool the consultant legitimately used. Confirming the group names.
+
+All three filed and linked under EPIC-20.
+
+## BUG-145 — Delegated spend is lost when the calling turn writes no spend row
+
+`turnSpendRecord` does `if (!measured(usage)) return null` — the **caller's** usage gates the whole row, and `attributed` is a field of that row, so it dies with it. Fix is to write the row when *either* the caller's usage is measured *or* `attributed` is non-empty. I wrote up the consequence that makes it a decision rather than a one-liner: you gain rows whose four counters are absent but whose `attributed` isn't, which deliberately widens *nothing, never zero*. Such a row says "this turn caused measured spend elsewhere and none of its own was observed" — a fact, not a zero — and its `cost_micros` must be null rather than `0`.
+
+## REQ-320 — Turn table: local timestamps, drop the identifier columns, show the cost
+
+Against the real surface: `TURN_HEALTH_COLUMNS` in `builder/config.js` and `recentOf()` in `builder/turn-health.js`. Three notes that matter for whoever picks it up:
+
+- **Cost isn't on that wire.** The table is fed from `turn_log`, which has no cost; the figure is `turn_spend.cost_micros` under the same `turn_id`, so the route has to join. And the figure should be the turn's *total* — its own plus what it handed off — or the delegating turns look cheapest exactly when you're trying to read them.
+- **`dollars(micros)` already exists** in `builder/tenant-cost.js` and already renders null as a dash, never `$0.00`. That rule matters here: in-flight, died, and failed turns have no spend row at all.
+- Removing the Conversation column contradicts REQ-306's own commentary, which argues *for* printing that id whole. That prose needs revising, not deleting — a file left arguing for a column it no longer renders is worse than either state.
+
+## REQ-321 — Take element authoring off the consultant
+
+The one-line version doesn't work, and that's the useful finding. `l1-surface.json` declares `AuthorPages = ['set_l1', 'set_page_style', 'use_font']`, so dropping the group would also remove `use_font` — which the consultant used correctly this morning, binding both typefaces itself *before* handing off the 27-element sweep. That's exactly the division we want. So the group splits: `set_l1` goes, `set_page_style`/`use_font` stay with both roles.
+
+I argued against the per-turn allowance as the primary mechanism, mainly because it breaks sweeps mid-flight — the consultant makes three writes, gets refused, and then has to brief a worker on "the remaining eleven elements" from a page it left half-changed. A brief written up front beats one written after hitting a wall.
+
+Two things in there are flagged as *check, don't assume*: whether `ManagePages`/`ManageComponents` reopen the path (`update_page` especially), and the latency trade — today's delegation took **2m54s**, but that worker made 70 tool calls, so a single-element brief should be far cheaper. The whole trade rests on that, so it's named as the first thing to verify.
+
+Both REQs note they can't be graded until BUG-145 lands, since REQ-293's split is the designated instrument and it currently loses half its subject.
+
+I haven't cut branches or written code for any of these — this session is scoped to the epic, so the branch belongs to whoever picks each child up. Want me to start on BUG-145, since it gates the other two?
 
 <!-- xgd-chat-end -->
