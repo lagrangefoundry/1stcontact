@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:39:03.891934+00:00'
+updated_at: '2026-09-25T21:47:24.703559+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4766,5 +4766,55 @@ Both recorded: **EPIC-16 §N8**, and the append-hazard evidence appended to **BU
 I am using the repro console so I don't want to use reap
 
 I think the confusion here is that dev down does not bring the builder down - can I have a bug for that too please?
+
+<!-- xgd-turn id="0dfeda2f-6dab-407d-9fba-38730ce73bbf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T21:47:24.265979+00:00" -->
+#### Claude
+Confirmed, and it's a sharper defect than "the builder was started by hand" — `bin/dev up` **records the wrong pid**. Proof from your live environment (all four started by `up` at 21:40 UTC):
+
+| service | pidfile pid | pid actually listening | match |
+|---|---|---|---|
+| filing | 52987 | 52987 | ✅ `bin/dev` |
+| **builder** | **53215** | **53613** | ❌ `-` |
+| **public-site** | **53634** | **53763** | ❌ `-` |
+| access-sim | 53781 | 53781 | ✅ `bin/dev` |
+
+`lsof -ti tcp:8788` says 53613 (workerd); 53215 is alive and is the `node` wrapper. The split is exactly **services that fork a grandchild** (`bin/1c builder` → wrangler → workerd; `pnpm dev` → wrangler → workerd) versus **services that are their own listener** (filing, access-sim). `devUp` records `child.pid`, which for the two Worker services is the wrapper.
+
+Filing it now.
+
+**BUG-147** — *`bin/dev down` cannot stop the builder: `up` records the wrapper's pid, not the listener's* — filed under EPIC-16, priority high. It sets out the three consequences (`down` signals a non-serving process; `ps` reports a managed service as unowned; `down` then deletes the pidfile anyway and routes you to `reap`), and states what a fix has to establish — including that restarting *one* service has no spelling today.
+
+I also corrected both places I'd got the cause wrong: EPIC-16 §N8 and BUG-146 both said the builder had been started by hand. It hadn't — `up` started it and recorded the wrong pid.
+
+## Restarting just the builder, without reap
+
+You're right to refuse `reap` — it targets `ours && !managed`, so it would also take public-site and that long-lived node process on **8712** (pid 4476, survived every restart so far). Do it surgically instead:
+
+```bash
+kill $(python3 -c "import json;print(json.load(open('storage/tmp/dev/builder.pid'))['pid'])") \
+     $(lsof -ti tcp:8788 -sTCP:LISTEN)
+./bin/1c ps            # confirm 8788 is gone
+bin/dev up             # the other three answer, so up leaves them alone
+```
+
+Both pids are needed and that's the bug in miniature: the first is the `bin/1c` wrapper the pidfile names, the second is the `workerd` actually serving. `bin/dev up` then starts only the builder, and 8712 is never touched.
+
+Re-derive the numbers rather than reusing 53215/53613 — they'll have moved.
+
+Fix the secrets file first, though, or the restart just swaps dev-open for a 503 on every request:
+
+```bash
+python3 - <<'PY'
+import os, re
+p = os.path.expanduser('~/Documents/secrets/1c.dev.env')
+s = open(p).read()
+s = re.sub(r'(?<!\n)ACCESS_TEAM_DOMAIN=', '\nACCESS_TEAM_DOMAIN=', s)
+if not s.endswith('\n'): s += '\n'
+open(p, 'w').write(s)
+PY
+sed -E 's/=.*/=<set>/' ~/Documents/secrets/1c.dev.env
+```
 
 <!-- xgd-chat-end -->
