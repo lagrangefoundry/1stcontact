@@ -6,10 +6,10 @@ title: 'perceptual/region ranker: the top lead is the band, not the run, and onl
   one side can offer a band as an element'
 created_by: repro-console:repro-gigabytealchemy-ai#7
 created_at: '2026-09-25T21:46:49.867054+00:00'
-updated_at: '2026-09-25T21:46:49.867054+00:00'
+updated_at: '2026-09-25T23:24:27.525707+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - instrument-blind
