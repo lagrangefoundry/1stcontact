@@ -5,9 +5,9 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T20:41:03.760638+00:00'
+updated_at: '2026-09-25T20:41:10.608668+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -1998,3 +1998,17 @@ belongs with the retirement step rather than as its own ticket.
    its own Vite server and runs each step as a fresh `1c` process. It needs neither
    the builder nor filing nor access-sim, and nothing in the dev environment needs
    it. It is in `1c ps`'s known-port table, so `up`/`down`/`reap` see it.
+
+
+### N6 — Filed (2026-09-25)
+
+- [[REQ-322]] **`bin/dev up` starts the deployed environment, and `bin/build` builds the
+  KB** — closes §N2's gap (the `dev serve` row in `DEV_SERVICES`, plus §N3's access-sim
+  origin, which has to move with it) and folds `bin/kb-release`'s ordering into
+  `bin/build` as a staleness-gated stage. One ticket because both are the same repair —
+  a step the operator has to remember is a step that will be forgotten — applied to the
+  two commands either side of `bin/deploy`.
+
+§N4 (the public site is not served from its snapshot) is explicitly left out of it: `up`
+already starts the public site, so it costs no remembered step, and it is a freeze gap
+that belongs with retirement.
