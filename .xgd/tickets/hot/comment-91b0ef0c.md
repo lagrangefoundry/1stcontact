@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T02:36:08.557912+00:00'
+updated_at: '2026-09-25T02:38:37.389838+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2399,5 +2399,11 @@ The work I'd scope, in order:
 Item 1 is the one that unblocks the loop — once it exists, a round can find and file this class itself.
 
 Want me to scope these as children of EPIC-12? My probe scripts are at `.xgd/tmp/bandprobe.mjs` and `bandprobe2.mjs` if you want to re-run the numbers. Nothing committed — investigation only.
+
+<!-- xgd-turn id="a478ade7-0428-451a-88ac-4844491b9be8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T02:38:37.105371+00:00" -->
+#### You
+Yes we need tickets for these please
 
 <!-- xgd-chat-end -->
