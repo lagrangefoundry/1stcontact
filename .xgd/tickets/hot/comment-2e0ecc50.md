@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-310
 created_by: xgd
 created_at: '2026-09-25T00:36:08.891458+00:00'
-updated_at: '2026-09-25T00:46:36.299527+00:00'
+updated_at: '2026-09-25T00:48:41.169142+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -87,5 +87,45 @@ I'd take the second. It is the rule `bin/kb-release` already argues for itself: 
 #### You
 1 - just create the doc tickets please
 Once the sink is a ticket, regenerating on every `1c kb export` means `bin/kb-release`** commits to the ticket store**, and a new clock appears: code → ticket body (the existing `1c assets` skew check only covers corpus → index). <-- confused we are talking about the sources being tickets not the sinks. What do you mean?
+
+<!-- xgd-turn id="1b68e1d7-9cbb-4f56-b41a-aeb6e11e4c67-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T00:48:40.525986+00:00" -->
+#### Claude
+Two things: answering the "sink" question, then creating the tickets.
+
+## On "sink"
+
+I was using the ticket's own word, and it's the confusing one. Both statements are true because it's a two-stage pipeline:
+
+```
+code  ──generator──▶  ???  ──export──▶  kb/system/*.md  ──build──▶  index
+```
+
+The **source** of a projection is always code (`CATALOG`, the Zod schemas, `l1-surface.json`) — that doesn't change. What changes is where the generator *puts its output*: today straight into `kb/system/REF-l1.md`, in future into the ticket body. So the generator's destination becomes the export's source — the ticket sits in the middle, and it's a sink for one stage and a source for the next. "Regenerating on every export" means `1c kb export` would run the generator, i.e. write ticket bodies.
+
+The consequence I was flagging: `xgd ticket update` **auto-commits** (the last five commits on this branch are `xgd(ticket): update …`). So if the generator runs inside `1c kb export`, then `bin/kb-release` — a build command — produces git commits in `.xgd/tickets/`. Today it produces only gitignored artifacts under `kb/system/`. That's the argument for a separate `1c kb project` verb plus a drift check, rather than folding the generator into export.
+
+Let me get the source paths right before filing.
+
+Sources confirmed. Seeding each ticket with the current projection output, so the tickets are truthful the moment they exist (and the first generator run has a real body to diff against).
+
+Three tickets created:
+
+| id | uid | `fields.source` (resolver key) |
+|---|---|---|
+| **DOC-57** The components a site can use | `doc-0ee16fbf` | `packages/framework/src/modules/catalog.ts` |
+| **DOC-58** The vocabulary a page is written in | `doc-6db9a7ba` | `packages/site-schema/src/l1/schema.ts` |
+| **DOC-59** The site you look after — what can be changed, and how | `doc-4692b21d` | `tools/generate/src/cli/ai/l1-surface.json` |
+
+Each carries `doc_kind: system_kb`, `projected: true`, and the current projection body verbatim (6.3 KB / 27.7 KB / 60.4 KB).
+
+Three notes on what I chose:
+
+- **The source keys are repo-relative paths**, mirroring DOC-56's `fonts/catalogue.json`, and deliberately *not* the prose each projection currently declares — `REF-surface` says "the declared control surface (version 14)", which would orphan the ticket on the next surface bump. The key is an identity, not a dependency list: DOC-58's projection actually reads `l1/schema.ts`, `l1/validate.ts` and the `@1stcontact/site-schema` exports, and the one path names it rather than enumerating them.
+- **DOC-59's title is the derived one** (`l1-surface.json`'s `title` + " — what can be changed, and how"). That's decision 3 still open — the ticket now owns a title the code currently computes.
+- **Don't run `1c kb build` or `bin/kb-release` until the code lands.** With these tickets existing and `writeProjections()` still writing files, an export produces six documents where three belong — DOC-57/58/59 beside their `REF-*` twins, near-identical text competing in retrieval. Harmless as long as nothing rebuilds in between.
+
+DOC-56's `projected: false` I left alone — separate from what you asked for, still worth a one-field fix whenever.
 
 <!-- xgd-chat-end -->
