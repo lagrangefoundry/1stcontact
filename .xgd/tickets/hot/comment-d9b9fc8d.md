@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:11:32.990557+00:00'
+updated_at: '2026-09-25T21:18:57.681942+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4659,5 +4659,11 @@ After that, browse **`http://127.0.0.1:8799`**, not the builder port directly �
 I've verified the mechanism by measurement and by reading the code, but not end-to-end — I'd need to restart your servers to do that, which is yours to run.
 
 Shall I file this as a bug under EPIC-16? It's a real defect with two parts worth pinning — `.dev.vars.local` missing from `devEnvLayering`, and `dev serve` advertising a host that breaks the sign-in path — and both sit squarely in the dev-environment work REQ-322 is already touching.
+
+<!-- xgd-turn id="0d9b83bc-0fd4-4d90-befe-5db00b76f6b9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T21:18:57.448193+00:00" -->
+#### You
+Yes file the bug - does the bug need to be fixed before I can log in?
 
 <!-- xgd-chat-end -->
