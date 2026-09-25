@@ -93,6 +93,16 @@ import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
 import { assertOneWorkerd, workerdGateKey } from './workerd'
 import {
+  devDown,
+  devReap,
+  devUp,
+  formatDown,
+  formatReap,
+  formatUp,
+  readDevPidfiles,
+} from './dev'
+import { devProcessTable, formatProcessTable } from './ps'
+import {
   assertIndexSeam as assertIndexSeamImpl,
   assertSharedStore as assertSharedStoreImpl,
   checkSharedStore as checkSharedStoreImpl,
@@ -329,6 +339,52 @@ export {
 } from './preflight'
 export type { PreflightFinding, PreflightReport, PreflightOptions, Resolver } from './preflight'
 export {
+  DEV_PORT_BAND,
+  KNOWN_SERVICES,
+  classifyCwd,
+  devProcessTable,
+  formatProcessTable,
+  inDevPortBand,
+  knownPort,
+  listenerCwds,
+  parseLsofSockets,
+  PROCESS_TABLE_HEADER,
+  repoTopology,
+  splitListenName,
+} from './ps'
+export type {
+  DevListener,
+  DevProcessTable,
+  KnownService,
+  ListenerOrigin,
+  RepoTopology,
+} from './ps'
+export {
+  DEV_SERVICES,
+  devDeploy,
+  devDown,
+  devReap,
+  devStateDir,
+  devTable,
+  devUp,
+  formatDown,
+  formatReap,
+  formatUp,
+  pidAlive,
+  readDevPidfiles,
+  removeDevPidfile,
+  writeDevPidfile,
+} from './dev'
+export type {
+  DevDeployStep,
+  DevDownOutcome,
+  DevPidfile,
+  DevReapOutcome,
+  DevService,
+  DevStarted,
+  DevUpOutcome,
+} from './dev'
+export {
   assertOneWorkerd,
   checkWorkerd,
   scanWorkerd,
@@ -415,6 +471,38 @@ Usage:
     --no-filing starts no listener. It does not un-configure the address, which
     this command does not own — the assistant is still offered the tool and is
     told the project is unreachable when it uses it, which the banner also says.
+  1c ps [--json]
+    Every server this project has running, with its pid, its port and the directory
+    it was started from ([[REQ-319]]). Built on \`lsof\`, not \`ps\` — \`ps aux\` returns
+    nothing at all under an agent sandbox, which is the condition that let eight
+    zombie listeners accumulate unseen. Each row is classified by its working
+    directory: this checkout, an .xgd worktree of this repo, another project, or
+    undeterminable. A port no constant names is still a row, naming the cwd and
+    saying the service is unrecognised — an unnamed listener inside this repo's tree
+    is exactly what has never been visible. Listeners belonging to other projects
+    are reported so a port collision is legible, and are never reaped.
+    It returns the table as a VALUE: \`bin/dev down\` and \`bin/dev reap\` read the
+    same function rather than parsing this output.
+
+  1c dev up | down | reap [--dry-run] [--json]     (\`bin/dev\` is the launcher)
+    up    Deploys to the local dev target (REQ-318's \`bin/deploy --env dev\`, skipped
+          with a line while that target does not exist), then starts filing, the
+          builder, the public site and access-sim in dependency order and records a
+          pidfile per service under storage/tmp/dev. A service already answering is
+          left alone rather than duplicated.
+    down  SIGTERMs what the pidfiles name, then VERIFIES the ports are free through
+          \`1c ps\` rather than assuming the signal landed. Exits non-zero when a port
+          it was asked to free is still answering, and removes that service's pidfile
+          so \`reap\` inherits it.
+    reap  The backstop. Kills every listener whose cwd is this checkout or an .xgd
+          worktree of it and which no pidfile claims — SIGTERM, then SIGKILL what is
+          still there. It is not redundant with \`down\`: a worktree torn down
+          mid-session takes its pidfile with it, so \`down\` can never be run there,
+          and four of the eight zombies arrived exactly that way. \`--dry-run\` lists
+          what it would stop and kills nothing. It distinguishes killed from could
+          not kill — a detached listener started inside an agent sandbox survives a
+          kill sent from inside it, and only the operator can stop those.
+
   1c filing [--port <n>] [--token <t>]
     Starts the filing service on its own and waits. Use it when the dev server
     is started some other way — by hand, from an editor, or alongside
@@ -1478,6 +1566,57 @@ export async function run(argv: string[]): Promise<void> {
         process.once('SIGTERM', stop)
       })
       return
+    }
+
+    case 'ps': {
+      // [[REQ-319]] — what is running here, with its pid, its port and the
+      // directory it was started from. Built on `lsof` rather than `ps`, which
+      // returns nothing at all under the agent sandbox; see `ps.ts`.
+      //
+      // THE PIDFILES ARE READ HERE rather than inside the survey, because they
+      // belong to `bin/dev` and `ps.ts` has no business knowing where that writes
+      // them. It is the one fact the survey cannot observe for itself.
+      const root = repoRoot()
+      const table = devProcessTable({
+        repoRoot: root,
+        managedPids: readDevPidfiles(root).map((r) => r.pid),
+      })
+      console.log(flags.json === true ? JSON.stringify(table, null, 2) : formatProcessTable(table))
+      // A SURVEY THAT FOUND NOTHING IS STILL A SUCCESSFUL SURVEY. What is not is
+      // one that could not run: `lsof` absent means the answer is unknown rather
+      // than empty, and exiting 0 on that would let a caller read silence as calm.
+      if (!table.probed) process.exitCode = EXIT_CODES.ENVIRONMENT
+      return
+    }
+
+    case 'dev': {
+      // [[REQ-319]] — `bin/dev` is a launcher for this verb and nothing else, so
+      // the three subcommands live here beside `1c ps`, which is the table all
+      // three of them read.
+      const root = repoRoot()
+      const sub = rest[0]
+      if (sub === 'up') {
+        const outcome = await devUp({ repoRoot: root })
+        console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatUp(outcome))
+        if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
+        return
+      }
+      if (sub === 'down') {
+        const outcome = await devDown({ repoRoot: root })
+        console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatDown(outcome))
+        // A PORT THAT IS STILL ANSWERING IS A FAILED `down`, and the exit code has
+        // to say so: the caller that matters is a script teeing up a fresh start,
+        // and it would otherwise proceed into a port collision.
+        if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
+        return
+      }
+      if (sub === 'reap') {
+        const outcome = await devReap({ repoRoot: root, dryRun: flags['dry-run'] === true })
+        console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatReap(outcome))
+        if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
+        return
+      }
+      throw unknownSub('dev', sub)
     }
 
     case 'kb': {
