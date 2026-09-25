@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T21:19:58.004595+00:00'
+updated_at: '2026-09-25T21:35:25.671052+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2031,3 +2031,51 @@ that belongs with retirement.
 dev environment came up clean by every measure `1c ps`, `1c workerd` and `bin/deploy`
 take, and was still unusable as any person. None of the three signals this epic added
 would have caught it, because none of them looks at identity.
+
+
+
+### N8 — Why the BUG-146 workaround failed, measured (2026-09-25)
+
+The recommended workaround — append `access-sim --print-env` to the secrets file, which
+*is* in `devEnvLayering` and *is* read last — did not work. Two independent faults, each
+sufficient on its own, and neither of them the bug BUG-146 describes.
+
+**1. `>>` into a file with no trailing newline fused two settings into one line.**
+`~/Documents/secrets/1c.dev.env` ended without a newline, so the append produced
+
+    CLOUDFLARE_ACCOUNT_ID=<hex>ACCESS_TEAM_DOMAIN="http://127.0.0.1:8799"
+
+as a single 97-byte line. Net effect: `ACCESS_TEAM_DOMAIN` is **undefined**, `ACCESS_AUD`
+and `SERVICE_TOKEN_IDENTITIES` are defined, and `CLOUDFLARE_ACCOUNT_ID`'s value is
+corrupted (which would also break `1c kb build` and the AI capability probe).
+
+That combination is strictly worse than not doing it. `isUnconfiguredLocalDev` requires
+BOTH Access vars empty, so a populated `ACCESS_AUD` alone switches dev-open **off**; and
+`guardAccess` then refuses every request 503 because `ACCESS_TEAM_DOMAIN` is empty. The
+workaround's failure mode is a Worker that serves nobody at all.
+
+**This is an argument for BUG-146's fix rather than for a better workaround.** The
+documented recipe writes `.dev.vars.local` with a truncating `>`, which cannot fuse
+lines; the append hazard exists only because the file that recipe names is not read.
+
+**2. The builder on 8788 was never restarted, which hid fault 1.** `bin/dev up` leaves an
+answering port alone and writes no pidfile for it — correct, and stated in `devUp`'s own
+header. `bin/dev down` then cannot stop what it did not start. The builder had been
+started by hand before the append, so `down && up` restarted filing and access-sim
+(both show `started bin/dev` in `1c ps`) and left the one process whose environment had
+changed running with the old one. Its `/api/businesses` still answered in dev-open shape,
+which is how the corruption stayed invisible.
+
+`bin/dev reap` is the command that reaches it: its predicate is `ours && !managed`, so a
+recognised-but-unclaimed listener is exactly what it targets. Worth saying because
+`reap`'s name suggests it is for zombies, and here it is the correct tool for a healthy
+service that has to be replaced.
+
+**The general shape, which outlives both faults.** An environment-file change only takes
+effect on a process started after it, and `bin/dev up` is deliberately idempotent about
+ports rather than about environments. So there is no command today that means *"the
+environment changed — restart what needs restarting."* `down && up` is the intuitive
+spelling and is a no-op for any service `up` did not start. That belongs with [[REQ-322]],
+which is already changing `DEV_SERVICES`: whatever `up` grows to start, the gap is that
+`up`'s "already answering, left alone" is silent about whether that process predates the
+configuration it is being started against.
