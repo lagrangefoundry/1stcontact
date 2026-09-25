@@ -20,6 +20,15 @@ fields:
   auto_merge_back: true
   needs_review: true
   chat_comment: comment-422ff2d4
+  commits:
+  - working_sha: 11ca5fea9ae676265d4d492c426df027f249ab53
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: ecbed061a8306552701b6f920f8a7a9cb12e980a
+    reconcile_sha: 0cdcdaa491aea665be5cc9b215b2a0f144be165e
+    main_sha: null
+    working_sha_history: []
 ---
 
 # The fidelity surface: the assistant can look, compare and judge
