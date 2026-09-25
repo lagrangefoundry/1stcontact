@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-320
 created_by: xgd
 created_at: '2026-09-25T22:11:30.579559+00:00'
-updated_at: '2026-09-25T22:54:55.242352+00:00'
+updated_at: '2026-09-25T23:00:22.747813+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,35 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a149b154-47ad-4470-8d2e-27d04b2d1b4f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:00:22.470635+00:00" -->
+#### Claude
+I'll start by reading the ticket to see where things stand.
+
+Now the free_coded gate. The commit's version bump (0.2.362) has been overtaken by another ticket (tree is at 0.2.363), so I'll let the gate allocate the version itself.
+
+Now release the merge lock and tear down the branch.
+
+REQ-320 is free-coded and landed. The residual dirty files were already there at session start and belong to other work.
+
+**What was already in place from the prior session** (commit `821bb5230c`, merged into `xgd-working` as `04cddf0e97`):
+
+- **Local timestamps** — `TURN_HEALTH_STARTED` in `config.js` formats `startedAt` via `toLocaleString(undefined, {dateStyle:'medium', timeStyle:'medium'})`; an unparseable stamp prints verbatim rather than *Invalid Date*.
+- **Two columns gone** — `session`/`turn` removed from `TURN_HEALTH_COLUMNS`; `data-column` ids kept; REQ-306's commentary and its UAT revised rather than deleted; the fields still travel on the wire.
+- **Cost column** — `tenantTurnCosts` in `spend.ts` joins `turn_spend` under the same tenant scope, totalling own `cost_micros` plus `attributedSpend`'s pricing of delegated entries. `recentOf` formats with the shared `dollars()`, so absence is the dash and never `$0.00`.
+
+**What I completed this session:**
+
+1. **Ran the tests in the foreground** — all green:
+   - REQ-320 surface UAT + revised REQ-306 UAT: 9 passed
+   - REQ-320 workers UAT: 4 passed
+   - Adjacent regression (spend/cost/console/turn-health, node + workers): 76 passed
+2. **Appended an implementation record to the ticket body** so each UAT is motivated by ticket language. Four behaviours the original spec didn't name: the three additional causes of `null` beyond "no spend row" (unpriced pair, unparseable `attributed`, an entry `attributedSpend` can't price) that `test_UAT_FC_REQ-320_an_unpriced_turn_is_absent_rather_than_understated` asserts; the tenant-scoped read and the empty-id short-circuit behind `..._the_meter_is_read_under_the_asking_businesss_scope`; the identifiers staying on the wire; the verbatim unparseable stamp; and the `builder.css` width narrowing.
+3. **Moved to `free_coded`.** The commit's own bump (0.2.362) had been overtaken by another ticket, so I let the gate allocate — it committed `10a447062d` (0.2.364) under its own lock. `fields.commits` holds both SHAs, `story_points: 3`.
+4. **Released the merge lock and tore down** `free-REQ-320` (the lock file from the timed-out prior session is gone).
+
+The ticket is parked at `free_coded`. Promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
