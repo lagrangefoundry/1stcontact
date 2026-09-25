@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:20:09.346789+00:00'
+updated_at: '2026-09-25T21:29:59.050302+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4690,5 +4690,11 @@ What the fix buys you later is not the login — it's that `.dev.vars.local` bec
 **Worth flagging from the diagnosis:** the environment came up clean by every measure this epic added. `1c ps` showed five healthy services, `1c workerd` reported one version, `bin/deploy --env dev` ran its hooks and guard without complaint — and it was unusable as any person. None of those three signals looks at identity, which is why the runbook in §N got you to a green board and a dead builder. I've recorded that in the epic rather than just the ticket.
 
 Once you're in, the open question from REQ-322 is still yours to settle: whether `bin/dev up` should also run `bin/build`.
+
+<!-- xgd-turn id="bb7cbfd2-9b34-41d1-92da-36074344e13c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T21:29:58.042273+00:00" -->
+#### You
+Your workaround didn't work - will BUG-146 fix it?
 
 <!-- xgd-chat-end -->
