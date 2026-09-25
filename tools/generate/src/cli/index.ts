@@ -12,7 +12,7 @@ import {
   type GlobalOptions,
 } from './commands'
 import { spawn } from 'node:child_process'
-import { devEnvLayering, devVarsPath, readDevEnv, wranglerDevArgs } from './dev-env'
+import { devEnvLayering, devUrl, devVarsPath, readDevEnv, wranglerDevArgs } from './dev-env'
 import { localD1Check } from './d1-migrations'
 import {
   DEV_SERVE_PORT,
@@ -1501,7 +1501,8 @@ export async function run(argv: string[]): Promise<void> {
       // the fact that is useless when the command was not the one that ran.
       const status = await filingStatus(provision.address)
       console.log(
-        `Builder (wrangler dev) on http://localhost:${port}\n` +
+        // `devUrl` rather than `localhost` ([[BUG-146]]) — see DEV_HOST.
+        `Builder (wrangler dev) on ${devUrl(port)}\n` +
           `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
           `${status.line}\n` +
           '  starts empty — author in the builder, or `bin/copy-from-cloud <business>`\n',

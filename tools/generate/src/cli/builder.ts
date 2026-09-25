@@ -12,6 +12,7 @@ import { cmdList, ctxOf, type GlobalOptions } from './commands'
 import { MANIFEST_REL, readStagedPlatformFont } from '../fonts/mirror'
 import { buildIndex } from '../fonts/index-build'
 import type { PlatformFontIndex } from './ai/platform-fonts'
+import { devUrl } from './dev-env'
 import { resolveStaticFile } from './static-file'
 import { contentTypeOf } from '../store/content-type'
 
@@ -479,7 +480,9 @@ export function startBuilder(opts: BuilderOptions = {}): Promise<BuilderHandle> 
       resolve({
         server,
         port,
-        url: `http://localhost:${port}/`,
+        // The SAME host every other dev URL names ([[BUG-146]]), so a harness
+        // and an operator are never on opposite sides of a cookie boundary.
+        url: `${devUrl(port)}/`,
         close: () => new Promise((done) => server.close(() => done())),
       })
     })

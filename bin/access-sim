@@ -49,19 +49,24 @@
 //                    [--client-id ID] [--client-secret SECRET] [--service-email ADDR]
 //
 // Then, in another shell, point the Worker at it and start the builder:
-//   ./bin/access-sim --print-env > .dev.vars.local
+//   ./bin/access-sim --print-env > apps/control-app/.dev.vars.local
 //   ./bin/access-sim &
-//   cd apps/control-app && npx wrangler dev --port 8788 \
-//     --env-file .dev.vars --env-file ../../.dev.vars.local
+//   ./bin/1c builder            # or ./bin/1c dev serve, for the dev environment
+//
+// THE RECIPE NAMES A FILE THE LAUNCHERS READ ([[BUG-146]]). It did not, and that
+// was the defect: `devEnvLayering` composed two `--env-file` flags and neither was
+// this one, so the file this line writes was loaded by nothing and the vars it
+// holds — the only documented way to LEAVE dev-open mode — never reached the
+// Worker. The recipe used to launch `wrangler dev` by hand for exactly that
+// reason. It no longer has to, because `.dev.vars.local` is in the layering for
+// both launchers; write it beside `.dev.vars`, which is where they look.
 //
 // THE ASSISTANT CAN STILL FILE A DEFECT WHEN YOU LAUNCH IT THIS WAY ([[BUG-124]]).
 // It could not, once: the filing service was started by `1c builder` on a random
-// port with a per-run bearer, both handed to wrangler as `--var` — so launching
-// wrangler by hand, which this recipe has to do because `1c builder` has no slot
-// for the third `--env-file`, silently left the consultant with no filing tool at
-// all. The address is a line in `.dev.vars` now, which is the file named first
-// above, so it arrives whichever way the dev server was started. Run the listener
-// alongside this simulator:
+// port with a per-run bearer, both handed to wrangler as `--var`, so a
+// hand-launched wrangler silently left the consultant with no filing tool at all.
+// The address is a line in `.dev.vars` now, so it arrives whichever way the dev
+// server was started. Run the listener alongside this simulator:
 //
 //   ./bin/1c filing &
 //
@@ -93,6 +98,16 @@ const ISS = `http://127.0.0.1:${PORT}`
 
 /** The repository's control app, resolved once and read by two callers below. */
 const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'apps/control-app')
+
+/**
+ * WHERE `--print-env` OUTPUT BELONGS, as typed from the repository root.
+ *
+ * ONE SPELLING, BECAUSE THE SECOND ONE WAS THE BUG ([[BUG-146]]). This process
+ * cannot import `dev-env.ts` — it is TypeScript and this has to run under bare
+ * `node` — so the path is written twice in the repository and a UAT holds the two
+ * together rather than trusting them to stay in step.
+ */
+const LOCAL_ENV_REL = 'apps/control-app/.dev.vars.local'
 
 // THE SERVICE-TOKEN PAIR, AND WHY ITS DEFAULT IS WELL KNOWN. A fixed credential
 // in a repository normally deserves suspicion; this one buys nothing an attacker
@@ -176,7 +191,7 @@ if (process.argv.includes('--print-env')) {
 // The CLIENT half, and separate from `--print-env` because it is a different
 // side of the wire. `--print-env` configures the WORKER and its output belongs in
 // `.dev.vars.local`; this configures whoever is CALLING and its output belongs in
-// a shell. Writing the pair into `.dev.vars.local` would hand the Worker two vars
+// a shell. Writing the pair into that file would hand the Worker two vars
 // it has no reader for.
 if (process.argv.includes('--print-token')) {
   process.stdout.write(
@@ -324,7 +339,11 @@ http
         ? `  as        ${SERVICE_NAME}=${SERVICE_EMAIL}  (must match SERVICE_TOKEN_IDENTITIES)`
         : `  as        NOBODY — set PLATFORM_ADMINS in apps/control-app/.dev.vars, or pass --service-email`,
     )
-    console.log(`\n  point the Worker at it:  ./bin/access-sim --print-env > .dev.vars.local`)
+    // THE PATH THE LAUNCHERS ACTUALLY READ ([[BUG-146]]) — `devEnvLayering`'s
+    // third `--env-file`, resolved beside `.dev.vars` in the config directory.
+    // This line said `.dev.vars.local` at the repository root for as long as
+    // nothing read either, which is how an operator following it saw no change.
+    console.log(`\n  point the Worker at it:  ./bin/access-sim --print-env > ${LOCAL_ENV_REL}`)
     console.log(`  point a client at it:    eval "$(./bin/access-sim --print-token)"`)
   })
 
@@ -421,7 +440,7 @@ async function forward(req, res, url) {
         'carries no email, so the Worker resolves its name through SERVICE_TOKEN_IDENTITIES ' +
         'and this simulator has no address to put there: set PLATFORM_ADMINS in ' +
         'apps/control-app/.dev.vars, or start it with --service-email, then re-run ' +
-        '--print-env > .dev.vars.local.\n',
+        `--print-env > ${LOCAL_ENV_REL}.\n`,
     )
   }
 

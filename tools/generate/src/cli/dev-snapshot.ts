@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { devEnvLayering } from './dev-env'
+import { devEnvLayering, devUrl } from './dev-env'
 import { STATE_DIR } from './reset'
 
 /**
@@ -182,7 +182,9 @@ export function snapshotSummary(snapshot: DevSnapshot, port: number | string): s
   const age = snapshot.deployedAt === '' ? '' : ` (deployed ${snapshot.deployedAt}`
   const commit = snapshot.commit === 'unknown' || age === '' ? '' : `, ${snapshot.commit}`
   return (
-    `Dev environment (wrangler dev on a deployed snapshot) on http://localhost:${port}\n` +
+    // `devUrl`, NOT `localhost` ([[BUG-146]]): the cookie access-sim sets is
+    // host-scoped, so naming the other host here logs the operator out again.
+    `Dev environment (wrangler dev on a deployed snapshot) on ${devUrl(port)}\n` +
     `  worker: ${snapshot.worker} --env ${snapshot.env}${age}${commit}${age === '' ? '' : ')'}\n` +
     `  serving: apps/${snapshot.app}/${SNAPSHOT_DIR}/${snapshot.entry}\n` +
     `  store: apps/${snapshot.app}/${STATE_DIR} — the only copy of the dev data\n` +
