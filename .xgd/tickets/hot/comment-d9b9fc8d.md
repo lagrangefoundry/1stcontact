@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:34:41.998490+00:00'
+updated_at: '2026-09-25T20:39:30.228910+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4543,5 +4543,16 @@ You can see the seam in the code, too: REQ-319 anticipated 318 in `devDeploy` �
 The pidfile mechanics carry over free: `1c dev serve` is a node wrapper around `npx wrangler` exactly as `1c builder` is, and `down`'s SIGTERM-then-verify-the-port is already built for that shape.
 
 So it's a one-row addition to `DEV_SERVICES` — `['bin/1c','dev','serve']` on 8789 — plus pointing access-sim at it (§N3). Both are code, so both need a ticket and a branch. Want me to fold them into the retirement ticket, or file a small one now so `bin/dev up` means "the whole dev environment" while you're still proving it?
+
+<!-- xgd-turn id="fde73ca0-e8c4-476d-aa66-d889d078bfd1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T20:39:29.843773+00:00" -->
+#### You
+ok so I want to simplify further can you create me a ticket so that:
+
+1) dev up starts everything except the repro console
+2) build builds the kb too
+
+I don't want to have to remember any more steps that I need to :-)
 
 <!-- xgd-chat-end -->
