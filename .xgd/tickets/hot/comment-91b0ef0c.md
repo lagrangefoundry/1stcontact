@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T21:35:01.753884+00:00'
+updated_at: '2026-09-25T21:37:45.681845+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2539,5 +2539,55 @@ Want me to append a §14 to EPIC-12 recording this verification? §13 currently 
 The repro console is difficult to work with because changes and progress are shown at the top and the bottom of the page.
 
 Could we consolidate everything to one or the other - I suggest the top is easiest, in which case the turns should be listed in reverse order with the most recent first and the first one at the end so the page is built from the top up - if that is too hard the reverse is acceptable but the controls must be at one end and build the page in a logical order, not both
+
+<!-- xgd-turn id="02ddfcbc-03a7-4709-a0de-3e04af0d32ab-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T21:37:45.617581+00:00" -->
+#### Claude
+I'll look at the actual page structure before proposing anything — whether "controls at the top with newest-first" is cheap depends on how the poller and the anchors work.
+
+REQ-299 appears to have landed already (the code references `[clear history]`). Let me confirm and see the full page assembly.
+
+Everything I need is confirmed. Filing the child ticket — REQ-299 is already at `ready_to_reconcile`, so it can't absorb this.
+
+**Not too hard — it's cheap.** The page is one template literal at `page.ts:730-750`; the whole change is reversing one `.map` and moving two interpolations up. Your preferred option (top) is the one I'd take.
+
+**REQ-323** — `request-cd8a8c9e`, high, 3 points, `draft`, child of EPIC-12 (now 23).
+
+## What the page does now vs. after
+
+```
+address box + [recapture]          address box + [recapture]
+status line                        status line
+notice / captured / filings        notice / captured / filings
+Iteration 1 … Iteration N     →    ⏸ [the implementation has landed]
+⏸ [implementation has landed]      [recapture] [clear history]
+[recapture] [clear history]        Iteration N … Iteration 1
+```
+
+Iteration numbering doesn't change — iteration 1 is still called Iteration 1, it just renders last.
+
+## The one design point worth getting right
+
+[[BUG-120]] deliberately put the continuation group *after* the list, on the reasoning that **position is the claim**: below the list it reads "this acts on the list"; beside the address box it reads "this starts something".
+
+That argument survives the move rather than being overturned. What it needs is adjacency to the thing being acted on, not the word "after" — and with the list reversed, the group sits immediately above Iteration N, which *is* the iteration a press acts on. Tighter than before. The ticket requires the implementer to restate that in the comment rather than delete it, since it's the only record of why the group is a group.
+
+## Two existing UATs pin the current order
+
+Both invert, and the ticket names them so reconciliation reads it as deliberate supersession rather than drift:
+
+- `BUG-120…:247` — continuation group *after* Iteration 1
+- `REQ-254…:389` — Iteration 1 *before* Iteration 3
+
+Everything else in both files stays green. BUG-120's real content (the group exists, holds both verbs, retired verbs absent, address row outside it) is untouched.
+
+## Two things that look like they'd break and don't
+
+The transcript auto-scroll keys on the per-iteration `<pre>`'s own `scrollTop`, not page scroll. The poller's disabled/`data-inert` recomputation keys on `data-held` attributes, not position. Neither cares about order.
+
+The only real collateral is prose: `[clear history]` says the iterations "above are moved aside" and the restart line says it "appends to the chain below" — both become misleading, and the ticket lists them.
+
+Ticket's in `draft`, nothing cut or coded. Say the word and I'll build it — or if you'd rather it go to its own session, it's ready to pick up as-is.
 
 <!-- xgd-chat-end -->
