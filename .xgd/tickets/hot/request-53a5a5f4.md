@@ -6,16 +6,24 @@ title: 'Turn table: local timestamps, drop the identifier columns, show what eac
   turn cost'
 created_by: EPIC-20
 created_at: '2026-09-25T03:57:13.366235+00:00'
-updated_at: '2026-09-25T22:59:20.668578+00:00'
+updated_at: '2026-09-25T22:59:39.762714+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-08316a49
+  commits:
+  - working_sha: 821bb5230c2f6cf4b9024061f58d4b081b9ef223
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 10a447062d7e35c6dd3b25a3154b8e837f6e05ee
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.364
 ---
 
 ## Why
