@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T00:07:22.122191+00:00'
+updated_at: '2026-09-25T00:08:08.012005+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3784,5 +3784,21 @@ All of this is recorded in REQ-309, including the table, so the implementing ses
 <!-- xgd-chat role="user" ts="2026-09-25T00:07:22.020833+00:00" -->
 #### You
 16000 seems generous - lets go with that - it will be up to us (adopting project) to set the limit...
+
+<!-- xgd-turn id="d11acfdb-9abe-41e7-8337-28e66fccd6b9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T00:08:07.201675+00:00" -->
+#### Claude
+Settled, then — and that makes the framework side cleaner: it never names a figure at all.
+
+Both recorded.
+
+**REQ-309 (1stcontact)** — 16,000 characters, marked confirmed by you today, with the calibration kept as the reasoning and the 12,000–32,000 range recorded as *considered and closed* rather than still open. One named constant, one-line change if beta says otherwise.
+
+**REQ-177 (lagrange-framework)** — now carries the no-default rule explicitly, which is the point you just made: the maximum is the adopting project's to set, **absent means unbounded, and no figure appears anywhere in the framework.** I tied it to the precedent REQ-176 already set for the store's value ceiling — *"not this layer's to guess"* — so the two decisions read as one rule rather than two coincidences.
+
+The reason worth having in writing: a component default wouldn't just be a guess, it would *silently become the answer* for every host that never thought about the question. Unbounded is the honest reading of a host that hasn't decided; 16,000 is the reading of one that has.
+
+So the split is clean — the framework gets the mechanism and the refusal-before-clear behaviour, this project owns the number and the sentence.
 
 <!-- xgd-chat-end -->
