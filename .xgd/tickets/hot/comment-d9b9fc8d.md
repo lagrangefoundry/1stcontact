@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T02:04:52.443244+00:00'
+updated_at: '2026-09-25T20:12:19.236682+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4370,5 +4370,15 @@ Both tickets carry the `reset.ts` reconciliation explicitly, so whoever implemen
 **One thing I deliberately did not file.** Retirement of `pnpm dev` / `pnpm dev:control` / `1c builder`-as-entry-point. §L1 makes it a sequencing requirement rather than a preference — folding it into either ticket means that ticket can't close until the old path is gone, which is the exact pressure you asked to remove. Both tickets say so in Boundaries, and both keep the old path working on its old ports against the same store so the two can run side by side. It gets filed when these two are trusted.
 
 Also worth noting since it moved under me this turn: **REQ-316 is done** — `ready_to_reconcile` at 0.2.349. So the workerd guard REQ-318 calls already exists.
+
+<!-- xgd-turn id="a1f87386-482f-42cb-8b43-689e56f5ffe0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T20:12:18.941964+00:00" -->
+#### You
+Ok so, 318 and 319 have landed. I would like you to walk me through
+1. Killing all the current dev processes
+2. Deploying to the new repository
+3. Starting the app and app-related services from the new repo
+4. Starting the reproduction console from the new repo
 
 <!-- xgd-chat-end -->
