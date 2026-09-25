@@ -239,10 +239,19 @@ describe('BUG-120 the page groups the verbs by what they are', () => {
     expect(html).not.toContain('>run again</button>')
     expect(html).not.toContain('>reproduce</button>')
 
-    // The address row is outside the group and above the history, which is where
-    // an address is typed…
+    // The address row is outside the group, which is what makes the group's
+    // position mean anything…
     expect(html).toMatch(/<form method="post" action="\/recapture">\s*<input name="url"[\s\S]*?<\/form>/)
-    expect(html.indexOf('placeholder="site address"')).toBeLessThan(html.indexOf('<h2>Iteration 1</h2>'))
+    // …DELIBERATELY SUPERSEDED BY [[REQ-323]], not fixed. This asserted the
+    // address row ABOVE the history, on the reasoning that above is where an
+    // address is typed. [[REQ-323]] found the cost of that: the status line was
+    // pinned beside it, so the loop was worked under the list and read above it,
+    // and whichever end the operator was looking at, the other was off-screen.
+    // Every control and the one line reporting what a press did are at the same
+    // end now, and the direction inverts. What [[BUG-120]] is about is untouched
+    // and is the next two assertions: the row is outside the group, and the group
+    // is after the list it acts on.
+    expect(html.indexOf('placeholder="site address"')).toBeGreaterThan(html.indexOf('<h2>Iteration 1</h2>'))
     // …and the group is where the eye already is: after the history it acts on.
     expect(html.indexOf('<section class="continue">')).toBeGreaterThan(html.indexOf('<h2>Iteration 1</h2>'))
   })

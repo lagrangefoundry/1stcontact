@@ -24,6 +24,7 @@ import { contentTypeOf } from '../../generate/src/store/content-type'
 import { staleCaptureDetail } from '../../generate/src/cli/capture/schema'
 import type { Capture } from '../../generate/src/cli/capture/types'
 import {
+  CONTROLS_ID,
   renderConsolePage,
   renderDiffPage,
   renderTicketPage,
@@ -707,14 +708,14 @@ export class ReproConsole {
     if (!found) {
       this.message = `No stored capture for ${typedUrl}.`
       this.failed = true
-      return seeOther('/')
+      return seeControls()
     }
     this.adopt(found.url || normalizeUrl(typedUrl), found.dir)
     this.message = this.iterations.length
       ? `Loaded ${this.url} — ${this.iterations.length} iteration(s) already on disk.`
       : `Loaded ${this.url}. Press [recapture] to reproduce it.`
     this.failed = false
-    return seeOther('/')
+    return seeControls()
   }
 
   /**
@@ -751,12 +752,12 @@ export class ReproConsole {
     if (typedUrl !== undefined && !trimmed) {
       this.message = 'Enter a site address first.'
       this.failed = true
-      return seeOther('/')
+      return seeControls()
     }
     if (typedUrl === undefined && this.url === null) {
       this.message = 'Enter a site address first.'
       this.failed = true
-      return seeOther('/')
+      return seeControls()
     }
 
     /**
@@ -774,7 +775,7 @@ export class ReproConsole {
     if (held) {
       this.message = `${this.heldView()?.waitingFor ?? ''} Press [the implementation has landed] first.`
       this.failed = true
-      return seeOther('/')
+      return seeControls()
     }
 
     let recaptured = false
@@ -820,7 +821,7 @@ export class ReproConsole {
     this.failed = false
     this.message = `Running iteration ${n}${recaptured ? ' — re-capturing the reference' : ''}…`
     this.inFlight = this.execute(n, captureUrl, recaptured)
-    return seeOther('/')
+    return seeControls()
   }
 
   /**
@@ -840,7 +841,7 @@ export class ReproConsole {
     if (!held) {
       this.message = 'Nothing is held.'
       this.failed = false
-      return seeOther('/')
+      return seeControls()
     }
     const aiDir = path.join(held.dir, AI_DIR)
     mkdirSync(aiDir, { recursive: true })
@@ -851,7 +852,7 @@ export class ReproConsole {
     this.message = `Iteration ${held.n}'s implementation is marked as landed — [recapture] to measure it.`
     this.failed = false
     this.version += 1
-    return seeOther('/')
+    return seeControls()
   }
 
   /**
@@ -889,12 +890,12 @@ export class ReproConsole {
     if (held) {
       this.message = `${this.heldView()?.waitingFor ?? ''} Press [the implementation has landed] first.`
       this.failed = true
-      return seeOther('/')
+      return seeControls()
     }
     if (this.url === null) {
       this.message = 'Nothing to clear.'
       this.failed = false
-      return seeOther('/')
+      return seeControls()
     }
 
     const moved = this.iterations.length
@@ -923,7 +924,7 @@ export class ReproConsole {
       ? `History cleared — ${moved} iteration(s) moved to ${path.join(CONSOLE_WORKSPACE, archive)}. The captured reference is untouched.`
       : 'History cleared.'
     this.version += 1
-    return seeOther('/')
+    return seeControls()
   }
 
   /**
@@ -965,7 +966,7 @@ export class ReproConsole {
     this.inFlight = this.diagnose(it).finally(() => {
       this.running = false
     })
-    return seeOther('/')
+    return seeControls()
   }
 
   private async execute(n: number, captureUrl: string | undefined, recaptured = false): Promise<void> {
@@ -1576,7 +1577,7 @@ export class ReproConsole {
       this.message = `Iteration ${n} left no transcript to read.`
       this.failed = true
       this.version += 1
-      return seeOther('/')
+      return seeControls()
     }
     const outcome: AiOutcome = { ...parseOutcome(transcript), recovered: true }
     // The round's own measurements survive the re-read: they were the round's,
@@ -1594,7 +1595,7 @@ export class ReproConsole {
     } finally {
       this.running = false
     }
-    return seeOther('/')
+    return seeControls()
   }
 
   /** Write the round's outcome beside its transcript and say so on the page. */
@@ -1947,6 +1948,32 @@ function text(status: number, body: string): ConsoleResponse {
  */
 function seeOther(location: string): ConsoleResponse {
   return { status: 303, headers: { location, 'content-type': 'text/plain; charset=utf-8' }, body: '' }
+}
+
+/**
+ * THE PRESS LANDS WHERE THE CONTROLS AND THE REPORT ARE ([[REQ-323]]).
+ *
+ * Every press used to redirect to a bare `/`, which lands the browser at the top
+ * of the document. That was right while the address box and the status line were
+ * the top of the document; [[REQ-323]] moved both of them, with the two controls
+ * that act on the chain, to the other end — so a bare `/` would now return the
+ * operator to a page with nothing actionable on it, which is the same complaint
+ * inverted rather than answered.
+ *
+ * A FRAGMENT rather than a script or a scroll: it needs no client code, it
+ * survives a manual reload, and it leaves the one property the redirect exists
+ * for — a `303` where a `200` would let a reload re-run the round — exactly as
+ * it was. The id is {@link CONTROLS_ID}, imported rather than spelled again,
+ * because a fragment naming an id the page does not render is a silent no-op.
+ *
+ * EVERY PRESS, not a chosen few. `/recapture`, `/clear`, the hold release, the
+ * AI round and the re-read of a finished round's artifacts all report through
+ * the one status line, and `/open` does too — so all of them land at it. The
+ * trailing-slash redirect that serves an artifact directory is not a press and
+ * keeps its own target.
+ */
+function seeControls(): ConsoleResponse {
+  return seeOther(`/#${CONTROLS_ID}`)
 }
 
 /** A file's contents, or empty — used where absence and emptiness mean the same. */
