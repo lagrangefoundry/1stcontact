@@ -5,10 +5,10 @@ type: request
 title: Take element authoring off the consultant so construction must be delegated
 created_by: EPIC-20
 created_at: '2026-09-25T03:59:12.140415+00:00'
-updated_at: '2026-09-25T04:25:03.828794+00:00'
+updated_at: '2026-09-25T04:37:26.368840+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
