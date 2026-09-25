@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T04:36:51.572550+00:00'
+updated_at: '2026-09-25T04:38:51.632083+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1926,5 +1926,33 @@ Want me to file that bug, and does the re-test happen in your next session or sh
 <!-- xgd-chat role="user" ts="2026-09-25T04:36:51.275311+00:00" -->
 #### You
 please move REQ-321 to abandoned - we can always bring it back if we want - have you created the bug? PLease do
+
+<!-- xgd-turn id="f1a743a2-8097-4d09-bf3a-9e7002ac18eb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T04:38:49.790092+00:00" -->
+#### Claude
+No, I hadn't filed it — I'd only offered. Doing both now.
+
+REQ-321 is abandoned. The code lives upstream, so the bug belongs in the framework.
+
+Both done.
+
+**REQ-321 → abandoned.** Status confirmed; body intact with the hold reasoning and the corrected evidence, so it's recoverable if the reluctance outlasts the fix.
+
+**BUG-68 filed — in lagrange-framework, not here.** `reconcile`, the delegate call and the worker's `report` are all in the framework's `src/delegation_toolbox.js`. Nothing in 1stcontact can fix it, and per the cross-repo rule that means a ticket there and nothing else.
+
+The bug carries both sides of the seam, with the same shape on each: **refuse the malformed check where it's offered, not where it's reconciled.**
+
+- Caller side: refuse a multi-check `accept` entry before any worker opens — the caller is still holding the brief and can split it.
+- Worker side: refuse a `passed` entry that answers no asked check — the worker is still in its turn, still looking at the page, and can answer the real question.
+
+Two explicit do-not-touch notes, since both are easy to get wrong:
+
+- **`reconcile` stays as it is.** Its exact-match direction is right, and it's pinned by the cross-language conformance corpus — *same checks and same report must produce the same verdicts and the same `accepted` in both languages*. Putting the refusals at the offer points leaves that contract untouched, which is itself an argument for doing it that way rather than loosening the match.
+- **`_result()` stays as it is.** It already returns the per-check verdicts distinguishing `unreported` from `failed`. The ticket says in terms that this is *not* a request for more feedback to the caller, so nobody picks it up and "improves" the payload.
+
+Evidence is quoted verbatim in the body — `u4ej95`'s compound ask against its four correctly-split answers, and `ya6wkq`'s six invented passes against the one check it was asked — with the tool-outcome counts showing both workers wrote cleanly.
+
+Also recorded on EPIC-20: the pointer to BUG-68, why REQ-321 was abandoned rather than deleted, and that the re-test needs no ticket. That last one is the cheapest information available — REQ-300 accounted for two of the five failures and nobody has delegated since it shipped, apart from the single run that was accepted. Your next settled-decision-in-several-places pass is the test.
 
 <!-- xgd-chat-end -->
