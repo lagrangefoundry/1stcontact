@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T01:52:30.465046+00:00'
+updated_at: '2026-09-25T01:58:17.954847+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3806,5 +3806,62 @@ So the split is clean — the framework gets the mechanism and the refusal-befor
 <!-- xgd-chat role="user" ts="2026-09-25T01:52:30.225639+00:00" -->
 #### You
 ok can you check on the state of the tickets and tell me what I need to do to get everything insalled and running locally please?
+
+<!-- xgd-turn id="3f1d350a-34dc-4d69-82bd-a9b104dc4d11-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T01:58:17.675292+00:00" -->
+#### Claude
+Two things to chase: that list was truncated at 50, and REQ-309 moved to `ready_to_reconcile` two minutes ago.
+
+All seven tickets landed. Now checking what's actually installed versus what the new code needs.
+
+Everything we scoped this session has landed — all seven tickets are implemented and sitting at `ready_to_reconcile`.
+
+## Ticket state
+
+**1stcontact — EPIC-19's children**
+
+| | status | what |
+|---|---|---|
+| REQ-309 | `ready_to_reconcile` · v0.2.350 | D1 ceiling + the 16,000 front-door refusal |
+| REQ-307 | `ready_to_reconcile` | durable junction |
+| BUG-138 | `ready_to_reconcile` | turn times and day separators dropped en route to the panel |
+
+**lagrange-framework**
+
+| | status | what |
+|---|---|---|
+| REQ-176 | `ready_to_reconcile` | archived artifacts segment |
+| REQ-177 | `ready_to_reconcile` | composer refuses before clearing the box |
+| BUG-66 | `ready_to_reconcile` | failed tool-transcript write took the prose transcript with it |
+| BUG-67 | `ready_to_reconcile` | seed assembly reads the whole tool transcript |
+
+REQ-177 — the ticket I filed at 17:07 — was implemented by 18:46. Both enforcement points are in code as decided: `MAX_PROMPT_CHARS = 16_000` in `router.ts:2057`, `CHAT_MAX_SUBMISSION_CHARS = 16_000` in `builder/config.js:728`, the composer side wired through REQ-177's `maxSubmissionChars`, sentence stated once per side and held equal by a UAT. 18 UATs across three files, and the real-D1 suite drives the actual declared ceiling rather than a smaller test one.
+
+Two details from the commit worth knowing: the ceiling is set **100 KB below** D1's 2,000,000 because that figure bounds a *row* and a comment body travels beside seven other columns — a body packed to exactly the limit is a row over it. And `chat-copy.ts` had to be fixed in the same breath: its "one comment per kind, first one wins" would have silently discarded every segment but one.
+
+## To get it running
+
+**No install needed.** The shared `@lagrangefoundry` store was refreshed at 18:02 today and already carries `valueCeiling` on `TicketStore` and `maxSubmissionChars` in `webui-chat`. This repo's `node_modules` (17:34) is newer than `pnpm-lock.yaml` (16:14), and none of the three commits touched `package.json` or the lockfile.
+
+**One build step is required**, because `dist-assets/` doesn't exist:
+
+```
+./bin/1c assets
+./bin/1c builder
+```
+
+`1c builder` serves what `1c assets` built, and the composer-side refusal lives in `builder/config.js` — a client file. Skip the first command and the route will refuse an over-long paste but the composer won't, so you'd see the harsh shape instead of the good one. Use `pnpm dev` instead of `1c builder` if you want the public site up alongside.
+
+Your local D1 store is there and populated (1.1 GB, 21 migrations). If it's behind, `1c builder` refuses to start and names the pending files plus the command — `(cd apps/control-app && npx wrangler d1 migrations apply <db> --local)` — and you need to restart the dev server afterwards, since it holds its own connection.
+
+To exercise the new behaviour: paste more than ~320 lines into the composer. You should get *"That's too long to send as a message. Save it as a text file and drop it in as Background information…"* with your text still in the box and nothing painted in the transcript.
+
+Two notes:
+
+- Your working tree has uncommitted `wrangler.toml` changes (`PLATFORM_ADMINS`, `SERVICE_TOKEN_IDENTITIES`) and `ACCESS.md`. Those are production-env only — they don't affect the local run, but they're unstaged, so a deploy from a clean checkout wouldn't have them.
+- REQ-309 is past `ready_to_reconcile` now, so its body is frozen — if the beta says 16,000 is wrong, that has to go in as a comment rather than a body edit.
+
+Want me to run `./bin/1c assets` for you? It's a copy-and-type-strip, not an install, so it's inside what I can do here.
 
 <!-- xgd-chat-end -->
