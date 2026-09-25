@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T04:55:05.264878+00:00'
+updated_at: '2026-09-25T04:57:31.170351+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3869,5 +3869,44 @@ Want me to run `./bin/1c assets` for you? It's a copy-and-type-strip, not an ins
 <!-- xgd-chat role="user" ts="2026-09-25T04:55:04.702723+00:00" -->
 #### You
 oops something happened in the middle of that turn, was that REQ-318 implementation breaking what I was working on...
+
+<!-- xgd-turn id="7701b591-930b-46f6-a8ef-9305731cc4b7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T04:57:29.715765+00:00" -->
+#### Claude
+Checked. **It wasn't REQ-318** — and the thing that did it is still happening.
+
+## What killed your turn
+
+`free-REQ-318` has its own worktree and **zero commits** — nothing of it has touched the checkout your builder serves. But two other things did:
+
+| time | what |
+|---|---|
+| 21:31:09 | `free-REQ-319` merged into `xgd-working` — `feat(dev): 1c ps and bin/dev up/down/reap` |
+| **21:49:48** | **your turn opened** — *"the letter spacing is awkward and uneven…"* |
+| 21:53 / 21:54 / 21:55 | `schema.ts`, `fold.ts`, `probes.ts` saved **uncommitted, in the main checkout** |
+| **21:55:34** | **wrangler rebuilt the worker** (`.wrangler/tmp/dev-APQQKk/worker.js`) |
+
+Those three files are **BUG-143** — a `backedBy` link from a text run to the surface painted behind it — and that session is free-coding **unbranched, directly in the tree `wrangler dev` is watching**. `packages/site-schema` and `tools/generate` are in the Worker's import graph, so every save rebuilds and replaces the Worker. Your turn was six minutes in when that landed.
+
+It's Finding 10 exactly, and the irony is sharp: **REQ-318 is the ticket that fixes this.** "Deployed to, not edited into" is precisely the boundary whose absence just cost you a turn.
+
+## Two pieces of good news
+
+**The bricking is over.** The segmentation fix is working — Lagrange Foundry now has a *second* tool transcript (`comment-2f60dafb`, 484,938 bytes) beside the frozen 2.16 MB one, and the prose transcript is folding again: 313,581 bytes at 21:44:59. Not a byte discarded.
+
+**The durable junction is live and took the records.** `SESSION_JUNCTION`'s storage was written at 21:53 — during your turn. So unlike every previous time, your prompt and whatever the turn had produced are in the DO rather than only in an isolate that no longer exists. Reload the page: `_reconcile` should attach, close the dangling turn, and drain it into the transcript rather than telling you nothing was recorded.
+
+The pending record still reads `status: open` with nothing folded since 21:44:59, so that reattach hasn't happened yet — it needs a page load to trigger it.
+
+## What I'd do about the cause
+
+Short term, one of:
+- ask the BUG-143 session to cut a branch worktree — the free-coding default it's skipping is what's putting live edits under your dev server; or
+- serve the builder from a pinned checkout with `--persist-to` pointed at the shared `.wrangler/state`.
+
+Either removes the amplifier today. REQ-318 removes it properly.
+
+Want me to reload-and-check whether that turn recovered, or leave the browser to you?
 
 <!-- xgd-chat-end -->
