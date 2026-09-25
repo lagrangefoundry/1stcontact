@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-143
 created_by: xgd
 created_at: '2026-09-25T04:44:37.634512+00:00'
-updated_at: '2026-09-25T05:49:03.825822+00:00'
+updated_at: '2026-09-25T16:54:50.040703+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -92,5 +92,14 @@ Everything is intact. Now back to the faelan.com recovery-selection question.
 Zero regressions from my change (the two deltas are another session's uncommitted `wrangler.toml` edit and a local `.cc-writes` dir artifact). Running the workers project too.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="531c2471-4adb-43f6-ac5c-00e3f683f2bb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T16:54:49.117672+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
