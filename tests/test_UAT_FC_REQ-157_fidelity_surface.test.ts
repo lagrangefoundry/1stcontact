@@ -939,6 +939,9 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
     // reason `unpairedActual` is: an unpaired band is not a delta, so a type that
     // cannot carry it drops the fact entirely. Empty on both sides here — these
     // fixtures drive the verdict ladder, and every one of them segments the same.
+    // BUG-139 — and the DECLINED measurements are required for the third time for
+    // the same reason. Empty on every rung: the ladder's shape must not depend on
+    // a refusal none of these fixtures is asking about.
     const noDeltas = {
       deltas: [],
       matched: 40,
@@ -946,6 +949,7 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
       unpairedActual: [],
       unpairedSections: [],
       unpairedActualSections: [],
+      notComparableAxes: [],
     }
     const deltas = {
       deltas: [{ property: 'color' }, { property: 'fontSizePx' }] as never,
@@ -954,6 +958,7 @@ describe('REQ-157 AC5 — check_fidelity names which of the five verdicts applie
       unpairedActual: [],
       unpairedSections: [],
       unpairedActualSections: [],
+      notComparableAxes: [],
     }
 
     // BUG-112 — the on-sample envelope travels with `pass`. These fixtures are

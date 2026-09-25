@@ -60,7 +60,7 @@ import type { ReferenceBundle } from '../store/reference-store'
 // BUG-110 — the value gate's floor is a TIER bound, so the reconciliation reads
 // the same ordering the deltas were ranked by rather than keeping a second copy
 // of the severity taxonomy that could drift from it.
-import { assetBasename, TIER_RANK } from './capture/values-diff'
+import { assetBasename, notComparableAxisLabel, TIER_RANK } from './capture/values-diff'
 import { staleCaptureDetail } from './capture/schema'
 // REQ-274 — an axis the diff COMPARES but only one side of the projection can
 // supply. Reported here for the same reason BUG-111's unpaired bands are: it is
@@ -70,6 +70,7 @@ import type { UnmeasuredAxis } from './capture/value-axes'
 import { unmeasuredAxisLabel } from './capture/value-axes'
 import type {
   MultiStateCapture,
+  NotComparableAxis,
   SeverityTier,
   StateProjection,
   ValueManifest,
@@ -337,6 +338,17 @@ export interface ReconcileInput {
      * and is the same optionality `sectionsNotComparable` has.
      */
     unmeasuredAxes?: readonly UnmeasuredAxis[]
+    /**
+     * BUG-139 — the per-band measurements the diff DECLINED to make on this run.
+     *
+     * REQUIRED, like BUG-111's counts above and unlike `unmeasuredAxes`, and for
+     * the same reason: this is a per-run measurement of THIS pair of pages, not a
+     * property of the projection table that every report carries automatically. A
+     * caller that cannot state it is a caller that has not asked — and the defect
+     * being fixed here is a fact the type made impossible to carry, so the type is
+     * what asks.
+     */
+    notComparableAxes: readonly NotComparableAxis[]
     /** BUG-102 — why section-level values could not be compared at all, when they could not. */
     sectionsNotComparable?: string
   }
@@ -390,6 +402,14 @@ export interface GateReport {
      * means the silence covers less of the page than it looks like it does.
      */
     unmeasuredAxes: UnmeasuredAxis[]
+    /**
+     * BUG-139 — the axes this run explicitly declined to compare, per band.
+     * ALWAYS present, `[]` when nothing was declined, because the console reads
+     * its ABSENCE as a report too old to speak for the fact rather than as a
+     * report saying there was none — and summing a missing part as zero is how a
+     * declination arriving reads as the unmeasured count going UP.
+     */
+    notComparableAxes: NotComparableAxis[]
     sectionsNotComparable?: string
   }
   coverage: ReferenceCoverage
@@ -604,6 +624,11 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   // that this run actually ran into. A count is useless here (one axis is not a
   // severity) so the rows travel whole and the pass rung names them.
   const unmeasuredAxes = [...(input.values.unmeasuredAxes ?? [])]
+  // BUG-139 — the measurements the diff DECLINED on a band that paired fine. Same
+  // shape, same treatment, one level in: carried whole so the rung can say WHICH
+  // band lost WHICH axis, which is the only form of this fact an operator can act
+  // on. `sectionsNotComparable` above is its all-bands-at-once sibling.
+  const notComparableAxes = [...input.values.notComparableAxes]
   const coverage = input.coverage
   const collisions = layoutCollisions(input.l1Gate.onSample)
 
@@ -720,6 +745,20 @@ export function reconcileGates(input: ReconcileInput): GateReport {
           'about them (`values.sectionsNotComparable` gives the reason)',
       )
     }
+    // BUG-139 — the sixth way the pass rung was silent, and the one the run said
+    // out loud. REQ-270's anchor guard DECLINES rather than comparing two numbers
+    // taken over different populations of runs; declining is right, and a rung
+    // that does not name it turns the refusal into a clean bill for the axis
+    // nobody measured. Named per band, like the axes above and for the same
+    // reason: "1 measurement declined" is not actionable, "§1's contentAnchor was
+    // not compared, because §0 sits inside it" is.
+    if (notComparableAxes.length > 0) {
+      outstanding.push(
+        `${notComparableAxes.length} per-band measurement(s) were DECLINED rather than compared — ` +
+          `${notComparableAxes.map(notComparableAxisLabel).join('; ')} ` +
+          `(\`values.notComparableAxes\`)`,
+      )
+    }
     if (coverage.findings.length) {
       outstanding.push(
         `reference coverage reports ${coverage.findings.map((f) => `\`${f.kind}\``).join(', ')} ` +
@@ -806,6 +845,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       unpairedSections,
       unpairedActualSections,
       unmeasuredAxes,
+      notComparableAxes,
       ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
     },
     coverage,
