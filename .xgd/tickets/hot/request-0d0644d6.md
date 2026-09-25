@@ -5,9 +5,9 @@ type: request
 title: bin/dev up starts the deployed environment, and bin/build builds the KB
 created_by: EPIC-16
 created_at: '2026-09-25T20:40:56.921470+00:00'
-updated_at: '2026-09-25T23:43:24.649633+00:00'
+updated_at: '2026-09-25T23:43:30.535664+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.368
+  story_points: 8
 ---
 
 ## What the operator asked for
