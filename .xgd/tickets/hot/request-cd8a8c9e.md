@@ -5,9 +5,9 @@ type: request
 title: 'repro console: controls at one end, and the history newest-first'
 created_by: EPIC-12
 created_at: '2026-09-25T21:37:20.771961+00:00'
-updated_at: '2026-09-25T21:37:20.771961+00:00'
+updated_at: '2026-09-25T22:06:18.446533+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
