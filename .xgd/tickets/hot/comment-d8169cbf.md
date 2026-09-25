@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T23:27:13.103693+00:00'
+updated_at: '2026-09-25T23:42:45.813003+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4012,5 +4012,98 @@ Worth knowing: this was already scoped. EPIC-16 §L1 records you settling it —
 Ordered by what they cost: **BUG-150 stops the restarts, BUG-149 makes a restart survivable, BUG-69 makes a stale junction harmless rather than destructive.** None substitutes for another.
 
 Your LF panel is still showing the 89-turn junction — the recovery commands from before are unchanged and still need you to run them.
+
+<!-- xgd-turn id="931adf4d-1bcf-4cb0-be0e-961f92f01203-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:38:15.854396+00:00" -->
+#### You
+Thank you.
+
+I'd like to have a conversation that goes back to your core responsibility the Webb builder experience. As I work with the AI on websites I find that I am impressed with the AIS understanding and design capabilities. However only when pressed to do so. I have to ask what would you do here? Is this really a premium site? What do we have to do to make this better? My users are not going to in general do that. Related to this is what I would call the executive function of the website construction. Again I am an experienced by coda I work with AI is in and out building software so it is not surprising or problematic for me to have to drive the website creation. However, my typical user will not know how to build a website will not know the appropriate steps to go through. We have some documentation on this and some thoughts we have a playbook that the AI has access to but never referenced in my discussion with it. I want to discuss Rily the user experience here so I have no doubt that we can improve the coaching that we give to the AI but I wonder if there are other things that we could or should do. Part of the challenge here is that I want to support flexibility as well as structure.
+
+We want the AI to be adaptable, if the AI is talking to a novice who does not know how to spell HTML then they should use appropriate language, similarly if they are talking to someone experienced in the domain they should use different language. And both users are going to be frustrated if the AI talks in the wrong way. The same is true of the executive function. If I am creating a site a highly structured approach that puts me through hoops that I don't necessarily want to go through or want to go through in that particular order represents of challenge for me. So what I'm trying to go is we need to introduce structure we need to find ways to make the AI be more proactive. I need the AI to take the lead, offer opinions and so on there are things we could put in the reminder prompts to do that. I'm also wondering about some kind of shared to do list that could be used to hold joint tasks and manage the project. It could be pre-populated with expected steps but it could be visited in different orders and we could entirely skip steps if we don't need to so in that sense it could provide a flexible structure if it was created in the right way. What ideas do you have here? Are you aware of any examples of this kind of thing being done? There are 1 million examples of AI chat but most of them are much more simplistic and entirely responsive. How do we get the AI to take the lead when it needs to
+
+<!-- xgd-turn id="931adf4d-1bcf-4cb0-be0e-961f92f01203-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:42:44.766306+00:00" -->
+#### Claude
+Before I answer the "what should we do" part, two things you said are checkable, and the answer changes the design: whether the playbook is reachable at all, and what the per-turn reminders actually ask for.
+
+Strong evidence. One more thing decides the design answer — whether the AI's own project state is visible to the client.
+
+I went and measured your engagement before answering, because two of your hypotheses turn out to be wrong in a way that changes what to build.
+
+## The coaching is already there. It isn't the gap.
+
+The role priming already says, in these words: *"Lead. When a choice has to be made before you can build, make it deliberately or put it to them."* … *"At a real decision, put up two or three options that differ in kind, not one proposal you then refine."* … *"Your method … is written down and you are expected to know it. Go and read it rather than improvising from these few lines."* There's a per-turn reminder too (`act-rather-than-narrate`, `method`).
+
+So more exhortation is the thing that has already been tried. Here is what actually happened across your 102-turn Lagrange Foundry engagement:
+
+| | |
+|---|---|
+| tool calls | **1,017** |
+| mechanical (`set_l1`, `get_l1`, `list_changes`, `screenshot`, `describe_page`) | **650** |
+| knowledge retrievals | 43 (13 `KnowledgeSearch`, 30 `KnowledgeChunkSearch`, 21 `KnowledgeGet`) |
+| retrievals about **method** | **0** |
+| `DOC-33` fetched | **never** — `KnowledgeGet` was called 21 times, 13 of them for `REF-l1` |
+
+Every one of those 43 queries is mechanism or content: *"gradient stops angle"*, *"transform translateYPct"*, *"row align stretch child height"*, *"Martin Westhead resume PhD"*. Not one is *"how does a consultation run"*.
+
+And the behavioural signature matches exactly: of 102 assistant turns, **24 offer explicit options** and **45 contain a direct ask** — but only **2 contain any process or ordering language.** It has design judgement and asks design questions freely. It almost never proposes *an order of work*.
+
+**The diagnosis: method loses to mechanism because mechanism has a forcing function and method has none.** If it doesn't look up `translateYPct`, the tool call fails in its face, this turn. If it doesn't look up the playbook, nothing happens — ever. Retrieval budget flows to whatever punishes ignorance immediately. A method that must be *pulled* will always lose to a grammar that bites.
+
+That's why I don't think better coaching is the lever. **The method has to arrive as state, not as a document to look up.**
+
+## You already built half the artifact you're imagining
+
+`set_standing_note` was called **61** times and `record_decision` **45** times in this one engagement. The consultant maintains rich project state. **The client has never seen a word of it** — there is no surface in the builder that renders it.
+
+And look at what it put in there, unprompted:
+
+> **OPEN:** his "5. can you fix that?" — ASKED TWICE, unanswered. NEVER LOOKED AT MOBILE (biggest unexamined risk — conference audience looks him up on a phone). NO HOVER STATES. "XGD writes XGD" buried in dim prose, should be large and alone. Nothing published.
+
+That is a shared to-do list. It invented the feature you're asking about, in caps, inside a free-text field never designed for it, and kept it current across days — while having no way to show it to you and no way to act on it. The decision ledger records what *was settled*; that `OPEN:` block is the negative space, and it's doing the work by hand.
+
+So I'd say: the to-do list isn't a new mechanism. It's **the same artifact as the decision ledger, with items in two states — open and settled — and a client-facing surface.**
+
+## What makes it flexible structure rather than a wizard
+
+This is the part that decides whether your novice is helped and you aren't caged. A few rules I'd hold to:
+
+**Agent-owned, client-visible, client-editable — not a form to fill in.** The client never has to touch it. They can.
+
+**Pre-populate from the playbook, but as `not yet needed`, not `todo`.** A list of 20 open items is hoops. Six items, most marked *not needed yet*, is a map. Skipping is a first-class action **that records a reason** — "no contact form, he expects no contacts" is data, not a gap. That's what lets the same list serve a structured novice and you jumping straight to plate three.
+
+**The per-turn digest names the one next thing and what's unresolved — never the whole list.** You already have the mechanism: `page-digest` injects site state every turn as *fact*. Do the same for project state. Reminders are advice and the evidence says advice doesn't stick; digests are facts and they do — the consultant demonstrably works from the page digest.
+
+**Leading requires knowing where you are.** A model with no representation of stage can only react. That is the whole thesis: it isn't unwilling to lead, it has nowhere to stand. Give it a position and the opinions come free — you've seen that, because when you *press*, you supply the position verbally and it performs.
+
+**Forcing function, not exhortation.** Every turn should advance an item, close one, or open one. That is checkable, unlike "be proactive". It's the same trick that makes mechanism retrieval reliable: make the omission cost something.
+
+## On register — record it, don't infer it
+
+Your priming has the right insight already (*"confusion is silent and fluency is loud"*), and then asks the model to infer register continuously from silence. That's a coin-flip every turn, and both wrong answers are the ones that lose you the user.
+
+Put register in the shared state as an explicit, visible, client-correctable field. One row the client can see and override — *"talk to me like an engineer"* — beats continuous inference, and it fails safe: if it's wrong, they can see *why* it's wrong and fix it in one click instead of being quietly condescended to for forty turns.
+
+And there's a register-free move you're underusing: **show two options rather than describe them.** *"Which of these two?"* needs no vocabulary at all. Your 24 option-offering turns are mostly prose descriptions of options; rendered alternatives would work for the novice and the expert identically.
+
+## Precedents worth studying
+
+- **Claude Code's todo list — you are inside it right now.** Agent-owned, rendered in the client, reordered and skipped freely, no approval gate. It is the closest existing answer to your question, and the reason it works is that it is *visible* and *not blocking*.
+- **Wix ADI** is the cautionary case: a genuinely structured interview that produces sites for novices, and that experienced users describe as hoops. Pure structure, and the failure mode you named.
+- **Deep-research agents** (ChatGPT/Gemini): one clarifying gate of 1–3 questions, then a visible plan, then autonomy. The lesson is *how few* questions buy you the right to lead.
+- **GitHub Copilot Workspace**: task → spec → plan → code, each artifact editable. Good on legible artifacts; too gated for your case.
+- **Agentic support platforms** (Intercom Fin, Sierra) run SOPs as *injected state* — the agent is told which step of which playbook it is on, every turn, rather than being asked to recall it. That is exactly the retrieval-to-injection move I'm arguing for, and it's the one with commercial proof behind it.
+- **Artifacts and Canvas** generally: the broad finding is that introducing a shared mutable object changes conversational dynamics far more than prompt wording does. Which is the same thing your measurements say.
+
+## The risks I'd hold in view
+
+A visible plan can become the wizard you're avoiding — so cap it, seed it mostly-dormant, and make skipping cheap and recorded. And note the consultant already over-records: 45 decisions and 61 note rewrites in one engagement. Give it a to-do list and it will generate forty items unless the shape forbids it. The constraint is part of the design, not a later tuning pass.
+
+One genuine open question I'd want your answer to before designing: **should the list be per-engagement or per-site?** Your sites outlive conversations, and the LF engagement has spanned days and several sessions. If it's per-site, it becomes the durable project record and survives a lost conversation — which, given what we spent today on, is worth something.
+
+Happy to turn this into tickets under EPIC-19 when you've pushed back on it — I'd guess three: the shared open/settled list with its surface, project state in the per-turn digest, and recorded register. But I'd rather argue about the shape first.
 
 <!-- xgd-chat-end -->
