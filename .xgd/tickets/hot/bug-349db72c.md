@@ -6,7 +6,7 @@ title: 'l1-gate: no probe can see a backing surface separating from the content 
   backs, and viewport height is not an axis at all'
 created_by: EPIC-12
 created_at: '2026-09-25T02:40:45.049473+00:00'
-updated_at: '2026-09-25T17:15:02.642715+00:00'
+updated_at: '2026-09-25T17:17:50.512427+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -247,3 +247,45 @@ surface further out. It now goes through `onSampleProbe`, so the number on the
 console and the number the gate grades are the same number. Both that line and the
 `1c gate` summary print `width×height`, because a count whose height is invisible
 cannot be told apart from a count at a height that was never sampled.
+
+
+### 8.8 What the alarm actually reports on the reported reproduction
+
+Measured against the retained `gigabytealchemy.ai` capture in this checkout, folded
+through the landed code. The fold declares `backedBy` on 44 runs. Escape counts,
+per `width×height` sample:
+
+| probe | result |
+|---|---|
+| on-sample (6 widths × 2 heights) | **0** — clean at every captured sample, as §3 said |
+| off-sample (10 widths × 2 heights) | **2**, both at 637px |
+| content +15% (6 widths × 2 heights) | **8** — 2 at 320, 3 at 375, 1 each at 1024/1280/1440 |
+| `acceptanceGate` verdict | `pass: false` — `onSample: true`, `offSample: false`, `contentRobustness: false` |
+
+So §5's central claim holds on the real bundle: the gate verdict flips from
+`pass` to failed, and the `layout` block carries named escapes instead of
+`findings: []`. §5's content-growth prediction of eight escaping runs at +15% is
+matched exactly.
+
+**Two of §5's numbers came out differently, and the difference is a decision, not
+a shortfall:**
+
+- **Off-sample reports 2 escapes at 637px, not 14 at 500px.** §3's exploratory
+  harness took ownership by containment at 1280px alone. The landed derivation
+  requires a surface to cover a run at **every** captured width before it counts as
+  backing it (§8.2), which excludes pairings that never held across the ladder —
+  precisely so a reflow is not reported as a surface coming apart. That is the
+  stricter, quieter rule, and it costs most of the fourteen. 500px is also no
+  longer sampled: the segment rule (§8.4) samples 506px, which is clean, and 637px,
+  which is not.
+- **This bundle does not fail at a height it was not captured at.** Its escape
+  counts are identical at 768px and 1536px. The height axis is exercised — every
+  sample above is a `width×height` pair, and §4.3's machinery is what makes the
+  pair reachable — but the evidence that a wrong height response is *caught* rests
+  on the synthetic `heightBlindPage` UAT, not on this capture. §5's third bullet is
+  therefore satisfied as "a vertical resize is reachable and gated", not as "this
+  bundle fails vertically".
+
+Both are recorded here rather than tuned away: loosening the unanimity rule to
+recover the larger count would make every responsive reflow an escape, which is
+the failure mode that would retire the alarm within a day.
