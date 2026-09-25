@@ -6,9 +6,9 @@ title: 'Turn table: local timestamps, drop the identifier columns, show what eac
   turn cost'
 created_by: EPIC-20
 created_at: '2026-09-25T03:57:13.366235+00:00'
-updated_at: '2026-09-25T22:17:15.048880+00:00'
+updated_at: '2026-09-25T22:59:20.668578+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -106,3 +106,47 @@ second, how it ended, and what it cost including delegated work — and no
 conversation or turn identifier. A turn with no spend row shows the dash rather
 than `$0.00`. The failure sentence beneath a failed row is unchanged: it is the
 part of REQ-306 that already works.
+
+
+## What landed, beyond the sentences above
+
+The three requirements are implemented as written. These are the decisions the
+implementation had to make that the spec above did not name, recorded here so
+they are part of the ticket rather than only part of the code.
+
+**A total is a total or it is nothing.** §3 named one cause of absence — no
+`turn_spend` row. There are three more, and all four render the dash: a row
+whose own `cost_micros` is `NULL` because `prices.json` named no rate for its
+model pair; a row whose `attributed` column will not parse as a list; and a
+delegated entry `attributedSpend` cannot price or drops for having no usage at
+all. A partial sum presented as a total would understate in the flattering
+direction — which is the one direction this column must not err in — and a
+single cell has no room for the "unpriced remainder" sentence the cost pane
+beside it can print.
+
+**The join lives in the route, not in either module.** `turn-log.ts` owning a
+read of the meter, or `spend.ts` a read of the ledger, would make two tables'
+vocabulary one module's business for the sake of one surface. `spend.ts` gains
+only `tenantTurnCosts(env, tenantId, turnIds)` — figures for a named handful of
+turns, distinct from `tenantSpendTurns`'s period-for-an-invoice — and the route
+calls it with the ids `turnHealth` produced. The read is scoped by tenant as
+well as by `turn_id`, though the id alone would find the row, so that a mistake
+upstream cannot price one business's turn against another's meter; a business
+with no turns runs no statement at all rather than sending `IN ()`.
+
+**The identifiers stay on the wire.** Only the columns go. `session` and `turn`
+remain in the `ADMIN_BUSINESS_TURNS_PATH` payload, whole and untranslated, for
+whoever performs a correlation — dropping the fields would decide for every
+future reader that nobody ever will.
+
+**A stamp that will not parse is printed verbatim** — never a dash and never
+*Invalid Date*. It is still the text the ledger holds, which is what somebody
+diagnosing it needs, and this column's job is to be readable rather than to
+judge the row.
+
+**REQ-306's own UAT is revised, not deleted**, on the same reasoning §2 applies
+to its commentary: the half of requirement 4 that asserted the two identifier
+columns is gone, the half that asserts how a turn ended and why it ended that
+way stays. The table's width in `builder.css` narrows with it — three short
+values stretched across a dragged-open pane would put a cost half a screen from
+the stamp it belongs to.
