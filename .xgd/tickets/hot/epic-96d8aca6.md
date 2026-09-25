@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T02:04:37.349968+00:00'
+updated_at: '2026-09-25T20:16:27.195367+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1869,3 +1869,105 @@ step *after* the replacement is proved. Folding it into either ticket above woul
 that ticket could not close until the old path was gone — exactly the pressure the
 operator asked to remove. It is filed when REQ-318 and REQ-319 are trusted, and both
 tickets say so in their Boundaries.
+
+
+
+---
+
+## §N — First run of the new dev environment (2026-09-25)
+
+[[REQ-318]] and [[REQ-319]] have both landed. This section records the runbook the
+operator was walked through, and the three seams the walkthrough exposed — all of
+them consequences of §L1's "prove it first, delete later" sequencing rather than
+defects in either ticket.
+
+### N1 — Measured state before the first run
+
+`1c ps`, run from this checkout, 2026-09-25:
+
+- **9 listeners belong to this project.** Two are recognised services — `filing`
+  on 8790 and `access-sim` on 8799 — and neither has a pidfile, because both were
+  started by hand before `bin/dev` existed. The builder on 8788 was **not**
+  running.
+- **7 are strays**: 8712, 8722, 8733 in this checkout, and 8711, 8719, 8723
+  (`free-REQ-254`) and 8795 (`free-BUG-124`) in `.xgd` worktrees that no longer
+  exist. That is K4's measured situation still standing, unchanged, three days
+  later — and it is exactly why `reap` is not redundant with `down`.
+- **7 listeners in the band belong to sibling projects** (lagrange-framework, xgd,
+  a test-workflows checkout) and are correctly reported-and-spared.
+- `1c workerd` reports **one** version, 1.20260710.1, via `miniflare@4.20260710.0`
+  and `wrangler@4.111.0`. The §M2 invariant holds, so the local deploy's entry
+  guard passes.
+- No `apps/control-app/.dev-snapshot` and no `storage/tmp/dev` — nothing has been
+  deployed locally yet.
+
+**`reap` kills `filing` and `access-sim` too**, and that is the rule working
+rather than a surprise: the rule is `ours && !managed`, and a service nothing
+holds a pidfile for is by definition unmanaged. It is what makes "kill everything
+that is running" a single command.
+
+### N2 — `bin/dev up` does not start the deployed environment
+
+`DEV_SERVICES` starts `1c builder` on **8788** — the old watch-mode path — not
+`1c dev serve` on **8789**. That is §L1 honoured exactly: the two are meant to run
+side by side against the same store until the replacement is trusted. The
+consequence for an operator is that **`up` and `serve` are two commands, not one**,
+and `serve` runs in the foreground with no pidfile (deliberately — `up` owns the
+service set and its bookkeeping).
+
+Worth stating because the natural reading of "start the dev environment" is that
+`up` covers it. It covers the *supporting* services; the deployed Worker is
+`1c dev serve`.
+
+### N3 — access-sim fronts 8788, not the deployed environment
+
+`bin/access-sim` defaults `BUILDER` to `http://127.0.0.1:8788` (overridable by
+`--builder` or `SIM_BUILDER`), and `bin/dev up` starts it with **no argument**. So
+the simulator that `up` starts proxies to the old watch builder, not to the
+deployed snapshot on 8789. Reaching the deployed environment through Access
+therefore needs the origin named by hand:
+
+    bin/access-sim --builder http://127.0.0.1:8789
+
+This matters beyond convenience: `ACCESS_DEV_OPEN = "1"` is set in
+`[env.dev.vars]`, so a direct connection to 8789 resolves everything to
+`TENANT_ID` and can only ever reach *1st Contact* (§I13's finding, restated at a
+new port). Any work on another business has to arrive through the simulator.
+
+When the retirement step lands, `DEV_SERVICES` should point access-sim at whatever
+port survives, and the default in `bin/access-sim` should move with it.
+
+### N4 — the public site half of the environment is not frozen
+
+`bin/deploy --env dev` writes a snapshot for **both** apps — `[env.dev]` exists in
+`apps/public-site/wrangler.toml` and the parity rule holds — but `1c dev serve`
+names `control-app` literally, and `bin/dev up` starts the public site with
+`pnpm --filter @1stcontact/public-site dev`, which is the watch path. So today the
+control app is deployed-to and the public site is still edited-into.
+
+Not wrong for REQ-318's acceptance, which is about the builder; but "the dev
+environment is frozen" is only half true until `serve` takes an app argument. It
+belongs with the retirement step rather than as its own ticket.
+
+### N5 — the runbook
+
+1. **Stop everything.** `bin/dev reap --dry-run` to read the list, then
+   `bin/dev reap`. It must be run from the operator's own terminal: a detached
+   listener started inside an agent sandbox survives a `kill -9` sent from inside
+   that sandbox, and `reap` reports what it could not kill rather than claiming
+   success.
+2. **Build, then deploy to the local target.** `bin/build` (or at minimum
+   `./bin/1c assets`, since `[env.dev.assets]` names `./dist-assets` and the ship
+   step copies it into the snapshot), then `bin/deploy --env dev`. The migrate
+   hook runs `--local --persist-to .wrangler/state`; the secrets hooks take
+   `secret_local_target` and read the `.dev.vars` layering instead of a secret
+   store; the workerd guard runs before any hook, because the store is the only
+   copy of the dev data.
+3. **Start the environment.** `bin/dev up` for filing, the builder, the public site
+   and access-sim; `1c dev serve` in its own terminal for the deployed control app
+   on 8789; and access-sim re-pointed per §N3 if the work is on any business other
+   than the platform tenant.
+4. **The reproduction console is independent.** `bin/repro-console` on 8710 boots
+   its own Vite server and runs each step as a fresh `1c` process. It needs neither
+   the builder nor filing nor access-sim, and nothing in the dev environment needs
+   it. It is in `1c ps`'s known-port table, so `up`/`down`/`reap` see it.
