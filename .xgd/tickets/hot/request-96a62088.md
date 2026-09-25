@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-ba838d12
 ---
 
 # fold: a bordered panel's flow offsets are measured from its border box, and a one-child panel never flows at all
