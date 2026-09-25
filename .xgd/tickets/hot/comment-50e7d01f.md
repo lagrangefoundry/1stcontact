@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T03:12:44.295023+00:00'
+updated_at: '2026-09-25T03:23:11.568498+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1534,5 +1534,84 @@ Decision 2 is the one I'd most readily be overruled on — it's reversible and t
 <!-- xgd-chat role="user" ts="2026-09-25T03:12:43.747370+00:00" -->
 #### You
 Can you take a look at today's work in the dev environment for Lagrange Framework - is the delegate being used?
+
+<!-- xgd-turn id="deda04c0-2771-46ca-a34f-e052f349c678-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T03:23:11.469634+00:00" -->
+#### Claude
+I'll go straight at the dev environment's own records rather than the tickets.
+
+`turn_spend` exists and the store was written 20:11 today. Going straight at it.
+
+Two turns on 09-22 carry `attributed`; today's five are all NULL. Let me pin what that means before drawing the conclusion.
+
+A failed turn at 18:49Z with `SQLITE_TOOBIG`. Let me widen the window and get at the tool-call record.
+
+Confirmed: Lagrange Foundry, site at revision 344. Now the tool-call record.
+
+One `Delegate` today — and every one of today's `turn_spend` rows has `attributed` NULL. That needs reconciling.
+
+The delegate ran — once, 70 tool calls, zero failures. But that turn is the one that errored. Let me pin why, and why its spend is missing.
+
+The one delegation today has no `turn_spend` row. Checking whether the meter writes on a failed turn.
+
+Now the economics. Let me price it from the repo's own rate table rather than from memory.
+
+Two defects fell out of this. Let me characterise the turn-killing error before I report.
+
+One more check before I report — whether delegations also go unattributed on *successful* turns.
+
+Complete picture. Reading the ticket before I record.
+
+Yes — once today, and that's the story.
+
+I measured this from `turn_spend`, the R2 audit ledger and the worker sessions' own chat tickets in the local dev store (Lagrange Foundry, site at revision 344), not from the tickets.
+
+## Is it being used
+
+Live and working. **Eight worker sessions have ever existed** — seven on 09-22, one today — all `claude_builder` / `claude-haiku-4-5`. But across every metered turn:
+
+| | |
+|---|---|
+| Consultant (Opus 5) | **$21.84** |
+| Delegated (Haiku 4.5) | **$1.33** |
+| **Delegated share** | **5.7%** |
+
+Today: **seven turns, six metered at $15.49, and none of those six delegated anything.** The one delegation sat in the seventh — the turn that errored.
+
+## The one delegation was textbook
+
+18:49–18:55Z, a font-family sweep on one page:
+
+| | consultant calls | of which site writes |
+|---|---|---|
+| The delegating turn | **16** | **2** |
+| Its builder worker | 70 | 27 |
+
+70 tool calls, **zero failures**, `reported`, `accepted: true`, six checks answered. And the consultant **didn't re-inspect** — no screenshot, no re-read after the report. It believed the passed checks and moved on, which is the only thing that makes delegation cheaper rather than relocated. The load-bearing part of the design held.
+
+## Then the next sitting did the same work on Opus
+
+| | consultant calls | of which writes | cost |
+|---|---|---|---|
+| Evening turns (02:05–03:19Z) | **79** | **32** (29 × `set_l1`) | **$15.49** |
+
+That's the gap we named when you chose the additive grant — *nothing gives the consultant a per-turn reason to delegate* — now observed rather than predicted. Per-turn cost climbed as context grew: $0.85 → $2.08 → $2.07 → $3.32 → $4.24 → $2.93.
+
+So REQ-293's split-by-model question is answerable early, and the answer is **5.7%**. On this evidence the prose is not sufficient as the lever, and the two things held in reserve are the ones that matter: the per-turn spend gauge beside REQ-296's occupancy figure, and option (b)'s narrowed grant.
+
+## One real defect
+
+**Four of the eight delegations are invisible to the meter.** The rule is exact and isn't about delegation:
+
+> A delegation is metered iff its enclosing turn wrote a spend row. Turn wrote one → attributed correctly, 4 of 4. Turn wrote none → lost, 0 of 4.
+
+`turnSpendRecord` does `if (!measured(usage)) return null` — the **caller's** usage gates the whole row, and `attributed` is a field of that row, so it dies with it. REQ-295's criterion holds for every *delegation* exit path and not for the *caller's*. The dollars lost are trivial ($0.14–0.57 per worker); the damage is that **the instrument meant to tell us whether delegation is working under-counts its subject by half.**
+
+The fix has a decision in it — writing a row when `attributed` is present but the caller's counters aren't means deliberately widening *nothing, never zero* — so I've written it up rather than filed it.
+
+Not a defect: the `SQLITE_TOOBIG` that killed that turn is REQ-309, already fixed. The frozen transcript segment stops at 09-22T23:00 and a fresh one opens at 09-25T02:06, after which all six turns recorded cleanly. That turn was the last casualty.
+
+All of it is recorded on EPIC-20. No code touched, no branch cut. Want me to file the metering fix?
 
 <!-- xgd-chat-end -->
