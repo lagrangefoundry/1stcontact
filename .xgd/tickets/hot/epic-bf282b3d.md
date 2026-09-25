@@ -5,9 +5,9 @@ type: epic
 title: Site duplication
 created_by: martin-github@westhead.me
 created_at: '2026-09-16T00:31:15.651389+00:00'
-updated_at: '2026-09-25T02:40:45.258723+00:00'
+updated_at: '2026-09-25T02:41:23.996749+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: underway
 fields:
   priority: medium
@@ -625,3 +625,73 @@ never armed.
 **Order.** [[BUG-112]] before [[BUG-113]] — the alarm is the test for the
 defect, and the same argument §10 makes for filing the rail before the loop it
 protects.
+
+
+---
+
+## 13. Loop 1, iteration 6 — the best reproduction yet, and it survives no resize (2026-09-24)
+
+Iteration 6 of `gigabytealchemy.ai` is at rest the best output the loop has
+produced: `meanDiff 0.22`, zero perceptual regions, four `LOW` value deltas,
+`sampleFidelity` max delta 0.008px, `offSample` and `onSample` both passing.
+Resize the browser on either axis and the background bands, section shading and
+card panels slide away from the text they are painted behind.
+
+**The served document is two layers with nothing binding them.** 58 nodes are
+`place: 'flow'` — every word on the page. 14 are absolute — exactly the
+backgrounds, shading and cards. No parent/child link, no ownership field: at rest
+a panel sits behind its runs only because their coordinates coincide. Grow the
+copy 15% and **0 of 14 panels move while 46 of 53 runs move, by up to 161px**. At
+500px, between the captured rungs, **14 of 69 runs have left their panel, the
+worst by 576px.** On the vertical axis it is declared rather than emergent: 13 of
+the 14 panels carry `viewportResponse: {yFactor: 1}`, no text node carries one
+and none structurally can, and the rendered `home.html` holds **91 `vh`
+references, every one on a pinned panel and none on any text**.
+
+**No probe can see any of it.** `evaluateLayout` filters every synthesized
+backing surface out of its collision set by id prefix before the only geometric
+check runs; `envelopeAt` — the one function all three probes share — asserts
+sibling-overlap and horizontal-clip and has no notion of containment, so "no
+longer covers what it exists to cover" is not expressible; and `evaluateLayout`
+takes no viewport height at all, so the axis on which the defect is worst is
+unmodelled. `offSample` samples exactly two widths, evaluates the geometry at
+500px where fourteen runs are off their panels, and returns clean. Iteration 6's
+`gate.json` says `"layout": { "pass": true, "findings": [] }`.
+
+**This is §2.6 again, and it is the reason to state the bar as a behaviour rather
+than a number.** A page can pass every value gate, every pixel gate and every
+envelope probe the engine has and still be a copy the customer would not accept,
+because the thing that is wrong only appears when they touch the window. The six
+rounds run so far filed six tickets — half-leading, form padding, a fabricated
+band fill, negative-y siblings, placeholder typography — every one a per-axis
+value detail, and not one this. The rounds went exactly where the instrument
+pointed. **Iterating further on this bundle cannot find it**, which inverts the
+usual order: the engine has to change before the loop can see the defect.
+
+**It is structural, but it is not an L1 ceiling.** `L1ContainerNode` already
+carries a surface group — REQ-98's "a container paints AND lays out" — so the
+primitive for a panel that paints a fill and holds its children in flow exists
+and is used elsewhere. The fold simply does not emit it for a section band or a
+card: `fold.ts:1865`/`:1992`/`:1521` each build a childless `L1Box` and push it
+into a flat sibling list. Two individually defensible decisions compose into the
+defect — REQ-278's `keepsAbsolute` never flows a backing surface (its rationale
+holds "at rest" and establishes nothing about any other state), and flow
+promotion drops a node's `yFactor` because the validator refuses `place: 'flow'`
+with a y-response.
+
+### The children this produced
+
+- **[[BUG-143]]** — the probes gain containment, and viewport height becomes an
+  evaluator axis. The alarm. _Testable:_ today's bundle goes from
+  `offSample: pass` to failed-naming-fourteen-escaped-runs at 500px, fails under
+  content growth, is reachable at a second viewport height per width, and a
+  reproduction whose panels hold their content still passes.
+- **[[BUG-142]]** — a band, section background and card fold to a container that
+  owns the content it backs. The defect. _Testable:_ 0 runs escape at 500px and
+  under +15% copy where 14 and 8 do today; no `vh`-driven transform on a panel
+  whose content has none; the at-rest fidelity cost reported as a number either
+  way.
+
+**Order.** [[BUG-143]] before [[BUG-142]] — the same argument §12 made for
+[[BUG-112]] before [[BUG-113]]. A fix landed against a gate that cannot see the
+thing it fixes is a fix nobody can show working.
