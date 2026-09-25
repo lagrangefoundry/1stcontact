@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-140
 created_by: xgd
 created_at: '2026-09-25T01:40:24.661335+00:00'
-updated_at: '2026-09-25T02:03:17.193523+00:00'
+updated_at: '2026-09-25T02:32:19.168153+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,79 @@ Which of these do you want in scope for BUG-140? My inclination is 1+2+3 here an
 <!-- xgd-chat role="user" ts="2026-09-25T02:03:16.806901+00:00" -->
 #### You
 PLease proceed
+
+<!-- xgd-turn id="b16e4f6e-fcc9-4c9e-9be9-9ce39bc40d52-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T02:32:17.840110+00:00" -->
+#### Claude
+I'll start by checking the status vocabulary I need to route on, then scope the ticket.
+
+Status vocabulary confirmed. Now scoping the ticket body.
+
+Scoped. Now cutting the branch.
+
+Now the implementation. First, the new routing module:
+
+Now the gaps registry succession:
+
+Now the prompt side in `ai.ts`:
+
+Now the prompt's "Classes that already have a ticket" heading text:
+
+Now the brief — §6 and §7:
+
+Now `console.ts` — the routing, the read-back split, and the evidence check:
+
+Now the `confirm()` split:
+
+Now the UATs. Let me check the console's slug derivation and page render first:
+
+Now the UAT file:
+
+The comments list is a bare JSON array and `parseJsonOutput` only slices objects. Adding an array-aware sibling:
+
+19/19 pass. Let me fix one test whose name no longer matches what it asserts — the unreadable-comments path isn't actually being exercised:
+
+21/21. Now checking I haven't broken the neighbouring console suites:
+
+All green. But REQ-256's `appended` test now silently exercises the unverified path — its fake doesn't answer `ticket comments`. Let me check and fix that:
+
+Confirmed violation-free. Removing the probe:
+
+Now the wider suite, to catch anything else touching these modules:
+
+All 17 suites green now — the three failures were a missing gitignored `apps/control-app/src/generated/` in the fresh worktree, not my change. Full suite sweep:
+
+Identical baseline except two. Checking those:
+
+All 15 remaining failures are identical in the main checkout — pre-existing and unrelated. Committing explicitly (no `-A`):
+
+Now filing the sibling-repo ticket for the `xgd` CLI half, then closing out BUG-140:
+
+BUG-1448 filed in the `xgd` repo. Now closing out BUG-140:
+
+Done. BUG-140 is `free_coded` at version 0.2.353, merged into `xgd-working`, worktree cleaned.
+
+## What I built
+
+**Root cause, as reported:** a permanence mismatch. `gap-tickets.json` is permanent; the body it points at is writable only at `draft`/`free_coding`/`free_coded`/`failed`. Every class ticket converges on refusing the append the prompt unconditionally demanded.
+
+Four behaviours, all four in:
+
+1. **The brief names the comment as the append route** — §6 gains "Appending to a class that already has a ticket", §7's `appended` example matches. It states the freeze, gives the `add-comment` command, and requires the `repro-console:<slug>#<n>` marker in the comment's first line (with the reason: `add-comment` has no `--created-by`).
+
+2. **The prompt routes per class on the live status.** `routeGaps()` reads every registry ticket back before the prompt is built; each class line carries `now at \`<status>\`` and one of three instructions — body append / comment / new ticket for a settled class. Unreadable routes to the comment, the one route nothing refuses.
+
+3. **`confirm()` charges the round for what it owns.** A `filed` round is checked exactly as before. An `appended` round's named ticket is read for existence only — its status, `created_by` and `defect_class` belong to the earlier round. In their place, `appendEvidence()` looks for a comment on that ticket carrying *this* round's marker, so `"appended"` stops being an unverified claim. `bugTickets` stay fully checked on both paths.
+
+4. **A re-file against a settled class is not a duplicate**, and the registry succeeds to the new id keeping the old one in `priorTicketIds`.
+
+One thing I found while wiring it: `parseJsonOutput` can't read `xgd ticket comments --json`, which prints a bare array — it would have sliced braces off the first and last element and parsed neither. Added `parseJsonArrayOutput` alongside rather than widening the object parser.
+
+**Tests:** 24 UATs in `tests/test_UAT_FC_BUG-140_the_append_route.test.ts`, driving the real console; each makes both directions of its claim (the three checks are asserted as *still firing* on a `filed` round's own ticket and on `bugTickets`, and two live tickets for one class is still reported). I also added a `ticket comments` branch to REQ-256's stand-in `xgd` — without it, its appended round silently exercised the unverified path.
+
+**Full suite:** 15 failures, identical set in the main checkout — sockets, Cloudflare tokens, vocabulary scans, reconciliation ACs. Pre-existing and unrelated. Three further failures were fresh-worktree artifacts (missing gitignored `apps/control-app/src/generated/` and `.xgd/tmp/`); I confirmed each by supplying the artifact and watching them pass.
+
+**Sibling repo:** filed **BUG-1448** in `xgd` for `add-comment --created-by` written to the comment's own frontmatter. Nothing here depends on it landing.
 
 <!-- xgd-chat-end -->
