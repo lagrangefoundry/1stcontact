@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T00:08:08.012005+00:00'
+updated_at: '2026-09-25T01:52:30.465046+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3800,5 +3800,11 @@ Both recorded.
 The reason worth having in writing: a component default wouldn't just be a guess, it would *silently become the answer* for every host that never thought about the question. Unbounded is the honest reading of a host that hasn't decided; 16,000 is the reading of one that has.
 
 So the split is clean — the framework gets the mechanism and the refusal-before-clear behaviour, this project owns the number and the sentence.
+
+<!-- xgd-turn id="3f1d350a-34dc-4d69-82bd-a9b104dc4d11-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T01:52:30.225639+00:00" -->
+#### You
+ok can you check on the state of the tickets and tell me what I need to do to get everything insalled and running locally please?
 
 <!-- xgd-chat-end -->
