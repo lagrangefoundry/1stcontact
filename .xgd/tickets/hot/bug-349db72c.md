@@ -6,9 +6,9 @@ title: 'l1-gate: no probe can see a backing surface separating from the content 
   backs, and viewport height is not an axis at all'
 created_by: EPIC-12
 created_at: '2026-09-25T02:40:45.049473+00:00'
-updated_at: '2026-09-25T02:40:45.049473+00:00'
+updated_at: '2026-09-25T17:13:39.882910+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -133,3 +133,105 @@ can show working.
 - [[BUG-142]] — the defect this detects.
 - [[BUG-112]] / [[BUG-113]] — the same alarm-then-defect pair, one loop earlier.
 - [[EPIC-12]] §2.6 (the bar), §12 (loop 1 in practice).
+
+
+---
+
+## 8. What landed
+
+### 8.1 `backedBy` — the ownership record (§4.1)
+
+`l1TextSchema` gains an optional `backedBy: string`, the id of the synthesized
+surface painted behind the run. The fold writes it: `SurfaceRow` carries the text
+node it was collected from, and `buildSolidBands` / `buildCards` stamp their own
+id back onto every row they were built out of. A band claims its rows only *after*
+the `base === null` early return, so a band that paints nothing — and is therefore
+never emitted — leaves no run naming a surface that does not exist.
+
+The axis is inert at render time. It names a relation, not a paint property.
+
+**The name must answer to something.** `validateL1` gains a structural rule,
+`backingSurfaceExists`: a `backedBy` naming an id the document does not declare is
+refused, and the error names the unanswered id. This is a consequence of §4.1
+rather than a separate ask — the relation is only worth recording if it is
+checkable, and a dangling name is not a harmless typo but an assertion that
+silently never runs, which is the exact failure mode this ticket exists to close.
+
+### 8.2 Containment (§4.2) — and the two rules that keep it honest
+
+`evaluateLayout` takes an optional `backing` map and emits a third finding kind,
+`escape`, naming the run, the surface id, and the overhang in pixels and on which
+side. A surface hidden at the sampled width is skipped: a run outliving its own
+surface is that surface's visibility rule working, not a defect.
+
+Two decisions were needed that §4.1 did not settle, because the ownership record
+cannot be the *only* source of pairings:
+
+- **A document that declares nothing is still gated.** Every document folded
+  before `backedBy` existed — including the `gigabytealchemy.ai` bundle this was
+  reported on — declares no backing at all. Excluding them would leave the pages
+  the defect was reported on ungated, so `deriveSurfaceBacking` also *derives*
+  ownership by containment-at-rest, and reports the same escape.
+- **The derivation is unanimous, so a reflow is not an escape.** A pairing is
+  derived only when the surface covers the run at **every** captured resting
+  state. A run that sits on a band at desktop and somewhere else entirely at
+  mobile was never backed by it, so the reflow that moves it is not a surface
+  coming apart. Without this the alarm would be noise on every responsive page.
+
+The backing is resolved **once**, from the resting document, and handed to every
+sample. Deriving it per sample would let a perturbed sample re-decide which panel
+owns which run — and "does a pairing that held at rest still hold" is not a
+question that can be asked if the pairing moves with the answer.
+
+### 8.3 Viewport height as an axis (§4.3)
+
+`evaluateLayout` takes `viewportHeight` beside its width, and resolves each node's
+`viewportResponse` against it — computing the same number the renderer's
+`calc(y + yFactor * (100vh - atHeight))` emits. At the captured height the two
+terms cancel, which is what makes the axis safe to add to every existing caller.
+
+The probes sample **two heights per width**: the shortest height the capture
+measured, and 1.5× the tallest. The upper end is deliberately a height nothing was
+captured at — a wrong height response is exact everywhere it was measured, so a
+bracket that only visits measured heights cannot reach the defect.
+`capturedHeights` (the measured set) is kept distinct from `envelopeHeights` (the
+bracket) because one caller needs the measured set specifically — see §8.5.
+
+### 8.4 Off-sample width sampling (§4.4)
+
+`offSampleWidths` replaces the constant pair `[500, 900]` with **two interior
+points per ladder segment**, at a third and two thirds across each. Against the
+six-rung ladder that is ten samples rather than two, with every segment covered
+twice; the old constants left two segments unvisited entirely, and the reported
+reproduction came apart at 506px inside a segment that was sampled at 900 and
+passed. Nothing is sampled below the first rung or above the last: the renderer
+holds the end keyframe there, so the only thing such a sample could report is that
+boxes measured at 320px overflow a viewport narrower than 320px — true of every
+page, and evidence about none.
+
+### 8.5 The escapes reach the operator, and change nothing else
+
+`gate.json`'s `layout` block now carries the escapes from the off-sample and
+content-robustness reports as well as the on-sample one, each collision tagged
+with the height it was found at. Naming only the on-sample report would have left
+the operator reading `findings: []` under a failed verdict — the shape of the gap
+this ticket is about — because a containment escape is by construction invisible
+at rest at every captured width.
+
+**The recovery choice is deliberately not re-priced.** REQ-278's `chooseRecovery`
+counts collisions and clips only; `escape` findings are excluded, and it is graded
+at the captured heights rather than the bracket. This is a consequence of this
+being the alarm half of an alarm/defect pair (§6): both candidate documents
+inherit the same synthesized surfaces from the same fold — the recovery moves
+runs, it does not build panels — so an escape count measures the fold's decoupling
+([[BUG-142]]), not the recovery's merit. Pricing it here would make the alarm
+decide what ships: the flow recovery would lose on a count it did not cause, and
+every page would silently regress to a base document nobody chose for as long as
+BUG-142 stays open. An alarm reports; it does not choose the served document.
+
+### 8.6 Evidence
+
+`tests/test_UAT_FC_BUG-143_surface_containment_height_axis.test.ts` — twelve UATs
+covering §4.1–§4.4, all five bullets of §5, and the four decisions above: the
+refused dangling name, the undeclared-document path, the reflow that is not an
+escape, and the segment sampling rule.
