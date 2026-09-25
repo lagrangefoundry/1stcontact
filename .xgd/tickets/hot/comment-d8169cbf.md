@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T22:26:07.972112+00:00'
+updated_at: '2026-09-25T22:44:29.055600+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3916,5 +3916,11 @@ Want me to reload-and-check whether that turn recovered, or leave the browser to
 Something alarming just happened. I was in a very good session with the AI making the final changes to the site I think it was filing tickets when there was a visible glitch its entire turn disappeared along with the entiire session so far. 
 
 This should be running from the dev-install so it should not be impacted by tickets in flight. The AI was trying to write tickets and that may have triggered an error but the loss of content is significant can you take a look please?
+
+<!-- xgd-turn id="1b602896-aba0-4b20-a542-5e17e36d4b14-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T22:27:34.922795+00:00" -->
+#### Claude
+I'll look at the data before theorising.
 
 <!-- xgd-chat-end -->
