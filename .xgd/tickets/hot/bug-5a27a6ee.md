@@ -6,9 +6,9 @@ title: 'bin/dev down cannot stop the builder: up records the wrapper''s pid, not
   listener''s'
 created_by: EPIC-16
 created_at: '2026-09-25T21:46:45.739941+00:00'
-updated_at: '2026-09-25T23:17:57.818622+00:00'
+updated_at: '2026-09-25T23:18:05.583535+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -24,6 +24,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.366
+  story_points: 3
 ---
 
 ## What happens
