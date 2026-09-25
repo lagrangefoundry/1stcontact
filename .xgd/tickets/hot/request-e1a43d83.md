@@ -15,10 +15,8 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-c2a75f89
 ---
-
-
-
 
 ## What this is for
 
