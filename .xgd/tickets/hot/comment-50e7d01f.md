@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T03:41:23.527305+00:00'
+updated_at: '2026-09-25T03:47:12.576128+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1625,5 +1625,67 @@ The context was FULL when I started this session this evening (please give me ti
 Its good that delegation is possible and working, how do we motivate its use? 
 1) Mandate its use in the prompt unless there was a reason not to do it
 2) We could expose the costs to the AI and motivate it to minimise?
+
+<!-- xgd-turn id="25438868-74db-4f09-b5e1-75361e9d8e5b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T03:47:11.697559+00:00" -->
+#### Claude
+Let me get the decomposition and check the occupancy claim — and one thing I should have checked earlier: 09-22 had **seven** delegations across five turns, so the rate isn't uniformly low.
+
+Two things in that decomposition matter more than the answer to your question. Let me check the cache TTL and the 09-22 contrast.
+
+Two surprises. Let me test the one that changes the answer: whether the consultant is discriminating correctly by job size.
+
+The discrimination hypothesis fails — the consultant did 10- and 14-write sweeps itself. Let me confirm the backend/cache config.
+
+One more — you said the context was full, and that's checkable.
+
+Checks done. `DEFAULT_CACHE_TTL` is already `'1h'`, so the cache isn't thrashing — I'd been about to call that a bug and it isn't. Recording the corrected analysis.
+
+All times below are local (PDT). Recorded on EPIC-20.
+
+## Why per-turn cost grew — you're mostly right
+
+Per round trip, cost was **flat**. The turns just got longer.
+
+| turn | requests | $ turn | **$/round trip** | prefix read/req |
+|---|---|---|---|---|
+| 19:05:53 | 3 | 0.85 | **0.284** | 58,924 |
+| 19:11:31 | 13 | 2.08 | 0.160 | 95,906 |
+| 19:24:25 | 14 | 2.07 | **0.148** | 114,081 |
+| 19:35:40 | 19 | 3.32 | 0.175 | 102,589 |
+| 20:04:16 | 24 | 4.24 | 0.177 | 138,563 |
+| 20:15:06 | 13 | 2.93 | 0.225 | 170,513 |
+| 20:37:37 | 14 | 3.24 | 0.231 | 186,366 |
+| 20:41:06 | 13 | 3.36 | — | — |
+| | **100** | **18.73** | **0.187** | |
+
+Round trips went **3 → 24**. That's the 8× swing doing the work, so yes — "just more". Uncached input per round trip is nearly constant at **~8.2k**, which is the best evidence yet that the prefix discipline from REQ-143/145 is holding.
+
+But there's a second, smaller term: the prefix grew **59k → 186k (3.2×)**, lifting $/round-trip **56%** off its 19:24 trough. So it's (round trips) × (prefix), both grew, round trips harder.
+
+**On "already full" — it wasn't.** `occupancy_tokens` is **214,142** against a **1M** declared window for Opus 5: about **21%**. Cold, yes — the first three round trips were the night's priciest ($0.284) because that turn paid 88,892 cache-write tokens to establish the prefix, 65% of its cost. But not full. If something in the UI showed it full, that gauge is measuring against something other than the declared window, and I'd want to look at that separately.
+
+Worth knowing where the $18.73 went: cache read 35%, cache write 23%, input 22%, output 20%. **58% is carrying the conversation, not doing the work.** (I checked whether the cache was thrashing on a 5-minute TTL — it isn't, `DEFAULT_CACHE_TTL` is already `'1h'`.)
+
+## Motivating delegation
+
+First, I tested the charitable reading — that the consultant delegates bulk and keeps small edits, making 5.7% correct behaviour. **It fails.** It delegated a 27-write sweep in the morning, then did **10-write and 14-write sweeps itself** at 19:35 and 20:04. Same class of job, opposite decision, no threshold being applied.
+
+And the sharper fact: **09-22 had seven delegations in five turns; today, one in nine.** Same config, same prose, and you never asked for delegation either day — no "delegate", "worker" or "hand it to" anywhere in the transcript, so all eight were model-initiated. A lever that swings 7-in-5 to 1-in-9 isn't one you can plan capacity around. **That variance, not the level, is the argument** — whatever we add has to be structural or per-turn, not another sentence in a prefix that's 186k deep by the end of a sitting.
+
+My ranking, which puts a third option above both of yours:
+
+**1. Take the bulk construction tools off the consultant** — option (b), already in REQ-295's body. The only option whose yield doesn't depend on the model's disposition that day. Carve out by **size, not judgement**: consultant keeps single-element writes (the delegating turn legitimately made two), anything touching N+ elements goes through a worker. The data already draws that line.
+
+**2. Your option 1, but relocated to the per-turn tail.** The existing prose is already imperative and specific — what it lacks is *position*, not force. One line in the reminder slot every turn is a different mechanism from the same words read once at priming. Cheap; do it regardless. The hazard is your "unless there was a reason not to": delegating costs the model real effort (write a brief, define checks, trust a report it can't see) where `set_l1` is certain. That's where the 88% will go, and it'll go there invisibly.
+
+**3. Your option 2, reframed as ratio not total.** Right instinct, and REQ-296's `registerBudgetProvider` is already wired. But "here's your spend, minimise it" is gamed by *doing less work* — the cheapest turn skips the screenshot, doesn't re-read the page, stops verifying. Those are exactly the behaviours the method prose spends paragraphs preventing. Show the comparison instead: not "this turn cost $4.24" but "your construction call costs ~5× a worker's on rate card, and you carry a 186k prefix where it carries a fresh one." That motivates relocating work, not skipping it.
+
+For scale: the evening ran **$0.35 per site write**; the 09-22 workers cost **$0.14–0.57 each** for comparable sweeps.
+
+**Sequencing: fix the metering defect first.** REQ-293's split is the designated evaluator and it currently loses half its subject — you can't grade either lever with it.
+
+Want me to file the metering fix and the narrowed-grant change as children of EPIC-20?
 
 <!-- xgd-chat-end -->
