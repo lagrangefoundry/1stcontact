@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:29:59.050302+00:00'
+updated_at: '2026-09-25T21:36:16.060596+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4696,5 +4696,67 @@ Once you're in, the open question from REQ-322 is still yours to settle: whether
 <!-- xgd-chat role="user" ts="2026-09-25T21:29:58.042273+00:00" -->
 #### You
 Your workaround didn't work - will BUG-146 fix it?
+
+<!-- xgd-turn id="bb7cbfd2-9b34-41d1-92da-36074344e13c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T21:36:15.766151+00:00" -->
+#### Claude
+Diagnosed — and it failed for two reasons, neither of which is the bug BUG-146 describes.
+
+## Fault 1: the append fused two settings into one line
+
+`~/Documents/secrets/1c.dev.env` had **no trailing newline**, so `>>` glued the first emitted line onto the last existing one:
+
+```
+CLOUDFLARE_ACCOUNT_ID=<hex>ACCESS_TEAM_DOMAIN="http://127.0.0.1:8799"
+```
+
+One 97-byte line. So `ACCESS_TEAM_DOMAIN` is **undefined**, `ACCESS_AUD` and `SERVICE_TOKEN_IDENTITIES` are defined, and `CLOUDFLARE_ACCOUNT_ID`'s value is corrupted (that also breaks `1c kb build` and the AI capability probe).
+
+That state is **worse than dev-open**. `isUnconfiguredLocalDev` needs *both* Access vars empty, so a populated `ACCESS_AUD` alone switches the gate on — and `guardAccess` then refuses **every request 503** for an empty team domain.
+
+## Fault 2: the builder never restarted, which hid fault 1
+
+`1c ps` shows the tell: `filing` and `access-sim` read `started bin/dev`, but **8788 builder has no pidfile**. `devUp`'s own header says an already-answering port "is not restarted" and gets no pidfile — so `bin/dev down` couldn't stop it either. The builder kept its pre-append environment, which is why `/api/businesses` still answers in dev-open shape (`person: null`, business by raw id) instead of 503.
+
+# Fix — run these yourself
+
+`~/Documents/secrets` is outside my sandbox (`Operation not permitted`), so step 1 is yours.
+
+**1. Split the fused line.** Nothing was lost, so this restores the account id exactly:
+
+```bash
+python3 - <<'PY'
+import os, re
+p = os.path.expanduser('~/Documents/secrets/1c.dev.env')
+s = open(p).read()
+s = re.sub(r'(?<!\n)ACCESS_TEAM_DOMAIN=', '\nACCESS_TEAM_DOMAIN=', s)
+if not s.endswith('\n'): s += '\n'
+open(p, 'w').write(s)
+PY
+sed -E 's/=.*/=<set>/' ~/Documents/secrets/1c.dev.env
+```
+
+You should see 11 lines, with `ACCESS_TEAM_DOMAIN` on its own.
+
+**2. Replace the unmanaged builder.** `reap`'s predicate is `ours && !managed`, so a recognised-but-unclaimed listener is exactly what it targets — this is the right tool for a healthy process that has to be restarted, not just for zombies. It will also take public-site (8787, also unmanaged) and the 8712 stray; `up` brings public-site back.
+
+```bash
+bin/dev reap --dry-run
+bin/dev reap
+bin/dev up
+```
+
+**3. Sign in at `http://127.0.0.1:8799/login`** — not `localhost` (the cookie is host-scoped), and not 8788 directly. Pick **`martin@westhead.me`**: I checked your local D1 and that row exists with `platform_operator=1` and 4 memberships, so admission will succeed rather than hitting `no_user`.
+
+Note 8789 is currently dead — `1c dev serve` isn't running. Not needed for the above.
+
+# Will BUG-146 fix it?
+
+**It fixes the approach, not today's two faults.** Its fix puts `.dev.vars.local` back in the layering, which makes the recipe `bin/access-sim` already prints work — and that recipe uses a **truncating `>`**, which cannot fuse lines. So fault 1 disappears as a category: the append hazard exists only because the file the recipe names isn't read. It also gets the Access configuration out of the secrets file, where it never belonged — those three keys aren't credentials (`wrangler.toml` says so outright).
+
+It does **not** address fault 2. There's no command today meaning *"the environment changed — restart what needs restarting"*; `down && up` is the intuitive spelling and is a no-op for anything `up` didn't start. That belongs with REQ-322, which is already changing `DEV_SERVICES`.
+
+Both recorded: **EPIC-16 §N8**, and the append-hazard evidence appended to **BUG-146** so the implementing session doesn't ship a fix that still leaves an operator advised to append to the secrets file.
 
 <!-- xgd-chat-end -->
