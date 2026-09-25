@@ -87,7 +87,7 @@ export const EXIT = { capable: 0, insufficient: 2, invalid: 3, unreachable: 4 }
  *
  * @typedef {object} CapabilityRecord
  * @property {string} credential
- * @property {'capable'|'insufficient'|'invalid'|'unreachable'|'stored'|'absent'|'unreadable'} verdict
+ * @property {'capable'|'insufficient'|'invalid'|'unreachable'|'stored'|'absent'|'unreadable'|'local'} verdict
  * @property {string[]} can
  * @property {string[]} cannot
  * @property {string} expiry
@@ -509,6 +509,18 @@ const UNPROBED = {
     cannot: ["nothing was proven — the Worker's secrets could not be read to check"],
     expiry: 'not read — the store could not be read',
   },
+  // [[REQ-318]] — the local dev target, which has no `wrangler secret` store at
+  // all. Its secrets are the `--env-file` layering `wrangler dev` reads, and the
+  // deploy has no way to read a value it was not handed, so this says so instead
+  // of claiming either a pass or an absence.
+  local: {
+    can: [],
+    cannot: [
+      'nothing was proven — the local environment reads this from .dev.vars or ' +
+        '$ONECONTACT_SECRETS, and it was not in this deploy\u2019s environment to probe',
+    ],
+    expiry: 'not read — the value was not available to probe',
+  },
 }
 
 /**
@@ -565,6 +577,7 @@ export function formatReport(records) {
     stored: 'unverified',
     absent: 'absent',
     unreadable: 'unverified',
+    local: 'unverified',
   }
   const lines = []
   for (const row of records) {

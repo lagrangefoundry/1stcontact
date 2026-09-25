@@ -11,6 +11,7 @@ import {
   summariseSession,
 } from '../apps/control-app/src/builder/contact-events.js'
 import { describeEvent } from '../apps/control-app/src/builder/people.js'
+import { declaringBlocks } from './support/wrangler-toml'
 
 /**
  * [[REQ-235]] — **the wiring the activity log needs in order to exist at all**:
@@ -41,8 +42,8 @@ describe('REQ-235 — the closer has a schedule, and it agrees with the handler'
     // deployment would mean either three table sweeps every ten minutes or a
     // timeline that never updates — and neither would fail anything visibly.
     const declared = [...CONTROL_TOML.matchAll(/^crons\s*=\s*(\[[^\]]*\])/gm)].map((m) => m[1])
-    expect(declared, 'crons is declared in both blocks').toHaveLength(2)
-    expect(declared[0]).toBe(declared[1])
+    expect(declared, 'crons is declared in every block').toHaveLength(declaringBlocks(CONTROL_TOML))
+    expect(new Set(declared).size, 'every block declares the same schedule').toBe(1)
     for (const block of declared) {
       expect(block).toContain(`"${ACTIVITY_CRON}"`)
       // AND THE DAILY ONE SURVIVES ([[REQ-231]], [[REQ-268]]). The sweeps it

@@ -2,6 +2,7 @@ import { accessSync, constants, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { declaringBlocks } from './support/wrangler-toml'
 
 /**
  * REQ-143 — the store's bindings and its migration hook, pinned.
@@ -66,7 +67,11 @@ describe('REQ-143 — the store bindings', () => {
     // Not a duplicate of the two above: those check each half in isolation and
     // would both pass if production pointed at a different database.
     const ids = [...toml.matchAll(/database_id\s*=\s*"([0-9a-f-]{36})"/g)].map((m) => m[1])
-    expect(ids).toHaveLength(2)
+    // One per block that declares the binding ([[REQ-318]]) — and all naming the
+    // same database, which is the claim. The local `dev` environment shares the
+    // id deliberately: there is ONE local store and it is the one the old path
+    // already reads (EPIC-16 §K2).
+    expect(ids).toHaveLength(declaringBlocks(toml))
     expect(new Set(ids).size).toBe(1)
 
     // PAIRED BY BINDING NAME, not counted (REQ-162). This read `toHaveLength(2)`
@@ -122,8 +127,17 @@ describe('REQ-143 — the migration hook', () => {
 
     // Hooks run for every app; each is responsible for knowing which is its own.
     expect(source).toMatch(/DEPLOY_APP.*control-app/)
-    // The deployed database, not the local miniflare one.
-    expect(source).toMatch(/wrangler d1 migrations apply .*--remote/)
+    // THE DATABASE THE TARGET NAMES ([[REQ-318]]). This read `--remote` as a
+    // literal, which was the whole claim while `production` was the only
+    // environment: the deployed database, never the local miniflare one. With a
+    // target table there are two stores and the hook selects between them from
+    // `DEPLOY_TARGET` — `--remote` at the cloud target, `--local --persist-to` at
+    // the local one. The claim that matters is unchanged and is now stated as
+    // itself: the store is chosen by the target, and the CLOUD target is remote.
+    expect(source).toMatch(/wrangler d1 migrations apply .*"\$\{?where/)
+    expect(source).toMatch(/\$\{DEPLOY_TARGET:-cloud\}" == "local"/)
+    expect(source).toMatch(/where=\(--local --persist-to/)
+    expect(source).toMatch(/where=\(--remote\)/)
     // A rehearsal must make no change — `bin/deploy`'s contract for every hook.
     expect(source).toMatch(/DEPLOY_DRY_RUN/)
     const dryRunBlock = source.slice(source.indexOf('DEPLOY_DRY_RUN'), source.indexOf('\nfi'))

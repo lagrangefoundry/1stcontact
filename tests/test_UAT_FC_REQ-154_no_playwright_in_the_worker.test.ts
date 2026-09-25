@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { declaringBlocks } from './support/wrangler-toml'
 
 /**
  * REQ-154 — the two claims about this change that only a structural test can
@@ -160,7 +161,8 @@ describe('REQ-154 — the browser binding is declared on both sides', () => {
     expect(toml).toMatch(/^\[env\.production\.browser\]$/m)
     // Both name the same binding, or the deployed Worker reads a key the code
     // never looks for.
-    expect(toml.match(/binding = "BROWSER"/g) ?? []).toHaveLength(2)
+    // One per block that declares it ([[REQ-318]]).
+    expect(toml.match(/binding = "BROWSER"/g) ?? []).toHaveLength(declaringBlocks(toml))
   })
 
   it('test_UAT_FC_REQ_154_puppeteer_is_a_declared_dependency', () => {

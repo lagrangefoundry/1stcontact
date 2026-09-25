@@ -909,8 +909,11 @@ describe('story-d5167ced — deploy targets come from what is discovered', () =>
     })
     expect(everything.code, everything.all).toBe(0)
     for (const app of apps) expect(everything.out).toContain(`prod-${app}`)
-    // … at the default target environment.
-    expect(everything.out).toContain('(--env production)')
+    // … at the default target environment, and the step line names the TARGET
+    // the environment selected as well as the environment ([[REQ-318]]): with a
+    // target table there is a second thing to know, and a local deploy that read
+    // identically to a cloud one in a log would be the worst of both.
+    expect(everything.out).toContain('(--env production, cloud)')
 
     // … and with one named, only that one; the others are untouched.
     const one = makeTree({ label: 'targets-one', apps, hooks })
@@ -932,7 +935,11 @@ describe('story-d5167ced — deploy targets come from what is discovered', () =>
     })
     expect(named.code, named.all).toBe(0)
     expect(named.out).toContain('stage-beta')
-    expect(named.out).toContain('(--env staging)')
+    // The step line names the TARGET the environment selected as well as the
+    // environment ([[REQ-318]]) — and `staging` is not `dev`, so it is `cloud`:
+    // the table has ONE local row, which is what makes `[env.dev.vars]`'s
+    // `ACCESS_DEV_OPEN` safe to declare at all.
+    expect(named.out).toContain('(--env staging, cloud)')
 
     // An app that matches nothing discovered is refused BEFORE any hook runs and
     // before anything is uploaded, naming it and listing the apps that do exist.

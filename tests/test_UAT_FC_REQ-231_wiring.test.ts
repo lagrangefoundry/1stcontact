@@ -13,6 +13,7 @@ import {
   SIGN_OUT_EVERYWHERE_LABEL,
   SIGN_OUT_HREF,
 } from '../apps/control-app/src/builder/config.js'
+import { declaringBlocks } from './support/wrangler-toml'
 
 /**
  * REQ-231 — **the parts of rotation that are configuration rather than code.**
@@ -75,8 +76,8 @@ describe('REQ-231 — the sweep has somewhere to run', () => {
     // other var is: nothing here may depend on remembering which keys inherit,
     // and the failure mode of losing the production half is silent.
     const declared = [...CONTROL.matchAll(/^crons\s*=\s*(\[[^\]]*\])/gm)].map((m) => m[1])
-    expect(declared, 'crons is declared in both blocks').toHaveLength(2)
-    expect(declared[0]).toBe(declared[1])
+    expect(declared, 'crons is declared in every block').toHaveLength(declaringBlocks(CONTROL))
+    expect(new Set(declared).size, 'every block declares the same schedule').toBe(1)
     expect(CONTROL).toMatch(/^\[triggers\]$/m)
     expect(CONTROL).toMatch(/^\[env\.production\.triggers\]$/m)
     // A schedule, not an empty list: `crons = []` parses, deploys, and sweeps

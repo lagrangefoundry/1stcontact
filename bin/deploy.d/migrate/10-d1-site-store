@@ -13,12 +13,68 @@
 # serves rendered bytes out of R2 and reaches no database. Hooks are run for
 # every app, so each one gates on the app it is for rather than the deploy
 # script learning which hooks apply where (see bin/deploy.d/migrate/README.md).
+#
+# THE DATABASE IS NAMED BY THE ENVIRONMENT, NOT BY THIS FILE ([[REQ-318]],
+# [[EPIC-16]] §J3). Every invocation below used to carry the literal `1stcontact`
+# — the DATABASE's own name, not the binding's — while honouring `$DEPLOY_ENV`
+# everywhere else. That was harmless while `production` was the only environment
+# and a production-data hazard the moment a second one existed: `bin/deploy --env
+# dev` would have verified and applied migrations against PRODUCTION's D1 while
+# shipping code to dev. The name is resolved out of the environment's own
+# `[[env.<name>.d1_databases]]` block, the same way `migrations_dir` is declared
+# once and looked up rather than repeated.
+#
+# AND THE STORE IS NAMED BY THE TARGET. `DEPLOY_TARGET` says which row of
+# `bin/deploy`'s target table was selected; `cloud` means Cloudflare's D1 and
+# `--remote`, `local` means `.wrangler/state` and `--local`. Nothing else about
+# this hook changes between them — same verification, same ordering, same
+# refusal — which is what makes a local deploy a deploy.
 set -euo pipefail
 
 [[ "$DEPLOY_APP" == "control-app" ]] || exit 0
 
 # Every wrangler invocation below resolves its config from the app directory.
 cd "$DEPLOY_APP_DIR"
+
+# SCRAPED, for the reason `d1-migrations.ts` and `bin/migration-manifest` scrape
+# this file: a TOML parser would be a dependency bought for one key. The block is
+# the environment's own, so `--env production` and `--env dev` cannot read each
+# other's.
+database="$(awk -v hdr="env.$DEPLOY_ENV.d1_databases" '
+  {
+    line = $0
+    sub(/[ \t\r]+$/, "", line)
+    sub(/^[ \t]+/, "", line)
+    if (line ~ /^\[/) {
+      h = line
+      gsub(/^\[+|\]+$/, "", h)
+      in_b = (h == hdr)
+      next
+    }
+    if (in_b && line ~ /^database_name[ \t]*=/) {
+      sub(/^[^=]*=[ \t]*/, "", line)
+      gsub(/^"|"$/, "", line)
+      print line
+      exit
+    }
+  }
+' wrangler.toml)"
+
+if [[ -z "$database" ]]; then
+  echo "    no database_name under [[env.$DEPLOY_ENV.d1_databases]] in $DEPLOY_APP_DIR/wrangler.toml." >&2
+  echo "    A named environment inherits no bindings, so the block has to be declared there." >&2
+  exit 1
+fi
+
+# `--remote` is the deployed database; `--local` is the miniflare store under
+# `.wrangler/state` that `wrangler dev` reads. ONE ARRAY, expanded into every
+# invocation below, so the three cannot disagree about which database they are
+# talking to — which is the same mistake the hardcoded name was.
+if [[ "${DEPLOY_TARGET:-cloud}" == "local" ]]; then
+  where=(--local --persist-to .wrangler/state)
+else
+  where=(--remote)
+fi
 
 # VERIFY BEFORE APPLYING ([[REQ-291]]). `d1_migrations` records a migration's name
 # and the moment it ran, never its content, so a file that has been applied is
@@ -37,25 +93,25 @@ cd "$DEPLOY_APP_DIR"
 # recorded high-water mark — would be a second opinion free to disagree with the
 # one that decides what runs.
 applied_status=0
-applied_json="$(npx wrangler d1 execute 1stcontact --env "$DEPLOY_ENV" --remote --json \
+applied_json="$(npx wrangler d1 execute "$database" --env "$DEPLOY_ENV" "${where[@]}" --json \
   --command 'SELECT name FROM d1_migrations ORDER BY id' 2>&1)" || applied_status=$?
 printf '%s' "$applied_json" | node "$DEPLOY_REPO_ROOT/bin/migration-manifest" verify \
   --env "$DEPLOY_ENV" --status "$applied_status"
 
-# `--remote` is the deployed database, not the local miniflare one. The
-# migrations directory is declared in the app's wrangler.toml (`migrations_dir`),
-# so it is not repeated here — one place names it, and a move does not have to be
-# remembered in two.
+# The migrations directory is declared in the app's wrangler.toml
+# (`migrations_dir`), so it is not repeated here — one place names it, and a move
+# does not have to be remembered in two.
 if [[ "${DEPLOY_DRY_RUN:-0}" == "1" ]]; then
-  echo "    would apply D1 migrations to '1stcontact' (--env $DEPLOY_ENV --remote)"
+  echo "    would apply D1 migrations to '$database' (--env $DEPLOY_ENV ${where[*]})"
   # A rehearsal must make no change, so this LISTS rather than applies. It still
-  # reaches Cloudflare, so a missing binding, a bad database name or an expired
-  # token is caught by `--dry-run` instead of by the real thing.
-  npx wrangler d1 migrations list 1stcontact --env "$DEPLOY_ENV" --remote || {
+  # opens the database it would have applied to, so a missing binding, a bad
+  # database name or an expired token is caught by `--dry-run` instead of by the
+  # real thing.
+  npx wrangler d1 migrations list "$database" --env "$DEPLOY_ENV" "${where[@]}" || {
     echo "    (could not list migrations — check the D1 binding and credentials)" >&2
     exit 1
   }
   exit 0
 fi
 
-npx wrangler d1 migrations apply 1stcontact --env "$DEPLOY_ENV" --remote
+npx wrangler d1 migrations apply "$database" --env "$DEPLOY_ENV" "${where[@]}"

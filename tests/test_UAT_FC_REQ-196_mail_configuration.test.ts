@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { readWranglerConfig } from './support/wrangler-toml'
+import { declaringBlocks, readWranglerConfig } from './support/wrangler-toml'
 import { secretHookHarness } from './support/secret-hook'
 
 /**
@@ -46,7 +46,8 @@ describe('REQ-196 — the mail configuration', () => {
       .split('\n')
       .filter((line) => /^\s*MAIL_FROM\s*=/.test(line))
       .map((line) => line.trim())
-    expect(declarations).toHaveLength(2)
+    // One per block ([[REQ-318]]).
+    expect(declarations).toHaveLength(declaringBlocks(readFileSync(WRANGLER, 'utf8')))
     for (const line of declarations) {
       expect(line).toBe(`MAIL_FROM = "${FROM_ADDRESS}"`)
     }

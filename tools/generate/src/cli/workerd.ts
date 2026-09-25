@@ -379,6 +379,11 @@ export const WORKERD_GATED_COMMANDS: readonly string[] = [
   // whole verb would refuse to STOP a dev environment on a tree with a runtime
   // skew, which is the one moment stopping it is most useful.
   'dev up',
+  // `dev serve` runs `wrangler dev` against the deployed snapshot ([[REQ-318]]),
+  // which opens `.wrangler/state` — the environment holding the ONLY copy of the
+  // dev data, which is what makes a one-way schema migration by the wrong
+  // runtime unrecoverable rather than annoying.
+  'dev serve',
   'fonts mirror',
   'fonts seed',
   'reset',

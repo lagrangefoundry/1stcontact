@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { declaringBlocks } from './support/wrangler-toml'
 
 /**
  * REQ-190 — **the rebaseline, asserted as a fact about the repository.**
@@ -116,8 +117,8 @@ describe('REQ-190 — one baseline', () => {
     // value correct at the top level and stale under `[env.production.vars]` is
     // the failure discovered at the worst possible moment.
     const declared = [...toml.matchAll(/^TENANT_ID\s*=\s*"([^"]+)"/gm)].map((m) => m[1])
-    expect(declared, 'TENANT_ID is declared in both blocks').toHaveLength(2)
-    expect(declared[0]).toBe(declared[1])
+    expect(declared, 'TENANT_ID is declared in every block').toHaveLength(declaringBlocks(toml))
+    expect(new Set(declared).size, 'every block names the same business').toBe(1)
 
     // It is a key, not a word — the defect this ticket exists to remove.
     expect(declared[0]).toMatch(/^[a-z]+_[0-9a-f]{32}$/)

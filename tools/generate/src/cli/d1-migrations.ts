@@ -77,35 +77,56 @@ export interface LocalD1Binding {
 }
 
 /**
- * Read the D1 binding `wrangler dev` will use.
+ * Read the D1 binding the running server will use.
  *
- * THE TOP-LEVEL BLOCK AND NOT A NAMED ENVIRONMENT'S. `wrangler dev` reads the
- * top level; `--env production` reads `[env.production]` and inherits nothing.
- * This check is about the local store, so it must read the same half of the file
- * the local server does — and the two blocks in `apps/control-app/wrangler.toml`
- * are deliberately duplicated, so taking the first match without scoping would be
- * right today and silently wrong the day they differ.
+ * IT FOLLOWS THE ENVIRONMENT, and that has always been the rule even though it
+ * used to read only one block ([[REQ-318]]). The reason it read the top level was
+ * never that the top level is special: it was that `1c builder` runs `wrangler
+ * dev` with no `--env`, and a check about the local store has to read the same
+ * half of the file the local server does. The local dev environment now runs at
+ * `--env dev`, which inherits NOTHING from the top level, so the same rule now
+ * selects `[[env.dev.d1_databases]]`. A check that kept reading the top level
+ * would be right about a database the server is not opening.
+ *
+ * `env` ABSENT MEANS THE TOP LEVEL, which is what `1c builder` and `pnpm dev`
+ * still read; those survive this ticket untouched (§L1), and both blocks are
+ * deliberately duplicated in `apps/control-app/wrangler.toml`, so taking the
+ * first match without scoping would be right today and silently wrong the day
+ * they differ.
  *
  * SCRAPED RATHER THAN PARSED, which is this repository's existing convention for
  * this file (see `tests/test_UAT_FC_REQ-143_store_bindings.test.ts`). A TOML
  * parser would be a dependency bought for three keys.
  */
-export function readLocalD1Binding(appDir: string): LocalD1Binding | null {
+export function readLocalD1Binding(appDir: string, env?: string): LocalD1Binding | null {
   let toml: string
   try {
     toml = fs.readFileSync(path.join(appDir, 'wrangler.toml'), 'utf8')
   } catch {
     return null
   }
-  // Everything before the first `[env.…]` header is what `wrangler dev` sees.
-  const topLevel = toml.split(/^\[env\./m)[0].split('\n')
+  // The scope to search. With no environment that is everything before the first
+  // `[env.…]` header — what `wrangler dev` sees; with one it is the lines from
+  // that environment's first table to the start of the next environment.
+  const lines = toml.split('\n')
+  const header = env === undefined ? '[[d1_databases]]' : `[[env.${env}.d1_databases]]`
+  const scope =
+    env === undefined
+      ? lines.slice(
+          0,
+          (() => {
+            const first = lines.findIndex((line) => /^\[env\./.test(line))
+            return first === -1 ? lines.length : first
+          })(),
+        )
+      : lines
   // The block runs from its own header to the next header of any kind — read
   // line by line rather than with a lookahead, because "until the next line that
   // starts a table" is exactly what TOML means and is not a regex worth writing.
-  const start = topLevel.findIndex((line) => line.trim() === '[[d1_databases]]')
+  const start = scope.findIndex((line) => line.trim() === header)
   if (start === -1) return null
-  const end = topLevel.findIndex((line, i) => i > start && line.startsWith('['))
-  const block = topLevel.slice(start + 1, end === -1 ? undefined : end).join('\n')
+  const end = scope.findIndex((line, i) => i > start && line.startsWith('['))
+  const block = scope.slice(start + 1, end === -1 ? undefined : end).join('\n')
   const value = (key: string): string | null =>
     new RegExp(`^${key}\\s*=\\s*"([^"]+)"`, 'm').exec(block)?.[1] ?? null
 
@@ -278,14 +299,19 @@ export type LocalD1Check =
  * it was typed would only work at the repo root, and any package script calling
  * it would inherit that as a silent requirement.
  */
-export async function localD1Check(opts: { repoRoot: string }): Promise<LocalD1Check> {
+export async function localD1Check(opts: {
+  repoRoot: string
+  /** The wrangler environment the server runs at; absent means the top level. */
+  env?: string
+}): Promise<LocalD1Check> {
   const appDir = path.join(opts.repoRoot, 'apps', 'control-app')
-  const binding = readLocalD1Binding(appDir)
+  const binding = readLocalD1Binding(appDir, opts.env)
   if (!binding) {
+    const block = opts.env === undefined ? '[[d1_databases]]' : `[[env.${opts.env}.d1_databases]]`
     return {
       kind: 'unreadable',
       message:
-        `Could not read a [[d1_databases]] block from ${path.join(appDir, 'wrangler.toml')}, ` +
+        `Could not read a ${block} block from ${path.join(appDir, 'wrangler.toml')}, ` +
         'so the local database was not checked against db/migrations/.',
     }
   }
@@ -313,7 +339,7 @@ export async function localD1Check(opts: { repoRoot: string }): Promise<LocalD1C
     ahead: (applied ?? []).filter((a) => !files.includes(a)),
   }
   if (drift.created && drift.pending.length === 0) return { kind: 'ok', drift }
-  return { kind: 'refuse', drift, message: refusal(drift, binding, opts.repoRoot, appDir) }
+  return { kind: 'refuse', drift, message: refusal(drift, binding, opts.repoRoot, appDir, opts.env) }
 }
 
 /**
@@ -334,9 +360,17 @@ function refusal(
   binding: LocalD1Binding,
   repoRoot: string,
   appDir: string,
+  env?: string,
 ): string {
   const appRel = path.relative(repoRoot, appDir) || appDir
-  const command = `(cd ${appRel} && npx wrangler d1 migrations apply ${binding.databaseName} --local)`
+  // THE REMEDY NAMES THE ENVIRONMENT IT IS FOR. At `--env dev` the migrations are
+  // the deploy's job, so the sentence that reaches the operator is the deploy
+  // rather than a wrangler invocation that would bypass the hook that verifies
+  // an applied migration's bytes ([[REQ-291]]).
+  const command =
+    env === undefined
+      ? `(cd ${appRel} && npx wrangler d1 migrations apply ${binding.databaseName} --local)`
+      : `bin/deploy --env ${env}`
   const diagnosis = drift.created
     ? `The local database is behind this checkout — ${drift.pending.length} ` +
       `migration${drift.pending.length === 1 ? ' has' : 's have'} not been applied:\n\n` +

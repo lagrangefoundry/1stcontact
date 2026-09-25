@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { declaringBlocks } from './support/wrangler-toml'
 
 /**
  * REQ-194 — **the account, asserted as a fact about the repository.**
@@ -112,8 +113,8 @@ describe('REQ-194 — the account is a table', () => {
     // blocks that do not inherit from each other and one baseline seed. All three
     // have to agree, and none of them may wear the account's prefix.
     const declared = [...toml.matchAll(/^TENANT_ID\s*=\s*"([^"]+)"/gm)].map((m) => m[1])
-    expect(declared).toHaveLength(2)
-    expect(declared[0]).toBe(declared[1])
+    expect(declared).toHaveLength(declaringBlocks(toml))
+    expect(new Set(declared).size).toBe(1)
     expect(declared[0]).toMatch(/^biz_[0-9a-f]{32}$/)
 
     const seeded = /INSERT OR IGNORE INTO tenants[\s\S]*?VALUES\s*\(\s*'([^']+)'/.exec(ddl)
