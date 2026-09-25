@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-322
 created_by: xgd
 created_at: '2026-09-25T22:11:17.053232+00:00'
-updated_at: '2026-09-25T22:42:49.906317+00:00'
+updated_at: '2026-09-25T22:44:02.415743+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -41,5 +41,14 @@ Please do make implementation decisions and low level UI decisions yourself. It 
 Now the dev.ts edits:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="a5132fcb-97fe-4b10-b84f-d5c184ab5f8f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T22:44:01.657011+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
