@@ -53,17 +53,26 @@ describe('BUG-99 — a region names the nodes under it', () => {
     const leads = regionNodeLeads(region(88, 83, 686, 300), manifest([HEADLINE, STRAP, HERO_IMAGE]), 1)
 
     // Every intersecting element is a lead; nothing else is.
-    expect(leads.map((l) => l.text ?? l.src)).toEqual([
-      'https://example.test/hero.png',
+    expect([...leads].map((l) => l.text ?? l.src).sort()).toEqual([
       'Gigabyte Alchemy',
       'Intentional Software',
+      'https://example.test/hero.png',
     ])
 
-    // The order is `ofRegion` descending — the node that explains most of the
-    // disagreement first. The hero covers the whole region; the headline covers
-    // most of its own height; the strapline is a sliver.
-    const ofRegion = leads.map((l) => l.overlap.ofRegion)
-    expect([...ofRegion].sort((a, b) => b - a)).toEqual(ofRegion)
+    // BUG-148 — the order is `ofRegion × ofNode` descending: how much of the
+    // disagreement the node explains, times how specifically it explains it.
+    // The headline is swallowed whole and fills a third of the region (0.30);
+    // the hero fills the region but the region is barely a quarter of it
+    // (0.27); the strapline is a sliver of both (0.06). Ranking on `ofRegion`
+    // alone — as this suite originally asserted — puts a node the region is a
+    // rounding error of at the top, which is the defect BUG-148 records.
+    const explains = leads.map((l) => l.overlap.ofRegion * l.overlap.ofNode)
+    expect([...explains].sort((a, b) => b - a)).toEqual(explains)
+    expect(leads.map((l) => l.text ?? l.src)).toEqual([
+      'Gigabyte Alchemy',
+      'https://example.test/hero.png',
+      'Intentional Software',
+    ])
 
     // And the LEAD IS A FACT, not a pointer: it carries the text to quote, the
     // role, and its own box, so a reader can go to the manifest record without

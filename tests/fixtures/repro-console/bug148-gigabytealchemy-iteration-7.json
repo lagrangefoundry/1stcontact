@@ -1,0 +1,1648 @@
+{
+ "_source": "repro-console:repro-gigabytealchemy-ai#7 — iteration-7/diff, the round that filed BUG-148",
+ "imageWidth": 1280,
+ "blockPx": 16,
+ "regions": [
+  {
+   "id": 1,
+   "bbox": {
+    "x": 128,
+    "y": 2512,
+    "w": 448,
+    "h": 32
+   }
+  },
+  {
+   "id": 2,
+   "bbox": {
+    "x": 128,
+    "y": 2240,
+    "w": 704,
+    "h": 48
+   }
+  },
+  {
+   "id": 3,
+   "bbox": {
+    "x": 128,
+    "y": 2608,
+    "w": 576,
+    "h": 48
+   }
+  },
+  {
+   "id": 4,
+   "bbox": {
+    "x": 128,
+    "y": 2928,
+    "w": 752,
+    "h": 16
+   }
+  },
+  {
+   "id": 5,
+   "bbox": {
+    "x": 128,
+    "y": 2960,
+    "w": 752,
+    "h": 16
+   }
+  },
+  {
+   "id": 6,
+   "bbox": {
+    "x": 128,
+    "y": 2400,
+    "w": 544,
+    "h": 16
+   }
+  },
+  {
+   "id": 7,
+   "bbox": {
+    "x": 128,
+    "y": 2688,
+    "w": 432,
+    "h": 16
+   }
+  },
+  {
+   "id": 8,
+   "bbox": {
+    "x": 128,
+    "y": 2880,
+    "w": 208,
+    "h": 32
+   }
+  },
+  {
+   "id": 9,
+   "bbox": {
+    "x": 112,
+    "y": 2160,
+    "w": 192,
+    "h": 16
+   }
+  },
+  {
+   "id": 10,
+   "bbox": {
+    "x": 128,
+    "y": 2560,
+    "w": 384,
+    "h": 32
+   }
+  },
+  {
+   "id": 11,
+   "bbox": {
+    "x": 128,
+    "y": 2208,
+    "w": 288,
+    "h": 16
+   }
+  },
+  {
+   "id": 12,
+   "bbox": {
+    "x": 144,
+    "y": 2720,
+    "w": 272,
+    "h": 16
+   }
+  }
+ ],
+ "ref": {
+  "viewport": {
+   "width": 1280,
+   "height": 4376
+  },
+  "sections": [
+   {
+    "index": 0,
+    "box": {
+     "x": 0,
+     "y": 0,
+     "width": 1280,
+     "height": 192
+    }
+   },
+   {
+    "index": 1,
+    "box": {
+     "x": 0,
+     "y": 0,
+     "width": 1280,
+     "height": 800
+    }
+   },
+   {
+    "index": 2,
+    "box": {
+     "x": 0,
+     "y": 800,
+     "width": 1280,
+     "height": 487.5
+    }
+   },
+   {
+    "index": 3,
+    "box": {
+     "x": 0,
+     "y": 1287.5,
+     "width": 1280,
+     "height": 594.5
+    }
+   },
+   {
+    "index": 4,
+    "box": {
+     "x": 0,
+     "y": 1882,
+     "width": 1280,
+     "height": 1257.25
+    }
+   },
+   {
+    "index": 5,
+    "box": {
+     "x": 0,
+     "y": 3139.25,
+     "width": 1280,
+     "height": 548.75
+    }
+   },
+   {
+    "index": 6,
+    "box": {
+     "x": 0,
+     "y": 3688,
+     "width": 1280,
+     "height": 572
+    }
+   },
+   {
+    "index": 7,
+    "box": {
+     "x": 0,
+     "y": 4260,
+     "width": 1280,
+     "height": 116
+    }
+   }
+  ],
+  "elements": [
+   {
+    "text": "Gigabyte Alchemy",
+    "role": "body",
+    "a11yRole": "link",
+    "box": {
+     "x": 88,
+     "y": 82.5,
+     "width": 685.3125,
+     "height": 90
+    }
+   },
+   {
+    "text": "Intentional Software",
+    "role": "body",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 319.5,
+     "width": 320.25,
+     "height": 40
+    }
+   },
+   {
+    "text": "Tools for clarity, presence, and positive connection",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 384,
+     "width": 896,
+     "height": 32
+    }
+   },
+   {
+    "text": "We're a software studio building technology to elevate—not just engage. Tools that help yo",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 448,
+     "width": 768,
+     "height": 87.75
+    }
+   },
+   {
+    "text": "A Different Approach",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 896,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We buil",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 968,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "Through privacy-first AI and thoughtful design, we create software grounded in human sover",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 1050.5,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "We work at the intersection of cutting-edge engineering and human-centered design—building",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 1133,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "Our Mission",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 1383.5,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "Our work is guided by a simple belief: the world needs more presence, positivity, and huma",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 1455.5,
+     "width": 896,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "Presence",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 112,
+     "y": 1548.75,
+     "width": 229.328125,
+     "height": 28
+    }
+   },
+   {
+    "text": "Technology that creates inner space for clarity and insight, helping you access what you k",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 112,
+     "y": 1588.75,
+     "width": 229.328125,
+     "height": 104
+    }
+   },
+   {
+    "text": "Positivity",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 421.328125,
+     "y": 1548.75,
+     "width": 229.328125,
+     "height": 28
+    }
+   },
+   {
+    "text": "Tools that elevate mood and perspective, supporting gratitude, joy, and emotional well-bei",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 421.328125,
+     "y": 1588.75,
+     "width": 229.328125,
+     "height": 104
+    }
+   },
+   {
+    "text": "Connection",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 730.65625,
+     "y": 1548.75,
+     "width": 229.34375,
+     "height": 28
+    }
+   },
+   {
+    "text": "Technology that brings people together to create positive experiences and meaningful inter",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 730.65625,
+     "y": 1588.75,
+     "width": 229.34375,
+     "height": 104
+    }
+   },
+   {
+    "text": "These aren't just features—they're foundations. Every tool we build starts with these prin",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 116,
+     "y": 1756.75,
+     "width": 868,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "What We're Building",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 1978,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "From personal reflection tools to developer platforms, our work spans the spectrum of huma",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 2042,
+     "width": 896,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "Sanctum Voice",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 124,
+     "y": 2151.25,
+     "width": 167.296875,
+     "height": 32
+    }
+   },
+   {
+    "text": "In development",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 826.375,
+     "y": 2151.25,
+     "width": 125.625,
+     "height": 28
+    }
+   },
+   {
+    "text": "Your private space to think out loud",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2199.25,
+     "width": 828,
+     "height": 28
+    }
+   },
+   {
+    "text": "A voice-first app that helps you access clarity. Use it to work through decisions, prepare",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2243.25,
+     "width": 828,
+     "height": 52
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2323.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Completely on-device—your thoughts never leave your phone",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 149.546875,
+     "y": 2319.25,
+     "width": 446.34375,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2359.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Creates space for deeper reflection and insight",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 149.546875,
+     "y": 2355.25,
+     "width": 340.1875,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2395.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Optional modules for journaling, dreams, gratitude, and personal growth",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 149.546875,
+     "y": 2391.25,
+     "width": 520.671875,
+     "height": 24
+    }
+   },
+   {
+    "text": "XGD (Extreme Generative Development)",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 124,
+     "y": 2515.25,
+     "width": 448.4375,
+     "height": 32
+    }
+   },
+   {
+    "text": "Coming soon",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 841.375,
+     "y": 2515.25,
+     "width": 110.625,
+     "height": 28
+    }
+   },
+   {
+    "text": "AI-powered development methodology and tools",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2563.25,
+     "width": 828,
+     "height": 28
+    }
+   },
+   {
+    "text": "An open-source platform and methodology for hands-off software development, empowering dev",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2607.25,
+     "width": 828,
+     "height": 52
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2687.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Designed for developers building AI-enhanced workflows",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 149.546875,
+     "y": 2683.25,
+     "width": 413.234375,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2723.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Open source and community-driven",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 149.546875,
+     "y": 2719.25,
+     "width": 260.671875,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2759.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Practical tools for modern software development",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 149.546875,
+     "y": 2755.25,
+     "width": 352.75,
+     "height": 24
+    }
+   },
+   {
+    "text": "What We're Exploring",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 124,
+     "y": 2879.25,
+     "width": 828,
+     "height": 28
+    }
+   },
+   {
+    "text": "We're also developing technology that brings people together to create positive experience",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2923.25,
+     "width": 828,
+     "height": 52
+    }
+   },
+   {
+    "text": "More to come as these ideas take shape.",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 124,
+     "y": 2991.25,
+     "width": 828,
+     "height": 20
+    }
+   },
+   {
+    "text": "The Alchemy",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 3235.25,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead i",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3307.25,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "But the deepest alchemical tradition was never really about metals. It was about the self—",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3389.75,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "That's what we're building: technology for self-transformation. Tools that help you separa",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3472.25,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "We're not trying to change you. We're creating space for you to discover what's already th",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 116,
+     "y": 3562.75,
+     "width": 868,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "Get in touch",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 3784,
+     "width": 528,
+     "height": 40
+    }
+   },
+   {
+    "text": "Join our mailing list for updates on our work.",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3848,
+     "width": 528,
+     "height": 28
+    }
+   },
+   {
+    "text": "Subscribe",
+    "role": "action",
+    "a11yRole": "button",
+    "box": {
+     "x": 413.25,
+     "y": 3900,
+     "width": 122.75,
+     "height": 50
+    }
+   },
+   {
+    "text": "Send message",
+    "role": "action",
+    "a11yRole": "button",
+    "box": {
+     "x": 664,
+     "y": 4084,
+     "width": 172.78125,
+     "height": 48
+    }
+   },
+   {
+    "text": "Protected by Cloudflare Turnstile.",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 664,
+     "y": 4148,
+     "width": 528,
+     "height": 16
+    }
+   },
+   {
+    "text": "Your email address",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 88,
+     "y": 3900,
+     "width": 313.25,
+     "height": 50
+    }
+   },
+   {
+    "text": "Your name",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 664,
+     "y": 3784,
+     "width": 528,
+     "height": 50
+    }
+   },
+   {
+    "text": "Your email",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 664,
+     "y": 3850,
+     "width": 528,
+     "height": 50
+    }
+   },
+   {
+    "text": "Your message",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 664,
+     "y": 3916,
+     "width": 528,
+     "height": 146
+    }
+   },
+   {
+    "text": "© Gigabyte Alchemy 2025",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 4308,
+     "width": 170.875,
+     "height": 20
+    }
+   },
+   {
+    "text": "LinkedIn",
+    "role": "link",
+    "a11yRole": "link",
+    "box": {
+     "x": 1068.578125,
+     "y": 4308,
+     "width": 54.15625,
+     "height": 20
+    }
+   },
+   {
+    "text": "GitHub",
+    "role": "link",
+    "a11yRole": "link",
+    "box": {
+     "x": 1146.734375,
+     "y": 4308,
+     "width": 45.265625,
+     "height": 20
+    }
+   }
+  ]
+ },
+ "actual": {
+  "viewport": {
+   "width": 1280,
+   "height": 4376
+  },
+  "sections": [
+   {
+    "index": 0,
+    "box": {
+     "x": 0,
+     "y": 0,
+     "width": 1280,
+     "height": 800
+    }
+   },
+   {
+    "index": 1,
+    "box": {
+     "x": 0,
+     "y": 800,
+     "width": 1280,
+     "height": 488
+    }
+   },
+   {
+    "index": 2,
+    "box": {
+     "x": 0,
+     "y": 1288,
+     "width": 1280,
+     "height": 594
+    }
+   },
+   {
+    "index": 3,
+    "box": {
+     "x": 0,
+     "y": 1882,
+     "width": 1280,
+     "height": 1257
+    }
+   },
+   {
+    "index": 4,
+    "box": {
+     "x": 0,
+     "y": 3139,
+     "width": 1280,
+     "height": 549
+    }
+   },
+   {
+    "index": 5,
+    "box": {
+     "x": 0,
+     "y": 3688,
+     "width": 1280,
+     "height": 572
+    }
+   },
+   {
+    "index": 6,
+    "box": {
+     "x": 0,
+     "y": 4260,
+     "width": 1280,
+     "height": 116
+    }
+   }
+  ],
+  "elements": [
+   {
+    "text": "Gigabyte Alchemy",
+    "role": "link",
+    "a11yRole": "link",
+    "box": {
+     "x": 88,
+     "y": 82.5,
+     "width": 685.3125,
+     "height": 90
+    }
+   },
+   {
+    "text": "Intentional Software",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 319.5,
+     "width": 320.25,
+     "height": 40
+    }
+   },
+   {
+    "text": "Tools for clarity, presence, and positive connection",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 384,
+     "width": 896,
+     "height": 32
+    }
+   },
+   {
+    "text": "We're a software studio building technology to elevate—not just engage. Tools that help yo",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 448,
+     "width": 768,
+     "height": 87.75
+    }
+   },
+   {
+    "text": "Gigabyte AlchemyIntentional SoftwareTools for clarity, presence, and positive connectionWe",
+    "role": "generic",
+    "a11yRole": "generic",
+    "textless": true,
+    "box": {
+     "x": 0,
+     "y": 0,
+     "width": 1280,
+     "height": 800
+    }
+   },
+   {
+    "text": "A Different Approach",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 896,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We buil",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 968,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "Through privacy-first AI and thoughtful design, we create software grounded in human sover",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 1050.5,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "We work at the intersection of cutting-edge engineering and human-centered design—building",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 1133,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "A Different ApproachMost apps are designed to capture attention, harvest data, and keep yo",
+    "role": "generic",
+    "a11yRole": "generic",
+    "textless": true,
+    "box": {
+     "x": 0,
+     "y": 800,
+     "width": 1280,
+     "height": 488
+    }
+   },
+   {
+    "text": "Our Mission",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 1383.5,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "Our work is guided by a simple belief: the world needs more presence, positivity, and huma",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 1455.5,
+     "width": 896,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "Presence",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 112,
+     "y": 1548.75,
+     "width": 229.328125,
+     "height": 28
+    }
+   },
+   {
+    "text": "Technology that creates inner space for clarity and insight, helping you access what you k",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 112,
+     "y": 1588.75,
+     "width": 229.328125,
+     "height": 104
+    }
+   },
+   {
+    "text": "Positivity",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 421.328125,
+     "y": 1548.75,
+     "width": 229.328125,
+     "height": 28
+    }
+   },
+   {
+    "text": "Tools that elevate mood and perspective, supporting gratitude, joy, and emotional well-bei",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 421.328125,
+     "y": 1588.75,
+     "width": 229.328125,
+     "height": 104
+    }
+   },
+   {
+    "text": "Connection",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 730.65625,
+     "y": 1548.75,
+     "width": 229.34375,
+     "height": 28
+    }
+   },
+   {
+    "text": "Technology that brings people together to create positive experiences and meaningful inter",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 730.65625,
+     "y": 1588.75,
+     "width": 229.34375,
+     "height": 104
+    }
+   },
+   {
+    "text": "These aren't just features—they're foundations. Every tool we build starts with these prin",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 116,
+     "y": 1756.75,
+     "width": 868,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "Our MissionOur work is guided by a simple belief: the world needs more presence, positivit",
+    "role": "generic",
+    "a11yRole": "generic",
+    "textless": true,
+    "box": {
+     "x": 0,
+     "y": 1288,
+     "width": 1280,
+     "height": 594
+    }
+   },
+   {
+    "text": "What We're Building",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 1978,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "From personal reflection tools to developer platforms, our work spans the spectrum of huma",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 2042,
+     "width": 896,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "Sanctum Voice",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 128,
+     "y": 2151.25,
+     "width": 167.296875,
+     "height": 32
+    }
+   },
+   {
+    "text": "In development",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 830.375,
+     "y": 2151.25,
+     "width": 125.625,
+     "height": 28
+    }
+   },
+   {
+    "text": "Your private space to think out loud",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2199.25,
+     "width": 828,
+     "height": 28
+    }
+   },
+   {
+    "text": "A voice-first app that helps you access clarity. Use it to work through decisions, prepare",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2243.25,
+     "width": 828,
+     "height": 52
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2323.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Completely on-device—your thoughts never leave your phone",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 153.546875,
+     "y": 2319.25,
+     "width": 446.34375,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2359.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Creates space for deeper reflection and insight",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 153.546875,
+     "y": 2355.25,
+     "width": 340.1875,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2395.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Optional modules for journaling, dreams, gratitude, and personal growth",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 153.546875,
+     "y": 2391.25,
+     "width": 520.671875,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2687.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Designed for developers building AI-enhanced workflows",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 153.546875,
+     "y": 2683.25,
+     "width": 413.234375,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2723.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Open source and community-driven",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 153.546875,
+     "y": 2719.25,
+     "width": 260.671875,
+     "height": 24
+    }
+   },
+   {
+    "text": "✓",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2759.25,
+     "width": 13.546875,
+     "height": 24
+    }
+   },
+   {
+    "text": "Practical tools for modern software development",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 153.546875,
+     "y": 2755.25,
+     "width": 352.75,
+     "height": 24
+    }
+   },
+   {
+    "text": "XGD (Extreme Generative Development)",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 128,
+     "y": 2515.25,
+     "width": 448.4375,
+     "height": 32
+    }
+   },
+   {
+    "text": "Coming soon",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 845.375,
+     "y": 2515.25,
+     "width": 110.625,
+     "height": 28
+    }
+   },
+   {
+    "text": "AI-powered development methodology and tools",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2563.25,
+     "width": 828,
+     "height": 28
+    }
+   },
+   {
+    "text": "An open-source platform and methodology for hands-off software development, empowering dev",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2607.25,
+     "width": 828,
+     "height": 52
+    }
+   },
+   {
+    "text": "What We're Exploring",
+    "role": "subheading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 128,
+     "y": 2879.25,
+     "width": 828,
+     "height": 28
+    }
+   },
+   {
+    "text": "We're also developing technology that brings people together to create positive experience",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2923.25,
+     "width": 828,
+     "height": 52
+    }
+   },
+   {
+    "text": "More to come as these ideas take shape.",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 128,
+     "y": 2991.25,
+     "width": 828,
+     "height": 20
+    }
+   },
+   {
+    "text": "What We're BuildingFrom personal reflection tools to developer platforms, our work spans t",
+    "role": "generic",
+    "a11yRole": "generic",
+    "textless": true,
+    "box": {
+     "x": 0,
+     "y": 1882,
+     "width": 1280,
+     "height": 1257
+    }
+   },
+   {
+    "text": "The Alchemy",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 3235.25,
+     "width": 896,
+     "height": 40
+    }
+   },
+   {
+    "text": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead i",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3307.25,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "But the deepest alchemical tradition was never really about metals. It was about the self—",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3389.75,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "That's what we're building: technology for self-transformation. Tools that help you separa",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3472.25,
+     "width": 896,
+     "height": 58.5
+    }
+   },
+   {
+    "text": "We're not trying to change you. We're creating space for you to discover what's already th",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 116,
+     "y": 3562.75,
+     "width": 868,
+     "height": 29.25
+    }
+   },
+   {
+    "text": "The AlchemyOur name isn't accidental. Alchemy, at its essence, is about transformation—tur",
+    "role": "generic",
+    "a11yRole": "generic",
+    "textless": true,
+    "box": {
+     "x": 0,
+     "y": 3139,
+     "width": 1280,
+     "height": 549
+    }
+   },
+   {
+    "text": "Get in touch",
+    "role": "heading",
+    "a11yRole": "heading",
+    "box": {
+     "x": 88,
+     "y": 3784,
+     "width": 528,
+     "height": 40
+    }
+   },
+   {
+    "text": "Join our mailing list for updates on our work.",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 3848,
+     "width": 528,
+     "height": 28
+    }
+   },
+   {
+    "text": "Send message",
+    "role": "action",
+    "a11yRole": "button",
+    "box": {
+     "x": 664,
+     "y": 4084,
+     "width": 172.78125,
+     "height": 48
+    }
+   },
+   {
+    "text": "Subscribe",
+    "role": "action",
+    "a11yRole": "button",
+    "box": {
+     "x": 413.25,
+     "y": 3900,
+     "width": 122.75,
+     "height": 50
+    }
+   },
+   {
+    "text": "Protected by Cloudflare Turnstile.",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 664,
+     "y": 4148,
+     "width": 528,
+     "height": 16
+    }
+   },
+   {
+    "text": "Your name",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 664,
+     "y": 3784,
+     "width": 528,
+     "height": 50
+    }
+   },
+   {
+    "text": "Your email",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 664,
+     "y": 3850,
+     "width": 528,
+     "height": 50
+    }
+   },
+   {
+    "text": "Your message",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 664,
+     "y": 3916,
+     "width": 528,
+     "height": 146
+    }
+   },
+   {
+    "text": "Your email address",
+    "role": "textbox",
+    "a11yRole": "textbox",
+    "textless": true,
+    "box": {
+     "x": 88,
+     "y": 3900,
+     "width": 313.25,
+     "height": 50
+    }
+   },
+   {
+    "text": "© Gigabyte Alchemy 2025",
+    "role": "body",
+    "a11yRole": "generic",
+    "box": {
+     "x": 88,
+     "y": 4308,
+     "width": 170.875,
+     "height": 20
+    }
+   },
+   {
+    "text": "LinkedIn",
+    "role": "link",
+    "a11yRole": "link",
+    "box": {
+     "x": 1068.5625,
+     "y": 4308,
+     "width": 54.15625,
+     "height": 20
+    }
+   },
+   {
+    "text": "GitHub",
+    "role": "link",
+    "a11yRole": "link",
+    "box": {
+     "x": 1146.703125,
+     "y": 4308,
+     "width": 45.265625,
+     "height": 20
+    }
+   },
+   {
+    "text": "© Gigabyte Alchemy 2025LinkedInGitHub",
+    "role": "generic",
+    "a11yRole": "generic",
+    "textless": true,
+    "box": {
+     "x": 0,
+     "y": 4260,
+     "width": 1280,
+     "height": 116
+    }
+   }
+  ]
+ }
+}
