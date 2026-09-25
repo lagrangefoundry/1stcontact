@@ -104,7 +104,15 @@ const CLEAN_COVERAGE = {
 
 function gateOn(values: ReturnType<typeof diffManifests>): GateReport {
   return reconcileGates({
-    l1Gate: { pass: true, onSample: { pass: true, byWidth: [{ width: 1280, findings: [] }] } },
+    l1Gate: {
+      pass: true,
+      onSample: { pass: true, byWidth: [{ width: 1280, findings: [] }] },
+      // BUG-143 — the other two envelope reports travel too: a backing surface
+      // that has left its copy is invisible at a captured width, so `onSample`
+      // alone can carry a failed verdict with nothing to say about why.
+      offSample: { pass: true, byWidth: [{ width: 506, height: 800, findings: [] }] },
+      contentRobustness: { pass: true, byWidth: [{ width: 1280, height: 800, findings: [] }] },
+    },
     coverage: CLEAN_COVERAGE,
     perceptual: { meanDiff: 0, pctOverThreshold: 0, regions: [] },
     values,

@@ -156,24 +156,55 @@ export interface CoverageFinding {
  * rather than read.
  */
 export interface LayoutCollision {
-  kind: 'overlap' | 'clip'
+  /**
+   * BUG-143 — `escape` joins the pair: a backing surface that has stopped covering
+   * the content it backs. It travels on the same two keys for the same reason the
+   * other two do — every surface that can print one can print all three.
+   */
+  kind: 'overlap' | 'clip' | 'escape'
   /** Operator-facing sentence: what collided with what, at which width. */
   detail: string
   /** The captured width the collision was found at. */
   width: number
+  /** BUG-143 — the viewport height it was found at, where the probe sampled one. */
+  height?: number
   /** Index paths of the leaves involved. */
   paths: string[]
 }
 
 /**
- * Flatten an envelope report into collisions, width by width and, inside each
- * width, in the order the probe walked the page — so the list an operator reads
- * is the page top to bottom rather than a bag sorted by nothing.
+ * Flatten one or more envelope reports into collisions, sample by sample and,
+ * inside each sample, in the order the probe walked the page — so the list an
+ * operator reads is the page top to bottom rather than a bag sorted by nothing.
+ *
+ * BUG-143 — several reports, because a containment escape is not confined to the
+ * captured widths the way an on-sample collision is. The defect this axis was
+ * added for is INVISIBLE at rest at every captured width and height: it appears
+ * between the rungs, and under content growth, and at a viewport height nothing
+ * was measured at. Naming only the on-sample report would have left the operator
+ * reading `findings: []` under a failed verdict, which is the shape of the gap
+ * this whole ticket is about.
  */
-export function layoutCollisions(report: EnvelopeReport): LayoutCollision[] {
-  return report.byWidth.flatMap(({ width, findings }) =>
-    findings.map((f) => ({ kind: f.kind, detail: `at ${width}px: ${f.detail}`, width, paths: [...f.paths] })),
+export function layoutCollisions(...reports: EnvelopeReport[]): LayoutCollision[] {
+  return reports.flatMap((report) =>
+    report.byWidth.flatMap(({ width, height, findings }) =>
+      findings.map((f) => ({
+        kind: f.kind,
+        detail: `at ${width}px${height !== undefined ? `×${height}px` : ''}: ${f.detail}`,
+        width,
+        ...(height !== undefined ? { height } : {}),
+        paths: [...f.paths],
+      })),
+    ),
   )
+}
+
+/** BUG-143 — the containment escapes in an envelope report, and nothing else. */
+function escapesOnly(report: EnvelopeReport): EnvelopeReport {
+  return {
+    pass: report.byWidth.every((w) => w.findings.every((f) => f.kind !== 'escape')),
+    byWidth: report.byWidth.map((w) => ({ ...w, findings: w.findings.filter((f) => f.kind === 'escape') })),
+  }
 }
 
 /** The first `n` collisions as one semicolon-joined sentence, with a tail count. */
@@ -265,8 +296,13 @@ export interface ReconcileInput {
    * length: a `Pick` that structurally excludes the facts a caller would have to
    * remember to pass is a caller that will one day not remember. Every caller
    * here holds a whole {@link L1GateResult}, so satisfying it costs nothing.
+   *
+   * BUG-143 — the other two envelope reports travel for exactly the same reason,
+   * one class of finding further out: a backing surface that has left the content
+   * it backs is not visible at a captured width, so `onSample` alone can carry a
+   * failed verdict with nothing at all to say about why.
    */
-  l1Gate: Pick<L1GateResult, 'pass' | 'onSample'>
+  l1Gate: Pick<L1GateResult, 'pass' | 'onSample' | 'offSample' | 'contentRobustness'>
   coverage: ReferenceCoverage
   /**
    * REQ-157 — `regions` is only ever counted here, so this asks for something
@@ -435,6 +471,13 @@ export interface GateReport {
    * stands. `pass: false` here is always a `structural-failure` verdict: a page
    * that paints a run over its neighbour at a width the reference itself was
    * measured at is wrong however the pixels average out.
+   *
+   * BUG-143 — it also carries every **containment escape** the off-sample and
+   * content-robustness probes found, because that defect does not show up at the
+   * captured widths at all: it is a backing surface sliding off the copy it is
+   * painted behind, which is exact at rest and comes apart the moment the window
+   * moves. Those findings failed the verdict already; what was missing was any
+   * sentence naming them.
    */
   layout: { pass: boolean; findings: LayoutCollision[] }
 }
@@ -648,7 +691,16 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   // on. `sectionsNotComparable` above is its all-bands-at-once sibling.
   const notComparableAxes = [...input.values.notComparableAxes]
   const coverage = input.coverage
-  const collisions = layoutCollisions(input.l1Gate.onSample)
+  // BUG-143 — the on-sample collisions, PLUS every containment escape the other
+  // two envelope probes found. A panel that has left its copy between the rungs,
+  // or under content growth, or at an unmeasured viewport height, is the same
+  // structural defect as one that has left it at a captured width — and it is the
+  // one the operator reported while this block read `pass: true, findings: []`.
+  const collisions = layoutCollisions(
+    input.l1Gate.onSample,
+    escapesOnly(input.l1Gate.offSample),
+    escapesOnly(input.l1Gate.contentRobustness),
+  )
 
   let verdict: GateVerdict
   let diagnosis: string
@@ -662,17 +714,50 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // width the reference was measured at. Leaving it as "work the residuals"
     // is what sent an AI round after fourteen sub-pixel value deltas while the
     // form controls sat on the prose above them.
-    diagnosis = collisions.length
-      ? `The acceptance gate failed: the SERVED document collides with itself at ${
-          new Set(collisions.map((c) => c.width)).size
-        } captured width(s) — ${namedCollisions(collisions)}. ` +
-        'A run painted over its neighbour is a reproduction defect no perceptual average can excuse.'
+    // BUG-143 — the two classes are named apart, because they are two different
+    // things to go and look at and two different fixes. An overlap is visible in a
+    // screenshot of the page as it stands; an escape is a page that photographs
+    // perfectly and comes apart when the window moves, so the sentence has to say
+    // which sample it came apart at or the operator cannot reproduce it.
+    const escapes = collisions.filter((c) => c.kind === 'escape')
+    const overlaps = collisions.filter((c) => c.kind !== 'escape')
+    const sentences: string[] = []
+    if (overlaps.length) {
+      sentences.push(
+        `the SERVED document collides with itself at ${
+          new Set(overlaps.map((c) => c.width)).size
+        } captured width(s) — ${namedCollisions(overlaps)}. ` +
+          'A run painted over its neighbour is a reproduction defect no perceptual average can excuse.',
+      )
+    }
+    if (escapes.length) {
+      sentences.push(
+        `${escapes.length} backing surface(s) have left the content they back — ${namedCollisions(escapes)}. ` +
+          'A panel that slides off its own copy is structural: the page is exact at rest and comes apart ' +
+          'the moment the viewport moves, so no perceptual average will ever see it.',
+      )
+    }
+    diagnosis = sentences.length
+      ? `The acceptance gate failed: ${sentences.join(' Also, ')}`
       : 'The acceptance gate failed: the reproduction is not geometrically faithful to the oracle.'
+    const steps: string[] = []
+    if (overlaps.length) {
+      steps.push(
+        'Fix the collisions first (`layout.findings` lists every pair and width) — either give the ' +
+          'colliding region structure so it cannot overlap, or, where the stack IS the design, declare ' +
+          'it on the node with `stacked: true` so the intent is recorded rather than inferred.',
+      )
+    }
+    if (escapes.length) {
+      steps.push(
+        'Make each escaping surface size itself from the content it backs rather than from a pinned ' +
+          'rectangle measured once — a panel whose height is a constant cannot follow copy that reflows, ' +
+          'and one whose height response was never measured cannot follow a viewport that grows.',
+      )
+    }
+    steps.push('Then work `1c l1-gate --ref <bundle>` for the remaining residuals.')
     nextStep = collisions.length
-      ? 'Fix the collisions first (`layout.findings` lists every pair and width) — either give the ' +
-        'colliding region structure so it cannot overlap, or, where the stack IS the design, declare ' +
-        'it on the node with `stacked: true` so the intent is recorded rather than inferred. Then work ' +
-        '`1c l1-gate --ref <bundle>` for the remaining residuals.'
+      ? steps.join(' ')
       : 'Work `1c l1-gate --ref <bundle>` — its residuals each name the framework gap to close.'
     // BUG-110's value-severity bound joins the perceptual one here: both are
     // breaches a passing run must be clear of, and neither can rescue a
@@ -879,7 +964,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
     },
     coverage,
-    layout: { pass: input.l1Gate.onSample.pass, findings: collisions },
+    layout: { pass: input.l1Gate.onSample.pass && collisions.length === 0, findings: collisions },
   }
 }
 

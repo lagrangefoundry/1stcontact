@@ -2023,9 +2023,13 @@ export async function run(argv: string[]): Promise<void> {
           }, fidelity maxΔ ${served.fidelityMaxDeltaPx.toFixed(1)}px, ` +
           `${served.fidelityResiduals} residual(s)` +
           `\n      envelope: ` +
-          served.byWidth.map((w) => `${w.width}:${w.findings}`).join(' ') +
+          // BUG-143 — `width×height:findings`. The height is on the line because it
+          // is now a sampled axis: a page can be clean at every captured height and
+          // come apart when the window is dragged taller, and a reader who cannot
+          // see which height a count belongs to cannot tell those two apart.
+          served.byWidth.map((w) => `${w.width}${w.height ? `\u00d7${w.height}` : ''}:${w.findings}`).join(' ') +
           `  ·  off-sample ` +
-          served.offSample.map((w) => `${w.width}:${w.findings}`).join(' ') +
+          served.offSample.map((w) => `${w.width}${w.height ? `\u00d7${w.height}` : ''}:${w.findings}`).join(' ') +
           `\n      recovery ${served.document === 'recovery' ? 'served' : 'declined'}: ` +
           `${served.recovery.promoted} region(s) flow, at ` +
           `maxΔ ${served.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
@@ -2097,7 +2101,8 @@ export async function run(argv: string[]): Promise<void> {
             // report is the same defect one level up — a verdict about something
             // the reader cannot see.
             `  on-sample           ${mark(report.onSample.pass)}  (${findings(report.onSample)} envelope finding(s) at the captured widths)\n` +
-            `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
+            `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s) ` +
+            `across ${report.offSample.byWidth.length} width\u00d7height sample(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
             // BUG-113 made promotion a PRICED ALTERNATIVE rather than the
             // document the envelope probes graded; REQ-278 made which of the two

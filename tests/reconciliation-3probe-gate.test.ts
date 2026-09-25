@@ -24,6 +24,11 @@ import {
   evaluateLayout,
   foldToL1,
   offSampleProbe,
+  // BUG-143 — the probe's own derived sampling sets, so the assertions below pin
+  // the CLAIM (widths between the rungs; more than one height) rather than a
+  // constant that has to be restated in two places every time it changes.
+  offSampleWidths,
+  envelopeHeights,
   promoteToFlow,
   sampleFidelityProbe,
   acceptanceGate,
@@ -456,12 +461,20 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
   })
 
   it('test_UAT_AC706_off_sample_envelope_holds_at_unsampled_widths', () => {
-    // Pass: the fluid base renders sane at the default 500 / 900 off-sample
-    // widths — no overlap, no clip, per-width findings empty.
+    // Pass: the fluid base renders sane at every off-sample width the probe
+    // derives from the ladder — no overlap, no clip, per-width findings empty.
+    //
+    // BUG-143 SUPERSEDES the constant pair this assertion used to pin. The probe
+    // sampled 500 and 900px, which between six rungs left two segments unsampled
+    // and gave one segment both points; it now samples two interior points per
+    // segment ({@link offSampleWidths}) at each of two viewport heights. The
+    // claim the AC is about — the envelope holds at widths the fold never
+    // captured — is unchanged and is asserted over more of them.
     const doc = foldToL1(oracle())
     const passReport = offSampleProbe(doc)
     expect(passReport.pass).toBe(true)
-    expect(passReport.byWidth.map((w) => w.width)).toEqual([500, 900])
+    expect([...new Set(passReport.byWidth.map((w) => w.width))]).toEqual(offSampleWidths(doc))
+    expect(doc.widths.some((rung) => offSampleWidths(doc).includes(rung))).toBe(false)
     for (const w of passReport.byWidth) expect(w.findings).toEqual([])
 
     // Fail: a document whose fixed-width run is only captured at wide widths
@@ -495,7 +508,10 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     // below — overlap finding, pass = false. Findings are reported per width.
     const before = contentRobustnessProbe(base, { scale: 2.5 })
     expect(before.pass).toBe(false)
-    expect(before.byWidth.map((w) => w.width)).toEqual(base.widths)
+    // BUG-143 — one entry per (captured width, sampled viewport height), so the
+    // widths are the ladder's and each appears once per height.
+    expect([...new Set(before.byWidth.map((w) => w.width))]).toEqual(base.widths)
+    expect([...new Set(before.byWidth.map((w) => w.height))]).toEqual(envelopeHeights(base))
     const overlaps = before.byWidth.flatMap((w) => w.findings).filter((f) => f.kind === 'overlap')
     expect(overlaps.length).toBeGreaterThan(0)
 

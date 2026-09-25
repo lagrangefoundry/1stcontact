@@ -78,11 +78,28 @@ export interface EvalLeaf {
    * read it without walking back up to the node.
    */
   stacked?: true
+  /**
+   * BUG-143 — the `id` of the backing surface this run sits on, as the document
+   * records it (`backedBy`). Carried onto the leaf for the same reason `stacked`
+   * is: the containment check reads it without walking back up to the node.
+   */
+  backedBy?: string
 }
 
-/** A geometry-envelope violation found during evaluation. */
+/**
+ * A geometry-envelope violation found during evaluation.
+ *
+ * BUG-143 — `escape` is the third kind, and it asks the opposite question from
+ * `overlap`: not "does this box sit on top of something it should not" but "has
+ * this box stopped covering what it exists to cover". A fold-synthesized backing
+ * surface is *exempt* from the overlap scan by construction — a fill painted
+ * behind its own runs overlaps them by design — so before this the whole class of
+ * defect where a panel slides off its copy was not merely undetected but
+ * inexpressible: overlap was tested, containment was not a question the engine
+ * could ask.
+ */
 export interface LayoutFinding {
-  kind: 'overlap' | 'clip'
+  kind: 'overlap' | 'clip' | 'escape'
   detail: string
   /** Paths of the leaves involved. */
   paths: string[]
@@ -91,9 +108,25 @@ export interface LayoutFinding {
 /** The result of analytically laying an L1 document out at one width. */
 export interface LayoutResult {
   width: number
+  /** BUG-143 — the viewport height this evaluation resolved height responses at. */
+  height?: number
   leaves: EvalLeaf[]
   findings: LayoutFinding[]
 }
+
+/**
+ * BUG-143 — which backing surface(s) each text run sits on, as **leaf paths**
+ * within one document.
+ *
+ * Paths rather than ids because a run carries no id and does not need one: a path
+ * is a fact about the tree, stable across every width, height and content
+ * perturbation the probes sample, and the same key `EvalLeaf.path` already uses.
+ *
+ * A run may appear under more than one surface, and that is not a defect to
+ * de-duplicate: a card sits on a band, so a run on the card is covered by both,
+ * and sliding out of either one is a different visible failure.
+ */
+export type SurfaceBacking = ReadonlyMap<string, readonly string[]>
 
 export interface EvaluateOptions {
   /**
@@ -122,17 +155,88 @@ export interface EvaluateOptions {
    * is the only place a model belongs.
    */
   measured?: MeasuredTextHeights
+  /**
+   * BUG-143 — the **viewport height** to resolve every node's `viewportResponse`
+   * against. Absent means each keyframe's own captured height, which is what
+   * every caller got when height was not an axis.
+   *
+   * It has to be a parameter beside `width` because the two are not
+   * interchangeable: a `min-h-screen` band's bottom edge travels a full viewport
+   * height while the copy in its top half does not move at all, so a page can be
+   * pixel-exact at every captured (width, height) pair and come apart the moment
+   * the window is dragged taller. The fold has measured that response all along
+   * (`viewportResponse`, `atHeight`); nothing read it back.
+   */
+  viewportHeight?: number
+  /**
+   * BUG-143 — the surface each run is backed by, from
+   * {@link deriveSurfaceBacking}. Supplied, the evaluation asserts **containment**
+   * (every run stays covered by its surface) and reports an `escape` finding for
+   * each run that has left one. Absent, no containment is asserted — which is what
+   * keeps the derivation itself, and every caller that only wants boxes, from
+   * recursing into it.
+   */
+  backing?: SurfaceBacking
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
 }
 
-/** Evaluate a geometry track at `width`, mirroring the renderer's CSS exactly. */
-function evalGeometry(geo: L1Geometry, width: number): EvalBox {
+/**
+ * BUG-143 — apply a node's viewport-height response to a box resolved from the
+ * width ladder, mirroring the CSS the renderer emits exactly:
+ *
+ *   top:    y      + yFactor      * (100vh - atHeight)
+ *   height: height + heightFactor * (100vh - atHeight)
+ *
+ * `atHeight` is the viewport height the keyframe was MEASURED at, which is why it
+ * is the origin: at the captured height the two terms cancel and the box is
+ * exactly what the capture recorded. That is the property that makes height an
+ * axis the evaluator can sample rather than a constant it has to trust — before
+ * this, `atHeight` travelled through the fold, the validator and the renderer and
+ * was read by nothing on the way back, so the vertical half of a reproduction was
+ * not undetected but UNMODELLED.
+ *
+ * `vh` absent means "the height this keyframe was captured at", so every caller
+ * that does not ask about height gets precisely the geometry it got before.
+ */
+function respondToHeight(
+  box: EvalBox,
+  geo: L1Geometry,
+  atHeight: number | undefined,
+  vh: number | undefined,
+): EvalBox {
+  if (vh === undefined || atHeight === undefined) return box
+  const r = geo.viewportResponse
+  if (!r) return box
+  const delta = vh - atHeight
+  return {
+    x: box.x,
+    y: box.y + (r.yFactor ?? 0) * delta,
+    width: box.width,
+    height: box.height + (r.heightFactor ?? 0) * delta,
+  }
+}
+
+/**
+ * Evaluate a geometry track at `width`, mirroring the renderer's CSS exactly.
+ *
+ * BUG-143 — `vh` is the **viewport height** to resolve the track's
+ * `viewportResponse` against (see {@link respondToHeight}). Omitted, every box
+ * reads exactly as its keyframes record it.
+ */
+function evalGeometry(geo: L1Geometry, width: number, vh?: number): EvalBox {
   const f = geo.keyframes
   // Below/at the first breakpoint: hold the base keyframe (renderer's base rule).
-  if (width <= f[0].at) return { x: f[0].x, y: f[0].y, width: f[0].width, height: f[0].height ?? 0 }
+  if (width <= f[0].at) {
+    return respondToHeight(
+      { x: f[0].x, y: f[0].y, width: f[0].width, height: f[0].height ?? 0 },
+      geo,
+      f[0].atHeight,
+      vh,
+    )
+  }
   for (let i = 0; i < f.length - 1; i++) {
     const a = f[i]
     const b = f[i + 1]
@@ -145,21 +249,46 @@ function evalGeometry(geo: L1Geometry, width: number): EvalBox {
     // 768 FAIL). Exact-width resolution here mirrors the renderer's winning rule.
     if (width >= a.at && width < b.at) {
       const seg = geo.segments?.[i] ?? 'interpolate'
-      if (seg === 'snap') return { x: a.x, y: a.y, width: a.width, height: a.height ?? 0 }
+      if (seg === 'snap') {
+        return respondToHeight(
+          { x: a.x, y: a.y, width: a.width, height: a.height ?? 0 },
+          geo,
+          a.atHeight,
+          vh,
+        )
+      }
       const t = b.at === a.at ? 0 : (width - a.at) / (b.at - a.at)
       const height =
         a.height !== undefined && b.height !== undefined ? lerp(a.height, b.height, t) : undefined
-      return {
-        x: lerp(a.x, b.x, t),
-        y: lerp(a.y, b.y, t),
-        width: lerp(a.width, b.width, t),
-        height: height ?? 0,
-      }
+      // BUG-143 — the captured height is interpolated across the segment on the
+      // same `t` as the geometry, which is what the renderer's `calc()` does with
+      // its two `atHeight` endpoints. Using either endpoint raw would move the
+      // response's origin off the box it is applied to.
+      const atHeight =
+        a.atHeight !== undefined && b.atHeight !== undefined
+          ? lerp(a.atHeight, b.atHeight, t)
+          : (a.atHeight ?? b.atHeight)
+      return respondToHeight(
+        {
+          x: lerp(a.x, b.x, t),
+          y: lerp(a.y, b.y, t),
+          width: lerp(a.width, b.width, t),
+          height: height ?? 0,
+        },
+        geo,
+        atHeight,
+        vh,
+      )
     }
   }
   // Above the last breakpoint: hold the final keyframe (renderer's final rule).
   const last = f[f.length - 1]
-  return { x: last.x, y: last.y, width: last.width, height: last.height ?? 0 }
+  return respondToHeight(
+    { x: last.x, y: last.y, width: last.width, height: last.height ?? 0 },
+    geo,
+    last.atHeight,
+    vh,
+  )
 }
 
 /**
@@ -338,10 +467,10 @@ function isPinned(node: L1Node): boolean {
  * REQ-278 — an in-flow node's leading offset at `width`: the `margin-left` /
  * `margin-top` its keyframes resolve to, or `undefined` for every other node.
  */
-function leadingOffset(node: L1Node, width: number): { x: number; y: number } | undefined {
+function leadingOffset(node: L1Node, width: number, vh?: number): { x: number; y: number } | undefined {
   const geo = geometryOf(node)
   if (!geo || geo.place !== 'flow') return undefined
-  const box = evalGeometry(geo, width)
+  const box = evalGeometry(geo, width, vh)
   return { x: box.x, y: box.y }
 }
 
@@ -358,10 +487,10 @@ function flowWidth(node: L1Node, width: number): number | undefined {
  * that the height belongs to the content (every text run, and every node the
  * recovery put in flow precisely so its content could size it).
  */
-function declaredHeight(node: L1Node, width: number): number | undefined {
+function declaredHeight(node: L1Node, width: number, vh?: number): number | undefined {
   const geo = geometryOf(node)
   if (!geo || geo.keyframes[0].height === undefined) return undefined
-  return evalGeometry(geo, width).height
+  return evalGeometry(geo, width, vh).height
 }
 
 /** Whether a node is hidden at `width` by its visibility rule. */
@@ -456,7 +585,7 @@ function packRowLines(widths: number[], avail: number, gap: number, eps: number)
 
 interface Ctx {
   width: number
-  opts: Required<Omit<EvaluateOptions, 'measured'>>
+  opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing'>>
   leaves: EvalLeaf[]
   /**
    * REQ-278 — the corner an absolutely-placed node is absolute TO: the nearest
@@ -478,6 +607,12 @@ interface Ctx {
    * unmeasured run cannot shift every later occurrence onto the wrong row.
    */
   textCursor: Map<string, number>
+  /**
+   * BUG-143 — the viewport HEIGHT this evaluation is about, or `undefined` for
+   * "each keyframe's own captured height" (which is what every caller got before
+   * height was an axis at all).
+   */
+  viewportHeight?: number
   /**
    * BUG-112 / REQ-288 — an ancestor declared `stacked: true`, so every leaf this
    * subtree pushes is part of that declared composition.
@@ -563,10 +698,11 @@ function layoutInFlow(
   // reports collisions a browser would never paint (a contact form mounted into a
   // seam 182px into its section appearing 182px down the PAGE, over the header).
   const pinned = isPinned(node)
-  const lead = leadingOffset(node, width)
+  const vh = ctx.viewportHeight
+  const lead = leadingOffset(node, width, vh)
   const box: EvalBox = pinned
     ? (() => {
-        const g = evalGeometry(node.geometry!, width)
+        const g = evalGeometry(node.geometry!, width, vh)
         return { ...g, x: g.x + ctx.origin.x, y: g.y + ctx.origin.y }
       })()
     : lead
@@ -603,7 +739,7 @@ function layoutInFlow(
         opts.contentScale,
       )
       // A pinned text keyframe may pin a height; otherwise the height is natural.
-      const pinnedH = declaredHeight(node, width)
+      const pinnedH = declaredHeight(node, width, vh)
       // BUG-113 — where the oracle measured this run, the measurement IS the
       // natural height. Under perturbation it is grown by the estimator's own
       // line-count ratio rather than replaced by the estimate: the model is
@@ -628,11 +764,22 @@ function layoutInFlow(
       // measure's join key (see `sampleFidelity`), and the oracle side joins the
       // same run group into the same string — so a node that emphasises a word
       // still pairs with the element it was folded from.
-      ctx.leaves.push({ path, kind: 'text', text: l1PlainText(node.text), id: node.id, box, pinned, ...stackedOf(node, ctx) })
+      ctx.leaves.push({
+        path,
+        kind: 'text',
+        text: l1PlainText(node.text),
+        id: node.id,
+        box,
+        pinned,
+        // BUG-143 — the surface this run sits on, carried onto the leaf so the
+        // containment check reads it without walking back up to the node.
+        ...(node.backedBy !== undefined ? { backedBy: node.backedBy } : {}),
+        ...stackedOf(node, ctx),
+      })
       return { advance: adv(box.height), box }
     }
     case 'image': {
-      const own = declaredHeight(node, width)
+      const own = declaredHeight(node, width, vh)
       if (own !== undefined) box.height = own * opts.contentScale
       ctx.leaves.push({ path, kind: 'image', id: node.id, box, pinned, ...stackedOf(node, ctx) })
       return { advance: adv(box.height), box }
@@ -640,7 +787,7 @@ function layoutInFlow(
     case 'slot': {
       // A slot's extent is the seam the module mounts into — a pinned frame read
       // it off `evalGeometry` for free, an in-flow one has to ask for it.
-      const own = declaredHeight(node, width)
+      const own = declaredHeight(node, width, vh)
       if (own !== undefined) box.height = own
       ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned, ...stackedOf(node, ctx) })
       return { advance: adv(box.height), box }
@@ -649,7 +796,7 @@ function layoutInFlow(
       // REQ-96 — a control is a leaf like any other: the module contributes its
       // element, L1 contributes the box, so the geometry model is unchanged. A
       // pinned keyframe height wins; otherwise the parent's frame stands.
-      const own = declaredHeight(node, width)
+      const own = declaredHeight(node, width, vh)
       if (own !== undefined) box.height = own * opts.contentScale
       ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned, ...stackedOf(node, ctx) })
       return { advance: adv(box.height), box }
@@ -660,8 +807,17 @@ function layoutInFlow(
       // A childless `box` is a leaf surface (a divider / painted panel) — REQ-92:
       // it has its own geometry box, so push it as a leaf the fidelity probe pairs.
       if (node.kind === 'box' && children.length === 0) {
-        const own = declaredHeight(node, width)
-        if (own !== undefined) box.height = own * opts.contentScale
+        const own = declaredHeight(node, width, vh)
+        // BUG-143 — a fold-synthesized BACKING SURFACE does not grow with the
+        // content perturbation, because the page does not: its height is a pinned
+        // constant in the CSS the renderer emits, and longer copy cannot change a
+        // constant. Growing it modelled a panel that stretches to fit — the exact
+        // behaviour whose ABSENCE is the defect — and so muted the half of the
+        // alarm that content growth is there to raise. Measured on the reproduction
+        // this was reported from: 0 of 14 panels move while 46 of 53 runs do.
+        if (own !== undefined) {
+          box.height = own * (isSynthesizedSurfaceId(node.id) ? 1 : opts.contentScale)
+        }
         ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned, ...stackedOf(node, ctx) })
         return { advance: adv(box.height), box }
       }
@@ -771,7 +927,7 @@ function layoutInFlow(
       const contentHeight = flowChildren.length ? maxChildBottom - box.y : 0
       // A pinned box/container with a fixed keyframe height that the content
       // overflows is a clip.
-      const pinnedH = declaredHeight(node, width)
+      const pinnedH = declaredHeight(node, width, vh)
       if (pinnedH !== undefined && contentHeight > pinnedH + opts.epsilonPx) {
         ctx.clips.push({
           kind: 'clip',
@@ -806,16 +962,145 @@ function overlaps(a: EvalBox, b: EvalBox, eps: number): boolean {
 }
 
 /**
+ * BUG-143 — how far `child` sticks out of `parent`, and on which side: the
+ * largest single-edge excess beyond `eps`, or `null` while the child is still
+ * covered.
+ *
+ * The worst single edge rather than a sum, because the number is there to be read:
+ * "576px below its bottom edge" is a fact an operator can go and look at, while a
+ * total area of uncovered glyph is not.
+ */
+function overhang(child: EvalBox, parent: EvalBox, eps: number): { px: number; side: string } | null {
+  const sides: Array<{ px: number; side: string }> = [
+    { px: parent.y - child.y, side: 'above its top edge' },
+    { px: child.y + child.height - (parent.y + parent.height), side: 'below its bottom edge' },
+    { px: parent.x - child.x, side: 'left of its left edge' },
+    { px: child.x + child.width - (parent.x + parent.width), side: 'right of its right edge' },
+  ]
+  const worst = sides.reduce((a, b) => (b.px > a.px ? b : a))
+  return worst.px > eps ? worst : null
+}
+
+/**
+ * BUG-143 — the viewport height each captured width was measured at, read off the
+ * keyframes' own `atHeight`. The resting state of a width is that width AND that
+ * height; evaluating a captured width at some other height is already a
+ * perturbation, which is the whole reason height had to become an axis.
+ */
+function capturedHeightByWidth(doc: L1Document): Map<number, number> {
+  const out = new Map<number, number>()
+  const walk = (node: L1Node): void => {
+    for (const kf of geometryOf(node)?.keyframes ?? []) {
+      if (kf.atHeight && !out.has(kf.at)) out.set(kf.at, kf.atHeight)
+    }
+    const kids = node.kind === 'container' ? node.children : node.kind === 'box' ? (node.children ?? []) : []
+    for (const k of kids) walk(k)
+  }
+  walk(doc.root)
+  return out
+}
+
+/**
+ * BUG-143 — resolve which backing surface each text run sits on, for one document.
+ *
+ * TWO TIERS, because what a document SAYS and what it merely happens to do are
+ * different kinds of claim and deserve different treatment:
+ *
+ *  - **What the document says** (`backedBy`, written by the fold from the element
+ *    the capture resolved as painting the run's surface) is asserted at every
+ *    sample, unconditionally. It is a recorded fact; a card that does not cover
+ *    its own declared copy is a finding wherever it happens, and this tier is what
+ *    makes the containment probe a gate rather than a heuristic.
+ *  - **What the page happens to do at rest** is asserted only where the
+ *    observation is UNANIMOUS: a surface backs a run only if it covers that run at
+ *    every captured width, each at the height that width was captured at. This
+ *    tier exists because every document folded before `backedBy` existed declares
+ *    nothing at all, and because a narrow run sitting on a band paints no surface
+ *    of its own and so contributes no fold row to be recorded from — excluding
+ *    them would leave the pages this defect was reported on ungated, which is
+ *    worse than a guess. Unanimity is what keeps the guess honest: a run that
+ *    sits on one band at desktop and a different one at mobile is covered by
+ *    neither at every rung, so the reflow that moves it is not reported as a
+ *    surface coming apart.
+ *
+ * Either way, a pair only enters the set if the surface covers the run in the
+ * states the page was MEASURED in, so the probes cannot fire on a page that holds
+ * together. They fire when a pairing that held everywhere it was measured stops
+ * holding between the measurements — between two width rungs, at a viewport height
+ * nothing was captured at, or under content the page did not ship with. Which is
+ * precisely the operator's report.
+ */
+export function deriveSurfaceBacking(
+  doc: L1Document,
+  options: { measured?: MeasuredTextHeights; widths?: number[] } = {},
+): SurfaceBacking {
+  const widths = options.widths ?? (doc.widths.length ? [...doc.widths] : [1280])
+  const heightOf = capturedHeightByWidth(doc)
+  // No `backing` option on these evaluations — they are what DEFINES the backing,
+  // so they assert no containment and cannot recurse.
+  const rests = widths.map((width) => ({
+    width,
+    leaves: evaluateLayout(doc, width, {
+      measured: options.measured,
+      viewportHeight: heightOf.get(width),
+    }).leaves,
+  }))
+  const backing = new Map<string, string[]>()
+  const link = (runPath: string, surfacePath: string): void => {
+    const cur = backing.get(runPath)
+    if (cur) {
+      if (!cur.includes(surfacePath)) cur.push(surfacePath)
+    } else backing.set(runPath, [surfacePath])
+  }
+  /** The declared and the covered pairs of one resting state, as `run→surface` keys. */
+  const pairsAt = (leaves: EvalLeaf[]): { declared: Set<string>; covered: Set<string> } => {
+    const surfaces = leaves.filter(
+      (l) => l.kind === 'box' && l.box.width > 0 && l.box.height > 0 && l.id !== undefined,
+    )
+    const byId = new Map(surfaces.map((l) => [l.id!, l]))
+    const declared = new Set<string>()
+    const covered = new Set<string>()
+    for (const run of leaves) {
+      if (run.kind !== 'text' || run.box.height <= 0 || run.box.width <= 0) continue
+      const own = run.backedBy !== undefined ? byId.get(run.backedBy) : undefined
+      if (own) declared.add(`${run.path}|${own.path}`)
+      for (const surface of surfaces) {
+        if (!isSynthesizedSurfaceId(surface.id)) continue
+        if (!overhang(run.box, surface.box, 2)) covered.add(`${run.path}|${surface.path}`)
+      }
+    }
+    return { declared, covered }
+  }
+  const perWidth = rests.map((r) => pairsAt(r.leaves))
+  for (const key of new Set(perWidth.flatMap((p) => [...p.declared]))) {
+    const [runPath, surfacePath] = key.split('|')
+    link(runPath, surfacePath)
+  }
+  // Unanimity: covered at EVERY resting state, not merely at one of them.
+  for (const key of perWidth[0]?.covered ?? []) {
+    if (!perWidth.every((p) => p.covered.has(key) || p.declared.has(key))) continue
+    const [runPath, surfacePath] = key.split('|')
+    link(runPath, surfacePath)
+  }
+  return backing
+}
+
+/**
  * Analytically evaluate an L1 document at `width`: resolve every leaf's box and
  * report geometry-envelope violations (sibling overlap, horizontal clip beyond
- * the viewport, and pinned-box content overflow).
+ * the viewport, pinned-box content overflow, and — where the caller supplies
+ * {@link EvaluateOptions.backing} — a backing surface that has stopped covering
+ * the content it backs).
+ *
+ * BUG-143 — {@link EvaluateOptions.viewportHeight} makes the viewport's HEIGHT a
+ * parameter of the evaluation beside its width.
  */
 export function evaluateLayout(
   doc: L1Document,
   width: number,
   options: EvaluateOptions = {},
 ): LayoutResult {
-  const opts: Required<Omit<EvaluateOptions, 'measured'>> = {
+  const opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing'>> = {
     contentScale: options.contentScale ?? 1,
     epsilonPx: options.epsilonPx ?? 2,
   }
@@ -827,6 +1112,7 @@ export function evaluateLayout(
     origin: { x: 0, y: 0 },
     measured: options.measured,
     textCursor: new Map(),
+    viewportHeight: options.viewportHeight,
   }
   const rootFrame: EvalBox = { x: 0, y: 0, width, height: 0 }
   layout(doc.root, rootFrame, '0', ctx)
@@ -879,7 +1165,37 @@ export function evaluateLayout(
     }
   }
 
-  return { width, leaves: ctx.leaves, findings }
+  // BUG-143 — containment: every backed run must still be COVERED by the surface
+  // painted behind it. This is the assertion the exemption above makes necessary —
+  // a synthesized surface is excluded from the overlap scan by name, so without
+  // this it takes part in no geometric assertion of any kind, and "the panel has
+  // slid off its copy" is not a sentence the engine can say. Reported as a leaf
+  // pair like every other finding, with the surface named and the overhang in px,
+  // because a finding an operator cannot go and look at is not evidence.
+  if (options.backing) {
+    const byPath = new Map(ctx.leaves.map((l) => [l.path, l]))
+    for (const [runPath, surfacePaths] of options.backing) {
+      const run = byPath.get(runPath)
+      if (!run || run.box.height <= 0 || run.box.width <= 0) continue
+      for (const surfacePath of surfacePaths) {
+        const surface = byPath.get(surfacePath)
+        // A surface hidden at this width pushes no leaf, and a run that outlives
+        // its own surface is that surface's visibility rule doing its job.
+        if (!surface || surface.box.height <= 0 || surface.box.width <= 0) continue
+        const out = overhang(run.box, surface.box, opts.epsilonPx)
+        if (!out) continue
+        findings.push({
+          kind: 'escape',
+          detail:
+            `${run.text ? `'${run.text}'` : run.kind} is no longer covered by its backing surface ` +
+            `${surface.id ?? surface.path} — ${Math.round(out.px)}px ${out.side}`,
+          paths: [runPath, surfacePath],
+        })
+      }
+    }
+  }
+
+  return { width, ...(options.viewportHeight !== undefined ? { height: options.viewportHeight } : {}), leaves: ctx.leaves, findings }
 }
 
 // ── the oracle ────────────────────────────────────────────────────────────────
@@ -1129,38 +1445,137 @@ export function sampleFidelityProbe(
 
 export interface EnvelopeReport {
   pass: boolean
-  byWidth: Array<{ width: number; findings: LayoutFinding[] }>
+  /**
+   * One entry per (width, height) the probe sampled.
+   *
+   * BUG-143 — a width may now appear more than once, once per viewport height
+   * sampled at it, and `height` says which. The name is kept because the shape is
+   * kept: every reader flattens this list and counts findings, and a second
+   * parallel array would let the two disagree about what was sampled.
+   */
+  byWidth: Array<{ width: number; height?: number; findings: LayoutFinding[] }>
 }
 
 /**
- * The one thing every envelope probe does: lay the document out at each width
- * and keep the findings. The probes differ only in WHICH document, WHICH widths
- * and HOW MUCH content perturbation — so that is all each of them says.
+ * BUG-143 — the viewport heights the envelope probes sample, derived from what the
+ * capture measured.
+ *
+ * Two, because one is not an axis. The SHORTEST height the ladder was captured at
+ * is the honest lower end — a real window that short exists, and it was measured.
+ * The upper end is half again the tallest captured height: a viewport nothing was
+ * captured at, which is the entire point, since a page whose height response is
+ * wrong is exact at every height it was measured at and wrong everywhere between
+ * and beyond. A document carrying no `atHeight` at all gets the same bracket in
+ * absolute terms and is unaffected either way (nothing responds to height).
+ */
+export function envelopeHeights(doc: L1Document): number[] {
+  const sorted = capturedHeights(doc)
+  if (sorted.length === 0) return [800, 1200]
+  const short = sorted[0]
+  const tall = Math.round(sorted[sorted.length - 1] * 1.5)
+  return tall > short ? [short, tall] : [short]
+}
+
+/**
+ * BUG-143 — the viewport heights the capture actually MEASURED, ascending.
+ *
+ * Distinct from {@link envelopeHeights}, which deliberately reaches past them:
+ * the bracket's upper end is a height nothing was captured at, because a wrong
+ * height response is exact everywhere it was measured. Where a caller's claim is
+ * about the measured conditions specifically — REQ-278's recovery choice, whose
+ * second rule binds only at "the widths the page was measured at" — it is this
+ * set it means, not the bracket.
+ */
+export function capturedHeights(doc: L1Document): number[] {
+  const captured = new Set<number>()
+  const walk = (node: L1Node): void => {
+    for (const kf of geometryOf(node)?.keyframes ?? []) if (kf.atHeight) captured.add(kf.atHeight)
+    const kids = node.kind === 'container' ? node.children : node.kind === 'box' ? (node.children ?? []) : []
+    for (const k of kids) walk(k)
+  }
+  walk(doc.root)
+  return [...captured].sort((a, b) => a - b)
+}
+
+/**
+ * BUG-143 — the widths probe (b) samples between the captured rungs: TWO interior
+ * points per segment, at a third and two thirds of the way across it.
+ *
+ * The probe used to sample a constant pair, 500 and 900px. Two points between six
+ * rungs cannot characterise the interpolation between them — one segment got both,
+ * two got one each, and two got none at all — and the reproduction this defect was
+ * reported on came apart at 506px in a segment that was sampled and passed at 900.
+ * Two points per segment is the smallest sampling that can see a bracket bend
+ * anywhere along its length rather than only where a constant happens to land.
+ *
+ * Nothing is sampled BELOW the first rung or above the last: the renderer holds the
+ * end keyframe there, so the geometry is identical to the rung's and the only
+ * difference a sample could report is that boxes measured at 320px overflow a
+ * viewport narrower than 320px — which is true of every page and says nothing about
+ * this one.
+ */
+export function offSampleWidths(doc: L1Document): number[] {
+  const rungs = [...doc.widths].sort((a, b) => a - b)
+  if (rungs.length < 2) return [500, 900]
+  const out = new Set<number>()
+  for (let i = 0; i < rungs.length - 1; i++) {
+    const span = rungs[i + 1] - rungs[i]
+    out.add(Math.round(rungs[i] + span / 3))
+    out.add(Math.round(rungs[i] + (2 * span) / 3))
+  }
+  for (const rung of rungs) out.delete(rung)
+  return [...out].sort((a, b) => a - b)
+}
+
+/**
+ * The one thing every envelope probe does: lay the document out at each width —
+ * BUG-143, at each viewport height too — and keep the findings. The probes differ
+ * only in WHICH document, WHICH widths and HOW MUCH content perturbation, so that
+ * is all each of them says.
+ *
+ * BUG-143 — the surface→run backing is resolved ONCE here, from the resting
+ * document, and handed to every evaluation. Once, because it is a property of the
+ * document rather than of any sample of it: deriving it per width would let a
+ * perturbed sample re-decide which panel owns which run, and the question this
+ * probe asks is whether a pairing that held at rest still holds — which is not a
+ * question you can ask if the pairing moves with the answer.
  */
 function envelopeAt(
   doc: L1Document,
   widths: number[],
+  heights: number[],
   contentScale: number,
   measured?: MeasuredTextHeights,
 ): EnvelopeReport {
-  const byWidth = widths.map((width) => ({
-    width,
-    findings: evaluateLayout(doc, width, { contentScale, measured }).findings,
-  }))
+  const backing = deriveSurfaceBacking(doc, { measured })
+  const byWidth = widths.flatMap((width) =>
+    heights.map((height) => ({
+      width,
+      height,
+      findings: evaluateLayout(doc, width, { contentScale, measured, viewportHeight: height, backing })
+        .findings,
+    })),
+  )
   return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
 }
 
 /**
- * Probe (b) — evaluate the document at intermediate widths the fold never
- * sampled (default 500 / 900px) and assert the envelope holds: no sibling
- * overlap, no horizontal clip. Catches interpolation / snap brackets that
- * degrade between captured widths.
+ * Probe (b) — evaluate the document at intermediate widths the fold never sampled
+ * ({@link offSampleWidths}) and assert the envelope holds: no sibling overlap, no
+ * horizontal clip, and no backing surface that has left the content it backs.
+ * Catches interpolation / snap brackets that degrade between captured widths.
  */
 export function offSampleProbe(
   doc: L1Document,
-  options: { widths?: number[]; measured?: MeasuredTextHeights } = {},
+  options: { widths?: number[]; heights?: number[]; measured?: MeasuredTextHeights } = {},
 ): EnvelopeReport {
-  return envelopeAt(doc, options.widths ?? [500, 900], 1, options.measured)
+  return envelopeAt(
+    doc,
+    options.widths ?? offSampleWidths(doc),
+    options.heights ?? envelopeHeights(doc),
+    1,
+    options.measured,
+  )
 }
 
 // ── probe (d): on-sample envelope ─────────────────────────────────────────────
@@ -1191,9 +1606,15 @@ export function offSampleProbe(
  */
 export function onSampleProbe(
   doc: L1Document,
-  options: { widths?: number[]; measured?: MeasuredTextHeights } = {},
+  options: { widths?: number[]; heights?: number[]; measured?: MeasuredTextHeights } = {},
 ): EnvelopeReport {
-  return envelopeAt(doc, options.widths ?? doc.widths, 1, options.measured)
+  return envelopeAt(
+    doc,
+    options.widths ?? doc.widths,
+    options.heights ?? envelopeHeights(doc),
+    1,
+    options.measured,
+  )
 }
 
 // ── probe (c): content robustness ─────────────────────────────────────────────
@@ -1207,9 +1628,15 @@ export function onSampleProbe(
  */
 export function contentRobustnessProbe(
   doc: L1Document,
-  options: { scale?: number; widths?: number[]; measured?: MeasuredTextHeights } = {},
+  options: { scale?: number; widths?: number[]; heights?: number[]; measured?: MeasuredTextHeights } = {},
 ): EnvelopeReport {
-  return envelopeAt(doc, options.widths ?? doc.widths, options.scale ?? 2.5, options.measured)
+  return envelopeAt(
+    doc,
+    options.widths ?? doc.widths,
+    options.heights ?? envelopeHeights(doc),
+    options.scale ?? 2.5,
+    options.measured,
+  )
 }
 
 // ── the acceptance gate ───────────────────────────────────────────────────────
@@ -1229,6 +1656,11 @@ export interface AcceptanceReport {
 export interface AcceptanceOptions {
   fidelity?: SampleFidelityOptions
   offSampleWidths?: number[]
+  /**
+   * BUG-143 — the viewport heights every envelope probe samples. Defaults to
+   * {@link envelopeHeights}, derived from what the capture measured.
+   */
+  envelopeHeights?: number[]
   contentScale?: number
   /**
    * BUG-113 — the document the browser actually paints, for the envelope probes.
@@ -1285,10 +1717,15 @@ export function acceptanceGate(
 ): AcceptanceReport {
   const served = options.served ?? doc
   const measured = options.measured
+  const heights = options.envelopeHeights ?? envelopeHeights(served)
   const sampleFidelity = sampleFidelityProbe(doc, oracle, { measured, ...options.fidelity })
-  const offSample = offSampleProbe(served, { widths: options.offSampleWidths, measured })
-  const contentRobustness = contentRobustnessProbe(served, { scale: options.contentScale, measured })
-  const onSample = onSampleProbe(served, { widths: options.fidelity?.widths, measured })
+  const offSample = offSampleProbe(served, { widths: options.offSampleWidths, heights, measured })
+  const contentRobustness = contentRobustnessProbe(served, {
+    scale: options.contentScale,
+    heights,
+    measured,
+  })
+  const onSample = onSampleProbe(served, { widths: options.fidelity?.widths, heights, measured })
   return {
     pass: sampleFidelity.pass && offSample.pass && contentRobustness.pass && onSample.pass,
     sampleFidelity,
@@ -1794,10 +2231,42 @@ function scoreCandidate(
 ): RecoveryScore {
   const measured = options.measured
   const served = options.compose ? options.compose(doc) : doc
+  /**
+   * BUG-143 — collisions and clipping only. `escape` findings are deliberately
+   * NOT priced here, and the omission is the point of the ticket rather than an
+   * oversight in it.
+   *
+   * This ticket is the ALARM half of an alarm/defect pair (§6): it makes a
+   * backing surface separating from its content visible, and the defect that
+   * makes it happen is [[BUG-142]]. Both candidates inherit the SAME synthesized
+   * surfaces from the same fold — the recovery does not build a panel, it moves
+   * the runs — so an escape count is a measurement of the fold's decoupling, not
+   * of the recovery's merit. Letting it into this comparison would make the
+   * alarm change which document ships: on every reference the flow recovery
+   * moves text that the fixed panels do not follow, so the recovery would lose
+   * on a count it did not cause and each page would silently regress to a base
+   * document nobody chose, for as long as BUG-142 is open. An alarm reports; it
+   * does not decide what is served.
+   *
+   * The escapes are not dropped — they reach the operator through the acceptance
+   * gate's `layout` block, which is where the ticket asks for them.
+   */
   const count = (r: EnvelopeReport): number =>
-    r.byWidth.reduce((n, w) => n + w.findings.length, 0)
+    r.byWidth.reduce((n, w) => n + w.findings.filter((f) => f.kind !== 'escape').length, 0)
   const fidelity = sampleFidelityProbe(doc, oracle, { measured })
-  const onSample = count(onSampleProbe(served, { measured }))
+  /**
+   * BUG-143 — graded at the heights the capture MEASURED, not at the envelope
+   * bracket, and for the reason rule 2 gives for existing: "those are the widths
+   * the page was measured at, so a collision there is a defect in the recovery
+   * and not a judgement call." The bracket's upper end is a height nothing was
+   * ever captured at — deliberately, so the probes can reach a wrong height
+   * response — and a collision there is precisely a judgement call. It is priced
+   * by rule 3 below, with the other unmeasured conditions, where it belongs.
+   */
+  const capturedH = capturedHeights(served)
+  const onSample = count(
+    onSampleProbe(served, { measured, ...(capturedH.length ? { heights: capturedH } : {}) }),
+  )
   const envelope =
     count(offSampleProbe(served, { widths: options.offSampleWidths, measured })) +
     count(contentRobustnessProbe(served, { scale: options.scale, measured }))

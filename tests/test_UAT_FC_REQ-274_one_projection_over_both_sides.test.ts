@@ -306,7 +306,13 @@ const STRUCTURAL_KEYS = new Set(['source', 'elements', 'sections', 'engine', 'st
 
 function gateOn(values: ReturnType<typeof diffManifests>) {
   return reconcileGates({
-    l1Gate: { pass: true, onSample: { pass: true, byWidth: [{ width: 1280, findings: [] }] } },
+    l1Gate: {
+      pass: true,
+      onSample: { pass: true, byWidth: [{ width: 1280, findings: [] }] },
+      // BUG-143 — the envelope reports the containment escapes are read from.
+      offSample: { pass: true, byWidth: [{ width: 506, height: 800, findings: [] }] },
+      contentRobustness: { pass: true, byWidth: [{ width: 1280, height: 800, findings: [] }] },
+    },
     coverage: {
       mirroredImages: 0,
       referencedImages: 0,
