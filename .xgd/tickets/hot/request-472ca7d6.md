@@ -7,9 +7,9 @@ title: 'capture/values-diff: a placeholder-only control is captured with no typo
   that paints nothing can never be paired'
 created_by: repro-console:repro-gigabytealchemy-ai#5
 created_at: '2026-09-23T02:30:12.030295+00:00'
-updated_at: '2026-09-25T01:46:23.246398+00:00'
+updated_at: '2026-09-25T02:02:08.325329+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -324,3 +324,176 @@ page's header and the cheaper fix is on the fold. That reference does not exist 
 - The `unmeasured` headline undercounting a declined per-section measurement — that is a
   defect in the gate report's shape and in the console's tally, not in the reproduction
   engine, so it is its own bug ticket.
+
+
+---
+
+# Implementation (free-coded)
+
+Both residuals are fixed. Issue 1 runs the length of the pipeline — every hop had
+the same hole. Issue 2 is a single classification in the comparator, plus making
+the two places that report the number say why it fell.
+
+## Issue 1 — a form control carries its own type
+
+**What a user sees.** A reproduced contact form's placeholder text now sits where
+the reference's does. The textarea that painted its placeholder three pixel rows
+high paints it on the reference's rows, because the document it renders from now
+carries the control's leading instead of falling through to the browser's
+`normal`.
+
+**What the capture now records.** `fieldsUnder` reads the type a form control
+paints with onto the control's **existing** text axes — `fontFamily`,
+`fontSizePx`, `fontWeight`, `lineHeightPx` — rather than under a parallel
+`placeholder*` name. That is where L1 already keeps them (`l1ControlAxesSchema`
+is the text axes plus `placeholderColor`), so no new axis exists anywhere in the
+pipeline.
+
+- Read off the `::placeholder` **pseudo-element** when the control has a
+  placeholder — that is the ink that actually paints, it can author type of its
+  own, and the capture already queries it for its colour — falling back to the
+  control's own computed style, which is also what a control with no placeholder
+  (a `select`, a filled field) paints its typed text with.
+- Recorded for `input` / `textarea` / `select` only. An `<img>`, an `<hr>` and a
+  painted backdrop box are text-free too and have no type to describe; they keep
+  the empty/zero constants they have always carried.
+- `lineHeightPx` is `null` for `line-height: normal`, whose used value is a font
+  metric no computed style exposes — recorded exactly as a text run records it.
+
+**Where it travels.** `Field` / `RawField` declare the four axes; `toField`
+carries them into the bundle; `FIELD_AXES` reads them instead of returning the
+`''` / `0` constants and gains a `lineHeightPx` row; the fold writes them onto
+`L1ControlAxes`; the renderer's existing `emitTextAxes` emits them, and its
+zero-look `font: inherit` reset is already pushed ahead of the axes so an
+authored value wins.
+
+**Technical consequence, requested indirectly.** The fold also emits **per-width
+type tracks** for a control (`responsiveTextTracks` over the same framed samples
+the padding tracks already use). `axes` is read off the widest cell only, so
+without this a control whose type shrinks at mobile would be pinned to its
+desktop size at every width — BUG-18's defect, on the route BUG-18 did not cover.
+A type that holds one value across the ladder stays a scalar and emits no track.
+
+**What the instrument now compares.** The field pass of `values-diff` compares
+the four axes, guarded on **both sides carrying a real size** — which is exactly
+the pre-REQ-308 test, because the axes were constants before the extractor read
+them, so a stored bundle and every non-control stay inert rather than firing a
+delta against every placeholder on every page.
+
+`lineHeightPx` is the one place an absent value is **not** skipped. On a text run
+an absent leading means the bundle predates the axis; on a control it cannot mean
+that, because the guard has already established that both sides ran a
+typography-recording extractor. What it means there is `line-height: normal` — a
+measurement — and `normal` against a reference's 24px is precisely the shift this
+ticket came from. Skipping it would leave the instrument blind to its own defect
+the moment the fold stopped emitting the axis. Reported symmetrically, and silent
+when both sides are on `normal`.
+
+REQ-51's control card gains the four type rows, so the grouped view an operator
+reads stops listing everything about a control except the substance of its ink.
+`fontSizePx: 0` prints `—` (it is the text-free constant, not a size) and an
+absent leading on a control whose type was read prints `normal`.
+
+**The bundle has to be re-taken.** This value is persisted in the bundle, so
+landing it changes nothing on a stored reference until the operator presses
+recapture — `1c refold` cannot pick it up, exactly as the ticket says.
+`CAPTURE_SCHEMA` is therefore bumped **5 → 6** and the axis is registered in
+`CAPTURE_SCHEMA_AXES`, so `staleCaptureAxes` names it on any older bundle instead
+of leaving the next round to re-measure a residual whose fix already shipped.
+Presence is probed as a **non-zero size**, not the presence of the key: every
+earlier schema wrote `fontSizePx: 0` onto every text-free element, so the key has
+always existed and has never been a measurement.
+
+**Expect the delta count to rise on the stored bundle** until the re-capture
+lands. That is the instrument sharpening, and it is the point.
+
+## Issue 2 — a reference band that paints nothing is not a surface
+
+**Which of the two candidate fixes.** The instrument side, which the ticket names
+as preferred — and within it the *"classify it as not-a-band"* variant rather than
+*"pair it to the geometric slice that contains its runs"*. That slice is §1, the
+800px hero; comparing a 192px transparent header's band values against it would
+put a second category error in place of the first.
+
+**The rule.** An **unpaired** reference band whose fill was **measured** as absent
+(`surfaceFill: null`), with no background image and no overlay, paints nothing.
+The reproduction's bands are what the fold emits, and `foldSectionBackgrounds`
+emits a band node only for a section carrying an image or an overlay — solid
+bands arrive as run surfaces — so there is no document any fold could produce
+that would have a counterpart for it. It is a content grouping, not a surface.
+
+- It leaves `unpairedSections` and is listed in a new `nonSurfaceSections`, with
+  its geometry and the reason it is not counted. **Reclassified, not dropped**:
+  BUG-111's discipline (an uncompared band must be visible somewhere a reader
+  actually looks) applied to BUG-111's own count.
+- Derived from the same pairing pass the counts are, so the two lists cannot
+  disagree with the rows they summarise.
+- `surfaceFill: undefined` — a bundle older than schema 3, whose transparent
+  bands were recorded as an opaque fabrication of the body's colour — stays
+  unpaired: "paints nothing" is unknowable there.
+- A band that paints a fill, an image **or** an overlay is a surface the fold can
+  emit, so a reproduction missing it is a real gap and keeps being counted.
+- Only ever reached for an unpaired band, so a paintless band the reproduction
+  *does* segment is compared exactly as before.
+
+**What it does not do.** It does not rescue the overlapped band's
+`contentAnchorRatio`. REQ-270 declines that comparison because the two sides
+measure it over different populations of runs, and reclassifying the band lying
+over it says nothing about that. The page still has a measurement this ticket
+does not deliver, and the report still says so.
+
+**Technical consequence, requested indirectly.** Two reporting surfaces would
+otherwise have gone quietly smaller:
+
+- `gate.json` gains `values.nonSurfaceSections`, and the pass rung names the
+  category — a count that merely shrank would read as a reproduction that
+  improved.
+- The repro console's `unmeasured N` headline (REQ-277) is the number this round
+  was told to drive down. The band leaves the count, and the `bands` part now
+  carries a `detail` naming the reclassification. It is **not** a fifth part of
+  the unmeasured set and is not summed into `bands`: a band no fold could emit a
+  counterpart for is not a measurement anybody failed to make.
+
+## Test plan
+
+Two new UAT files, plus one existing assertion updated.
+
+- `tests/test_UAT_FC_REQ-308_a_control_carries_its_own_type.test.ts` — the
+  capture reads a placeholder-only control's type off a real page (browser-gated,
+  new fixture `tests/fixtures/capture/req308-control-type.html`); the
+  `::placeholder` pseudo is what is read, not the element; `normal` is recorded
+  as `normal`; a divider and an image still record none. Then, with no browser:
+  the schema bump names the axis on a schema-5 bundle and the probe only ever
+  removes it; L1 accepts the type on its existing axes and the bag stays closed;
+  the fold authors it, keeps a pre-REQ-308 bundle folding exactly as it did, and
+  earns a per-width track only for a type that varies; the renderer emits it over
+  its own `font: inherit` reset and emits nothing without it; the diff reports a
+  type difference, reports the `normal`-against-24px leading in both directions,
+  stays inert for a pre-REQ-308 reference and for a non-control, and the control
+  card shows the rows.
+- `tests/test_UAT_FC_REQ-308_a_paintless_reference_band_is_not_a_surface.test.ts`
+  — the reclassification and its reason; a band painting a fill, an image or an
+  overlay is still counted; an unmeasured fill is not read as "paints nothing";
+  the overlapped band's anchor is still declined; a paintless band that pairs is
+  compared as before. Then through the real `cmdGate` on a real bundle: the gate
+  reports the reclassification instead of an unpaired band, the pass rung says
+  so, a painting band the reproduction lost still fails loudly, and a page whose
+  bands all pair says neither thing. Finally the console's `unmeasured` headline
+  names the reclassified band, and a report with nothing to reclassify (or one
+  predating the field) reads as it always did.
+- `tests/req51-object-grouped-report.test.ts` — the control param table gained
+  the four type rows, updated exactly as it was when REQ-265 added
+  `placeholderColor`.
+
+**Not observed in this session.** The four browser-gated UATs report SKIPPED:
+`chromiumAvailable()` is false under this sandbox (a denied Mach bootstrap port,
+and a Playwright build-number pin), so they run the moment a capable runner does.
+The extractor change was verified offline instead — the full `EXTRACT_SCRIPT`
+parses, and `controlTypographyOf` was driven through all seven shapes the
+browser-gated UATs assert (inherited type, a `::placeholder` authoring its own,
+`normal`, a `select` with no placeholder, an `img`, an `hr`, and an engine that
+refuses the pseudo) with the results those UATs expect.
+
+Everything else is green: the two new files, and the ~90 existing node suites
+that touch `diffManifests` / `cmdGate` / `foldToL1` / `flattenCapture` /
+`projectField` / `renderL1Fragment` / `EXTRACT_SCRIPT`.
