@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T03:23:11.568498+00:00'
+updated_at: '2026-09-25T03:41:23.527305+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1613,5 +1613,17 @@ The fix has a decision in it — writing a row when `attributed` is present but 
 Not a defect: the `SQLITE_TOOBIG` that killed that turn is REQ-309, already fixed. The frozen transcript segment stops at 09-22T23:00 and a fresh one opens at 09-25T02:06, after which all six turns recorded cleanly. That turn was the last casualty.
 
 All of it is recorded on EPIC-20. No code touched, no branch cut. Want me to file the metering fix?
+
+<!-- xgd-turn id="25438868-74db-4f09-b5e1-75361e9d8e5b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T03:41:23.251900+00:00" -->
+#### You
+Ok there's a lot to disect here:
+
+The context was FULL when I started this session this evening (please give me times in local TZ I can't do the conversion reliably). We started from cold but it was already full so why did the per-turn cost grow? I think these were just more.
+
+Its good that delegation is possible and working, how do we motivate its use? 
+1) Mandate its use in the prompt unless there was a reason not to do it
+2) We could expose the costs to the AI and motivate it to minimise?
 
 <!-- xgd-chat-end -->
