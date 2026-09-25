@@ -5,10 +5,10 @@ type: request
 title: bin/dev up, down and reap, and 1c ps to see what is running
 created_by: EPIC-16
 created_at: '2026-09-25T02:04:22.932236+00:00'
-updated_at: '2026-09-25T02:04:22.932236+00:00'
+updated_at: '2026-09-25T04:12:05.102081+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   needs_review: false
