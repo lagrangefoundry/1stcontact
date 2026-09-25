@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-145
 created_by: xgd
 created_at: '2026-09-25T22:12:01.060771+00:00'
-updated_at: '2026-09-25T22:30:13.384960+00:00'
+updated_at: '2026-09-25T22:30:43.365671+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -80,5 +80,14 @@ Two UATs, both confirmed to **fail against the unfixed code** (node: "expected n
 Regression scope: 59 tests across all ten meter/delegation/console suites pass; `tsc` clean on both `apps/control-app` and `tools/generate`.
 
 One thing I'd flag as unresolved rather than fixed: a turn cut off **mid-generation that never delegated** still writes nothing, since neither its counters nor an attribution exist. That's upstream's gap (the adapter's per-segment ledger has those requests and `turn_end` does not), and outside this ticket.
+
+<!-- xgd-turn id="9e6fe2d7-7654-4c6b-8a2f-99eac57ad29e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T22:30:42.453703+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
