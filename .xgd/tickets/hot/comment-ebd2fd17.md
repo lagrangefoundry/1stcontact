@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-142
 created_by: xgd
 created_at: '2026-09-25T04:44:35.194629+00:00'
-updated_at: '2026-09-25T20:09:47.728179+00:00'
+updated_at: '2026-09-25T20:40:49.092759+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -130,5 +130,49 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="e56238dc-0323-4235-891f-2fafd5100796-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:40:48.652486+00:00" -->
+#### Claude
+I'll check the current state of the ticket and branch.
+
+The BUG-143 lock holder (PID 29043) is dead — the lock is stale. Let me check the version state before taking it.
+
+BUG-143 has landed on xgd-working and it touched the same files (fold.ts, probes.ts) — plus its detector UAT now exists. Let me take the stale lock and merge.
+
+The interface merged cleanly with both fields; the conflict is only the return statement. Combining both sides:
+
+Now let me verify the auto-merged regions are semantically coherent — BUG-143's detector reads a `backing` map that my nesting changes.
+
+BUG-143's detector resolves backing from **leaves** — but my change makes an owning surface a structural `container`, so the detector would go inert (vacuously "0 escapes") on exactly the page the operator reported. Let me confirm.
+
+Now the integration: BUG-143's detector must see a surface wherever it now lives — as a structural container, not only as a childless leaf.
+
+Now let me typecheck the merged tree.
+
+Typecheck clean. Now the key suites — mine plus BUG-143's detector.
+
+The 13th superseded suite — same shape as §10.8: an id sweep over `box` only, where the surface is now a `container`. Let me check the validator rule handles it too.
+
+Validator is kind-agnostic — only the test helper needs widening, same treatment §10.8 gave the other twelve.
+
+Both pass. Now the crux: is BUG-143's detector actually non-vacuous on a folded document where surfaces are containers? Let me check my UAT file's fixtures.
+
+Now the 12th UAT — the composition assertion, that BUG-143's detector still resolves through the nesting rather than going inert.
+
+The detector is live — it found something, which proves the integration. Now: genuine residual, or a gap? Let me inspect the served card.
+
+The served document keeps the absolute base here (recovery didn't flow), so a 2.5× content perturbation on pinned children is the absolute-document class of finding. Let me measure it against the flowed case and the fold base.
+
+The escape is identical before and after (fold-base 4, served 4, promoted 4) — the recovery doesn't fire on this small fixture, so no panel is flowed. Let me check the detector on the authored page, where it does flow.
+
+Clean result: the detector resolves 4 pairs either way, reports **0 escapes** on the flowed owning document and **4** on the same document left pinned. Let me write that as the UAT and drop the diagnostics.
+
+24 pass. Typecheck, then the superseded suites.
+
+All 12 superseded suites pass. Now the full sweep to catch anything BUG-143's merge disturbed.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
