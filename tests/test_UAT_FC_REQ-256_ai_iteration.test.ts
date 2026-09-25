@@ -40,7 +40,7 @@ import {
 } from '../tools/repro-console/src/ai'
 import { unmeasuredOf } from '../tools/repro-console/src/unmeasured'
 import { readGaps } from '../tools/repro-console/src/gaps'
-import { parseTicketRef } from '../tools/repro-console/src/ticket'
+import { parseTicketRef, ROUND_CREATED_BY } from '../tools/repro-console/src/ticket'
 import { RAIL_ENV, ROUND_PHASES, runRailRound, summarise } from '../tools/repro-console/src/rail-round'
 import type { RailReport } from '../tools/repro-console/src/rail'
 import type { CommandRunner } from '../tools/repro-console/src/run'
@@ -164,6 +164,8 @@ interface CommandOptions {
   appendCode?: number
   /** Calls the console made, for assertions about what it asked. */
   log?: string[][]
+  /** The `<slug>#<n>` the stand-in comment is marked with ([[BUG-140]]). */
+  appendedBy?: string
 }
 
 function fakeCommands(opts: CommandOptions = {}): CommandRunner {
@@ -185,6 +187,23 @@ function fakeCommands(opts: CommandOptions = {}): CommandRunner {
       }
     }
     if (command === 'xgd' && args[1] === 'update') return { code: opts.appendCode ?? 0, stdout: 'Updated', stderr: '' }
+    /**
+     * The comments hanging off a ticket, which is where an appended round's
+     * evidence lands ([[BUG-140]]).
+     *
+     * A bare JSON array, because that is the one shape `xgd --json` uses here.
+     * Answered by a well-behaved round's comment by default: the console now
+     * looks for this round's marker on a ticket an `appended` round names, and
+     * a fake with nothing to find would make every suite that models a correct
+     * append report an unverified one.
+     */
+    if (command === 'xgd' && args[1] === 'comments') {
+      return { code: 0, stdout: `▶ xgd\n${JSON.stringify([{ uid: 'comment-1', id: 'COMMENT-1' }])}\n◀ xgd`, stderr: '' }
+    }
+    if (command === 'xgd' && args[1] === 'get' && args[2] === 'comment-1') {
+      const body = `${ROUND_CREATED_BY}:${opts.appendedBy ?? 'repro-joyfulculinarycreations-com#2'} — the re-measurement.`
+      return { code: 0, stdout: `▶ xgd\n${JSON.stringify({ uid: 'comment-1', frontmatter: { uid: 'comment-1', id: 'COMMENT-1', type: 'comment', created_by: 'xgd', status: null }, fields: {}, body, links: [] })}\n◀ xgd`, stderr: '' }
+    }
     if (command === 'xgd') {
       return { code: opts.ticketCode ?? 0, stdout: xgdTicketGetJson(opts.ticket), stderr: '' }
     }

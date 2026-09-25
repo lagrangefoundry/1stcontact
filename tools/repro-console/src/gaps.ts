@@ -47,6 +47,21 @@ export interface GapEntry {
    * registry — an absent list reads as "nobody recorded it", which is true.
    */
   defectClasses?: string[]
+  /**
+   * The ids this class used to be carried by, oldest first ([[BUG-140]]).
+   *
+   * A CLASS CAN OUTLIVE ITS TICKET. When the recorded ticket reaches a settled
+   * status the class is disposed of, and a round that meets it again is told to
+   * file a new one rather than to append to a closed account. The registry then
+   * succeeds the class to the new id — and keeps the old one here, because a
+   * class whose history is "this was filed, fixed, and came back" is a stronger
+   * fact than either id alone, and dropping the predecessor would throw exactly
+   * that away.
+   *
+   * Optional because a registry written before this existed is still a valid
+   * registry: an absent list reads as "this class has only ever had one ticket".
+   */
+  priorTicketIds?: string[]
 }
 
 /** The registry file, inside the console's own workspace. */
@@ -89,7 +104,19 @@ export function readGaps(workspace: string): GapEntry[] {
  */
 export function recordGap(
   workspace: string,
-  entry: Omit<GapEntry, 'references' | 'iterations'> & { reference: string; iteration: string },
+  entry: Omit<GapEntry, 'references' | 'iterations'> & {
+    reference: string
+    iteration: string
+    /**
+     * The recorded ticket was settled, so this id SUCCEEDS it ([[BUG-140]]).
+     *
+     * Set by the console only when the class's ticket was read back at a
+     * settled status — which is the one case where a second id for one class is
+     * the round doing as it was told rather than the proliferation the
+     * no-overwrite rule below exists to catch.
+     */
+    supersedes?: boolean
+  },
 ): GapEntry[] {
   const gaps = readGaps(workspace)
   const existing = gaps.find((gap) => gap.residualClass === entry.residualClass)
@@ -106,6 +133,18 @@ export function recordGap(
     if (!existing.ticketId && entry.ticketId) {
       existing.ticketId = entry.ticketId
       existing.ticketUid = entry.ticketUid
+    } else if (entry.supersedes && entry.ticketId && entry.ticketId !== existing.ticketId) {
+      // SUCCESSION, WHICH IS THE ONE EXCEPTION ([[BUG-140]]). The predecessor
+      // is settled, so this is not two live tickets for one class — it is the
+      // class outliving the ticket that was supposed to close it. The old id
+      // moves down rather than out.
+      existing.priorTicketIds ??= []
+      if (!existing.priorTicketIds.includes(existing.ticketId)) existing.priorTicketIds.push(existing.ticketId)
+      existing.ticketId = entry.ticketId
+      existing.ticketUid = entry.ticketUid
+      // The new ticket describes what the class looks like NOW, so its summary
+      // replaces the settled one's rather than being discarded beside it.
+      if (entry.summary) existing.summary = entry.summary
     }
   } else {
     gaps.push({
