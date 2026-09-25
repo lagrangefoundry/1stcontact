@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:16:53.525161+00:00'
+updated_at: '2026-09-25T20:27:56.169055+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4479,5 +4479,11 @@ Independent of all of the above. It boots its own Vite server and runs each step
 Once you're through it, `1c ps` should show a clean table: every row a service you started, every one claimed by a pidfile except `dev serve` and the console, and nothing in an `.xgd` worktree.
 
 The two seams above (§N3 access-sim's default, §N4 public-site) are both retirement-step work rather than new tickets — they resolve when `pnpm dev` goes away. Say the word if you'd rather file the retirement ticket now that both halves have landed.
+
+<!-- xgd-turn id="61cee0cc-6192-4fb6-8a12-d02793bf0c72-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T20:27:55.538346+00:00" -->
+#### You
+does build build the kbs too?
 
 <!-- xgd-chat-end -->
