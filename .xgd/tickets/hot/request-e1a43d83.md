@@ -6,7 +6,7 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-25T01:08:04.990506+00:00'
+updated_at: '2026-09-25T01:26:54.353567+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -238,3 +238,19 @@ the browser's — because browser JavaScript here cannot import the Worker's
 TypeScript. The two are held equal by a test rather than by an import, which is the
 arrangement this repository already uses for every other value that has to cross
 that boundary.
+
+
+### Two clauses the implementation made explicit
+
+- **The ceiling is declared once, for every business.** It is a property of D1, not of
+  a tenant, so it is stated on the store's base handle and forwarded to every scoped
+  store rather than passed per business. One business quietly not segmenting while
+  another does would be the original failure with a smaller blast radius and no way to
+  notice which accounts had it.
+- **The alarm names the substrate and not the cause.** A failed artifact write reaches
+  the host for any reason the store had — a value ceiling, a quota, a lost
+  compare-and-set, a transient error — and the host knows which substrate it was, not
+  which of those happened. So the report names the artifact, the segment, the size and
+  the ceiling this deployment declared, and leaves the operator to tell the cases
+  apart from those figures. Asserting a cause it cannot know would send them somewhere
+  wrong with more confidence than the anonymous report it replaced.
