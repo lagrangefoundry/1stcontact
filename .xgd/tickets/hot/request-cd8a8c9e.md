@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-4df16ee9
 ---
 
 ## The problem
