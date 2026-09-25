@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-309
 created_by: xgd
 created_at: '2026-09-25T00:34:49.801855+00:00'
-updated_at: '2026-09-25T01:34:48.064584+00:00'
+updated_at: '2026-09-25T01:36:55.316701+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -143,5 +143,14 @@ Two things to flag:
 1. **I had to widen REQ-146's error-scrub guard.** It rejected any `error: <identifier>`, including a constant written out in quotes. I widened it to admit a `const` whose initializer is string literals and `+` only — probed to confirm it still rejects `err.message` and template interpolations. Recorded in the ticket body.
 
 2. **`test_UAT_FC_BUG-64_a_genuinely_live_turn_still_gates_the_composer` fails, and it is not mine.** A submit made while a turn is streaming now reaches `sendPrompt` instead of the queue. I verified it fails with my two `mountChat` options removed, so it came in with the framework reinstall you just ran. It looks like a `webui-chat` regression against BUG-64's contract. I have not filed anything, since this session is scoped to REQ-309 — say the word and I'll raise it in `lagrange-framework`.
+
+<!-- xgd-turn id="85903ae7-a658-4872-a418-06fe48837a9f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T01:36:54.995354+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
