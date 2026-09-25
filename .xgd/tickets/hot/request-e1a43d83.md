@@ -6,16 +6,24 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-25T01:33:04.290774+00:00'
+updated_at: '2026-09-25T01:47:12.838463+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c2a75f89
+  commits:
+  - working_sha: 7138ce2b97b37cb70ce84ba7aca6cfe4aa9c11fa
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a805db9f9270a25757ab1fbc31e2a44e19ab5283
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.350
 ---
 
 ## What this is for
