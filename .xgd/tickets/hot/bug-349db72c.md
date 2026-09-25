@@ -6,9 +6,9 @@ title: 'l1-gate: no probe can see a backing surface separating from the content 
   backs, and viewport height is not an axis at all'
 created_by: EPIC-12
 created_at: '2026-09-25T02:40:45.049473+00:00'
-updated_at: '2026-09-25T17:13:53.789251+00:00'
+updated_at: '2026-09-25T17:15:02.642715+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -235,3 +235,15 @@ BUG-142 stays open. An alarm reports; it does not choose the served document.
 covering §4.1–§4.4, all five bullets of §5, and the four decisions above: the
 refused dangling name, the undeclared-document path, the reflow that is not an
 escape, and the segment sampling rule.
+
+
+### 8.7 The repro console prints the count the gate grades
+
+`measureServed` (`cli/repro.ts`) built its per-width envelope line from a bare
+`evaluateLayout`, which resolves no backing and therefore asserts no containment.
+Left alone it would have printed a clean envelope for a page whose panels had slid
+off their copy — the same "verdict the reader cannot see" this ticket is about, one
+surface further out. It now goes through `onSampleProbe`, so the number on the
+console and the number the gate grades are the same number. Both that line and the
+`1c gate` summary print `width×height`, because a count whose height is invisible
+cannot be told apart from a count at a height that was never sampled.
