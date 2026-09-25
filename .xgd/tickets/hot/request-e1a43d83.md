@@ -6,7 +6,7 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-25T00:07:58.970850+00:00'
+updated_at: '2026-09-25T01:08:04.990506+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -175,3 +175,66 @@ at all — needs a declared maximum on `mountChat`. That is
 **lagrange-framework REQ-177**, raised from here. Worth having; not worth waiting
 for, so this ticket ships the in-repo shape and adopts the composer bound when it
 arrives.
+
+
+## What this host does about it
+
+Decided 2026-09-24, on reading what lagrange-framework REQ-176 actually delivered.
+
+**The segmenting is not built here, and that is the point.** REQ-176 makes an
+archived artifact a SEQUENCE of bodies, and it makes the ceiling *the store's to
+declare*: the archive reads `max_value_bytes` off the injected client and packs to
+it. A store that declares nothing behaves exactly as it always did. So "roll
+across comments" reduces, on this side, to this host stating the figure for its own
+substrate — and the archive, the join, the packing and the position markers are
+the framework's, reused rather than restated. No byte count and no marker format
+appears in this repository twice.
+
+- **The ceiling is declared by the ticket store, as one named constant.** It is
+  below D1's documented 2,000,000 bytes rather than equal to it: that figure is
+  documented as the maximum for a string, a BLOB *or a row*, and a comment row
+  carries its uid, its fields and its timestamps beside the body. A body packed to
+  the full documented limit would be a row over it. The headroom is named where the
+  constant is, so the next reader is not left to infer why the two numbers differ.
+- **Nothing is migrated, and no stored byte is rewritten.** REQ-176 writes no
+  position marker at index 0, so every body already in this store is a conforming
+  sequence of one, and an open segment already at or over the ceiling rolls rather
+  than being grown. The session that has already exceeded the ceiling is therefore
+  repaired by the declaration alone: its existing content stays where it is, is
+  read back as the first segment of its sequence, and its next turn opens a second.
+  A repair command would be a second way to reach the same state, with a window in
+  which it had run against some sessions and not others.
+- **A refused write is reported with what this host knows and the framework does
+  not** — which substrate refused, what ceiling this deployment declared, and that
+  the conversation's other artifacts were still written. The framework reports a
+  failed artifact write to whatever channel the host wires and to the console when
+  it wires none; an unwired report is honest but anonymous, and an operator reading
+  it cannot tell a value ceiling from a quota from a transient error.
+- **Copying a conversation carries each artifact as the sequence it now is.** A
+  chat's comments are carried wholesale, but they were *landed* one per kind —
+  first one wins — so a segmented transcript would have arrived at the destination
+  with every segment but one discarded, silently and reported as a success. That is
+  the same "nothing is thrown away" clause as the storage half, on the path that
+  moves a conversation between deployments. A destination holding more segments of
+  a kind than the source sends keeps none of the surplus: a re-copy must leave the
+  destination holding the source's conversation, not the source's spliced onto the
+  tail of an older one.
+
+## What the composer bound cost, in the end
+
+lagrange-framework REQ-177 landed before this work started, so the `mountChat`
+maximum is adopted rather than worked around, and the in-repo stub-stream shape
+described above was not built: **the pane already had it.** The chat transport
+renders a refused request's `error` as the assistant's reply and follows it with a
+terminal event, which is exactly what that section asked for and what keeps
+`onTurnLost` from chasing a turn that never opened; and the pane already remembers
+a submission before the request exists, so the client's words are already
+recoverable. So the two enforcement points cost one check at the route and two
+options at the mount, and no second refusal path exists to keep in step with the
+first.
+
+The bound is one constant, stated once on each side of the wire — the Worker's and
+the browser's — because browser JavaScript here cannot import the Worker's
+TypeScript. The two are held equal by a test rather than by an import, which is the
+arrangement this repository already uses for every other value that has to cross
+that boundary.
