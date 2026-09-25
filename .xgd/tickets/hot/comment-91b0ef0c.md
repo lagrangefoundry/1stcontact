@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-24T19:06:37.055832+00:00'
+updated_at: '2026-09-25T02:30:23.140045+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2300,5 +2300,16 @@ Then a fresh one — port 8710 is free:
 One correction to my last message: I said the failing runtime was already fixed by your 11:44 install, and that still holds — but note the four `free-REQ-254` consoles were a second, independent breakage (no `node_modules` resolvable from that worktree at all). Clearing them removes that confusion too, so the fresh console on 8710 will be the only one answering.
 
 Once it's up, the EPIC-12 guard ticket I offered is still worth filing — say the word and I'll scope it.
+
+<!-- xgd-turn id="c0ead942-9a2c-4b3b-ab34-0e3b804b63eb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T02:30:22.825777+00:00" -->
+#### You
+Can you take a look at the latest iteration of gigabyte alchemy. It loos great except we stll have this fundamental problem with the background text boxes and the text resizing in a completely unconnected way when the browser changes height or width.
+
+I really want to drill into this because I said it appeared structural and you said it wasn't. Its certainly a blocker right now.
+
+1. I want to check that you understand the problem that I'm describing
+2. Are we sure that the AI can detect this issue - there's no point in iterating if we are burning cycles to fix something the system just can't see?
 
 <!-- xgd-chat-end -->
