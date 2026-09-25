@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-310
 created_by: xgd
 created_at: '2026-09-25T00:36:08.891458+00:00'
-updated_at: '2026-09-25T01:08:03.063000+00:00'
+updated_at: '2026-09-25T01:16:39.948393+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -184,5 +184,11 @@ Two things I didn't touch, both yours to call:
 
 - **REQ-310 is still `draft`.** It probably wants closing as rejected rather than sitting open; status is your move.
 - **EPIC-21's decision log still says the projection convention is the defect** and names REQ-310 as the cleanup. That's the entry a future session will read as policy. Happy to append a reversal line to it if you want.
+
+<!-- xgd-turn id="30e8710f-d04b-4a96-8954-7d8e902d76ff-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T01:16:39.884056+00:00" -->
+#### You
+PLea\se fix EPIC-21
 
 <!-- xgd-chat-end -->
