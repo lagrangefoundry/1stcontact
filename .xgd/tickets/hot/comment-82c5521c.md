@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-322
 created_by: xgd
 created_at: '2026-09-25T22:11:17.053232+00:00'
-updated_at: '2026-09-25T22:44:02.415743+00:00'
+updated_at: '2026-09-25T22:54:48.999874+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -45,6 +45,15 @@ Now the dev.ts edits:
 <!-- xgd-turn id="a5132fcb-97fe-4b10-b84f-d5c184ab5f8f-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-25T22:44:01.657011+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="9bfefcd6-4510-4554-b8a6-0bbebcb46162-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T22:54:47.714698+00:00" -->
 #### You
 please complete the free-coding of this ticket
 
