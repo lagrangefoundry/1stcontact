@@ -5,10 +5,10 @@ type: request
 title: bin/dev up starts the deployed environment, and bin/build builds the KB
 created_by: EPIC-16
 created_at: '2026-09-25T20:40:56.921470+00:00'
-updated_at: '2026-09-25T23:43:44.706599+00:00'
+updated_at: '2026-09-25T23:49:20.849297+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
