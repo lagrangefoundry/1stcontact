@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T04:25:27.918701+00:00'
+updated_at: '2026-09-25T04:36:51.572550+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1920,5 +1920,11 @@ The consultant told you its workers "came back with nothing". For those two, tha
 3. **Leave REQ-321 on hold.** Four of five `accepted: false` results were honest, so "the consultant is irrationally reluctant" is no longer a safe premise.
 
 Want me to file that bug, and does the re-test happen in your next session or should I set something up?
+
+<!-- xgd-turn id="f1a743a2-8097-4d09-bf3a-9e7002ac18eb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T04:36:51.275311+00:00" -->
+#### You
+please move REQ-321 to abandoned - we can always bring it back if we want - have you created the bug? PLease do
 
 <!-- xgd-chat-end -->
