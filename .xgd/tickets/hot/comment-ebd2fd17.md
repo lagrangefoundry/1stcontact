@@ -5,9 +5,9 @@ type: comment
 title: Comment on bug BUG-142
 created_by: xgd
 created_at: '2026-09-25T04:44:35.194629+00:00'
-updated_at: '2026-09-25T04:44:35.194629+00:00'
+updated_at: '2026-09-25T05:15:52.084144+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: bug-a00b4298
@@ -33,5 +33,25 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="ebd59eed-868a-4a63-b556-7de2624bc4ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T05:15:51.479160+00:00" -->
+#### Claude
+Now cutting the branch.
+
+Now `mountBehaviours`:
+
+Now add padding modelling to the evaluator's flow interior.
+
+Now the fold-side nesting. First, record captured text heights:
+
+Now wire it into `foldToL1` and add the missing type imports:
+
+Now fix the recovery's absolute-frame threading and `restOf`:
+
+Now the same harness against the unmodified main checkout, for a like-for-like "before":
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
