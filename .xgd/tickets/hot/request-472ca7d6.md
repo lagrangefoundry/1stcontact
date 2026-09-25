@@ -7,10 +7,10 @@ title: 'capture/values-diff: a placeholder-only control is captured with no typo
   that paints nothing can never be paired'
 created_by: repro-console:repro-gigabytealchemy-ai#5
 created_at: '2026-09-23T02:30:12.030295+00:00'
-updated_at: '2026-09-23T02:30:12.030295+00:00'
+updated_at: '2026-09-25T01:46:23.246398+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - capture-loses-it
