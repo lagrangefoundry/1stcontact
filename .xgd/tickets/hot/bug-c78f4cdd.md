@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-1484c6f5
 ---
 
 # perceptual/region ranker: the top lead is the band, not the run, and only one side can offer a band as an element
