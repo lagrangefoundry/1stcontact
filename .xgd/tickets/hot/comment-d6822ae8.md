@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-318
 created_by: xgd
 created_at: '2026-09-25T04:38:15.845263+00:00'
-updated_at: '2026-09-25T05:09:53.801715+00:00'
+updated_at: '2026-09-25T05:10:07.136155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,5 +55,14 @@ Now REQ-291 and the AC1335 step line.
 Now add the sharper migrate-hook UAT to REQ-318's file, and fix the AC1335 step-line assertion.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="171bad03-4c8f-4a45-ac30-9805c9029290-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T05:10:06.114224+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
