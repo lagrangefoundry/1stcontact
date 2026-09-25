@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T22:03:57.970152+00:00'
+updated_at: '2026-09-25T22:07:23.526378+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2597,5 +2597,49 @@ Ticket's in `draft`, nothing cut or coded. Say the word and I'll build it — or
 [[BUG-120]] deliberately put the continuation group *after* the list <-- they should go after the last iteration - but the thing is you push the bottom and then have to scroll to the top to see what's happening is very odd - can you create a ticket for this please?
 
 Question: can I repro two pages concurrently? Do need to start two servers for this.
+
+<!-- xgd-turn id="4f036b64-e725-41dc-95a9-2074f0eabad2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T22:07:23.461765+00:00" -->
+#### Claude
+Two things here — a design correction to fold in, and a factual question. Let me check the server's concurrency model first.
+
+Confirmed the concurrency model. Now let me check one thing the reordering depends on — where a press lands you after the redirect.
+
+Both questions answered. Folding the correction into REQ-323 rather than filing a second ticket — it's the same page, the same defect, and REQ-323 is still `draft` and unbuilt, so a second ticket would just collide with it at build time. Say the word if you'd rather have them separate.
+
+The heredoc landed in the wrong directory — cwd had drifted to `tools/repro-console`, so that update wrote the *old* body back. Redoing it with absolute paths.
+
+Confirmed the ticket still holds the original body. Writing the revised body properly.
+
+Body landed (the first `Updated` line was the stale-path no-op; this one carries the revision).
+
+## REQ-323, revised
+
+Title is now *"the controls and the progress report at one end"*. The reversal is dropped — BUG-120's position stands, the continuation group stays after the last iteration, the list stays ascending. What moves is the **status line**, down to sit directly under the buttons, with the address row following it for the same reason.
+
+One consequence worth knowing about, because it decides whether the change works at all: every press redirects `303 → /` with no fragment (`console.ts:1948`). A bare `/` lands you at the top. Move the controls down without touching that and your complaint *inverts* — every press would return you to a top of the page that now has nothing on it. So the ticket requires the chain presses to redirect to `/#<cluster-id>`. A fragment, not a script: it survives a manual reload and leaves the 303-not-200 property that stops a reload re-running the round.
+
+## Two pages concurrently — yes, but you need two servers
+
+One `ReproConsole` per server, and it holds exactly one chain: a single `url`, a single `iterations` array, a single `running` flag (`console.ts:227-234`). Two consequences:
+
+- `/recapture` and `/open` return **409 "A run is already in progress"** while a run is in flight (`console.ts:705,748`), so one console won't even overlap two runs on the *same* site.
+- Typing a second address into one console **wipes the first chain off the page** — `adopt()` does `this.iterations.length = 0` (`console.ts:603`). It's recoverable, not lost: the iterations stay on disk under `storage/tmp/repro-console/<slug>/` and switching back re-adopts them. But it isn't concurrency.
+
+So:
+
+```
+./bin/repro-console                # 8710
+./bin/repro-console --port 8711    # the second site
+```
+
+`--port` exists for precisely this; the default 8710 was picked clear of 8788/24678 so the console can sit beside the dev servers.
+
+**Disk is safe for two different sites** — iterations are per-slug, references are `storage/references/<site>/`.
+
+**One shared file is not.** `storage/tmp/repro-console/gap-tickets.json` is global to the checkout, not per-site, and it's read-modify-written with no lock (`gaps.ts:69,83,161`). If both consoles file a gap ticket in the same instant, last write wins and one console's gap record vanishes silently. Narrow window, but a long dual-loop session is exactly where it'd bite. Want me to fold that into REQ-323 as a second behaviour, or file it separately as a bug?
+
+One limit on what I checked: I verified the console's own paths don't collide, but not whether two concurrent `1c capture` subprocesses contend over a shared staging dir. If you plan to run both loops hard rather than alternately, that's worth a look first.
 
 <!-- xgd-chat-end -->
