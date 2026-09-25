@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-310
 created_by: xgd
 created_at: '2026-09-25T00:36:08.891458+00:00'
-updated_at: '2026-09-25T01:06:16.271143+00:00'
+updated_at: '2026-09-25T01:08:03.063000+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -165,5 +165,24 @@ Say go and I'll record that decision in the ticket body, cut the branch, and imp
 <!-- xgd-chat role="user" ts="2026-09-25T01:06:15.981429+00:00" -->
 #### You
 Actually no, I'm ok with automatically generated documentation - I think there is nothing here that is needed.
+
+<!-- xgd-turn id="6b4e1f8c-7ec7-4d66-a6cf-e2b144f6feab-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T01:08:02.362541+00:00" -->
+#### Claude
+That closes it — and it means the three tickets I filed need to go, or the next export writes six documents where three belong.
+
+The nine original members are intact — the store is back to exactly its pre-session state. Recording the decision on the ticket so a future session doesn't re-derive the same analysis:
+
+Done — nothing was implemented, and the store is back where it started.
+
+**Reverted:** DOC-57, DOC-58 and DOC-59 archived (`xgd ticket archive` — there's no delete verb). The nine original `system_kb` members are intact, so `1c kb export` will produce exactly the corpus it did before this session; no duplicate documents, nothing to clean up in `kb/system/`.
+
+**Recorded on REQ-310:** a decision section appended under the existing body, noting your call and the five findings any future attempt would have to re-derive — that `ProjectedDoc.source` can't double as the resolver key because `REF-surface`'s version number is inside it, that `REF-surface`'s title is derived from the declaration, that the generator writing tickets would make `bin/kb-release` commit to the ticket store, that `fields.projected` is read by nothing, and that `1c fonts doc` is the working precedent. Also noted that this reverses EPIC-21's 2026-09-22 entry.
+
+Two things I didn't touch, both yours to call:
+
+- **REQ-310 is still `draft`.** It probably wants closing as rejected rather than sitting open; status is your move.
+- **EPIC-21's decision log still says the projection convention is the defect** and names REQ-310 as the cleanup. That's the entry a future session will read as policy. Happy to append a reversal line to it if you want.
 
 <!-- xgd-chat-end -->
