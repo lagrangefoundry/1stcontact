@@ -5,7 +5,7 @@ type: request
 title: Take element authoring off the consultant so construction must be delegated
 created_by: EPIC-20
 created_at: '2026-09-25T03:59:12.140415+00:00'
-updated_at: '2026-09-25T04:11:10.267477+00:00'
+updated_at: '2026-09-25T04:25:03.828794+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -177,3 +177,63 @@ is the distinction that matters given the constraint this ticket did not record:
 work — four attempts at one section rule, three at the plaques — through a worker
 that cannot ask a question would be a regression, and the grant-only cut above
 cannot tell the two apart.
+
+
+### Correction to the section above (same evening)
+
+The claim *"in two of them the worker did the work correctly and was recorded as
+having failed"* is too strong, and the difference matters for what gets fixed.
+Checked against each worker's own tool outcomes:
+
+| worker | writes | failed tool calls | asked check answered? | `accepted: false` correct? |
+|---|---|---|---|---|
+| q73amk | 0 | **all refused** (REQ-300) | no — reported 0 passes | **yes** |
+| tql0pf | 0 | **all refused** (REQ-300) | no — reported 0 passes | **yes** |
+| qen037 | — | — | never reported at all (`silent`) | **yes** |
+| ya6wkq | **18 set_l1, 0 failures** | none | **no** — answered six checks of its own invention | **yes** |
+| u4ej95 | **2 set_l1, 0 failures** | none | **yes, in parts** — pairing failed on a compound ask | **no — artifact** |
+
+So `accepted: false` was **correct in four of the five**, not two. `ya6wkq` did land
+its work, but it was asked *"the pages `home` and `stylea` have zero changes
+recorded against them during this run — verify with list_changes"* and replied with
+`WORDMARK 40px with proportional tracking`, `HEADLINE 92px…` and four more
+descriptions of its own work. The check it was asked was never answered, so
+`unreported` was honest and the consultant genuinely did still have an inspection
+to make.
+
+**The pairing artifact is one case, `u4ej95`, not three.**
+
+### And the "more feedback to the caller" proposal is withdrawn
+
+`_result()` in `delegation_toolbox.js` already returns `summary`, `changed`,
+`decisions`, `checks` — **every asked check with `passed` / `failed` + reason /
+`unreported`** — plus `accepted`, `outcome`, `session`, `role`, `backend` and
+`usage`. The per-check verdicts are already surfaced and already distinguish
+unanswered from failed. Proposing to surface them was proposing to fix something
+that works.
+
+### What is actually worth fixing, narrowed
+
+Two defects, both the same shape — *a malformed check becomes a silent
+`unreported` later instead of a refusal at the moment it is offered* — and they sit
+on opposite sides of the seam:
+
+1. **Caller side: a compound `accept` entry cannot be paired.** Several checks
+   concatenated into one string can only ever score zero, however well the worker
+   answers. Refuse a multi-sentence `accept` entry when it is offered, naming the
+   problem, while the caller can still split it. The exact-match rule itself stays
+   — its direction is right.
+2. **Worker side: a `passed` entry that answers no asked check.** `ya6wkq` listed
+   its work instead of answering the question. Refuse a `passed` entry that
+   corresponds to no requested check, so the worker is made to answer the real
+   question rather than discovering after the fact that it did not.
+
+### A third thing, which is not a code fix
+
+The consultant told the operator its workers *"came back with nothing"*. For
+`u4ej95` and `ya6wkq` that is false: twenty element changes landed and stayed. It
+held the `summary` and the `changed` list when it said so. Part of what this epic
+is dealing with is therefore what the consultant **remembered** — a single
+`accepted: false` — rather than what it was **told**. Worth knowing before
+spending engineering on the information path, because that part of the problem is
+not on the information path.
