@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T02:02:19.011520+00:00'
+updated_at: '2026-09-25T02:04:52.443244+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4346,5 +4346,29 @@ Want me to file the two §K tickets now, with `1c ps` inside the second?
 <!-- xgd-chat role="user" ts="2026-09-25T02:02:17.239577+00:00" -->
 #### You
 Yes please
+
+<!-- xgd-turn id="87ee5c1d-4d3f-4124-a706-ddf042ec1e2a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T02:04:51.786487+00:00" -->
+#### Claude
+REQ-316 has already landed since I checked earlier this turn — it's `ready_to_reconcile` at 0.2.349. Filing the two §K tickets now.
+
+Both filed and linked to EPIC-16 (15 children now), with §M4 recording them in the epic body.
+
+**[[REQ-318]] — A local dev environment that is deployed to, not edited into** (high, 3 pts)
+
+The deploy target. `bin/deploy` gains the target table its own header already implies — *"ONE CODE PATH. `--dry-run` is a TARGET, not a different script"* — so the hooks, their order, and the capability report are identical between cloud and local. `[env.dev]` in `wrangler.toml`, the snapshot taken from `bin/build` stage 4's bundle that exists today and nothing consumes, and the freeze coming from *what is watched* rather than a flag (`wrangler dev` has no `--no-watch`). Plus three things that ride along because they become live the moment a second environment exists: `d1-migrations.ts` following the environment instead of the top-level block, §J3's hardcoded database name, and REQ-316's workerd check called **before** the store is opened.
+
+The acceptance condition I'd point at is the one that proves the boundary exists: after a deploy, editing a source file changes nothing about what dev serves until the next deploy.
+
+**[[REQ-319]] — `bin/dev up`, `down` and `reap`, and `1c ps`** (high, 3 pts)
+
+`1c ps` is the survey; `down` and `reap` are its other readers, which is why it returns a table rather than printing one. The acceptance test is K4's measured situation replayed: all eleven of this repo's listeners with PID, port and cwd, the three live services classified apart from the eight strays, the four whose ports no constant names still listed, and the six belonging to sibling repos *not* claimed as ours — all of it working under the agent sandbox where `ps aux` is empty.
+
+Both tickets carry the `reset.ts` reconciliation explicitly, so whoever implements REQ-319 doesn't read `builderIsRunning`'s "NOT A PROCESS SCAN" comment as a prohibition and stall: it's the right answer to a different question, and `1c reset` is untouched.
+
+**One thing I deliberately did not file.** Retirement of `pnpm dev` / `pnpm dev:control` / `1c builder`-as-entry-point. §L1 makes it a sequencing requirement rather than a preference — folding it into either ticket means that ticket can't close until the old path is gone, which is the exact pressure you asked to remove. Both tickets say so in Boundaries, and both keep the old path working on its old ports against the same store so the two can run side by side. It gets filed when these two are trusted.
+
+Also worth noting since it moved under me this turn: **REQ-316 is done** — `ready_to_reconcile` at 0.2.349. So the workerd guard REQ-318 calls already exists.
 
 <!-- xgd-chat-end -->
