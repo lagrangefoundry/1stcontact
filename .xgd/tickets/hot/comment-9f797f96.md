@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-143
 created_by: xgd
 created_at: '2026-09-25T04:44:37.634512+00:00'
-updated_at: '2026-09-25T05:15:57.849607+00:00'
+updated_at: '2026-09-25T05:17:49.075786+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,14 @@ Now I'll switch the derivation to the two-tier rule and validate against a fresh
 Now let me run the full node suite to find any other fallout.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="73fef557-d989-48b8-b6ab-b4276cdb07b3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T05:17:48.484815+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
