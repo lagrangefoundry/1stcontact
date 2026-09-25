@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T03:47:12.576128+00:00'
+updated_at: '2026-09-25T03:54:43.788912+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1687,5 +1687,17 @@ For scale: the evening ran **$0.35 per site write**; the 09-22 workers cost **$0
 **Sequencing: fix the metering defect first.** REQ-293's split is the designated evaluator and it currently loses half its subject — you can't grade either lever with it.
 
 Want me to file the metering fix and the narrowed-grant change as children of EPIC-20?
+
+<!-- xgd-turn id="8460eed5-f865-44ee-8c2d-a955ba49b062-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T03:54:43.704850+00:00" -->
+#### You
+ok lets have a bug for the metering issue.
+
+Can I also get an REQ to change the console display of the costs:
+
+There is a log of turns at the bottom of the screen - it shows me NOTHING useful. Can we make it (1) show the timestamp in the local timezone (2) Remove conversation and turn they are of literally no use (3) add the cost of the turn
+
+Then create a REQ for your 1 **Take the bulk construction tools off the consultant**
 
 <!-- xgd-chat-end -->
