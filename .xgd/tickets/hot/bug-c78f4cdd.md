@@ -6,9 +6,9 @@ title: 'perceptual/region ranker: the top lead is the band, not the run, and onl
   one side can offer a band as an element'
 created_by: repro-console:repro-gigabytealchemy-ai#7
 created_at: '2026-09-25T21:46:49.867054+00:00'
-updated_at: '2026-09-25T23:24:27.525707+00:00'
+updated_at: '2026-09-25T23:32:42.327519+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -250,3 +250,90 @@ actual top kinds Counter({'element': 12})
 
 **Right:** the `generic` count is absent from the leads either side, and `ref top kinds` and
 `actual top kinds` agree region for region.
+
+
+---
+
+## What landed
+
+Both issues, in `tools/generate/src/cli/perceptual-core.ts` — the import-free core, so the change
+is available to the workerd surface and to the capture library alike.
+
+### Issue 1 — the lead order
+
+`regionNodeLeads` now ranks leads by **`ofRegion × ofNode` descending** — how much of the
+disagreement the node explains, times how specifically it explains it — with `ofRegion` then
+`ofNode` as tie-breaks for a genuine tie. The product was taken over the `ofNode`-floor
+alternative this ticket offered: both give the identical top lead on all twelve regions of the
+round, and the product needs no constant to tune and no special case for sections.
+
+The score is computed from the **rounded** `overlap` pair the record carries, not from the
+full-precision intermediates, so a reader can re-derive the order from `regions.json` alone
+without re-running the diff.
+
+The doc comment is rewritten: the old `ofNode` tie-break is recorded as having been *unreachable*
+for a run that is not block-aligned, with the reason (region bboxes snap to the `blockPx` grid,
+manifest boxes do not), so the next reader does not re-derive it.
+
+**This supersedes BUG-99's asserted ordering.** `tests/test_UAT_FC_BUG-99_region_node_leads.test.ts`
+asserted `ofRegion` descending as the lead order, which is precisely the rule this ticket records
+as wrong; that assertion is replaced with the product ordering and annotated with why. Everything
+else BUG-99 pinned — that every intersecting node is a lead, that a lead is a quotable fact and
+not a pointer, that a band answers a region with nothing else under it, both-sides resolution,
+scaling, the overlap floor and the per-side cap — is unchanged and still passing.
+
+### Issue 2 — the asymmetric element lists
+
+`regionNodeLeads` now skips an element that is its band's own paint, so a band reaches a region's
+leads as `kind: "section"` on both sides or not at all. Nothing is suppressed: the band is still
+in the list, as the section record, one place down.
+
+The predicate is `isBandPaint`, **moved** from `capture/values-diff.ts` (where REQ-271 wrote it)
+into `perceptual-core.ts` and exported, with `values-diff.ts` now importing it. One definition
+site: the two readers that must not double-count band paint — the values diff's unpaired tally and
+the region leads — use the same test, and the core may not import the capture library so the core
+is the only module both can reach. The predicate itself is byte-identical in behaviour; only its
+parameter types are now structural (a `ValueElement` and a `SectionValues` satisfy them).
+
+Its `textless` flag is now declared on `NodeSource['elements']`. Note that band paint under
+BUG-142's containment nesting carries the *concatenated* text of everything standing on it, so it
+is long-texted and `textless` at once — the flag is the test, not the text.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-148_region_lead_order.test.ts`, five UATs over the real exported entry
+points — no browser, no screenshot, because the ranking is a pure function of the two manifests:
+
+1. **The run that is the region leads it** — the ticket's region 1 shape exactly: a 1257px band and
+   a 32px subheading at the browser's `.25` against a bbox snapped to the 16px grid. Asserts the
+   run leads, the band is still offered second, and the two `overlap` pairs that make the old
+   tie-break unreachable (0.89/0.89 against 1/0.01).
+2. **A band still leads where there is genuinely no element to beat it** — the intent the old
+   tie-break was reaching for. Including a run that merely clips the region: on the list, below
+   the band, because it explains less.
+3. **A band is offered as a section on both sides, never as an element on one** — both sides built
+   from like lists, plus the four negative cases that keep `isBandPaint` tight (a layer with its
+   own geometry, an inset box, a full-bleed box with no band behind it, a band-sized box that
+   carries its own text).
+4. **All twelve regions of the round that filed the ticket** — driven from the round's own two
+   manifests and region boxes, carried as
+   `tests/fixtures/repro-console/bug148-gigabytealchemy-iteration-7.json` because the artifact
+   directory is scratch and not in the repo. Asserts the ticket's own measure directly: no region
+   leads with `ofNode ≤ 0.02` on either side (it was 9 of 12 on the reference side), both sides
+   lead with the same element, no `generic` aggregate appears as a lead anywhere, and region 1
+   leads with the subheading while still carrying its band.
+5. **The digest line the round actually reads** — the ranking composed with `buildDigest`, because
+   the harm was never in `regions.json` but in the one line per region the console prints from it.
+   Asserts the line names the subheading and that `ref: section (100% of region)` is gone.
+
+Regression scope run green: the two region-lead suites, the values-diff / gate / band-surface
+suites that depend on `isBandPaint` and the unpaired tally (BUG-106, BUG-107, BUG-111, REQ-271,
+REQ-277, REQ-302, REQ-308, req51, req31, cross-gate, fidelity-surface), the repro-console digest
+suites (BUG-103, BUG-114, BUG-125, REQ-254, REQ-270, REQ-276), `naming`, and the workerd
+`REQ-156 fidelity in workerd` suite — which matters here, since the core is the module the worker
+imports and it gained a dependant rather than a dependency.
+
+Not re-run: regenerating the round's own `regions.json` needs a browser
+(`1c gate repro-gigabytealchemy-ai --ref … --sandbox`). The fixture makes that unnecessary to
+prove the fix — it drives the same code over the same inputs — but the next round on that page is
+what will show the new lead order in a live digest.
