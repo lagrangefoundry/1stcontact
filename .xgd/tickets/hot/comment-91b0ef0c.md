@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T02:38:37.389838+00:00'
+updated_at: '2026-09-25T02:41:42.699215+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2405,5 +2405,39 @@ Want me to scope these as children of EPIC-12? My probe scripts are at `.xgd/tmp
 <!-- xgd-chat role="user" ts="2026-09-25T02:38:37.105371+00:00" -->
 #### You
 Yes we need tickets for these please
+
+<!-- xgd-turn id="a478ade7-0428-451a-88ac-4844491b9be8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T02:41:42.105968+00:00" -->
+#### Claude
+Two tickets, not three — the height axis and the off-sample width density are the same file and same change as the containment probe, so they fold in. Let me read the epic first.
+
+Good — §12 already has the exact precedent shape (BUG-112 "the alarm" → BUG-113 "the defect"). Mine is the same pair. Let me check the create syntax.
+
+Now the epic section. EPIC-12 is `underway`, so the body is still writable — appending, not replacing.
+
+Both filed as children of EPIC-12, and the epic now records the finding.
+
+**[[BUG-143]] — the alarm** (`bug-349db72c`), priority high
+*l1-gate: no probe can see a backing surface separating from the content it backs, and viewport height is not an axis at all*
+
+The three blindfolds with their line references, the measurement table showing `offSample` passing at the exact width where 14 runs are up to 576px off their panels, and four changes: ownership recorded by the fold, a containment probe, viewport height as an evaluator axis, and denser off-sample widths.
+
+**[[BUG-142]] — the defect** (`bug-a00b4298`), priority high
+*fold: a section band and a card are pinned siblings of the content they back, so panels and text move independently on resize*
+
+The two-layer document, the two defensible decisions that compose into it (`keepsAbsolute`'s "at rest" rationale, and flow promotion dropping `yFactor`), the 91 `vh` references all on panels and none on text, and the fact that `L1ContainerNode.axes` already exists — so the repair is emitting the primitive rather than inventing one. §6.3 holds it to reporting the at-rest fidelity cost as a number, the same discipline BUG-113 got.
+
+I folded your item 3 into BUG-143 — the height axis and the off-sample width density are the same file and the same change as the containment probe, and splitting them would make three tickets that can't land independently.
+
+**EPIC-12 §13** (appended, §1–12 untouched, 624→697 lines) records iteration 6: the numbers, why six rounds filed six tickets and none of them this, and the conclusion that iterating further on this bundle cannot find it — the engine has to change before the loop can see the defect.
+
+Order is BUG-143 → BUG-142, mirroring §12's BUG-112 → BUG-113, and both tickets say so.
+
+Two things worth flagging:
+
+**BUG-143 §4.1 has a dependency knot.** The containment probe needs to know which runs a surface backs. Today that's nowhere, so the probe must guess it by containment-at-rest — which is what my harness did, and a guess is a weak basis for a gate. If BUG-142 lands first the relationship is a parent link and the probe just reads it. I wrote §4.1 to work either way, but whoever picks up BUG-143 should read BUG-142 before choosing, because doing them in the stated order means building an ownership heuristic that BUG-142 then makes redundant. The alternative — defect first — costs you the ability to demonstrate the fix. I'd still take the stated order and accept the throwaway heuristic, but it's a real trade and the implementer should make it knowingly rather than discover it.
+
+**Nothing is coded.** No branch cut, no changes to the working tree — this session scopes and the branch belongs to the child. My probe harnesses are at `.xgd/tmp/bandprobe.mjs` and `bandprobe2.mjs`; both tickets cite `bandprobe2.mjs` by path, so whoever takes BUG-143 should copy it into the branch before `.xgd/tmp` gets cleared.
 
 <!-- xgd-chat-end -->
