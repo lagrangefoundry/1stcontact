@@ -14,6 +14,13 @@ import {
 import { spawn } from 'node:child_process'
 import { devEnvLayering, devVarsPath, readDevEnv, wranglerDevArgs } from './dev-env'
 import { localD1Check } from './d1-migrations'
+import {
+  DEV_SERVE_PORT,
+  devServeArgs,
+  noSnapshotMessage,
+  readSnapshot,
+  snapshotSummary,
+} from './dev-snapshot'
 import { repoRoot } from './webui'
 import { cmdAssets, formatAssetReport } from './assets'
 import { accessAdvice } from './push'
@@ -91,7 +98,7 @@ import { cmdGate, formatGateReport } from './gate'
 import type { SeverityTier } from './capture/values-diff'
 import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
-import { assertOneWorkerd, workerdGateKey } from './workerd'
+import { assertOneWorkerd, checkWorkerd, workerdGateKey } from './workerd'
 import {
   devDown,
   devReap,
@@ -385,6 +392,17 @@ export type {
   DevUpOutcome,
 } from './dev'
 export {
+  DEV_SERVE_PORT,
+  devServeArgs,
+  noSnapshotMessage,
+  readSnapshot,
+  snapshotDir,
+  snapshotSummary,
+  SNAPSHOT_DIR,
+  SNAPSHOT_MANIFEST,
+} from './dev-snapshot'
+export type { DevSnapshot } from './dev-snapshot'
+export {
   assertOneWorkerd,
   checkWorkerd,
   scanWorkerd,
@@ -484,7 +502,16 @@ Usage:
     It returns the table as a VALUE: \`bin/dev down\` and \`bin/dev reap\` read the
     same function rather than parsing this output.
 
-  1c dev up | down | reap [--dry-run] [--json]     (\`bin/dev\` is the launcher)
+  1c workerd [--json] [--quiet]
+    Which \`workerd\` versions resolve in this tree, and what brought each one
+    ([[REQ-316]]). Exactly one is the invariant: \`.wrangler/state\` is workerd's own
+    store and the first version to open it migrates that schema forward silently and
+    one-way, after which the other dies inside SQLite naming an internal table no
+    schema here owns. Exits 6 when more than one resolves. --quiet prints nothing
+    when the tree is fine, which is how \`bin/deploy --env dev\` uses it: the guard in
+    front of the only copy of the dev data.
+
+  1c dev up | down | reap | serve [--dry-run] [--json]  (\`bin/dev\` is the launcher)
     up    Deploys to the local dev target (REQ-318's \`bin/deploy --env dev\`, skipped
           with a line while that target does not exist), then starts filing, the
           builder, the public site and access-sim in dependency order and records a
@@ -494,6 +521,13 @@ Usage:
           \`1c ps\` rather than assuming the signal landed. Exits non-zero when a port
           it was asked to free is still answering, and removes that service's pidfile
           so \`reap\` inherits it.
+    serve Runs the DEPLOYED snapshot ([[REQ-318]]): \`wrangler dev --no-bundle\` against
+          apps/control-app/.dev-snapshot, on port ${DEV_SERVE_PORT} — not 8788, so it
+          runs beside the old path against the same store. It is FROZEN by
+          construction: editing a source file changes nothing here until the next
+          \`bin/deploy --env dev\`. Refuses when the local database is behind
+          db/migrations/, and when more than one \`workerd\` resolves — the store is
+          the only copy of the dev data. --port overrides.
     reap  The backstop. Kills every listener whose cwd is this checkout or an .xgd
           worktree of it and which no pidfile claims — SIGTERM, then SIGKILL what is
           still there. It is not redundant with \`down\`: a worktree torn down
@@ -1568,6 +1602,43 @@ export async function run(argv: string[]): Promise<void> {
       return
     }
 
+    case 'workerd': {
+      // [[REQ-316]] builds the check and [[REQ-318]] needs it as a SURFACE.
+      //
+      // Until now the check only ever spoke as a refusal, from inside the `1c`
+      // gate, for the handful of verbs that open the store. `bin/deploy --env
+      // dev` is the newest of those and is a bash script, so it cannot reach a
+      // TypeScript function — and its FIRST act is the migrate hook, against
+      // `.wrangler/state`, which holds the only copy of the dev data. This is
+      // the one line it calls before any hook runs.
+      //
+      // `--quiet` PRINTS NOTHING WHEN THE TREE IS FINE, which is what makes it
+      // usable as a guard rather than as noise at the top of every deploy. The
+      // refusal is never quiet.
+      const report = checkWorkerd({ repoRoot: repoRoot() })
+      if (flags.json === true) {
+        console.log(JSON.stringify(report, null, 2))
+      } else if (!report.ok || flags.quiet !== true) {
+        const rows = report.instances.map(
+          (i) =>
+            `  ${i.version.padEnd(16)} ${i.broughtBy}` +
+            (i.declaredIn.length > 0 ? `  (declared in ${i.declaredIn.join(', ')})` : ''),
+        )
+        console.log(
+          report.versions.length === 0
+            ? 'No `workerd` resolves in this tree — it is not installed.'
+            : `${report.versions.length === 1 ? 'One' : report.versions.length} \`workerd\` version${
+                report.versions.length === 1 ? '' : 's'
+              } resolve${report.versions.length === 1 ? 's' : ''} here:\n${rows.join('\n')}`,
+        )
+      }
+      // THE REFUSAL IS THE EXISTING ONE, not a second wording of it: the whole
+      // explanation of why a skew costs data lives in `assertOneWorkerd`, and a
+      // paraphrase here would be a second thing to keep true.
+      if (!report.ok) assertOneWorkerd('builder', { repoRoot: repoRoot() })
+      return
+    }
+
     case 'ps': {
       // [[REQ-319]] — what is running here, with its pid, its port and the
       // directory it was started from. Built on `lsof` rather than `ps`, which
@@ -1608,6 +1679,57 @@ export async function run(argv: string[]): Promise<void> {
         // to say so: the caller that matters is a script teeing up a fresh start,
         // and it would otherwise proceed into a port collision.
         if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
+        return
+      }
+      if (sub === 'serve') {
+        // [[REQ-318]] — run the DEPLOYED snapshot. `bin/deploy --env dev` wrote
+        // it; this reads what that recorded and starts wrangler against it.
+        //
+        // IT STARTS NOTHING ELSE AND RECORDS NO PIDFILE. `up` owns the set of
+        // services and their bookkeeping; this is one server in the foreground,
+        // which is what lets it run beside the old path while the replacement is
+        // being trusted (EPIC-16 §L1) without either claiming the other's slot.
+        const snapshot = readSnapshot({ repoRoot: root, app: 'control-app' })
+        if (snapshot === null) {
+          throw new CommandError({
+            code: 'ENVIRONMENT',
+            message: noSnapshotMessage('control-app'),
+          })
+        }
+        const appDir = path.join(root, 'apps', 'control-app')
+        const port = typeof flags.port === 'string' ? flags.port : String(DEV_SERVE_PORT)
+
+        // THE STORE IS CHECKED BEFORE ANYTHING IS STARTED, exactly as `1c
+        // builder` checks it ([[REQ-253]]) — and AT THIS ENVIRONMENT, because
+        // `--env dev` inherits no bindings and the block that decides which
+        // database file is opened is `[[env.dev.d1_databases]]`.
+        const check = await localD1Check({ repoRoot: root, env: snapshot.env })
+        if (check.kind === 'refuse') {
+          throw new CommandError({ code: 'ENVIRONMENT', message: check.message })
+        }
+        if (check.kind === 'unreadable') console.warn(check.message)
+
+        const devEnv = devEnvLayering({ appDir })
+        console.log(snapshotSummary(snapshot, port))
+        for (const warning of devEnv.warnings) console.warn(warning)
+        if (devEnv.warnings.length) console.warn('')
+
+        const args = devServeArgs({ appDir, snapshot, port })
+        const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
+        await new Promise<void>((resolve, reject) => {
+          child.on('error', reject)
+          child.on('exit', (code) => {
+            if (code === 0 || code === null) resolve()
+            else
+              reject(
+                new CommandError({
+                  code: 'ENVIRONMENT',
+                  message: `wrangler dev exited with ${code}.`,
+                  hint: 'Re-run `bin/deploy --env dev` — the snapshot may be from a tree that no longer builds.',
+                }),
+              )
+          })
+        })
         return
       }
       if (sub === 'reap') {
@@ -1901,9 +2023,13 @@ export async function run(argv: string[]): Promise<void> {
           }, fidelity maxΔ ${served.fidelityMaxDeltaPx.toFixed(1)}px, ` +
           `${served.fidelityResiduals} residual(s)` +
           `\n      envelope: ` +
-          served.byWidth.map((w) => `${w.width}:${w.findings}`).join(' ') +
+          // BUG-143 — `width×height:findings`. The height is on the line because it
+          // is now a sampled axis: a page can be clean at every captured height and
+          // come apart when the window is dragged taller, and a reader who cannot
+          // see which height a count belongs to cannot tell those two apart.
+          served.byWidth.map((w) => `${w.width}${w.height ? `\u00d7${w.height}` : ''}:${w.findings}`).join(' ') +
           `  ·  off-sample ` +
-          served.offSample.map((w) => `${w.width}:${w.findings}`).join(' ') +
+          served.offSample.map((w) => `${w.width}${w.height ? `\u00d7${w.height}` : ''}:${w.findings}`).join(' ') +
           `\n      recovery ${served.document === 'recovery' ? 'served' : 'declined'}: ` +
           `${served.recovery.promoted} region(s) flow, at ` +
           `maxΔ ${served.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
@@ -1975,7 +2101,8 @@ export async function run(argv: string[]): Promise<void> {
             // report is the same defect one level up — a verdict about something
             // the reader cannot see.
             `  on-sample           ${mark(report.onSample.pass)}  (${findings(report.onSample)} envelope finding(s) at the captured widths)\n` +
-            `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
+            `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s) ` +
+            `across ${report.offSample.byWidth.length} width\u00d7height sample(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
             // BUG-113 made promotion a PRICED ALTERNATIVE rather than the
             // document the envelope probes graded; REQ-278 made which of the two

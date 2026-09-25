@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { unstable_dev, type UnstableDevWorker } from 'wrangler'
+import { declaringBlocks } from './support/wrangler-toml'
 
 describe('public-site worker', () => {
   let worker: UnstableDevWorker
@@ -64,7 +65,9 @@ describe('public-site routing config', () => {
     // runtime failure on the first request rather than a deploy-time error.
     expect(toml).toContain('[[r2_buckets]]')
     expect(toml).toContain('[[env.production.r2_buckets]]')
-    expect(toml.match(/binding = "SITES"/g)).toHaveLength(2)
-    expect(toml.match(/bucket_name = "1stcontact-sites"/g)).toHaveLength(2)
+    // One per block that declares the binding ([[REQ-318]]) — the top level plus
+    // every named environment, counted rather than written down.
+    expect(toml.match(/binding = "SITES"/g)).toHaveLength(declaringBlocks(toml))
+    expect(toml.match(/bucket_name = "1stcontact-sites"/g)).toHaveLength(declaringBlocks(toml))
   })
 })

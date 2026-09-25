@@ -1558,6 +1558,18 @@ interface SurfaceRow {
   surfaceRadiusPx?: number
   /** REQ-88 — the row's measured viewport-height response, inherited by its card. */
   viewportResponse?: L1ViewportResponse
+  /**
+   * BUG-143 — the text node this row was collected from, so the surface the
+   * band/card reconstruction builds out of it can write its own id back onto the
+   * run (`backedBy`).
+   *
+   * The link has to travel on the row because the two ends are known at different
+   * times: the run exists inside the element loop, the surface only after the
+   * whole page has been grouped into bands and cards. Carried here, the fold
+   * states the relation as a FACT instead of leaving every later probe to guess it
+   * from coordinates that happen to coincide at rest.
+   */
+  run?: { backedBy?: string }
 }
 
 /** A captured asymmetric left-accent border (a card rule) → the L1 `borderLeft` axis. */
@@ -1863,9 +1875,15 @@ function buildSolidBands(
     const widestKf = keyframes.find((k) => k.at === widestW) ?? keyframes[keyframes.length - 1]
     const base = bandBaseFill(entry.g.fill, { y: widestKf.y, height: widestKf.height ?? 0 }, sectionsAtWidest)
     if (base === null) return
-    const node: L1Box = { kind: 'box', id: `section-band-${oi}`, geometry, axes: { surfaceFill: base } }
+    const id = `section-band-${oi}`
+    const node: L1Box = { kind: 'box', id, geometry, axes: { surfaceFill: base } }
     const vis = visibilityFor(present, widths)
     if (vis) node.visibility = vis
+    // BUG-143 — the band claims the runs it was built from. Claimed AFTER the
+    // `base === null` return above, so a band that paints nothing (and is
+    // therefore never emitted) leaves no run pointing at a surface that does not
+    // exist — which the envelope validator would refuse, correctly.
+    for (const r of order[oi].g.rows) if (r.run) r.run.backedBy = id
     boxes.push(node)
   })
   return boxes
@@ -1990,9 +2008,14 @@ function buildCards(
     // run sitting on it. A panel's runs are square; the panel element carries r=8.
     const radius = rep.surfaceRadiusPx ?? rep.borderRadiusPx
     if (radius && radius > 0) axes.borderRadiusPx = Math.round(radius)
-    const node: L1Box = { kind: 'box', id: `card-${idx++}`, geometry, axes }
+    const id = `card-${idx++}`
+    const node: L1Box = { kind: 'box', id, geometry, axes }
     const vis = visibilityFor(present, widths)
     if (vis) node.visibility = vis
+    // BUG-143 — the card claims the runs it is the union of. This is the tightest
+    // and most load-bearing half of the record: a card is a panel a few px larger
+    // than its copy, so it is the first surface to slide off what it backs.
+    for (const r of rows) if (r.run) r.run.backedBy = id
     const wk = keyframes[keyframes.length - 1]
     boxes.push({ node, area: wk.width * (wk.height ?? 0) })
   }
@@ -2595,6 +2618,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
           surfaceFrames: surfFrames,
           surfaceRadiusPx: surfShapeRadius,
           viewportResponse: framed.map((c) => responseOf.get(c.element!)).find(Boolean),
+          // BUG-143 — the run this row is about. Whichever surface the row ends
+          // up part of writes its id back here (`backedBy`), which is the whole
+          // ownership record the geometry envelope asserts against.
+          run: node,
         })
       }
       continue

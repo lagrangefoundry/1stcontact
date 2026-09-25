@@ -81,6 +81,13 @@ export interface MigrateHookRun {
   dryRun?: boolean
   app?: string
   env?: string
+  /**
+   * Which row of `bin/deploy`'s target table was selected ([[REQ-318]]) —
+   * `cloud` reaches Cloudflare's D1 with `--remote`, `local` reaches
+   * `.wrangler/state`. Defaults to the cloud target, which is what an omitted
+   * `DEPLOY_TARGET` means to the hook itself.
+   */
+  target?: 'cloud' | 'local'
 }
 
 export interface MigrateHookResult {
@@ -116,9 +123,30 @@ export function migrateHookHarness(): MigrateHookHarness {
   mkdirSync(appDir, { recursive: true })
   mkdirSync(migrationsDir, { recursive: true })
   mkdirSync(join(repo, 'bin'))
+  // A NAMED ENVIRONMENT'S OWN BLOCK, because that is what the hook reads
+  // ([[REQ-318]]). It used to declare only the top level, which was enough while
+  // the hook named the database literally; now that the name is resolved from
+  // `[[env.<name>.d1_databases]]`, a fixture without one is a `wrangler.toml` the
+  // real deploy would also refuse. The two environments name DIFFERENT databases
+  // on purpose: a hook that read the wrong block would otherwise pass by
+  // coincidence, which is the §J3 hazard this resolution exists to close.
   writeFileSync(
     join(appDir, 'wrangler.toml'),
-    ['[[d1_databases]]', 'binding = "DB"', 'database_name = "1stcontact"', 'migrations_dir = "../../db/migrations"', ''].join('\n'),
+    [
+      '[[d1_databases]]',
+      'binding = "DB"',
+      'database_name = "1stcontact"',
+      'migrations_dir = "../../db/migrations"',
+      '[[env.production.d1_databases]]',
+      'binding = "DB"',
+      'database_name = "1stcontact"',
+      'migrations_dir = "../../db/migrations"',
+      '[[env.dev.d1_databases]]',
+      'binding = "DB"',
+      'database_name = "1stcontact-dev"',
+      'migrations_dir = "../../db/migrations"',
+      '',
+    ].join('\n'),
   )
   symlinkSync(join(REPO, 'bin', 'migration-manifest'), join(repo, 'bin', 'migration-manifest'))
 
@@ -160,6 +188,7 @@ export function migrateHookHarness(): MigrateHookHarness {
         DEPLOY_WORKER_NAME: '1stcontact-control-app',
         DEPLOY_DRY_RUN: options.dryRun ? '1' : '0',
         DEPLOY_REPO_ROOT: repo,
+        DEPLOY_TARGET: options.target ?? 'cloud',
       }
       if (options.executeError !== undefined) env.STUB_EXECUTE_ERROR = options.executeError
       if (options.chatter !== undefined) env.STUB_EXECUTE_CHATTER = options.chatter

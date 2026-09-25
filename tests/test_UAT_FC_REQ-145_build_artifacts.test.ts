@@ -101,9 +101,17 @@ describe('REQ-145 — build artifacts and the config that must match them', () =
     // assets binding serves BEFORE the Worker are bytes served to anyone —
     // `/builder/*` and `/webui/*` among them. Running the Worker first is what
     // puts every asset behind the same verified identity as every route.
-    // Both blocks, because a named environment inherits neither.
-    expect(toml.match(/^run_worker_first = true$/gm)).toHaveLength(2)
-    expect(toml.match(/^directory = "\.\/dist-assets"$/gm)).toHaveLength(2)
+    //
+    // ONCE PER BLOCK THAT DECLARES THE BINDING, counted rather than written down
+    // ([[REQ-318]]). A named environment inherits neither, so the rule is "every
+    // one of them restates it" — and the number was `2` only for as long as
+    // production was the only environment. A hardcoded count fails the moment a
+    // second one is added, which reads as the new environment being wrong when
+    // what is wrong is the count. `blocks` is the top level plus every named
+    // environment declaring an assets directory.
+    const blocks = 1 + Object.keys(config.envs).length
+    expect(toml.match(/^run_worker_first = true$/gm)).toHaveLength(blocks)
+    expect(toml.match(/^directory = "\.\/dist-assets"$/gm)).toHaveLength(blocks)
   })
 
   it('test_UAT_FC_REQ-145_migrations_dir_sits_on_the_database_not_the_top_level', async () => {
@@ -112,9 +120,17 @@ describe('REQ-145 — build artifacts and the config that must match them', () =
     // `d1 migrations apply` silently did nothing from REQ-143 until this ticket.
     // The key must never appear before the first table header, which is what
     // "top level" means to wrangler.
+    //
+    // ONCE PER D1 BLOCK, counted rather than written down ([[REQ-318]]) — same
+    // reason as the assets count above, and with a second consumer:
+    // `bin/migration-manifest` refuses a file that declares more than one
+    // DISTINCT `migrations_dir`, so every block agreeing on the value is what
+    // lets a second environment exist at all.
     const beforeFirstTable = toml.slice(0, toml.search(/^\[/m))
     expect(beforeFirstTable).not.toMatch(/^migrations_dir/m)
-    expect(toml.match(/^migrations_dir = "\.\.\/\.\.\/db\/migrations"$/gm)).toHaveLength(2)
+    expect(toml.match(/^migrations_dir = "\.\.\/\.\.\/db\/migrations"$/gm)).toHaveLength(
+      1 + Object.keys(config.envs).length,
+    )
   })
 
   it('test_UAT_FC_REQ-145_the_proxy_and_its_origin_var_are_gone', async () => {

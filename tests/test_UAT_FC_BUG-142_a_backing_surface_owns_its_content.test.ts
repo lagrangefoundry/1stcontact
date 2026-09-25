@@ -27,8 +27,11 @@ import { renderL1Document } from '../packages/framework/src/index'
 import { validateL1, type L1Document, type L1Node } from '../packages/site-schema/src/index'
 import {
   chooseRecovery,
+  contentRobustnessProbe,
+  deriveSurfaceBacking,
   evaluateLayout,
   foldToL1,
+  offSampleProbe,
   measuredTextHeights,
   mountBehaviours,
   promoteToFlow,
@@ -532,6 +535,55 @@ describe('BUG-142 — a backing surface owns the content it backs', () => {
         `only a panel answers the viewport height, not ${selector}`,
       ).toBe(true)
     }
+  })
+
+  it('test_UAT_FC_BUG-142_the_containment_detector_resolves_a_surface_through_the_nesting', () => {
+    // §10.9 — [[BUG-143]]'s containment probe lands FIRST (§8), and it finds its
+    // surfaces in the LEAF scan. An owning surface is structural and so is never a
+    // leaf: read that way the probe resolves no surface for any panel on this page
+    // and returns a clean envelope because it had nothing to check. A verdict
+    // reached by looking at nothing is the failure mode the probe exists to close,
+    // so the pairing is asserted to be live before any verdict is read off it.
+    const ms = page()
+    const doc = serve(ms)
+    const measured = measuredTextHeights(ms)
+    const backing = deriveSurfaceBacking(doc, { measured })
+    expect(backing.size, 'the detector pairs runs with surfaces at all').toBeGreaterThan(0)
+
+    // Every pair it resolved names a real surface and a real run, and at least one
+    // is the containment the TREE states — the relation this ticket introduced,
+    // read back out of the document by the probe that gates it.
+    const held = heldRuns(doc)
+    const byPath = nodesByPath(doc)
+    let stated = 0
+    for (const [runPath, surfacePaths] of backing) {
+      expect(byPath.get(runPath)?.kind, `${runPath} is a run`).toBe('text')
+      for (const surfacePath of surfacePaths) {
+        expect(isSurface(byPath.get(surfacePath)!), `${surfacePath} is a backing surface`).toBe(true)
+        if (held.get(surfacePath)?.includes(runPath)) stated++
+      }
+    }
+    expect(stated, 'and the pairs it resolved are the containment the tree states').toBeGreaterThan(0)
+
+    // Only now is a verdict worth anything. On the document whose panels the
+    // recovery FLOWS — the case §7's zero is a claim about — the detector reports
+    // no escape at all; on the same document left pinned it reports several. The
+    // zero is a finding, not a silence.
+    const authored = authoredPage()
+    const escapesBy = (d: L1Document): string[] =>
+      [
+        offSampleProbe(d, { measured: authored.measured }),
+        contentRobustnessProbe(d, { measured: authored.measured }),
+      ]
+        .flatMap((r) => r.byWidth.flatMap((w) => w.findings.filter((f) => f.kind === 'escape')))
+        .map((f) => f.detail)
+    const flowed = promoteToFlow(authored.doc, { measured: authored.measured }).doc
+    expect(
+      deriveSurfaceBacking(flowed, { measured: authored.measured }).size,
+      'the same pairing survives the promotion',
+    ).toBe(deriveSurfaceBacking(authored.doc, { measured: authored.measured }).size)
+    expect(escapesBy(authored.doc).length, 'pinned, the panels come off their copy').toBeGreaterThan(0)
+    expect(escapesBy(flowed), 'flowed and owning, no run leaves the surface that backs it').toEqual([])
   })
 
   it('test_UAT_FC_BUG-142_a_recovered_panel_keeps_its_captured_height_at_every_sampled_width', () => {

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { readWranglerConfig } from './support/wrangler-toml'
+import { declaringBlocks, readWranglerConfig } from './support/wrangler-toml'
 
 /**
  * REQ-185 — **the break-glass var is declared, and it is declared empty.**
@@ -50,7 +50,9 @@ describe('REQ-185 — PLATFORM_ADMINS is configured for every environment', () =
       .filter((line) => /^\s*PLATFORM_ADMINS\s*=/.test(line))
       .map((line) => line.trim())
 
-    expect(declarations).toHaveLength(2)
+    // One per block ([[REQ-318]]): a named environment inherits no vars, so the
+    // grant has to be empty in every one of them and not just in production's.
+    expect(declarations).toHaveLength(declaringBlocks(toml))
     for (const line of declarations) {
       expect(
         line,

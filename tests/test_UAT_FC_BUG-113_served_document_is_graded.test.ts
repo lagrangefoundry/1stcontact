@@ -185,8 +185,12 @@ describe('BUG-113 — the gate grades the document that is served', () => {
 
     // The command's own account of what it wrote: clear at every captured width,
     // and clear at the off-sample widths between them.
+    // BUG-143 — viewport height is an evaluator axis now, so the report carries
+    // one entry per (captured width, sampled height). The claim is unchanged —
+    // every captured width is graded, and none of them has a finding — and is
+    // asserted over the set of widths rather than the list of entries.
     expect(result.served).toBeDefined()
-    expect(result.served?.byWidth.map((w) => w.width)).toEqual(LADDER)
+    expect([...new Set(result.served?.byWidth.map((w) => w.width))]).toEqual(LADDER)
     expect(result.served?.byWidth.filter((w) => w.findings > 0)).toEqual([])
     expect(result.served?.offSample.filter((w) => w.findings > 0)).toEqual([])
 

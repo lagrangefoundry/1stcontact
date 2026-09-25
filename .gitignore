@@ -210,6 +210,11 @@ Cargo.lock  # Remove this line if project is a binary/application
 /apps/control-app/dist-assets.retired/
 /apps/control-app/src/generated/
 
+# REQ-318 — the local dev environment's snapshot: the bundle `bin/deploy --env
+# dev` writes and `1c dev serve` runs, plus the frozen copy of `dist-assets`
+# beside it. Build output, and rebuilt by every local deploy.
+/apps/*/.dev-snapshot/
+
 # `lib/` above is Python build output and matches at any depth. The deploy
 # driver's shared hook machinery lives in a directory of that name and is
 # source, so it is exempted here rather than renamed around the pattern.

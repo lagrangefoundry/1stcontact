@@ -123,3 +123,24 @@ export function missingFromEnv(
     bindings: config.topLevel.bindings.filter((b) => !env.bindings.includes(b)),
   }
 }
+
+/**
+ * How many blocks must restate a top-level declaration: the top level, plus
+ * every named environment.
+ *
+ * WHY THIS IS A FUNCTION AND NOT THE NUMBER 2 ([[REQ-318]]). A named environment
+ * inherits neither vars nor bindings, so every one of them restates everything —
+ * and a suite that wrote the resulting COUNT down was pinning the number of
+ * environments as a side effect of pinning the rule. For as long as `production`
+ * was the only one those were the same assertion. Adding the local `dev`
+ * environment separated them, and a dozen otherwise-correct suites failed with
+ * *"expected 3 to be 2"* — which reads as the new environment being wrong when
+ * what is wrong is the count.
+ *
+ * The claim each of those suites is making has not changed: *this declaration
+ * appears once per block that has to carry it*. This says that, and keeps saying
+ * it as environments are added.
+ */
+export function declaringBlocks(toml: string): number {
+  return 1 + Object.keys(parseWranglerConfig(toml).envs).length
+}

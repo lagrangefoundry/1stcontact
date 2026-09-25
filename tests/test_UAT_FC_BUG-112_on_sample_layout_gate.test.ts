@@ -172,7 +172,9 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     expect(report.pass).toBe(false)
 
     // Every captured width, and each finding names both colliding leaves.
-    expect(report.onSample.byWidth.map((w) => w.width)).toEqual(base.widths)
+    // BUG-143 — one entry per (width, sampled viewport height), so the set of
+    // widths is the ladder's and each appears once per height.
+    expect([...new Set(report.onSample.byWidth.map((w) => w.width))]).toEqual(base.widths)
     for (const { width, findings } of report.onSample.byWidth) {
       const overlaps = findings.filter((f) => f.kind === 'overlap')
       expect(overlaps.length, `overlaps @${width}`).toBeGreaterThan(0)
@@ -239,14 +241,16 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     expect(report.layout.pass).toBe(false)
     expect(report.layout.findings.length).toBeGreaterThan(0)
     const first = report.layout.findings[0]
-    expect(Object.keys(first).sort()).toEqual(['detail', 'kind', 'paths', 'width'])
+    // BUG-143 — plus `height`, the viewport height the sample was taken at: with
+    // height an axis, a width alone no longer identifies where to go and look.
+    expect(Object.keys(first).sort()).toEqual(['detail', 'height', 'kind', 'paths', 'width'])
     expect(first.kind).toBe('overlap')
     expect(CLEAN_COVERAGE.findings).toEqual([]) // the shape is shared, the source is not
 
     // Named at 1280 — the width the perceptual gate photographs.
     const at1280 = report.layout.findings.filter((f) => f.width === 1280)
     expect(at1280.length).toBeGreaterThan(0)
-    expect(at1280[0].detail).toContain('at 1280px:')
+    expect(at1280[0].detail).toContain('at 1280px\u00d7')
     expect(at1280[0].detail).toContain(LONG)
     expect(at1280[0].detail).toContain(NEIGHBOUR)
 
@@ -257,9 +261,13 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     expect(report.nextStep).toContain('stacked')
 
     // And the operator read prints them under the gate that found them.
+    // BUG-143 — each printed line names the (width, viewport height) it was
+    // sampled at, not the width alone. The list is truncated for the operator, so
+    // the assertion is anchored to the first finding's own sample rather than to
+    // 1280, which with height an axis can now fall past the cut.
     const printed = formatGateReport(report, 'collides.test')
     expect(printed).toContain('on-sample collision(s) on the SERVED document')
-    expect(printed).toContain('at 1280px:')
+    expect(printed).toContain(`at ${first.width}px\u00d7${first.height}px:`)
   })
 
   it('test_UAT_FC_BUG-112_a_clean_run_says_nothing_about_collisions', () => {
@@ -268,7 +276,14 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     // "0 collisions" on every page forever is a row nobody reads by the time it
     // matters.
     const report = reconcileGates({
-      l1Gate: { pass: true, onSample: NO_COLLISIONS },
+      l1Gate: {
+        pass: true,
+        onSample: NO_COLLISIONS,
+        // BUG-143 — the two probes the containment escapes are read from; this
+        // case is about the on-sample verdict, so both are clean.
+        offSample: NO_COLLISIONS,
+        contentRobustness: NO_COLLISIONS,
+      },
       coverage: CLEAN_COVERAGE,
       perceptual: QUIET,
       values: NO_DELTAS,
@@ -292,13 +307,13 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     expect(kinds).toEqual(new Set(['clip']))
 
     const report = reconcileGates({
-      l1Gate: { pass: false, onSample: probe },
+      l1Gate: { pass: false, onSample: probe, offSample: NO_COLLISIONS, contentRobustness: NO_COLLISIONS },
       coverage: CLEAN_COVERAGE,
       perceptual: QUIET,
       values: NO_DELTAS,
     })
     expect(report.layout.findings.every((f) => f.kind === 'clip')).toBe(true)
-    expect(report.layout.findings[0].detail).toMatch(/^at \d+px: /)
+    expect(report.layout.findings[0].detail).toMatch(/^at \d+px\u00d7\d+px: /)
     expect(report.diagnosis).toContain('exceeds viewport')
   })
 
@@ -401,12 +416,18 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     })
 
     // The served document is graded at exactly the widths the capture sampled.
-    expect(report.onSample.byWidth.map((w) => w.width)).toEqual(base.widths)
-    // And every finding survives the trip into the report, none dropped.
-    const probed = onSampleProbe(base).byWidth.flatMap((w) => w.findings.map((f) => `${w.width}|${f.kind}|${f.detail}`))
-    const reported = verdict.layout.findings.map((f) => `${f.width}|${f.kind}|${f.detail.replace(`at ${f.width}px: `, '')}`)
-    expect(reported).toEqual(probed)
-    expect(verdict.layout.pass).toBe(report.onSample.pass)
+    expect([...new Set(report.onSample.byWidth.map((w) => w.width))]).toEqual(base.widths)
+    // And every finding survives the trip into the report, none dropped. BUG-143 —
+    // the report also carries the containment escapes the OTHER two envelope
+    // probes found, so the on-sample findings are compared as a subset of it.
+    const probed = onSampleProbe(base).byWidth.flatMap((w) =>
+      w.findings.map((f) => `${w.width}|${w.height}|${f.kind}|${f.detail}`),
+    )
+    const reported = verdict.layout.findings.map(
+      (f) => `${f.width}|${f.height}|${f.kind}|${f.detail.replace(`at ${f.width}px\u00d7${f.height}px: `, '')}`,
+    )
+    for (const one of probed) expect(reported).toContain(one)
+    expect(verdict.layout.pass).toBe(false)
     // A collision on the served page is a structural failure, never a pass.
     if (probed.length > 0) {
       expect(report.pass).toBe(false)

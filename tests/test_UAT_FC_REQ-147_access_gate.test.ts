@@ -3,7 +3,7 @@ import path from 'node:path'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import worker from '../apps/control-app/src/index'
 import { accessTokenFrom, certsUrl, resetJwksCache, verifyAccessJwt } from '../apps/control-app/src/access'
-import { readWranglerConfig } from './support/wrangler-toml'
+import { declaringBlocks, readWranglerConfig } from './support/wrangler-toml'
 // @ts-expect-error — plain JS with no type declarations, deliberately: it has to
 // run from a shell straight after a deploy with no transform available.
 import { runSmoke } from '../tools/generate/bin/smoke.mjs'
@@ -128,7 +128,14 @@ describe('REQ-147 — the builder is private', () => {
       `control-app declares workers_dev = ${declarations.join(', ')} — a workers.dev hostname is ` +
         'a second door that no Cloudflare Access policy covers',
     ).toBe(true)
-    expect(declarations, 'the production environment does not restate workers_dev').toHaveLength(2)
+    // ONE PER BLOCK ([[REQ-318]]). `workers_dev` IS inherited, so every restatement
+    // is belt and braces — which is exactly why each block must carry it: a
+    // control that depends on remembering which keys inherit is one refactor from
+    // silently flipping back on.
+    expect(
+      declarations,
+      'a block does not restate workers_dev',
+    ).toHaveLength(declaringBlocks(toml))
 
     // The Access-protected route is still the way in — a gate that closed every
     // door would pass the assertion above and serve nobody.

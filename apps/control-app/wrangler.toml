@@ -527,3 +527,119 @@ class_name = "SessionJunction"
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["SessionJunction"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# THE LOCAL DEV ENVIRONMENT ([[REQ-318]], [[EPIC-16]] §K).
+#
+# WHAT MAKES THIS DIFFERENT FROM EVERY OTHER NAMED ENVIRONMENT: it is never
+# uploaded. `bin/deploy`'s target table maps `dev` to the LOCAL target, whose
+# ship step bundles this environment to `apps/<app>/.dev-snapshot/` and stops.
+# `1c dev serve` then runs `wrangler dev` against that snapshot with
+# `--no-bundle`, so what is served changes only when a deploy runs — the freeze
+# is a property of what is watched, not of a flag wrangler does not have.
+#
+# THE STORE IS THE SAME STORE. `database_id`, both `bucket_name`s and the
+# `migrations_dir` are IDENTICAL to the top-level block on purpose (§K2): there
+# is ONE local dev environment holding THE ONLY COPY of the dev data, so this
+# does not fork `.wrangler/state` — it becomes the environment that owns it.
+# A different `database_id` here would silently create a second, empty database
+# and every site authored under the old path would appear to have vanished.
+#
+# `ACCESS_DEV_OPEN = "1"` IS PRESENT HERE AND ABSENT FROM PRODUCTION, and the two
+# facts have the same cause rather than opposite ones. It opens an unconfigured
+# Access gate for a server on loopback; production's safety is that a named
+# environment inherits no vars, so the top-level declaration cannot reach it
+# ([[REQ-145]]). This environment is loopback by construction — the target table
+# is what guarantees it, and a UAT pins the pairing, so the var and the target it
+# depends on cannot drift apart.
+#
+# THE NAME CARRIES A `-dev` SUFFIX even though nothing is uploaded, for two
+# reasons: a hand-typed `wrangler deploy --env dev` cannot then overwrite the
+# production Worker, and `bin/deploy`'s own report names what it shipped — a name
+# identical to production's would make a local deploy unreadable in a log. The
+# cost is that miniflare keys Durable Object storage by script name, so
+# SESSION_JUNCTION gets its own directory under `.wrangler/state`. That is
+# harmless: the junction holds only the turn that is open right now, which a
+# restart is already allowed to cost ([[REQ-307]]).
+[env.dev]
+name = "1stcontact-control-app-dev"
+# Never uploaded, so this changes nothing today — and is stated anyway for the
+# reason the top-level block states it (REQ-147): a security control that depends
+# on remembering which keys inherit is one refactor from silently flipping back
+# on. `workers_dev` IS inherited, so this is belt and braces.
+workers_dev = false
+
+# See the top-level block: restated rather than inherited, on purpose (BUG-37).
+# LAST in this environment's bare keys, because a TOML table header ends the
+# table above it.
+[env.dev.observability]
+enabled = true
+head_sampling_rate = 1
+
+# THE SAME VARS THE TOP-LEVEL BLOCK DECLARES, because that is what the old
+# `wrangler dev` path reads and this environment replaces it rather than
+# diverging from it. `SESSION_COOKIE_DOMAIN` is empty for the reason it is empty
+# at the top level: this serves on `127.0.0.1`, which is nobody's cookie domain.
+[env.dev.vars]
+TENANT_ID = "biz_51a6746495c8057e886ff98d4208e6b9"
+PLATFORM_ADMINS = ""
+SERVICE_TOKEN_IDENTITIES = ""
+ACCESS_DEV_OPEN = "1"
+ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
+ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
+MAIL_FROM = "1st Contact <no-reply@1stcontact.io>"
+SESSION_COOKIE_NAME = "session"
+SESSION_COOKIE_DOMAIN = ""
+
+# Declared so `wrangler deploy --env dev --dry-run --outdir` resolves, and so the
+# parity rule holds. The local runner is handed `--assets <snapshot>/assets`
+# instead, because `dist-assets` is rebuilt by `1c assets` and a live read of it
+# would leave the builder client as the one part of the environment that is not
+# frozen.
+[env.dev.assets]
+directory = "./dist-assets"
+binding = "ASSETS"
+run_worker_first = true
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-231).
+[env.dev.triggers]
+crons = ["17 4 * * *", "*/10 * * * *"]
+
+# THE SAME DATABASE, and `d1-migrations.ts` now reads THIS block rather than the
+# top-level one when the environment is `dev` ([[REQ-318]]) — which is the same
+# rule it always followed, since it reads whatever the running server reads.
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "1stcontact"
+database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+migrations_dir = "../../db/migrations"
+
+[[env.dev.r2_buckets]]
+binding = "SITES"
+bucket_name = "1stcontact-sites"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-162).
+[[env.dev.r2_buckets]]
+binding = "BLOBS"
+bucket_name = "1stcontact-material"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-154).
+[env.dev.browser]
+binding = "BROWSER"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-219).
+[env.dev.images]
+binding = "IMAGES"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-159).
+[env.dev.ai]
+binding = "AI"
+
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-307]]).
+[[env.dev.durable_objects.bindings]]
+name = "SESSION_JUNCTION"
+class_name = "SessionJunction"
+
+[[env.dev.migrations]]
+tag = "v1"
+new_sqlite_classes = ["SessionJunction"]

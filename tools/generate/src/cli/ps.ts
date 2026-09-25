@@ -91,6 +91,10 @@ export const KNOWN_SERVICES: readonly KnownService[] = [
   { port: 8710, name: 'repro-console', what: '`bin/repro-console`' },
   { port: 8787, name: 'public-site', what: '`pnpm dev:public`' },
   { port: 8788, name: 'builder', what: '`1c builder` / `pnpm dev:control`' },
+  // The deployed local dev environment ([[REQ-318]]). A SEPARATE PORT from the
+  // builder's on purpose (EPIC-16 §L1): the old path is retired in a later step,
+  // and "proved first" means the two run side by side against the same store.
+  { port: 8789, name: 'dev', what: '`1c dev serve` — the deployed dev snapshot' },
   { port: DEFAULT_FILING_PORT, name: 'filing', what: '`1c filing`' },
   { port: 8799, name: 'access-sim', what: '`bin/access-sim`' },
   { port: 24678, name: 'vite-hmr', what: "Vite's HMR channel" },

@@ -22,12 +22,12 @@ import { l1DocumentSlotNames, validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
 import {
   chooseRecovery,
-  evaluateLayout,
   foldToL1,
   localizeAssets,
   measuredTextHeights,
   mountBehaviours,
   offSampleProbe,
+  onSampleProbe,
 } from '../l1'
 import type { FoldedForm, FoldResidual, MeasuredTextHeights, RecoveryVerdict } from '../l1'
 import { draftDir, emptyDir, ensureDir, fsReferenceBundle, siteDir, writeDraftBase, writeJson } from '../store'
@@ -107,10 +107,15 @@ export interface ServedEnvelope {
    * field is that measurement's answer for THIS bundle.
    */
   document: 'base' | 'recovery'
-  /** Envelope findings on the served document, per captured width. */
-  byWidth: Array<{ width: number; findings: number }>
+  /**
+   * Envelope findings on the served document, per captured width.
+   *
+   * BUG-143 — per (width, height): the probes sample more than one viewport height
+   * at each width, so `height` says which one this entry is about.
+   */
+  byWidth: Array<{ width: number; height?: number; findings: number }>
   /** The same at the off-sample widths the probe samples between captured ones. */
-  offSample: Array<{ width: number; findings: number }>
+  offSample: Array<{ width: number; height?: number; findings: number }>
   /** Largest per-axis miss against the oracle, in px, for the document served. */
   fidelityMaxDeltaPx: number
   /** Oracle samples the served document places out of tolerance. */
@@ -172,12 +177,19 @@ function measureServed(
   const scored = choice.served ? choice.recovery : choice.base
   return {
     document: choice.served ? 'recovery' : 'base',
-    byWidth: choice.doc.widths.map((width) => ({
-      width,
-      findings: evaluateLayout(served, width, { measured }).findings.length,
+    // BUG-143 — through the probe rather than a bare `evaluateLayout`, so what is
+    // printed here and what the gate grades are the same count. The probe resolves
+    // the surface→run backing and asserts containment; a direct evaluation cannot,
+    // which is how this line could read a clean envelope on a page whose panels
+    // had slid off their copy.
+    byWidth: onSampleProbe(served, { measured }).byWidth.map((w) => ({
+      width: w.width,
+      ...(w.height !== undefined ? { height: w.height } : {}),
+      findings: w.findings.length,
     })),
     offSample: offSampleProbe(served, { measured }).byWidth.map((w) => ({
       width: w.width,
+      ...(w.height !== undefined ? { height: w.height } : {}),
       findings: w.findings.length,
     })),
     fidelityMaxDeltaPx: scored.maxDelta,

@@ -7,6 +7,15 @@
 # `--dry-run` flag differs. A rehearsal that took a different route would prove
 # nothing about the real thing.
 #
+# AND THE TARGET IS NOW A TABLE ([[REQ-318]]). `ship_target` maps an environment
+# to HOW to ship to it — `cloud` uploads, `local` bundles to
+# `apps/<app>/.dev-snapshot/` and stops. Everything before that terminal verb is
+# identical either way: the same hook directories in the same order, the same
+# `DEPLOY_ENV`, the same capability report. That is what makes the local dev
+# environment something that is DEPLOYED TO rather than edited into ([[EPIC-16]]
+# §K): `1c dev serve` runs `wrangler dev --no-bundle` against the snapshot, so
+# editing a source file changes nothing until the next `bin/deploy --env dev`.
+#
 # WHAT THIS SCRIPT DELIBERATELY DOES NOT KNOW. It knows nothing about D1, nothing
 # about migrations, and no secret's name. Those are hooks:
 #
@@ -24,6 +33,10 @@
 #   DEPLOY_APP          e.g. control-app
 #   DEPLOY_APP_DIR      absolute path to the app directory
 #   DEPLOY_ENV          the wrangler environment, e.g. production
+#   DEPLOY_TARGET       `cloud` or `local` — which row of the target table was
+#                       selected. A hook that reaches a resource reads it to know
+#                       WHICH resource: the migrate hook applies to Cloudflare's
+#                       D1 at `cloud` and to `.wrangler/state` at `local`
 #   DEPLOY_WORKER_NAME  the deployed Worker's name, read from wrangler.toml
 #   DEPLOY_DRY_RUN      1 when rehearsing — a hook MUST make no change when set
 #   DEPLOY_REPO_ROOT    absolute path to the repo root
@@ -74,6 +87,7 @@
 #   bin/deploy public-site           # one app
 #   bin/deploy --dry-run             # rehearse everything
 #   bin/deploy --env staging control-app
+#   bin/deploy --env dev             # the LOCAL dev environment — a snapshot, not an upload
 #   bin/deploy --fonts               # the platform font mirror, to the cloud
 #   bin/deploy --fonts --env dev     # …and to local dev, where the work is done
 #
@@ -118,6 +132,21 @@ bin/deploy — deploy the Workers, and report what moved.
 With no app named, every apps/*/ Worker is deployed. `--dry-run` runs the same
 path and uploads nothing.
 
+Environments select a TARGET — how to ship, not just what to configure:
+
+  --env production (and any other)  cloud: `wrangler deploy --env <name>`
+  --env dev                         local: bundle to apps/<app>/.dev-snapshot/
+                                    and stop. Nothing is uploaded, no credential
+                                    is needed, and `bin/dev serve` runs
+                                    `wrangler dev --no-bundle` against it — so
+                                    what the dev environment serves changes only
+                                    when you deploy. Before it touches
+                                    `.wrangler/state` it refuses a tree with two
+                                    `workerd` versions in it.
+
+The hooks, their order, DEPLOY_ENV and the capability report are identical
+whichever target is selected; only the last step differs.
+
 `--fonts` deploys the staged platform font mirror AND NOTHING ELSE — a 1.35GB
 corpus and a Worker move on different schedules, so each is named. At
 `--env production` that is the cloud R2 bucket; at `--env dev` it is the
@@ -132,9 +161,9 @@ Hooks (any executable file, sorted, run before the app's upload):
   bin/deploy.d/migrate/   schema migrations
   bin/deploy.d/secrets/   `wrangler secret put` pushes — names only, never values
 
-Hooks see DEPLOY_APP, DEPLOY_APP_DIR, DEPLOY_ENV, DEPLOY_WORKER_NAME,
-DEPLOY_DRY_RUN, DEPLOY_REPO_ROOT and DEPLOY_CAPABILITY_REPORT, and must make no
-change when DEPLOY_DRY_RUN=1.
+Hooks see DEPLOY_APP, DEPLOY_APP_DIR, DEPLOY_ENV, DEPLOY_TARGET,
+DEPLOY_WORKER_NAME, DEPLOY_DRY_RUN, DEPLOY_REPO_ROOT and
+DEPLOY_CAPABILITY_REPORT, and must make no change when DEPLOY_DRY_RUN=1.
 
 Every credential a hook is handed is PROBED against the permission the product
 actually uses, and the capability report at the end says what this deployment
@@ -233,17 +262,150 @@ if [[ $fonts -eq 1 ]]; then
   exit 0
 fi
 
+# One value out of one table of a wrangler.toml, as a string.
+#
+# SCRAPED RATHER THAN PARSED, which is this repository's existing convention for
+# this file (`d1-migrations.ts` and `bin/migration-manifest` both say so): a TOML
+# parser would be a dependency bought for four keys. `section` is the dotted path
+# with no brackets — `""` for the top level, `env.dev` for an environment's own
+# keys, `env.dev.assets` for one of its tables — and both `[t]` and `[[t]]`
+# spellings of a header are accepted, because which one a table uses is TOML's
+# business and not this script's.
+toml_value() {
+  local file="$1" section="$2" key="$3"
+  awk -v want="$section" -v key="$key" '
+    BEGIN { in_s = (want == "") }
+    {
+      line = $0
+      sub(/[ \t\r]+$/, "", line)
+      sub(/^[ \t]+/, "", line)
+      if (line ~ /^\[/) {
+        hdr = line
+        gsub(/^\[+|\]+$/, "", hdr)
+        in_s = (hdr == want)
+        next
+      }
+      if (in_s && line ~ ("^" key "[ \t]*=")) {
+        sub(/^[^=]*=[ \t]*/, "", line)
+        gsub(/^"|"$/, "", line)
+        print line
+        exit
+      }
+    }
+  ' "$file" || true
+}
+
 # The deployed Worker's name for an environment. Read out of wrangler.toml rather
 # than assumed to equal the directory: `name` under [env.<name>] overrides the
 # top-level one, and reporting the wrong name is how a deploy gets confirmed
 # against a Worker nobody changed.
 worker_name() {
-  local app_dir="$1" env="$2"
-  awk -v env="[env.$env]" '
-    $0 == env { in_env = 1; next }
-    /^\[/ { in_env = 0 }
-    in_env && /^[[:space:]]*name[[:space:]]*=/ { gsub(/.*=[[:space:]]*"|"[[:space:]]*$/, ""); print; exit }
-  ' "$app_dir/wrangler.toml" || true
+  toml_value "$1/wrangler.toml" "env.$2" name
+}
+
+# THE TARGET TABLE ([[REQ-318]]) — given an environment, how do I ship to it.
+#
+# WHY A TABLE AND NOT A HARDCODED `npx wrangler deploy`. This script's header has
+# always said *"ONE CODE PATH. `--dry-run` is a TARGET, not a different script"*,
+# and it already had the concept; what it lacked was the mapping. Everything
+# before the terminal verb — the hook directories, their order, `DEPLOY_ENV`, the
+# capability report — is IDENTICAL whichever row is selected, which is what makes
+# a local deploy a deploy rather than an imitation of one.
+#
+#   cloud   upload it: `npx wrangler deploy --env <name>`
+#   local   bundle it to `apps/<app>/.dev-snapshot/` and stop. Nothing is
+#           uploaded and no credential is needed. `1c dev serve` runs
+#           `wrangler dev --no-bundle` against that directory, so what the
+#           environment serves changes only when this runs ([[EPIC-16]] §K3).
+#
+# `dev` IS THE ONLY LOCAL ROW, and that is a security property rather than a
+# listing: `[env.dev.vars]` carries `ACCESS_DEV_OPEN = "1"`, which is only safe
+# because this table guarantees the environment never leaves the machine. A UAT
+# pins the pairing.
+ship_target() {
+  case "$1" in
+    dev) echo local ;;
+    *) echo cloud ;;
+  esac
+}
+
+# Where a local deploy leaves what it built, relative to the app directory.
+# Beside `.wrangler/` rather than in `dist/`, because `bin/build` owns `dist/`
+# and writes the PRODUCTION bundle there; two environments sharing one output
+# directory would each silently overwrite the other's.
+SNAPSHOT_DIR=".dev-snapshot"
+
+# Ship to the local target: build the bundle, freeze the assets beside it, and
+# write the one file the runner reads.
+#
+# THE BUNDLE IS THE EXISTING ONE. `bin/build` stage 4 already runs `wrangler
+# deploy --dry-run --outdir` and has since REQ-144; it existed purely as a
+# typecheck gate with nothing consuming it. This is the same invocation, at this
+# environment, pointed at a directory something finally reads.
+#
+# THE ASSETS ARE COPIED AND NOT READ IN PLACE. `dist-assets` is rebuilt by
+# `1c assets` — which `bin/build` runs — so pointing the runner at the live
+# directory would leave the builder client as the one part of a frozen
+# environment that is not frozen.
+ship_local() {
+  local app="$1" app_dir="$2" name="$3"
+  local snapshot="$app_dir/$SNAPSHOT_DIR"
+
+  if [[ $dry_run -eq 1 ]]; then
+    # The same bundle, thrown away: the config still has to resolve, so a
+    # rehearsal catches a broken `[env.<name>]` exactly as it would at the cloud
+    # target — and writes nothing, which is what a rehearsal promises.
+    (cd "$app_dir" && npx wrangler deploy --env "$env_name" --dry-run)
+    echo "    would write the snapshot to apps/$app/$SNAPSHOT_DIR"
+    return 0
+  fi
+
+  rm -rf "$snapshot"
+  mkdir -p "$snapshot"
+  (cd "$app_dir" && npx wrangler deploy --env "$env_name" --dry-run --outdir "$SNAPSHOT_DIR/worker")
+
+  # The emitted entry is `main`'s basename with a `.js` extension — `worker.ts`
+  # becomes `worker.js`, `index.ts` becomes `index.js` — so it is DERIVED from
+  # the config rather than assumed, and then checked. A runner handed a path that
+  # does not exist fails with an ENOENT naming nothing.
+  local main entry
+  main="$(toml_value "$app_dir/wrangler.toml" "" main)"
+  entry="$(basename "${main%.*}").js"
+  if [[ ! -f "$snapshot/worker/$entry" ]]; then
+    echo "bin/deploy: the bundle did not produce $SNAPSHOT_DIR/worker/$entry" >&2
+    echo "            (main = '$main' in apps/$app/wrangler.toml)" >&2
+    exit 1
+  fi
+
+  local assets assets_rel="null"
+  assets="$(toml_value "$app_dir/wrangler.toml" "env.$env_name.assets" directory)"
+  if [[ -n "$assets" ]]; then
+    if [[ ! -d "$app_dir/$assets" ]]; then
+      echo "bin/deploy: [env.$env_name.assets] names '$assets', which does not exist." >&2
+      echo "            Run bin/build (or 1c assets) first — the Worker serves what it builds." >&2
+      exit 1
+    fi
+    cp -R "$app_dir/$assets" "$snapshot/assets"
+    assets_rel='"assets"'
+  fi
+
+  # THE CONTRACT BETWEEN THIS SCRIPT AND THE RUNNER, and the reason the runner
+  # guesses at nothing: it reads the entry path, the assets directory and the
+  # environment out of here rather than re-deriving them from a config this
+  # script has already read. It is also what lets `1c dev serve` say WHEN what it
+  # is serving was built, which is the question a frozen environment invites.
+  cat >"$snapshot/snapshot.json" <<JSON
+{
+  "app": "$app",
+  "env": "$env_name",
+  "worker": "$name",
+  "entry": "worker/$entry",
+  "assets": $assets_rel,
+  "deployedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "commit": "$(git -C "$repo_root" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+}
+JSON
+  echo "    snapshot: apps/$app/$SNAPSHOT_DIR (entry worker/$entry)"
 }
 
 run_hooks() {
@@ -259,6 +421,7 @@ run_hooks() {
     DEPLOY_APP="$app" \
       DEPLOY_APP_DIR="$app_dir" \
       DEPLOY_ENV="$env_name" \
+      DEPLOY_TARGET="$target" \
       DEPLOY_WORKER_NAME="$name" \
       DEPLOY_DRY_RUN="$dry_run" \
       DEPLOY_REPO_ROOT="$repo_root" \
@@ -274,6 +437,20 @@ run_hooks() {
 capability_report="$(mktemp "${TMPDIR:-/tmp}/deploy-capability.XXXXXX")"
 trap 'rm -f "$capability_report"' EXIT
 
+target="$(ship_target "$env_name")"
+
+# THE STORE IS GUARDED ON ENTRY ([[REQ-318]], [[REQ-316]]), and the placement is
+# the whole of it: the FIRST thing a local deploy does is run the migrate hook
+# against `.wrangler/state`, and that store is workerd's own — workerd migrates
+# its schema forward silently and one-way the first time it opens it, so a tree
+# with two runtimes in it loses data rather than reporting an error. This
+# environment holds the only copy of the dev data (EPIC-16 §K2/§M1), so the check
+# runs before any hook rather than as a diagnosis afterwards. The cloud target
+# opens no local store and is not gated.
+if [[ "$target" == "local" ]]; then
+  "$repo_root/bin/1c" workerd --quiet
+fi
+
 if [[ $dry_run -eq 1 ]]; then
   echo "DRY RUN — hooks are told not to change anything, and nothing is uploaded."
   echo "Capability probes are reads, so they run anyway and report as usual."
@@ -285,17 +462,21 @@ for app in "${targets[@]}"; do
   name="$(worker_name "$app_dir" "$env_name")"
   [[ -n "$name" ]] || name="$app"
 
-  step "$app → $name (--env $env_name)"
+  step "$app → $name (--env $env_name, $target)"
   run_hooks migrate "$app" "$app_dir" "$name"
   run_hooks secrets "$app" "$app_dir" "$name"
 
-  # Composed once. --dry-run is appended to the SAME command line the real
-  # deploy uses, so the two cannot drift apart.
-  cmd=(npx wrangler deploy --env "$env_name")
-  if [[ $dry_run -eq 1 ]]; then
-    cmd+=(--dry-run)
+  if [[ "$target" == "local" ]]; then
+    ship_local "$app" "$app_dir" "$name"
+  else
+    # Composed once. --dry-run is appended to the SAME command line the real
+    # deploy uses, so the two cannot drift apart.
+    cmd=(npx wrangler deploy --env "$env_name")
+    if [[ $dry_run -eq 1 ]]; then
+      cmd+=(--dry-run)
+    fi
+    (cd "$app_dir" && "${cmd[@]}")
   fi
-  (cd "$app_dir" && "${cmd[@]}")
   deployed+=("$name")
 done
 
@@ -318,5 +499,9 @@ for name in "${deployed[@]}"; do
 done
 
 if [[ $dry_run -eq 0 ]]; then
-  printf '\nNow prove it serves:  bin/smoke\n'
+  if [[ "$target" == "local" ]]; then
+    printf '\nNow serve it:  bin/dev serve\n'
+  else
+    printf '\nNow prove it serves:  bin/smoke\n'
+  fi
 fi

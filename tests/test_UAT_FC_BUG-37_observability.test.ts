@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { parseWranglerConfig } from './support/wrangler-toml'
+import { declaringBlocks, parseWranglerConfig } from './support/wrangler-toml'
 
 /**
  * BUG-37 — the builder Worker keeps its invocation logs.
@@ -27,18 +27,20 @@ describe('BUG-37 — invocation logs are retained', () => {
   const toml = readFileSync(TOML, 'utf8')
 
   it('test_UAT_FC_BUG-37_observability_is_declared_at_both_levels', () => {
-    // AC-7. Two blocks, and the count is the assertion — one of them is the one
-    // that silently goes missing.
+    // AC-7. One block per environment plus the top level, and the count is the
+    // assertion — one of them is the one that silently goes missing. Counted
+    // rather than written down ([[REQ-318]]): the rule is 'every block restates
+    // it', and a literal 2 was pinning how many environments there are.
     expect(toml.match(/^\[observability\]$/gm)).toHaveLength(1)
     expect(toml.match(/^\[env\.production\.observability\]$/gm)).toHaveLength(1)
-    expect(toml.match(/^enabled = true$/gm)).toHaveLength(2)
+    expect(toml.match(/^enabled = true$/gm)).toHaveLength(declaringBlocks(toml))
   })
 
   it('test_UAT_FC_BUG-37_every_invocation_is_sampled', () => {
     // AC-8. A sampled log is a log that is missing exactly the request you came
     // to read. This Worker serves one operator, so the volume argument for
     // sampling does not apply and the rate is pinned rather than left to default.
-    expect(toml.match(/^head_sampling_rate = 1$/gm)).toHaveLength(2)
+    expect(toml.match(/^head_sampling_rate = 1$/gm)).toHaveLength(declaringBlocks(toml))
   })
 
   it('test_UAT_FC_BUG-37_the_production_route_survives_the_new_table', () => {

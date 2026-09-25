@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import { declaringBlocks } from './support/wrangler-toml'
 
 /**
  * REQ-192 — **the seed is one command, and it is local by default**.
@@ -115,8 +116,8 @@ describe('REQ-192 — the seed command', () => {
   it('test_UAT_FC_REQ-192_the_seed_names_the_configured_tenant', () => {
     const toml = fs.readFileSync(WRANGLER, 'utf8')
     const declared = [...toml.matchAll(/^TENANT_ID\s*=\s*"([^"]+)"/gm)].map((m) => m[1])
-    expect(declared, 'TENANT_ID is declared in both blocks').toHaveLength(2)
-    expect(new Set(declared).size, 'both blocks name the same business').toBe(1)
+    expect(declared, 'TENANT_ID is declared in every block').toHaveLength(declaringBlocks(toml))
+    expect(new Set(declared).size, 'every block names the same business').toBe(1)
     expect(sql).toContain(declared[0])
   })
 

@@ -227,6 +227,15 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
+      // BUG-143 — a run naming a backing surface the document does not declare.
+      backingSurfaceExists: refusals(
+        page({
+          root: {
+            kind: 'box',
+            children: [{ kind: 'text', text: 'a', backedBy: 'section-band-404' }],
+          },
+        } as Partial<L1Document>),
+      ),
       allowedUrlScheme: refusals(
         page({
           root: { kind: 'image', src: 'javascript:alert(1)', alt: '' },

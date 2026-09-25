@@ -203,3 +203,59 @@ name = "LEAD_RATE_LIMIT"
 type = "ratelimit"
 namespace_id = "2231"
 simple = { limit = 20, period = 60 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# THE LOCAL DEV ENVIRONMENT ([[REQ-318]], [[EPIC-16]] §K).
+#
+# NEVER UPLOADED. `bin/deploy`'s target table maps `dev` to the LOCAL target,
+# which bundles to `apps/<app>/.dev-snapshot/` and ships nothing. It is declared
+# here as well as in the control app because `bin/deploy --env dev` with no app
+# named deploys EVERY app in `apps/*/`, and an app without the environment would
+# stop that with *"No environment found in configuration with name 'dev'"*.
+#
+# NO `routes` AND `workers_dev = false`. Both exist to reach this Worker from the
+# internet and nothing here ever is; `workers_dev` is on wrangler's INHERITED
+# list, so the top-level `true` would otherwise reach this block — which is
+# [[EPIC-16]] §J5.2's trap, disarmed by stating it rather than by remembering it.
+#
+# THE SAME STORE AND THE SAME SERVICE TARGETS, for the reason the control app's
+# own block gives: there is ONE local dev environment holding the only copy of
+# the dev data. The service bindings name the DEV control app, because a lead
+# captured here must not be written by a Worker that this deploy never touched.
+[env.dev]
+name = "1stcontact-public-site-dev"
+workers_dev = false
+
+[env.dev.vars]
+APEX_SITE_KEY = ""
+SESSION_COOKIE_NAME = ""
+SESSION_COOKIE_DOMAIN = ""
+TURNSTILE_SITEKEY = ""
+
+[[env.dev.r2_buckets]]
+binding = "SITES"
+bucket_name = "1stcontact-sites"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "1stcontact"
+database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+
+# `1stcontact-control-app-dev`, NOT `1stcontact-control-app` ([[EPIC-16]] §J4).
+# The positional is a Worker NAME, so naming production's here would have a dev
+# lead land in production's database through a Worker no dev deploy ever ships.
+[[env.dev.services]]
+binding = "LEAD_INTAKE"
+service = "1stcontact-control-app-dev"
+entrypoint = "LeadIntake"
+
+[[env.dev.services]]
+binding = "ASSET_GATE"
+service = "1stcontact-control-app-dev"
+entrypoint = "AssetGate"
+
+[[env.dev.unsafe.bindings]]
+name = "LEAD_RATE_LIMIT"
+type = "ratelimit"
+namespace_id = "2231"
+simple = { limit = 20, period = 60 }

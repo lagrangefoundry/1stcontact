@@ -1474,6 +1474,24 @@ export const l1TextSchema = z
     action: l1ActionSchema.optional(),
     /** REQ-269 — the heading role; the renderer is the sole `<h1>`…`<h6>` sink. */
     heading: l1HeadingSchema.optional(),
+    /**
+     * BUG-143 — the id of the **backing surface this run sits on**: the
+     * fold-synthesized `box` (a section band, a card) that is painted behind it.
+     *
+     * It exists because the relationship existed NOWHERE before, and a
+     * relationship that exists nowhere cannot be asserted. At rest a panel and
+     * the runs on it line up only because their coordinates coincide, so every
+     * probe that wanted to ask "does this surface still cover what it backs"
+     * first had to GUESS the pairing from containment — and a guess is not a
+     * gate. The fold knows the answer outright: the capture resolves which
+     * ancestor paints each run's surface, and the band/card reconstruction is
+     * built from exactly those rows. This is that knowledge, written down.
+     *
+     * Inert at render time — it names a relation, not a paint axis. It is read by
+     * the geometry envelope (`probes.ts`, the `escape` finding) and, once a
+     * surface really contains its content structurally, by whatever replaces it.
+     */
+    backedBy: z.string().optional(),
   })
   .strict()
 

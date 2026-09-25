@@ -43,6 +43,11 @@ export {
   contentRobustnessProbe,
   onSampleProbe,
   acceptanceGate,
+  // BUG-143 — the surface→run backing the containment assertion is made against,
+  // and the two sampling sets the envelope probes derive from the capture.
+  deriveSurfaceBacking,
+  envelopeHeights,
+  offSampleWidths,
   promoteToFlow,
   // REQ-278 — the served-document choice, made once for `repro` and the gate.
   chooseRecovery,
@@ -53,6 +58,7 @@ export {
   type LayoutFinding,
   type LayoutResult,
   type EvaluateOptions,
+  type SurfaceBacking,
   type OracleSource,
   type OracleBox,
   type SampleFidelityReport,

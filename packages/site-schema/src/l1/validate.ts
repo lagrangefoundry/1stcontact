@@ -157,6 +157,8 @@ export const L1_STRUCTURAL_RULES = {
   actionTargetsDialog: 'an action must name a node that carries `dialog`',
   /** A node either navigates somewhere or acts on this page, so `link` and `action` cannot both be present: which one wins would be a property of the renderer rather than of the document. */
   actionOrLink: 'a node cannot carry both `link` and `action`',
+  /** BUG-143 — a run's `backedBy` names the surface painted behind it, and the geometry envelope asserts that surface still covers the run; a name nothing answers to is an assertion that silently never runs. */
+  backingSurfaceExists: 'a `backedBy` must name a node the document declares',
 } as const
 
 /**
@@ -1181,6 +1183,26 @@ export function validateL1(
     kids.forEach((c, i) => scanIds(c, `${path}/children/${i}`))
   }
   scanIds(doc.root, '/root')
+
+  // BUG-143 — a `backedBy` names the surface painted behind a run, and the
+  // geometry envelope asserts that the surface still covers it under
+  // perturbation. A dangling name is not a harmless typo: it is an assertion that
+  // silently never runs, which is the exact failure mode this axis was added to
+  // close. Checked here, over the same `seenIds` index the uniqueness rule built,
+  // because the surface may be authored anywhere in the tree (the fold emits every
+  // band and card before the content that sits on them).
+  const scanBacking = (node: L1Node, path: string): void => {
+    const backedBy = (node as { backedBy?: unknown }).backedBy
+    if (typeof backedBy === 'string' && !seenIds.has(backedBy)) {
+      errors.push({
+        path: `${path}/backedBy`,
+        message: `${L1_STRUCTURAL_RULES.backingSurfaceExists} — no node declares id '${backedBy}'`,
+      })
+    }
+    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+    kids.forEach((c, i) => scanBacking(c, `${path}/children/${i}`))
+  }
+  scanBacking(doc.root, '/root')
 
   // REQ-212 — the modal rules. All three need the WHOLE document (an action may
   // name a panel authored anywhere in the tree, above it or below it), so they
