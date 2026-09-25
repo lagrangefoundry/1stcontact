@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T21:37:45.681845+00:00'
+updated_at: '2026-09-25T22:03:57.970152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2589,5 +2589,13 @@ The transcript auto-scroll keys on the per-iteration `<pre>`'s own `scrollTop`, 
 The only real collateral is prose: `[clear history]` says the iterations "above are moved aside" and the restart line says it "appends to the chain below" — both become misleading, and the ticket lists them.
 
 Ticket's in `draft`, nothing cut or coded. Say the word and I'll build it — or if you'd rather it go to its own session, it's ready to pick up as-is.
+
+<!-- xgd-turn id="4f036b64-e725-41dc-95a9-2074f0eabad2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T22:03:57.901699+00:00" -->
+#### You
+[[BUG-120]] deliberately put the continuation group *after* the list <-- they should go after the last iteration - but the thing is you push the bottom and then have to scroll to the top to see what's happening is very odd - can you create a ticket for this please?
+
+Question: can I repro two pages concurrently? Do need to start two servers for this.
 
 <!-- xgd-chat-end -->
