@@ -6,9 +6,9 @@ title: 'repro console / xgd: the round is told to append to an existing class ti
   and all five such tickets are frozen against appends'
 created_by: repro-console:repro-gigabytealchemy-ai#5
 created_at: '2026-09-23T02:35:21.574251+00:00'
-updated_at: '2026-09-23T02:35:21.574251+00:00'
+updated_at: '2026-09-25T02:04:33.841951+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -107,3 +107,109 @@ Appended the iteration-5 re-measurement of REQ-302's issues 2 and 4 as **COMMENT
 on REQ-302, with the round marker in the payload and named in the comment's own first
 line, and reported the gap ticket it did file ([[REQ-308]]) separately. Both facts are in
 the round's closing block rather than one being silently dropped.
+
+
+---
+
+## Investigation, and the behaviour this ticket asks for
+
+Both halves above reproduce unchanged. All five class tickets are still at
+`ready_to_reconcile`; `xgd ticket add-comment` still has no `--created-by`
+(`xgd_source/cli/ticket_commands.py`, the `add-comment` parser), while
+`xgd ticket create` has carried one since BUG-1332. A `--fields
+'{"created_by":…}'` lands in `fields.payload` because `comment_create` funnels
+every unrecognised key there.
+
+### The root cause is a permanence mismatch
+
+`gap-tickets.json` is a **permanent** registry — `readGaps` returns every entry
+ever recorded, and the prompt's "Classes that already have a ticket" block
+renders all of them unconditionally as *append to that ticket, do not file a
+second one*. The body it points at is **not** permanently writable. Only
+`draft`, `free_coding`, `free_coded` and `failed` accept a body append; every
+other status freezes `body`/`title`. So a class ticket is appendable for a short
+window and unappendable **forever** afterwards, including after it is
+successfully reconciled. "All five are frozen" is not bad luck, it is the steady
+state every class ticket converges to.
+
+A second consequence: a class whose ticket is already resolved still tells the
+round not to file. A recurrence of a supposedly-fixed class — the most
+interesting signal this loop can produce — currently has nowhere to go.
+
+### And a successful append would still be reported as a violation
+
+`confirm()` runs the identical read-back for `filed` and `appended`, against a
+ticket that in the append case was filed by an **earlier** round and has since
+moved on. Three checks then fire on a round that did exactly as it was told:
+
+- the `status !== draft` check fires on all five, with the rider "a ready_*
+  status is a dispatcher trigger", which the round neither caused nor can undo;
+- the provenance check fires on REQ-265, whose `created_by` is the operator's
+  address because the operator filed it;
+- the defect-class check fires on REQ-265, REQ-269, REQ-270 and REQ-271, none of
+  which carry the field — they predate it.
+
+`filedByRound` was deliberately loosened for exactly this case and says so; the
+status and class checks never got the same treatment. So naming the comment
+route in the brief is **not sufficient on its own** — it makes `"status":
+"appended"` mechanically reachable and the console then reports the round for
+reaching it.
+
+### Behaviour
+
+**1. The brief names the comment as the append route.** §6 gains a subsection,
+and §7's `appended` example matches it. It states the command —
+`xgd ticket add-comment <id> --kind note --body-file <f>` — and states that a
+ticket outside `draft`/`free_coding`/`free_coded`/`failed` refuses a body
+append, so on such a ticket the comment **is** the append. Because `add-comment`
+has no `--created-by`, the brief requires the round to write its
+`repro-console:<slug>#<n>` marker as the comment's own first line, and says why:
+that line is the only place the round's identity survives on this route.
+
+**2. The prompt carries each class ticket's live status, and the route that
+follows from it.** Before building the prompt the console reads each registry
+ticket back and sorts it into one of three routes, which the prompt states per
+class beside the id:
+
+- **append** — the ticket is at `draft`, `free_coding`, `free_coded` or
+  `failed`: the body is writable, so `xgd ticket append` is the route, and the
+  round reports `"status": "appended"`.
+- **comment** — the ticket is in flight (any `ready_*`, `in_progress`,
+  `bundled`, `reconciling`, `merging_back`, `error`): the body is frozen, so the
+  comment is the append, and the round still reports `"status": "appended"`.
+- **new ticket** — the ticket is settled (`free_and_reconciled`, `merged`,
+  `implemented`, `fixed`, `legacy_done`, `abandoned`, `wont_fix`, `deprecated`):
+  this class was disposed of and the recurrence is news, not an append. The
+  round files a **new** ticket that cites the old id in its body, and reports
+  `"status": "filed"`.
+
+A ticket the console cannot read back is shown as unknown and routed to
+**comment** — the one route that is never refused, so an unreadable registry
+entry costs a comment rather than the finding.
+
+**3. `confirm()` charges the round only for what it is responsible for.** A
+`filed` round is checked exactly as today. For an `appended` round the named
+ticket is read back for **existence only**: its status, its `created_by` and its
+`defect_class` are properties of an earlier round's ticket and are not
+violations of this one. `bugTickets` are still checked in full on both paths,
+because the round created those.
+
+What an `appended` round **is** checked for is evidence that the append
+happened: a comment on the named ticket whose body carries this round's
+`repro-console:<slug>#<n>` marker. Absent, the console reports it, naming the
+marker it looked for — so "appended" stops being an unverified claim and becomes
+a read-back like every other.
+
+**4. A deliberate re-file against a settled class is not a duplicate.** The
+"one ticket per gap class" check reports a round that filed a second ticket for
+a class that already had one. When the class's recorded ticket is at a settled
+status, filing a second one is what behaviour 2 told the round to do, so it is
+not reported. The registry succeeds the class to the new id and keeps the old
+one in a `priorTicketIds` list, so the class's history stays readable and no id
+is silently dropped.
+
+### Out of scope, filed separately
+
+`xgd ticket add-comment --created-by`, written to the comment's own frontmatter,
+is a change to the `xgd` CLI and belongs in that repository. Behaviour 1's
+first-line marker is the in-repo answer that does not depend on it.
