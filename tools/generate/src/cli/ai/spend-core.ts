@@ -256,31 +256,76 @@ export interface TurnFacts {
 
 /**
  * Fold the library's `turnSpend(meta)` and the host's own facts into one record
- * — or `null` for a turn that measured nothing.
+ * — or `null` for a turn that neither measured anything nor caused anything
+ * elsewhere.
  *
- * THE `null` IS THE WHOLE OF "a turn that measured nothing writes no record",
- * decided here rather than at the call site, so every host gets the rule rather
- * than every host restating it. A backend that reports no usage at all — and one
- * whose turn failed before a request went out — must not be made to look free.
+ * THE `null` IS THE WHOLE OF "a turn that accounted for nothing writes no
+ * record", decided here rather than at the call site, so every host gets the
+ * rule rather than every host restating it. A backend that reports no usage at
+ * all — and one whose turn failed before a request went out — must not be made
+ * to look free.
+ *
+ * TWO REASONS TO EXIST, NOT ONE ([[BUG-145]]). The caller's own counters were
+ * the whole gate, and `attributed` is a FIELD of the row they gate — so a turn
+ * that handed work to a worker and then died before its own terminal meta
+ * arrived took the worker's bill down with it. That is not a rare shape: the
+ * delegation surface accounts for its worker on every exit path (REQ-295), and
+ * the caller's meta arrives on exactly one. Measured on the dev environment,
+ * half of every worker that has ever run was invisible to the meter for this
+ * reason alone.
+ *
+ * SO A ROW MAY NOW HAVE FOUR ZERO COUNTERS, and it is not a turn claimed to be
+ * free. It says *"this turn caused measured spend elsewhere, and none of its
+ * own was observed"* — a fact, and a different one from zero. What disclaims it
+ * is {@link TurnSpendRecord.costMicros}, which is `null` here rather than the
+ * `0` the arithmetic would otherwise settle on: the same "nothing, never zero"
+ * rule as ever, one column over from where it used to be applied. `requests` is
+ * `0` honestly — none were observed — and `outcome` carries the turn's real end
+ * (`error`, `aborted`), which is what makes such a row legible rather than
+ * mysterious.
+ *
+ * THE COUNTER COLUMNS STAY `NOT NULL` AND TAKE `0`, rather than the schema
+ * widening to nullable. A migration would buy a second way to spell the same
+ * absence, and the row is already unambiguous without one — `cost_micros IS
+ * NULL` is what a reader tests, and it is the column that was already nullable
+ * for the neighbouring reason (an unpriced pair).
+ *
+ * A READER THAT SUMS THE FOUR COUNTERS IS UNAFFECTED; a reader of `attributed`
+ * stops losing half its subject. The one figure that does move is REQ-293's
+ * `unpricedTurns`, which now counts these beside the genuinely unpriced pair it
+ * was named for — stated because it is a real widening of that alarm's meaning
+ * and not worth a column of its own at this volume.
  *
  * `spend` is exactly what `turnSpend` returns: `{}` for a turn that reported
- * nothing, `{usage, requests}` otherwise. Anything else on the terminal meta is
- * not spend and is not read here.
+ * nothing, `{usage, requests}` otherwise — plus `attributed`, which the host
+ * merges in from the junction because the terminal event does not carry it.
+ * Anything else on the terminal meta is not spend and is not read here.
  */
 export function turnSpendRecord(
   spend: Record<string, unknown>,
   facts: TurnFacts,
 ): TurnSpendRecord | null {
   const usage = countersOf(spend.usage)
-  if (!measured(usage)) return null
-  const requests = Array.isArray(spend.requests) ? spend.requests.length : 0
   const attributed = Array.isArray(spend.attributed) ? (spend.attributed as unknown[]) : null
+  // NON-EMPTY, AND NOT MERELY PRESENT. `[]` is what a host that composed the
+  // delegation surface and delegated nothing hands over, which is the ordinary
+  // turn — a row for it would be the zero this rule exists to refuse.
+  const caused = attributed !== null && attributed.length > 0
+  const own = measured(usage)
+  if (!own && !caused) return null
+  const requests = Array.isArray(spend.requests) ? spend.requests.length : 0
   return {
     ...facts,
     requests,
     usage,
     attributed,
-    costMicros: costMicros(usage, facts.backend, facts.model),
+    // THE CALLER'S OWN COST, WHICH IS WHY IT IS `null` AND NOT `0` WHEN THE
+    // CALLER MEASURED NOTHING. `costMicros` over four zeros would settle at
+    // exactly zero for any priced pair, and a stored `0` is a claim that this
+    // turn was free — the one thing a meter must never say. What the worker
+    // cost is priced from `attributed`, against its OWN key, by
+    // {@link attributedSpend}.
+    costMicros: own ? costMicros(usage, facts.backend, facts.model) : null,
   }
 }
 
