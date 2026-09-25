@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-143
 created_by: xgd
 created_at: '2026-09-25T04:44:37.634512+00:00'
-updated_at: '2026-09-25T17:25:49.224738+00:00'
+updated_at: '2026-09-25T20:09:43.655824+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -179,5 +179,14 @@ Exactly my files staged — no foreign edits included. Committing.
 Committed `26f5491165`. Now moving the ticket to `free_coded`.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="49848802-cc4d-4708-b576-845775dea170-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T20:09:43.305875+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
