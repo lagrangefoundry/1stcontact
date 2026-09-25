@@ -5,16 +5,24 @@ type: request
 title: bin/dev up starts the deployed environment, and bin/build builds the KB
 created_by: EPIC-16
 created_at: '2026-09-25T20:40:56.921470+00:00'
-updated_at: '2026-09-25T23:26:30.537529+00:00'
+updated_at: '2026-09-25T23:43:24.649633+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-82c5521c
+  commits:
+  - working_sha: 7cff8ecd4575f84b83f2d441207674b0cd40461a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 78de28723ff1cae88213c72593d3a2b93634f4ae
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.368
 ---
 
 ## What the operator asked for
