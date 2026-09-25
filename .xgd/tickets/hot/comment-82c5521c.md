@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-322
 created_by: xgd
 created_at: '2026-09-25T22:11:17.053232+00:00'
-updated_at: '2026-09-25T23:26:32.923431+00:00'
+updated_at: '2026-09-25T23:28:18.890892+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,14 @@ Now `bin/kb-release` as a caller of the same stage:
 Now the KB stage tests:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="e7240c76-f947-4754-b460-aa6405871f3a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:28:17.508717+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
