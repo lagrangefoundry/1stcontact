@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-320
 created_by: xgd
 created_at: '2026-09-25T22:11:30.579559+00:00'
-updated_at: '2026-09-25T22:44:00.214054+00:00'
+updated_at: '2026-09-25T22:54:55.242352+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,6 +55,15 @@ Now merge back under the lock:
 <!-- xgd-turn id="79113e51-cf0e-4cc2-bd22-42a5033a9a80-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-25T22:43:58.869709+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a149b154-47ad-4470-8d2e-27d04b2d1b4f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T22:54:53.372072+00:00" -->
 #### You
 please complete the free-coding of this ticket
 
