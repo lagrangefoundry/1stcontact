@@ -5,15 +5,15 @@ type: request
 title: bin/dev up, down and reap, and 1c ps to see what is running
 created_by: EPIC-16
 created_at: '2026-09-25T02:04:22.932236+00:00'
-updated_at: '2026-09-25T04:31:27.136113+00:00'
+updated_at: '2026-09-25T04:31:34.811868+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
   needs_review: false
   auto_merge_back: true
-  story_points: 3
+  story_points: 5
   epic_parent: epic-96d8aca6
   chat_comment: comment-be8a438f
   commits:
