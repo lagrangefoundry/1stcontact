@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-25T23:13:43.213080+00:00'
+updated_at: '2026-09-25T23:15:35.599037+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1151,3 +1151,19 @@ observation stands: at 22:35 the dev server built against a root `package.json`
 holding `<<<<<<< HEAD` and failed outright (`Expected string in JSON but found
 "<<"`), so a half-finished merge in the served checkout can break the builder
 rather than only restart it.
+
+
+**And the premise that made this a surprise: the frozen dev environment exists
+and is not what `bin/dev up` serves.** [[REQ-318]] landed (`eea3301a13`, on
+`xgd-working`): `bin/deploy --env dev` bundles to `apps/<app>/.dev-snapshot/` and
+`1c dev serve` runs `wrangler dev --no-bundle` against it on **8789**, so editing
+a source file changes nothing about what is served until the next deploy — the
+immune boundary Finding 10 asks for. `bin/dev up` DOES build that snapshot
+(`.dev-snapshot/` mtime 21:40:07, from the deploy step), and then starts
+`bin/1c builder` — plain `wrangler dev` on 8788, watching the tree — and never
+`1c dev serve`. Nothing was listening on 8789 during the incident; 8788 was, and
+it restarted four times in thirteen minutes. So the operator was on the watching
+builder while believing he was on the frozen one, which is why a merge three
+minutes into his turn could reach him at all. Same shape as this epic's other
+adoption gaps: the capability is built, and the path everyone actually runs does
+not use it.
