@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T04:06:41.036307+00:00'
+updated_at: '2026-09-25T04:11:31.269265+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1767,5 +1767,72 @@ Each of those was: decision already made, spec statable in three sentences, work
 One caveat worth your knowing: a worker can't ask you anything. So it only works where the answer is fully settled — which is exactly why the overline saga was the wrong candidate until the fourth attempt, and the right one immediately after.
 
 Question: could we run delegates in parallel to speed things up?
+
+<!-- xgd-turn id="ae0f288d-30fb-4744-87cc-cd8ab7ce41d1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T04:11:31.069117+00:00" -->
+#### Claude
+This feedback is important evidence, and one part of it is checkable — and contradicts itself against my data. Let me verify before I answer.
+
+Six delegations ever, and the acceptance record changes the picture. Let me pull the failure reasons and check the fan-out question properly.
+
+Two 09-22 workers did the work and reported passing checks, yet both recorded `accepted: False`. That needs explaining — it may be the whole cause.
+
+The `accepted` flag is `checks.every(verdict === 'passed')`. Let me read how a worker's answer gets paired to a requested check — that's the crux.
+
+`reconcile` pairs by exact normalised string — the worker must echo the check verbatim. Let me verify that's what sank the two working delegations.
+
+Definitive. Recording this — it changes REQ-321's premise, so I won't leave that ticket standing on a claim I've now disproved.
+
+**Direct answer: no, not today — and I found something that matters more.**
+
+## Parallel delegation
+
+`Delegate` takes one `goal`, one `role`, one `accept` list. The surface's own prose says *"A brief that needs several stages is several delegations from here."* The two-workers-in-one-turn pattern on 09-22 was **two sequential calls**, 14:41 and 14:43 back to back — `worker-builder-1`/`-2` is a counter, not a slot.
+
+It's an extension rather than a rewrite, though: the result already carries an **`items` array**, one entry per worker, which has only ever held one entry. The shape anticipates fan-out.
+
+The prize is real. Measured durations: **37s, 98s, 121s, 154s, 174s, 253s**, mean ~140s. Five sequential delegations of a repetitive pass ≈ 12 minutes; five concurrent ≈ 3. That's the largest speed-up available in this epic.
+
+The blocker is concurrent writes to one site, and it's an engineering question, not a schema one. `site_revision_claims` is keyed `(site_id, id)` so two workers claim distinct revisions — but whether interleaved `set_l1` writes to the same page compose, and what happens when two workers touch the same element, has to be established first. Natural first cut: fan-out restricted to **disjoint pages**, which is exactly the comparison-page shape that started this.
+
+## The consultant's account is sincere and substantially wrong
+
+Six delegations ever. **One accepted.** And three of the five failures weren't failures.
+
+| when | worker | outcome | checks asked | accepted |
+|---|---|---|---|---|
+| 09-22 14:41 | q73amk | reported | 1 | false |
+| 09-22 14:43 | tql0pf | reported | 1 | false |
+| 09-22 15:45 | u4ej95 | reported | 1 | false |
+| 09-22 15:49 | qen037 | **silent** | 1 | false |
+| 09-22 16:07 | ya6wkq | reported | 1 | false |
+| 09-24 11:54 | msskzt | reported | **6** | **true** |
+
+Two were the REQ-300 wall it remembers — every write refused with *"Page 'stylea' has no L1 document"*. Genuine, and shipped since.
+
+But **`u4ej95` and `ya6wkq` did the work correctly and were recorded as having failed.** `reconcile` pairs the caller's checks to the worker's report by exact normalised string. On all five 09-22 delegations the consultant passed **one `accept` entry containing several concatenated checks** — *"The page `home` has zero changes… The page `styleb` has zero changes… The la…"*. A worker answering those as separate items can never match it.
+
+| delegation | asked | reported passed | **exact pairs** |
+|---|---|---|---|
+| u4ej95 | 1 compound | 4 | **0 of 1** |
+| ya6wkq | 1 compound | 6 | **0 of 1** |
+| msskzt | **6 discrete** | 6 | **6 of 6** |
+
+**The whole difference between "delegation never works" and "delegation works" was one concatenated check string versus six discrete ones.** The consultant has since learned to write discrete checks — today's brief is textbook — but it doesn't know that's what changed, so what it reports to you is that workers come back with nothing.
+
+I also owe you a correction: I told you earlier "when it is used, it works." That generalised from today's n=1. It's 1 of 6.
+
+## Consequences
+
+I've put a **HOLD** on REQ-321. It reasons from "the consultant won't delegate, so take the tools away" — but the unwillingness is earned, from an 83% rejection rate that was mostly an artifact. Compelling use of a mechanism with that record is the wrong order. I've also recorded that the consultant's own boundary is better than mine: *settled decision landing in several places → worker; one edit, or any question of what the page should say or be → stays.* Framed on what's **settled** rather than what's **numerous** — which is the distinction that matters, because a worker can't ask you anything. My element-authoring cut couldn't tell those apart and would have forced the four-attempts-at-one-rule work through a worker that can't ask questions.
+
+The defect isn't the exact-match rule — that direction is right, since a worker dropping a check mustn't look like it passed. It's that **an `unreported` verdict is invisible**: it collapses into an `accepted: false` identical to a botched job, so the caller can't tell "I asked badly" from "the worker failed".
+
+Three things I'd file, in this order — say which you want:
+
+1. **BUG** — unreported checks indistinguishable from failures; caller can't see per-check verdicts, and a multi-sentence `accept` entry should be refused or split where the caller can still fix it.
+2. **REQ** — parallel fan-out, scoped to disjoint pages first.
+3. **Re-test** delegation now REQ-300 has shipped — no ticket needed, it's the next repetitive pass.
 
 <!-- xgd-chat-end -->
