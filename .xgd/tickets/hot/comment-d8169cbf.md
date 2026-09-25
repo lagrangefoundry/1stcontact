@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T23:22:02.460228+00:00'
+updated_at: '2026-09-25T23:27:13.103693+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3987,5 +3987,30 @@ All of this is Finding 12 on EPIC-19, with the measurements. **No ticket filed y
 ok so I need bugs for A and B and this mess with dev up etc.
 
 Lets be really clear I want all the stuff that starts up servers that read the changing code base deleted - I need to know what I'm running that was the whole point of buidling the dev server and I still don't even when I start it up as instructed it is running the wrong thing. That last ticket should be a child of EPIC-16
+
+<!-- xgd-turn id="55513572-80a9-4554-baa2-43d4ce71a8d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:27:11.868302+00:00" -->
+#### Claude
+Three tickets. Let me check for duplicates and find EPIC-16 first.
+
+Now the three tickets. Writing bodies first.
+
+All three filed.
+
+**[[BUG-149]] — Defect A** (child of EPIC-19, priority high)
+*Builder chat: the durable junction never writes, because the Durable Object stub is cached across requests.* `DurableJunctionStorage` captures the stub in its constructor; workerd refuses an I/O object from another request's context; `prepare` catches, `adopted` goes false, `queue()` returns early — so REQ-307 is live only on the first request a fresh isolate handles. Carries the measurement (4 of 17 post-seed turns reached the object, the per-prompt table showing 21:43/21:50 dropped → 21:55 restart → 22:02 landed → 22:20 dropped) and a three-part fix: obtain the stub per use, drain inside the issuing request, and stop the degradation being silent.
+
+**lagrange-framework BUG-69 — Defect B** (upstream, priority high)
+*`SessionManager.transcript()`: a junction that exists hides an archive that is ahead of it.* The archive is read only `if (!log.exists())`, so a well-formed but stale junction returns 89 turns while 102 sit intact beside it — and the same records feed `seedDialogue`, so the model forgets what the panel forgets. Three fix shapes in preference order, with the requirement that the panel's view and the backend's dialogue come from one decision.
+
+**[[BUG-150]] — the dev server** (child of EPIC-16, priority high)
+*`bin/dev up` starts the watching builder, not the frozen snapshot it just built — and every server that reads the changing tree should be deleted.* Both halves you asked for, stated as deletion rather than deprecation: `pnpm dev`, `pnpm dev:control`, `pnpm dev:public`, `apps/public-site`'s own `dev`, and `1c builder` as an entry point all go; `bin/dev up` serves `.dev-snapshot/` for both apps with access-sim pointed at it. I added a third requirement from your words — **starting the environment must print what it is serving and when that was deployed**, every time, so "what am I running" is answered by the thing you ran rather than by a second command.
+
+Worth knowing: this was already scoped. EPIC-16 §L1 records you settling it — *"everything we have goes… but the deletion is a separate step so the replacement can be proved first"* — and `ps.ts` carries `// builder's on purpose (EPIC-16 §L1): the old path is retired in a later step`. §M then says retirement is "deliberately unfiled… filed when REQ-318 and REQ-319 are trusted." Both landed; nobody filed it. What the sequencing didn't anticipate is that leaving the old path reachable meant `bin/dev up` kept *starting* it — so the snapshot got built on every start and served on none. I recorded that as EPIC-16 §O with the measurements, and the three filings as a closing block on EPIC-19's Finding 12.
+
+Ordered by what they cost: **BUG-150 stops the restarts, BUG-149 makes a restart survivable, BUG-69 makes a stale junction harmless rather than destructive.** None substitutes for another.
+
+Your LF panel is still showing the 89-turn junction — the recovery commands from before are unchanged and still need you to run them.
 
 <!-- xgd-chat-end -->
