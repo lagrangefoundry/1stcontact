@@ -6,10 +6,10 @@ title: 'l1-gate: no probe can see a backing surface separating from the content 
   backs, and viewport height is not an axis at all'
 created_by: EPIC-12
 created_at: '2026-09-25T02:40:45.049473+00:00'
-updated_at: '2026-09-25T17:13:39.882910+00:00'
+updated_at: '2026-09-25T17:13:53.789251+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-bf282b3d
