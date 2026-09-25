@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T21:35:25.671052+00:00'
+updated_at: '2026-09-25T21:47:02.436478+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2079,3 +2079,27 @@ spelling and is a no-op for any service `up` did not start. That belongs with [[
 which is already changing `DEV_SERVICES`: whatever `up` grows to start, the gap is that
 `up`'s "already answering, left alone" is silent about whether that process predates the
 configuration it is being started against.
+
+
+**Correction to fault 2, measured afterwards — it is not an operator artefact.** The
+paragraph above attributes the un-restarted builder to a process started by hand before
+`bin/dev up` looked. That is wrong, and [[BUG-147]] now carries the real mechanism: `up`
+records `child.pid`, which for the builder is the `bin/1c` wrapper and not the `workerd`
+grandchild that holds 8788. One `up` run, all four services within 7 seconds:
+
+| service | pidfile pid | pid listening | `1c ps` started |
+|---|---|---|---|
+| filing | 52987 | 52987 | `bin/dev` |
+| **builder** | **53215** | **53613** | **`-`** |
+| **public-site** | **53634** | **53763** | **`-`** |
+| access-sim | 53781 | 53781 | `bin/dev` |
+
+The mismatched pair is exactly the workerd pair and the matched pair is exactly the node
+pair, so `down` SIGTERMs a wrapper, `ps` reports a service `up` started as belonging to
+nobody, and `reap` is the only thing that reaches it. What §N8 said about the general
+shape stands; what it said about the cause does not.
+
+**This is the second defect §N's runbook cost, and the more interesting one.** The three
+signals this epic added all looked at the dev environment and called it healthy. Neither
+of BUG-146 or [[BUG-147]] is visible to any of them, because `1c ps` is the only one that
+looks at ownership at all and its ownership check is the thing that is broken.
