@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-142
 created_by: xgd
 created_at: '2026-09-25T04:44:35.194629+00:00'
-updated_at: '2026-09-25T20:41:08.200166+00:00'
+updated_at: '2026-09-25T20:55:58.110530+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -183,5 +183,61 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="76fa48d7-0815-4fd4-8225-8f5be21a2aaa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:55:57.416010+00:00" -->
+#### Claude
+I'll check the current state of the ticket and branch.
+
+I hold the merge lock from the prior session. Let me check its state and the branch.
+
+A merge of xgd-working into the branch is in progress with one unmerged file. Let me check whether the prior session's resolution is on disk.
+
+Resolved on disk, not yet staged. Let me verify the resolution combines both sides before staging.
+
+Only ticket commits — no code drift. Staging the resolution and completing the merge.
+
+Merge committed. Now typecheck and the full test sweep in the foreground.
+
+Typecheck clean. Now the full test sweep.
+
+None are fold/L1/recovery suites. Verifying they're pre-existing by running the same 8 against xgd-working.
+
+Identical 8 files / 15 tests on the clean baseline — confirmed pre-existing. Confirming the ticket's own UATs and BUG-143's:
+
+All 24 pass. Now the version bump, then merge back.
+
+Now taking the merge lock (mine, stale) and merging back to xgd-working.
+
+§10.9 doesn't exist yet — the 12th UAT cites it. Let me read §10.8 and §11 to extend them accurately.
+
+12 UATs in the file, 12 in the body. Now updating the ticket.
+
+All four commits are on xgd-working. Setting story points and cleaning up the branch.
+
+BUG-142 is complete and at `free_coded`.
+
+**What landed** — four commits on `xgd-working`, all `[FREE-CODED]`:
+
+| SHA | What |
+|---|---|
+| `8ecd455d16` | The fix: a backing surface owns the content it backs |
+| `1a9983de64` | Merge of `xgd-working`, carrying the BUG-143 integration |
+| `333c6bce55` | Version bump 0.2.358 |
+| `dc17807cfd` | Gate command's own auto-bump to 0.2.359 |
+
+**This session's work** was the merge and the integration it forced. BUG-143 landed its containment detector on `xgd-working` while this branch was open, and both touch `fold.ts`/`probes.ts`. Only the return statement conflicted textually — but the substantive collision was semantic: BUG-143's detector resolves a surface out of the *leaf* scan, and this ticket makes an owning surface a structural `container`, which is never a leaf. Read that way the detector would have gone inert and reported a vacuous zero escapes on exactly the page the operator reported — worse than the defect it gates. The derivation now walks every node, and `restingBoxes` does the same so a panel's padded rect is placed rather than reconstructed from its subtree's extent.
+
+BUG-143's own suite turned out to be a thirteenth instance of §10.8's pattern (an id sweep over `box` alone) and was widened the same way; the validator rule was already kind-agnostic.
+
+**Verification** (all foreground):
+- Typecheck clean across `tools/generate`, `site-schema`, `framework`, and both apps.
+- Full sweep: 674 files / 5747 tests pass. 8 files / 15 tests fail — I ran the identical 8 against clean `xgd-working` and got the same 8 files / 15 tests, so they're pre-existing and unrelated (Cloudflare account discovery, BUG-64 queue gating, builder vocabulary, filing service).
+- BUG-142's 12 UATs and BUG-143's 12 both pass.
+
+**Ticket body** gained §10.9 (the detector integration and why the composition is asserted live before any verdict is read), §10.8 extended to thirteen suites, and §11's evidence list now covers the twelfth UAT. Story points 8. Branch cleaned, lock released.
+
+Promotion to `ready_to_reconcile` is yours when you're satisfied.
 
 <!-- xgd-chat-end -->
