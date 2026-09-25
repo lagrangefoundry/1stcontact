@@ -5,10 +5,10 @@ type: request
 title: 'repro console: the controls and the progress report at one end'
 created_by: EPIC-12
 created_at: '2026-09-25T21:37:20.771961+00:00'
-updated_at: '2026-09-25T22:06:58.060079+00:00'
+updated_at: '2026-09-25T23:02:12.989967+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 3
