@@ -535,3 +535,94 @@ export async function tenantDelegatedSpend(
     byModel,
   }
 }
+
+/**
+ * What each of a handful of named turns cost in total, keyed by turn id
+ * ([[REQ-320]]).
+ *
+ * THE QUESTION THIS ANSWERS, and why it is not {@link tenantSpendTurns}. That one
+ * reports a PERIOD for an invoice, oldest first, and says nothing about any one
+ * turn. The console's turn table is a list of specific turns the operator is
+ * looking at right now, arriving from `turn_log` — a different table, which knows
+ * when a turn began and how it ended and nothing whatsoever about money. So this
+ * is the join: the ids come from the ledger, the figures come from the meter.
+ *
+ * THE FIGURE IS THE TURN'S TOTAL — ITS OWN SPEND PLUS WHAT IT HANDED OFF. A turn
+ * that delegated a sweep of site writes to a worker cost what the worker cost,
+ * and a column showing only the caller's half would make exactly the expensive
+ * turns look cheap. {@link attributedSpend} prices each delegated entry at its
+ * OWN backend's rates, which is the whole reason the stored `attributed` list is
+ * kept whole rather than folded into this row's four counters.
+ *
+ * AND IT IS A TOTAL OR IT IS NOTHING. `null` means *not measured* and is returned
+ * for a turn with no row, for a row whose own `cost_micros` is NULL because
+ * `prices.json` named no rate for its pair, and for a row with a delegated entry
+ * this reader cannot price. A partial sum presented as a total would understate
+ * in the flattering direction, which is the one direction a meter must not err
+ * in; the pane beside this one can label an unpriced remainder with a sentence,
+ * and a single cell cannot.
+ *
+ * SCOPED BY TENANT AS WELL AS BY ID, though `turn_id` is the primary key and
+ * would be enough to find the row. The scope is what makes a mistake upstream
+ * unable to price one business's turn against another's meter, which is
+ * {@link SCOPE_COLUMN}'s reason applied to a read that did not strictly need it.
+ *
+ * NO ROWS ASKED FOR IS NO STATEMENT RUN. A business with no turns must not send
+ * `IN ()` to the database.
+ */
+export async function tenantTurnCosts(
+  env: SpendEnv,
+  tenantId: string,
+  turnIds: readonly string[],
+): Promise<Record<string, number | null>> {
+  const totals: Record<string, number | null> = {}
+  if (turnIds.length === 0) return totals
+  const result = await env.DB.prepare(
+    `SELECT turn_id, cost_micros, attributed FROM turn_spend WHERE ${SCOPE_COLUMN} = ?` +
+      ` AND turn_id IN (${turnIds.map(() => '?').join(', ')})`,
+  )
+    .bind(tenantId, ...turnIds)
+    .all<{ turn_id: string; cost_micros: number | null; attributed: string | null }>()
+  for (const row of result.results ?? []) {
+    totals[row.turn_id] = totalOf(row.cost_micros, row.attributed)
+  }
+  return totals
+}
+
+/**
+ * One row's own cost plus its delegated entries', or `null` where any part of
+ * that sum is unknown.
+ *
+ * A COLUMN THAT DOES NOT PARSE IS AN UNMEASURED TURN and not a failed read, on
+ * {@link tenantDelegatedSpend}'s reasoning: the value is the framework's
+ * structure written verbatim and this module does not own its schema. Where that
+ * one drops the entry and reports how many it dropped, this one has a single cell
+ * to answer in and says *not measured* — because the alternative is a figure that
+ * silently omits the delegation the operator is trying to see.
+ *
+ * AN ENTRY {@link attributedSpend} DROPPED COUNTS AGAINST THE TOTAL, which is why
+ * the lengths are compared rather than the returned list simply summed. That
+ * function leaves out an entry with no usage at all, because an entry with no
+ * usage is not a delegation that cost nothing — it is one this reader cannot
+ * account for, and the same judgement applied to the sum makes it absent rather
+ * than short.
+ */
+function totalOf(own: number | null, attributed: string | null): number | null {
+  if (own === null || own === undefined) return null
+  if (attributed === null || attributed === undefined) return own
+  let parsed: unknown = null
+  try {
+    parsed = JSON.parse(attributed)
+  } catch {
+    return null
+  }
+  if (!Array.isArray(parsed)) return null
+  const entries = attributedSpend(parsed)
+  if (entries.length !== parsed.length) return null
+  let micros = own
+  for (const entry of entries) {
+    if (entry.costMicros === null) return null
+    micros += entry.costMicros
+  }
+  return micros
+}

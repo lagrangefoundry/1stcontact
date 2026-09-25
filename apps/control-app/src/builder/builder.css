@@ -4154,18 +4154,19 @@ body {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  /* Bounded for the day table's reason: the identifiers are long, and a row
-     stretched across a dragged-open pane puts a turn id half a screen from the
-     state it describes. */
-  max-width: 56em;
+  /* Bounded for the day table's reason, and tighter since [[REQ-320]] took the
+     two identifier columns out: three short values stretched across a
+     dragged-open pane would put a cost half a screen from the stamp it belongs
+     to. */
+  max-width: 34em;
 }
 
 /* Rows and heading share ONE definition, which is what stops the heading
-   drifting off the columns it names. The two identifier columns are wider
-   because that is what they hold. */
+   drifting off the columns it names. The stamp is the widest because it carries a
+   date and a time to the second; the two that follow are a word and a figure. */
 .builder-turn-health__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 1.6fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 0.7fr);
   gap: 8px;
   align-items: baseline;
   text-align: left;

@@ -120,11 +120,20 @@ describe('REQ-306 the console shows a business failing its turns', () => {
     expect(cell('open')).toBe('1')
   })
 
-  it('test_UAT_FC_REQ-306_each_row_names_the_conversation_and_the_turn', async () => {
-    // REQUIREMENT 4 AT THE PIXEL. The identifiers are printed whole, so the
-    // string on screen is the string an operator pastes into a tail or a query
-    // rather than one they have to translate back first — and the reason, where
-    // the turn had one, sits with the row it belongs to.
+  it('test_UAT_FC_REQ-306_a_row_says_how_the_turn_ended_and_why', async () => {
+    /**
+     * REQUIREMENT 4, AS IT STANDS AFTER [[REQ-320]]. It originally asked that a
+     * row NAME the site, the conversation and the turn, and this case asserted
+     * both identifiers were printed whole. The identifiers are still on the wire —
+     * whole, untranslated, for whoever performs a correlation — but they are no
+     * longer columns: the conversation id was the same characters on every row of
+     * a pane already scoped to one business, and they took the width the cost now
+     * occupies. The narrower table is [[REQ-320]]'s own suite to hold.
+     *
+     * WHAT SURVIVES HERE IS THE HALF THAT ANSWERED SOMETHING: how the turn ended,
+     * in the word the labels declare, and — where it had one — its reason, beneath
+     * the row rather than squeezed into a grid cell.
+     */
     mount({
       business: 'biz_salon',
       counts: { complete: 0, aborted: 0, error: 1, lost: 0, open: 0 },
@@ -140,10 +149,6 @@ describe('REQ-306 the console shows a business failing its turns', () => {
     await settle()
 
     const row = host.querySelector('.builder-turn-health__recent .builder-turn-health__row:not(.builder-turn-health__head)')!
-    expect(row.querySelector('[data-column="session"]')?.textContent).toBe('site-salon-key')
-    expect(row.querySelector('[data-column="turn"]')?.textContent).toBe(
-      'turn_0123456789abcdef0123456789abcdef',
-    )
     expect(row.querySelector('[data-column="state"]')?.textContent).toBe(
       CONFIG.TURN_HEALTH_STATES.error,
     )
