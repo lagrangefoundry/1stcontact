@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:12:19.236682+00:00'
+updated_at: '2026-09-25T20:16:53.525161+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4380,5 +4380,104 @@ Ok so, 318 and 319 have landed. I would like you to walk me through
 2. Deploying to the new repository
 3. Starting the app and app-related services from the new repo
 4. Starting the reproduction console from the new repo
+
+<!-- xgd-turn id="a1f87386-482f-42cb-8b43-689e56f5ffe0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:16:52.694213+00:00" -->
+#### Claude
+I'll check what actually landed before writing steps against it.
+
+Both landed. Reading the implementations rather than describing them from the tickets.
+
+Epic updated (§N). No code touched, no tickets created.
+
+Both landed and the machinery is real: `bin/deploy`'s target table maps `dev → local`, `[env.dev]` exists in both apps, and `1c ps` / `bin/dev` work. One thing to name up front — I've read "the new repo" as **the deployed dev environment** (the snapshot at `apps/control-app/.dev-snapshot`, served on 8789), since that's what 318/319 built. Nothing has moved on disk.
+
+## What's running right now
+
+`1c ps`, just now:
+
+| | |
+|---|---|
+| **This project** | 9 listeners — `filing` 8790, `access-sim` 8799, and **7 strays** |
+| Strays | 8712, 8722, 8733 (this checkout) · 8711, 8719, 8723 (`free-REQ-254`) · 8795 (`free-BUG-124`) |
+| Siblings | 7 in the band (lagrange-framework, xgd) — reported, never reaped |
+| `1c workerd` | **one** version, 1.20260710.1 — the guard passes |
+| Snapshot | none yet; no pidfiles |
+
+K4's zombie situation is unchanged three days on, which is the reaper's own argument.
+
+---
+
+# 1. Kill everything
+
+```bash
+bin/dev reap --dry-run    # read the list first
+bin/dev reap
+```
+
+**Run it from your own terminal, not through me** — a detached listener started inside an agent sandbox survives `kill -9` sent from inside it. `reap` reports what it couldn't kill rather than claiming success.
+
+`filing` and `access-sim` will go too. That's the rule (`ours && !managed`) working: neither has a pidfile because both predate `bin/dev`. `bin/dev down` is no use here for the same reason — there's nothing for it to read.
+
+# 2. Deploy to the local target
+
+```bash
+bin/build                 # or at minimum: ./bin/1c assets
+bin/deploy --env dev
+```
+
+`bin/build` isn't optional-ish: `[env.dev.assets]` names `./dist-assets`, and the ship step **copies** it into the snapshot rather than reading it live — that's what keeps the builder client frozen too. If it's missing the deploy stops and says so.
+
+What you'll see, and why none of it needs a credential:
+
+- `1c workerd --quiet` runs **before any hook** — the store is the only copy of your dev data and workerd migrates its schema one-way on open
+- migrate hook → `--local --persist-to .wrangler/state`, not `--remote`
+- secrets hooks → `secret_local_target` short-circuits them; the local environment reads the `.dev.vars` layering, it has no secret store
+- ship → `wrangler deploy --env dev --dry-run --outdir .dev-snapshot/worker`, plus `snapshot.json` recording entry, assets, commit and timestamp
+
+Both apps get a snapshot. Nothing uploads.
+
+# 3. Start the app and its services
+
+```bash
+bin/dev up                # filing → builder → public-site → access-sim, in dependency order
+```
+
+Then, **in its own terminal**, the deployed environment:
+
+```bash
+./bin/1c dev serve        # wrangler dev --no-bundle against the snapshot, port 8789
+```
+
+Two commands, not one — and three things about that are worth knowing before they confuse you:
+
+**`up` does not start the deployed environment.** `DEV_SERVICES` starts `1c builder` on **8788**, the old watch path. That's §L1 honoured exactly — both run side by side against the same store until the replacement is trusted — but it means `up` gives you the *supporting* services and `serve` gives you the Worker. `serve` is foreground and writes no pidfile, deliberately.
+
+**access-sim fronts 8788, not 8789.** `up` starts it with no argument and its default is the old builder. To reach the deployed environment through Access:
+
+```bash
+bin/access-sim --builder http://127.0.0.1:8789
+```
+
+Not cosmetic: `[env.dev.vars]` sets `ACCESS_DEV_OPEN = "1"`, so a direct hit on 8789 resolves everything to `TENANT_ID` and can only ever reach *1st Contact*. Anything on Lagrange Foundry or XGD has to arrive through the simulator — the same trap as §I13, at a new port.
+
+**The public site is still edited-into.** `serve` names `control-app` literally, and `up` starts public-site via `pnpm dev`. So the control app is frozen and the public site isn't. Fine for REQ-318's acceptance; it belongs with the retirement step.
+
+The freeze is real on the control app, though — editing a source file changes nothing on 8789 until the next `bin/deploy --env dev`. That's the acceptance condition, and it's worth testing once deliberately so you trust it.
+
+# 4. The reproduction console
+
+```bash
+bin/repro-console         # http://127.0.0.1:8710
+```
+
+Independent of all of the above. It boots its own Vite server and runs each step as a fresh `1c` process, so an engine change is picked up by the next round without restarting it. It needs neither the builder nor filing nor access-sim, and nothing in the dev environment needs it. It *is* in `1c ps`'s known-port table, so `up`/`down`/`reap` see it — which is probably where some of those 8712/8722/8733 strays came from.
+
+---
+
+Once you're through it, `1c ps` should show a clean table: every row a service you started, every one claimed by a pidfile except `dev serve` and the console, and nothing in an `.xgd` worktree.
+
+The two seams above (§N3 access-sim's default, §N4 public-site) are both retirement-step work rather than new tickets — they resolve when `pnpm dev` goes away. Say the word if you'd rather file the retirement ticket now that both halves have landed.
 
 <!-- xgd-chat-end -->
