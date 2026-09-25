@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:32:52.976589+00:00'
+updated_at: '2026-09-25T20:34:41.998490+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4516,5 +4516,32 @@ One practical note if you do need it: `1c kb build` needs `CLOUDFLARE_API_TOKEN`
 <!-- xgd-chat role="user" ts="2026-09-25T20:32:51.895514+00:00" -->
 #### You
 Why can't dev up start the deployed environment? Is there a reason?
+
+<!-- xgd-turn id="d8996bb7-3b77-4ef1-912c-198ad1c4bfbd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:34:40.753079+00:00" -->
+#### Claude
+Good question — I overstated it in the epic. Let me check the actual sequencing.
+
+Found it — and it's cleaner than I said. Let me correct the epic.
+
+**No, there isn't a reason.** I called it "§L1 honoured exactly" in the epic and that was wrong — I've corrected §N2. What it actually is: a gap between the two tickets that each of them politely handed to the other.
+
+**The mutual deferral, in their own words.** REQ-319 landed **first** (0.2.354). Its spec says `up` starts "builder, public-site, filing and access-sim" — because at that moment 8789 did not exist — and its Boundaries say *"deciding the dev environment's ports is REQ-318's."* REQ-318 landed **next** (0.2.355), created 8789, and deferred straight back: *"`dev serve` starts nothing else and records no pidfile: `dev up` owns the set of services"*, with a Boundary reading *"No process supervision for `dev serve` — `bin/dev up/down/reap` is the sibling ticket's subject."*
+
+Both are correct about who owns it. Neither wrote it.
+
+**§L1 doesn't forbid it either**, which is where I went wrong. §L1 requires the old path to keep working until the replacement is proved — that means *both servers up at once*, and `up` starting 8788 **and** 8789 is that requirement more fully than starting only 8788. What §L1 forbids is `serve` *replacing* `builder` in the list. That's the retirement step, and it's a different edit.
+
+You can see the seam in the code, too: REQ-319 anticipated 318 in `devDeploy` — it guards on `[env.dev]` being present specifically so nothing would need changing when 318 landed, and indeed nothing did. `DEV_SERVICES` just never got the same treatment.
+
+**Two things worth settling before adding the row**, neither blocking:
+
+- **`serve`'s two refusals** (D1 behind `db/migrations/`, more than one `workerd`) are currently in your face, and detached they'd degrade to *"spawned but nothing answered on 8789 — see the log"*. Mostly moot: `up` runs `bin/deploy --env dev` first, which runs the workerd guard on entry and the migrate hook, so both conditions have already been tested and reported before any service starts.
+- **Two workerds on one `.wrangler/state`.** §K2 and §L1 both assume the two paths share the store, and §M2's invariant is about two *versions*, which this isn't. But two processes on the only copy of the dev data is the thing to actually watch while you're proving the replacement — an argument for starting them deliberately, not for leaving it manual.
+
+The pidfile mechanics carry over free: `1c dev serve` is a node wrapper around `npx wrangler` exactly as `1c builder` is, and `down`'s SIGTERM-then-verify-the-port is already built for that shape.
+
+So it's a one-row addition to `DEV_SERVICES` — `['bin/1c','dev','serve']` on 8789 — plus pointing access-sim at it (§N3). Both are code, so both need a ticket and a branch. Want me to fold them into the retirement ticket, or file a small one now so `bin/dev up` means "the whole dev environment" while you're still proving it?
 
 <!-- xgd-chat-end -->
