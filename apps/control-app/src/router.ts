@@ -2020,6 +2020,62 @@ export const DNS_UNDO_PATH = '/api/domain/changes/undo'
  * import.
  */
 export const BUSINESS_SESSION_SCOPE = 'business'
+
+/**
+ * The longest message a client may send ([[REQ-309]]), in characters.
+ *
+ * A PRODUCT JUDGEMENT AND NOT A STORAGE GUARD. lagrange-framework REQ-176 made the
+ * transcript segment, so the store's ceiling is no longer what sets this; the limit
+ * is the point past which a message has stopped being a message. Confirmed by the
+ * operator 2026-09-24 on calibration measured against real content in this
+ * repository — a pasted line averages about 50 characters, so this is about 320
+ * lines, roughly 2,700 words, five pages. A long, careful message is about a
+ * thousand characters; a brand-guidelines document is thirty thousand and up.
+ *
+ * THE ASYMMETRY DECIDES THE FIGURE. A false refusal costs the client one
+ * drag-and-drop. A false accept loses the knowledge-base entry permanently: a
+ * document dropped into **Background information** is described, labelled, kept in
+ * the Library and indexed so a later session can retrieve it, while pasted text
+ * lives in one transcript and nowhere else. So the bound is set where a paste has
+ * clearly become a document, deliberately below where it becomes unwieldy.
+ *
+ * ONE NAMED CONSTANT, and it is the only place the number exists — REQ-177 names
+ * no default and the framework carries no figure, so nothing inherits this from
+ * anywhere. 12,000 to 32,000 was the defensible range considered; that is recorded
+ * as the reasoning and not as a range still open. A one-line change if the beta
+ * says otherwise.
+ *
+ * CHARACTERS, NOT BYTES, because that is the unit the enforcement is in: REQ-177
+ * counts JavaScript string length, the same unit a textarea's `maxlength` uses, so
+ * the bound the composer applies and the bound this route applies are one number
+ * rather than two that agree until somebody pastes an emoji.
+ *
+ * DUPLICATED IN `builder/chat.js` AND HELD EQUAL BY A UAT, on
+ * {@link BUSINESS_SESSION_SCOPE}'s precedent and for its reason: the composer is
+ * browser JavaScript and cannot import this module.
+ */
+export const MAX_PROMPT_CHARS = 16_000
+
+/**
+ * What a client is told when a message is refused for length ([[REQ-309]]).
+ *
+ * IT NAMES WHAT TO DO INSTEAD, which is the whole of its job. A refusal that only
+ * states the fact leaves the client with a paste they cannot send and no route for
+ * the material, so it reads as the product being broken rather than as the product
+ * having a better door for this.
+ *
+ * IT STATES NO NUMBER, deliberately. A figure in the sentence invites bargaining
+ * and counting — trimming to fit, splitting in two, asking why — and what the
+ * client needs is the gesture that works, not the threshold they failed.
+ *
+ * THE SAME SENTENCE AT BOTH ENFORCEMENT POINTS. The composer shows it beside the
+ * box before anything is sent; this route answers it to a direct caller, and the
+ * chat transport paints it as the assistant's reply. Two sentences would be two
+ * things to keep in step, and the client can reach either one.
+ */
+export const OVER_LONG_PROMPT_MESSAGE =
+  "That's too long to send as a message. Save it as a text file and drop it in as " +
+  "Background information — I'll read it from there, and it stays in your Library."
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
 
@@ -5591,6 +5647,36 @@ async function routeUncached(
       }
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
+      }
+      /**
+       * A MESSAGE TOO LONG TO BE A MESSAGE IS REFUSED AT THE FRONT DOOR
+       * ([[REQ-309]]).
+       *
+       * BESIDE `text is required` AND FOR THE SAME REASON. This route's answer is
+       * the contract; the composer's is the courtesy. A direct caller — a script, a
+       * future client, the composer running against a build that predates
+       * REQ-177 — gets the same refusal and the same sentence, so the bound is a
+       * property of the surface rather than of one client's good behaviour.
+       *
+       * BEFORE THE HOST IS BUILT, BEFORE THE LEDGER IS OPENED, BEFORE THE TURN.
+       * Nothing is sent, nothing is archived, no `pending_turn` is written and no
+       * ledger row is opened: this is not a truncation and not a failed turn, it is
+       * a submission that never happened. Placing it after `openTurn` would leave a
+       * turn recorded as begun and never ended for every refusal, which is exactly
+       * the shape [[REQ-306]] uses to mean *the isolate died mid-stream*.
+       *
+       * AND THE CLIENT'S WORDS ARE NOT LOST. The pane remembers a submission before
+       * the request exists ([[BUG-122]]), and the chat transport renders this
+       * `error` as the assistant's reply followed by a terminal event — so the
+       * refusal arrives as a sentence in the conversation rather than as a dead
+       * stream, and `onTurnLost` has nothing to chase ([[BUG-123]]).
+       *
+       * 400 AND NOT 413, matching every other body-validation refusal on this
+       * surface. The sentence is the contract here, not the status code, and a
+       * second convention for one check would be a distinction no caller acts on.
+       */
+      if (text.length > MAX_PROMPT_CHARS) {
+        return json(400, { error: OVER_LONG_PROMPT_MESSAGE })
       }
       const host = await chatHost(env, requireScope(), deps, url.origin)
       /**
