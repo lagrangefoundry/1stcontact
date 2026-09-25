@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T22:26:07.972112+00:00'
+updated_at: '2026-09-25T23:27:13.103693+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3916,5 +3916,101 @@ Want me to reload-and-check whether that turn recovered, or leave the browser to
 Something alarming just happened. I was in a very good session with the AI making the final changes to the site I think it was filing tickets when there was a visible glitch its entire turn disappeared along with the entiire session so far. 
 
 This should be running from the dev-install so it should not be impacted by tickets in flight. The AI was trying to write tickets and that may have triggered an error but the loss of content is significant can you take a look please?
+
+<!-- xgd-turn id="1b602896-aba0-4b20-a542-5e17e36d4b14-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T22:27:34.922795+00:00" -->
+#### Claude
+I'll look at the data before theorising.
+
+<!-- xgd-turn id="d3b7bb45-3279-4107-8cab-5b74a4f28ae7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T22:55:01.156153+00:00" -->
+#### You
+please continue
+
+<!-- xgd-turn id="d3b7bb45-3279-4107-8cab-5b74a4f28ae7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:16:03.775753+00:00" -->
+#### Claude
+I'll investigate the data now.
+
+Diagnosis complete. Let me record it on the epic before reporting.
+
+I have the full picture. **Nothing is lost from storage** — but your premise was wrong in a way that explains everything.
+
+## Your session is intact; a bad copy was shown in front of it
+
+The archive holds **102 exchanges, 332,827 bytes**, ending cleanly on the 22:02→22:11 pair. Every word is there.
+
+What the panel painted instead was the Durable Object's junction, which holds **89**. Two defects compose.
+
+**Defect A — REQ-307's durable junction is inert on every request except the first after a restart.** The dev log carries this once per prompt:
+
+```
+junction durable:site-site_936dd7c…: could not be prepared — Error: Cannot perform
+I/O on behalf of a different request. … (I/O type: OutgoingFactory)
+```
+
+`DurableJunctionStorage` caches the `DurableObjectStub` it got on first use, and workerd forbids using an I/O object from one request's context in another's. So the stub works for exactly the request that created it and throws for every later one. `prepare` catches, sets `adopted = false`, and `queue()` returns early when `!adopted` — appends land in the in-isolate mirror and **never reach the object**. The class comment calls that "degrades to `memoryJunctions()`", which is accurate and is the problem: it degrades to the exact failure REQ-307 was built to remove, silently.
+
+Measured: **17 exchanges were added after the junction was seeded; 4 of them reached the object.** Thirteen lived only in RAM.
+
+**Defect B — a junction that exists beats a more complete archive.** Upstream's `manager.transcript()` reads the archive only `if (!log.exists())`. The object's junction does exist, so on reload the panel is painted from the 89-turn junction and the 102-turn transcript is never consulted. A lossy junction doesn't merely fail to protect the conversation — **it hides the good copy.** That is the "entire session so far disappeared".
+
+## What actually killed the turn — and why it could reach you
+
+22:20:10 the turn opened. **22:23:28 the merge of `free-BUG-145` into `xgd-working` rewrote `host-core.ts`, `spend-core.ts`, `spend.ts` and `router.ts`; wrangler rebuilt and replaced the Worker at 22:23:2x.** Three minutes in. Finding 10, third occurrence. At 22:35 another merge left `<<<<<<< HEAD` in the root `package.json` and the dev server built against it — `Expected string in JSON but found "<<"` — so a half-finished merge can break the builder outright, not just restart it.
+
+**On "it should be running from the dev-install":** REQ-318 landed and works — `bin/deploy --env dev` bundles to `.dev-snapshot/` and `1c dev serve` runs `wrangler dev --no-bundle` against it on **8789**, frozen by construction. `bin/dev up` builds that snapshot (mtime 21:40:07) and then starts `bin/1c builder` — plain watching `wrangler dev` on 8788 — and never `1c dev serve`. Nothing was listening on 8789. You were on the watching builder believing you were on the frozen one. Same shape as this epic's other adoption gaps.
+
+**No tickets were filed.** Zero `xgd ticket create` commits between 15:15 and 15:32 PDT. The turn died before it got there, so that work needs re-asking — and your five-part message is preserved in `pending_turn`, which is BUG-121 doing its job.
+
+## Get your panel back — provably lossless
+
+The object's junction is a strict subset of the archive (all four of its live turns appear there verbatim), so discarding it makes `transcript()` re-seed from the archive and restores all 102. It needs the server down, so it's yours to run:
+
+```
+bin/dev down
+rm apps/control-app/.wrangler/state/v3/do/1stcontact-control-app-SessionJunction/185825265b6bb3f1c791ac9e7d244b45096bc3c76eab7e8c096ef09d851698f5.sqlite
+bin/dev up
+```
+
+And to stop being reachable by merges, serve from the frozen snapshot on 8789 (`1c dev serve`) rather than 8788 — with access-sim pointed at it.
+
+All of this is Finding 12 on EPIC-19, with the measurements. **No ticket filed yet** — Defect A is ours and small (hold the namespace, get the stub per use, drain inside the request); Defect B is upstream's; and `bin/dev up` not serving the snapshot is a third, arguably the one that would have prevented today. Say which of those you want filed and I'll do it.
+
+<!-- xgd-turn id="55513572-80a9-4554-baa2-43d4ce71a8d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:22:01.712396+00:00" -->
+#### You
+ok so I need bugs for A and B and this mess with dev up etc.
+
+Lets be really clear I want all the stuff that starts up servers that read the changing code base deleted - I need to know what I'm running that was the whole point of buidling the dev server and I still don't even when I start it up as instructed it is running the wrong thing. That last ticket should be a child of EPIC-16
+
+<!-- xgd-turn id="55513572-80a9-4554-baa2-43d4ce71a8d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:27:11.868302+00:00" -->
+#### Claude
+Three tickets. Let me check for duplicates and find EPIC-16 first.
+
+Now the three tickets. Writing bodies first.
+
+All three filed.
+
+**[[BUG-149]] — Defect A** (child of EPIC-19, priority high)
+*Builder chat: the durable junction never writes, because the Durable Object stub is cached across requests.* `DurableJunctionStorage` captures the stub in its constructor; workerd refuses an I/O object from another request's context; `prepare` catches, `adopted` goes false, `queue()` returns early — so REQ-307 is live only on the first request a fresh isolate handles. Carries the measurement (4 of 17 post-seed turns reached the object, the per-prompt table showing 21:43/21:50 dropped → 21:55 restart → 22:02 landed → 22:20 dropped) and a three-part fix: obtain the stub per use, drain inside the issuing request, and stop the degradation being silent.
+
+**lagrange-framework BUG-69 — Defect B** (upstream, priority high)
+*`SessionManager.transcript()`: a junction that exists hides an archive that is ahead of it.* The archive is read only `if (!log.exists())`, so a well-formed but stale junction returns 89 turns while 102 sit intact beside it — and the same records feed `seedDialogue`, so the model forgets what the panel forgets. Three fix shapes in preference order, with the requirement that the panel's view and the backend's dialogue come from one decision.
+
+**[[BUG-150]] — the dev server** (child of EPIC-16, priority high)
+*`bin/dev up` starts the watching builder, not the frozen snapshot it just built — and every server that reads the changing tree should be deleted.* Both halves you asked for, stated as deletion rather than deprecation: `pnpm dev`, `pnpm dev:control`, `pnpm dev:public`, `apps/public-site`'s own `dev`, and `1c builder` as an entry point all go; `bin/dev up` serves `.dev-snapshot/` for both apps with access-sim pointed at it. I added a third requirement from your words — **starting the environment must print what it is serving and when that was deployed**, every time, so "what am I running" is answered by the thing you ran rather than by a second command.
+
+Worth knowing: this was already scoped. EPIC-16 §L1 records you settling it — *"everything we have goes… but the deletion is a separate step so the replacement can be proved first"* — and `ps.ts` carries `// builder's on purpose (EPIC-16 §L1): the old path is retired in a later step`. §M then says retirement is "deliberately unfiled… filed when REQ-318 and REQ-319 are trusted." Both landed; nobody filed it. What the sequencing didn't anticipate is that leaving the old path reachable meant `bin/dev up` kept *starting* it — so the snapshot got built on every start and served on none. I recorded that as EPIC-16 §O with the measurements, and the three filings as a closing block on EPIC-19's Finding 12.
+
+Ordered by what they cost: **BUG-150 stops the restarts, BUG-149 makes a restart survivable, BUG-69 makes a stale junction harmless rather than destructive.** None substitutes for another.
+
+Your LF panel is still showing the 89-turn junction — the recovery commands from before are unchanged and still need you to run them.
 
 <!-- xgd-chat-end -->

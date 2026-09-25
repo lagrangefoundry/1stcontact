@@ -3,19 +3,28 @@
 # `bin/dev` — start the local dev environment, stop it, and reclaim what stopping
 # it could not reach ([[REQ-319]]).
 #
-# A LAUNCHER, EXACTLY LIKE `bin/1c` AND `bin/repro-console`. The three verbs are
-# `1c dev up`, `1c dev down` and `1c dev reap`, and this script's whole job is to
-# spell them the way they are asked for. They are a `1c` subcommand rather than a
-# script of their own because all three read ONE table — `1c ps`'s survey of the
-# dev port band — and `down` and `reap` are that table's other readers. Written
-# here instead, they would have to parse the output of a command they could have
-# called, which is the arrangement `ps.ts` exists to avoid.
+# A LAUNCHER, EXACTLY LIKE `bin/1c` AND `bin/repro-console`. The verbs are `1c dev
+# up`, `1c dev down`, `1c dev restart` and `1c dev reap`, and this script's whole
+# job is to spell them the way they are asked for. They are a `1c` subcommand
+# rather than a script of their own because they read ONE table — `1c ps`'s survey
+# of the dev port band — and `down` and `reap` are that table's other readers.
+# Written here instead, they would have to parse the output of a command they could
+# have called, which is the arrangement `ps.ts` exists to avoid.
 #
 #   bin/dev up              build/deploy the local target, then start filing, the
 #                           builder, the public site and access-sim, recording a
-#                           pidfile per service under storage/tmp/dev
-#   bin/dev down            SIGTERM what the pidfiles name, then VERIFY the ports
-#                           are free; exits non-zero when one is still answering
+#                           pidfile per service under storage/tmp/dev — naming both
+#                           the process it spawned and the one holding the port
+#   bin/dev down            SIGTERM the PROCESS GROUP of what the pidfiles name,
+#                           then VERIFY the ports are free; exits non-zero when one
+#                           is still answering. The group, not the pid: the builder
+#                           and the public site are wrappers whose grandchild holds
+#                           the socket, and signalling the wrapper left it running
+#   bin/dev up <service>    the same, for named services only (and no deploy)
+#   bin/dev down <service>
+#   bin/dev restart <service>
+#                           down then up — what an env-file change needs, since a
+#                           new value only reaches a process started after it
 #   bin/dev reap --dry-run   list every listener of this repo's that no pidfile
 #                           claims, and kill nothing
 #   bin/dev reap            kill them: SIGTERM, then SIGKILL what is still there,

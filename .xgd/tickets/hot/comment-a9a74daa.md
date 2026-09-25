@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-145
 created_by: xgd
 created_at: '2026-09-25T22:12:01.060771+00:00'
-updated_at: '2026-09-25T22:30:43.365671+00:00'
+updated_at: '2026-09-25T22:37:32.327156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -89,5 +89,50 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="9e6fe2d7-7654-4c6b-8a2f-99eac57ad29e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T22:37:31.056351+00:00" -->
+#### Claude
+The retry loop was killed with the previous session. Let me check state and finish the claim in the foreground.
+
+Claimed. Let me verify the recorded fields and release the merge lock.
+
+Now the final verification — the code on `xgd-working` and the full test evidence, in the foreground.
+
+Free-coding steps are complete. Let me try to re-verify on the merged tree — though another session has a merge in flight here.
+
+BUG-145 free-coding is complete.
+
+## Protocol steps, all closed
+
+| Step | State |
+|---|---|
+| Ticket scoped with behaviour | Body carries the original scope **plus** the implementation record (decisions settled, what deliberately did not widen, evidence) |
+| Branch cut | `free-BUG-145` |
+| Code + UATs | 2 files changed, 2 new `test_UAT_FC_BUG-145_*` suites |
+| Commit `[FREE-CODED]` | `76d7ad8c` |
+| `status=free_coded`, `fields.commits` | Both SHAs recorded: `76d7ad8c` + the auto-bump `7a08dcd0` |
+| Version | `0.2.363` |
+| Merged + torn down | Merged to `xgd-working` (`2c0cb6c1`); worktree removed, branch deleted, lock released |
+
+## The fix
+
+`turnSpendRecord` gated the whole `turn_spend` row on the **caller's** four counters, and `attributed` is a field *of* that row — so a turn that handed work to a worker and then died before its terminal meta discarded the worker's bill along with its own absence of one. The gate now has two reasons for a row to exist: the caller measured something, **or** `attributed` is non-empty. Such a row carries four zero counters, `requests = 0`, the turn's real `outcome`, and a **null** `cost_micros` — which is what says the caller's own spend was never observed rather than that it was nil.
+
+No migration: counter columns stay `NOT NULL` and take `0`, since `cost_micros IS NULL` already disambiguates.
+
+## Test evidence, run in the foreground
+
+- **On the merged tree just now:** the 2 BUG-145 suites (4 tests) pass; the 8 neighbouring meter/delegation/console suites (55 tests) pass.
+- **Before merging, in the isolated worktree:** the same 10 suites, 59 tests, pass.
+- **Both new UATs were confirmed to fail against the unfixed `turnSpendRecord`** — node at *"expected null not to be null"*, workers at *"expected [] to have a length of 1"*. Without that, they would not be evidence.
+- `tsc --noEmit` clean on `apps/control-app` and `tools/generate`.
+
+## Two things to flag
+
+**Another session is mid-merge in this checkout right now.** `git status` shows a live `MERGE_HEAD` for REQ-320 (`821bb523`, the turn table's cost column) with `package.json` in conflict — the version scalar, `0.2.363` from my bump against theirs. I left it completely alone; it's theirs to resolve, and the resolution is to keep the higher version. I verified my four files are byte-identical from the tested commit through the merge to the current tree, so their in-flight work has not disturbed the fix. Their staged `spend.ts` and `router.ts` changes were in the tree for the 55-test run above, and it passed.
+
+**One gap I did not close, deliberately:** a turn cut off *mid-generation that never delegated* still writes nothing — neither counters nor an attribution exist to justify a row. That is upstream's gap (the adapter's per-segment ledger holds those requests; `turn_end` does not) and outside this ticket.
 
 <!-- xgd-chat-end -->

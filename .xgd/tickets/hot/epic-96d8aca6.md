@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T21:47:02.436478+00:00'
+updated_at: '2026-09-25T23:26:49.707145+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -30,6 +30,7 @@ fields:
   - request-0359a45d
   - request-0d0644d6
   - bug-3868705d
+  - bug-5c3e65f6
 ---
 
 ## What the client asked for
@@ -2103,3 +2104,38 @@ shape stands; what it said about the cause does not.
 signals this epic added all looked at the dev environment and called it healthy. Neither
 of BUG-146 or [[BUG-147]] is visible to any of them, because `1c ps` is the only one that
 looks at ownership at all and its ownership check is the thing that is broken.
+
+
+## §O — §L1's retirement is filed, and the first run showed why it could not wait (2026-09-25)
+
+**[[BUG-150]]** is §L1's deferred deletion step, filed now that [[REQ-318]] and
+[[REQ-319]] have landed and been run.
+
+§M said retirement would be filed "when REQ-318 and REQ-319 are trusted". The first
+real use showed the sequencing left a gap §L1 did not anticipate: `bin/dev up` was
+allowed to keep starting the old path, so "run both side by side until the new one is
+trusted" became **"build the snapshot on every start and never serve it."**
+
+Measured from one `bin/dev up` at 21:40 UTC on 2026-09-25: both
+`apps/*/.dev-snapshot/` were written by the deploy step, and the four services
+started were filing (8790), `bin/1c builder` → `wrangler dev` on **8788**,
+`pnpm --filter @1stcontact/public-site dev` on **8787**, and access-sim (8799)
+proxying to 8788. **Nothing was listening on 8789.** Two of the four read `src/`
+live.
+
+What that cost, the same evening: the 8788 builder was restarted **four times in
+thirteen minutes** by merges into `xgd-working` — `free-BUG-145` at 22:23:28 killed a
+live consultant turn three minutes in, and a build at 22:35:11 failed against a root
+`package.json` still holding `<<<<<<< HEAD`. The operator was working in the builder
+believing he was on the frozen environment, because he had started it as instructed.
+
+**The operator's framing, and BUG-150's scope:** *"I want all the stuff that starts up
+servers that read the changing code base deleted — I need to know what I'm running,
+that was the whole point of building the dev server, and I still don't, even when I
+start it up as instructed it is running the wrong thing."* So BUG-150 is both halves:
+`bin/dev up` serves the snapshot, and `pnpm dev` / `pnpm dev:control` / `pnpm
+dev:public` / `1c builder`-as-entry-point are deleted rather than deprecated. It also
+requires `bin/dev up` to print what it is serving and when that was deployed — §L1
+settled *what* goes, and the first run added *the environment must say what it is*.
+
+Occasion and evidence: [[EPIC-19]] Finding 12.

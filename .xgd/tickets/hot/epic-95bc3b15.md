@@ -5,9 +5,9 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-23T03:12:33.007648+00:00'
+updated_at: '2026-09-25T23:26:34.555470+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -16,6 +16,7 @@ fields:
   - request-ba1e2212
   - bug-3d91a05e
   - request-e1a43d83
+  - bug-3625c6ff
 ---
 
 ## What this epic is for
@@ -1036,4 +1037,154 @@ every path runs.
   order for overlapping siblings and that a node translated outside its parent's
   box still paints.
 
-/tmp/claude-501/f10.md
+### Finding 10 — the dev server is served from the branch other sessions merge into (2026-09-22, re-diagnosed 2026-09-25)
+
+`wrangler dev` watches the working tree. `packages/site-schema`, `tools/generate`
+and `apps/control-app/src` are all in the Worker's import graph, so any write to
+them rebuilds and REPLACES the Worker. A replaced Worker does not drain: an
+in-flight turn's isolate simply stops existing, so no `finally` runs, no
+`turn_end` is appended, no spend row is written and nothing folds.
+
+Turns now run 2–9 minutes because they delegate to `claude_builder` workers, and
+code lands on `xgd-working` every few minutes. That is the "every other turn"
+cadence the operator reported. It is not a framework fault and it is not the
+filing surface: it is one checkout serving both roles.
+
+Short term the amplifier is removed by serving the builder from a checkout
+nobody merges into. [[REQ-318]] is the proper fix — "deployed to, not edited
+into".
+
+### Finding 11 — where the hours actually go (2026-09-23)
+
+All 85 user turns of the Lagrange Foundry conversation, classified:
+
+| | turns | share |
+|---|---|---|
+| building the site — creative, editorial, structural | ~35 | 41% |
+| product defects hit and reported | ~28 | 33% |
+| re-sends caused by lost turns | ~6 | 7% |
+| correction loops — the consultant did something other than what was meant | ~14 | 16% |
+
+Metered: **$1.27 and 4.5 minutes per turn** (delegating turns 8.9 min / $1.83;
+non-delegating 1.6 min / $0.89). Context is ~93% cached — 1.5M cache-read against
+116K fresh input on the large turns — so the marginal cost of a turn is output
+and cache-creation, not context length. **Making the consultant do more per turn
+is therefore cheap**, which is the economic case for building rather than
+describing.
+
+The defects and re-sends go away. The 16% does not, and the transcript names its
+causes: a narrow instruction taken as licence for a structural rewrite; a change
+described without looking at it first; and three styles offered in prose for the
+operator to choose between sight unseen. The durable fixes are therefore
+DEFAULTS, not training — show don't ask, look before you claim, edit narrowly,
+and make a long turn legible while it runs.
+
+### Finding 12 — the durable junction is inert on a warm isolate, and a lossy junction hides a complete archive (2026-09-25)
+
+A turn was lost mid-session and the panel came back missing the whole of that
+day's conversation. Nothing was lost from storage; two defects compose.
+
+**The incident, from the store and the dev-server log.** 22:20:10 the prompt
+route opened a turn (`turn_log` row, `pending_turn` written). 22:23:28 the merge
+of `free-BUG-145` into `xgd-working` rewrote `host-core.ts` and `spend-core.ts`;
+wrangler rebuilt and replaced the Worker (`worker.js` mtime 15:23 PDT,
+`ProxyWorker/pause`/`play` at 22:23:29). The isolate died mid-turn — Finding 10
+exactly. `turn_log` still reads `ended_at` null, `pending_turn` still reads
+`open`, and there is no spend row.
+
+**Defect A — `prepare()` fails on every warm isolate, and every junction write is
+then silently dropped.** The dev log carries, once per prompt:
+
+    junction durable:site-site_936dd7c…: could not be prepared — Error: Cannot
+    perform I/O on behalf of a different request. … (I/O type: OutgoingFactory)
+
+`durableJunctions(env.SESSION_JUNCTION)` is built once per isolate per business
+(`CHATS` in `router.ts`), and each `DurableJunctionStorage` caches the
+`DurableObjectStub` it was given on first use. workerd forbids using an I/O
+object created in one request's context from another request's, so the stub works
+for exactly the request that created it and throws for every later one.
+`prepare` catches, sets `adopted = false`, and `queue()` returns early when
+`!adopted` — so appends land in the in-isolate mirror and NEVER reach the object.
+The class comment calls that "degrades to `memoryJunctions()`", which is true and
+is the problem: [[REQ-307]] is inert on every request except the first after a
+restart — which is the one moment it has nothing to protect.
+
+Measured: the object's junction holds **89 turns, only 4 of them live**, and ends
+at 22:11:14. The archive holds **102**. Thirteen of the day's turns were written
+to a mirror that died with its isolate.
+
+**Defect B — a junction that exists wins over a more complete archive.**
+Upstream's `manager.transcript()` seeds from the archive only `if (!log.exists())`.
+The object's junction does exist, so on reload the panel is painted from the
+89-turn junction and the 332,827-byte, 102-turn `chat_transcript` comment is
+never read. A lossy junction does not merely fail to protect the conversation —
+it HIDES the good copy. That is why "the entire session so far" disappeared while
+nothing was actually lost.
+
+**Nothing is lost and the panel is recoverable.** The archive is a strict
+superset — all four live junction turns appear in it verbatim — so discarding the
+object's junction for that session makes `transcript()` re-seed from the archive
+and restores all 102 turns.
+
+**Fix shape.** (A) Keep the mirror across requests — it is pure memory and is the
+reason the store is isolate-scoped at all — but obtain the stub per use from the
+retained namespace rather than caching it, and drain the write-behind chain
+inside the request that appended. (B) A junction must not be preferred over an
+archive that is ahead of it: reconcile the two on adopt, or make "exists" mean
+"is at least as complete as the archive". (B) is upstream's.
+
+**Two side observations from the same log.** A merge at 22:35 left conflict
+markers in `package.json` and the dev server built against them
+(`Expected string in JSON but found "<<"`), so a half-finished merge can break
+the builder outright rather than only restarting it. And every request is logged
+twice, with two `dev-*` build directories both rebuilding — there appear to be
+two `wrangler dev` instances against `apps/control-app`.
+
+
+**Correction to the last observation above.** The doubled request lines are NOT
+two `wrangler dev` instances against `apps/control-app`. `bin/dev up` starts four
+services (filing, builder, public site, access-sim), and the second wrangler is
+the public site on 8787 — a different Worker, with its own bindings and no
+`SESSION_JUNCTION`. The duplicate lines carry the SAME `trace_id`, so one request
+is being emitted twice by the app logger, not served twice. Worth tidying, but it
+is cosmetic and nothing in this finding depends on it. The conflict-markers
+observation stands: at 22:35 the dev server built against a root `package.json`
+holding `<<<<<<< HEAD` and failed outright (`Expected string in JSON but found
+"<<"`), so a half-finished merge in the served checkout can break the builder
+rather than only restart it.
+
+
+**And the premise that made this a surprise: the frozen dev environment exists
+and is not what `bin/dev up` serves.** [[REQ-318]] landed (`eea3301a13`, on
+`xgd-working`): `bin/deploy --env dev` bundles to `apps/<app>/.dev-snapshot/` and
+`1c dev serve` runs `wrangler dev --no-bundle` against it on **8789**, so editing
+a source file changes nothing about what is served until the next deploy — the
+immune boundary Finding 10 asks for. `bin/dev up` DOES build that snapshot
+(`.dev-snapshot/` mtime 21:40:07, from the deploy step), and then starts
+`bin/1c builder` — plain `wrangler dev` on 8788, watching the tree — and never
+`1c dev serve`. Nothing was listening on 8789 during the incident; 8788 was, and
+it restarted four times in thirteen minutes. So the operator was on the watching
+builder while believing he was on the frozen one, which is why a merge three
+minutes into his turn could reach him at all. Same shape as this epic's other
+adoption gaps: the capability is built, and the path everyone actually runs does
+not use it.
+
+
+### Finding 12 — filed (2026-09-25)
+
+- [[BUG-149]] — **Defect A**, here. The Durable Object stub is captured in
+  `DurableJunctionStorage`'s constructor and reused across requests, which workerd
+  refuses; `prepare` catches, `adopted` goes false, and `queue()` drops every write
+  in silence. [[REQ-307]] is live only on the first request a fresh isolate handles.
+  Measured: 4 of 17 post-seed turns reached the object. Child of this epic.
+- lagrange-framework **BUG-69** — **Defect B**, upstream. `transcript()` reads the
+  archive only `if (!log.exists())`, so a junction that is behind hides a complete
+  archive — from the panel AND from `seedDialogue`. Filed there; no code here.
+- [[BUG-150]] — **the reason a merge could reach a live turn at all**, filed under
+  [[EPIC-16]] because it finishes that epic's §L1. `bin/dev up` builds the frozen
+  snapshot and then starts the watching builder; every entry point that serves from
+  the changing tree goes.
+
+The three are ordered by what they cost. BUG-150 stops the restarts. BUG-149 makes a
+restart survivable. BUG-69 makes a junction that is behind harmless rather than
+destructive. None of them substitutes for another.

@@ -51,6 +51,7 @@ import type {
 import type { RawRun, RawSignals } from './extract'
 import { captureSchemaOf } from './schema'
 import { colorDistance } from './color-values'
+import { isBandPaint } from '../perceptual-core'
 // REQ-274 — the single declaration site for every value axis, and the only thing
 // that reads either side's input. See `value-axes.ts` for why this module no
 // longer projects anything itself.
@@ -1991,44 +1992,13 @@ function toUnpaired(el: ValueElement, index?: number): UnpairedObject {
   return u
 }
 
-/**
- * REQ-271 — is this leftover repro object the band's own PAINT rather than an
- * object standing on the band?
- *
- * The two sides represent band paint in structurally different places. A
- * conventional page nests its content inside the band element, so the fill lives
- * on the band record and the reference manifest holds no textless element for it
- * at all. An L1 render paints each band as a real full-bleed box — so the same
- * fact reaches the reproduction manifest twice, and the box copy can never pair,
- * because there is nothing on the reference side to pair it with. Seven such
- * objects sat in `unpairedActual` on every gigabytealchemy run, reported as
- * "repro objects that matched nothing" when they are the band fills the section
- * pass compares directly.
- *
- * Recognised HERE, in the diff's own reporting, and deliberately not by dropping
- * the element from the manifest: a full-bleed textless box is exactly what the
- * fold reads to rebuild a backdrop (BUG-27), so removing it upstream would take
- * a hero photograph out of the fold's input on a page-builder site. The manifest
- * stays faithful to what was painted; only the "paired with nothing" tally stops
- * double-counting a fact it already has a counterpart for.
- *
- * Tight by construction — the box must be full-bleed and coincide with a band's
- * own box to within a pixel of layout noise. A box that merely sits ON a band,
- * or a layer with its own geometry (a photograph inside a taller fill), is an
- * object in its own right and is still reported.
- */
-function isBandPaint(el: ValueElement, sections: readonly SectionValues[], pageWidth: number): boolean {
-  const b = el.box
-  // `textless` is the projection's own flag for "this element carries no text"
-  // (`fieldToElement`); an empty `text` is NOT the same test — a field's text is
-  // its accessible name, falling back to `(<role>)`, and is never the empty string.
-  if (!b || !el.textless) return false
-  const TOL = 2
-  if (b.x > TOL || b.x + b.width < pageWidth - TOL) return false
-  return sections.some(
-    (s) => s.box && Math.abs(s.box.y - b.y) <= TOL && Math.abs(s.box.height - b.height) <= TOL,
-  )
-}
+// REQ-271 — `isBandPaint`, the "this repro object is the band's own paint"
+// predicate, used below to keep band fills out of the unpaired tally.
+//
+// BUG-148 — IT NOW LIVES IN `perceptual-core`, unchanged, because the region
+// lead resolver needs the same test and that module may not import this one.
+// The rationale for the predicate — and for recognising band paint in the
+// reporting rather than dropping it from the manifest — travelled with it.
 
 // ── BUG-102 — section pairing ────────────────────────────────────────────────
 

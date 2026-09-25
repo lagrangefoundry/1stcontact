@@ -379,6 +379,10 @@ export const WORKERD_GATED_COMMANDS: readonly string[] = [
   // whole verb would refuse to STOP a dev environment on a tree with a runtime
   // skew, which is the one moment stopping it is most useful.
   'dev up',
+  // `dev restart` starts the builder again, so it opens the store for the same
+  // reason `dev up` does ([[BUG-147]]) — and restarting one service is the moment
+  // an operator is least likely to be thinking about runtime skew.
+  'dev restart',
   // `dev serve` runs `wrangler dev` against the deployed snapshot ([[REQ-318]]),
   // which opens `.wrangler/state` — the environment holding the ONLY copy of the
   // dev data, which is what makes a one-way schema migration by the wrong

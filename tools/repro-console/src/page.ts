@@ -299,6 +299,20 @@ function inertAttrs(reason: 'running' | 'held' | null): string {
   return reason ? ` disabled data-inert="${reason}"` : ''
 }
 
+/**
+ * THE CONTROL END OF THE PAGE ([[REQ-323]]).
+ *
+ * Every control the operator presses and the one line that reports what the
+ * press did are rendered together, after the iteration list, inside an element
+ * carrying this id — and every press redirects to `/#` + this id, so the press
+ * lands the operator back where the controls and the report both are.
+ *
+ * It is a constant rather than a literal in two files because the markup and the
+ * redirect have to agree: a fragment naming an id the page does not render is a
+ * silent no-op, which reads as the console ignoring the press.
+ */
+export const CONTROLS_ID = 'controls'
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -371,6 +385,12 @@ button[disabled] { cursor: not-allowed; opacity: .5 }
    element away. not-allowed is the default above because it is the honest
    answer for every other way a control can be inert. */
 button[disabled][data-inert="running"] { cursor: progress }
+/* REQ-323 — the cluster every press redirects to. No border and no spacing of
+   its own: on a blank console there is nothing above it, and a rule drawn across
+   an otherwise empty page would be one more thing between the text box and the
+   top. The scroll margin is so the fragment jump leaves a little air above the
+   first control rather than butting it against the viewport edge. */
+#controls { scroll-margin-top: 1rem }
 #status { min-height: 1.5em; margin: 1rem 0 }
 #status.failed { color: #c0392b; white-space: pre-wrap }
 #status.progress { opacity: .7 }
@@ -674,9 +694,14 @@ ${
   /**
    * The standing notice (BUG-114), above the iteration list rather than in it.
    *
-   * Between the status line and the history, which is where the eye already
-   * goes, and styled as neither — a red failure line is about the run that just
-   * happened, and this is about the checkout.
+   * Above the history, which is where the eye lands on arrival, and styled as
+   * neither a failure nor a control — a red failure line is about the run that
+   * just happened, and this is about the checkout.
+   *
+   * [[REQ-323]] moved the status line to the control end and left this where it
+   * was. The two were neighbours and are no longer: this is read once, on
+   * arrival, and the status line is watched, so only one of them belongs beside
+   * the button.
    */
   const notice = state.notice ? `<p class="notice">${inlineCode(state.notice)}</p>\n` : ''
 
@@ -713,6 +738,16 @@ ${state.filings.groups
    * typed address is still a thing the page has to be able to do and this is
    * where an address is typed.
    *
+   * THE POSITION MOVED WHOLE, TO THE OTHER END ([[REQ-323]]). This row stood at
+   * the top with the status line beside it, and the two controls that act on the
+   * chain stood under the list — so the loop was worked at one end of the
+   * document and read at the other, and whichever end the operator was looking
+   * at, the other was off-screen. The address row, its sentence and the status
+   * line are rendered after the list now, inside {@link CONTROLS_ID}, with the
+   * continuation group. It is still OUTSIDE that group, which is [[BUG-120]]'s
+   * claim and is not being revisited: what the group's position says is "this
+   * acts on the list", and beginning a chain for a typed address does not.
+   *
    * THE LABEL IS THE SAME WORD IN BOTH POSITIONS, deliberately. "re-" is
    * slightly wrong on a blank console — there is nothing to re-do — and that is
    * accepted: two labels for one act would put back exactly the
@@ -733,17 +768,19 @@ ${state.filings.groups
 <html lang="en">
 <head><meta charset="utf-8"><title>reproduction console</title><style>${STYLE}</style></head>
 <body data-version="${state.version}">
+${notice}${stored}
+${filings}
+${rows}
+<div id="${CONTROLS_ID}">
+${held}
+${again}
 <form method="post" action="/recapture">
   <input name="url" value="${escapeHtml(state.url ?? '')}" placeholder="site address" autocomplete="off" autofocus>
   <button${inertAttrs(state.running ? 'running' : null)}>recapture</button>
 </form>
-<p class="effect restart">re-hits the address and re-rolls the reference before folding: a new address starts a list numbered from 1, and the address already loaded appends the next iteration to the chain below.</p>
+<p class="effect restart">re-hits the address and re-rolls the reference before folding: a new address starts a list numbered from 1, and the address already loaded appends the next iteration to the chain this page is showing.</p>
 <p id="status" class="${state.failed ? 'failed' : 'progress'}">${escapeHtml(state.message)}</p>
-${notice}${stored}
-${filings}
-${rows}
-${held}
-${again}
+</div>
 <script>${POLL_SCRIPT}</script>
 </body>
 </html>`
