@@ -28,7 +28,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { renderL1Document } from '../packages/framework/src/index'
-import { validateL1 } from '../packages/site-schema/src'
+import { validateL1, type L1Node } from '../packages/site-schema/src'
 import { foldToL1 } from '../tools/generate/src'
 import type { FoldedForm } from '../tools/generate/src/l1'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
@@ -71,11 +71,33 @@ const pageWithButton = (): MultiStateCapture =>
   ])
 
 type Box = Extract<ReturnType<typeof foldToL1>['root']['children'], unknown[]>[number] & { kind: 'box' }
+type AnyNode = { kind: string; children?: AnyNode[] }
+
+/**
+ * Every node in the folded tree, at any depth.
+ *
+ * BUG-142 — a card that BACKS content folds to a `container` holding the runs it
+ * is painted behind, so neither the card nor those runs are root children any
+ * more. Both sweeps walk the tree; what they are counting is unchanged.
+ */
+const allNodes = (doc: ReturnType<typeof foldToL1>): AnyNode[] => {
+  const out: AnyNode[] = []
+  const walk = (nodes: AnyNode[]): void => {
+    for (const n of nodes) {
+      out.push(n)
+      walk(n.children ?? [])
+    }
+  }
+  walk(((doc.root.children ?? []) as unknown) as AnyNode[])
+  return out
+}
 const boxes = (doc: ReturnType<typeof foldToL1>): Box[] =>
-  ((doc.root.children ?? []) as Box[]).filter((n) => n.kind === 'box')
+  (allNodes(doc) as unknown as Box[]).filter((n) => n.kind === 'box' || (n.kind as string) === 'container')
 const cards = (doc: ReturnType<typeof foldToL1>): Box[] => boxes(doc).filter((b) => (b.id ?? '').startsWith('card-'))
-const textLeaves = (doc: ReturnType<typeof foldToL1>) =>
-  (doc.root.children ?? []).filter((n): n is Extract<typeof n, { kind: 'text' }> => n.kind === 'text')
+const textLeaves = (doc: ReturnType<typeof foldToL1>): Array<Extract<L1Node, { kind: 'text' }>> =>
+  (allNodes(doc) as unknown as L1Node[]).filter(
+    (n): n is Extract<L1Node, { kind: 'text' }> => n.kind === 'text',
+  )
 
 /** The `submit` control leaf inside a recovered form's presentation subtree. */
 function submitControlOf(form: FoldedForm): { axes?: Record<string, unknown> } | undefined {

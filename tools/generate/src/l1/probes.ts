@@ -46,7 +46,7 @@ import {
   type L1ScalarTrack,
   type L1Text,
 } from '@1stcontact/site-schema'
-import { classifyElement, isSynthesizedSurfaceId, type FoldableElement } from './fold'
+import { classifyElement, isSynthesizedSurfaceId, surfaceBorderInset, type FoldableElement } from './fold'
 // REQ-211 — the same rejoin decision the fold makes, asked here so the oracle
 // and the reproduction count the same things. See `inline-runs.ts`.
 import { flowLead, flowText, rejoinableFlows, type InlineFlow } from './inline-runs'
@@ -112,6 +112,17 @@ export interface LayoutResult {
   height?: number
   leaves: EvalLeaf[]
   findings: LayoutFinding[]
+  /**
+   * BUG-142 — the resolved box of EVERY node, by path, not just the leaves.
+   *
+   * A structural node used to be reconstructible from its subtree's leaves, which
+   * was enough while the only structural nodes were the recovery's own invented
+   * containers. A backing surface that owns the content it backs is a structural
+   * node with a *painted rect of its own*, and one the recovery has to read to
+   * place it — so the walk that already resolves it says what it resolved rather
+   * than leaving every caller to re-derive it from the wrong evidence.
+   */
+  boxes: Map<string, EvalBox>
 }
 
 /**
@@ -533,6 +544,35 @@ function constrainWidth(node: L1Node, avail: number): number {
 }
 
 /**
+ * BUG-142 — a box/container's own content inset at `width`, per side.
+ *
+ * Padding had never been modelled, and until now it never moved anything the
+ * model reads: every node that carried one was pinned, and `box-sizing:
+ * border-box` keeps a pinned node's border box exactly where its keyframes put
+ * it. A node whose height comes from its CONTENT is the case where it does move
+ * something — the interior starts below the top inset and the box ends below the
+ * bottom one — and that is what a backing surface owning the content it backs
+ * becomes. Without this the model would place every panel below the first one
+ * short by the section padding the browser actually paints.
+ *
+ * The per-width track owns its side where one is present, exactly as the
+ * renderer's cascade does; an absent side is 0.
+ */
+function paddingAt(node: L1Node, width: number): { top: number; right: number; bottom: number; left: number } {
+  const pad = 'padding' in node ? node.padding : undefined
+  const track = 'responsivePadding' in node ? node.responsivePadding : undefined
+  if (!pad && !track) return { top: 0, right: 0, bottom: 0, left: 0 }
+  const side = (t: L1ScalarTrack | undefined, px: number | undefined): number =>
+    t ? evalScalarTrack(t, width) : (px ?? 0)
+  return {
+    top: side(track?.topPx, pad?.topPx),
+    right: side(track?.rightPx, pad?.rightPx),
+    bottom: side(track?.bottomPx, pad?.bottomPx),
+    left: side(track?.leftPx, pad?.leftPx),
+  }
+}
+
+/**
  * Main-axis widths for a flex row's flow children, mirroring the renderer's
  * `display:flex; flex-direction:row`. A child that declares a fixed width takes
  * it; the remaining children share the leftover main-axis extent equally — the
@@ -594,6 +634,8 @@ interface Ctx {
    * page and the model is unchanged for it.
    */
   origin: { x: number; y: number }
+  /** BUG-142 — every node's resolved box, by path (see {@link LayoutResult.boxes}). */
+  boxes: Map<string, EvalBox>
   /** Clip findings accumulated during the walk (pinned-box content overflow). */
   clips: LayoutFinding[]
   /** BUG-113 — the oracle's text heights, if the caller has them. */
@@ -670,6 +712,7 @@ function translateSubtree(node: L1Node, box: EvalBox, ctx: Ctx, fromLeaf: number
 function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
   const fromLeaf = ctx.leaves.length
   const { advance, box } = layoutInFlow(node, frame, path, ctx)
+  ctx.boxes.set(path, { ...box })
   translateSubtree(node, box, ctx, fromLeaf)
   return advance
 }
@@ -708,9 +751,27 @@ function layoutInFlow(
     : lead
       ? { x: frame.x + lead.x, y: frame.y + lead.y, width: flowWidth(node, width)!, height: 0 }
       : { ...frame }
-  // A node the recovery put in flow becomes the origin for its own subtree; every
-  // other node passes its parent's along unchanged.
-  const placed: Ctx = lead ? { ...ctx, origin: { x: box.x, y: box.y } } : ctx
+  // A node that establishes a containing block becomes the origin for its own
+  // subtree; every other node passes its parent's along unchanged.
+  //
+  // BUG-142 — a PINNED node does too, and always did in the browser. The
+  // renderer emits `position: absolute` for it, which is a containing block, so
+  // an absolutely-placed descendant is placed from ITS corner and not the
+  // page's. The model could read every absolute box as page-absolute only for as
+  // long as the fold's output was FLAT; now that a backing surface owns the
+  // content it backs, a panel-relative child read as page-absolute would be
+  // placed at the panel's offset twice. (`mountBehaviours` used to stand in for
+  // this by translating a mounted form's whole subtree into page coordinates —
+  // it no longer has to, because the box it mounts into donates the origin.)
+  //
+  // The corner donated is the PADDING box, not the border box: CSS places an
+  // absolute descendant inside the border, and `box-sizing: border-box` keeps the
+  // border inside the rect the keyframes pinned. A card's 4px accent rule is the
+  // case that makes it visible.
+  const donated = pinned || lead ? surfaceBorderInset('axes' in node ? node.axes : undefined) : undefined
+  const placed: Ctx = donated
+    ? { ...ctx, origin: { x: box.x + donated.left, y: box.y + donated.top } }
+    : ctx
   // BUG-112 / REQ-288 — the declaration covers the subtree it was made about.
   const inner: Ctx = node.stacked ? { ...placed, stacked: true } : placed
   /**
@@ -822,6 +883,16 @@ function layoutInFlow(
         return { advance: adv(box.height), box }
       }
       const gap = node.kind === 'container' ? (node.gapPx ?? 0) : 0
+      // BUG-142 — the flow interior is the border box inset by the node's own
+      // padding. `interior` is what every child frame and every cursor below is
+      // measured from; `box` itself stays the border box the geometry pinned.
+      const pad = paddingAt(node, width)
+      const interior: EvalBox = {
+        x: box.x + pad.left,
+        y: box.y + pad.top,
+        width: Math.max(0, box.width - pad.left - pad.right),
+        height: box.height,
+      }
       // A `row` container flows horizontally along the main axis; a `box` and a
       // `stack`/`grid` container flow vertically (full-width, stacked). Grid is
       // modelled as a stack here — envelope-conservative, and the folder does not
@@ -852,7 +923,7 @@ function layoutInFlow(
       const flowIndex = new Map<L1Node, number>()
       flowChildren.forEach((c, k) => flowIndex.set(c, k))
 
-      let maxChildBottom = box.y
+      let maxChildBottom = interior.y
       if (row) {
         // Flex row: children sit side by side, each taking its own main-axis
         // width; the row's height is the tallest child (cross axis). Mirrors the
@@ -862,23 +933,23 @@ function layoutInFlow(
         // instead of squeezing, and the row's height is the sum of its lines. A
         // row whose children DO fit packs into exactly one line, so the model is
         // unchanged wherever wrapping never happens.
-        const widths = rowChildWidths(flowChildren, box.width, gap, width)
+        const widths = rowChildWidths(flowChildren, interior.width, gap, width)
         const lines = wrapping
-          ? packRowLines(widths, box.width, gap, opts.epsilonPx)
+          ? packRowLines(widths, interior.width, gap, opts.epsilonPx)
           : [flowChildren.map((_, k) => k)]
         // The line each flow child belongs to, so the document-order walk below
         // knows when one line has ended and the next begins.
         const lineOf = new Map<number, number>()
         lines.forEach((line, li) => line.forEach((k) => lineOf.set(k, li)))
-        let cursorY = box.y
-        let cursorX = box.x
+        let cursorY = interior.y
+        let cursorX = interior.x
         let lineHeight = 0
         let openLine = -1
         const closeLine = (): void => {
           if (openLine < 0) return
           cursorY += lineHeight + gap
           maxChildBottom = Math.max(maxChildBottom, cursorY - gap)
-          cursorX = box.x
+          cursorX = interior.x
           lineHeight = 0
         }
         children.forEach((child, i) => {
@@ -902,13 +973,13 @@ function layoutInFlow(
         closeLine()
       } else {
         // Stack: each child fills the width and stacks vertically.
-        let cursorY = box.y
+        let cursorY = interior.y
         children.forEach((child, i) => {
           if (isPinned(child)) {
             layout(child, { ...box }, `${path}.${i}`, inner)
             return
           }
-          const childFrame: EvalBox = { x: box.x, y: cursorY, width: box.width, height: 0 }
+          const childFrame: EvalBox = { x: interior.x, y: cursorY, width: interior.width, height: 0 }
           const h = layout(child, childFrame, `${path}.${i}`, inner)
           cursorY += h + gap
         })
@@ -923,8 +994,9 @@ function layoutInFlow(
         if (flowChildren.length) maxChildBottom = cursorY - gap
       }
 
-      // Natural content height of the flow interior.
-      const contentHeight = flowChildren.length ? maxChildBottom - box.y : 0
+      // Natural content height of the flow interior, plus the node's own insets:
+      // a padded box is taller than what it holds (BUG-142).
+      const contentHeight = flowChildren.length ? maxChildBottom - interior.y + pad.top + pad.bottom : 0
       // A pinned box/container with a fixed keyframe height that the content
       // overflows is a clip.
       const pinnedH = declaredHeight(node, width, vh)
@@ -1038,13 +1110,16 @@ export function deriveSurfaceBacking(
   const heightOf = capturedHeightByWidth(doc)
   // No `backing` option on these evaluations — they are what DEFINES the backing,
   // so they assert no containment and cannot recurse.
-  const rests = widths.map((width) => ({
-    width,
-    leaves: evaluateLayout(doc, width, {
+  // BUG-142 — a surface that owns its content is structural, so the resting
+  // evaluation is read for its whole box map, not only its leaves.
+  const surfacePaths = synthesizedSurfacePaths(doc)
+  const rests = widths.map((width) => {
+    const result = evaluateLayout(doc, width, {
       measured: options.measured,
       viewportHeight: heightOf.get(width),
-    }).leaves,
-  }))
+    })
+    return { width, leaves: result.leaves, boxes: result.boxes }
+  })
   const backing = new Map<string, string[]>()
   const link = (runPath: string, surfacePath: string): void => {
     const cur = backing.get(runPath)
@@ -1053,11 +1128,23 @@ export function deriveSurfaceBacking(
     } else backing.set(runPath, [surfacePath])
   }
   /** The declared and the covered pairs of one resting state, as `run→surface` keys. */
-  const pairsAt = (leaves: EvalLeaf[]): { declared: Set<string>; covered: Set<string> } => {
-    const surfaces = leaves.filter(
-      (l) => l.kind === 'box' && l.box.width > 0 && l.box.height > 0 && l.id !== undefined,
-    )
-    const byId = new Map(surfaces.map((l) => [l.id!, l]))
+  const pairsAt = (
+    leaves: EvalLeaf[],
+    boxes: Map<string, EvalBox>,
+  ): { declared: Set<string>; covered: Set<string> } => {
+    // Two sources for the same thing, because a surface can be either shape: a
+    // childless pinned box reaches the leaf scan, and one that owns the content
+    // it backs does not (BUG-142) and is found by its path in the document.
+    const surfaces: Array<{ path: string; id: string | undefined; box: EvalBox }> = leaves
+      .filter((l) => l.kind === 'box' && l.box.width > 0 && l.box.height > 0 && l.id !== undefined)
+      .map((l) => ({ path: l.path, id: l.id, box: l.box }))
+    for (const [path, id] of surfacePaths) {
+      if (surfaces.some((s) => s.path === path)) continue
+      const box = boxes.get(path)
+      if (!box || box.width <= 0 || box.height <= 0) continue
+      surfaces.push({ path, id, box })
+    }
+    const byId = new Map(surfaces.map((sf) => [sf.id!, sf]))
     const declared = new Set<string>()
     const covered = new Set<string>()
     for (const run of leaves) {
@@ -1071,7 +1158,7 @@ export function deriveSurfaceBacking(
     }
     return { declared, covered }
   }
-  const perWidth = rests.map((r) => pairsAt(r.leaves))
+  const perWidth = rests.map((r) => pairsAt(r.leaves, r.boxes))
   for (const key of new Set(perWidth.flatMap((p) => [...p.declared]))) {
     const [runPath, surfacePath] = key.split('|')
     link(runPath, surfacePath)
@@ -1108,6 +1195,7 @@ export function evaluateLayout(
     width,
     opts,
     leaves: [],
+    boxes: new Map(),
     clips: [],
     origin: { x: 0, y: 0 },
     measured: options.measured,
@@ -1174,11 +1262,23 @@ export function evaluateLayout(
   // because a finding an operator cannot go and look at is not evidence.
   if (options.backing) {
     const byPath = new Map(ctx.leaves.map((l) => [l.path, l]))
+    // BUG-142 — the surface side is resolved from the box map as well as the
+    // leaves, because a surface that owns the content it backs is structural and
+    // so is never pushed as a leaf. Reading only the leaves would find no surface
+    // for any owning panel and skip it, which reads as "nothing escaped" when in
+    // fact nothing was looked at.
+    const surfaceIds = synthesizedSurfacePaths(doc)
+    const surfaceAt = (path: string): { id: string | undefined; box: EvalBox } | undefined => {
+      const leaf = byPath.get(path)
+      if (leaf) return { id: leaf.id, box: leaf.box }
+      const box = ctx.boxes.get(path)
+      return box ? { id: surfaceIds.get(path), box } : undefined
+    }
     for (const [runPath, surfacePaths] of options.backing) {
       const run = byPath.get(runPath)
       if (!run || run.box.height <= 0 || run.box.width <= 0) continue
       for (const surfacePath of surfacePaths) {
-        const surface = byPath.get(surfacePath)
+        const surface = surfaceAt(surfacePath)
         // A surface hidden at this width pushes no leaf, and a run that outlives
         // its own surface is that surface's visibility rule doing its job.
         if (!surface || surface.box.height <= 0 || surface.box.width <= 0) continue
@@ -1188,14 +1288,20 @@ export function evaluateLayout(
           kind: 'escape',
           detail:
             `${run.text ? `'${run.text}'` : run.kind} is no longer covered by its backing surface ` +
-            `${surface.id ?? surface.path} — ${Math.round(out.px)}px ${out.side}`,
+            `${surface.id ?? surfacePath} — ${Math.round(out.px)}px ${out.side}`,
           paths: [runPath, surfacePath],
         })
       }
     }
   }
 
-  return { width, ...(options.viewportHeight !== undefined ? { height: options.viewportHeight } : {}), leaves: ctx.leaves, findings }
+  return {
+    width,
+    ...(options.viewportHeight !== undefined ? { height: options.viewportHeight } : {}),
+    leaves: ctx.leaves,
+    findings,
+    boxes: ctx.boxes,
+  }
 }
 
 // ── the oracle ────────────────────────────────────────────────────────────────
@@ -1776,19 +1882,58 @@ export interface PromoteResult {
 /**
  * REQ-278 — the node kinds recovery deliberately leaves absolutely positioned.
  *
- * A backing surface (BUG-14's `section-band-*` / `section-bg-*` / `card-*`) and a
- * node that declares `stacked: true` are the two things on a page that are
- * SUPPOSED to be underneath their neighbours. Flowing them would give each one a
- * band of vertical space of its own and push the content it backs out from
- * behind it — an 800px-tall section fill becoming an 800px-tall empty panel. They
- * are also, for exactly the same reason, the two classes the envelope scan
- * already exempts, so they never demand recovery and nothing is lost by leaving
- * them where the capture put them: at rest the recovered flow reproduces the
- * captured positions, so the fill still lands behind the runs it was painted for.
+ * A node that declares `stacked: true`, and a backing surface with nothing behind
+ * it, are what is SUPPOSED to sit underneath its neighbours. Flowing such a node
+ * would give it a band of vertical space of its own and push the neighbours it is
+ * meant to be under out from behind it — an 800px-tall section fill becoming an
+ * 800px-tall empty panel.
+ *
+ * BUG-142 — a surface that OWNS the content it backs is not that case, and the
+ * original rationale said so in as many words:
+ *
+ * > at rest the recovered flow reproduces the captured positions, so the fill
+ * > still lands behind the runs it was painted for
+ *
+ * "At rest" carried the whole argument, and it establishes nothing about any
+ * other state: the panel stayed pinned while the runs it was painted for flowed,
+ * so every perturbation slid the two apart. Since the fold nests those runs
+ * INSIDE the panel, flowing it moves the content with it and the vertical space
+ * it takes is the space its own content needs — which is the outcome the
+ * exemption was protecting against when the two were siblings. So the exemption
+ * narrows to the id-prefixed surfaces that own nothing.
  */
 function keepsAbsolute(node: L1Node): boolean {
   if (node.stacked) return true
-  return node.kind === 'box' && isSynthesizedSurfaceId(node.id)
+  if (!isSynthesizedSurfaceId(node.id)) return false
+  return childrenOf(node).length === 0
+}
+
+/**
+ * BUG-142 — every fold-synthesized backing surface in `doc`, as `path → id`.
+ *
+ * BUG-143's containment probe used to find its surfaces in the leaf scan, which
+ * was sufficient while a surface was always a CHILDLESS pinned box. A surface
+ * that owns the content it backs is a structural node, and a structural node is
+ * never pushed as a leaf — so reading surfaces off the leaves would find none of
+ * the fourteen panels on the page this defect was reported from, and the probe
+ * would report zero escapes because it had nothing to check rather than because
+ * the panels hold. A walk over the document finds a surface wherever it lives.
+ */
+function synthesizedSurfacePaths(doc: L1Document): Map<string, string> {
+  const out = new Map<string, string>()
+  const walk = (node: L1Node, path: string): void => {
+    if (isSynthesizedSurfaceId(node.id)) out.set(path, node.id!)
+    childrenOf(node).forEach((child, i) => walk(child, `${path}.${i}`))
+  }
+  walk(doc.root, '0')
+  return out
+}
+
+/** A node's children, for the two kinds that have them. */
+function childrenOf(node: L1Node): readonly L1Node[] {
+  if (node.kind === 'container') return node.children
+  if (node.kind === 'box') return node.children ?? []
+  return []
 }
 
 /**
@@ -1805,8 +1950,14 @@ function keepsAbsolute(node: L1Node): boolean {
 function restingBoxes(doc: L1Document, measured?: MeasuredTextHeights): Map<number, Map<string, EvalBox>> {
   const out = new Map<number, Map<string, EvalBox>>()
   for (const width of doc.widths) {
-    const byPath = new Map<string, EvalBox>()
-    for (const leaf of evaluateLayout(doc, width, { measured }).leaves) byPath.set(leaf.path, leaf.box)
+    // BUG-142 — every node, not only the leaves. A backing surface that owns the
+    // content it backs is a structural node with a painted rect of its own, and
+    // the recovery has to place THAT rect: reconstructing it from the extent of
+    // its own subtree would read a panel as exactly as tall as its content, which
+    // is the one thing a section's padding says it is not.
+    const result = evaluateLayout(doc, width, { measured })
+    const byPath = new Map<string, EvalBox>(result.boxes)
+    for (const leaf of result.leaves) byPath.set(leaf.path, leaf.box)
     out.set(width, byPath)
   }
   return out
@@ -2172,11 +2323,67 @@ function round(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-/** A node whose own height is its content's, so recovery gives it back to flow. */
+/**
+ * A node whose own height is its content's, so recovery gives it back to flow.
+ *
+ * BUG-142 — EXCEPT one whose height is a viewport function. A `min-h-screen`
+ * hero is a fifth of a page tall in content and a whole viewport tall on screen;
+ * its height was never its content's, and the capture measured the rule it
+ * follows (`viewportResponse.heightFactor`). Handing that height to the content
+ * would collapse the hero to the height of the words in it and lift the entire
+ * page under it by the difference. It keeps its height and its response, and its
+ * content grows into the slack the reference already gave it.
+ */
 function heightBelongsToContent(node: L1Node): boolean {
   if (node.kind === 'text') return true
-  const kids = node.kind === 'container' ? node.children : node.kind === 'box' ? (node.children ?? []) : []
-  return kids.length > 0
+  if (geometryOf(node)?.viewportResponse?.heightFactor !== undefined) return false
+  // BUG-142 — and only where there IS content to take it from. A node whose
+  // children are every one of them out of flow has an interior the browser
+  // measures as empty, so handing it its height collapses it to nothing — which
+  // for a backing surface means it stops painting at all.
+  return childrenOf(node).some((c) => !isPinned(c))
+}
+
+/**
+ * BUG-142 — keep a panel's captured height after handing it to its content.
+ *
+ * A backing surface is taller than the words on it: a section's own bottom
+ * padding is the difference, and it is why the fill reaches the next section's
+ * edge instead of stopping at the last line. Once {@link heightBelongsToContent}
+ * lets the content size the panel — which is the whole point, since that is what
+ * makes it grow when the content does — that difference has to be stated, or
+ * every panel would end at its last word and the page background would show
+ * through the tail of every section.
+ *
+ * It is computed HERE and not at fold time because only the flow placement knows
+ * how tall the content turned out: a run the capture recorded as one 59px inline
+ * box lays out as three 21px fragments, and a guess made from the captured boxes
+ * was wrong by exactly that difference.
+ *
+ * `bottomPx` per width, because a section's padding and its content both change
+ * across the ladder. A node that already declares a bottom inset keeps it —
+ * nothing here overrides an authored one.
+ */
+function withContentInset(
+  node: L1Node,
+  tops: Map<number, number>,
+  contentBottom: Map<number, number>,
+): L1Node {
+  if (!heightBelongsToContent(node)) return node
+  if ('responsivePadding' in node && node.responsivePadding?.bottomPx) return node
+  const geo = geometryOf(node)
+  if (!geo || geo.keyframes[0].height === undefined) return node
+  const keyframes: Array<{ at: number; value: number }> = []
+  for (const kf of geo.keyframes) {
+    const top = tops.get(kf.at)
+    const bottom = contentBottom.get(kf.at)
+    const declared = declaredHeight(node, kf.at)
+    if (top === undefined || bottom === undefined || declared === undefined) return node
+    keyframes.push({ at: kf.at, value: Math.max(0, round(declared - (bottom - top))) })
+  }
+  if (keyframes.length === 0 || keyframes.every((k) => k.value === 0)) return node
+  const padding = { ...(('responsivePadding' in node ? node.responsivePadding : undefined) ?? {}) }
+  return { ...node, responsivePadding: { ...padding, bottomPx: { keyframes } } } as L1Node
 }
 
 /**
@@ -2416,12 +2623,18 @@ export function promoteToFlow(
   ): L1Node {
     if (node.kind !== 'box' && node.kind !== 'container') return node
     const originalChildren: L1Node[] = node.kind === 'container' ? node.children : (node.children ?? [])
+    const inset = surfaceBorderInset('axes' in node ? node.axes : undefined)
     const childFrame = (child: L1Node, i: number, axis: 'x' | 'y'): Map<number, number> => {
       const geo = geometryOf(child)
       const map = new Map<number, number>()
       for (const w of widths) {
         const outer = (axis === 'x' ? lefts : tops).get(w) ?? 0
-        map.set(w, geo && geo.place !== 'flow' ? evalGeometry(geo, w)[axis] : outer)
+        // BUG-142 — a pinned child's keyframes are read against THIS node's own
+        // corner, not the page's, exactly as the renderer reads them. They were
+        // the same number for as long as the fold's document was flat; a run
+        // nested inside the panel that backs it is where they part.
+        const own = geo && geo.place !== 'flow' ? evalGeometry(geo, w)[axis] : undefined
+        map.set(w, own === undefined ? outer : outer + own + (axis === 'x' ? inset.left : inset.top))
       }
       return map
     }
@@ -2483,6 +2696,8 @@ export function promoteToFlow(
       rowAt: Map<number, Map<number, boolean>>
       cellLeads: Map<number, Lead[]>
       memberLeads: Map<number, Lead[]>
+      /** BUG-142 — where the flow cursor ended at each width: this node's content bottom. */
+      contentBottom: Map<number, number>
     }
 
     /**
@@ -2602,10 +2817,10 @@ export function promoteToFlow(
           cursor.set(w, placed.bottom)
         }
       }
-      return { absolute, cells, bands, items, rowAt, cellLeads, memberLeads }
+      return { absolute, cells, bands, items, rowAt, cellLeads, memberLeads, contentBottom: cursor }
     }
 
-    const { absolute, cells, bands, items, rowAt, cellLeads, memberLeads } = plan()
+    const { absolute, cells, bands, items, rowAt, cellLeads, memberLeads, contentBottom } = plan()
 
     /**
      * REQ-278 — the segments of the ladder the flow is DISCONTINUOUS across.
@@ -2727,9 +2942,11 @@ export function promoteToFlow(
     // child list decides only paint order, and painting them first is what makes
     // them backgrounds.
     const rebuiltChildren = [...absolute.map((i) => children[i]), ...emitted]
-    return node.kind === 'container'
-      ? { ...node, layout: 'stack' as const, responsiveLayout: undefined, gapPx: 0, children: rebuiltChildren }
-      : { ...node, children: rebuiltChildren }
+    const rebuilt =
+      node.kind === 'container'
+        ? { ...node, layout: 'stack' as const, responsiveLayout: undefined, gapPx: 0, children: rebuiltChildren }
+        : { ...node, children: rebuiltChildren }
+    return withContentInset(rebuilt as L1Node, tops, contentBottom)
   }
 
   const zero = new Map<number, number>(widths.map((w) => [w, 0]))

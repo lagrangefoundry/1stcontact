@@ -61,9 +61,28 @@ function multiFrom(
   return { url: 'http://fixture.test/', notes: [], projections }
 }
 
-/** The root box's direct children. */
-function childrenOf(doc: ReturnType<typeof foldToL1>): Array<{ kind: string; id?: string; axes?: Record<string, unknown> }> {
-  return (doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as never
+type Kid = { kind: string; id?: string; axes?: Record<string, unknown>; children?: Kid[] }
+
+/**
+ * Every node under the root, in DOCUMENT ORDER — which is paint order: absolute
+ * siblings with no z-index paint in source order, and a child paints over the
+ * parent that holds it.
+ *
+ * BUG-142 — a section background that backs content now HOLDS that content
+ * rather than preceding it as a pinned sibling, so the runs it is painted behind
+ * are its descendants. A pre-order walk reads the same paint order through the
+ * nesting, which is what these UATs are about.
+ */
+function childrenOf(doc: ReturnType<typeof foldToL1>): Kid[] {
+  const out: Kid[] = []
+  const walk = (nodes: Kid[]): void => {
+    for (const n of nodes) {
+      out.push(n)
+      walk(n.children ?? [])
+    }
+  }
+  walk(((doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as never) as Kid[])
+  return out
 }
 
 /** A hero section carrying a background image at a given width (band spans the viewport). */
@@ -100,7 +119,11 @@ function rawBand(over: Partial<RawBand> = {}): RawBand {
 describe('BUG-13 — section/band background images fold to L1 boxes', () => {
   it('test_UAT_FC_BUG-13_section_background_emits_box_with_url', () => {
     const doc = foldToL1(multiFrom((w) => [heroSection(w)], (w) => [run({ x: 40, y: 200, width: w - 80, height: 60 })]))
-    const bgBoxes = childrenOf(doc).filter((c) => c.kind === 'box' && c.axes?.backgroundImageUrl)
+    // BUG-142 — `box` or `container`: a section background that backs content is
+    // the container that holds it; one that backs nothing is still a pinned box.
+    const bgBoxes = childrenOf(doc).filter(
+      (c) => (c.kind === 'box' || c.kind === 'container') && c.axes?.backgroundImageUrl,
+    )
     expect(bgBoxes).toHaveLength(1)
     expect(bgBoxes[0].axes?.backgroundImageUrl).toBe(HERO)
     expect(bgBoxes[0].id).toBe('section-bg-0')

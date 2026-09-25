@@ -300,7 +300,16 @@ export function mountBehaviours(doc: L1Document, forms: readonly FoldedForm[]): 
   if (!forms.length) return doc
   const bySlot = new Map(forms.map((f) => [f.slot, f.form]))
 
-  /** Shift every keyframe in a subtree by the seam's offset at that same width. */
+  /**
+   * Shift the mounted root's own keyframes by the seam's offset at that same width.
+   *
+   * BUG-142 — the ROOT'S ONLY. The form body is a pinned box and its controls are
+   * already expressed relative to it (REQ-96 rebases them at fold time), so once
+   * the body box is placed at the seam it is the containing block its controls
+   * are positioned from — in the browser, which has always nested them, and now in
+   * the model, which reads a pinned node as the origin for its subtree. Shifting
+   * the descendants as well would apply the seam's offset to them twice.
+   */
   const translate = (node: L1Node, offsets: Map<number, { x: number; y: number }>): L1Node => {
     const next = { ...node } as L1Node
     if (next.geometry) {
@@ -311,10 +320,6 @@ export function mountBehaviours(doc: L1Document, forms: readonly FoldedForm[]): 
           return at ? { ...kf, x: kf.x + at.x, y: kf.y + at.y } : kf
         }),
       }
-    }
-    if (next.kind === 'container') next.children = next.children.map((c) => translate(c, offsets))
-    else if (next.kind === 'box' && next.children) {
-      next.children = next.children.map((c) => translate(c, offsets))
     }
     return next
   }

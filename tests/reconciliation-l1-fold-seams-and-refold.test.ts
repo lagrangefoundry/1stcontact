@@ -30,6 +30,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { renderL1Document } from '../packages/framework/src/index'
+import type { L1Node } from '../packages/site-schema/src/index'
 import { foldToL1, type FoldedForm, type FoldResidual } from '../tools/generate/src'
 import * as cli from '../tools/generate/src/cli/index'
 import {
@@ -79,6 +80,32 @@ function leavesOf(doc: ReturnType<typeof foldToL1>) {
 }
 
 /**
+ * Every node under the root, in DOCUMENT ORDER — which is paint order.
+ *
+ * BUG-142 — a band that BACKS content now holds the runs it is painted behind,
+ * so a sweep of the root's children no longer sees either the band's runs or a
+ * card sitting on it. A captured backdrop takes no part in that ownership: it is
+ * a real captured element, not a surface reconstructed from the runs standing on
+ * it, so it is still a top-level pinned box in the background layer.
+ */
+function nodesOf(doc: ReturnType<typeof foldToL1>): L1Node[] {
+  const out: L1Node[] = []
+  const walk = (nodes: readonly L1Node[]): void => {
+    for (const n of nodes) {
+      out.push(n)
+      walk(n.kind === 'container' ? n.children : n.kind === 'box' ? (n.children ?? []) : [])
+    }
+  }
+  walk(leavesOf(doc))
+  return out
+}
+
+/** A node that paints a surface: a pinned `box`, or the `container` a backing
+ *  surface becomes once it owns the content it backs (BUG-142). */
+const paints = (n: L1Node): n is Extract<L1Node, { kind: 'box' | 'container' }> =>
+  n.kind === 'box' || n.kind === 'container'
+
+/**
  * The reference's own measurement at one width, read straight back out of the
  * retained oracle — so every assertion below is pinned to the ladder the fold
  * consumed, not to a number restated in the test.
@@ -125,8 +152,8 @@ describe('AC-812 a captured backdrop folds to a box leaf in the background layer
 
     // (a) A box leaf carries the image handle AND the fill painted beneath it,
     //     with a geometry track pinning all four sides at every sampled width.
-    const leaves = leavesOf(doc)
-    const backdrops = leaves.filter((n) => n.kind === 'box' && n.axes?.backgroundImageUrl)
+    const leaves = nodesOf(doc)
+    const backdrops = leaves.filter((n) => paints(n) && n.axes?.backgroundImageUrl)
     expect(backdrops).toHaveLength(1)
     const backdrop = backdrops[0]
     if (backdrop.kind !== 'box') throw new Error('expected a box leaf')
@@ -159,11 +186,11 @@ describe('AC-812 a captured backdrop folds to a box leaf in the background layer
     //     (This page's panels are all nested, so it yields no interior section
     //     edge of its own — the backdrop is the only evidence of the change.)
     const heroBands = leaves.filter(
-      (n) => n.kind === 'box' && n.axes?.surfaceFill === HERO_FILL && !n.axes?.backgroundImageUrl,
+      (n) => paints(n) && n.axes?.surfaceFill === HERO_FILL && !n.axes?.backgroundImageUrl,
     )
     expect(heroBands.length).toBeGreaterThan(0)
     for (const band of heroBands) {
-      if (band.kind !== 'box') throw new Error('expected a box leaf')
+      if (!paints(band)) throw new Error('expected a painting node')
       for (const kf of band.geometry!.keyframes) {
         expect(kf.y + (kf.height ?? 0), 'hero band stops at the backdrop edge').toBeLessThanOrEqual(HERO_BOTTOM + 1)
       }
@@ -178,14 +205,12 @@ describe('AC-812 a captured backdrop folds to a box leaf in the background layer
           .manifest.elements.filter((e) => !e.backgroundImageUrl),
       ),
     )
-    const unbounded = leavesOf(withoutBackdrop).filter(
-      (n) => n.kind === 'box' && n.axes?.surfaceFill === HERO_FILL,
+    const unbounded = nodesOf(withoutBackdrop).filter(
+      (n) => paints(n) && n.axes?.surfaceFill === HERO_FILL,
     )
     expect(
       unbounded.some((n) =>
-        n.kind === 'box'
-          ? n.geometry!.keyframes.some((kf) => kf.y + (kf.height ?? 0) > HERO_BOTTOM + 1)
-          : false,
+        paints(n) ? n.geometry!.keyframes.some((kf) => kf.y + (kf.height ?? 0) > HERO_BOTTOM + 1) : false,
       ),
       'without the backdrop edge the hero fill tiles past the hero',
     ).toBe(true)

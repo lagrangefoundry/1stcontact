@@ -120,8 +120,23 @@ const NO_DELTAS = {
 const NO_COLLISIONS: EnvelopeReport = { pass: true, byWidth: [] }
 
 /** Every child of the folded root, in document order. */
+/**
+ * Every node under the root, in document order.
+ *
+ * BUG-142 — a band that BACKS content now holds the runs it is painted behind,
+ * so it is a `container` rather than a pinned `box` sibling of theirs. The band
+ * this fixture synthesizes is the same band; the sweep is a walk.
+ */
 function childrenOf(doc: L1Document): L1Node[] {
-  return doc.root.kind === 'box' ? (doc.root.children ?? []) : []
+  const out: L1Node[] = []
+  const walk = (nodes: readonly L1Node[]): void => {
+    for (const n of nodes) {
+      out.push(n)
+      walk(n.kind === 'container' ? n.children : n.kind === 'box' ? (n.children ?? []) : [])
+    }
+  }
+  walk(doc.root.kind === 'box' ? (doc.root.children ?? []) : [])
+  return out
 }
 
 function loadReal(host: string): MultiStateCapture | null {
@@ -312,7 +327,9 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
       { ...text('Paragraph', { x: 20, y: 400, width: width - 40, height: 48 }), surfaceFill: BAND },
     ] as ValueElement[])
     const base = foldToL1(oracle)
-    const bands = childrenOf(base).filter((n) => n.kind === 'box' && (n.id ?? '').startsWith('section-band-'))
+    const bands = childrenOf(base).filter(
+      (n) => (n.kind === 'box' || n.kind === 'container') && (n.id ?? '').startsWith('section-band-'),
+    )
     expect(bands.length, 'the fixture actually synthesizes a band').toBeGreaterThan(0)
     expect(onSampleProbe(base).pass).toBe(true)
   })

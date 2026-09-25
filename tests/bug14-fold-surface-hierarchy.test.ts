@@ -53,7 +53,27 @@ type Kid = { kind: string; id?: string; axes?: Record<string, unknown>; geometry
 function childrenOf(doc: ReturnType<typeof foldToL1>): Kid[] {
   return (doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as unknown as Kid[]
 }
-const boxesOf = (doc: ReturnType<typeof foldToL1>): Kid[] => childrenOf(doc).filter((n) => n.kind === 'box')
+/**
+ * Every painted surface in the folded tree, at any depth.
+ *
+ * BUG-142 — a band, section background or card that BACKS content now folds to a
+ * `container` that holds that content, so a card sitting on a band is that band's
+ * child rather than its sibling. The surfaces this suite counts are the same
+ * surfaces; only where they sit and which kind they are has changed, so the sweep
+ * is a walk over both painting kinds instead of a scan of the root's `box`
+ * children. A surface that backs nothing is still a childless pinned `box`.
+ */
+function surfacesOf(doc: ReturnType<typeof foldToL1>): Kid[] {
+  const out: Kid[] = []
+  const walk = (nodes: Kid[]): void => {
+    for (const n of nodes) {
+      if (n.kind === 'box' || n.kind === 'container') out.push(n)
+      walk(((n as { children?: Kid[] }).children ?? []) as Kid[])
+    }
+  }
+  walk(childrenOf(doc))
+  return out
+}
 const kf1280 = (b: Kid) => b.geometry!.keyframes.find((k) => k.at === 1280)!
 
 function loadReal(host: string): MultiStateCapture | null {
@@ -79,7 +99,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
     ])
     const doc = foldToL1(ms)
 
-    const bands = boxesOf(doc).filter((b) => (b.id ?? '').startsWith('section-band-'))
+    const bands = surfacesOf(doc).filter((b) => (b.id ?? '').startsWith('section-band-'))
     expect(bands.length).toBe(2)
     const b1 = bands.find((b) => b.axes?.surfaceFill === BAND1)!
     const b2 = bands.find((b) => b.axes?.surfaceFill === BAND2)!
@@ -106,8 +126,8 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
       run(w, 'Para 4', { x: 50, y: 280, width: 900, height: 40 }, { surfaceFill: BAND1 }),
     ])
     const doc = foldToL1(ms)
-    const bands = boxesOf(doc).filter((b) => (b.id ?? '').startsWith('section-band-'))
-    const cards = boxesOf(doc).filter((b) => (b.id ?? '').startsWith('card-'))
+    const bands = surfacesOf(doc).filter((b) => (b.id ?? '').startsWith('section-band-'))
+    const cards = surfacesOf(doc).filter((b) => (b.id ?? '').startsWith('card-'))
     expect(bands.length).toBe(1)
     expect(cards.length).toBe(0)
     expect(kf1280(bands[0]).x).toBe(0)
@@ -122,7 +142,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
       run(w, 'White card line two', { x: 120, y: 250, width: 700, height: 40 }, { surfaceFill: CARD, borderLeft: { widthPx: 4, color: '#50a2ff' } }),
     ])
     const doc = foldToL1(ms)
-    const cards = boxesOf(doc).filter((b) => (b.id ?? '').startsWith('card-'))
+    const cards = surfacesOf(doc).filter((b) => (b.id ?? '').startsWith('card-'))
     expect(cards.length).toBe(1)
     expect(cards[0].axes?.surfaceFill).toBe(CARD)
     expect(cards[0].axes?.surfaceFill).not.toBe(BAND2)
@@ -144,7 +164,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
       }),
     ])
     const doc = foldToL1(ms)
-    const card = boxesOf(doc).find((b) => (b.id ?? '').startsWith('card-'))!
+    const card = surfacesOf(doc).find((b) => (b.id ?? '').startsWith('card-'))!
     expect(card).toBeTruthy()
     const a = card.axes as { borderLeft?: { widthPx: number; color: string }; boxShadow?: { blurPx?: number }; borderRadiusPx?: number }
     expect(a.borderLeft).toEqual({ widthPx: 4, color: '#ffb900' })
@@ -169,7 +189,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
       run(w, 'Panel body spanning wide', { x: 100, y: 640, width: 820, height: 40 }, { surfaceFill: CARD, borderLeft: { widthPx: 4, color: '#00d492' } }),
     ])
     const doc = foldToL1(ms)
-    const cards = boxesOf(doc).filter((b) => (b.id ?? '').startsWith('card-'))
+    const cards = surfacesOf(doc).filter((b) => (b.id ?? '').startsWith('card-'))
     const grid = cards.filter((c) => c.axes?.surfaceFill === GRID)
     const panel = cards.filter((c) => c.axes?.surfaceFill === CARD)
     expect(grid.length).toBe(3)
@@ -223,7 +243,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
     const doc = foldToL1(ms)
 
     // Synthesized surfaces exist (band + card) alongside exactly one real box leaf.
-    const boxes = boxesOf(doc)
+    const boxes = surfacesOf(doc)
     expect(boxes.filter((b) => (b.id ?? '').startsWith('section-band-')).length).toBeGreaterThan(0)
     expect(boxes.filter((b) => (b.id ?? '').startsWith('card-')).length).toBe(1)
     expect(boxes.filter((b) => (b.id ?? '').startsWith('box-')).length).toBe(1)
@@ -249,7 +269,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
     ])
     const doc = foldToL1(ms)
 
-    const boxes = boxesOf(doc)
+    const boxes = surfacesOf(doc)
     const real = boxes.filter((b) => (b.id ?? '').startsWith('box-')).map((b) => b.id)
     expect(real.length).toBe(2) // both standalone surfaces folded as real box leaves
 
@@ -289,7 +309,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
       if (!ms) continue
       const doc = foldToL1(ms)
       expect(doc.background, `${host} doc.background`).toMatch(/^#[0-9a-f]{6}$/i)
-      const boxes = boxesOf(doc)
+      const boxes = surfacesOf(doc)
       const bands = boxes.filter((b) => (b.id ?? '').startsWith('section-band-'))
       const cards = boxes.filter((b) => (b.id ?? '').startsWith('card-'))
       expect(bands.length, `${host} section bands`).toBeGreaterThan(0)
@@ -313,7 +333,7 @@ describe('BUG-14 — fold rebuilds the section-band → card → text hierarchy'
     const ms = loadReal('gigabytealchemy.ai')
     if (!ms) return
     const doc = foldToL1(ms)
-    const accentCards = boxesOf(doc).filter(
+    const accentCards = surfacesOf(doc).filter(
       (b) => (b.id ?? '').startsWith('card-') && b.axes?.surfaceFill === '#f8f5f2' && b.axes?.borderLeft,
     )
     // The two flagship product cards (Sanctum Voice, XGD).

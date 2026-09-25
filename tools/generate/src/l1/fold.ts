@@ -27,6 +27,7 @@ import {
   type L1Box,
   type L1SurfaceAxes,
   type L1Column,
+  type L1ContainerNode,
   type L1ColumnAnchor,
   type L1ColumnTerm,
   type L1Control,
@@ -2022,6 +2023,312 @@ function buildCards(
   return boxes.sort((a, b) => b.area - a.area).map((b) => b.node)
 }
 
+// ── BUG-142: a backing surface owns the content it backs ─────────────────────
+//
+// A band, a section background and a card were emitted as PINNED SIBLINGS of the
+// runs they are painted behind, in one flat list. At rest a panel sat behind its
+// runs only because their coordinates coincided, and nothing held the two
+// together anywhere else: the runs joined the flow when the recovery promoted
+// them and the panels were exempt from it, so a viewport an inch wider, a
+// paragraph a line longer, or a window taller slid the two layers apart.
+//
+// The ownership is not an inference — the fold BUILDS each surface from the runs
+// it backs. So it is stated in the tree: a surface that backs content becomes a
+// `container` (REQ-98's "a container paints AND lays out"), the content it backs
+// becomes its children, and containment holds by construction.
+//
+// A `container` rather than a `box` with children, because the renderer emits
+// `display: flex` for one and a plain block for the other — and a block's first
+// in-flow child has its `margin-top` COLLAPSE OUT of it, which would move the
+// panel instead of its content: the same separation by another route.
+
+/** The four numbers a keyframe resolves to — the rect ownership is decided on. */
+interface FoldRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** A node's own geometry track, for the kinds that carry one. */
+function foldGeometryOf(node: L1Node): L1Geometry | undefined {
+  return 'geometry' in node ? node.geometry : undefined
+}
+
+/**
+ * A geometry track resolved at `at`, mirroring the renderer's cascade exactly:
+ * hold the base below the first keyframe, interpolate (or hold, on a `snap`)
+ * inside a segment, hold the final keyframe above the last. At a sampled width
+ * the result IS that width's keyframe, so a rebase against it is exact wherever
+ * the capture measured.
+ */
+function frameAt(geo: L1Geometry, at: number): FoldRect {
+  const f = geo.keyframes
+  const rect = (k: L1Keyframe): FoldRect => ({ x: k.x, y: k.y, width: k.width, height: k.height ?? 0 })
+  if (at <= f[0].at) return rect(f[0])
+  for (let i = 0; i < f.length - 1; i++) {
+    const a = f[i]
+    const b = f[i + 1]
+    if (at >= a.at && at < b.at) {
+      if ((geo.segments?.[i] ?? 'interpolate') === 'snap') return rect(a)
+      const t = b.at === a.at ? 0 : (at - a.at) / (b.at - a.at)
+      const mix = (u: number, v: number): number => u + (v - u) * t
+      return {
+        x: mix(a.x, b.x),
+        y: mix(a.y, b.y),
+        width: mix(a.width, b.width),
+        height: mix(a.height ?? 0, b.height ?? 0),
+      }
+    }
+  }
+  return rect(f[f.length - 1])
+}
+
+/**
+ * BUG-142 — the inset a painted surface puts between its border box and the
+ * corner its absolutely-placed descendants are positioned from.
+ *
+ * The renderer emits real CSS borders (`border`, then `border-left` for a card's
+ * accent rule, which wins on that side) and sets `box-sizing: border-box`, so the
+ * padding box a descendant is placed from is the captured rect inset by the
+ * border. A 4px accent left un-subtracted would shift every word on the card.
+ */
+export function surfaceBorderInset(axes: L1SurfaceAxes | undefined): {
+  top: number
+  right: number
+  bottom: number
+  left: number
+} {
+  const b = typeof axes?.border?.widthPx === 'number' ? axes.border.widthPx : 0
+  const l = typeof axes?.borderLeft?.widthPx === 'number' ? axes.borderLeft.widthPx : b
+  return { top: b, right: b, bottom: b, left: l }
+}
+
+/**
+ * BUG-142 — re-express `node`'s track inside `parent`'s content box.
+ *
+ * Three things travel with the origin:
+ *
+ *  - the KEYFRAMES, which become parent-relative (that is the whole change);
+ *  - the COLUMN ANCHOR (REQ-88), whose `x = origin + px + fraction * extent` is
+ *    read against the page. It survives intact inside a full-bleed panel, where
+ *    parent-relative and page-relative are the same thing, and is dropped inside
+ *    one that is not — the keyframes it was fitted to remain, and they are now a
+ *    small offset INSIDE a panel that is itself anchored, which is the better
+ *    reading of the same geometry;
+ *  - the VIEWPORT-HEIGHT RESPONSE (REQ-88), which composes: a child inside a
+ *    panel that travels keeps the difference, so the pair still resolves to the
+ *    response the capture measured. A child the capture measured as not
+ *    responding stays that way — a counter-response to its panel would be a
+ *    number nothing measured.
+ */
+function rebaseInto(node: L1Node, parentGeo: L1Geometry, axes: L1SurfaceAxes | undefined): L1Node {
+  const geo = foldGeometryOf(node)
+  if (!geo) return node
+  const inset = surfaceBorderInset(axes)
+  const keyframes = geo.keyframes.map((kf) => {
+    const origin = frameAt(parentGeo, kf.at)
+    return { ...kf, x: round2(kf.x - origin.x - inset.left), y: round2(kf.y - origin.y - inset.top) }
+  })
+  const next: L1Geometry = { ...geo, keyframes }
+  const fullBleed = inset.left === 0 && parentGeo.keyframes.every((k) => Math.abs(k.x) < 0.5)
+  if (next.anchor && !fullBleed) delete next.anchor
+  const parentY = parentGeo.viewportResponse?.yFactor
+  if (parentY !== undefined && next.viewportResponse) {
+    const y = (next.viewportResponse.yFactor ?? 0) - parentY
+    const response: L1ViewportResponse = {}
+    if (Math.abs(y) >= 0.005) response.yFactor = y
+    if (next.viewportResponse.heightFactor !== undefined) {
+      response.heightFactor = next.viewportResponse.heightFactor
+    }
+    if (response.yFactor !== undefined || response.heightFactor !== undefined) {
+      next.viewportResponse = response
+    } else delete next.viewportResponse
+  }
+  return { ...node, geometry: next } as L1Node
+}
+
+/** What {@link nestBackingSurfaces} decided: the rebuilt nodes, and who was taken. */
+interface OwnershipResult {
+  /** A surface that owns content → the container it became. */
+  built: Map<L1Node, L1Node>
+  /** Every node that is now someone's child, so the caller drops it from the top level. */
+  owned: Set<L1Node>
+  /**
+   * BUG-142 — the earliest position in the CAPTURE's own element order that a
+   * node's subtree holds; absent for a node that holds no content at all.
+   *
+   * This is what the root's children are ordered by, and it is not tidiness.
+   * `sampleFidelityProbe` pairs the k-th oracle element of a text key with the
+   * k-th reproduced leaf of that key IN DOCUMENT ORDER, and so does the
+   * measured-height queue. Nesting a run inside the panel that backs it moves it
+   * in that order — a page with a wordmark in its header AND its footer then
+   * measures each against the other, and reports the distance between two
+   * different parts of the page as a fidelity miss (1038px on `faelan.com`).
+   * Ordering panels by the earliest thing they hold restores the capture's order
+   * through the nesting, so the ruler goes on measuring geometry.
+   */
+  readingOrder: Map<L1Node, number>
+}
+
+/**
+ * BUG-142 — assign every backed node to the surface that backs it, and rebuild
+ * those surfaces as containers that hold it.
+ *
+ * Ownership is the SMALLEST surface that contains the node at the widest
+ * captured width. That orders naturally — a section background or band holds its
+ * cards, a card holds its runs — and a surface may only sit inside a strictly
+ * larger one (or, for two rects of the same size, inside the one painted first),
+ * so the relation is a forest and cannot loop.
+ *
+ * The panel keeps its captured height here, in the absolute base, where it is
+ * exactly the rect the capture measured. The bottom inset that lets it KEEP that
+ * height once its content sizes it is the recovery's to compute (see
+ * `promoteToFlow`), because only the recovery knows how tall the content turned
+ * out to be once it was laid out.
+ */
+function nestBackingSurfaces(
+  surfaces: readonly L1Box[],
+  content: readonly L1Node[],
+  textHeights: ReadonlyMap<L1Node, Map<number, number>>,
+  widths: readonly number[],
+): OwnershipResult {
+  const built = new Map<L1Node, L1Node>()
+  const owned = new Set<L1Node>()
+  const readingOrder = new Map<L1Node, number>()
+  content.forEach((node, i) => readingOrder.set(node, i))
+  if (surfaces.length === 0 || content.length === 0) return { built, owned, readingOrder }
+  const widest = Math.max(...widths)
+  const all: L1Node[] = [...surfaces, ...content]
+  const order = new Map<L1Node, number>(all.map((n, i) => [n, i]))
+  const isSurfaceNode = new Set<L1Node>(surfaces)
+
+  const rects = new Map<L1Node, Map<number, FoldRect>>()
+  for (const node of all) {
+    const geo = foldGeometryOf(node)
+    const byWidth = new Map<number, FoldRect>()
+    const heights = textHeights.get(node)
+    for (const kf of geo?.keyframes ?? []) {
+      byWidth.set(kf.at, {
+        x: kf.x,
+        y: kf.y,
+        width: kf.width,
+        height: kf.height ?? heights?.get(kf.at) ?? 0,
+      })
+    }
+    rects.set(node, byWidth)
+  }
+  const rectAt = (node: L1Node, at: number): FoldRect | undefined => rects.get(node)?.get(at)
+
+  // A pixel of slack: the fold rounds to a hundredth and a run's own border box
+  // can sit flush with the panel's edge.
+  const EPS = 1
+  const contains = (parent: FoldRect, child: FoldRect): boolean =>
+    child.x >= parent.x - EPS &&
+    child.x + child.width <= parent.x + parent.width + EPS &&
+    child.y >= parent.y - EPS &&
+    child.y + child.height <= parent.y + parent.height + EPS
+
+  /**
+   * Containment at EVERY width both are captured at, not just the widest.
+   *
+   * A tree has one shape, and the ladder is where that bites: a card that sits
+   * inside a band at 1440 can be four thousand pixels below it at 320, where the
+   * page has stacked and the bands have re-tiled. Owning it on the strength of
+   * the desktop reading alone would hand the band a content extent it never had
+   * — measured on `joyfulculinarycreations.com` as a 308px band reporting 4425px
+   * of content at 320, and every section under it displaced by the difference.
+   */
+  const containsEverywhere = (surface: L1Node, node: L1Node): boolean => {
+    let shared = 0
+    for (const at of widths) {
+      const parent = rectAt(surface, at)
+      const child = rectAt(node, at)
+      if (!parent || !child) continue
+      shared++
+      if (!contains(parent, child)) return false
+    }
+    return shared > 0
+  }
+
+  const ownerOf = (node: L1Node, isSurface: boolean): L1Box | undefined => {
+    const child = rectAt(node, widest)
+    if (!child || child.width <= 0 || child.height <= 0) return undefined
+    const childArea = child.width * child.height
+    let best: L1Box | undefined
+    let bestArea = Infinity
+    for (const surface of surfaces) {
+      if (surface === node) continue
+      const parent = rectAt(surface, widest)
+      if (!parent || parent.width <= 0 || parent.height <= 0) continue
+      if (!containsEverywhere(surface, node)) continue
+      const parentArea = parent.width * parent.height
+      if (isSurface) {
+        if (parentArea < childArea) continue
+        if (parentArea === childArea && (order.get(surface) ?? 0) > (order.get(node) ?? 0)) continue
+      }
+      if (parentArea < bestArea) {
+        bestArea = parentArea
+        best = surface
+      }
+    }
+    return best
+  }
+
+  const kids = new Map<L1Node, L1Node[]>()
+  const claim = (node: L1Node, isSurface: boolean): void => {
+    const parent = ownerOf(node, isSurface)
+    if (!parent) return
+    owned.add(node)
+    const list = kids.get(parent)
+    if (list) list.push(node)
+    else kids.set(parent, [node])
+  }
+  for (const surface of surfaces) claim(surface, true)
+  for (const node of content) claim(node, false)
+
+  const build = (surface: L1Box): L1Node => {
+    const members = kids.get(surface) ?? []
+    if (members.length === 0) return surface
+    const geo = foldGeometryOf(surface)
+    if (!geo) return surface
+    // Build the members first: a nested surface's own reading-order key is only
+    // known once its subtree has been walked.
+    const inner = new Map<L1Node, L1Node>(
+      members.map((member) => [member, isSurfaceNode.has(member) ? build(member as L1Box) : member]),
+    )
+    // The capture's own order, restored through the nesting. A member that holds
+    // no content at all (a decorative panel) sorts by paint order, before the
+    // members that do — it is a background and belongs under them.
+    const keyOf = (member: L1Node): number => readingOrder.get(member) ?? -1
+    const sorted = [...members].sort(
+      (a, b) => keyOf(a) - keyOf(b) || (order.get(a) ?? 0) - (order.get(b) ?? 0),
+    )
+    const earliest = sorted.map(keyOf).filter((k) => k >= 0)
+    if (earliest.length) readingOrder.set(surface, Math.min(...earliest))
+    const nested = sorted.map((member) => rebaseInto(inner.get(member)!, geo, surface.axes))
+    const { kind: _kind, children: _children, ...rest } = surface
+    const container: L1ContainerNode = {
+      ...rest,
+      kind: 'container',
+      layout: 'stack',
+      children: nested,
+    }
+    return container
+  }
+
+  for (const surface of surfaces) {
+    if (owned.has(surface)) continue
+    const node = build(surface)
+    if (node !== surface) {
+      built.set(surface, node)
+      const key = readingOrder.get(surface)
+      if (key !== undefined) readingOrder.set(node, key)
+    }
+  }
+  return { built, owned, readingOrder }
+}
+
 /**
  * Fold a multi-viewport capture into one L1 document. Text nodes fold to `text`
  * leaves (the round-trip oracle compares text axes); text-free nodes (fields,
@@ -2070,6 +2377,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   }
 
   const children: L1Node[] = []
+  /**
+   * BUG-142 — the captured height of a TEXT leaf, per width.
+   *
+   * A text keyframe pins no height (its height is the browser's, from flow), so
+   * the node alone cannot say what vertical space the run occupied. Ownership
+   * needs exactly that: which backing surface a run sits inside, and how far the
+   * lowest run inside a surface reaches. Recorded here from the same cells the
+   * keyframes are built from, so the two can never describe different boxes.
+   */
+  const textHeights = new Map<L1Node, Map<number, number>>()
   /** BUG-27 — box leaves painting a background photograph; they belong in the
    *  background layer, beneath all content (see where they are emitted below). */
   const backdropNodes: L1Box[] = []
@@ -2209,6 +2526,17 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
+      // BUG-142 — the run's measured height, read off the SAME box the keyframes
+      // above were (the flow root's for a rejoined run, the fragment's otherwise).
+      textHeights.set(
+        node,
+        new Map(
+          framed.map((c) => {
+            const box = (flow ? c.element!.inlineBox : undefined) ?? c.element!.box!
+            return [c.width, box.height] as const
+          }),
+        ),
+      )
 
       // REQ-93 — see `submitCandidates`. Recorded, not yet claimed: whether this
       // button belongs to a form is only knowable once the controls are grouped.
@@ -2706,13 +3034,49 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // in the body as well would paint the reference's one button twice.
   const body = claimedSubmits.size ? children.filter((c) => !claimedSubmits.has(c)) : children
 
+  // BUG-142 — state the ownership the fold already knows. A band, a section
+  // background and a card that back content become containers holding it, so the
+  // panel and the words on it are one node from here on. A surface that backs
+  // nothing is untouched and stays a pinned `box`, exactly as before.
+  //
+  // `backdropNodes` take no part: an element-level background photograph is a
+  // CAPTURED element with its own oracle counterpart, not a surface the fold
+  // reconstructed from the runs standing on it, so it owns nothing and is owned
+  // by nothing.
+  const ownership = nestBackingSurfaces(
+    [...bandNodes, ...sectionBgNodes, ...cardNodes],
+    [...body, ...slotNodes],
+    textHeights,
+    widths,
+  )
+  /** The members of one paint layer that are still top-level, as rebuilt. */
+  const topLevel = (layer: readonly L1Node[]): L1Node[] =>
+    layer.filter((n) => !ownership.owned.has(n)).map((n) => ownership.built.get(n) ?? n)
+  // BUG-27 — `backdropNodes` (element-level background photographs) sit with the
+  // section-background boxes: both are backdrops, painted beneath cards and
+  // content. Ordered after `sectionBgNodes` because a nested backdrop is, by
+  // construction, inside the section whose background it overlays.
+  const paintOrder = [
+    ...topLevel(bandNodes),
+    ...topLevel(sectionBgNodes),
+    ...backdropNodes,
+    ...topLevel(cardNodes),
+    ...topLevel(body),
+    ...topLevel(slotNodes),
+  ]
+  // BUG-142 — the BACKGROUND LAYER is everything at the top level that holds no
+  // content: the surfaces nothing sits on and the captured backdrops. They paint
+  // first, in the paint order above, which is what makes them backgrounds. What
+  // remains holds content, and is ordered by the earliest capture element it
+  // holds — see {@link OwnershipResult.readingOrder}.
+  const background = paintOrder.filter((n) => ownership.readingOrder.get(n) === undefined)
+  const holdsContent = paintOrder
+    .filter((n) => ownership.readingOrder.get(n) !== undefined)
+    .sort((a, b) => ownership.readingOrder.get(a)! - ownership.readingOrder.get(b)!)
+
   const root: L1Box = {
     kind: 'box',
-    // BUG-27 — `backdropNodes` (element-level background photographs) sit with the
-    // section-background boxes: both are backdrops, painted beneath cards and
-    // content. Ordered after `sectionBgNodes` because a nested backdrop is, by
-    // construction, inside the section whose background it overlays.
-    children: [...bandNodes, ...sectionBgNodes, ...backdropNodes, ...cardNodes, ...body, ...slotNodes],
+    children: [...background, ...holdsContent],
   }
   const doc: L1Document = { widths, root }
   if (band) doc.background = band

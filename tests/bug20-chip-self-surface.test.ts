@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { renderL1Document } from '../packages/framework/src/index'
-import { validateL1 } from '../packages/site-schema/src'
+import { validateL1, type L1Node } from '../packages/site-schema/src'
 import { foldToL1 } from '../tools/generate/src'
 import { diffManifests, type ValueManifest } from '../tools/generate/src/cli'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
@@ -63,8 +63,46 @@ function cardWithBadge(): MultiStateCapture {
   ])
 }
 
-const textLeaves = (doc: ReturnType<typeof foldToL1>) =>
-  (doc.root.children ?? []).filter((n): n is Extract<typeof n, { kind: 'text' }> => n.kind === 'text')
+/**
+ * Every text leaf in the folded tree.
+ *
+ * BUG-142 — a run that a card backs is now that card's child, so the sweep is a
+ * walk rather than a scan of the root's children.
+ */
+const textLeaves = (doc: ReturnType<typeof foldToL1>): Array<Extract<L1Node, { kind: 'text' }>> => {
+  const out: Array<Extract<L1Node, { kind: 'text' }>> = []
+  const walk = (nodes: readonly L1Node[]): void => {
+    for (const n of nodes) {
+      if (n.kind === 'text') out.push(n)
+      else if (n.kind === 'container') walk(n.children)
+      else if (n.kind === 'box') walk(n.children ?? [])
+    }
+  }
+  walk(doc.root.kind === 'box' ? (doc.root.children ?? []) : [])
+  return out
+}
+
+type Surface = { kind: string; id?: string; axes?: Record<string, unknown>; children?: Surface[] }
+
+/**
+ * Every painted surface in the folded tree, at any depth.
+ *
+ * BUG-142 — a card that BACKS content folds to a `container` holding the runs it
+ * is painted behind, so it is no longer their sibling at the root. The card this
+ * suite is about is the same card, carrying the same treatments; only where it
+ * sits and which kind it is has changed.
+ */
+const surfacesOf = (doc: ReturnType<typeof foldToL1>): Surface[] => {
+  const out: Surface[] = []
+  const walk = (nodes: Surface[]): void => {
+    for (const n of nodes) {
+      if (n.kind === 'box' || n.kind === 'container') out.push(n)
+      walk(n.children ?? [])
+    }
+  }
+  walk(((doc.root.children ?? []) as unknown) as Surface[])
+  return out
+}
 
 describe('BUG-20 — chip runs carry their own surface', () => {
   it('test_UAT_FC_BUG-20_badge_run_folds_to_a_text_leaf_carrying_its_own_pill', () => {
@@ -115,7 +153,7 @@ describe('BUG-20 — chip runs carry their own surface', () => {
 
   it('test_UAT_FC_BUG-20_card_treatments_stay_on_the_card_box', () => {
     const doc = foldToL1(cardWithBadge())
-    const boxes = (doc.root.children ?? []).filter((n) => n.kind === 'box')
+    const boxes = surfacesOf(doc)
     // BUG-14's card reconstruction is untouched: the enclosing card still owns the
     // ancestor-attributed accent bar, defined by its non-chip runs.
     const withBar = boxes.filter((b) => b.axes?.borderLeft)
@@ -154,7 +192,7 @@ describe('BUG-20 — chip runs carry their own surface', () => {
         }),
       ]),
     )
-    const card = (doc.root.children ?? []).find((n) => n.kind === 'box' && (n.id ?? '').startsWith('card-'))
+    const card = surfacesOf(doc).find((n) => (n.id ?? '').startsWith('card-'))
     expect(card, 'the single-run card must still fold a card box').toBeDefined()
     expect(card!.axes?.borderLeft).toEqual({ widthPx: 4, color: '#ffb900' })
     expect(card!.axes?.borderRadiusPx).toBe(12)

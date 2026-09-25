@@ -92,8 +92,11 @@ function nodesOf(doc: L1Document): L1Node[] {
 }
 const textsOf = (doc: L1Document): Array<Extract<L1Node, { kind: 'text' }>> =>
   nodesOf(doc).filter((n): n is Extract<L1Node, { kind: 'text' }> => n.kind === 'text')
-const boxIdsOf = (doc: L1Document): string[] =>
-  nodesOf(doc).flatMap((n) => (n.kind === 'box' && n.id ? [n.id] : []))
+// BUG-142 — both painting kinds, not `box` alone: a surface that owns the content
+// it backs is a `container`, so a scan of the boxes finds none of them and the
+// `backedBy` names below would answer to an empty list.
+const surfaceIdsOf = (doc: L1Document): string[] =>
+  nodesOf(doc).flatMap((n) => ((n.kind === 'box' || n.kind === 'container') && n.id ? [n.id] : []))
 
 // ── hand-authored documents (§4.2 / §4.3 / §4.4) ──────────────────────────────
 
@@ -275,7 +278,7 @@ describe('BUG-143 — the fold records which runs each synthesized surface backs
         }),
       ]),
     )
-    const ids = boxIdsOf(doc)
+    const ids = surfaceIdsOf(doc)
     const byText = new Map(textsOf(doc).map((t) => [typeof t.text === 'string' ? t.text : '', t]))
     expect(byText.get('Heading A')!.backedBy).toBe('section-band-0')
     expect(byText.get('Intro A')!.backedBy).toBe('section-band-0')
