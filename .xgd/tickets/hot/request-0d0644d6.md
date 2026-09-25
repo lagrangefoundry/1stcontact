@@ -5,9 +5,9 @@ type: request
 title: bin/dev up starts the deployed environment, and bin/build builds the KB
 created_by: EPIC-16
 created_at: '2026-09-25T20:40:56.921470+00:00'
-updated_at: '2026-09-25T23:43:30.535664+00:00'
+updated_at: '2026-09-25T23:43:44.706599+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -330,3 +330,16 @@ tree and is **not this ticket's**: it reports `/api/chats/export`,
 `/api/chats/import` and `/api/export` as declared-but-unprobed, all three
 introduced by `ead5aa1dd0` (`feat(copy): carry a business's conversations with
 --chats`).
+
+
+## Landed alongside [[BUG-147]]
+
+BUG-147 reached `xgd-working` while this branch was out, changing the same loop in
+`devUp`: it rewrites the pidfile a second time once the port answers, recording the
+`listenerPid` that actually holds the socket. The merge-back combined the two rather
+than choosing — the second write and `chooseListenerPid` are BUG-147's and are kept
+verbatim; this ticket's `refused`/`timeout` distinction wraps them, so the pidfile is
+upgraded on the success path and a failure still carries its kind. Both suites pass
+together (`test_UAT_FC_BUG-147_dev_stops_the_listener`, 37 tests with REQ-319 and this
+ticket's ten). No UAT of this ticket asserts anything about `listenerPid`; that
+property is BUG-147's and is proved by its own suite.
