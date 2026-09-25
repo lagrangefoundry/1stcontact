@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T02:41:42.699215+00:00'
+updated_at: '2026-09-25T21:05:41.096172+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2439,5 +2439,11 @@ Two things worth flagging:
 **BUG-143 §4.1 has a dependency knot.** The containment probe needs to know which runs a surface backs. Today that's nowhere, so the probe must guess it by containment-at-rest — which is what my harness did, and a guess is a weak basis for a gate. If BUG-142 lands first the relationship is a parent link and the probe just reads it. I wrote §4.1 to work either way, but whoever picks up BUG-143 should read BUG-142 before choosing, because doing them in the stated order means building an ownership heuristic that BUG-142 then makes redundant. The alternative — defect first — costs you the ability to demonstrate the fix. I'd still take the stated order and accept the throwaway heuristic, but it's a real trade and the implementer should make it knowingly rather than discover it.
 
 **Nothing is coded.** No branch cut, no changes to the working tree — this session scopes and the branch belongs to the child. My probe harnesses are at `.xgd/tmp/bandprobe.mjs` and `bandprobe2.mjs`; both tickets cite `bandprobe2.mjs` by path, so whoever takes BUG-143 should copy it into the branch before `.xgd/tmp` gets cleared.
+
+<!-- xgd-turn id="41f339a2-5d33-4704-9767-5e8caa67c0ff-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T21:05:40.976218+00:00" -->
+#### You
+ok 142 and 143 have landed - if I rerun the capture and diagnosis will the issue get fixed?
 
 <!-- xgd-chat-end -->
