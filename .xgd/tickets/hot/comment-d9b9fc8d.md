@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:07:58.454293+00:00'
+updated_at: '2026-09-25T21:11:32.990557+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4606,5 +4606,58 @@ Noted, and the memory sharpened — the rule was already there and I drifted pas
 <!-- xgd-chat role="user" ts="2026-09-25T21:07:57.938264+00:00" -->
 #### You
 I have a problem, I reloaded the builder app and I am logged out - access sim does not log me in?
+
+<!-- xgd-turn id="011c17d2-af84-4659-a850-c5c2f57f74a3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T21:11:32.923599+00:00" -->
+#### Claude
+Everything's up — including `1c dev serve` on 8789 alongside the builder on 8788. Let me look at the actual session path rather than guess.
+
+Both ports show `"person": null` with no cookie — as expected. The decisive test is with an access-sim token.
+
+Reproduced it. The token is genuinely being ignored — here's the mechanism.
+
+Found it, and it's not a browser or cookie problem. I reproduced it with curl on both ports:
+
+```
+$ TOK=$(curl -s '127.0.0.1:8799/mint?email=martin@westhead.me')   # 626 chars, valid
+$ curl -H "Cookie: CF_Authorization=$TOK" 127.0.0.1:8788/api/businesses
+{"person":null,"businesses":[{"id":"biz_51a6746495c8057e886ff98d4208e6b9",...}],"ownsPlatformBusiness":false}
+```
+
+Same on 8789. **A valid access-sim token changes nothing** — and it's supposed to, given how the Worker is currently configured.
+
+## Why
+
+`.dev.vars` deliberately blanks `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`, and `wrangler.toml` sets `ACCESS_DEV_OPEN = "1"`. That makes `isUnconfiguredLocalDev` true — and when it's true, `index.ts:440` **skips both the Access gate and `admit` entirely**. `scope.ts` spells out the consequence: *"On that path there is no token, no verified email and no admissible set."*
+
+So in dev-open mode you are never *signed in as a person*. You're an anonymous caller with full access to `TENANT_ID`. That's exactly what the response says: `person: null`, one business shown by its raw id, `ownsPlatformBusiness: false`. The CF_Authorization cookie is never read, so access-sim cannot log you in — not "isn't", *can't*.
+
+Access-sim's own instructions say how it's meant to work: `./bin/access-sim --print-env > .dev.vars.local`, which writes `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` and `SERVICE_TOKEN_IDENTITIES` pointed at the simulator. That un-blanks the pair, `isUnconfiguredLocalDev` goes false, and the Worker starts verifying the simulator's JWTs. Its JWKS endpoint is up and answering, so that half is healthy.
+
+**Two faults, either one enough on its own:**
+
+1. **`apps/control-app/.dev.vars.local` is 0 bytes**, dated Sep 6. The values were never written, or were truncated.
+2. **It wouldn't be read even if it were populated.** `devEnvLayering` passes exactly two `--env-file` flags — `.dev.vars` and the secrets file — and as its own comment states, `--env-file` *replaces* wrangler's default `.dev.vars*` lookup rather than adding to it. So `.dev.vars.local` is outside the layering for both `1c builder` and `1c dev serve`. That's a gap left by BUG-50: when the builder moved to explicit `--env-file`, the third file dropped out, while access-sim's instructions still tell you to create it.
+
+That second one is why this will bite you again after you fix the first.
+
+## What you can do right now
+
+Put the values in the file that *is* loaded last and therefore wins — the secrets file, outside the repo:
+
+```bash
+./bin/access-sim --print-env >> ~/Documents/secrets/1c.dev.env
+```
+
+Neither value is a credential (`wrangler.toml` says so explicitly — the team domain is public and the AUD is an identifier), so it's an odd home but a harmless one, and it's the only loaded file that overrides `.dev.vars`'s blanks.
+
+Then restart the servers — `bin/dev down && bin/dev up`, plus your `1c dev serve`. **No redeploy needed for 8789**: env-files are read at server start and aren't baked into the snapshot, so the freeze doesn't apply to this.
+
+After that, browse **`http://127.0.0.1:8799`**, not the builder port directly — with Access switched on, the simulator is the only thing that can sign you in, and the cookie is host-scoped to `127.0.0.1` (`localhost` is a different cookie host, which is a second trap on this path — and `1c dev serve`'s startup banner prints `http://localhost:8789`, which will bite you).
+
+I've verified the mechanism by measurement and by reading the code, but not end-to-end — I'd need to restart your servers to do that, which is yours to run.
+
+Shall I file this as a bug under EPIC-16? It's a real defect with two parts worth pinning — `.dev.vars.local` missing from `devEnvLayering`, and `dev serve` advertising a host that breaks the sign-in path — and both sit squarely in the dev-environment work REQ-322 is already touching.
 
 <!-- xgd-chat-end -->
