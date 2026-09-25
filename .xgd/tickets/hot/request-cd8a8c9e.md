@@ -5,9 +5,9 @@ type: request
 title: 'repro console: the controls and the progress report at one end'
 created_by: EPIC-12
 created_at: '2026-09-25T21:37:20.771961+00:00'
-updated_at: '2026-09-25T23:02:12.989967+00:00'
+updated_at: '2026-09-25T23:12:02.851977+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -149,3 +149,80 @@ attributes, not on position. Neither cares where anything is rendered.
 
 Plus: the amended BUG-120 assertion passes in its new direction and every other
 assertion in that file still passes.
+
+---
+
+## What landed
+
+Implemented as specified above. The decisions taken during implementation, and
+the two places the shape came out slightly wider than the scope written, are
+below.
+
+### The cluster is one element, and the id is one constant
+
+`<div id="controls">` wraps the ⏸ block, the continuation group, the address row,
+its effect sentence and the status line, in that order, after `${rows}`. The id
+is exported from `page.ts` as `CONTROLS_ID` and imported by `console.ts` to build
+the redirect target, rather than spelled as a literal in both files: a fragment
+naming an id the page does not render is a silent no-op, which on this page reads
+as the console having ignored the press. One definition site makes that
+un-writable.
+
+One CSS rule, `#controls { scroll-margin-top: 1rem }`, so the fragment jump
+leaves a little air above the first control rather than butting it against the
+viewport edge. No border and no spacing of its own: on a blank console there is
+nothing above the cluster, and a rule drawn across an otherwise empty page would
+be one more thing between the text box and the top, which requirement 6 forbids.
+
+### Every press redirects to the cluster, not a chosen four
+
+The scope above names four presses — `/recapture`, `/clear`, the hold release and
+the AI round. In the code these are fourteen `seeOther('/')` call sites across six
+methods, and the remaining two methods are `/open` (adopt a stored capture) and
+`/iteration/N/recover` (re-read a finished round's transcript and file what it
+said). Both of those also report through the one status line, and both can leave
+the page showing a chain — so a bare `/` would land them at a top of the page
+with nothing actionable on it, which is exactly the complaint this ticket exists
+to answer. Leaving two of eight buttons on the old target would be an
+inconsistency a later reader files as a bug.
+
+So **all fourteen** become `seeControls()`, a one-line helper beside `seeOther`.
+The only redirect left pointing anywhere else is the trailing-slash redirect that
+serves an artifact directory (`console.ts:1793`), which is not a press and keeps
+its own target, as the scope requires.
+
+The behaviour this adds beyond the four named: pressing a site in `captured
+already`, and pressing `read it again` on a finished round, each also land the
+operator at the control end.
+
+### The restart sentence
+
+"…appends the next iteration to the chain **below**" became "…appends the next
+iteration to the chain **this page is showing**" — the position named rather than
+a direction, so the sentence cannot go stale again the next time something moves.
+`[clear history]`'s "the N iterations **above** are moved aside on disk" is left
+exactly as it was and is asserted still to read that way: the iterations are above
+the group, and now above the address box too.
+
+### Doc comments corrected
+
+Two comments asserted the old geometry and would have read as false:
+`notice`'s ("Between the status line and the history") and the address row's
+("THE SAME VERB, IN THE POSITION THE RESTART OCCUPIED"). Both now say where the
+thing sits and why, and both name [[REQ-323]] as what moved it.
+
+### Test scope
+
+`tests/test_UAT_FC_REQ-323_controls_at_one_end.test.ts` — 7 UATs, one per numbered
+item above, on the real console over real HTTP with `1c` and `claude`
+substituted, per [[REQ-254]]'s rule. The two ordering UATs were checked against
+the old document order and fail on it; the redirect UAT asserts the rendered `id`
+and the `303`'s `location` against the same exported constant.
+
+`tests/test_UAT_FC_BUG-120_continuation_affordance.test.ts:245` amended in place
+to the inverted direction, with a comment saying it is a deliberate supersession
+by this ticket and naming the cost that justified it. Its other five assertions,
+including the continuation group's position, are untouched and green.
+
+Regression scope run: all 27 test files that import `tools/repro-console` — 291
+passed, 7 skipped, 0 failed.
