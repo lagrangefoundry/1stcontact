@@ -180,8 +180,24 @@ function multiFrom(
 }
 
 type Kid = { kind: string; id?: string; axes?: Record<string, unknown> }
-const boxesOf = (doc: ReturnType<typeof foldToL1>): Kid[] =>
-  ((doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as unknown as Kid[]).filter((n) => n.kind === 'box')
+/**
+ * Every painted surface in the folded tree, at any depth.
+ *
+ * BUG-142 — a band that BACKS content folds to a `container` holding the runs it
+ * is painted behind; one that backs nothing is still a childless pinned `box`.
+ * The bands this suite is about are the same bands, carrying the same fill.
+ */
+const boxesOf = (doc: ReturnType<typeof foldToL1>): Kid[] => {
+  const out: Kid[] = []
+  const walk = (nodes: Kid[]): void => {
+    for (const n of nodes) {
+      if (n.kind === 'box' || n.kind === 'container') out.push(n)
+      walk(((n as { children?: Kid[] }).children ?? []) as Kid[])
+    }
+  }
+  walk((doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as unknown as Kid[])
+  return out
+}
 
 /** The retained real gigabytealchemy ladder, when this checkout has it. */
 function realGigabyte(): MultiStateCapture | null {

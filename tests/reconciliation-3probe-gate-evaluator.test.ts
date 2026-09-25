@@ -379,6 +379,33 @@ function surfaceCapture(withSurfaces: boolean): MultiStateCapture {
   ])
 }
 
+/**
+ * BUG-142 — the painted surfaces of an evaluated document, by path.
+ *
+ * A band or card that BACKS content is now a `container` that holds it, so it is
+ * no longer a childless `box` LEAF and never reaches `leaves`. It is still the
+ * same painted rect, and `evaluateLayout` reports the box it resolved for every
+ * node, so the surfaces are read from there and identified by the id families the
+ * fold synthesizes them under.
+ */
+const SURFACE_ID = /^(section-band-|section-bg-|card-)/
+function surfacesIn(
+  doc: L1Document,
+  res: { boxes: Map<string, { x: number; y: number; width: number; height: number }> },
+): Array<{ path: string; box: { x: number; y: number; width: number; height: number } }> {
+  const out: Array<{ path: string; box: { x: number; y: number; width: number; height: number } }> = []
+  const walk = (node: L1Node, path: string): void => {
+    if (SURFACE_ID.test(node.id ?? '')) {
+      const box = res.boxes.get(path)
+      if (box) out.push({ path, box })
+    }
+    const kids = node.kind === 'container' ? node.children : node.kind === 'box' ? (node.children ?? []) : []
+    kids.forEach((k, i) => walk(k, `${path}.${i}`))
+  }
+  walk(doc.root, '0')
+  return out
+}
+
 describe('story-24098299 — painted backing surfaces', () => {
   it('test_UAT_AC736_backing_surface_is_not_an_overlap_but_still_clips', () => {
     const withCap = surfaceCapture(true)
@@ -390,9 +417,9 @@ describe('story-24098299 — painted backing surfaces', () => {
     // section band per fill run-group); the same capture folded without them emits
     // no `box` leaf at all.
     expect(withDoc.background).toBe(BAND)
-    const surfaces = evaluateLayout(withDoc, 1280).leaves.filter((l) => l.kind === 'box')
+    const surfaces = surfacesIn(withDoc, evaluateLayout(withDoc, 1280))
     expect(surfaces).toHaveLength(2)
-    expect(evaluateLayout(withoutDoc, 1280).leaves.filter((l) => l.kind === 'box')).toEqual([])
+    expect(surfacesIn(withoutDoc, evaluateLayout(withoutDoc, 1280))).toEqual([])
 
     // The surface sits directly behind the content it backs — their boxes really
     // do intersect, so the exception below is load-bearing, not vacuous.
@@ -411,9 +438,7 @@ describe('story-24098299 — painted backing surfaces', () => {
       for (const contentScale of [1, 2.5]) {
         const withRes = evaluateLayout(withDoc, width, { contentScale })
         const withoutRes = evaluateLayout(withoutDoc, width, { contentScale })
-        const surfacePaths = new Set(
-          withRes.leaves.filter((l) => l.kind === 'box').map((l) => l.path),
-        )
+        const surfacePaths = new Set(surfacesIn(withDoc, withRes).map((l) => l.path))
         for (const f of withRes.findings.filter((f) => f.kind === 'overlap')) {
           expect(
             f.paths.some((p) => surfacePaths.has(p)),

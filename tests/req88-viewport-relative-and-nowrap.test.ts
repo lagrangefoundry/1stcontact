@@ -132,10 +132,14 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
       }),
     )
     const doc = foldToL1(ms)
+    // BUG-142 — a card that backs content is the `container` that holds it; one
+    // that backs none is still a pinned `box`. Either way the accent is on it.
     const card = allNodes(doc).find(
-      (n) => n.kind === 'box' && (n.axes as { borderLeft?: unknown } | undefined)?.borderLeft,
+      (n) =>
+        (n.kind === 'box' || n.kind === 'container') &&
+        (n.axes as { borderLeft?: unknown } | undefined)?.borderLeft,
     )
-    expect(card, 'the accent must be emitted on a box').toBeTruthy()
+    expect(card, 'the accent must be emitted on a painting node').toBeTruthy()
     const kf = (card!.geometry as { keyframes: Array<{ at: number; x: number; width: number }> }).keyframes
     const at1280 = kf.find((k) => k.at === 1280)!
     // The bearer's rect, NOT the run's (which is x=116 w=868).
@@ -174,7 +178,9 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
     )
     const doc = foldToL1(ms)
     const card = allNodes(doc).find(
-      (n) => n.kind === 'box' && (n.axes as { borderLeft?: unknown } | undefined)?.borderLeft,
+      (n) =>
+        (n.kind === 'box' || n.kind === 'container') &&
+        (n.axes as { borderLeft?: unknown } | undefined)?.borderLeft,
     )!
     const kf = (card.geometry as { keyframes: Array<{ at: number; x: number; width: number }> }).keyframes
     expect(kf[kf.length - 1].x).toBe(88)

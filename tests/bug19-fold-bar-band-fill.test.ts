@@ -47,7 +47,25 @@ type Kid = {
 function childrenOf(doc: ReturnType<typeof foldToL1>): Kid[] {
   return (doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as unknown as Kid[]
 }
-const boxesOf = (doc: ReturnType<typeof foldToL1>): Kid[] => childrenOf(doc).filter((n) => n.kind === 'box')
+/**
+ * Every painted surface in the folded tree, at any depth.
+ *
+ * BUG-142 — a band or card that BACKS content folds to a `container` holding it,
+ * so a card that sits on a band is that band's child. The surfaces counted here
+ * are the same surfaces; the sweep walks both painting kinds instead of scanning
+ * the root's `box` children.
+ */
+const boxesOf = (doc: ReturnType<typeof foldToL1>): Kid[] => {
+  const out: Kid[] = []
+  const walk = (nodes: Kid[]): void => {
+    for (const n of nodes) {
+      if (n.kind === 'box' || n.kind === 'container') out.push(n)
+      walk(((n as { children?: Kid[] }).children ?? []) as Kid[])
+    }
+  }
+  walk(childrenOf(doc))
+  return out
+}
 const kf1440 = (b: Kid) => b.geometry!.keyframes.find((k) => k.at === 1440)!
 
 function loadReal(host: string): MultiStateCapture | null {

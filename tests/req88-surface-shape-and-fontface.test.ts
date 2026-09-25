@@ -74,11 +74,25 @@ function multiFrom(elementsAt: (width: number) => ValueElement[]): MultiStateCap
   return { url: 'http://fixture.test/', notes: [], projections }
 }
 
+/**
+ * Every card in the folded tree, at any depth.
+ *
+ * BUG-142 — a card that BACKS content folds to a `container` that holds the runs
+ * it is painted behind, rather than to a pinned `box` sibling of theirs, and a
+ * card that sits on a band is that band's child. It is the same card carrying the
+ * same captured rect; the sweep walks both painting kinds.
+ */
 function cards(doc: L1Document): L1Box[] {
-  const root = doc.root as { children?: unknown[] }
-  return (root.children ?? []).filter(
-    (n) => (n as L1Box).kind === 'box' && String((n as L1Box).id ?? '').startsWith('card'),
-  ) as L1Box[]
+  const out: L1Box[] = []
+  const walk = (nodes: readonly unknown[]): void => {
+    for (const raw of nodes) {
+      const n = raw as L1Box & { kind: string }
+      if ((n.kind === 'box' || n.kind === 'container') && String(n.id ?? '').startsWith('card')) out.push(n)
+      walk(((n as { children?: unknown[] }).children ?? []) as unknown[])
+    }
+  }
+  walk(((doc.root as { children?: unknown[] }).children ?? []) as unknown[])
+  return out
 }
 
 function frameAt(box: L1Box, at: number): { x: number; y: number; width: number; height?: number } {

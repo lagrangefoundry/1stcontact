@@ -26,7 +26,7 @@
  * points over synthetic multi-viewport captures — real components, no mocks.
  */
 import { describe, expect, it } from 'vitest'
-import { validateL1 } from '../packages/site-schema/src/index'
+import { validateL1, type L1Node } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
 import { foldToL1, type FoldedForm, type FoldResidual } from '../tools/generate/src'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
@@ -75,6 +75,25 @@ function textless(over: Partial<ValueElement> & Pick<ValueElement, 'role'>): Val
 /** The root box's direct children — the folded leaves, in document order. */
 function leavesOf(doc: ReturnType<typeof foldToL1>) {
   return doc.root.kind === 'box' ? (doc.root.children ?? []) : []
+}
+
+/**
+ * Every node under the root, in DOCUMENT ORDER — which is paint order: a child
+ * paints over the parent that holds it, and siblings paint in source order.
+ *
+ * BUG-142 — a band or card that BACKS content now holds the runs it is painted
+ * behind instead of preceding them as a pinned sibling, so the sweep is a walk.
+ */
+function nodesOf(doc: ReturnType<typeof foldToL1>): L1Node[] {
+  const out: L1Node[] = []
+  const walk = (nodes: readonly L1Node[]): void => {
+    for (const n of nodes) {
+      out.push(n)
+      walk(n.kind === 'container' ? n.children : n.kind === 'box' ? (n.children ?? []) : [])
+    }
+  }
+  walk(leavesOf(doc))
+  return out
 }
 
 // ── AC-729: a text-free media element folds to an image leaf ──────────────────
@@ -327,11 +346,13 @@ describe('AC-731 run-composited surfaces are reconstructed as a page background 
     // The solid fill the greatest number of runs sit on becomes the page band.
     expect(doc.background).toBe(BAND)
 
-    const kinds = leavesOf(doc).map((n) => n.kind)
-    const boxes = leavesOf(doc).filter((n) => n.kind === 'box')
-    const texts = leavesOf(doc).filter((n) => n.kind === 'text')
+    const kinds = nodesOf(doc).map((n) => n.kind)
+    // BUG-142 — a backing surface that owns its runs is a `container`; one that
+    // owns none is still a pinned `box`. Both are backing surfaces.
+    const boxes = nodesOf(doc).filter((n) => n.kind === 'box' || n.kind === 'container')
+    const texts = nodesOf(doc).filter((n) => n.kind === 'text')
 
-    // The document is emitted in more than one leaf kind.
+    // The document is emitted in more than one node kind.
     expect(new Set(kinds).size).toBeGreaterThan(1)
     expect(texts).toHaveLength(5)
 
@@ -345,18 +366,17 @@ describe('AC-731 run-composited surfaces are reconstructed as a page background 
     expect(cards).toHaveLength(2)
 
     // The band carries the dominant fill and tiles full-bleed from its first run.
-    expect(bands[0].kind === 'box' && bands[0].axes?.surfaceFill).toBe(BAND)
+    expect(bands[0].axes?.surfaceFill).toBe(BAND)
     for (const kf of bands[0].geometry!.keyframes) expect(kf.x).toBe(0)
 
     // The cards carry their own surfaces — the differing panel fill, and the
     // gradient the body cannot paint.
-    const fills = cards.map((b) => (b.kind === 'box' ? b.axes?.surfaceFill : undefined))
+    const fills = cards.map((b) => b.axes?.surfaceFill)
     expect(fills).toEqual([PANEL, BAND])
-    const gradients = cards.map((b) => (b.kind === 'box' ? b.axes?.surfaceGradient : undefined))
+    const gradients = cards.map((b) => b.axes?.surfaceGradient)
     expect(gradients).toEqual([undefined, gradient])
 
     for (const b of boxes) {
-      if (b.kind !== 'box') throw new Error('expected box leaf')
       // Every backing box is keyframed across the whole ladder with all four
       // sides pinned…
       expect(b.geometry?.keyframes.map((k) => k.at)).toEqual(LADDER)
@@ -365,10 +385,15 @@ describe('AC-731 run-composited surfaces are reconstructed as a page background 
       expect(b.visibility).toBeUndefined()
     }
 
-    // All backing boxes are ordered AHEAD of the content leaves, so every leaf
-    // paints over its own surface.
-    expect(kinds.slice(0, 3)).toEqual(['box', 'box', 'box'])
-    expect(kinds.slice(3).every((k) => k === 'text')).toBe(true)
+    // Every backing surface is ordered AHEAD of the content it backs, so every
+    // leaf paints over its own surface. BUG-142 — "ahead of" is now containment:
+    // each surface holds the runs it was painted for, and a child paints over the
+    // parent that holds it, so document order reads surface-then-its-own-runs.
+    expect(kinds).toEqual([
+      'container', 'text', 'text', 'text', // the band and the three runs on it
+      'container', 'text', // the panel card and its run
+      'container', 'text', // the gradient card and its run
+    ])
 
     // Strong observation: both the body band and the panel fill paint.
     const { css } = renderL1Document(doc)
