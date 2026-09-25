@@ -6,10 +6,10 @@ title: Session transcripts must outgrow D1's 2 MB value ceiling without discardi
   a byte
 created_by: EPIC-19
 created_at: '2026-09-23T03:12:32.825619+00:00'
-updated_at: '2026-09-25T01:47:12.838463+00:00'
+updated_at: '2026-09-25T01:51:24.299765+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
