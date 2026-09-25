@@ -373,6 +373,12 @@ export function checkWorkerd(opts: WorkerdOptions): WorkerdReport {
  */
 export const WORKERD_GATED_COMMANDS: readonly string[] = [
   'builder',
+  // `dev up` STARTS the builder, so the gate has to fire before it does ([[REQ-319]]).
+  // Keyed with its subcommand for the same reason `fonts` is: `dev down` and `dev
+  // reap` send signals and read `lsof`, and neither opens a store — gating the
+  // whole verb would refuse to STOP a dev environment on a tree with a runtime
+  // skew, which is the one moment stopping it is most useful.
+  'dev up',
   'fonts mirror',
   'fonts seed',
   'reset',
