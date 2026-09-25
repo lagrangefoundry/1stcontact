@@ -190,7 +190,19 @@ describe('REQ-51 image and control cards carry relevant params', () => {
     // `placeholderColor` joined the control table with REQ-265 (the one painted
     // value a control carries that no geometry or name axis can see); this
     // assertion stayed pinned to the pre-REQ-265 list and had been red since.
-    expect(control.params.map((p) => p.name)).toEqual(['name', 'nameSource', 'placeholderColor', 'box'])
+    // REQ-308 — and the four TYPE rows, for the same reason: a placeholder-only
+    // control's glyphs are made of them, and the card listing everything but them
+    // is how a textarea painting its placeholder three pixels off read as clean.
+    expect(control.params.map((p) => p.name)).toEqual([
+      'name',
+      'nameSource',
+      'fontFamily',
+      'fontSizePx',
+      'fontWeight',
+      'lineHeightPx',
+      'placeholderColor',
+      'box',
+    ])
     // placeholder-inside → label-above is a containment miss, flagged on nameSource.
     expect(paramOf(control, 'nameSource')!.mismatch).toBe(true)
   })

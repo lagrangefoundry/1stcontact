@@ -2602,6 +2602,30 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // which paints a reference's grey placeholder in the field's text colour.
       const placeholder = widestEl.placeholderColor ? colorToHex(widestEl.placeholderColor) : null
       if (placeholder) axes.placeholderColor = placeholder
+      // REQ-308 — and the control's own TYPE, which the capture now records for
+      // a placeholder-only control (`fieldsUnder` reads the `::placeholder`
+      // pseudo-element's computed style). Without it the renderer's zero-look
+      // `font: inherit` reset is the only thing that governs, so the control
+      // inherits the body's type and its first line box starts wherever `normal`
+      // leading puts it — measured on gigabytealchemy.ai as a textarea placeholder
+      // painted three pixels high against a reference line-height of 24px.
+      //
+      // Guarded on a real size, which is exactly what a bundle taken before the
+      // extractor read the axis cannot have: such a document folds as it always
+      // did, and nothing is emitted for a media or backdrop box, which carry the
+      // text-free constant.
+      if (widestEl.fontSizePx > 0) {
+        if (widestEl.fontFamily) axes.fontFamily = widestEl.fontFamily
+        axes.fontSizePx = clamp(Math.round(widestEl.fontSizePx), FONT_SIZE.min, FONT_SIZE.max)
+        if (widestEl.fontWeight > 0) {
+          axes.fontWeight = clamp(Math.round(widestEl.fontWeight), FONT_WEIGHT.min, FONT_WEIGHT.max)
+        }
+        // Absent means `line-height: normal`, which is what the renderer's own
+        // reset already produces — emitting nothing reproduces it exactly.
+        if (widestEl.lineHeightPx !== undefined) {
+          axes.lineHeightPx = Math.round(widestEl.lineHeightPx * 100) / 100
+        }
+      }
       if (Object.keys(axes).length) control.axes = axes
       // REQ-269 — the control's content inset, folded exactly as it is onto a text
       // leaf (AC-1626): same `foldPadding`, same per-side responsive tracks. The
@@ -2615,6 +2639,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (pad) control.padding = pad
       const padTracks = responsivePaddingTracks(framedPad)
       if (padTracks) control.responsivePadding = padTracks
+      // REQ-308 — and the per-width type tracks, read off the same framed samples
+      // the padding tracks are. `axes` above is the WIDEST cell only, so a control
+      // whose type shrinks at mobile would otherwise be pinned to its desktop size
+      // at every width — BUG-18's defect, on the route BUG-18 did not cover. A type
+      // that holds one value across the ladder stays a scalar and emits no track.
+      const typeTracks = responsiveTextTracks(framedPad)
+      if (typeTracks) control.responsive = typeTracks
       return control
     })
     if (submit) {

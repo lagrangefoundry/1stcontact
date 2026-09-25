@@ -588,20 +588,26 @@ export const FIELD_AXES: readonly AnyElementAxis<Field, RawField>[] = [
   {
     axis: 'fontFamily',
     role: 'compared',
-    note: 'Constant `\'\'` — no type to describe.',
-    ...sharedField(() => ''),
+    note: 'REQ-308 — a form control\'s own type (its `::placeholder`\'s, when it has one). `\'\'` for a text-free element that is not a control — an image, a divider, a painted backdrop box — which has no type to describe.',
+    ...sharedField((f) => f.fontFamily ?? ''),
   },
   {
     axis: 'fontSizePx',
     role: 'compared',
-    note: 'Constant `0` — no type to describe.',
-    ...sharedField(() => 0),
+    note: 'REQ-308 — as `fontFamily`. `0` for a non-control, and for a bundle taken before the extractor read it, which is what the comparator\'s both-sides guard tests.',
+    ...sharedField((f) => f.fontSizePx ?? 0),
   },
   {
     axis: 'fontWeight',
     role: 'compared',
-    note: 'Constant `0` — no type to describe.',
-    ...sharedField(() => 0),
+    note: 'REQ-308 — as `fontFamily`. `0` for a non-control.',
+    ...sharedField((f) => f.fontWeight ?? 0),
+  },
+  {
+    axis: 'lineHeightPx',
+    role: 'compared',
+    note: 'REQ-308 — the control\'s leading, and the axis the defect was made of: a textarea reproduced with `line-height: normal` against a reference\'s 24px paints its placeholder three pixels high. Absent for a non-control AND for `normal`, which on a control is a measurement (both sides run one extractor), not an unmeasured axis.',
+    ...sharedField((f) => f.lineHeightPx ?? undefined),
   },
   {
     axis: 'textless',

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-308 — a form control's own type</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1280px; font-family: Georgia, serif; background: #ffffff; color: #1a1a1a; }
+      .band { background: #e8dfd3; padding: 40px 88px; }
+      .band h3 { font-size: 24px; line-height: 32px; margin-bottom: 16px; }
+
+      /* The gigabytealchemy shape, and the whole defect: a control whose only ink
+         is its placeholder, with an AUTHORED line-height. A <textarea>'s first
+         line sits at the content-box top offset by the half-leading, so 24px vs
+         the renderer's `normal` (~18.4px at 16px) moves the glyphs ~3px. */
+      .band input, .band textarea {
+        display: block;
+        margin-bottom: 12px;
+        border: 1px solid #b9ae9d;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 24px;
+        background: transparent;
+        color: #101010;
+      }
+      /* Deliberately different widths: three same-sized fields in a row read as a
+         repeated item, whose root is excluded from the text-free element scan. */
+      #message { width: 528px; height: 146px; }
+      #name { width: 440px; }
+      #loose { width: 380px; }
+
+      /* The pseudo-element is what PAINTS the placeholder, and it can carry type of
+         its own. Reading the control's style instead would miss this entirely. */
+      #name::placeholder { font-size: 13px; font-weight: 300; line-height: 20px; color: #746f69; }
+
+      /* A control the page leaves on `normal` — the measurement the comparator has
+         to be able to read as a value rather than as an absent axis. */
+      #loose { line-height: normal; }
+
+      /* Neither of these is a control, and neither has any type to describe. */
+      hr.rule { width: 300px; border: 0; border-top: 2px solid #b9ae9d; margin: 24px 0; }
+      img.mark { display: block; width: 64px; height: 64px; }
+    </style>
+  </head>
+  <body>
+    <section class="band">
+      <h3>Say hello</h3>
+      <form action="#">
+        <textarea id="message" placeholder="Your message"></textarea>
+        <input id="name" type="text" placeholder="Your name" />
+        <input id="loose" type="email" placeholder="Your email" />
+      </form>
+      <hr class="rule" />
+      <img class="mark" src="logo.png" alt="A mark" />
+    </section>
+  </body>
+</html>

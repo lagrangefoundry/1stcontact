@@ -323,6 +323,15 @@ export interface ReconcileInput {
     unpairedSections: readonly unknown[]
     unpairedActualSections: readonly unknown[]
     /**
+     * REQ-308 — reference bands lifted OUT of `unpairedSections` because they
+     * paint nothing and are therefore not surfaces any reproduction could have a
+     * counterpart for. OPTIONAL, on the same terms as `unmeasuredAxes` below: a
+     * real {@link ValuesDiffReport} always carries it, and a hand-built input
+     * that omits it is saying "not asked about" rather than "asked, and there
+     * were none".
+     */
+    nonSurfaceSections?: readonly unknown[]
+    /**
      * REQ-274 — the compared axes only one side of the projection could supply,
      * which this run actually ran into. Named rather than counted, because
      * "one axis was unmeasured" is not actionable and "the reference records no
@@ -383,6 +392,14 @@ export interface GateReport {
      */
     unpairedSections: number
     unpairedActualSections: number
+    /**
+     * REQ-308 — how many reference bands were RECLASSIFIED rather than counted
+     * above. Read next to `unpairedSections`: a band that paints nothing has no
+     * counterpart any fold could emit, so counting it as an uncompared surface
+     * states a reproduction gap that cannot be closed. Reported so the drop in
+     * the count above is visible rather than silent.
+     */
+    nonSurfaceSections: number
     /**
      * REQ-274 — the compared axes this run could not evaluate because only one
      * side of the projection can read them. Read next to `deltas`: that number
@@ -599,6 +616,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   const unpairedActual = input.values.unpairedActual.length
   const unpairedSections = input.values.unpairedSections.length
   const unpairedActualSections = input.values.unpairedActualSections.length
+  const nonSurfaceSections = (input.values.nonSurfaceSections ?? []).length
   const notComparable = input.values.sectionsNotComparable
   // REQ-274 — the compared axes only one side of the projection can supply, and
   // that this run actually ran into. A count is useless here (one axis is not a
@@ -696,6 +714,17 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       outstanding.push(
         `${sides.join(' and ')} — the two pages segment differently, so those bands' section-level values ` +
           `(overlay, contentAnchor, textAlign) are UNMEASURED rather than clean`,
+      )
+    }
+    // REQ-308 — a band the comparator RECLASSIFIED is not outstanding work, and
+    // saying nothing about it would make the count above look like it had simply
+    // got smaller. Named as what it is: a category the instrument declines to
+    // count, with the detail in `values-diff.json` beside the reason for each.
+    if (nonSurfaceSections > 0) {
+      outstanding.push(
+        `${nonSurfaceSections} reference band(s) paint NOTHING — no fill, no image, no overlay — so they are ` +
+          `content groupings rather than surfaces and are NOT counted as unpaired: no reproduction band could ` +
+          `be their counterpart (\`values.nonSurfaceSections\`; \`values-diff.json\` carries the reason per band)`,
       )
     }
     // REQ-274 — the fifth way the pass rung could be silent about what it did not
@@ -805,6 +834,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       worstTier,
       unpairedSections,
       unpairedActualSections,
+      nonSurfaceSections,
       unmeasuredAxes,
       ...(notComparable ? { sectionsNotComparable: notComparable } : {}),
     },

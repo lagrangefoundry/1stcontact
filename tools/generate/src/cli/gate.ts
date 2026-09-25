@@ -174,6 +174,18 @@ export function formatGateReport(report: GateReport, ref: string): string {
           ),
         ]
       : []),
+    // REQ-308 — and the bands lifted out of that count. A reference band painting
+    // nothing has no counterpart any fold could emit, so it is reclassified rather
+    // than counted — said here so the number above is not quietly smaller.
+    ...(report.values.nonSurfaceSections > 0
+      ? [
+          wrap(
+            `⚠ ${report.values.nonSurfaceSections} reference band(s) paint nothing (no fill, image or overlay) — ` +
+              `content groupings, not surfaces, so NOT counted as unpaired`,
+            '               ',
+          ),
+        ]
+      : []),
     // REQ-274 — the axes the values line above did NOT speak for. Only one side
     // of the projection can read them, so the comparator skipped them in silence
     // and `0 delta(s)` covers less of the page than it reads as. Silent when the

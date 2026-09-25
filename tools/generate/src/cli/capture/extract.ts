@@ -302,6 +302,32 @@ export interface RawField extends RawGeometry {
   paddingRightPx?: number
   paddingBottomPx?: number
   paddingLeftPx?: number
+  /**
+   * REQ-308 — the type a form control paints with: the `::placeholder`
+   * pseudo-element's own computed `font-family` / `font-size` / `font-weight` /
+   * `line-height` when the control has a placeholder, else the control's own
+   * (which is what its typed text paints with). Absent for every text-free
+   * element that is not a form control — an `<img>`, an `<hr>`, a painted
+   * backdrop box — which have no type to describe.
+   *
+   * A placeholder-only control has no text run, so it went down the text-FREE
+   * path, which recorded no typography at all: `fontSizePx: 0`, `fontFamily: ""`
+   * and no `lineHeightPx` key, on BOTH sides of every diff. The fold therefore
+   * had nothing to write onto the control's L1 axes, the renderer's `font:
+   * inherit` reset governed, and a textarea whose reference line-height is 24px
+   * painted its placeholder against a `normal` line box three pixels higher.
+   * Measured on gigabytealchemy.ai as 159.48 of that round's 159.48 ranked
+   * region score — 100% of it — beside ZERO value deltas, because the field pass
+   * compared no typography either.
+   *
+   * `lineHeightPx` is `null` for `line-height: normal`, whose used value is a
+   * font metric no computed style exposes — recorded exactly as a text run
+   * records it, and read by the comparator as the measurement it is.
+   */
+  fontFamily?: string
+  fontSizePx?: number
+  fontWeight?: number
+  lineHeightPx?: number | null
 }
 
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
@@ -1099,6 +1125,52 @@ export const EXTRACT_SCRIPT = `(() => {
       }
     }
     return '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
+  }
+  // REQ-308 -- the type a form control paints with.
+  //
+  // A control whose only ink is its placeholder went down the TEXT-FREE path,
+  // which recorded no typography at all: \`fontSizePx: 0\`, \`fontFamily: ""\`,
+  // \`fontWeight: 0\` and no \`lineHeightPx\` key, on both sides of every diff. So
+  // the fold had nothing to write onto the control's axes, the renderer's
+  // \`font: inherit\` reset governed, and a textarea whose reference line-height
+  // is 24px painted its placeholder against a \`normal\` line box -- measured on
+  // gigabytealchemy.ai as the whole of one round's ranked pixel residual (159.48
+  // of 159.48) with ZERO value deltas, because nothing compared it either.
+  //
+  // Read off the \`::placeholder\` pseudo-element when the control has one --
+  // that is the ink that actually paints, and the pseudo is already queried for
+  // its colour (see placeholderColorOf) -- falling back to the control's own
+  // computed style, which is also what a control with no placeholder (a select,
+  // a filled field) paints its typed text with. Null for anything that is not a
+  // form control: an \`<img>\`, an \`<hr>\` and a painted backdrop box have no type
+  // to describe, and their axes stay the constants they have always been.
+  function controlTypographyOf(el, s) {
+    var tag = (el.tagName || '').toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return null;
+    var ps = null;
+    if (el.placeholder) {
+      try { ps = getComputedStyle(el, '::placeholder'); } catch (e) { ps = null; }
+    }
+    // An engine that does not expose the pseudo returns an empty string; the
+    // control's own computed style is the right answer in that case, and is the
+    // value the pseudo inherits when it IS exposed.
+    var pick = function (name) {
+      var v = ps ? ps[name] : '';
+      return (v === '' || v === undefined || v === null) ? s[name] : v;
+    };
+    var size = parseFloat(pick('fontSize'));
+    var weight = parseInt(pick('fontWeight'), 10);
+    // NaN for 'normal', whose used value is a font metric no computed style
+    // exposes -- recorded as null exactly as a text run records it, and read by
+    // the diff as \`normal\` rather than as an unmeasured axis (both sides of a
+    // control comparison run a typography-recording extractor or neither does).
+    var lh = parseFloat(pick('lineHeight'));
+    return {
+      fontFamily: familyStack(pick('fontFamily')),
+      fontSizePx: isNaN(size) ? 0 : Math.round(size),
+      fontWeight: isNaN(weight) ? 400 : weight,
+      lineHeightPx: isNaN(lh) ? null : Math.round(lh * 100) / 100,
+    };
   }
   // REQ-62 -- the panel/card GRADIENT fill behind a run, the sibling to the
   // composited solid surfaceFillOf. A gradient panel (bg-gradient-to-br from-…)
@@ -1998,7 +2070,10 @@ export const EXTRACT_SCRIPT = `(() => {
         ? Math.round((el.naturalWidth / el.naturalHeight) * 100) / 100
         : null;
       var fieldBorder = boxBorderOf(s);
-      out.push({
+      // REQ-308 -- the control's own type (see controlTypographyOf). Null for
+      // every text-free element that is not a form control.
+      var fieldType = controlTypographyOf(el, s);
+      var fieldRecord = {
         box: absBox(el),
         borderRadiusPx: borderRadiusOf(s),
         borderWidthPx: fieldBorder.width,
@@ -2067,7 +2142,20 @@ export const EXTRACT_SCRIPT = `(() => {
         paddingRightPx: Math.round(parseFloat(s.paddingRight)) || 0,
         paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
         paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
-      });
+      };
+      // REQ-308 -- written onto the control's EXISTING text axes rather than
+      // under a parallel \`placeholder*\` name, because that is where L1 already
+      // keeps them: \`l1ControlAxesSchema\` is the text axes plus
+      // \`placeholderColor\`, so the fold writes them and the renderer emits them
+      // with no new axis anywhere. Set only for a form control, so a media or
+      // backdrop record keeps the empty/zero constants it has always carried.
+      if (fieldType) {
+        fieldRecord.fontFamily = fieldType.fontFamily;
+        fieldRecord.fontSizePx = fieldType.fontSizePx;
+        fieldRecord.fontWeight = fieldType.fontWeight;
+        fieldRecord.lineHeightPx = fieldType.lineHeightPx;
+      }
+      out.push(fieldRecord);
     }
     return out;
   }

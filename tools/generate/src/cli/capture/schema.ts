@@ -53,8 +53,18 @@ import type { Capture } from './types'
  *   It also adds `itemsAt`: the index each repeated-item row belongs at within
  *   its section's content, without which a section's runs are not in reading
  *   order and nothing downstream can put them back.
+ * - **6** — REQ-308: a form control's own TYPE (`fontFamily`, `fontSizePx`,
+ *   `fontWeight`, `lineHeightPx`) reaches the field record at all. A control
+ *   whose only ink is its placeholder has no text run, so it went down the
+ *   text-free path, which recorded a constant `0`/`''` for every type axis — on
+ *   BOTH sides, so the diff agreed by construction while the reproduction
+ *   painted its placeholder against the renderer's `font: inherit` reset. This
+ *   is the bump the ticket's own note is about: landing the extractor change
+ *   moves nothing on a stored bundle until the operator RE-CAPTURES it, and this
+ *   is what says so out loud instead of leaving the round to re-measure a
+ *   residual whose fix has already shipped.
  */
-export const CAPTURE_SCHEMA = 5
+export const CAPTURE_SCHEMA = 6
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -219,6 +229,17 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
           (s.items?.length ?? 0) > 0 &&
           !Array.isArray((s as unknown as { itemsAt?: unknown }).itemsAt),
       ),
+  },
+  {
+    since: 6,
+    axis: 'fontFamily/fontSizePx/fontWeight/lineHeightPx on a form control',
+    where: 'a form control (`sections[].fields[]`)',
+    // Presence is a NON-ZERO size, not the key: every earlier schema wrote
+    // `fontSizePx: 0` onto every text-free element as a constant, so the key has
+    // always existed and has never been a measurement. A page with no form
+    // control at all records nothing however new its extractor is — the same
+    // asymmetry `href` has, and the reason the version gate comes first.
+    present: (c) => fields(c).some((f) => typeof f.fontSizePx === 'number' && f.fontSizePx > 0),
   },
   {
     since: 2,

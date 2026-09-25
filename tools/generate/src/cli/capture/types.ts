@@ -502,6 +502,32 @@ export interface Field extends ElementGeometry {
   paddingRightPx?: number
   paddingBottomPx?: number
   paddingLeftPx?: number
+  /**
+   * REQ-308 — the type a form control paints with: the `::placeholder`
+   * pseudo-element's own computed `font-family` / `font-size` / `font-weight` /
+   * `line-height` when the control has a placeholder, else the control's own
+   * (which is what its typed text paints with). Absent for every text-free
+   * element that is not a form control — an `<img>`, an `<hr>`, a painted
+   * backdrop box — which have no type to describe.
+   *
+   * A placeholder-only control has no text run, so it went down the text-FREE
+   * path, which recorded no typography at all: `fontSizePx: 0`, `fontFamily: ""`
+   * and no `lineHeightPx` key, on BOTH sides of every diff. The fold therefore
+   * had nothing to write onto the control's L1 axes, the renderer's `font:
+   * inherit` reset governed, and a textarea whose reference line-height is 24px
+   * painted its placeholder against a `normal` line box three pixels higher.
+   * Measured on gigabytealchemy.ai as 159.48 of that round's 159.48 ranked
+   * region score — 100% of it — beside ZERO value deltas, because the field pass
+   * compared no typography either.
+   *
+   * `lineHeightPx` is `null` for `line-height: normal`, whose used value is a
+   * font metric no computed style exposes — recorded exactly as a text run
+   * records it, and read by the comparator as the measurement it is.
+   */
+  fontFamily?: string
+  fontSizePx?: number
+  fontWeight?: number
+  lineHeightPx?: number | null
 }
 
 export interface ContentRun extends ElementGeometry {

@@ -630,6 +630,36 @@ export interface ValuesDiffReport {
    */
   unpairedSections: UnpairedSection[]
   /**
+   * REQ-308 — the reference bands lifted OUT of {@link unpairedSections} because
+   * they are not surfaces at all, with the reason each was reclassified.
+   *
+   * A band with no fill, no background image and no overlay paints NOTHING. The
+   * reproduction's bands are what the fold emits, and the fold emits a band node
+   * only for a section carrying an image or an overlay (solid bands arrive as run
+   * surfaces) — so there is no document any fold could produce that would have a
+   * counterpart for it. Counting it as "a reference band with no reproduction
+   * band to compare against" states a reproduction gap that does not exist and
+   * cannot be closed: on gigabytealchemy it was the WHOLE of the round's
+   * `unmeasured` number, and the band behind it is a `position: absolute`
+   * transparent `<header>` lying over the hero — a content grouping, not a
+   * surface.
+   *
+   * Reclassified rather than dropped. The band is still listed, still carries its
+   * geometry, and now carries the reason it is not counted — so the fact remains
+   * readable and only the CLAIM changes, which is the whole of BUG-111's
+   * discipline applied to its own count.
+   *
+   * It does NOT rescue the anchor of the band this one lies over: REQ-270 still
+   * declines that comparison, because the two sides measure it over different
+   * populations of runs. Reclassifying a non-surface says nothing about that, and
+   * is not allowed to pretend otherwise.
+   *
+   * Requires the fill to have been MEASURED as absent (`surfaceFill: null`). A
+   * bundle taken before schema 3 records no fill measurement at all, so
+   * "paints nothing" is unknowable there and the band stays unpaired.
+   */
+  nonSurfaceSections: NonSurfaceSection[]
+  /**
    * BUG-111 — the repro-side mirror: bands no reference section paired to. The
    * reference-side count alone would read as "the reproduction has fewer bands",
    * which a page that segments DIFFERENTLY (rather than more coarsely) does not
@@ -693,6 +723,12 @@ export interface SectionPairing {
   anchorComparable?: boolean
   /** Why the anchor was not comparable, when {@link anchorComparable} is false. */
   anchorReason?: string
+  /**
+   * REQ-308 — set when this unpaired reference band paints nothing and is
+   * therefore not a surface (see {@link ValuesDiffReport.nonSurfaceSections}).
+   * Absent on every paired band, and on an unpaired one that does paint.
+   */
+  nonSurfaceReason?: string
 }
 
 /**
@@ -706,6 +742,16 @@ export interface UnpairedSection {
   label: string
   /** The band's geometry, when that side's manifest carries it. */
   box?: Box
+}
+
+/**
+ * REQ-308 — a reference band that paints nothing, and is therefore not a surface
+ * any reproduction could have a counterpart for. See
+ * {@link ValuesDiffReport.nonSurfaceSections}.
+ */
+export interface NonSurfaceSection extends UnpairedSection {
+  /** Why this band is not counted as unpaired, in the operator's terms. */
+  reason: string
 }
 
 /**
@@ -1727,7 +1773,11 @@ const KIND_PARAMS: Record<ObjectKind, string[]> = {
     'box',
   ],
   image: ['name', 'objectFit', 'aspect', 'box'],
-  control: ['name', 'nameSource', 'placeholderColor', 'box'],
+  // REQ-308 — a control's card carries its TYPE too. It is the substance of the
+  // only ink a placeholder-only control has, and its absence here is how a row
+  // reading `placeholderColor #746f69` on both sides looked complete beside a
+  // textarea painting its placeholder three pixels off.
+  control: ['name', 'nameSource', 'fontFamily', 'fontSizePx', 'fontWeight', 'lineHeightPx', 'placeholderColor', 'box'],
   divider: ['box'],
   // BUG-107 — a painted box carries no name and no typography; what it HAS is the
   // surface it paints (fill, background photograph) and the rect it paints it in.
@@ -1778,16 +1828,24 @@ function paramValue(name: string, el: ValueElement | undefined): string {
       return assetBasename(el.backgroundImageUrl) ?? '—'
     case 'fontFamily':
       return el.fontFamily || '—'
+    // REQ-308 — `0` is the text-free constant, not a measurement: a control on a
+    // bundle taken before the extractor read its type, or an image/divider/box
+    // that has no type at all. Printing it as `0` would read as a size.
     case 'fontSizePx':
-      return `${el.fontSizePx}`
+      return el.fontSizePx > 0 ? `${el.fontSizePx}` : '—'
     case 'fontWeight':
-      return `${el.fontWeight}`
+      return el.fontWeight > 0 ? `${el.fontWeight}` : '—'
     case 'color':
       return el.color || '—'
     case 'letterSpacingPx':
       return el.letterSpacingPx !== undefined ? `${el.letterSpacingPx}` : '—'
+    // REQ-308 — on a control whose type WAS read, an absent leading is
+    // `line-height: normal` measured, not an axis nobody recorded, and the row
+    // has to say which: `—` beside a reference's `24` reads as a gap in the
+    // report rather than as the defect it is.
     case 'lineHeightPx':
-      return el.lineHeightPx !== undefined ? `${el.lineHeightPx}` : '—'
+      if (el.lineHeightPx !== undefined) return `${el.lineHeightPx}`
+      return el.textless && el.fontSizePx > 0 ? 'normal' : '—'
     case 'renderedTextBox':
       return el.renderedTextBox ? textBoxLabel(el.renderedTextBox) : '—'
     case 'box':
@@ -2556,6 +2614,53 @@ export function diffManifests(
       const dEfill = colorDistance(exp.surfaceFill, act.surfaceFill)
       if (dEfill > colorTol) push(exp, 'surfaceFill', exp.surfaceFill, act.surfaceFill, dEfill)
     }
+    // REQ-308 — the control's OWN type, which this pass compared with nothing.
+    //
+    // A control whose only ink is its placeholder has no text run, so it never
+    // reached the text pass (`if (exp.textless) continue`, below) and this pass
+    // compared containment, placeholder ink, imagery, fill, padding and geometry
+    // — every axis but the one the glyphs are made of. On gigabytealchemy the
+    // textarea that owned 100% of the round's ranked pixel residual produced
+    // ZERO deltas: both sides agreed by construction, because both sides
+    // recorded `fontSizePx: 0` and `fontFamily: ''`.
+    //
+    // Guarded on both sides carrying a real size, which is exactly the
+    // pre-REQ-308 test: the axes were CONSTANTS (`0`/`''`) before the extractor
+    // read them, so a stored bundle taken by an older extractor stays inert
+    // rather than firing a delta against its own placeholder on every control.
+    // A non-control text-free element (an image, a divider, a painted backdrop)
+    // reads `0` on both sides for ever, and is skipped by the same guard.
+    if (exp.fontSizePx > 0 && act.fontSizePx > 0) {
+      if (Math.abs(exp.fontSizePx - act.fontSizePx) > fontSizeTol) {
+        push(exp, 'fontSizePx', `${exp.fontSizePx}`, `${act.fontSizePx}`, Math.abs(exp.fontSizePx - act.fontSizePx))
+      }
+      if (Math.abs(exp.fontWeight - act.fontWeight) > weightTol) {
+        push(exp, 'fontWeight', `${exp.fontWeight}`, `${act.fontWeight}`)
+      }
+      if (exp.fontFamily.toLowerCase() !== act.fontFamily.toLowerCase()) {
+        push(exp, 'fontFamily', exp.fontFamily, act.fontFamily)
+      }
+      // THE AXIS THE DEFECT WAS MADE OF, and the one place this pass does NOT
+      // skip an absent value. On a text run, an absent `lineHeightPx` means the
+      // reference bundle predates the axis and there is nothing to compare; on a
+      // control it cannot mean that, because the guard above has already
+      // established that both sides ran a typography-recording extractor. What
+      // it means here is `line-height: normal` — a measurement, whose used value
+      // is a font metric no computed style exposes — and `normal` against a
+      // reference's 24px is precisely the three-pixel placeholder shift this
+      // ticket came from. Skipping it would leave the instrument blind to its
+      // own defect the moment the fold stopped emitting the axis.
+      const expLh = exp.lineHeightPx
+      const actLh = act.lineHeightPx
+      if (expLh !== undefined && actLh !== undefined) {
+        const lineHeightTol = Math.max(lineHeightFloor, lineHeightRatio * expLh)
+        if (Math.abs(expLh - actLh) > lineHeightTol) {
+          push(exp, 'lineHeightPx', `${expLh}`, `${actLh}`)
+        }
+      } else if (expLh !== actLh) {
+        push(exp, 'lineHeightPx', expLh !== undefined ? `${expLh}` : 'normal', actLh !== undefined ? `${actLh}` : 'normal')
+      }
+    }
     comparePadding(exp, act)
     compareGeometry(exp, act)
     if (exp.box && act.box) gapPairs.push({ exp, act })
@@ -2878,7 +2983,37 @@ export function diffManifests(
       overlap: match?.overlap ?? 0,
     }
     sectionPairing.push(pairing)
-    if (!as) return
+    if (!as) {
+      // REQ-308 — an unpaired band that PAINTS NOTHING is not a reproduction gap.
+      //
+      // The two section lists are built by different procedures: the reference's
+      // bands are `<body>`'s children qualified on their subtree's painted extent
+      // (BUG-27), and the reproduction's are the band nodes the fold emits — and
+      // `foldSectionBackgrounds` emits one only for a section carrying an image or
+      // an overlay, with solid bands arriving as run surfaces. A reference band
+      // with no fill, no image and no overlay has nothing for ANY fold to emit, so
+      // the missing counterpart is the comparison's, not the reproduction's, and
+      // no amount of folding could ever drive the count down.
+      //
+      // Measured on gigabytealchemy as the entire `unmeasured` number: `§0` is a
+      // `position: absolute` transparent `<header>` lying over the hero, a band
+      // only because BUG-27 qualifies a collapsed-but-painting child on its
+      // subtree's extent. It is a content grouping; calling it an uncompared
+      // SURFACE is a category error.
+      //
+      // `surfaceFill === null` is "measured, and it paints none" — a pre-schema-3
+      // bundle records `undefined` there and cannot distinguish that from "paints
+      // white", so its bands stay unpaired rather than being reclassified on an
+      // absence the instrument never read.
+      if (es.surfaceFill === null && !es.backgroundImageUrl && !es.overlay) {
+        pairing.nonSurfaceReason =
+          'this reference band paints NOTHING — no fill, no background image, no overlay — so it is a content ' +
+          'grouping rather than a surface, and no reproduction band could ever be its counterpart (the fold ' +
+          'emits a band node only for a section carrying an image or an overlay). Not counted as unpaired: ' +
+          'the missing partner is this comparison\'s, not the reproduction\'s'
+      }
+      return
+    }
 
     const eo = es.overlay
     const ao = as.overlay
@@ -2974,8 +3109,14 @@ export function diffManifests(
   // Derived from the SAME pass rather than recomputed: one pairing decision, one
   // place it is made, and the counts cannot disagree with the rows they summarise.
   const unpairedSections: UnpairedSection[] = sectionPairing
-    .filter((p) => p.actualLabel === null)
+    .filter((p) => p.actualLabel === null && !p.nonSurfaceReason)
     .map((p) => ({ label: p.label, ...(p.box ? { box: p.box } : {}) }))
+  // REQ-308 — derived from the SAME pass, for the same reason the counts above
+  // are: one classification decision, one place it is made, and the two lists
+  // cannot disagree with the rows they summarise.
+  const nonSurfaceSections: NonSurfaceSection[] = sectionPairing
+    .filter((p) => p.actualLabel === null && !!p.nonSurfaceReason)
+    .map((p) => ({ label: p.label, ...(p.box ? { box: p.box } : {}), reason: p.nonSurfaceReason! }))
   // The repro side has no row of its own to filter, so it is the complement of the
   // bands the join claimed. Identity, not index: `pairSectionsByGeometry` keys by
   // POSITION in its input while `§n` is the manifest's own `index`, and a manifest
@@ -3103,6 +3244,7 @@ export function diffManifests(
     unpairedActual,
     sectionPairing,
     unpairedSections,
+    nonSurfaceSections,
     unpairedActualSections,
     // REQ-274 — the declared one-sided axes this pair of manifests actually ran
     // into: the side that CAN read the axis carried a value and the other side

@@ -63,6 +63,7 @@ interface ValuesBlock {
   unmeasuredAxes?: unknown
   unpairedSections?: unknown
   unpairedActualSections?: unknown
+  nonSurfaceSections?: unknown
   unmatched?: unknown
   unpairedActual?: unknown
   sectionsNotComparable?: unknown
@@ -104,6 +105,12 @@ function axisNames(value: unknown): string | undefined {
  * |---|---|---|
  * | axes | `values.unmeasuredAxes` | a compared axis only one side of the projection can read ([[REQ-274]]) |
  * | bands | `values.unpairedSections` + `values.unpairedActualSections` | a section with no counterpart, so its section-level values were never compared ([[BUG-111]]) |
+ *
+ * `values.nonSurfaceSections` ([[REQ-308]]) is NOT a fifth part and is not summed
+ * into `bands`: a reference band that paints nothing is one no fold could ever
+ * emit a counterpart for, so it is not a measurement anybody failed to make. It
+ * is named on the `bands` part instead, because a total that quietly got smaller
+ * reads as progress the reproduction did not make.
  * | populations | `values.unmatched` + `values.unpairedActual` | an element on either side that paired with nothing ([[BUG-106]]) |
  * | probes | `values.sectionsNotComparable` | a measurement the run declared it could not make at all ([[BUG-102]]) |
  *
@@ -129,6 +136,10 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
   // Unlike the three above this cannot be silent: the field is optional BECAUSE
   // absent means "the sections were comparable", which is a measurement.
   const probes = typeof values.sectionsNotComparable === 'string' && values.sectionsNotComparable.trim() ? 1 : 0
+  // REQ-308 — not a part of the set, and deliberately not summed into `bands`:
+  // it is the reason a band LEFT the set. `null` (a report predating the field)
+  // reads as nothing to say, which is what it is.
+  const nonSurface = countOf(values.nonSurfaceSections) ?? 0
 
   const parts: UnmeasuredPart[] = [
     {
@@ -138,7 +149,20 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
       count: axes,
       ...(axisNames(values.unmeasuredAxes) ? { detail: axisNames(values.unmeasuredAxes) as string } : {}),
     },
-    { id: 'bands', label: 'bands', one: 'band', count: bands },
+    {
+      id: 'bands',
+      label: 'bands',
+      one: 'band',
+      count: bands,
+      // REQ-308 — a reference band that paints nothing has no counterpart any
+      // fold could emit, so the comparator reclassifies it rather than counting
+      // it here. That is a REAL drop in the set (the measurement was never
+      // possible), but a total that merely got smaller with no word about why
+      // reads as "the reproduction improved" — which is the false-progress shape
+      // this whole module exists to refuse, facing the other way. Counted
+      // nowhere; named here.
+      ...(nonSurface ? { detail: `${nonSurface} reference band(s) paint nothing and are not counted` } : {}),
+    },
     { id: 'populations', label: 'populations', one: 'population', count: populations },
     {
       id: 'probes',

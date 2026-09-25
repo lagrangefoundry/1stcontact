@@ -220,6 +220,16 @@ function toField(f: RawField): Field {
     paddingRightPx: f.paddingRightPx,
     paddingBottomPx: f.paddingBottomPx,
     paddingLeftPx: f.paddingLeftPx,
+    // REQ-308 — the control's own type. Carried verbatim, exactly as its padding
+    // is; the fold writes it onto the control leaf's text axes and the renderer
+    // emits it over its own `font: inherit` reset. `lineHeightPx` keeps its null
+    // (`line-height: normal` measured) rather than being dropped the way a text
+    // run's is: on a control the two sides are the same extractor, so `normal` is
+    // a value the comparator can read rather than an unmeasured axis.
+    fontFamily: f.fontFamily,
+    fontSizePx: f.fontSizePx,
+    fontWeight: f.fontWeight,
+    lineHeightPx: f.lineHeightPx,
   }
 }
 
