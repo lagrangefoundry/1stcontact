@@ -62,6 +62,7 @@ import {
   type AiOutcome,
   type AiRunner,
   type GateSummary,
+  type KnownGap,
   type ReadTicket,
 } from './ai'
 import { readBundleProvenance } from './bundle'
@@ -69,8 +70,9 @@ import { readBundleProvenance } from './bundle'
 import { measurementView } from './unmeasured'
 import { DIGEST_FILE, digestFromDisk } from './digest'
 import { briefFingerprint, readSession, recordSession, resumableSession } from './session'
-import { parseJsonOutput, spawnCommand, type CommandRunner } from './run'
-import { gapForClass, readGaps, recordGap } from './gaps'
+import { parseJsonArrayOutput, parseJsonOutput, spawnCommand, type CommandRunner } from './run'
+import { isSettled, routeForStatus, roundMarker } from './append-route'
+import { gapForClass, readGaps, recordGap, type GapEntry } from './gaps'
 import {
   DEFECT_CLASSES,
   DEFECT_CLASS_FIELD,
@@ -1148,7 +1150,10 @@ export class ReproConsole {
     const saved = readSession(this.siteDir)
     const resume = resumableSession(saved, resumeCtx)
 
-    const gaps = readGaps(this.workspace)
+    // [[BUG-140]] — each class ticket's LIVE status, read back this round, so
+    // the prompt can name the route the store will actually accept rather than
+    // telling every round to append to a body that has been frozen for weeks.
+    const gaps = await this.routeGaps(readGaps(this.workspace))
     const prompt = buildPrompt(resume ? resumePreamble(saved?.rounds ?? 1) : brief, {
       n: it.n,
       slug: this.slug,
@@ -1304,11 +1309,44 @@ export class ReproConsole {
     const gap = await this.readTicket(outcome.ticketId)
     read.push(gap)
     outcome.ticketStatus = gap.status
+    /**
+     * WHAT THE ROUND IS CHARGED WITH DEPENDS ON WHETHER IT MADE THE TICKET
+     * ([[BUG-140]]).
+     *
+     * A `filed` round created the ticket it names, so its status, its
+     * provenance and its class are all the round's own work and all three are
+     * checked, exactly as before.
+     *
+     * An `appended` round names a ticket some EARLIER round filed. Its status
+     * is wherever the pipeline has carried it, its `created_by` is whoever
+     * filed it — the operator, on one of the five this ticket was found on —
+     * and its `defect_class` may predate the field entirely. Charging any of
+     * those to this round reports a violation on a round that did exactly as it
+     * was told, which is what all five class tickets did. `filedByRound` was
+     * loosened for precisely this case and says so; the other two checks are
+     * loosened here by not being run at all.
+     */
     if (!gap.found) problems.push(`could not read ${gap.id} back, so its status is unverified.`)
-    else {
+    else if (outcome.status === 'filed') {
       if (gap.status !== TICKET_STATUS) problems.push(wrongStatus(gap))
       problems.push(...wrongProvenance(gap))
       problems.push(...wrongDefectClass(gap))
+    } else {
+      // What IS the round's on this path: that its evidence reached the ticket.
+      const marker = roundMarker(ROUND_CREATED_BY, this.slug, it.n)
+      const evidence = await this.appendEvidence(outcome.ticketId, marker)
+      if (!evidence.readable) {
+        problems.push(
+          `could not read ${gap.id}'s comments back, so the append is unverified — the round says it appended ` +
+            `to it, and the console cannot confirm that anything landed.`,
+        )
+      } else if (!evidence.carries) {
+        problems.push(
+          `${gap.id} carries no comment marked '${marker}', so this round's append cannot be found on it. ` +
+            `A frozen ticket takes its append as \`xgd ticket add-comment ${gap.id} --kind note --body-file <f>\` ` +
+            `with the marker as the comment's first line — see the brief §6.`,
+        )
+      }
     }
 
     // Secondary `1c` defects, read back the same way and to the same standard —
@@ -1341,9 +1379,21 @@ export class ReproConsole {
      * while two tickets described one class.
      */
     const known = gapForClass(readGaps(this.workspace), outcome.residualClass as string)
-    if (known?.ticketId && known.ticketId !== outcome.ticketId) {
+    /**
+     * A SETTLED PREDECESSOR IS NOT A DUPLICATE ([[BUG-140]]).
+     *
+     * The prompt tells a round that meets a class whose ticket has been
+     * reconciled, merged, fixed or refused to file a NEW one rather than append
+     * to a closed account — so the second id is the round obeying the
+     * instruction, and reporting it would accuse a round of doing as it was
+     * told. Two LIVE tickets for one class is still the proliferation this
+     * check exists for, and is still reported.
+     */
+    const predecessor = known?.ticketId && known.ticketId !== outcome.ticketId ? known.ticketId : ''
+    const supersedes = predecessor !== '' && isSettled((await this.readTicket(predecessor)).status)
+    if (predecessor && !supersedes) {
       problems.push(
-        `'${outcome.residualClass}' already had ${known.ticketId}, and this round filed ` +
+        `'${outcome.residualClass}' already had ${known?.ticketId}, and this round filed ` +
           `${outcome.ticketId} for the same class. One of them should be merged into the other.`,
       )
     }
@@ -1365,6 +1415,9 @@ export class ReproConsole {
       defectClasses: gap.defectClasses,
       reference: it.bundleDir,
       iteration: `${this.slug}#${it.n}`,
+      // The class outlived the ticket that was supposed to close it: the
+      // registry succeeds to the new id and keeps the old one ([[BUG-140]]).
+      supersedes,
     })
     return problems
   }
@@ -1385,6 +1438,88 @@ export class ReproConsole {
    * name" are different findings and a reader has to be able to tell them
    * apart.
    */
+  /**
+   * Each known class, with where its ticket has actually got to ([[BUG-140]]).
+   *
+   * ONE READ PER CLASS, PER ROUND. The registry is the console's memory of what
+   * it filed and deliberately records nothing about a ticket's life afterwards
+   * — that belongs to `xgd`. So the life is fetched at the moment the prompt is
+   * built, which is the only moment at which it is true.
+   *
+   * NOTHING HERE FAILS A ROUND. A class whose ticket cannot be read is carried
+   * with an empty status, which {@link routeForStatus} routes to the comment:
+   * the one route the store never refuses. A console that dropped the class
+   * instead would silently invite the duplicate the registry exists to prevent.
+   */
+  private async routeGaps(gaps: GapEntry[]): Promise<KnownGap[]> {
+    const routed: KnownGap[] = []
+    for (const gap of gaps) {
+      const read = gap.ticketId ? await this.readTicket(gap.ticketId) : unreadTicket('')
+      const liveStatus = read.found ? read.status : ''
+      routed.push({ ...gap, liveStatus, route: routeForStatus(liveStatus) })
+    }
+    return routed
+  }
+
+  /**
+   * Did the round really append, and can the console tell? ([[BUG-140]])
+   *
+   * WHAT REPLACED THREE FALSE CHECKS. An `appended` round used to be read back
+   * exactly like a `filed` one — status, provenance and defect class — against
+   * a ticket some EARLIER round filed and whose life has moved on since. All
+   * three fired on tickets the round had done nothing wrong to: the status
+   * check on all five class tickets at once, the provenance check on the one
+   * the operator filed himself, the class check on the four filed before the
+   * field existed. `filedByRound` was loosened for this case and says so; these
+   * were not.
+   *
+   * So the round is charged for the thing it is responsible for instead — that
+   * its evidence reached the ticket. The marker is prose in the comment's first
+   * line because `add-comment` has no `--created-by`, so it is looked for in
+   * the body as well as in the two places a future `--created-by` could land.
+   *
+   * UNREADABLE IS ITS OWN ANSWER, as everywhere else here: a comment list the
+   * console could not fetch or parse comes back `readable: false`, which is
+   * reported as unverified rather than as a round that appended nothing.
+   */
+  private async appendEvidence(ticketId: string, marker: string): Promise<{ readable: boolean; carries: boolean }> {
+    const listed = await this.runCommand('xgd', ['ticket', 'comments', ticketId, '--json'], this.cwd).catch(() => null)
+    if (!listed || listed.code !== 0) return { readable: false, carries: false }
+    let refs: Array<{ uid?: string; id?: string }>
+    try {
+      // `xgd ticket comments --json` prints a bare ARRAY, unlike every other
+      // `--json` the console reads — hence the second parser. Anything else is
+      // a CLI that has changed shape, which is unreadable rather than empty.
+      refs = parseJsonArrayOutput<{ uid?: string; id?: string }>(listed.stdout, 'xgd ticket comments --json')
+    } catch {
+      return { readable: false, carries: false }
+    }
+    for (const ref of refs) {
+      const key = ref.uid ?? ref.id
+      if (!key) continue
+      const got = await this.runCommand('xgd', ['ticket', 'get', key, '--json'], this.cwd).catch(() => null)
+      if (!got || got.code !== 0) continue
+      try {
+        const doc = parseJsonOutput<{
+          body?: string
+          frontmatter?: { created_by?: string; fields?: { payload?: Record<string, unknown> } }
+          fields?: { payload?: Record<string, unknown> }
+        }>(got.stdout, 'xgd ticket get --json')
+        const payload = doc.fields?.payload ?? doc.frontmatter?.fields?.payload
+        const haystack = [
+          doc.body ?? '',
+          doc.frontmatter?.created_by ?? '',
+          typeof payload?.created_by === 'string' ? payload.created_by : '',
+        ].join('\n')
+        if (haystack.includes(marker)) return { readable: true, carries: true }
+      } catch {
+        // One unreadable comment among several is not the list being
+        // unreadable: keep looking, and let an exhausted list answer `false`.
+      }
+    }
+    return { readable: true, carries: false }
+  }
+
   private async readTicket(id: string): Promise<ReadTicket> {
     const unread = unreadTicket(id)
     const result = await this.runCommand('xgd', ['ticket', 'get', id, '--json'], this.cwd).catch(() => null)

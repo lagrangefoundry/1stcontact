@@ -364,6 +364,61 @@ change to what the engine can do. Use `bug` for the secondary `1c` defects of
 dropped`, not `BUG: gradient wrong`. The type is already in the ticket list; the
 area is what tells a reader what is involved before they open it.
 
+### Appending to a class that already has a ticket
+
+Your round context lists the classes that already have one, and **beside each
+id it names the route and the status that route was derived from**. Use the
+route you were given; do not assume the body is writable.
+
+**A ticket's body is writable only at `draft`, `free_coding`, `free_coded` and
+`failed`.** Everywhere else — any `ready_*`, `in_progress`, `bundled`,
+`reconciling`, `merging_back`, `error`, and every settled status — `xgd`
+freezes `body` and `title` and refuses an append outright:
+
+```
+$ xgd ticket append REQ-302 --file /tmp/more.md
+Error: ticket is in the reconcile pipeline (queued at ready_to_reconcile or beyond);
+       body/title are frozen
+```
+
+That freeze is correct: a ticket being worked must not have its body move under
+the implementer. It is also where most class tickets live most of the time, so:
+
+**On a frozen ticket the comment IS the append.**
+
+```
+xgd ticket add-comment <id> --kind note --body-file <a file you wrote>
+```
+
+and it is still `"status": "appended"` — you did what the instruction asked, by
+the only route the store allows.
+
+**Write your round marker as the comment's own first line.** `add-comment` has
+no `--created-by`; a `--fields '{"created_by":…}'` is swallowed into
+`fields.payload` while the comment's frontmatter still reads `xgd`. So the
+marker is prose, and that line is the only place your identity survives here.
+Open the comment with it, verbatim:
+
+```
+`repro-console:<slug>#<iteration>` — iteration <n> re-measurement of <what>.
+```
+
+The console reads the comments on the ticket you named back and looks for that
+marker. A round that claims `"appended"` and leaves nothing carrying it is
+reported, the same way a round that claims `"filed"` and names no id is.
+
+**A settled ticket is not appended to at all.** If the route beside a class says
+the ticket is settled — reconciled, merged, fixed, or refused — that account is
+closed, and a class returning after it was disposed of is a finding in its own
+right. File a **new** ticket, cite the old id in its body, say what is different
+now, and report `"status": "filed"`. You will not be reported for a duplicate:
+the console knows the predecessor was settled.
+
+**What you are never charged with.** The status, the `created_by` and the
+`defect_class` of a ticket you appended to belong to the round that filed it,
+which was not you. The console checks those on the tickets you created and on
+nothing else.
+
 ### One ticket, every issue, in order
 
 **There is no limit on the size of this ticket.** If you found five residuals,
@@ -464,7 +519,10 @@ To report the gap ticket you created:
 ```
 ````
 
-To report evidence you appended to a class that already had a ticket:
+To report evidence you appended to a class that already had a ticket — by
+`xgd ticket append` if its body was writable, by `xgd ticket add-comment`
+carrying your round marker if it was frozen (§6), and `ticketId` is the ticket
+you appended to either way:
 
 ````
 ```json
@@ -472,7 +530,7 @@ To report evidence you appended to a class that already had a ticket:
   "status": "appended",
   "residualClass": "fold-drops-background-gradient-direction",
   "ticketId": "REQ-241",
-  "summary": "Seen again on faelan.com, same shape. Appended this round's numbers."
+  "summary": "Seen again on faelan.com, same shape. Frozen at reconciling, so appended this round's numbers as a comment."
 }
 ```
 ````

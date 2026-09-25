@@ -140,3 +140,35 @@ export function parseJsonOutput<T>(stdout: string, what: string): T {
     throw new Error(`${what} printed a JSON document that would not parse:\n${document.slice(0, 400)}`)
   }
 }
+
+/**
+ * The same slice, for the one `xgd --json` that prints an ARRAY ([[BUG-140]]).
+ *
+ * `xgd ticket comments <id> --json` answers with a bare `[…]` rather than the
+ * document every other `--json` the console reads answers with, and
+ * {@link parseJsonOutput} hunts for `{` and `}` — so on a populated list it
+ * slices the braces off the first and last ELEMENT and parses neither, and on
+ * an empty one it finds no brace at all. Both read as "the CLI is unreachable",
+ * which on the append-evidence check would have reported every well-behaved
+ * round as unverified.
+ *
+ * Kept as a second function rather than folded into the first: widening the
+ * object parser to accept `[` would let a command that is supposed to answer
+ * with a document quietly pass an array through.
+ */
+export function parseJsonArrayOutput<T>(stdout: string, what: string): T[] {
+  const start = stdout.indexOf('[')
+  const end = stdout.lastIndexOf(']')
+  if (start === -1 || end < start) {
+    throw new Error(`${what} printed no JSON array:\n${stdout.trim().slice(-400)}`)
+  }
+  const document = stdout.slice(start, end + 1)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(document)
+  } catch {
+    throw new Error(`${what} printed a JSON array that would not parse:\n${document.slice(0, 400)}`)
+  }
+  if (!Array.isArray(parsed)) throw new Error(`${what} printed JSON that is not an array`)
+  return parsed as T[]
+}

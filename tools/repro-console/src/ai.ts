@@ -47,6 +47,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { DEFECT_CLASS_FIELD, defectClassTable, parseDefectClasses } from './defect-class'
+import { routeForStatus, routeInstruction, roundMarker, UNREADABLE_STATUS, type AppendRoute } from './append-route'
 import type { GapEntry } from './gaps'
 import { INDEX_FILE, type SessionKbResult } from './session-kb'
 import { ROUND_CREATED_BY } from './ticket'
@@ -308,6 +309,35 @@ export interface ReferenceProvenance {
   landedSince: string[]
 }
 
+/**
+ * A class that already has a ticket, and what this round may do about it
+ * ([[BUG-140]]).
+ *
+ * THE REGISTRY ENTRY IS NOT ENOUGH ON ITS OWN. `gap-tickets.json` records which
+ * ticket carries a class and never records what became of it, so a prompt built
+ * from the registry alone tells every round to append to a body that has been
+ * frozen for weeks. The live status is read back per round and the route
+ * follows from it; the registry stays what it always was — the console's memory
+ * of what it filed — and the ticket's own life stays xgd's to report.
+ */
+export interface KnownGap extends GapEntry {
+  /**
+   * The status `xgd` reports for this class's ticket right now.
+   *
+   * Absent or empty when it could not be read, which {@link routeForStatus}
+   * turns into the comment route — the one route nothing refuses.
+   */
+  liveStatus?: string
+  /**
+   * Which of the three routes this class takes, or absent.
+   *
+   * Optional so that a context built by hand — every suite that is not about
+   * the routing — is still a valid context. Absent reads exactly as an
+   * unreadable status does, because it is one: nobody looked.
+   */
+  route?: AppendRoute
+}
+
 /** Everything about one round the brief does not already say. */
 export interface RoundContext {
   n: number
@@ -350,8 +380,8 @@ export interface RoundContext {
   kb?: SessionKbResult
   gate: GateSummary | null
   rail: RailRoundResult
-  /** The classes that already have tickets (behavior 6). */
-  knownGaps: GapEntry[]
+  /** The classes that already have tickets (behavior 6), each with its route. */
+  knownGaps: KnownGap[]
   /** True when this round resumed the previous round's session (behavior 3). */
   resumed?: boolean
 }
@@ -475,12 +505,29 @@ export function buildPrompt(brief: string, ctx: RoundContext): string {
       ].join('\n')
     : '- nothing is recorded about when this reference was taken.'
 
+  /**
+   * THE ROUTE IS PER CLASS, BECAUSE THE FREEZE IS PER TICKET ([[BUG-140]]).
+   *
+   * This block used to say "append to that ticket" once, above every class, as
+   * though the body of a ticket were always writable. It is writable only at
+   * the pre-dispatch statuses; every class ticket eventually and permanently
+   * leaves them. So each line carries the status the console read back this
+   * round and the instruction that follows from it, and the round is never told
+   * to run a command the store will refuse.
+   */
   const gaps = ctx.knownGaps.length
     ? ctx.knownGaps
-        .map(
-          (gap) =>
-            `- \`${gap.residualClass}\` → **${gap.ticketId}** (\`${gap.ticketUid}\`) · seen on ${gap.references.join(', ')}\n  ${gap.summary}`,
-        )
+        .map((gap) => {
+          const status = gap.liveStatus || UNREADABLE_STATUS
+          const route = gap.route ?? routeForStatus(gap.liveStatus ?? '')
+          return (
+            `- \`${gap.residualClass}\` → **${gap.ticketId}** (\`${gap.ticketUid}\`, now at \`${status}\`) · ` +
+            `seen on ${gap.references.join(', ')}\n  ${gap.summary}\n  → ${routeInstruction(route)}` +
+            (gap.priorTicketIds?.length
+              ? `\n  Previously carried by ${gap.priorTicketIds.join(', ')}, which this class outlived.`
+              : '')
+          )
+        })
         .join('\n')
     : '- none yet. Anything you find this round is a new class.'
 
@@ -559,7 +606,11 @@ ${ctx.rail.summary}
 
 ## Classes that already have a ticket
 
-If your diagnosis is one of these, **append to that ticket** and report \`"status": "appended"\` naming it. Do not file a second one.
+If your diagnosis is one of these, it already has a ticket and you do not open a second one. **What you do with it depends on where that ticket has got to**, and the route is written out beside each class below — the console read each status back this round, so what you are told here is what the store will actually accept:
+
+- a ticket whose body is still writable (\`draft\`, \`free_coding\`, \`free_coded\`, \`failed\`) takes \`xgd ticket append\`;
+- a ticket anywhere in a pipeline has \`body\` and \`title\` **frozen** by \`xgd\`, and the append it takes is a comment — \`xgd ticket add-comment <id> --kind note --body-file <f>\`, with \`${roundMarker(ROUND_CREATED_BY, ctx.slug, ctx.n)}\` as the comment's own first line, because \`add-comment\` has no \`--created-by\` and that line is the only place your identity survives on this route;
+- a ticket that has been **settled** — reconciled, merged, fixed, or refused — is a closed account, and a class that comes back after it was disposed of is news. File a new ticket citing the old id and report \`"status": "filed"\`.
 
 ${gaps}
 
