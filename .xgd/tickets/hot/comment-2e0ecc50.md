@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-310
 created_by: xgd
 created_at: '2026-09-25T00:36:08.891458+00:00'
-updated_at: '2026-09-25T01:02:34.462583+00:00'
+updated_at: '2026-09-25T01:06:16.271143+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -159,5 +159,11 @@ To clear up what I confused things with: the files I kept naming (`kb/system/*.m
 The generator still has to run somewhere. My default: **leave the call exactly where it is** — first inside `1c kb export` and `1c kb build`, as today — so there's no new verb and no new gate, and the corpus→index ordering `bin/kb-release` enforces is untouched. The only visible difference is that an export now writes ticket bodies, and `xgd ticket update` auto-commits, so a build can produce a `xgd(ticket): update` commit. If that turns out to be annoying in practice we can split it into its own verb later; the requirement doesn't depend on which way we go.
 
 Say go and I'll record that decision in the ticket body, cut the branch, and implement it.
+
+<!-- xgd-turn id="6b4e1f8c-7ec7-4d66-a6cf-e2b144f6feab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T01:06:15.981429+00:00" -->
+#### You
+Actually no, I'm ok with automatically generated documentation - I think there is nothing here that is needed.
 
 <!-- xgd-chat-end -->
