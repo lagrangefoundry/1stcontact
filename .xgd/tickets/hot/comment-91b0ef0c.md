@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T21:12:14.069865+00:00'
+updated_at: '2026-09-25T21:35:01.753884+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2531,5 +2531,13 @@ Last turn I told you the old document had panels carrying a height response and 
 My refolded copy is at `.xgd/tmp/ga/index` with its `gate.json`, if you want to read the 52 escapes before spending a round. The stored reference is untouched — still the stale fold until the console refolds it.
 
 Want me to append a §14 to EPIC-12 recording this verification? §13 currently says iterating on this bundle can't find the defect, which the two landed tickets have made false.
+
+<!-- xgd-turn id="02ddfcbc-03a7-4709-a0de-3e04af0d32ab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T21:35:01.583936+00:00" -->
+#### You
+The repro console is difficult to work with because changes and progress are shown at the top and the bottom of the page.
+
+Could we consolidate everything to one or the other - I suggest the top is easiest, in which case the turns should be listed in reverse order with the most recent first and the first one at the end so the page is built from the top up - if that is too hard the reverse is acceptable but the controls must be at one end and build the page in a logical order, not both
 
 <!-- xgd-chat-end -->
