@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T20:27:56.169055+00:00'
+updated_at: '2026-09-25T20:28:38.802155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4485,5 +4485,30 @@ The two seams above (§N3 access-sim's default, §N4 public-site) are both retir
 <!-- xgd-chat role="user" ts="2026-09-25T20:27:55.538346+00:00" -->
 #### You
 does build build the kbs too?
+
+<!-- xgd-turn id="61cee0cc-6192-4fb6-8a12-d02793bf0c72-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T20:28:38.390007+00:00" -->
+#### Claude
+**No.** `bin/build` is three stages — `1c preflight`, `1c assets`, typecheck/package builds — and none of them builds the knowledge base. `bin/kb-release` is the command that does (`1c kb build`, then `1c assets`).
+
+But the two aren't independent, and this is the part worth knowing:
+
+**`1c assets` *consumes* the KB and refuses a stale one.** Stage 2 of `bin/build` inlines the corpus and the two manifests into `kb.js`, and before it writes anything it runs `requireCoherentKb` — a bundle whose corpus holds documents its index doesn't is **refused**, not inlined. That's BUG-48: the corpus arrives as a directory listing and the index as a build artefact, two clocks that nothing previously made agree, and the symptom was an assistant carrying a document all session while reporting the subject as one it had nothing on.
+
+So `bin/build` will *fail* on a stale KB rather than quietly ship one. The refusal lands before the staged tree is swapped in, so it costs you a build and never a shipped artefact.
+
+**Where that leaves your dev deploy.** I checked — your KB is currently coherent:
+
+```
+corpus: 9 exported + 3 projected (of 9 ticket(s) carrying doc_kind: system_kb)
+index:  built    chunks: built    map: built
+```
+
+So `bin/build` → `bin/deploy --env dev` will go through as written. You only need `bin/kb-release` first if you've edited or added a `system_kb` document since the last index build — and if you have and forget, stage 2 stops you.
+
+One practical note if you do need it: `1c kb build` needs `CLOUDFLARE_API_TOKEN` for the Workers AI embedder, and from memory it's specifically `1c_Admin_Token` with `NODE_USE_ENV_PROXY=1` — the other two Cloudflare tokens 401 on Workers AI. The map's paragraphs come from the Claude Code CLI and need no credential of their own.
+
+`bin/deploy` itself knows nothing about the KB; it only ships what `1c assets` already inlined. The only KB mention on that path is the capability probe, which checks the token pair can reach Workers AI and reports it.
 
 <!-- xgd-chat-end -->
