@@ -6,16 +6,24 @@ title: 'l1-gate: no probe can see a backing surface separating from the content 
   backs, and viewport height is not an axis at all'
 created_by: EPIC-12
 created_at: '2026-09-25T02:40:45.049473+00:00'
-updated_at: '2026-09-25T17:17:50.512427+00:00'
+updated_at: '2026-09-25T20:12:31.610289+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9f797f96
+  commits:
+  - working_sha: 26f5491165d1b54a9b4a0d0206d85b1f38eb5e69
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5fdccec7da152f03af06d1d9a067f7e2473eacde
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.357
 ---
 
 # The envelope probes cannot see a backing surface separating from its content
