@@ -2,12 +2,12 @@
 uid: request-cd8a8c9e
 id: REQ-323
 type: request
-title: 'repro console: controls at one end, and the history newest-first'
+title: 'repro console: the controls and the progress report at one end'
 created_by: EPIC-12
 created_at: '2026-09-25T21:37:20.771961+00:00'
-updated_at: '2026-09-25T22:06:18.446533+00:00'
+updated_at: '2026-09-25T22:06:58.060079+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: draft
 fields:
   priority: high
@@ -19,110 +19,132 @@ fields:
 
 ## The problem
 
-The console asks the operator's eye to work at both ends of the page at once.
-Document order today (`page.ts:730-750`):
+The control the operator presses and the report of what it did are at opposite
+ends of the page. Document order today (`page.ts:730-750`):
 
 ```
-address box + [recapture]        ← a control, at the top
-status line                      ← progress, at the top
+address box + [recapture]        ← a control, at the TOP
+status line                      ← the progress report, at the TOP
 notice / captured-already / filings
-Iteration 1 … Iteration N        ← the newest is at the BOTTOM
-⏸ [the implementation has landed] ← a control, at the bottom
-[recapture] [clear history]       ← controls, at the bottom
+Iteration 1 … Iteration N        ← newest at the bottom
+⏸ [the implementation has landed] ← a control, at the BOTTOM
+[recapture] [clear history]       ← controls, at the BOTTOM
 ```
 
-So: controls top **and** bottom, progress top, and the thing that just happened
-at the far end from the thing that reports it. Working the loop means scrolling
-past the whole history to find the newest iteration, then scrolling further to
-reach the buttons, then back to the top to read the status line.
+So the loop is worked at the bottom of the page and read at the top of it. You
+press [recapture] under the newest iteration, and then you have to travel to the
+other end of the document to find out what is happening. Whichever end you are
+looking at, the other one is off-screen. That is the defect — not the ordering of
+the list, and not which end things live at.
+
+**The invariant: the control and the progress report must be adjacent.**
 
 ## What changes
 
-**Everything that is not the history moves to the top, and the history reads
-newest-first downward.** The page is then built from the top up: the controls
-are at one end, and the iteration nearest them is the one just produced.
+The iteration list is **not** reversed and the continuation group **keeps the
+position [[BUG-120]] gave it** — after the last iteration. BUG-120's reasoning
+holds and is not being revisited: position is the claim, and a control rendered
+below the list reads "this acts on the list" where the same control beside the
+address box reads "this starts something".
 
+What moves is everything else the operator touches or reads, down to join it.
 New document order:
 
 ```
-address box + [recapture]
+notice / captured-already / filings   ← read-once context, stays at the top
+Iteration 1 … Iteration N             ← ascending, UNCHANGED
+⏸ [the implementation has landed]
+[recapture] [clear history]
+address box + [recapture] + its effect line
 status line
-notice / captured-already / filings
-⏸ [the implementation has landed]     ← moved up
-[recapture] [clear history]           ← moved up
-Iteration N … Iteration 1             ← reversed
 ```
 
-1. `state.iterations` renders in reverse — most recent first, iteration 1 last.
-   **Numbering does not change**: iteration 1 is still called Iteration 1. Only
-   the render order inverts.
-2. The `⏸` held block and the `<section class="continue">` group both move above
-   the iteration list, so no control is rendered after it.
-3. The two visible sentences that name a direction become true again:
-   - `[clear history]` says the iterations "above are moved aside" (`page.ts:631`)
-     — they are now below.
-   - the restart effect line says it "appends the next iteration to the chain
-     below" (`page.ts:740`) — the chain is still below, but the appended
-     iteration now arrives at the *top* of it, which is the fact worth saying.
-4. Nothing else moves. `notice`, `captured already` and `filings` are already
-   above the list and stay where they are.
+1. The `status` line moves from above the list to the very bottom, directly
+   under the control cluster. This is the fix: the line that says what is
+   happening is beside the button that made it happen.
+2. The address row and its `effect restart` sentence move down with it, because
+   they are a control too and the ask is that the controls be at ONE end. On a
+   blank console this is invisible — there are no iterations between top and
+   bottom — so [[REQ-254]] requirement 2's blank page (a text box, a button, and
+   nothing else) is unchanged by construction.
+3. `notice` ([[BUG-114]]) and `filings` ([[REQ-276]]) stay above the list. They
+   are facts about the checkout and about the whole loop, read once on arrival,
+   not progress and not controls. Their existing doc comments justify that
+   position and remain true.
+4. `captured already` stays where it is: it only renders when no site is loaded,
+   so it never competes with the list.
 
-## Why this does not throw away [[BUG-120]]'s argument
+## A press must land the operator at the control end
 
-[[BUG-120]] put the continuation group *after* the history on the explicit
-reasoning that **position is the claim**: a control below the list reads as
-"this acts on the list", where the same control beside the address box reads as
-"this starts something". That argument is correct and it survives — what it
-needs is adjacency to the thing being acted on, not the word "after". With the
-list reversed, the group sits immediately above Iteration N, which is the
-iteration a press acts on. The claim is preserved and the adjacency is tighter
-than before.
+This is the part that makes the move actually work, and it is not optional.
 
-Whoever implements this must restate that reasoning in the code comment rather
-than deleting it. The comment at `page.ts:586-616` is the record of why the
-group exists as a group at all, and only its final clause ("after the history it
-acts on") is superseded.
+Every press redirects `303 → /` with no fragment (`console.ts:1948-1949`, and
+every `seeOther('/')` call site). A bare `/` lands the browser at the TOP of the
+document. Move the controls and the status line to the bottom without changing
+that, and the complaint inverts rather than resolves: every press would return
+the operator to a top of the page that now has nothing actionable on it.
 
-## Two prior UATs are deliberately superseded
+So the redirect must carry the operator back to the cluster. Give the control
+cluster an `id` and redirect to `/#<id>` from the presses that act on the chain —
+`/recapture`, `/clear`, the hold release, and the AI round. A fragment is the
+right mechanism because it needs no script, survives a manual reload, and leaves
+the `303`-instead-of-`200` property that stops a reload re-running the round
+(`console.ts:1945-1947`) exactly as it is.
 
-Both currently pin the order this ticket inverts. They must be amended, not
-deleted, and the amendment must say it is one:
+Routes that are not a press on the chain — the trailing-slash redirect at
+`console.ts:1793` serving artifacts — keep their current targets.
 
-- `tests/test_UAT_FC_BUG-120_continuation_affordance.test.ts:247` —
-  `indexOf('<section class="continue">') > indexOf('<h2>Iteration 1</h2>')`.
-  Inverts. BUG-120's other assertions (the group exists, holds both verbs, the
-  retired verbs are absent, the address row is outside the group and above the
-  history) are all untouched and must stay green.
-- `tests/test_UAT_FC_REQ-254_reproduction_console.test.ts:389` —
-  `indexOf('Iteration 1') < indexOf('Iteration 3')`. Inverts. What REQ-254
-  requirement 6 is actually about — that continuing appends and earlier
-  iterations survive — is untouched: all three headings must still be present.
+## Prose that becomes false
+
+- `[clear history]` says the iterations "above are moved aside" (`page.ts:631`).
+  Still true and now more so.
+- the restart effect line says it "appends the next iteration to the chain
+  below" (`page.ts:740`). Now false — with the address row at the bottom the
+  chain is above it. Reword to name the position rather than the direction.
+
+## One prior UAT is deliberately superseded
+
+`tests/test_UAT_FC_BUG-120_continuation_affordance.test.ts:245` asserts
+`indexOf('placeholder="site address"') < indexOf('<h2>Iteration 1</h2>')` — the
+address row above the history. That inverts, and the amendment must say it is a
+deliberate supersession rather than a fix.
+
+What BUG-120 is actually about is untouched and every other assertion in that
+file must stay green, including line 247 (`<section class="continue">` after the
+history), which this ticket deliberately preserves. The address row stays
+**outside** the continuation group, as BUG-120 requires — it moves to the same
+end of the page, not into the group.
+
+[[REQ-254]]'s ordering assertion (`…REQ-254…:389`, Iteration 1 before Iteration
+3) is NOT affected: the list stays ascending.
 
 ## Not affected
 
-The transcript auto-scroll in `POLL_SCRIPT` (`page.ts:347-349`) keys on
-`pane.scrollTop` / `pane.scrollHeight` of the per-iteration `<pre>` element, not
-on page scroll, so reversing the list does not change it. The poller's
-disabled/`data-inert` recomputation (`page.ts:335-338`) keys on `data-held`
-attributes, not on position, and is likewise unaffected.
+The transcript auto-scroll (`page.ts:347-349`) keys on the per-iteration `<pre>`
+element's own `scrollTop`/`scrollHeight`, not page scroll. The poller's
+`disabled`/`data-inert` recomputation (`page.ts:335-338`) keys on `data-held`
+attributes, not on position. Neither cares where anything is rendered.
 
 ## Testable at the end
 
-`test_UAT_FC_REQ-<this>_*`:
+`test_UAT_FC_REQ-323_*`:
 
-1. After three iterations on one site, the rendered page has
-   `Iteration 3` before `Iteration 2` before `Iteration 1`, and all three are
-   present.
-2. No control is rendered after the iteration list: both
-   `<section class="continue">` and the `⏸` held block appear before the first
-   `<h2>Iteration` in the document, and nothing matching a `<form` appears after
-   the last iteration section.
-3. The address row is still above everything (BUG-120's surviving assertion) and
-   still outside the continuation group.
-4. A held chain renders the `⏸` block above the list, and the release button
-   still lifts the hold — the move is positional only.
-5. The `[clear history]` and restart sentences contain no direction word that the
-   new order makes false.
+1. After three iterations, the page still renders Iteration 1 before Iteration 2
+   before Iteration 3 — the list is not reversed.
+2. No control and no progress report is rendered before the list: the `status`
+   paragraph, the address `<input>`, the `⏸` block and
+   `<section class="continue">` all appear AFTER the last `<h2>Iteration`.
+3. The `status` paragraph is adjacent to the control cluster — no iteration
+   section renders between them.
+4. The continuation group is still after the last iteration, and the address row
+   is still outside that group (BUG-120's surviving claims).
+5. A press on `/recapture`, `/clear` and the hold release each redirect to a
+   location carrying the control cluster's fragment, and the cluster renders with
+   that `id`.
+6. With no site loaded the page is unchanged from today: a text box, a button,
+   and nothing between them and the top.
+7. The restart effect sentence contains no direction word the new order makes
+   false.
 
-Plus: the amended assertions in the two prior UAT files pass in their new
-direction, and every other assertion in both files still passes.
+Plus: the amended BUG-120 assertion passes in its new direction and every other
+assertion in that file still passes.
