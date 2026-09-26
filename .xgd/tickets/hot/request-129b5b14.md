@@ -5,15 +5,23 @@ type: request
 title: Zoomable images — let a visitor open a picture large
 created_by: xgd
 created_at: '2026-09-25T23:28:56.882077+00:00'
-updated_at: '2026-09-26T00:05:21.014172+00:00'
+updated_at: '2026-09-26T06:54:30.926692+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-f717659b
+  commits:
+  - working_sha: 28e6aa2cc984e509ba5318cf77262893ef87080e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 316ddeb5a0ba1a8532c91c5b0062267af03beb26
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.369
 ---
 
 ## What I was trying to achieve
