@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-150
 created_by: xgd
 created_at: '2026-09-26T19:43:28.632232+00:00'
-updated_at: '2026-09-26T20:17:02.996609+00:00'
+updated_at: '2026-09-26T20:41:30.006034+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -101,6 +101,46 @@ While those run, let me review the full diff of the core files.
 <!-- xgd-turn id="a62f8bfa-6c9d-4876-97c2-a10237a9ca97-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-26T20:17:01.589089+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a62f8bfa-6c9d-4876-97c2-a10237a9ca97-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T20:38:22.762750+00:00" -->
+#### Claude
+Branch exists with all work uncommitted. Let me review the diff and verify it compiles.
+
+14 BUG-150 UATs pass. Now the repaired existing UATs.
+
+Now repairing REQ-253 — its entry-point tests drive the deleted `builder` command.
+
+Now the `writeSnapshot` helper and the imports it needs:
+
+Now the AC1 remedy assertion and the `--remote` test:
+
+Now the `--remote` test, which pinned a mode the deleted builder owned:
+
+Now the "unreadable" test needs a snapshot so it reaches the check:
+
+REQ-253 green. Now the remaining suites touching the changed modules:
+
+All suites green. Now recording the newly-superseded UATs in the ticket body before committing.
+
+Committing the work, then merging working in and bumping on top so the version commit is the tip.
+
+Now taking the merge lock and merging xgd-working into the branch:
+
+Merge clean and the deletions survived. Now bump the version on top and re-verify:
+
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: Not logged in · Please run /login
+
+<!-- xgd-turn id="f0e6b271-35a5-4f36-80f9-8622cd1f509c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T20:41:29.113835+00:00" -->
 #### You
 please complete the free-coding of this ticket
 
