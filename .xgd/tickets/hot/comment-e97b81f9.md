@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-333
 created_by: xgd
 created_at: '2026-09-26T21:53:13.382477+00:00'
-updated_at: '2026-09-26T23:30:17.738075+00:00'
+updated_at: '2026-09-26T23:51:49.481526+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -108,5 +108,58 @@ Please be aware that in this current chat environment, background jobs die. Plea
 please complete the free-coding of this ticket
 
 Project note (additive — does not override the above): Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a62b14d2-ecad-4127-9590-e603be3bd362-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T23:51:49.099704+00:00" -->
+#### Claude
+I'll start by reading the ticket to understand the current state.
+
+Now let me run the three new UAT files plus the two adjusted suites.
+
+All 20 failures reproduce identically on the clean baseline — pre-existing, unrelated. Restoring the work:
+
+Now the workers project and typecheck/lint:
+
+Clean. Now the workers project:
+
+The Chromium block passes vacuously when no browser is available — that's a green test claiming evidence it doesn't have. Making it an honest skip:
+
+Clean. Now let me update the ticket body with the implementation record, then commit.
+
+Now bump the version and commit on the branch:
+
+I'll commit on the branch now (which needs no lock) and retry the lock after.
+
+Passes in isolation — a full-run artifact, not the merge. Re-running the REQ-333 suites against the merged tree:
+
+Clean. Now the version bump as the tip commit:
+
+Landed on `xgd-working`. Now the free_coded gate:
+
+REQ-333 is free-coded and landed. All seven issues implemented.
+
+**What landed** (`2cdb653e62`, bump `f672a8347 9`, version 0.2.385):
+
+| # | Fix |
+|---|---|
+| 1 | `accTransformOf` composes an element's transform with every ancestor's (`transform` doesn't inherit, so four wrapper-tilted photographs read `rotate: 0`); `layoutBoxOf` solves the layout box back out of the AABB a rotation inflated |
+| 2 | `frameOf` attributes a single-purpose wrapper's clip/ring/shadows to the image it frames; `borderRadiusOf` now resolves a **percentage** radius against the box (`50%` was read as `50px`) |
+| 3 | `radialEndingShape` parses the gradient size slot that was previously discarded wholesale, so stops are read in the gradient's own units — the 62px band that erased 21.5% of each photograph is gone |
+| 4 | `featherRadial` gains `extentPct` + `opaqueStopPct`; both optional, so no existing document changes meaning |
+| 5 | `columnExtentCss` wraps its subtraction in its own `calc()` — one line, 8.24% of the ranked score |
+| 6 | A rejoined node's anchor and keyframes now read one rect (`pxTrack = x − columnOrigin` pinned across every anchored node) |
+| 7 | A synthesised `<a>` emits `color: inherit` when the run names none |
+
+**A latent defect found on the way and fixed:** `EXTRACT_SCRIPT` is a template literal, so `/matrix\(…\)/` shipped as `/matrix((…))/` — `transformOf` returned the identity for *every* transform on *every* page, which is the deeper reason those four read zero. Three regexes repaired; a guard pins every backslash in the literal.
+
+**Evidence:** 24 new UATs across three files. `--project workers` 1365/1365. `--project node` 4625 pass / 21 fail — I reverted the four touched source files and ran the failing set on a clean baseline: 20 reproduce identically, and the 21st (`req115-builder-shell`) passes in isolation and only fails inside a full run. None is this ticket's. `tsc --noEmit` clean on all three touched packages.
+
+Two things to flag:
+
+- I changed the Chromium-gated block from `if (!capture) return` to `ctx.skip()`. It was reporting **green** with no browser present — a test claiming evidence it didn't have. It now reports skipped (2 skipped here, since Chromium is blocked in this sandbox).
+- **Issues 1 and 2 are capture-side**, so none of the `1c gate` / `1c values-diff` numbers in the ticket can move until you press **[recapture]** on that bundle — `1c refold` cannot reach them. The ranked-score predictions stand as predictions, not measurements, and I've said so in the ticket body.
+
+The ticket is parked at `free_coded` with a full implementation record appended (story_points 13); promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
