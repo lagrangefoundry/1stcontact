@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-149
 created_by: xgd
 created_at: '2026-09-25T23:52:22.778571+00:00'
-updated_at: '2026-09-26T06:50:34.435146+00:00'
+updated_at: '2026-09-26T06:59:08.759855+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -86,5 +86,44 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="bb97712b-1f14-4951-9765-a5bd2a9ffa15-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T06:59:08.241146+00:00" -->
+#### Claude
+Background jobs were killed. Running the full workers project in the foreground now.
+
+All 162 workers files / 1365 tests pass — including the REQ-260 undo case that failed in the earlier parallel run, so that was load flakiness rather than a regression. Now checking whether the node project touches this code.
+
+Now the ticket body needs the harness note, then commit.
+
+Free-coding of BUG-149 is complete and merged to `xgd-working`.
+
+## The fix — `apps/control-app/src/junctions.ts`
+
+1. **The stub is never held; the namespace is.** `DurableJunctionStorage` keeps the `JunctionNamespace` and the session id, and a new `stub()` takes a handle per use — in `adopt()`, and in `queue()` at the moment a write is queued, which is inside the request whose turn appended it. The storage and its mirror still live for the isolate's life; only the handle is short-lived.
+
+2. **Requirement 2 needed no new plumbing.** `streamTurn`'s `finally` already awaits `host.flush` inside its `ctx.waitUntil`, `/api/ai/session` awaits it before answering, and reattach writes nothing. The stub lifetime was what violated the rule, not the drain placement.
+
+3. **The retry arm of requirement 3, made lossless.** The "object is behind, push the tail forward" repair was gated on `adopted && epoch unchanged && object shorter` — exactly false in the state this bug produces, so a recovering adopt would have *deleted* the records written while the object was unreachable. A new `behind()` compares bytes instead: pushed forward iff the object's stream is a strict prefix of the mirror. Sound with or without the flag, and it still cannot overwrite a divergent object.
+
+4. The degradation log is a transition (`RAM-only until…` / `durable again…`) rather than one identical line per prompt; `drain()` swallows a rejected tail and `queue()` chains with `.then(run, run)`.
+
+## Two things worth your attention
+
+**REQ-307's suite could not have caught this.** I measured it: `@cloudflare/vitest-pool-workers` serves a whole test file from one I/O context, so a stub captured in one `worker.fetch` is still usable in the next — and every REQ-307 case kills or reopens on the first request a session ever sees. The new suite therefore wraps the *binding* (the Durable Object underneath is real) to put workerd's request-scoping rule back, handing out stubs that throw the runtime's own sentence verbatim from the next request onward.
+
+**The harness found a second thing.** Retiring a request at the `done` frame produced `write did not land — Cannot perform I/O…` from a write still in the queue. That is a harness artefact, not a defect: the request is alive until its `waitUntil` settles. The suite now passes a real `ExecutionContext` and awaits what the request held open — with a separate `abandon()` for the killed-isolate case, where the `finally` never runs by definition.
+
+## Verification (all foreground)
+
+- New suite: 5 passed. Against the shipped code, 4 of 5 fail; the fifth is the degradation path and must pass both ways.
+- Full workerd project: **162 files / 1365 tests passed**. The `REQ-260_an_undo_is_itself_a_change` failure I saw in an earlier run was load flakiness — it passes in the clean run.
+- Node tests importing `router.ts`: 38 passed. Nothing outside the workerd project imports `junctions.ts`.
+- `tsc --noEmit` on `apps/control-app`: clean.
+
+Ticket: `status=free_coded`, commits `4f8a816130` (the work) and `5fd542f386` (version bump to 0.2.371), body carries the implementation record and every UAT traces to it. Branch merged and torn down, lock released.
+
+The companion defect stays where the ticket put it: `SessionManager.transcript()` preferring an incomplete junction over a complete archive is filed in `lagrange-framework`, and this fix stops junctions going stale without making an already-stale one safe to show.
 
 <!-- xgd-chat-end -->
