@@ -6,16 +6,24 @@ title: bin/dev up starts the watching builder, not the frozen snapshot it just b
   — and every server that reads the changing tree should be deleted
 created_by: EPIC-19
 created_at: '2026-09-25T23:26:01.085217+00:00'
-updated_at: '2026-09-26T20:34:42.318670+00:00'
+updated_at: '2026-09-26T20:49:39.740132+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-e4a9f6be
+  commits:
+  - working_sha: b12355bbcb5fab0c884b2a2d30dab1e70c28513d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1d33a637469b2cedf5c5bb00d5c6be5b2c46f226
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.380
 ---
 
 # `bin/dev up` starts the watching builder, not the frozen snapshot it just built — and every server that reads the changing tree should be deleted
