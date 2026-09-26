@@ -1252,10 +1252,24 @@ const STICKY_LIFT_Z_INDEX = 1
  * ordinary flow and its paint is exactly what it was. Absent `lift` emits no
  * `z-index` at all, so a document that does not ask to be lifted is byte-identical
  * to what it was before this field existed.
+ *
+ * BUG-154 — `stacked` ON A PINNED NODE IS THE SAME DECLARATION, which is why the
+ * emitter takes it too. The two fields read as one to an author and were two to
+ * the renderer: `stacked` says the node carrying it is the FIGURE of an overlap
+ * rather than its ground, and a pin is the one placement where document order
+ * paints the figure underneath — the page moves past a node that does not, so the
+ * sibling arriving later covers it. Everywhere else that claim needs no `z-index`
+ * (a later sibling already paints over an earlier one), which is why the axis
+ * emits nothing on its own and a folded reproduction's paint cannot move: the
+ * fold authors `stacked` and never authors `sticky`, so no folded document
+ * reaches this branch.
+ *
+ * ONE DECLARATION, NEVER TWO. A node carrying both spellings emits a single
+ * `z-index`, because they are one decision said twice rather than two levels.
  */
-function stickyDecls(sticky: L1Sticky): string[] {
+function stickyDecls(sticky: L1Sticky, stacked?: true): string[] {
   const decls = ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
-  if (sticky.lift) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
+  if (sticky.lift || stacked) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
   return decls
 }
 
@@ -4517,9 +4531,11 @@ function emitNode(
   // rule — and therefore normal flow — in force below it.
   //
   // REQ-328 — a `lift` is part of that same list and so is confined with it: the
-  // paint level a pin holds at is only meaningful where the pin is.
+  // paint level a pin holds at is only meaningful where the pin is. BUG-154 — and
+  // so is the `stacked` that means the same thing here, which is read off the node
+  // rather than out of the pin because it is a node-level axis.
   if (node.sticky) {
-    const decls = stickyDecls(node.sticky)
+    const decls = stickyDecls(node.sticky, node.stacked)
     if (node.sticky.fromPx === undefined) base.push(...decls)
     else state.rules.push({ media: `(min-width: ${node.sticky.fromPx}px)`, selector, decls })
   }
