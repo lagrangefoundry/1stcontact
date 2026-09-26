@@ -5,15 +5,23 @@ type: request
 title: Multiple animations per element, composed rather than replaced
 created_by: xgd
 created_at: '2026-09-25T23:35:20.106096+00:00'
-updated_at: '2026-09-26T19:19:54.263165+00:00'
+updated_at: '2026-09-26T20:08:28.270807+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-9ebd9398
+  commits:
+  - working_sha: a8fc4f256c4fb88e7c646061a28cac00bf58ddbb
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 531a16c186459ed66b6376c3d61479bfcfa26959
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.379
 ---
 
 ## What I was trying to achieve
