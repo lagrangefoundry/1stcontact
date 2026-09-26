@@ -6,7 +6,7 @@ title: bin/dev up starts the watching builder, not the frozen snapshot it just b
   — and every server that reads the changing tree should be deleted
 created_by: EPIC-19
 created_at: '2026-09-25T23:26:01.085217+00:00'
-updated_at: '2026-09-26T19:48:59.549137+00:00'
+updated_at: '2026-09-26T20:13:49.922285+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -220,3 +220,35 @@ composes a `wrangler dev` over `src/`, and a function whose only job is to build
 that command line is the thing an agent resurrects. The BUG-124 and BUG-146 UATs
 that used it as one of two launchers now assert the same layering facts against
 `devServeArgs`, which is the surviving launcher and reuses the same layering.
+
+
+## Adjustments made while implementing
+
+**`1c dev serve`'s refusal carries the app list in the message, not a `hint`.**
+The first draft used `CommandError.hint`; a UAT ran the real CLI and showed the
+hint never arrives — `bin/1c.mjs` prints `err.message` and nothing else, which
+`reset.ts` already records about its own refusal. The known apps and their ports
+are in the message.
+
+**`1c reset --port` defaulted to 8788 and now defaults to 8789.** The guard is
+"is something holding the store's SQLite files open" — it named the builder's
+port, and a guard whose default names a port nothing binds always passes.
+
+**`LOCAL_ORIGIN` moves with it.** `bin/copy-to-cloud` / `bin/copy-from-cloud`
+defaulted `--origin` to `http://localhost:8788`, which is now nobody's.
+
+**`builder` leaves `WORKERD_GATED_COMMANDS`.** It headed that list because it
+opened `.wrangler/state`, which the first `workerd` to open migrates forward
+silently and one-way. Deleting it un-gates nothing: `dev up`, `dev restart` and
+`dev serve` are all still there, and a UAT pins that.
+
+**Docs updated to name the surviving path**: `bin/dev`'s header, `bin/deploy`'s
+usage and its closing "now serve it" line, `bin/access-sim`'s recipe, and
+`apps/control-app/ACCESS.md`'s hand-run recipe — which told the operator to
+start `wrangler dev --port 8788` by hand.
+
+**One pre-existing failure fixed in passing.** `test_UAT_FC_BUG-50_*` expected
+two `--env-file` arguments; [[BUG-146]] added `.dev.vars.local` as a third and
+this expectation was never moved, so it had been failing on `xgd-working`. Two
+assertions corrected while the suite was being repointed at the surviving
+launcher.
