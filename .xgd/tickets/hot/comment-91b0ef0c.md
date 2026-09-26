@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-26T18:32:05.112141+00:00'
+updated_at: '2026-09-26T18:41:04.273628+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2647,5 +2647,58 @@ One limit on what I checked: I verified the console's own paths don't collide, b
 <!-- xgd-chat role="user" ts="2026-09-26T18:32:04.834303+00:00" -->
 #### You
 ok coo - we fixed it this time. There was still one "Unmeasured" on gigabyte alchemy, do you consider it important that we close that loop?
+
+<!-- xgd-turn id="b91b58a2-6847-4f06-be0b-e098dcfd14b0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T18:41:03.800930+00:00" -->
+#### Claude
+Checked iteration 8's gate rather than the summary line. The single remaining item is specific, and my answer is: **not on its own merits — but the metric it sits in is the reason to deal with it anyway.**
+
+## What the one thing is
+
+It isn't an axis the comparator failed to read. It's a comparison it **refused**:
+
+```
+scope: §1   axis: contentAnchor
+reason: §0 sits inside this band, so the reference measured its anchor over a
+        DOM-descendant population that EXCLUDES those runs while the
+        reproduction's geometric band INCLUDES them — the two anchors are not
+        the same measurement and are not compared
+```
+
+Your header is absolutely positioned over the hero. On the reference side, sections are style-scope bands and **do not partition the page** — the header is its own smaller section sitting inside the hero's box. On the reproduction side, bands *are* a partition. So "the runs in this band" means two different sets of runs, and `contentAnchor` is derived from exactly that. The guard declines rather than reporting a delta it can't stand behind.
+
+`contentAnchor` is also the **lowest-consequence axis in the manifest** — `LOW` tier, weight 4. It's the vertical centroid of content within a band. Closing it would change nothing you can see.
+
+## Why I'd still not shrug it off
+
+REQ-277 made `unmeasured` **the headline convergence number** — the one figure that's supposed to go to zero. And BUG-139 deliberately made this refusal count toward it, on the reasoning that *"the round's headline now moves when the comparator stops declining, which is the only thing that makes the refusal worth a round's attention."*
+
+That decision has a consequence nobody has faced yet: **this refusal will fire on any site whose header overlaps its hero** — which is most sites. So as things stand the headline can never reach zero, on any site, and a target that can't be hit stops working as a target. That's the real cost, not the axis.
+
+Two ways out, and they're different in kind:
+
+- **Close it properly.** Normalise the population on both sides — measure "runs in this band, excluding runs in a nested paired band." Both sides have the data: §0 pairs to one of our bands, so its box is subtractable from §1's population. That retires the refusal on every site, not just this one. Bounded work.
+- **Split the bucket.** Distinguish *refused because the two pages genuinely segment differently* (permanent, honest) from *not built yet* (work). Cheaper, reporting-only — but it's an annotation, not a fix.
+
+I'd take the first. It's the same argument REQ-274 made for the asymmetric-axis category: retire the class rather than describe it.
+
+## What I'd actually spend the next round on
+
+Not this. **The gate is still `structural-failure`**, and the residue is now very sharply bounded:
+
+```
+20 findings, all escapes, all card-5
+widths 506 and 637 only — clean at all 12 captured samples
+IDENTICAL at 768 and 1536 height  ← BUG-142's height binding is holding
+overhang 12–96px
+perceptual mean 0.22 · 0 regions · 4 deltas, worst tier LOW
+```
+
+One panel whose height doesn't follow its own reflowing copy at interior widths. That's the last visible instance of the class you called a blocker, it's one surface rather than a page coming apart, and — unlike three months ago — the gate names it in plain language with the surface id and the pixel overhang. A diagnosis round would land on it now.
+
+So: the unmeasured 1 is a metric-design question worth one small ticket; the card-5 escape is the actual remaining defect.
+
+Want me to file the anchor-population fix as a child of EPIC-12, and/or append a §14 to the epic recording iteration 8? §13 still says iterating on this bundle can't find the defect, which BUG-142/143 have made false.
 
 <!-- xgd-chat-end -->
