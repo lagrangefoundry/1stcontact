@@ -6,9 +6,9 @@ title: 'Builder chat: the durable junction never writes, because the Durable Obj
   stub is cached across requests'
 created_by: EPIC-19
 created_at: '2026-09-25T23:25:51.210884+00:00'
-updated_at: '2026-09-26T00:00:51.917302+00:00'
+updated_at: '2026-09-26T00:11:51.285484+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -144,3 +144,85 @@ not here. Fixing this bug stops junctions going stale; it does not make a juncti
 that is already stale safe to show. Both are needed.
 
 Recorded as EPIC-19 Finding 12, Defect A.
+
+
+---
+
+## What was built
+
+### 1. The stub is never held; the namespace is
+
+`DurableJunctionStorage` now takes the `JunctionNamespace` and the session id,
+and takes a stub from the namespace **per use** — in `adopt()`, and in `queue()`
+at the moment a write is queued, which is inside the request whose turn
+appended it. The storage and its mirror still live for the isolate's life,
+because that is what makes the port's synchronous reads possible; only the
+handle is short-lived. `durableJunctions()` hands the binding over unchanged.
+
+The write-behind chain is drained by the request that created it, which every
+writing route already did — `streamTurn`'s `finally` awaits `host.flush` inside
+the `ctx.waitUntil` it registered, and `/api/ai/session` awaits it before
+answering. Reattach writes nothing. So requirement 2 needed no new plumbing,
+only the stub lifetime to stop violating it.
+
+### 2. A degraded storage repairs itself, losslessly
+
+The recovery arm of requirement 3 is the one taken. Every session entry point
+awaits `prepare`, so a failed adopt costs **this** request's writes their
+durability and nothing beyond it — provided the next adopt does not then delete
+them, which it would have.
+
+`adopt()`'s "the object is behind, push the tail forward" repair was gated on
+`adopted && the epoch is unchanged && the object is shorter`. That is sound for a
+flush that did not land and answers the wrong question for the state this bug
+produces: after a failed prepare `adopted` is false and the mirror holds records
+that never left the isolate, so the wholesale-adopt path would have thrown them
+away the moment the object came back. The gate is now a new `behind()`
+predicate that compares the bytes: the object's stream is pushed forward iff it
+is a strict **prefix** of the mirror (an absent or empty object being the trivial
+prefix). That is sound with or without the flag, whatever the epoch did, and it
+cannot overwrite a divergent object — a stream that is not a prefix is adopted,
+as before, so the "a `seed` must not overwrite a real junction" rule is intact.
+
+### 3. The log is a transition, not a drumbeat
+
+`console.error` fired once per prompt, forever, saying the same thing. It now
+fires when the tier goes off (`RAM-only until the object can be read — …`) and
+when it comes back (`durable again — …`), both on `console.error` so the pair
+reads together in one stream.
+
+### 4. Two small robustness changes in the same chain
+
+`drain()` swallows a rejected tail rather than propagating it (it is documented
+as never rejecting, and its one caller is a `waitUntil`), and `queue()` chains
+with `.then(run, run)` so a link that somehow rejected cannot stall every write
+behind it.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-149_a_later_request_still_writes.workers.test.ts`, in the
+workerd project against the real Durable Object:
+
+| UAT | Acceptance bullet |
+|---|---|
+| `…_a_session_prepared_on_one_request_still_writes_on_the_next` | records reach the object on requests N+1 and N+2, read from the object |
+| `…_an_ordinary_conversation_logs_no_cross_request_io_error` | no `Cannot perform I/O …` in the log across a three-turn conversation |
+| `…_a_turn_killed_on_a_later_request_is_still_recovered` | a restart mid-turn leaves `turn_start`, prompt and deltas on the object; `_reconcile` closes it `aborted` and folds it |
+| `…_records_written_while_the_object_was_unreachable_reach_it_when_it_returns` | §2 above — the repair is lossless |
+| `…_an_unreachable_object_is_a_durability_failure_and_not_a_conversational_one` | the degradation path is still non-fatal |
+
+Four of the five fail against the Worker as it shipped; the fifth is the
+degradation path and must pass both ways.
+
+**Why the suite wraps the binding.** The Durable Object is the real one, as in
+REQ-307's suite. What is wrapped is the *namespace*, to enforce a platform rule
+the test runtime does not: measured, `@cloudflare/vitest-pool-workers` serves a
+whole test file from one I/O context, so a stub captured in one `worker.fetch`
+is still usable in the next. That is exactly why REQ-307's suite passed against
+a Worker that had already stopped writing in production — every case in it kills
+or reopens on the first request a session ever sees. The wrapper hands out
+stubs that throw workerd's own sentence, verbatim, from the next request onward,
+and can also make the object unreachable so the degradation and recovery paths
+are reachable at all.
+
+Regression scope: the workerd project in full, plus `pnpm -r build` (tsc).
