@@ -1222,11 +1222,79 @@ export const l1ZoomSchema = z
      * is what the overlay is showing and therefore already the right name.
      */
     ariaLabel: z.string().optional(),
+    /**
+     * REQ-330 — the **set** this picture belongs to. Every picture on the page
+     * naming the same group forms one gallery, **in document order**, sharing ONE
+     * overlay that shows a member at a time and steps between them. Absent → the
+     * picture opens alone, which is what every document written before this did.
+     *
+     * A NAME RATHER THAN A LIST, because the members are scattered through the
+     * tree and a list would have to name them — which means ids on pictures that
+     * need none, kept in step with a list held somewhere else. A name is the one
+     * form of the statement that cannot fall out of agreement with itself.
+     *
+     * NOT A GALLERY COMPONENT. A set is not a new kind of behaviour; it is the
+     * overlay that already exists, holding more than one picture. Expressed here,
+     * it reuses REQ-212's dismissal, focus and scroll-lock contract whole; as a
+     * behavior module it would have to restate that contract inside something
+     * that is not allowed to own it (DOC-25 §10).
+     */
+    group: z.string().min(1).optional(),
+    /**
+     * REQ-330 — what to say about the LARGE picture, shown beside it in the
+     * overlay. In a set it travels with its own member as the visitor steps, which
+     * is the half of "a gallery" that is not navigation.
+     *
+     * Not the placed picture's caption: text beside the picture on the page is an
+     * ordinary text node and always was. This is text that exists only while the
+     * picture is open, which no node in flow can express.
+     */
+    caption: z.string().optional(),
+    /**
+     * REQ-330 — the colour the overlay's own chrome is painted in: the caption and
+     * the two stepping controls. Absent → white, which is what pairs with the
+     * renderer's near-opaque dark backdrop.
+     *
+     * The same KIND of statement {@link l1OverlaySchema} makes above and for the
+     * same reason: it is about the page around the picture, which no axis on the
+     * picture can reach. `backdrop` made the ground authorable and left everything
+     * drawn on it fixed — a site that chose a pale ground got chrome it could not
+     * see.
+     */
+    ink: l1Color.optional(),
+    /**
+     * REQ-330 — the accessible names of the two stepping controls. Absent →
+     * `Previous image` / `Next image`.
+     *
+     * A control drawn as a chevron has no visible text to be named by, so the name
+     * has to come from somewhere; and a site published in another language cannot
+     * be left with two English buttons it has no way to restate.
+     */
+    prevLabel: z.string().optional(),
+    /** REQ-330 — see {@link l1ZoomSchema}'s `prevLabel`. Absent → `Next image`. */
+    nextLabel: z.string().optional(),
   })
   .strict()
 
 /** REQ-327 — the magnify role a picture may take. */
 export type L1Zoom = z.infer<typeof l1ZoomSchema>
+
+/**
+ * REQ-330 — the fields of {@link l1ZoomSchema} that describe the OVERLAY rather
+ * than the picture, and therefore belong to a set rather than to any one member.
+ *
+ * Stated once, here, because two readers need the same list and would otherwise
+ * each hold their own: the validator, which refuses a set whose members name one
+ * of them differently, and the renderer, which reads them off whichever member
+ * named them when it builds the set's single shell.
+ */
+export const L1_ZOOM_OVERLAY_FIELDS = [
+  'backdrop',
+  'ariaLabel',
+  'ink',
+  'prevLabel',
+  'nextLabel',
+] as const
 
 // ── Scroll reveal (REQ-100) ───────────────────────────────────────────────────
 //

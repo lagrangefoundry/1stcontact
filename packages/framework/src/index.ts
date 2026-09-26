@@ -116,6 +116,10 @@ export {
   // REQ-327 — the magnify role's own invariant stylesheet, beside the modal's and
   // for the same reason: a consumer that wants the text of what gates the overlay.
   L1_ZOOM_CSS,
+  // REQ-330 — the set's vetted client half, beside the modal's and on the same
+  // terms: a consumer hashing scripts under a CSP needs the text of every one the
+  // renderer can emit, not just the first.
+  L1_ZOOM_SCRIPT,
   // REQ-116 — the edit channel's vocabulary: the two stamped attributes, the
   // document-level marker, and the channel's own stylesheet.
   L1_EDIT_PATH_ATTR,

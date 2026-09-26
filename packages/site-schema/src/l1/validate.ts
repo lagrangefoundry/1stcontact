@@ -13,7 +13,7 @@
  * here *before* it can reach the renderer, so the only emitter never receives a
  * value that could hang or break a browser.
  */
-import { l1DocumentSchema } from './schema'
+import { L1_ZOOM_OVERLAY_FIELDS, l1DocumentSchema } from './schema'
 import { collectL1PaletteRefs } from './palette'
 import { l1EntranceSteps } from './motion'
 import type { L1Palette } from './palette'
@@ -169,6 +169,8 @@ export const L1_STRUCTURAL_RULES = {
   actionOrLink: 'a node cannot carry both `link` and `action`',
   /** REQ-327 — a picture either navigates somewhere or opens itself large on this page, so `link` and `zoom` cannot both be present: the renderer emits one interactive element and which role it took would be its decision rather than the document's. */
   zoomOrLink: 'a picture cannot carry both `link` and `zoom`',
+  /** REQ-330 — the pictures of one `zoom.group` share ONE overlay, so the fields that describe that overlay describe the set; two members naming one of them differently is a document saying two things about a single shell, and the renderer would have to pick which. */
+  zoomGroupChromeAgrees: "a zoom group's members must agree about the overlay they share",
   /** BUG-143 — a run's `backedBy` names the surface painted behind it, and the geometry envelope asserts that surface still covers the run; a name nothing answers to is an assertion that silently never runs. */
   backingSurfaceExists: 'a `backedBy` must name a node the document declares',
   /** REQ-326 — two behaviours composed into one entrance must animate different properties. Resolving the contest to last-one-wins instead would drop half of what the author wrote and move no pixel to say so, so they meet it as a design that did not arrive rather than as a refusal naming both behaviours. */
@@ -1433,6 +1435,46 @@ export function validateL1(
     kids.forEach((c, i) => scanActions(c, `${path}/children/${i}`))
   }
   scanActions(doc.root, '/root')
+
+  // REQ-330 — a zoom SET's chrome belongs to the set, not to any one member.
+  //
+  // `group` makes several pictures share ONE overlay, and five of the role's
+  // fields describe that overlay rather than the picture carrying them (see
+  // `L1_ZOOM_OVERLAY_FIELDS`). A set whose members name one of them differently is
+  // a document saying two things about a single shell — and the renderer, which
+  // emits one shell, would have to pick. Refused rather than resolved: taking the
+  // first member's answer would silently discard the other's, which is the lossy
+  // write the field contract refuses everywhere else.
+  //
+  // MEMBERS THAT NAME NOTHING ARE ALWAYS FINE, which is what keeps the common case
+  // free of ceremony: one plate carries the backdrop and the rest carry `group`
+  // alone. Whole-document, like the modal rules above, because a set's members are
+  // scattered through the tree by construction.
+  const groupChrome = new Map<string, Map<string, { json: string; path: string }>>()
+  const scanZoomGroups = (node: L1Node, path: string): void => {
+    const zoom = (node as { zoom?: Record<string, unknown> }).zoom
+    const group = zoom?.group
+    if (zoom !== undefined && typeof group === 'string' && group !== '') {
+      const seen = groupChrome.get(group) ?? new Map()
+      groupChrome.set(group, seen)
+      for (const field of L1_ZOOM_OVERLAY_FIELDS) {
+        const value = zoom[field]
+        if (value === undefined) continue
+        const json = JSON.stringify(value)
+        const first = seen.get(field)
+        if (first === undefined) seen.set(field, { json, path })
+        else if (first.json !== json) {
+          errors.push({
+            path: `${path}/zoom/${field}`,
+            message: `${L1_STRUCTURAL_RULES.zoomGroupChromeAgrees} — group '${group}' already named a different \`${field}\` at ${first.path}`,
+          })
+        }
+      }
+    }
+    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+    kids.forEach((c, i) => scanZoomGroups(c, `${path}/children/${i}`))
+  }
+  scanZoomGroups(doc.root, '/root')
 
   const counter = { n: 0 }
   walk(doc.root, doc.widths, '/root', 1, counter, errors)
