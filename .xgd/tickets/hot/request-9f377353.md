@@ -5,9 +5,9 @@ type: request
 title: Multiple animations per element, composed rather than replaced
 created_by: xgd
 created_at: '2026-09-25T23:35:20.106096+00:00'
-updated_at: '2026-09-26T20:08:39.165486+00:00'
+updated_at: '2026-09-26T20:09:58.299805+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -24,6 +24,7 @@ fields:
   version: 0.2.379
   story_points: 5
 ---
+
 
 ## What I was trying to achieve
 
@@ -85,7 +86,7 @@ By construction. Both fields are unions whose first member is the single object,
 
 ### Supersession
 
-**REQ-325's AC8 (`oneMotionDriver`) is invalidated by this ticket.** Its reason survives and is carried by the narrower rule; its refusal of the whole pairing does not. `test_UAT_FC_REQ-325_one_motion_driver_per_node` has been rewritten in place to assert what still holds (the contested pair is still refused, now naming the property) and to point at this ticket's suite for the composition it used to forbid. Two other suites carried the old rule as an assumption and were updated: BUG-48's structural-rule coverage map, and the shared-axis-group sweep, where `scrollTrack` was listed as an ALTERNATIVE to `reveal` and is now an ordinary member that composes with every other group.
+**REQ-325's AC8 (`oneMotionDriver`) is invalidated by this ticket.** Its reason survives and is carried by the narrower rule; its refusal of the whole pairing does not. `test_UAT_FC_REQ-325_one_motion_driver_per_node` has been rewritten in place to assert what still holds (the contested pair is still refused, now naming the property) and to point at this ticket's suite for the composition it used to forbid. Three other suites carried the old rule as an assumption and were updated: BUG-48's structural-rule coverage map, whose entry is renamed and whose sample document had to be changed to actually CONTEST a property (an entrance that fades beside a track that also fades) rather than merely pair the two axes; the shared-axis-group sweep, where `scrollTrack` was listed as an ALTERNATIVE to `reveal` and is now an ordinary member that composes with every other group, its sample retuned to drive `scale` so it contests nothing else in the sweep; and REQ-105's per-kind axis-group sweep, whose prose named the refused pairing and now names the refused property instead. None of the three changes what its own AC asserts.
 
 ## Files
 
