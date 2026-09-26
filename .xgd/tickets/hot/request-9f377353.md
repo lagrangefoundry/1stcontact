@@ -5,10 +5,10 @@ type: request
 title: Multiple animations per element, composed rather than replaced
 created_by: xgd
 created_at: '2026-09-25T23:35:20.106096+00:00'
-updated_at: '2026-09-26T20:09:58.299805+00:00'
+updated_at: '2026-09-26T20:16:56.350628+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
@@ -24,7 +24,6 @@ fields:
   version: 0.2.379
   story_points: 5
 ---
-
 
 ## What I was trying to achieve
 
