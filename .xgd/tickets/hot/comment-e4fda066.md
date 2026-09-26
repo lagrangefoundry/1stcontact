@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-152
 created_by: xgd
 created_at: '2026-09-26T22:56:01.166821+00:00'
-updated_at: '2026-09-26T22:57:09.160297+00:00'
+updated_at: '2026-09-26T23:09:30.778886+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -40,5 +40,14 @@ Please do make implementation decisions and low level UI decisions yourself. It 
 #### Claude
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message
+
+<!-- xgd-turn id="c7550d0e-7707-4cde-b0ca-6df63d8a0f13-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T23:09:28.695215+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
