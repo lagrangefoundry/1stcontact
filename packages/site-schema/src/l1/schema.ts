@@ -1182,13 +1182,46 @@ export const l1RevealSchema = z
   .object({
     /** Vertical offset the node rises *from*, in px. Negative descends. */
     yPx: finite.optional(),
-    /** Opacity the node fades *from*. Absent → 0. */
+    /**
+     * Opacity the node fades *from*. Absent → 0 — but the default belongs to the
+     * ENTRANCE rather than to each behaviour (REQ-326): where two or more
+     * behaviours compose and none names this, the first one fades from 0 and the
+     * rest animate only what they do name. Applying it per behaviour would put
+     * every composed entrance in breach of the one-property-per-behaviour rule
+     * and leave the list form able to express nothing.
+     */
     fromOpacity: finite.min(0).max(1).optional(),
     durationMs: finite.nonnegative().optional(),
     delayMs: finite.nonnegative().optional(),
     easing: l1EasingSchema.optional(),
   })
   .strict()
+
+/**
+ * REQ-326 — a node's entrance: ONE behaviour, or two-or-more composed.
+ *
+ * One behaviour carries one `durationMs` / `delayMs` / `easing`, so a node that
+ * wanted to fade quickly and rise slowly could not say so — it had to pick one
+ * timing for both properties, and naming a second behaviour replaced the first
+ * rather than joining it. A list gives each behaviour its own timing, and the
+ * renderer emits one transition per property so they genuinely compose.
+ *
+ * TWO BEHAVIOURS MUST ANIMATE DIFFERENT PROPERTIES, and a pair that does not is
+ * refused by {@link L1_STRUCTURAL_RULES} rather than silently resolved to
+ * last-one-wins: the dropped half moves no pixel and says nothing about why, so
+ * an author meets it as a design that did not arrive instead of as a refusal
+ * naming the contest. Composition order is the authored order, which is what the
+ * renderer emits in.
+ *
+ * **A one-element array is not a legal spelling of a single behaviour**, for the
+ * reason {@link l1TextContentSchema} gives for its own `min(2)`: two ways to
+ * write the same thing is the drift this schema refuses everywhere else, and the
+ * fold, the renderer and the editor would each need a rule about which one they
+ * emit. `min(2)` makes the canonical form structural rather than a convention
+ * someone has to remember. A single object is otherwise unchanged, so every
+ * existing document stays valid and renders identically.
+ */
+export const l1EntranceSchema = z.union([l1RevealSchema, z.array(l1RevealSchema).min(2)])
 
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
@@ -1320,8 +1353,11 @@ const nodeAxisGroupsShape = {
   responsivePadding: l1PaddingResponsiveSchema.optional(),
   /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
   interaction: l1InteractionSchema.optional(),
-  /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-  reveal: l1RevealSchema.optional(),
+  /**
+   * REQ-100 — typed scroll-entrance; the renderer owns the observer that drives
+   * it. REQ-326 — one behaviour, or a list of two or more that compose.
+   */
+  reveal: l1EntranceSchema.optional(),
   /**
    * BUG-112 — **this node is deliberately stacked over what it overlaps.**
    *

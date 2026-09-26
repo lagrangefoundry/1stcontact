@@ -48,6 +48,7 @@ import type {
   l1PointerAccentSchema,
   l1ResourcesSchema,
   l1ResponsiveLayoutSchema,
+  l1EntranceSchema,
   l1RevealSchema,
   l1ScalarKeyframeSchema,
   l1ScalarTrackSchema,
@@ -130,6 +131,8 @@ export type L1Easing = z.infer<typeof l1EasingSchema>
 export type L1Transition = z.infer<typeof l1TransitionSchema>
 // REQ-100 — the typed scroll-entrance axis (rise + fade, timed).
 export type L1Reveal = z.infer<typeof l1RevealSchema>
+// REQ-326 — a node's whole entrance: one behaviour, or two-or-more composed.
+export type L1Entrance = z.infer<typeof l1EntranceSchema>
 export type L1Motion = z.infer<typeof l1MotionSchema>
 export type L1FocusRing = z.infer<typeof l1FocusRingSchema>
 export type L1HoverState = z.infer<typeof l1HoverStateSchema>

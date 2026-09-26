@@ -277,6 +277,27 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
+      // REQ-326 — the two composition rules. Both need a LIST: a single
+      // behaviour cannot contest a property with itself, and it always animates
+      // at least its own fade, so neither rule can be provoked from one object.
+      onePropertyPerEntranceBehaviour: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            reveal: [{ yPx: 24, durationMs: 200 }, { yPx: 40, durationMs: 800 }],
+          },
+        } as Partial<L1Document>),
+      ),
+      entranceBehaviourMovesSomething: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            reveal: [{ fromOpacity: 0, durationMs: 200 }, { durationMs: 800 }],
+          },
+        } as Partial<L1Document>),
+      ),
       // The two REQ-175 findings are reported rather than refused, and
       // deliberately: both references can dangle for a reason nobody can fix — a
       // capture that could not mirror a face or an image — and refusing the

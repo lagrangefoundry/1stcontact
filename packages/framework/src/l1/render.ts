@@ -13,6 +13,7 @@
  */
 import {
   isSafeUrl,
+  l1EntranceSteps,
   mapL1PaletteRefs,
   resolveL1Palette,
   resolveSiteLocale,
@@ -56,6 +57,7 @@ import type {
   L1Container,
   L1Dialog,
   L1Document,
+  L1Entrance,
   L1Filter,
   L1FocusRing,
   L1Heading,
@@ -72,7 +74,6 @@ import type {
   L1Pattern,
   L1PointerAccent,
   L1Resources,
-  L1Reveal,
   L1ScalarTrack,
   L1Shadow,
   L1Sizing,
@@ -928,6 +929,13 @@ const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
 //      compose natively instead of overwriting each other, and their transitions
 //      are merged into one declaration set by {@link transitionDecls} rather
 //      than the second silently replacing the first.
+//   4. **And it composes with ITSELF (REQ-326).** An entrance is one behaviour
+//      or a list of them, and each behaviour brings its own duration, delay and
+//      easing — so a node can fade quickly and rise slowly, which one shared
+//      timing could not express. The same `transitionDecls` list form carries
+//      it; nothing new had to be invented. Two behaviours animating the same
+//      property never reach here, because the envelope refuses the document
+//      rather than letting the emitter pick a winner.
 
 /** The class an author cannot write: the observer's handle on a revealing node. */
 const REVEAL_CLASS = 'l1-rv'
@@ -1010,32 +1018,48 @@ function transitionDecls(specs: TransitionSpec[]): string[] {
  */
 function revealRules(
   selector: string,
-  reveal: L1Reveal,
+  entrance: L1Entrance,
   staggerDelayMs: number,
   settledOpacity: number,
 ): { rules: Rule[]; transitions: TransitionSpec[] } {
   const pre = `${MOTION_MARKER} ${selector}:not(.${REVEALED_CLASS})`
-  const from = reveal.fromOpacity ?? 0
-  const y = reveal.yPx ?? 0
 
-  const decls = [`opacity: ${num(from)}`]
-  if (y !== 0) decls.push(`translate: 0 ${num(y)}px`)
+  // REQ-326 — one pre-state rule and one transition PER PROPERTY, taking that
+  // property's timing from the behaviour that claims it. The claims come from
+  // `l1EntranceSteps`, the same reading the validator refuses a contest by, so
+  // a property emitted here is always one the envelope agreed only one
+  // behaviour was animating. Authored order is preserved: with the contest
+  // refused rather than resolved there is never a winner to pick, so what the
+  // order buys is a stable, authorable emission rather than an arbitration.
+  const decls: string[] = []
+  const transitions: TransitionSpec[] = []
+  for (const step of l1EntranceSteps(entrance)) {
+    const durationMs = step.behaviour.durationMs ?? 600
+    const easing = step.behaviour.easing ?? 'ease-out'
+    const delayMs = (step.behaviour.delayMs ?? 0) + staggerDelayMs
+    for (const prop of step.properties) {
+      decls.push(
+        prop === 'opacity'
+          ? `opacity: ${num(step.behaviour.fromOpacity ?? 0)}`
+          : `translate: 0 ${num(step.behaviour.yPx ?? 0)}px`,
+      )
+      transitions.push({ prop, durationMs, easing, delayMs })
+    }
+  }
   const rules: Rule[] = [{ selector: pre, decls }]
 
   // Belt and braces on the reduced-motion obligation: the script already
   // declines to set the marker, and this makes the pre-state inert even if some
   // other path sets it. A user who asked for no motion gets the settled page.
+  // ONE rule for the whole entrance however many behaviours compose into it —
+  // what it restores is the node's own settled design, which no number of
+  // behaviours changes.
   rules.push({
     media: REDUCED_MOTION,
     selector: pre,
     decls: [`opacity: ${num(settledOpacity)}`, 'translate: none'],
   })
 
-  const durationMs = reveal.durationMs ?? 600
-  const easing = reveal.easing ?? 'ease-out'
-  const delayMs = (reveal.delayMs ?? 0) + staggerDelayMs
-  const transitions: TransitionSpec[] = [{ prop: 'opacity', durationMs, easing, delayMs }]
-  if (y !== 0) transitions.push({ prop: 'translate', durationMs, easing, delayMs })
   return { rules, transitions }
 }
 
