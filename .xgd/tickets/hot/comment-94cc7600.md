@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-149
 created_by: xgd
 created_at: '2026-09-25T23:52:22.778571+00:00'
-updated_at: '2026-09-26T00:17:13.294411+00:00'
+updated_at: '2026-09-26T06:50:34.435146+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -77,5 +77,14 @@ Also seen in the first full-project run: `test_UAT_FC_REQ-260_an_undo_is_itself_
 Waiting on the full workers-project run (blocking waiter `bw0iwxzyz` is armed).
 
 The run is still in flight (~3 minutes expected). I'll report as soon as the waiter fires.
+
+<!-- xgd-turn id="bb97712b-1f14-4951-9765-a5bd2a9ffa15-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T06:50:33.068568+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
