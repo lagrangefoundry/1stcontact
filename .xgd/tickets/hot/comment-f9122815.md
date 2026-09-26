@@ -5,9 +5,9 @@ type: comment
 title: Comment on request REQ-328
 created_by: xgd
 created_at: '2026-09-26T19:01:50.825348+00:00'
-updated_at: '2026-09-26T19:01:50.825348+00:00'
+updated_at: '2026-09-26T19:45:57.395681+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: request-8c91555c
@@ -33,5 +33,42 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="587c204e-b49f-4026-8a6f-5943fe32bd5a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T19:32:48.589489+00:00" -->
+#### Claude
+I'll start by reading the ticket to understand the scope.
+
+Confirmed the gap. Let me check the vocabulary reference and envelope machinery before designing.
+
+Now updating the ticket with the finding and implementation scope.
+
+Now setting status and cutting the branch.
+
+The worktree is functional. Now the schema change.
+
+Now the renderer.
+
+Now extend the two standing axis-group sweeps and write the UATs.
+
+Now the UAT file.
+
+Two assertions need tightening — AC4's second half is vacuous and AC5's construction is clumsy.
+
+Now the regression scope: the L1 suites, sweeps, reference projection, and email refusals.
+
+Now a broad sweep of the L1 / render surface.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="c65d8ab5-7835-4a17-94b9-a02519e5e315-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T19:45:55.082731+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
