@@ -22,6 +22,7 @@ import {
   L1_EDIT_MARKER_ATTR,
   L1_EDIT_PATH_ATTR,
   L1_EDIT_SEGMENT_ATTR,
+  L1_ZOOM_OVERLAY_FIELDS,
   type L1Color,
   type L1Link,
   type L1Palette,
@@ -432,6 +433,20 @@ function shadowCss(s: L1Shadow): string | null {
   return parts.join(' ')
 }
 
+/**
+ * REQ-331 — a shadow axis (one layer, or a stack) → one `box-shadow` value.
+ *
+ * Comma-joined in the document's own order, which is CSS's paint order: the
+ * first layer paints on top. A layer that cannot be expressed (an unparseable
+ * colour, a non-finite offset) is dropped rather than poisoning the whole
+ * declaration — a card with its glow missing is nearer the reference than a card
+ * with no shadow at all.
+ */
+function boxShadowCss(s: L1Shadow | readonly L1Shadow[]): string | null {
+  const layers = (Array.isArray(s) ? s : [s as L1Shadow]).map(shadowCss).filter((v): v is string => v !== null)
+  return layers.length ? layers.join(', ') : null
+}
+
 /** A box border → `<w>px <style> <color>`, or null if unpaintable. */
 function borderCss(b: L1Border): string | null {
   const c = cssColor(b.color)
@@ -749,7 +764,7 @@ function surfaceDecls(
     if (b) out.push(`border-left: ${b}`)
   }
   if (a.boxShadow) {
-    const sh = shadowCss(a.boxShadow)
+    const sh = boxShadowCss(a.boxShadow)
     if (sh) out.push(`box-shadow: ${sh}`)
   }
   if (px(a.backdropBlurPx)) {
@@ -1158,7 +1173,22 @@ const SCROLL_RANGE: Record<L1ScrollRange, string> = {
 }
 
 /**
- * REQ-325 — the pin's declarations.
+ * REQ-328 — the one step up a pin takes when it declares `lift`.
+ *
+ * A RENDERER CONSTANT, and small on purpose. A lifted pin has to clear the
+ * siblings that travel past it and nothing else in the page, so one positive
+ * level is the whole requirement: it puts the node in the positive-z paint step,
+ * above every sibling whose `z-index` is `auto` — which is all of them, because
+ * this is the only `z-index` the substrate ever emits on a node in the ordinary
+ * sibling order. The other two are not in that contest: the pointer accent's is
+ * `-1` on a pseudo-element inside the accented node's own stacking context, and
+ * {@link DIALOG_Z_INDEX} is vastly larger, so an open dialog still covers a held
+ * hero.
+ */
+const STICKY_LIFT_Z_INDEX = 1
+
+/**
+ * REQ-325 — the pin's declarations. REQ-328 — and the paint level it holds at.
  *
  * `top` is always emitted: `position: sticky` with `top: auto` sticks to nothing
  * at all, so an absent offset has to mean zero rather than "no offset given".
@@ -1168,9 +1198,18 @@ const SCROLL_RANGE: Record<L1ScrollRange, string> = {
  * in-flow node otherwise takes without either emitter having to know about the
  * other. An absolute track cannot reach here: the envelope refuses that pair
  * (`stickyIsInFlow`), because it would be two placements and two owners of `top`.
+ *
+ * `lift` travels in THIS list rather than in one of its own, which is what makes
+ * a width-gated pin lift only where it is actually held: the caller puts the
+ * whole list inside the `min-width` block, so below the gate the node is in
+ * ordinary flow and its paint is exactly what it was. Absent `lift` emits no
+ * `z-index` at all, so a document that does not ask to be lifted is byte-identical
+ * to what it was before this field existed.
  */
 function stickyDecls(sticky: L1Sticky): string[] {
-  return ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
+  const decls = ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
+  if (sticky.lift) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
+  return decls
 }
 
 /**
@@ -2968,6 +3007,59 @@ const ZOOM_TRIGGER_CLASS = 'l1-zoomable'
 const ZOOM_PANEL_CLASS = 'l1-zoom'
 /** The large picture inside the panel. */
 const ZOOM_IMG_CLASS = 'l1-zoom-img'
+/** REQ-330 — one member of the panel: its large picture and that picture's caption. */
+const ZOOM_ITEM_CLASS = 'l1-zoom-item'
+/** REQ-330 — what the large picture says about itself, beside it in the overlay. */
+const ZOOM_CAP_CLASS = 'l1-zoom-cap'
+/** REQ-330 — a stepping control. */
+const ZOOM_NAV_CLASS = 'l1-zoom-nav'
+const ZOOM_PREV_CLASS = 'l1-zoom-prev'
+const ZOOM_NEXT_CLASS = 'l1-zoom-next'
+
+// REQ-330 — the SET's attribute vocabulary, beside REQ-212's in `dialog.ts` and
+// on the same terms: the names are the contract between the emitter and the one
+// script that reads them. They stay here rather than in `dialog.ts` because
+// nothing outside this file and the script it emits has any business with them —
+// `page-state` reads the modal's markers, and a zoom's set is invisible to it.
+
+/** On the shell: this overlay holds pictures, so the zoom script governs it. */
+const ZOOM_SHELL_ATTR = 'data-l1-zoom'
+/** On a trigger: which member of the set it opens the overlay at. */
+const ZOOM_TO_ATTR = 'data-l1-zoom-to'
+/** On a member: its index in the set. */
+const ZOOM_INDEX_ATTR = 'data-l1-zoom-i'
+/** On a member: this is the one being shown. Moved by the script; seeded by the emitter. */
+const ZOOM_CURRENT_ATTR = 'data-l1-zoom-cur'
+/** On a stepping control: how far activating it moves, in members. */
+const ZOOM_STEP_ATTR = 'data-l1-zoom-step'
+/** On the panel: its accessible name was DERIVED from a picture, so it moves with the set. */
+const ZOOM_AUTONAME_ATTR = 'data-l1-zoom-autoname'
+
+/**
+ * REQ-330 — what the overlay's own chrome is painted in when the document names
+ * no `ink`: the caption and the two stepping controls.
+ *
+ * White, because it is the pair to {@link ZOOM_BACKDROP} and has to be legible on
+ * it by default for the same reason that constant exists at all. Every other
+ * colour in the overlay is the document's.
+ */
+const ZOOM_INK = '#ffffff'
+
+/** REQ-330 — the accessible names the stepping controls fall back to. */
+const ZOOM_PREV_LABEL = 'Previous image'
+const ZOOM_NEXT_LABEL = 'Next image'
+
+/**
+ * REQ-330 — the head-room a caption is given, in px, below the picture it
+ * belongs to.
+ *
+ * Only ever subtracted from the picture's `max-height`, and only on an overlay
+ * that actually carries a caption: a picture already sized to the viewport plus a
+ * caption below it is taller than the viewport, and the caption is the half that
+ * scrolls out of reach. Generous enough for two lines at any reasonable body size,
+ * because the alternative — measuring — is not available to a stylesheet.
+ */
+const ZOOM_CAPTION_ROOM = 96
 
 /**
  * The dim a zoom falls back to when the document names no `backdrop`.
@@ -2995,7 +3087,11 @@ const ZOOM_INVARIANT_RULES: Rule[] = [
     selector: `.${ZOOM_TRIGGER_CLASS}:focus-visible img`,
     decls: focusRingDecls(undefined),
   },
-  { selector: `.${ZOOM_PANEL_CLASS}`, decls: ['display: block'] },
+  // REQ-330 — `position: relative` is what the two stepping controls are placed
+  // against. It is on the panel rather than on the shell because the controls
+  // belong beside the PICTURE: a shell fills the viewport, and controls pinned to
+  // its edges on a wide screen sit a long way from the thing they act on.
+  { selector: `.${ZOOM_PANEL_CLASS}`, decls: ['display: block', 'position: relative'] },
   {
     selector: `html[${DIALOG_READY_ATTR}] .${ZOOM_PANEL_CLASS}`,
     decls: ['cursor: zoom-out'],
@@ -3011,6 +3107,68 @@ const ZOOM_INVARIANT_RULES: Rule[] = [
       'object-fit: contain',
     ],
   },
+  // REQ-330 — the set. ONE MEMBER IS SHOWN, and only once the script is there to
+  // move which: unenhanced, every member lies in flow in document order, exactly
+  // as the solitary zoom's one picture already did. The marker the rule reads is
+  // seeded by the emitter on the first member, so the enhanced page is showing a
+  // picture from its first paint rather than from the script's first turn.
+  { selector: `.${ZOOM_ITEM_CLASS}`, decls: ['display: block', 'margin: 0'] },
+  {
+    selector: `html[${DIALOG_READY_ATTR}] .${ZOOM_ITEM_CLASS}:not([${ZOOM_CURRENT_ATTR}])`,
+    decls: ['display: none'],
+  },
+  {
+    selector: `.${ZOOM_CAP_CLASS}`,
+    decls: [
+      'display: block',
+      'margin: 0',
+      'padding: 12px 16px',
+      'max-width: 100vw',
+      'box-sizing: border-box',
+      'text-align: center',
+    ],
+  },
+  // A control that can do nothing is NOT PAINTED, which is the `zoom-out` cursor's
+  // rule applied to the one thing on the page that would otherwise invite a click
+  // the unenhanced document cannot answer.
+  { selector: `.${ZOOM_NAV_CLASS}`, decls: ['display: none'] },
+  {
+    selector: `html[${DIALOG_READY_ATTR}] .${ZOOM_NAV_CLASS}`,
+    decls: [
+      'display: block',
+      'position: absolute',
+      'top: 50%',
+      'transform: translateY(-50%)',
+      'width: 48px',
+      'height: 48px',
+      'padding: 0',
+      'border: 0',
+      'background: transparent',
+      'color: inherit',
+      'cursor: pointer',
+    ],
+  },
+  { selector: `html[${DIALOG_READY_ATTR}] .${ZOOM_PREV_CLASS}`, decls: ['left: 4px'] },
+  { selector: `html[${DIALOG_READY_ATTR}] .${ZOOM_NEXT_CLASS}`, decls: ['right: 4px'] },
+  // The chevron is DRAWN, not written: a glyph would depend on the document's font
+  // having it, and an asset would be a binary shipped for two arrowheads. Two
+  // borders on a square, turned — which inherits its colour from the panel's `ink`
+  // through `currentColor` and therefore costs no second rule per overlay.
+  {
+    selector: `.${ZOOM_NAV_CLASS}::before`,
+    decls: [
+      "content: ''",
+      'display: block',
+      'width: 14px',
+      'height: 14px',
+      'margin: 0 auto',
+      'border-top: 2px solid currentColor',
+      'border-right: 2px solid currentColor',
+    ],
+  },
+  { selector: `.${ZOOM_PREV_CLASS}::before`, decls: ['transform: rotate(-135deg)'] },
+  { selector: `.${ZOOM_NEXT_CLASS}::before`, decls: ['transform: rotate(45deg)'] },
+  { selector: `.${ZOOM_NAV_CLASS}:focus-visible`, decls: focusRingDecls(undefined) },
 ]
 
 /** The same rules as a stylesheet, beside {@link L1_DIALOG_CSS} and for the same reason. */
@@ -3061,13 +3219,137 @@ function zoomHtml(
   name: string,
   state: RenderState,
 ): string {
+  // The magnify stylesheet and the overlay's own invariant half each ride in once,
+  // on the first picture (respectively the first panel) the document declares.
+  if (!state.hasZoom) state.rules.push(...ZOOM_INVARIANT_RULES)
+  state.hasZoom = true
+  if (!state.hasDialog) state.rules.push(...DIALOG_INVARIANT_RULES)
+  state.hasDialog = true
+
+  // REQ-330 — A MEMBER OF A SET EMITS NO SHELL HERE. Its overlay is shared with
+  // members that may not have been walked yet, so it cannot be written at any one
+  // of them; the item is banked on the state and the whole set is flushed once, at
+  // the end of the render, by `flushZoomGroups`.
+  if (zoom.group !== undefined) {
+    const group = zoomGroupFor(zoom.group, zoom, state)
+    const index = group.items.length
+    group.items.push(zoomItemHtml(node, zoom, state, index, zoom.alt ?? node.alt))
+    if (index === 0) group.firstAlt = zoom.alt ?? node.alt
+    if (zoom.caption !== undefined) group.captioned = true
+    return zoomTriggerHtml(picture, group.handle, index, state)
+  }
+
   // The handle names the pair: the shell's `data-l1-dialog` value, the panel's DOM
   // id, and what the trigger's `aria-controls` points at.
   const handle = `${name}-zoom`
   const shell = `${name}-dlg`
+  state.rules.push(...zoomShellRules(shell, zoom, zoom.caption !== undefined))
+  const alt = zoom.alt ?? node.alt
+  return (
+    zoomTriggerHtml(picture, handle, 0, state) +
+    zoomShellHtml(shell, handle, zoom.ariaLabel, alt, [zoomItemHtml(node, zoom, state, 0, alt)], state)
+  )
+}
+
+/**
+ * REQ-330 — the set this picture belongs to, created on its first member.
+ *
+ * THE FIRST MEMBER TO NAME A CHROME FIELD SUPPLIES IT, which is not a
+ * tie-break: the envelope validator refuses a set whose members name the same
+ * field differently, so by the time a document reaches the renderer there is at
+ * most one answer per field and the order this reads them in cannot matter.
+ *
+ * The shell's class is drawn from the set's ordinal rather than from its name.
+ * A name is an author's string, and the one place an author's string must never
+ * reach is a selector or a DOM id — so the mapping stays inside the render and
+ * the markup carries a number.
+ */
+function zoomGroupFor(groupName: string, zoom: L1Zoom, state: RenderState): ZoomGroup {
+  const groups = (state.zoomGroups ??= new Map<string, ZoomGroup>())
+  const found = groups.get(groupName)
+  if (found) {
+    for (const field of L1_ZOOM_OVERLAY_FIELDS) {
+      if (found.chrome[field] === undefined && zoom[field] !== undefined) {
+        ;(found.chrome as Record<string, unknown>)[field] = zoom[field] as unknown
+      }
+    }
+    return found
+  }
+  const base = `${state.prefix ? `${state.prefix}-` : ''}l1-zg-${groups.size}`
+  const made: ZoomGroup = {
+    shell: `${base}-dlg`,
+    handle: `${base}-zoom`,
+    items: [],
+    firstAlt: '',
+    captioned: false,
+    chrome: Object.fromEntries(
+      L1_ZOOM_OVERLAY_FIELDS.filter((f) => zoom[f] !== undefined).map(
+        (f) => [f, zoom[f]] as const,
+      ),
+    ) as L1Zoom,
+  }
+  groups.set(groupName, made)
+  return made
+}
+
+/**
+ * REQ-327/REQ-330 — the boxless `<button>` the placed picture is wrapped in.
+ *
+ * `ZOOM_TO_ATTR` is the one thing a set adds to it: which member the overlay
+ * should be showing when it opens. It is an ACTING attribute and so goes the way
+ * the other two do in the edit channel — a click in the editor means "edit this
+ * picture", and an index would give it a second meaning.
+ */
+function zoomTriggerHtml(
+  picture: string,
+  handle: string,
+  index: number,
+  state: RenderState,
+): string {
+  const acts = state.edit
+    ? ''
+    : ` aria-haspopup="dialog" aria-expanded="true" aria-controls="${escapeHtml(handle)}"` +
+      ` ${DIALOG_OPENS_ATTR}="${escapeHtml(handle)}" ${ZOOM_TO_ATTR}="${num(index)}"`
+  return `<button type="button" class="${ZOOM_TRIGGER_CLASS}"${acts}>${picture}</button>`
+}
+
+/**
+ * REQ-330 — one member of an overlay: the large picture, and what it says about
+ * itself.
+ *
+ * A `<figure>`/`<figcaption>` because that pairing is what the elements mean, and
+ * because it is what makes the caption travel with its own picture rather than
+ * with the overlay — the half of "a gallery" that is not navigation. A set that
+ * captioned the overlay instead would show one picture's words under another's.
+ *
+ * THE WRAPPER IS UNCONDITIONAL, including for a solitary zoom that names no
+ * caption. `display: block; margin: 0` makes it invisible, and one shape for both
+ * cases is worth more than markup that is byte-identical to what it was when the
+ * new fields go unused: a second, wrapperless path would be a second place for the
+ * current-member marker to have to be right.
+ *
+ * THE LARGE PICTURE IS THE ORIGINAL, never a delivery rendition: `src` alone, with
+ * no `srcset` and no `sizes`. That is the point of the whole capability — the
+ * detail the reporter cannot read at the placed width is precisely what a
+ * rendered-down variant has already thrown away, so offering the browser a ladder
+ * here would let it choose the picture we opened the overlay to escape. The
+ * manifest is still read for the intrinsic dimensions, because those cost nothing
+ * and reserve the box before the bytes arrive.
+ *
+ * `loading="lazy"` because the overlay starts closed in every enhanced render, and
+ * a page of four plates should not pay for four originals before anyone has clicked
+ * one. It is a hint the unenhanced render honours too — there the panel is in flow,
+ * which is where lazy loading means what it usually means.
+ */
+function zoomItemHtml(
+  node: L1Image,
+  zoom: L1Zoom,
+  state: RenderState,
+  index: number,
+  alt: string,
+): string {
   const src = zoom.src ?? node.src
   const large = isSafeUrl(src) ? relativizeUrl(src.trim()) : ''
-  const alt = zoom.alt ?? node.alt
   const delivery = deliveryFor(src, state)
   const dims =
     delivery &&
@@ -3077,47 +3359,193 @@ function zoomHtml(
     delivery.height > 0
       ? ` width="${num(delivery.width)}" height="${num(delivery.height)}"`
       : ''
+  const largeImg =
+    `<img class="${ZOOM_IMG_CLASS}" src="${escapeHtml(large)}"${dims}` +
+    ` alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`
+  const caption =
+    zoom.caption === undefined
+      ? ''
+      : `<figcaption class="${ZOOM_CAP_CLASS}">${escapeHtml(zoom.caption)}</figcaption>`
+  // The marker is SEEDED here rather than left to the script, so an enhanced page
+  // is showing a picture from its first paint. The script only ever moves it.
+  const current = index === 0 ? ` ${ZOOM_CURRENT_ATTR}` : ''
+  return (
+    `<figure class="${ZOOM_ITEM_CLASS}" ${ZOOM_INDEX_ATTR}="${num(index)}"${current}>` +
+    `${largeImg}${caption}</figure>`
+  )
+}
 
-  // The magnify stylesheet and the overlay's own invariant half each ride in once,
-  // on the first picture (respectively the first panel) the document declares.
-  if (!state.hasZoom) state.rules.push(...ZOOM_INVARIANT_RULES)
-  state.hasZoom = true
-  if (!state.hasDialog) state.rules.push(...DIALOG_INVARIANT_RULES)
-  state.hasDialog = true
-  // Reused wholesale rather than re-derived: the scrim and the placement are the
-  // dialog's own half of the overlay, and a zoom's differ only in what the absence
-  // of a backdrop means.
-  state.rules.push(
+/**
+ * REQ-330 — an overlay's own rules: the dialog's half, the ink its chrome is
+ * painted in, and the head-room a caption needs.
+ *
+ * The scrim and the placement are reused wholesale rather than re-derived — they
+ * are the dialog's own half of the overlay, and a zoom's differ only in what the
+ * absence of a backdrop means.
+ *
+ * The ink is set ONCE, on the panel, and reaches the caption and both chevrons by
+ * inheritance (`currentColor` for the drawn arrowheads). One rule per overlay, not
+ * one per thing painted.
+ */
+function zoomShellRules(shell: string, chrome: L1Zoom, captioned: boolean): Rule[] {
+  const rules = [
     ...dialogShellRules(`.${shell}`, {
-      backdrop: zoom.backdrop ?? ZOOM_BACKDROP,
+      backdrop: chrome.backdrop ?? ZOOM_BACKDROP,
       placement: 'center',
     }),
-  )
+    {
+      selector: `.${shell} .${ZOOM_PANEL_CLASS}`,
+      decls: [`color: ${cssColor(chrome.ink) ?? ZOOM_INK}`],
+    },
+  ]
+  // Only on an overlay that actually carries one: a picture sized to the whole
+  // viewport plus a caption below it is taller than the viewport, and the caption
+  // is the half that scrolls out of reach.
+  if (captioned) {
+    rules.push({
+      selector: `html[${DIALOG_READY_ATTR}] .${shell} .${ZOOM_IMG_CLASS}`,
+      decls: [`max-height: calc(100vh - ${num(ZOOM_CAPTION_ROOM)}px)`],
+    })
+  }
+  return rules
+}
 
-  const opens = state.edit
-    ? ''
-    : ` aria-haspopup="dialog" aria-expanded="true" aria-controls="${escapeHtml(handle)}"` +
-      ` ${DIALOG_OPENS_ATTR}="${escapeHtml(handle)}"`
+/**
+ * REQ-327/REQ-330 — the shell and the panel the members sit in.
+ *
+ * THE PANEL DISMISSES ON A CLICK ANYWHERE, via the SAME `data-l1-closes` verb an
+ * authored Close button carries — no new attribute and no script change. A dialog's
+ * rule that a click inside the panel never closes it protects a panel holding
+ * fields, where a click means "use this"; a panel holding pictures and nothing
+ * interactive has no such click to protect, and "dismissed by clicking away" read
+ * strictly would leave a visitor stabbing at the one part of the screen that is not
+ * the picture. The two stepping controls are the one exception, and they are the
+ * ones that stop their own clicks reaching here.
+ *
+ * REQ-116 — the edit channel keeps the elements, the classes and the boxes and
+ * loses only the attributes that would ACT, exactly as a link keeps its `<a>`
+ * and loses its `href`: a click there means "edit this picture", and a live overlay
+ * would give the same click a second meaning.
+ */
+function zoomShellHtml(
+  shell: string,
+  handle: string,
+  authored: string | undefined,
+  firstAlt: string,
+  items: string[],
+  state: RenderState,
+  chrome: L1Zoom = {},
+): string {
   const closes = state.edit ? '' : ` ${DIALOG_CLOSES_ATTR}="${escapeHtml(handle)}"`
   // The overlay's accessible name is the picture it is showing, which is already
   // written down as the alt text — so a document that named nothing extra still
   // gets a named region rather than one a screen reader announces by its id.
-  const label = zoom.ariaLabel ?? alt
+  //
+  // REQ-330 — WHICH PICTURE IT IS SHOWING CHANGES, once a set can be stepped
+  // through, and a derived name left alone would go on announcing the first plate
+  // while the third is on screen. So a DERIVED name is marked as derived, and the
+  // script re-derives it as it steps; an AUTHORED one never moves, because a
+  // document that named its gallery said something about the set rather than about
+  // whichever member is up.
+  const label = authored ?? firstAlt
   const named = label ? ` aria-label="${escapeHtml(label)}"` : ''
-
-  const trigger = `<button type="button" class="${ZOOM_TRIGGER_CLASS}"${opens}>${picture}</button>`
-  const largeImg =
-    `<img class="${ZOOM_IMG_CLASS}" src="${escapeHtml(large)}"${dims}` +
-    ` alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`
+  const derived = authored === undefined && !state.edit ? ` ${ZOOM_AUTONAME_ATTR}` : ''
+  // ONE PICTURE NEEDS NO STEPPING. A set of one is a legitimate document — an
+  // author writing a gallery one plate at a time — and two controls that would
+  // move between a member and itself are chrome that lies.
+  const nav = items.length > 1 ? zoomNavHtml(chrome, state) : ''
   const panel =
     `<div class="${ZOOM_PANEL_CLASS}" id="${escapeHtml(handle)}" role="dialog"` +
-    ` aria-modal="true" tabindex="-1"${named}${closes}>${largeImg}</div>`
+    ` aria-modal="true" tabindex="-1"${named}${derived}${closes}>${items.join('')}${nav}</div>`
   return (
-    trigger +
-    `<div class="${DIALOG_CLASS} ${shell}" ${DIALOG_ATTR}="${escapeHtml(handle)}">${panel}</div>`
+    `<div class="${DIALOG_CLASS} ${shell}" ${DIALOG_ATTR}="${escapeHtml(handle)}"` +
+    ` ${ZOOM_SHELL_ATTR}="${escapeHtml(handle)}">${panel}</div>`
   )
 }
 
+/**
+ * REQ-330 — the two stepping controls.
+ *
+ * REAL `<button>`s, for the reason the trigger is one: the keyboard has to reach
+ * them, and Enter/Space have to work because the element IS a button rather than
+ * because a script was taught two more keys. They also become the panel's
+ * tabbables, which is what gives REQ-212's focus trap something to cycle inside a
+ * panel that would otherwise hold nothing focusable at all.
+ *
+ * They are named rather than labelled: a chevron drawn from two borders has no
+ * text to be named by, and `aria-hidden` on the drawing is unnecessary because
+ * there is no drawing in the accessibility tree — it is a pseudo-element.
+ */
+function zoomNavHtml(chrome: L1Zoom, state: RenderState): string {
+  const step = (by: number, cls: string, label: string): string =>
+    `<button type="button" class="${ZOOM_NAV_CLASS} ${cls}"` +
+    `${state.edit ? '' : ` ${ZOOM_STEP_ATTR}="${num(by)}"`}` +
+    ` aria-label="${escapeHtml(label)}"></button>`
+  return (
+    step(-1, ZOOM_PREV_CLASS, chrome.prevLabel ?? ZOOM_PREV_LABEL) +
+    step(1, ZOOM_NEXT_CLASS, chrome.nextLabel ?? ZOOM_NEXT_LABEL)
+  )
+}
+
+/**
+ * REQ-330 — one `zoom.group`, accumulated as the tree is walked.
+ *
+ * `chrome` is the set's own half of the role — the five fields that describe the
+ * OVERLAY rather than the picture. It is merged across members rather than taken
+ * from the first because a member is free to name nothing, and the validator has
+ * already refused any set whose members name one of them two different ways.
+ */
+interface ZoomGroup {
+  /** The shell's class: where the scrim, the ink and the caption head-room land. */
+  shell: string
+  /** The panel's DOM id, and what every member's trigger opens. */
+  handle: string
+  /** One `<figure>` per member, in document order. */
+  items: string[]
+  /** The first member's alt text — the derived accessible name of the overlay. */
+  firstAlt: string
+  /** Whether any member captioned itself, which is what costs the picture head-room. */
+  captioned: boolean
+  /** The overlay's own fields, merged across the members that named them. */
+  chrome: L1Zoom
+}
+
+/**
+ * REQ-330 — every set's overlay, emitted once, after the tree that declared them.
+ *
+ * A SET'S MEMBERS ARE SCATTERED BY CONSTRUCTION, so its overlay cannot be written
+ * at any one of them: the first member has not seen the fourth yet, and the fourth
+ * cannot append to markup the first already returned as a string. So the overlay is
+ * a document-level artifact, exactly as the stylesheet and the script are, and it
+ * is assembled from the banked members here.
+ *
+ * The rules go onto `state.rules` in the same pass, which is why this runs BEFORE
+ * the caller serializes them rather than after — a shell whose scrim never reached
+ * the stylesheet is an overlay that opens onto an undimmed page.
+ *
+ * Returns `''` for the overwhelming majority of documents, which carry no set at
+ * all, and those are byte-identical to what they were.
+ */
+function flushZoomGroups(state: RenderState): string {
+  const groups = state.zoomGroups
+  if (!groups || groups.size === 0) return ''
+  const out: string[] = []
+  for (const group of groups.values()) {
+    state.rules.push(...zoomShellRules(group.shell, group.chrome, group.captioned))
+    out.push(
+      zoomShellHtml(
+        group.shell,
+        group.handle,
+        group.chrome.ariaLabel,
+        group.firstAlt,
+        group.items,
+        state,
+        group.chrome,
+      ),
+    )
+  }
+  return out.join('')
+}
 /**
  * One panel's own half of the overlay: where it sits in the covered viewport and
  * what the page behind it is dimmed with. Both are gated on the ready marker, so
@@ -3211,6 +3639,90 @@ else if(!p.contains(document.activeElement)){if(ev.preventDefault)ev.preventDefa
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();
 })();`
 
+/**
+ * REQ-330 — the one renderer-owned script that steps a set and dismisses a zoom,
+ * vetted once and identical for every site, carrying no instance data of any kind.
+ *
+ * A SECOND SCRIPT RATHER THAN A LONGER FIRST ONE. {@link L1_DIALOG_SCRIPT} ships
+ * for every page carrying any overlay at all — a cookie banner, an account menu,
+ * a text modal — and none of those has a set to step through. This one ships only
+ * for a page that carries a zoom, on exactly the terms the magnify stylesheet
+ * already does.
+ *
+ * IT DOES NOT CLOSE ANYTHING ITSELF. Closing is four things at once (the marker,
+ * the openers' `aria-expanded`, the scroll lock, the focus that has to go back to
+ * the picture that was clicked), and all four are already written down once, in
+ * the modal script, behind the `data-l1-closes` verb. So a wheel gesture CLICKS
+ * THE PANEL — the same event a visitor's own click on it delivers — rather than
+ * re-deriving the contract and getting three of the four right.
+ *
+ * Everything is delegated from `document`, so there is nothing to wire and no
+ * document-ready to wait for: a trigger that arrives later is governed by the same
+ * listeners as one that was in the first paint.
+ *
+ * WHY EVERY CLICK IS HANDLED IN THE CAPTURE PHASE, and both jobs in one listener:
+ *
+ *   - **The opening index** has to be marked before the modal script's own
+ *     listener on the trigger opens the panel and focuses into it. Marking it on
+ *     the way DOWN means the overlay is showing the clicked picture when it
+ *     appears, rather than the first one for a frame.
+ *   - **A step must not also dismiss.** The panel closes on a click anywhere in
+ *     it, which is the right reading for a panel holding pictures; the two
+ *     stepping controls are the only things in it a click means something else on.
+ *     Stopping that click has to happen BEFORE it reaches the panel — and the
+ *     panel sits between the control and this listener on the way back up, so a
+ *     bubble-phase handler here would be three elements too late.
+ *
+ * TOUCH IS DELIBERATELY NOT A DISMISSAL. A drag on a touch screen is how a visitor
+ * pans and pinch-zooms the plate they just opened, which is the thing the overlay
+ * exists to offer; dismissing on it would take the capability away on exactly the
+ * devices where the placed picture is smallest. Touch dismisses by tapping the
+ * picture, which every panel already does.
+ */
+export const L1_ZOOM_SCRIPT = `(function(){
+var O='${DIALOG_OPEN_ATTR}',C='${ZOOM_CURRENT_ATTR}';
+function panelOf(s){return s.firstElementChild}
+function openZoom(){
+try{return document.querySelector('[${ZOOM_SHELL_ATTR}]['+O+']')}catch(e){return null}}
+function members(s){
+try{return s.querySelectorAll('[${ZOOM_INDEX_ATTR}]')}catch(e){return[]}}
+function show(s,i){
+var m=members(s);if(!m.length)return;
+if(i<0)i=0;if(i>m.length-1)i=m.length-1;
+for(var k=0;k<m.length;k++){if(k===i)m[k].setAttribute(C,'');else m[k].removeAttribute(C)}
+var p=panelOf(s);if(!p||!p.hasAttribute('${ZOOM_AUTONAME_ATTR}'))return;
+var img=m[i].querySelector('img');
+try{p.setAttribute('aria-label',(img&&img.getAttribute('alt'))||'')}catch(e){}}
+function step(s,by){
+var m=members(s);if(m.length<2)return;
+var cur=0;for(var k=0;k<m.length;k++)if(m[k].hasAttribute(C))cur=k;
+show(s,((cur+by)%m.length+m.length)%m.length)}
+function shellOf(el){
+try{return el.closest('[${ZOOM_SHELL_ATTR}]')}catch(e){return null}}
+document.addEventListener('click',function(ev){
+var t=ev.target;if(!t||!t.closest)return;
+var n=t.closest('[${ZOOM_STEP_ATTR}]');
+if(n){var s=shellOf(n);if(!s)return;
+if(ev.stopPropagation)ev.stopPropagation();
+if(ev.preventDefault)ev.preventDefault();
+step(s,parseInt(n.getAttribute('${ZOOM_STEP_ATTR}'),10)||0);return}
+var b=t.closest('[${ZOOM_TO_ATTR}]');if(!b)return;
+var id=b.getAttribute('${DIALOG_OPENS_ATTR}');if(!id)return;
+var ss=document.querySelectorAll('[${ZOOM_SHELL_ATTR}]');
+for(var i=0;i<ss.length;i++)if(ss[i].getAttribute('${ZOOM_SHELL_ATTR}')===id)
+show(ss[i],parseInt(b.getAttribute('${ZOOM_TO_ATTR}'),10)||0)},true);
+document.addEventListener('keydown',function(ev){
+var s=openZoom();if(!s)return;
+var by=ev.key==='ArrowLeft'?-1:ev.key==='ArrowRight'?1:0;
+if(!by)return;
+if(members(s).length<2)return;
+if(ev.preventDefault)ev.preventDefault();
+step(s,by)});
+document.addEventListener('wheel',function(){
+var s=openZoom();if(!s)return;
+var p=panelOf(s);try{if(p&&p.click)p.click()}catch(e){}});
+})();`
+
 interface RenderState {
   n: number
   rules: Rule[]
@@ -3246,6 +3758,14 @@ interface RenderState {
   hasDialog?: boolean
   /** REQ-327 — set once any picture zooms, so the magnify stylesheet rides in once. */
   hasZoom?: boolean
+  /**
+   * REQ-330 — the sets declared so far, keyed by the author's group name.
+   *
+   * On the state rather than returned up the tree for the reason `keyframes` is:
+   * a set's overlay is a document-level artifact assembled from members scattered
+   * through it, while `emitNode` returns one node's markup.
+   */
+  zoomGroups?: Map<string, ZoomGroup>
   /** REQ-116 — render the edit channel: addresses stamped, the page inert. */
   edit?: boolean
 }
@@ -3361,14 +3881,33 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
       if (a.sizeScale !== undefined) decls.push(`font-size: ${a.sizeScale}em`)
       if (a.fontWeight !== undefined) decls.push(`font-weight: ${Math.round(a.fontWeight)}`)
       if (a.fontStyle) decls.push(`font-style: ${a.fontStyle}`)
+      if (a.textDecoration) decls.push(`text-decoration: ${a.textDecoration}`)
       if (a.baselineShiftEm !== undefined) {
         decls.push(`vertical-align: ${a.baselineShiftEm}em`)
       }
       const words = escapeHtml(run.text)
-      if (decls.length === 0) return words
+      // REQ-331 — a run that is a LINK takes an `<a>`, on exactly the terms the
+      // node-level link takes one: the same `isSafeUrl` allowlist, the same
+      // `_blank`-always-carries-its-`rel` rule, and the same edit-render
+      // behaviour (the element is kept, only the navigable attributes are
+      // dropped, so clicking opens the copy editor instead of navigating).
+      //
+      // An `<a>` is emitted even when the run carries no declarations of its
+      // own: the anchor is the run's SUBSTANCE, not an ornament, and a link
+      // rendered as bare text is the failure this axis exists to prevent.
+      const href = run.link && isSafeUrl(run.link.href) ? relativizeUrl(run.link.href.trim()) : undefined
+      if (decls.length === 0 && href === undefined) return words
       const runClass = `${nodeClass}-r${i}`
-      state.rules.push({ selector: `.${runClass}`, decls })
-      return `<span class="${runClass}">${words}</span>`
+      const classAttr = decls.length === 0 ? '' : ` class="${runClass}"`
+      if (decls.length > 0) state.rules.push({ selector: `.${runClass}`, decls })
+      if (href === undefined) return `<span${classAttr}>${words}</span>`
+      const attrs =
+        state.edit
+          ? ''
+          : ` href="${escapeHtml(href)}"` +
+            (run.link?.newTab ? ' target="_blank" rel="noopener noreferrer"' : '') +
+            (run.link?.ariaLabel ? ` aria-label="${escapeHtml(run.link.ariaLabel)}"` : '')
+      return `<a${classAttr}${attrs}>${words}</a>`
     })
     .join('')
 }
@@ -3921,6 +4460,9 @@ function emitNode(
   // an in-flow node takes, which is emitted earlier in the very same list. With a
   // `fromPx` the pin is confined to a `min-width` block instead, leaving the base
   // rule — and therefore normal flow — in force below it.
+  //
+  // REQ-328 — a `lift` is part of that same list and so is confined with it: the
+  // paint level a pin holds at is only meaningful where the pin is.
   if (node.sticky) {
     const decls = stickyDecls(node.sticky)
     if (node.sticky.fromPx === undefined) base.push(...decls)
@@ -4170,7 +4712,11 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
   }
   // The document's root node list is the single `doc.root`, so its address is
   // `0` — the same "index the list, then walk `children`" rule a fragment uses.
-  const body = emitNode(doc.root, state, [0])
+  // REQ-330 — every SET's overlay, after the tree that declared them and BEFORE
+  // the stylesheet is serialized: a set's members are scattered by construction,
+  // so its one shell cannot be written at any of them, and the rules it pushes
+  // (the scrim, the ink) have to reach the CSS below.
+  const body = emitNode(doc.root, state, [0]) + flushZoomGroups(state)
   const reset = [
     '*, *::before, *::after { box-sizing: border-box }',
     'html, body { margin: 0; padding: 0 }',
@@ -4207,6 +4753,11 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
   // stylesheet into every channel; THIS is the line that keeps the edit render
   // inert, and it is now the only one that has to.
   if (state.hasDialog && !state.edit) scripts.push(L1_DIALOG_SCRIPT)
+  // REQ-330 — the stepping and the wheel dismissal, on exactly the terms the
+  // magnify stylesheet rides in on: only for a page that carries a zoom at all,
+  // and never in the edit channel. It is AFTER the modal script because it reuses
+  // it — a wheel gesture closes by clicking the panel, which is that script's verb.
+  if (state.hasZoom && !state.edit) scripts.push(L1_ZOOM_SCRIPT)
   if (!scripts.length) return { html: body, css }
   const js = scripts.join('\n')
   return { html: `<script>${js}</script>\n${body}`, css, js }
@@ -4240,6 +4791,12 @@ export function renderL1Fragment(
   // `data-l1-slot`, so copy inside a behavior module's slot is addressable
   // without the module having to know anything about the page it sits on.
   const htmls = resolveL1Palette(nodes, opts.palette).map((node, i) => emitNode(node, state, [i]))
+  // REQ-330 — a set declared inside a mounted behavior's slots still needs its one
+  // shell, and a fragment has no document to put it after. It rides on the LAST
+  // subtree, which is the nearest thing a fragment has to "after everything" — and
+  // is where the host page will place it for the same reason the document does.
+  const zoomShells = flushZoomGroups(state)
+  if (zoomShells !== '' && htmls.length > 0) htmls[htmls.length - 1] += zoomShells
   // REQ-325 — a mounted fragment's own scroll tracks travel with its rules. The
   // keyframes names are drawn from the same prefixed class counter, so two
   // instances of one module on a page cannot animate against each other's block.

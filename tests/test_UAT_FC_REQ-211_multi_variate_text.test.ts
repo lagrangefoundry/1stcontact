@@ -126,15 +126,33 @@ describe('REQ-211 the substrate accepts inline variation', () => {
     )
     expect(wideAxis.ok).toBe(false)
 
-    // A link inside a run is a second addressing problem; the renderer stays the
-    // sole `<a>` sink.
+    // REQ-331 SUPERSEDES the rail that stood here. A run-level link was rejected
+    // on the reasoning that it was a second addressing problem — but a captured
+    // sentence whose only variation IS a link (`Artist • <a>Musician</a> •
+    // Creator`) then had no lossless rejoin: folding it into one node would have
+    // traded four brittle pinned fragments for a dead link. So `link` is now a
+    // run field, beside `axes` rather than inside it, mirroring the node —
+    // navigation is a role, not a paint axis.
     const inlineLink = validateL1(
       docWith({
         kind: 'text',
         text: [{ text: 'a' }, { text: 'b', link: { href: '/x' } }],
       } as unknown as L1Node),
     )
-    expect(inlineLink.ok).toBe(false)
+    expect(inlineLink.ok).toBe(true)
+
+    // What REQ-211's rail was actually protecting survives intact: the renderer
+    // is still the sole `<a>` sink, and a run's href is cleared through the SAME
+    // URL allowlist as every other sink. A run list was the one place in a
+    // document where a URL did not sit on the node the walk stands on, so
+    // without this the allowlist had a hole the width of every rejoined sentence.
+    const unsafeRunLink = validateL1(
+      docWith({
+        kind: 'text',
+        text: [{ text: 'a' }, { text: 'b', link: { href: 'javascript:alert(1)' } }],
+      } as unknown as L1Node),
+    )
+    expect(unsafeRunLink.ok).toBe(false)
   })
 
   // ── One spelling per document ──────────────────────────────────────────────

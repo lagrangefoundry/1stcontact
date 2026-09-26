@@ -1388,7 +1388,24 @@ export function oracleBoxes(oracle: OracleSource): OracleBox[] {
           out.push({ text: flowText(flow), kind, width: p.viewport.width, box: flow.box })
           continue
         }
-        out.push({ text: el.text, kind, width: p.viewport.width, box: el.box })
+        // REQ-331 — an un-rejoined run's POSITION is its own and its HEIGHT is its
+        // line box's. A bare inline run's `box` is the GLYPH rect (28px at
+        // 24/36 type) while the browser gives the node a LINE box (36), so the
+        // measured height this feeds — `measuredTextHeights`, which is what the
+        // recovery advances its flow cursor by — was short by the leading on
+        // every such run, and the error accumulated down the sibling chain
+        // (measured on faelan.com: +4, +8, then +16 for the whole rest of the
+        // page). The flow root's rect IS that line box.
+        //
+        // Height only. Taking the whole rect would move the fragment to the
+        // flow root's x/y, which is where the REJOINED node belongs and where a
+        // fragment does not — the fidelity probe pairs on this position.
+        out.push({
+          text: el.text,
+          kind,
+          width: p.viewport.width,
+          box: { ...el.box, height: (el.inlineBox ?? el.box).height },
+        })
       } else if (kind === 'image' || kind === 'box') {
         out.push({ text: el.text ?? '', kind, width: p.viewport.width, box: el.box })
       }

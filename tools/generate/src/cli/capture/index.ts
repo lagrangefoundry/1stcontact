@@ -113,6 +113,7 @@ export {
   selectProjectionAtWidth,
   normalizeGradient,
   colorToHex,
+  colorToHexAlpha,
   colorDistance,
   contentRunToElement,
   rawRunToElement,

@@ -59,6 +59,18 @@ export interface InlineRunElement {
   inlineBox?: InlineBox | null
   textFlow?: string
   verticalAlign?: string | null
+  // ── REQ-331 the rest of what makes one run visibly different from the next ──
+  //
+  // Read ONLY by {@link signature}. They are here rather than inferred because
+  // the capture already records every one of them per run, and the predicate
+  // that decides whether a flow varies was reading four of a dozen.
+  fontFamily?: string
+  textDecoration?: string | null
+  textTransform?: string | null
+  letterSpacingPx?: number
+  /** The navigation target of the nearest enclosing anchor, when the run is in one. */
+  href?: string | null
+  a11yRole?: string
 }
 
 /** One inline flow: the runs of a single formatting context, in document order. */
@@ -87,19 +99,45 @@ export function inlineFlows<T extends InlineRunElement>(elements: readonly T[]):
   return out
 }
 
-/** The text axes that decide whether a flow varies — and how a run differs. */
+/**
+ * The axes that decide whether a flow varies — and how a run differs.
+ *
+ * REQ-331 — **a link is a variation, and it is the commonest one there is.**
+ * This list held four axes (fill, size, weight, slope) and a sentence with an
+ * anchor in it varies on none of them: a link inherits its colour from the
+ * paragraph as often as not, and its size, weight and slope always. So
+ * `Artist • <a>Musician</a> • Creator` — one sentence, one line box, one
+ * inline formatting context — read as "does not vary", was not rejoined, and
+ * was transcribed as three separately-pinned fragments. Measured on faelan.com
+ * that was 12 of 20 value deltas, ~99.8% of the ranked pixel score, and the two
+ * separating spaces missing from the served copy ("Artist •Musician• Creator").
+ *
+ * The additions are the axes a reader can SEE a difference on, and only those:
+ * the face, the decoration line, the caps transform, the tracking, and whether
+ * the run navigates. A baseline shift is still deliberately NOT one of them —
+ * `vertical-align` without any other difference is a raised run of identical
+ * type, which is rare enough that admitting it would widen what gets rejoined
+ * for a case nobody has met.
+ *
+ * `href` enters as the href itself rather than as a boolean, so two adjacent
+ * links to different targets are a variation too — they are two anchors and the
+ * rejoined node has to keep both.
+ */
 function signature(el: InlineRunElement): string {
-  return [el.color ?? '', el.fontSizePx ?? 0, el.fontWeight ?? 0, el.fontStyle ?? 'normal'].join('|')
+  return [
+    el.color ?? '',
+    el.fontSizePx ?? 0,
+    el.fontWeight ?? 0,
+    el.fontStyle ?? 'normal',
+    el.fontFamily ?? '',
+    el.textDecoration ?? '',
+    el.textTransform ?? '',
+    el.letterSpacingPx ?? 0,
+    el.href ?? '',
+  ].join('|')
 }
 
-/**
- * Does this flow actually vary within itself?
- *
- * Compared on the four axes a run may carry — fill, size, weight, slope. A
- * baseline shift is deliberately NOT one of them: `vertical-align` without any
- * other difference is a raised run of identical type, which is rare enough that
- * admitting it would widen what gets rejoined for a case nobody has met.
- */
+/** Does this flow actually vary within itself? See {@link signature}. */
 export function flowVaries(flow: InlineFlow<InlineRunElement>): boolean {
   const first = signature(flow.members[0])
   return flow.members.some((m) => signature(m) !== first)

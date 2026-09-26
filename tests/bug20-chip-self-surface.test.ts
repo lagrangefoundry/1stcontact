@@ -235,6 +235,8 @@ const badgeEl = (radiusPx: number, over: Partial<ValueElement> = {}): ValueEleme
 const mani = (source: string, elements: ValueElement[]): ValueManifest => ({ source, elements, sections: [] })
 const shapeDeltas = (a: ValueManifest, b: ValueManifest) =>
   diffManifests(a, b).deltas.filter((d) => d.property === 'shape')
+const shadowDeltas = (a: ValueManifest, b: ValueManifest) =>
+  diffManifests(a, b).deltas.filter((d) => d.property === 'boxShadow')
 
 describe('BUG-20 — the diff treats a pill radius as saturated, not as a magnitude', () => {
   it('test_UAT_FC_BUG-20_two_pills_with_different_sentinel_radii_are_not_a_shape_defect', () => {
@@ -257,10 +259,14 @@ describe('BUG-20 — the diff treats a pill radius as saturated, not as a magnit
 
   it('test_UAT_FC_BUG-20_a_shadow_difference_between_two_pills_still_flags', () => {
     // Saturation applies only to the radius; the shadow is an independent
-    // treatment and must still be compared between two pills.
+    // treatment and must still be compared between two pills. REQ-331 gave it its
+    // own `boxShadow` property rather than smuggling it through `shape` as a
+    // presence boolean, so the rail reads it there — the behaviour this pins (a
+    // lost shadow between two identical pills still flags) is unchanged.
     const ref = mani('ref', [badgeEl(ROUNDED_FULL, { boxShadow: '0 1px 2px rgba(0,0,0,0.25)' })])
     const noShadow = mani('act', [badgeEl(100_000)])
-    expect(shapeDeltas(ref, noShadow).length).toBeGreaterThan(0)
+    expect(shadowDeltas(ref, noShadow).length).toBeGreaterThan(0)
+    expect(shapeDeltas(ref, noShadow)).toHaveLength(0)
   })
 
   it('test_UAT_FC_BUG-20_non_pill_radius_drift_is_unaffected', () => {

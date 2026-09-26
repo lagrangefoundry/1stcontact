@@ -476,6 +476,29 @@ export const l1ShadowSchema = z
   })
   .strict()
 
+/**
+ * REQ-331 — the shadow a node casts: ONE layer, or the ordered stack of several.
+ *
+ * A reference routinely paints two: a dark drop that lifts the card off the page
+ * and a pale outer glow that separates it from what is behind it. Measured on
+ * faelan.com, three photographs each carried
+ * `rgba(0,0,0,0.6) 0 15px 50px, rgba(255,255,255,0.15) 0 0 30px` — and the fold
+ * could only take the first layer, because there was nowhere to put the second.
+ * That is not a fold shortfall; it is the axis being narrower than the medium it
+ * describes, so the axis is what widens.
+ *
+ * **Two-or-more is the array; one is the object** — the same rule
+ * {@link l1TextContentSchema} states for copy, for the same reason: a
+ * one-element array would be a second spelling of a single shadow, and two
+ * spellings of one thing is the drift this schema refuses everywhere. The order
+ * is CSS's own, which is paint order — the first layer paints on top.
+ *
+ * The cap is small deliberately. Two or three layers is a design; ten is a
+ * compositing cost the page pays on every frame, and no reference this engine
+ * reproduces has ever painted more than three.
+ */
+export const l1BoxShadowSchema = z.union([l1ShadowSchema, z.array(l1ShadowSchema).min(2).max(4)])
+
 /** A box border — width + colour + line style. */
 export const l1BorderSchema = z
   .object({
@@ -617,7 +640,9 @@ export const l1ObjectPositionSchema = z
  *     one. A translated node additionally carries a CSS transform, which promotes
  *     it into the positioned paint layer, so the node that moved is the node on
  *     top of whatever it moved over. That is the right default for the only
- *     reason to translate a node onto its neighbour in the first place.
+ *     reason to translate a node onto its neighbour in the first place. (A PINNED
+ *     node is the one place the default is not enough, because what passes it is
+ *     not a node it moved onto: see {@link l1StickySchema}'s `lift`.)
  *   - **Nothing clips it.** L1 emits no `overflow`, so a node translated past its
  *     parent's edge paints in full rather than being cut off at the boundary.
  *     (An explicit `mask` still clips — that is what it is for.)
@@ -808,8 +833,8 @@ const surfaceAxesShape = {
   pointerAccent: l1PointerAccentSchema.optional(),
   /** A full-bleed translucent scrim painted over the background (hero overlay). */
   overlay: l1OverlaySchema.optional(),
-  /** A drop shadow cast by the node. */
-  boxShadow: l1ShadowSchema.optional(),
+  /** A drop shadow cast by the node — one layer, or REQ-331's ordered stack. */
+  boxShadow: l1BoxShadowSchema.optional(),
   /** A painted border (uniform, all four sides). */
   border: l1BorderSchema.optional(),
   /**
@@ -1222,11 +1247,79 @@ export const l1ZoomSchema = z
      * is what the overlay is showing and therefore already the right name.
      */
     ariaLabel: z.string().optional(),
+    /**
+     * REQ-330 — the **set** this picture belongs to. Every picture on the page
+     * naming the same group forms one gallery, **in document order**, sharing ONE
+     * overlay that shows a member at a time and steps between them. Absent → the
+     * picture opens alone, which is what every document written before this did.
+     *
+     * A NAME RATHER THAN A LIST, because the members are scattered through the
+     * tree and a list would have to name them — which means ids on pictures that
+     * need none, kept in step with a list held somewhere else. A name is the one
+     * form of the statement that cannot fall out of agreement with itself.
+     *
+     * NOT A GALLERY COMPONENT. A set is not a new kind of behaviour; it is the
+     * overlay that already exists, holding more than one picture. Expressed here,
+     * it reuses REQ-212's dismissal, focus and scroll-lock contract whole; as a
+     * behavior module it would have to restate that contract inside something
+     * that is not allowed to own it (DOC-25 §10).
+     */
+    group: z.string().min(1).optional(),
+    /**
+     * REQ-330 — what to say about the LARGE picture, shown beside it in the
+     * overlay. In a set it travels with its own member as the visitor steps, which
+     * is the half of "a gallery" that is not navigation.
+     *
+     * Not the placed picture's caption: text beside the picture on the page is an
+     * ordinary text node and always was. This is text that exists only while the
+     * picture is open, which no node in flow can express.
+     */
+    caption: z.string().optional(),
+    /**
+     * REQ-330 — the colour the overlay's own chrome is painted in: the caption and
+     * the two stepping controls. Absent → white, which is what pairs with the
+     * renderer's near-opaque dark backdrop.
+     *
+     * The same KIND of statement {@link l1OverlaySchema} makes above and for the
+     * same reason: it is about the page around the picture, which no axis on the
+     * picture can reach. `backdrop` made the ground authorable and left everything
+     * drawn on it fixed — a site that chose a pale ground got chrome it could not
+     * see.
+     */
+    ink: l1Color.optional(),
+    /**
+     * REQ-330 — the accessible names of the two stepping controls. Absent →
+     * `Previous image` / `Next image`.
+     *
+     * A control drawn as a chevron has no visible text to be named by, so the name
+     * has to come from somewhere; and a site published in another language cannot
+     * be left with two English buttons it has no way to restate.
+     */
+    prevLabel: z.string().optional(),
+    /** REQ-330 — see {@link l1ZoomSchema}'s `prevLabel`. Absent → `Next image`. */
+    nextLabel: z.string().optional(),
   })
   .strict()
 
 /** REQ-327 — the magnify role a picture may take. */
 export type L1Zoom = z.infer<typeof l1ZoomSchema>
+
+/**
+ * REQ-330 — the fields of {@link l1ZoomSchema} that describe the OVERLAY rather
+ * than the picture, and therefore belong to a set rather than to any one member.
+ *
+ * Stated once, here, because two readers need the same list and would otherwise
+ * each hold their own: the validator, which refuses a set whose members name one
+ * of them differently, and the renderer, which reads them off whichever member
+ * named them when it builds the set's single shell.
+ */
+export const L1_ZOOM_OVERLAY_FIELDS = [
+  'backdrop',
+  'ariaLabel',
+  'ink',
+  'prevLabel',
+  'nextLabel',
+] as const
 
 // ── Scroll reveal (REQ-100) ───────────────────────────────────────────────────
 //
@@ -1342,6 +1435,11 @@ export const l1EntranceSchema = z.union([l1RevealSchema, z.array(l1RevealSchema)
  * and `position: absolute` are alternatives, and an absolute track already writes
  * the `top` a pin needs to own. An in-flow track (`place: 'flow'`) composes
  * freely — its offsets are margins.
+ *
+ * WHETHER CONTENT PASSES BEHIND OR IN FRONT is the pin's other half, and it is
+ * `lift`'s — see that field. CSS positioning alone does not answer it, and the
+ * answer it falls back to depends on the element kind of whatever is travelling
+ * past, which is not a decision the document made.
  */
 export const l1StickySchema = z
   .object({
@@ -1361,6 +1459,39 @@ export const l1StickySchema = z
      * decision and need not be one of the document's captured `widths`.
      */
     fromPx: finite.nonnegative().optional(),
+    /**
+     * REQ-328 — **the pinned node paints above every sibling in its container**,
+     * so content travelling past it passes BEHIND it rather than over the top.
+     *
+     * This is the half of the pin the composition needs and CSS positioning does
+     * not supply. A pin's whole purpose is that the page moves past a node that
+     * does not, which makes "in front or behind" a decision every pinned
+     * composition takes — and without this field it is not a decision the
+     * document gets to make. L1 emits no `z-index`, so paint order among
+     * siblings falls to the CSS painting algorithm, and that answer depends on
+     * the SIBLING'S ELEMENT KIND: an in-flow `box` or `container` takes
+     * `position: relative` (it is what makes it the containing block for
+     * anything placed inside it) and a `transform` promotes a node into the
+     * positioned layer, so either one following a pin covers it; a bare `text`
+     * or `image` leaf takes neither and passes behind. Wrapping a masthead in a
+     * box to give it a background would silently move it from behind the pinned
+     * hero to over the top of it, with nothing in the document saying so.
+     *
+     * Compiles to `z-index: 1` in the pin's own declaration list, so a
+     * {@link l1StickySchema} carrying `fromPx` lifts INSIDE its width band and
+     * not below it: where the node is not held, its paint is untouched. The
+     * value is 1 because the pin needs to clear its own siblings and nothing
+     * else — a dialog's own z-index is vastly larger and still covers it.
+     *
+     * `true` IS THE ONLY LEGAL VALUE, for the reason {@link nodeAxisGroupsShape}'s
+     * `stacked` gives: `false` would be a second spelling of absent, and absent
+     * has to keep meaning "the document has not chosen", which for a pin is the
+     * document-order paint above. Absence is deliberately NOT made to mean
+     * "passes in front": a following section that slides over a held hero is a
+     * real editorial composition, and it is exactly what document-order paint
+     * already gives.
+     */
+    lift: z.literal(true).optional(),
   })
   .strict()
 
@@ -1632,10 +1763,23 @@ const nodeAxisGroupsShape = {
    * NOT A PAINT AXIS: it moves no pixel and the renderer emits nothing for it
    * (DOC-24's rule is about what L1 must be able to *express*; this is what the
    * document must be able to *declare*, alongside `heading` / `link` / `action`,
-   * which paint nothing either). A capture cannot recover it — the browser shows
-   * the stack, not the reason for it — so a folded document never carries one,
-   * and the gate's finding is the fold gap that has to be closed by whoever
-   * decides the overlap was meant.
+   * which paint nothing either).
+   *
+   * REQ-331 — **a fold DOES author it, and the reference is what declares it.**
+   * The original reading here was that a capture cannot recover the intent
+   * because the browser shows the stack and not the reason for it. That is true
+   * of an overlap seen in isolation and false of a REPRODUCTION, which is the
+   * only thing the fold ever produces: when the reference's own captured boxes
+   * overlap, the overlap is a fact about the page being reproduced, and a
+   * reproduction that reproduces it is not making a mistake. So the fold marks
+   * the figure of every overlap the reference itself painted, and marks nothing
+   * else — an overlap the fold INVENTED (one side captured clear of the other)
+   * is still a finding, which is the property that keeps the exemption honest.
+   *
+   * Measured on faelan.com, whose hero is four photographs montaged over a
+   * headline: 218 `overlap` findings across all three envelope probes, every one
+   * of them a pair the reference painted, failing the reproduction for being
+   * faithful.
    */
   stacked: z.literal(true).optional(),
 } as const
@@ -1703,6 +1847,20 @@ export const l1TextRunAxesSchema = z
      * collide with it.
      */
     baselineShiftEm: finite.optional(),
+    /**
+     * REQ-331 — the run's own decoration line.
+     *
+     * A sentence with a link in it is the most common inline variation on the
+     * web, and an underline is how the web has always drawn one. Without this
+     * the only way to underline one word was to pin it as a separate absolutely
+     * positioned node — which is precisely the brittle geometry REQ-211 exists
+     * to retire, so the rejoin could not be taken without losing the line.
+     *
+     * `none` is meaningful here rather than a second spelling of absent: a
+     * linked run inherits the UA's underline, so a reference that draws a link
+     * WITHOUT one has to be able to say so.
+     */
+    textDecoration: z.enum(['none', 'underline', 'line-through', 'overline']).optional(),
   })
   .strict()
 
@@ -1718,6 +1876,24 @@ export const l1TextRunSchema = z
      */
     text: z.string(),
     axes: l1TextRunAxesSchema.optional(),
+    /**
+     * REQ-331 — this run, and only this run, is a link.
+     *
+     * Beside `axes` rather than inside it for the same reason the node carries
+     * {@link l1NodeAxisGroupsSchema}'s `link` beside its own axes: navigation is
+     * a ROLE, not a paint axis — it moves no pixel by itself, and the renderer
+     * answers it with a tag rather than with a declaration.
+     *
+     * This is what makes an inline flow rejoinable without loss. `Artist •
+     * <a>Musician</a> • Creator` is one sentence in the source and one `text`
+     * node after the fold; before this axis existed, folding it that way would
+     * have silently dropped the anchor and left the reproduction with dead text
+     * where the reference had a link.
+     *
+     * Cleared by the same `isSafeUrl` allowlist as the node-level link, so an
+     * unsafe href degrades to a plain run — never a live `javascript:` link.
+     */
+    link: l1LinkSchema.optional(),
   })
   .strict()
 
