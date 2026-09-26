@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-26T21:15:39.896602+00:00'
+updated_at: '2026-09-26T21:19:12.303352+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4939,5 +4939,34 @@ One-line fix, so it needs a ticket and a child session. Want me to file it, and 
 Yes please file.
 
 Is that why 8799 is showing: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-88241'.
+
+<!-- xgd-turn id="4e3b1508-aac0-4248-a66f-847fddcd5009-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T21:19:10.933448+00:00" -->
+#### Claude
+Filed **BUG-152** — *The dev environment misreports its own state to the operator* — under EPIC-16, covering both the `1c ps` call site and the Access-cookie message below. Recorded the KB gap as **§Q** on the epic (it also corrects §P: BUG-150 has landed, so nothing starts 8788 any more).
+
+## No — unrelated. It's a stale cookie, and the message can't say so
+
+I checked the live key against the one your cookie presented:
+
+```
+JWKS on 8799  →  kid  local-dev-87914     ← the process actually running
+your cookie   →  kid  local-dev-88241     ← a sim from an earlier cycle
+```
+
+`bin/access-sim:195` sets `KID = local-dev-${process.pid}` and generates a **fresh RSA keypair per process**, in memory. That's deliberate — `access.ts:249` force-refreshes its JWKS cache on an unseen `kid`, treating a restart as a key rotation, so the Worker picks up a new sim immediately. It works perfectly for the *next* cookie.
+
+The problem is the *previous* one. The cookie is minted with `Max-Age = 60*60*24*30` (`bin/access-sim:116`) — **the credential outlives its signing key by up to thirty days, by construction.** So every `bin/dev up` guarantees this failure for anyone who had signed in, and the failure reports itself as a key-configuration fault rather than as an expired local sign-in.
+
+**Fix right now:** http://127.0.0.1:8799/login — pick your identity. New cookie, signed with 87914, and you're in.
+
+The `1c ps` bug is display-only; it drops `listenerPid` from the managed set and nothing downstream acts on it. Two separate defects that happen to both be the dev environment describing itself wrongly, which is why they're one ticket.
+
+## One thing I did not file
+
+§Q records it but there's no ticket: **`bin/build` will never rebuild `REF-l1`.** `1c kb ensure` compares the mtime of `kb/system/*.md` against the index manifests, and `REF-l1` is a *projection* of `l1NodeSchema` / `l1DocumentSchema` that only gets rewritten during a build. It was projected Sep 24 00:19; your L1 commits landed Sep 26 12:50–13:03. The file hasn't moved, so there's no skew, so nothing rebuilds — the assistant's reference to the L1 vocabulary is describing the pre-REQ-329 schema.
+
+`bin/kb-release` fixes it today. But the general shape — a projection whose freshness is testable (`l1VocabularyGaps` already derives the expectation from the live declarations) and which `ensure` never tests — is BUG-48's lesson one level further out. Want that as its own ticket?
 
 <!-- xgd-chat-end -->
