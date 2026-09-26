@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-327
 created_by: xgd
 created_at: '2026-09-25T23:53:15.267184+00:00'
-updated_at: '2026-09-26T06:50:26.930456+00:00'
+updated_at: '2026-09-26T06:55:10.213193+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,28 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="6a9f4e8b-9f6e-4294-abae-ea398def114f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T06:55:08.811969+00:00" -->
+#### Claude
+Work is committed on the branch. Now the lock-and-merge.
+
+Fast-forward, version commit at the tip. Now the gate.
+
+REQ-327 is complete and landed on `xgd-working` at `free_coded`.
+
+**What shipped** — option A from the ticket, the `zoom` role on the picture element:
+
+- **Schema** (`site-schema/src/l1/schema.ts`) — `l1ZoomSchema`, a `.strict()` role carried by `image` and nothing else. All four fields optional (`src`, `alt`, `backdrop`, `ariaLabel`); `zoom: {}` is the common case.
+- **Validator** (`validate.ts`) — `zoom.src` clears the same URL allowlist as `image.src`; `link` + `zoom` on one picture refused by the new `zoomOrLink` rule; `zoom.src` added to `l1AssetReferences` so a zoom onto an asset the site doesn't hold is reported dangling.
+- **Email target** (`email.ts`) — `zoom` refused by name beside `dialog` and `action`.
+- **Renderer** (`framework/src/l1/render.ts`) — synthesizes a boxless `<button>` wrapper (`display: contents`, `cursor: zoom-in`, focus ring drawn on the picture inside since the wrapper paints no box) plus a panel holding the large picture, and compiles both to **REQ-212's existing modal machinery** — same shell class, same ready/open/lock markers, same per-panel scrim rules, same single script. No second overlay implementation, no new script. The large picture is `src` alone (no `srcset`) so the original is shown rather than a rendered-down variant; intrinsic dimensions from the publish manifest; `loading="lazy"`.
+
+**Verification** — `tests/test_UAT_FC_REQ-327_zoomable_images.test.ts`, 32 tests across four boundaries: vocabulary, envelope refusals, emitted markup/CSS, and the published page driven end to end in jsdom (click and keyboard open, Escape, click-away, click-on-picture, focus in and back to the trigger, focus trap, scroll lock, four plates independently). Plus a reuse block asserting the page ships REQ-212's script once and no other, and that the edit channel keeps the elements and loses only the acting attributes.
+
+Regression scope run green in the foreground: the 11 adjacent L1 suites (modals, page-state, links, edit-render, substrate, envelope, language, navigation, image-framing, BUG-48) and the 7 email/fold suites — 175 tests, plus both package typechecks clean. Re-ran the key three on `xgd-working` after the merge: 73 passed.
+
+Commits `28e6aa2cc9` (implementation) and `316ddeb5a0` (version bump to 0.2.369), both `[FREE-CODED]`; `story_points: 5`; branch merged and cleaned. The ticket body already described the built design accurately, so I left it as written.
 
 <!-- xgd-chat-end -->
