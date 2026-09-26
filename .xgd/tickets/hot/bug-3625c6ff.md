@@ -6,7 +6,7 @@ title: 'Builder chat: the durable junction never writes, because the Durable Obj
   stub is cached across requests'
 created_by: EPIC-19
 created_at: '2026-09-25T23:25:51.210884+00:00'
-updated_at: '2026-09-26T00:11:51.285484+00:00'
+updated_at: '2026-09-26T06:56:33.117575+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -226,3 +226,28 @@ and can also make the object unreachable so the degradation and recovery paths
 are reachable at all.
 
 Regression scope: the workerd project in full, plus `pnpm -r build` (tsc).
+
+
+### Harness note — where a request ends
+
+The suite passes the Worker a real `ExecutionContext`, and a request is over
+when what it held open has settled, not when the `done` frame arrives.
+`streamTurn` returns its `Response` before `start()` runs and registers a
+`ctx.waitUntil` promise that settles only after the turn's `finally` has closed
+the ledger, flushed the junction and flushed the audit. A suite that retired the
+request at the last frame would be refusing the turn's own flush — measured: it
+produced `write did not land — Cannot perform I/O …` from a write that was still
+queued — and would have recorded a harness artefact as a defect. A killed
+isolate is the opposite case and has its own verb: the request is *abandoned*,
+its held promise dropped, because a turn whose `finally` never runs is exactly
+what a restart mid-turn is.
+
+## Verification
+
+- `tests/test_UAT_FC_BUG-149_a_later_request_still_writes.workers.test.ts`:
+  5 passed. Against the Worker as it shipped, 4 of the 5 fail — the fifth is the
+  degradation path and passes both ways.
+- The workerd project in full: 162 files / 1365 tests passed.
+- The node tests that import `router.ts`: 38 passed. Nothing outside the workerd
+  project imports `junctions.ts`.
+- `tsc --noEmit` on `apps/control-app`: clean.
