@@ -6,9 +6,9 @@ title: 'fold: a bordered panel''s flow offsets are measured from its border box,
   a one-child panel never flows at all'
 created_by: repro-console:repro-gigabytealchemy-ai#7
 created_at: '2026-09-25T21:44:49.637957+00:00'
-updated_at: '2026-09-26T06:56:25.703758+00:00'
+updated_at: '2026-09-26T06:56:37.451459+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.370
+  story_points: 3
 ---
 
 # fold: a bordered panel's flow offsets are measured from its border box, and a one-child panel never flows at all
