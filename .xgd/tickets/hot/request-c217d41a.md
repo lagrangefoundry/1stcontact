@@ -5,10 +5,10 @@ type: request
 title: Let an image be opened large — click-to-zoom / lightbox
 created_by: xgd
 created_at: '2026-09-25T23:35:24.243829+00:00'
-updated_at: '2026-09-25T23:35:24.243829+00:00'
+updated_at: '2026-09-26T19:08:31.665968+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
@@ -43,3 +43,134 @@ Either would work, and they are quite different in cost:
 ## Why it matters for this kind of site
 
 For a site whose goal is memorability rather than conversion, the images *are* the argument, and the thing a visitor screenshots and sends to someone else is the thing the site is for. Rendering them at a size where they cannot be read turns the strongest asset into decoration.
+
+---
+
+## Where this ticket starts from
+
+**The small version already exists.** REQ-327 landed the `zoom` role on the
+`image` element: `zoom: {}` opens the picture large in an overlay, with
+`zoom.src` naming a higher-resolution original, `zoom.backdrop` making the scrim
+authorable, and `zoom.ariaLabel` naming the overlay. Dismissal on Escape and on a
+click away, the focus move into the overlay and back to the trigger, the focus
+trap and the scroll lock are all REQ-212's modal machinery, which the zoom role
+compiles to rather than re-implementing.
+
+So three of this ticket's four settled points, and the whole of its small
+version, are already answered. What this ticket builds is the remainder:
+
+1. **The fuller version — the gallery.** Several pictures form a set; the overlay
+   shows one at a time and offers next/previous; the caption travels with the
+   image.
+2. **Dismissal by scroll**, which the small version does not do.
+3. **The overlay's chrome colour**, which follows from (1): a caption and two
+   navigation controls are ink painted on the backdrop, and a site that chose a
+   pale ground must be able to say what colour they are. `backdrop` alone made
+   the ground authorable and left everything drawn on it fixed.
+
+## What was built — the set, as three more fields on the role that exists
+
+No gallery *component*. A gallery is not a new kind of behaviour: it is the
+overlay that already exists, holding more than one picture. Authoring it as a
+behavior module would mean mounting something, binding slots, and duplicating the
+whole of REQ-212's dismissal/focus/lock contract inside a module that is not
+allowed to own it. So the set is expressed where the single picture already is —
+on the picture — and the renderer synthesizes the shared overlay from it, exactly
+as it already synthesizes the solitary one.
+
+`l1ZoomSchema` gains five optional fields, all of them for something the existing
+form cannot state:
+
+- **`group`** — a name. Every picture on the page naming the same group forms one
+  set, **in document order**, sharing **one** overlay. Absent → the picture opens
+  alone, which is what every existing document does.
+- **`caption`** — what to say about the *large* picture. It is emitted inside the
+  overlay beside the picture it belongs to, so in a set it travels with the image
+  as the visitor steps through. Available to a solitary zoom too: a plate worth
+  opening is usually a plate worth captioning.
+- **`ink`** — the colour the overlay's own chrome is painted in (the caption, the
+  two navigation controls). Absent → white, which is what pairs with the
+  renderer's near-opaque dark backdrop. This is the same kind of statement
+  `backdrop` is — about the page *around* the picture, which no axis on the
+  picture can make.
+- **`prevLabel` / `nextLabel`** — the accessible names of the two navigation
+  controls. Absent → `Previous image` / `Next image`. A control drawn as a
+  chevron has no visible text to be named by, and a site published in another
+  language cannot be left with two English buttons.
+
+### One overlay per set, emitted once
+
+A set's members are scattered through the tree, so its overlay cannot be emitted
+inline at any one of them. The renderer collects each member's large picture as it
+walks, and flushes **one shell per group** at the end of the document (beside the
+stylesheet and the script, which are document-level for the same reason). Each
+member's trigger opens that one shell and names its own index.
+
+The overlay's chrome — `backdrop`, `ink`, `ariaLabel`, `prevLabel`, `nextLabel` —
+belongs to the set rather than to any one member, so the validator **refuses a set
+whose members name the same chrome field differently**: a document that says two
+things about one overlay has a bug, and silently taking the first member's answer
+would hide it. Members that name nothing are always fine.
+
+### Stepping through the set
+
+Navigation is the one thing the existing script does not do, so a second
+renderer-owned script ships — on the same terms as the first: emitted only when
+the page carries a zoom at all, never in the edit channel, carrying no instance
+data of any kind. It owns three things and nothing else:
+
+- **Which member is current.** A trigger names its index; the script marks the
+  matching figure, in the capture phase, so the mark is set before the overlay
+  opens rather than a frame after it.
+- **Next / previous**, by click on the two controls and by ArrowLeft/ArrowRight
+  while the overlay is open. The set **wraps**: a gallery of four plates cycles
+  rather than dead-ending, because a visitor who has reached the last plate and
+  wants the first should not have to close and re-open.
+- **Dismissal by scroll**, which the ticket asks for and the modal does not
+  supply. A wheel gesture closes an open zoom. **Touch is deliberately excluded**:
+  a drag on a touch screen is how a visitor pinch-zooms and pans the plate they
+  just opened, and dismissing on it would take away the very thing the overlay
+  exists to offer. Touch already dismisses by tapping the picture.
+
+The navigation controls stop their own clicks from reaching the panel, because the
+panel closes on a click anywhere — the forgiving reading REQ-327 chose for an
+overlay holding one picture and nothing interactive. They are the first thing in
+it that a click can mean something else.
+
+### What the unenhanced page does
+
+Everything new is gated on the same ready marker the rest of the overlay is, so a
+page whose script never runs still fails **visible**: all of a set's pictures lie
+in flow with their captions, in document order, and the two navigation controls —
+which can do nothing there — are not painted at all. That is the existing rule
+about the `zoom-out` cursor applied to the two controls: a page never advertises a
+gesture it cannot honour.
+
+### The edit channel
+
+Unchanged in kind: the elements, the classes and the boxes survive, and only the
+attributes that would ACT are dropped — now including the trigger's index and the
+two controls' step, so a click in the editor means "edit this picture" and nothing
+else.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-330_image_gallery.test.ts`, at the same boundaries REQ-327
+is proved at — the envelope validator, the sole emitter, and the published page
+driven end to end in jsdom, which is the only place stepping, wrapping and
+dismissal are observable at all.
+
+- the vocabulary: the five fields accepted on `zoom` and on nothing else; no way
+  to paint and no way to script smuggled in beside them
+- the envelope: a set whose members disagree about the overlay's chrome is refused
+- the emission: one shell for a four-member set, not four; each trigger opening
+  that one shell at its own index; the caption beside the picture it belongs to;
+  the chrome painted in `ink`; the controls absent from a set of one
+- driven: opening at the clicked plate, stepping with the controls and with the
+  arrow keys, wrapping at both ends, the caption changing with the picture, a
+  wheel dismissing, a touch drag NOT dismissing, focus still returning to the
+  plate that was clicked
+- reuse: a page with a gallery ships REQ-212's modal script unchanged and one
+  zoom script, and no third overlay implementation
+- the unenhanced page: every member visible in flow, the controls unpainted
+- the edit channel: no acting attribute anywhere in the set
