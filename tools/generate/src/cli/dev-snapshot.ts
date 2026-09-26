@@ -40,16 +40,122 @@ export const SNAPSHOT_DIR = '.dev-snapshot'
 export const SNAPSHOT_MANIFEST = 'snapshot.json'
 
 /**
- * The dev environment's port, and why it is not 8788.
+ * The control app's dev environment port, and why it is not 8788.
  *
- * §L1 REQUIRES BOTH TO BE ABLE TO RUN AT ONCE. The old `pnpm dev` path is
- * deleted in a separate, later step so that the replacement can be proved first,
- * and "proved" means run beside it against the same store. Sharing 8788 would
- * make that impossible and turn a sequencing requirement into a coin toss over
- * which server won the bind. 8789 sits inside `ps.ts`'s existing 8700–8899 band,
- * so `1c ps` and `bin/dev reap` see it with no change to either.
+ * IT WAS 8789 SO THAT BOTH PATHS COULD RUN AT ONCE, which EPIC-16 §L1 required
+ * while the replacement was being proved: sharing 8788 with the watch builder
+ * would have turned a sequencing requirement into a coin toss over which server
+ * won the bind. [[BUG-150]] finished that sequence — the builder is deleted, so
+ * nothing holds 8788 any more — and 8789 STAYS, because `bin/access-sim` already
+ * defaults to it ([[REQ-322]]) and moving a port that is now uncontested would
+ * cost every operator their habit to buy a tidier number.
+ *
+ * It sits inside `ps.ts`'s existing 8700–8899 band, so `1c ps` and `bin/dev reap`
+ * see it with no change to either.
  */
 export const DEV_SERVE_PORT = 8789
+
+/**
+ * The public site's dev environment port, and why it is the one the deleted
+ * package script used ([[BUG-150]]).
+ *
+ * 8787 IS WHERE THE PUBLIC SITE HAS ALWAYS BEEN, under `pnpm dev:public` —
+ * `wrangler dev --port 8787` over `src/`. That script is deleted here, and the
+ * choice was between giving the frozen server a sixth number and giving it this
+ * one. A sixth number would leave the port an operator already associates with
+ * the public site owned by nothing, while the public site answered somewhere
+ * they would have to be told about; reusing it means habit, a bookmark and an old
+ * shell history line all land on the frozen server rather than on nothing.
+ */
+export const PUBLIC_SITE_SERVE_PORT = 8787
+
+/**
+ * An app `1c dev serve` can run, and what running it involves.
+ *
+ * WHY A TABLE AND NOT A SECOND COMMAND ([[BUG-150]]). `1c dev serve` hard-coded
+ * `control-app`, and `bin/dev up` has to start the public site's snapshot too —
+ * the whole of what this ticket asks for. A `1c dev serve-public` would be a
+ * second author of one launch, free to disagree with the first about the store,
+ * the freeze or what gets printed. The differences between the two apps are
+ * DATA, and this is the data.
+ */
+export interface DevServeApp {
+  /** The directory under `apps/`, and the argument `1c dev serve` takes. */
+  readonly app: string
+  /**
+   * The {@link KNOWN_SERVICES} name — the pidfile's stem, and what `1c ps` calls
+   * it. Not always the app's own name: the control app's snapshot IS the dev
+   * environment and has been called `dev` since [[REQ-318]].
+   */
+  readonly service: string
+  readonly port: number
+  /**
+   * Whether this app's launch names the `.dev.vars` layering explicitly.
+   *
+   * THE CONTROL APP'S ONLY. `devEnvLayering` is about `ANTHROPIC_API_KEY` and the
+   * two Access vars, and `--env-file` REPLACES wrangler's own `.dev.vars` lookup
+   * rather than adding to it — so passing it for an app that has no `.dev.vars`
+   * substitutes a list of files that do not exist for the default that works, and
+   * prints three warnings about a builder this is not.
+   */
+  readonly envFiles: boolean
+  /**
+   * Whether starting it checks the local D1 against `db/migrations/`.
+   *
+   * THE CONTROL APP OWNS THE SCHEMA, and the public site's own config says so:
+   * *"No `migrations_dir` here, deliberately. Migrations belong to the database
+   * and are applied once, by the Worker that owns the schema (control-app)."*
+   * `bin/dev up` starts the control app first, so the check still runs before
+   * anything opens the store — once, rather than once per app.
+   */
+  readonly checkStore: boolean
+  /** The banner's first words — what is answering on {@link port}. */
+  readonly title: string
+  /** The same fact as a `bin/dev`/`1c ps` table cell, which is a phrase not a sentence. */
+  readonly what: string
+}
+
+/**
+ * Every app the frozen dev environment serves, in start order.
+ *
+ * THE ORDER IS `bin/dev up`'S ORDER. The control app is first because it is the
+ * one whose start checks the store, and because `bin/access-sim` fronts it.
+ */
+export const DEV_SERVE_APPS: readonly DevServeApp[] = [
+  {
+    app: 'control-app',
+    service: 'dev',
+    port: DEV_SERVE_PORT,
+    envFiles: true,
+    checkStore: true,
+    title: 'Dev environment (wrangler dev on a deployed snapshot)',
+    what: 'the deployed control-app snapshot — this is the builder',
+  },
+  {
+    app: 'public-site',
+    service: 'public-site',
+    port: PUBLIC_SITE_SERVE_PORT,
+    envFiles: false,
+    checkStore: false,
+    title: 'Public site (wrangler dev on a deployed snapshot)',
+    what: 'the deployed public-site snapshot',
+  },
+]
+
+/** The default app, which is what `1c dev serve` with no argument runs. */
+export const DEFAULT_SERVE_APP = DEV_SERVE_APPS[0]
+
+/**
+ * The row for `name`, matched on the app directory OR the service name.
+ *
+ * BOTH SPELLINGS, BECAUSE THE OPERATOR HAS BOTH. `1c ps` and `bin/dev` call the
+ * control app's snapshot `dev`, while `apps/control-app` is what it is on disk
+ * and what `bin/deploy` prints. Accepting one and rejecting the other would make
+ * which word you had last read decide whether the command worked.
+ */
+export function devServeApp(name: string): DevServeApp | null {
+  return DEV_SERVE_APPS.find((a) => a.app === name || a.service === name) ?? null
+}
 
 /** What `bin/deploy --env dev` recorded about the snapshot it wrote. */
 export interface DevSnapshot {
@@ -146,10 +252,22 @@ export function devServeArgs(opts: {
   appDir: string
   snapshot: DevSnapshot
   port: number | string
+  /**
+   * Whether to name the `.dev.vars` layering — {@link DevServeApp.envFiles}.
+   *
+   * DEFAULTS TO TRUE, so every existing caller composes the argv it already
+   * composed. It is the control app that has the layering; an app without one
+   * passes `false` and gets wrangler's own `.dev.vars` lookup, which is the
+   * behaviour `--env-file` would otherwise replace with a list of absent files.
+   */
+  envFiles?: boolean
   env?: NodeJS.ProcessEnv
   exists?: (p: string) => boolean
 }): string[] {
-  const layering = devEnvLayering({ appDir: opts.appDir, env: opts.env, exists: opts.exists })
+  const layering =
+    opts.envFiles === false
+      ? { args: [] as readonly string[] }
+      : devEnvLayering({ appDir: opts.appDir, env: opts.env, exists: opts.exists })
   return [
     'wrangler',
     'dev',
@@ -177,17 +295,34 @@ export function devServeArgs(opts: {
   ]
 }
 
-/** One line saying what is being served, and when it was built. */
-export function snapshotSummary(snapshot: DevSnapshot, port: number | string): string {
+/**
+ * What is being served here, and when it was built.
+ *
+ * THE ANSWER TO *"WHAT AM I RUNNING?"*, WHICH IS THE WHOLE OF [[BUG-150]]. The
+ * operator worked for an evening inside a server he believed was frozen, and the
+ * reason he could not tell was that nothing said. `1c dev serve` printed this;
+ * `bin/dev up` — the command he was told to use — did not, so this is now read by
+ * both and there is one text for the fact rather than two.
+ */
+export function snapshotSummary(
+  snapshot: DevSnapshot,
+  port: number | string,
+  app: DevServeApp = DEFAULT_SERVE_APP,
+): string {
   const age = snapshot.deployedAt === '' ? '' : ` (deployed ${snapshot.deployedAt}`
   const commit = snapshot.commit === 'unknown' || age === '' ? '' : `, ${snapshot.commit}`
   return (
     // `devUrl`, NOT `localhost` ([[BUG-146]]): the cookie access-sim sets is
     // host-scoped, so naming the other host here logs the operator out again.
-    `Dev environment (wrangler dev on a deployed snapshot) on ${devUrl(port)}\n` +
+    `${app.title} on ${devUrl(port)}\n` +
     `  worker: ${snapshot.worker} --env ${snapshot.env}${age}${commit}${age === '' ? '' : ')'}\n` +
     `  serving: apps/${snapshot.app}/${SNAPSHOT_DIR}/${snapshot.entry}\n` +
-    `  store: apps/${snapshot.app}/${STATE_DIR} — the only copy of the dev data\n` +
+    // "THE ONLY COPY" IS THE CONTROL APP'S CLAIM AND NOT EVERY APP'S (EPIC-16
+    // §K2): that store holds the dev data every environment shares, which is why
+    // `bin/deploy --env dev` guards it before any hook runs. An app that merely
+    // has a store of its own gets the true, smaller sentence.
+    `  store: apps/${snapshot.app}/${STATE_DIR} — ` +
+    `${app.checkStore ? 'the only copy of the dev data' : 'what survives a restart'}\n` +
     '  FROZEN: editing a source file changes nothing here until `bin/deploy --env dev`\n'
   )
 }

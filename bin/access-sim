@@ -53,12 +53,13 @@
 //   ./bin/access-sim &
 //   ./bin/1c dev serve          # what this fronts by default, on 8789
 //
-// …or the watch builder on 8788, which is now the one that has to be named:
-//   ./bin/access-sim --builder http://127.0.0.1:8788 &
-//   ./bin/1c builder
+// THERE IS NO LONGER A SECOND SERVER TO NAME ([[BUG-150]]). `1c builder` on 8788
+// was the watch path — `wrangler dev` over `src/` — and it is deleted, so
+// `--builder` now exists for a server on a non-default PORT (a second checkout,
+// a `--port` override) rather than for a second KIND of server.
 //
-// `bin/dev up` starts both servers and this simulator, so the recipe above is the
-// hand-run of what that command does ([[REQ-322]]).
+// `bin/dev up` starts the dev servers and this simulator, so the recipe above is
+// the hand-run of what that command does ([[REQ-322]]).
 //
 // THE RECIPE NAMES A FILE THE LAUNCHERS READ ([[BUG-146]]). It did not, and that
 // was the defect: `devEnvLayering` composed two `--env-file` flags and neither was
@@ -108,9 +109,9 @@ const AUD = arg('aud', process.env.SIM_AUD || 'local-dev-aud')
 // through here, which makes "what this fronts" the same question as "which
 // environment is usable at all".
 //
-// So the retiring path is the one that now takes an argument —
-// `--builder http://127.0.0.1:8788` — which is the correct direction for the
-// inconvenience to run while both paths are alive (EPIC-16 §L1).
+// 8788 IS NOW NOBODY'S ([[BUG-150]]): the watch builder is deleted, so this
+// default is not one of two paths but the only one, and `--builder` is for a
+// server on a different PORT rather than a different kind of server.
 const BUILDER = arg('builder', process.env.SIM_BUILDER || 'http://127.0.0.1:8789')
 const DEFAULT_TTL = 60 * 60 * 24 * 30
 const ISS = `http://127.0.0.1:${PORT}`

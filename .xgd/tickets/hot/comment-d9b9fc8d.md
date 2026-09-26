@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-26T18:37:07.227925+00:00'
+updated_at: '2026-09-26T21:19:12.303352+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4872,5 +4872,101 @@ Two things that won't slow you down: the KB index is currently coherent (9 expor
 **8788 still starts, and still reads `src/` live** — BUG-150 is still `draft`. With access-sim now fronting 8789 the §O failure doesn't happen by following instructions; it happens by browsing 8788 directly and believing it's frozen. Merges into `xgd-working` will keep restarting it. Same for public-site on 8787, which is still `pnpm dev` watch mode even though the deploy writes it a snapshot.
 
 **Don't run `reap`** — you have the repro console up, and there's an unrecognised listener of ours on 8712 that `reap` would take along with anything else unmanaged. For a single service, `bin/dev restart <service>` now exists (BUG-147's fix).
+
+<!-- xgd-turn id="9f257877-0c18-411d-8f1f-edfa277d2eaa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T20:57:13.352417+00:00" -->
+#### You
+can you confirm:
+1. That the kb is rebuilt with these commands
+2. That the site that I will bring up will be running from the static deployed code
+
+<!-- xgd-turn id="9f257877-0c18-411d-8f1f-edfa277d2eaa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T21:03:17.165400+00:00" -->
+#### Claude
+Both checked against the code and the live tree, not from the tickets.
+
+## 1. The KB — conditionally, and **not** the document your L1 work just invalidated
+
+`bin/build` stage 2 does now run `1c kb ensure` (REQ-322 landed). But `ensure` is deliberately conditional, and its staleness test is narrower than it sounds:
+
+```
+kbSkew: mtime of kb/system/*.md   vs   the two index manifests
+```
+
+The corpus it compares is **the exported markdown on disk**, stamped by *file mtime* (`kb.ts:1106`). It does not look at the ticket store, and `exportCorpus` only runs *inside* `buildKb`. So `ensure` answers "has the exported corpus moved ahead of the index", never "has anything upstream of the corpus changed".
+
+Right now it is coherent — I checked all 9 exported docs' `updated_at` against their live tickets and every one matches, index/chunks/map all built. So `bin/build` will print *"the index covers all 12 corpus document(s) — nothing to build"*, read no credential and make no request.
+
+**The gap that bites you specifically:**
+
+| | |
+|---|---|
+| `kb/system/REF-l1.md` projected | **Sep 24 00:19** |
+| your L1 commits | **Sep 26 12:50 – 13:03** |
+
+`REF-l1` is not a written document — it's a projection derived from `l1NodeSchema` / `l1DocumentSchema` at build time (`kb-projection.ts:1016`, and BUG-48's second half is exactly this document being incomplete). Your four commits changed those declarations. The projection is now two days behind them, and nothing on the `bin/build` path will notice: the file didn't change, so its mtime didn't change, so the manifest still matches.
+
+If the L1 vocabulary moved, force it:
+
+```bash
+bin/kb-release          # = 1c kb ensure --force
+```
+
+Needs `CLOUDFLARE_API_TOKEN` = `1c_Admin_Token` with `NODE_USE_ENV_PROXY=1`; the other two tokens 401 on Workers AI.
+
+## 2. The site — yes, and it already is
+
+`DEV_SERVICES` no longer contains the watch builder at all. It's `filing` → `dev` (control-app, 8789) → `public-site` (8787) → `access-sim`, and both app rows come from `DEV_SERVE_APPS`, each running `wrangler dev --no-bundle` against `apps/<app>/.dev-snapshot`. Port 8788 is not started by anything now.
+
+The freeze is real on both halves of the control app: `ship_local` bundles the Worker with `--dry-run --outdir`, and **copies** `dist-assets` into the snapshot rather than pointing at it — *"pointing the runner at the live directory would leave the builder client as the one part of a frozen environment that is not frozen."*
+
+And you don't need to do anything: the running snapshot is `deployedAt 2026-09-26T20:57:38Z`, built from a tree where no L1 source file is newer than `dist-assets` (13:56 PDT). Your L1 work is already in what's serving.
+
+Two things it does *not* freeze: the **store** (D1/R2 are live and shared — code is frozen, content is not), and env-files, which are read at process start.
+
+## One finding, not blocking
+
+`1c ps` reported `dev` and `public-site` as started by `-` rather than `bin/dev`, even though both have valid pidfiles. `index.ts:1543` passes `readDevPidfiles(root).map((r) => r.pid)` while `devTable` passes `.flatMap(devPidfilePids)` — so the CLI drops `listenerPid`, and for exactly the two services whose listener is a grandchild, the port's pid matches nothing. That's BUG-147's fix landing in the library and missing its own call site, and the symptom is the one BUG-147 was about: a managed service reading as unowned, which is the signal before someone reaches for `reap`.
+
+One-line fix, so it needs a ticket and a child session. Want me to file it, and record the KB-projection gap on the epic?
+
+<!-- xgd-turn id="4e3b1508-aac0-4248-a66f-847fddcd5009-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T21:15:38.867996+00:00" -->
+#### You
+Yes please file.
+
+Is that why 8799 is showing: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-88241'.
+
+<!-- xgd-turn id="4e3b1508-aac0-4248-a66f-847fddcd5009-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T21:19:10.933448+00:00" -->
+#### Claude
+Filed **BUG-152** — *The dev environment misreports its own state to the operator* — under EPIC-16, covering both the `1c ps` call site and the Access-cookie message below. Recorded the KB gap as **§Q** on the epic (it also corrects §P: BUG-150 has landed, so nothing starts 8788 any more).
+
+## No — unrelated. It's a stale cookie, and the message can't say so
+
+I checked the live key against the one your cookie presented:
+
+```
+JWKS on 8799  →  kid  local-dev-87914     ← the process actually running
+your cookie   →  kid  local-dev-88241     ← a sim from an earlier cycle
+```
+
+`bin/access-sim:195` sets `KID = local-dev-${process.pid}` and generates a **fresh RSA keypair per process**, in memory. That's deliberate — `access.ts:249` force-refreshes its JWKS cache on an unseen `kid`, treating a restart as a key rotation, so the Worker picks up a new sim immediately. It works perfectly for the *next* cookie.
+
+The problem is the *previous* one. The cookie is minted with `Max-Age = 60*60*24*30` (`bin/access-sim:116`) — **the credential outlives its signing key by up to thirty days, by construction.** So every `bin/dev up` guarantees this failure for anyone who had signed in, and the failure reports itself as a key-configuration fault rather than as an expired local sign-in.
+
+**Fix right now:** http://127.0.0.1:8799/login — pick your identity. New cookie, signed with 87914, and you're in.
+
+The `1c ps` bug is display-only; it drops `listenerPid` from the managed set and nothing downstream acts on it. Two separate defects that happen to both be the dev environment describing itself wrongly, which is why they're one ticket.
+
+## One thing I did not file
+
+§Q records it but there's no ticket: **`bin/build` will never rebuild `REF-l1`.** `1c kb ensure` compares the mtime of `kb/system/*.md` against the index manifests, and `REF-l1` is a *projection* of `l1NodeSchema` / `l1DocumentSchema` that only gets rewritten during a build. It was projected Sep 24 00:19; your L1 commits landed Sep 26 12:50–13:03. The file hasn't moved, so there's no skew, so nothing rebuilds — the assistant's reference to the L1 vocabulary is describing the pre-REQ-329 schema.
+
+`bin/kb-release` fixes it today. But the general shape — a projection whose freshness is testable (`l1VocabularyGaps` already derives the expectation from the live declarations) and which `ensure` never tests — is BUG-48's lesson one level further out. Want that as its own ticket?
 
 <!-- xgd-chat-end -->

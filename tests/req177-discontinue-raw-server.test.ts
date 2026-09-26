@@ -61,13 +61,19 @@ describe('REQ-177 — 1c serve is discontinued', () => {
   it('test_UAT_FC_REQ-177_help_advertises_no_raw_server', async () => {
     // The misleading part was the help text, not the code: an operator reading
     // it could reasonably conclude a node:http origin was a supported way to run
-    // a site. `1c builder` (wrangler dev) is what the help now offers instead.
+    // a site. A `wrangler dev` is what the help offers instead — and WHICH ONE
+    // changed under this assertion: it was `1c builder`, over `src/`, and
+    // [[BUG-150]] deleted that in favour of `1c dev serve` over the deployed
+    // snapshot. The claim is unchanged and is deliberately not spelled as one
+    // command name: what must not come back is the raw origin.
     const out = captureStdout()
     await run(['help'])
     const usage = out.join('\n')
     expect(usage).not.toMatch(/^\s*1c serve\b/m)
-    expect(usage).toContain('1c builder')
+    expect(usage).toMatch(/^\s*1c dev\b.*\bserve\b/m)
     expect(usage).toContain('wrangler dev')
+    // And the retired one is not still on offer beside it.
+    expect(usage).not.toMatch(/^\s*1c builder\b/m)
   })
 
   it('test_UAT_FC_REQ-177_capture_fixture_still_binds_a_loopback_origin', async () => {

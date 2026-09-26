@@ -6,16 +6,25 @@ title: bin/dev up starts the watching builder, not the frozen snapshot it just b
   — and every server that reads the changing tree should be deleted
 created_by: EPIC-19
 created_at: '2026-09-25T23:26:01.085217+00:00'
-updated_at: '2026-09-26T20:13:49.922285+00:00'
+updated_at: '2026-09-26T20:54:26.945560+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-e4a9f6be
+  commits:
+  - working_sha: b12355bbcb5fab0c884b2a2d30dab1e70c28513d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1d33a637469b2cedf5c5bb00d5c6be5b2c46f226
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.380
+  story_points: 8
 ---
 
 # `bin/dev up` starts the watching builder, not the frozen snapshot it just built — and every server that reads the changing tree should be deleted
@@ -252,3 +261,60 @@ two `--env-file` arguments; [[BUG-146]] added `.dev.vars.local` as a third and
 this expectation was never moved, so it had been failing on `xgd-working`. Two
 assertions corrected while the suite was being repointed at the surviving
 launcher.
+
+
+## Further acceptance criteria this supersedes
+
+Found by running the suites, not by reading them: two more UATs asserted the
+deleted command as their entry point, and both are repointed at the surviving one
+rather than deleted, because what they pin is still true and still worth pinning.
+
+**`test_UAT_FC_REQ-253_*` — the store check's entry point moved.** REQ-253 is the
+gate that refuses to start a server against a database behind `db/migrations/`,
+and six of its eleven legs drove it through `run(['builder'])`. `1c builder` is
+deleted and the store is now opened by `1c dev serve`, so they drive that. Three
+consequences, each asserted:
+
+- **The environment being read changed.** `dev serve` runs at `--env dev`, which
+  inherits nothing, so the block deciding which database file is opened is
+  `[[env.dev.d1_databases]]` rather than the top level `wrangler dev` read. The
+  fixture now declares all three blocks — top level, `[env.dev]`, `[env.production]`
+  — with `[env.production]` naming a different id, so a check reading any block
+  but the served one fails.
+- **The remedy sentence changed with it, and was already correct.** `refusal()`
+  has been environment-aware since REQ-318: at a named environment it says
+  `bin/deploy --env dev`, because that is where the hook verifying an applied
+  migration's bytes lives ([[REQ-291]]), and a bare `wrangler d1 migrations apply`
+  would go round it. The UATs asserted the `--local` form because the builder
+  served the top level. They now assert the deploy at the entry point, and the
+  `--local` form at `localD1Check` itself — no command serves the top level any
+  more, and two environments have two true sentences.
+- **A snapshot has to exist for the check to be reached at all.** `dev serve`
+  refuses on a missing snapshot before it looks at the store, so the fixture
+  writes the manifest `bin/deploy --env dev` would have written. Nothing
+  re-derives it.
+
+`test_UAT_FC_REQ-253_remote_is_not_gated_on_the_local_store` is replaced by its
+inverse, `…_the_check_has_no_ungated_mode_to_be_bypassed_through`. It pinned
+`1c builder --remote` — wrangler pointed at the deployed database, which the local
+store says nothing about, so refusing on the local store would have blocked the
+one mode the check had no evidence for. `--remote` went with the builder, as
+recorded above, so there is no longer a mode the gate must step aside for. That
+makes the surviving claim the stronger one: nothing reaches `wrangler dev` through
+`dev serve` without passing the check, asserted on the argv so a reintroduced
+`--remote` cannot silently re-open the hole.
+
+**`test_UAT_FC_REQ-177_help_advertises_no_raw_server`.** REQ-177 discontinued
+`1c serve`, a raw `node:http` origin, and pinned that the help offers a
+`wrangler dev` instead — naming `1c builder` as that instead. The claim is
+unchanged; only which command satisfies it. It now asserts `1c dev … serve` and,
+additionally, that `1c builder` is not still on offer beside it.
+
+## Prose corrected where it made a false claim
+
+`test_UAT_FC_BUG-147_*`'s header said the wrapper/grandchild shape belonged to
+`1c builder` and that it was two of the four services. The shape is `wrangler dev`
+forking `workerd`, which is exactly what the two snapshot servers do — so the
+comments name the arrangement and record the builder as where it was measured.
+This is the ticket's own boundary being honoured: BUG-147 must not regress, and
+its fixture builds the shape rather than naming it, so no assertion changed.

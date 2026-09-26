@@ -1,6 +1,7 @@
 import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { DEV_SERVE_APPS, readSnapshot, snapshotSummary, type DevSnapshot } from './dev-snapshot'
 import { builderIsRunning as portAnswers } from './reset'
 import {
   devProcessTable,
@@ -54,24 +55,32 @@ export interface DevService {
 /**
  * The dev environment, in start order.
  *
- * THE ORDER IS A DEPENDENCY ORDER, not a preference. `1c builder` starts a filing
- * listener of its own unless one is already answering, so filing goes first and
- * the builder then finds it rather than forking a second one whose lifetime
+ * NOTHING HERE READS `src/` ([[BUG-150]]). That is the whole of what this table
+ * changed: it used to start `1c builder` and `pnpm --filter … dev`, both
+ * `wrangler dev` over the source tree, so `bin/dev up` built the frozen snapshot
+ * on every start and then handed the operator the watching one — which a merge
+ * landing in `xgd-working` restarted four times in thirteen minutes, once three
+ * minutes into a live consultant turn. Every server in this list now runs a
+ * `.dev-snapshot/` that only `bin/deploy --env dev` writes. The old rows are
+ * DELETED rather than flagged off, because an entry point that still exists is
+ * reachable by habit, by an old shell history line, and by an agent reading the
+ * table.
+ *
+ * THE ORDER IS A DEPENDENCY ORDER, not a preference. Filing goes first because a
+ * dev server that finds one answering does not fork a second whose lifetime
  * nothing records. `bin/access-sim` proxies to whichever server it fronts, so it
- * goes last — and since REQ-322 that server is `1c dev serve`, which therefore
+ * goes last — and that server is `1c dev serve` ([[REQ-322]]), which therefore
  * has to be started before it.
  *
- * BOTH SERVERS, NOT ONE ([[REQ-322]], EPIC-16 §L1). `1c dev serve` runs the
- * DEPLOYED snapshot and `1c builder` watches the source tree, on two ports the
- * {@link KNOWN_SERVICES} table names; §L1 requires the old path to keep working
- * until the replacement is proved, so `up` starts both rather than choosing.
- * Retiring the builder is a later step and deleting its row here is how that step
- * will begin — it is not this one.
+ * THE SNAPSHOT ROWS COME OUT OF {@link DEV_SERVE_APPS} rather than being written
+ * here, so the port, the service name and the sentence describing each are one
+ * fact rather than two. A row that invented its own port would be managed by
+ * nothing: the name is the pidfile's stem and `1c ps` recognises the port because
+ * `KNOWN_SERVICES` declares it.
  *
  * EACH ENTRY INVOKES THE EXISTING ENTRY POINT rather than reimplementing it.
- * `pnpm dev:public`, `1c builder`, `1c filing`, `1c dev serve` and
- * `bin/access-sim` all survive this ticket untouched as operator entry points;
- * `bin/dev up` is a further caller of them, not a replacement for what they do.
+ * `1c filing`, `1c dev serve` and `bin/access-sim` all survive as operator entry
+ * points; `bin/dev up` is a further caller of them, not a replacement.
  */
 export const DEV_SERVICES: readonly DevService[] = [
   {
@@ -80,28 +89,15 @@ export const DEV_SERVICES: readonly DevService[] = [
     argv: ['bin/1c', 'filing'],
     what: 'the loopback filing service the assistant reports defects through',
   },
-  {
-    name: 'builder',
-    port: knownPort('builder'),
-    argv: ['bin/1c', 'builder'],
-    what: 'the builder — wrangler dev on apps/control-app',
-  },
-  {
-    // `dev` is the name the {@link KNOWN_SERVICES} table already gives this
-    // port, and the name is the pidfile's stem — so `down` and `reap` cover this
-    // service with no further change, which is why the table is the one place a
-    // port is declared.
-    name: 'dev',
-    port: knownPort('dev'),
-    argv: ['bin/1c', 'dev', 'serve'],
-    what: 'the deployed dev environment — wrangler dev on the snapshot bin/deploy --env dev wrote',
-  },
-  {
-    name: 'public-site',
-    port: knownPort('public-site'),
-    argv: ['pnpm', '--filter', '@1stcontact/public-site', 'dev'],
-    what: 'the public site Worker',
-  },
+  ...DEV_SERVE_APPS.map((app) => ({
+    name: app.service,
+    port: knownPort(app.service),
+    // THE APP IS NAMED EXPLICITLY even for the default, so that `1c ps` shows an
+    // argv an operator can read off and retype, and so that adding a third app
+    // needs no change here at all.
+    argv: ['bin/1c', 'dev', 'serve', app.app],
+    what: `${app.what} — wrangler dev on what bin/deploy --env dev wrote`,
+  })),
   {
     name: 'access-sim',
     port: knownPort('access-sim'),
@@ -399,9 +395,45 @@ export type DevFailureKind =
   /** Still running, but the port never answered inside the budget. */
   | 'timeout'
 
+/**
+ * What one served app is serving, as `bin/dev up` reports it ([[BUG-150]]).
+ *
+ * REPORTED FOR A SERVICE `up` DID NOT START, TOO, and that case is the reason
+ * this exists at all. The defect was an operator who worked an evening inside a
+ * server he believed was frozen; the state where something was ALREADY answering
+ * on the port is precisely where "what am I running?" is least knowable, because
+ * `up` neither spawned it nor can ask it. So the manifest on disk is printed
+ * either way and {@link fresh} says which of the two sentences it is.
+ */
+export interface DevServed {
+  /** The {@link DevService} name — `dev`, `public-site`. */
+  readonly name: string
+  /** The directory under `apps/`. */
+  readonly app: string
+  readonly port: number
+  /**
+   * What `bin/deploy --env dev` last wrote, or `null` when it has never run —
+   * which is a sentence naming the command, not a silence.
+   */
+  readonly snapshot: DevSnapshot | null
+  /** `true` when this `up` started the process; `false` when one was answering. */
+  readonly fresh: boolean
+}
+
 export interface DevUpOutcome {
   readonly deploy: DevDeployStep
   readonly started: readonly DevStarted[]
+  /**
+   * One entry per snapshot-serving app in the selection, in start order.
+   *
+   * THE COMMAND THAT STARTS THE ENVIRONMENT SAYS WHAT THE ENVIRONMENT IS
+   * ([[BUG-150]]). `1c dev serve` has printed this since [[REQ-318]] — worker,
+   * environment, deploy time, commit, snapshot path and the FROZEN line — but
+   * `bin/dev up` is the command an operator is told to use, and it printed a port
+   * and a pid. Having to run a second command to learn what the first one started
+   * is the defect, not a missing nicety.
+   */
+  readonly served: readonly DevServed[]
   /** Already answering when `up` looked — left alone rather than duplicated. */
   readonly alreadyUp: readonly { name: string; port: number }[]
   /** Spawned, but the port never answered. */
@@ -444,6 +476,7 @@ export async function devUp(
   const started: DevStarted[] = []
   const alreadyUp: { name: string; port: number }[] = []
   const failed: { name: string; port: number; kind: DevFailureKind; detail: string }[] = []
+  const served: DevServed[] = []
 
   const logDir = devStateDir(ctx.repoRoot)
   fs.mkdirSync(logDir, { recursive: true })
@@ -451,6 +484,7 @@ export async function devUp(
   for (const service of services) {
     if (await answers(service.port)) {
       alreadyUp.push({ name: service.name, port: service.port })
+      recordServed(service, false)
       continue
     }
     const log = path.join(logDir, `${service.name}.log`)
@@ -509,6 +543,7 @@ export async function devUp(
         log,
       })
       started.push({ name: service.name, pid, listenerPid, port: service.port, log })
+      recordServed(service, true)
       continue
     }
     // THE LOG IS NAMED IN BOTH FAILURES, because a service that was spawned and
@@ -534,7 +569,27 @@ export async function devUp(
     )
   }
 
-  return { deploy, started, alreadyUp, failed, ok: deploy.ok && failed.length === 0 }
+  return { deploy, started, served, alreadyUp, failed, ok: deploy.ok && failed.length === 0 }
+
+  /**
+   * READ FROM DISK RATHER THAN FROM THE RUNNING SERVER, which is the honest thing
+   * this can do and is why {@link DevServed.fresh} exists. `snapshot.json` is what
+   * the deploy step a few lines above wrote, so for a service `up` started it is
+   * exactly what that process loaded; for one that was already answering it is
+   * what is THERE, which may not be what that process read. Saying which is the
+   * difference between a report and a guess.
+   */
+  function recordServed(service: DevService, fresh: boolean): void {
+    const app = DEV_SERVE_APPS.find((a) => a.service === service.name)
+    if (app === undefined) return
+    served.push({
+      name: service.name,
+      app: app.app,
+      port: service.port,
+      snapshot: readSnapshot({ repoRoot: ctx.repoRoot, app: app.app }),
+      fresh,
+    })
+  }
 }
 
 /** How an exited child is named in the report — code, or the signal that killed it. */
@@ -612,12 +667,61 @@ export function formatUp(outcome: DevUpOutcome): string {
     const label = f.kind === 'refused' ? 'REFUSED ' : 'FAILED  '
     lines.push(`  ${label} ${f.name.padEnd(12)} ${f.port}  ${f.detail}`)
   }
-  return (
+  const sections = [
     `${outcome.ok ? 'The dev environment is up.' : 'The dev environment did not come up.'}\n` +
-    `${lines.join('\n')}\n\n` +
+      lines.join('\n'),
+  ]
+  // WHAT IS BEING SERVED, PER APP, BEFORE THE FOOTER ([[BUG-150]]). The report
+  // above says which ports answered; it does not say what is answering on them,
+  // and that is the question an operator lost an evening to. `snapshotSummary` is
+  // REUSED rather than restated so that `1c dev serve` and this cannot disagree
+  // about the same server.
+  const banner = outcome.served.map(formatServed).filter((text) => text !== '')
+  // A BLANK LINE BETWEEN THEM. Two banners of five lines each run together as
+  // one block, and the question they answer is per-app.
+  if (banner.length > 0) sections.push(banner.join('\n\n'))
+  sections.push(
     `\`1c ps\` lists what is running; \`bin/dev down\` stops it and \`bin/dev restart <service>\`\n` +
-    `stops and starts one of them — which is what an env-file change needs, since it only\n` +
-    `takes effect on a process started after it.`
+      `stops and starts one of them — which is what an env-file change needs, since it only\n` +
+      `takes effect on a process started after it.`,
+  )
+  return sections.join('\n\n')
+}
+
+/**
+ * One served app's banner, indented into `up`'s report.
+ *
+ * AN ABSENT SNAPSHOT IS A SENTENCE AND NOT A GAP. A service that came up over a
+ * directory nothing has deployed to cannot have come up at all — `1c dev serve`
+ * refuses — so this row exists precisely when something else is answering on that
+ * port, which is the state the operator most needs named.
+ */
+function formatServed(served: DevServed): string {
+  const app = DEV_SERVE_APPS.find((a) => a.service === served.name)
+  if (app === undefined) return ''
+  const indent = (text: string): string =>
+    text
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => `  ${line}`)
+      .join('\n')
+  if (served.snapshot === null) {
+    return indent(
+      `${app.title} on port ${served.port}\n` +
+        `apps/${served.app}/.dev-snapshot/ holds no snapshot — run \`bin/deploy --env dev\`.\n` +
+        `Whatever is answering on ${served.port} was not started from one.`,
+    )
+  }
+  const body = indent(snapshotSummary(served.snapshot, served.port, app))
+  if (served.fresh) return body
+  // NOT NECESSARILY WHAT THAT PROCESS LOADED, and the difference is the whole
+  // point: `up` neither spawned it nor can ask it, so reporting the manifest as
+  // if it described the incumbent would recreate this ticket's defect one level
+  // down.
+  return (
+    `${body}\n` +
+    `    (something was already answering on ${served.port}, so this is the snapshot ON DISK —\n` +
+    `     \`bin/dev restart ${served.name}\` if you need the process to be the one serving it)`
   )
 }
 

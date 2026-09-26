@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { KNOWN_SERVICES, inDevPortBand, listenerPidsOnPort } from '../tools/generate/src/cli/ps'
 import {
+  DEV_SERVICES,
   devDown,
   devPidfilePids,
   devRestart,
@@ -24,8 +25,10 @@ import {
 /**
  * [[BUG-147]] — `bin/dev down` could not stop the builder, because `up` recorded
  * the pid of the process it SPAWNED and for two of the four services that process
- * is not the one holding the socket: `1c builder` starts `wrangler dev`, which
- * forks `workerd`, and the listener is the grandchild.
+ * is not the one holding the socket: the wrangler launcher forks `workerd`, and
+ * the listener is the grandchild. Measured on `1c builder`, which [[BUG-150]]
+ * deleted; the two services with this shape are now the two deployed snapshots,
+ * and the defect and its fix are unchanged by that.
  *
  * THE WRAPPER SHAPE IS BUILT FOR REAL, NOT SIMULATED. Every leg below that is
  * about the defect starts a real detached wrapper which spawns a real child that
@@ -122,7 +125,12 @@ function answering(port: number): Promise<boolean> {
 }
 
 /**
- * The `1c builder` → `wrangler dev` → `workerd` shape, as a service `up` can start.
+ * The `npx` → `wrangler dev` → `workerd` shape, as a service `up` can start.
+ *
+ * MEASURED UNDER `1c builder`, WHICH IS DELETED, AND STILL THE SHAPE ([[BUG-150]]):
+ * the snapshot servers `up` now starts are the same `wrangler dev` under the same
+ * wrapper, so what this pins is the arrangement rather than the command that
+ * happened to produce it.
  *
  * THE WRAPPER DIES ON SIGTERM AND THE CHILD DOES NOT FOLLOW IT, which is the
  * measured arrangement: 53215 was a live `node` at the repo root while 53613 was
@@ -140,7 +148,7 @@ function wrapperService(name: string, port: number): DevService {
     name,
     port,
     argv: [process.execPath, '-e', wrapper],
-    what: 'a wrapper whose grandchild holds the port, as the builder is',
+    what: 'a wrapper whose grandchild holds the port, as wrangler dev is',
   }
 }
 
@@ -403,7 +411,11 @@ describe('the launcher', () => {
       failed = true
       const out = `${(err as { stdout?: string }).stdout ?? ''}${(err as { stderr?: string }).stderr ?? ''}`
       expect(out).toContain("Unknown dev service 'buidler'")
-      for (const name of ['filing', 'builder', 'public-site', 'access-sim']) expect(out).toContain(name)
+      // THE SERVICES THAT EXIST, READ FROM THE TABLE rather than listed here, so
+      // that retiring one ([[BUG-150]] took the builder) cannot leave this
+      // asserting a name nothing starts.
+      for (const service of DEV_SERVICES) expect(out).toContain(service.name)
+      expect(out).not.toContain('builder')
     }
     expect(failed).toBe(true)
   })

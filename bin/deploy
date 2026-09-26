@@ -137,10 +137,12 @@ Environments select a TARGET — how to ship, not just what to configure:
   --env production (and any other)  cloud: `wrangler deploy --env <name>`
   --env dev                         local: bundle to apps/<app>/.dev-snapshot/
                                     and stop. Nothing is uploaded, no credential
-                                    is needed, and `bin/dev serve` runs
-                                    `wrangler dev --no-bundle` against it — so
-                                    what the dev environment serves changes only
-                                    when you deploy. Before it touches
+                                    is needed, and `bin/dev up` runs
+                                    `wrangler dev --no-bundle` against it — one
+                                    server per app, so what the dev environment
+                                    serves changes only when you deploy.
+                                    `bin/dev serve <app>` runs one of them in the
+                                    foreground. Before it touches
                                     `.wrangler/state` it refuses a tree with two
                                     `workerd` versions in it.
 
@@ -500,7 +502,7 @@ done
 
 if [[ $dry_run -eq 0 ]]; then
   if [[ "$target" == "local" ]]; then
-    printf '\nNow serve it:  bin/dev serve\n'
+    printf '\nNow serve it:  bin/dev up      (or bin/dev serve <app> for one, in the foreground)\n'
   else
     printf '\nNow prove it serves:  bin/smoke\n'
   fi

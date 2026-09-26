@@ -12,9 +12,14 @@ import {
   devUrl,
   devVarsLocalPath,
   devVarsPath,
-  wranglerDevArgs,
 } from '../tools/generate/src/cli/dev-env'
-import { devServeArgs, snapshotSummary, type DevSnapshot } from '../tools/generate/src/cli/dev-snapshot'
+import {
+  devServeApp,
+  devServeArgs,
+  PUBLIC_SITE_SERVE_PORT,
+  snapshotSummary,
+  type DevSnapshot,
+} from '../tools/generate/src/cli/dev-snapshot'
 import { resetJwksCache } from '../apps/control-app/src/access'
 import worker from '../apps/control-app/src/index'
 
@@ -201,15 +206,17 @@ const SNAPSHOT: DevSnapshot = {
 }
 
 /**
- * The two launchers, as a table. The defect was a property of the LAYERING and
- * therefore of both, and a fix asserted against one of them is a fix that can be
- * half-applied without anything saying so.
+ * The launchers, as a table. The defect was a property of the LAYERING and
+ * therefore of every launcher, and a fix asserted against one of them is a fix
+ * that can be half-applied without anything saying so.
+ *
+ * THERE IS ONE LEFT ([[BUG-150]]). `1c builder` was the other, and it is deleted
+ * along with `wranglerDevArgs`, the function that composed its argv: both served
+ * `wrangler dev` over `src/`, which is the defect BUG-150 closes. The table shape
+ * stays because it is the assertion's point — a second launcher, if one is ever
+ * added, must be added HERE and not somewhere that can silently disagree.
  */
 const LAUNCHERS = [
-  {
-    what: '1c builder',
-    argv: (appDir: string) => wranglerDevArgs({ appDir, port: '8788', env: isolated(appDir) }),
-  },
   {
     what: '1c dev serve',
     argv: (appDir: string) =>
@@ -385,7 +392,13 @@ describe('BUG-146 — a file that is not working says so', () => {
 
     // AND IT IS THE TRUTH, not a guess: the Worker really does refuse everything
     // in that state, which is why saying so at launch is worth a line.
-    const vars = { ...varsAWorkerWouldSee(wranglerDevArgs({ appDir, port: '8788', env: isolated(appDir) }), appDir), ACCESS_DEV_OPEN: '1' }
+    const vars = {
+      ...varsAWorkerWouldSee(
+        devServeArgs({ appDir, snapshot: SNAPSHOT, port: 8789, env: isolated(appDir) }),
+        appDir,
+      ),
+      ACCESS_DEV_OPEN: '1',
+    }
     const response = await worker.fetch(new Request('http://127.0.0.1:8788/api/businesses'), vars)
     expect(response.status).toBe(503)
 
@@ -423,15 +436,31 @@ describe('BUG-146 — the recipe and the banners name what they mean', () => {
     expect(banner).toContain(devUrl(8789))
     expect(banner, 'the dev environment banner still names the other cookie host').not.toContain('localhost')
 
-    // `1c builder`'s printed URL. Its banner is a `console.log` inside a command
-    // that goes on to spawn wrangler, so the assertion is that it interpolates
-    // the shared helper rather than a literal — the property that keeps it in
-    // step with the line above.
+    // THE PUBLIC SITE'S BANNER TOO ([[BUG-150]]). There are two served apps now,
+    // on two ports, and a cookie is scoped by HOST and ignores the port — so both
+    // banners have to name the same host or an operator moving between them is
+    // logged out by whichever one names the other.
+    //
+    // `1c builder`'s printed URL WAS THE SECOND HALF OF THIS ASSERTION and went
+    // with the command. It was a `console.log` inside `case 'builder'`, checked
+    // by reading the source for the literal; both are deleted, and the two
+    // surviving banners come out of `snapshotSummary` — one function, so there is
+    // no second spelling left to keep in step.
+    const siteBanner = snapshotSummary(
+      { ...SNAPSHOT, app: 'public-site', worker: '1stcontact-public-site-dev' },
+      PUBLIC_SITE_SERVE_PORT,
+      devServeApp('public-site')!,
+    )
+    expect(siteBanner).toContain(devUrl(PUBLIC_SITE_SERVE_PORT))
+    expect(siteBanner, 'the public site banner still names the other cookie host').not.toContain(
+      'localhost',
+    )
+
+    // AND NO SURVIVING BANNER BUILDS AN ORIGIN BY HAND. A literal is how the
+    // three-fault chain got its third link, so the CLI is read for one.
     const cli = fs.readFileSync(path.join(REPO, 'tools', 'generate', 'src', 'cli', 'index.ts'), 'utf8')
-    const line = cli.split('\n').find((l) => l.includes('Builder (wrangler dev) on '))
-    expect(line, 'the builder banner has moved or gone').toBeTruthy()
-    expect(line!).toContain('${devUrl(port)}')
-    expect(line!).not.toContain('localhost')
+    expect(cli).not.toContain('Builder (wrangler dev) on ')
+    expect(cli).not.toMatch(/`http:\/\/localhost:\$\{port\}/)
   })
 
   /**

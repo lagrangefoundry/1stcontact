@@ -113,22 +113,22 @@ function standIn(service: DevService, port: number): DevService {
 // ── 1 — `bin/dev up` starts the deployed environment ─────────────────────────
 
 describe('bin/dev up — the whole dev environment, in one command', () => {
-  it('test_UAT_FC_REQ-322_up_starts_both_servers_in_dependency_order', () => {
+  it('test_UAT_FC_REQ-322_up_starts_the_deployed_environment_in_dependency_order', () => {
     const names = DEV_SERVICES.map((s) => s.name)
 
-    // FIVE, AND THE NEW ONE IS THE DEPLOYED ENVIRONMENT. Before this ticket the
-    // deployed dev environment was the one part of the dev environment `up` did
-    // not start.
-    expect(names).toEqual(['filing', 'builder', 'dev', 'public-site', 'access-sim'])
+    // THE DEPLOYED ENVIRONMENT IS STARTED, which is what this ticket added: before
+    // it, the deployed dev environment was the one part of the dev environment
+    // `up` did not start.
+    expect(names).toContain('dev')
 
     const dev = DEV_SERVICES.find((s) => s.name === 'dev')
-    expect(dev?.argv).toEqual(['bin/1c', 'dev', 'serve'])
+    expect(dev?.argv.slice(0, 3)).toEqual(['bin/1c', 'dev', 'serve'])
 
-    // BOTH SERVERS, NOT ONE (EPIC-16 §L1). §L1 requires the old path to keep
-    // working until the replacement is proved, which means both up at once —
-    // `serve` REPLACING `builder` in this list is the retirement step, and is a
-    // later ticket.
-    expect(names).toContain('builder')
+    // `serve` REPLACING `builder` IN THIS LIST WAS THE RETIREMENT STEP, and it
+    // has landed ([[BUG-150]]) — so what REQ-322's own comment called "a later
+    // ticket" is asserted here as done. §L1's side-by-side period is over: every
+    // row `up` starts is a deployed snapshot, and none reads `src/`.
+    expect(names).not.toContain('builder')
 
     // `bin/access-sim` proxies to the server it fronts, so that server cannot be
     // started after it.
@@ -152,7 +152,7 @@ describe('bin/dev up — the whole dev environment, in one command', () => {
     expect(KNOWN_SERVICES).toContainEqual(expect.objectContaining({ name: 'repro-console' }))
   })
 
-  it('test_UAT_FC_REQ-322_up_records_all_five_and_down_frees_them', async () => {
+  it('test_UAT_FC_REQ-322_up_records_every_service_and_down_frees_them', async () => {
     const root = tempRoot()
     const services: DevService[] = []
     let next = 8810
@@ -166,46 +166,30 @@ describe('bin/dev up — the whole dev environment, in one command', () => {
     for (const started of up.started) children.push(started.pid)
     expect(up.ok).toBe(true)
     expect(up.failed).toEqual([])
-    // All five, in the order the list declares — including `dev`, which is the
-    // service this ticket added.
-    expect(up.started.map((s) => s.name)).toEqual([
-      'filing',
-      'builder',
-      'dev',
-      'public-site',
-      'access-sim',
-    ])
+    // EVERY ROW THE TABLE DECLARES, IN ITS ORDER, read from the table rather than
+    // listed — so a row retired ([[BUG-150]] took `builder`) or added cannot
+    // leave this asserting a service nothing starts.
+    expect(up.started.map((s) => s.name)).toEqual(DEV_SERVICES.map((s) => s.name))
 
     // EACH WITH A PIDFILE, which is what makes it managed rather than merely
     // running: `down` reads these, and `reap` spares what they name.
     const recorded = readDevPidfiles(root)
-    expect(recorded.map((p) => p.name).sort()).toEqual([
-      'access-sim',
-      'builder',
-      'dev',
-      'filing',
-      'public-site',
-    ])
+    const every = DEV_SERVICES.map((s) => s.name).sort()
+    expect(recorded.map((p) => p.name).sort()).toEqual(every)
 
     // …and `down` then covers the new service with no further change, which is
     // the property the shared name buys.
     const down = await devDown({ repoRoot: root })
     expect(down.ok).toBe(true)
-    expect(down.stopped.map((s) => s.name).sort()).toEqual([
-      'access-sim',
-      'builder',
-      'dev',
-      'filing',
-      'public-site',
-    ])
+    expect(down.stopped.map((s) => s.name).sort()).toEqual(every)
     expect(down.stillListening).toEqual([])
     expect(readDevPidfiles(root)).toEqual([])
   })
 
   it('test_UAT_FC_REQ-322_a_refusal_is_not_reported_as_a_timeout', async () => {
     // `1c dev serve` DECLINES to start on a local D1 behind `db/migrations/`, and
-    // `1c builder` on more than one resolvable `workerd` — each with a message
-    // naming the repair. Detached, both look exactly like a server still warming
+    // on more than one resolvable `workerd` — each with a message naming the
+    // repair. Detached, both look exactly like a server still warming
     // up: the port does not answer. Reported as a timeout, the operator reads
     // "slow" and waits, and the sentence that told them what to fix is sitting in
     // a log nobody has been pointed at.

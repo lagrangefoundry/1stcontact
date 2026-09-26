@@ -5,11 +5,19 @@ import path from 'node:path'
 /**
  * THE env-file layering for `wrangler dev` on the control app (BUG-50).
  *
- * There are two ways to start that server — `1c builder` and `pnpm dev:control`
- * — and they used to compose their own argv. `1c builder` passed no
+ * There used to be two ways to start that server — `1c builder` and
+ * `pnpm dev:control` — and they composed their own argv. `1c builder` passed no
  * `--env-file` at all, so the key an operator had already put where the
  * documentation said was never loaded: the builder came up, served, and
  * truthfully reported having no assistant.
+ *
+ * BOTH OF THOSE COMMANDS ARE DELETED ([[BUG-150]]) and one launcher is left —
+ * `1c dev serve`, over the snapshot `bin/deploy --env dev` wrote. This module is
+ * UNCHANGED BY THAT and deliberately so: the layering was never a property of
+ * which command ran, which is the whole of what BUG-50 and [[BUG-124]] settled,
+ * and `devServeArgs` reuses it verbatim. What went with the builder is
+ * `wranglerDevArgs` — the argv for `wrangler dev` over `src/`, which nothing may
+ * compose any more.
  *
  * WHY A `--env-file` IS NEEDED AT ALL, given that wrangler reads `.dev.vars` by
  * itself. Because the key does not live in `.dev.vars` and must not: that file
@@ -317,36 +325,4 @@ export function readDevEnv(opts: {
   const vars: Record<string, string> = {}
   for (const file of devEnvLayering(opts).files) Object.assign(vars, file.vars)
   return vars
-}
-
-/**
- * The whole `wrangler dev` command line for the control app.
- *
- * ONE FUNCTION RATHER THAN A LIST ASSEMBLED AT THE CALL SITE ([[BUG-124]]),
- * because the question this ticket exists to answer — *does how you launched the
- * dev server change what the Worker can do?* — is a question about this argv, and
- * a UAT can only ask it of something it can call. The answer it now gets is no:
- * nothing here carries a `--var`, so every var the Worker sees comes from the
- * files, which a bare `wrangler dev` reads too.
- */
-export function wranglerDevArgs(opts: {
-  appDir: string
-  port: string
-  remote?: boolean
-  env?: NodeJS.ProcessEnv
-  exists?: (p: string) => boolean
-  read?: (p: string) => string
-}): string[] {
-  const layering = devEnvLayering(opts)
-  return [
-    'wrangler',
-    'dev',
-    '--port',
-    opts.port,
-    ...layering.args,
-    // `--remote` edits the DEPLOYED database from a laptop. Local is the default
-    // because a dev loop that writes to production by default is one keystroke
-    // from losing a site.
-    ...(opts.remote === true ? ['--remote'] : []),
-  ]
 }

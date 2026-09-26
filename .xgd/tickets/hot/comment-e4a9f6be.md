@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-150
 created_by: xgd
 created_at: '2026-09-26T19:43:28.632232+00:00'
-updated_at: '2026-09-26T20:17:02.996609+00:00'
+updated_at: '2026-09-26T20:50:08.963442+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,90 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a62f8bfa-6c9d-4876-97c2-a10237a9ca97-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T20:38:22.762750+00:00" -->
+#### Claude
+Branch exists with all work uncommitted. Let me review the diff and verify it compiles.
+
+14 BUG-150 UATs pass. Now the repaired existing UATs.
+
+Now repairing REQ-253 — its entry-point tests drive the deleted `builder` command.
+
+Now the `writeSnapshot` helper and the imports it needs:
+
+Now the AC1 remedy assertion and the `--remote` test:
+
+Now the `--remote` test, which pinned a mode the deleted builder owned:
+
+Now the "unreadable" test needs a snapshot so it reaches the check:
+
+REQ-253 green. Now the remaining suites touching the changed modules:
+
+All suites green. Now recording the newly-superseded UATs in the ticket body before committing.
+
+Committing the work, then merging working in and bumping on top so the version commit is the tip.
+
+Now taking the merge lock and merging xgd-working into the branch:
+
+Merge clean and the deletions survived. Now bump the version on top and re-verify:
+
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: Not logged in · Please run /login
+
+<!-- xgd-turn id="f0e6b271-35a5-4f36-80f9-8622cd1f509c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T20:41:29.113835+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="f0e6b271-35a5-4f36-80f9-8622cd1f509c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T20:50:07.969993+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me check the current state of the branch and ticket.
+
+Typecheck clean. Now the test suites touched by this change, in the foreground.
+
+All 169 tests green across the touched surface, typecheck clean. Now the merge-back sequence. First, check the lock state and whether 0.2.380 is free.
+
+Lock held. Now merge the latest working into the branch, then bump on top so the version commit is the tip.
+
+Now fast-forward xgd-working to the branch tip.
+
+The working checkout has an operator's uncommitted ACCESS.md addition that overlaps my file. Let me preserve it around the merge.
+
+Merged. Now restore the operator's uncommitted ACCESS.md work on top.
+
+Working tree restored to exactly the operator's pre-existing dirty state. Now the free_coded gate.
+
+BUG-150 is complete and at `free_coded`.
+
+**What landed** (`b12355bbcb` + version bump `1d33a63746`, on `xgd-working`, version 0.2.380):
+
+- `bin/dev up` now starts `1c dev serve control-app` (8789) and `1c dev serve public-site` (8787) against their `.dev-snapshot/` directories — no `wrangler dev` reads `src/` anywhere.
+- `1c dev serve` takes an app argument, driven by a `DEV_SERVE_APPS` table in `dev-snapshot.ts` declaring per app its port, whether it reads the `.dev.vars` layering, and whether it checks the local D1. Unknown app → error naming the services that exist.
+- `up` prints the snapshot manifest per served app, including apps it did not start (port already answering) and apps with no snapshot at all.
+- **Deleted:** `pnpm dev`, `pnpm dev:control`, `pnpm dev:public`, the public site's own `dev` script, `1c builder` (and `--remote`), and `wranglerDevArgs`. 8788 keeps a `1c ps` row naming itself retired, so a leftover builder isn't an unnamed stray.
+
+**Verification** — all foreground, 169 tests green:
+- 14 new BUG-150 UATs
+- REQ-253 (11), REQ-316, REQ-318, REQ-322 — 50 total
+- BUG-50, BUG-124, BUG-146, BUG-147, REQ-177 — 41 total
+- REQ-319, REQ-273, preflight ×2 — 42 total
+- BUG-71, BUG-83, BUG-135, REQ-149 — 22 total
+- `tsc --noEmit` on `tools/generate` clean
+
+**Two things for you:**
+
+1. **`apps/control-app/ACCESS.md` had uncommitted work in your checkout** — the new "Recipes: moving content between builders" section. My branch also edited that file, so I saved your diff, fast-forwarded, and re-applied it cleanly (3-way, no conflicts). It is still uncommitted and unstaged, exactly as you left it. Worth a read though: that new section says copies go "never straight at the builder on 8788", and 8788 no longer serves anything — the simulator now fronts 8789.
+
+2. **`concurrently` is still in root `devDependencies`.** The deleted `dev` script was its only caller, but removing it without regenerating `pnpm-lock.yaml` breaks `pnpm install --frozen-lockfile`. Left in place rather than half-done — it's yours to drop with a lockfile regen when convenient.
+
+Branch and worktree cleaned up, lock released. Ticket is parked at `free_coded` (8 story points) awaiting your promotion to `ready_to_reconcile`.
 
 <!-- xgd-chat-end -->

@@ -1,6 +1,7 @@
 import { BUSINESSES_PATH, type BusinessesPayload } from '../../../../apps/control-app/src/router'
 import { businessPath } from '../../../../apps/control-app/src/scope'
 import type { ChatsLanded, ChatsPayload } from '../../../../apps/control-app/src/chat-copy'
+import { DEV_SERVE_PORT } from './dev-snapshot'
 import {
   accessAdvice,
   ACCESS_NAMING,
@@ -44,8 +45,15 @@ import {
 /** The deployed builder. Named here so neither script can spell it differently. */
 export const CLOUD_ORIGIN = 'https://app.1stcontact.io'
 
-/** `wrangler dev`'s control app. `--origin` overrides it; see {@link CopyOptions.local}. */
-export const LOCAL_ORIGIN = 'http://localhost:8788'
+/**
+ * The local dev environment's control app. `--origin` overrides it; see
+ * {@link CopyOptions.local}.
+ *
+ * IT MOVED FROM 8788 WITH THE BUILDER ([[BUG-150]]). That port was `1c builder`,
+ * `wrangler dev` over `src/`, and it is deleted; the control app now answers on
+ * the deployed-snapshot port, which is the one constant that names it.
+ */
+export const LOCAL_ORIGIN = `http://localhost:${DEV_SERVE_PORT}`
 
 /** Which way the bytes go. It is in the command's name, not in a flag. */
 export type CopyDirection = 'to-cloud' | 'from-cloud'

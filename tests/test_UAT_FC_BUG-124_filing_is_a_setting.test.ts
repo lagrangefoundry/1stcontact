@@ -14,7 +14,19 @@ import {
   type FilingProject,
   type FilingService,
 } from '../tools/generate/src/cli/filing'
-import { devVarsPath, readDevEnv, wranglerDevArgs } from '../tools/generate/src/cli/dev-env'
+import { devVarsPath, readDevEnv } from '../tools/generate/src/cli/dev-env'
+import { devServeArgs, type DevSnapshot } from '../tools/generate/src/cli/dev-snapshot'
+
+/** The manifest `bin/deploy --env dev` writes, which is what the launcher reads. */
+const SNAPSHOT: DevSnapshot = {
+  app: 'control-app',
+  env: 'dev',
+  worker: '1stcontact-control-app-dev',
+  entry: 'worker/worker.js',
+  assets: 'assets',
+  deployedAt: '2026-09-26T09:15:00Z',
+  commit: 'cafe123',
+}
 import { developmentFor, type DevelopmentProject } from '../apps/control-app/src/development'
 import * as aiLib from '../apps/control-app/src/generated/ai-workers.js'
 
@@ -245,17 +257,23 @@ function varsAWorkerWouldSee(
 }
 
 describe('BUG-124 AC3 — filing does not depend on how the dev server was started', () => {
-  it('test_UAT_FC_BUG-124_the_builders_argv_carries_no_filing_var', () => {
+  it('test_UAT_FC_BUG-124_the_launchers_argv_carries_no_filing_var', () => {
     // THE REMOVAL ITSELF. `--var` was the whole mechanism by which a capability
     // became a property of a command line, and the assertion that matters is
     // that there is no longer one to carry.
+    //
+    // ASSERTED AT `1c dev serve`, WHICH IS THE LAUNCHER ([[BUG-150]]). It was
+    // `wranglerDevArgs` — `1c builder`'s argv — and both are deleted, because
+    // that path served `wrangler dev` over `src/`. What BUG-124 settled is
+    // untouched: the address is a SETTING, read from the files by whoever starts
+    // the server, so which command that is was never supposed to matter.
     const { appDir, env } = clone('')
-    const argv = wranglerDevArgs({ appDir, port: '8788', env })
+    const argv = devServeArgs({ appDir, snapshot: SNAPSHOT, port: 8789, env })
     expect(argv).not.toContain('--var')
     expect(argv.join(' ')).not.toContain(FILING_URL_VAR)
   })
 
-  it('test_UAT_FC_BUG-124_1c_builder_and_a_bare_wrangler_dev_reach_the_same_service', () => {
+  it('test_UAT_FC_BUG-124_the_launcher_and_a_bare_wrangler_dev_reach_the_same_service', () => {
     // THE SAME ASSERTION BOTH WAYS ROUND, which is the behaviour this ticket
     // exists to create. Before the fix the left-hand side composed a surface and
     // the right-hand side composed `null`, and nothing anywhere said so.
@@ -266,16 +284,19 @@ describe('BUG-124 AC3 — filing does not depend on how the dev server was start
       mintToken: () => 'minted-once',
     })
 
-    const viaBuilder = varsAWorkerWouldSee(wranglerDevArgs({ appDir, port: '8788', env }), { appDir, env })
+    const viaLauncher = varsAWorkerWouldSee(
+      devServeArgs({ appDir, snapshot: SNAPSHOT, port: 8789, env }),
+      { appDir, env },
+    )
     const viaBareWrangler = varsAWorkerWouldSee(['wrangler', 'dev'], { appDir, env })
 
-    expect(viaBuilder[FILING_URL_VAR]).toBe(viaBareWrangler[FILING_URL_VAR])
-    expect(viaBuilder[FILING_TOKEN_VAR]).toBe(viaBareWrangler[FILING_TOKEN_VAR])
+    expect(viaLauncher[FILING_URL_VAR]).toBe(viaBareWrangler[FILING_URL_VAR])
+    expect(viaLauncher[FILING_TOKEN_VAR]).toBe(viaBareWrangler[FILING_TOKEN_VAR])
 
     // AND BOTH COMPOSE THE SURFACE, which is the fact an operator cares about:
     // not that two strings match, but that the consultant is offered the tool
     // either way. `developmentFor` is the single place that question is asked.
-    expect(developmentFor(viaBuilder)).not.toBeNull()
+    expect(developmentFor(viaLauncher)).not.toBeNull()
     expect(developmentFor(viaBareWrangler)).not.toBeNull()
   })
 

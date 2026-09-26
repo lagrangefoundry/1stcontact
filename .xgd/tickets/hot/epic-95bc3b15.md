@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-25T23:26:34.555470+00:00'
+updated_at: '2026-09-26T21:25:58.909013+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1188,3 +1188,191 @@ not use it.
 The three are ordered by what they cost. BUG-150 stops the restarts. BUG-149 makes a
 restart survivable. BUG-69 makes a junction that is behind harmless rather than
 destructive. None of them substitutes for another.
+
+
+---
+
+### Finding 13 — the playbook and the engagement did not run the same session (2026-09-26)
+
+Measured against the Lagrange Foundry ledger (`chat-50932534`, 47 decisions, 102
+turns) and [[DOC-33]] as it stands. Three questions from the operator: does LF's
+shape match the stages, is variant comparison in the playbook, and did the
+"engagement" thinking ever land. Answers: no, no, and no.
+
+#### 13.1 The order was inverted, not merely shuffled
+
+DOC-33's spine is decide-then-render: brief → positioning → architecture → copy →
+assets → system → layout. LF ran render-then-decide.
+
+| DOC-33 stage | LF decisions | first appears at |
+|---|---|---|
+| 0 Intake & ingestion | — | never recorded |
+| 1 Purpose / audience / scope / restraint | D1, D2 | **#1** |
+| 2 Positioning & differentiation | — | **never** |
+| 3 Content architecture | D17, D20, D43 | **#17** |
+| 4 Copy | D24 | **#24** |
+| 5 Assets | D6, D7, D8, D10, D19 | #6 |
+| 6 Design system | D3, D4, D5, D11, D18, D31, D35–38, D39, D40 | **#3** |
+| 7 Layout & composition | D9, D12–16, D19–23, D25, D29, D30, D32, D33, D42 | #9 |
+| 8 Signature moment | D16, D41, D46 | #16 |
+| 9 Critique | — | **never** |
+| 10 Publish & handoff | D44, D45, D47 | #44 |
+
+**The third decision in the engagement was the palette.** The content-architecture
+decision arrived at #17, after sixteen visual ones. Copy got one entry out of
+forty-seven.
+
+#### 13.2 The two stages that never happened are the two with no artifact
+
+Stage 2 (positioning & differentiation — the stage DOC-31 says all copy descends
+from, and whose §6 text is the most emphatic in the document) produced **zero**
+decisions. Stage 9 (critique) produced zero.
+
+Every stage that renders something happened. Neither stage that only *decides*
+something did. That is the same selection pressure that made the consultant fetch
+`REF-l1` thirteen times and [[DOC-33]] never: **what does not move the page does not
+happen.** A stage with no artifact is not a stage, it is an intention.
+
+#### 13.3 "Locked" did not survive contact with the page
+
+Stage 6's gate is *"the system is locked and everything downstream draws from it."*
+In practice the system was re-opened at least five times:
+
+- **D3 → D4**: the entire palette reversed (near-black + gold → parchment + sanguine),
+  after the dark direction was built and judged "Matrix-style".
+- **D11**: ground colours shifted again, to close the gap between page and plates.
+- **D18**: the spacing rhythm settled — fifteen decisions after the palette.
+- **D31**: typefaces chosen (Spectral + Inter). **D39–D40**: changed again (Cormorant
+  Garamond for wordmark and hero) at decision *forty of forty-seven*.
+- **D35 → D36 → D37 → D38**: one section-rule device, four goes; D38's own text reads
+  *"settles a device that took four attempts"*.
+
+22 lines of the ledger carry supersession language. This is not indiscipline. A
+design system cannot be locked before there is a page for it to be a system *of* —
+DOC-33 places the lock where it does for anti-anchoring reasons, and the anchoring
+argument is answered better by plurality ([[DOC-35]] §9.5) than by sequence.
+
+#### 13.4 The plain pass never happened — and had already been retired on paper
+
+[[DOC-33]] §8 still specifies an undesigned monochrome stage between copy and design
+system. LF opened in full colour at D3. [[CHAT-21]] Session 2 had already concluded
+*"the plain pass dies"* — it existed to solve anchoring-by-deferral, and plurality
+solves that better without the failure mode of a novice seeing a grey page and
+assuming we broke it.
+
+So LF matched the **revised** thinking and contradicted the **document**.
+
+#### 13.5 Variant pages: discovered in-session, blocked by the product, and absent from every doc
+
+- **D26** — *"Design comparisons for the Lagrange Foundry site cannot be shown as
+  separate pages. A newly added page arrives with no interior and no operation can
+  create one."*
+- **D27/D28** — reversed once REQ-300/REQ-301 landed mid-engagement: home (control),
+  `/style-a` Facsimile, `/style-b` Gallery, both full copies restyled.
+- **D34** — *"Martin chose Gallery outright"*, the two alternates deleted.
+
+The single largest decision in the engagement — the whole site's treatment — was
+settled in **one** turn by pointing, after thirty turns of incremental argument. That
+is the mechanism working.
+
+**[[DOC-33]] contains zero occurrences of variant, alternate, side-by-side, or
+comparison-as-artifact.** §7.1 says *"offer two or three genuinely distinct
+directions"* and never says *build them*. [[DOC-49]] §3 — which the consultant
+actually reads — says *"put up two or three options that differ in kind"*, the same
+ambiguity. Both are readable as "describe three options in prose", which is what LF
+got for its first thirty turns.
+
+The distinction that matters: **the comparison must be the artifact, not a
+description of one.** A client evaluating a rendered page needs no vocabulary; a
+client evaluating a paragraph about a page needs ours.
+
+D26 also records the cost of this being undesigned: the product had no page-copy
+operation because nothing had asked for one.
+
+#### 13.6 The ledger cannot express what actually happened
+
+[[DOC-33]] §3.4 specifies every entry as `### <decision name>   [<section>]` under
+eleven named sections (§3.5, first of which is `Session — stage, act, sittings,
+scope band`).
+
+LF's ledger is **47 flat entries titled "Decision 1"…"Decision 47"**. Zero section
+tags. No stage tracking. No `Supersedes:` link, though 22 lines carry supersession
+prose. D27 and D28 are the *same text twice*; D45 and D47 near-duplicate.
+
+This is not non-compliance. `record_decision` has no field for a section, a state,
+or a supersedes link — a consultant with DOC-33 memorised could not have complied.
+The playbook specifies a structured instrument; what exists is a text box and a
+numbered list.
+
+#### 13.7 The engagement thinking is written down, and not where the consultant can reach it
+
+It exists, fully worked, in [[CHAT-21]] Session 2 — six numbered points, with named
+mechanics: *anti-anchoring by plurality not deferral*; *hard-to-reverse things earn
+conversation, easy ones get shown*; *fun is the extraction mechanism* (**"a bored
+client gives short agreeable answers — 'yeah, that's fine' is the sound of a session
+failing"**); *every turn moves the page*; *build by resolution not addition*; *the
+carousel as a standing comparison surface*; *deliberately-wrong extremes to bracket
+the space*; *plausible-but-wrong real English, never Lorem Ipsum, because greeking
+extracts no corrections*. Plus Brenda Laurel's *Computers as Theatre* frame:
+constraint is what makes it enjoyable; a *procedural* structure is the enemy, not
+structure itself.
+
+That session ended: *"DOC-33's own restructure is deferred and scoped in DOC-35 §10."*
+
+[[DOC-35]] §10.2 names four specific changes — §5 re-segmented on diagnosis, stage 1
+gaining *"is that the right objective"*, the free consultation becoming diagnostic,
+restraint becoming a pointing exercise. **None were made.** DOC-33's last edit is
+2026-09-08. A third doc was proposed in-session — *"The Session as Experience —
+engagement as an extraction mechanism"* — and never written; no such doc exists
+between DOC-35 and DOC-56.
+
+The one piece of engagement reasoning DOC-33 *does* carry is §8's *"it makes the Act
+III reveal genuinely dramatic — the before-and-after happens inside the session,
+which is a large part of what the client is paying to experience"* — attached to the
+plain pass, the exact mechanism CHAT-21 retired. DOC-33's only engagement argument is
+banked on the thing that was killed.
+
+#### 13.8 DOC-33 is reachable in principle and unreachable in practice
+
+It is in `kb/system/`, in the manifest, and indexed. Across 102 LF turns: 1,017 tool
+calls, 43 knowledge retrievals, **none about method**; `KnowledgeGet` ran 21 times, 13
+of them for `REF-l1`; DOC-33 was never fetched.
+
+`kb/system/awareness.md` — the landscape primed into every turn — describes 12
+documents in 6 territories. **DOC-33's title appears nowhere in it**, and no validated
+search access point names its content. The nearest territory's entry point is
+[[DOC-50]] and its access points are *"Designing the site"*, *"running the session"*,
+*"what can be changed"*. A consultant asking how a consultation runs lands on
+[[DOC-49]].
+
+The landscape is machine-generated from the corpus, so this is not an authoring
+oversight to fix by hand — whatever replaces DOC-33 must be written so its territory
+description names *acts, stages, what to do first*, or it repeats.
+
+#### 13.9 What this implies
+
+DOC-33 has now been contradicted by three independent passes: [[CHAT-21]] Session 2
+(motivation and fit), [[DOC-35]] §10 (the weld between decision-set and order), and
+the LF engagement (observed behaviour). All three say restructure, not amend.
+
+What a revision has to carry, beyond DOC-35 §10.2's four:
+
+1. **Separate the decision set from the order.** The decision set is invariant
+   (DOC-35 §10.1); the sequence is not, and LF's sequence was a legitimate one.
+2. **Variant pages as the primary decision instrument**, up front — with the
+   plurality dose from DOC-35 §9.5 (six / three / two by persona) and the
+   hard-to-reverse-vs-cheap curve from CHAT-21 point 2 governing *what* is varied.
+3. **Every stage needs an artifact, or it will not run.** Positioning and critique
+   are the test case: give them something that renders, or accept they are optional.
+4. **Retire the plain pass** in the document, as CHAT-21 already did in fact.
+5. **Move or drop the design-system lock.** Locked-at-stage-6 was violated five times
+   in one engagement; the anti-anchoring job it was doing belongs to plurality.
+6. **Engagement as extraction**, not as polish — the strongest claim of the three and
+   the one with no home today.
+7. **A ledger that can say what happened**: section, state (`inherited` / `open` /
+   `locked` / `parked` / `client-call`), and `supersedes`. §5's whole routing
+   mechanism depends on fields `record_decision` does not have.
+8. **Reachability is part of the deliverable.** A playbook nobody retrieves is
+   indistinguishable from one nobody wrote.
+
+Nothing filed. This is analysis pending the operator's call on shape.

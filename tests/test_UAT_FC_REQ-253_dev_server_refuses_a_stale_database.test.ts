@@ -23,6 +23,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
  * a fixture checkout, because the gate is deliberately repo-anchored (BUG-50) and
  * a test that read the developer's own `.wrangler/state` would pass or fail on
  * whether they had run their migrations this morning.
+ *
+ * THE ENTRY POINT IS `1c dev serve`, NOT `1c builder` ([[BUG-150]]). This suite
+ * was written when the server that opened the store was the watch builder over
+ * `src/`; that command is deleted, and the store is now opened by the frozen
+ * snapshot server. The gate is the same gate and every fact below is the same
+ * fact — but two of them are read differently at the surviving entry point and
+ * are asserted as such:
+ *
+ *   - THE ENVIRONMENT. `dev serve` runs at `--env dev`, which inherits nothing,
+ *     so the block that decides which database file is opened is
+ *     `[[env.dev.d1_databases]]`. The fixture declares it, alongside a top level
+ *     and an `[env.production]` that name DIFFERENT ids, so a check reading any
+ *     block but the served one fails here.
+ *   - THE REMEDY. At a named environment the migrations are the deploy's job, so
+ *     the sentence the operator is handed is `bin/deploy --env dev` rather than a
+ *     bare `wrangler d1 migrations apply --local` that would bypass the hook
+ *     verifying an applied migration's bytes ([[REQ-291]]). The `--local` form is
+ *     still the top level's remedy and is still asserted, at `localD1Check`
+ *     itself, because no command serves the top level any more.
  */
 
 const { spawnCalls } = vi.hoisted(() => ({
@@ -51,19 +70,52 @@ const { run } = await import('../tools/generate/src/cli')
 const { localD1Check, localD1File, migrationFiles, readLocalD1Binding } = await import(
   '../tools/generate/src/cli/d1-migrations'
 )
+const { SNAPSHOT_DIR, SNAPSHOT_MANIFEST, devServeArgs } = await import(
+  '../tools/generate/src/cli/dev-snapshot'
+)
+
+/**
+ * The record `bin/deploy --env dev` leaves, which `1c dev serve` reads to learn
+ * what to run — written here so the entry point gets PAST the "nothing has been
+ * deployed" refusal and reaches the store check, which is what this suite is
+ * about. `env` is `dev` because that is the environment the check must read.
+ */
+function writeSnapshot(appDir: string): void {
+  const dir = path.join(appDir, SNAPSHOT_DIR)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    path.join(dir, SNAPSHOT_MANIFEST),
+    JSON.stringify({
+      app: 'control-app',
+      env: 'dev',
+      worker: '1stcontact-control-app-dev',
+      entry: 'worker.js',
+      assets: null,
+      deployedAt: '2026-09-26T09:00:00Z',
+      commit: 'abc1234',
+    }),
+  )
+  writeFileSync(path.join(dir, 'worker.js'), 'export default { fetch: () => new Response("ok") }\n')
+}
 
 const DATABASE_ID = '0434cd88-07e0-4eb2-a7d8-7370c333534c'
 const DATABASE_NAME = '1stcontact'
 
 /**
- * A checkout, shaped exactly as the repository is: the D1 binding in the app's
- * top-level `[[d1_databases]]` block, and the migrations at the repo root where
- * `migrations_dir` says they are.
+ * A checkout, shaped exactly as the repository is: the D1 binding declared both
+ * at the top level and under `[env.dev]` naming the same store (EPIC-16 §K2 —
+ * there is ONE local store and the dev environment does not fork it), and the
+ * migrations at the repo root where `migrations_dir` says they are.
  *
- * `[env.production]` CARRIES A DIFFERENT DATABASE ID ON PURPOSE. `wrangler dev`
- * reads the top level and a named environment inherits nothing, so a check that
- * took the first `database_id` in the file would read the wrong store the day the
- * two differ — and this fixture is the day they differ.
+ * `[env.production]` CARRIES A DIFFERENT DATABASE ID ON PURPOSE. A named
+ * environment inherits nothing, so a check that took the first `database_id` in
+ * the file would read the wrong store the day the blocks differ — and this
+ * fixture is the day they differ.
+ *
+ * A DEPLOYED SNAPSHOT IS WRITTEN because `1c dev serve` is the entry point
+ * ([[BUG-150]]) and it refuses, before it reaches the store check, when there is
+ * nothing to serve. The manifest is the deploy's own record; nothing here
+ * re-derives it.
  */
 function checkout(opts: { files: string[]; applied?: string[] | null }): string {
   const root = mkdtempSync(path.join(tmpdir(), 'req253-'))
@@ -80,6 +132,15 @@ function checkout(opts: { files: string[]; applied?: string[] | null }): string 
       `database_id = "${DATABASE_ID}"`,
       'migrations_dir = "../../db/migrations"',
       '',
+      '[env.dev]',
+      'name = "1stcontact-control-app-dev"',
+      '',
+      '[[env.dev.d1_databases]]',
+      'binding = "DB"',
+      `database_name = "${DATABASE_NAME}"`,
+      `database_id = "${DATABASE_ID}"`,
+      'migrations_dir = "../../db/migrations"',
+      '',
       '[env.production]',
       'name = "1stcontact-control-app"',
       '',
@@ -91,6 +152,7 @@ function checkout(opts: { files: string[]; applied?: string[] | null }): string 
       '',
     ].join('\n'),
   )
+  writeSnapshot(appDir)
 
   const migrations = path.join(root, 'db', 'migrations')
   mkdirSync(migrations, { recursive: true })
@@ -147,19 +209,32 @@ describe('REQ-253 — the local database is checked before the server serves', (
     })
     captureOutput()
 
-    await expect(run(['builder'])).rejects.toThrow(/0002_sessions\.sql/)
+    await expect(run(['dev', 'serve'])).rejects.toThrow(/0002_sessions\.sql/)
     expect(spawnCalls).toHaveLength(0)
 
-    const said = await run(['builder']).catch((e: Error) => e.message)
+    const said = await run(['dev', 'serve']).catch((e: Error) => e.message)
     expect(said).toContain('0002_sessions.sql')
     expect(said).toContain('0003_domains.sql')
     // The applied one is not offered back as work to do.
     expect(said).not.toContain('0001_baseline.sql')
-    // The command, exactly as it can be typed, from the repo root.
-    expect(said).toContain(
+    // The command, exactly as it can be typed, from the repo root. At the served
+    // environment that is the DEPLOY ([[BUG-150]]): a named environment's
+    // migrations are applied by `bin/deploy`'s hook, which verifies an applied
+    // migration's bytes ([[REQ-291]]) — a bare `wrangler d1 migrations apply`
+    // would go round it.
+    expect(said).toContain('bin/deploy --env dev')
+    expect(spawnCalls).toHaveLength(0)
+
+    // AND THE TOP LEVEL'S REMEDY IS STILL THE WRANGLER FORM, asserted at the
+    // check itself because no command serves the top level any more. Two
+    // environments, two true sentences; a single hard-coded remedy would be wrong
+    // for one of them.
+    const top = await localD1Check({ repoRoot: fixture.root })
+    expect(top.kind).toBe('refuse')
+    if (top.kind !== 'refuse') return
+    expect(top.message).toContain(
       `(cd ${path.join('apps', 'control-app')} && npx wrangler d1 migrations apply ${DATABASE_NAME} --local)`,
     )
-    expect(spawnCalls).toHaveLength(0)
   })
 
   it('test_UAT_FC_REQ-253_the_refusal_says_a_running_server_must_be_restarted', async () => {
@@ -170,7 +245,7 @@ describe('REQ-253 — the local database is checked before the server serves', (
     fixture.root = checkout({ files: ['0001_baseline.sql'], applied: [] })
     captureOutput()
 
-    const said = await run(['builder']).catch((e: Error) => e.message)
+    const said = await run(['dev', 'serve']).catch((e: Error) => e.message)
     expect(said).toMatch(/RESTART/)
     expect(said).toMatch(/view of the schema/)
   })
@@ -185,7 +260,7 @@ describe('REQ-253 — the local database is checked before the server serves', (
     })
     const said = captureOutput()
 
-    await run(['builder'])
+    await run(['dev', 'serve'])
 
     expect(spawnCalls).toHaveLength(1)
     expect(spawnCalls[0].args.slice(0, 2)).toEqual(['wrangler', 'dev'])
@@ -203,7 +278,7 @@ describe('REQ-253 — the local database is checked before the server serves', (
     })
     captureOutput()
 
-    await run(['builder'])
+    await run(['dev', 'serve'])
 
     expect(spawnCalls).toHaveLength(1)
     // Started, and the difference is still SEEN rather than ignored — the rule is
@@ -222,10 +297,12 @@ describe('REQ-253 — the local database is checked before the server serves', (
     fixture.root = checkout({ files: ['0001_baseline.sql'], applied: null })
     captureOutput()
 
-    const said = await run(['builder']).catch((e: Error) => e.message)
+    const said = await run(['dev', 'serve']).catch((e: Error) => e.message)
     expect(said).toContain('There is no local database yet')
     expect(said).not.toMatch(/behind/)
-    expect(said).toContain(`npx wrangler d1 migrations apply ${DATABASE_NAME} --local`)
+    // The command that answers both cases, at the environment being served
+    // ([[BUG-150]]) — one deploy creates the store and applies every migration.
+    expect(said).toContain('bin/deploy --env dev')
     expect(spawnCalls).toHaveLength(0)
   })
 
@@ -291,17 +368,42 @@ describe('REQ-253 — the local database is checked before the server serves', (
     ])
   })
 
-  it('test_UAT_FC_REQ-253_remote_is_not_gated_on_the_local_store', async () => {
-    // `--remote` points wrangler at the DEPLOYED database, which `bin/deploy`
-    // migrates and which this local file says nothing about. Refusing on it would
-    // block the one mode the check has no evidence for.
+  it('test_UAT_FC_REQ-253_the_check_has_no_ungated_mode_to_be_bypassed_through', async () => {
+    // THE INVERSE OF WHAT THIS TEST USED TO ASSERT, and it is the inverse because
+    // the subject was deleted ([[BUG-150]]).
+    //
+    // It pinned `1c builder --remote`: wrangler pointed at the DEPLOYED database,
+    // which this local file says nothing about, so refusing on the local store
+    // would have blocked the one mode the check has no evidence for. `1c builder`
+    // is gone, and `--remote` went with it — the frozen environment exists to be
+    // the LOCAL store's server, so there is no longer a mode this gate must step
+    // aside for.
+    //
+    // That makes the surviving claim the stronger one: there is no way through
+    // `dev serve` that skips the check. Asserted on the argv, because a `--remote`
+    // reintroduced anywhere in it would silently re-open the hole this closes.
     fixture.root = checkout({ files: ['0001_baseline.sql'], applied: null })
     captureOutput()
 
-    await run(['builder', '--remote'])
+    await expect(run(['dev', 'serve'])).rejects.toThrow(/no local database yet/)
+    expect(spawnCalls).toHaveLength(0)
 
-    expect(spawnCalls).toHaveLength(1)
-    expect(spawnCalls[0].args).toContain('--remote')
+    const snapshot = {
+      app: 'control-app',
+      env: 'dev',
+      worker: '1stcontact-control-app-dev',
+      entry: 'worker.js',
+      assets: null,
+      deployedAt: '2026-09-26T09:00:00Z',
+      commit: 'abc1234',
+    }
+    const argv = devServeArgs({
+      appDir: path.join(fixture.root, 'apps', 'control-app'),
+      snapshot,
+      port: 8789,
+      envFiles: false,
+    })
+    expect(argv).not.toContain('--remote')
   })
 
   it('test_UAT_FC_REQ-253_a_check_that_cannot_run_warns_and_does_not_stop_the_start', async () => {
@@ -314,10 +416,11 @@ describe('REQ-253 — the local database is checked before the server serves', (
     const appDir = path.join(root, 'apps', 'control-app')
     mkdirSync(appDir, { recursive: true })
     writeFileSync(path.join(appDir, 'wrangler.toml'), 'name = "1stcontact-control-app"\n')
+    writeSnapshot(appDir)
     fixture.root = root
     const said = captureOutput()
 
-    await run(['builder'])
+    await run(['dev', 'serve'])
 
     expect(spawnCalls).toHaveLength(1)
     expect(said.join('\n')).toContain('d1_databases')

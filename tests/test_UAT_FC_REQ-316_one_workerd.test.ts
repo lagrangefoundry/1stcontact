@@ -257,7 +257,7 @@ describe('REQ-316 — the workerd preflight', () => {
     })
     let err: unknown
     try {
-      assertOneWorkerd('builder', { repoRoot: root })
+      assertOneWorkerd('dev serve', { repoRoot: root })
     } catch (e) {
       err = e
     }
@@ -269,7 +269,7 @@ describe('REQ-316 — the workerd preflight', () => {
     expect(e.message).toContain('workerd 1.20260710.1')
     expect(e.message).toContain('miniflare@4.20260710.0')
     // Which command refused, and why the fault is unreadable where it lands.
-    expect(e.message).toContain("'1c builder'")
+    expect(e.message).toContain("'1c dev serve'")
     expect(e.message).toContain('.wrangler/state')
     expect(e.message).toContain('_cf_ALARM')
     // The remedy, in REQ-44's and REQ-144's voice: the manifests, then the command.
@@ -301,7 +301,7 @@ describe('REQ-316 — the workerd preflight', () => {
     const report = checkWorkerd({ repoRoot: root })
     expect(report.ok).toBe(true)
     expect(report.versions).toEqual([])
-    expect(() => assertOneWorkerd('builder', { repoRoot: root })).not.toThrow()
+    expect(() => assertOneWorkerd('dev serve', { repoRoot: root })).not.toThrow()
   })
 
   it('test_UAT_FC_REQ-316_gate_is_scoped_to_the_commands_that_open_the_store', () => {
@@ -309,9 +309,11 @@ describe('REQ-316 — the workerd preflight', () => {
       { version: '1.20260630.1', broughtBy: 'wrangler@4.106.0' },
       { version: '1.20260710.1', broughtBy: 'miniflare@4.20260710.0' },
     ]
-    // The store-openers: `wrangler dev`, the seeder, and the deliberate way back
-    // to empty.
-    for (const command of ['builder', 'reset', 'fonts seed', 'fonts mirror']) {
+    // The store-openers: every command that starts a `wrangler dev`, the seeder,
+    // and the deliberate way back to empty. `builder` headed this list and went
+    // with the command ([[BUG-150]]); `dev up`, `dev restart` and `dev serve` are
+    // the paths that open the store now, so deleting a command un-gated nothing.
+    for (const command of ['dev up', 'dev restart', 'dev serve', 'reset', 'fonts seed', 'fonts mirror']) {
       expect(() => assertOneWorkerd(command, { repoRoot: root, scan: skewed })).toThrow(CommandError)
     }
     // Everything else reads and writes files. A skew it cannot cause must never
@@ -331,7 +333,7 @@ describe('REQ-316 — the workerd preflight', () => {
     expect(workerdGateKey('fonts', 'check')).toBe('fonts')
     expect(workerdGateKey('fonts', undefined)).toBe('fonts')
     // A verb with no store-opening subcommand keeps its own key whatever follows.
-    expect(workerdGateKey('builder', '--port')).toBe('builder')
+    expect(workerdGateKey('render', '--port')).toBe('render')
     expect(workerdGateKey('reset', undefined)).toBe('reset')
   })
 

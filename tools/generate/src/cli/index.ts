@@ -12,10 +12,13 @@ import {
   type GlobalOptions,
 } from './commands'
 import { spawn } from 'node:child_process'
-import { devEnvLayering, devUrl, devVarsPath, readDevEnv, wranglerDevArgs } from './dev-env'
+import { devEnvLayering, devUrl, devVarsPath, readDevEnv } from './dev-env'
 import { localD1Check } from './d1-migrations'
 import {
+  DEFAULT_SERVE_APP,
+  DEV_SERVE_APPS,
   DEV_SERVE_PORT,
+  devServeApp,
   devServeArgs,
   noSnapshotMessage,
   readSnapshot,
@@ -404,16 +407,20 @@ export type {
   DevUpOutcome,
 } from './dev'
 export {
+  DEFAULT_SERVE_APP,
+  DEV_SERVE_APPS,
   DEV_SERVE_PORT,
+  devServeApp,
   devServeArgs,
   noSnapshotMessage,
+  PUBLIC_SITE_SERVE_PORT,
   readSnapshot,
   snapshotDir,
   snapshotSummary,
   SNAPSHOT_DIR,
   SNAPSHOT_MANIFEST,
 } from './dev-snapshot'
-export type { DevSnapshot } from './dev-snapshot'
+export type { DevServeApp, DevSnapshot } from './dev-snapshot'
 export {
   assertOneWorkerd,
   checkWorkerd,
@@ -478,29 +485,11 @@ Usage:
     source a re-seed could come from: every site lives in the store this empties, and
     \`bin/copy-from-cloud\` is how one comes back.
     Without --yes it PREVIEWS: prints what it would remove and deletes nothing.
-    Refuses while the builder is answering on --port (default 8788) — a live
+    Refuses while a dev server is answering on --port (default ${DEV_SERVE_PORT}) — a live
     miniflare holds those SQLite files open, so deleting under it corrupts the
-    store rather than resetting it. Stop the server first.
+    store rather than resetting it. \`bin/dev down\` first.
     --include-public extends it to apps/public-site/.wrangler/state.
 
-  1c builder [--port <n>] [--remote] [--no-filing]
-    Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
-    routes, store and runtime as production. Serves what \`1c assets\` built, so run
-    that first. The store is the LOCAL simulated D1/R2, and it starts empty: author in
-    the builder, or bring a site down with \`bin/copy-from-cloud <business>\`.
-    --remote points at the deployed D1 and R2, which means editing production data.
-    Refuses to start when the local database is behind db/migrations/, naming the
-    pending files and the command that applies them; --remote skips that check,
-    because the deployed database is \`bin/deploy\`'s to migrate.
-    It also starts a loopback FILING SERVICE (REQ-273) unless one is already
-    answering, so the assistant can report a defect in this software into THIS
-    project's ticket store — never into the client's.
-    Filing no longer depends on this command: the address lives in .dev.vars, so
-    a dev server started any other way has it too (BUG-124). The banner reports
-    what is actually ANSWERING at that address rather than what this process did.
-    --no-filing starts no listener. It does not un-configure the address, which
-    this command does not own — the assistant is still offered the tool and is
-    told the project is unreachable when it uses it, which the banner also says.
   1c ps [--json]
     Every server this project has running, with its pid, its port and the directory
     it was started from ([[REQ-319]]). Built on \`lsof\`, not \`ps\` — \`ps aux\` returns
@@ -526,29 +515,36 @@ Usage:
   1c dev up | down | reap | restart | serve [<service>…] [--dry-run] [--json]
       (\`bin/dev\` is the launcher; <service> is one or more of ${DEV_SERVICES.map((s) => s.name).join(' | ')})
     up    Deploys to the local dev target (REQ-318's \`bin/deploy --env dev\`, skipped
-          with a line while that target does not exist), then starts filing, the
-          builder, the public site and access-sim in dependency order and records a
+          with a line while that target does not exist), then starts filing, the two
+          DEPLOYED SNAPSHOTS and access-sim in dependency order and records a
           pidfile per service under storage/tmp/dev, naming BOTH the process it
           spawned and the one found holding the port once it answered. A service
           already answering is left alone rather than duplicated. Name one or more
           services to start only those, which skips the deploy.
+          NOTHING IT STARTS READS \`src/\` ([[BUG-150]]): it used to start the watch
+          builder and \`pnpm … dev\` beside the snapshot it had just built, so a merge
+          landing in the checkout restarted the server mid-turn. It PRINTS, per served
+          app, what is being served and when it was deployed — the question that had
+          no answer even after doing the right thing.
     down  SIGTERMs the PROCESS GROUP of what the pidfiles name, then VERIFIES the
           ports are free through \`1c ps\` rather than assuming the signal landed. The
-          group, not the pid, because \`1c builder\` and \`pnpm … dev\` are wrappers
-          whose grandchild holds the socket, and signalling the wrapper left \`workerd\`
+          group, not the pid, because \`wrangler dev\` is a wrapper whose grandchild
+          holds the socket, and signalling the wrapper left \`workerd\`
           running ([[BUG-147]]). Exits non-zero when a port it was asked to free is
           still answering, and removes that service's pidfile so \`reap\` inherits it.
     restart down then up for the named services — an env-file change only takes effect
           on a process started after it, and this is the spelling of that. It deploys
           nothing, and starts nothing when \`down\` left a port answering: \`up\` would
           read that as \`already up\` and leave the stale process in place.
-    serve Runs the DEPLOYED snapshot ([[REQ-318]]): \`wrangler dev --no-bundle\` against
-          apps/control-app/.dev-snapshot, on port ${DEV_SERVE_PORT} — not 8788, so it
-          runs beside the old path against the same store. It is FROZEN by
+    serve [<app>] Runs ONE app's DEPLOYED snapshot in the foreground ([[REQ-318]]):
+          \`wrangler dev --no-bundle\` against apps/<app>/.dev-snapshot. <app> is one of
+          ${DEV_SERVE_APPS.map((a) => a.app).join(' | ')} and defaults to ${DEFAULT_SERVE_APP.app}
+          (${DEV_SERVE_APPS.map((a) => `${a.app} on ${a.port}`).join(', ')}). It is FROZEN by
           construction: editing a source file changes nothing here until the next
-          \`bin/deploy --env dev\`. Refuses when the local database is behind
-          db/migrations/, and when more than one \`workerd\` resolves — the store is
-          the only copy of the dev data. --port overrides.
+          \`bin/deploy --env dev\`, which is the ONLY way to change what is served.
+          It prints what it is serving and when that was built, every time. Refuses when
+          the local database is behind db/migrations/, and when more than one \`workerd\`
+          resolves — the store is the only copy of the dev data. --port overrides.
     reap  The backstop. Kills every listener whose cwd is this checkout or an .xgd
           worktree of it and which no pidfile claims — SIGTERM, then SIGKILL what is
           still there. It is not redundant with \`down\`: a worktree torn down
@@ -602,7 +598,7 @@ Copy a business between builders (REQ-289, REQ-294) — what \`bin/copy-to-cloud
     <business> is the business's NAME as it reads in the builder ("Lagrange Foundry");
     it resolves to a different id on each side, and both calls name their side's id
     explicitly. The target business must ALREADY EXIST on the far side: this never
-    creates one. --origin overrides the non-cloud end (default http://localhost:8788,
+    creates one. --origin overrides the non-cloud end (default ${LOCAL_ORIGIN},
     or point it at \`bin/access-sim\`). REFUSED with 409 when the target
     carries changes made in the BUILDER (BUG-51); --force says you mean it.
     --backup FILE writes the SOURCE side's export to FILE and touches the destination
@@ -912,7 +908,7 @@ package does not resolve or when pnpm-lock.yaml differs from the copy pnpm wrote
 at last install. Declaring a dependency does not materialize it: a tree that lags
 the lockfile is one prune away from losing a package it still declares. The
 remedy is always \`pnpm install\` at the repo root. Offline commands (render,
-serve, builder, repro, refold, l1-gate, responsive-diff, the structured-edit
+serve, repro, refold, l1-gate, responsive-diff, the structured-edit
 verbs) are never gated.`
 
 /** Parse a revision positional (`0001` or `1`) to a number, or undefined. */
@@ -1352,7 +1348,15 @@ export async function run(argv: string[]): Promise<void> {
     case 'reset': {
       // BUG-51 — the deliberate way back to empty. See `reset.ts` for why a
       // command exists rather than an instruction to delete a directory.
-      const port = Number.parseInt(typeof flags.port === 'string' ? flags.port : '8788', 10)
+      // THE DEV ENVIRONMENT'S PORT, NOT THE BUILDER'S ([[BUG-150]]). This
+      // defaulted to 8788 because that is where `wrangler dev` answered; the
+      // builder is deleted and the process holding those SQLite files open is now
+      // `1c dev serve` on ${DEV_SERVE_PORT}. A default naming a port nothing
+      // binds is a guard that always passes.
+      const port = Number.parseInt(
+        typeof flags.port === 'string' ? flags.port : String(DEV_SERVE_PORT),
+        10,
+      )
       // A bare Error, as the copy verbs raise for their own usage mistakes: the
       // `ErrorCode` set is about what happened to a DEFINITION, and a mistyped
       // flag never reached one.
@@ -1396,17 +1400,17 @@ export async function run(argv: string[]): Promise<void> {
         // is a wart to fix where it lives, not one to inherit here.
         throw new CommandError({
           code: 'ENVIRONMENT',
-          // "SOMETHING", NOT "THE BUILDER". A connect proves a listener, not
-          // whose it is, and on a developer's machine that port may belong to
-          // anything. Naming it as the builder would make the one case where the
-          // operator is right and the tool is wrong — a different service on
-          // 8788 — read as the tool knowing something it does not. `--port` is
-          // the way out, and is named here because that is when it is needed.
+          // "SOMETHING", NOT "THE DEV ENVIRONMENT". A connect proves a listener,
+          // not whose it is, and on a developer's machine that port may belong to
+          // anything. Naming it would make the one case where the operator is
+          // right and the tool is wrong — a different service on that port — read
+          // as the tool knowing something it does not. `--port` is the way out,
+          // and is named here because that is when it is needed.
           message:
-            `Something is listening on port ${port}, so the builder may be running. ` +
-            'Stop it first: a live wrangler dev holds the store\'s SQLite files open, ' +
-            'so deleting them underneath it corrupts the store instead of emptying it. ' +
-            'Nothing was deleted. If that port is something else, pass --port.',
+            `Something is listening on port ${port}, so a dev server may be running. ` +
+            'Stop it first (`bin/dev down`): a live wrangler dev holds the store\'s SQLite ' +
+            'files open, so deleting them underneath it corrupts the store instead of ' +
+            'emptying it. Nothing was deleted. If that port is something else, pass --port.',
         })
       }
 
@@ -1417,147 +1421,6 @@ export async function run(argv: string[]): Promise<void> {
           : 'The local dev store was already empty.') +
           `\n\nNext start is a fresh store; \`bin/copy-from-cloud <business>\` brings a site back.`,
       )
-      return
-    }
-
-    case 'builder': {
-      // REQ-145 — `1c builder` starts `wrangler dev`, which IS the builder: the
-      // same routes, the same store and the same runtime as production. It used
-      // to start a `node:http` origin of its own, and keeping both would be the
-      // two-code-paths problem `CLAUDE.md` forbids — the operator's local loop
-      // would exercise something the deployed builder is not.
-      //
-      // The Node transport survives as a test harness only (`startBuilder`),
-      // over that same route table. It is not started here.
-      const port = typeof flags.port === 'string' ? flags.port : '8788'
-      // REPO-ANCHORED, NOT CWD-ANCHORED (BUG-50). This derived `apps/control-app`
-      // from the working directory, so the command only worked when typed at the
-      // repo root — and `dev:control` now calls it, which would have made that
-      // requirement a silent dependency of a package script rather than an
-      // operator's own mistake to notice.
-      const root = repoRoot()
-      const appDir = path.join(root, 'apps', 'control-app')
-      // THE SAME LAYERING `pnpm dev:control` ONCE COMPOSED ITSELF (BUG-50).
-      // That script is now a caller rather than a second author of it; see
-      // `dev-env.ts` for why half of this layering is not a smaller version of
-      // it but a different and broken thing.
-      const devEnv = devEnvLayering({ appDir })
-
-      // THE STORE IS CHECKED BEFORE ANYTHING IS STARTED ([[REQ-253]]).
-      //
-      // Production has had this guarantee since REQ-143: the migrate hook applies
-      // the migrations before the Worker is uploaded and aborts the deploy if they
-      // fail, so code that assumes a column cannot reach traffic ahead of the
-      // column. This is the same guarantee for the other environment, and it is a
-      // REFUSAL rather than a warning for the reason that hook aborts rather than
-      // warning — a dev server that started anyway would be choosing the slower
-      // failure, which arrives minutes later as a SQLITE_ERROR in a log and reaches
-      // the operator as a frozen acknowledgement carrying no diagnosis.
-      //
-      // BEFORE THE BANNER, so a refused start never prints a URL nobody can use.
-      //
-      // NOT UNDER `--remote`, which points wrangler at the DEPLOYED database. That
-      // one is `bin/deploy`'s to migrate, and the local file this reads says
-      // nothing about it.
-      if (flags.remote !== true) {
-        const check = await localD1Check({ repoRoot: root })
-        if (check.kind === 'refuse') {
-          // The whole explanation is the message, never a `hint`: an uncaught
-          // throw reaches `bin/1c.mjs`, which prints `err.message` and nothing
-          // else — and the hint would be the half that says what to type.
-          throw new CommandError({ code: 'ENVIRONMENT', message: check.message })
-        }
-        // A check that could not read the database is a different fact from a
-        // database that is behind one, and must not be the thing that stops an
-        // operator working.
-        if (check.kind === 'unreadable') console.warn(check.message)
-      }
-
-      // THE FILING SERVICE ([[REQ-273]]), started before wrangler — but no longer
-      // BECAUSE wrangler needs to be told about it ([[BUG-124]]). The address is
-      // in `.dev.vars` now, which wrangler reads by itself, so this command
-      // starts a listener as a CONVENIENCE and nothing depends on it doing so.
-      // Start one with `1c filing` instead and this is a no-op; start the dev
-      // server some other way and filing works anyway, which is the whole point.
-      //
-      // PROVISIONED FIRST AND BEFORE WRANGLER IS SPAWNED, so a clone whose
-      // `.dev.vars` has never carried these lines gets them in time for the
-      // child to read them on this very run rather than the next one.
-      const provision = provisionFilingVars({ devVarsPath: devVarsPath(appDir), vars: readDevEnv({ appDir }) })
-      // A WRITE IS NEWS AND A FAILURE TO WRITE IS A WARNING, and they go to
-      // different streams for the reason `devEnv.warnings` does: one of them is
-      // something an operator has to act on.
-      if (provision.note) (provision.wrote ? console.log : console.warn)(provision.note)
-
-      // A FAILURE TO START IS A WARNING AND NEVER A REFUSAL. Being able to file
-      // a defect is not a precondition for building a site, and a dev server
-      // that would not start because the shared store was not installed would
-      // be trading a whole product for a capability nobody was using yet — the
-      // same trade `host-core.ts` refuses when a knowledge base is missing.
-      //
-      // AN ADDRESS ALREADY IN USE IS THE SAME KIND OF WARNING. A fixed port is
-      // what makes `1c filing` and this command able to mean the same thing, and
-      // the cost of a fixed port is that they can collide; the collision is
-      // ordinary and the right answer is to leave the incumbent alone.
-      let filing: FilingService | null = null
-      const incumbent = await filingStatus(provision.address)
-      if (flags['no-filing'] !== true && incumbent.kind !== 'answering') {
-        try {
-          filing = await startFilingService({
-            root,
-            port: provision.address.port,
-            token: provision.address.token || undefined,
-          })
-        } catch (error) {
-          console.warn(
-            `The assistant will not be able to file development tickets: ${
-              (error as Error)?.message ?? String(error)
-            }`,
-          )
-        }
-      }
-
-      // NOT A SINGLE `--var` ANYWHERE ([[BUG-124]]). Everything the Worker reads
-      // comes from the env files, which a bare `wrangler dev` reads too — so the
-      // Worker's capabilities stop depending on which command launched it.
-      const args = wranglerDevArgs({ appDir, port, remote: flags.remote === true })
-
-      // WHAT IS ACTUALLY ANSWERING, not what this process did. The old line
-      // reported whether THIS command had started a listener, which is exactly
-      // the fact that is useless when the command was not the one that ran.
-      const status = await filingStatus(provision.address)
-      console.log(
-        // `devUrl` rather than `localhost` ([[BUG-146]]) — see DEV_HOST.
-        `Builder (wrangler dev) on ${devUrl(port)}\n` +
-          `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
-          `${status.line}\n` +
-          '  starts empty — author in the builder, or `bin/copy-from-cloud <business>`\n',
-      )
-      // AFTER the banner and BEFORE wrangler's own output, which is where an
-      // operator is still reading. A warning, never a refusal: a missing key is
-      // an ordinary runtime state here — the Worker opens, serves and explains
-      // itself without one ([[REQ-173]]) — so the only defect is not saying so.
-      for (const warning of devEnv.warnings) console.warn(warning)
-      if (devEnv.warnings.length) console.warn('')
-      const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
-      try {
-        await new Promise<void>((resolve, reject) => {
-          child.on('error', reject)
-          child.on('exit', (code) => {
-            if (code === 0 || code === null) resolve()
-            else reject(new CommandError({
-              code: 'ENVIRONMENT',
-              message: `wrangler dev exited with ${code}.`,
-              hint: 'Run `1c assets` first — the Worker serves what it builds.',
-            }))
-          })
-        })
-      } finally {
-        // IN A `finally`, so a wrangler that failed to start does not leave a
-        // listener holding a port. It is `unref`'d as well, so this is belt and
-        // braces rather than the only thing keeping the process honest.
-        await filing?.close()
-      }
       return
     }
 
@@ -1662,7 +1525,7 @@ export async function run(argv: string[]): Promise<void> {
       // THE REFUSAL IS THE EXISTING ONE, not a second wording of it: the whole
       // explanation of why a skew costs data lives in `assertOneWorkerd`, and a
       // paraphrase here would be a second thing to keep true.
-      if (!report.ok) assertOneWorkerd('builder', { repoRoot: repoRoot() })
+      if (!report.ok) assertOneWorkerd('dev serve', { repoRoot: repoRoot() })
       return
     }
 
@@ -1749,34 +1612,72 @@ export async function run(argv: string[]): Promise<void> {
         //
         // IT STARTS NOTHING ELSE AND RECORDS NO PIDFILE. `up` owns the set of
         // services and their bookkeeping; this is one server in the foreground,
-        // which is what lets it run beside the old path while the replacement is
-        // being trusted (EPIC-16 §L1) without either claiming the other's slot.
-        const snapshot = readSnapshot({ repoRoot: root, app: 'control-app' })
+        // which is what an operator runs when they want that one server and
+        // nothing else.
+        //
+        // WHICH APP IS AN ARGUMENT ([[BUG-150]]). It used to be `control-app`,
+        // full stop, and `bin/dev up` had to start the public site some other way
+        // — which meant `pnpm --filter … dev`, `wrangler dev` over `src/`, the
+        // very thing this ticket deletes. A second command would have been a
+        // second author of one launch, free to disagree about the store, the
+        // freeze or what is printed; the differences between the apps are data
+        // and live in `DEV_SERVE_APPS`.
+        const requested = rest[1] ?? DEFAULT_SERVE_APP.app
+        const app = devServeApp(requested)
+        if (app === null) {
+          // NAMED RATHER THAN DEFAULTED, for `bin/dev up <service>`'s reason: a
+          // typo that silently served the control app would answer a question the
+          // operator did not ask, on a port they were not watching.
+          //
+          // THE WHOLE REFUSAL IS THE MESSAGE AND NONE OF IT IS A `hint`, for the
+          // reason `reset.ts` gives about its own: an uncaught throw reaches
+          // `bin/1c.mjs`, which prints `err.message` and nothing else — so a hint
+          // is the half that never arrives, and here it is the half that says
+          // what to type instead.
+          throw new CommandError({
+            code: 'NOT_FOUND',
+            message:
+              `There is no dev app called '${requested}'. ` +
+              `Known apps: ${DEV_SERVE_APPS.map((a) => `${a.app} (${a.port})`).join(', ')}.`,
+          })
+        }
+        const snapshot = readSnapshot({ repoRoot: root, app: app.app })
         if (snapshot === null) {
           throw new CommandError({
             code: 'ENVIRONMENT',
-            message: noSnapshotMessage('control-app'),
+            message: noSnapshotMessage(app.app),
           })
         }
-        const appDir = path.join(root, 'apps', 'control-app')
-        const port = typeof flags.port === 'string' ? flags.port : String(DEV_SERVE_PORT)
+        const appDir = path.join(root, 'apps', app.app)
+        const port = typeof flags.port === 'string' ? flags.port : String(app.port)
 
-        // THE STORE IS CHECKED BEFORE ANYTHING IS STARTED, exactly as `1c
-        // builder` checks it ([[REQ-253]]) — and AT THIS ENVIRONMENT, because
-        // `--env dev` inherits no bindings and the block that decides which
-        // database file is opened is `[[env.dev.d1_databases]]`.
-        const check = await localD1Check({ repoRoot: root, env: snapshot.env })
-        if (check.kind === 'refuse') {
-          throw new CommandError({ code: 'ENVIRONMENT', message: check.message })
+        // THE STORE IS CHECKED BEFORE ANYTHING IS STARTED ([[REQ-253]]) — and AT
+        // THIS ENVIRONMENT, because `--env dev` inherits no bindings and the
+        // block that decides which database file is opened is
+        // `[[env.dev.d1_databases]]`. Only for the app that OWNS the schema: the
+        // public site's own config declares no `migrations_dir`, deliberately,
+        // because migrations are applied once by the Worker that owns them.
+        if (app.checkStore) {
+          const check = await localD1Check({ repoRoot: root, env: snapshot.env })
+          if (check.kind === 'refuse') {
+            throw new CommandError({ code: 'ENVIRONMENT', message: check.message })
+          }
+          if (check.kind === 'unreadable') console.warn(check.message)
         }
-        if (check.kind === 'unreadable') console.warn(check.message)
 
-        const devEnv = devEnvLayering({ appDir })
-        console.log(snapshotSummary(snapshot, port))
-        for (const warning of devEnv.warnings) console.warn(warning)
-        if (devEnv.warnings.length) console.warn('')
+        console.log(snapshotSummary(snapshot, port, app))
+        // THE LAYERING IS THE CONTROL APP'S. `--env-file` REPLACES wrangler's own
+        // `.dev.vars` lookup rather than adding to it, so naming it for an app
+        // that has no such file substitutes three absent paths for a default that
+        // works — and warns about an assistant and an Access gate this Worker
+        // does not have.
+        if (app.envFiles) {
+          const devEnv = devEnvLayering({ appDir })
+          for (const warning of devEnv.warnings) console.warn(warning)
+          if (devEnv.warnings.length) console.warn('')
+        }
 
-        const args = devServeArgs({ appDir, snapshot, port })
+        const args = devServeArgs({ appDir, snapshot, port, envFiles: app.envFiles })
         const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
         await new Promise<void>((resolve, reject) => {
           child.on('error', reject)
