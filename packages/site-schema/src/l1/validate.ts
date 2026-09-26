@@ -1419,13 +1419,23 @@ export function validateL1(
         message: `${L1_STRUCTURAL_RULES.allowedUrlScheme}: font src '${font.src}' is not an allowed URL`,
       })
     }
-    if (
-      font.weight !== undefined &&
-      !inRange(font.weight, L1_ENVELOPE.fontWeight.min, L1_ENVELOPE.fontWeight.max)
-    ) {
+    // REQ-332 — a variable face declares a `[min, max]` range, so BOTH ends are
+    // range-checked and the pair must ascend. An unordered pair is not a narrower
+    // range, it is a rule no browser applies: `font-weight: 800 200` is invalid
+    // and the whole descriptor is dropped, silently taking the face's weight
+    // coverage with it.
+    const bounds = font.weight === undefined ? [] : Array.isArray(font.weight) ? font.weight : [font.weight]
+    for (const w of bounds) {
+      if (inRange(w, L1_ENVELOPE.fontWeight.min, L1_ENVELOPE.fontWeight.max)) continue
       errors.push({
         path: `/resources/fonts/${i}/weight`,
-        message: `font weight=${font.weight} out of range [${L1_ENVELOPE.fontWeight.min}, ${L1_ENVELOPE.fontWeight.max}]`,
+        message: `font weight=${w} out of range [${L1_ENVELOPE.fontWeight.min}, ${L1_ENVELOPE.fontWeight.max}]`,
+      })
+    }
+    if (Array.isArray(font.weight) && font.weight[0] > font.weight[1]) {
+      errors.push({
+        path: `/resources/fonts/${i}/weight`,
+        message: `font weight range [${font.weight[0]}, ${font.weight[1]}] must ascend`,
       })
     }
   })

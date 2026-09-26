@@ -186,5 +186,39 @@ export function filterPaints(css: string | null | undefined): boolean {
   return !sawKnown
 }
 
+/**
+ * REQ-332 — a `filter` string → its PAINTING CHAIN, in source order.
+ *
+ * `filterPaints` answers "does this move a pixel", which is the whole of what the
+ * comparator used to ask — so a chain reordered between reference and
+ * reproduction scored `present` on both sides and was invisible. CSS filter
+ * functions do not commute, so the sequence is part of the value: this is the
+ * comparable form of it, normalised the same way `filterPaints` is (ratios folded
+ * out of percentages, functions at their identity dropped, unknown functions kept
+ * verbatim because the safe reading of an unknown treatment is that it does
+ * something).
+ *
+ * `none` when nothing paints, so the two ends of the scale read the same way
+ * {@link shadowLabel} makes them read.
+ */
+export function filterChain(css: string | null | undefined): string {
+  if (!filterPaints(css)) return 'none'
+  const parts: string[] = []
+  for (const m of (css ?? '').matchAll(/(-?[a-z-]+)\(\s*(-?\d*\.?\d+)(%|deg|px|)\s*\)/gi)) {
+    const name = m[1].toLowerCase()
+    const fn = FILTER_FUNCTIONS.find((f) => f.css === name)
+    let n = parseFloat(m[2])
+    if (!fn || !Number.isFinite(n)) {
+      parts.push(m[0].toLowerCase().replace(/\s+/g, ''))
+      continue
+    }
+    if (fn.unit === 'ratio' && m[3] === '%') n /= 100
+    if (n === fn.identity) continue
+    const unit = fn.unit === 'deg' ? 'deg' : fn.unit === 'px' ? 'px' : ''
+    parts.push(`${name}(${Math.round(n * 1e4) / 1e4}${unit})`)
+  }
+  return parts.length ? parts.join(' ') : 'none'
+}
+
 /** Re-exported so a caller normalising a shadow colour has one import. */
 export { colorToHex, colorToHexAlpha }

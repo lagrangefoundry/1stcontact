@@ -515,10 +515,24 @@ function facesFor(fonts: readonly L1FontFace[], stack: string | undefined): L1Fo
  *
  * A face with no `weight` declares nothing about weight (CSS defaults it to 400,
  * but the fold writes what it measured), so it contributes no option.
+ *
+ * REQ-332 — a VARIABLE face declares a `[min, max]` range, and it genuinely
+ * offers every weight in it. The control is a select, so the continuum is offered
+ * at the hundreds CSS names — the steps an operator asks for — rather than as two
+ * endpoints (which would hide the 400 and 700 a 200–800 face serves) or as 601
+ * options (which is a slider pretending to be a menu).
  */
 function weightChoices(faces: readonly L1FontFace[], current: number | undefined): number[] {
   const seen = new Set<number>()
-  for (const face of faces) if (face.weight !== undefined) seen.add(face.weight)
+  for (const face of faces) {
+    if (face.weight === undefined) continue
+    if (!Array.isArray(face.weight)) {
+      seen.add(face.weight)
+      continue
+    }
+    const [min, max] = face.weight
+    for (let w = Math.ceil(min / 100) * 100; w <= max; w += 100) seen.add(w)
+  }
   if (current !== undefined) seen.add(current)
   return [...seen].sort((a, b) => a - b)
 }

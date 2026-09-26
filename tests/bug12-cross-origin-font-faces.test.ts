@@ -126,9 +126,11 @@ describe('BUG-12 — cross-origin @font-face reaches the fold', () => {
     // from the stylesheet bytes even though the CSSOM reported no faces.
     const cinzel = result.capture.theme.fonts.find((f) => f.family === 'Cinzel')
     expect(cinzel, 'Cinzel present in theme fonts').toBeDefined()
-    expect(cinzel!.files.length).toBeGreaterThan(0)
+    // REQ-332 — the theme carries FACES (each with its own descriptors) rather
+    // than a bare list of paths; the substance asserted here is the same file.
+    expect(cinzel!.faces.length).toBeGreaterThan(0)
     // The file is the actual mirrored local asset, not the remote URL.
-    expect(cinzel!.files[0]).toMatch(/^assets\/.*\.woff2$/)
+    expect(cinzel!.faces[0].src).toMatch(/^assets\/.*\.woff2$/)
   })
 
   it('test_UAT_FC_BUG-12_unmirrored_face_contributes_no_files', async () => {
@@ -142,7 +144,7 @@ describe('BUG-12 — cross-origin @font-face reaches the fold', () => {
     })
     const cinzel = result.capture.theme.fonts.find((f) => f.family === 'Cinzel')
     expect(cinzel).toBeDefined()
-    expect(cinzel!.files).toEqual([])
+    expect(cinzel!.faces).toEqual([])
   })
 
   it('test_UAT_FC_BUG-12_same_origin_cssom_faces_still_wired', async () => {
@@ -154,8 +156,8 @@ describe('BUG-12 — cross-origin @font-face reaches the fold', () => {
       driverFactory: fakeDriver(signals, googleFontResponses()),
     })
     const cinzel = result.capture.theme.fonts.find((f) => f.family === 'Cinzel')
-    expect(cinzel!.files.length).toBe(1) // deduped, not doubled by the union
-    expect(cinzel!.files[0]).toMatch(/^assets\/.*\.woff2$/)
+    expect(cinzel!.faces.length).toBe(1) // deduped, not doubled by the union
+    expect(cinzel!.faces[0].src).toMatch(/^assets\/.*\.woff2$/)
   })
 
   it('test_UAT_FC_BUG-12_capture_folds_face_into_l1_resources', async () => {
