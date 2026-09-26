@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-26T18:37:07.227925+00:00'
+updated_at: '2026-09-26T20:57:14.087339+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4872,5 +4872,13 @@ Two things that won't slow you down: the KB index is currently coherent (9 expor
 **8788 still starts, and still reads `src/` live** — BUG-150 is still `draft`. With access-sim now fronting 8789 the §O failure doesn't happen by following instructions; it happens by browsing 8788 directly and believing it's frozen. Merges into `xgd-working` will keep restarting it. Same for public-site on 8787, which is still `pnpm dev` watch mode even though the deploy writes it a snapshot.
 
 **Don't run `reap`** — you have the repro console up, and there's an unrecognised listener of ours on 8712 that `reap` would take along with anything else unmanaged. For a single service, `bin/dev restart <service>` now exists (BUG-147's fix).
+
+<!-- xgd-turn id="9f257877-0c18-411d-8f1f-edfa277d2eaa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T20:57:13.352417+00:00" -->
+#### You
+can you confirm:
+1. That the kb is rebuilt with these commands
+2. That the site that I will bring up will be running from the static deployed code
 
 <!-- xgd-chat-end -->
