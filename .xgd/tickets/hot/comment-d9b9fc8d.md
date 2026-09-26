@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-26T20:57:14.087339+00:00'
+updated_at: '2026-09-26T21:03:18.146330+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4880,5 +4880,56 @@ Two things that won't slow you down: the KB index is currently coherent (9 expor
 can you confirm:
 1. That the kb is rebuilt with these commands
 2. That the site that I will bring up will be running from the static deployed code
+
+<!-- xgd-turn id="9f257877-0c18-411d-8f1f-edfa277d2eaa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T21:03:17.165400+00:00" -->
+#### Claude
+Both checked against the code and the live tree, not from the tickets.
+
+## 1. The KB — conditionally, and **not** the document your L1 work just invalidated
+
+`bin/build` stage 2 does now run `1c kb ensure` (REQ-322 landed). But `ensure` is deliberately conditional, and its staleness test is narrower than it sounds:
+
+```
+kbSkew: mtime of kb/system/*.md   vs   the two index manifests
+```
+
+The corpus it compares is **the exported markdown on disk**, stamped by *file mtime* (`kb.ts:1106`). It does not look at the ticket store, and `exportCorpus` only runs *inside* `buildKb`. So `ensure` answers "has the exported corpus moved ahead of the index", never "has anything upstream of the corpus changed".
+
+Right now it is coherent — I checked all 9 exported docs' `updated_at` against their live tickets and every one matches, index/chunks/map all built. So `bin/build` will print *"the index covers all 12 corpus document(s) — nothing to build"*, read no credential and make no request.
+
+**The gap that bites you specifically:**
+
+| | |
+|---|---|
+| `kb/system/REF-l1.md` projected | **Sep 24 00:19** |
+| your L1 commits | **Sep 26 12:50 – 13:03** |
+
+`REF-l1` is not a written document — it's a projection derived from `l1NodeSchema` / `l1DocumentSchema` at build time (`kb-projection.ts:1016`, and BUG-48's second half is exactly this document being incomplete). Your four commits changed those declarations. The projection is now two days behind them, and nothing on the `bin/build` path will notice: the file didn't change, so its mtime didn't change, so the manifest still matches.
+
+If the L1 vocabulary moved, force it:
+
+```bash
+bin/kb-release          # = 1c kb ensure --force
+```
+
+Needs `CLOUDFLARE_API_TOKEN` = `1c_Admin_Token` with `NODE_USE_ENV_PROXY=1`; the other two tokens 401 on Workers AI.
+
+## 2. The site — yes, and it already is
+
+`DEV_SERVICES` no longer contains the watch builder at all. It's `filing` → `dev` (control-app, 8789) → `public-site` (8787) → `access-sim`, and both app rows come from `DEV_SERVE_APPS`, each running `wrangler dev --no-bundle` against `apps/<app>/.dev-snapshot`. Port 8788 is not started by anything now.
+
+The freeze is real on both halves of the control app: `ship_local` bundles the Worker with `--dry-run --outdir`, and **copies** `dist-assets` into the snapshot rather than pointing at it — *"pointing the runner at the live directory would leave the builder client as the one part of a frozen environment that is not frozen."*
+
+And you don't need to do anything: the running snapshot is `deployedAt 2026-09-26T20:57:38Z`, built from a tree where no L1 source file is newer than `dist-assets` (13:56 PDT). Your L1 work is already in what's serving.
+
+Two things it does *not* freeze: the **store** (D1/R2 are live and shared — code is frozen, content is not), and env-files, which are read at process start.
+
+## One finding, not blocking
+
+`1c ps` reported `dev` and `public-site` as started by `-` rather than `bin/dev`, even though both have valid pidfiles. `index.ts:1543` passes `readDevPidfiles(root).map((r) => r.pid)` while `devTable` passes `.flatMap(devPidfilePids)` — so the CLI drops `listenerPid`, and for exactly the two services whose listener is a grandchild, the port's pid matches nothing. That's BUG-147's fix landing in the library and missing its own call site, and the symptom is the one BUG-147 was about: a managed service reading as unowned, which is the signal before someone reaches for `reap`.
+
+One-line fix, so it needs a ticket and a child session. Want me to file it, and record the KB-projection gap on the epic?
 
 <!-- xgd-chat-end -->
