@@ -108,14 +108,14 @@ import {
   devDown,
   devReap,
   devRestart,
+  devTable,
   devUp,
   formatDown,
   formatReap,
   formatRestart,
   formatUp,
-  readDevPidfiles,
 } from './dev'
-import { devProcessTable, formatProcessTable } from './ps'
+import { formatProcessTable } from './ps'
 import {
   assertIndexSeam as assertIndexSeamImpl,
   assertSharedStore as assertSharedStoreImpl,
@@ -1534,14 +1534,20 @@ export async function run(argv: string[]): Promise<void> {
       // directory it was started from. Built on `lsof` rather than `ps`, which
       // returns nothing at all under the agent sandbox; see `ps.ts`.
       //
-      // THE PIDFILES ARE READ HERE rather than inside the survey, because they
-      // belong to `bin/dev` and `ps.ts` has no business knowing where that writes
-      // them. It is the one fact the survey cannot observe for itself.
-      const root = repoRoot()
-      const table = devProcessTable({
-        repoRoot: root,
-        managedPids: readDevPidfiles(root).map((r) => r.pid),
-      })
+      // `devTable` AND NOT A SECOND CALL TO `devProcessTable`. The survey cannot
+      // observe for itself which listeners `bin/dev` started — the pidfiles belong
+      // to `bin/dev`, and `ps.ts` has no business knowing where that writes them —
+      // so the managed set is supplied by the caller, and `devTable` is the one
+      // caller that composes it.
+      //
+      // This verb used to compose its own: `readDevPidfiles(root).map((r) => r.pid)`,
+      // the SPAWNED pid only, while `devTable` passed every pid a pidfile names. The
+      // two therefore disagreed about what "managed" means, and the one an operator
+      // actually reads was the wrong one — a snapshot app whose listener is a
+      // `workerd` grandchild reported as belonging to nobody, which is [[BUG-147]]'s
+      // own symptom surviving in the command you run to ask the question
+      // ([[BUG-152]]). Two call sites could disagree; one cannot.
+      const table = devTable({ repoRoot: repoRoot() })
       console.log(flags.json === true ? JSON.stringify(table, null, 2) : formatProcessTable(table))
       // A SURVEY THAT FOUND NOTHING IS STILL A SUCCESSFUL SURVEY. What is not is
       // one that could not run: `lsof` absent means the answer is unknown rather
