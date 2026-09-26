@@ -92,6 +92,25 @@ function mismatchesAtRoot(branch: readonly Issue[]): boolean {
 function chooseBranch(branches: readonly (readonly Issue[])[]): readonly Issue[] | null {
   if (branches.length < 2) return branches[0] ?? null
 
+  /*
+   * THE BRANCHES THE AUTHOR COULD PLAUSIBLY HAVE BEEN WRITING — every one that
+   * did not fail with a type mismatch at the union's own position. A branch
+   * that did was never this shape at all, so it cannot be the branch meant, and
+   * that is true whichever test picks the survivor below ([[REQ-326]]).
+   *
+   * Without this the tag test misreads a CLOSED-ENUM failure as a discriminator
+   * mismatch. `reveal` is `z.union([behaviour, behaviour[]])`, so a hand-written
+   * easing on the single form fails `invalid_value` at `easing` — one path
+   * segment, indistinguishable from a `kind` mismatch — while the list branch
+   * fails `invalid_type` at the root because an object is not an array. "Exactly
+   * one branch survives a mismatch on `easing`" then chose the list branch, and
+   * an author who wrote `steps(4, end)` was told their entrance should have been
+   * an array. Scoping both tests to the plausible branches makes the shape
+   * question come first wherever shape settles it, without reordering the tests
+   * for the unions where it does not.
+   */
+  const shaped = branches.filter((branch) => !mismatchesAtRoot(branch))
+
   const tags = new Set<string>()
   for (const branch of branches) {
     for (const issue of branch) {
@@ -104,7 +123,7 @@ function chooseBranch(branches: readonly (readonly Issue[])[]): readonly Issue[]
   let chosen: readonly Issue[] | null = null
   let bestExcluded = 0
   for (const tag of tags) {
-    const survivors = branches.filter((branch) => !mismatchesTag(branch, tag))
+    const survivors = shaped.filter((branch) => !mismatchesTag(branch, tag))
     const excluded = branches.length - survivors.length
     if (survivors.length === 1 && excluded > bestExcluded) {
       chosen = survivors[0]
@@ -134,8 +153,7 @@ function chooseBranch(branches: readonly (readonly Issue[])[]): readonly Issue[]
    * Stated on shape rather than on slots, so any shape-discriminated union in
    * the schema localises the same way.
    */
-  const deep = branches.filter((branch) => !mismatchesAtRoot(branch))
-  if (deep.length === 1 && deep.length < branches.length) return deep[0]
+  if (shaped.length === 1 && shaped.length < branches.length) return shaped[0]
 
   /*
    * Both branches survived that test, so neither was refused outright — which is
@@ -147,10 +165,10 @@ function chooseBranch(branches: readonly (readonly Issue[])[]): readonly Issue[]
    * and one that stops at the root was not. Unique deepest wins, and a tie is
    * left ambiguous rather than guessed.
    */
-  const depths = deep.map(localisedDepth)
+  const depths = shaped.map(localisedDepth)
   const deepest = Math.max(...depths, 0)
   if (deepest === 0) return null
-  const winners = deep.filter((_, i) => depths[i] === deepest)
+  const winners = shaped.filter((_, i) => depths[i] === deepest)
   return winners.length === 1 ? winners[0] : null
 }
 
