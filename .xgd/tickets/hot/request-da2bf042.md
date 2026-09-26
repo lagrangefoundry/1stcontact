@@ -5,7 +5,7 @@ type: request
 title: Allow multiple animations on one element
 created_by: xgd
 created_at: '2026-09-25T23:28:53.663349+00:00'
-updated_at: '2026-09-26T00:00:50.120164+00:00'
+updated_at: '2026-09-26T06:59:09.869716+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -144,3 +144,24 @@ the renderer — the same construction `l1TextRuns` uses for REQ-211. If the two
 had their own copies, what the validator refuses and what the renderer emits
 would be free to drift, and the collision rule would be enforced against a
 property set the renderer no longer uses.
+
+
+### One thing turning the field into a union put at risk
+
+Making `reveal` a union has a consequence nothing about composition asked for:
+the envelope localises a union by working out which branch the author was
+plausibly writing, and it discovers the discriminator rather than being told it.
+A closed-enum failure one path segment deep on the single form — a mistyped
+`easing` — looks exactly like a discriminator mismatch, so "exactly one branch
+survives" picked the **list** branch, and an author who wrote `steps(4, end)` was
+told their entrance should have been an array.
+
+A refusal that names the wrong fault is the diagnosis cycle this ticket's
+composition rule is chosen to avoid, so the localisation is fixed as part of
+this change rather than left to be met later: a branch that failed on **shape**
+at the union's own position was never the shape being written and cannot be the
+branch meant, whichever test picks the survivor. With that settled, a bad
+`easing` reports at `/root/reveal/easing` on the single form and at
+`/root/reveal/0/easing` in a list, and an unrecognised key reports exactly where
+it always did. This is stated on shape rather than on this one field, so every
+shape-discriminated union in the schema localises the same way.
