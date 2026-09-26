@@ -1437,9 +1437,10 @@ export const l1EntranceSchema = z.union([l1RevealSchema, z.array(l1RevealSchema)
  * freely — its offsets are margins.
  *
  * WHETHER CONTENT PASSES BEHIND OR IN FRONT is the pin's other half, and it is
- * `lift`'s — see that field. CSS positioning alone does not answer it, and the
- * answer it falls back to depends on the element kind of whatever is travelling
- * past, which is not a decision the document made.
+ * `lift`'s — see that field, or {@link nodeAxisGroupsShape}'s `stacked`, which
+ * BUG-154 accepts as the same declaration on a pinned node. CSS positioning alone
+ * does not answer it, and the answer it falls back to depends on the element kind
+ * of whatever is travelling past, which is not a decision the document made.
  */
 export const l1StickySchema = z
   .object({
@@ -1490,6 +1491,14 @@ export const l1StickySchema = z
      * "passes in front": a following section that slides over a held hero is a
      * real editorial composition, and it is exactly what document-order paint
      * already gives.
+     *
+     * BUG-154 — `stacked: true` ON THE SAME NODE SAYS THIS, and the renderer
+     * honours it. The two are one decision reached from two directions: `lift`
+     * is the pin naming its paint level, `stacked` is the overlap naming its
+     * figure, and on a pinned node those are the same sentence. A node carrying
+     * both emits one `z-index`, not two. This field remains the direct spelling
+     * and is the one to reach for where the pin is not part of a declared
+     * overlap; neither is deprecated in favour of the other.
      */
     lift: z.literal(true).optional(),
   })
@@ -1760,10 +1769,25 @@ const nodeAxisGroupsShape = {
    * point, the absence has to keep meaning "nobody has chosen", so that an
    * unmarked overlap stays a finding rather than a silent default.
    *
-   * NOT A PAINT AXIS: it moves no pixel and the renderer emits nothing for it
-   * (DOC-24's rule is about what L1 must be able to *express*; this is what the
-   * document must be able to *declare*, alongside `heading` / `link` / `action`,
-   * which paint nothing either).
+   * NOT A PAINT AXIS, WITH ONE EXCEPTION. On a node in ordinary flow it moves no
+   * pixel and the renderer emits nothing for it (DOC-24's rule is about what L1
+   * must be able to *express*; this is what the document must be able to
+   * *declare*, alongside `heading` / `link` / `action`, which paint nothing
+   * either) — the declaration needs no `z-index` there because document order
+   * already paints a later sibling over an earlier one, and a folded
+   * reproduction's measured overlaps must keep the paint the reference had.
+   *
+   * BUG-154 — **on a node that also carries {@link l1StickySchema}, it lifts.**
+   * A pin is the one placement where document order contradicts the declaration:
+   * the page moves past a node that does not, so a sibling arriving later covers
+   * the very node that just said it was the figure. There it compiles to the same
+   * single `z-index: 1` as `sticky.lift`, inside the pin's own declaration list —
+   * so a width-gated pin lifts only inside its band, and a node carrying both
+   * spellings emits one `z-index` rather than two. `sticky.lift` is the direct
+   * spelling of the same decision and is unchanged; reach for it when the pin is
+   * not part of a declared overlap. A fold authors `stacked` and never authors
+   * `sticky`, so no reproduction can reach this branch and none of their paint
+   * moves.
    *
    * REQ-331 — **a fold DOES author it, and the reference is what declares it.**
    * The original reading here was that a capture cannot recover the intent
