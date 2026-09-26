@@ -5,9 +5,9 @@ type: comment
 title: Comment on request REQ-329
 created_by: xgd
 created_at: '2026-09-26T19:02:06.592176+00:00'
-updated_at: '2026-09-26T19:02:06.592176+00:00'
+updated_at: '2026-09-26T19:32:54.164443+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: request-9f377353
@@ -33,5 +33,33 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="cb43bcf5-4e18-4ce7-a517-96d45256f3b6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T19:32:53.049214+00:00" -->
+#### Claude
+Now let me write the unified claim projection in `motion.ts`.
+
+Now the schema — the scroll-motion union:
+
+Now update the `l1` index to export the new projection helpers:
+
+Now the validator: replace `oneMotionDriver` with the per-property exclusivity rule, and handle a list of tracks.
+
+Now the walk body — replace the scroll-track block:
+
+Now add the two new checker functions next to `checkEntrance`:
+
+Now the renderer — make `scrollTrackRules` handle a list of tracks.
+
+Now update the tests that encode the superseded rule.
+
+Now the shared-axis-group sweep, where `scrollTrack` was an alternative:
+
+Now fix the stale prose in `req105` and write the REQ-329 UAT suite.
+
+Now the REQ-329 UAT suite:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
