@@ -2058,6 +2058,42 @@ function toUnpaired(el: ValueElement, index?: number): UnpairedObject {
  */
 const SECTION_OVERLAP_MIN = 0.5
 
+/**
+ * BUG-151 — the floor below which an unnamed textless field DOES NOT PAIR.
+ *
+ * The text-free pass fell back to the head of its role queue whenever the
+ * accessible-name join missed, and a band backdrop has no accessible name, so
+ * every one of them took the queue head sight unseen. With eleven `generic`
+ * records on the reference side and two on ours, the queue drained in order and
+ * the hero's opaque base was compared against a band 2624px further down the
+ * page and 533px shorter — twelve deltas, led by a CRITICAL claiming a 2624px
+ * move, not one of which described anything about the served document.
+ *
+ * 0.25 is a quarter of the union: two boxes that share that much are plausibly
+ * the same object drawn a little differently, and two that do not are not the
+ * same object at all. It is deliberately loose — the axes downstream are there
+ * to report a size or position residual on a pair that IS the same band, and a
+ * tight floor would refuse those.
+ */
+const FIELD_PAIR_IOU_MIN = 0.25
+
+/**
+ * Area intersection-over-union of two boxes — the unnamed-field pairing score.
+ *
+ * Two dimensions, not {@link verticalIoU}'s one: sections are full-bleed so a
+ * vertical interval identifies them, but a field is any painted box and two cards
+ * side by side in the same row share their whole vertical interval while being
+ * different objects.
+ */
+function boxIoU(a: Box, b: Box): number {
+  const iw = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  const ih = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  if (iw <= 0 || ih <= 0) return 0
+  const inter = iw * ih
+  const union = a.width * a.height + b.width * b.height - inter
+  return union > 0 ? inter / union : 0
+}
+
 /** Vertical intersection-over-union of two bands — the section pairing score. */
 function verticalIoU(a: Box, b: Box): number {
   const inter = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
@@ -2750,12 +2786,47 @@ export function diffManifests(
     // using it makes the pairing say what it means. A genuine name difference is
     // still reported: an exp whose name matches nothing falls back to the queue
     // head and the `name` axis flags it there.
+    //
+    // BUG-151 — and an UNNAMED one joins on the box, because that is the join key
+    // it actually has. The comment above disowns document-order FIFO — "a
+    // reproduction has no way to guarantee" the two sides enumerate in the same
+    // order — and then an unnamed field fell straight through to it, with no
+    // geometric check and no floor below which it declined. A band backdrop has
+    // no accessible name, so that was every band on every reproduction.
+    //
+    // Below {@link FIELD_PAIR_IOU_MIN} it DOES NOT PAIR: the reference record
+    // lands in `unmatched` as an honest `missing`, and the candidate stays in the
+    // queue for a later reference element that may really be it. Declining is
+    // strictly better than pairing wrongly — an unpaired record names a coverage
+    // gap the number is already told to drive down, where twelve confident values
+    // read off two unrelated boxes name nothing at all.
+    //
+    // Inert for a pre-`box` manifest: with no geometry on either side there is
+    // nothing better than the queue head, so the old answer stands rather than
+    // every field on an old bundle reading `missing`.
     const q = fieldQueues.get(exp.a11yRole ?? exp.role)
     const expName = norm(exp.accessibleName ?? '')
     let act: ValueElement | undefined
     if (q && q.length > 0) {
       const byName = expName ? q.findIndex((el) => norm(el.accessibleName ?? '') === expName) : -1
-      act = q.splice(byName >= 0 ? byName : 0, 1)[0]
+      if (byName >= 0) {
+        act = q.splice(byName, 1)[0]
+      } else {
+        let best = -1
+        let bestIoU = 0
+        if (exp.box) {
+          for (let i = 0; i < q.length; i++) {
+            const cand = q[i].box
+            const score = cand ? boxIoU(exp.box, cand) : 0
+            if (score > bestIoU) {
+              bestIoU = score
+              best = i
+            }
+          }
+        }
+        if (best >= 0 && bestIoU >= FIELD_PAIR_IOU_MIN) act = q.splice(best, 1)[0]
+        else if (!exp.box || !q.some((el) => !!el.box)) act = q.splice(0, 1)[0]
+      }
     }
     if (!act) {
       unmatched++

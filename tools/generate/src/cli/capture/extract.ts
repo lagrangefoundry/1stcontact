@@ -408,6 +408,33 @@ export interface RawSignals {
 export const EXTRACT_SCRIPT = `(() => {
   var DOC = document.documentElement;
   var docW = DOC.scrollWidth, docH = DOC.scrollHeight;
+  // BUG-151 -- the LAYOUT VIEWPORT width, which is what "full-bleed" means.
+  //
+  // docW is a SCROLL width, and the two answer different questions. Bounding the
+  // visible region (onScreenBox) and clamping a painted extent want the scroll
+  // box: content at x=1400 on a 1699px-wide document really is on the page.
+  // Deciding "does this box span the page" does NOT -- a band is full-bleed when
+  // it spans the viewport, not when it spans whatever the widest overflowing
+  // descendant dragged the scroll box out to.
+  //
+  // Measured on a reproduction whose testimonial carousel lays two slides
+  // off-stage: docW came back 1699.75 at a 1280px viewport, every 1280-wide band
+  // failed the x + width >= docW - 1 test, and all eleven were dropped --
+  // bandSlices returned [] (so overlay / contentAnchor / textAlign read
+  // UNMEASURED, the standing blind spot REQ-269 exists to remove, standing again
+  // by another route) and fieldsUnder lost nine records the served CSS
+  // demonstrably paints. The REFERENCE never tripped it, because its .swiper
+  // CLIPS the same two slides, so the two sides were being segmented by
+  // procedures that differed because of a property of OUR OWN RENDER -- an
+  // asymmetric measurement dressed as a reproduction defect.
+  //
+  // clientWidth rather than innerWidth: innerWidth includes the scrollbar
+  // gutter and a width:100% band does not, so an innerWidth rule would drop
+  // every band on a platform with a classic scrollbar. The docW fallback keeps
+  // the pre-fix answer wherever clientWidth is unavailable (jsdom reports 0),
+  // and on a page that does not overflow sideways the two are equal anyway, so
+  // no conventionally-laid-out document changes verdict.
+  var layoutW = DOC.clientWidth || docW;
 
   // REQ-52: resolve ANY browser-understood CSS colour (rgb/rgba/hsl/named and
   // modern oklch/lab/lch/color()) to #rrggbb. getComputedStyle on a Tailwind v4
@@ -771,7 +798,7 @@ export const EXTRACT_SCRIPT = `(() => {
       if (b.height < BACKDROP_MIN_HEIGHT) continue;
       if (!url) {
         // A colour-only box qualifies as a backdrop only when it is full-bleed.
-        if (!(b.x <= BACKDROP_EDGE_TOL && b.x + b.width >= docW - BACKDROP_EDGE_TOL)) continue;
+        if (!(b.x <= BACKDROP_EDGE_TOL && b.x + b.width >= layoutW - BACKDROP_EDGE_TOL)) continue;
         // ...and only when it is OPAQUE. A translucent full-bleed fill is a scrim
         // (the veil darkening a hero so text reads over it), and the capture already
         // has a truer representation of one: overlayOf finds it at any depth and
@@ -1373,9 +1400,43 @@ export const EXTRACT_SCRIPT = `(() => {
   // presentational span in L1), so the same function returned 'link' on the
   // reproduction and 'generic' on the reference, and the two highest-severity
   // deltas in a run pointed at the side that was right.
+  //
+  // BUG-151 -- the walk is BOUNDED, because [role] was not. closest runs to the
+  // document root, so ANY ancestor carrying ANY role attribute was returned as
+  // the run's own semantic element. The reference's testimonial markup nests the
+  // text three levels inside div.swiper-slide[role="group"], itself inside
+  // div.swiper[role="region"], so five runs recorded 'group' -- the SLIDE's role,
+  // not theirs. An L1 render has no slide wrapper (there is nothing in L1 that
+  // would produce one) and recorded 'generic', which is correct, so the two sides
+  // could not agree however good the reproduction was, and five HIGH deltas
+  // pointed at the side that was right.
+  //
+  // The bound is the role's own KIND rather than a depth count. The case the walk
+  // exists for is always an INTERACTIVE or HEADING ancestor standing in for its
+  // presentational wrapper; a landmark, a region or a grouping never owns a text
+  // run's semantics. So an ancestor qualifies by role only when the role is one a
+  // run could legitimately BE, and region / group / list / presentation / none
+  // and the landmarks are invisible here. A depth bound would be a number nobody
+  // can defend; this is a statement about what the axis means.
+  //
+  // The tag-name branch is unchanged, and an element matching both still resolves
+  // by tag: an anchor carrying role="presentation" is still an anchor.
+  var SEMANTIC_ANCESTOR_SEL =
+    'a[href],button,h1,h2,h3,h4,h5,h6,input,textarea,select,img,hr' +
+    // The roles a text run could legitimately BE: the interactive ones, the
+    // heading, and the form controls -- the vocabulary a11yRoleOf itself emits.
+    ',[role="link" i],[role="button" i],[role="heading" i],[role="textbox" i]' +
+    ',[role="searchbox" i],[role="combobox" i],[role="listbox" i],[role="option" i]' +
+    ',[role="checkbox" i],[role="radio" i],[role="switch" i],[role="slider" i]' +
+    ',[role="spinbutton" i],[role="menuitem" i],[role="menuitemcheckbox" i]' +
+    ',[role="menuitemradio" i],[role="tab" i],[role="img" i],[role="separator" i]';
   function semanticOf(el) {
     if (!el.closest) return el;
-    var anc = el.closest('[role],a[href],button,h1,h2,h3,h4,h5,h6,input,textarea,select,img,hr');
+    // An element's OWN role is its own semantics whatever that role is, so a
+    // role="group" div that directly holds text still reports 'group' for
+    // itself. Only reaching THROUGH one to an ancestor is the defect.
+    if (el.getAttribute && el.getAttribute('role')) return el;
+    var anc = el.closest(SEMANTIC_ANCESTOR_SEL);
     return anc || el;
   }
   function a11yRoleOf(rawEl) {
@@ -1631,7 +1692,7 @@ export const EXTRACT_SCRIPT = `(() => {
     for (var i = 0; i < bgs.length; i++) {
       var b = absBox(bgs[i].el);
       if (b.height < BACKDROP_MIN_HEIGHT) continue;
-      if (!(b.x <= BACKDROP_EDGE_TOL && b.x + b.width >= docW - BACKDROP_EDGE_TOL)) continue;
+      if (!(b.x <= BACKDROP_EDGE_TOL && b.x + b.width >= layoutW - BACKDROP_EDGE_TOL)) continue;
       cand.push({ el: bgs[i].el, box: b });
     }
     // Outermost wins: a backdrop whose vertical range sits inside one already kept
@@ -1675,13 +1736,18 @@ export const EXTRACT_SCRIPT = `(() => {
       // it is the body background showing through. Without it the content standing
       // on that stretch would have to be assigned to a band it is not inside.
       if (start - cursor >= BACKDROP_MIN_HEIGHT) {
-        out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: start - cursor }, layers: [] });
+        out.push({ el: document.body, box: { x: 0, y: cursor, width: layoutW, height: start - cursor }, layers: [] });
       }
-      out.push({ el: kept[m].el, box: { x: 0, y: start, width: docW, height: end - start }, layers: kept[m].layers });
+      // BUG-151 -- layoutW, so a slice that QUALIFIED by spanning the viewport is
+      // recorded as spanning it. Boxing these docW-wide on a sideways-scrolling
+      // page would have traded nine false 'missing' deltas for eleven false
+      // 'size' ones, and left the band records disagreeing with the very rule
+      // that admitted them.
+      out.push({ el: kept[m].el, box: { x: 0, y: start, width: layoutW, height: end - start }, layers: kept[m].layers });
       cursor = end;
     }
     if (docH - cursor >= BACKDROP_MIN_HEIGHT) {
-      out.push({ el: document.body, box: { x: 0, y: cursor, width: docW, height: docH - cursor }, layers: [] });
+      out.push({ el: document.body, box: { x: 0, y: cursor, width: layoutW, height: docH - cursor }, layers: [] });
     }
     return out;
   }
@@ -2305,7 +2371,7 @@ export const EXTRACT_SCRIPT = `(() => {
   var geometricBands =
     bandRoots.length === 1 &&
     bandRoots[0].box.height >= docH - 2 &&
-    bandRoots[0].box.width >= docW - 2
+    bandRoots[0].box.width >= layoutW - 2
       ? bandSlices()
       : [];
 
