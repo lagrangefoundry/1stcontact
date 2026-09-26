@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-331
 created_by: xgd
 created_at: '2026-09-26T19:00:03.239111+00:00'
-updated_at: '2026-09-26T19:32:15.207517+00:00'
+updated_at: '2026-09-26T19:46:34.107059+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,14 @@ Good — `diffManifests` is the entry point. Let me write the two UAT files.
 Now the instrument UATs:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="a55e0d04-0f8b-4cbf-9ba1-089e719955d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T19:46:33.361103+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
