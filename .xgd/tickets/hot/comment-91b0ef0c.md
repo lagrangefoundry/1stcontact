@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-26T22:17:46.988626+00:00'
+updated_at: '2026-09-26T22:53:34.646047+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2781,5 +2781,11 @@ Two things, and neither is coded — this session scopes.
 One adjacent thing I noticed in the same outcome, not part of this: the round was flagged for *"changed the working tree: `?? .xgd/working-merge.lock`"*. It didn't — that's another `xgd` process's lock file appearing during the three minutes. Same cry-wolf family as BUG-114.
 
 Want me to file a child ticket under EPIC-12 for the two fixes?
+
+<!-- xgd-turn id="538041b3-361d-4032-b8fd-48f29942b1e4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T22:53:33.721874+00:00" -->
+#### You
+I just need a bug for 1 please
 
 <!-- xgd-chat-end -->
