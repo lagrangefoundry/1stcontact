@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-325
 created_by: xgd
 created_at: '2026-09-25T23:51:14.326765+00:00'
-updated_at: '2026-09-26T00:23:28.957813+00:00'
+updated_at: '2026-09-26T06:50:19.203139+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,14 @@ Now the UAT file:
 Now the BUG-48 rule-provocation table:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="2cc110bb-ede1-415c-b431-40ecd638ed01-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T06:50:17.823020+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
