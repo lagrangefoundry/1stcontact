@@ -5,17 +5,24 @@ type: request
 title: Let an image be opened large — click-to-zoom / lightbox
 created_by: xgd
 created_at: '2026-09-25T23:35:24.243829+00:00'
-updated_at: '2026-09-26T19:49:49.678351+00:00'
+updated_at: '2026-09-26T19:52:41.571185+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-073110e5
+  commits:
+  - working_sha: 8d97f66acf4e89dd16b6ddbbead9cf31d2dc8e37
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 66fe03b0cd885df592d7f3fb5df848c23bef2d75
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.375
 ---
-
 
 ## What I was trying to achieve
 
