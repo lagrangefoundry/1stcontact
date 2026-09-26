@@ -43,6 +43,7 @@ import {
   type L1Heading,
   type L1Keyframe,
   type L1Link,
+  type L1Mask,
   type L1Node,
   type L1ObjectPosition,
   type L1Padding,
@@ -69,6 +70,10 @@ import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cl
 // sentence, shared with the fidelity oracle in `probes.ts`. See that module's
 // header for why it cannot be a branch in either caller.
 import { flowLead, rejoinableFlows, type InlineFlow } from './inline-runs'
+// REQ-331 — the shared statement of what a captured CSS treatment actually
+// paints: the shadow parse and the filter identity table, read by the fold here
+// and by the comparator in `values-diff.ts`.
+import { FILTER_FUNCTIONS, parseShadowLayers, type ShadowLayer } from '../cli/capture/treatments'
 import {
   boxDistance,
   clusterControls,
@@ -85,6 +90,7 @@ import {
 // browser.
 import {
   colorToHex,
+  colorToHexAlpha,
   partitionProbes,
   type MultiStateCapture,
   type SectionValues,
@@ -681,8 +687,26 @@ function foldTextRun(el: ValueElement, base: ValueElement): L1TextRun {
   if (slope(el.fontStyle) !== slope(base.fontStyle)) axes.fontStyle = slope(el.fontStyle)
   const shift = foldBaselineShift(el)
   if (shift !== undefined) axes.baselineShiftEm = shift
+  // REQ-331 — the two axes that made a rejoin LOSSY before they existed.
+  //
+  // Both are stated relative to the node's own (the lead run's), exactly as
+  // colour, size, weight and slope above are: a run that decorates the same way
+  // the paragraph does carries nothing, and the markup a rejoined node emits
+  // stays the markup the same copy would have emitted as a plain string plus
+  // the differences the reference actually painted.
+  //
+  // `none` is emitted, not skipped, when the base underlines and this run does
+  // not — otherwise the run would inherit a line the reference does not paint.
+  const dec = (v: string | null | undefined): L1TextRunAxes['textDecoration'] => foldTextDecoration(v) ?? 'none'
+  if (dec(el.textDecoration) !== dec(base.textDecoration)) axes.textDecoration = dec(el.textDecoration)
   const run: L1TextRun = { text: el.textFlow ?? el.text }
   if (Object.keys(axes).length > 0) run.axes = axes
+  // The anchor the run sits in, when it is not the one the whole node sits in.
+  // Without this the fold could only keep a linked word by pinning it as its own
+  // absolutely-positioned node — which is the transcription REQ-211 exists to
+  // replace, so the rejoin would have traded a live link for a stable layout.
+  const link = foldLink(el)
+  if (link && link.href !== foldLink(base)?.href) run.link = link
   return run
 }
 
@@ -799,32 +823,68 @@ function responsivePaddingTracks(
 }
 
 /**
- * A captured computed shadow string → the L1 structured shadow (REQ-92). Chrome
- * emits `[inset] <color> <offX>px <offY>px [<blur>px] [<spread>px]` (colour first);
- * we tolerate either colour position by pulling the colour token out and reading
- * the remaining px lengths positionally. Only the first shadow layer of a comma
- * list is folded; `none`/unparseable → undefined. `spread`/`inset` apply to a box
- * shadow; a text shadow passes neither.
+ * ONE parsed shadow layer → the L1 structured shadow (REQ-92).
+ *
+ * REQ-331 — the PARSE moved to `capture/treatments.ts`, because the values-diff
+ * has to read the same string the same way (it used to read a shadow only as
+ * present-or-absent). What is left here is the projection onto L1's typed shape:
+ * which fields this axis admits (`textShadow` passes neither spread nor inset),
+ * and the omission of a default (a zero spread is not written).
+ *
+ * The colour keeps its ALPHA. A shadow's colour is one the browser composites
+ * itself, so a captured `rgba(0, 0, 0, 0.6)` is the value and `#000000` is a
+ * different, solid, wrong one — measured on faelan.com as three drop shadows
+ * reproducing as smears.
  */
+function shadowLayerToL1(layer: ShadowLayer, opts: { spread: boolean; inset: boolean }): L1Shadow {
+  const shadow: L1Shadow = { offsetXPx: layer.offsetXPx, offsetYPx: layer.offsetYPx, color: layer.color }
+  if (layer.blurPx > 0) shadow.blurPx = layer.blurPx
+  if (opts.spread && layer.spreadPx !== 0) shadow.spreadPx = layer.spreadPx
+  if (opts.inset && layer.inset) shadow.inset = true
+  return shadow
+}
+
+/**
+ * A captured computed shadow string → EVERY layer of it, in paint order.
+ *
+ * REQ-331 — this used to take `css.split(…)[0]` and throw the rest away, and the
+ * comment beside it said so: "first layer, not splitting inside rgb(...)". That
+ * was not a shortcut, it was the axis being one object wide — there was nowhere
+ * to put layer two. Now that {@link l1BoxShadowSchema} carries a stack, dropping
+ * it would be a fold shortfall rather than a language one.
+ *
+ * What was being dropped, measured on faelan.com: three photographs each painted
+ * `rgba(0,0,0,0.6) 0 15px 50px` PLUS `rgba(255,255,255,0.15) 0 0 30px` — and that
+ * second, pale, outer glow is what separates a torn photograph from the dark
+ * montage behind it.
+ *
+ * A layer that will not parse is skipped rather than ending the list: a stack
+ * with its glow missing is nearer the reference than no shadow at all.
+ */
+function foldShadows(
+  css: string | null | undefined,
+  opts: { spread: boolean; inset: boolean },
+): L1Shadow | L1Shadow[] | undefined {
+  const layers = parseShadowLayers(css)
+    .slice(0, L1_SHADOW_LAYERS_MAX)
+    .map((layer) => shadowLayerToL1(layer, opts))
+  if (layers.length === 0) return undefined
+  // One layer is the object; two-or-more is the array. The schema states the same
+  // rule ({@link l1BoxShadowSchema}) and refuses a one-element array, so this is
+  // not a stylistic choice — it is the canonical form.
+  return layers.length === 1 ? layers[0] : layers
+}
+
+/** The stack cap {@link l1BoxShadowSchema} enforces, so the fold never emits past it. */
+const L1_SHADOW_LAYERS_MAX = 4
+
+/** A single-layer shadow, for the axes L1 still types as one (`textShadow`). */
 function foldShadow(
   css: string | null | undefined,
   opts: { spread: boolean; inset: boolean },
 ): L1Shadow | undefined {
-  if (!css || /^none$/i.test(css.trim())) return undefined
-  const first = css.split(/,(?![^(]*\))/)[0].trim() // first layer, not splitting inside rgb(...)
-  const inset = opts.inset && /\binset\b/i.test(first)
-  const colorTok = first.match(/rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}/)
-  const hex = colorTok ? colorToHex(colorTok[0]) : null
-  if (!hex) return undefined
-  let rest = colorTok ? first.replace(colorTok[0], ' ') : first
-  rest = rest.replace(/\binset\b/i, ' ')
-  const nums = (rest.match(/-?\d*\.?\d+px/g) ?? []).map((n) => parseFloat(n))
-  if (nums.length < 2 || !Number.isFinite(nums[0]) || !Number.isFinite(nums[1])) return undefined
-  const shadow: L1Shadow = { offsetXPx: nums[0], offsetYPx: nums[1], color: hex }
-  if (nums.length >= 3 && Number.isFinite(nums[2]) && nums[2] >= 0) shadow.blurPx = nums[2]
-  if (opts.spread && nums.length >= 4 && Number.isFinite(nums[3])) shadow.spreadPx = nums[3]
-  if (inset) shadow.inset = true
-  return shadow
+  const first = parseShadowLayers(css)[0]
+  return first ? shadowLayerToL1(first, opts) : undefined
 }
 
 /** A text-fill/glyph glow shadow (no spread, no inset). */
@@ -884,33 +944,9 @@ export function foldObjectPosition(v: string | null | undefined): L1ObjectPositi
   return xPct === 50 && yPct === 50 ? undefined : { xPct, yPct }
 }
 
-/**
- * The CSS filter functions L1 carries: how each one's argument is read, the value
- * at which it paints nothing, and the largest value the envelope admits.
- *
- * The two `identity` values are the whole reason this is a table rather than a
- * list of names. `grayscale(0)` and `saturate(1)` are both no-ops; `grayscale(1)`
- * and `saturate(0)` are both extremes. One rule for "skip the identity" would be
- * wrong for half of them, and the failure would be silent — a fully desaturated
- * photograph would fold to no filter at all.
- */
-const FILTER_FUNCTIONS = [
-  { css: 'grayscale', axis: 'grayscale', unit: 'ratio', identity: 0, min: 0, max: 1 },
-  { css: 'sepia', axis: 'sepia', unit: 'ratio', identity: 0, min: 0, max: 1 },
-  { css: 'invert', axis: 'invert', unit: 'ratio', identity: 0, min: 0, max: 1 },
-  { css: 'saturate', axis: 'saturate', unit: 'ratio', identity: 1, min: 0, max: L1_ENVELOPE.filterAmount.max },
-  { css: 'brightness', axis: 'brightness', unit: 'ratio', identity: 1, min: 0, max: L1_ENVELOPE.filterAmount.max },
-  { css: 'contrast', axis: 'contrast', unit: 'ratio', identity: 1, min: 0, max: L1_ENVELOPE.filterAmount.max },
-  {
-    css: 'hue-rotate',
-    axis: 'hueRotateDeg',
-    unit: 'deg',
-    identity: 0,
-    min: L1_ENVELOPE.rotateDeg.min,
-    max: L1_ENVELOPE.rotateDeg.max,
-  },
-  { css: 'blur', axis: 'blurPx', unit: 'px', identity: 0, min: 0, max: 10_000 },
-] as const
+// REQ-331 — the filter identity table moved to `capture/treatments.ts`, so the
+// values-diff can read the same statement of "this value paints nothing" the
+// fold has always acted on. See {@link FILTER_FUNCTIONS} there.
 
 /**
  * REQ-136 — a captured `filter` → the typed L1 colour-adjustment stack.
@@ -951,6 +987,78 @@ export function foldFilter(v: string | null | undefined): L1Filter | undefined {
     filter[fn.axis] = n
   }
   return Object.keys(filter).length ? (filter as L1Filter) : undefined
+}
+
+/**
+ * REQ-331 — a captured `mask-image` gradient → L1's typed feather mask.
+ *
+ * The capture has recorded `maskEdge` since REQ-48 and `l1MaskSchema` has had
+ * `featherRadial` / `featherTop` / `featherBottom` since REQ-136; nothing
+ * connected the two, so three feathered photographs on faelan.com reproduced
+ * with hard rectangular edges and the only report of it was a bare
+ * `mask: present → none`.
+ *
+ * FEATHER WIDTH IS THE VALUE THE AXIS CARRIES, so that is what is read: the
+ * transparent run of the gradient (from the last fully-opaque stop to the
+ * outermost one), as a fraction, times the box's smaller side. It is an
+ * approximation and it is the RIGHT one to make — L1 names the intent ("this
+ * edge is feathered, this far in") and the renderer owns the geometry, exactly
+ * as it does for every other mask shape, so a reproduction that matched the
+ * reference's gradient string character-for-character would be a document
+ * authoring CSS.
+ *
+ * A gradient this cannot read — a conic sweep, an image mask, a `clip-path`
+ * polygon — is left UNFOLDED rather than guessed at. A wrong mask crops the
+ * photograph; a missing one is the hard edge that was there before, and the
+ * residual report already names it.
+ */
+function foldMask(
+  css: string | null | undefined,
+  box: { width: number; height: number } | undefined,
+): L1Mask | undefined {
+  if (!css || /^none$/i.test(css.trim()) || !box) return undefined
+  // Colour stops, in order, with the offset each was given. A stop with no
+  // offset cannot say where the feather starts, so an unoffset gradient reads as
+  // unfoldable rather than as one starting at zero.
+  const stops: Array<{ transparent: boolean; at: number }> = []
+  const re = /(rgba?\(([^)]*)\)|#[0-9a-fA-F]{3,8}|transparent)\s*(\d*\.?\d+)%/gi
+  for (const m of css.matchAll(re)) {
+    const alpha = /^transparent$/i.test(m[1])
+      ? 0
+      : m[2] !== undefined
+        ? (parseFloat(m[2].split(',')[3] ?? '1') ?? 1)
+        : 1
+    stops.push({ transparent: !(alpha > 0), at: parseFloat(m[3]) })
+  }
+  if (stops.length < 2) return undefined
+  const outer = stops[stops.length - 1]
+  const first = stops[0]
+  // The run over which the mask goes from fully opaque to fully transparent, as
+  // a fraction of the gradient's own extent.
+  const run = (a: number, b: number): number => Math.abs(b - a) / 100
+
+  if (/^radial-gradient\(/i.test(css.trim())) {
+    // A radial feather fades OUTWARD: the last stop is the transparent one.
+    if (!outer.transparent || first.transparent) return undefined
+    const lastOpaque = [...stops].reverse().find((s) => !s.transparent)
+    if (!lastOpaque) return undefined
+    const featherPx = Math.round(run(lastOpaque.at, outer.at) * Math.min(box.width, box.height))
+    return featherPx > 0 ? { shape: 'featherRadial', featherPx } : undefined
+  }
+
+  const linear = /^linear-gradient\(\s*to\s+(top|bottom)/i.exec(css.trim())
+  if (!linear) return undefined
+  // Which EDGE of the box the transparent end sits at, resolved through the
+  // gradient's own direction — `to bottom` runs top→bottom, `to top` the other
+  // way, so the same stop list names opposite edges under the two.
+  const towardsBottom = linear[1].toLowerCase() === 'bottom'
+  const fadedEnd = first.transparent ? 'start' : outer.transparent ? 'end' : null
+  if (fadedEnd === null) return undefined
+  const atTop = fadedEnd === 'start' ? towardsBottom : !towardsBottom
+  const opaque = fadedEnd === 'start' ? stops.find((s) => !s.transparent) : [...stops].reverse().find((s) => !s.transparent)
+  if (!opaque) return undefined
+  const featherPx = Math.round(run(opaque.at, fadedEnd === 'start' ? first.at : outer.at) * box.height)
+  return featherPx > 0 ? { shape: atTop ? 'featherTop' : 'featherBottom', featherPx } : undefined
 }
 
 /** A captured `backdrop-filter: blur(Npx)` → N (px), else undefined. */
@@ -1108,7 +1216,7 @@ function boxAxes(el: ValueElement): L1SurfaceAxes {
   if (el.opacity !== undefined && el.opacity < 1) axes.opacity = el.opacity
   const border = foldBorder(el.border)
   if (border) axes.border = border
-  const shadow = foldShadow(el.boxShadow, { spread: true, inset: true })
+  const shadow = foldShadows(el.boxShadow, { spread: true, inset: true })
   if (shadow) axes.boxShadow = shadow
   const blur = foldBackdropBlur(el.backdropFilter)
   if (blur !== undefined) axes.backdropBlurPx = blur
@@ -1189,7 +1297,7 @@ function chipAxes(el: ValueElement): Pick<L1TextAxes, 'surfaceFill' | 'borderRad
   if (el.borderRadiusPx !== undefined && el.borderRadiusPx > 0) {
     axes.borderRadiusPx = Math.min(Math.round(el.borderRadiusPx), L1_ENVELOPE.lengthPx.max)
   }
-  const shadow = foldShadow(el.boxShadow, { spread: true, inset: true })
+  const shadow = foldShadows(el.boxShadow, { spread: true, inset: true })
   if (shadow) axes.boxShadow = shadow
   const border = foldBorder(el.border)
   if (border) axes.border = border
@@ -1215,7 +1323,7 @@ function imageAxes(el: ValueElement): L1ImageAxes {
   if (blend) axes.blendMode = blend
   const border = foldBorder(el.border)
   if (border) axes.border = border
-  const shadow = foldShadow(el.boxShadow, { spread: true, inset: true })
+  const shadow = foldShadows(el.boxShadow, { spread: true, inset: true })
   if (shadow) axes.boxShadow = shadow
   return axes
 }
@@ -1540,7 +1648,8 @@ interface SurfaceRow {
   gradient?: L1LinearGradient
   borderLeft?: L1Border
   border?: L1Border
-  boxShadow?: L1Shadow
+  /** REQ-331 — one layer, or the ordered stack, exactly as the axis carries it. */
+  boxShadow?: L1Shadow | L1Shadow[]
   borderRadiusPx?: number
   /** Per-width run box (has height), ascending by width. */
   frames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>
@@ -1604,7 +1713,12 @@ function surfaceSignature(r: SurfaceRow): string {
   const g = r.gradient ? `${r.gradient.angleDeg ?? ''}:${r.gradient.stops.map((s) => `${s.color}@${s.position ?? ''}`).join(',')}` : ''
   const bl = r.borderLeft ? `${r.borderLeft.widthPx}/${r.borderLeft.color}` : ''
   const bd = r.border ? `${r.border.widthPx}/${r.border.color}` : ''
-  const sh = r.boxShadow ? `${r.boxShadow.offsetXPx},${r.boxShadow.offsetYPx},${r.boxShadow.blurPx ?? 0},${r.boxShadow.color}` : ''
+  // REQ-331 — a shadow is a STACK now, so the signature covers every layer: two
+  // cards whose drop shadow matches but whose outer glow does not are two
+  // different surfaces, and collapsing them would paint one card's glow on the
+  // other.
+  const layer = (l: L1Shadow): string => `${l.offsetXPx},${l.offsetYPx},${l.blurPx ?? 0},${String(l.color)}`
+  const sh = r.boxShadow ? (Array.isArray(r.boxShadow) ? r.boxShadow : [r.boxShadow]).map(layer).join(';') : ''
   const rad = r.borderRadiusPx && r.borderRadiusPx > 0 ? Math.round(r.borderRadiusPx) : ''
   return `${r.fill ?? ''}|${g}|${bl}|${bd}|${sh}|${rad}`
 }
@@ -2371,6 +2485,61 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     }
   }
 
+  /**
+   * REQ-331 — the media elements the REFERENCE itself painted over something.
+   *
+   * BUG-112 gave L1 `stacked` so a deliberate composition could declare that its
+   * overlap is the design, and nothing in the engine had ever emitted it: on a
+   * collage page every reproduction failed the envelope's overlap probe for
+   * reproducing the reference faithfully. Measured on faelan.com — a hero of four
+   * montaged photographs over a headline — 218 findings across the on-sample,
+   * off-sample and content-robustness probes, every single one `kind: "overlap"`,
+   * and every single pair one the reference's own captured boxes also make.
+   *
+   * THE DECLARATION IS THE REFERENCE'S, not a guess. A fold produces a
+   * reproduction, and an overlap the reference painted is a fact about the page
+   * being reproduced rather than a defect in the copy of it. So the intent is
+   * read off the captured geometry at the widths the capture actually sampled,
+   * and an overlap the fold INVENTED — one whose two elements were captured
+   * clear of each other — is still a finding. That is the property that keeps
+   * the exemption from degenerating into "never report an overlap".
+   *
+   * ONLY THE PICTURE IS MARKED, never the words. One side of a pair is enough
+   * ({@link keepsAbsolute}'s exemption takes either), and a collage's figure is
+   * the photograph: marking the headline instead would additionally pin the copy
+   * at its captured coordinates, which is the brittle transcription the flow
+   * recovery exists to undo. Every colliding pair on a montage contains a
+   * picture, so the narrower mark clears the same findings.
+   */
+  const stackedElements = new Set<ValueElement>()
+  for (const p of projections) {
+    const boxed = p.manifest.elements.filter((e) => e.box && e.box.width > 0 && e.box.height > 0)
+    for (const a of boxed) {
+      if (!isMediaElement(a)) continue
+      for (const b of boxed) {
+        if (b === a) continue
+        const x = Math.min(a.box!.x + a.box!.width, b.box!.x + b.box!.width) - Math.max(a.box!.x, b.box!.x)
+        const y = Math.min(a.box!.y + a.box!.height, b.box!.y + b.box!.height) - Math.max(a.box!.y, b.box!.y)
+        if (!(x > 0 && y > 0)) continue
+        // A partner that entirely CONTAINS this one is a ground, not a figure:
+        // a full-bleed backdrop photograph (BUG-27) holds every element on its
+        // band, and reading that as a montage would declare the whole page
+        // stacked — which would additionally pin all of it, via `keepsAbsolute`.
+        // Nothing is lost by the exclusion: where both sides are pictures, the
+        // CONTAINER is still marked by this same scan (the contained one does not
+        // contain it), and one side of a pair is enough to exempt it.
+        const contains =
+          b.box!.x <= a.box!.x &&
+          b.box!.y <= a.box!.y &&
+          b.box!.x + b.box!.width >= a.box!.x + a.box!.width &&
+          b.box!.y + b.box!.height >= a.box!.y + a.box!.height
+        if (contains) continue
+        stackedElements.add(a)
+        break
+      }
+    }
+  }
+
   const residuals = opts.residuals
   const signal = (el: ValueElement, reason: string, presentWidths: number[]): void => {
     residuals?.push({ kind: residualKindOf(el), reason, capturedAxes: capturedAxesOf(el), widths: presentWidths })
@@ -2526,14 +2695,31 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
-      // BUG-142 — the run's measured height, read off the SAME box the keyframes
-      // above were (the flow root's for a rejoined run, the fragment's otherwise).
+      // BUG-142 — the run's measured height. The POSITION comes off the flow
+      // root's box only for a rejoined run (above); the HEIGHT comes off it
+      // wherever the capture recorded one.
+      //
+      // REQ-331 — those are two different questions and they used to share an
+      // answer. A bare inline run's own `box` is its GLYPH rect (`height: 28` at
+      // 24px/36px type), while the renderer lays the node out in a LINE box
+      // (`height: lineHeightPx`, 36). So the fold's model of how much vertical
+      // space a run occupies was 8px short of what its own output would produce,
+      // and because each sibling's lead is measured from the previous one's
+      // bottom the error accumulated down the chain: measured on faelan.com as
+      // +4, then +8, then **+16 for every node after the last text run** — the
+      // whole page, its band boundaries and its viewport height with it.
+      //
+      // `inlineBox` is the flow root's rect and therefore the line box the run
+      // actually sits in, which is the height the renderer will give it. Taking
+      // it here — not the run's own box — closes the gap for every run the
+      // capture recorded a flow for, rejoined or not: a flow that did not vary
+      // has no rejoin to fall back on, and it was exactly as displaced.
       textHeights.set(
         node,
         new Map(
           framed.map((c) => {
-            const box = (flow ? c.element!.inlineBox : undefined) ?? c.element!.box!
-            return [c.width, box.height] as const
+            const el = c.element!
+            return [c.width, (el.inlineBox ?? el.box!).height] as const
           }),
         ),
       )
@@ -2560,7 +2746,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const surfGrad = foldGradient(widest.surfaceGradient)
       const surfBorderLeft = foldBorderLeftAxis(widest.borderLeft)
       const surfBorder = foldBorder(widest.border)
-      const surfShadow = foldShadow(widest.boxShadow, { spread: true, inset: true })
+      const surfShadow = foldShadows(widest.boxShadow, { spread: true, inset: true })
       const surfRadius = widest.borderRadiusPx
       // REQ-88 — the surface-bearing element's own rect + rounding, per width. The
       // capture resolves the painting ancestor (BUG-22's `SurfaceShape`), so the
@@ -2662,6 +2848,14 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       }
       if (Object.keys(axes).length) node.axes = axes
       if (vis) node.visibility = vis
+      // REQ-331 — the montage declaration (see `stackedElements`). Marked on the
+      // row's own cells rather than on `widest` alone, so a picture that only
+      // overlaps at a narrow width is still declared.
+      if (framed.some((c) => stackedElements.has(c.element!))) node.stacked = true
+      // REQ-331 — the feathered edge the capture has always recorded (see
+      // `foldMask`). A node axis, beside `padding`, not one of the image axes.
+      const mask = foldMask(widest.maskEdge, widest.box)
+      if (mask) node.mask = mask
       // REQ-269 — a linked image is a link like any other; the renderer WRAPS this
       // one (a void element cannot be an anchor) rather than retagging it.
       const imageLink = foldLink(widest)
@@ -2708,6 +2902,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const node: L1Box = { kind: 'box', id: `box-${boxIdx++}`, geometry: buildGeometry(true) }
       if (Object.keys(axes).length) node.axes = axes
       if (vis) node.visibility = vis
+      // REQ-331 — a painted surface can be feathered too (a fading section edge
+      // is the same axis as a fading photograph), so it reads `maskEdge` on the
+      // same terms as the image leaf above.
+      const boxMask = foldMask(widest.maskEdge, widest.box)
+      if (boxMask) node.mask = boxMask
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
       // REQ-88 — a side that varies across the ladder gets its own track, so the

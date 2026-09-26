@@ -176,7 +176,12 @@ describe('AC-729 a text-free media element folds to an image leaf with its resol
       opacity: 0.9,
       blendMode: 'multiply',
       border: { widthPx: 2, color: '#112233', style: 'solid' },
-      boxShadow: { offsetXPx: 0, offsetYPx: 4, blurPx: 12, spreadPx: 1, color: '#000000' },
+      // REQ-331 supersedes this AC's shadow COLOUR claim. The capture records
+      // `rgba(0, 0, 0, 0.4)`; the fold used to format three channels and drop
+      // the fourth, so a 40%-black shadow folded to solid black and reproduced
+      // as a smear. `l1HexSchema` has accepted `#rrggbbaa` all along — 0.4 × 255
+      // = 102 = 0x66. Every other axis this AC pins is unchanged.
+      boxShadow: { offsetXPx: 0, offsetYPx: 4, blurPx: 12, spreadPx: 1, color: '#00000066' },
     })
     expect(logo.axes).toEqual({ objectFit: 'contain' })
 
@@ -283,7 +288,9 @@ describe('AC-730 a text-free element that paints a standalone surface folds to a
       borderRadiusPx: 8,
       opacity: 0.85,
       border: { widthPx: 1, color: '#d8d2c8', style: 'solid' },
-      boxShadow: { offsetXPx: 0, offsetYPx: 6, blurPx: 18, spreadPx: 2, color: '#000000' },
+      // REQ-331 — as on AC-729 above: the captured `rgba(0, 0, 0, 0.3)` keeps
+      // its alpha through the fold now (0.3 × 255 = 77 = 0x4d).
+      boxShadow: { offsetXPx: 0, offsetYPx: 6, blurPx: 18, spreadPx: 2, color: '#0000004d' },
       backdropBlurPx: 12,
       blendMode: 'multiply',
     })

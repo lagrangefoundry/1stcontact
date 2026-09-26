@@ -78,7 +78,7 @@ describe('REQ-92 — fold populates more of the L1 language + signals residuals'
     const leaves = doc.root.kind === 'box' ? (doc.root.children ?? []) : []
     const last = leaves.find((n) => n.kind === 'text' && n.text === 'Colour Last')
     const none = leaves.find((n) => n.kind === 'text' && n.text === 'No Shadow')
-    expect(last?.kind === 'text' && last.axes?.textShadow).toEqual({ offsetXPx: 1, offsetYPx: 1, blurPx: 4, color: '#0a141e' })
+    expect(last?.kind === 'text' && last.axes?.textShadow).toEqual({ offsetXPx: 1, offsetYPx: 1, blurPx: 4, color: '#0a141e80' })
     expect(none?.kind === 'text' && none.axes?.textShadow).toBeUndefined()
   })
 

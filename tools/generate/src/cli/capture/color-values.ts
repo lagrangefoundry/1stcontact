@@ -30,10 +30,10 @@ const SIDE_ANGLES: Record<string, number> = {
 /** Any `rgb()/rgba()/#hex` colour token → `#rrggbb` (drops alpha). */
 export function colorToHex(token: string): string | null {
   const t = token.trim()
-  const hex = t.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+  const hex = t.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)
   if (hex) {
     const h = hex[1]
-    return (h.length === 3 ? `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}` : `#${h}`).toLowerCase()
+    return (h.length === 3 ? `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}` : `#${h.slice(0, 6)}`).toLowerCase()
   }
   const rgb = t.match(/rgba?\(([^)]+)\)/)
   if (rgb) {
@@ -43,6 +43,46 @@ export function colorToHex(token: string): string | null {
     return `#${h(p[0])}${h(p[1])}${h(p[2])}`
   }
   return null
+}
+
+/**
+ * REQ-331 — the same token, with its ALPHA kept: `#rrggbb`, or `#rrggbbaa`.
+ *
+ * `colorToHex` formats three channels and returns, so the fourth was discarded
+ * everywhere it was called from — and its hex branch did not admit an 8-digit
+ * literal either, so a captured `#rrggbbaa` came back `null` and whatever it
+ * described was dropped entirely. Measured on faelan.com: a
+ * `rgba(0, 0, 0, 0.6)` drop shadow on three photographs reproduced as solid
+ * black, which is the difference between a shadow and a smear.
+ *
+ * A SIBLING RATHER THAN A CHANGE OF BEHAVIOUR, because most callers genuinely
+ * want the opaque form: a text colour, a band fill and a border are composited
+ * values the capture already resolved against what is behind them, and giving
+ * them an alpha would paint the page's own background through them twice. Only
+ * the callers that carry a colour the browser will composite itself — a shadow —
+ * opt in.
+ *
+ * `l1HexSchema` has accepted `#rrggbbaa` all along, so nothing about the
+ * substrate had to widen for this.
+ */
+export function colorToHexAlpha(token: string): string | null {
+  const t = token.trim()
+  const hex = t.match(/^#([0-9a-fA-F]{8})$/)
+  if (hex) return `#${hex[1]}`.toLowerCase()
+  const rgb = t.match(/rgba?\(([^)]+)\)/)
+  if (rgb) {
+    const p = rgb[1].split(',').map((s) => parseFloat(s.trim()))
+    if (p.length >= 4 && !p.some((n) => Number.isNaN(n))) {
+      const base = colorToHex(token)
+      if (!base) return null
+      const a = Math.round(Math.min(1, Math.max(0, p[3])) * 255)
+      // A fully-opaque colour is written as six digits, not eight: `#000000ff`
+      // and `#000000` paint the same pixel, and two spellings of one value is
+      // the drift this codebase refuses everywhere else.
+      return a >= 255 ? base : `${base}${('0' + a.toString(16)).slice(-2)}`
+    }
+  }
+  return colorToHex(token)
 }
 
 /** `#rrggbb`/`rgb()` → `[r, g, b]` (0–255), or null if unparseable. */

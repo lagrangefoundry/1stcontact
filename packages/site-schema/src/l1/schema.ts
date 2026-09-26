@@ -476,6 +476,29 @@ export const l1ShadowSchema = z
   })
   .strict()
 
+/**
+ * REQ-331 — the shadow a node casts: ONE layer, or the ordered stack of several.
+ *
+ * A reference routinely paints two: a dark drop that lifts the card off the page
+ * and a pale outer glow that separates it from what is behind it. Measured on
+ * faelan.com, three photographs each carried
+ * `rgba(0,0,0,0.6) 0 15px 50px, rgba(255,255,255,0.15) 0 0 30px` — and the fold
+ * could only take the first layer, because there was nowhere to put the second.
+ * That is not a fold shortfall; it is the axis being narrower than the medium it
+ * describes, so the axis is what widens.
+ *
+ * **Two-or-more is the array; one is the object** — the same rule
+ * {@link l1TextContentSchema} states for copy, for the same reason: a
+ * one-element array would be a second spelling of a single shadow, and two
+ * spellings of one thing is the drift this schema refuses everywhere. The order
+ * is CSS's own, which is paint order — the first layer paints on top.
+ *
+ * The cap is small deliberately. Two or three layers is a design; ten is a
+ * compositing cost the page pays on every frame, and no reference this engine
+ * reproduces has ever painted more than three.
+ */
+export const l1BoxShadowSchema = z.union([l1ShadowSchema, z.array(l1ShadowSchema).min(2).max(4)])
+
 /** A box border — width + colour + line style. */
 export const l1BorderSchema = z
   .object({
@@ -810,8 +833,8 @@ const surfaceAxesShape = {
   pointerAccent: l1PointerAccentSchema.optional(),
   /** A full-bleed translucent scrim painted over the background (hero overlay). */
   overlay: l1OverlaySchema.optional(),
-  /** A drop shadow cast by the node. */
-  boxShadow: l1ShadowSchema.optional(),
+  /** A drop shadow cast by the node — one layer, or REQ-331's ordered stack. */
+  boxShadow: l1BoxShadowSchema.optional(),
   /** A painted border (uniform, all four sides). */
   border: l1BorderSchema.optional(),
   /**
@@ -1706,10 +1729,23 @@ const nodeAxisGroupsShape = {
    * NOT A PAINT AXIS: it moves no pixel and the renderer emits nothing for it
    * (DOC-24's rule is about what L1 must be able to *express*; this is what the
    * document must be able to *declare*, alongside `heading` / `link` / `action`,
-   * which paint nothing either). A capture cannot recover it — the browser shows
-   * the stack, not the reason for it — so a folded document never carries one,
-   * and the gate's finding is the fold gap that has to be closed by whoever
-   * decides the overlap was meant.
+   * which paint nothing either).
+   *
+   * REQ-331 — **a fold DOES author it, and the reference is what declares it.**
+   * The original reading here was that a capture cannot recover the intent
+   * because the browser shows the stack and not the reason for it. That is true
+   * of an overlap seen in isolation and false of a REPRODUCTION, which is the
+   * only thing the fold ever produces: when the reference's own captured boxes
+   * overlap, the overlap is a fact about the page being reproduced, and a
+   * reproduction that reproduces it is not making a mistake. So the fold marks
+   * the figure of every overlap the reference itself painted, and marks nothing
+   * else — an overlap the fold INVENTED (one side captured clear of the other)
+   * is still a finding, which is the property that keeps the exemption honest.
+   *
+   * Measured on faelan.com, whose hero is four photographs montaged over a
+   * headline: 218 `overlap` findings across all three envelope probes, every one
+   * of them a pair the reference painted, failing the reproduction for being
+   * faithful.
    */
   stacked: z.literal(true).optional(),
 } as const
@@ -1777,6 +1813,20 @@ export const l1TextRunAxesSchema = z
      * collide with it.
      */
     baselineShiftEm: finite.optional(),
+    /**
+     * REQ-331 — the run's own decoration line.
+     *
+     * A sentence with a link in it is the most common inline variation on the
+     * web, and an underline is how the web has always drawn one. Without this
+     * the only way to underline one word was to pin it as a separate absolutely
+     * positioned node — which is precisely the brittle geometry REQ-211 exists
+     * to retire, so the rejoin could not be taken without losing the line.
+     *
+     * `none` is meaningful here rather than a second spelling of absent: a
+     * linked run inherits the UA's underline, so a reference that draws a link
+     * WITHOUT one has to be able to say so.
+     */
+    textDecoration: z.enum(['none', 'underline', 'line-through', 'overline']).optional(),
   })
   .strict()
 
@@ -1792,6 +1842,24 @@ export const l1TextRunSchema = z
      */
     text: z.string(),
     axes: l1TextRunAxesSchema.optional(),
+    /**
+     * REQ-331 — this run, and only this run, is a link.
+     *
+     * Beside `axes` rather than inside it for the same reason the node carries
+     * {@link l1NodeAxisGroupsSchema}'s `link` beside its own axes: navigation is
+     * a ROLE, not a paint axis — it moves no pixel by itself, and the renderer
+     * answers it with a tag rather than with a declaration.
+     *
+     * This is what makes an inline flow rejoinable without loss. `Artist •
+     * <a>Musician</a> • Creator` is one sentence in the source and one `text`
+     * node after the fold; before this axis existed, folding it that way would
+     * have silently dropped the anchor and left the reproduction with dead text
+     * where the reference had a link.
+     *
+     * Cleared by the same `isSafeUrl` allowlist as the node-level link, so an
+     * unsafe href degrades to a plain run — never a live `javascript:` link.
+     */
+    link: l1LinkSchema.optional(),
   })
   .strict()
 

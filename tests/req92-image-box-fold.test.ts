@@ -199,7 +199,7 @@ describe('REQ-92 — image + surface (box) leaves fold into the L1 tree', () => 
       borderRadiusPx: 12,
       opacity: 0.9,
       border: { widthPx: 2, color: '#112233', style: 'solid' },
-      boxShadow: { offsetXPx: 0, offsetYPx: 4, blurPx: 12, spreadPx: 1, color: '#000000' },
+      boxShadow: { offsetXPx: 0, offsetYPx: 4, blurPx: 12, spreadPx: 1, color: '#00000066' },
     })
     const { css, html } = renderL1Document(doc)
     expect(html).toContain('<img')
