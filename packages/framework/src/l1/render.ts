@@ -14,6 +14,7 @@
 import {
   isSafeUrl,
   l1EntranceSteps,
+  l1ScrollTracks,
   mapL1PaletteRefs,
   resolveL1Palette,
   resolveSiteLocale,
@@ -77,6 +78,7 @@ import type {
   L1PointerAccent,
   L1Resources,
   L1ScalarTrack,
+  L1ScrollMotion,
   L1ScrollRange,
   L1ScrollTrack,
   L1Shadow,
@@ -1226,37 +1228,50 @@ function stickyDecls(sticky: L1Sticky): string[] {
 function scrollTrackRules(
   selector: string,
   name: string,
-  track: L1ScrollTrack,
-): { rules: Rule[]; keyframes: KeyframesRule } {
-  const stops = track.stops.map((stop) => {
-    const decls: string[] = []
-    if (stop.opacity !== undefined) decls.push(`opacity: ${num(stop.opacity)}`)
-    // The independent `translate` / `scale` properties, not `transform`: a node
-    // may carry a static `transform` as well, and the two families compose
-    // natively instead of the animation replacing the author's own offset. This
-    // is the same choice REQ-100's entrance makes, for the same reason.
-    if (stop.translateYPct !== undefined) decls.push(`translate: 0 ${num(stop.translateYPct)}%`)
-    if (stop.scale !== undefined) decls.push(`scale: ${num(stop.scale)}`)
-    return { atPct: stop.at * 100, decls }
-  })
+  motion: L1ScrollMotion,
+): { rules: Rule[]; keyframes: KeyframesRule[] } {
+  const tracks = l1ScrollTracks(motion)
+  const keyframes = tracks.map((track, index) => ({
+    // One track keeps REQ-325's name verbatim, so a single-track document's CSS is
+    // byte-identical to what it was; a composition indexes by position.
+    name: tracks.length === 1 ? name : `${name}${index}`,
+    stops: track.stops.map((stop) => {
+      const decls: string[] = []
+      if (stop.opacity !== undefined) decls.push(`opacity: ${num(stop.opacity)}`)
+      // The independent `translate` / `scale` properties, not `transform`: a node
+      // may carry a static `transform` as well, and the two families compose
+      // natively instead of the animation replacing the author's own offset. This
+      // is the same choice REQ-100's entrance makes, for the same reason.
+      if (stop.translateYPct !== undefined) decls.push(`translate: 0 ${num(stop.translateYPct)}%`)
+      if (stop.scale !== undefined) decls.push(`scale: ${num(stop.scale)}`)
+      return { atPct: stop.at * 100, decls }
+    }),
+  }))
+  // REQ-329 — one entry per track in each `animation-*` list. This is CSS's own
+  // composition mechanism: a comma-joined animation list runs every member at once,
+  // each over its own range. A second `animation-name` declaration would replace
+  // the first, which is the clobber the list form exists to avoid — and the reason
+  // the envelope refuses two tracks that name the same PROPERTY is the other half
+  // of the same fact: within one list, the last animation to name a property wins.
+  const per = (f: (t: L1ScrollTrack) => string): string => tracks.map(f).join(', ')
   const rules: Rule[] = [
     {
       supports: SCROLL_TIMELINE_SUPPORTS,
       media: NO_REDUCED_MOTION,
       selector,
       decls: [
-        `animation-name: ${name}`,
-        'animation-duration: auto',
-        'animation-timing-function: linear',
+        `animation-name: ${keyframes.map((k) => k.name).join(', ')}`,
+        `animation-duration: ${per(() => 'auto')}`,
+        `animation-timing-function: ${per(() => 'linear')}`,
         // Both ends held: before the range the node paints its first stop, after
         // it its last, so a track never snaps back to the design at the boundary.
-        'animation-fill-mode: both',
-        'animation-timeline: view()',
-        `animation-range: ${SCROLL_RANGE[track.range ?? 'cover']}`,
+        `animation-fill-mode: ${per(() => 'both')}`,
+        `animation-timeline: ${per(() => 'view()')}`,
+        `animation-range: ${per((t) => SCROLL_RANGE[t.range ?? 'cover'])}`,
       ],
     },
   ]
-  return { rules, keyframes: { name, stops } }
+  return { rules, keyframes }
 }
 
 // ── REQ-108 pointer accent: the texture, redrawn under the reader's hand ──────
@@ -4464,7 +4479,7 @@ function emitNode(
   if (node.scrollTrack && !state.edit && !isDialog) {
     const { rules, keyframes } = scrollTrackRules(selector, `${name}-sc`, node.scrollTrack)
     state.rules.push(...rules)
-    ;(state.keyframes ??= []).push(keyframes)
+    ;(state.keyframes ??= []).push(...keyframes)
   }
 
   // REQ-108 — the accent overlay's own rules (resolved at the top of the emitter).

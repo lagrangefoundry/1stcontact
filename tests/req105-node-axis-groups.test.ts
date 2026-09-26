@@ -214,10 +214,11 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
       // past, are properties of a box, so a kind that could be pinned but not
       // tracked would be exactly the per-kind drift this sweep exists to catch.
       // Both are shape-level additions here; the pairs the ENVELOPE refuses (a pin
-      // against an absolute placement, a track against a `reveal`) are structural
-      // rules and so do not bear on what a KIND admits. REQ-328's `lift` rides in
-      // the sample so every kind is swept admitting a pin that also declares the
-      // paint level it holds at, not just a bare one.
+      // against an absolute placement, and — REQ-329 — two motions animating one
+      // CSS property) are structural rules and so do not bear on what a KIND
+      // admits. REQ-328's `lift` rides in the sample so every kind is swept
+      // admitting a pin that also declares the paint level it holds at, not just
+      // a bare one.
       sticky: { topPx: 64, fromPx: 900, lift: true },
       scrollTrack: {
         stops: [
