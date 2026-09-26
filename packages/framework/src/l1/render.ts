@@ -13,6 +13,7 @@
  */
 import {
   isSafeUrl,
+  l1EntranceSteps,
   mapL1PaletteRefs,
   resolveL1Palette,
   resolveSiteLocale,
@@ -56,6 +57,7 @@ import type {
   L1Container,
   L1Dialog,
   L1Document,
+  L1Entrance,
   L1Filter,
   L1FocusRing,
   L1Heading,
@@ -63,6 +65,7 @@ import type {
   L1Geometry,
   L1Gradient,
   L1GradientOrigin,
+  L1Image,
   L1HoverState,
   L1Interaction,
   L1LayoutMode,
@@ -72,7 +75,6 @@ import type {
   L1Pattern,
   L1PointerAccent,
   L1Resources,
-  L1Reveal,
   L1ScalarTrack,
   L1ScrollRange,
   L1ScrollTrack,
@@ -83,6 +85,7 @@ import type {
   L1Text,
   L1Transform,
   L1ViewportResponse,
+  L1Zoom,
 } from '@1stcontact/site-schema'
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
@@ -931,6 +934,13 @@ const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
 //      compose natively instead of overwriting each other, and their transitions
 //      are merged into one declaration set by {@link transitionDecls} rather
 //      than the second silently replacing the first.
+//   4. **And it composes with ITSELF (REQ-326).** An entrance is one behaviour
+//      or a list of them, and each behaviour brings its own duration, delay and
+//      easing — so a node can fade quickly and rise slowly, which one shared
+//      timing could not express. The same `transitionDecls` list form carries
+//      it; nothing new had to be invented. Two behaviours animating the same
+//      property never reach here, because the envelope refuses the document
+//      rather than letting the emitter pick a winner.
 
 /** The class an author cannot write: the observer's handle on a revealing node. */
 const REVEAL_CLASS = 'l1-rv'
@@ -1013,32 +1023,48 @@ function transitionDecls(specs: TransitionSpec[]): string[] {
  */
 function revealRules(
   selector: string,
-  reveal: L1Reveal,
+  entrance: L1Entrance,
   staggerDelayMs: number,
   settledOpacity: number,
 ): { rules: Rule[]; transitions: TransitionSpec[] } {
   const pre = `${MOTION_MARKER} ${selector}:not(.${REVEALED_CLASS})`
-  const from = reveal.fromOpacity ?? 0
-  const y = reveal.yPx ?? 0
 
-  const decls = [`opacity: ${num(from)}`]
-  if (y !== 0) decls.push(`translate: 0 ${num(y)}px`)
+  // REQ-326 — one pre-state rule and one transition PER PROPERTY, taking that
+  // property's timing from the behaviour that claims it. The claims come from
+  // `l1EntranceSteps`, the same reading the validator refuses a contest by, so
+  // a property emitted here is always one the envelope agreed only one
+  // behaviour was animating. Authored order is preserved: with the contest
+  // refused rather than resolved there is never a winner to pick, so what the
+  // order buys is a stable, authorable emission rather than an arbitration.
+  const decls: string[] = []
+  const transitions: TransitionSpec[] = []
+  for (const step of l1EntranceSteps(entrance)) {
+    const durationMs = step.behaviour.durationMs ?? 600
+    const easing = step.behaviour.easing ?? 'ease-out'
+    const delayMs = (step.behaviour.delayMs ?? 0) + staggerDelayMs
+    for (const prop of step.properties) {
+      decls.push(
+        prop === 'opacity'
+          ? `opacity: ${num(step.behaviour.fromOpacity ?? 0)}`
+          : `translate: 0 ${num(step.behaviour.yPx ?? 0)}px`,
+      )
+      transitions.push({ prop, durationMs, easing, delayMs })
+    }
+  }
   const rules: Rule[] = [{ selector: pre, decls }]
 
   // Belt and braces on the reduced-motion obligation: the script already
   // declines to set the marker, and this makes the pre-state inert even if some
   // other path sets it. A user who asked for no motion gets the settled page.
+  // ONE rule for the whole entrance however many behaviours compose into it —
+  // what it restores is the node's own settled design, which no number of
+  // behaviours changes.
   rules.push({
     media: REDUCED_MOTION,
     selector: pre,
     decls: [`opacity: ${num(settledOpacity)}`, 'translate: none'],
   })
 
-  const durationMs = reveal.durationMs ?? 600
-  const easing = reveal.easing ?? 'ease-out'
-  const delayMs = (reveal.delayMs ?? 0) + staggerDelayMs
-  const transitions: TransitionSpec[] = [{ prop: 'opacity', durationMs, easing, delayMs }]
-  if (y !== 0) transitions.push({ prop: 'translate', durationMs, easing, delayMs })
   return { rules, transitions }
 }
 
@@ -2885,6 +2911,198 @@ export const L1_DIALOG_CSS = DIALOG_INVARIANT_RULES.map(
   (r) => `${r.selector} { ${r.decls.join('; ')} }`,
 ).join('\n')
 
+// ── REQ-327 zoomable pictures: the magnify role ───────────────────────────────
+//
+// NOTHING BELOW IS A SECOND OVERLAY. A picture carrying `zoom` compiles to the
+// modal above — the same shell class, the same ready/open/lock markers, the same
+// per-panel scrim rules, the same one vetted script — and what this section adds
+// is only the pair a document would otherwise have to author by hand: a trigger,
+// and a panel holding the large picture. `state.hasDialog` is set by a zoom
+// exactly as it is by a `dialog`, so the script still ships once for the page and
+// still carries no instance data.
+//
+// THREE THINGS THE TRIGGER HAS TO BE, and they decide its shape between them:
+//
+//   1. **A real `<button>`.** The keyboard has to reach it, and Enter/Space have
+//      to open it. A picture with a click handler is reachable by a mouse and by
+//      nothing else; teaching the shared script two more keys would re-implement
+//      what the element already is.
+//
+//   2. **A wrapper, not a retag.** REQ-106 retags a linked node precisely so the
+//      author's class and focus ring stay on the element they styled — but an
+//      `<img>` is void, so there is nothing to retag and the `<a>` case already
+//      wraps. This wraps for the same reason, and like that wrapper it generates
+//      NO BOX (`display: contents`), so every geometry, sizing and paint rule
+//      still lands on the picture's own selector and the picture participates in
+//      its parent's layout exactly as the bare `<img>` did.
+//
+//   3. **Visibly focusable.** A boxless element paints no outline, so a focus ring
+//      on the wrapper would be a ring nobody sees — the exact cost REQ-106 refuses
+//      to pay for a retag. It is drawn on the picture INSIDE the wrapper instead,
+//      which is the only element there with a box.
+//
+// The cursors are obligations rather than taste, and the reporter names the first
+// one: a picture that gives no sign of being openable is a capability nobody
+// discovers. `cursor` inherits, which is what lets a boxless wrapper set it on the
+// picture without a second selector. The overlay's own `zoom-out` is gated on the
+// ready marker, so an unenhanced page never advertises a gesture it cannot honour.
+
+/** The boxless `<button>` the picture is wrapped in. */
+const ZOOM_TRIGGER_CLASS = 'l1-zoomable'
+/** The panel inside the shell — the element that takes the dialog role and focus. */
+const ZOOM_PANEL_CLASS = 'l1-zoom'
+/** The large picture inside the panel. */
+const ZOOM_IMG_CLASS = 'l1-zoom-img'
+
+/**
+ * The dim a zoom falls back to when the document names no `backdrop`.
+ *
+ * A RENDERER CONSTANT, and for the reason `DIALOG_Z_INDEX` is one: a picture
+ * opened large onto an undimmed page is the feature failing to happen rather than
+ * a design, so the absence cannot mean "none" the way a dialog's does. Near-opaque
+ * black because the point of opening a plate is to read its detail, and anything
+ * of the page still showing through competes with it.
+ */
+const ZOOM_BACKDROP = { color: '#000000', opacity: 0.92 } as const
+
+/**
+ * The invariant half of the magnify presentation — emitted once per document that
+ * carries any zoom at all, and never per picture.
+ *
+ * `max-width`/`max-height` in viewport units with `width`/`height: auto` is the
+ * whole of the sizing: the large picture fits what covers the viewport at its own
+ * aspect ratio, with no axis for a document to get wrong. `object-fit: contain`
+ * is belt to that brace for the case where a `max-height` bites.
+ */
+const ZOOM_INVARIANT_RULES: Rule[] = [
+  { selector: `.${ZOOM_TRIGGER_CLASS}`, decls: ['display: contents', 'cursor: zoom-in'] },
+  {
+    selector: `.${ZOOM_TRIGGER_CLASS}:focus-visible img`,
+    decls: focusRingDecls(undefined),
+  },
+  { selector: `.${ZOOM_PANEL_CLASS}`, decls: ['display: block'] },
+  {
+    selector: `html[${DIALOG_READY_ATTR}] .${ZOOM_PANEL_CLASS}`,
+    decls: ['cursor: zoom-out'],
+  },
+  {
+    selector: `.${ZOOM_IMG_CLASS}`,
+    decls: [
+      'display: block',
+      'width: auto',
+      'height: auto',
+      'max-width: 100vw',
+      'max-height: 100vh',
+      'object-fit: contain',
+    ],
+  },
+]
+
+/** The same rules as a stylesheet, beside {@link L1_DIALOG_CSS} and for the same reason. */
+export const L1_ZOOM_CSS = ZOOM_INVARIANT_RULES.map(
+  (r) => `${r.selector} { ${r.decls.join('; ')} }`,
+).join('\n')
+
+/**
+ * REQ-327 — one zoomable picture's whole emission: the trigger wrapped around the
+ * placed picture, and the overlay holding the large one.
+ *
+ * SYNTHESIZED, NOT AUTHORED. The `id` on the panel and the handle on the shell are
+ * derived from the render counter that already names the node's class — exactly
+ * where the reveal handle and REQ-211's run classes come from — because a document
+ * that had to invent an id for a panel it never wrote is the ceremony this role
+ * exists to remove.
+ *
+ * THE LARGE PICTURE IS THE ORIGINAL, never a delivery rendition: `src` alone, with
+ * no `srcset` and no `sizes`. That is the point of the whole capability — the
+ * detail the reporter cannot read at the placed width is precisely what a
+ * rendered-down variant has already thrown away, so offering the browser a ladder
+ * here would let it choose the picture we opened the overlay to escape. The
+ * manifest is still read for the intrinsic dimensions, because those cost nothing
+ * and reserve the box before the bytes arrive.
+ *
+ * `loading="lazy"` because the overlay starts closed in every enhanced render, and
+ * a page of four plates should not pay for four originals before anyone has clicked
+ * one. It is a hint the unenhanced render honours too — there the panel is in flow,
+ * which is where lazy loading means what it usually means.
+ *
+ * THE PANEL DISMISSES ON A CLICK ANYWHERE, via the SAME `data-l1-closes` verb an
+ * authored Close button carries — no new attribute and no script change. A dialog's
+ * rule that a click inside the panel never closes it protects a panel holding
+ * fields, where a click means "use this"; a panel holding one picture and nothing
+ * interactive has no such click to protect, and "dismissed by clicking away" read
+ * strictly would leave a visitor stabbing at the one part of the screen that is not
+ * the picture.
+ *
+ * REQ-116 — the edit channel keeps the elements, the classes and the boxes and
+ * loses only the two attributes that would ACT, exactly as a link keeps its `<a>`
+ * and loses its `href`: a click there means "edit this picture", and a live overlay
+ * would give the same click a second meaning.
+ */
+function zoomHtml(
+  node: L1Image,
+  zoom: L1Zoom,
+  picture: string,
+  name: string,
+  state: RenderState,
+): string {
+  // The handle names the pair: the shell's `data-l1-dialog` value, the panel's DOM
+  // id, and what the trigger's `aria-controls` points at.
+  const handle = `${name}-zoom`
+  const shell = `${name}-dlg`
+  const src = zoom.src ?? node.src
+  const large = isSafeUrl(src) ? relativizeUrl(src.trim()) : ''
+  const alt = zoom.alt ?? node.alt
+  const delivery = deliveryFor(src, state)
+  const dims =
+    delivery &&
+    Number.isFinite(delivery.width) &&
+    Number.isFinite(delivery.height) &&
+    delivery.width > 0 &&
+    delivery.height > 0
+      ? ` width="${num(delivery.width)}" height="${num(delivery.height)}"`
+      : ''
+
+  // The magnify stylesheet and the overlay's own invariant half each ride in once,
+  // on the first picture (respectively the first panel) the document declares.
+  if (!state.hasZoom) state.rules.push(...ZOOM_INVARIANT_RULES)
+  state.hasZoom = true
+  if (!state.hasDialog) state.rules.push(...DIALOG_INVARIANT_RULES)
+  state.hasDialog = true
+  // Reused wholesale rather than re-derived: the scrim and the placement are the
+  // dialog's own half of the overlay, and a zoom's differ only in what the absence
+  // of a backdrop means.
+  state.rules.push(
+    ...dialogShellRules(`.${shell}`, {
+      backdrop: zoom.backdrop ?? ZOOM_BACKDROP,
+      placement: 'center',
+    }),
+  )
+
+  const opens = state.edit
+    ? ''
+    : ` aria-haspopup="dialog" aria-expanded="true" aria-controls="${escapeHtml(handle)}"` +
+      ` ${DIALOG_OPENS_ATTR}="${escapeHtml(handle)}"`
+  const closes = state.edit ? '' : ` ${DIALOG_CLOSES_ATTR}="${escapeHtml(handle)}"`
+  // The overlay's accessible name is the picture it is showing, which is already
+  // written down as the alt text — so a document that named nothing extra still
+  // gets a named region rather than one a screen reader announces by its id.
+  const label = zoom.ariaLabel ?? alt
+  const named = label ? ` aria-label="${escapeHtml(label)}"` : ''
+
+  const trigger = `<button type="button" class="${ZOOM_TRIGGER_CLASS}"${opens}>${picture}</button>`
+  const largeImg =
+    `<img class="${ZOOM_IMG_CLASS}" src="${escapeHtml(large)}"${dims}` +
+    ` alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`
+  const panel =
+    `<div class="${ZOOM_PANEL_CLASS}" id="${escapeHtml(handle)}" role="dialog"` +
+    ` aria-modal="true" tabindex="-1"${named}${closes}>${largeImg}</div>`
+  return (
+    trigger +
+    `<div class="${DIALOG_CLASS} ${shell}" ${DIALOG_ATTR}="${escapeHtml(handle)}">${panel}</div>`
+  )
+}
+
 /**
  * One panel's own half of the overlay: where it sits in the covered viewport and
  * what the page behind it is dimmed with. Both are gated on the ready marker, so
@@ -3011,6 +3229,8 @@ interface RenderState {
   hasPointerAccent?: boolean
   /** REQ-212 — set once any node opens as an overlay, so a page with no modal ships no script. */
   hasDialog?: boolean
+  /** REQ-327 — set once any picture zooms, so the magnify stylesheet rides in once. */
+  hasZoom?: boolean
   /** REQ-116 — render the edit channel: addresses stamped, the page inert. */
   edit?: boolean
 }
@@ -3515,7 +3735,15 @@ function emitNode(
       // `<img>` that shipped before this existed, byte for byte.
       const sources = pictureSources(delivery, sizesAttr)
       const picture = sources === '' ? img : `<picture style="display:contents">${sources}${img}</picture>`
-      html = href ? `<a${linkAttrs} style="display:contents">${picture}</a>` : picture
+      // REQ-327 — the magnify role. Refused with `link` by the envelope validator,
+      // and guarded here too for the same reason `acts` is: the emitter emits ONE
+      // interactive element, and a document that reached it carrying both must
+      // still render as something rather than as two nested controls.
+      html = node.zoom !== undefined && !href
+        ? zoomHtml(node, node.zoom, picture, name, state)
+        : href
+          ? `<a${linkAttrs} style="display:contents">${picture}</a>`
+          : picture
       break
     }
     case 'slot': {

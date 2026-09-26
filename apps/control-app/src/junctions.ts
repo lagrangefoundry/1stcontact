@@ -45,8 +45,33 @@ import type { JunctionSlice, SessionJunction } from './junction-do'
  * prepared (the agent surface opens past conversations' junctions by id, and
  * falls through to the archive when there is nothing there), a prepare that
  * failed, and a deployment whose Durable Object is unreachable. In every one of
- * them this degrades to exactly `memoryJunctions()` — today's behaviour — rather
- * than to a `seed` overwriting a real junction with an archive replay.
+ * them this degrades to `memoryJunctions()` rather than to a `seed` overwriting
+ * a real junction with an archive replay.
+ *
+ * AND THAT DEGRADATION IS TEMPORARY, WHICH IS THE WHOLE OF [[BUG-149]]. It used
+ * to be permanent and silent: the storage captured a `DurableObjectStub` in its
+ * constructor, workerd binds a stub to the request context that created it, so
+ * every request after the one that built the storage threw *Cannot perform I/O
+ * on behalf of a different request* inside {@link DurableJunctionStorage.prepare}
+ * — which caught it, set `adopted = false`, and left the session in RAM for the
+ * isolate's life. Reads still looked right (they come off the mirror), the turn
+ * still streamed, the fold still happened, and the durability tier was off. On
+ * the session this was measured on, thirteen of seventeen turns never reached
+ * the object.
+ *
+ * TWO RULES FOLLOW, and they are the design of this file as much as the mirror
+ * is:
+ *
+ *   - THE STUB IS NEVER HELD. The NAMESPACE is — a binding, not an I/O object,
+ *     and the same one for the isolate's life — and a stub is taken from it
+ *     per use, inside the request that is about to use it. See
+ *     {@link DurableJunctionStorage.stub}.
+ *   - A DEGRADED STORAGE REPAIRS ITSELF ON THE NEXT REQUEST. Every session
+ *     entry point calls `prepare`, so the next request re-adopts; and because
+ *     the repair pushes the mirror's unlanded tail forward rather than taking
+ *     the object wholesale, the records written while the object was
+ *     unreachable are not lost when it comes back. See
+ *     {@link DurableJunctionStorage.behind}.
  */
 
 /** The library is untyped JavaScript; the boundary is narrow and named here. */
@@ -69,7 +94,18 @@ export interface JunctionNamespace {
 class DurableJunctionStorage {
   readonly key: string
   private readonly mirror: Untyped
-  private readonly stub: DurableObjectStub<SessionJunction>
+  /**
+   * THE BINDING, HELD; THE STUB, NEVER ([[BUG-149]]).
+   *
+   * A `DurableObjectStub` is an I/O object: workerd binds it to the request
+   * context that created it and refuses it from every later one. This storage
+   * outlives the request that built it BY DESIGN — the mirror it holds is what
+   * makes the port's synchronous reads possible — so a stub kept beside the
+   * mirror is a stub that works exactly once. The namespace has no such
+   * lifetime: it is a binding, and {@link stub} spends it per use.
+   */
+  private readonly namespace: JunctionNamespace
+  private readonly sessionId: string
   /** False until {@link adopt} has read the object; no write leaves until it is. */
   private adopted = false
   /**
@@ -85,10 +121,32 @@ class DurableJunctionStorage {
   /** The write-behind chain — one flush at a time, in append order. */
   private tail: Promise<void> = Promise.resolve()
 
-  constructor(sessionId: string, stub: DurableObjectStub<SessionJunction>) {
+  /**
+   * Why this session is RAM-only, or `null` while the object is being written.
+   *
+   * IT EXISTS TO MAKE THE LOG A TRANSITION RATHER THAN A DRUMBEAT. The old
+   * `console.error` fired once per prompt, forever, which reads as noise and
+   * says nothing about whether anything changed; this one fires when the tier
+   * goes off and when it comes back.
+   */
+  private degraded: string | null = null
+
+  constructor(sessionId: string, namespace: JunctionNamespace) {
     this.key = `durable:${sessionId}`
     this.mirror = new lib.MemoryJunctionStorage(this.key)
-    this.stub = stub
+    this.namespace = namespace
+    this.sessionId = sessionId
+  }
+
+  /**
+   * A stub for THIS request, and never a stored one — see {@link namespace}.
+   *
+   * Addressing is by name and is therefore stable: every request resolves the
+   * same object for the same session. What is not stable, and is what this
+   * method exists for, is the handle.
+   */
+  private stub(): DurableObjectStub<SessionJunction> {
+    return this.namespace.get(this.namespace.idFromName(this.sessionId))
   }
 
   // -- the port's reads, straight off the mirror ----------------------------
@@ -158,9 +216,9 @@ class DurableJunctionStorage {
     // against a cursor the object has not caught up to yet.
     await this.drain()
     const from = this.adopted ? this.mirror.size() : 0
-    const slice: JunctionSlice = await this.stub.since(from, this.epoch)
+    const slice: JunctionSlice = await this.stub().since(from, this.epoch)
     const bytes = new Uint8Array(slice.bytes)
-    if (this.adopted && slice.epoch === this.epoch && slice.size < this.mirror.size()) {
+    if (this.behind(slice, bytes)) {
       // THE OBJECT IS BEHIND, AND IS PUSHED FORWARD RATHER THAN OBEYED. This is
       // a flush that did not land, and the mirror is then the only copy of those
       // records — adopting would delete them. Re-sending the tail is both the
@@ -188,30 +246,97 @@ class DurableJunctionStorage {
     this.epoch = slice.epoch
   }
 
-  /** {@link adopt}, but a failure leaves this session memory-backed rather than throwing. */
+  /**
+   * Does this isolate hold records the object does not — records that adopting
+   * would delete?
+   *
+   * THE TEST IS THE BYTES AND NOT THE FLAG ([[BUG-149]]). It used to be
+   * `adopted && epoch unchanged && the object is shorter`, which is sound for a
+   * flush that did not land and answers the wrong question for the case this
+   * bug produces: a storage whose LAST prepare failed has `adopted === false`
+   * and a mirror full of records that never left the isolate, and the wholesale
+   * adopt below would have thrown them away the moment the object came back.
+   * Comparing what the object holds against what the mirror holds is sound in
+   * both cases and needs neither flag — and it cannot overwrite a divergent
+   * object, because a stream that is not a PREFIX of the mirror is not pushed
+   * forward at all, it is adopted.
+   *
+   * `since` ANSWERS A CURSOR PAST ITS END WITH THE WHOLE STREAM, which is what
+   * makes the comparison possible: whenever the mirror is longer than the
+   * object, `at` is `0` and `bytes` is everything the object has.
+   */
+  private behind(slice: JunctionSlice, bytes: Uint8Array): boolean {
+    if (this.mirror.size() <= slice.size) return false
+    // A GUARD THAT CANNOT FIRE TODAY AND MUST NOT BE DROPPED: `at === 0` is what
+    // makes `bytes` the whole stream, and a prefix test run against a DELTA
+    // would compare the mirror's head with the object's tail and call a
+    // divergent object a prefix. It holds because a cursor past the end is never
+    // spliceable, so reaching this line with a delta would mean the slice
+    // contract changed.
+    if (slice.at !== 0) return false
+    // Nothing there to contradict: every byte the mirror holds is new.
+    if (!slice.present || slice.size === 0) return true
+    return DECODER.decode(this.mirror.read(0, slice.size)) === DECODER.decode(bytes)
+  }
+
+  /**
+   * {@link adopt}, but a failure leaves this session memory-backed rather than
+   * throwing — and only until the next request.
+   *
+   * EVERY SESSION ENTRY POINT CALLS THIS, so "the next request" is not a
+   * hopeful phrase: `host-core.ts` awaits it before opening, before a turn and
+   * before a tail. A failure here therefore costs this request's writes their
+   * durability and nothing more — {@link behind} pushes them to the object as
+   * soon as one prepare succeeds. That recovery, rather than a louder log, is
+   * what stops `adopted = false` meaning "RAM-only, indefinitely, and nobody is
+   * told".
+   */
   async prepare(): Promise<void> {
     try {
       await this.adopt()
+      if (this.degraded !== null) {
+        this.degraded = null
+        // THE SAME STREAM AS THE LINE IT ANSWERS, deliberately: the pair is one
+        // operational fact — the tier went off at T and came back at T' — and
+        // splitting it across `error` and `log` is how an operator ends up
+        // reading half of it.
+        console.error(`junction ${this.key}: durable again — the object has this isolate's records`)
+      }
     } catch (err) {
       this.adopted = false
-      // NOT FATAL, AND NOT SILENT. The junction is a durability tier, not the
+      // NOT FATAL, AND NOT PERMANENT. The junction is a durability tier, not the
       // truth in flight: a conversation whose object cannot be reached still
       // opens, still replays and still takes a turn. What it must not do is
-      // write to an object it has not read — see the class comment.
-      console.error(`junction ${this.key}: could not be prepared — ${String(err)}`)
+      // write to an object it has not read — see the class comment — and what it
+      // must not stay is degraded, which is the next prepare's business.
+      //
+      // ONCE PER TRANSITION, NOT ONCE PER PROMPT: a line every turn is a
+      // drumbeat an operator learns to read past, and the thing worth knowing is
+      // that the tier went off, not that it is still off.
+      const reason = String(err)
+      if (this.degraded !== reason) {
+        this.degraded = reason
+        console.error(`junction ${this.key}: RAM-only until the object can be read — ${reason}`)
+      }
     }
   }
 
   /** Wait for every queued write to land; never rejects, for the reason below. */
   async drain(): Promise<void> {
-    await this.tail
+    await this.tail.catch(() => {})
   }
 
   private queue(write: (stub: DurableObjectStub<SessionJunction>) => Promise<unknown>): void {
     if (!this.adopted) return
-    this.tail = this.tail.then(async () => {
+    // THE STUB IS TAKEN HERE ([[BUG-149]]), which is inside the request that
+    // appended: `SessionLog` calls `append` synchronously while the turn runs,
+    // and the route holds that request open across the flush with
+    // `ctx.waitUntil`. A stub taken any earlier belongs to a request that has
+    // ended, and workerd refuses it.
+    const stub = this.stub()
+    const run = async (): Promise<void> => {
       try {
-        await write(this.stub)
+        await write(stub)
       } catch (err) {
         // ONE FAILED WRITE MUST NOT POISON THE CHAIN, and it must not reject:
         // the only caller that awaits this is the route's `ctx.waitUntil` drain,
@@ -220,7 +345,10 @@ class DurableJunctionStorage {
         // repairs by re-sending the tail.
         console.error(`junction ${this.key}: write did not land — ${String(err)}`)
       }
-    })
+    }
+    // BOTH ARMS ARE THE SAME CALL, so a link that somehow rejected cannot stall
+    // every write after it — the chain is ordering, not a transaction.
+    this.tail = this.tail.then(run, run)
   }
 }
 
@@ -251,7 +379,7 @@ export function durableJunctions(namespace: JunctionNamespace): DurableJunctions
   const storageFor = (sessionId: string): DurableJunctionStorage => {
     let storage = storages.get(sessionId)
     if (storage === undefined) {
-      storage = new DurableJunctionStorage(sessionId, namespace.get(namespace.idFromName(sessionId)))
+      storage = new DurableJunctionStorage(sessionId, namespace)
       storages.set(sessionId, storage)
     }
     return storage

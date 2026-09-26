@@ -113,6 +113,9 @@ export {
   // gates it, so a consumer can hash the script under a CSP rather than find it.
   L1_DIALOG_SCRIPT,
   L1_DIALOG_CSS,
+  // REQ-327 — the magnify role's own invariant stylesheet, beside the modal's and
+  // for the same reason: a consumer that wants the text of what gates the overlay.
+  L1_ZOOM_CSS,
   // REQ-116 — the edit channel's vocabulary: the two stamped attributes, the
   // document-level marker, and the channel's own stylesheet.
   L1_EDIT_PATH_ATTR,

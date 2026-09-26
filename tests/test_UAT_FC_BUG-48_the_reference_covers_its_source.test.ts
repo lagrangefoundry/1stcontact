@@ -277,6 +277,40 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
+      // REQ-327 — the magnify role, refused beside a link on exactly the terms
+      // `action` is: the emitter emits one interactive element.
+      zoomOrLink: refusals(
+        page({
+          root: {
+            kind: 'image',
+            src: '/assets/plate-1.png',
+            alt: 'a plate',
+            link: { href: '/plates' },
+            zoom: {},
+          },
+        } as Partial<L1Document>),
+      ),
+      // REQ-326 — the two composition rules. Both need a LIST: a single
+      // behaviour cannot contest a property with itself, and it always animates
+      // at least its own fade, so neither rule can be provoked from one object.
+      onePropertyPerEntranceBehaviour: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            reveal: [{ yPx: 24, durationMs: 200 }, { yPx: 40, durationMs: 800 }],
+          },
+        } as Partial<L1Document>),
+      ),
+      entranceBehaviourMovesSomething: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            reveal: [{ fromOpacity: 0, durationMs: 200 }, { durationMs: 800 }],
+          },
+        } as Partial<L1Document>),
+      ),
       // REQ-325 — the four scroll-position rules. Two are about a pair that cannot
       // coexist (a pin against an absolute placement, an entrance against a
       // progress-driven animation) and two are about a track that says nothing a

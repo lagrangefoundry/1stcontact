@@ -886,11 +886,19 @@ function layoutInFlow(
       // BUG-142 — the flow interior is the border box inset by the node's own
       // padding. `interior` is what every child frame and every cursor below is
       // measured from; `box` itself stays the border box the geometry pinned.
+      //
+      // REQ-324 — and by its own BORDER as well. `box-sizing: border-box` keeps
+      // the border inside the rect the keyframes pinned, so the content box a
+      // flow child's margin is measured from starts inside it — the same inset
+      // `donated` above already hands an ABSOLUTE descendant. Without it the two
+      // kinds of child disagreed by the border's width, and a recovered document
+      // scored its own flow leads against a frame the renderer does not use.
       const pad = paddingAt(node, width)
+      const edge = surfaceBorderInset('axes' in node ? node.axes : undefined)
       const interior: EvalBox = {
-        x: box.x + pad.left,
-        y: box.y + pad.top,
-        width: Math.max(0, box.width - pad.left - pad.right),
+        x: box.x + edge.left + pad.left,
+        y: box.y + edge.top + pad.top,
+        width: Math.max(0, box.width - edge.left - edge.right - pad.left - pad.right),
         height: box.height,
       }
       // A `row` container flows horizontally along the main axis; a `box` and a
@@ -995,8 +1003,11 @@ function layoutInFlow(
       }
 
       // Natural content height of the flow interior, plus the node's own insets:
-      // a padded box is taller than what it holds (BUG-142).
-      const contentHeight = flowChildren.length ? maxChildBottom - interior.y + pad.top + pad.bottom : 0
+      // a padded box is taller than what it holds (BUG-142), and a bordered one
+      // is taller again by its two horizontal edges (REQ-324).
+      const contentHeight = flowChildren.length
+        ? maxChildBottom - interior.y + pad.top + pad.bottom + edge.top + edge.bottom
+        : 0
       // A pinned box/container with a fixed keyframe height that the content
       // overflows is a clip.
       const pinnedH = declaredHeight(node, width, vh)
@@ -2341,6 +2352,13 @@ function heightBelongsToContent(node: L1Node): boolean {
   // children are every one of them out of flow has an interior the browser
   // measures as empty, so handing it its height collapses it to nothing — which
   // for a backing surface means it stops painting at all.
+  //
+  // REQ-324 — this reads the tree AFTER recovery has rewritten it, so "still
+  // pinned" now means "recovery declined to flow it", and recovery declines only
+  // for the reasons the collapse case is about: `keepsAbsolute` (a `stacked`
+  // composition, a childless fill) or a `viewportResponse.heightFactor` above.
+  // It used to also mean "the collision search found no pair to chew on", which
+  // is not a reason of any kind — see the lone-child admission in `rewrite`.
   return childrenOf(node).some((c) => !isPinned(c))
 }
 
@@ -2373,13 +2391,21 @@ function withContentInset(
   if ('responsivePadding' in node && node.responsivePadding?.bottomPx) return node
   const geo = geometryOf(node)
   if (!geo || geo.keyframes[0].height === undefined) return node
+  // REQ-324 — the slack is what is left of the captured BORDER box once the
+  // content and both of the node's own horizontal edges have taken their share.
+  // `tops` is the border-box top, so `bottom - top` already carries the top
+  // edge; the bottom one has to be named, or a panel that paints a full border
+  // is handed back a padding that makes it render its own border-width taller
+  // than the capture had it. Zero on a panel whose only border is an accent
+  // rule, which is why the reference this was measured on never showed it.
+  const edge = surfaceBorderInset('axes' in node ? node.axes : undefined)
   const keyframes: Array<{ at: number; value: number }> = []
   for (const kf of geo.keyframes) {
     const top = tops.get(kf.at)
     const bottom = contentBottom.get(kf.at)
     const declared = declaredHeight(node, kf.at)
     if (top === undefined || bottom === undefined || declared === undefined) return node
-    keyframes.push({ at: kf.at, value: Math.max(0, round(declared - (bottom - top))) })
+    keyframes.push({ at: kf.at, value: Math.max(0, round(declared - (bottom - top) - edge.bottom)) })
   }
   if (keyframes.length === 0 || keyframes.every((k) => k.value === 0)) return node
   const padding = { ...(('responsivePadding' in node ? node.responsivePadding : undefined) ?? {}) }
@@ -2610,16 +2636,27 @@ export function promoteToFlow(
   }
 
   /**
-   * Rewrite `node`, whose content box starts at `lefts[w]` / `tops[w]` at each
-   * captured width. The two frames are what every leading offset is measured
-   * against, threaded down rather than re-derived: a node's own geometry says
-   * where IT is, never where its parent's content begins.
+   * Rewrite `node`, whose BORDER box starts at `borderLefts[w]` / `borderTops[w]`
+   * at each captured width. The two frames are threaded down rather than
+   * re-derived: a node's own geometry says where IT is, never where its parent's
+   * content begins.
+   *
+   * REQ-324 — the contract these frames live inside, stated once: an L1 child's
+   * `geometry.x`/`geometry.y` is relative to its parent's PADDING box, which is
+   * where CSS puts an absolute descendant of a `box-sizing: border-box` node.
+   * That is what `rebaseInto` writes (fold.ts — it subtracts
+   * `surfaceBorderInset`) and what {@link childFrame} reads back by adding the
+   * PARENT's inset. A node's OWN inset is deliberately absent from its own
+   * frame, so what arrives here is a border-box corner — the maps used to be
+   * named and documented as content-box origins, and the two places that read
+   * them as one (the flow cursor and the leading-offset origin below) wrote every
+   * lead on a bordered panel 4px short.
    */
   function rewrite(
     node: L1Node,
     path: string,
-    lefts: Map<number, number>,
-    tops: Map<number, number>,
+    borderLefts: Map<number, number>,
+    borderTops: Map<number, number>,
   ): L1Node {
     if (node.kind !== 'box' && node.kind !== 'container') return node
     const originalChildren: L1Node[] = node.kind === 'container' ? node.children : (node.children ?? [])
@@ -2628,7 +2665,7 @@ export function promoteToFlow(
       const geo = geometryOf(child)
       const map = new Map<number, number>()
       for (const w of widths) {
-        const outer = (axis === 'x' ? lefts : tops).get(w) ?? 0
+        const outer = (axis === 'x' ? borderLefts : borderTops).get(w) ?? 0
         // BUG-142 — a pinned child's keyframes are read against THIS node's own
         // corner, not the page's, exactly as the renderer reads them. They were
         // the same number for as long as the fold's document was flat; a run
@@ -2656,6 +2693,43 @@ export function promoteToFlow(
     const components = overlapComponents(children.length, links)
       .map((g) => g.filter((i) => pinned.has(i)))
       .filter((g) => g.length >= 2)
+
+    /**
+     * REQ-324 — a BACKING SURFACE that owns exactly ONE run flows it too.
+     *
+     * The component search is a search for COLLISIONS: pairs of pinned siblings
+     * that overlap once content grows, grouped so a region is flowed whole. A
+     * node with a single promotable child can produce no pair, so it fell out at
+     * the `length >= 2` filter and returned below with the child still pinned —
+     * and that is not a decision anything made, it is the absence of one. The
+     * consequence is the defect: {@link heightBelongsToContent} then reads a node
+     * whose every child is out of flow, so {@link withContentInset} leaves the
+     * panel its captured one-line height while the run inside it is free to wrap.
+     * On `gigabytealchemy.ai` the two single-run callouts hung 146px below their
+     * own panels at 320px — 32 of the round's 52 escapes, at every captured width.
+     *
+     * There is no collision to resolve, so there is nothing for the search to
+     * find; flowing it is what lets the panel's height come from it. It goes
+     * through `plan()` / `flowNode` / `withContentInset` as a one-member region
+     * like any other member.
+     *
+     * The `keepsAbsolute` filter is what keeps the collapse case the height
+     * exemption was written for: a child pinned because it is GENUINELY out of
+     * flow (a `stacked` composition, a childless fill) is not promotable, so a
+     * node holding only those still has no flow child and still keeps its height.
+     *
+     * Restricted to a fold-synthesized surface because that is the whole of the
+     * defect: a surface is the only node whose height is a captured constant the
+     * containment probe then holds it to, and it is the only node recovery has a
+     * reason to flow when nothing is colliding. A one-child node that is NOT a
+     * surface — a document root over a single run — has nothing to overrun and
+     * needs no recovery, and reporting one for it would be a region promoted for
+     * no measured cause.
+     */
+    const lone = [...pinned].filter((i) => !keepsAbsolute(children[i]))
+    if (components.length === 0 && lone.length === 1 && isSynthesizedSurfaceId(node.id)) {
+      components.push(lone)
+    }
 
     if (components.length === 0) {
       return node.kind === 'container' ? { ...node, children } : { ...node, children }
@@ -2753,8 +2827,14 @@ export function promoteToFlow(
       })
 
       // The running flow cursor, per width: where the next band's leading offset
-      // is measured from. It starts at the parent's own content top.
-      const cursor = new Map<number, number>(widths.map((w) => [w, tops.get(w) ?? 0]))
+      // is measured from. It starts at this node's own CONTENT top — the border
+      // box inset by its own border (REQ-324). The renderer emits a real
+      // `border` / `border-left` and a flow child's margin is measured from
+      // inside it, so seeding the cursor at the border box made every lead on a
+      // bordered panel short by that border's width.
+      const cursor = new Map<number, number>(
+        widths.map((w) => [w, (borderTops.get(w) ?? 0) + inset.top]),
+      )
       const rowAt = new Map<number, Map<number, boolean>>()
       const cellLeads = new Map<number, Lead[]>()
       const memberLeads = new Map<number, Lead[]>()
@@ -2777,7 +2857,11 @@ export function promoteToFlow(
         })
         for (const w of widths) {
           const top = cursor.get(w)!
-          const left = lefts.get(w) ?? 0
+          // REQ-324 — the same content-box origin on the x axis. This is the one
+          // that was measured: `card-4` at border-box x 88 with a 4px accent rule
+          // put its first run's lead at 124 − 88 = 36, and the renderer then laid
+          // that 36 off the content box at 92.
+          const left = (borderLefts.get(w) ?? 0) + inset.left
           if (single) {
             const cell = cells[band[0]]
             const placed = placeFlow(cell.map((i) => visibleBox(i, w)), false, top, left)
@@ -2946,7 +3030,7 @@ export function promoteToFlow(
       node.kind === 'container'
         ? { ...node, layout: 'stack' as const, responsiveLayout: undefined, gapPx: 0, children: rebuiltChildren }
         : { ...node, children: rebuiltChildren }
-    return withContentInset(rebuilt as L1Node, tops, contentBottom)
+    return withContentInset(rebuilt as L1Node, borderTops, contentBottom)
   }
 
   const zero = new Map<number, number>(widths.map((w) => [w, 0]))

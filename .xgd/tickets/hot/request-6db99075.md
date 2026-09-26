@@ -5,7 +5,7 @@ type: request
 title: 'Scroll-position-driven state: pinning, and properties that track scroll progress'
 created_by: xgd
 created_at: '2026-09-25T23:28:50.293953+00:00'
-updated_at: '2026-09-26T00:06:40.325403+00:00'
+updated_at: '2026-09-26T07:09:36.870707+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -172,3 +172,43 @@ uses (no browser is needed to prove what the emitter emits):
    an out-of-range scale or translate, an unknown key, and `reveal` +
    `scrollTrack` on one node;
 8. neither axis reaches an email page.
+
+
+9. a **mounted behaviour module's** own track travels whole. These are
+   node-level axis groups, so a node inside a mounted fragment carries them like
+   any other — and a fragment's CSS is emitted separately from the page's, so the
+   `@keyframes` block must travel with the rule that names it or the mounted node
+   references a block the page never received: an animation naming nothing, which
+   is a node frozen at its authored state with no error anywhere to say why. The
+   block is named from the fragment's own prefixed class counter, so two mounts of
+   one module cannot drive each other's animation; an untracked fragment emits no
+   keyframes at all.
+
+### Existing suites extended
+
+Both axes are added to `nodeAxisGroupsShape`, which three standing sweeps assert
+over by construction — so each is extended rather than left to fail:
+
+- `reconciliation-l1-shared-axis-groups.test.ts` (AC-802) and
+  `req105-node-axis-groups.test.ts` — every node kind admits every shared axis
+  group. Both new groups are swept on every kind. In the envelope sweep the two
+  are checked as **alternatives** rather than as two more additions, because each
+  has a pair the envelope refuses: `sticky` is swept in the company of everything
+  it composes with minus the absolute `geometry` track, and `scrollTrack` minus
+  `reveal`. The kind-level sweep is shape-only, where no structural rule applies,
+  so both sit alongside everything else.
+- `test_UAT_FC_BUG-48_the_reference_covers_its_source.test.ts` — the vocabulary
+  reference covers every structural rule, each provoked by a document that trips
+  it. The four new refusals (`stickyIsInFlow`, `oneMotionDriver`,
+  `ascendingScrollStops`, `scrollStopMoves`) are added to that table, which is
+  also what carries the two new axes' own documentation into the reference.
+
+### Stylesheet emission (a consequence of the feature gate)
+
+`Rule` gains an optional `supports`, and the serializer emits every feature-gated
+rule in its own `@supports` block **after** the ungated ones, both groups through
+the identical function. A block that cannot be entered must not change what the
+rules above it say, and a gated rule that *is* entered is an addition to the
+design rather than a replacement — so its place in the cascade is after, always. A
+document with no scroll track emits no `@supports` and no `@keyframes`, and its
+stylesheet is byte-identical to what it was.

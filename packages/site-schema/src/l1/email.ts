@@ -97,7 +97,9 @@ export interface L1EmailTarget {
  *     `nowrapFromPx` — the same argument on the type axes.
  *   - `objectFit` / `objectPosition` — `object-fit` is not supported; an image
  *     in a message is sized by its own `width` and nothing else.
- *   - `dialog` and `action` — a modal is a script, and there is no script.
+ *   - `dialog`, `action` and `zoom` — an overlay is a script, and there is no
+ *     script; a picture that cannot be opened large is a picture that silently
+ *     ignores the one field asking it to be.
  *   - `resources` and `column` on the document — a web font does not load in a
  *     mail client (which is why the emitter degrades a family to a real stack),
  *     and a shared centred column exists to be referred to by `geometry`,
@@ -137,7 +139,7 @@ export const L1_EMAIL_TARGET: L1EmailTarget = {
 }
 
 /** Every role key a node may carry, so an unlisted one is refused by name. */
-const ALL_ROLES = ['link', 'dialog', 'action'] as const
+const ALL_ROLES = ['link', 'dialog', 'action', 'zoom'] as const
 
 /** The node-level axis groups, so an unlisted one is refused by name. */
 const ALL_NODE_AXES = [

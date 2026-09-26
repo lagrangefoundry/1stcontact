@@ -457,8 +457,44 @@ describe('REQ-325 — properties that track scroll progress', () => {
     if (result.ok) return
     expect(result.errors.map((e) => e.message)).toContain(L1_STRUCTURAL_RULES.oneMotionDriver)
 
-    // Either alone is ordinary.
+    // A COMPOSED entrance (REQ-326 — two or more behaviours with their own
+    // timings) is refused on the same terms, because the reason is the cascade
+    // and not the arity: an animation beats a transition however many transitions
+    // there are, so the whole composition would be the half that disappears.
+    const composed = doc(
+      section([
+        hero({
+          reveal: [
+            { yPx: 24, durationMs: 200 },
+            { fromOpacity: 0, durationMs: 800 },
+          ],
+          scrollTrack: track,
+        }),
+      ]),
+    )
+    const composedResult = validateL1(composed)
+    expect(composedResult.ok).toBe(false)
+    if (composedResult.ok) return
+    expect(composedResult.errors.map((e) => e.message)).toContain(
+      L1_STRUCTURAL_RULES.oneMotionDriver,
+    )
+
+    // Either alone is ordinary, in either entrance spelling.
     expect(validateL1(doc(section([hero({ reveal: { yPx: 24 } })]))).ok).toBe(true)
+    expect(
+      validateL1(
+        doc(
+          section([
+            hero({
+              reveal: [
+                { yPx: 24, durationMs: 200 },
+                { fromOpacity: 0, durationMs: 800 },
+              ],
+            }),
+          ]),
+        ),
+      ).ok,
+    ).toBe(true)
     expect(validateL1(doc(section([hero({ scrollTrack: track })]))).ok).toBe(true)
   })
 

@@ -15,6 +15,7 @@
  */
 import { l1DocumentSchema } from './schema'
 import { collectL1PaletteRefs } from './palette'
+import { l1EntranceSteps } from './motion'
 import type { L1Palette } from './palette'
 import { projectIssues } from '../issues'
 import type { L1Document, L1Geometry, L1Node, L1ScalarTrack } from './types'
@@ -97,6 +98,15 @@ export const L1_ENVELOPE = {
    * box, overlapping whatever is above it, with nothing in flow to say so.
    */
   runBaselineShiftEm: { min: -10, max: 10 },
+  /**
+   * REQ-326 — how many behaviours one node's entrance may compose. The floor is
+   * two because a one-item list is a single behaviour spelled the long way, and
+   * the schema refuses that spelling outright; the ceiling is comfortably more
+   * distinct properties than an entrance can animate, so it bounds the walk
+   * without ever standing between an author and a composition they could
+   * actually have rendered.
+   */
+  entranceBehaviours: { min: 2, max: 4 },
 } as const
 
 /**
@@ -157,8 +167,14 @@ export const L1_STRUCTURAL_RULES = {
   actionTargetsDialog: 'an action must name a node that carries `dialog`',
   /** A node either navigates somewhere or acts on this page, so `link` and `action` cannot both be present: which one wins would be a property of the renderer rather than of the document. */
   actionOrLink: 'a node cannot carry both `link` and `action`',
+  /** REQ-327 — a picture either navigates somewhere or opens itself large on this page, so `link` and `zoom` cannot both be present: the renderer emits one interactive element and which role it took would be its decision rather than the document's. */
+  zoomOrLink: 'a picture cannot carry both `link` and `zoom`',
   /** BUG-143 — a run's `backedBy` names the surface painted behind it, and the geometry envelope asserts that surface still covers the run; a name nothing answers to is an assertion that silently never runs. */
   backingSurfaceExists: 'a `backedBy` must name a node the document declares',
+  /** REQ-326 — two behaviours composed into one entrance must animate different properties. Resolving the contest to last-one-wins instead would drop half of what the author wrote and move no pixel to say so, so they meet it as a design that did not arrive rather than as a refusal naming both behaviours. */
+  onePropertyPerEntranceBehaviour: 'two entrance behaviours cannot animate the same property',
+  /** REQ-326 — an entrance behaviour must animate at least one property. Timing attached to nothing is not a behaviour but a place in the composition order, and a list that silently carries one describes a node moving in a way it never moves. */
+  entranceBehaviourMovesSomething: 'an entrance behaviour must animate at least one property',
   /** REQ-325 — a pinned node holds its place in the flow until it is held against the viewport, and an absolutely-placed node has already left the flow and owns the `top` a pin needs, so the two placements are alternatives rather than a pair. */
   stickyIsInFlow: '`sticky` cannot be combined with an absolute `geometry` track',
   /** REQ-325 — a scroll track is read from the start of its range to the end, so its stops ascend strictly by `at`. */
@@ -428,23 +444,8 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
 
   if (node.interaction) checkInteraction(node.interaction, `${path}/interaction`, errors)
 
-  // REQ-100 — the scroll-entrance axis takes the same duration ceiling as an
-  // interaction transition: both are "how long a node spends not yet settled",
-  // and an unbounded one is content the reader waits on indefinitely. The delay
-  // is bounded for the same reason — a stagger share adds to it, so an
-  // unbounded delay is an unbounded time-to-content.
-  if (node.reveal) {
-    for (const field of ['durationMs', 'delayMs'] as const) {
-      const v = node.reveal[field]
-      if (v !== undefined && !inRange(v, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
-        errors.push({
-          path: `${path}/reveal/${field}`,
-          message: `${field}=${v} out of range [${L1_ENVELOPE.transitionMs.min}, ${L1_ENVELOPE.transitionMs.max}]`,
-        })
-      }
-    }
-    checkEffectLen(node.reveal.yPx, `${path}/reveal/yPx`, errors)
-  }
+  if (node.reveal) checkEntrance(node.reveal, `${path}/reveal`, errors)
+
   // REQ-325 — the pin. `topPx` takes the shared effect-length bound: it is an
   // offset, and an unbounded one holds a node against a viewport edge a hundred
   // screens away, where no reader finds it and no measurement says it moved.
@@ -685,6 +686,73 @@ function checkInteraction(
   }
 }
 
+/**
+ * REQ-100 / REQ-326 — a node's entrance: every behaviour bounded, and the
+ * composition checked for a contest.
+ *
+ * The scroll-entrance axes take the same duration ceiling as an interaction
+ * transition — both are "how long a node spends not yet settled", and an
+ * unbounded one is content the reader waits on indefinitely. The delay is
+ * bounded for the same reason: a stagger share adds to it, so an unbounded
+ * delay is an unbounded time-to-content.
+ *
+ * REQ-326 — a composed entrance is bounded per BEHAVIOUR, and each refusal
+ * carries that behaviour's index: told only that some duration on this node is
+ * out of range, an author with two behaviours has to bisect to find out which.
+ * The property claims come from {@link l1EntranceSteps} rather than from a
+ * second reading declared here, so what is refused and what the renderer emits
+ * cannot come apart.
+ */
+function checkEntrance(
+  entrance: NonNullable<L1Node['reveal']>,
+  path: string,
+  errors: ValidationError[],
+): void {
+  const steps = l1EntranceSteps(entrance)
+  const composed = Array.isArray(entrance)
+  if (
+    composed &&
+    !inRange(steps.length, L1_ENVELOPE.entranceBehaviours.min, L1_ENVELOPE.entranceBehaviours.max)
+  ) {
+    errors.push({
+      path,
+      message: `${steps.length} entrance behaviours out of range [${L1_ENVELOPE.entranceBehaviours.min}, ${L1_ENVELOPE.entranceBehaviours.max}]`,
+    })
+  }
+
+  /** Which behaviour already animates a property, so a contest names both. */
+  const claimed = new Map<string, number>()
+  steps.forEach((step, index) => {
+    // A single behaviour keeps REQ-100's paths verbatim, so an existing refusal
+    // reads exactly as it always did; a composed one indexes by position.
+    const at = composed ? `${path}/${index}` : path
+    for (const field of ['durationMs', 'delayMs'] as const) {
+      const v = step.behaviour[field]
+      if (v !== undefined && !inRange(v, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
+        errors.push({
+          path: `${at}/${field}`,
+          message: `${field}=${v} out of range [${L1_ENVELOPE.transitionMs.min}, ${L1_ENVELOPE.transitionMs.max}]`,
+        })
+      }
+    }
+    checkEffectLen(step.behaviour.yPx, `${at}/yPx`, errors)
+
+    if (step.properties.length === 0) {
+      errors.push({ path: at, message: L1_STRUCTURAL_RULES.entranceBehaviourMovesSomething })
+    }
+    for (const property of step.properties) {
+      const owner = claimed.get(property)
+      if (owner === undefined) claimed.set(property, index)
+      else {
+        errors.push({
+          path: at,
+          message: `${L1_STRUCTURAL_RULES.onePropertyPerEntranceBehaviour}: '${property}' is already animated by behaviour ${owner}`,
+        })
+      }
+    }
+  })
+}
+
 function walk(
   node: L1Node,
   widths: readonly number[],
@@ -833,6 +901,28 @@ function walk(
       path: `${path}/src`,
       message: `${L1_STRUCTURAL_RULES.allowedUrlScheme}: image src '${node.src}' is not an allowed URL`,
     })
+  }
+  // REQ-327 — the magnify role's own source, held to the SAME allowlist as the
+  // placed one above. It is emitted into exactly the same `<img src>` sink, so a
+  // second rule here would be a second answer to a question already settled —
+  // and the one that drifted would be whichever this file forgot.
+  //
+  // `link` and `zoom` on one picture is refused for the reason `action` and `link`
+  // are: the renderer emits one interactive element, and which role it took would
+  // be the emitter's decision rather than the document's. Stated here rather than
+  // in the shape because a node carrying both is well-formed — it is the PAIR that
+  // cannot be rendered as written.
+  const zoom = (node as { zoom?: { src?: string } }).zoom
+  if (zoom !== undefined) {
+    if (zoom.src !== undefined && !isSafeUrl(zoom.src)) {
+      errors.push({
+        path: `${path}/zoom/src`,
+        message: `${L1_STRUCTURAL_RULES.allowedUrlScheme}: zoom src '${zoom.src}' is not an allowed URL`,
+      })
+    }
+    if ((node as { link?: unknown }).link !== undefined) {
+      errors.push({ path: `${path}/zoom`, message: L1_STRUCTURAL_RULES.zoomOrLink })
+    }
   }
 
   checkEffects(node, path, errors)
@@ -1136,6 +1226,16 @@ export function l1AssetReferences(input: unknown): L1AssetReference[] {
       if (typeof painted === 'string') {
         out.push({ path: `${path}/axes/backgroundImageUrl`, value: painted })
       }
+    }
+    // REQ-327 — the magnify role's larger original. A THIRD place a subtree names
+    // a file, and it hides the same way the other two do: nothing about the value
+    // says it is an asset handle, so a walk that did not know to look here would
+    // report a page as referencing nothing and let a zoom open onto a broken
+    // image — which the visitor meets only after committing a click to it.
+    const zoom = node.zoom
+    if (zoom !== null && typeof zoom === 'object') {
+      const larger = (zoom as { src?: unknown }).src
+      if (typeof larger === 'string') out.push({ path: `${path}/zoom/src`, value: larger })
     }
     for (const [key, item] of Object.entries(node)) walk(item, `${path}/${key}`)
   }
