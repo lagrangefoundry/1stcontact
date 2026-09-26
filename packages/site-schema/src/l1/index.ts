@@ -6,10 +6,21 @@ export * from './schema'
 export * from './types'
 // REQ-211 — the two projections of a node's copy: the words, and the runs.
 export { l1PlainText, l1TextRuns } from './text'
-// REQ-326 — the one reading of what a node's entrance animates, shared by the
-// validator that refuses a collision and the renderer that emits the result.
-export { l1EntranceSteps } from './motion'
-export type { L1EntranceProperty, L1EntranceStep } from './motion'
+// REQ-326 / REQ-329 — the one reading of what a node's motion animates, shared by
+// the validator that refuses a collision and the renderer that emits the result:
+// per entrance behaviour, per scroll track, and across every trigger at once.
+export {
+  l1EntranceSteps,
+  l1MotionClaims,
+  l1ScrollTrackProperties,
+  l1ScrollTracks,
+} from './motion'
+export type {
+  L1EntranceProperty,
+  L1EntranceStep,
+  L1MotionClaim,
+  L1MotionProperty,
+} from './motion'
 // REQ-114 — the palette colour model (DOC-23 §5): literal base, palette overlay.
 export {
   l1ColorSchema,

@@ -5,15 +5,24 @@ type: request
 title: Let an image be opened large — click-to-zoom / lightbox
 created_by: xgd
 created_at: '2026-09-25T23:35:24.243829+00:00'
-updated_at: '2026-09-26T19:08:31.665968+00:00'
+updated_at: '2026-09-26T19:53:45.614248+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-073110e5
+  commits:
+  - working_sha: 8d97f66acf4e89dd16b6ddbbead9cf31d2dc8e37
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 66fe03b0cd885df592d7f3fb5df848c23bef2d75
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.375
+  story_points: 5
 ---
 
 ## What I was trying to achieve
@@ -152,6 +161,38 @@ Unchanged in kind: the elements, the classes and the boxes survive, and only the
 attributes that would ACT are dropped — now including the trigger's index and the
 two controls' step, so a click in the editor means "edit this picture" and nothing
 else.
+
+## Three things that follow from the set, rather than being asked for
+
+Each is a consequence of holding more than one picture in one overlay, and each
+is proved by the suite below.
+
+- **A captioned overlay leaves its caption room.** A picture already sized to the
+  whole viewport, with words under it, is taller than the viewport — and the
+  caption is the half that scrolls out of reach. So an overlay that carries a
+  caption gives its picture that much less height. Charged only to an overlay that
+  actually has one: a set with no captions is sized exactly as REQ-327 sized it.
+
+- **The overlay announces the picture it is actually showing.** REQ-327 named the
+  overlay after the picture's alt text when the document named nothing — which was
+  right while the overlay held one picture and could hold no other. A set makes
+  that name go stale: it would go on announcing the first plate while the third is
+  on screen. So a *derived* name is re-derived as the visitor steps, and an
+  *authored* `ariaLabel` never moves — a document that named its gallery said
+  something about the set, not about whichever member is up.
+
+- **A set declared inside a mounted behavior's slots still gets its one shell.**
+  A fragment has no document to put it after, so it rides on the last subtree —
+  the nearest thing a fragment has to "after everything", and where the host page
+  places it for the same reason the document does.
+
+Two smaller consequences of the same shape: the vetted stepping script is
+**exported** beside the modal's, because a consumer hashing scripts under a CSP
+needs the text of every one the renderer can emit and not just the first; and the
+five overlay-describing fields are **named once**, in the schema, because the
+validator that refuses a disagreeing set and the renderer that reads them off
+whichever member named them would otherwise each keep their own list of what
+counts as the overlay's.
 
 ## Test plan
 

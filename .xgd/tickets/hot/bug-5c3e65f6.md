@@ -6,9 +6,9 @@ title: bin/dev up starts the watching builder, not the frozen snapshot it just b
   — and every server that reads the changing tree should be deleted
 created_by: EPIC-19
 created_at: '2026-09-25T23:26:01.085217+00:00'
-updated_at: '2026-09-26T19:48:05.707160+00:00'
+updated_at: '2026-09-26T20:34:42.318670+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -138,3 +138,174 @@ EPIC-16 §L1's deferred retirement, filed now that [[REQ-318]] and [[REQ-319]] h
 landed, plus the correction §L1's sequencing left behind. Occasion: EPIC-19
 Finding 12, where the operator lost a turn to a merge-triggered restart while
 believing he was on the frozen environment.
+
+
+## Design decisions taken while implementing
+
+**The snapshot servers are one command with an app argument.** `1c dev serve`
+took no argument and hard-coded `control-app`; the public site needs the same
+thing against its own `.dev-snapshot/`, and a second command would be a second
+author of the same launch. It is now `1c dev serve [<app>]`, defaulting to
+`control-app`, driven by a `DEV_SERVE_APPS` table in `dev-snapshot.ts` that
+declares — per app — its port, whether it reads the `.dev.vars` layering, and
+whether starting it checks the local D1 against `db/migrations/`.
+
+- **Only the control app reads the layering.** `devEnvLayering` is about
+  `ANTHROPIC_API_KEY` and the two Access vars; the public site has no
+  `.dev.vars` and never did. Passing `--env-file` for it would replace
+  wrangler's own `.dev.vars` lookup with a list of files that do not exist and
+  print three warnings about a builder it is not.
+- **Only the control app checks the store.** `localD1Check` reads
+  `apps/control-app/wrangler.toml` and `db/migrations/`; the public site's own
+  config declares no `migrations_dir` on purpose — *"migrations belong to the
+  database and are applied once, by the Worker that owns the schema"*. `up`
+  starts the control app first, so the check still runs exactly once.
+
+**The public-site snapshot takes 8787 — the port `pnpm dev:public` is being
+deleted from.** The alternative, a sixth number, would leave the port the
+operator already associates with the public site owned by nothing while the
+public site ran somewhere else. Reusing it means habit and old shell history
+land on the frozen server rather than on nothing. The control app's snapshot
+keeps 8789, which `bin/access-sim` already defaults to (REQ-322).
+
+**8788 keeps a `1c ps` row, naming itself as retired.** Deleting the row would
+make a leftover builder — one started before this landed, or from a torn-down
+worktree — the unnamed stray this whole mechanism exists to stop. It is a row
+that says what to do about it, not an entry point: nothing starts it and
+`bin/dev up builder` is now an error naming the services that exist.
+
+**Both ports move into `dev-snapshot.ts` and `ps.ts` imports them.**
+`KNOWN_SERVICES` already says its numbers "have no constant to import — 8788 is
+a literal in this CLI's `builder` case, 8787 lives in the public site's package
+script". This ticket deletes both of those homes, so the table that declares
+what a port MEANS now also declares the two numbers this ticket owns, the way
+it already imports `DEFAULT_FILING_PORT`.
+
+**`bin/dev up` reports the snapshot per served app, including one it did not
+start.** The failure is *"he had no way to know what he was running"*, and the
+case where something was already answering on the port is precisely where that
+is least knowable. So `up` prints the manifest for every snapshot app in the
+selection and marks the already-answering case as describing the snapshot on
+disk rather than necessarily what that process loaded. An app with no snapshot
+at all is named too, with the deploy command to run — silence there would be the
+same defect in a new place.
+
+**`1c builder --remote` goes with the builder.** It pointed `wrangler dev` at
+the deployed D1 and R2 from a laptop, and it is not a capability the frozen
+environment has or should grow: the snapshot exists to be the local store's
+server. Nothing replaces it in this ticket.
+
+**`concurrently` stays in `devDependencies`.** The root `dev` script was its
+only caller and is deleted, but removing the dependency without regenerating
+`pnpm-lock.yaml` breaks `pnpm install --frozen-lockfile`. Flagged for the
+operator rather than half-done.
+
+## Acceptance criteria this supersedes
+
+Both were written to pin the side-by-side period EPIC-16 §L1 required, and both
+say in their own comments that retirement is a later ticket. This is that ticket,
+so they are replaced by their inverse rather than kept:
+
+- `test_UAT_FC_REQ-318_the_old_path_is_untouched_and_binds_a_different_port` —
+  asserted `scripts.dev` contains `dev:public`, that `dev:control` is
+  `./bin/1c builder`, and that `wranglerDevArgs` still composes a watching argv.
+  Replaced by the assertion that none of those exist.
+- `test_UAT_FC_REQ-322_up_starts_both_servers_in_dependency_order` and
+  `…_up_records_all_five_and_down_frees_them` — pinned a five-row
+  `DEV_SERVICES` table containing `builder`. Replaced by the four-row table, with
+  the ordering and pidfile claims carried over unchanged.
+
+`wranglerDevArgs` is deleted from `dev-env.ts`: with the builder gone nothing
+composes a `wrangler dev` over `src/`, and a function whose only job is to build
+that command line is the thing an agent resurrects. The BUG-124 and BUG-146 UATs
+that used it as one of two launchers now assert the same layering facts against
+`devServeArgs`, which is the surviving launcher and reuses the same layering.
+
+
+## Adjustments made while implementing
+
+**`1c dev serve`'s refusal carries the app list in the message, not a `hint`.**
+The first draft used `CommandError.hint`; a UAT ran the real CLI and showed the
+hint never arrives — `bin/1c.mjs` prints `err.message` and nothing else, which
+`reset.ts` already records about its own refusal. The known apps and their ports
+are in the message.
+
+**`1c reset --port` defaulted to 8788 and now defaults to 8789.** The guard is
+"is something holding the store's SQLite files open" — it named the builder's
+port, and a guard whose default names a port nothing binds always passes.
+
+**`LOCAL_ORIGIN` moves with it.** `bin/copy-to-cloud` / `bin/copy-from-cloud`
+defaulted `--origin` to `http://localhost:8788`, which is now nobody's.
+
+**`builder` leaves `WORKERD_GATED_COMMANDS`.** It headed that list because it
+opened `.wrangler/state`, which the first `workerd` to open migrates forward
+silently and one-way. Deleting it un-gates nothing: `dev up`, `dev restart` and
+`dev serve` are all still there, and a UAT pins that.
+
+**Docs updated to name the surviving path**: `bin/dev`'s header, `bin/deploy`'s
+usage and its closing "now serve it" line, `bin/access-sim`'s recipe, and
+`apps/control-app/ACCESS.md`'s hand-run recipe — which told the operator to
+start `wrangler dev --port 8788` by hand.
+
+**One pre-existing failure fixed in passing.** `test_UAT_FC_BUG-50_*` expected
+two `--env-file` arguments; [[BUG-146]] added `.dev.vars.local` as a third and
+this expectation was never moved, so it had been failing on `xgd-working`. Two
+assertions corrected while the suite was being repointed at the surviving
+launcher.
+
+
+## Further acceptance criteria this supersedes
+
+Found by running the suites, not by reading them: two more UATs asserted the
+deleted command as their entry point, and both are repointed at the surviving one
+rather than deleted, because what they pin is still true and still worth pinning.
+
+**`test_UAT_FC_REQ-253_*` — the store check's entry point moved.** REQ-253 is the
+gate that refuses to start a server against a database behind `db/migrations/`,
+and six of its eleven legs drove it through `run(['builder'])`. `1c builder` is
+deleted and the store is now opened by `1c dev serve`, so they drive that. Three
+consequences, each asserted:
+
+- **The environment being read changed.** `dev serve` runs at `--env dev`, which
+  inherits nothing, so the block deciding which database file is opened is
+  `[[env.dev.d1_databases]]` rather than the top level `wrangler dev` read. The
+  fixture now declares all three blocks — top level, `[env.dev]`, `[env.production]`
+  — with `[env.production]` naming a different id, so a check reading any block
+  but the served one fails.
+- **The remedy sentence changed with it, and was already correct.** `refusal()`
+  has been environment-aware since REQ-318: at a named environment it says
+  `bin/deploy --env dev`, because that is where the hook verifying an applied
+  migration's bytes lives ([[REQ-291]]), and a bare `wrangler d1 migrations apply`
+  would go round it. The UATs asserted the `--local` form because the builder
+  served the top level. They now assert the deploy at the entry point, and the
+  `--local` form at `localD1Check` itself — no command serves the top level any
+  more, and two environments have two true sentences.
+- **A snapshot has to exist for the check to be reached at all.** `dev serve`
+  refuses on a missing snapshot before it looks at the store, so the fixture
+  writes the manifest `bin/deploy --env dev` would have written. Nothing
+  re-derives it.
+
+`test_UAT_FC_REQ-253_remote_is_not_gated_on_the_local_store` is replaced by its
+inverse, `…_the_check_has_no_ungated_mode_to_be_bypassed_through`. It pinned
+`1c builder --remote` — wrangler pointed at the deployed database, which the local
+store says nothing about, so refusing on the local store would have blocked the
+one mode the check had no evidence for. `--remote` went with the builder, as
+recorded above, so there is no longer a mode the gate must step aside for. That
+makes the surviving claim the stronger one: nothing reaches `wrangler dev` through
+`dev serve` without passing the check, asserted on the argv so a reintroduced
+`--remote` cannot silently re-open the hole.
+
+**`test_UAT_FC_REQ-177_help_advertises_no_raw_server`.** REQ-177 discontinued
+`1c serve`, a raw `node:http` origin, and pinned that the help offers a
+`wrangler dev` instead — naming `1c builder` as that instead. The claim is
+unchanged; only which command satisfies it. It now asserts `1c dev … serve` and,
+additionally, that `1c builder` is not still on offer beside it.
+
+## Prose corrected where it made a false claim
+
+`test_UAT_FC_BUG-147_*`'s header said the wrapper/grandchild shape belonged to
+`1c builder` and that it was two of the four services. The shape is `wrangler dev`
+forking `workerd`, which is exactly what the two snapshot servers do — so the
+comments name the arrangement and record the builder as where it was measured.
+This is the ticket's own boundary being honoured: BUG-147 must not regress, and
+its fixture builds the shape rather than naming it, so no assertion changed.

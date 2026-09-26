@@ -51,6 +51,10 @@ import type {
 import type { RawRun, RawSignals } from './extract'
 import { captureSchemaOf } from './schema'
 import { colorDistance } from './color-values'
+// REQ-331 — the shared statement of what a captured treatment actually paints:
+// the shadow parse, its painted-layer normalisation, and the filter identity
+// table. The fold reads the same module, so the two sides cannot drift.
+import { filterPaints, paintedShadowLayers, shadowLabel } from './treatments'
 import { isBandPaint } from '../perceptual-core'
 // REQ-274 — the single declaration site for every value axis, and the only thing
 // that reads either side's input. See `value-axes.ts` for why this module no
@@ -462,6 +466,9 @@ export type DeltaProperty =
   // ── REQ-58 (T1) tight rendered-text extent ───────────────────────────────
   | 'renderedTextBox'
   | 'shape'
+  // ── REQ-331 — the shadow as a VALUE (offsets / blur / spread / colour incl.
+  //    alpha / layer count), not as the `shape` delta's presence boolean ──────
+  | 'boxShadow'
   | 'arrangement'
   | 'containment'
   // ── REQ-48 (item 2) layering ─────────────────────────────────────────────
@@ -584,6 +591,20 @@ export interface ValuesDiffReport {
   matched: number
   /** Expected elements with no actual match. */
   unmatched: number
+  /**
+   * REQ-331 — how many elements each side's manifest actually held.
+   *
+   * `matched` + `unmatched` + `unpairedActual` do NOT add up to the two lists,
+   * because a reproduction's band paint is deliberately left out of the tally
+   * (REQ-271 — the section pass compares it against a real counterpart). The
+   * consequence was that nothing in the report said the two sides were even
+   * comparing lists of the same length: on faelan.com the reference held 11
+   * elements and the reproduction 14, with `matched: 11` and `unpairedActual:
+   * []` printed beside each other. That difference is not itself a defect — it
+   * is how the two representations differ — but an axis derived from a list's
+   * own sort order (`arrangement`) is only readable if a reader can see it.
+   */
+  elementCounts: { expected: number; actual: number }
   /** Field-level deltas, most-severe first. */
   deltas: ValueDelta[]
   /** REQ-48 (item 9) — count of deltas suppressed by an ignore-mask this run. */
@@ -885,7 +906,7 @@ export interface UnpairedObject {
 // declaration can read a raw `background-image` into the same `TextGradient` the
 // bundle stores without importing this module back. Re-exported here because
 // this is where every caller has always found it.
-export { colorToHex, colorDistance, normalizeGradient } from './color-values'
+export { colorToHex, colorToHexAlpha, colorDistance, normalizeGradient } from './color-values'
 
 // ── projection: runs → elements ──────────────────────────────────────────────
 
@@ -1366,6 +1387,9 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   paddingBottomPx: 'A',
   textAlign: 'A',
   shape: 'A',
+  // REQ-331 — a shadow is authored: once the axis carries its layers and their
+  // alpha, the repair is to copy the reference's value into place.
+  boxShadow: 'A',
   zIndex: 'A',
   filter: 'A',
   textShadow: 'A',
@@ -1459,6 +1483,9 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   // HIGH tier / ranking (a rendered size difference is a genuine visual defect).
   renderedTextBox: 'size',
   shape: 'shape',
+  // REQ-331 — a shadow difference is a shape defect and ranks with the rest of
+  // them; the `property` is what distinguishes it from a wrong corner radius.
+  boxShadow: 'shape',
   arrangement: 'arrangement',
   containment: 'containment',
   zIndex: 'zOrder',
@@ -1669,9 +1696,29 @@ function textBoxLabel(box: Box): string {
 }
 
 /** Rendered-shape label — radius + shadow presence. */
-function shapeLabel(radiusPx: number | undefined, shadow: string | null | undefined): string {
-  const r = radiusPx === undefined ? '?' : `${radiusPx}px`
-  return `radius ${r}, shadow ${shadow ? 'yes' : 'no'}`
+function shapeLabel(radiusPx: number | undefined): string {
+  return `radius ${radiusPx === undefined ? '?' : `${radiusPx}px`}`
+}
+
+/**
+ * REQ-331 — how far apart two shadow lengths may be before they are a defect.
+ *
+ * A whole pixel: a blur radius is re-resolved by the compositor and the two
+ * sides routinely disagree in the last fraction, while a shadow anyone can SEE a
+ * difference in differs by many pixels or by a colour.
+ */
+const SHADOW_LENGTH_TOL_PX = 1
+
+/**
+ * REQ-331 — how far apart two shadow ALPHAS may be. One step of 8-bit alpha:
+ * `#00000099` is `0.6` and `#0000009a` is `0.604`, which is rounding, whereas
+ * the defect this axis was built to catch is `0.6` reproduced as `1.0`.
+ */
+const SHADOW_ALPHA_TOL = 1.5 / 255
+
+/** The alpha of a `#rrggbb` / `#rrggbbaa` literal, 0…1 (opaque when unstated). */
+function alphaOf(hex: string): number {
+  return hex.length === 9 ? parseInt(hex.slice(7, 9), 16) / 255 : 1
 }
 
 /** Arrangement → prose, e.g. `beside (right-of)` / `below`. */
@@ -2234,6 +2281,9 @@ export function diffManifests(
   // rendered size / tracking / weight-fallback gap (7% on a heading, 2% on a label).
   const renderedTextBoxTol = tol(opts.renderedTextBoxToleranceRatio, 0.012, 0.03)
   const radiusTol = tol(opts.borderRadiusTolerancePx, 0, 4)
+  // REQ-331 — the shadow's own length tolerance. Not `radiusTol`: a corner
+  // radius is an authored integer and a blur radius is a compositor result.
+  const shadowLengthTol = SHADOW_LENGTH_TOL_PX
   // REQ-63 — element opacity is authored (Group A), so exact by default; a small
   // rounding band under `tolerant`. A ghosted (partial-opacity) element vs a solid
   // one exceeds it, while `0.5`↔`0.5` re-render rounding does not.
@@ -2394,6 +2444,42 @@ export function diffManifests(
           Math.max(dtw, dth),
         )
       }
+      // REQ-331 — WHERE THE GLYPHS ARE, not only how big they are.
+      //
+      // `box` does not mean the same rect on both sides for a bare inline run:
+      // the reference records the GLYPH rect there (its line box is carried
+      // separately, in `inlineBox`) while the reproduction records the LINE box.
+      // So the `position` comparison above is not like-for-like on exactly the
+      // runs where an inline displacement is smallest — measured on faelan.com,
+      // `Artist •` reported NO position delta with both sides' `box.y` at 172
+      // while its glyphs were 4px apart (`renderedTextBox.y` 172 against 176).
+      //
+      // Comparing the glyph rect's POSITION is the symmetric measurement, and it
+      // needs no change to either projection: `renderedTextBox` means the same
+      // thing on both sides by construction. The size comparison above stays as
+      // it is; this adds the axis it was missing.
+      //
+      // Reported under `position` because that is the defect: the run is in the
+      // wrong place. The label says which rect was measured, so a reader can
+      // tell a glyph displacement from a box one.
+      const dtp = Math.max(
+        Math.abs(exp.renderedTextBox.x - act.renderedTextBox.x),
+        Math.abs(exp.renderedTextBox.y - act.renderedTextBox.y),
+      )
+      const boxAgrees =
+        !exp.box || !act.box || Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y)) <= positionTol
+      // Only when the BOX agreed. Where it did not, the delta above already
+      // names this run's displacement and a second one for the same movement
+      // would double-count it in the repair order.
+      if (boxAgrees && dtp > positionTol) {
+        push(
+          exp,
+          'position',
+          `text @ (${Math.round(exp.renderedTextBox.x)}, ${Math.round(exp.renderedTextBox.y)})`,
+          `text @ (${Math.round(act.renderedTextBox.x)}, ${Math.round(act.renderedTextBox.y)})`,
+          dtp,
+        )
+      }
     }
     // BUG-22 — SPLIT CONTROL. The reference represents a control as ONE node: the
     // `<button>` carries the label, the fill, the rounding and the box together.
@@ -2427,18 +2513,57 @@ export function diffManifests(
     }
     if (exp.borderRadiusPx !== undefined && actRadiusPx !== undefined) {
       const dr = Math.abs(exp.borderRadiusPx - actRadiusPx)
-      const shadowDiffers = !!exp.boxShadow !== !!actShadow
       // BUG-20 — a fully-rounded pill's radius SATURATES: once it reaches half the
       // painted height every larger value paints the identical shape, so the raw
       // number is meaningless above that point (`rounded-full` computes to
       // 33554400px; any sane large value renders the same pill). Comparing the
       // sentinel as a magnitude reported a defect where no pixel differs. When
-      // BOTH sides are pills the shape agrees by construction — only the shadow
-      // can still differ.
+      // BOTH sides are pills the shape agrees by construction.
+      //
+      // REQ-331 — and the shadow is no longer smuggled in here as a presence
+      // boolean. `shape` is about the CORNERS; the shadow is its own axis below,
+      // compared as a value rather than as `!!exp.boxShadow !== !!actShadow` —
+      // which on faelan.com was `true !== true === false` over three photographs
+      // whose shadows differed in alpha AND in layer count, reporting nothing.
       const bothPills = isPillShape(exp.box, exp.borderRadiusPx) && isPillShape(surface?.box ?? act.box, actRadiusPx)
-      if (bothPills ? shadowDiffers : dr > radiusTol || shadowDiffers) {
-        push(exp, 'shape', shapeLabel(exp.borderRadiusPx, exp.boxShadow), shapeLabel(actRadiusPx, actShadow), dr)
+      if (!bothPills && dr > radiusTol) {
+        push(exp, 'shape', shapeLabel(exp.borderRadiusPx), shapeLabel(actRadiusPx), dr)
       }
+    }
+    // REQ-331 — THE SHADOW AS A VALUE. Structurally, layer by layer: the count
+    // first (a missing outer glow is a whole layer, and it is what separates a
+    // torn photograph from the dark montage behind it), then each layer's
+    // offsets, blur, spread, inset and colour INCLUDING its alpha.
+    //
+    // Guarded on EITHER side carrying the field, not both. An element that simply
+    // paints no shadow omits the key, so requiring both would skip the comparison
+    // exactly where one side lost a shadow altogether — which is the degenerate
+    // case this axis most has to report (BUG-20's two pills, one shadowed and one
+    // not). `boxShadow` is not a new axis, so there is no pre-axis vintage to stay
+    // inert for; the old presence boolean read it unguarded for the same reason.
+    //
+    // Presence survives as the degenerate case: a side that paints no layer at
+    // all yields an empty list and the count comparison reports it.
+    if (exp.boxShadow !== undefined || actShadow !== undefined) {
+      const e = paintedShadowLayers(exp.boxShadow)
+      const a = paintedShadowLayers(actShadow)
+      const near = (x: number, y: number): boolean => Math.abs(x - y) <= shadowLengthTol
+      const sameColor = (x: string, y: string): boolean =>
+        colorDistance(x, y) <= colorTol && Math.abs(alphaOf(x) - alphaOf(y)) <= SHADOW_ALPHA_TOL
+      const differs =
+        e.length !== a.length ||
+        e.some((l, i) => {
+          const o = a[i]
+          return (
+            !near(l.offsetXPx, o.offsetXPx) ||
+            !near(l.offsetYPx, o.offsetYPx) ||
+            !near(l.blurPx, o.blurPx) ||
+            !near(l.spreadPx, o.spreadPx) ||
+            l.inset !== o.inset ||
+            !sameColor(l.color, o.color)
+          )
+        })
+      if (differs) push(exp, 'boxShadow', shadowLabel(exp.boxShadow), shadowLabel(actShadow))
     }
     // Uniform box border (blind spot) — a form field's outline / a card hairline.
     // Compare presence + width + colour, like borderLeft. Only when both sides
@@ -2462,8 +2587,31 @@ export function diffManifests(
           styleOk)
       if (!ok) push(exp, 'border', borderLabel(e), borderLabel(a))
     }
+    // REQ-331 — `arrangement` is a CRITICAL-tier axis derived from a NEIGHBOUR,
+    // which makes it a poor unit of blame.
+    //
+    // It is assigned at capture (`extract.ts`'s `assignArrangement`) by sorting a
+    // side's own elements top-to-bottom and relating each to the one before it.
+    // The two sides' element lists are not the same list — a reproduction emits
+    // band containers a reference has no counterpart for — and a displacement of
+    // ONE element re-sorts the list and relabels a DIFFERENT one. Measured on
+    // faelan.com: a 16px drift moved the `Faelan` photograph past the `FAELAN`
+    // headline in the sort order, which changed `Alley scene`'s predecessor and
+    // produced the page's highest-severity delta — against an element whose own
+    // box agrees with the reference to 0.01px in x and in width.
+    //
+    // So the axis is compared only where this element's OWN geometry agrees. Where
+    // it does not, the element's `position` delta above already names the real
+    // defect and this would be a second, louder report of a third element's
+    // movement. Where it does, a genuine arrangement difference is still reported.
     if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
-      push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))
+      const ownGeometryAgrees =
+        exp.box !== undefined &&
+        act.box !== undefined &&
+        Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y)) <= positionTol
+      if (ownGeometryAgrees) {
+        push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))
+      }
     }
     // REQ-48 (item 2) — paint order. A wrong z-index means a correctly-placed
     // element stacks on the wrong side of its neighbours (portrait over caption,
@@ -2547,7 +2695,21 @@ export function diffManifests(
     a: string | null | undefined,
   ): void => {
     if (e === undefined || a === undefined) return
-    if (!!e !== !!a) push(exp, property, e ? 'present' : 'none', a ? 'present' : 'none')
+    // REQ-331 — PRESENT means "paints", not "is a non-empty string".
+    //
+    // `filter: "blur(0px)"` is the identity: it moves no pixel, and the fold
+    // drops it deliberately for exactly that reason (`foldFilter` skips every
+    // function sitting at its identity, because carrying one costs a composite
+    // layer and changes nothing). The comparator measured the string, so it
+    // charged the fold a MEDIUM delta for doing the correct thing — one false
+    // delta of twenty on faelan.com, pointing at the one part of the filter path
+    // that was behaving as documented.
+    //
+    // The rule is shared rather than restated: `filterPaints` reads the same
+    // identity table the fold acts on (`capture/treatments.ts`), so the two can
+    // never disagree about which values are no-ops.
+    const paints = property === 'filter' ? filterPaints : (v: string | null | undefined): boolean => !!v
+    if (paints(e) !== paints(a)) push(exp, property, paints(e) ? 'present' : 'none', paints(a) ? 'present' : 'none')
   }
 
   // REQ-63 — emit a delta when a treatment's discrete VALUE differs (not just its
@@ -3272,6 +3434,7 @@ export function diffManifests(
     actualSource: actual.source,
     matched,
     unmatched,
+    elementCounts: { expected: expected.elements.length, actual: actual.elements.length },
     deltas: kept,
     suppressed,
     objects: cards,

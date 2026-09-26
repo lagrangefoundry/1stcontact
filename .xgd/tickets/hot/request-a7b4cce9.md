@@ -6,10 +6,10 @@ title: 'fold: a full-bleed band backdrop folds to box-N and escapes the surface 
   plus a carousel L1 cannot clip and a font table that loses every weight'
 created_by: repro-console:repro-joyfulculinarycreations-com#1
 created_at: '2026-09-26T19:40:57.271901+00:00'
-updated_at: '2026-09-26T19:40:57.271901+00:00'
+updated_at: '2026-09-26T20:32:01.113694+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - fold-wrong
@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-30133d14
 ---
 
 # fold: a full-bleed band backdrop folds to `box-N`, so the overlap exemption written for it never fires — plus a carousel L1 cannot clip and a font table that loses every weight

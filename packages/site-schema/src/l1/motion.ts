@@ -1,20 +1,33 @@
 /**
- * REQ-326 — the one reading of what a node's entrance actually animates.
+ * REQ-326 / REQ-329 — the one reading of what a node's motion actually animates.
  *
- * `reveal` is a union since REQ-326 (one behaviour, or two or more composed),
- * and two very different consumers need the same answer out of it: the
- * **validator**, which refuses a document where two behaviours claim the same
- * property, and the **renderer**, which emits one pre-state declaration and one
- * transition per claimed property. A collision rule enforced against a property
- * set the renderer no longer uses is a rule that refuses the wrong documents and
- * lets the real ones through, so the projection is stated once, here, and read
- * by both — the same construction {@link l1TextRuns} uses for REQ-211's `text`.
+ * `reveal` is a union since REQ-326 (one behaviour, or two or more composed) and
+ * `scrollTrack` is one since REQ-329, and two very different consumers need the
+ * same answer out of both: the **validator**, which refuses a document where two
+ * behaviours claim the same property, and the **renderer**, which emits one
+ * pre-state declaration and one transition per claimed property. A collision rule
+ * enforced against a property set the renderer no longer uses is a rule that
+ * refuses the wrong documents and lets the real ones through, so the projection is
+ * stated once, here, and read by both — the same construction {@link l1TextRuns}
+ * uses for REQ-211's `text`.
  *
- * Nothing here invents a behaviour. A single object is the one-behaviour case
- * read the same way as a list, which is what keeps the single form from drifting
- * away from the composed form as either side gains an axis.
+ * Nothing here invents a behaviour. A single object is the one-behaviour case read
+ * the same way as a list, which is what keeps the single form from drifting away
+ * from the composed form as either side gains an axis.
+ *
+ * REQ-329 — AND THE READING SPANS TRIGGERS, not just the list inside one of them.
+ * A node may carry an entrance, a scroll track and a hover at once; each of them
+ * moves CSS properties, and which ones they move is the whole of whether they
+ * compose or clobber. {@link l1MotionClaims} is that cross-trigger reading, and it
+ * is what the one exclusivity rule in the envelope is enforced from.
  */
-import type { L1Entrance, L1Reveal } from './types'
+import type {
+  L1Entrance,
+  L1Interaction,
+  L1Reveal,
+  L1ScrollMotion,
+  L1ScrollTrack,
+} from './types'
 
 /**
  * The CSS properties an entrance behaviour can move.
@@ -26,6 +39,17 @@ import type { L1Entrance, L1Reveal } from './types'
  * refusal and the emission gain it together.
  */
 export type L1EntranceProperty = 'opacity' | 'translate'
+
+/**
+ * REQ-329 — every CSS property any of a node's motions can move.
+ *
+ * The entrance's two plus the independent `scale` a scroll track drives. A hover
+ * adds nothing to this list even though it moves: its offsets and its scale
+ * compile to `transform`, which is a *different* property from `translate` and
+ * `scale` and composes with them natively — which is exactly why the renderer
+ * chose the independent properties in the first place.
+ */
+export type L1MotionProperty = L1EntranceProperty | 'scale'
 
 /** One behaviour of an entrance, paired with what it will actually move. */
 export interface L1EntranceStep {
@@ -67,4 +91,109 @@ export function l1EntranceSteps(entrance: L1Entrance): readonly L1EntranceStep[]
     if (behaviour.yPx !== undefined && behaviour.yPx !== 0) properties.push('translate')
     return { behaviour, properties }
   })
+}
+
+/**
+ * REQ-329 — a node's scroll motion read as an ordered list of tracks.
+ *
+ * The single-object case is the one-track list, read the same way, for the reason
+ * {@link l1EntranceSteps} gives: one reading means the single form cannot drift
+ * away from the composed form as either gains an axis.
+ */
+export function l1ScrollTracks(motion: L1ScrollMotion): readonly L1ScrollTrack[] {
+  return Array.isArray(motion) ? motion : [motion]
+}
+
+/**
+ * The properties one scroll track animates, in the order the renderer emits its
+ * keyframe declarations.
+ *
+ * A property is claimed where ANY stop names it — a track whose stops mention
+ * `opacity` twice and `scale` once animates both, because the browser interpolates
+ * a property named anywhere in the block across the whole of it. Unlike an
+ * entrance's `yPx`, a value equal to the node's resting one is still a claim: the
+ * keyframe is emitted, the animation owns the property for the length of the
+ * range, and anything else transitioning it is inert whether the number moves or
+ * not.
+ */
+export function l1ScrollTrackProperties(track: L1ScrollTrack): readonly L1MotionProperty[] {
+  const properties: L1MotionProperty[] = []
+  if (track.stops.some((s) => s.opacity !== undefined)) properties.push('opacity')
+  if (track.stops.some((s) => s.translateYPct !== undefined)) properties.push('translate')
+  if (track.stops.some((s) => s.scale !== undefined)) properties.push('scale')
+  return properties
+}
+
+/** One motion's claim on one CSS property. */
+export interface L1MotionClaim {
+  /** The property this motion moves. */
+  readonly property: L1MotionProperty
+  /**
+   * Where the claim was authored, as a path fragment relative to the node —
+   * `reveal`, `reveal/1`, `scrollTrack`, `scrollTrack/0`, `interaction/hover`.
+   * It is both where a refusal is reported and how it names the claimant, so an
+   * author is told which of several motions on one node to change.
+   */
+  readonly at: string
+  /**
+   * True where this motion compiles to a CSS **animation** rather than to a
+   * transition or a state declaration.
+   *
+   * This is the whole of why any of these claims contest each other. An animation
+   * wins its properties outright against every non-`!important` declaration and
+   * against any transition, so a second claim on a property an animation owns
+   * moves no pixel and says nothing about why — while two claims that are both
+   * transitions are two different *states* of the node and compose fine.
+   */
+  readonly animated: boolean
+}
+
+/**
+ * REQ-329 — every property every motion on this node claims, in declaration
+ * order: the entrance's behaviours, then the scroll tracks, then the interaction
+ * states.
+ *
+ * The order is what makes a refusal read as "this one is in breach": the second
+ * claim on a contested property is the one reported, so an entrance that predates
+ * a scroll track is named as the incumbent rather than as the offender.
+ *
+ * Interaction states claim `opacity` and nothing else. Their motion is a
+ * `transform`, which is a different property from the independent `translate` /
+ * `scale` a scroll track drives and composes with them natively; their paint
+ * deltas are properties no other motion here touches.
+ */
+export function l1MotionClaims(
+  node: Readonly<{
+    reveal?: L1Entrance
+    scrollTrack?: L1ScrollMotion
+    interaction?: L1Interaction
+  }>,
+): readonly L1MotionClaim[] {
+  const claims: L1MotionClaim[] = []
+
+  if (node.reveal) {
+    const composed = Array.isArray(node.reveal)
+    l1EntranceSteps(node.reveal).forEach((step, index) => {
+      const at = composed ? `reveal/${index}` : 'reveal'
+      for (const property of step.properties) claims.push({ property, at, animated: false })
+    })
+  }
+
+  if (node.scrollTrack) {
+    const composed = Array.isArray(node.scrollTrack)
+    l1ScrollTracks(node.scrollTrack).forEach((track, index) => {
+      const at = composed ? `scrollTrack/${index}` : 'scrollTrack'
+      for (const property of l1ScrollTrackProperties(track)) {
+        claims.push({ property, at, animated: true })
+      }
+    })
+  }
+
+  for (const state of ['hover', 'focus'] as const) {
+    if (node.interaction?.[state]?.opacity !== undefined) {
+      claims.push({ property: 'opacity', at: `interaction/${state}`, animated: false })
+    }
+  }
+
+  return claims
 }

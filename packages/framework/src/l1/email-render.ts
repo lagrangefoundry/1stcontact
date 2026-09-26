@@ -205,7 +205,23 @@ function linked(node: L1Node, inner: string, decls: string[]): string {
   const link = (node as unknown as Record<string, unknown>).link as
     | { href: string; newTab?: boolean; ariaLabel?: string }
     | undefined
-  if (!link || !isSafeUrl(link.href)) return inner
+  return link ? anchor(link, inner, decls) : inner
+}
+
+/**
+ * One link → its anchor, or the bare content when the href is not allowed.
+ *
+ * REQ-331 — factored out of {@link linked} because a link is no longer only ever
+ * a property of a NODE: a run carries one too, and both have to clear the same
+ * allowlist and pair `_blank` with its `rel` the same way. Two copies of that
+ * rule is one copy too many for a security-bearing decision.
+ */
+function anchor(
+  link: { href: string; newTab?: boolean; ariaLabel?: string },
+  inner: string,
+  decls: string[],
+): string {
+  if (!isSafeUrl(link.href)) return inner
   const rel = link.newTab ? ' target="_blank" rel="noopener noreferrer"' : ''
   const label = link.ariaLabel ? ` aria-label="${escapeHtml(link.ariaLabel)}"` : ''
   return `<a href="${escapeHtml(link.href)}"${rel}${label}${styleAttr(decls)}>${inner}</a>`
@@ -240,6 +256,11 @@ function emit(node: L1Node, width: number | null): string {
       ? node.text
           .map((run: L1TextRun) => {
             const runDecls = typeDecls(run.axes as Record<string, unknown> | undefined)
+            // REQ-331 — a linked run is an `<a>` on the email target too. The
+            // decls ride the anchor for the same reason the node-level link
+            // takes them: otherwise the client's own blue-and-underlined default
+            // wins and the run stops looking like the reference's.
+            if (run.link) return anchor(run.link, escapeHtml(run.text), runDecls)
             return runDecls.length === 0
               ? escapeHtml(run.text)
               : `<span${styleAttr(runDecls)}>${escapeHtml(run.text)}</span>`

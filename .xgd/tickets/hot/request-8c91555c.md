@@ -5,15 +5,27 @@ type: request
 title: 'Scroll-position-driven state: sticky pinning and scroll-linked animation'
 created_by: xgd
 created_at: '2026-09-25T23:35:15.273385+00:00'
-updated_at: '2026-09-26T19:10:01.011789+00:00'
+updated_at: '2026-09-26T19:58:20.107334+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-f9122815
+  commits:
+  - working_sha: aa812b8ac99ab97db9d396d637583d24e56a9256
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: db846206af45af3a626d0486cd45a09b121f6748
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e398766615fbd3532c8017fe3e9830b25f7e82fb
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.377
+  story_points: 2
 ---
 
 ## What I was trying to achieve

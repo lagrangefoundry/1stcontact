@@ -325,12 +325,17 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
-      oneMotionDriver: refusals(
+      // REQ-329 — narrowed from REQ-325's whole-pairing refusal to the actual
+      // contest, so the document that provokes it has to CONTEST a property: an
+      // entrance that fades and a track that also fades. The same pair drifting on
+      // different properties is now ordinary, and is pinned as such by
+      // test_UAT_FC_REQ-329_an_entrance_and_a_scroll_track_compose_on_one_node.
+      animatedPropertyIsExclusive: refusals(
         page({
           root: {
             kind: 'text',
             text: 'x',
-            reveal: { yPx: 20 },
+            reveal: { fromOpacity: 0 },
             scrollTrack: {
               stops: [
                 { at: 0, opacity: 0 },

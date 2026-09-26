@@ -13,9 +13,9 @@
  * here *before* it can reach the renderer, so the only emitter never receives a
  * value that could hang or break a browser.
  */
-import { l1DocumentSchema } from './schema'
+import { L1_ZOOM_OVERLAY_FIELDS, l1DocumentSchema } from './schema'
 import { collectL1PaletteRefs } from './palette'
-import { l1EntranceSteps } from './motion'
+import { l1EntranceSteps, l1MotionClaims, l1ScrollTracks } from './motion'
 import type { L1Palette } from './palette'
 import { projectIssues } from '../issues'
 import type { L1Document, L1Geometry, L1Node, L1ScalarTrack } from './types'
@@ -107,6 +107,16 @@ export const L1_ENVELOPE = {
    * actually have rendered.
    */
   entranceBehaviours: { min: 2, max: 4 },
+  /**
+   * REQ-329 — how many tracks one node's scroll motion may compose. The floor is
+   * two for the reason `entranceBehaviours`' is: a one-item list is a single track
+   * spelled the long way and the schema refuses that spelling outright. The
+   * ceiling is three because a track claims at least one of the three properties
+   * a scroll animation can drive and no two tracks may claim the same one, so a
+   * fourth track cannot animate anything — the bound states what the exclusivity
+   * rule already implies, in one number an author can read before meeting it.
+   */
+  scrollTracks: { min: 2, max: 3 },
 } as const
 
 /**
@@ -169,6 +179,8 @@ export const L1_STRUCTURAL_RULES = {
   actionOrLink: 'a node cannot carry both `link` and `action`',
   /** REQ-327 — a picture either navigates somewhere or opens itself large on this page, so `link` and `zoom` cannot both be present: the renderer emits one interactive element and which role it took would be its decision rather than the document's. */
   zoomOrLink: 'a picture cannot carry both `link` and `zoom`',
+  /** REQ-330 — the pictures of one `zoom.group` share ONE overlay, so the fields that describe that overlay describe the set; two members naming one of them differently is a document saying two things about a single shell, and the renderer would have to pick which. */
+  zoomGroupChromeAgrees: "a zoom group's members must agree about the overlay they share",
   /** BUG-143 — a run's `backedBy` names the surface painted behind it, and the geometry envelope asserts that surface still covers the run; a name nothing answers to is an assertion that silently never runs. */
   backingSurfaceExists: 'a `backedBy` must name a node the document declares',
   /** REQ-326 — two behaviours composed into one entrance must animate different properties. Resolving the contest to last-one-wins instead would drop half of what the author wrote and move no pixel to say so, so they meet it as a design that did not arrive rather than as a refusal naming both behaviours. */
@@ -181,8 +193,9 @@ export const L1_STRUCTURAL_RULES = {
   ascendingScrollStops: "scrollTrack stops must be sorted strictly ascending by 'at'",
   /** REQ-325 — a scroll stop that names no property moves nothing and interpolates nothing, so it is a stop the renderer would emit and the reader would never see. */
   scrollStopMoves: 'a scrollTrack stop must name at least one of `opacity` / `translateYPct` / `scale`',
-  /** REQ-325 — a node's motion has one driver: `reveal` is a one-shot entrance and `scrollTrack` is a position-driven animation, and because a CSS animation overrides a transition, a node carrying both would silently lose its entrance. */
-  oneMotionDriver: 'a node cannot carry both `reveal` and `scrollTrack`',
+  /** REQ-329 — a property a `scrollTrack` animates is that track's alone. Every motion on a node composes with every other (an entrance, a scroll track, a hover, a focus state — each with its own trigger), because each moves an independent CSS property; but a CSS animation wins the properties it names outright against any transition or state declaration, so a second claim on one of them moves no pixel and says nothing about why. Refused naming the property and both claimants, rather than resolved by precedence — which is REQ-325's `oneMotionDriver` narrowed from the whole pairing to the actual contest. */
+  animatedPropertyIsExclusive:
+    'a property a `scrollTrack` animates cannot be animated by anything else on the node',
 } as const
 
 /**
@@ -460,50 +473,13 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
     }
   }
 
-  // REQ-325 — the scroll track: one refusal about the axis it cannot share a node
-  // with, two about a track that says nothing a reader could see, and two bounds.
-  //
-  // The bounds are the SAME constants the static transform axis is held to,
-  // because they are the same two quantities — a share of the node's own box, a
-  // uniform scale — with a different driver, and a second set of numbers for them
-  // would be a second answer to one question.
-  if (node.scrollTrack) {
-    if (node.reveal) {
-      errors.push({ path: `${path}/scrollTrack`, message: L1_STRUCTURAL_RULES.oneMotionDriver })
-    }
-    let prevAt: number | undefined
-    node.scrollTrack.stops.forEach((stop, i) => {
-      const at = `${path}/scrollTrack/stops/${i}`
-      if (prevAt !== undefined && stop.at <= prevAt) {
-        errors.push({
-          path: at,
-          message: `${L1_STRUCTURAL_RULES.ascendingScrollStops} (got ${stop.at} after ${prevAt})`,
-        })
-      }
-      prevAt = stop.at
-      if (stop.opacity === undefined && stop.translateYPct === undefined && stop.scale === undefined) {
-        errors.push({ path: at, message: L1_STRUCTURAL_RULES.scrollStopMoves })
-      }
-      if (
-        stop.translateYPct !== undefined &&
-        !inRange(stop.translateYPct, L1_ENVELOPE.translatePct.min, L1_ENVELOPE.translatePct.max)
-      ) {
-        errors.push({
-          path: `${at}/translateYPct`,
-          message: `translateYPct ${stop.translateYPct} out of range [${L1_ENVELOPE.translatePct.min}, ${L1_ENVELOPE.translatePct.max}]`,
-        })
-      }
-      if (
-        stop.scale !== undefined &&
-        !inRange(stop.scale, L1_ENVELOPE.transformScale.min, L1_ENVELOPE.transformScale.max)
-      ) {
-        errors.push({
-          path: `${at}/scale`,
-          message: `scale ${stop.scale} out of range [${L1_ENVELOPE.transformScale.min}, ${L1_ENVELOPE.transformScale.max}]`,
-        })
-      }
-    })
-  }
+  if (node.scrollTrack) checkScrollMotion(node.scrollTrack, `${path}/scrollTrack`, errors)
+
+  // REQ-329 — and the one rule that spans the triggers. Checked here rather than
+  // inside either axis because the contest is between them: an entrance, a scroll
+  // track and a hover each read their own bounds, and which CSS property each one
+  // ends up moving is the only thing that decides whether they compose.
+  checkMotionComposition(node, path, errors)
 
   if (node.kind === 'container' && node.staggerMs !== undefined) {
     if (!inRange(node.staggerMs, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
@@ -515,17 +491,33 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
   }
 }
 
-/** Bound a structured shadow's four lengths. */
+/** One structured shadow layer, or REQ-331's ordered stack of them. */
+type ShadowLike = { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number }
+
+/**
+ * Bound a structured shadow's four lengths — per LAYER.
+ *
+ * REQ-331 widened `boxShadow` to a layer list, and a bound that only ever looked
+ * at the first layer would be an envelope with a hole in it exactly where the
+ * new capability is: a document could carry an in-range drop shadow followed by
+ * a second layer blurred a hundred thousand pixels. The path names the layer, so
+ * a refusal still points at one number.
+ */
 function checkShadow(
-  s: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number } | undefined,
+  s: ShadowLike | readonly ShadowLike[] | undefined,
   path: string,
   errors: ValidationError[],
 ): void {
   if (!s) return
-  checkEffectLen(s.offsetXPx, `${path}/offsetXPx`, errors)
-  checkEffectLen(s.offsetYPx, `${path}/offsetYPx`, errors)
-  checkEffectLen(s.blurPx, `${path}/blurPx`, errors)
-  checkEffectLen(s.spreadPx, `${path}/spreadPx`, errors)
+  if (Array.isArray(s)) {
+    s.forEach((layer, i) => checkShadow(layer, `${path}/${i}`, errors))
+    return
+  }
+  const one = s as ShadowLike
+  checkEffectLen(one.offsetXPx, `${path}/offsetXPx`, errors)
+  checkEffectLen(one.offsetYPx, `${path}/offsetYPx`, errors)
+  checkEffectLen(one.blurPx, `${path}/blurPx`, errors)
+  checkEffectLen(one.spreadPx, `${path}/spreadPx`, errors)
 }
 
 /**
@@ -535,7 +527,7 @@ function checkShadow(
 function checkSurface(
   axes: {
     borderRadiusPx?: number
-    boxShadow?: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number }
+    boxShadow?: ShadowLike | readonly ShadowLike[]
     border?: { widthPx: number }
     borderLeft?: { widthPx: number }
     backdropBlurPx?: number
@@ -753,6 +745,118 @@ function checkEntrance(
   })
 }
 
+/**
+ * REQ-325 / REQ-329 — a node's scroll motion: every track bounded, and a track
+ * that says nothing a reader could see refused.
+ *
+ * The bounds are the SAME constants the static transform axis is held to, because
+ * they are the same two quantities — a share of the node's own box, a uniform
+ * scale — with a different driver, and a second set of numbers for them would be a
+ * second answer to one question.
+ *
+ * REQ-329 — bounded per TRACK, and each refusal carries that track's index, for
+ * the reason {@link checkEntrance} states: told only that some stop on this node is
+ * out of range, an author with two tracks has to bisect to find out which. A single
+ * track keeps REQ-325's paths verbatim, so an existing refusal reads exactly as it
+ * always did.
+ *
+ * Which properties a track animates is NOT read here. It is the one question that
+ * cannot be answered inside one axis, because the contest is with the node's other
+ * motions — see {@link checkMotionComposition}.
+ */
+function checkScrollMotion(
+  motion: NonNullable<L1Node['scrollTrack']>,
+  path: string,
+  errors: ValidationError[],
+): void {
+  const tracks = l1ScrollTracks(motion)
+  const composed = Array.isArray(motion)
+  if (composed && !inRange(tracks.length, L1_ENVELOPE.scrollTracks.min, L1_ENVELOPE.scrollTracks.max)) {
+    errors.push({
+      path,
+      message: `${tracks.length} scroll tracks out of range [${L1_ENVELOPE.scrollTracks.min}, ${L1_ENVELOPE.scrollTracks.max}]`,
+    })
+  }
+
+  tracks.forEach((track, index) => {
+    const base = composed ? `${path}/${index}` : path
+    let prevAt: number | undefined
+    track.stops.forEach((stop, i) => {
+      const at = `${base}/stops/${i}`
+      if (prevAt !== undefined && stop.at <= prevAt) {
+        errors.push({
+          path: at,
+          message: `${L1_STRUCTURAL_RULES.ascendingScrollStops} (got ${stop.at} after ${prevAt})`,
+        })
+      }
+      prevAt = stop.at
+      if (stop.opacity === undefined && stop.translateYPct === undefined && stop.scale === undefined) {
+        errors.push({ path: at, message: L1_STRUCTURAL_RULES.scrollStopMoves })
+      }
+      if (
+        stop.translateYPct !== undefined &&
+        !inRange(stop.translateYPct, L1_ENVELOPE.translatePct.min, L1_ENVELOPE.translatePct.max)
+      ) {
+        errors.push({
+          path: `${at}/translateYPct`,
+          message: `translateYPct ${stop.translateYPct} out of range [${L1_ENVELOPE.translatePct.min}, ${L1_ENVELOPE.translatePct.max}]`,
+        })
+      }
+      if (
+        stop.scale !== undefined &&
+        !inRange(stop.scale, L1_ENVELOPE.transformScale.min, L1_ENVELOPE.transformScale.max)
+      ) {
+        errors.push({
+          path: `${at}/scale`,
+          message: `scale ${stop.scale} out of range [${L1_ENVELOPE.transformScale.min}, ${L1_ENVELOPE.transformScale.max}]`,
+        })
+      }
+    })
+  })
+}
+
+/**
+ * REQ-329 — the node's motions read TOGETHER: every property each one moves, and
+ * a refusal wherever an animation's property is claimed twice.
+ *
+ * This replaces REQ-325's `oneMotionDriver`, which refused the `reveal` +
+ * `scrollTrack` PAIRING outright. The reason it gave was true and the rule it drew
+ * from it was too wide: an animation beats a transition *on the property it
+ * animates*, so a node fading in on entry while drifting on scroll has no contest
+ * in it at all — and that is the first composition an author asks for once both
+ * primitives exist. What the cascade actually forbids is two claims on one
+ * property, so that is what is refused, and every composition CSS can honour is
+ * now expressible.
+ *
+ * ONLY A CONTEST INVOLVING AN ANIMATION IS REFUSED HERE. Two transitions on one
+ * property are two different *states* of the node — an entrance fade and a hover
+ * dim both move `opacity`, and they compose, because the pre-state stops matching
+ * the moment the node settles and the hover rule takes it from there. Two entrance
+ * behaviours are refused, but by `onePropertyPerEntranceBehaviour` inside
+ * {@link checkEntrance}, which is where an author writing one entrance looks.
+ *
+ * The claims come from {@link l1MotionClaims} rather than from a second reading
+ * declared here, so what is refused and what the renderer emits cannot come apart.
+ * Declaration order decides which claimant is named as the offender: the SECOND
+ * claim on a property is the one reported, so an entrance that predates the track
+ * added beside it reads as the incumbent.
+ */
+function checkMotionComposition(node: L1Node, path: string, errors: ValidationError[]): void {
+  const owner = new Map<string, { at: string; animated: boolean }>()
+  for (const claim of l1MotionClaims(node)) {
+    const held = owner.get(claim.property)
+    if (held === undefined) {
+      owner.set(claim.property, claim)
+      continue
+    }
+    if (!held.animated && !claim.animated) continue
+    errors.push({
+      path: `${path}/${claim.at}`,
+      message: `${L1_STRUCTURAL_RULES.animatedPropertyIsExclusive}: '${claim.property}' is already animated by \`${held.at}\``,
+    })
+  }
+}
+
 function walk(
   node: L1Node,
   widths: readonly number[],
@@ -882,6 +986,22 @@ function walk(
     errors.push({
       path: `${path}/link/href`,
       message: `link href '${link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
+    })
+  }
+  // REQ-331 — and so does a RUN's href. A run list is the only place in the
+  // document where a URL is not on the node the walk is standing on, so without
+  // this the allowlist had a gap the width of every rejoined sentence: a
+  // `javascript:` run would have been refused by nothing and degraded silently by
+  // the renderer, which is the quiet failure the node-level check exists to
+  // prevent.
+  if (node.kind === 'text' && Array.isArray(node.text)) {
+    node.text.forEach((run, i) => {
+      if (run.link !== undefined && !isSafeUrl(run.link.href)) {
+        errors.push({
+          path: `${path}/text/${i}/link/href`,
+          message: `link href '${run.link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
+        })
+      }
     })
   }
   // REQ-269 — a heading's level is the outline depth, and HTML has exactly six.
@@ -1433,6 +1553,46 @@ export function validateL1(
     kids.forEach((c, i) => scanActions(c, `${path}/children/${i}`))
   }
   scanActions(doc.root, '/root')
+
+  // REQ-330 — a zoom SET's chrome belongs to the set, not to any one member.
+  //
+  // `group` makes several pictures share ONE overlay, and five of the role's
+  // fields describe that overlay rather than the picture carrying them (see
+  // `L1_ZOOM_OVERLAY_FIELDS`). A set whose members name one of them differently is
+  // a document saying two things about a single shell — and the renderer, which
+  // emits one shell, would have to pick. Refused rather than resolved: taking the
+  // first member's answer would silently discard the other's, which is the lossy
+  // write the field contract refuses everywhere else.
+  //
+  // MEMBERS THAT NAME NOTHING ARE ALWAYS FINE, which is what keeps the common case
+  // free of ceremony: one plate carries the backdrop and the rest carry `group`
+  // alone. Whole-document, like the modal rules above, because a set's members are
+  // scattered through the tree by construction.
+  const groupChrome = new Map<string, Map<string, { json: string; path: string }>>()
+  const scanZoomGroups = (node: L1Node, path: string): void => {
+    const zoom = (node as { zoom?: Record<string, unknown> }).zoom
+    const group = zoom?.group
+    if (zoom !== undefined && typeof group === 'string' && group !== '') {
+      const seen = groupChrome.get(group) ?? new Map()
+      groupChrome.set(group, seen)
+      for (const field of L1_ZOOM_OVERLAY_FIELDS) {
+        const value = zoom[field]
+        if (value === undefined) continue
+        const json = JSON.stringify(value)
+        const first = seen.get(field)
+        if (first === undefined) seen.set(field, { json, path })
+        else if (first.json !== json) {
+          errors.push({
+            path: `${path}/zoom/${field}`,
+            message: `${L1_STRUCTURAL_RULES.zoomGroupChromeAgrees} — group '${group}' already named a different \`${field}\` at ${first.path}`,
+          })
+        }
+      }
+    }
+    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+    kids.forEach((c, i) => scanZoomGroups(c, `${path}/children/${i}`))
+  }
+  scanZoomGroups(doc.root, '/root')
 
   const counter = { n: 0 }
   walk(doc.root, doc.widths, '/root', 1, counter, errors)
