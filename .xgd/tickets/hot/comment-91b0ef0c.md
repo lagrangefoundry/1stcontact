@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-25T22:07:23.526378+00:00'
+updated_at: '2026-09-26T18:32:05.112141+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2641,5 +2641,11 @@ So:
 **One shared file is not.** `storage/tmp/repro-console/gap-tickets.json` is global to the checkout, not per-site, and it's read-modify-written with no lock (`gaps.ts:69,83,161`). If both consoles file a gap ticket in the same instant, last write wins and one console's gap record vanishes silently. Narrow window, but a long dual-loop session is exactly where it'd bite. Want me to fold that into REQ-323 as a second behaviour, or file it separately as a bug?
 
 One limit on what I checked: I verified the console's own paths don't collide, but not whether two concurrent `1c capture` subprocesses contend over a shared staging dir. If you plan to run both loops hard rather than alternately, that's worth a look first.
+
+<!-- xgd-turn id="b91b58a2-6847-4f06-be0b-e098dcfd14b0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T18:32:04.834303+00:00" -->
+#### You
+ok coo - we fixed it this time. There was still one "Unmeasured" on gigabyte alchemy, do you consider it important that we close that loop?
 
 <!-- xgd-chat-end -->
