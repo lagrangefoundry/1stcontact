@@ -6,10 +6,10 @@ title: bin/dev up starts the watching builder, not the frozen snapshot it just b
   — and every server that reads the changing tree should be deleted
 created_by: EPIC-19
 created_at: '2026-09-25T23:26:01.085217+00:00'
-updated_at: '2026-09-25T23:26:01.085217+00:00'
+updated_at: '2026-09-26T19:48:05.707160+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-96d8aca6
