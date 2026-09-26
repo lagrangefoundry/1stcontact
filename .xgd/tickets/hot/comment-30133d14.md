@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-332
 created_by: xgd
 created_at: '2026-09-26T20:19:22.047661+00:00'
-updated_at: '2026-09-26T21:39:54.180717+00:00'
+updated_at: '2026-09-26T22:06:03.602486+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -116,5 +116,88 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="ef0881a3-4314-4094-bbed-77e5ca104480-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T22:06:03.255623+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me first establish the current state.
+
+The ticket body is complete, including the implementation section. Let me check the state of the code.
+
+Typecheck is clean across all three packages. Now the tests.
+
+All 30 pass. Now the broader regression scope — the change touches fold, probes, render, schema, and capture, so let me run the full suite.
+
+Two of those — the axis-group suites — touch exactly what I changed. Let me look.
+
+These are the intended closed-set guardrails: both assert the schema's group key set equals an exhaustive sample map, so a new group fails rather than going silently untested. Adding `clip` means adding it to the samples.
+
+Now let me confirm the other 10 failing files are pre-existing, by running them in the main checkout which has none of my changes.
+
+All 10 fail identically on the clean checkout. Let me confirm the counts match exactly in my worktree.
+
+One extra failure in the worktree vs the clean checkout. Let me find it.
+
+Confirmed pre-existing: the BUG-50 delta is purely which `.dev.vars*` files exist on disk (the main checkout holds operator-local secrets; the worktree has none), and my diff touches no builder/env code.
+
+Let me review the UAT coverage against the ticket's four issues.
+
+19 UATs across all four issues. Let me spot-check the riskiest implementation logic.
+
+Implementation reviewed and sound. Now the commit sequence. Let me check the version mechanism for this repo.
+
+Now let me commit the code, then merge and bump.
+
+Now the merge lock and the merge-in / bump / fast-forward sequence.
+
+xgd-working has advanced 60 commits. Merging it into the branch first.
+
+Clean merge, but it touched `extract.ts` and `values-diff.ts` which I also changed. Let me re-verify.
+
+Let me run the full suite post-merge.
+
+19 failures, all in the pre-existing baseline set — the two axis-group ones are fixed, and the BUG-50 env ones were fixed by the merged commits. Nothing new. Now the version bump.
+
+Now fast-forward xgd-working to the branch.
+
+xgd-working advanced again during the run. Let me check the version there.
+
+Only ticket auto-commits; version still 0.2.381, so my 0.2.382 stands. Merging.
+
+Both commits are on xgd-working at 0.2.382. Now the gate.
+
+Now let me record the two guardrail updates in the ticket body, matching how it already records the font-table UAT updates.
+
+Now tear down the branch and release the lock.
+
+REQ-332 is complete and at `free_coded`.
+
+## What landed
+
+Two commits on `xgd-working`, version `0.2.382`:
+
+- **`774d1ca786`** — the four fixes
+- **`9242212ed0`** — the version bump
+
+**Issue 1 — captured backdrops are named for what they are.** A new `isBackingSurfaceId` predicate, distinct from `isSynthesizedSurfaceId` (which stays the answer to the *provenance* question, so the eleven captured bands remain in the fidelity pairing queue). It drives the three *geometric* judgements: the overlap exemption, the `backedBy` attribution, and BUG-143's content-perturbation height rule. The naming test is containment at the widest width, so a decorative divider stays `box-N` and a full participant in the overlap scan.
+
+**Issue 2 — L1 can clip.** `clip: z.literal(true).optional()` in `nodeAxisGroupsShape`, compiling to the renderer's only `overflow: hidden`. Capture records a `ClipAncestor {id, box}`; the fold's `nestClipRegions` wraps each group, but only where the clip actually cuts. `evaluateLayout` intersects leaves with clipping ancestors *once*, before any probe reads one, so all three probes read the painted extent by construction.
+
+**Issue 3 — font descriptors survive.** One captured `@font-face` → one `L1FontFace`. `ThemeFont.files` became `faces: [{src, weight, style}]`; the cross product is gone. `weight` accepts a `[min, max]` pair for variable faces, range-checked at both ends and required to ascend.
+
+**Issue 4 — filter order is declarable.** `l1FilterSchema` gains an explicit `order`; absent means the renderer's fixed order, so no existing document changes. `treatments.ts` gains `filterChain` so a reordered chain scores as a delta rather than `present` on both sides.
+
+## Verification
+
+- Typecheck clean across all three packages, before and after merging the 60 intervening `xgd-working` commits.
+- 19 new UATs in `tests/test_UAT_FC_REQ-332_backdrop_clip_faces_and_filter_order.test.ts`, all passing, no browser.
+- Full suite: **5958 passed, 19 failed**. Every failure is pre-existing and unrelated — I baselined the same files on the clean main checkout and they fail identically there. Two of the earlier failures (`BUG-50` env-file) turned out to be a worktree artifact: the main checkout holds operator-local `.dev.vars*` files the worktree lacks.
+
+## One thing I changed beyond the prior session's work
+
+Adding `clip` broke two closed-set guardrail sweeps (`reconciliation-l1-shared-axis-groups`, `req105-node-axis-groups`) — which is precisely what they exist to do: each asserts the schema's axis-group key set *equals* an exhaustive sample map, so no group can be added without being swept on every node kind. I added `clip: true` to both samples, the same literal-scalar shape `stacked` already carries. No assertion was relaxed. I appended a section to the ticket body recording this, since reconciliation needs the motivation in the body.
+
+The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
