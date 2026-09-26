@@ -515,17 +515,33 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
   }
 }
 
-/** Bound a structured shadow's four lengths. */
+/** One structured shadow layer, or REQ-331's ordered stack of them. */
+type ShadowLike = { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number }
+
+/**
+ * Bound a structured shadow's four lengths — per LAYER.
+ *
+ * REQ-331 widened `boxShadow` to a layer list, and a bound that only ever looked
+ * at the first layer would be an envelope with a hole in it exactly where the
+ * new capability is: a document could carry an in-range drop shadow followed by
+ * a second layer blurred a hundred thousand pixels. The path names the layer, so
+ * a refusal still points at one number.
+ */
 function checkShadow(
-  s: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number } | undefined,
+  s: ShadowLike | readonly ShadowLike[] | undefined,
   path: string,
   errors: ValidationError[],
 ): void {
   if (!s) return
-  checkEffectLen(s.offsetXPx, `${path}/offsetXPx`, errors)
-  checkEffectLen(s.offsetYPx, `${path}/offsetYPx`, errors)
-  checkEffectLen(s.blurPx, `${path}/blurPx`, errors)
-  checkEffectLen(s.spreadPx, `${path}/spreadPx`, errors)
+  if (Array.isArray(s)) {
+    s.forEach((layer, i) => checkShadow(layer, `${path}/${i}`, errors))
+    return
+  }
+  const one = s as ShadowLike
+  checkEffectLen(one.offsetXPx, `${path}/offsetXPx`, errors)
+  checkEffectLen(one.offsetYPx, `${path}/offsetYPx`, errors)
+  checkEffectLen(one.blurPx, `${path}/blurPx`, errors)
+  checkEffectLen(one.spreadPx, `${path}/spreadPx`, errors)
 }
 
 /**
@@ -535,7 +551,7 @@ function checkShadow(
 function checkSurface(
   axes: {
     borderRadiusPx?: number
-    boxShadow?: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number }
+    boxShadow?: ShadowLike | readonly ShadowLike[]
     border?: { widthPx: number }
     borderLeft?: { widthPx: number }
     backdropBlurPx?: number
@@ -882,6 +898,22 @@ function walk(
     errors.push({
       path: `${path}/link/href`,
       message: `link href '${link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
+    })
+  }
+  // REQ-331 — and so does a RUN's href. A run list is the only place in the
+  // document where a URL is not on the node the walk is standing on, so without
+  // this the allowlist had a gap the width of every rejoined sentence: a
+  // `javascript:` run would have been refused by nothing and degraded silently by
+  // the renderer, which is the quiet failure the node-level check exists to
+  // prevent.
+  if (node.kind === 'text' && Array.isArray(node.text)) {
+    node.text.forEach((run, i) => {
+      if (run.link !== undefined && !isSafeUrl(run.link.href)) {
+        errors.push({
+          path: `${path}/text/${i}/link/href`,
+          message: `link href '${run.link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
+        })
+      }
     })
   }
   // REQ-269 — a heading's level is the outline depth, and HTML has exactly six.

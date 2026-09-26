@@ -430,6 +430,20 @@ function shadowCss(s: L1Shadow): string | null {
   return parts.join(' ')
 }
 
+/**
+ * REQ-331 — a shadow axis (one layer, or a stack) → one `box-shadow` value.
+ *
+ * Comma-joined in the document's own order, which is CSS's paint order: the
+ * first layer paints on top. A layer that cannot be expressed (an unparseable
+ * colour, a non-finite offset) is dropped rather than poisoning the whole
+ * declaration — a card with its glow missing is nearer the reference than a card
+ * with no shadow at all.
+ */
+function boxShadowCss(s: L1Shadow | readonly L1Shadow[]): string | null {
+  const layers = (Array.isArray(s) ? s : [s as L1Shadow]).map(shadowCss).filter((v): v is string => v !== null)
+  return layers.length ? layers.join(', ') : null
+}
+
 /** A box border → `<w>px <style> <color>`, or null if unpaintable. */
 function borderCss(b: L1Border): string | null {
   const c = cssColor(b.color)
@@ -747,7 +761,7 @@ function surfaceDecls(
     if (b) out.push(`border-left: ${b}`)
   }
   if (a.boxShadow) {
-    const sh = shadowCss(a.boxShadow)
+    const sh = boxShadowCss(a.boxShadow)
     if (sh) out.push(`box-shadow: ${sh}`)
   }
   if (px(a.backdropBlurPx)) {
@@ -3346,14 +3360,33 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
       if (a.sizeScale !== undefined) decls.push(`font-size: ${a.sizeScale}em`)
       if (a.fontWeight !== undefined) decls.push(`font-weight: ${Math.round(a.fontWeight)}`)
       if (a.fontStyle) decls.push(`font-style: ${a.fontStyle}`)
+      if (a.textDecoration) decls.push(`text-decoration: ${a.textDecoration}`)
       if (a.baselineShiftEm !== undefined) {
         decls.push(`vertical-align: ${a.baselineShiftEm}em`)
       }
       const words = escapeHtml(run.text)
-      if (decls.length === 0) return words
+      // REQ-331 — a run that is a LINK takes an `<a>`, on exactly the terms the
+      // node-level link takes one: the same `isSafeUrl` allowlist, the same
+      // `_blank`-always-carries-its-`rel` rule, and the same edit-render
+      // behaviour (the element is kept, only the navigable attributes are
+      // dropped, so clicking opens the copy editor instead of navigating).
+      //
+      // An `<a>` is emitted even when the run carries no declarations of its
+      // own: the anchor is the run's SUBSTANCE, not an ornament, and a link
+      // rendered as bare text is the failure this axis exists to prevent.
+      const href = run.link && isSafeUrl(run.link.href) ? relativizeUrl(run.link.href.trim()) : undefined
+      if (decls.length === 0 && href === undefined) return words
       const runClass = `${nodeClass}-r${i}`
-      state.rules.push({ selector: `.${runClass}`, decls })
-      return `<span class="${runClass}">${words}</span>`
+      const classAttr = decls.length === 0 ? '' : ` class="${runClass}"`
+      if (decls.length > 0) state.rules.push({ selector: `.${runClass}`, decls })
+      if (href === undefined) return `<span${classAttr}>${words}</span>`
+      const attrs =
+        state.edit
+          ? ''
+          : ` href="${escapeHtml(href)}"` +
+            (run.link?.newTab ? ' target="_blank" rel="noopener noreferrer"' : '') +
+            (run.link?.ariaLabel ? ` aria-label="${escapeHtml(run.link.ariaLabel)}"` : '')
+      return `<a${classAttr}${attrs}>${words}</a>`
     })
     .join('')
 }
