@@ -209,6 +209,20 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
       // renders a box, so a kind that could not say so would be a kind whose
       // compositions the gate refuses.
       stacked: true,
+      // REQ-325 — the two scroll-POSITION groups, on every kind for the same
+      // reason as the rest: where a box holds, and what it looks like on the way
+      // past, are properties of a box, so a kind that could be pinned but not
+      // tracked would be exactly the per-kind drift this sweep exists to catch.
+      // Both are shape-level additions here; the pairs the ENVELOPE refuses (a pin
+      // against an absolute placement, a track against a `reveal`) are structural
+      // rules and so do not bear on what a KIND admits.
+      sticky: { topPx: 64, fromPx: 900 },
+      scrollTrack: {
+        stops: [
+          { at: 0, opacity: 0.4, translateYPct: 8 },
+          { at: 1, opacity: 1, translateYPct: 0 },
+        ],
+      },
     }
     const groups = Object.keys(l1NodeAxisGroupsSchema.shape)
     expect(groups.sort()).toEqual(Object.keys(sample).sort())

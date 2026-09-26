@@ -70,6 +70,18 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
   responsivePadding: { topPx: { keyframes: [{ at: 320, value: 8 }] } },
   interaction: { hover: { opacity: 0.9 } },
   reveal: { yPx: 22, durationMs: 640 },
+  // REQ-325 — the two scroll-POSITION groups, admitted on every kind for the
+  // reason the others are: a pin and a progress-driven property are properties of
+  // a box, and a kind that could be pinned but not tracked would be the same
+  // per-kind drift this AC exists to close.
+  sticky: { topPx: 64, fromPx: 900 },
+  scrollTrack: {
+    range: 'cover',
+    stops: [
+      { at: 0, opacity: 0.4, translateYPct: 8 },
+      { at: 1, opacity: 1, translateYPct: 0 },
+    ],
+  },
   // BUG-112 — the declared stacking intent. A scalar rather than an object bag,
   // and `true` is its only legal value, so the "unknown key inside the group is
   // refused" half of the sweep below holds for it the same way: anything that is
@@ -349,10 +361,35 @@ describe('AC-802 every node kind admits the same shared axis groups', () => {
     }
 
     // The whole vocabulary, on each kind in turn, through the document envelope.
+    //
+    // REQ-325 — minus the two groups that are declared ALTERNATIVES rather than
+    // additions: a pin is a placement and so cannot ride on an absolute
+    // `geometry` track, and a scroll-progress animation would override a
+    // `reveal`'s transition, so the envelope refuses each pair by name. Every
+    // other group is compatible with every other, which is what this sweep is
+    // for. Neither is dropped from the sweep: each is checked below in the company
+    // of everything it does compose with, and the refusals themselves are pinned
+    // by test_UAT_FC_REQ-325_a_pin_requires_flow_placement and
+    // test_UAT_FC_REQ-325_one_motion_driver_per_node.
+    const { sticky, scrollTrack, ...COMPATIBLE_GROUPS } = NODE_GROUP_SAMPLES
     for (const [kind, [, base]] of Object.entries(KIND_BASES)) {
-      const node = { ...base, axes: SURFACE, ...NODE_GROUP_SAMPLES }
+      const node = { ...base, axes: SURFACE, ...COMPATIBLE_GROUPS }
       const report = validateL1({ widths: WIDTHS, root: node })
       expect(report.ok, `${kind}: ${JSON.stringify(report.ok ? [] : report.errors)}`).toBe(true)
+      // Each alternative on its own, in the company of everything else it does
+      // compose with — so both are still swept on every kind, as a pair with the
+      // member they replace rather than as one more addition.
+      const { geometry: _abs, ...IN_FLOW } = COMPATIBLE_GROUPS
+      const pinned = validateL1({ widths: WIDTHS, root: { ...base, axes: SURFACE, ...IN_FLOW, sticky } })
+      expect(pinned.ok, `${kind} pinned: ${JSON.stringify(pinned.ok ? [] : pinned.errors)}`).toBe(true)
+      const { reveal: _entry, ...NO_ENTRANCE } = COMPATIBLE_GROUPS
+      const tracked = validateL1({
+        widths: WIDTHS,
+        root: { ...base, axes: SURFACE, ...NO_ENTRANCE, scrollTrack },
+      })
+      expect(tracked.ok, `${kind} tracked: ${JSON.stringify(tracked.ok ? [] : tracked.errors)}`).toBe(
+        true,
+      )
     }
 
     // The two gaps the upgrade closed by name: a slot admits sizing and a text

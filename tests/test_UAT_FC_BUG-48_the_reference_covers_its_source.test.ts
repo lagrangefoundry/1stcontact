@@ -277,6 +277,58 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
+      // REQ-325 — the four scroll-position rules. Two are about a pair that cannot
+      // coexist (a pin against an absolute placement, an entrance against a
+      // progress-driven animation) and two are about a track that says nothing a
+      // reader could see.
+      stickyIsInFlow: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            sticky: { topPx: 0 },
+            geometry: { keyframes: [{ at: 360, x: 0, y: 0, width: 10 }] },
+          },
+        } as Partial<L1Document>),
+      ),
+      oneMotionDriver: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            reveal: { yPx: 20 },
+            scrollTrack: {
+              stops: [
+                { at: 0, opacity: 0 },
+                { at: 1, opacity: 1 },
+              ],
+            },
+          },
+        } as Partial<L1Document>),
+      ),
+      ascendingScrollStops: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            scrollTrack: {
+              stops: [
+                { at: 1, opacity: 1 },
+                { at: 0, opacity: 0 },
+              ],
+            },
+          },
+        } as Partial<L1Document>),
+      ),
+      scrollStopMoves: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            scrollTrack: { stops: [{ at: 0 }, { at: 1, opacity: 1 }] },
+          },
+        } as Partial<L1Document>),
+      ),
       // The two REQ-175 findings are reported rather than refused, and
       // deliberately: both references can dangle for a reason nobody can fix — a
       // capture that could not mirror a face or an image — and refusing the

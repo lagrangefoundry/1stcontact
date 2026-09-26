@@ -83,6 +83,11 @@ export interface L1EmailTarget {
  *     Flow is the only layout an email can rely on.
  *   - `interaction`, `reveal`, `visibility` — there is no hover, no scroll
  *     observer and no media query worth trusting in a message.
+ *   - `sticky`, `scrollTrack` ([[REQ-325]]) — a message is read in a panel the
+ *     client scrolls, not a document the page controls: `position: sticky` is
+ *     unsupported across the field, and a scroll-progress timeline is an
+ *     animation, of which a message has none. Both would be silently dropped, so
+ *     they are refused by name instead.
  *   - `surfaceGradient`, `pattern`, `backgroundImageUrl`, `pointerAccent`,
  *     `overlay`, `boxShadow`, `backdropBlur`, `filter`, `blendMode`, `opacity`
  *     — background images are stripped by Outlook outright, and every other
@@ -145,6 +150,8 @@ const ALL_NODE_AXES = [
   'responsivePadding',
   'interaction',
   'reveal',
+  'sticky',
+  'scrollTrack',
 ] as const
 
 /** A `container`'s own fields, so an unlisted one is refused by name. */

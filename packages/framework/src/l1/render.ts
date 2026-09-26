@@ -74,8 +74,11 @@ import type {
   L1Resources,
   L1Reveal,
   L1ScalarTrack,
+  L1ScrollRange,
+  L1ScrollTrack,
   L1Shadow,
   L1Sizing,
+  L1Sticky,
   L1SurfaceAxes,
   L1Text,
   L1Transform,
@@ -1083,6 +1086,114 @@ for(var i=0;i<ns.length;i++)io.observe(ns[i]);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();
 })();`
 
+// ── REQ-325 scroll POSITION: the pin, and the progress-driven property ────────
+//
+// REQ-100's entrance is a *trigger*; these two are *drivers*. Between them they
+// are the whole of "an element's state as a function of how far the reader has
+// descended", and neither adds a line of JavaScript to the page:
+//
+//   - `sticky` is CSS positioning. One declaration pair, and the release boundary
+//     is the containing block the document already declares by nesting.
+//   - `scrollTrack` is a CSS animation on the browser's own **view-progress
+//     timeline**. The renderer names the `@keyframes` block, so an author still
+//     cannot write a keyframe, a selector or a script — and there is no scroll
+//     listener in the substrate to vet or to keep from janking.
+//
+// The scroll track fails visible on the same two terms REQ-100 established, and
+// here they are one mechanism rather than a script's early return: the animation
+// declarations are emitted inside BOTH a feature query and a reduced-motion
+// query, so a browser with no view-progress timeline and a visitor who asked for
+// no motion each get the node's own authored opacity, offset and scale. Nothing
+// is ever hidden in CSS waiting for something else to bring it back.
+
+/** The feature query the whole scroll-track mechanism is gated on. */
+const SCROLL_TIMELINE_SUPPORTS = '(animation-timeline: view())'
+/**
+ * The other half of that gate.
+ *
+ * `not (prefers-reduced-motion: reduce)` rather than a second rule that undoes
+ * the first: an author who asked for no motion should not have the animation
+ * arrive and then be cancelled, and a cancelled scroll animation is not the same
+ * pixels as an absent one (`animation-fill-mode: both` would still be holding
+ * the first stop). The capture driver emulates reduced motion, so this is also
+ * what makes a scroll-tracked page capture SETTLED and keeps the round-trip
+ * honest.
+ */
+const NO_REDUCED_MOTION = 'not (prefers-reduced-motion: reduce)'
+
+/** A typed range → the CSS `animation-range` it names. */
+const SCROLL_RANGE: Record<L1ScrollRange, string> = {
+  cover: 'cover 0% cover 100%',
+  contain: 'contain 0% contain 100%',
+  enter: 'entry 0% entry 100%',
+  exit: 'exit 0% exit 100%',
+}
+
+/**
+ * REQ-325 — the pin's declarations.
+ *
+ * `top` is always emitted: `position: sticky` with `top: auto` sticks to nothing
+ * at all, so an absent offset has to mean zero rather than "no offset given".
+ *
+ * These land in the node's own base declaration list, which is pushed AFTER
+ * {@link geometryRules} — so the pin overrides the `position: relative` an
+ * in-flow node otherwise takes without either emitter having to know about the
+ * other. An absolute track cannot reach here: the envelope refuses that pair
+ * (`stickyIsInFlow`), because it would be two placements and two owners of `top`.
+ */
+function stickyDecls(sticky: L1Sticky): string[] {
+  return ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
+}
+
+/**
+ * REQ-325 — compile a scroll track into its `@keyframes` block and the animation
+ * that runs it.
+ *
+ * The keyframes name is the node's own class with a suffix, so it is unique
+ * per node and per mounted fragment for the same reason the class is — and it is
+ * the renderer's, never the document's: no instance string reaches a CSS
+ * identifier.
+ *
+ * `animation-duration: auto` is the value that means "the whole of the timeline"
+ * for a progress-based timeline; a time would be meaningless here, since the
+ * progress is the reader's and not the clock's.
+ */
+function scrollTrackRules(
+  selector: string,
+  name: string,
+  track: L1ScrollTrack,
+): { rules: Rule[]; keyframes: KeyframesRule } {
+  const stops = track.stops.map((stop) => {
+    const decls: string[] = []
+    if (stop.opacity !== undefined) decls.push(`opacity: ${num(stop.opacity)}`)
+    // The independent `translate` / `scale` properties, not `transform`: a node
+    // may carry a static `transform` as well, and the two families compose
+    // natively instead of the animation replacing the author's own offset. This
+    // is the same choice REQ-100's entrance makes, for the same reason.
+    if (stop.translateYPct !== undefined) decls.push(`translate: 0 ${num(stop.translateYPct)}%`)
+    if (stop.scale !== undefined) decls.push(`scale: ${num(stop.scale)}`)
+    return { atPct: stop.at * 100, decls }
+  })
+  const rules: Rule[] = [
+    {
+      supports: SCROLL_TIMELINE_SUPPORTS,
+      media: NO_REDUCED_MOTION,
+      selector,
+      decls: [
+        `animation-name: ${name}`,
+        'animation-duration: auto',
+        'animation-timing-function: linear',
+        // Both ends held: before the range the node paints its first stop, after
+        // it its last, so a track never snaps back to the design at the boundary.
+        'animation-fill-mode: both',
+        'animation-timeline: view()',
+        `animation-range: ${SCROLL_RANGE[track.range ?? 'cover']}`,
+      ],
+    },
+  ]
+  return { rules, keyframes: { name, stops } }
+}
+
 // ── REQ-108 pointer accent: the texture, redrawn under the reader's hand ──────
 //
 // The construction is REQ-100's, one step further. A document names a *typed
@@ -1720,8 +1831,31 @@ function fluidHeightRules(
 /** One CSS block for a selector. */
 interface Rule {
   media?: string
+  /**
+   * REQ-325 — a feature query this rule is gated on: it is emitted inside
+   * `@supports (…)`, nested outside its `media` when it carries one.
+   *
+   * A rule that needs a capability the browser may not have is the only thing
+   * this exists for, and it is what lets a scroll-linked animation be ADDITIVE:
+   * a browser without view-progress timelines never sees the declarations, so it
+   * paints the design rather than a half-applied animation.
+   */
+  supports?: string
   selector: string
   decls: string[]
+}
+
+/**
+ * REQ-325 — a `@keyframes` block: the renderer's own name for it, and its stops.
+ *
+ * Kept OUT of {@link Rule} rather than squeezed into it as a selector with an odd
+ * shape: a keyframes block is not a style rule, it has no selector and no
+ * cascade, and pretending otherwise would put a second meaning on every field of
+ * the type that carries the stylesheet.
+ */
+interface KeyframesRule {
+  name: string
+  stops: { atPct: number; decls: string[] }[]
 }
 
 /**
@@ -2866,6 +3000,13 @@ interface RenderState {
   controls?: Readonly<Record<string, L1ControlElement>>
   /** REQ-100 — set once any node reveals, so a motionless page ships no script. */
   hasReveal?: boolean
+  /**
+   * REQ-325 — the `@keyframes` blocks this render's scroll tracks need, in
+   * emission order. On the state rather than returned up the tree because a
+   * keyframes block is a document-level at-rule while `emitNode` returns markup:
+   * the same reason `rules` lives here.
+   */
+  keyframes?: KeyframesRule[]
   /** REQ-108 — set once any node accents, so a page with no accent ships no script. */
   hasPointerAccent?: boolean
   /** REQ-212 — set once any node opens as an overlay, so a page with no modal ships no script. */
@@ -3528,6 +3669,34 @@ function emitNode(
     state.hasReveal = true
   }
 
+  // REQ-325 — the pin. Structure, not motion: it is emitted in EVERY channel (the
+  // edit render included) because where a box sits is part of the design the
+  // editor is showing, and it is nothing a reduced-motion preference has an
+  // opinion about — a held box is not an animation.
+  //
+  // Into `base` rather than its own rule so it overrides the `position: relative`
+  // an in-flow node takes, which is emitted earlier in the very same list. With a
+  // `fromPx` the pin is confined to a `min-width` block instead, leaving the base
+  // rule — and therefore normal flow — in force below it.
+  if (node.sticky) {
+    const decls = stickyDecls(node.sticky)
+    if (node.sticky.fromPx === undefined) base.push(...decls)
+    else state.rules.push({ media: `(min-width: ${node.sticky.fromPx}px)`, selector, decls })
+  }
+
+  // REQ-325 — the progress-driven property track.
+  //
+  // REQ-116 — withheld from the edit render on exactly REQ-100's terms: that
+  // channel renders settled, and a track's first stop is not the settled state.
+  // REQ-212 — and withheld from a dialog panel, which is `position: fixed` and so
+  // never advances a view-progress timeline: its animation would sit at the first
+  // stop forever, which for a fading track is a panel that opens onto nothing.
+  if (node.scrollTrack && !state.edit && !isDialog) {
+    const { rules, keyframes } = scrollTrackRules(selector, `${name}-sc`, node.scrollTrack)
+    state.rules.push(...rules)
+    ;(state.keyframes ??= []).push(keyframes)
+  }
+
   // REQ-108 — the accent overlay's own rules (resolved at the top of the emitter).
   // Its opacity fade is the pseudo-element's, not the node's, so it stays out of
   // `transitions` and cannot collide with a hover or an entrance on the node.
@@ -3602,7 +3771,57 @@ function mediaMinWidth(media: string): number {
   return m ? Number(m[1]) : Infinity
 }
 
+/**
+ * REQ-325 — the stylesheet, with every feature-gated rule in its own `@supports`
+ * block after the ungated ones.
+ *
+ * The gated rules come LAST, and the two groups are otherwise serialized by the
+ * identical function: a `@supports` block that cannot be entered must not change
+ * what the rules above it say, and a gated rule that IS entered is an addition to
+ * the design rather than a replacement for it — so its position in the cascade is
+ * after, always.
+ */
 function serializeRules(rules: Rule[]): string {
+  const out: string[] = []
+  const ungated = rules.filter((r) => !r.supports)
+  if (ungated.length) out.push(serializeRuleGroup(ungated))
+  const conditions: string[] = []
+  for (const r of rules) {
+    if (r.supports && !conditions.includes(r.supports)) conditions.push(r.supports)
+  }
+  for (const condition of conditions) {
+    const inner = serializeRuleGroup(rules.filter((r) => r.supports === condition))
+    out.push(
+      `@supports ${condition} {\n${inner
+        .split('\n')
+        .map((line) => (line === '' ? line : `  ${line}`))
+        .join('\n')}\n}`,
+    )
+  }
+  return out.join('\n')
+}
+
+/**
+ * REQ-325 — every `@keyframes` block the document's scroll tracks need.
+ *
+ * Emitted at the top level rather than inside the gates the animations
+ * themselves carry: an unreferenced keyframes block is inert, and a browser that
+ * never enters the `@supports` block never runs one. Each stop's declarations are
+ * built from validated finite numbers by {@link scrollTrackRules}, so nothing
+ * from the document reaches a keyframe as a string.
+ */
+function serializeKeyframes(blocks: readonly KeyframesRule[]): string {
+  return blocks
+    .map(
+      (k) =>
+        `@keyframes ${k.name} {\n${k.stops
+          .map((s) => `  ${num(s.atPct)}% { ${s.decls.join('; ')} }`)
+          .join('\n')}\n}`,
+    )
+    .join('\n')
+}
+
+function serializeRuleGroup(rules: Rule[]): string {
   // Group by media so cascade order is deterministic: base rules first, then media
   // blocks by ASCENDING breakpoint (REQ-104).
   //
@@ -3723,7 +3942,16 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
   // REQ-90 — @font-face rules first so every family handle is bound before any
   // rule references it (no serif fallback while the CSS is parsed top-down).
   const faces = fontFaceRules(doc.resources)
-  const css = [reset.join('\n'), ...faces, serializeRules(state.rules)].join('\n')
+  // REQ-325 — the scroll tracks' `@keyframes` blocks, before the rules that name
+  // them. A document with no track emits none, and the stylesheet is byte-identical
+  // to what it was.
+  const keyframes = serializeKeyframes(state.keyframes ?? [])
+  const css = [
+    reset.join('\n'),
+    ...faces,
+    ...(keyframes ? [keyframes] : []),
+    serializeRules(state.rules),
+  ].join('\n')
   // REQ-100 — the reveal script rides at the TOP of the body, so its
   // `data-l1-motion` marker is set before the content beneath it paints. A page
   // that reveals nothing ships no script at all, and REQ-108's accent script is
@@ -3769,7 +3997,12 @@ export function renderL1Fragment(
   // `data-l1-slot`, so copy inside a behavior module's slot is addressable
   // without the module having to know anything about the page it sits on.
   const htmls = resolveL1Palette(nodes, opts.palette).map((node, i) => emitNode(node, state, [i]))
-  return { htmls, css: serializeRules(state.rules) }
+  // REQ-325 — a mounted fragment's own scroll tracks travel with its rules. The
+  // keyframes names are drawn from the same prefixed class counter, so two
+  // instances of one module on a page cannot animate against each other's block.
+  const keyframes = serializeKeyframes(state.keyframes ?? [])
+  const rules = serializeRules(state.rules)
+  return { htmls, css: keyframes ? `${keyframes}\n${rules}` : rules }
 }
 
 /**

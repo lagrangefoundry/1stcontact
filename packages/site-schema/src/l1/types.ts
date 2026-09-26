@@ -51,10 +51,14 @@ import type {
   l1RevealSchema,
   l1ScalarKeyframeSchema,
   l1ScalarTrackSchema,
+  l1ScrollRangeSchema,
+  l1ScrollStopSchema,
+  l1ScrollTrackSchema,
   l1SegmentSchema,
   l1ShadowSchema,
   l1SizingSchema,
   l1SlotSchema,
+  l1StickySchema,
   l1SurfaceAxesSchema,
   l1TextAxesSchema,
   l1TextContentSchema,
@@ -130,6 +134,11 @@ export type L1Easing = z.infer<typeof l1EasingSchema>
 export type L1Transition = z.infer<typeof l1TransitionSchema>
 // REQ-100 — the typed scroll-entrance axis (rise + fade, timed).
 export type L1Reveal = z.infer<typeof l1RevealSchema>
+// REQ-325 — scroll POSITION: the pin, and the properties that track progress.
+export type L1Sticky = z.infer<typeof l1StickySchema>
+export type L1ScrollRange = z.infer<typeof l1ScrollRangeSchema>
+export type L1ScrollStop = z.infer<typeof l1ScrollStopSchema>
+export type L1ScrollTrack = z.infer<typeof l1ScrollTrackSchema>
 export type L1Motion = z.infer<typeof l1MotionSchema>
 export type L1FocusRing = z.infer<typeof l1FocusRingSchema>
 export type L1HoverState = z.infer<typeof l1HoverStateSchema>

@@ -1190,6 +1190,133 @@ export const l1RevealSchema = z
   })
   .strict()
 
+// ── Scroll POSITION (REQ-325) ─────────────────────────────────────────────────
+//
+// REQ-100 gave L1 entrance motion: a node crosses the fold once, settles, and is
+// done. That is a *trigger*, and an editorial page wants a *driver* — the state
+// of an element as a continuous function of how far the reader has descended. The
+// two axes below are the two halves of that, and they are separable because they
+// answer different questions: `sticky` is where a box IS, `scrollTrack` is what a
+// box LOOKS LIKE on the way past.
+//
+// Neither ships a script. A pin is CSS positioning, and a scroll-linked property
+// is a CSS animation on the browser's own view-progress timeline — so the
+// renderer stays the sole emitter without a scroll listener existing anywhere in
+// the substrate to vet, to budget, or to keep from janking.
+
+/**
+ * **Hold this node against the viewport while its container scrolls past.**
+ *
+ * The composition this exists for: a full-bleed hero locks at the top of the
+ * viewport, the masthead above it scrolls up and disappears behind it, and the
+ * hero releases once the section it sits in has gone by.
+ *
+ * The release boundary is CSS sticky's own — the node holds until its
+ * **containing block** (its parent's box) has scrolled past — so it is not a
+ * field here. That means a pin only does something where the parent is TALLER
+ * than the pinned node: a container that hugs its child has no range to hold it
+ * through, and the pin is inert rather than wrong.
+ *
+ * NOT COMPATIBLE WITH AN ABSOLUTE {@link l1GeometrySchema} TRACK, and refused by
+ * {@link L1_STRUCTURAL_RULES} rather than silently resolved: `position: sticky`
+ * and `position: absolute` are alternatives, and an absolute track already writes
+ * the `top` a pin needs to own. An in-flow track (`place: 'flow'`) composes
+ * freely — its offsets are margins.
+ */
+export const l1StickySchema = z
+  .object({
+    /** The offset from the viewport top the node holds at, in px — absent means 0. */
+    topPx: finite.optional(),
+    /**
+     * The viewport width at and above which the node pins; below it, it scrolls
+     * normally. Absent → it pins at every width.
+     *
+     * A pin is a desktop affordance: a full-bleed hero pinned on a 320px screen
+     * holds the entire viewport for the length of its section. Without this the
+     * only way to pin wide and not narrow would be to author the subtree twice
+     * under paired {@link l1VisibilitySchema} gates — the duplicate-subtree
+     * anti-pattern {@link l1ResponsiveLayoutSchema} exists to remove.
+     *
+     * A breakpoint, not a sample: like `visibility.fromPx`, it is an authored
+     * decision and need not be one of the document's captured `widths`.
+     */
+    fromPx: finite.nonnegative().optional(),
+  })
+  .strict()
+
+/**
+ * Which span of the reader's descent a {@link l1ScrollTrackSchema} is measured
+ * across — the four CSS named view-progress ranges, as a closed set.
+ *
+ * - `cover` — from the moment any part of the node enters the viewport to the
+ *   moment the last part leaves it. The whole of its visible life, and the
+ *   default.
+ * - `contain` — the span over which the node is wholly inside the viewport (for a
+ *   node taller than the viewport, the span over which it wholly covers it).
+ * - `enter` — the arrival only: leading edge appearing to trailing edge in.
+ * - `exit` — the departure only: leading edge leaving to trailing edge gone.
+ *
+ * A closed enum rather than a pair of authored edge conditions, deliberately: the
+ * general form is a small coordinate language ("this edge of me against that edge
+ * of the viewport"), and these four names are what every composition asking for
+ * one actually means.
+ */
+export const l1ScrollRangeSchema = z.enum(['cover', 'contain', 'enter', 'exit'])
+
+/**
+ * One stop of a scroll track: the values the node takes at a given progress.
+ *
+ * `at` is progress through the track's range, 0..1 — NOT a viewport width. It is
+ * the one `at` in L1 that is not a rung of the width ladder, which is why the
+ * field is `stops` rather than `keyframes`.
+ *
+ * The three properties are the three the request named, and they are the three
+ * that move a box without touching the flow around it: `opacity`,
+ * `translateYPct` (a share of the node's own height — the same semantics
+ * {@link l1TransformSchema} already gives that name) and `scale`. A property no
+ * stop mentions is simply not animated, so a track can fade without translating.
+ */
+export const l1ScrollStopSchema = z
+  .object({
+    /** Progress through the range, 0..1. */
+    at: finite.min(0).max(1),
+    opacity: finite.min(0).max(1).optional(),
+    /** Vertical offset as a share of the node's own height. */
+    translateYPct: finite.optional(),
+    scale: finite.positive().optional(),
+  })
+  .strict()
+
+/**
+ * **A property track whose driver is scroll position rather than time.**
+ *
+ * `reveal` fires once and is spent; this is the continuous form — an image that
+ * resolves as the reader descends, a masthead that lifts away, a layer that
+ * shrinks behind the one over it. The renderer compiles it to a `@keyframes`
+ * block it names itself plus an `animation-timeline: view()`, so the driver is the
+ * browser's own view-progress timeline and no scroll handler exists.
+ *
+ * DEGRADES TO THE DESIGN, NEVER TO A BLANK. The animation is emitted behind a
+ * feature query AND behind `prefers-reduced-motion`, so a browser without
+ * view-progress timelines and a visitor who asked for no motion both get the
+ * node's own authored opacity, position and scale — nothing is hidden in CSS
+ * waiting for something else to reveal it. The capture driver emulates reduced
+ * motion, so the same gate is what keeps the L1 round-trip honest.
+ *
+ * ONE MOTION DRIVER PER NODE: mutually exclusive with {@link l1RevealSchema},
+ * enforced by {@link L1_STRUCTURAL_RULES}. A CSS animation overrides a
+ * transition, so a node carrying both would have its entrance silently
+ * discarded — a trap the shape refuses instead of shipping.
+ */
+export const l1ScrollTrackSchema = z
+  .object({
+    /** The span the stops are measured across — one of `cover` (the default), `contain`, `enter` or `exit`. */
+    range: l1ScrollRangeSchema.optional(),
+    /** The values across the range — two or more stops, ascending by `at` (one stop is a constant, not a track). */
+    stops: z.array(l1ScrollStopSchema).min(2),
+  })
+  .strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -1322,6 +1449,10 @@ const nodeAxisGroupsShape = {
   interaction: l1InteractionSchema.optional(),
   /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
   reveal: l1RevealSchema.optional(),
+  /** REQ-325 — pin against the viewport for the length of the parent's box. */
+  sticky: l1StickySchema.optional(),
+  /** REQ-325 — properties driven by scroll progress rather than by a one-shot trigger. */
+  scrollTrack: l1ScrollTrackSchema.optional(),
   /**
    * BUG-112 — **this node is deliberately stacked over what it overlaps.**
    *
@@ -1354,8 +1485,9 @@ const nodeAxisGroupsShape = {
 
 /**
  * REQ-105 — the node-level axis groups every L1 node kind carries: placement,
- * sizing, visibility, transform, mask, padding (static + responsive) and the
- * typed interaction / reveal states. One declaration, spread into each kind.
+ * sizing, visibility, transform, mask, padding (static + responsive), the typed
+ * interaction / reveal states, and REQ-325's two scroll-position axes. One
+ * declaration, spread into each kind.
  */
 export const l1NodeAxisGroupsSchema = z.object(nodeAxisGroupsShape).strict()
 

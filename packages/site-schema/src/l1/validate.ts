@@ -159,6 +159,14 @@ export const L1_STRUCTURAL_RULES = {
   actionOrLink: 'a node cannot carry both `link` and `action`',
   /** BUG-143 — a run's `backedBy` names the surface painted behind it, and the geometry envelope asserts that surface still covers the run; a name nothing answers to is an assertion that silently never runs. */
   backingSurfaceExists: 'a `backedBy` must name a node the document declares',
+  /** REQ-325 — a pinned node holds its place in the flow until it is held against the viewport, and an absolutely-placed node has already left the flow and owns the `top` a pin needs, so the two placements are alternatives rather than a pair. */
+  stickyIsInFlow: '`sticky` cannot be combined with an absolute `geometry` track',
+  /** REQ-325 — a scroll track is read from the start of its range to the end, so its stops ascend strictly by `at`. */
+  ascendingScrollStops: "scrollTrack stops must be sorted strictly ascending by 'at'",
+  /** REQ-325 — a scroll stop that names no property moves nothing and interpolates nothing, so it is a stop the renderer would emit and the reader would never see. */
+  scrollStopMoves: 'a scrollTrack stop must name at least one of `opacity` / `translateYPct` / `scale`',
+  /** REQ-325 — a node's motion has one driver: `reveal` is a one-shot entrance and `scrollTrack` is a position-driven animation, and because a CSS animation overrides a transition, a node carrying both would silently lose its entrance. */
+  oneMotionDriver: 'a node cannot carry both `reveal` and `scrollTrack`',
 } as const
 
 /**
@@ -437,6 +445,65 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
     }
     checkEffectLen(node.reveal.yPx, `${path}/reveal/yPx`, errors)
   }
+  // REQ-325 — the pin. `topPx` takes the shared effect-length bound: it is an
+  // offset, and an unbounded one holds a node against a viewport edge a hundred
+  // screens away, where no reader finds it and no measurement says it moved.
+  // `fromPx` takes none, because it is a breakpoint rather than a length, exactly
+  // as `visibility.fromPx` is. The rest of the rule is about PLACEMENT — the two
+  // ways of positioning a box are alternatives, and resolving the pair silently
+  // would be the validator choosing one of them for the author.
+  if (node.sticky) {
+    checkEffectLen(node.sticky.topPx, `${path}/sticky/topPx`, errors)
+    if (node.geometry && (node.geometry.place ?? 'absolute') === 'absolute') {
+      errors.push({ path: `${path}/sticky`, message: L1_STRUCTURAL_RULES.stickyIsInFlow })
+    }
+  }
+
+  // REQ-325 — the scroll track: one refusal about the axis it cannot share a node
+  // with, two about a track that says nothing a reader could see, and two bounds.
+  //
+  // The bounds are the SAME constants the static transform axis is held to,
+  // because they are the same two quantities — a share of the node's own box, a
+  // uniform scale — with a different driver, and a second set of numbers for them
+  // would be a second answer to one question.
+  if (node.scrollTrack) {
+    if (node.reveal) {
+      errors.push({ path: `${path}/scrollTrack`, message: L1_STRUCTURAL_RULES.oneMotionDriver })
+    }
+    let prevAt: number | undefined
+    node.scrollTrack.stops.forEach((stop, i) => {
+      const at = `${path}/scrollTrack/stops/${i}`
+      if (prevAt !== undefined && stop.at <= prevAt) {
+        errors.push({
+          path: at,
+          message: `${L1_STRUCTURAL_RULES.ascendingScrollStops} (got ${stop.at} after ${prevAt})`,
+        })
+      }
+      prevAt = stop.at
+      if (stop.opacity === undefined && stop.translateYPct === undefined && stop.scale === undefined) {
+        errors.push({ path: at, message: L1_STRUCTURAL_RULES.scrollStopMoves })
+      }
+      if (
+        stop.translateYPct !== undefined &&
+        !inRange(stop.translateYPct, L1_ENVELOPE.translatePct.min, L1_ENVELOPE.translatePct.max)
+      ) {
+        errors.push({
+          path: `${at}/translateYPct`,
+          message: `translateYPct ${stop.translateYPct} out of range [${L1_ENVELOPE.translatePct.min}, ${L1_ENVELOPE.translatePct.max}]`,
+        })
+      }
+      if (
+        stop.scale !== undefined &&
+        !inRange(stop.scale, L1_ENVELOPE.transformScale.min, L1_ENVELOPE.transformScale.max)
+      ) {
+        errors.push({
+          path: `${at}/scale`,
+          message: `scale ${stop.scale} out of range [${L1_ENVELOPE.transformScale.min}, ${L1_ENVELOPE.transformScale.max}]`,
+        })
+      }
+    })
+  }
+
   if (node.kind === 'container' && node.staggerMs !== undefined) {
     if (!inRange(node.staggerMs, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
       errors.push({
