@@ -5,7 +5,7 @@ type: epic
 title: Deployment
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T03:29:16.017843+00:00'
-updated_at: '2026-09-25T23:26:49.707145+00:00'
+updated_at: '2026-09-26T18:36:49.282593+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2139,3 +2139,54 @@ requires `bin/dev up` to print what it is serving and when that was deployed —
 settled *what* goes, and the first run added *the environment must say what it is*.
 
 Occasion and evidence: [[EPIC-19]] Finding 12.
+
+
+## §P — The runbook after REQ-322, and what an L1 change actually needs (2026-09-26)
+
+§N's runbook is superseded. [[REQ-322]], [[BUG-147]] and [[REQ-318]]/[[REQ-319]] have
+all landed, and between them they removed the two manual steps §N had to spell out:
+`1c dev serve` in its own terminal, and pointing access-sim at 8789 by hand.
+
+**What `bin/dev up` now does, read from the code rather than the tickets:**
+`DEV_SERVICES` carries a `dev` row — `bin/1c dev serve` on 8789, "the deployed dev
+environment — wrangler dev on the snapshot `bin/deploy --env dev` wrote" — so the
+snapshot is served by the same command that builds it. `devUp` runs `devDeploy`
+first, which is `bin/deploy --env dev` and is skipped only when `[env.dev]` is
+absent. `bin/access-sim`'s default origin moved to `http://127.0.0.1:8789`; the
+watch builder on 8788 is now the one that has to be named. And `bin/dev restart
+<service>` exists, which is what an env-file change needs — a new value only reaches
+a process started after it.
+
+**The runbook is three commands:** `bin/dev down` -> `bin/build` -> `bin/dev up`, then
+sign in at `http://127.0.0.1:8799/login`. `down` first is not ceremony: `up` skips
+any service whose port already answers, so an access-sim started before REQ-322
+landed keeps fronting 8788 forever.
+
+**What an L1 change needs, and why it is not what it looks like.** The L1 work of
+2026-09-25/26 ([[REQ-325]] scroll state, [[REQ-326]] composed entrance, [[REQ-327]]
+zoom, plus the fold fix) touched `packages/framework/src/l1/render.ts` and
+`packages/site-schema/src/l1/{schema,validate,types,motion,email}.ts`. Those are
+**Worker-side**, and `bin/deploy --env dev` rebuilds the Worker bundle from source
+through the same wrangler invocation that would upload it — so the L1 engine reaches
+the environment without `bin/build`.
+
+`bin/build` is still required, for a different reason: only two L1 files ship to the
+browser as type-stripped bridges (`framework/src/l1/dialog.ts`,
+`site-schema/src/l1/text.ts`), neither of which the L1 work touched — but
+`dist-assets` was last built 2026-09-25 13:25 and three builder client files
+(`turn-health.js`, `builder.css`, `config.js`) are newer than it. **`ship_local`
+COPIES `dist-assets` into the snapshot rather than reading it in place**, so a stale
+`dist-assets` is frozen into the environment and stays frozen until the next build.
+That is the freeze working as designed, and it is also the trap: the deploy cannot
+notice that the assets it froze were stale.
+
+So the rule is not "L1 changes need a build". It is: **the deploy rebuilds the
+Worker and freezes the client; only `bin/build` refreshes the client.** Anything
+under `apps/control-app/src/builder/**`, `packages/webui/**`, or the two bridge files
+needs `bin/build` before `bin/deploy --env dev` or it is frozen stale.
+
+**[[BUG-150]] is still `draft`**, so `bin/dev up` continues to start the 8788 watch
+builder and `pnpm dev` public-site alongside the snapshot. With access-sim now
+fronting 8789 the §O failure — working in the watch builder believing it was the
+frozen one — no longer happens by following the instructions; it happens only by
+browsing 8788 directly. The deletion half of BUG-150 still stands.
