@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-26T21:03:18.146330+00:00'
+updated_at: '2026-09-26T21:15:39.896602+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4931,5 +4931,13 @@ Two things it does *not* freeze: the **store** (D1/R2 are live and shared — co
 `1c ps` reported `dev` and `public-site` as started by `-` rather than `bin/dev`, even though both have valid pidfiles. `index.ts:1543` passes `readDevPidfiles(root).map((r) => r.pid)` while `devTable` passes `.flatMap(devPidfilePids)` — so the CLI drops `listenerPid`, and for exactly the two services whose listener is a grandchild, the port's pid matches nothing. That's BUG-147's fix landing in the library and missing its own call site, and the symptom is the one BUG-147 was about: a managed service reading as unowned, which is the signal before someone reaches for `reap`.
 
 One-line fix, so it needs a ticket and a child session. Want me to file it, and record the KB-projection gap on the epic?
+
+<!-- xgd-turn id="4e3b1508-aac0-4248-a66f-847fddcd5009-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T21:15:38.867996+00:00" -->
+#### You
+Yes please file.
+
+Is that why 8799 is showing: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-88241'.
 
 <!-- xgd-chat-end -->
