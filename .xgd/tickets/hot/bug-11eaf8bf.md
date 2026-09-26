@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-4307aaec
 ---
 
 Found by loop 1, iteration 2 of `repro-faelan-com` against
