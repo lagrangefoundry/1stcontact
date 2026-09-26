@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>REQ-333 — a tilted, framed collage</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0f172b; }
+  /* A hero tall enough to hold the collage and be one band. */
+  .hero { position: relative; width: 100%; height: 900px; overflow: hidden; }
+
+  /* The defect's shape: the WRAPPER rotates, clips, rings and shadows the photo,
+     and the <img> inside carries none of it. */
+  .photo-circle {
+    position: absolute; top: 60px; right: 120px; width: 224px; height: 224px;
+    border-radius: 50%; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 255, 255, 0.2);
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    transform: rotate(-5deg);
+  }
+  .photo-circle img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* The other half of issue 1: the rotation is on the IMAGE itself, so the capture
+     already saw a non-zero angle — and still recorded the inflated bounding box. */
+  .photo-torn {
+    position: absolute; top: 40px; left: 60px; width: 320px; height: 206px;
+    object-fit: cover; display: block; transform: rotate(3deg); border-radius: 8px;
+  }
+
+  /* The control: neither rotated nor framed. */
+  .photo-flat {
+    position: absolute; top: 520px; left: 80px; width: 240px; height: 160px;
+    object-fit: cover; display: block;
+  }
+
+  /* A rail: a wrapper that paints nothing is not a frame. */
+  .bare { position: absolute; top: 520px; left: 420px; width: 200px; height: 140px; }
+  .bare img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* A rail: a wrapper with copy of its own exists for more than framing. */
+  .captioned {
+    position: absolute; top: 520px; left: 680px; width: 200px;
+    border-radius: 24px; overflow: hidden; border: 6px solid rgb(255, 0, 0);
+  }
+  .captioned img { width: 100%; height: 140px; object-fit: cover; display: block; }
+  .captioned p { margin: 0; color: #ffffff; font: 16px/24px system-ui, sans-serif; }
+</style>
+</head>
+<body>
+  <section class="hero">
+    <h1 style="position:absolute;top:400px;left:80px;margin:0;color:#ffffff;font:80px/96px system-ui,sans-serif">FAELAN</h1>
+    <div class="photo-circle"><img src="logo.png" alt="Faelan"></div>
+    <img class="photo-torn" src="hero.png" alt="Ghostship">
+    <img class="photo-flat" src="hero.png" alt="Flat">
+    <div class="bare"><img src="logo.png" alt="Bare"></div>
+    <div class="captioned"><img src="logo.png" alt="Captioned"><p>A caption</p></div>
+  </section>
+</body>
+</html>

@@ -1012,6 +1012,87 @@ export function foldFilter(v: string | null | undefined): L1Filter | undefined {
  * photograph; a missing one is the hard edge that was there before, and the
  * residual report already names it.
  */
+/**
+ * REQ-333 — a `radial-gradient()`'s ENDING SHAPE, in px, against the box it masks.
+ *
+ * A radial gradient's colour stops are fractions of this shape, so it is the frame
+ * every stop has to be read in. The size slot was previously never parsed at all —
+ * the stop regex matched colours only, and `ellipse 92% 92% at 50% 50%` was
+ * discarded wholesale — which is the whole of {@link foldMask}'s radial defect.
+ *
+ * Only a CENTRED shape is resolved: an off-centre origin is a genuinely different
+ * mask that L1's feather axis does not name, and answering with a centred one would
+ * be a guess. `null` means "unreadable", and {@link foldMask}'s contract for that is
+ * to emit no mask rather than an invented one.
+ */
+function radialEndingShape(
+  css: string,
+  box: { width: number; height: number },
+): { rx: number; ry: number } | null {
+  const open = css.indexOf('(')
+  const close = css.lastIndexOf(')')
+  if (open < 0 || close <= open) return null
+  const body = css.slice(open + 1, close)
+  // The first TOP-LEVEL comma ends the size/position slot. `rgb(0, 0, 0)`'s commas
+  // are nested, so depth-counting is what separates the slot from the first stop.
+  let depth = 0
+  let cut = body.length
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (ch === ',' && depth === 0) {
+      cut = i
+      break
+    }
+  }
+  let slot = body.slice(0, cut).trim()
+  // A gradient that opens straight onto a colour stop has no size slot; CSS's
+  // default ending shape is `farthest-corner`.
+  if (/#|rgba?\(|transparent|\bblack\b|\bwhite\b/i.test(slot)) slot = ''
+  // `at <position>`: only the centre is expressible.
+  const at = /\bat\b([\s\S]*)$/i.exec(slot)
+  if (at) {
+    const pos = at[1].trim().toLowerCase()
+    const centred = pos === '' || pos === 'center' || pos === 'center center' || pos === '50% 50%'
+    if (!centred) return null
+    slot = slot.slice(0, at.index).trim()
+  }
+  const circle = /\bcircle\b/i.test(slot)
+  const tokens = slot
+    .replace(/\b(circle|ellipse)\b/gi, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  const hx = box.width / 2
+  const hy = box.height / 2
+  if (tokens.length === 0 || /^(closest|farthest)-(side|corner)$/i.test(tokens[0] ?? '')) {
+    const keyword = (tokens[0] ?? 'farthest-corner').toLowerCase()
+    // Centred, so "closest" and "farthest" name the same side and the same corner.
+    const corner = keyword.endsWith('-corner')
+    // An ellipse through the corner keeps `closest-side`'s aspect ratio, so both
+    // radii scale by sqrt(2); a circle's radius is the distance to the corner.
+    if (corner) return circle ? { rx: Math.hypot(hx, hy), ry: Math.hypot(hx, hy) } : { rx: hx * Math.SQRT2, ry: hy * Math.SQRT2 }
+    return circle ? { rx: Math.min(hx, hy), ry: Math.min(hx, hy) } : { rx: hx, ry: hy }
+  }
+  // Explicit radii. A percentage resolves against the box's corresponding
+  // dimension (CSS: width for the horizontal radius, height for the vertical).
+  const resolve = (tok: string, against: number): number | null => {
+    const m = /^(-?\d*\.?\d+)(%|px)$/i.exec(tok)
+    if (!m) return null
+    const n = parseFloat(m[1])
+    if (!Number.isFinite(n) || n < 0) return null
+    return m[2] === '%' ? (n / 100) * against : n
+  }
+  if (tokens.length === 1) {
+    const r = resolve(tokens[0], Math.min(box.width, box.height))
+    return r === null ? null : { rx: r, ry: r }
+  }
+  const rx = resolve(tokens[0], box.width)
+  const ry = resolve(tokens[1], box.height)
+  return rx === null || ry === null ? null : { rx, ry }
+}
+
 function foldMask(
   css: string | null | undefined,
   box: { width: number; height: number } | undefined,
@@ -1042,7 +1123,41 @@ function foldMask(
     if (!outer.transparent || first.transparent) return undefined
     const lastOpaque = [...stops].reverse().find((s) => !s.transparent)
     if (!lastOpaque) return undefined
-    const featherPx = Math.round(run(lastOpaque.at, outer.at) * Math.min(box.width, box.height))
+    // REQ-333 — a colour stop is a fraction of the gradient's OWN ENDING SHAPE, not
+    // of the box. Multiplying it by the box's smaller side is only right when the
+    // two coincide (`closest-side`), and the "soft-edged photograph" idiom puts its
+    // ending ellipse deliberately OUTSIDE the box: `ellipse 92% 92%` is ~1.84x the
+    // half-extent, so a stop 28% in from that shape landed as a 62px band measured
+    // in from the box edge and erased 21.5% of each of faelan.com's three collage
+    // photographs, where the reference attenuates their corners by 0.17 at most.
+    // So read the ending shape and work in ITS units.
+    const ending = radialEndingShape(css, box)
+    if (!ending) return undefined
+    const { rx, ry } = ending
+    if (!(rx > 0) || !(ry > 0)) return undefined
+    // The extent is one number only when both radii are the same share of their own
+    // box dimension — which is what `P% P%` and every extent keyword give. A pixel
+    // radius on a non-square box is a genuinely two-number shape the axis cannot
+    // hold, and so is a transparent stop short of the ending shape; both fall to the
+    // one-parameter band below.
+    const extentPct = (rx / box.width) * 100
+    const uniform = Math.abs(rx / box.width - ry / box.height) < 5e-3
+    if (uniform && Math.abs(outer.at - 100) < 0.5) {
+      // The document's own three numbers, transcribed. Nothing is attenuated when
+      // the opaque core already reaches the ending shape.
+      if (lastOpaque.at >= 100) return undefined
+      return {
+        shape: 'featherRadial',
+        extentPct: round2(extentPct),
+        opaqueStopPct: round2(lastOpaque.at),
+      }
+    }
+    // One-parameter fallback: the renderer's band is measured in from the box's own
+    // half-extent, so that is the frame the source's opaque radius is converted
+    // into. An opaque core that already reaches the half-extent attenuates nothing
+    // INSIDE the box, and the honest answer there is no mask rather than a feather.
+    const halfExtent = Math.min(box.width, box.height) / 2
+    const featherPx = Math.round(halfExtent - (lastOpaque.at / 100) * Math.min(rx, ry))
     return featherPx > 0 ? { shape: 'featherRadial', featherPx } : undefined
   }
 
@@ -2589,13 +2704,24 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     // natural (from flow), so its keyframes omit height (the text path below).
     const framed = row.cells.filter((c) => c.element?.box)
     const buildGeometry = (withHeight: boolean, useFlowBox = false): L1Geometry => {
+      // REQ-211 — a rejoined node lays out inside its FLOW ROOT, not inside the
+      // tight box of whichever fragment carries it. The fragment's box is where one
+      // piece of glyphs landed; the root's is the space the sentence has to flow in,
+      // and pinning the fragment's would re-wrap the copy into the width of its
+      // longest word.
+      //
+      // REQ-333 — and it is the ONE rect this geometry is built from, keyframes and
+      // column anchor alike. The anchor used to read `element.box` unconditionally
+      // while the keyframes read the flow box, so a rejoined sentence carried two
+      // values for the same x that disagreed: `keyframes[].x` 102.39 (right) beside
+      // `anchor.x.pxTrack` 55.88, the offset of its LAST fragment. The renderer
+      // honours the anchor, so the sentence landed 169.48px to the right at every
+      // breakpoint. The invariant every other node satisfied — `pxTrack = x −
+      // columnOrigin` — only holds if both derivations read the same rect.
+      const boxOf = (c: (typeof framed)[number]) =>
+        (useFlowBox ? c.element!.inlineBox : undefined) ?? c.element!.box!
       const keyframes = framed.map((c) => {
-        // REQ-211 — a rejoined node lays out inside its FLOW ROOT, not inside the
-        // tight box of whichever fragment carries it. The fragment's box is where
-        // one piece of glyphs landed; the root's is the space the sentence has to
-        // flow in, and pinning the fragment's would re-wrap the copy into the
-        // width of its longest word.
-        const box = (useFlowBox ? c.element!.inlineBox : undefined) ?? c.element!.box!
+        const box = boxOf(c)
         // REQ-88 — a text box rounds its width UP. A shrink-to-fit run's captured
         // box IS its glyph extent (element width === renderedTextBox width), so
         // rounding to nearest makes the box narrower than the text it must hold
@@ -2625,7 +2751,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (response) geometry.viewportResponse = response
       if (columnFit) {
         const anchor = fitAnchor(
-          framed.map((c) => ({ at: c.width, box: c.element!.box! })),
+          framed.map((c) => ({ at: c.width, box: boxOf(c) })),
           columnFit,
           geometry.segments,
         )

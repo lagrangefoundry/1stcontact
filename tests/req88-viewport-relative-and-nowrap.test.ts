@@ -481,7 +481,9 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
     const { css } = renderL1Document(foldToL1(columnPage()))
     // Closed form, not a piecewise line: one static rule, no media queries for x.
     expect(css).toContain('left: calc(max(0px, (100vw - 1152px) / 2) + 24px)')
-    expect(css).toContain('width: min(896px, (min(1152px, 100vw) - 48px))')
+    // REQ-333 — the extent carries its OWN `calc()`; a bare parenthesised
+    // sub-expression is invalid CSS and the browser drops the whole declaration.
+    expect(css).toContain('width: min(896px, calc(min(1152px, 100vw) - 48px))')
     // The old failure mode: a lerp of `left` between the 1024 and 1280 keyframes,
     // which reads 55.5px at 1150 where the reference is still flat at 24px.
     expect(css).not.toMatch(/left: calc\(24px \+ \(64 \* \(100vw - 1024px\)/)

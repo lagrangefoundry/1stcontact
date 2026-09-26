@@ -326,15 +326,25 @@ describe('REQ-331 — the fold rejoins a linked sentence and declares a montage'
   // ── Issue 3 — the feathered edge ───────────────────────────────────────────
   it('test_UAT_FC_REQ-331_a_feathered_photograph_keeps_its_soft_edge', () => {
     const doc = foldToL1(HERO())
-    const mask = (byAlt(doc, 'Ghostship') as { mask?: { shape: string; featherPx?: number } }).mask
+    const mask = (byAlt(doc, 'Ghostship') as {
+      mask?: { shape: string; featherPx?: number; extentPct?: number; opaqueStopPct?: number }
+    }).mask
 
     // `maskEdge` has been captured since REQ-48 and `featherRadial` has existed
     // since REQ-136; the image-axis builder simply never read the field, so
     // three feathered photographs reproduced as hard rectangles.
     expect(mask?.shape).toBe('featherRadial')
-    // (100 − 72)% of the 222px box — the transparent run of the captured
-    // gradient, which is the value the axis carries.
-    expect(mask?.featherPx).toBe(62)
+
+    // REQ-333 SUPERSEDES the `featherPx: 62` this test used to assert. 62 was
+    // `(100 − 72)% × 222` — a fraction of the SOURCE gradient's own ending shape
+    // multiplied by the box, which is only the same thing when the ending shape is
+    // `closest-side`. Here it is `92% 92%`, ~1.84× the half-extent, so the reference
+    // attenuates this photograph's corners by 0.17 at most and the 62px band erased
+    // 21.5% of it. The axis now carries the document's own two numbers instead of
+    // projecting them onto one.
+    expect(mask?.extentPct).toBe(92)
+    expect(mask?.opaqueStopPct).toBe(72)
+    expect(mask?.featherPx).toBeUndefined()
 
     // And it reaches the page as a mask rather than as the gradient string the
     // instance would then be authoring.
