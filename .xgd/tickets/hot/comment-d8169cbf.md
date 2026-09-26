@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T23:51:17.290001+00:00'
+updated_at: '2026-09-26T21:19:25.409236+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4185,5 +4185,17 @@ And DOC-33 §5 wants ingestion to run **before** the session, with a vision pass
 Last turn's question still stands — **per-engagement or per-site?** Your sites outlive conversations. A new one now matters more: DOC-33 §2 says *"Act I is limb-agnostic and runs once per client, ever."* Once per **client**, not per site. If that's still the intent, the ledger's identity is the business and not the chat, and that decides the data model before any of the above gets built.
 
 Push back on the shape and I'll file it — I'd expect three tickets under EPIC-19: the decision schema (§3.5 + §5 states), stage/act in the digest, and the client-facing act surface. The register field probably rides with the third.
+
+<!-- xgd-turn id="a5b2d691-d2ed-4adb-beca-296134967e08-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T21:19:23.029948+00:00" -->
+#### You
+So DOC-33 was written in a vacuum - now we have a little more experience with the system having done the work on LF.
+
+One important learning from the LF site experience - we can create multiple pages to compare - we used it to try out some style alternatives. That needs to be up front in the playbook.
+
+But can you look at how LF can together vs the stages that we imagined - I don't think they will align
+
+Also AFTER writing DOC-33 we talked about how the experience needs to be engaging - I'm not sure how much of that thinking made it back into the doc.
 
 <!-- xgd-chat-end -->
