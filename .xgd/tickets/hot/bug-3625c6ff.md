@@ -6,16 +6,24 @@ title: 'Builder chat: the durable junction never writes, because the Durable Obj
   stub is cached across requests'
 created_by: EPIC-19
 created_at: '2026-09-25T23:25:51.210884+00:00'
-updated_at: '2026-09-26T06:56:33.117575+00:00'
+updated_at: '2026-09-26T06:58:35.954263+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-94cc7600
+  commits:
+  - working_sha: 4f8a81613096d01f31259d43a64ca11c15bffecc
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5fd542f38688b3a90d3751075317081f770eef7b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.371
 ---
 
 # Builder chat: the durable junction never writes, because the Durable Object stub is cached across requests
