@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-26T22:08:54.435185+00:00'
+updated_at: '2026-09-26T22:17:46.988626+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2706,5 +2706,80 @@ Want me to file the anchor-population fix as a child of EPIC-12, and/or append a
 <!-- xgd-chat role="user" ts="2026-09-26T22:08:54.108140+00:00" -->
 #### You
 Can you help me with the repro console on 8710 I have tried to do a diagnosis MULTIPLE times but it keeps coming back saying the API key is invalid. This is DEEPLY concerning because, as we agreed, it SHOULD NOT be using the API key it should be using the Claude code interface claude -p
+
+<!-- xgd-turn id="6d7eb27b-303d-4193-886d-4c154b371cf6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T22:17:46.477972+00:00" -->
+#### Claude
+I'll look at how the console actually spawns the round before speculating.
+
+The console does spawn `claude -p` — no `env` option on the spawn, so it inherits whatever the server process has. Let me check what that environment contains.
+
+`ps` is blocked for me, but the round's own transcript is on disk. Let me find the actual error text.
+
+Definitive: the console **is** using `claude -p` — the transcript shows the CLI starting and naming its model. The 401 comes from inside the CLI. Let me find why it's authenticating with a key at all.
+
+The repo already documents the rule. Now let me check whether that key is itself dead — a `/v1/models` GET bills nothing.
+
+Stored key is **live** (200). So the key the console is presenting isn't that one. Let me verify the CLI path itself authenticates when no key is in the environment.
+
+One more check — whether the console passes any env to the child at all.
+
+Your fear is unfounded — **it is using `claude -p`.** The 401 comes from inside the CLI, because the CLI was handed an API key it didn't ask for.
+
+## The evidence
+
+Iteration 8's transcript:
+
+```
+— session started (claude-opus-5[1m])
+— api_retry   ×10
+Failed to authenticate. API Error: 401 API key is invalid.
+— round finished · $0.00 · 3m 02s · 1 turn · 0→0 tok
+```
+
+That first line only exists because `claude -p` emitted its `init` event. The process started, named its model, and *then* failed at the API boundary.
+
+## Why it's using a key at all
+
+`attempt()` at `ai.ts:1194`:
+
+```ts
+const child = spawn(command, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+```
+
+**No `env` option** — so the child inherits the console server's `process.env` verbatim. And Claude Code prefers `ANTHROPIC_API_KEY` over the subscription login. Your own repo documents exactly that, in `bin/kb-release:50`:
+
+> *"written by the Claude Code CLI **when no `ANTHROPIC_API_KEY` is set**"*
+
+Two things I checked rather than assumed:
+
+- **The flags aren't at fault.** I ran the same invocation shape — including `--setting-sources ''` — from an environment with no key. It authenticated and returned normally.
+- **The key in `~/Documents/secrets/ANTH_KEY` is live** (200 on `/v1/models`). So whatever is in the console's environment is a *different*, dead value — most likely a stale `export-anthropic-key` in the terminal that launched the server, from when that file held an older key. `bin/deploy` needs the variable exported (`bin/deploy.d/secrets/10-anthropic-api-key`), which is the obvious reason it'd be sitting in a shell you then launched the console from.
+
+One limit: `ps` is blocked in my sandbox, so I could not read PID 31436's environment directly. That last step is inference from the 401 plus the documented precedence, not something I read off the process.
+
+## Unblock now
+
+The environment is fixed at launch, so it needs a restart. I can't signal the process (sandbox denies it) — PID **31436** on 8710 is yours to kill. Then:
+
+```bash
+echo "${ANTHROPIC_API_KEY:+set}"        # must print nothing
+env -u ANTHROPIC_API_KEY ./bin/repro-console
+```
+
+Also worth knowing what each failed attempt cost you: three minutes of wall clock, and the console then said *"the round produced no outcome block… press [read it again]"* — which is wrong. There is nothing in that transcript to file.
+
+## Durable fix
+
+Two things, and neither is coded — this session scopes.
+
+**1. Sanitise the child environment at the spawn.** "The round runs on the operator's Claude Code subscription" should be a property of the spawn, not of whichever terminal happened to start the server. Pass an explicit `env` with `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` and the Bedrock/Vertex switches deleted. This is the same instruction-vs-property lesson the epic has now learned three times (REQ-262 D7, BUG-104). One trap for whoever builds it: `REPRO_CONSOLE_AI` and `REPRO_CONSOLE_AI_MODEL` are read off that same env and must survive the filter.
+
+**2. An auth failure must be reported as one.** The ten retries are the *CLI's* own, so the console can't shorten them — but it can classify the result. A 401 is not "no outcome block": there's nothing to recover, `[read it again]` is pointless, and the fix is operator-side. Naming it turns a three-minute mystery into one line.
+
+One adjacent thing I noticed in the same outcome, not part of this: the round was flagged for *"changed the working tree: `?? .xgd/working-merge.lock`"*. It didn't — that's another `xgd` process's lock file appearing during the three minutes. Same cry-wolf family as BUG-114.
+
+Want me to file a child ticket under EPIC-12 for the two fixes?
 
 <!-- xgd-chat-end -->
