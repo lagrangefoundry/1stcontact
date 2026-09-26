@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-332
 created_by: xgd
 created_at: '2026-09-26T20:19:22.047661+00:00'
-updated_at: '2026-09-26T21:12:59.360813+00:00'
+updated_at: '2026-09-26T21:39:54.180717+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -107,5 +107,14 @@ Good — every node's box is recorded. Now the clip intersection in `evaluateLay
 Now let me write the UAT file:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="ef0881a3-4314-4094-bbed-77e5ca104480-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T21:39:53.197321+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
