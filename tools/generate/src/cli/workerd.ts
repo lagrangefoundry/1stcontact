@@ -372,14 +372,17 @@ export function checkWorkerd(opts: WorkerdOptions): WorkerdReport {
  * operator refreshing a catalogue on a runtime they are not about to run.
  */
 export const WORKERD_GATED_COMMANDS: readonly string[] = [
-  'builder',
-  // `dev up` STARTS the builder, so the gate has to fire before it does ([[REQ-319]]).
-  // Keyed with its subcommand for the same reason `fonts` is: `dev down` and `dev
-  // reap` send signals and read `lsof`, and neither opens a store — gating the
-  // whole verb would refuse to STOP a dev environment on a tree with a runtime
-  // skew, which is the one moment stopping it is most useful.
+  // `dev up` STARTS a dev server, so the gate has to fire before it does
+  // ([[REQ-319]]). Keyed with its subcommand for the same reason `fonts` is: `dev
+  // down` and `dev reap` send signals and read `lsof`, and neither opens a store
+  // — gating the whole verb would refuse to STOP a dev environment on a tree with
+  // a runtime skew, which is the one moment stopping it is most useful.
+  //
+  // `builder` USED TO HEAD THIS LIST and is gone with the command ([[BUG-150]]).
+  // Nothing is un-gated by that: every path that opens `.wrangler/state` now runs
+  // through `dev up`, `dev restart` or `dev serve`, which are all here.
   'dev up',
-  // `dev restart` starts the builder again, so it opens the store for the same
+  // `dev restart` starts the server again, so it opens the store for the same
   // reason `dev up` does ([[BUG-147]]) — and restarting one service is the moment
   // an operator is least likely to be thinking about runtime skew.
   'dev restart',

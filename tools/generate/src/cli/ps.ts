@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { DEFAULT_FILING_PORT } from './filing'
+import { DEV_SERVE_PORT, PUBLIC_SITE_SERVE_PORT } from './dev-snapshot'
 
 /**
  * `1c ps` — every server this project has running, with its pid, its port and
@@ -78,23 +79,45 @@ export interface KnownService {
  * unnamed listener inside this repo's tree is precisely what has never been
  * visible.
  *
- * `DEFAULT_FILING_PORT` IS IMPORTED rather than repeated, because that constant
- * already exists and two copies of a port number drift silently. The others have
- * no constant to import — 8788 is a literal in this CLI's `builder` case, 8787
- * lives in the public site's package script, 8799 in `bin/access-sim` and 8710 in
- * the reproduction console's server — and hunting them into one module would be a
- * refactor of four call sites this ticket has no business making. This table is
- * the single place that says what the band MEANS; making it the single place the
- * numbers are DECLARED is a separate step.
+ * EVERY PORT THAT HAS A CONSTANT IS IMPORTED rather than repeated, because two
+ * copies of a port number drift silently. `DEFAULT_FILING_PORT` always was one.
+ * 8787 and 8789 became ones with [[BUG-150]]: this table used to record that
+ * "8788 is a literal in this CLI's `builder` case, 8787 lives in the public
+ * site's package script", and that ticket deletes both of those homes — so the
+ * two snapshot ports are now declared beside the apps they serve, in
+ * `dev-snapshot.ts`, and read from there. 8799 (`bin/access-sim`) and 8710 (the
+ * reproduction console's server) still have no constant to import; hunting those
+ * two into one module is a refactor this ticket has no business making.
+ *
+ * 8788 HAS NO CONSTANT ANY MORE AND STILL HAS A ROW ([[BUG-150]]). Nothing starts
+ * it: `1c builder` is deleted and `bin/dev up builder` is an error naming the
+ * services that exist. The row survives because a builder left running from
+ * before this landed — or from an `.xgd` worktree that has since been torn down,
+ * which is how four of the eight measured zombies arrived — would otherwise be
+ * the UNNAMED stray this whole table exists to make legible. A row that says
+ * what to do about it is not an entry point.
  */
 export const KNOWN_SERVICES: readonly KnownService[] = [
   { port: 8710, name: 'repro-console', what: '`bin/repro-console`' },
-  { port: 8787, name: 'public-site', what: '`pnpm dev:public`' },
-  { port: 8788, name: 'builder', what: '`1c builder` / `pnpm dev:control`' },
-  // The deployed local dev environment ([[REQ-318]]). A SEPARATE PORT from the
-  // builder's on purpose (EPIC-16 §L1): the old path is retired in a later step,
-  // and "proved first" means the two run side by side against the same store.
-  { port: 8789, name: 'dev', what: '`1c dev serve` — the deployed dev snapshot' },
+  {
+    port: PUBLIC_SITE_SERVE_PORT,
+    name: 'public-site',
+    what: '`1c dev serve public-site` — the deployed public-site snapshot',
+  },
+  {
+    port: 8788,
+    name: 'builder',
+    what: '`1c builder` — RETIRED ([[BUG-150]]); nothing starts it, `bin/dev reap` clears it',
+  },
+  // The deployed local dev environment ([[REQ-318]]). It took a SEPARATE PORT
+  // from the builder's so the two could run side by side while the replacement
+  // was proved (EPIC-16 §L1); [[BUG-150]] finished that sequence and it is now
+  // the only control-app server there is.
+  {
+    port: DEV_SERVE_PORT,
+    name: 'dev',
+    what: '`1c dev serve` — the deployed control-app snapshot, and the builder',
+  },
   { port: DEFAULT_FILING_PORT, name: 'filing', what: '`1c filing`' },
   { port: 8799, name: 'access-sim', what: '`bin/access-sim`' },
   { port: 24678, name: 'vite-hmr', what: "Vite's HMR channel" },

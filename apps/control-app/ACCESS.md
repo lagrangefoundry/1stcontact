@@ -163,20 +163,21 @@ mistake — the same standard `wrangler.toml` records for `ACCESS_DEV_OPEN`.
 ```bash
 ./bin/seed                                     # the people to sign in as (REQ-192)
 ./bin/access-sim --print-env > .dev.vars.local  # the two Access vars + SERVICE_TOKEN_IDENTITIES
-./bin/access-sim --builder http://127.0.0.1:8788 &   # the watch builder has to be named (REQ-322)
-cd apps/control-app && npx wrangler dev --port 8788 \
-  --env-file .dev.vars --env-file ../../.dev.vars.local
+./bin/access-sim &                             # fronts 8789 by default (REQ-322)
+./bin/1c dev serve                             # the deployed snapshot, on 8789
 ```
 
 The simulator's **default** origin is the deployed dev environment on 8789 — `1c dev serve`, which
-is what `bin/dev up` starts it in front of — so the watch builder is the one that now takes an
-argument (REQ-322). Or type `bin/dev up` and get all of it.
+is what `bin/dev up` starts it in front of. There is no longer a second kind of server to name:
+`1c builder` and `pnpm dev:control`, which ran `wrangler dev` over `src/`, are deleted (BUG-150),
+so `--builder` now exists for a server on a different **port** rather than a different **kind**.
+Or type `bin/dev up` and get all of it, including the public site's own snapshot on 8787.
 
 Then open <http://127.0.0.1:8799/login> and pick a person. The list is read out of the local D1 at
 request time — through `wrangler d1 execute`, not by opening the SQLite file — so it cannot drift
 from what the seed wrote, and a missing store degrades to `/login?email=…` rather than to a broken
 page. The cookie it sets reaches the builder because cookies are scoped by host and ignore the
-port; browse `127.0.0.1:8788`, not `localhost:8788`, or it is a different cookie host.
+port; browse `127.0.0.1:8799`, not `localhost:8799`, or it is a different cookie host.
 
 Tokens last 30 days by default (BUG-52): a test session that expires inside a sitting makes every
 bug look like the harness running down. Deployed session lifetime is a separate question and is
@@ -304,8 +305,8 @@ an address the database does not know sends nothing and mints nothing.
   and this ticket does not revisit that decision.
 - **`wrangler dev` is unaffected at the edge** — Access is in front of the *deployed* Worker. The
   in-Worker check still applies, so a locally-run `control-app` with empty vars answers 503. The
-  local builder surface is the Node origin itself (`1c builder`, `http://localhost:8790`), which
-  is unproxied and unaffected.
+  local dev environment is `1c dev serve` on 8789, reached through the simulator on 8799, which
+  is unproxied at the edge and unaffected.
 - **The preview iframe is same-origin**, so it inherits the Access cookie. The SSE streaming turn
   (`/api/ai/prompt`) surviving Access is *confirmed*, not presumed, by REQ-146 — it needs a
   running assistant to confirm against.

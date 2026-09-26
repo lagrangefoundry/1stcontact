@@ -57,7 +57,6 @@ import {
   SNAPSHOT_DIR,
   type DevSnapshot,
 } from '../tools/generate/src/cli/dev-snapshot'
-import { wranglerDevArgs } from '../tools/generate/src/cli/dev-env'
 import { KNOWN_SERVICES, inDevPortBand } from '../tools/generate/src/cli/ps'
 import { assertOneWorkerd, WORKERD_GATED_COMMANDS } from '../tools/generate/src/cli/workerd'
 import { CommandError } from '../tools/generate/src/cli/errors'
@@ -544,32 +543,33 @@ describe('REQ-318 — the local dev environment is a deploy target', () => {
   }, 120_000)
 
   /**
-   * AC — "the old `pnpm dev` path still works, on its existing ports, against the
-   * same store". Retirement is a separate, later step (EPIC-16 §L1) precisely so
-   * the replacement can be proved while running BESIDE it, which is only
-   * possible while the two hold different ports and the same state directory.
+   * AC — SUPERSEDED BY [[BUG-150]], AND ASSERTED AS ITS INVERSE.
+   *
+   * REQ-318's acceptance said "the old `pnpm dev` path still works, on its
+   * existing ports, against the same store", because EPIC-16 §L1 required the
+   * replacement to be proved while running BESIDE it — *"the deletion is a
+   * separate step so the replacement can be proved first."* BUG-150 is that
+   * separate step: `pnpm dev`, `pnpm dev:control`, `pnpm dev:public` and
+   * `1c builder` are deleted, because leaving them meant `bin/dev up` built the
+   * frozen environment and then handed the operator the watching one.
+   *
+   * WHAT SURVIVES UNCHANGED IS THE HALF THAT MATTERED: one store, on a port
+   * inside the band `1c ps` surveys and `bin/dev reap` sweeps.
    */
-  it('test_UAT_FC_REQ-318_the_old_path_is_untouched_and_binds_a_different_port', () => {
+  it('test_UAT_FC_REQ-318_the_old_path_is_gone_and_the_store_did_not_move', () => {
     const scripts = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8')).scripts as Record<
       string,
       string
     >
-    expect(scripts.dev).toContain('dev:public')
-    expect(scripts['dev:control']).toBe('./bin/1c builder')
+    expect(scripts).not.toHaveProperty('dev')
+    expect(scripts).not.toHaveProperty('dev:control')
+    expect(scripts).not.toHaveProperty('dev:public')
 
-    // `1c builder`'s argv is unchanged: no `--env`, so it still reads the
-    // top-level block, and no `--no-bundle`, so it still watches.
-    const old = wranglerDevArgs({ appDir: CONTROL_APP, port: '8788' })
-    expect(old).not.toContain('--env')
-    expect(old).not.toContain('--no-bundle')
-    expect(old[old.indexOf('--port') + 1]).toBe('8788')
-
-    // Two ports, both inside the band `1c ps` surveys and `bin/dev reap` sweeps.
-    const builder = KNOWN_SERVICES.find((s) => s.name === 'builder')
+    // The port stayed put. 8789 was chosen so the two could run side by side;
+    // with the builder gone it is uncontested, and moving it would cost every
+    // operator — and `bin/access-sim`'s default — their habit for a tidier number.
     const dev = KNOWN_SERVICES.find((s) => s.name === 'dev')
-    expect(builder?.port).toBe(8788)
     expect(dev?.port).toBe(DEV_SERVE_PORT)
-    expect(dev?.port).not.toBe(builder?.port)
     expect(inDevPortBand(DEV_SERVE_PORT)).toBe(true)
 
     // And one store. `--persist-to` names the directory `1c reset` already calls

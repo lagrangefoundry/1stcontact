@@ -56,9 +56,9 @@ export const INSTALLED_LOCKFILE_REL = path.join('node_modules', '.pnpm', 'lock.y
  * does not load would make the preflight the very thing it was written to
  * prevent — a failure with no bearing on the work.
  *
- * Commands absent from this map are ungated: `render`, `serve`, `builder`,
- * `repro`, `refold`, `l1-gate`, `responsive-diff` and the structured-edit verbs
- * read and write files only.
+ * Commands absent from this map are ungated: `render`, `serve`, `repro`,
+ * `refold`, `l1-gate`, `responsive-diff` and the structured-edit verbs read and
+ * write files only.
  *
  * `crop` LEFT THIS MAP ENTIRELY under REQ-156. It decodes an image and never
  * opens a browser, so `sharp` was its only declared dependency; with the codec

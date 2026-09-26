@@ -12,14 +12,19 @@
 # have called, which is the arrangement `ps.ts` exists to avoid.
 #
 #   bin/dev up              build/deploy the local target, then start filing, the
-#                           builder, the public site and access-sim, recording a
-#                           pidfile per service under storage/tmp/dev — naming both
-#                           the process it spawned and the one holding the port
+#                           two DEPLOYED SNAPSHOTS (control app and public site)
+#                           and access-sim, recording a pidfile per service under
+#                           storage/tmp/dev — naming both the process it spawned
+#                           and the one holding the port — and printing, per
+#                           served app, what is being served and when it was
+#                           deployed ([[BUG-150]]). Nothing it starts reads
+#                           `src/`: the only way to change what is served is
+#                           `bin/deploy --env dev`
 #   bin/dev down            SIGTERM the PROCESS GROUP of what the pidfiles name,
 #                           then VERIFY the ports are free; exits non-zero when one
-#                           is still answering. The group, not the pid: the builder
-#                           and the public site are wrappers whose grandchild holds
-#                           the socket, and signalling the wrapper left it running
+#                           is still answering. The group, not the pid: `wrangler
+#                           dev` is a wrapper whose grandchild holds the socket,
+#                           and signalling the wrapper left it running
 #   bin/dev up <service>    the same, for named services only (and no deploy)
 #   bin/dev down <service>
 #   bin/dev restart <service>

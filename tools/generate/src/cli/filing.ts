@@ -15,7 +15,7 @@
  *
  * ## The address is a SETTING, not a launch artefact ([[BUG-124]])
  *
- * This listener used to hang off `1c builder`: it bound port 0, minted a fresh
+ * This listener used to hang off `1c builder` (since deleted): it bound port 0, minted a fresh
  * bearer per run, and handed both to `wrangler dev` as `--var`. Both values were
  * therefore knowable only by the process that had just minted them, which made
  * being able to file a defect A PROPERTY OF HOW THE DEV SERVER WAS LAUNCHED.
@@ -109,7 +109,7 @@ export const FILING_TOKEN_VAR = 'DEVELOPMENT_TICKETS_TOKEN'
 /**
  * The fixed default port ([[BUG-124]]).
  *
- * ONE CLEAR STEP FROM THE THING IT SERVES. `1c builder`/`wrangler dev` take
+ * ONE CLEAR STEP FROM THE THING IT SERVES. `1c dev serve`/`wrangler dev` take
  * 8788, public-site takes 8787 and `bin/access-sim` takes 8799, so 8790 sits in
  * the control-app's own band — which is where an operator will look for it —
  * without colliding with any of them. (It is deliberately NOT beside
@@ -401,7 +401,7 @@ function portOf(configured: string, override?: number): number {
  * gitignored and per-clone, which is exactly what keeps the bearer unguessable —
  * and it also means no clone has these two lines until something puts them there.
  * A setup step nobody performs is the same silence this ticket is about, one
- * remove. So the first `1c filing` or `1c builder` in a clone mints the token and
+ * remove. So the first `1c filing` in a clone mints the token and
  * writes both lines, says that it did, and every launch after that — including a
  * bare `wrangler dev`, which reads `.dev.vars` by itself — sees them.
  *
@@ -443,7 +443,7 @@ export function provisionFilingVars(opts: {
   const lines =
     `\n# Where the assistant files a defect in THIS software ([[REQ-273]], [[BUG-124]]).\n` +
     `# Written once by \`1c filing\`. A fixed loopback address, so every launch path —\n` +
-    `# \`1c builder\`, a bare \`wrangler dev\`, \`bin/access-sim\`'s recipe — sees the same\n` +
+    `# \`1c dev serve\`, a bare \`wrangler dev\`, \`bin/access-sim\`'s recipe — sees the same\n` +
     `# one. The bearer is per-clone and lives here rather than in wrangler.toml so that\n` +
     `# a page in your own browser cannot read it. Start the listener with \`1c filing\`.\n` +
     `${FILING_URL_VAR} = "${url}"\n${FILING_TOKEN_VAR} = "${token}"\n`
@@ -509,7 +509,7 @@ export async function probeFiling(
  * ([[BUG-124]] item 3).
  *
  * WHY THIS IS A VALUE AND NOT A `console.log`. The old signal was a `filing:
- * on/off` line printed by `1c builder` — which is to say, printed by the command
+ * on/off` line printed by the dev server's launcher — which is to say, by the command
  * that in the failing case was NEVER RUN. An operator who launched wrangler some
  * other way got no line at all, and could not tell a capability this product does
  * not have from a dev server they started the wrong way. Returning the state lets
