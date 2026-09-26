@@ -1141,6 +1141,93 @@ export const l1ActionSchema = z
 /** REQ-212 — the disclosure verb a node may take. */
 export type L1Action = z.infer<typeof l1ActionSchema>
 
+// ── Zoomable pictures (REQ-327) ───────────────────────────────────────────────
+//
+// A picture could be linked and nothing else. There was no way to say "let a
+// visitor look at this closely", and the substitute — a link to a page holding
+// the same picture — navigates away, loses the scroll position, and turns looking
+// closely into leaving. On a page whose argument is carried by detailed plates,
+// whose fine lettering is unreadable at the placed width, that is not a missing
+// nicety: it is the most memorable thing on the page being unavailable.
+//
+// THE OVERLAY IS ALREADY HERE. Every obligation a zoom carries — dismiss on
+// Escape, dismiss on a click away, focus into the overlay and back to the
+// trigger, no scrolling behind — is one {@link l1DialogSchema} already owns and
+// the renderer's one vetted script already performs. So this role adds NO second
+// overlay implementation: it is the pair a document would otherwise have to
+// author by hand (a trigger, and a panel holding the large picture), synthesized
+// by the renderer from one field on the picture itself.
+//
+// WHY A FIELD RATHER THAN A DOCUMENT'S OWN DIALOG. Authoring it by hand costs a
+// duplicate `image` node, an `id`, an `action`, a wrapping panel and a scrim —
+// five things to get right for the commonest case there is. And the `action` half
+// is not even reachable: `image` is the one kind that cannot carry it, because a
+// void element cannot be a button. One field is impossible to get wrong.
+//
+// A ROLE, NOT A KIND, and not a paint axis — shaped exactly like {@link
+// l1LinkSchema} and {@link l1HeadingSchema}, and for the same reason: it is
+// something a picture IS, and the renderer is the sole sink for everything it
+// compiles to.
+
+/**
+ * REQ-327 — the **magnify role**: this picture can be opened large.
+ *
+ * Every field is optional, and `zoom: {}` is the whole of the common case. Each
+ * one exists for something the empty form cannot state, and none of them is a way
+ * to paint: the overlay's presentation is the renderer's, because it is a
+ * statement about the page AROUND the picture, which no axis on the picture can
+ * make (the argument {@link l1DialogSchema} makes for the shell it wraps a panel
+ * in).
+ *
+ * Carried by `image` and by nothing else. A box has no replaced content to open,
+ * so the field would be inert everywhere else it was accepted — and because every
+ * node object is `.strict()`, that exclusion is enforced by the shape rather than
+ * by a rule someone has to remember. Mutually exclusive with {@link l1LinkSchema}
+ * on one node, on precisely the terms {@link l1ActionSchema} is: one element
+ * cannot both navigate away and act on this page, and which won would be a
+ * property of the renderer rather than of the document.
+ */
+export const l1ZoomSchema = z
+  .object({
+    /**
+     * A higher-resolution original to show large, when the placed asset is not
+     * the best copy the site holds. Absent → the picture's own `src`.
+     *
+     * Cleared by the same `isSafeUrl` allowlist as `image.src`, and held to the
+     * same "an asset reference must name an asset the site holds" rule: a zoom
+     * that opens onto a broken image is worse than no zoom, because the visitor
+     * has already committed a click to it.
+     */
+    src: z.string().optional(),
+    /**
+     * What the LARGE picture shows, when it is not what the placed one shows — a
+     * plate whose detail is the whole point of opening it. Absent → the node's own
+     * `alt`, which is the right answer whenever the two are the same picture.
+     */
+    alt: z.string().optional(),
+    /**
+     * The scrim the page behind is dimmed with. Reuses the hero overlay's shape
+     * because it is the same statement: a colour, at an opacity, over what is
+     * already there.
+     *
+     * ABSENT MEANS THE RENDERER'S DIM, which is the one place this role's defaults
+     * differ from a dialog's. A modal with no scrim is a legitimate design — a
+     * toast, a corner panel — so there the absence can mean "none". A picture
+     * opened large onto an undimmed page is not a design, it is the feature
+     * failing to happen, so the absence cannot mean the same thing here.
+     */
+    backdrop: l1OverlaySchema.optional(),
+    /**
+     * An accessible name for the overlay. Absent → the picture's alt text, which
+     * is what the overlay is showing and therefore already the right name.
+     */
+    ariaLabel: z.string().optional(),
+  })
+  .strict()
+
+/** REQ-327 — the magnify role a picture may take. */
+export type L1Zoom = z.infer<typeof l1ZoomSchema>
+
 // ── Scroll reveal (REQ-100) ───────────────────────────────────────────────────
 //
 // L1 had no motion of any kind: no transition, no animation, no notion of
@@ -1506,6 +1593,11 @@ export const l1ImageSchema = z
     ...nodeAxisGroupsShape,
     /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
     link: l1LinkSchema.optional(),
+    /**
+     * REQ-327 — the magnify role; the renderer is the sole sink for the overlay it
+     * compiles to, exactly as it is for the `<a>` above.
+     */
+    zoom: l1ZoomSchema.optional(),
   })
   .strict()
 

@@ -48,10 +48,17 @@
 //   ./bin/access-sim [--port 8799] [--aud local-dev-aud] [--builder URL]
 //                    [--client-id ID] [--client-secret SECRET] [--service-email ADDR]
 //
-// Then, in another shell, point the Worker at it and start the builder:
+// Then, in another shell, point the Worker at it and start a server behind it:
 //   ./bin/access-sim --print-env > apps/control-app/.dev.vars.local
 //   ./bin/access-sim &
-//   ./bin/1c builder            # or ./bin/1c dev serve, for the dev environment
+//   ./bin/1c dev serve          # what this fronts by default, on 8789
+//
+// …or the watch builder on 8788, which is now the one that has to be named:
+//   ./bin/access-sim --builder http://127.0.0.1:8788 &
+//   ./bin/1c builder
+//
+// `bin/dev up` starts both servers and this simulator, so the recipe above is the
+// hand-run of what that command does ([[REQ-322]]).
 //
 // THE RECIPE NAMES A FILE THE LAUNCHERS READ ([[BUG-146]]). It did not, and that
 // was the defect: `devEnvLayering` composed two `--env-file` flags and neither was
@@ -92,7 +99,19 @@ const arg = (name, fallback) => {
 
 const PORT = Number(arg('port', process.env.SIM_PORT || 8799))
 const AUD = arg('aud', process.env.SIM_AUD || 'local-dev-aud')
-const BUILDER = arg('builder', process.env.SIM_BUILDER || 'http://127.0.0.1:8788')
+// THE DEFAULT IS THE DEPLOYED DEV ENVIRONMENT, NOT THE WATCH BUILDER ([[REQ-322]]).
+// It was 8788, and `bin/dev up` starts this simulator with no argument — so once
+// `up` also started 8789, the one server you could reach THROUGH ACCESS was the
+// one being retired. That matters beyond tidiness: `[env.dev.vars]` sets
+// `ACCESS_DEV_OPEN = "1"`, so a direct connection to 8789 resolves every request
+// to `TENANT_ID` and can only ever reach one business. Work on any other arrives
+// through here, which makes "what this fronts" the same question as "which
+// environment is usable at all".
+//
+// So the retiring path is the one that now takes an argument —
+// `--builder http://127.0.0.1:8788` — which is the correct direction for the
+// inconvenience to run while both paths are alive (EPIC-16 §L1).
+const BUILDER = arg('builder', process.env.SIM_BUILDER || 'http://127.0.0.1:8789')
 const DEFAULT_TTL = 60 * 60 * 24 * 30
 const ISS = `http://127.0.0.1:${PORT}`
 

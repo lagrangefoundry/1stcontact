@@ -100,11 +100,15 @@ import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
 import { assertOneWorkerd, checkWorkerd, workerdGateKey } from './workerd'
 import {
+  DEV_SERVICES,
+  devDeploySkipped,
   devDown,
   devReap,
+  devRestart,
   devUp,
   formatDown,
   formatReap,
+  formatRestart,
   formatUp,
   readDevPidfiles,
 } from './dev'
@@ -133,10 +137,11 @@ import {
   resetPlan,
 } from './reset'
 import {
-  buildKb,
   ensureConfig,
   exportCorpus,
+  kbEnsure,
   kbStatus,
+  runKbBuild,
   writeProjections,
   DOC_KIND_FIELD,
   MEMBER_KIND,
@@ -351,6 +356,7 @@ export {
   classifyCwd,
   devProcessTable,
   formatProcessTable,
+  listenerPidsOnPort,
   inDevPortBand,
   knownPort,
   listenerCwds,
@@ -369,13 +375,18 @@ export type {
 export {
   DEV_SERVICES,
   devDeploy,
+  devDeploySkipped,
   devDown,
+  devPidfilePids,
   devReap,
+  devRestart,
+  devSelection,
   devStateDir,
   devTable,
   devUp,
   formatDown,
   formatReap,
+  formatRestart,
   formatUp,
   pidAlive,
   readDevPidfiles,
@@ -387,6 +398,7 @@ export type {
   DevDownOutcome,
   DevPidfile,
   DevReapOutcome,
+  DevRestartOutcome,
   DevService,
   DevStarted,
   DevUpOutcome,
@@ -511,16 +523,25 @@ Usage:
     when the tree is fine, which is how \`bin/deploy --env dev\` uses it: the guard in
     front of the only copy of the dev data.
 
-  1c dev up | down | reap | serve [--dry-run] [--json]  (\`bin/dev\` is the launcher)
+  1c dev up | down | reap | restart | serve [<service>…] [--dry-run] [--json]
+      (\`bin/dev\` is the launcher; <service> is one or more of ${DEV_SERVICES.map((s) => s.name).join(' | ')})
     up    Deploys to the local dev target (REQ-318's \`bin/deploy --env dev\`, skipped
           with a line while that target does not exist), then starts filing, the
           builder, the public site and access-sim in dependency order and records a
-          pidfile per service under storage/tmp/dev. A service already answering is
-          left alone rather than duplicated.
-    down  SIGTERMs what the pidfiles name, then VERIFIES the ports are free through
-          \`1c ps\` rather than assuming the signal landed. Exits non-zero when a port
-          it was asked to free is still answering, and removes that service's pidfile
-          so \`reap\` inherits it.
+          pidfile per service under storage/tmp/dev, naming BOTH the process it
+          spawned and the one found holding the port once it answered. A service
+          already answering is left alone rather than duplicated. Name one or more
+          services to start only those, which skips the deploy.
+    down  SIGTERMs the PROCESS GROUP of what the pidfiles name, then VERIFIES the
+          ports are free through \`1c ps\` rather than assuming the signal landed. The
+          group, not the pid, because \`1c builder\` and \`pnpm … dev\` are wrappers
+          whose grandchild holds the socket, and signalling the wrapper left \`workerd\`
+          running ([[BUG-147]]). Exits non-zero when a port it was asked to free is
+          still answering, and removes that service's pidfile so \`reap\` inherits it.
+    restart down then up for the named services — an env-file change only takes effect
+          on a process started after it, and this is the spelling of that. It deploys
+          nothing, and starts nothing when \`down\` left a port answering: \`up\` would
+          read that as \`already up\` and leave the stale process in place.
     serve Runs the DEPLOYED snapshot ([[REQ-318]]): \`wrangler dev --no-bundle\` against
           apps/control-app/.dev-snapshot, on port ${DEV_SERVE_PORT} — not 8788, so it
           runs beside the old path against the same store. It is FROZEN by
@@ -552,6 +573,11 @@ System knowledge base (REQ-123) — what the builder AI knows, as a release arte
     awareness map. Needs CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN for the
     embedding model; the map's paragraphs come from the Claude Code CLI when no
     ANTHROPIC_API_KEY is set.
+  1c kb ensure     build only if the index is behind its corpus — the KB stage
+                   \`bin/build\` runs, which is why building the thing is one
+                   command and not two (REQ-322). A coherent index costs no
+                   credential and no request; \`--force\` builds regardless, which
+                   is what \`bin/kb-release\` runs.
   1c kb export     the corpus only — no embedding, no credentials
                    (both producers: opted-in doc tickets, and the generated
                     REF-* reference projected from the code)
@@ -1667,18 +1693,53 @@ export async function run(argv: string[]): Promise<void> {
       // three of them read.
       const root = repoRoot()
       const sub = rest[0]
+      // `bin/dev up builder` / `down builder` / `restart builder` — a SINGLE service,
+      // which is what an operator needs when an env file changed and only a process
+      // started after it reads the new value ([[BUG-147]]). Validated here, where
+      // argv is: a typo would otherwise restrict the call to nothing and report a
+      // SUCCESSFUL NO-OP, which is the same class of silence this ticket is about,
+      // so an unrecognised name is a failure that names the services that exist.
+      const named = rest.slice(1)
+      if (sub === 'up' || sub === 'down' || sub === 'restart') {
+        const unknown = named.filter((name) => !DEV_SERVICES.some((service) => service.name === name))
+        if (unknown.length > 0) {
+          fail(
+            new CommandError({
+              code: 'NOT_FOUND',
+              message: `Unknown dev service ${unknown.map((name) => `'${name}'`).join(', ')}.`,
+              hint: `Known services: ${DEV_SERVICES.map((service) => service.name).join(', ')}.`,
+            }),
+            flags.json === true,
+          )
+          return
+        }
+      }
+      const only = named.length > 0 ? named : undefined
       if (sub === 'up') {
-        const outcome = await devUp({ repoRoot: root })
+        const outcome = await devUp({
+          repoRoot: root,
+          only,
+          // NAMING A SERVICE IS NOT ASKING FOR A DEPLOY. Rebuilding the whole local
+          // target to start one process is not what was asked for, and the deploy is
+          // what `bin/dev up` with no argument is for.
+          deploy: only === undefined ? undefined : devDeploySkipped(`starting ${only.join(', ')} only`),
+        })
         console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatUp(outcome))
         if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
         return
       }
       if (sub === 'down') {
-        const outcome = await devDown({ repoRoot: root })
+        const outcome = await devDown({ repoRoot: root, only })
         console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatDown(outcome))
         // A PORT THAT IS STILL ANSWERING IS A FAILED `down`, and the exit code has
         // to say so: the caller that matters is a script teeing up a fresh start,
         // and it would otherwise proceed into a port collision.
+        if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
+        return
+      }
+      if (sub === 'restart') {
+        const outcome = await devRestart({ repoRoot: root, only })
+        console.log(flags.json === true ? JSON.stringify(outcome, null, 2) : formatRestart(outcome))
         if (!outcome.ok) process.exitCode = EXIT_CODES.ENVIRONMENT
         return
       }
@@ -1771,28 +1832,19 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       if (sub === 'build') {
-        // Before the build, so the projections are indexed, chunked and mapped
-        // like any other corpus member — the assistant is not meant to know
-        // which of its knowledge was written and which was generated.
-        //
-        // The declaration is scaffolded FIRST because a projection asserts its
-        // own membership from it: written against no declaration on a fresh
-        // checkout, it would carry no membership fields and then be excluded by
-        // the declaration the build was about to write.
-        ensureConfig()
-        writeProjections()
-        const r = await buildKb()
-        console.log(
-          `index:  ${r.documents} document(s), ${r.embedded} embedded\n` +
-            `chunks: ${r.chunks}\n` +
-            `map:    ${r.territories} territories, ${r.accessPoints} access point(s), ` +
-            `written by ${r.describer}`,
-        )
-        if (r.doorless.length) {
-          // Named, never silent: a territory with no validated access point is a
-          // region of the corpus the map describes but cannot route to.
-          console.log(`        no way in: ${r.doorless.join(', ')}`)
-        }
+        // The three steps and the reason for their order live in `runKbBuild`,
+        // which is also what `1c kb ensure` runs (REQ-322) — so the two commands
+        // cannot come to differ about what building the KB means.
+        console.log((await runKbBuild()).report)
+        return
+      }
+      if (sub === 'ensure') {
+        // `bin/build`'s KB stage and `bin/kb-release`'s build, as one verb
+        // (REQ-322). It decides whether a build is needed; the decision is
+        // `requireCoherentKb` — the same check `1c assets` refuses on — so a
+        // build that passes this stage cannot be refused by the next one.
+        const outcome = await kbEnsure({ force: rest.includes('--force') })
+        console.log(outcome.report)
         return
       }
       if (sub === 'status') {

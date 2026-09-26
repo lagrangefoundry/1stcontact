@@ -163,10 +163,14 @@ mistake — the same standard `wrangler.toml` records for `ACCESS_DEV_OPEN`.
 ```bash
 ./bin/seed                                     # the people to sign in as (REQ-192)
 ./bin/access-sim --print-env > .dev.vars.local  # the two Access vars + SERVICE_TOKEN_IDENTITIES
-./bin/access-sim &
+./bin/access-sim --builder http://127.0.0.1:8788 &   # the watch builder has to be named (REQ-322)
 cd apps/control-app && npx wrangler dev --port 8788 \
   --env-file .dev.vars --env-file ../../.dev.vars.local
 ```
+
+The simulator's **default** origin is the deployed dev environment on 8789 — `1c dev serve`, which
+is what `bin/dev up` starts it in front of — so the watch builder is the one that now takes an
+argument (REQ-322). Or type `bin/dev up` and get all of it.
 
 Then open <http://127.0.0.1:8799/login> and pick a person. The list is read out of the local D1 at
 request time — through `wrangler d1 execute`, not by opening the SQLite file — so it cannot drift

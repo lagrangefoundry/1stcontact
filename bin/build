@@ -6,7 +6,7 @@
 # build done differently by hand than by script is a build whose failures nobody
 # can reproduce.
 #
-# Three stages, in this order and for this reason:
+# Five stages, in this order and for this reason:
 #
 #   1. PREFLIGHT (`1c preflight`) — before anything is emitted. The shared
 #      component store is populated out of band, so `pnpm install` cannot supply
@@ -14,16 +14,25 @@
 #      does not fail here by default: it yields an import map that loads, renders
 #      chrome, and dies at the first `import` in the operator's browser. Failing
 #      loudly here is the whole point of running it first.
-#   2. ASSETS (`1c assets`) — the builder client, the webui components and the
+#   2. KNOWLEDGE BASE (`1c kb ensure`) — the system KB index, but ONLY if it is
+#      behind its corpus (REQ-322). Building the thing used to be two commands,
+#      and which one you needed depended on whether you happened to have edited a
+#      `system_kb` document — exactly the kind of thing that is not remembered.
+#      Before the assets, because `1c assets` INLINES the index and refuses a
+#      corpus its index does not cover; that refusal is this stage's own trigger,
+#      so a build that passes here cannot be refused by the next stage. On a
+#      coherent index it reads two manifests and says so: no credential, no
+#      request, nothing new charged to a build that touched no KB document.
+#   3. ASSETS (`1c assets`) — the builder client, the webui components and the
 #      framework bridges as build artifacts, plus the precompiled module chrome
 #      and the derived import map. Before the typecheck, because the Worker's
 #      source imports two of them and neither is committed (REQ-145).
-#   3. TYPECHECK (`pnpm -r build`) — each workspace package's own build script.
-#   4. BUNDLE — each Worker compiled to `apps/<app>/dist/` through the very
+#   4. TYPECHECK (`pnpm -r build`) — each workspace package's own build script.
+#   5. BUNDLE — each Worker compiled to `apps/<app>/dist/` through the very
 #      wrangler invocation that deploys it, minus the upload. A bundle that
 #      cannot be built is a deploy that would have failed at the last step.
 #
-# Note on stage 3: `wrangler deploy` rebuilds from source at deploy time and does
+# Note on stage 4: `wrangler deploy` rebuilds from source at deploy time and does
 # NOT consume `dist/`. The bundle is therefore evidence, not input — proof that
 # the artifact builds and the config resolves. It is also where REQ-145's static
 # assets land when the builder client stops being served off disk, at which point
@@ -49,13 +58,15 @@ for arg in "$@"; do
       cat <<'EOF'
 bin/build — produce every deployable artifact.
 
-  bin/build                  preflight, assets, typecheck, bundle every apps/*/ Worker
+  bin/build                  preflight, KB, assets, typecheck, bundle every apps/*/ Worker
   bin/build --skip-preflight  skip the shared-store / install check
 
-Stages: `1c preflight` (shared component store + declared packages), `1c assets`
-(the control app's build artifacts — the Worker imports two of them, and neither
-is committed), then `pnpm -r build`, then a per-app `wrangler deploy --env
-production --dry-run --outdir dist`. Exit 6 means the environment is wrong.
+Stages: `1c preflight` (shared component store + declared packages), `1c kb
+ensure` (the system KB index, only if it is behind its corpus — a coherent index
+costs no credential and no request), `1c assets` (the control app's build
+artifacts — the Worker imports two of them, and neither is committed), then
+`pnpm -r build`, then a per-app `wrangler deploy --env production --dry-run
+--outdir dist`. Exit 6 means the environment is wrong.
 EOF
       exit 0
       ;;
@@ -88,6 +99,16 @@ if [[ $skip_preflight -eq 0 ]]; then
   step "Preflight"
   "$repo_root/bin/1c" preflight
 fi
+
+# BEFORE the assets, not after (REQ-322). `1c assets` inlines the KB index and
+# REFUSES a corpus the index does not cover, which is BUG-48's backstop and this
+# stage's trigger: the same check, one stage earlier, where it can still be fixed
+# by building rather than only reported. `1c kb ensure` decides for itself whether
+# a build is needed, so this line costs nothing on a build that touched no KB
+# document — and fails here, naming CLOUDFLARE_API_TOKEN, when the index is behind
+# and there is no credential to bring it forward.
+step "Knowledge base"
+"$repo_root/bin/1c" kb ensure
 
 # BEFORE the typecheck, not after (REQ-145). `1c assets` writes two things the
 # Worker's own source imports: the derived import map, and the precompiled module

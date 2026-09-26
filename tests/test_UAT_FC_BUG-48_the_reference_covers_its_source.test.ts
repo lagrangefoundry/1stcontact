@@ -277,6 +277,19 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
+      // REQ-327 — the magnify role, refused beside a link on exactly the terms
+      // `action` is: the emitter emits one interactive element.
+      zoomOrLink: refusals(
+        page({
+          root: {
+            kind: 'image',
+            src: '/assets/plate-1.png',
+            alt: 'a plate',
+            link: { href: '/plates' },
+            zoom: {},
+          },
+        } as Partial<L1Document>),
+      ),
       // The two REQ-175 findings are reported rather than refused, and
       // deliberately: both references can dangle for a reason nobody can fix — a
       // capture that could not mirror a face or an image — and refusing the

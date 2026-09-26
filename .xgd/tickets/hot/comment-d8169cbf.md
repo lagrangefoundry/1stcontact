@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-25T22:55:03.759958+00:00'
+updated_at: '2026-09-25T23:51:17.290001+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3928,5 +3928,262 @@ I'll look at the data before theorising.
 <!-- xgd-chat role="user" ts="2026-09-25T22:55:01.156153+00:00" -->
 #### You
 please continue
+
+<!-- xgd-turn id="d3b7bb45-3279-4107-8cab-5b74a4f28ae7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:16:03.775753+00:00" -->
+#### Claude
+I'll investigate the data now.
+
+Diagnosis complete. Let me record it on the epic before reporting.
+
+I have the full picture. **Nothing is lost from storage** — but your premise was wrong in a way that explains everything.
+
+## Your session is intact; a bad copy was shown in front of it
+
+The archive holds **102 exchanges, 332,827 bytes**, ending cleanly on the 22:02→22:11 pair. Every word is there.
+
+What the panel painted instead was the Durable Object's junction, which holds **89**. Two defects compose.
+
+**Defect A — REQ-307's durable junction is inert on every request except the first after a restart.** The dev log carries this once per prompt:
+
+```
+junction durable:site-site_936dd7c…: could not be prepared — Error: Cannot perform
+I/O on behalf of a different request. … (I/O type: OutgoingFactory)
+```
+
+`DurableJunctionStorage` caches the `DurableObjectStub` it got on first use, and workerd forbids using an I/O object from one request's context in another's. So the stub works for exactly the request that created it and throws for every later one. `prepare` catches, sets `adopted = false`, and `queue()` returns early when `!adopted` — appends land in the in-isolate mirror and **never reach the object**. The class comment calls that "degrades to `memoryJunctions()`", which is accurate and is the problem: it degrades to the exact failure REQ-307 was built to remove, silently.
+
+Measured: **17 exchanges were added after the junction was seeded; 4 of them reached the object.** Thirteen lived only in RAM.
+
+**Defect B — a junction that exists beats a more complete archive.** Upstream's `manager.transcript()` reads the archive only `if (!log.exists())`. The object's junction does exist, so on reload the panel is painted from the 89-turn junction and the 102-turn transcript is never consulted. A lossy junction doesn't merely fail to protect the conversation — **it hides the good copy.** That is the "entire session so far disappeared".
+
+## What actually killed the turn — and why it could reach you
+
+22:20:10 the turn opened. **22:23:28 the merge of `free-BUG-145` into `xgd-working` rewrote `host-core.ts`, `spend-core.ts`, `spend.ts` and `router.ts`; wrangler rebuilt and replaced the Worker at 22:23:2x.** Three minutes in. Finding 10, third occurrence. At 22:35 another merge left `<<<<<<< HEAD` in the root `package.json` and the dev server built against it — `Expected string in JSON but found "<<"` — so a half-finished merge can break the builder outright, not just restart it.
+
+**On "it should be running from the dev-install":** REQ-318 landed and works — `bin/deploy --env dev` bundles to `.dev-snapshot/` and `1c dev serve` runs `wrangler dev --no-bundle` against it on **8789**, frozen by construction. `bin/dev up` builds that snapshot (mtime 21:40:07) and then starts `bin/1c builder` — plain watching `wrangler dev` on 8788 — and never `1c dev serve`. Nothing was listening on 8789. You were on the watching builder believing you were on the frozen one. Same shape as this epic's other adoption gaps.
+
+**No tickets were filed.** Zero `xgd ticket create` commits between 15:15 and 15:32 PDT. The turn died before it got there, so that work needs re-asking — and your five-part message is preserved in `pending_turn`, which is BUG-121 doing its job.
+
+## Get your panel back — provably lossless
+
+The object's junction is a strict subset of the archive (all four of its live turns appear there verbatim), so discarding it makes `transcript()` re-seed from the archive and restores all 102. It needs the server down, so it's yours to run:
+
+```
+bin/dev down
+rm apps/control-app/.wrangler/state/v3/do/1stcontact-control-app-SessionJunction/185825265b6bb3f1c791ac9e7d244b45096bc3c76eab7e8c096ef09d851698f5.sqlite
+bin/dev up
+```
+
+And to stop being reachable by merges, serve from the frozen snapshot on 8789 (`1c dev serve`) rather than 8788 — with access-sim pointed at it.
+
+All of this is Finding 12 on EPIC-19, with the measurements. **No ticket filed yet** — Defect A is ours and small (hold the namespace, get the stub per use, drain inside the request); Defect B is upstream's; and `bin/dev up` not serving the snapshot is a third, arguably the one that would have prevented today. Say which of those you want filed and I'll do it.
+
+<!-- xgd-turn id="55513572-80a9-4554-baa2-43d4ce71a8d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:22:01.712396+00:00" -->
+#### You
+ok so I need bugs for A and B and this mess with dev up etc.
+
+Lets be really clear I want all the stuff that starts up servers that read the changing code base deleted - I need to know what I'm running that was the whole point of buidling the dev server and I still don't even when I start it up as instructed it is running the wrong thing. That last ticket should be a child of EPIC-16
+
+<!-- xgd-turn id="55513572-80a9-4554-baa2-43d4ce71a8d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:27:11.868302+00:00" -->
+#### Claude
+Three tickets. Let me check for duplicates and find EPIC-16 first.
+
+Now the three tickets. Writing bodies first.
+
+All three filed.
+
+**[[BUG-149]] — Defect A** (child of EPIC-19, priority high)
+*Builder chat: the durable junction never writes, because the Durable Object stub is cached across requests.* `DurableJunctionStorage` captures the stub in its constructor; workerd refuses an I/O object from another request's context; `prepare` catches, `adopted` goes false, `queue()` returns early — so REQ-307 is live only on the first request a fresh isolate handles. Carries the measurement (4 of 17 post-seed turns reached the object, the per-prompt table showing 21:43/21:50 dropped → 21:55 restart → 22:02 landed → 22:20 dropped) and a three-part fix: obtain the stub per use, drain inside the issuing request, and stop the degradation being silent.
+
+**lagrange-framework BUG-69 — Defect B** (upstream, priority high)
+*`SessionManager.transcript()`: a junction that exists hides an archive that is ahead of it.* The archive is read only `if (!log.exists())`, so a well-formed but stale junction returns 89 turns while 102 sit intact beside it — and the same records feed `seedDialogue`, so the model forgets what the panel forgets. Three fix shapes in preference order, with the requirement that the panel's view and the backend's dialogue come from one decision.
+
+**[[BUG-150]] — the dev server** (child of EPIC-16, priority high)
+*`bin/dev up` starts the watching builder, not the frozen snapshot it just built — and every server that reads the changing tree should be deleted.* Both halves you asked for, stated as deletion rather than deprecation: `pnpm dev`, `pnpm dev:control`, `pnpm dev:public`, `apps/public-site`'s own `dev`, and `1c builder` as an entry point all go; `bin/dev up` serves `.dev-snapshot/` for both apps with access-sim pointed at it. I added a third requirement from your words — **starting the environment must print what it is serving and when that was deployed**, every time, so "what am I running" is answered by the thing you ran rather than by a second command.
+
+Worth knowing: this was already scoped. EPIC-16 §L1 records you settling it — *"everything we have goes… but the deletion is a separate step so the replacement can be proved first"* — and `ps.ts` carries `// builder's on purpose (EPIC-16 §L1): the old path is retired in a later step`. §M then says retirement is "deliberately unfiled… filed when REQ-318 and REQ-319 are trusted." Both landed; nobody filed it. What the sequencing didn't anticipate is that leaving the old path reachable meant `bin/dev up` kept *starting* it — so the snapshot got built on every start and served on none. I recorded that as EPIC-16 §O with the measurements, and the three filings as a closing block on EPIC-19's Finding 12.
+
+Ordered by what they cost: **BUG-150 stops the restarts, BUG-149 makes a restart survivable, BUG-69 makes a stale junction harmless rather than destructive.** None substitutes for another.
+
+Your LF panel is still showing the 89-turn junction — the recovery commands from before are unchanged and still need you to run them.
+
+<!-- xgd-turn id="931adf4d-1bcf-4cb0-be0e-961f92f01203-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:38:15.854396+00:00" -->
+#### You
+Thank you.
+
+I'd like to have a conversation that goes back to your core responsibility the Webb builder experience. As I work with the AI on websites I find that I am impressed with the AIS understanding and design capabilities. However only when pressed to do so. I have to ask what would you do here? Is this really a premium site? What do we have to do to make this better? My users are not going to in general do that. Related to this is what I would call the executive function of the website construction. Again I am an experienced by coda I work with AI is in and out building software so it is not surprising or problematic for me to have to drive the website creation. However, my typical user will not know how to build a website will not know the appropriate steps to go through. We have some documentation on this and some thoughts we have a playbook that the AI has access to but never referenced in my discussion with it. I want to discuss Rily the user experience here so I have no doubt that we can improve the coaching that we give to the AI but I wonder if there are other things that we could or should do. Part of the challenge here is that I want to support flexibility as well as structure.
+
+We want the AI to be adaptable, if the AI is talking to a novice who does not know how to spell HTML then they should use appropriate language, similarly if they are talking to someone experienced in the domain they should use different language. And both users are going to be frustrated if the AI talks in the wrong way. The same is true of the executive function. If I am creating a site a highly structured approach that puts me through hoops that I don't necessarily want to go through or want to go through in that particular order represents of challenge for me. So what I'm trying to go is we need to introduce structure we need to find ways to make the AI be more proactive. I need the AI to take the lead, offer opinions and so on there are things we could put in the reminder prompts to do that. I'm also wondering about some kind of shared to do list that could be used to hold joint tasks and manage the project. It could be pre-populated with expected steps but it could be visited in different orders and we could entirely skip steps if we don't need to so in that sense it could provide a flexible structure if it was created in the right way. What ideas do you have here? Are you aware of any examples of this kind of thing being done? There are 1 million examples of AI chat but most of them are much more simplistic and entirely responsive. How do we get the AI to take the lead when it needs to
+
+<!-- xgd-turn id="931adf4d-1bcf-4cb0-be0e-961f92f01203-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:42:44.766306+00:00" -->
+#### Claude
+Before I answer the "what should we do" part, two things you said are checkable, and the answer changes the design: whether the playbook is reachable at all, and what the per-turn reminders actually ask for.
+
+Strong evidence. One more thing decides the design answer — whether the AI's own project state is visible to the client.
+
+I went and measured your engagement before answering, because two of your hypotheses turn out to be wrong in a way that changes what to build.
+
+## The coaching is already there. It isn't the gap.
+
+The role priming already says, in these words: *"Lead. When a choice has to be made before you can build, make it deliberately or put it to them."* … *"At a real decision, put up two or three options that differ in kind, not one proposal you then refine."* … *"Your method … is written down and you are expected to know it. Go and read it rather than improvising from these few lines."* There's a per-turn reminder too (`act-rather-than-narrate`, `method`).
+
+So more exhortation is the thing that has already been tried. Here is what actually happened across your 102-turn Lagrange Foundry engagement:
+
+| | |
+|---|---|
+| tool calls | **1,017** |
+| mechanical (`set_l1`, `get_l1`, `list_changes`, `screenshot`, `describe_page`) | **650** |
+| knowledge retrievals | 43 (13 `KnowledgeSearch`, 30 `KnowledgeChunkSearch`, 21 `KnowledgeGet`) |
+| retrievals about **method** | **0** |
+| `DOC-33` fetched | **never** — `KnowledgeGet` was called 21 times, 13 of them for `REF-l1` |
+
+Every one of those 43 queries is mechanism or content: *"gradient stops angle"*, *"transform translateYPct"*, *"row align stretch child height"*, *"Martin Westhead resume PhD"*. Not one is *"how does a consultation run"*.
+
+And the behavioural signature matches exactly: of 102 assistant turns, **24 offer explicit options** and **45 contain a direct ask** — but only **2 contain any process or ordering language.** It has design judgement and asks design questions freely. It almost never proposes *an order of work*.
+
+**The diagnosis: method loses to mechanism because mechanism has a forcing function and method has none.** If it doesn't look up `translateYPct`, the tool call fails in its face, this turn. If it doesn't look up the playbook, nothing happens — ever. Retrieval budget flows to whatever punishes ignorance immediately. A method that must be *pulled* will always lose to a grammar that bites.
+
+That's why I don't think better coaching is the lever. **The method has to arrive as state, not as a document to look up.**
+
+## You already built half the artifact you're imagining
+
+`set_standing_note` was called **61** times and `record_decision` **45** times in this one engagement. The consultant maintains rich project state. **The client has never seen a word of it** — there is no surface in the builder that renders it.
+
+And look at what it put in there, unprompted:
+
+> **OPEN:** his "5. can you fix that?" — ASKED TWICE, unanswered. NEVER LOOKED AT MOBILE (biggest unexamined risk — conference audience looks him up on a phone). NO HOVER STATES. "XGD writes XGD" buried in dim prose, should be large and alone. Nothing published.
+
+That is a shared to-do list. It invented the feature you're asking about, in caps, inside a free-text field never designed for it, and kept it current across days — while having no way to show it to you and no way to act on it. The decision ledger records what *was settled*; that `OPEN:` block is the negative space, and it's doing the work by hand.
+
+So I'd say: the to-do list isn't a new mechanism. It's **the same artifact as the decision ledger, with items in two states — open and settled — and a client-facing surface.**
+
+## What makes it flexible structure rather than a wizard
+
+This is the part that decides whether your novice is helped and you aren't caged. A few rules I'd hold to:
+
+**Agent-owned, client-visible, client-editable — not a form to fill in.** The client never has to touch it. They can.
+
+**Pre-populate from the playbook, but as `not yet needed`, not `todo`.** A list of 20 open items is hoops. Six items, most marked *not needed yet*, is a map. Skipping is a first-class action **that records a reason** — "no contact form, he expects no contacts" is data, not a gap. That's what lets the same list serve a structured novice and you jumping straight to plate three.
+
+**The per-turn digest names the one next thing and what's unresolved — never the whole list.** You already have the mechanism: `page-digest` injects site state every turn as *fact*. Do the same for project state. Reminders are advice and the evidence says advice doesn't stick; digests are facts and they do — the consultant demonstrably works from the page digest.
+
+**Leading requires knowing where you are.** A model with no representation of stage can only react. That is the whole thesis: it isn't unwilling to lead, it has nowhere to stand. Give it a position and the opinions come free — you've seen that, because when you *press*, you supply the position verbally and it performs.
+
+**Forcing function, not exhortation.** Every turn should advance an item, close one, or open one. That is checkable, unlike "be proactive". It's the same trick that makes mechanism retrieval reliable: make the omission cost something.
+
+## On register — record it, don't infer it
+
+Your priming has the right insight already (*"confusion is silent and fluency is loud"*), and then asks the model to infer register continuously from silence. That's a coin-flip every turn, and both wrong answers are the ones that lose you the user.
+
+Put register in the shared state as an explicit, visible, client-correctable field. One row the client can see and override — *"talk to me like an engineer"* — beats continuous inference, and it fails safe: if it's wrong, they can see *why* it's wrong and fix it in one click instead of being quietly condescended to for forty turns.
+
+And there's a register-free move you're underusing: **show two options rather than describe them.** *"Which of these two?"* needs no vocabulary at all. Your 24 option-offering turns are mostly prose descriptions of options; rendered alternatives would work for the novice and the expert identically.
+
+## Precedents worth studying
+
+- **Claude Code's todo list — you are inside it right now.** Agent-owned, rendered in the client, reordered and skipped freely, no approval gate. It is the closest existing answer to your question, and the reason it works is that it is *visible* and *not blocking*.
+- **Wix ADI** is the cautionary case: a genuinely structured interview that produces sites for novices, and that experienced users describe as hoops. Pure structure, and the failure mode you named.
+- **Deep-research agents** (ChatGPT/Gemini): one clarifying gate of 1–3 questions, then a visible plan, then autonomy. The lesson is *how few* questions buy you the right to lead.
+- **GitHub Copilot Workspace**: task → spec → plan → code, each artifact editable. Good on legible artifacts; too gated for your case.
+- **Agentic support platforms** (Intercom Fin, Sierra) run SOPs as *injected state* — the agent is told which step of which playbook it is on, every turn, rather than being asked to recall it. That is exactly the retrieval-to-injection move I'm arguing for, and it's the one with commercial proof behind it.
+- **Artifacts and Canvas** generally: the broad finding is that introducing a shared mutable object changes conversational dynamics far more than prompt wording does. Which is the same thing your measurements say.
+
+## The risks I'd hold in view
+
+A visible plan can become the wizard you're avoiding — so cap it, seed it mostly-dormant, and make skipping cheap and recorded. And note the consultant already over-records: 45 decisions and 61 note rewrites in one engagement. Give it a to-do list and it will generate forty items unless the shape forbids it. The constraint is part of the design, not a later tuning pass.
+
+One genuine open question I'd want your answer to before designing: **should the list be per-engagement or per-site?** Your sites outlive conversations, and the LF engagement has spanned days and several sessions. If it's per-site, it becomes the durable project record and survives a lost conversation — which, given what we spent today on, is worth something.
+
+Happy to turn this into tickets under EPIC-19 when you've pushed back on it — I'd guess three: the shared open/settled list with its surface, project state in the per-turn digest, and recorded register. But I'd rather argue about the shape first.
+
+<!-- xgd-turn id="93b39cdf-3cb0-4ba4-a58a-f140dbc908f8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-25T23:48:40.853389+00:00" -->
+#### You
+Thank you.
+
+I'd like to have a conversation that goes back to your core responsibility the Webb builder experience. As I work with the AI on websites I find that I am impressed with the AIS understanding and design capabilities. However only when pressed to do so. I have to ask what would you do here? Is this really a premium site? What do we have to do to make this better? My users are not going to in general do that. Related to this is what I would call the executive function of the website construction. Again I am an experienced by coda I work with AI is in and out building software so it is not surprising or problematic for me to have to drive the website creation. However, my typical user will not know how to build a website will not know the appropriate steps to go through. We have some documentation on this and some thoughts we have a playbook that the AI has access to but never referenced in my discussion with it. I want to discuss Rily the user experience here so I have no doubt that we can improve the coaching that we give to the AI but I wonder if there are other things that we could or should do. Part of the challenge here is that I want to support flexibility as well as structure.
+
+We want the AI to be adaptable, if the AI is talking to a novice who does not know how to spell HTML then they should use appropriate language, similarly if they are talking to someone experienced in the domain they should use different language. And both users are going to be frustrated if the AI talks in the wrong way. The same is true of the executive function. If I am creating a site a highly structured approach that puts me through hoops that I don't necessarily want to go through or want to go through in that particular order represents of challenge for me. So what I'm trying to go is we need to introduce structure we need to find ways to make the AI be more proactive. I need the AI to take the lead, offer opinions and so on there are things we could put in the reminder prompts to do that. I'm also wondering about some kind of shared to do list that could be used to hold joint tasks and manage the project. It could be pre-populated with expected steps but it could be visited in different orders and we could entirely skip steps if we don't need to so in that sense it could provide a flexible structure if it was created in the right way. What ideas do you have here? Are you aware of any examples of this kind of thing being done? There are 1 million examples of AI chat but most of them are much more simplistic and entirely responsive. How do we get the AI to take the lead when it needs to
+
+<!-- xgd-turn id="93b39cdf-3cb0-4ba4-a58a-f140dbc908f8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-25T23:51:15.673708+00:00" -->
+#### Claude
+Your message arrived twice — possibly the same delivery problem we spent this morning on, so here's the short version of what I found, then new ground.
+
+Same message arrived twice — possibly this morning's delivery fault, so: the short version of what I measured last time, then something better I found since.
+
+**Recap.** Across your 102-turn Lagrange Foundry engagement: 1,017 tool calls, 43 of them knowledge retrievals, **none about method**. `KnowledgeGet` ran 21 times — 13 for `REF-l1`, the rest for client material. `DOC-33` was never fetched. Behaviourally: 24 turns offer options and 45 ask a direct question, but only **2 of 102 contain any process or ordering language**. And the consultant wrote its engagement memory 106 times (61 standing-note rewrites, 45 decisions) into an artifact **the client cannot see**, inventing an `OPEN:` block in free text to hold exactly the to-do list you're describing.
+
+## The new finding: the playbook isn't unread. It's unrepresentable.
+
+I went into DOC-33 and then compared it against the artifact it's meant to produce.
+
+DOC-33 §3.4 specifies every ledger entry as `### <decision name>   [<section>]`, filed under eleven named sections. §3.5 names them: `Session`, `Business`, `Audience`, `Offer`, `Objectives`, `Inheritance`, `Capabilities`, `Brand`, `Site`, `Parked`, `Client calls`. The very first is:
+
+> `## Session — stage, act, sittings, scope band`
+
+Your actual ledger is **45 flat entries titled "Decision 1" … "Decision 45"**. Zero section tags. Zero stage tracking. No `Session` section, no `Parked`, no `Client calls`.
+
+That is not a compliance failure. **`record_decision` has nowhere to put a section, a state, or a stage.** A consultant who had DOC-33 memorised could not comply with §3.4, because the tool has no field for it. The playbook specifies a structured instrument; what got built is a text box and a numbered list.
+
+So the honest diagnosis shifts. Last turn I said method loses to mechanism because mechanism has a forcing function. True — but the deeper reason is that **the method has no place to live.** It can't be written down where it would be read back.
+
+## You already designed the flexible structure. In writing. In detail.
+
+This is the part worth sitting with, because it means you're not inventing — you're instantiating.
+
+**§2 — two levels.** *"The client sees four acts — legible progress, natural break points. The AI tracks eleven stages — finer gates, each with an explicit exit condition."* That is precisely "structure that isn't hoops": coarse and legible for the human, fine-grained for the machine.
+
+**§5 — four starting points, one flow.** *"These are **not four scripts**. They differ in what is already decided, not in what needs deciding. Intake writes every decision into the ledger marked **inherited** or **open**. The main flow then visits only the open ones."*
+
+That is your shared to-do list, already specified. "Pre-populated with expected steps" = §6's *produces* lists. "Visited in different orders" = gates rather than sequence. "Entirely skip steps" = marked `inherited` or parked with a reason. You described DOC-33 §5 from scratch, without having it in front of you, which is a good sign the design is right.
+
+**§7 is the coaching you were about to write into the reminders.** §7.1 options-not-iterations — *"a client who cannot say what they want can reliably say which of three they prefer, and the why is the valuable part."* §7.4 the one-push rule. And §7.2, which is your register problem answered exactly:
+
+> **Never leave them staring at a blank question.** *"What's your brand personality?"* produces silence or boilerplate. *"You come across as more careful than flashy — is that right, or do you want to feel more ambitious than that?"* produces an answer.
+
+None of it was ever loaded.
+
+## What I'd build — four changes, and they're small
+
+**1. `record_decision` gains `section` and `state`.** Sections from §3.5; state from `inherited | open | locked | parked | client-call`. One change makes §3.4, §5's whole routing mechanism and §7.4's record all representable at once. Everything else follows from it.
+
+**2. One stage/act field on the engagement.** The playbook's own `Session` section. It is the smallest possible change and the one that matters most, because **leading requires knowing where you are** — a model with no representation of stage can only react. When you press it, you are supplying the position verbally; that's why it performs.
+
+**3. The per-turn digest carries act, stage, the stage's gate, and that stage's open decisions.** Not the playbook — its ~200-token projection. That distinction is the whole trick: injecting DOC-33 would cost you 740 lines of context; injecting *where you are in it* costs nothing. You already have the channel and the proof it works — the consultant demonstrably works from `page-digest` because a digest is fact, whereas `act-rather-than-narrate` is advice and gets ignored.
+
+**4. A client-facing surface: four acts, and what's open.** §2 already promises the client sees four acts. Today they see nothing.
+
+## How this answers "how do we make it lead"
+
+Not by asking it to. **A gate is a checkable condition; leadership falls out of it.** "You are in stage 1; its gate is one primary conversion action with a destination; it is not met" is a *fact* that produces a question with no exhortation anywhere. That's the same forcing function that makes `translateYPct` get looked up reliably: the omission costs something immediately.
+
+And it is the right shape for both your users. The novice gets four legible acts and a consultant who always has a next move. You get to jump to stage 7 and mark stages 3–5 inherited — which the playbook explicitly permits, because §5's routing is about *what is already decided*, not about order.
+
+For register specifically, I'd still add the recorded, client-visible, client-correctable field I suggested last time. §7.2 tells the AI how to ask without vocabulary; it doesn't tell it how high to pitch. Inference from silence is a coin-flip every turn, and both wrong answers lose you the user.
+
+## Two honest problems
+
+DOC-33's timings (Act I in 45–60 minutes) assume a booked consultation. Your LF engagement ran **days, across many sittings and several lost sessions**. The playbook anticipates that — *"acts may span sittings"* — but nothing in the tooling counts sittings or resumes at an act boundary, which is exactly where §4 says context should be rebuilt.
+
+And DOC-33 §5 wants ingestion to run **before** the session, with a vision pass, so the opener can be specific. I didn't verify whether that exists; in your LF session the reference-site captures happened live, mid-conversation, which is not what §5 describes.
+
+## What I need from you
+
+Last turn's question still stands — **per-engagement or per-site?** Your sites outlive conversations. A new one now matters more: DOC-33 §2 says *"Act I is limb-agnostic and runs once per client, ever."* Once per **client**, not per site. If that's still the intent, the ledger's identity is the business and not the chat, and that decides the data model before any of the above gets built.
+
+Push back on the shape and I'll file it — I'd expect three tickets under EPIC-19: the decision schema (§3.5 + §5 states), stage/act in the digest, and the client-facing act surface. The register field probably rides with the third.
 
 <!-- xgd-chat-end -->

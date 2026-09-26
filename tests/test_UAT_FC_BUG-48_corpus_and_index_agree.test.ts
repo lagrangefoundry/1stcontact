@@ -315,8 +315,14 @@ describe('BUG-48 — one command runs the release in order', () => {
     // running the producers without the indexes is exactly how the shipped bundle
     // got into the state this ticket describes. So the order stops being something
     // an operator has to remember between two commands and becomes one command.
+    //
+    // THE VERB CHANGED AND THE ORDERING DID NOT ([[REQ-322]]). `bin/build` builds
+    // the KB too now, and both scripts reach it through the one stage `1c kb
+    // ensure` rather than through two spellings of the same three steps — so what
+    // is asserted here is the stage, not the verb it wraps. This ticket's property
+    // is the ORDER, and the order is unchanged.
     const script = readFileSync('bin/kb-release', 'utf8')
-    const build = script.indexOf('1c" kb build')
+    const build = script.indexOf('1c" kb ensure')
     const assets = script.indexOf('1c" assets')
     expect(build).toBeGreaterThan(-1)
     expect(assets).toBeGreaterThan(-1)

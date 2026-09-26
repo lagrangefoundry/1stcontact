@@ -5,16 +5,25 @@ type: request
 title: bin/dev up starts the deployed environment, and bin/build builds the KB
 created_by: EPIC-16
 created_at: '2026-09-25T20:40:56.921470+00:00'
-updated_at: '2026-09-25T22:34:49.419301+00:00'
+updated_at: '2026-09-25T23:49:20.849297+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-82c5521c
+  commits:
+  - working_sha: 7cff8ecd4575f84b83f2d441207674b0cd40461a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 78de28723ff1cae88213c72593d3a2b93634f4ae
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.368
+  story_points: 8
 ---
 
 ## What the operator asked for
@@ -182,3 +191,155 @@ implementation, two entry points.
   deploy step already refuses with a named fix when `dist-assets` is missing.
 - **No change to what `1c kb build` does.** Its stages, its ordering and its credentials
   are BUG-48's and stay as written; this ticket decides only *when it is called*.
+
+
+---
+
+## What landed
+
+### 1 — `bin/dev up` starts the deployed environment
+
+`DEV_SERVICES` grew a fifth row, `dev` — `bin/1c dev serve`, on the port
+`KNOWN_SERVICES` already names — placed after the builder and before access-sim,
+because access-sim proxies to it. Both servers are in the list, as §L1 requires;
+the builder's row is untouched. `down` and `reap` needed no change: the name is
+the pidfile's stem and the port comes out of the one table.
+
+**A refusal is now a different word from a timeout.** `up` watches the child as
+well as the port. A `DevFailureKind` of `spawn`, `refused` or `timeout` rides on
+each failure; a process that has exited is reported with its exit code and its
+log named (`REFUSED` in the report), and one still running that never answered is
+reported as before (`FAILED`). The port is checked first on every pass, including
+after an exit is seen, so a wrapper that hands the port to a grandchild and exits
+is not misread as a refusal.
+
+**access-sim's default origin moved to the deployed environment**, so `up`
+starting it with no argument fronts 8789. Reaching the watch builder through
+Access now takes `--builder http://127.0.0.1:8788`, and `ACCESS.md`'s hand-run
+recipe was updated to name it.
+
+### 2 — `bin/build` builds the knowledge base
+
+The stage is a new verb, **`1c kb ensure`**, and it is the one implementation both
+scripts call: `bin/build` runs it bare, before `1c assets`; `bin/kb-release` runs
+it `--force`. `1c kb build`'s three steps moved into `runKbBuild`, which both
+`1c kb build` and the stage call, so the two cannot come to disagree about what
+building the KB means.
+
+Four outcomes, all conditional on `requireCoherentKb` — the same call `1c assets`
+refuses on, never a second opinion about staleness:
+
+- **coherent** → one line, nothing read, nothing spent.
+- **no index at all** → one line, and *not* a failure. `1c assets` inlines `null`
+  in that state rather than refusing, so a fresh checkout must not be made to pay
+  a cloud credential for a KB it has never built. (Not stated in the original
+  scope; it follows from `kbBundle` returning `null`.)
+- **behind** → `runKbBuild`, then on into `1c assets`.
+- **behind with no usable credential** → refuse here, naming
+  `CLOUDFLARE_API_TOKEN` and carrying the skew, before anything is written.
+
+The credential precondition was **extracted rather than copied**:
+`embedderConfigured` and `EMBEDDER_CREDENTIAL_ADVICE` are now named, and
+`resolveEmbedder` throws the same constant it always did. `--force` asks the same
+question in the same words, which is what makes one stage with two entries better
+than two stages.
+
+## Where this does not reach, and the operator's call
+
+**The trigger is corpus-against-index, not ticket-against-corpus.** That is what
+the scope above specifies, and it is the only comparison that cannot disagree with
+the one gating the inline. The consequence is worth stating plainly: **editing a
+`doc` ticket and then running `bin/build` still ships the old text.** The corpus
+on disk has not changed, so the index still covers it, so the stage says "current"
+and `1c assets` has nothing to refuse. The case this ticket closes is a corpus
+that has moved ahead of its index — an export that ran, a document written in —
+not a ticket store that has moved ahead of the corpus.
+
+Closing that too is one line: have the stage run the export (`exportCorpus` +
+`writeProjections`) before it compares, which needs no credential and no network
+and would make the corpus current from the store first. It is left out because the
+scope above says the stage "does nothing" on a coherent index, and an export is
+not nothing — it writes files, and it makes every `bin/build` depend on the
+ticket store being readable. **Operator's call**, deliberately not taken here.
+
+## Two existing UATs updated, and why
+
+Both are intent conflicts this ticket resolves, not drift:
+
+- `test_UAT_FC_BUG-48_the_release_script_builds_before_it_inlines` asserted
+  `bin/kb-release` contains `1c" kb build`. It now asserts `1c" kb ensure`.
+  BUG-48's property is the **ordering** — build before inline — and the ordering
+  is unchanged; only the verb it reaches it through moved, which is exactly the
+  "caller, not a copy" this ticket asks for.
+- `test_UAT_AC1294_an_unrecognised_form_is_refused_with_usage_and_builds_nothing`
+  pinned `usage: 1c kb <build|export|status>`. The list grew `ensure`. The AC's
+  property is that the usage is printed, not which verbs it names today.
+
+## Test plan — `tests/test_UAT_FC_REQ-322_one_command_each.test.ts`
+
+Ten UATs. Real detached children, real pidfiles, a real `bin/access-sim` proxying
+a real HTTP origin, and a real corpus resolution / index build / inline. Three
+stand-ins, each a boundary this repository does not own: the embedding and
+describing models (`LAGRANGE_KM_EMBEDDER` / `LAGRANGE_KM_DESCRIBER`, as REQ-123
+and BUG-48 do it) and the `xgd` CLI the corpus export shells out to, so the
+"document newer than the index" is one the suite wrote.
+
+The real dev ports are **not bound** — a suite listening on 8788 or 8789 would
+fight the operator's own environment — so stand-in services carry the real
+*names* on free band ports, and what the real ports are is asserted against
+`KNOWN_SERVICES`, which is the mechanism that makes `down` and `reap` cover a new
+service at all.
+
+- `up_starts_both_servers_in_dependency_order` — five rows, the order, `dev`'s
+  argv, both servers present, every name+port drawn from `KNOWN_SERVICES`, and
+  the repro console absent from `up` but present in the table.
+- `up_records_all_five_and_down_frees_them` — a real `up` over five stand-ins:
+  five pidfiles, then `down` stops all five with nothing still listening.
+- `a_refusal_is_not_reported_as_a_timeout` — a child that exits 3 after printing
+  a reason is `refused`, names the exit code and the log, and the log holds the
+  reason; a live child that binds nothing is `timeout`; the report says `REFUSED`
+  and `FAILED`.
+- `access_sim_fronts_the_deployed_environment_by_default` — the simulator's own
+  startup report names the dev port and not the builder's, and `up` passes no
+  origin.
+- `a_page_fetched_through_access_sim_comes_from_the_origin_it_fronts` — a signed-in
+  request through the simulator is answered by the origin behind it.
+- `a_coherent_index_costs_no_credential_and_no_request` — `current`, with `fetch`
+  replaced by a throwing spy that is never called and an environment holding no
+  credential at all.
+- `a_stale_index_with_no_credential_fails_in_this_stage` — refuses naming
+  `CLOUDFLARE_API_TOKEN` and the skewed document, and the index files are
+  byte-identical afterwards.
+- `a_stale_index_is_rebuilt_and_the_bundle_then_covers_the_document` — the real
+  build runs, the report names index/chunks/map, `requireCoherentKb` then passes,
+  and the inlined `kb.js` carries the document's text.
+- `force_skips_the_question_but_not_the_credential` — a coherent index still
+  builds under `--force`, and still refuses a missing credential.
+- `both_entry_points_run_the_one_stage` — both scripts invoke `1c kb ensure`
+  (`--force` in one), neither reaches past it to `1c kb build`, and the stage
+  precedes `1c assets` in `bin/build`.
+
+Regression scope run green: REQ-319 (dev processes), REQ-318 (dev serve), BUG-48,
+the system-KB reconciliation suite, the access-sim suites (REQ-192, BUG-59,
+REQ-204, BUG-146), REQ-149 / REQ-254 / REQ-292 / REQ-312, the build-deploy smoke,
+and `pnpm -r build`.
+
+`tests/reconciliation-builder-workspace-origin.test.ts`'s
+`test_UAT_AC977_every_response_the_origin_returns_is_non_cacheable` fails on this
+tree and is **not this ticket's**: it reports `/api/chats/export`,
+`/api/chats/import` and `/api/export` as declared-but-unprobed, all three
+introduced by `ead5aa1dd0` (`feat(copy): carry a business's conversations with
+--chats`).
+
+
+## Landed alongside [[BUG-147]]
+
+BUG-147 reached `xgd-working` while this branch was out, changing the same loop in
+`devUp`: it rewrites the pidfile a second time once the port answers, recording the
+`listenerPid` that actually holds the socket. The merge-back combined the two rather
+than choosing — the second write and `chooseListenerPid` are BUG-147's and are kept
+verbatim; this ticket's `refused`/`timeout` distinction wraps them, so the pidfile is
+upgraded on the success path and a failure still carries its kind. Both suites pass
+together (`test_UAT_FC_BUG-147_dev_stops_the_listener`, 37 tests with REQ-319 and this
+ticket's ten). No UAT of this ticket asserts anything about `listenerPid`; that
+property is BUG-147's and is proved by its own suite.

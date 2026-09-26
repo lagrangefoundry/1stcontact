@@ -309,6 +309,8 @@ export interface NodeSource {
     a11yRole?: string
     src?: string | null
     box?: NodeSourceBox
+    /** The manifest's own "this element carries no text of its own" flag — see {@link isBandPaint}. */
+    textless?: boolean
   }>
   sections?: ReadonlyArray<{ index?: number; box?: NodeSourceBox }>
 }
@@ -380,19 +382,80 @@ function toRegionBox(box: NodeSourceBox, scale: number): RegionBox {
 }
 
 /**
+ * REQ-271 — is this element the band's own PAINT rather than an object standing
+ * on the band?
+ *
+ * The two sides represent band paint in structurally different places. A
+ * conventional page nests its content inside the band element, so the fill lives
+ * on the band record and the reference manifest holds no textless element for it
+ * at all. An L1 render paints each band as a real full-bleed box — so the same
+ * fact reaches the reproduction manifest twice, and the box copy can never pair,
+ * because there is nothing on the reference side to pair it with.
+ *
+ * Recognised in the REPORTING and deliberately not by dropping the element from
+ * the manifest: a full-bleed textless box is exactly what the fold reads to
+ * rebuild a backdrop (BUG-27), so removing it upstream would take a hero
+ * photograph out of the fold's input on a page-builder site. The manifest stays
+ * faithful to what was painted; only the readers that would otherwise
+ * double-count it — the values diff's unpaired tally, and the region leads —
+ * recognise it for what it is.
+ *
+ * Tight by construction — the box must be full-bleed and coincide with a band's
+ * own box to within a pixel of layout noise. A box that merely sits ON a band,
+ * or a layer with its own geometry (a photograph inside a taller fill), is an
+ * object in its own right and is still reported.
+ *
+ * BUG-148 — DECLARED HERE, in the import-free core, because both readers need
+ * it and this is the only module the other two can both reach: the values diff
+ * imports it, and `regionNodeLeads` below would otherwise have had to reach into
+ * the capture library, which is the one thing this file may not do. Structural
+ * parameters for the same reason — a `ValueElement` and a `SectionValues`
+ * satisfy them, and no type crosses the boundary.
+ */
+export function isBandPaint(
+  el: { box?: NodeSourceBox; textless?: boolean },
+  sections: ReadonlyArray<{ box?: NodeSourceBox }>,
+  pageWidth: number,
+): boolean {
+  const b = el.box
+  // `textless` is the projection's own flag for "this element carries no text"
+  // (`fieldToElement`); an empty `text` is NOT the same test — a field's text is
+  // its accessible name, falling back to `(<role>)`, and is never the empty
+  // string. On a container it is the flag and not the text: BUG-142's nesting
+  // gives a band element the CONCATENATED text of everything standing on it, so
+  // `text` is long and `textless` is still true.
+  if (!b || !el.textless) return false
+  const TOL = 2
+  if (b.x > TOL || b.x + b.width < pageWidth - TOL) return false
+  return sections.some(
+    (s) => s.box && Math.abs(s.box.y - b.y) <= TOL && Math.abs(s.box.height - b.height) <= TOL,
+  )
+}
+
+/**
  * The leads for ONE region out of ONE manifest, best-first.
  *
- * Ordered by `ofRegion` descending — the node that explains most of the
- * disagreement first — with `ofNode` as the tie-break, so between two nodes
- * covering the region equally the one the region swallows whole ranks above the
- * one it merely clips.
+ * Ordered by `ofRegion × ofNode` descending — how much of the disagreement the
+ * node explains, times how specifically it explains it. A node the region
+ * swallows whole and which fills the region scores 1; a node that covers the
+ * region entirely but for which the region is a rounding error scores ~0, and
+ * that is the point.
  *
- * The tie-break is what keeps a section band BELOW the run standing on it: both
- * contain the region entirely (`ofRegion` 1), and the band is the larger of the
- * two by orders of magnitude, so the run wins on `ofNode`. That is the right
- * answer and it falls out of the rule rather than needing a special case for
- * sections — they only surface first where there is no element to beat them,
- * which is exactly the case they are carried for.
+ * BUG-148 — THIS WAS `ofRegion` DESCENDING WITH `ofNode` AS A TIE-BREAK, and
+ * the tie-break was unreachable. It assumed a run standing on a band would also
+ * score `ofRegion` 1 and so meet the band on the first comparator; it does not,
+ * because a region's bbox is snapped to the `blockPx` grid while a manifest box
+ * sits at the browser's fractional coordinates, so a run that IS the region
+ * still scores 0.89 against the band's 1 and loses before `ofNode` is consulted.
+ * The result was a 1257px band leading a 32px subheading on 9 of 12 regions of
+ * a real round, each printing "section (100% of region)" — true, and carrying no
+ * information. Nothing about that was a tie.
+ *
+ * The product keeps the intent the tie-break was reaching for — a band surfaces
+ * first only where there is genuinely no element to beat it — and makes it hold
+ * for a run at any offset, with no floor to tune and no special case for
+ * sections. A band that a region really does land on alone still wins, because
+ * everything else near it scores lower still.
  */
 export function regionNodeLeads(
   bbox: RegionBox,
@@ -418,9 +481,21 @@ export function regionNodeLeads(
     leads.push({ kind, index, ...rest, box, overlap: { ofRegion: round(ofRegion), ofNode: round(inter / nodeArea) } })
   }
 
+  const sections = source.sections ?? []
+  const pageWidth = source.viewport?.width ?? 0
+
   const elements = source.elements ?? []
   for (let i = 0; i < elements.length; i++) {
     const el = elements[i]
+    // BUG-148 — a band's own paint is a band, and is offered as `kind: "section"`
+    // or not at all. The two sides put it in different lists (see {@link
+    // isBandPaint}), so leaving it in `elements` let the reproduction answer a
+    // region with a full-bleed aggregate while the reference could only answer
+    // with its section record — 12 of 12 `element` against 9 of 12 `section` on
+    // a round whose two sides in fact agreed. "A lead on one side and nothing
+    // like it on the other is usually the whole finding" is advice a round is
+    // given, and it has to be safe to follow.
+    if (isBandPaint(el, sections, pageWidth)) continue
     const text = el.text?.trim()
     consider('element', i, el.box, {
       ...(text ? { text: text.length > o.maxTextChars ? `${text.slice(0, o.maxTextChars)}…` : text } : {}),
@@ -433,12 +508,20 @@ export function regionNodeLeads(
   // disagreement is a background — a wrong fill or a missing hero image produces
   // a large region with no text run anywhere near it, which would otherwise
   // resolve to nothing at all and read as "we have no idea".
-  const sections = source.sections ?? []
   for (let i = 0; i < sections.length; i++) {
     consider('section', sections[i].index ?? i, sections[i].box, { role: 'section' })
   }
 
-  leads.sort((a, b) => b.overlap.ofRegion - a.overlap.ofRegion || b.overlap.ofNode - a.overlap.ofNode)
+  // Ranked on the ROUNDED pair the record carries, not on the full-precision
+  // intermediates, so the order is re-derivable from `regions.json` alone — a
+  // reader who suspects a lead can check the sort without re-running the diff.
+  const explains = (n: RegionNode): number => n.overlap.ofRegion * n.overlap.ofNode
+  leads.sort(
+    (a, b) =>
+      explains(b) - explains(a) ||
+      b.overlap.ofRegion - a.overlap.ofRegion ||
+      b.overlap.ofNode - a.overlap.ofNode,
+  )
   return leads.slice(0, o.maxPerSide)
 }
 

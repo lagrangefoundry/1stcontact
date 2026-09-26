@@ -157,6 +157,8 @@ export const L1_STRUCTURAL_RULES = {
   actionTargetsDialog: 'an action must name a node that carries `dialog`',
   /** A node either navigates somewhere or acts on this page, so `link` and `action` cannot both be present: which one wins would be a property of the renderer rather than of the document. */
   actionOrLink: 'a node cannot carry both `link` and `action`',
+  /** REQ-327 — a picture either navigates somewhere or opens itself large on this page, so `link` and `zoom` cannot both be present: the renderer emits one interactive element and which role it took would be its decision rather than the document's. */
+  zoomOrLink: 'a picture cannot carry both `link` and `zoom`',
   /** BUG-143 — a run's `backedBy` names the surface painted behind it, and the geometry envelope asserts that surface still covers the run; a name nothing answers to is an assertion that silently never runs. */
   backingSurfaceExists: 'a `backedBy` must name a node the document declares',
 } as const
@@ -767,6 +769,28 @@ function walk(
       message: `${L1_STRUCTURAL_RULES.allowedUrlScheme}: image src '${node.src}' is not an allowed URL`,
     })
   }
+  // REQ-327 — the magnify role's own source, held to the SAME allowlist as the
+  // placed one above. It is emitted into exactly the same `<img src>` sink, so a
+  // second rule here would be a second answer to a question already settled —
+  // and the one that drifted would be whichever this file forgot.
+  //
+  // `link` and `zoom` on one picture is refused for the reason `action` and `link`
+  // are: the renderer emits one interactive element, and which role it took would
+  // be the emitter's decision rather than the document's. Stated here rather than
+  // in the shape because a node carrying both is well-formed — it is the PAIR that
+  // cannot be rendered as written.
+  const zoom = (node as { zoom?: { src?: string } }).zoom
+  if (zoom !== undefined) {
+    if (zoom.src !== undefined && !isSafeUrl(zoom.src)) {
+      errors.push({
+        path: `${path}/zoom/src`,
+        message: `${L1_STRUCTURAL_RULES.allowedUrlScheme}: zoom src '${zoom.src}' is not an allowed URL`,
+      })
+    }
+    if ((node as { link?: unknown }).link !== undefined) {
+      errors.push({ path: `${path}/zoom`, message: L1_STRUCTURAL_RULES.zoomOrLink })
+    }
+  }
 
   checkEffects(node, path, errors)
 
@@ -1069,6 +1093,16 @@ export function l1AssetReferences(input: unknown): L1AssetReference[] {
       if (typeof painted === 'string') {
         out.push({ path: `${path}/axes/backgroundImageUrl`, value: painted })
       }
+    }
+    // REQ-327 — the magnify role's larger original. A THIRD place a subtree names
+    // a file, and it hides the same way the other two do: nothing about the value
+    // says it is an asset handle, so a walk that did not know to look here would
+    // report a page as referencing nothing and let a zoom open onto a broken
+    // image — which the visitor meets only after committing a click to it.
+    const zoom = node.zoom
+    if (zoom !== null && typeof zoom === 'object') {
+      const larger = (zoom as { src?: unknown }).src
+      if (typeof larger === 'string') out.push({ path: `${path}/zoom/src`, value: larger })
     }
     for (const [key, item] of Object.entries(node)) walk(item, `${path}/${key}`)
   }

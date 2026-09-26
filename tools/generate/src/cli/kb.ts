@@ -739,17 +739,32 @@ export async function resolveEmbedder(env = process.env): Promise<Untyped> {
     return (await namedFactory(env.LAGRANGE_KM_EMBEDDER, 'createEmbedder'))()
   }
   const apiToken = env.CLOUDFLARE_API_TOKEN
-  if (!apiToken) {
-    throw new Error(
-      'The knowledge index needs Workers AI: set CLOUDFLARE_API_TOKEN (the same ' +
-        'credential `pnpm deploy:*` uses). The account is discovered from the token, ' +
-        'so CLOUDFLARE_ACCOUNT_ID is only needed to override that. The embedding ' +
-        'model is the one the Worker serves, so the index and the search agree by ' +
-        'construction.',
-    )
-  }
+  if (!apiToken) throw new Error(EMBEDDER_CREDENTIAL_ADVICE)
   const accountId = await resolveAccountId(apiToken, env)
   return new lib.WorkersAiEmbedder({ accountId, apiToken })
+}
+
+/** What to do about a missing embedder credential — the one wording for it. */
+export const EMBEDDER_CREDENTIAL_ADVICE =
+  'The knowledge index needs Workers AI: set CLOUDFLARE_API_TOKEN (the same ' +
+  'credential `pnpm deploy:*` uses). The account is discovered from the token, ' +
+  'so CLOUDFLARE_ACCOUNT_ID is only needed to override that. The embedding ' +
+  'model is the one the Worker serves, so the index and the search agree by ' +
+  'construction.'
+
+/**
+ * Whether {@link resolveEmbedder} can be satisfied, asked without asking the network.
+ *
+ * THE PREDICATE IS SPLIT OUT AND NOT COPIED ([[REQ-322]]). `bin/build`'s KB stage
+ * has to know the answer BEFORE it starts a build it cannot finish — a refusal
+ * that arrives after the corpus has been rewritten is a refusal that cost
+ * something — and the one thing worse than asking early is asking differently.
+ * Both branches of {@link resolveEmbedder}'s own decision are here, in its order:
+ * a named stand-in embedder needs no Cloudflare credential at all, which is how
+ * the tests for this stage run without one.
+ */
+export function embedderConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.LAGRANGE_KM_EMBEDDER || env.CLOUDFLARE_API_TOKEN)
 }
 
 /**
@@ -1283,11 +1298,146 @@ export async function requireCoherentKb(bundle: KbBundle, root: string = kbRoot(
   return skew
 }
 
+// ── the KB stage: one implementation, two entry points (REQ-322) ─────────────
+
+/**
+ * `1c kb build`, and the line it prints — the whole of what the verb does.
+ *
+ * EXTRACTED SO THAT MORE THAN ONE CALLER CAN BE THE SAME CALLER ([[REQ-322]]).
+ * The three steps and their order were already deliberate and already commented;
+ * what they were not was reachable. `1c kb ensure` needs to run exactly this, and
+ * a stage that ran its own arrangement of the same three functions would be a
+ * second opinion about what building the KB means.
+ *
+ * The declaration is scaffolded FIRST because a projection asserts its own
+ * membership from it: written against no declaration on a fresh checkout, it
+ * would carry no membership fields and then be excluded by the declaration the
+ * build was about to write. The projections then run BEFORE the build, so they
+ * are indexed, chunked and mapped like any other corpus member — the assistant is
+ * not meant to know which of its knowledge was written and which was generated.
+ */
+export async function runKbBuild(root: string = kbRoot()): Promise<{
+  result: BuildResult
+  report: string
+}> {
+  ensureConfig(root)
+  writeProjections(root)
+  const r = await buildKb(root)
+  const lines = [
+    `index:  ${r.documents} document(s), ${r.embedded} embedded`,
+    `chunks: ${r.chunks}`,
+    `map:    ${r.territories} territories, ${r.accessPoints} access point(s), ` +
+      `written by ${r.describer}`,
+  ]
+  // Named, never silent: a territory with no validated access point is a region
+  // of the corpus the map describes but cannot route to.
+  if (r.doorless.length) lines.push(`        no way in: ${r.doorless.join(', ')}`)
+  return { result: r, report: lines.join('\n') }
+}
+
+/** What {@link kbEnsure} decided to do. */
+export type KbEnsureAction =
+  /** The index already covers the corpus. Nothing was read, run or spent. */
+  | 'current'
+  /** No index exists at all — `1c assets` inlines `null`, so this is not a failure. */
+  | 'unbuilt'
+  /** The index was behind (or the caller is the KB build), so it was rebuilt. */
+  | 'built'
+
+export interface KbEnsureOutcome {
+  readonly action: KbEnsureAction
+  /** What to print — one line when nothing was done, the build's own report when it was. */
+  readonly report: string
+  /** The skew that triggered a build, or the coherent one that prevented it. */
+  readonly skew: KbSkew | null
+}
+
+/**
+ * Bring the knowledge index up to the corpus, if and only if it is behind.
+ *
+ * THE STAGE `bin/build` AND `bin/kb-release` BOTH CALL ([[REQ-322]]). Building
+ * the KB was a second command the operator had to remember, and which one they
+ * needed depended on whether they happened to have edited a `system_kb`
+ * document — exactly the kind of thing that is not remembered. [[BUG-48]] is the
+ * same lesson one level down, and `bin/kb-release` was its fix; it just was not
+ * applied to the command the operator actually types.
+ *
+ * CONDITIONAL ON STALENESS, NOT ON MEMORY, AND NOT ON A SECOND OPINION. The
+ * trigger is {@link requireCoherentKb} — the same call, not a re-derivation of
+ * it — because that is the one place that decides whether the corpus and the
+ * index agree, and it is what `1c assets` refuses on. A stage with its own idea
+ * of staleness is free to disagree with the check that gates the inline, and then
+ * the build passes and the ship refuses.
+ *
+ * SO A BUILD THAT TOUCHES NO KB DOCUMENT COSTS NOTHING NEW. `1c kb build` needs a
+ * Workers AI credential and a round trip, and nearly every build has no business
+ * with either. On a coherent index this reads two manifests off disk, says so in
+ * one line, and returns: no token is read and no request is made.
+ *
+ * AND A BUILD THAT CANNOT FINISH FAILS BEFORE IT STARTS. With the index behind
+ * and no usable credential, the refusal is raised HERE — naming the credential
+ * and carrying the skew that made the build necessary — rather than letting the
+ * build reach `1c assets` and refuse there. The same refusal, one stage earlier,
+ * with the fix named; and because it lands before the corpus is rewritten, a
+ * previously built tree is left exactly as it was. BUG-48's position holds
+ * unchanged: PRODUCING a stale tree is legitimate, SHIPPING one never is.
+ *
+ * `force` is `bin/kb-release`'s entry, and it is the same stage rather than a
+ * bypass of it: that command's subject IS rebuilding the index, so it does not
+ * ask whether the index is behind — but it asks about the credential in the same
+ * place and in the same words, which is the property that makes one stage with
+ * two entries better than two stages.
+ */
+export async function kbEnsure(
+  opts: { force?: boolean; root?: string; env?: NodeJS.ProcessEnv } = {},
+): Promise<KbEnsureOutcome> {
+  const root = opts.root ?? kbRoot()
+  const env = opts.env ?? process.env
+
+  const build = async (why: string, skew: KbSkew | null): Promise<KbEnsureOutcome> => {
+    if (!embedderConfigured(env)) throw new Error(`${why}\n\n${EMBEDDER_CREDENTIAL_ADVICE}`)
+    const { report } = await runKbBuild(root)
+    return { action: 'built', report: `${why}\n\n${report}`, skew }
+  }
+
+  if (opts.force) {
+    return await build('Building the knowledge base, because that is what this command is.', null)
+  }
+
+  const bundle = await kbBundle(root)
+  if (bundle === null) {
+    // NOT A FAILURE, for the reason {@link kbBundle} gives and `1c assets` acts
+    // on: an operator who has never run a KB build gets an assistant that knows
+    // its tools and not the design documents, which is a degradation. Failing
+    // here would make a cloud credential the price of every build on a fresh
+    // checkout, which is the regression this stage exists to avoid.
+    return {
+      action: 'unbuilt',
+      report: 'kb: no index is built here — nothing to bring current (`bin/kb-release` builds one).',
+      skew: null,
+    }
+  }
+  try {
+    const skew = await requireCoherentKb(bundle, root)
+    const n = Object.keys(bundle.docs).length
+    return {
+      action: 'current',
+      report: `kb: the index covers all ${n} corpus document(s) — nothing to build.`,
+      skew,
+    }
+  } catch (err) {
+    if (!(err instanceof KbSkewError)) throw err
+    return await build(kbSkewError(err.skew) ?? 'The knowledge index is behind its corpus.', err.skew)
+  }
+}
+
 // ── the command ──────────────────────────────────────────────────────────────
 
-export const KB_USAGE = `usage: 1c kb <build|export|status>
+export const KB_USAGE = `usage: 1c kb <build|ensure|export|status>
 
   build     write the corpus, build both indexes, and generate the map
+  ensure    build only if the index is behind its corpus — bin/build's KB stage
+            (--force builds regardless, which is what bin/kb-release runs)
   export    write the corpus only (no embedding, no credentials needed)
   status    what is built, and how current it is
 

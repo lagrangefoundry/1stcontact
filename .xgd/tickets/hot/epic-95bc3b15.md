@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-25T22:48:28.534328+00:00'
+updated_at: '2026-09-25T23:26:34.555470+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -16,6 +16,7 @@ fields:
   - request-ba1e2212
   - bug-3d91a05e
   - request-e1a43d83
+  - bug-3625c6ff
 ---
 
 ## What this epic is for
@@ -1138,3 +1139,52 @@ markers in `package.json` and the dev server built against them
 the builder outright rather than only restarting it. And every request is logged
 twice, with two `dev-*` build directories both rebuilding — there appear to be
 two `wrangler dev` instances against `apps/control-app`.
+
+
+**Correction to the last observation above.** The doubled request lines are NOT
+two `wrangler dev` instances against `apps/control-app`. `bin/dev up` starts four
+services (filing, builder, public site, access-sim), and the second wrangler is
+the public site on 8787 — a different Worker, with its own bindings and no
+`SESSION_JUNCTION`. The duplicate lines carry the SAME `trace_id`, so one request
+is being emitted twice by the app logger, not served twice. Worth tidying, but it
+is cosmetic and nothing in this finding depends on it. The conflict-markers
+observation stands: at 22:35 the dev server built against a root `package.json`
+holding `<<<<<<< HEAD` and failed outright (`Expected string in JSON but found
+"<<"`), so a half-finished merge in the served checkout can break the builder
+rather than only restart it.
+
+
+**And the premise that made this a surprise: the frozen dev environment exists
+and is not what `bin/dev up` serves.** [[REQ-318]] landed (`eea3301a13`, on
+`xgd-working`): `bin/deploy --env dev` bundles to `apps/<app>/.dev-snapshot/` and
+`1c dev serve` runs `wrangler dev --no-bundle` against it on **8789**, so editing
+a source file changes nothing about what is served until the next deploy — the
+immune boundary Finding 10 asks for. `bin/dev up` DOES build that snapshot
+(`.dev-snapshot/` mtime 21:40:07, from the deploy step), and then starts
+`bin/1c builder` — plain `wrangler dev` on 8788, watching the tree — and never
+`1c dev serve`. Nothing was listening on 8789 during the incident; 8788 was, and
+it restarted four times in thirteen minutes. So the operator was on the watching
+builder while believing he was on the frozen one, which is why a merge three
+minutes into his turn could reach him at all. Same shape as this epic's other
+adoption gaps: the capability is built, and the path everyone actually runs does
+not use it.
+
+
+### Finding 12 — filed (2026-09-25)
+
+- [[BUG-149]] — **Defect A**, here. The Durable Object stub is captured in
+  `DurableJunctionStorage`'s constructor and reused across requests, which workerd
+  refuses; `prepare` catches, `adopted` goes false, and `queue()` drops every write
+  in silence. [[REQ-307]] is live only on the first request a fresh isolate handles.
+  Measured: 4 of 17 post-seed turns reached the object. Child of this epic.
+- lagrange-framework **BUG-69** — **Defect B**, upstream. `transcript()` reads the
+  archive only `if (!log.exists())`, so a junction that is behind hides a complete
+  archive — from the panel AND from `seedDialogue`. Filed there; no code here.
+- [[BUG-150]] — **the reason a merge could reach a live turn at all**, filed under
+  [[EPIC-16]] because it finishes that epic's §L1. `bin/dev up` builds the frozen
+  snapshot and then starts the watching builder; every entry point that serves from
+  the changing tree goes.
+
+The three are ordered by what they cost. BUG-150 stops the restarts. BUG-149 makes a
+restart survivable. BUG-69 makes a junction that is behind harmless rather than
+destructive. None of them substitutes for another.
