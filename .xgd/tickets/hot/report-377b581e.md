@@ -12,7 +12,8 @@ fields:
   report_kind: resync_run
   subject_uid: resync-anchor
   blocked_by_dirty_working: false
-  skipped_commits: []
+  skipped_commits:
+  - a28d2f522f0e5f06629ca9084ac14349b988ed85
   orphan_commits: []
 ---
 
