@@ -6,9 +6,9 @@ title: 'fold: a full-bleed band backdrop folds to box-N and escapes the surface 
   plus a carousel L1 cannot clip and a font table that loses every weight'
 created_by: repro-console:repro-joyfulculinarycreations-com#1
 created_at: '2026-09-26T19:40:57.271901+00:00'
-updated_at: '2026-09-26T22:04:37.864976+00:00'
+updated_at: '2026-09-26T22:05:13.153250+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -799,3 +799,24 @@ accompanying `bug`'s. In particular the full-bleed band test still measures agai
 `document.documentElement.scrollWidth` — this ticket's clip axis removes the horizontal overflow
 that blinded it on *this* site, but the ruler is still one horizontal overflow away from going blind
 on the next.
+
+
+---
+
+## Addendum — the two closed-set guardrails `clip` had to be added to
+
+Adding `clip` to `nodeAxisGroupsShape` (issue 2) failed two existing sweeps,
+which is exactly what those sweeps are for. Both hold an exhaustive sample value
+per node-level axis group and assert the schema's key set **equals** it, so a new
+group cannot be added without being swept on every node kind:
+
+- `tests/reconciliation-l1-shared-axis-groups.test.ts`
+  (`test_UAT_AC802_shared_groups_accepted_identically_and_strictly_on_every_kind`)
+- `tests/req105-node-axis-groups.test.ts`
+  (`test_UAT_FC_REQ-105_every_kind_admits_every_node_level_axis_group`)
+
+Each gains `clip: true`, the same literal-scalar sample shape `stacked` already
+carries beside it. Both sweeps then admit the axis on every kind and — because
+spreading a boolean yields an object that is not the literal — still refuse a
+polluted value on every kind alike. No assertion was relaxed: the closed set is
+one entry wider, which is the whole of what this ticket changed about it.
