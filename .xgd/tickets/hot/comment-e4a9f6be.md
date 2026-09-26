@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-150
 created_by: xgd
 created_at: '2026-09-26T19:43:28.632232+00:00'
-updated_at: '2026-09-26T20:38:22.987467+00:00'
+updated_at: '2026-09-26T20:41:30.006034+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -137,5 +137,14 @@ Merge clean and the deletions survived. Now bump the version on top and re-verif
 
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: Not logged in · Please run /login
+
+<!-- xgd-turn id="f0e6b271-35a5-4f36-80f9-8622cd1f509c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T20:41:29.113835+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
