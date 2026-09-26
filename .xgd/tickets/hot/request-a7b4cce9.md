@@ -6,10 +6,10 @@ title: 'fold: a full-bleed band backdrop folds to box-N and escapes the surface 
   plus a carousel L1 cannot clip and a font table that loses every weight'
 created_by: repro-console:repro-joyfulculinarycreations-com#1
 created_at: '2026-09-26T19:40:57.271901+00:00'
-updated_at: '2026-09-26T22:05:13.153250+00:00'
+updated_at: '2026-09-26T22:06:41.379670+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - fold-wrong
