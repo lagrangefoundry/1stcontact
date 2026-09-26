@@ -5,15 +5,26 @@ type: request
 title: 'Scroll-position-driven state: pinning, and properties that track scroll progress'
 created_by: xgd
 created_at: '2026-09-25T23:28:50.293953+00:00'
-updated_at: '2026-09-26T07:09:36.870707+00:00'
+updated_at: '2026-09-26T07:19:42.076392+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-d74728d8
+  commits:
+  - working_sha: 6b9f256e0b5a14368c29efa9069c92f22cff402d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e793087f690cf598f78c7e4be5f692cc1585b6f8
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c70b4b4cce87e9086327881fab8eb2cef299a14b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.373
 ---
 
 ## What I was trying to achieve
