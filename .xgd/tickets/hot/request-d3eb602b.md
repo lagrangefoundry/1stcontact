@@ -6,10 +6,10 @@ title: 'capture: an ancestor rotation and an image wrapper''s framing are lost, 
   four collage photos reproduce square, unrotated and stretched'
 created_by: repro-console:repro-faelan-com#2
 created_at: '2026-09-26T21:30:29.327185+00:00'
-updated_at: '2026-09-26T21:30:29.327185+00:00'
+updated_at: '2026-09-26T23:43:45.268681+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - capture-loses-it
