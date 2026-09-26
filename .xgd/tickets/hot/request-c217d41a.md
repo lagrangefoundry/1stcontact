@@ -5,10 +5,10 @@ type: request
 title: Let an image be opened large — click-to-zoom / lightbox
 created_by: xgd
 created_at: '2026-09-25T23:35:24.243829+00:00'
-updated_at: '2026-09-26T19:52:46.354158+00:00'
+updated_at: '2026-09-26T19:53:45.614248+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
