@@ -6,9 +6,9 @@ title: 'fold: a bordered panel''s flow offsets are measured from its border box,
   a one-child panel never flows at all'
 created_by: repro-console:repro-gigabytealchemy-ai#7
 created_at: '2026-09-25T21:44:49.637957+00:00'
-updated_at: '2026-09-25T22:59:30.515848+00:00'
+updated_at: '2026-09-26T06:54:55.363002+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -396,3 +396,107 @@ I did not re-file them and I did not fold them in here.
 
 One `1c` defect filed separately against the region ranker and the two manifests' element sets,
 as required by §5 — it is what made both residuals above invisible in the round's own digest.
+
+
+---
+
+## What landed (implementation notes)
+
+Both issues landed together, in `tools/generate/src/l1/probes.ts`, in the order the brief
+requires. Beyond the two changes proposed above, the fix needed three consequences that the
+brief did not name; they are recorded here so they are covered rather than discovered later.
+
+### Issue 1 — the flow origin is the content box, on both axes
+
+As proposed: `plan()` seeds both the flow cursor and the leading-offset origin from this node's
+**content** box — the border box it is handed, inset by its own `surfaceBorderInset`. `childFrame`
+is unchanged. `rewrite`'s `lefts`/`tops` are renamed `borderLefts`/`borderTops`, and the contract
+is stated once in `rewrite`'s doc comment: **an L1 child's `geometry.x`/`geometry.y` is relative
+to its parent's PADDING box** — what `rebaseInto` writes and what `childFrame` reads back by
+adding the PARENT's inset, with a node's own inset deliberately absent from its own frame.
+
+The y axis is fixed with the x axis rather than left latent. The reference measured here has no
+surface with a full `border` axis, so only x was observable on it; a fully-bordered panel is the
+same defect on the other axis and is pinned by its own UAT rather than by the one reference that
+happened not to carry one.
+
+**Consequence not in the brief — the evaluator's flow interior.** `evaluateLayout`'s
+`layoutInFlow` measured its flow interior from the border box inset by padding alone, while the
+same function already donates the border inset to an ABSOLUTE descendant. So a corrected lead read
+against an un-inset frame lands the run its border-width SHORT: the two halves are one fix, not
+two. `layoutInFlow`'s `interior` now insets by the node's own border as well as its padding, and
+the natural content height it reports adds both horizontal edges back — `box-sizing: border-box`
+keeps the border inside the rect the keyframes pinned, so a bordered box is taller than what it
+holds by its two edges just as a padded one is by its two paddings.
+
+### Issue 2 — a lone pinned child is admitted to the flow
+
+As proposed: in `rewrite`, before the `components.length === 0` early return, a node with exactly
+one promotable pinned child pushes that child as its own one-member region, so it goes through
+`plan()` / `flowNode` / `withContentInset` like any other member and the panel's height comes
+from its content.
+
+Two guards keep the admission to the case measured:
+
+- **`keepsAbsolute` children are not promotable**, which is what preserves the collapse case
+  `heightBelongsToContent`'s exemption was written for. A panel whose only child is genuinely out
+  of flow — a `stacked` composition, a childless fill — still has no flow child, still reads as
+  "every child out of flow", and still keeps the height that makes it paint at all.
+- **The admission is restricted to a fold-synthesized backing surface** (`isSynthesizedSurfaceId`).
+  A surface is the only node whose height is a captured constant the containment probe then holds
+  it to, and the only node recovery has a measured reason to flow when nothing is colliding. A
+  one-child node that is not a surface — a document root over a single run — has nothing to
+  overrun, and flowing it would be a region promoted for no measured cause.
+
+`heightBelongsToContent` keeps its behaviour and gains a comment recording why it is now sound:
+it reads the tree AFTER recovery, so "still pinned" now means "recovery declined to flow it", and
+recovery declines only for the reasons the exemption is about.
+
+**Consequence not in the brief — the slack `withContentInset` hands back.** The slack becomes
+`declared − (contentBottom − top) − border.bottom`. `tops` is a border-box top, so the span
+already carries the top edge; the bottom edge has to be named, or a panel that paints a full
+border is handed a `responsivePadding.bottomPx` that renders it its own border-width taller than
+the capture had it. It is 0 on a panel whose only border is an accent rule, which is why the
+reference this was measured on could not show it.
+
+## Evidence
+
+Four UATs in `tests/test_UAT_FC_REQ-324_a_bordered_panel_flows_from_its_content_box.test.ts`, over
+an authored L1 document of four panels — the recovery is demand-driven, so a document whose copy
+collides when it grows is the only way to reach the path under test, and the reference bundles are
+not committed. Real components throughout: `promoteToFlow`, `evaluateLayout`,
+`contentRobustnessProbe` and `renderL1Document`.
+
+1. `..._a_bordered_panels_flow_lead_is_its_base_offset` — an accent-bordered panel's recovered
+   lead is the base's pinned offset, unchanged; the evaluator resolves the run at
+   `panel.x + border + offset` on both the base and the recovered document; the CSS carries the
+   border rule and a margin that is the offset from inside it.
+2. `..._a_full_border_panel_leads_from_its_content_box_on_both_axes` — the same on a fully
+   bordered panel, where the inset is non-zero on x AND y, and the panel's evaluated height after
+   recovery is the height the capture had rather than that plus its own bottom edge.
+3. `..._a_single_run_panel_flows_and_its_height_follows_the_copy` — a one-run panel flows, lands
+   at the right x (issue 1 as issue 2's prerequisite), loses its constant keyframe height, and its
+   `contentRobustnessProbe` escapes go from non-zero to 0.
+4. `..._a_panel_whose_only_child_is_out_of_flow_keeps_its_height` — the collapse case is
+   untouched: a `stacked` lone child stays pinned, the panel keeps its height, and the document
+   still validates.
+
+Verified against the reference bundle offline (no browser), by the brief's own two probes:
+
+- `promoteToFlow` on `storage/references/gigabytealchemy.ai/index/l1.json` now prints
+  `RECOVER card-4 ... x 32` — the same number as `BASE`, where it printed 36 — and `card-3` /
+  `card-7` print `place flow` with their `height` gone, where they printed `(pinned)` at
+  `h 29.25`.
+- `./bin/1c l1-gate --ref …/gigabytealchemy.ai/index --json` tallies
+  `onSample {}`, `offSample {'escape:card-5': 20, 'overlap:-': 4}`,
+  `contentRobustness {'overlap:-': 186}` — `escape:card-3`, `escape:card-7`,
+  `escape:section-band-2` and `escape:section-band-4` are all 0, exactly the brief's "Right".
+  `escape:card-5` 20 remains and is REQ-302's.
+
+The browser-backed `1c gate` end-to-end confirmation was not run: Chromium cannot launch in this
+sandbox. The two offline probes above are the brief's own instruments for both issues.
+
+Regression scope, all green: the 28 fold / layout / probe / gate suites
+(`bug7`, `bug8`, `bug9`, `bug14`, `bug19`, `req86`, `req88`, `req92`, `req97`, `req104`, `req105`,
+the four `reconciliation-*` layout suites, and the `BUG-109/112/113/139/142/143`,
+`REQ-157/211/255/274/278/288/302` UATs) plus `tsc --noEmit` on `tools/generate`.
