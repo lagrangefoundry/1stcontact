@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-332
 created_by: xgd
 created_at: '2026-09-26T20:19:22.047661+00:00'
-updated_at: '2026-09-26T20:38:23.676362+00:00'
+updated_at: '2026-09-26T20:41:33.861867+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,14 @@ Now the naming pass that decides which backdrops are genuinely backing surfaces.
 
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: Not logged in · Please run /login
+
+<!-- xgd-turn id="e318b806-bc09-48c7-b07c-7bdc53101824-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T20:41:32.171456+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
