@@ -1423,10 +1423,15 @@ export const l1ScrollStopSchema = z
  * waiting for something else to reveal it. The capture driver emulates reduced
  * motion, so the same gate is what keeps the L1 round-trip honest.
  *
- * ONE MOTION DRIVER PER NODE: mutually exclusive with {@link l1RevealSchema},
- * enforced by {@link L1_STRUCTURAL_RULES}. A CSS animation overrides a
- * transition, so a node carrying both would have its entrance silently
- * discarded — a trap the shape refuses instead of shipping.
+ * COMPOSES WITH THE OTHER TRIGGERS, PER PROPERTY (REQ-329). A track may sit on the
+ * same node as an entrance, a hover and a focus state: "fade in as I arrive, then
+ * drift as the reader descends" is one node with two triggers, and it is the first
+ * thing an author asks for once both primitives exist. What it may not do is
+ * animate a property another motion on the node also moves — a CSS animation wins
+ * its properties outright, so the other half would move no pixel and say nothing
+ * about why. {@link L1_STRUCTURAL_RULES}' `animatedPropertyIsExclusive` refuses
+ * that pair by name (REQ-325 refused the whole PAIRING, which also refused every
+ * composition that had no contest in it).
  */
 export const l1ScrollTrackSchema = z
   .object({
@@ -1436,6 +1441,32 @@ export const l1ScrollTrackSchema = z
     stops: z.array(l1ScrollStopSchema).min(2),
   })
   .strict()
+
+/**
+ * REQ-329 — a node's scroll motion: ONE track, or two-or-more composed.
+ *
+ * One track carries one `range`, so a node that wanted to fade on the way IN and
+ * scale on the way OUT could not say so — it had to pick one span for both, and
+ * naming a second track replaced the first rather than joining it. A list gives
+ * each track its own range and its own stops, and the renderer emits one
+ * `@keyframes` block and one entry in each `animation-*` list per track, which is
+ * how CSS itself composes animations.
+ *
+ * TWO TRACKS MUST ANIMATE DIFFERENT PROPERTIES, refused by {@link
+ * L1_STRUCTURAL_RULES} on exactly the terms {@link l1EntranceSchema} states for
+ * two behaviours: where two animations in one list name the same property the last
+ * one wins and the earlier one is silently discarded, so an author meets the
+ * contest as a refusal naming both rather than as a design that did not arrive.
+ *
+ * **A one-element array is not a legal spelling of a single track** — see
+ * {@link l1EntranceSchema} for why two spellings of one thing is the drift this
+ * schema refuses everywhere. A single object is otherwise unchanged, so every
+ * existing document stays valid and renders identically.
+ */
+export const l1ScrollMotionSchema = z.union([
+  l1ScrollTrackSchema,
+  z.array(l1ScrollTrackSchema).min(2),
+])
 
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
@@ -1574,8 +1605,11 @@ const nodeAxisGroupsShape = {
   reveal: l1EntranceSchema.optional(),
   /** REQ-325 — pin against the viewport for the length of the parent's box. */
   sticky: l1StickySchema.optional(),
-  /** REQ-325 — properties driven by scroll progress rather than by a one-shot trigger. */
-  scrollTrack: l1ScrollTrackSchema.optional(),
+  /**
+   * REQ-325 — properties driven by scroll progress rather than by a one-shot
+   * trigger. REQ-329 — one track, or a list of two or more that compose.
+   */
+  scrollTrack: l1ScrollMotionSchema.optional(),
   /**
    * BUG-112 — **this node is deliberately stacked over what it overlaps.**
    *

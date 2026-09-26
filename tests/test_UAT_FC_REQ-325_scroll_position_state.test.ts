@@ -442,25 +442,35 @@ describe('REQ-325 — properties that track scroll progress', () => {
   })
 
   /**
-   * AC8 — a node has **one motion driver**.
+   * AC8 — **superseded by REQ-329.** A node's motions compose; what is exclusive is
+   * a PROPERTY, not a driver.
    *
-   * `reveal` is a transition to the settled state; `scrollTrack` is an animation
-   * over a scroll range. A CSS animation overrides a transition on the same
-   * property, so a node carrying both would have its entrance silently discarded —
-   * with nothing in either feature's own output to say so. Refused as a pair
-   * rather than resolved by precedence.
+   * This AC read "a node cannot carry both `reveal` and `scrollTrack`", and its
+   * reason was the cascade: a CSS animation overrides a transition, so an entrance
+   * beside a track would be silently discarded. The reason was right and the rule
+   * drawn from it was too wide — an animation wins *the property it animates*, so
+   * an entrance that fades while a track drifts has no contest in it at all, and
+   * that pairing is the first thing an author asks for once both primitives exist.
+   * REQ-329 narrowed the refusal to the contest and kept it refused rather than
+   * resolved by precedence. What still holds from this AC is asserted here; the
+   * composition it used to forbid is pinned by REQ-329's own suite.
    */
   it('test_UAT_FC_REQ-325_one_motion_driver_per_node', () => {
+    // `track` fades AND drifts, so it contests `opacity` with the default fade
+    // every entrance carries, and `translate` with a rising one. Still refused —
+    // now naming the property rather than the pair of axes.
     const both = doc(section([hero({ reveal: { yPx: 24 }, scrollTrack: track })]))
     const result = validateL1(both)
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.errors.map((e) => e.message)).toContain(L1_STRUCTURAL_RULES.oneMotionDriver)
+    expect(result.errors.some((e) => e.message.includes(L1_STRUCTURAL_RULES.animatedPropertyIsExclusive))).toBe(
+      true,
+    )
 
     // A COMPOSED entrance (REQ-326 — two or more behaviours with their own
     // timings) is refused on the same terms, because the reason is the cascade
     // and not the arity: an animation beats a transition however many transitions
-    // there are, so the whole composition would be the half that disappears.
+    // there are.
     const composed = doc(
       section([
         hero({
@@ -475,9 +485,11 @@ describe('REQ-325 — properties that track scroll progress', () => {
     const composedResult = validateL1(composed)
     expect(composedResult.ok).toBe(false)
     if (composedResult.ok) return
-    expect(composedResult.errors.map((e) => e.message)).toContain(
-      L1_STRUCTURAL_RULES.oneMotionDriver,
-    )
+    expect(
+      composedResult.errors.some((e) =>
+        e.message.includes(L1_STRUCTURAL_RULES.animatedPropertyIsExclusive),
+      ),
+    ).toBe(true)
 
     // Either alone is ordinary, in either entrance spelling.
     expect(validateL1(doc(section([hero({ reveal: { yPx: 24 } })]))).ok).toBe(true)

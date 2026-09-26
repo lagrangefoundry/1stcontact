@@ -75,11 +75,18 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
   // a box, and a kind that could be pinned but not tracked would be the same
   // per-kind drift this AC exists to close.
   sticky: { topPx: 64, fromPx: 900 },
+  // REQ-329 — the track drives `scale`, which is the one of its three properties
+  // no other motion in this sweep claims: the `reveal` beside it fades and rises,
+  // and the `interaction` above it dims on hover. So the sample composes with
+  // everything rather than needing to be swept as an alternative — which is the
+  // point REQ-329 makes about the vocabulary, restated as a sample. The contest
+  // the envelope DOES refuse (two motions on one property) is pinned by
+  // test_UAT_FC_REQ-329_a_contested_property_is_refused_and_names_both_claimants.
   scrollTrack: {
     range: 'cover',
     stops: [
-      { at: 0, opacity: 0.4, translateYPct: 8 },
-      { at: 1, opacity: 1, translateYPct: 0 },
+      { at: 0, scale: 1 },
+      { at: 1, scale: 1.08 },
     ],
   },
   // BUG-112 — the declared stacking intent. A scalar rather than an object bag,
@@ -362,34 +369,29 @@ describe('AC-802 every node kind admits the same shared axis groups', () => {
 
     // The whole vocabulary, on each kind in turn, through the document envelope.
     //
-    // REQ-325 — minus the two groups that are declared ALTERNATIVES rather than
-    // additions: a pin is a placement and so cannot ride on an absolute
-    // `geometry` track, and a scroll-progress animation would override a
-    // `reveal`'s transition, so the envelope refuses each pair by name. Every
-    // other group is compatible with every other, which is what this sweep is
-    // for. Neither is dropped from the sweep: each is checked below in the company
-    // of everything it does compose with, and the refusals themselves are pinned
-    // by test_UAT_FC_REQ-325_a_pin_requires_flow_placement and
-    // test_UAT_FC_REQ-325_one_motion_driver_per_node.
-    const { sticky, scrollTrack, ...COMPATIBLE_GROUPS } = NODE_GROUP_SAMPLES
+    // REQ-325 — minus the ONE group that is declared an ALTERNATIVE rather than an
+    // addition: a pin is a placement and so cannot ride on an absolute `geometry`
+    // track, so the envelope refuses that pair by name. Every other group is
+    // compatible with every other, which is what this sweep is for. The pin is not
+    // dropped from the sweep: it is checked below in the company of everything it
+    // does compose with, and the refusal itself is pinned by
+    // test_UAT_FC_REQ-325_a_pin_requires_flow_placement.
+    //
+    // REQ-329 — `scrollTrack` USED TO BE the second alternative, because REQ-325
+    // refused it beside a `reveal` outright. It refuses only a contested PROPERTY
+    // now, so a track and an entrance that move different things are an ordinary
+    // composition and the track sweeps with everything else.
+    const { sticky, ...COMPATIBLE_GROUPS } = NODE_GROUP_SAMPLES
     for (const [kind, [, base]] of Object.entries(KIND_BASES)) {
       const node = { ...base, axes: SURFACE, ...COMPATIBLE_GROUPS }
       const report = validateL1({ widths: WIDTHS, root: node })
       expect(report.ok, `${kind}: ${JSON.stringify(report.ok ? [] : report.errors)}`).toBe(true)
-      // Each alternative on its own, in the company of everything else it does
-      // compose with — so both are still swept on every kind, as a pair with the
-      // member they replace rather than as one more addition.
+      // The alternative on its own, in the company of everything else it does
+      // compose with — so it is still swept on every kind, as a pair with the
+      // member it replaces rather than as one more addition.
       const { geometry: _abs, ...IN_FLOW } = COMPATIBLE_GROUPS
       const pinned = validateL1({ widths: WIDTHS, root: { ...base, axes: SURFACE, ...IN_FLOW, sticky } })
       expect(pinned.ok, `${kind} pinned: ${JSON.stringify(pinned.ok ? [] : pinned.errors)}`).toBe(true)
-      const { reveal: _entry, ...NO_ENTRANCE } = COMPATIBLE_GROUPS
-      const tracked = validateL1({
-        widths: WIDTHS,
-        root: { ...base, axes: SURFACE, ...NO_ENTRANCE, scrollTrack },
-      })
-      expect(tracked.ok, `${kind} tracked: ${JSON.stringify(tracked.ok ? [] : tracked.errors)}`).toBe(
-        true,
-      )
     }
 
     // The two gaps the upgrade closed by name: a slot admits sizing and a text
