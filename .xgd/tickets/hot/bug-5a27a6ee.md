@@ -6,10 +6,10 @@ title: 'bin/dev down cannot stop the builder: up records the wrapper''s pid, not
   listener''s'
 created_by: EPIC-16
 created_at: '2026-09-25T21:46:45.739941+00:00'
-updated_at: '2026-09-25T23:18:05.583535+00:00'
+updated_at: '2026-09-26T18:26:16.605477+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
