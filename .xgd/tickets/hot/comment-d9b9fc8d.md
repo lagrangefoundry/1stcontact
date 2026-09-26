@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-26T18:32:44.283662+00:00'
+updated_at: '2026-09-26T18:37:07.227925+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4822,5 +4822,55 @@ sed -E 's/=.*/=<set>/' ~/Documents/secrets/1c.dev.env
 <!-- xgd-chat role="user" ts="2026-09-26T18:32:43.712665+00:00" -->
 #### You
 I just made a number of L1 improvements - can you walk me through the local deploy again please?
+
+<!-- xgd-turn id="95b122fe-8778-480b-b826-034b32d2d391-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T18:37:06.763619+00:00" -->
+#### Claude
+Epic updated (§P). No code touched, no tickets created.
+
+**The runbook has shrunk since §N** — REQ-322, BUG-147, REQ-318 and REQ-319 have all landed, and between them they removed both manual steps I gave you last time. `DEV_SERVICES` now carries a `dev` row (`1c dev serve` on 8789), `devUp` runs `bin/deploy --env dev` itself, and `bin/access-sim`'s default origin moved to **8789** — the 8788 watch builder is now the one that has to be named.
+
+## Where you are right now
+
+| port | service | state |
+|---|---|---|
+| 8788 | builder (watch) | **down** — stale pidfile |
+| 8789 | dev serve (snapshot) | **down** |
+| 8787 | public-site | up |
+| 8790 | filing | up |
+| 8799 | access-sim | up — **fronting 8788**, which is dead |
+
+Every pidfile is stamped `2026-09-25T23:27Z`, nine minutes *before* REQ-322 committed. So access-sim is proxying to a port with nothing behind it, and the snapshot is from `bdbba1cfaf` — behind all four L1 commits.
+
+## Three commands
+
+```bash
+bin/dev down      # 1
+bin/build         # 2
+bin/dev up        # 3
+```
+
+Then sign in at **`http://127.0.0.1:8799/login`** (not `localhost` — the cookie is host-scoped), as `martin@westhead.me`.
+
+**`down` first isn't ceremony.** `up` skips any service whose port already answers, so an access-sim started before REQ-322 keeps fronting 8788 indefinitely. It also clears the stale builder pidfile.
+
+**`up` does the deploy.** workerd guard → migrate hook against `.wrangler/state` → secrets short-circuited (local has no secret store) → snapshot written for both apps → five services started, access-sim last.
+
+## The L1 nuance — build is needed, but not for the reason it looks like
+
+Your four L1 commits touch `packages/framework/src/l1/render.ts` and `packages/site-schema/src/l1/{schema,validate,types,motion,email}.ts`. Those are **Worker-side**, and `bin/deploy --env dev` rebuilds the Worker bundle from source through the same wrangler invocation that would upload it. The L1 engine would reach the environment with no build at all.
+
+`bin/build` is required for the *client*: `dist-assets` was last built Sep 25 13:25, and `turn-health.js`, `builder.css` and `config.js` are newer than it. And `ship_local` **copies** `dist-assets` into the snapshot rather than reading it in place — so stale assets get frozen in and stay frozen. The freeze working as designed, and also the trap: the deploy can't notice that what it froze was stale.
+
+The rule worth carrying: **the deploy rebuilds the Worker and freezes the client; only `bin/build` refreshes the client.**
+
+Two things that won't slow you down: the KB index is currently coherent (9 exported + 3 projected, index/chunks/map all built), so stage 2 reads two manifests and charges nothing. And `1c workerd` reports one version, so the guard passes.
+
+## Two things to know afterwards
+
+**8788 still starts, and still reads `src/` live** — BUG-150 is still `draft`. With access-sim now fronting 8789 the §O failure doesn't happen by following instructions; it happens by browsing 8788 directly and believing it's frozen. Merges into `xgd-working` will keep restarting it. Same for public-site on 8787, which is still `pnpm dev` watch mode even though the deploy writes it a snapshot.
+
+**Don't run `reap`** — you have the repro console up, and there's an unrecognised listener of ours on 8712 that `reap` would take along with anything else unmanaged. For a single service, `bin/dev restart <service>` now exists (BUG-147's fix).
 
 <!-- xgd-chat-end -->
