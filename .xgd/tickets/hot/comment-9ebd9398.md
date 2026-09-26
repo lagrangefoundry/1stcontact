@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-329
 created_by: xgd
 created_at: '2026-09-26T19:02:06.592176+00:00'
-updated_at: '2026-09-26T19:32:54.164443+00:00'
+updated_at: '2026-09-26T19:45:59.239957+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,14 @@ Now fix the stale prose in `req105` and write the REQ-329 UAT suite.
 Now the REQ-329 UAT suite:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="e9751c85-fd40-4777-ada7-ff4d3051b20d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T19:45:57.954450+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
