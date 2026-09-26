@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-26T21:19:25.409236+00:00'
+updated_at: '2026-09-26T21:26:31.801418+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4197,5 +4197,74 @@ One important learning from the LF site experience - we can create multiple page
 But can you look at how LF can together vs the stages that we imagined - I don't think they will align
 
 Also AFTER writing DOC-33 we talked about how the experience needs to be engaging - I'm not sure how much of that thinking made it back into the doc.
+
+<!-- xgd-turn id="a5b2d691-d2ed-4adb-beca-296134967e08-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T21:26:31.278553+00:00" -->
+#### Claude
+I'll read DOC-33 and measure the actual LF engagement against it.
+
+Now recording Finding 13 on the epic.
+
+Measured the LF ledger (47 decisions, 102 turns) against DOC-33 as it stands. All three of your instincts check out, and the third one has a paper trail.
+
+## 1. The stages and LF don't align — the order is inverted, not shuffled
+
+DOC-33's spine is decide-then-render. LF ran render-then-decide.
+
+| DOC-33 stage | first appears at |
+|---|---|
+| 1 Purpose / audience / scope | #1 |
+| **6 Design system** | **#3** |
+| 5 Assets | #6 |
+| 7 Layout | #9 |
+| **3 Content architecture** | **#17** |
+| **4 Copy** | **#24** (one entry in 47) |
+| **2 Positioning & differentiation** | **never** |
+| **9 Critique** | **never** |
+
+**The third decision in the engagement was the palette.** Architecture arrived after sixteen visual decisions.
+
+Two things fall out of that table that I think matter more than the reordering:
+
+**The two stages that never happened are the two with no artifact.** Stage 2 is the most emphatic section in the document — "the AI's job here is interrogation, not generation", the stage DOC-31 says all copy descends from. Zero decisions. Stage 9, zero. Every stage that renders something ran; neither stage that only *decides* something did. Same selection pressure that made the consultant fetch `REF-l1` thirteen times and DOC-33 never: **what doesn't move the page doesn't happen.** A stage with no artifact isn't a stage, it's an intention.
+
+**"Locked" didn't survive contact.** Stage 6's gate is "locked and everything downstream draws from it." The palette reversed entirely at D4 (dark→gold judged "Matrix-style", replaced by parchment+sanguine). Ground shifted again at D11. Spacing rhythm at D18. Typefaces at D31 — and changed again at **D39–40, decision forty of forty-seven**. The section rule took four goes (D35→36→37→38; D38's own text says "settles a device that took four attempts"). 22 lines of the ledger carry supersession language.
+
+That isn't indiscipline. A design system can't be locked before there's a page for it to be a system *of*. The anti-anchoring job the lock was doing is done better by plurality.
+
+Also worth knowing: **the plain pass never happened, and it had already been killed on paper.** CHAT-21 concluded "the plain pass dies"; DOC-33 §8 still specifies it. LF matched the revised thinking and contradicted the document.
+
+## 2. Variants — discovered in-session, blocked by the product, absent from every doc
+
+- **D26**: *"Design comparisons cannot be shown as separate pages. A newly added page arrives with no interior and no operation can create one."*
+- **D27/28**: reversed once REQ-300/301 landed mid-engagement — home, `/style-a` Facsimile, `/style-b` Gallery.
+- **D34**: *"Martin chose Gallery outright"*, alternates deleted.
+
+The biggest decision in the whole engagement — the entire site's treatment — settled in **one turn by pointing**, after thirty turns of incremental argument.
+
+**DOC-33 has zero occurrences of variant, alternate, side-by-side, or comparison-as-artifact.** §7.1 says "offer two or three genuinely distinct directions" and never says *build them*. DOC-49 §3 — the one the consultant actually reads — says "put up two or three options", same ambiguity. Both are readable as "describe three options in prose", which is exactly what LF got for thirty turns.
+
+The line to write: **the comparison must be the artifact, not a description of one.** A client evaluating a rendered page needs no vocabulary. A client evaluating a paragraph about a page needs ours.
+
+## 3. The engagement thinking never landed — and it's fully worked
+
+It's all in CHAT-21 Session 2: plurality-not-deferral; hard-to-reverse earns conversation, cheap gets shown; **"a bored client gives short agreeable answers — 'yeah, that's fine' is the sound of a session failing"**; every turn moves the page; build by resolution not addition; the carousel as a standing comparison surface; deliberately-wrong extremes; plausible-but-wrong real English rather than Lorem Ipsum, because greeking extracts no corrections. Plus the *Computers as Theatre* frame — constraint is what makes it enjoyable; a *procedural* structure is the enemy, not structure.
+
+That session ended: *"DOC-33's own restructure is deferred and scoped in DOC-35 §10."* DOC-35 §10.2 names four specific changes. **None were made** — DOC-33's last edit is 2026-09-08. A third doc was proposed in-session ("The Session as Experience — engagement as an extraction mechanism") and never written.
+
+The sting: DOC-33's *only* engagement argument is §8's "it makes the Act III reveal genuinely dramatic… a large part of what the client is paying to experience" — attached to the plain pass, the exact mechanism CHAT-21 retired.
+
+## One finding you didn't ask for, which decides whether any rewrite works
+
+DOC-33 is in the corpus and indexed. Across 102 turns it was never fetched. `awareness.md` — the landscape primed into every turn — describes 12 documents in 6 territories, and **DOC-33's title appears nowhere in it.** No access point names acts, stages, or what to do first. A consultant asking how a consultation runs lands on DOC-49.
+
+The landscape is machine-generated, so this can't be patched by hand. Whatever replaces DOC-33 has to be written such that its *territory description* names its content — or it repeats.
+
+## Where I'd go
+
+DOC-33 has now been contradicted by three independent passes — CHAT-21 (motivation), DOC-35 §10 (the decision-set/order weld), and LF (observed behaviour). All three say restructure, not amend. Beyond DOC-35 §10.2's four, a revision needs: variants as the primary decision instrument up front with DOC-35 §9.5's dose; every stage carrying an artifact or being marked optional; the plain pass retired in text; the design-system lock moved or dropped; engagement as extraction; and a ledger that can say `section` / `state` / `supersedes` — §5's whole routing mechanism depends on fields `record_decision` doesn't have, which is why LF's ledger is 47 flat "Decision N" entries with D27 and D28 identical.
+
+All of this is Finding 13 on EPIC-19, with the tables. Nothing filed — tell me whether you want the rewrite as a revised DOC-33 or as the sibling doc CHAT-21 proposed, and I'll scope it.
 
 <!-- xgd-chat-end -->
