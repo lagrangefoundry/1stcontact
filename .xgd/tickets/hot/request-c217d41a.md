@@ -5,7 +5,7 @@ type: request
 title: Let an image be opened large — click-to-zoom / lightbox
 created_by: xgd
 created_at: '2026-09-25T23:35:24.243829+00:00'
-updated_at: '2026-09-26T19:49:25.012208+00:00'
+updated_at: '2026-09-26T19:49:49.678351+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -15,6 +15,7 @@ fields:
   priority: medium
   chat_comment: comment-073110e5
 ---
+
 
 ## What I was trying to achieve
 
@@ -153,30 +154,7 @@ attributes that would ACT are dropped — now including the trigger's index and 
 two controls' step, so a click in the editor means "edit this picture" and nothing
 else.
 
-## Test plan
-
-`tests/test_UAT_FC_REQ-330_image_gallery.test.ts`, at the same boundaries REQ-327
-is proved at — the envelope validator, the sole emitter, and the published page
-driven end to end in jsdom, which is the only place stepping, wrapping and
-dismissal are observable at all.
-
-- the vocabulary: the five fields accepted on `zoom` and on nothing else; no way
-  to paint and no way to script smuggled in beside them
-- the envelope: a set whose members disagree about the overlay's chrome is refused
-- the emission: one shell for a four-member set, not four; each trigger opening
-  that one shell at its own index; the caption beside the picture it belongs to;
-  the chrome painted in `ink`; the controls absent from a set of one
-- driven: opening at the clicked plate, stepping with the controls and with the
-  arrow keys, wrapping at both ends, the caption changing with the picture, a
-  wheel dismissing, a touch drag NOT dismissing, focus still returning to the
-  plate that was clicked
-- reuse: a page with a gallery ships REQ-212's modal script unchanged and one
-  zoom script, and no third overlay implementation
-- the unenhanced page: every member visible in flow, the controls unpainted
-- the edit channel: no acting attribute anywhere in the set
-
-
-### Three things that follow from the set, rather than being asked for
+## Three things that follow from the set, rather than being asked for
 
 Each is a consequence of holding more than one picture in one overlay, and each
 is proved by the suite below.
@@ -207,3 +185,25 @@ five overlay-describing fields are **named once**, in the schema, because the
 validator that refuses a disagreeing set and the renderer that reads them off
 whichever member named them would otherwise each keep their own list of what
 counts as the overlay's.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-330_image_gallery.test.ts`, at the same boundaries REQ-327
+is proved at — the envelope validator, the sole emitter, and the published page
+driven end to end in jsdom, which is the only place stepping, wrapping and
+dismissal are observable at all.
+
+- the vocabulary: the five fields accepted on `zoom` and on nothing else; no way
+  to paint and no way to script smuggled in beside them
+- the envelope: a set whose members disagree about the overlay's chrome is refused
+- the emission: one shell for a four-member set, not four; each trigger opening
+  that one shell at its own index; the caption beside the picture it belongs to;
+  the chrome painted in `ink`; the controls absent from a set of one
+- driven: opening at the clicked plate, stepping with the controls and with the
+  arrow keys, wrapping at both ends, the caption changing with the picture, a
+  wheel dismissing, a touch drag NOT dismissing, focus still returning to the
+  plate that was clicked
+- reuse: a page with a gallery ships REQ-212's modal script unchanged and one
+  zoom script, and no third overlay implementation
+- the unenhanced page: every member visible in flow, the controls unpainted
+- the edit channel: no acting attribute anywhere in the set
