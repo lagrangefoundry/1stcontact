@@ -6,9 +6,9 @@ title: 'fold: a full-bleed band backdrop folds to box-N and escapes the surface 
   plus a carousel L1 cannot clip and a font table that loses every weight'
 created_by: repro-console:repro-joyfulculinarycreations-com#1
 created_at: '2026-09-26T19:40:57.271901+00:00'
-updated_at: '2026-09-26T20:32:01.113694+00:00'
+updated_at: '2026-09-26T21:08:33.769278+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -621,3 +621,172 @@ python3 -c "import json,re;print(json.load(open('/Users/martin/lagrangefoundry/1
 **Wrong now** — the capture says `brightness(0.67) contrast(0.88) saturate(1.06) …` and the render says
 `saturate(1.06) brightness(0.67) contrast(0.88)`. **Right when fixed** — the render's function order
 matches the capture's, function for function.
+
+
+---
+
+# Implementation — what was built, and the decisions taken along the way
+
+All four issues are closed. Evidence:
+`tests/test_UAT_FC_REQ-332_backdrop_clip_faces_and_filter_order.test.ts` (19 UATs, no browser,
+every one driving a real entry point — `foldToL1`, `evaluateLayout` / `deriveSurfaceBacking`,
+`renderL1Document`, `validateL1`, `buildTheme` / `fontResourcesFromTheme`, `diffManifests`).
+
+## Issue 1 — the captured backdrop is named for what it is
+
+Option 1 of the two proposed ("decide the exemption from geometry, not from the id"), with one
+deliberate departure from the wording.
+
+**A new id prefix `backdrop-`, not a reused `section-band-`.** The ticket proposed giving a
+captured backdrop a `section-band-*` id. That would have been wrong in a way the ticket could not
+see from the outside: `SYNTHESIZED_SURFACE_ID_PREFIXES` answers a question about **provenance** —
+"did the fold invent this node, so that it has no oracle counterpart to be paired against?" — and a
+captured backdrop emphatically does have one. Renaming it into that set would have removed eleven
+real captured elements from the fidelity pairing queue. The two questions ("did the fold invent
+this?" and "does this back content?") used to have one answer because only the fold ever made a
+backdrop; a captured one separates them. So there are now two predicates:
+
+- `isSynthesizedSurfaceId` — unchanged, and still the answer to the provenance question.
+- `isBackingSurfaceId` — the new one, true for a fold-synthesized surface **or** a captured
+  `backdrop-*`. It is what every *geometric* judgement about surfaces asks.
+
+Three call sites move to the new predicate, and only three: the overlap exemption
+(`probes.ts` `evaluateLayout`), the `backedBy` attribution (`deriveSurfaceBacking`), and the
+content-perturbation height rule in `layoutInFlow` (BUG-143 — a backing surface does not grow with
+the perturbation because the renderer pins its height from keyframes; that is true of a captured
+backdrop on identical terms, and has to be, or the containment assertions this ticket enables
+would be graded against a band that grew and a run that grew by a different amount).
+
+**The naming test is containment, not size.** `isBackdrop`'s existing 0.9-of-viewport full-bleed
+test decides which *paint layer* a fill belongs in, and for that it is exactly right — a 1200×4
+divider spanning the page is painted behind the content as surely as a 1280×1064 section band is.
+It is far too loose to decide whether a fill is a *backing surface*, which is a claim about the
+copy standing on it. So a captured backdrop is named `backdrop-N` when it **covers at least one
+content leaf**, and keeps an ordinary `box-N` when it covers nothing. A decorative divider is
+therefore still a full participant in the overlap scan, which is the property that keeps the
+exemption honest.
+
+**The test runs at the widest width only**, unlike `nestBackingSurfaces`, which demands containment
+at every width before it will restructure the tree. The two need opposite defaults: nesting a band
+around copy it does not hold at 320px would give the band a content extent it never had, whereas
+*naming* a band that has slid off its copy at 320px is the only way the containment probe can ever
+report that it has. A stricter test here would silently un-name exactly the broken cases the probe
+exists to catch.
+
+**Naming happens after the fold loop, not inside it.** Whether a fill backs anything is not
+knowable until every leaf exists, so `foldToL1` leaves a backdrop unnamed in the loop and
+`nameCapturedBackdrops` assigns every id in one pass afterwards.
+
+`keepsAbsolute` (flow recovery) was deliberately **not** moved to the new predicate. It is about
+which nodes recovery leaves pinned, not about a geometric judgement, and changing it would alter
+recovery behaviour beyond this ticket's scope.
+
+As the ticket predicted, this does not lower the delta count and may raise it: it converts false
+overlaps into real containment assertions, any one of which may fire.
+
+## Issue 2 — L1 can clip
+
+All three layers, as the ticket's hypothesis ordered them.
+
+**L1: `clip: z.literal(true).optional()`**, a sibling of `sizing` / `visibility` in
+`nodeAxisGroupsShape` — exactly the shape proposed, and the same "declared, never inferred, `true`
+is the only legal value" form `stacked` already uses. The renderer compiles it to
+`overflow: hidden` on that node and nothing else; it is the renderer's only `overflow` emitter.
+
+**One axis, not two.** CSS has `overflow-x` and `overflow-y` and a document could in principle clip
+one and not the other, but `overflow: hidden` on a single axis promotes the other to `auto` in
+every browser — a scrollbar the document never asked for. One flag that cuts at the box is the
+intent every clipping composition actually has.
+
+**Capture: `ClipAncestor { id, x, y, width, height }` on `RawGeometry`** (so both `RawRun` and
+`RawField` carry it), read by a new `clipOf` walk in the page script: the nearest ancestor-or-self
+whose computed `overflow-x`/`overflow-y` is not `visible`, as its document-coordinate box. The
+**id** is the load-bearing part and is why this is more than a rectangle: it is a document-wide
+sequence assigned on first sight, so two runs cut off by the same ancestor say so — which is how
+the fold knows they belong inside one container rather than two coincidentally-similar ones. It is
+optional, so a pre-REQ-332 bundle parses and folds exactly as before. It is persisted into the
+bundle (`sections.ts`) and declared as a `carried` axis in `value-axes.ts`, so both sides of the
+diff read it through the one declaration site.
+
+**Fold: `nestClipRegions`** groups leaves by clip id and wraps each group in a
+`container { layout: 'stack', clip: true }` whose geometry is the clip box per width, children
+rebased into it. It runs before `nestBackingSurfaces`, because a clip region is content like any
+other and a band that holds it should own the region rather than its individual slides.
+
+**Only where the clip actually cuts.** A group whose every member sits wholly inside its clip box at
+every captured width is not clipped in any observable sense, and no node is built for it. That is
+not an optimisation: a page-builder site declares `overflow: hidden` on dozens of wrappers that
+never clip anything, and building a container for each would restructure documents with no clipping
+defect, for no pixel. The reconstruction earns its place exactly where the reference's own geometry
+says content is being cut off.
+
+**Probes: the clip is applied once, before any probe reads a leaf.** After layout,
+`evaluateLayout` intersects every leaf box with each clipping ancestor's box, and drops a leaf the
+clip removes entirely. Every envelope probe asks a question about where a leaf is *painted*;
+answering that separately in the horizontal-clip check, the overlap scan and the containment probe
+would be three answers to one question, and the three would drift. Answering it once means all
+three read the painted extent by construction — which is what closes this round's 10 `clip`
+findings and all 56 `escape` findings together.
+
+## Issue 3 — the font table keeps its descriptors
+
+The chain the ticket specified, end to end:
+
+- **`RawFontFace`** gains `style` (`oblique` normalised to `italic`) and `weightMax` (the upper
+  bound of a variable face's `font-weight: 200 800`). Both the in-page CSSOM path and BUG-12's
+  byte-parsed cross-origin path read them, so a cross-origin italic is not a second-class face.
+- **`ThemeFont.files: string[]` is replaced by `faces: ThemeFontFace[]`**, one record per captured
+  `@font-face` carrying `{ src, weight?, style? }`. The flattening to a bare path list was the step
+  that destroyed the pairing, so it is gone rather than supplemented. `ThemeFont.weights` stays and
+  is now explicitly the weights the page's **runs** paint — a fact about the copy, not about the
+  files; the two were parallel arrays that agreed by coincidence.
+- **`fontResourcesFromTheme` maps one captured face to one `L1FontFace`**, descriptors and all. The
+  cross product of files × painted weights is gone, and `f.weights` takes no part in it.
+- **`l1FontFaceSchema.weight` accepts a `[min, max]` pair**, as the ticket asked be decided
+  explicitly rather than pinned by accident. A variable face is one file answering every weight
+  between two bounds; pinned to a single number the browser synthesises the rest, which is a
+  different set of glyphs from the ones the reference painted. The renderer emits the two-value
+  `font-weight: 200 800` descriptor CSS defines for exactly this.
+- **The envelope validator range-checks both ends and requires the pair to ascend.** An unordered
+  pair is not a narrower range, it is a rule no browser applies: `font-weight: 800 200` is invalid
+  and the whole descriptor is dropped, silently taking the face's weight coverage with it.
+- **The editor's weight control** (`edit.ts` `weightChoices`) offers a variable face's range at the
+  hundreds CSS names, rather than as two endpoints (which would hide the 400 and 700 a 200–800 face
+  serves) or as 601 options (a slider pretending to be a menu).
+
+Two existing UATs were updated to the new theme shape — `bug12-cross-origin-face-bytes-populate-theme-files`
+and `req88_a_face_file_table_joins_a_run_stack_on_its_primary_token` — asserting the same substance
+through `faces[].src`.
+
+## Issue 4 — the filter chain keeps its order
+
+Of the two forms the ticket offered, **the object keeps its eight named scalars and gains an
+explicit `order: L1FilterFunction[]`**, rather than becoming an array of tagged `{fn, value}` pairs.
+
+The array form is the truer transcription of CSS, and it was rejected for two concrete reasons.
+First, the editor's percentage controls (`edit.ts` `FILTER_CONTROLS`) are a projection over exactly
+those eight named axes; a list of pairs moves every one of them behind a search, for no gain in what
+an operator can express. Second, a list of pairs newly admits the same function twice — a filter no
+capture produces and no control can express, so it is a widening of the envelope with no
+corresponding intent. Order is a **separate fact about the same eight values**, so it is a separate
+field, and the values stay where every reader already looks for them.
+
+- **Absent means "the document has not chosen"**, and the renderer's own fixed order applies — so no
+  document written before this axis existed renders differently.
+- **A partial order can never silently drop paint**: functions named in `order` emit first, then any
+  function carrying a value that `order` omits, in the renderer's fixed order.
+- **The fold writes `order` only when it differs from canonical**, so an already-canonical chain
+  folds byte-identically to what it did before.
+- **The comparator now compares the chain, not its presence.** The ticket noted this as an
+  `instrument-no-axis` shadow "worth one line": `treatments.ts` gains `filterChain`, the painting
+  form of a filter string (identities dropped, percentages folded to ratios, source order kept), and
+  `compareTreatment` reports a delta when two painting chains differ. Without it a reordered chain
+  scored `present` on both sides and this residual would have survived every future round.
+
+## Not done here, and why
+
+The three instrument defects named under "What is NOT in this ticket" are untouched; they are the
+accompanying `bug`'s. In particular the full-bleed band test still measures against
+`document.documentElement.scrollWidth` — this ticket's clip axis removes the horizontal overflow
+that blinded it on *this* site, but the ruler is still one horizontal overflow away from going blind
+on the next.
