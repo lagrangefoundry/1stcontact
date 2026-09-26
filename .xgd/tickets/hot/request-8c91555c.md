@@ -5,10 +5,10 @@ type: request
 title: 'Scroll-position-driven state: sticky pinning and scroll-linked animation'
 created_by: xgd
 created_at: '2026-09-25T23:35:15.273385+00:00'
-updated_at: '2026-09-26T19:09:55.613957+00:00'
+updated_at: '2026-09-26T19:10:01.011789+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
