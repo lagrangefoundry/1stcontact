@@ -5,7 +5,7 @@
  */
 import type { L1FontFace } from '@1stcontact/site-schema'
 import type { RawRun, RawSignals } from './extract'
-import type { ColorUsage, Theme, ThemeFont, ThemeSubScale, ThemeSubScales } from './types'
+import type { ColorUsage, Theme, ThemeFont, ThemeFontFace, ThemeSubScale, ThemeSubScales } from './types'
 
 /**
  * The single family NAME at the head of a font stack — trimmed, surrounding
@@ -106,7 +106,7 @@ export function subScalesFromSignals(signals: RawSignals): ThemeSubScales {
 
 export function buildTheme(
   signals: RawSignals,
-  fontFilesByFamily: Map<string, string[]>,
+  fontFacesByFamily: Map<string, ThemeFontFace[]>,
 ): Theme {
   const colors = signals.colorUsage.map((c) => ({
     hex: c.hex,
@@ -131,7 +131,7 @@ export function buildTheme(
     weights: [...e.weights].sort((a, b) => a - b),
     // The face table is keyed by the bare `@font-face` name; a painted run's
     // `family` is the full stack, so join on the primary token (BUG-16).
-    files: fontFilesByFamily.get(primaryFamily(family)) ?? [],
+    faces: fontFacesByFamily.get(primaryFamily(family)) ?? [],
   }))
 
   return {
@@ -146,22 +146,43 @@ export function buildTheme(
 
 /**
  * REQ-90 — turn the captured theme's font handles into L1 font-face resources:
- * one entry per mirrored `.woff2` (family → served asset). A single-weight family
- * pins its weight; a multi-weight family leaves weight unset (the capture aggregates
- * the per-face weight away, so binding the family name is what moves the pixel).
- * Families whose face never mirrored (`files: []` — e.g. a CDN the intercept missed)
- * contribute nothing, and the fold drops any face no text paints.
+ * one entry per mirrored `.woff2` (family → served asset). Families whose face
+ * never mirrored (`faces: []` — e.g. a CDN the intercept missed) contribute
+ * nothing, and the fold drops any face no text paints.
+ *
+ * REQ-332 — **one captured face maps to one `L1FontFace`, descriptors and all.**
+ *
+ * This used to take the CROSS PRODUCT of a family's files and its painted
+ * weights, then discard the weight unless the family painted exactly one:
+ *
+ * ```ts
+ * const weight = f.weights.length === 1 ? f.weights[0] : undefined
+ * for (const src of f.files) …
+ * ```
+ *
+ * Every family on a real site paints more than one weight, so in practice the
+ * weight was always dropped and the style was never set at all — seven
+ * descriptor-free `@font-face` rules that each default to `(normal, 400)`, of
+ * which only one per family can win. Measured on joyfulculinarycreations.com:
+ * Karla's ITALIC file declared as a plain normal face beside the normal one, and
+ * Lato's 300 / 400 / 700 files declared as three identical faces, two of them
+ * unreachable, while the page asked for weights 300 and 500 that no declared face
+ * then provided.
+ *
+ * The painted-weight set (`f.weights`) takes no part in this any more. It is a
+ * fact about the COPY and was never evidence about the FILES; the two were
+ * parallel arrays that agreed by coincidence.
  */
 export function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
   const out: L1FontFace[] = []
   for (const f of fonts) {
-    const weight = f.weights.length === 1 ? f.weights[0] : undefined
-    for (const src of f.files) {
+    for (const captured of f.faces) {
       // An `@font-face` declares ONE family name; a painted run carries the full
       // stack (BUG-16). Declaring the stack would emit `font-family: "Cinzel serif"`,
       // which no run's `Cinzel, serif` can ever match — so bind the primary token.
-      const face: L1FontFace = { family: primaryFamily(f.family), src }
-      if (weight !== undefined) face.weight = weight
+      const face: L1FontFace = { family: primaryFamily(f.family), src: captured.src }
+      if (captured.weight !== undefined) face.weight = captured.weight
+      if (captured.style !== undefined) face.style = captured.style
       out.push(face)
     }
   }

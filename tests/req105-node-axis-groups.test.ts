@@ -226,6 +226,11 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
           { at: 1, opacity: 1, translateYPct: 0 },
         ],
       },
+      // REQ-332 — the declared clip intent, carried by every kind for the same
+      // reason `stacked` is: cutting content off at the box edge is a property
+      // of the box, so a kind that could hold children but not clip them would
+      // be exactly the per-kind drift this sweep exists to catch.
+      clip: true,
     }
     const groups = Object.keys(l1NodeAxisGroupsSchema.shape)
     expect(groups.sort()).toEqual(Object.keys(sample).sort())

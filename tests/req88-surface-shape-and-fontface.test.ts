@@ -259,12 +259,15 @@ describe('REQ-88 — a card takes the captured surface rect; a mirrored face bin
       spacingScalePx: [],
     } as unknown as Parameters<typeof buildTheme>[0]
 
-    const theme = buildTheme(signals, new Map([['Cinzel', ['assets/cinzel.woff2']]]))
+    // REQ-332 — the face table is keyed by family and carries FACES, each with
+    // the descriptors that say which glyphs its file holds.
+    const theme = buildTheme(signals, new Map([['Cinzel', [{ src: 'assets/cinzel.woff2' }]]]))
     const cinzel = theme.fonts.find((f) => f.family.startsWith('Cinzel'))
     expect(cinzel, 'the painted family must appear in the theme').toBeDefined()
-    expect(cinzel!.files, 'the mirrored face must join the stack on its primary token').toEqual([
-      'assets/cinzel.woff2',
-    ])
+    expect(
+      cinzel!.faces.map((f) => f.src),
+      'the mirrored face must join the stack on its primary token',
+    ).toEqual(['assets/cinzel.woff2'])
   })
 
   it('test_UAT_FC_REQ-88_an_emitted_font_face_declares_a_family_the_run_can_match', () => {

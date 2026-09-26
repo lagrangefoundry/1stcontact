@@ -8,7 +8,7 @@
  * The script is authored as a raw string, never a stringified TS function, so
  * the exact source below is what Chromium evaluates — no build step rewrites it.
  */
-import type { Box, SurfaceShape } from './types'
+import type { Box, ClipAncestor, SurfaceShape } from './types'
 
 /**
  * REQ-47 — rendered element geometry, shape, structure and arrangement. Every
@@ -47,6 +47,20 @@ export interface RawGeometry {
   boxShadow: string | null
   /** REQ-63 — computed `backdrop-filter` when painted (frosted-glass blur behind the element), else null. */
   backdropFilter: string | null
+  /**
+   * REQ-332 — the nearest ancestor (or self) that CUTS THIS ELEMENT OFF, as its
+   * document-coordinate box plus a document-wide id; `null`/absent when nothing
+   * does.
+   *
+   * The id is what makes this more than a rectangle: two elements clipped by the
+   * same ancestor carry the same id, which is how the fold knows they belong
+   * inside ONE clipping container rather than two coincidentally-similar ones.
+   *
+   * Optional so pre-REQ-332 bundles still parse — and a bundle without it folds
+   * exactly as it did, because a document that declares no clip is the
+   * paint-in-full default L1 already had.
+   */
+  clip?: ClipAncestor | null
   /** REQ-63 — computed `mix-blend-mode` when non-`normal` (multiply/screen/overlay), else null. */
   blendMode: string | null
   /** REQ-63 — computed element `opacity` in 0..1 (1 when fully opaque); a partial value ghosts the element. */
@@ -379,6 +393,22 @@ export interface RawFontFace {
   family: string
   srcUrls: string[]
   weight: number | null
+  /**
+   * REQ-332 — the upper bound of a VARIABLE face's `font-weight: 200 800`
+   * descriptor; `null` for a single-weight face (and for a bundle captured before
+   * this was read). The pair is one fact about one file, so it travels with the
+   * face rather than being aggregated into the family's painted-weight set.
+   */
+  weightMax?: number | null
+  /**
+   * REQ-332 — the face's `font-style` descriptor, `oblique` normalised to
+   * `italic`. `null` where the rule declares none (CSS defaults it to `normal`,
+   * but "the rule said nothing" and "the rule said normal" are different facts
+   * and the fold is entitled to tell them apart). Unread before this, so a
+   * family's italic file was declared as a second normal face beside the real
+   * one and only one of them could ever win.
+   */
+  style?: 'normal' | 'italic' | null
 }
 
 export interface RawSignals {
@@ -615,6 +645,41 @@ export const EXTRACT_SCRIPT = `(() => {
   function absBox(el) {
     var r = el.getBoundingClientRect();
     return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+  }
+  // REQ-332 -- the nearest ancestor that CUTS THIS ELEMENT OFF, and where its
+  // edge is.
+  //
+  // A carousel lays its slides out either side of the visible one and relies on
+  // \`overflow: hidden\` to cut them off, so the off-screen slides never reach the
+  // document's scroll box. Nothing upstream recorded that: 'overflow' occurred
+  // zero times in a 194KB capture.json, and neither RawRun nor RawField had a
+  // property for it -- so a reproduction placed the slides at the same
+  // coordinates (both sides agree exactly) and then grew 420px wider than the
+  // reference, because nothing told it where the page stopped.
+  //
+  // SELF COUNTS. The clipper may be the element being recorded (a panel that
+  // clips its own children), and the fold needs the box either way.
+  //
+  // THE ID IS A DOCUMENT-WIDE SEQUENCE, assigned on first sight, so two runs cut
+  // off by the same ancestor say so -- which is how the fold knows they belong
+  // inside one clipping container rather than two.
+  var CLIP_SEQ = 0;
+  var CLIP_IDS = new WeakMap();
+  function clipOf(el) {
+    var node = el;
+    while (node && node.nodeType === 1 && node !== document.documentElement) {
+      var cs = getComputedStyle(node);
+      var ox = cs.overflowX || 'visible';
+      var oy = cs.overflowY || 'visible';
+      if (ox !== 'visible' || oy !== 'visible') {
+        var id = CLIP_IDS.get(node);
+        if (id === undefined) { id = CLIP_SEQ++; CLIP_IDS.set(node, id); }
+        var b = absBox(node);
+        return { id: id, x: b.x, y: b.y, width: b.width, height: b.height };
+      }
+      node = node.parentElement;
+    }
+    return null;
   }
   // REQ-265 -- an inline element's rect is its CONTENT AREA, not its line box.
   //
@@ -2010,6 +2075,8 @@ export const EXTRACT_SCRIPT = `(() => {
         transformRotateDeg: transformOf(s).rotate,
         transformScale: transformOf(s).scale,
         motion: motionOf(s),
+        // REQ-332 -- where this element is cut off, if anything cuts it off.
+        clip: clipOf(el),
       });
     }
     // REQ-302 -- an exclusion after the last emitted run anchors at the end,
@@ -2102,6 +2169,8 @@ export const EXTRACT_SCRIPT = `(() => {
         transformRotateDeg: transformOf(s).rotate,
         transformScale: transformOf(s).scale,
         motion: motionOf(s),
+        // REQ-332 -- where this element is cut off, if anything cuts it off.
+        clip: clipOf(el),
         objectFit: isImg ? (s.objectFit || 'fill') : null,
         // REQ-63 — how the image crops within its box (default '50% 50%').
         objectPosition: isImg ? (s.objectPosition || '50% 50%') : null,
@@ -2440,8 +2509,23 @@ export const EXTRACT_SCRIPT = `(() => {
       var urls = [];
       var re = /url\\((['"]?)([^'")]+)\\1\\)/g, mm;
       while ((mm = re.exec(src))) urls.push(new URL(mm[2], location.href).href);
-      var w = parseInt(rule.style.getPropertyValue('font-weight'), 10);
-      fontFaces.push({ family: fam, srcUrls: urls, weight: isNaN(w) ? null : w });
+      // REQ-332 — the DESCRIPTORS, not just the family. A face's weight and style
+      // are what bind a file to the glyphs it actually holds; read only the family
+      // and every face of a family claims (normal, 400), so the italic file is
+      // declared as the normal one and every weight but the first is unreachable.
+      // A "font-weight: 200 800" descriptor is a variable face's range, so both
+      // numbers are kept; "oblique" is a slanted face by another name.
+      var fwNums = (rule.style.getPropertyValue('font-weight') || '').match(/\\d+/g) || [];
+      var w = fwNums.length ? parseInt(fwNums[0], 10) : NaN;
+      var wMax = fwNums.length > 1 ? parseInt(fwNums[1], 10) : NaN;
+      var fs = (rule.style.getPropertyValue('font-style') || '').trim().toLowerCase();
+      fontFaces.push({
+        family: fam,
+        srcUrls: urls,
+        weight: isNaN(w) ? null : w,
+        weightMax: isNaN(wMax) ? null : wMax,
+        style: fs.indexOf('italic') === 0 || fs.indexOf('oblique') === 0 ? 'italic' : fs ? 'normal' : null,
+      });
     }
   }
 

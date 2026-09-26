@@ -19,6 +19,7 @@ import type {
   l1DocumentSchema,
   l1EasingSchema,
   l1FocusRingSchema,
+  l1FilterFunctionSchema,
   l1FilterSchema,
   l1FocusStateSchema,
   l1FontFaceSchema,
@@ -123,6 +124,8 @@ export type L1Border = z.infer<typeof l1BorderSchema>
 export type L1Mask = z.infer<typeof l1MaskSchema>
 // REQ-136 — the image-framing / colour-adjustment axes.
 export type L1Filter = z.infer<typeof l1FilterSchema>
+// REQ-332 — the name of one CSS filter function, as the ordered axis names them.
+export type L1FilterFunction = z.infer<typeof l1FilterFunctionSchema>
 export type L1ObjectPosition = z.infer<typeof l1ObjectPositionSchema>
 export type L1Transform = z.infer<typeof l1TransformSchema>
 export type L1BlendMode = z.infer<typeof l1BlendModeSchema>

@@ -63,8 +63,21 @@ import type { Capture } from './types'
  *   moves nothing on a stored bundle until the operator RE-CAPTURES it, and this
  *   is what says so out loud instead of leaving the round to re-measure a
  *   residual whose fix has already shipped.
+ * - **7** — REQ-332: two independent axes the extractor had never read at all.
+ *   (a) `clip` on every run and field — the box the nearest clipping ancestor
+ *   cuts the element off at, plus a document-wide id for that ancestor. The word
+ *   `overflow` occurred ZERO times in a 194KB `capture.json`, so a carousel's
+ *   off-screen slides were recorded at their laid-out coordinates with nothing
+ *   saying they are never shown, and the reproduction came out 420px wider than
+ *   the reference. (b) `theme.fonts[].faces` — one record per captured
+ *   `@font-face`, each carrying its OWN `weight` (a number, or a variable face's
+ *   `[min, max]`) and `style`. The bundle used to flatten a family's faces to a
+ *   bare list of file paths and take its weights from the RUNS the page painted,
+ *   which destroyed the `(file → weight, style)` pairing before the fold ever saw
+ *   it: an italic file was indistinguishable from its normal sibling, and three
+ *   Lato weights collapsed into three identical `(normal, 400)` declarations.
  */
-export const CAPTURE_SCHEMA = 6
+export const CAPTURE_SCHEMA = 7
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -240,6 +253,24 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // control at all records nothing however new its extractor is — the same
     // asymmetry `href` has, and the reason the version gate comes first.
     present: (c) => fields(c).some((f) => typeof f.fontSizePx === 'number' && f.fontSizePx > 0),
+  },
+  {
+    since: 7,
+    axis: 'clip',
+    where: 'a content run or field (`sections[].content[]`, `sections[].fields[]`)',
+    // A page that clips nothing records no clip however new its extractor is —
+    // the same asymmetry `href` has, and the reason the version gate comes first.
+    present: (c) => [...runs(c), ...fields(c)].some((e) => e.clip !== null && typeof e.clip === 'object'),
+  },
+  {
+    since: 7,
+    axis: 'faces (each mirrored font file with its own weight + style)',
+    where: 'the theme font table (`theme.fonts[]`)',
+    // Presence is "the key exists": a page whose every face 404'd honestly
+    // records `faces: []`, which is the axis being carried and saying nothing
+    // mirrored. A pre-7 bundle has `files` instead and no `faces` at all.
+    present: (c) =>
+      (c.theme?.fonts ?? []).some((f) => Array.isArray((f as unknown as { faces?: unknown }).faces)),
   },
   {
     since: 2,

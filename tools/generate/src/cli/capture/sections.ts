@@ -111,6 +111,9 @@ function toContentRun(r: RawRun): ContentRun {
   run.borderColor = r.borderColor
   run.borderStyle = r.borderStyle
   run.backdropFilter = r.backdropFilter
+  // REQ-332 — where this run is cut off, so the fold can put it inside a node
+  // that clips instead of letting it grow the document.
+  if (r.clip !== undefined) run.clip = r.clip
   run.blendMode = r.blendMode
   run.opacity = r.opacity
   run.outline = r.outline
@@ -176,6 +179,8 @@ function toField(f: RawField): Field {
     // REQ-63 — box-border style + effects (frosted-glass, blend, opacity, outline, pseudo).
     borderStyle: f.borderStyle,
     backdropFilter: f.backdropFilter,
+    // REQ-332 — see toContentRun above: the rectangle this element vanishes at.
+    clip: f.clip,
     blendMode: f.blendMode,
     opacity: f.opacity,
     outline: f.outline,

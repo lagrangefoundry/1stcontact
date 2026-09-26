@@ -14,7 +14,9 @@ export {
 export {
   foldToL1,
   classifyElement,
+  isBackingSurfaceId,
   isSynthesizedSurfaceId,
+  CAPTURED_BACKDROP_ID_PREFIX,
   SYNTHESIZED_SURFACE_ID_PREFIXES,
   type FoldOptions,
   type FoldResidual,
