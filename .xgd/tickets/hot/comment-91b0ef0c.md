@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-26T23:33:45.639930+00:00'
+updated_at: '2026-09-26T23:38:45.466545+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2804,5 +2804,106 @@ I just need a bug for 1 please.
 Then, please can you walk me through
 1. deploying the latest code to production
 2. copying the latest version of lagrange framework to production
+
+<!-- xgd-turn id="ef0313c9-d33d-436e-902e-806778aeba73-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T23:38:44.914096+00:00" -->
+#### Claude
+Filing the bug for (1) only.
+
+Now the ticket body.
+
+BUG-155 filed under EPIC-12. Now let me work out the two procedures from the repo rather than from memory.
+
+Let me check whether the store is actually behind the framework source, so the walkthrough is concrete.
+
+All 20 components already match source. Let me check whether `bin/deploy` builds, and what's uncommitted in the deploy config.
+
+**BUG-155** filed under EPIC-12: *"repro console: the round inherits the launching shell's ANTHROPIC_API_KEY, so `claude -p` authenticates as a dead key instead of the operator"* (`bug-25102815`, priority high, 2 points). Behaviour wanted covers the named-variable removal at the spawn, `REPRO_CONSOLE_AI`/`REPRO_CONSOLE_AI_MODEL` surviving it, and the guarantee being assertable without spawning. Item 2 (naming a 401 as an auth failure rather than "no outcome block") is not in it.
+
+One thing to read before you start, because it connects the two halves of your day: **the deploy is what poisons the console.** `bin/deploy`'s secret hooks ask you to `export ANTHROPIC_API_KEY`, and that export is what BUG-155 is about. Whichever terminal you deploy from, don't launch `bin/repro-console` from it afterwards.
+
+---
+
+# 1. Deploying the latest code to production
+
+### What actually ships
+
+Your **working tree**, not a commit. `wrangler deploy` rebuilds from source at deploy time, and `bin/deploy` reads `wrangler.toml` off disk. That matters right now, because `apps/control-app/wrangler.toml` is **uncommitted** and carries two real production config changes:
+
+- `PLATFORM_ADMINS = "martin-github@westhead.me"` — the EPIC-16 §I3 lockout repair
+- `SERVICE_TOKEN_IDENTITIES` — the three client-id spellings from §I16
+
+Both will ship. Both are also one `git checkout` from gone, and neither is reproducible from history. I'd commit that file before deploying. When you do: name the paths explicitly rather than `git add -A` — the tree has `.pnpm-store/` and `apps/control-app/.dev.vars~` untracked, and a sweep takes them in.
+
+### Credentials
+
+Only one is genuinely required up front — the Cloudflare token for the upload and the KB embedder:
+
+```bash
+export CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)"   # = your export-cloudflare-key alias
+```
+
+The four secret hooks (`ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `OPENAI_API_KEY`, `CLOUDFLARE_DNS_TOKEN`) each ask a narrower question than you'd expect: if the variable is unset but the Worker already holds that secret, the hook records `keep` and the deploy proceeds. It only stops when the Worker has no value either. So for a code-only deploy you probably need to export none of them — and that is the version of this you want, given BUG-155.
+
+### The sequence
+
+```bash
+bin/build                 # preflight → KB (only if behind) → assets → typecheck → bundle
+bin/deploy --dry-run      # same hooks, same wrangler invocation, uploads nothing
+bin/deploy                # both apps, --env production
+bin/smoke                 # prove the origin serves
+```
+
+`bin/build` is not optional and `bin/deploy` does not call it: `1c assets` writes files under `src/generated/` that the Worker **statically imports**, so a stale tree fails at build or ships a broken import map. Exit code 6 from `bin/build` means the environment is wrong (usually the shared store — see part 2), not your code.
+
+The dry run is worth the minute: it is the same code path with only the final `--dry-run` differing, and it ends with the capability report — every credential, probed rather than merely present, in one place. Read that before the real run, and export only what it complains about.
+
+One app at a time if you prefer: `bin/deploy control-app`.
+
+### Not included, deliberately
+
+Fonts. `bin/deploy --fonts --env production` is its own invocation — 1.35GB against one bucket, roughly an hour — and is excluded from a code deploy on purpose. You have `tools/generate/src/cli/ai/platform-fonts.json` modified and `fonts/platform.json` untracked, so if the font manifest genuinely changed, that's a separate, deliberate run.
+
+---
+
+# 2. Copying the latest lagrange framework to production
+
+### First: it's already current
+
+I diffed all 20 installed components against the framework source tree. Every one is content-identical — the only differences are `.claude/` directories, which aren't packed. There is nothing to copy today.
+
+Worth knowing, though: the framework working tree is **dirty** (`components/ai/js/src/defaults/models.json`, the matching `models.yaml`, two READMEs), and the store already matches those edits. So the store — and anything you deploy from it — traces to an uncommitted working copy upstream, not to a commit. If you want production reproducible, that needs committing in `lagrange-framework`.
+
+### How it works, so the procedure makes sense
+
+There is no separate framework deploy. Components reach production by one route: `lagrange-framework/bin/install` packs each one as a tarball and extracts it into a flat `node_modules` at **`/Users/martin/lagrangefoundry/`** — the directory the consumer repos live under, so ordinary Node upward resolution finds it. Nothing records the dependency in `package.json`, which is why `pnpm install` can't supply it and the lockfile can't notice it missing. `1c preflight` exists as that missing diagnostic.
+
+### The procedure
+
+```bash
+cd /Users/martin/lagrangefoundry/lagrange-framework
+bin/install --lang js --component all
+```
+
+No `--env` needed — the default for JS is the repo's parent, which is exactly where the store is. (A path inside the framework repo is always refused.) This one is yours to run, not mine: the shared store sits outside my sandbox, so I can never write it.
+
+Then, and this is the part that's easy to miss: **a reinstall changes nothing in production by itself.** The store feeds `1c assets`, which generates the files the Worker imports. So the framework only reaches production through part 1:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+1c preflight              # every component resolves
+npm test                  # before you build — see below
+bin/build
+bin/deploy --dry-run
+bin/deploy
+bin/smoke
+```
+
+Run the suite between the reinstall and the build, not after the deploy. A framework reinstall has regressed this repo's tests before — the BUG-64 queue gating and the AC1058 Delegate failures were both upstream changes arriving through the store — and the store is unpinned, so nothing in the lockfile would have warned you.
+
+---
+
+Want me to file the second fix from BUG-155's sibling (a 401 reported as an auth failure rather than "the round produced no outcome block") as its own bug, or leave it?
 
 <!-- xgd-chat-end -->
