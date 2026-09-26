@@ -5,9 +5,9 @@ type: request
 title: 'Scroll-position-driven state: pinning, and properties that track scroll progress'
 created_by: xgd
 created_at: '2026-09-25T23:28:50.293953+00:00'
-updated_at: '2026-09-26T07:19:50.478712+00:00'
+updated_at: '2026-09-26T07:20:02.509897+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -224,3 +224,20 @@ rules above it say, and a gated rule that *is* entered is an addition to the
 design rather than a replacement — so its place in the cascade is after, always. A
 document with no scroll track emits no `@supports` and no `@keyframes`, and its
 stylesheet is byte-identical to what it was.
+
+
+### Merge with REQ-326's composed entrance
+
+REQ-326 landed on `xgd-working` while this was being built, changing `reveal`
+from one behaviour to `l1EntranceSchema` — one behaviour, or a list of two or
+more that compose — and factoring REQ-100's inline reveal-bounds check into a
+`checkEntrance` helper. This branch takes that refactor and keeps its own two
+blocks after it.
+
+`oneMotionDriver` is unaffected by the union: it tests `reveal` for presence,
+which is truthy for either spelling. Covered explicitly — a **composed**
+entrance is refused beside a `scrollTrack` on the same terms as a single one,
+because the reason is the cascade and not the arity: an animation beats a
+transition however many transitions there are, so the whole composition would be
+the half that disappears. Either axis alone remains ordinary in either entrance
+spelling.
