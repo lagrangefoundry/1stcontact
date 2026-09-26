@@ -5,9 +5,9 @@ type: request
 title: 'Scroll-position-driven state: sticky pinning and scroll-linked animation'
 created_by: xgd
 created_at: '2026-09-25T23:35:15.273385+00:00'
-updated_at: '2026-09-26T19:53:49.195255+00:00'
+updated_at: '2026-09-26T19:54:06.841860+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.377
+  story_points: 2
 ---
 
 ## What I was trying to achieve
