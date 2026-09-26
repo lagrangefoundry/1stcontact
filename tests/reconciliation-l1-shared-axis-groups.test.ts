@@ -73,8 +73,9 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
   // REQ-325 — the two scroll-POSITION groups, admitted on every kind for the
   // reason the others are: a pin and a progress-driven property are properties of
   // a box, and a kind that could be pinned but not tracked would be the same
-  // per-kind drift this AC exists to close.
-  sticky: { topPx: 64, fromPx: 900 },
+  // per-kind drift this AC exists to close. REQ-328's `lift` is in the sample so
+  // the pin every kind is swept with is one that also names its paint level.
+  sticky: { topPx: 64, fromPx: 900, lift: true },
   scrollTrack: {
     range: 'cover',
     stops: [

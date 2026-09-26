@@ -617,7 +617,9 @@ export const l1ObjectPositionSchema = z
  *     one. A translated node additionally carries a CSS transform, which promotes
  *     it into the positioned paint layer, so the node that moved is the node on
  *     top of whatever it moved over. That is the right default for the only
- *     reason to translate a node onto its neighbour in the first place.
+ *     reason to translate a node onto its neighbour in the first place. (A PINNED
+ *     node is the one place the default is not enough, because what passes it is
+ *     not a node it moved onto: see {@link l1StickySchema}'s `lift`.)
  *   - **Nothing clips it.** L1 emits no `overflow`, so a node translated past its
  *     parent's edge paints in full rather than being cut off at the boundary.
  *     (An explicit `mask` still clips — that is what it is for.)
@@ -1342,6 +1344,11 @@ export const l1EntranceSchema = z.union([l1RevealSchema, z.array(l1RevealSchema)
  * and `position: absolute` are alternatives, and an absolute track already writes
  * the `top` a pin needs to own. An in-flow track (`place: 'flow'`) composes
  * freely — its offsets are margins.
+ *
+ * WHETHER CONTENT PASSES BEHIND OR IN FRONT is the pin's other half, and it is
+ * `lift`'s — see that field. CSS positioning alone does not answer it, and the
+ * answer it falls back to depends on the element kind of whatever is travelling
+ * past, which is not a decision the document made.
  */
 export const l1StickySchema = z
   .object({
@@ -1361,6 +1368,39 @@ export const l1StickySchema = z
      * decision and need not be one of the document's captured `widths`.
      */
     fromPx: finite.nonnegative().optional(),
+    /**
+     * REQ-328 — **the pinned node paints above every sibling in its container**,
+     * so content travelling past it passes BEHIND it rather than over the top.
+     *
+     * This is the half of the pin the composition needs and CSS positioning does
+     * not supply. A pin's whole purpose is that the page moves past a node that
+     * does not, which makes "in front or behind" a decision every pinned
+     * composition takes — and without this field it is not a decision the
+     * document gets to make. L1 emits no `z-index`, so paint order among
+     * siblings falls to the CSS painting algorithm, and that answer depends on
+     * the SIBLING'S ELEMENT KIND: an in-flow `box` or `container` takes
+     * `position: relative` (it is what makes it the containing block for
+     * anything placed inside it) and a `transform` promotes a node into the
+     * positioned layer, so either one following a pin covers it; a bare `text`
+     * or `image` leaf takes neither and passes behind. Wrapping a masthead in a
+     * box to give it a background would silently move it from behind the pinned
+     * hero to over the top of it, with nothing in the document saying so.
+     *
+     * Compiles to `z-index: 1` in the pin's own declaration list, so a
+     * {@link l1StickySchema} carrying `fromPx` lifts INSIDE its width band and
+     * not below it: where the node is not held, its paint is untouched. The
+     * value is 1 because the pin needs to clear its own siblings and nothing
+     * else — a dialog's own z-index is vastly larger and still covers it.
+     *
+     * `true` IS THE ONLY LEGAL VALUE, for the reason {@link nodeAxisGroupsShape}'s
+     * `stacked` gives: `false` would be a second spelling of absent, and absent
+     * has to keep meaning "the document has not chosen", which for a pin is the
+     * document-order paint above. Absence is deliberately NOT made to mean
+     * "passes in front": a following section that slides over a held hero is a
+     * real editorial composition, and it is exactly what document-order paint
+     * already gives.
+     */
+    lift: z.literal(true).optional(),
   })
   .strict()
 

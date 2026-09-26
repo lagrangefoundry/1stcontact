@@ -1156,7 +1156,22 @@ const SCROLL_RANGE: Record<L1ScrollRange, string> = {
 }
 
 /**
- * REQ-325 — the pin's declarations.
+ * REQ-328 — the one step up a pin takes when it declares `lift`.
+ *
+ * A RENDERER CONSTANT, and small on purpose. A lifted pin has to clear the
+ * siblings that travel past it and nothing else in the page, so one positive
+ * level is the whole requirement: it puts the node in the positive-z paint step,
+ * above every sibling whose `z-index` is `auto` — which is all of them, because
+ * this is the only `z-index` the substrate ever emits on a node in the ordinary
+ * sibling order. The other two are not in that contest: the pointer accent's is
+ * `-1` on a pseudo-element inside the accented node's own stacking context, and
+ * {@link DIALOG_Z_INDEX} is vastly larger, so an open dialog still covers a held
+ * hero.
+ */
+const STICKY_LIFT_Z_INDEX = 1
+
+/**
+ * REQ-325 — the pin's declarations. REQ-328 — and the paint level it holds at.
  *
  * `top` is always emitted: `position: sticky` with `top: auto` sticks to nothing
  * at all, so an absent offset has to mean zero rather than "no offset given".
@@ -1166,9 +1181,18 @@ const SCROLL_RANGE: Record<L1ScrollRange, string> = {
  * in-flow node otherwise takes without either emitter having to know about the
  * other. An absolute track cannot reach here: the envelope refuses that pair
  * (`stickyIsInFlow`), because it would be two placements and two owners of `top`.
+ *
+ * `lift` travels in THIS list rather than in one of its own, which is what makes
+ * a width-gated pin lift only where it is actually held: the caller puts the
+ * whole list inside the `min-width` block, so below the gate the node is in
+ * ordinary flow and its paint is exactly what it was. Absent `lift` emits no
+ * `z-index` at all, so a document that does not ask to be lifted is byte-identical
+ * to what it was before this field existed.
  */
 function stickyDecls(sticky: L1Sticky): string[] {
-  return ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
+  const decls = ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
+  if (sticky.lift) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
+  return decls
 }
 
 /**
@@ -3906,6 +3930,9 @@ function emitNode(
   // an in-flow node takes, which is emitted earlier in the very same list. With a
   // `fromPx` the pin is confined to a `min-width` block instead, leaving the base
   // rule — and therefore normal flow — in force below it.
+  //
+  // REQ-328 — a `lift` is part of that same list and so is confined with it: the
+  // paint level a pin holds at is only meaningful where the pin is.
   if (node.sticky) {
     const decls = stickyDecls(node.sticky)
     if (node.sticky.fromPx === undefined) base.push(...decls)
