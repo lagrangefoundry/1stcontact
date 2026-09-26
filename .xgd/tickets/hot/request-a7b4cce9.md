@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-30133d14
 ---
 
 # fold: a full-bleed band backdrop folds to `box-N`, so the overlap exemption written for it never fires — plus a carousel L1 cannot clip and a font table that loses every weight
